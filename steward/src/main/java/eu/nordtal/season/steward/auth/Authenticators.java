@@ -2,7 +2,6 @@ package eu.nordtal.season.steward.auth;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
-import eu.nordtal.season.steward.data.Data;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -25,13 +24,6 @@ public final class Authenticators {
     private final AuthenticatorDao dao;
     private final @Nullable SecretBox box;
     private final Clock clock;
-
-    /** Returns null when {@code data} is null. */
-    public static @Nullable Authenticators over(final @Nullable Data data, final String key, final Clock clock) {
-        return data == null
-                ? null
-                : new Authenticators(data.dataSource(), SecretBox.of(key).orElse(null), clock);
-    }
 
     public Authenticators(final DataSource dataSource, final @Nullable SecretBox box, final Clock clock) {
         this.dao = Jdbis.over(Objects.requireNonNull(dataSource, "dataSource")).onDemand(AuthenticatorDao.class);

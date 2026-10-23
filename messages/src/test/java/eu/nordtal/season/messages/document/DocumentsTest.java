@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,7 +18,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 class DocumentsTest {
 
-    record Greeting(String name, Money amount) {}
+    record Greeting(
+            @Example("Alex") String name, @Example("300") Money amount) {}
 
     static final DocumentSpec<Greeting> GREETING =
             DocumentSpec.message("test", "greeting", "Welcome", Greeting.class, Slot.button("go"));

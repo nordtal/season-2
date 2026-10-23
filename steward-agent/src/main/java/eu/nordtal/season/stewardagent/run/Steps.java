@@ -11,17 +11,27 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One run's steps as rows, each written when it begins and ended with its outcome; {@link #NONE} writes nothing.
+ * One run's steps as rows, each written when it begins and ended with its outcome; {@link #none} writes nothing.
  *
- * A failed write is logged and the run goes on.
+ * A failed write is logged and the run goes on. Whether a step failed is kept here too, since it fails the run.
  */
 @Slf4j
 final class Steps {
 
-    static final Steps NONE = new Steps(RunRecorder.NONE, 0);
-
     private final RunRecorder recorder;
     private final long run;
+
+    private volatile boolean failed;
+
+    /** Returns steps that write nothing and still tell whether one failed. */
+    static Steps none() {
+        return new Steps(RunRecorder.NONE, 0);
+    }
+
+    /** Returns whether a step of this run ended {@code FAILED}. */
+    boolean failed() {
+        return failed;
+    }
 
     Steps(final RunRecorder recorder, final long run) {
         this.recorder = recorder;
@@ -39,7 +49,7 @@ final class Steps {
         } catch (final RuntimeException failure) {
             log.warn("Could not write the step {} {} of run {}", step, service, run, failure);
         }
-        return new Step(id);
+        return new Step(id, step, service);
     }
 
     void ended(final Kind step, final @Nullable String service, final Outcome outcome, final @Nullable Reason reason) {
@@ -48,6 +58,7 @@ final class Steps {
 
     /** Ends every step still open, for a run that stops early. */
     void endOpen(final Outcome outcome, final @Nullable Reason reason) {
+        failed |= outcome == Outcome.FAILED;
         write(() -> recorder.endOpen(run, outcome, reason));
     }
 
@@ -62,9 +73,13 @@ final class Steps {
     final class Step {
 
         private final long id;
+        private final Kind kind;
+        private final @Nullable String service;
 
-        private Step(final long id) {
+        private Step(final long id, final Kind kind, final @Nullable String service) {
             this.id = id;
+            this.kind = kind;
+            this.service = service;
         }
 
         void done() {
@@ -87,14 +102,29 @@ final class Steps {
         void ended(final SnapshotResult result) {
             if (result.ok()) {
                 done();
-            } else if (id != 0) {
+                return;
+            }
+            failed = true;
+            if (id != 0) {
                 write(() -> recorder.end(run, id, Outcome.FAILED, Reason.TOOL_FAILED, result.exitCode()));
+            } else {
+                unkept(Outcome.FAILED, Reason.TOOL_FAILED);
             }
         }
 
         void end(final Outcome outcome, final @Nullable Reason reason) {
+            failed |= outcome == Outcome.FAILED;
             if (id != 0) {
                 write(() -> recorder.end(run, id, outcome, reason));
+            } else {
+                unkept(outcome, reason);
+            }
+        }
+
+        /** A run ahead of the schema keeps no steps before its migration, so the log keeps how each ended. */
+        private void unkept(final Outcome outcome, final @Nullable Reason reason) {
+            if (run != 0) {
+                log.info("Run {}, step {} {} ended {} {}", run, kind, service, outcome, reason);
             }
         }
 

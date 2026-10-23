@@ -42,9 +42,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MessagePreview } from "@/components/steward/message-preview"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
-import { exampleOf } from "@/components/steward/message-editor/examples"
+import { exampleOf, fillOf, useWords } from "@/components/steward/message-editor/examples"
 import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
-import { ComponentCount, DocumentEditor, DocumentMarks, useDocumentDrafts } from "@/components/steward/document-editor"
+import { ComponentCount, DocumentEditor, DocumentMarks } from "@/components/steward/document-editor"
 import type { Fill } from "@/components/steward/message-editor/examples"
 import { Preview } from "@/components/steward/message-editor/preview"
 import { DraftDot, type Highlight, type OutsideSearch, type Target, TreeView } from "@/components/steward/settings-view"
@@ -119,6 +119,7 @@ export function TextsForm({
   const fallbacks = useMessageFallbacks()
   const syntax = useMessageSyntax()
   const examples = useMessageExamples()
+  const words = useWords()
   const [warnings, setWarnings] = useState<Warning[]>([])
   const [highlight, setHighlight] = useState<Highlight | null>(null)
   const { drafts, setDraft } = useDocumentDrafts()
@@ -169,9 +170,10 @@ export function TextsForm({
     const text = currentOf(entry, draft[id], language) || currentOf(entry, draft[id], ENGLISH)
     const format = formatOf(entry.format)
     const tags = Object.keys(tones)
-    const fill = (name: string) => exampleOf(name, entry.args, examples.data, language)
+    const fill = fillOf(entry.args, examples.data, words(language, entry.bundle))
     const runs = parse(text, format, tags)
-    return { runs: runs && branchesOf(runs, format, tags, fill), text, fill }
+    const example = (name: string) => exampleOf(name, entry.args, examples.data)
+    return { runs: runs && branchesOf(runs, format, tags, example), text, fill }
   }
 
   function set(id: string, language: Language, value: string[] | null | undefined) {
@@ -195,7 +197,7 @@ export function TextsForm({
         onSuccess: (saved) => {
           clearDraft(TEXTS_FILE)
           setWarnings(saved.warnings)
-          announceSave(label, saved.reload, "")
+          announceSave(label, saved.reload)
         },
       },
     )
@@ -210,7 +212,7 @@ export function TextsForm({
           onSuccess: (saved) => {
             set(textId(entry), language, undefined)
             setWarnings(saved.warnings)
-            announceSave(t("steward.settings.texts-saved", { count: 1 }), saved.reload, "")
+            announceSave(t("steward.settings.texts-saved", { count: 1 }), saved.reload)
           },
         },
       )
@@ -219,7 +221,7 @@ export function TextsForm({
   const failure = save.error ?? takeOver.error
   const above = (
     <>
-      {failure ? <Failure error={failure} /> : null}
+      {failure ? <Failure error={failure} write /> : null}
       {warnings.length > 0 ? (
         <ul className="flex flex-col gap-1 text-xs text-warning">
           {warnings.map((warning, index) => (
@@ -234,7 +236,7 @@ export function TextsForm({
   const saveButtons = (
     <SaveDraft
       count={count}
-      writable={texts.writable}
+      writable
       pending={save.isPending}
       onSave={submit}
       onDiscard={() => clearDraft(TEXTS_FILE)}
@@ -260,7 +262,6 @@ export function TextsForm({
         languages={languages.get(text.entry.bundle) ?? [ENGLISH]}
         colours={colours ?? NETWORK_COLOURS}
         places={texts.places}
-        writable={texts.writable}
         draft={draft[id]}
         highlight={highlight?.id === id ? highlight : null}
         onChange={(changed, value) => set(id, changed, value)}
@@ -281,7 +282,6 @@ export function TextsForm({
       matches={(card, query) =>
         card.kind === "document" ? documentMatches(card.view, query) : messageLeafMatches(card.text.entry, query)
       }
-      notice={texts.writable ? null : t("steward.settings.read-only")}
       target={target}
       search={search}
       empty={t("steward.texts.none")}
@@ -301,7 +301,6 @@ export function TextsForm({
                 ? undefined
                 : card.kind === "document"
                   ? {
-                      writable: documents?.writable ?? false,
                       draft: drafts[id],
                       onDraft: (next) => setDraft(id, next),
                       onClose: () => onOpen({}),
@@ -340,7 +339,6 @@ function cardName(card: PageCard): string {
 
 /** An open document's draft, which the page keeps while another document is open. */
 type EditingDocument = {
-  writable: boolean
   draft: Document | undefined
   onDraft: (draft: Document | undefined) => void
   onClose: () => void
@@ -386,6 +384,8 @@ function Card({
       style={{ viewTransitionName: named }}
       className={cn(
         "grid min-w-0 grid-cols-1 items-start gap-3 rounded-lg border p-3 [view-transition-class:translation-card]",
+        // A stacked card steps out of the list's indent to the tree's edge. A card side by side stays under its branch's name.
+        "max-lg:-ml-(--list-indent)",
         editing ? "lg:grid-cols-2 lg:gap-x-[calc(1.5rem+2px)]" : "lg:w-1/2",
       )}
     >
@@ -446,7 +446,6 @@ function Card({
           draft={draft}
           // The network's languages and any the document is written in beyond them.
           languages={[...new Set([...languagesOf(draft), ...shared.languages])]}
-          writable={editing.writable}
           language={language}
           onLanguage={setLanguage}
           onDraft={(next) =>
@@ -512,4 +511,19 @@ function Pills({ entry, places }: { entry: MessageEntry; places: Places }) {
       ))}
     </span>
   )
+}
+
+/** Keeps the draft of each opened document while the page lives. */
+function useDocumentDrafts() {
+  const [drafts, setDrafts] = useState<Record<string, Document>>({})
+  return {
+    drafts,
+    setDraft: (id: string, draft: Document | undefined) =>
+      setDrafts((all) => {
+        const next = { ...all }
+        if (draft) next[id] = draft
+        else delete next[id]
+        return next
+      }),
+  }
 }

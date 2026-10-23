@@ -107,16 +107,30 @@ class RunStepsIntegrationTest {
     }
 
     @Test
-    void theStageFollowsTheReportAndAFinishedRunEndsAtItsOwn() {
+    void theStageFollowsTheProgressAndAFinishedRunEndsAtItsOwn() {
         final long run =
                 updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO).id();
         assertEquals(run, updates.claimNext().orElseThrow().id());
 
-        updates.progress(run, UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.BACKING_UP)));
+        updates.progress(run, RunStage.BACKING_UP);
         assertEquals(List.of("BACKING_UP"), strings("SELECT stage FROM steward_inbox WHERE id = " + run));
 
-        updates.finish(run, UpdateStatus.DONE, UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.DONE)));
+        updates.finish(run, RunStage.DONE);
         assertEquals(List.of("DONE"), strings("SELECT stage FROM steward_inbox WHERE id = " + run));
+    }
+
+    @Test
+    void aRunAheadOfTheSchemaStillWritesItsServicesAndStage() {
+        final UpdateDirectory ahead = UpdateDirectory.using(dataSource, () -> false);
+        final long run = ahead.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO, List.of("smp"))
+                .id();
+        assertEquals(run, ahead.claimNext().orElseThrow().id());
+        ahead.startCountdown(run, Duration.ofSeconds(60), List.of("smp"));
+        ahead.progress(run, RunStage.STOPPING);
+
+        assertEquals(
+                List.of("smp true"), strings("SELECT service || ' ' || moving FROM run_service WHERE run = " + run));
+        assertEquals(List.of("STOPPING"), strings("SELECT stage FROM steward_inbox WHERE id = " + run));
     }
 
     @Test
@@ -214,7 +228,7 @@ class RunStepsIntegrationTest {
         final long run =
                 updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO).id();
         assertEquals(run, updates.claimNext().orElseThrow().id());
-        updates.progress(run, UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.INSTALLING)));
+        updates.progress(run, RunStage.INSTALLING);
         final long room = recorder.begin(run, RunStep.Kind.ROOM_CHECK, null);
         recorder.begin(run, RunStep.Kind.PLAYERS_MOVED, null);
         final long verify = recorder.begin(run, RunStep.Kind.VERIFY, "smp");
@@ -230,7 +244,7 @@ class RunStepsIntegrationTest {
 
         final RunRecord record = updates.recordOf(run);
 
-        assertEquals(UpdateReport.Stage.INSTALLING, record.stage());
+        assertEquals(RunStage.INSTALLING, record.stage());
         final List<RunStep.Row> steps = record.steps();
         assertEquals(new RunStep.Room(900, 400), steps.get(0).room());
         assertEquals(

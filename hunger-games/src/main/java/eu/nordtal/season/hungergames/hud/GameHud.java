@@ -7,6 +7,7 @@ import eu.nordtal.season.hungergames.game.WinTracker;
 import eu.nordtal.season.hungergames.loot.LootRefill;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.hud.Bearing;
 import eu.nordtal.season.packrendering.hud.BossBarLine;
@@ -25,15 +26,16 @@ import org.bukkit.entity.Player;
 /** The three lines of the {@code Hud} during a game: players, loot and border. */
 public final class GameHud {
 
-    record Alive(long alive) {}
+    record Alive(@Example("9") long alive) {}
 
-    record Dead(long dead) {}
+    record Dead(@Example("7") long dead) {}
 
     /** {@code time} is what is left until the next refill while one is {@code pending}. */
-    record Loot(Duration time, boolean pending) {}
+    record Loot(@Example("PT2M") Duration time, boolean pending) {}
 
     /** {@code time} and {@code distance} are what is left while the border is {@code shrinking}. */
-    record Border(Duration time, long distance, boolean shrinking) {}
+    record Border(
+            @Example("PT5M") Duration time, @Example("150") long distance, boolean shrinking) {}
 
     static final DocumentSpec<Alive> ALIVE = line("hud-alive", Alive.class);
     static final DocumentSpec<Dead> DEAD = line("hud-dead", Dead.class);

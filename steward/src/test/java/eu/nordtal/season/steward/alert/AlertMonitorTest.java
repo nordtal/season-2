@@ -1,23 +1,22 @@
 package eu.nordtal.season.steward.alert;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.DatabaseRole;
+import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.alert.RaisedAlert;
+import eu.nordtal.season.database.update.RunStage;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReports;
-import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.steward.AdminPlain;
 import java.time.Clock;
 import java.time.Instant;
@@ -57,7 +56,7 @@ class AlertMonitorTest {
     void freshTables() throws java.sql.SQLException {
         try (var connection = owner.getConnection();
                 var statement = connection.createStatement()) {
-            statement.execute("TRUNCATE admin_alert, steward_inbox CASCADE");
+            statement.execute("TRUNCATE journal_entry, steward_inbox CASCADE");
         }
         book = AlertBook.using(dataSource);
         runs = UpdateDirectory.using(dataSource);
@@ -94,7 +93,7 @@ class AlertMonitorTest {
         monitor.poll();
         thresholds = new Thresholds(75, 90, 36);
         monitor.poll();
-        assertEquals(List.of("disk warn The disk is 80 % full"), raised());
+        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
     }
 
     @Test
@@ -111,7 +110,7 @@ class AlertMonitorTest {
         monitor.poll();
         reading = () -> stack(90, "running");
         monitor.poll();
-        assertEquals(List.of("disk warn The disk is 90 % full"), raised());
+        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
 
         // A number that changes within the same verdict raises nothing.
         reading = () -> stack(91, "running");
@@ -142,11 +141,11 @@ class AlertMonitorTest {
         assertEquals(1, alerts.size());
         assertEquals("smp, proxy", alerts.getFirst().alert().subject());
         assertEquals(
-                "2 at once: smp and proxy",
+                "Several at once: smp and proxy",
                 AdminPlain.of(alerts.getFirst().alert().title()));
         assertEquals(
-                List.of("smp is not running", "proxy is not running"),
-                AdminPlain.of(alerts.getFirst().alert().detail()));
+                List.of("smp: Docker reports the state exited.", "proxy: Docker reports the state exited."),
+                AdminPlain.of(alerts.getFirst().alert().lines()));
         assertEquals(
                 List.of(
                         Measure.state(Measure.Gauge.CONTAINER_STATE, "smp", "exited"),
@@ -181,8 +180,8 @@ class AlertMonitorTest {
 
     @Test
     void aFailedRunIsRaisedOnceAndADoneOneNever() {
-        final long failed = finished(UpdateKind.UPDATE, UpdateStatus.FAILED, "{}");
-        finished(UpdateKind.UPDATE, UpdateStatus.DONE, "{}");
+        final long failed = finished(UpdateKind.UPDATE, RunStage.FAILED);
+        finished(UpdateKind.UPDATE, RunStage.DONE);
 
         monitor.runs();
         monitor.runs();
@@ -192,42 +191,46 @@ class AlertMonitorTest {
         final Alert alert = alerts.getFirst().alert();
         assertEquals(AlertType.RUN, alert.type());
         assertEquals("The update failed", AdminPlain.of(alert.title()));
-        assertEquals(List.of("Run " + failed + "."), AdminPlain.of(alert.detail()));
+        assertEquals(List.of("Run " + failed + "."), AdminPlain.of(alert.lines()));
         assertEquals("/operations/updates/" + failed, alert.path());
         assertNotNull(alerts.getFirst().raised());
     }
 
     @Test
-    void aFailedRunsAlertNamesItsKindAndSaysWhatTheRunCardSaysWhy() {
-        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.FAILED)
-                .with(new UpdateReport.ServiceLine(
-                        "database",
-                        UpdateReport.State.FAILED,
-                        List.of(),
-                        UpdateReport.Facts.refused(UpdateReport.Act.BACKUP, "not saved")))
-                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null))
-                .withNote(UpdateReport.Note.skipped(
-                        UpdateReport.Step.BACKUP, TEXTS.report().noOffsite()))
-                .withNote(UpdateReport.Note.failed(
-                        UpdateReport.Step.RUN, TEXTS.report().failedUnexpectedly("boom")));
-        final long failed = finished(UpdateKind.BACKUP, UpdateStatus.FAILED, UpdateReports.toJson(report));
+    void aFailedRunsAlertNamesItsKindAndItsFailedAndWarnedSteps() throws java.sql.SQLException {
+        final long failed = finished(UpdateKind.BACKUP, RunStage.FAILED);
+        try (var connection = owner.getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("""
+                    INSERT INTO run_step (run, seq, step, service, finished, outcome, reason)
+                    VALUES (%1$d, 1, 'STOP', 'smp', now(), 'DONE', NULL),
+                           (%1$d, 2, 'START', 'smp', now(), 'FAILED', 'NOT_HEALTHY'),
+                           (%1$d, 3, 'CLEANUP', NULL, now(), 'WARNING', NULL)""".formatted(failed));
+        }
 
         monitor.runs();
 
         final Alert alert = book.claimUnrouted().getFirst().alert();
         assertEquals("The backup failed", AdminPlain.of(alert.title()));
         assertEquals(
-                List.of("Run " + failed + ".", "database not saved", "failed: boom"),
-                AdminPlain.of(alert.detail()),
-                "the failed lines and records, each led by its service, and nothing that went right");
+                List.of(
+                        "Run " + failed + ".",
+                        AdminPlain.of(new JournalDetail.FailedStep(
+                                        RunStep.Kind.START, "smp", RunStep.Outcome.FAILED, RunStep.Reason.NOT_HEALTHY)
+                                .line()),
+                        AdminPlain.of(
+                                new JournalDetail.FailedStep(RunStep.Kind.CLEANUP, null, RunStep.Outcome.WARNING, null)
+                                        .line())),
+                AdminPlain.of(alert.lines()),
+                "the run, then its failed and warned steps in order, and nothing that went right");
     }
 
-    private long finished(final UpdateKind kind, final UpdateStatus status, final String report) {
+    private long finished(final UpdateKind kind, final RunStage stage) {
         final long id = runs.submit(kind, Actor.STEWARD, null).id();
         // The part of steward-agent, as the owner role.
         final UpdateDirectory agent = UpdateDirectory.using(owner);
         assertEquals(id, agent.claimNext().orElseThrow().id());
-        assertEquals(status, agent.finish(id, status, report).orElseThrow().status());
+        assertEquals(stage, agent.finish(id, stage).orElseThrow().stage());
         return id;
     }
 }

@@ -2,26 +2,18 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 
 import type { ConfigChanges, ConfigEntry, ConfigDocument } from "@/lib/api"
 import { languageName } from "@/lib/language-names"
-import { ListControl, ScalarControl } from "@/components/steward/config-controls"
+import { ListControl, ScalarControl, problemOf } from "@/components/steward/config-controls"
 import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
-import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { StatusBadge } from "@/components/steward/status"
 import { t } from "@/lib/texts"
 
 /** A saved value has no effect until the variable is removed. */
 export function EnvironmentOverriddenBadge() {
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span tabIndex={0} className="rounded-full focus-visible:outline-none">
-          <Badge variant="outline" className="shrink-0 gap-1 border-warning/30 bg-warning/12 text-warning">
-            <TERM_ICON.warning className="size-3" aria-hidden />
-            {t("steward.settings.env-override")}
-          </Badge>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{t("steward.settings.env-override-tip")}</TooltipContent>
-    </Tooltip>
+    <StatusBadge tone="warn" tipContent={t("steward.settings.env-override-tip")} className="shrink-0">
+      <TERM_ICON.warning className="size-3" aria-hidden />
+      {t("steward.settings.env-override")}
+    </StatusBadge>
   )
 }
 
@@ -64,6 +56,27 @@ export function changed(document: ConfigDocument, draft: Draft): ConfigChanges {
   return changes
 }
 
+/** Counts the values in `value` that `entry` cannot take, each item and each card's field on its own. */
+function invalidIn(entry: ConfigEntry, value: string | string[] | SectionValues[] | undefined): number {
+  if (typeof value === "string") return problemOf(entry, value) === null ? 0 : 1
+  if (value === undefined) return 0
+  if (entry.kind !== "SECTIONS")
+    return value.filter((item) => typeof item === "string" && problemOf(entry, item) !== null).length
+  return value.reduce(
+    (total, section) =>
+      total +
+      (typeof section === "string"
+        ? 0
+        : (entry.template ?? []).reduce((sum, field) => sum + invalidIn(field, section[field.key]), 0)),
+    0,
+  )
+}
+
+/** Counts the values among `changes` that their fields cannot take, so a save that the server would refuse waits. */
+export function invalidCount(document: ConfigDocument, changes: ConfigChanges): number {
+  return document.entries.reduce((total, entry) => total + invalidIn(entry, changes[entry.path]), 0)
+}
+
 /**
  * It is the one `SECTIONS` entry with a natural title. A blank tag falls back to the plain index.
  */
@@ -93,8 +106,7 @@ export function Control({
   }
 
   if (entry.kind === "SECTIONS") {
-    const raw = draft[entry.path]
-    const value = (isSectionValuesArray(raw) ? raw : undefined) ?? sectionsFromEntry(entry)
+    const value = draftSections(draft, entry)
     return (
       <RepeatableCards
         entry={entry}
@@ -106,9 +118,25 @@ export function Control({
     )
   }
 
-  const rawTyped = draft[entry.path]
-  const typed = typeof rawTyped === "string" ? rawTyped : undefined
-  const value = typed ?? entry.value ?? ""
+  return (
+    <ScalarControl
+      id={entry.path}
+      entry={entry}
+      value={draftText(draft, entry)}
+      disabled={disabled}
+      onChange={onChange}
+    />
+  )
+}
 
-  return <ScalarControl id={entry.path} entry={entry} value={value} disabled={disabled} onChange={onChange} />
+/** A card list as the draft holds it, or as stored. */
+export function draftSections(draft: Draft, entry: ConfigEntry): SectionValues[] {
+  const raw = draft[entry.path]
+  return (isSectionValuesArray(raw) ? raw : undefined) ?? sectionsFromEntry(entry)
+}
+
+/** A single value as the draft holds it, or as stored. */
+export function draftText(draft: Draft, entry: ConfigEntry): string {
+  const raw = draft[entry.path]
+  return typeof raw === "string" ? raw : (entry.value ?? "")
 }

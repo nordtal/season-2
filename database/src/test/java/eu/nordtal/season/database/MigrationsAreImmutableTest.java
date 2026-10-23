@@ -225,6 +225,42 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V80__an_admin_sets_aura_and_spins_in_steward.sql",
                 "6231ac3ad2b0bc99f02db849a12e20818af79ed36afdd2464c26a6e6f6016a13");
+        FROZEN.put(
+                "V81__an_alert_is_a_journal_entry_with_a_level_and_measures.sql",
+                "96f05e520b443d4aef9a5d14d57fb85514933e5b725954c76c81537d24e5b8f8");
+        FROZEN.put(
+                "V82__a_settled_inbox_request_keeps_typed_answers_and_a_reason_code.sql",
+                "5d56c277f42c9158642c5004f2cfc4ac6e6850ba59da9f3bf96c3b01477f51a5");
+        FROZEN.put(
+                "V83__a_resolve_step_names_a_velocity_ahead_of_its_api_and_a_dump_names_no_service.sql",
+                "d2df0ffae40f48cfe7182c7ecb3e2dda96dab8748ddb7cef26c0adce352e7db1");
+        FROZEN.put(
+                "V84__an_admin_s_setting_value_is_one_row_per_value_entry_and_field.sql",
+                "2704a45281d418f1de8dae7ceadaa4a6484a2a2e1de997e1bdff13f3c98af046");
+        FROZEN.put(
+                "V85__a_resolve_step_s_image_is_pulled.sql",
+                "e83ec75a2cafa283edb778ec41e37edfd4f3c735553f037ec93cc72a039aa65f");
+        FROZEN.put(
+                "V86__steward_shows_and_edits_a_player_s_survival_and_creative_states.sql",
+                "f61f92d334ca69c007f38c4b4d75881fab111efd38a2b78ff629d03fc047e38b");
+        FROZEN.put(
+                "V87__an_announcement_is_a_row_per_language.sql",
+                "0541c1deac1686f4182c5edd7e74674b9138041cd8209681bafb4a706cb8a2f8");
+        FROZEN.put(
+                "V88__a_text_preview_is_a_row_with_its_examples.sql",
+                "6018a136e63b3ff69b8c2be2adaefcdef51536d8ec4078f69593400f3bb9f9e0");
+        FROZEN.put(
+                "V89__the_proxy_records_when_a_player_was_last_online.sql",
+                "875d48f38dc92c5fdff3ebdc5f166e89c85d9f64aa06d7eedcd36e3516d861f0");
+        FROZEN.put(
+                "V90__setting_override_no_longer_holds_a_value.sql",
+                "076cc76109755df053b40b103847d34904686dbc77f7fbeb501dfcfef256bf1c");
+        FROZEN.put(
+                "V91__a_run_s_request_is_its_kind_and_its_rows.sql",
+                "73e429d65777fdad44e8fdb0e753f5e504ef35a7099c63e4904ee33da32cb7d4");
+        FROZEN.put(
+                "V92__the_run_inbox_drops_its_report_columns.sql",
+                "279a03a7e6d4467ec3130853f441e90a71cc0a1d39dc96e7bc73686b4c90eb94");
     }
 
     @Test

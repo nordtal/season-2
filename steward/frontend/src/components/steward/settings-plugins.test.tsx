@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { PluginFile, PluginFileView } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
+import { wideScreen } from "@/lib/query-fixtures"
 import { Settings, backend, draw, entry, location } from "@/components/steward/configuration.fixtures"
 
 afterEach(() => {
@@ -17,7 +18,6 @@ const CORE_PROTECT_ICON = "https://cdn.example/core-protect.png"
 const WHEEL = {
   ...location({ service: "smp", path: "smp/wheel", name: "wheel" }),
   revision: "r1",
-  restartRequired: false,
   entries: [entry({ path: "enabled", key: "enabled", value: "true", type: "BOOLEAN" })],
 }
 
@@ -58,7 +58,7 @@ function navRows(): string[] {
 }
 
 describe("the plugins' files on the settings page", () => {
-  it("lists them below Nordtal's groups, sorted by plugin, a plugin with several files as a closed tree", async () => {
+  it("lists them as their own restart-only group below Nordtal's groups, sorted by plugin, a plugin with several files as a closed tree", async () => {
     vi.stubGlobal("fetch", backend({ "smp/wheel": WHEEL }, [], PLUGINS))
 
     draw(<Settings service="smp" />)
@@ -66,7 +66,10 @@ describe("the plugins' files on the settings page", () => {
     await screen.findByRole("button", { name: "CoreProtect" })
     expect(navRows()).toEqual(["Wheel", "B stats", "Chunky", "CoreProtect", "LuckPerms"])
     const nav = screen.getByRole("navigation", { name: "Files" })
-    expect(nav.querySelector("hr")).toBeTruthy()
+    expect(Array.from(nav.querySelectorAll("h2")).map((node) => node.textContent)).toEqual([
+      "Applies on save",
+      "Plugin files",
+    ])
     // One file: one row and no caret. Several: a branch, closed until opened.
     expect(screen.getByRole("button", { name: "CoreProtect" }).hasAttribute("aria-expanded")).toBe(false)
     expect(screen.getByRole("button", { name: "CoreProtect" }).querySelector("img")?.getAttribute("src")).toBe(
@@ -98,6 +101,28 @@ describe("the plugins' files on the settings page", () => {
     ])
   })
 
+  it("on a wide screen opens no plugin's rows by itself while Nordtal's groups are still on their way", async () => {
+    wideScreen()
+    let arrive: (() => void) | undefined
+    const groups = new Promise<void>((resolve) => (arrive = resolve))
+    // bStats first, so its config.yml is the first readable plugin file.
+    const served = backend({ "smp/wheel": WHEEL }, [], {
+      "bStats/config.yml": PLUGINS["bStats/config.yml"],
+      ...PLUGINS,
+    })
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api/setting-groups") await groups
+      return served(url, init)
+    })
+
+    draw(<Settings service="smp" />)
+
+    await screen.findByRole("button", { name: "CoreProtect" })
+    arrive?.()
+    await screen.findByRole("button", { name: "Wheel" })
+    expect(navRows()).toEqual(["Wheel", "B stats", "Chunky", "CoreProtect", "LuckPerms"])
+  })
+
   it("opens a file that Steward can rewrite as a form, and any other as its text with a draft", async () => {
     vi.stubGlobal("fetch", backend({ "smp/wheel": WHEEL }, [], PLUGINS))
 
@@ -105,10 +130,13 @@ describe("the plugins' files on the settings page", () => {
     fireEvent.click(await screen.findByRole("button", { name: "CoreProtect" }))
     expect(await screen.findByLabelText("Search this file")).toBeTruthy()
     expect(screen.getByText("use-mysql")).toBeTruthy()
+    // The sidebar's group says when it applies; the file does not say it again.
+    expect(screen.queryByText("Applies after a restart.")).toBeNull()
 
     fireEvent.click(screen.getByRole("button", { name: "Chunky" }))
     const text = await screen.findByRole("textbox", { name: "Chunky config.yml" })
     expect(text.textContent).toBe("language: en")
+    expect(screen.queryByText("Applies after a restart.")).toBeNull()
     type(text, "language: de\n")
 
     expect(await screen.findByRole("button", { name: "Save 1" })).toBeTruthy()

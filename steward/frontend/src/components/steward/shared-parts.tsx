@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input"
 import {
   ResponsiveDialog,
   ResponsiveDialogContent,
-  ResponsiveDialogDescription,
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
@@ -60,7 +59,7 @@ export function SharedPartMenu({
         </Badge>
       ) : null}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild disabled={!context.writable}>
+        <DropdownMenuTrigger asChild>
           <Button
             type="button"
             variant="ghost"
@@ -89,7 +88,6 @@ export function SharedPartMenu({
           part={part}
           sharedParts={context.sharedParts}
           language={context.language}
-          writable={context.writable}
           onClose={() => setOpen(false)}
           onShared={(shared) => set((it) => (shared ? { ...unmarked(it), shared } : unmarked(it)))}
         />
@@ -120,14 +118,12 @@ export function SharedPartDialog({
   part,
   sharedParts,
   language,
-  writable,
   onClose,
   onShared,
 }: {
   part: DocumentPart
   sharedParts: readonly SharedPartView[]
   language: Language
-  writable: boolean
   onClose: () => void
   /** Marks the part as a copy of the shared part saved, or unmarks it after it was deleted. */
   onShared: (shared: string | undefined) => void
@@ -159,6 +155,7 @@ export function SharedPartDialog({
     <ResponsiveDialog open onOpenChange={(open) => (open ? null : onClose())}>
       <ResponsiveDialogContent
         className="sm:max-w-3xl"
+        aria-describedby={undefined}
         onOpenAutoFocus={(event) => {
           // An update has no name field, and the first button is delete.
           if (!part.shared) return
@@ -172,9 +169,6 @@ export function SharedPartDialog({
               ? t("steward.document-editor.update-shared-part", { name: part.shared })
               : t("steward.document-editor.save-shared-part")}
           </ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            {t("steward.document-editor.shared-part-explained")}
-          </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <div className="flex min-w-0 flex-col gap-3 overflow-y-auto">
           {part.shared ? null : (
@@ -248,26 +242,26 @@ export function SharedPartDialog({
               }
             </QueryState>
           )}
-          {save.error ? <Failure error={save.error} /> : null}
+          {save.error ? <Failure error={save.error} write /> : null}
         </div>
         <ResponsiveDialogFooter>
           {part.shared && exists ? (
             <Button
               type="button"
-              variant="outline"
-              className="text-destructive sm:mr-auto"
-              disabled={!writable || save.isPending}
+              variant="destructive"
+              className="sm:mr-auto"
+              disabled={save.isPending}
               onClick={() => submit(null)}
             >
               {t("steward.document-editor.delete-shared-part")}
             </Button>
           ) : null}
-          <Button ref={cancel} type="button" variant="ghost" onClick={onClose}>
+          <Button ref={cancel} type="button" variant="outline" onClick={onClose}>
             {t("steward.form.cancel")}
           </Button>
           <Button
             type="button"
-            disabled={!writable || !valid || !changes.data || refused || save.isPending}
+            disabled={!valid || !changes.data || refused || save.isPending}
             onClick={() => submit(content)}
           >
             {t("steward.document-editor.save")}

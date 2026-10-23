@@ -32,8 +32,8 @@ class DatabaseRoleIntegrationTest {
             DatabaseRole.STEWARD);
 
     /** Only steward writes a setting. */
-    private static final String WRITE_SETTING = "INSERT INTO setting_override (service, name, path, value, actor_kind,"
-            + " changed) SELECT 'x', 'y', 'z', '1', 'HOST', now() WHERE false";
+    private static final String WRITE_SETTING = "INSERT INTO setting_override_node (service, name, path, node, kind,"
+            + " number) SELECT 'x', 'y', 'z', 0, 'NUMBER', 1 WHERE false";
 
     private static TestDatabase database;
 
@@ -58,8 +58,10 @@ class DatabaseRoleIntegrationTest {
             // The bot draws the card of an entry that steward wrote.
             cases.add(new Case(
                     role,
-                    "SELECT e.id, b.days, r.payload, p.reference FROM journal_entry e"
+                    "SELECT e.id, b.days, r.kind, s.service, rr.archive, rp.artifact, p.reference FROM journal_entry e"
                             + " LEFT JOIN journal_booking b ON b.entry = e.id LEFT JOIN steward_inbox r ON r.id = e.run"
+                            + " LEFT JOIN run_service s ON s.run = r.id LEFT JOIN steward_restore rr ON rr.request = r.id"
+                            + " LEFT JOIN steward_remove_plugin rp ON rp.request = r.id"
                             + " LEFT JOIN payment_request p ON p.id = e.payment WHERE false",
                     journals));
             cases.add(mayNot(role, "UPDATE journal_entry SET subject = subject WHERE false"));
@@ -92,9 +94,7 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.SMP, "SELECT count(*) FROM hg_game"),
                 may(DatabaseRole.HUNGER_GAMES, "INSERT INTO hg_event (game_id, type) VALUES (gen_random_uuid(), 'x')"),
                 mayNot(DatabaseRole.HUNGER_GAMES, "UPDATE smp_player SET aura = 0 WHERE false"),
-                may(
-                        DatabaseRole.STEWARD,
-                        "INSERT INTO steward_inbox (kind, payload, actor_kind) VALUES ('UPDATE', '{\"services\": []}', 'HOST')"),
+                may(DatabaseRole.STEWARD, "INSERT INTO steward_inbox (kind, actor_kind) VALUES ('UPDATE', 'HOST')"),
                 mayNot(DatabaseRole.STEWARD, "DELETE FROM steward_inbox WHERE false"),
                 mayNot(
                         DatabaseRole.STEWARD,
@@ -106,9 +106,7 @@ class DatabaseRoleIntegrationTest {
                         DatabaseRole.DISCORD_BOT,
                         "INSERT INTO bot_inbox (kind, payload, actor_kind) VALUES ('REVOKE', '{}', 'HOST')"),
                 mayNot(DatabaseRole.STEWARD, "UPDATE bot_inbox SET status = 'DONE' WHERE false"),
-                may(
-                        DatabaseRole.SMP,
-                        "INSERT INTO bot_inbox (kind, payload, actor_kind) VALUES ('ANNOUNCE', '{}', 'STEWARD')"),
+                may(DatabaseRole.SMP, "INSERT INTO bot_inbox (kind, actor_kind) VALUES ('ANNOUNCE', 'STEWARD')"),
                 mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_session")));
         cases.addAll(stewardsOwnLoops());
         for (final DatabaseRole role : LOGINS) {
@@ -147,16 +145,19 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.STEWARD, "DELETE FROM bank_inbox WHERE false"));
     }
 
-    /** The bot raises an alert and reads none. Steward routes them. */
+    /** The bot raises an alert and reads it back for its card. Only steward routes them. */
     @Test
     void theBotRaisesAlertsAndOnlyStewardRoutesThem() {
-        final String raise = "INSERT INTO admin_alert (raised_by, type, level, subject, title, detail, path)"
-                + " VALUES ('x', 'BOT', 'WARN', 'a', '{\"key\": \"alert.dm\", \"args\": {}}', '[]', '/')";
+        final String measure = "INSERT INTO alert_measure (entry, position, gauge, subject)"
+                + " SELECT id, 0, 'DISK_PERCENT', 'disk' FROM journal_entry WHERE false";
+        final String route = "UPDATE journal_entry SET routed = now() WHERE false";
         assertAll(Stream.of(
-                        may(DatabaseRole.DISCORD_BOT, raise),
-                        mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM admin_alert"),
-                        mayNot(DatabaseRole.SMP, raise),
-                        may(DatabaseRole.STEWARD, "UPDATE admin_alert SET routed = now() WHERE false"),
+                        may(DatabaseRole.DISCORD_BOT, measure),
+                        may(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM alert_measure"),
+                        mayNot(DatabaseRole.SMP, measure),
+                        may(DatabaseRole.STEWARD, route),
+                        mayNot(DatabaseRole.DISCORD_BOT, route),
+                        mayNot(DatabaseRole.STEWARD, "UPDATE journal_entry SET level = 'OK' WHERE false"),
                         may(DatabaseRole.STEWARD, "DELETE FROM steward_alert_preference WHERE false"),
                         mayNot(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM steward_alert_preference"))
                 .map(DatabaseRoleIntegrationTest::check));

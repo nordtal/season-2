@@ -1,12 +1,7 @@
 package eu.nordtal.season.stewardagent.run;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReport.Note;
-import eu.nordtal.season.database.update.UpdateReport.Step;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
@@ -15,9 +10,9 @@ import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import org.jspecify.annotations.Nullable;
 
 /**
  * The sequence every kind of run goes through. A kind only plans, see {@link Kinds}.
@@ -29,13 +24,9 @@ final class Run {
     private final Runner runner;
     private final UpdateRun steps;
     private final RuntimeResult runtime;
-    private final Consumer<UpdateReport> progress;
+    private final Consumer<RunStage> progress;
 
-    Run(
-            final Runner runner,
-            final UpdateRun steps,
-            final RuntimeResult runtime,
-            final Consumer<UpdateReport> progress) {
+    Run(final Runner runner, final UpdateRun steps, final RuntimeResult runtime, final Consumer<RunStage> progress) {
         this.runner = runner;
         this.steps = steps;
         this.runtime = runtime;
@@ -45,12 +36,12 @@ final class Run {
     /**
      * The work between the stop and the start.
      *
-     * Throwing {@link Abort} starts everything again and fails the run with the report it carries.
+     * Throwing {@link Abort} starts everything again and fails the run.
      */
     @FunctionalInterface
     interface Payload {
 
-        Payload NONE = (steps, stopped) -> new Done(stopped.report(), false);
+        Payload NONE = (steps, stopped) -> new Done(false);
 
         Done carryOut(UpdateRun steps, UpdateRun.Stopped stopped);
     }
@@ -58,47 +49,38 @@ final class Run {
     /**
      * What a payload left behind.
      *
-     * @param failed whether something failed that the lines of the report do not show
+     * @param failed whether something failed that no step of the run shows
      * @param afterwards what the run does once everything it stopped is back
      * @param leftDown services the run stopped and does not start again, because their data is incomplete
      */
-    record Done(
-            UpdateReport report,
-            boolean failed,
-            java.util.function.UnaryOperator<UpdateReport> afterwards,
-            List<String> leftDown) {
+    record Done(boolean failed, Runnable afterwards, List<String> leftDown) {
 
         Done {
             leftDown = List.copyOf(leftDown);
         }
 
-        Done(final UpdateReport report, final boolean failed) {
-            this(report, failed, java.util.function.UnaryOperator.identity());
+        Done(final boolean failed) {
+            this(failed, () -> {});
         }
 
-        Done(
-                final UpdateReport report,
-                final boolean failed,
-                final java.util.function.UnaryOperator<UpdateReport> afterwards) {
-            this(report, failed, afterwards, List.of());
+        Done(final boolean failed, final Runnable afterwards) {
+            this(failed, afterwards, List.of());
         }
     }
 
-    /** Ends a payload early: everything stopped is started again and the run fails with this report. */
+    /** Ends a payload early: everything stopped is started again and the run fails. */
     static final class Abort extends RuntimeException {
 
-        private final transient UpdateReport report;
-
-        Abort(final UpdateReport report) {
+        Abort() {
             super(null, null, false, false);
-            this.report = report;
         }
     }
 
     /**
      * The plan of a kind.
      *
-     * @param planned the report so far, with a {@code PLANNED} line for every service the run stops
+     * @param moving the services the run stops, in that order
+     * @param work the artefacts each service is given, whose versions its verify step names
      * @param announced whether the run counts down, so the proxy and the feeds warn first
      * @param stops whether the run stops what it plans, which a start does not
      * @param payload the work while the servers are down
@@ -106,13 +88,13 @@ final class Run {
      * @param alsoStarts services the run starts although it did not stop them, as the release of a hold does
      * @param images the services to recreate as they start, because their container is out of date
      * @param foreign the images nobody here builds, recreated once the rest is back and announced like a stop
-     * @param undertaking what the run does while the servers are down, which its notes name
      * @param refusesUnstopped whether a service that did not stop ends the run before its payload
      * @param remade services whose container is created again as they start
      * @param pulls whether recreating a container pulls its image first
      */
     record Plan(
-            UpdateReport planned,
+            List<String> moving,
+            Map<String, List<RunStep.Change>> work,
             boolean announced,
             boolean stops,
             Payload payload,
@@ -120,7 +102,6 @@ final class Run {
             List<String> alsoStarts,
             ImageResult images,
             List<String> foreign,
-            UpdateReport.Undertaking undertaking,
             boolean refusesUnstopped,
             Runner.Doubt doubt,
             boolean alreadyFailed,
@@ -128,27 +109,28 @@ final class Run {
             boolean pulls) {
 
         Plan {
+            moving = List.copyOf(moving);
+            work = Map.copyOf(work);
             alsoStarts = List.copyOf(alsoStarts);
             foreign = List.copyOf(foreign);
             remade = List.copyOf(remade);
         }
 
         static Plan of(
-                final UpdateReport planned,
+                final List<String> moving,
                 final Payload payload,
-                final UpdateReport.Undertaking undertaking,
                 final boolean refusesUnstopped,
                 final Runner.Doubt doubt) {
             return new Plan(
-                    planned,
+                    moving,
+                    Map.of(),
                     true,
                     true,
                     payload,
                     true,
                     List.of(),
-                    ImageResult.of(java.util.Map.of()),
+                    ImageResult.of(Map.of()),
                     List.of(),
-                    undertaking,
                     refusesUnstopped,
                     doubt,
                     false,
@@ -158,7 +140,8 @@ final class Run {
 
         Plan announced(final boolean warned) {
             return new Plan(
-                    planned,
+                    moving,
+                    work,
                     warned,
                     stops,
                     payload,
@@ -166,7 +149,6 @@ final class Run {
                     alsoStarts,
                     images,
                     foreign,
-                    undertaking,
                     refusesUnstopped,
                     doubt,
                     alreadyFailed,
@@ -176,7 +158,8 @@ final class Run {
 
         Plan stoppingNothing() {
             return new Plan(
-                    planned,
+                    moving,
+                    work,
                     false,
                     false,
                     payload,
@@ -184,7 +167,6 @@ final class Run {
                     alsoStarts,
                     images,
                     foreign,
-                    undertaking,
                     refusesUnstopped,
                     doubt,
                     alreadyFailed,
@@ -194,7 +176,8 @@ final class Run {
 
         Plan leavingThemDown() {
             return new Plan(
-                    planned,
+                    moving,
+                    work,
                     announced,
                     stops,
                     payload,
@@ -202,7 +185,6 @@ final class Run {
                     alsoStarts,
                     images,
                     foreign,
-                    undertaking,
                     refusesUnstopped,
                     doubt,
                     alreadyFailed,
@@ -212,7 +194,8 @@ final class Run {
 
         Plan alsoStarting(final List<String> services) {
             return new Plan(
-                    planned,
+                    moving,
+                    work,
                     announced,
                     stops,
                     payload,
@@ -220,7 +203,6 @@ final class Run {
                     services,
                     images,
                     foreign,
-                    undertaking,
                     refusesUnstopped,
                     doubt,
                     alreadyFailed,
@@ -228,9 +210,14 @@ final class Run {
                     pulls);
         }
 
-        Plan renewing(final ImageResult newer, final List<String> renewed, final boolean failed) {
+        Plan renewing(
+                final Map<String, List<RunStep.Change>> given,
+                final ImageResult newer,
+                final List<String> renewed,
+                final boolean failed) {
             return new Plan(
-                    planned,
+                    moving,
+                    given,
                     announced,
                     stops,
                     payload,
@@ -238,7 +225,6 @@ final class Run {
                     alsoStarts,
                     newer,
                     renewed,
-                    undertaking,
                     refusesUnstopped,
                     doubt,
                     failed,
@@ -253,7 +239,8 @@ final class Run {
          */
         Plan remaking(final List<String> ours, final List<String> theirs, final boolean pulling) {
             return new Plan(
-                    planned,
+                    moving,
+                    work,
                     announced,
                     stops,
                     payload,
@@ -261,7 +248,6 @@ final class Run {
                     alsoStarts,
                     images,
                     theirs,
-                    undertaking,
                     refusesUnstopped,
                     doubt,
                     alreadyFailed,
@@ -272,10 +258,10 @@ final class Run {
         /**
          * Returns what the countdown names: every stopped service and every recreated foreign image.
          */
-        List<String> moving() {
-            final Set<String> moving = new LinkedHashSet<>(Runner.movingServices(planned));
-            moving.addAll(foreign);
-            return List.copyOf(moving);
+        List<String> named() {
+            final Set<String> named = new LinkedHashSet<>(moving);
+            named.addAll(foreign);
+            return List.copyOf(named);
         }
     }
 
@@ -283,23 +269,13 @@ final class Run {
     Outcome carryOut(final UpdateRequest request, final Plan plan) {
         final Choreography choreography =
                 new Choreography(runner.containers, runner.occupancy(), runner.waiting, steps.record);
-        UpdateReport planned = plan.planned();
-        final List<String> moving = plan.stops() ? Runner.movingServices(planned) : List.of();
-        final Choreography.Window window = choreography.open(moving);
-        if (!window.opened()) {
-            return Outcome.failed(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.FAILED)
-                    .withNote(Note.failed(Step.STANDBY, TEXTS.report().noStandby()))
-                    .withNotes(window.refusal())));
-        }
-        if (!window.isEmpty()) {
-            planned = planned.withNotes(
-                    Note.done(Step.STANDBY, TEXTS.report().standbysReady()).each(window.standbys()));
-            progress.accept(planned);
+        final List<String> moving = plan.stops() ? plan.moving() : List.of();
+        if (!choreography.open(moving).opened()) {
+            return Outcome.failed();
         }
         try {
-            final Steps.Step players = plan.announced()
-                    ? runner.countDown(request.id(), planned, plan.moving(), progress, steps.record)
-                    : null;
+            final Steps.Step players =
+                    plan.announced() ? runner.countDown(request.id(), plan.named(), progress, steps.record) : null;
             if (plan.announced() && players == null) {
                 return Runner.cancelled();
             }
@@ -311,26 +287,19 @@ final class Run {
             } else if (left.reason() != null) {
                 steps.record.ended(RunStep.Kind.PLAYERS_MOVED, null, left.outcome(), left.reason());
             }
-            if (!left.notes().isEmpty()) {
-                planned = planned.withNotes(left.notes());
-                progress.accept(planned);
-            }
 
             final UpdateRun.Stopped stopped =
-                    plan.stops() ? steps.stop(planned, runtime) : new UpdateRun.Stopped(planned, List.of(), runtime);
-            final Outcome refused = refuseIfNotStopped(plan, planned, stopped);
-            if (refused != null) {
-                return refused;
+                    plan.stops() ? steps.stop(moving, runtime) : new UpdateRun.Stopped(List.of(), runtime);
+            if (plan.refusesUnstopped() && !stopped.services().containsAll(moving)) {
+                return startAgain(stopped);
             }
 
             final Done done;
             try {
                 done = plan.payload().carryOut(steps, stopped);
             } catch (final Abort abort) {
-                // Started again before this is reported, so a failed payload never leaves the network stopped.
-                final UpdateReport back = steps.start(new UpdateRun.Stopped(abort.report, stopped.services(), runtime));
-                return Outcome.failed(UpdateReports.toJson(
-                        steps.verify(back, stopped.services(), runner.waiting).withStage(UpdateReport.Stage.FAILED)));
+                // Started again before the run settles, so a failed payload never leaves the network stopped.
+                return startAgain(stopped);
             }
 
             return finish(plan, stopped, done, choreography, players != null);
@@ -339,91 +308,58 @@ final class Run {
         }
     }
 
+    private Outcome startAgain(final UpdateRun.Stopped stopped) {
+        steps.start(stopped);
+        steps.verify(stopped.services(), runner.waiting);
+        return Outcome.failed();
+    }
+
     private Outcome finish(
             final Plan plan,
             final UpdateRun.Stopped stopped,
             final Done done,
             final Choreography choreography,
             final boolean moved) {
-        UpdateReport report = done.report();
         if (plan.startsAgain()) {
             final List<String> starting = new ArrayList<>(stopped.services());
             plan.alsoStarts().stream()
                     .filter(service -> !starting.contains(service))
                     .forEach(starting::add);
             starting.removeAll(done.leftDown());
-            final UpdateReport started = steps.start(
-                    new UpdateRun.Stopped(report, List.copyOf(starting), runtime),
-                    plan.images(),
-                    plan.remade(),
-                    plan.pulls());
-            report = steps.verify(started, starting, runner.waiting);
+            final UpdateRun.Stopped back = new UpdateRun.Stopped(List.copyOf(starting), runtime);
+            steps.start(back, plan.images(), plan.remade(), plan.pulls());
+            steps.verify(starting, runner.waiting, plan.work());
         }
 
         // The proxy counts the players back. The standbys give theirs back as they close.
-        final Steps.Step back = moved ? steps.record.begin(RunStep.Kind.PLAYERS_BACK) : null;
+        final Steps.Step returning = moved ? steps.record.begin(RunStep.Kind.PLAYERS_BACK) : null;
         // The standbys close first, because caddy publishes their ports.
-        final List<Note> closed = choreography.close();
-        if (back != null) {
-            back.done();
+        choreography.close();
+        if (returning != null) {
+            returning.done();
         }
         // This runs once the Minecraft services are healthy, with postgres last.
-        final UpdateReport renewedForeign = ForeignImages.renewForeign(
-                runner.containers, steps, report, plan.foreign(), plan.pulls(), progress, runner.waiting);
-        final UpdateReport foreign = done.afterwards().apply(renewedForeign);
+        ForeignImages.renewForeign(runner.containers, steps, plan.foreign(), plan.pulls(), runner.waiting);
+        done.afterwards().run();
         // Last of all, since the agent it creates leaves the row alone.
-        final UpdateReport renewed = runner.oneShot ? renewAgent(foreign) : foreign;
-
-        final UpdateReport finished = Runner.settle(
-                renewed.withNotes(closed),
-                steps.unverifiedStops(),
-                plan.alreadyFailed() || done.failed(),
-                plan.doubt());
-        return finished.stage() == UpdateReport.Stage.FAILED
-                ? Outcome.failed(UpdateReports.toJson(finished))
-                : Outcome.done(UpdateReports.toJson(finished));
+        if (runner.oneShot) {
+            renewAgent();
+        }
+        return Outcome.at(Runner.settle(
+                steps.record, steps.unverifiedStops(), plan.alreadyFailed() || done.failed(), plan.doubt()));
     }
 
     /**
      * Creates the long-running steward-agent at the release of this one-shot and waits for its health.
      */
-    private UpdateReport renewAgent(final UpdateReport before) {
-        UpdateReport report = before.with(new UpdateReport.ServiceLine(
-                AgentWire.SERVICE,
-                UpdateReport.State.STARTING,
-                List.of(UpdateReport.Change.told("image", TEXTS.report().imageOutdated())),
-                UpdateReport.Facts.of(UpdateReport.Act.RENEW)));
-        progress.accept(report);
+    private void renewAgent() {
         final Steps.Step install = steps.record
                 .begin(RunStep.Kind.INSTALL, AgentWire.SERVICE)
                 .change(UpdateRun.IMAGE, null, null, RunStep.Image.PULLED);
         final RedeployResult result = runner.containers.renewAgent();
         UpdateRun.endBy(install, result);
-        if (!result.triggered()) {
-            report = report.with(report.line(AgentWire.SERVICE)
-                    .failed(UpdateReport.Facts.refused(UpdateReport.Act.RENEW, result.message())));
-            progress.accept(report);
-            return report;
+        if (result.triggered()) {
+            steps.verify(List.of(AgentWire.SERVICE), runner.waiting);
         }
-        return steps.verify(report, List.of(AgentWire.SERVICE), runner.waiting);
-    }
-
-    private @Nullable Outcome refuseIfNotStopped(
-            final Plan plan, final UpdateReport planned, final UpdateRun.Stopped stopped) {
-        if (!plan.refusesUnstopped()) {
-            return null;
-        }
-        final List<String> notStopped = Runner.servicesThatRefused(planned, stopped.services());
-        if (notStopped.isEmpty()) {
-            return null;
-        }
-        final UpdateReport back = steps.start(new UpdateRun.Stopped(
-                stopped.report()
-                        .withNotes(Note.failed(Step.STOP, TEXTS.report().notStopped(plan.undertaking()))
-                                .each(notStopped)),
-                stopped.services(),
-                runtime));
-        return Outcome.failed(UpdateReports.toJson(
-                steps.verify(back, stopped.services(), runner.waiting).withStage(UpdateReport.Stage.FAILED)));
     }
 }

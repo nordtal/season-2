@@ -68,9 +68,9 @@ final class JdbiSettingStore implements SettingStore {
         if (services.isEmpty()) {
             return List.of();
         }
-        return jdbi.withHandle(handle -> handle.createQuery("""
-                        SELECT service, name, path, value::text AS value FROM setting_override
-                        WHERE service = ANY(:services) ORDER BY service, name, path""")
+        return jdbi.withHandle(handle -> handle.createQuery(
+                        "SELECT service, name, path, setting_override_value(service, name, path)::text AS value"
+                                + " FROM setting_override WHERE service = ANY(:services) ORDER BY service, name, path")
                 .bindArray("services", String.class, List.copyOf(services))
                 .map((rows, context) -> valueOf(rows))
                 .list());
@@ -106,7 +106,7 @@ final class JdbiSettingStore implements SettingStore {
             handle.execute(
                     "SELECT pg_advisory_xact_lock(hashtext('setting_override'), hashtext(?))", service + "/" + name);
             final List<Value> held = handle.createQuery("""
-                            SELECT service, name, path, value::text AS value FROM setting_override
+                            SELECT service, name, path, setting_override_value(service, name, path)::text AS value FROM setting_override
                             WHERE service = :service AND name = :name ORDER BY path""")
                     .bind("service", service)
                     .bind("name", name)
@@ -135,17 +135,32 @@ final class JdbiSettingStore implements SettingStore {
             final String value,
             final Actor actor) {
         handle.createUpdate("""
-                        INSERT INTO setting_override (service, name, path, value, actor_kind, actor_id, changed)
-                        VALUES (:service, :name, :path, CAST(:value AS jsonb), :kind, :id, now())
+                        INSERT INTO setting_override (service, name, path, actor_kind, actor_id, changed)
+                        VALUES (:service, :name, :path, :kind, :id, now())
                         ON CONFLICT (service, name, path) DO UPDATE
-                            SET value = excluded.value, actor_kind = excluded.actor_kind,
-                                actor_id = excluded.actor_id, changed = excluded.changed""")
+                            SET actor_kind = excluded.actor_kind, actor_id = excluded.actor_id,
+                                changed = excluded.changed""")
+                .bind("service", service)
+                .bind("name", name)
+                .bind("path", path)
+                .bind("kind", actor.kind().name())
+                .bind("id", actor.id())
+                .execute();
+        handle.createUpdate("""
+                        DELETE FROM setting_override_node
+                        WHERE service = :service AND name = :name AND path = :path""")
+                .bind("service", service)
+                .bind("name", name)
+                .bind("path", path)
+                .execute();
+        handle.createUpdate("""
+                        INSERT INTO setting_override_node
+                            (service, name, path, node, parent, field, ordinal, kind, string, number, flag)
+                        SELECT :service, :name, :path, n.* FROM setting_override_nodes(CAST(:value AS jsonb)) AS n""")
                 .bind("service", service)
                 .bind("name", name)
                 .bind("path", path)
                 .bind("value", value)
-                .bind("kind", actor.kind().name())
-                .bind("id", actor.id())
                 .execute();
     }
 

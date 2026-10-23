@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.messages.MessageRef;
 import java.math.BigDecimal;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /** The closed set of what a message can show.
@@ -22,45 +24,48 @@ import org.jspecify.annotations.Nullable;
 public enum Kind {
 
     /** Words as written, never markup. */
-    TEXT("text", "Nordtal"),
+    TEXT("text"),
 
     /** A number, grouped as the reader's language groups it unless the style is {@code plain}. */
-    NUMBER("number", "3"),
+    NUMBER("number"),
 
     /** A length of time: {@code long} by default, {@code short} as {@code 2h 5m}, {@code clock} as {@code 2:05:00}. */
-    DURATION("duration", "PT2H5M"),
+    DURATION("duration"),
 
     /** A moment in the reader's time zone: {@code datetime} by default, or {@code date}, {@code time}.
      * {@code relative} is Discord's countdown.
      * Every other target shows it as {@code datetime}.
      */
-    INSTANT("instant", "2026-10-03T18:40:00Z"),
+    INSTANT("instant"),
 
     /** An amount of money in the reader's language. */
-    MONEY("money", "300"),
+    MONEY("money"),
 
     /** Several values joined with {@code and}, or with {@code or} under that style. */
-    LIST("list", "Alex,Sam,Kim"),
+    LIST("list"),
 
     /** A player's name, with their hover card in Minecraft unless the style is {@code plain}. */
-    DISPLAY_NAME("name", "Alex"),
+    DISPLAY_NAME("name"),
 
     /** A Discord member. */
-    MENTION("mention", "Alex"),
+    MENTION("mention"),
 
     /** An item, advancement or entity of the game. */
-    ITEM("item", "item.minecraft.diamond"),
+    ITEM("item"),
 
     /** A glyph of the resource pack. */
-    GLYPH("glyph", "admin"),
+    GLYPH("glyph"),
 
     /** Yes or no, or one of a fixed set of states. {@code select} chooses on it. */
-    CHOICE("choice", "true"),
+    CHOICE("choice"),
 
     /** Another message, rendered for the same reader in the same target.
      * An editor writes it as the key of a message without values, as {@code bundle/key} or as the key alone.
+     * An example of a message that needs values, such as a size, is written as its words, which show as written.
      */
-    MESSAGE("message", "values.missing.text");
+    MESSAGE("message");
+
+    private static final Pattern MESSAGE_KEY = Pattern.compile("([a-z][a-z0-9-]*/)?[A-Za-z0-9][A-Za-z0-9_.-]*");
 
     private static final PlayerId EXAMPLE_PLAYER = PlayerId.of(new UUID(0L, 1L));
 
@@ -75,11 +80,9 @@ public enum Kind {
             MessageRef.class, MESSAGE);
 
     private final String token;
-    private final String example;
 
-    Kind(final String token, final String example) {
+    Kind(final String token) {
         this.token = token;
-        this.example = example;
     }
 
     /** Returns how a text names the kind, such as {@code duration}. */
@@ -98,9 +101,15 @@ public enum Kind {
         };
     }
 
-    /** Returns the example an attribute without its own example shows. */
-    public String defaultExample() {
-        return example;
+    /** Returns the values a {@code select} tells apart: enum constants, else true and false, else none. */
+    public static List<String> choices(final Class<?> type) {
+        if (type == boolean.class || type == Boolean.class) {
+            return List.of("true", "false");
+        }
+        final Object[] constants = type.getEnumConstants();
+        return constants == null
+                ? List.of()
+                : Arrays.stream(constants).map(Kind::choiceOf).toList();
     }
 
     public static Optional<Kind> byToken(final String token) {
@@ -129,26 +138,49 @@ public enum Kind {
     }
 
     /**
-     * Returns a value of this kind from an example as an editor writes it.
-     *
-     * @throws IllegalArgumentException when the example does not read as this kind
+     * Returns {@code example} as an editor writes it read as a value of this kind, or null where it reads as none.
+     * A message example that is no key reads as its words. A list reads each item as a message where it
+     * {@code takesMessages}.
      */
-    public Object example(final String text) {
+    public @Nullable Object typedExample(final String example, final boolean takesMessages) {
+        try {
+            return this == LIST && takesMessages
+                    ? items(example).stream().map(MESSAGE::example).toList()
+                    : example(example);
+        } catch (final IllegalArgumentException | DateTimeException unread) {
+            return null;
+        }
+    }
+
+    /** Returns the items of a list's example, which an editor separates with commas. */
+    public static List<String> items(final String example) {
+        return List.of(example.split(",", -1));
+    }
+
+    private Object example(final String text) {
         return switch (this) {
             case TEXT -> text;
             case NUMBER -> new BigDecimal(text.strip());
             case DURATION -> Duration.parse(text.strip());
             case INSTANT -> Instant.parse(text.strip());
             case MONEY -> Money.euroCents(Long.parseLong(text.strip()));
-            case LIST -> List.of(text.split(",", -1));
+            case LIST -> items(text);
             case DISPLAY_NAME -> new DisplayName(EXAMPLE_PLAYER, text);
             case MENTION -> new Mention(DiscordId.of("1"), text);
             case ITEM -> GameContent.of(text);
             case GLYPH -> new Glyph(text);
             case CHOICE -> "true".equals(text) || "false".equals(text) ? Boolean.valueOf(text) : text;
             // The bundles load as one and name their keys without the bundle, as a message the code sends does.
-            case MESSAGE -> MessageRef.of(text.strip().substring(text.strip().indexOf('/') + 1));
+            case MESSAGE ->
+                namesMessage(text.strip())
+                        ? MessageRef.of(text.strip().substring(text.strip().indexOf('/') + 1))
+                        : text;
         };
+    }
+
+    /** Returns whether {@code text} is a message key, written as {@code key} or {@code bundle/key}. */
+    public static boolean namesMessage(final String text) {
+        return MESSAGE_KEY.matcher(text).matches();
     }
 
     /** Returns how {@code select} names a choice: {@code true}, {@code false}, or an enum constant in kebab case. */

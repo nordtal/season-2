@@ -32,7 +32,6 @@ describe("the file row", () => {
         "steward/steward": {
           ...location({ path: "steward/steward", name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries: [],
         },
       }),
@@ -77,7 +76,6 @@ describe("the file row", () => {
         "discord-bot/bot.yml": {
           ...location({ path: "discord-bot/bot.yml", name: "bot.yml", service: "discord-bot" }),
           revision: "r1",
-          restartRequired: false,
           entries: [],
         },
       }),
@@ -98,7 +96,6 @@ describe("searching a file", () => {
         [file]: {
           ...location({ path: file, name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries,
         },
       }),
@@ -202,7 +199,6 @@ describe("headings and explanations", () => {
         [file]: {
           ...location({ path: file, name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries: [
             entry({ path: "agent", key: "agent", label: "Agent", kind: "MAP" }),
             entry({ path: "agent.limits", key: "limits", label: "Limits", kind: "MAP" }),
@@ -297,7 +293,6 @@ describe("environment overrides", () => {
         [file]: {
           ...location({ path: file, name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries: [
             entry({
               path: "agent.base-url",
@@ -342,7 +337,6 @@ describe("a schema's allowed values", () => {
         [file]: {
           ...location({ path: file, name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries: [
             entry({
               path: "region",
@@ -370,7 +364,6 @@ describe("a schema's allowed values", () => {
         [file]: {
           ...location({ path: file, name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries: [
             entry({
               path: "color",
@@ -402,7 +395,6 @@ describe("a group whose stored values the service refused", () => {
           ...location({ path: file, name: "config", service: "smp" }),
           problem: "view-distance must be at least 2",
           revision: "r1",
-          restartRequired: false,
           entries: [entry({ path: "view-distance", key: "view-distance", label: "View distance", value: "8" })],
         },
       }),
@@ -425,7 +417,6 @@ describe("a hit that arrives while this page is already open", () => {
         [file]: {
           ...location({ path: file, name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries,
         },
       }),
@@ -513,7 +504,6 @@ describe("the arrow back to the top", () => {
         "steward/steward": {
           ...location({ path: "steward/steward", name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries: [entry({ path: "port", key: "port", value: "8080" })],
         },
       }),
@@ -550,7 +540,6 @@ describe("the arrow back to the top", () => {
         "steward/steward": {
           ...location({ path: "steward/steward", name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries: [entry({ path: "port", key: "port", value: "8080" })],
         },
       }),
@@ -591,7 +580,6 @@ describe("the arrow back to the top", () => {
         "steward/steward": {
           ...location({ path: "steward/steward", name: "steward" }),
           revision: "r1",
-          restartRequired: false,
           entries: [entry({ path: "port", key: "port", value: "8080" })],
         },
       }),
@@ -628,7 +616,6 @@ describe("discarding a group's draft", () => {
         [file]: {
           ...location({ path: file, name: "config", service: "smp" }),
           revision: "r1",
-          restartRequired: false,
           entries: [
             entry({ path: "view-distance", key: "view-distance", label: "View distance", value: "8" }),
             entry({ path: "motd", key: "motd", label: "Message of the day", value: "Hello" }),

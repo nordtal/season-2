@@ -97,13 +97,16 @@ public final class DiscordRenderer {
         }
         return switch (kind) {
             case INSTANT -> markdown ? timestamp((Instant) value, style) : text(kind, value, style, prepared, false);
-            case MENTION ->
-                markdown ? "<@" + ((Mention) value).member().value() + ">" : text(kind, value, style, prepared, false);
+            case MENTION -> markdown ? mention((Mention) value) : text(kind, value, style, prepared, false);
             case LIST -> list((List<?>) value, "or".equals(style), prepared, markdown);
             case MESSAGE -> markdown ? nested((MessageRef) value, prepared) : text(kind, value, style, prepared, false);
             case GLYPH -> "";
             default -> text(kind, value, style, prepared, markdown);
         };
+    }
+
+    private static String mention(final Mention mention) {
+        return (mention.role() ? "<@&" : "<@") + mention.member().value() + ">";
     }
 
     /** Escapes the text in markdown, but a link stays as it is, because a backslash would end up in it. */

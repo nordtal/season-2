@@ -1,4 +1,5 @@
 import { CheckIcon, FunnelSimpleIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react"
+import type { Icon } from "@phosphor-icons/react"
 import { useState, type ReactNode, type Ref } from "react"
 import { cn } from "cn"
 
@@ -51,8 +52,9 @@ export function SearchField({
     onValueChange("")
     onSubmit?.("")
   }
+  // A basis of 0, so the row wraps on the field's minimum width and not on a wider wish.
   const field = (
-    <InputGroup className={cn(!onSubmit && "min-w-[11rem] flex-1 basis-56")}>
+    <InputGroup className={cn(!onSubmit && "min-w-[11rem] flex-1 basis-0")}>
       <InputGroupAddon>
         <MagnifyingGlassIcon aria-hidden />
       </InputGroupAddon>
@@ -81,7 +83,7 @@ export function SearchField({
   return (
     <form
       role="search"
-      className="flex min-w-[11rem] flex-1 basis-56"
+      className="flex min-w-[11rem] flex-1 basis-0"
       onSubmit={(event) => {
         event.preventDefault()
         onSubmit(value.trim())
@@ -109,23 +111,30 @@ export function FilterMenu({ active, children }: { active: number; children: Rea
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="max-h-(--radix-popover-content-available-height) gap-3 overflow-y-auto">
+      <PopoverContent
+        align="end"
+        collisionPadding={16}
+        className="max-h-(--radix-popover-content-available-height) gap-3 overflow-y-auto"
+      >
         {children}
       </PopoverContent>
     </Popover>
   )
 }
 
-/** One filter in the menu. Its tick stands after the label, so the label never moves. */
+/** One filter in the menu. Its icon stands before the label and its tick after it, so the label never moves. */
 export function FilterOption({
+  icon,
   pressed,
   onPressedChange,
   children,
 }: {
+  icon: Icon
   pressed: boolean
   onPressedChange: (pressed: boolean) => void
   children: ReactNode
 }) {
+  const icons = { Icon: icon }
   return (
     <Button
       type="button"
@@ -134,6 +143,7 @@ export function FilterOption({
       onClick={() => onPressedChange(!pressed)}
       className="justify-start font-normal aria-pressed:bg-muted"
     >
+      <icons.Icon aria-hidden data-icon="inline-start" className="text-muted-foreground" />
       {children}
       <CheckIcon aria-hidden data-icon="inline-end" className={cn("ml-auto", !pressed && "invisible")} />
     </Button>
@@ -150,7 +160,7 @@ export function FilterChoice({
   label: string
   value: string
   onValueChange: (value: string) => void
-  options: { value: string; label: string }[]
+  options: { value: string; label: string; icon: Icon }[]
 }) {
   return (
     <div role="group" aria-label={label} className="flex flex-col">
@@ -158,6 +168,7 @@ export function FilterChoice({
       {options.map((option) => (
         <FilterOption
           key={option.value}
+          icon={option.icon}
           pressed={value === option.value}
           onPressedChange={(pressed) => onValueChange(pressed ? option.value : "")}
         >

@@ -1,19 +1,21 @@
 import { useParams } from "@tanstack/react-router"
+import { ArrowRightIcon } from "@phosphor-icons/react"
 
 import type { Grant, Person } from "@/lib/api"
-import { count, dateTime } from "@/lib/format"
+import { count, dateTime, NO_VALUE } from "@/lib/format"
 import { choice, span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
-import { useGrants, useJournal, usePeople, usePersonPayments } from "@/lib/queries"
+import { useGrants, usePeople, usePersonPayments } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton } from "@/components/steward/query-state"
 import { Stat } from "@/components/steward/stat"
-import { StatusBadge, type Tone } from "@/components/steward/status"
+import { StatusBadge, Tip, type Tone } from "@/components/steward/status"
 import { DataTable } from "@/components/steward/data-table"
 import { AccessBadge, LinkBadge, MemberBadge, PersonActions, RoleBadges, personName } from "@/pages/access-person"
-import { JournalTable } from "@/pages/journal"
+import { JournalStream } from "@/pages/journal"
+import { PersonInventories } from "@/pages/person-inventories"
 import { PaymentsTable } from "@/pages/payments"
 
 /**
@@ -44,10 +46,9 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
   // One clock for the page, so the badges and tables cannot disagree about "now".
   const now = useNow()
   const payments = usePersonPayments(person.discordId)
-  const journal = useJournal({ subject: person.discordId })
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <PageHeader title={personName(person)} actions={<PersonActions person={person} />} />
 
       <PersonStats person={person} people={people} now={now} />
@@ -55,6 +56,12 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
       <Panel title={t("steward.people.periods")}>
         <PersonPeriods person={person} now={now} />
       </Panel>
+
+      {person.minecraftUuid ? (
+        <Panel title={t("steward.people.inventories")}>
+          <PersonInventories person={person} />
+        </Panel>
+      ) : null}
 
       <Panel title={t("steward.payments.title")}>
         <QueryState
@@ -67,13 +74,12 @@ function PersonView({ person, people }: { person: Person; people: readonly Perso
       </Panel>
 
       <Panel title={t("steward.journal.title")}>
-        <QueryState
-          query={journal}
-          empty={{ title: t("steward.people.no-entry") }}
-          isEmpty={(list) => list.length === 0}
-        >
-          {(list) => <JournalTable entries={list} concerns={false} />}
-        </QueryState>
+        <JournalStream
+          q={person.discordId}
+          days={false}
+          person={person.discordId}
+          empty={t("steward.people.no-entry")}
+        />
       </Panel>
     </div>
   )
@@ -168,11 +174,11 @@ function PersonPeriods({ person, now }: { person: Person; now: number }) {
                 phone: { line: 2, side: "wide" },
                 className: "text-muted-foreground tnum",
                 render: (row) => (
-                  <>
+                  <span className="inline-flex flex-wrap items-center gap-1">
                     {dateTime(row.validFrom)}
-                    {" \u2013 "}
+                    <ArrowRightIcon aria-hidden className="size-3 shrink-0" />
                     {dateTime(row.validUntil)}
-                  </>
+                  </span>
                 ),
               },
               {
@@ -189,16 +195,16 @@ function PersonPeriods({ person, now }: { person: Person; now: number }) {
                 phone: { line: 3, side: "start", labelled: true },
                 render: (row) =>
                   row.paymentRequestId ? (
-                    <span className="font-mono text-xs" title={row.paymentRequestId}>
+                    <Tip content={row.paymentRequestId} className="font-mono text-xs">
                       {shortId(row.paymentRequestId)}
-                    </span>
+                    </Tip>
                   ) : (
-                    <span
+                    <Tip
+                      content={t("steward.people.request-gone", { source: choice(row.source) })}
                       className="text-xs text-muted-foreground"
-                      title={t("steward.people.request-gone", { source: choice(row.source) })}
                     >
-                      {"\u2013"}
-                    </span>
+                      {NO_VALUE}
+                    </Tip>
                   ),
               },
             ]}

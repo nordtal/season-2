@@ -1,7 +1,7 @@
 import { CheckIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import type { Icon } from "@phosphor-icons/react"
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, createContext, use, useMemo, useState } from "react"
 
 import type { ConfigReference, GameIcons } from "@/lib/api"
 import {
@@ -15,6 +15,7 @@ import {
   namespacesOf,
   peopleChoices,
   registryOf,
+  worldChoices,
 } from "@/lib/references"
 import { useGameData, useGuildChannels, usePeople } from "@/lib/queries"
 import { GameIcon } from "@/components/steward/game-icon"
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { TONES } from "@/components/steward/status"
 import { t } from "@/lib/texts"
 
 /** How many rows a search draws at once. The rest wait for a narrower search. */
@@ -42,7 +44,10 @@ const GENERIC: Record<string, Icon> = {
   advancement: TERM_ICON.advancement,
 }
 
-function useChoices(
+/** The service whose settings are open, so that a world is picked from that server's own worlds. */
+export const SettingsService = createContext<string | undefined>(undefined)
+
+export function useChoices(
   reference: ConfigReference,
   sibling: string | undefined,
 ): { choices: Choices; icons?: GameIcons; pending: boolean } {
@@ -50,16 +55,18 @@ function useChoices(
   const game = useGameData(isGameReference(reference))
   const channels = useGuildChannels(kind === "DISCORD_CHANNEL")
   const people = usePeople(kind === "DISCORD_USER")
+  const service = use(SettingsService)
   const choices = useMemo(() => {
     if (kind === "DISCORD_CHANNEL") return guildChoices(channels.data)
     if (kind === "DISCORD_USER") return peopleChoices(people.data)
+    if (kind === "WORLD") return worldChoices(game.data, service)
     return gameChoices(game.data, registryOf(reference, game.data, sibling), reference.except)
-  }, [kind, reference, sibling, game.data, channels.data, people.data])
+  }, [kind, reference, sibling, service, game.data, channels.data, people.data])
   const asked = kind === "DISCORD_CHANNEL" ? channels : kind === "DISCORD_USER" ? people : game
   return { choices, icons: game.data?.icons, pending: asked.isPending }
 }
 
-function Mark({
+export function Mark({
   choice,
   icons,
   registry,
@@ -74,7 +81,8 @@ function Mark({
     return <TERM_ICON.voiceChannel aria-hidden className="size-4 shrink-0 text-muted-foreground" />
   if (choice.channel === "text")
     return <TERM_ICON.textChannel aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-  if (icons === undefined) return null
+  // A world names no registry and has no item, so it draws no mark rather than an empty square.
+  if (icons === undefined || (choice.icon === undefined && registry === undefined)) return null
   if (choice.icon === undefined && registry !== undefined) {
     const Generic = GENERIC[registry] ?? TERM_ICON.item
     return (
@@ -105,7 +113,7 @@ function Chip({
     <span
       className={cn(
         "inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border py-0.5 pr-1 pl-1.5 text-sm",
-        choice ? "border-border bg-muted/40" : "border-warning/40 bg-warning/12 text-warning",
+        choice ? "border-border bg-muted/40" : TONES.warn,
       )}
       title={value}
     >
@@ -119,7 +127,7 @@ function Chip({
         <button
           type="button"
           disabled={disabled}
-          aria-label={`Remove ${choice?.name ?? value}`}
+          aria-label={t("steward.form.remove-named", { name: choice?.name ?? value })}
           className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none"
           onClick={onRemove}
         >
@@ -218,6 +226,8 @@ export function ReferenceMarks({
 
 /**
  * A list holds chips and adds values with the same picker. A value that nothing lists stays, marked, and is never replaced.
+ *
+ * `face` replaces what a single value's button shows, and `className` styles that button.
  */
 export function ReferencePicker({
   id,
@@ -228,6 +238,8 @@ export function ReferencePicker({
   sibling,
   disabled,
   typed,
+  face,
+  className,
   onChange,
 }: {
   id: string
@@ -238,6 +250,8 @@ export function ReferencePicker({
   sibling?: string
   disabled: boolean
   typed: ReactNode
+  face?: ReactNode
+  className?: string
   onChange: (values: string[]) => void
 }) {
   const { choices, icons, pending } = useChoices(reference, sibling)
@@ -329,23 +343,28 @@ export function ReferencePicker({
         type="button"
         variant="outline"
         disabled={disabled}
-        className="h-auto min-h-9 w-full min-w-0 justify-start gap-2 py-1 font-normal"
+        className={cn("h-auto min-h-9 w-full min-w-0 justify-start gap-2 py-1 font-normal", className)}
         onClick={() => setOpen(true)}
       >
-        {value === "" ? (
-          <span className="text-muted-foreground">{t("steward.settings.none")}</span>
-        ) : choice ? (
-          <>
-            <Mark choice={choice} icons={icons} registry={choices.registry} />
-            <span className="truncate">{choice.name}</span>
-            <span className="ml-auto truncate font-mono text-xs text-muted-foreground max-sm:hidden">{choice.id}</span>
-          </>
-        ) : (
-          <span className="flex min-w-0 items-center gap-1.5 text-warning">
-            <TERM_ICON.warning aria-hidden className="size-4 shrink-0" />
-            <span className="truncate font-mono text-xs">{value}</span>
-          </span>
-        )}
+        {face ??
+          (value === "" ? (
+            <span className="text-muted-foreground">{t("steward.settings.none")}</span>
+          ) : choice ? (
+            <>
+              <Mark choice={choice} icons={icons} registry={choices.registry} />
+              <span className="truncate">{choice.name}</span>
+              {choice.id === choice.name ? null : (
+                <span className="ml-auto truncate font-mono text-xs text-muted-foreground max-sm:hidden">
+                  {choice.id}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="flex min-w-0 items-center gap-1.5 text-warning">
+              <TERM_ICON.warning aria-hidden className="size-4 shrink-0" />
+              <span className="truncate font-mono text-xs">{value}</span>
+            </span>
+          ))}
       </Button>
       {sheet}
     </>
@@ -490,9 +509,12 @@ function Options({
                   {choice.frame}
                 </span>
               ) : null}
-              <span className="max-w-[45%] min-w-0 truncate font-mono text-xs text-muted-foreground max-sm:max-w-[40%]">
-                {choice.id}
-              </span>
+              {/* A world is its own name, so the id would only repeat it. */}
+              {choice.id === choice.name ? null : (
+                <span className="max-w-[45%] min-w-0 truncate font-mono text-xs text-muted-foreground max-sm:max-w-[40%]">
+                  {choice.id}
+                </span>
+              )}
               {multi ? (
                 <CheckIcon aria-hidden className={cn("size-4 shrink-0", on ? "opacity-100" : "opacity-0")} />
               ) : null}

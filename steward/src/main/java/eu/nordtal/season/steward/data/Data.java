@@ -6,6 +6,7 @@ import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.SmpRequest;
+import eu.nordtal.season.database.journal.JournalStream;
 import eu.nordtal.season.database.metric.MetricDirectory;
 import eu.nordtal.season.database.online.OnlineRoster;
 import eu.nordtal.season.database.payment.Bookings;
@@ -29,6 +30,7 @@ public final class Data {
     private final PaymentRequests payments;
     private final Bookings bookings;
     private final AuditDirectory audit;
+    private final JournalStream journal;
     private final AccessDirectory access;
     private final OnlineRoster roster;
     private final Inbox<SmpRequest> smp;
@@ -43,6 +45,7 @@ public final class Data {
         this.payments = new PaymentRequests(database.dataSource());
         this.bookings = new Bookings(database.dataSource());
         this.audit = AuditDirectory.using(database.dataSource());
+        this.journal = JournalStream.using(database.dataSource());
         this.access = AccessDirectory.using(database.dataSource(), clock);
         this.roster = OnlineRoster.using(database.dataSource(), clock);
         this.smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
@@ -86,6 +89,10 @@ public final class Data {
 
     public AuditDirectory audit() {
         return audit;
+    }
+
+    public JournalStream journal() {
+        return journal;
     }
 
     public AccessDirectory access() {

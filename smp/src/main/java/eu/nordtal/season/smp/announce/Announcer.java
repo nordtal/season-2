@@ -5,7 +5,6 @@ import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.Schedule;
-import eu.nordtal.season.messages.MessageRef;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,7 +16,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
- * Sends announcements to the Discord announcement channels as one bot request with a message per language.
+ * Sends announcements to the Discord announcement channels as one bot request with a line per language.
  * It runs on the async executor and does not wait for the bot.
  */
 public final class Announcer {
@@ -42,27 +41,29 @@ public final class Announcer {
     }
 
     /**
-     * Sends one announcement with a message per language.
+     * Sends the announcement of a milestone with its name in each language. The bot renders the text when it posts.
      *
-     * @param message returns the message for a language, from the {@code announcement} section of the database bundle
+     * @param message the text of the {@code announcement} section that names the milestone
+     * @param name returns the milestone's name in a language
      */
-    public void announce(final Function<Locale, MessageRef> message) {
-        Objects.requireNonNull(message, "message");
+    public void announce(
+            final BotRequest.Announce.Message message, final String milestone, final Function<Locale, String> name) {
+        Objects.requireNonNull(name, "name");
         async.execute(() -> {
-            final BotRequest.Announce announcement = announcement(message);
             try {
-                bot.submit(announcement, Actor.STEWARD, Schedule.within(KEEP));
+                bot.submit(announcement(message, milestone, name), Actor.STEWARD, Schedule.within(KEEP));
             } catch (final RuntimeException failure) {
-                warn.accept("could not send the announcement " + announcement.messages(), failure);
+                warn.accept("could not send the announcement of " + milestone, failure);
             }
         });
     }
 
-    BotRequest.Announce announcement(final Function<Locale, MessageRef> message) {
-        final Map<String, MessageRef> messages = new LinkedHashMap<>();
+    BotRequest.Announce announcement(
+            final BotRequest.Announce.Message message, final String milestone, final Function<Locale, String> name) {
+        final Map<String, String> names = new LinkedHashMap<>();
         for (final Locale locale : locales) {
-            messages.put(Locales.tag(locale), message.apply(locale));
+            names.put(Locales.tag(locale), name.apply(locale));
         }
-        return new BotRequest.Announce(messages);
+        return BotRequest.Announce.milestone(message, milestone, names);
     }
 }

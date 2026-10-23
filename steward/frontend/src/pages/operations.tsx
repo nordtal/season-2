@@ -1,12 +1,15 @@
+import type { ReactNode } from "react"
 import { ArrowRightIcon, CheckIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { cn } from "cn"
 import { TERM_ICON } from "@/components/steward/term-icons"
-import { Link, useParams } from "@tanstack/react-router"
+import { Link, Navigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import type { Run } from "@/lib/api"
-import { dateTime, parseInstant, relative } from "@/lib/format"
+import { dateTime, parseInstant, relative, NO_VALUE } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun, useServices } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
+import { runPath } from "@/lib/run-path"
 import { choice, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
@@ -16,13 +19,15 @@ import { Actor } from "@/components/steward/entity"
 import { RunSteps } from "@/components/steward/run-steps"
 import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { Alert, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 /**
  * The vocabulary of a run, shared by Updates, Backups and a service's page. A run is a row in Steward's inbox and never a call to a container.
  */
 
-/** The stages in `UpdateReport.Stage` order, without the four endings. */
+/** The stages in `RunStage` order, without the four endings. */
 const TRAIL = [
   "RESOLVING",
   "PLANNED",
@@ -86,7 +91,7 @@ export function savedCount(run: Run): number {
 
 /** Returns what a run did, one fact per line, counted out of its steps. */
 export function summaryOf(run: Run): string[] {
-  if (run.steps.length === 0) return [run.status === "PENDING" ? t("steward.operations.nothing-written") : "\u2013"]
+  if (run.steps.length === 0) return [run.status === "PENDING" ? t("steward.operations.nothing-written") : NO_VALUE]
   if (run.stage === "NOTHING_TO_DO") return [t("steward.operations.nothing-to-do")]
 
   const parts: string[] = []
@@ -240,23 +245,49 @@ export function CancelButton({ run }: { run: Run }) {
   )
 }
 
-/**
- * One run, drawn and not dumped, for every kind but BACKUP. `useRun` polls while the run is unfinished, so its steps grow on screen.
- */
+/** The page of one update run. A backup run goes to its page under Backups. */
 export function UpdateRunPage() {
   const { id } = useParams({ from: "/operations/updates/$id" })
+  return (
+    <RunPage
+      id={id}
+      title={t("steward.operations.run", { id })}
+      list={{ to: "/operations/updates", label: t("steward.operations.all-updates") }}
+    />
+  )
+}
+
+/**
+ * One run, drawn and not dumped, under the page of its kind, which `runPath` names; a run of another kind goes to its own page. `useRun` polls while the run is unfinished, so its steps grow on screen.
+ */
+export function RunPage({
+  id,
+  title,
+  list,
+  children,
+}: {
+  id: string
+  title: string
+  /** The page of the kind's runs, which the button leads back to. */
+  list: { to: "/operations/updates" | "/operations/backups"; label: string }
+  /** What the kind adds, drawn before the report. The run is undefined while it loads. */
+  children?: (run: Run | undefined) => ReactNode
+}) {
   const numeric = /^\d+$/.test(id)
   const run = useRun(id, numeric)
+
+  // A Discord card or a journal line can name a run under the other kind's page.
+  if (run.data && runPath(run.data).to !== `${list.to}/$id`) return <Navigate {...runPath(run.data)} replace />
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={numeric ? t("steward.operations.run", { id }) : t("steward.operations.a-run")}
+        title={numeric ? title : t("steward.operations.a-run")}
         actions={
           <Button asChild variant="outline">
-            <Link to="/operations/updates">
+            <Link to={list.to}>
               <ArrowRightIcon aria-hidden />
-              {t("steward.operations.all-updates")}
+              {list.label}
             </Link>
           </Button>
         }
@@ -266,13 +297,13 @@ export function UpdateRunPage() {
         <Empty title={t("steward.operations.not-a-number")} />
       ) : (
         /** A missing row arrives as a 404 failure. */
-        <QueryState query={run}>{(data) => <RunDetail run={data} />}</QueryState>
+        <QueryState query={run}>{(data) => <RunDetail run={data}>{children?.(data)}</RunDetail>}</QueryState>
       )}
     </div>
   )
 }
 
-function RunDetail({ run }: { run?: Run }) {
+function RunDetail({ run, children }: { run?: Run; children?: ReactNode }) {
   const stage = run?.stage
   const finished = !run ? false : stage ? ENDINGS.has(stage) : run.status !== "PENDING" && run.status !== "RUNNING"
 
@@ -317,24 +348,17 @@ function RunDetail({ run }: { run?: Run }) {
       </div>
 
       {stage === "NOTHING_TO_DO" ? (
-        <div className="flex items-start gap-3 rounded-md border border-border bg-secondary/40 px-4 py-3" role="status">
-          <TERM_ICON.nothingToDo className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">{t("steward.operations.nothing-to-do-title")}</p>
-          </div>
-        </div>
+        <Alert role="status">
+          <TERM_ICON.nothingToDo aria-hidden />
+          <AlertTitle>{t("steward.operations.nothing-to-do-title")}</AlertTitle>
+        </Alert>
       ) : null}
 
       {run?.kind === "BACKUP" && finished && savedCount(run) === 0 ? (
-        <div
-          className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3"
-          role="alert"
-        >
-          <ShieldWarningIcon className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium">{t("steward.operations.saved-nothing")}</p>
-          </div>
-        </div>
+        <Alert variant="destructive">
+          <ShieldWarningIcon aria-hidden />
+          <AlertTitle>{t("steward.operations.saved-nothing")}</AlertTitle>
+        </Alert>
       ) : null}
 
       {stage && run ? (
@@ -342,6 +366,8 @@ function RunDetail({ run }: { run?: Run }) {
           <StageTrail stage={stage} kind={run.kind} />
         </Panel>
       ) : null}
+
+      {children}
 
       {!run ? (
         <Panel title={t("steward.operations.report")}>
@@ -360,47 +386,52 @@ function RunDetail({ run }: { run?: Run }) {
 }
 
 /**
- * The stages that a finished run of each kind walked, because a run keeps only the last one. A run that did not end DONE gets no ticks.
+ * The stages that a run of each kind walks, because a run keeps only the last one. A run that did not end DONE gets no ticks.
  */
 const WALKED: Record<string, ReadonlySet<string>> = {
-  UPDATE: new Set(TRAIL),
+  UPDATE: new Set(["RESOLVING", "PLANNED", "COUNTDOWN", "STOPPING", "INSTALLING", "STARTING", "VERIFYING"]),
   BACKUP: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "BACKING_UP", "STARTING", "VERIFYING"]),
   RESTART: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
   // A DOWN ends at STOPPING.
   DOWN: new Set(["PLANNED", "COUNTDOWN", "STOPPING"]),
-  START: new Set(["STARTING", "VERIFYING"]),
-  // Written once it is done, on a start with no server running yet.
-  INSTALL: new Set(["PLANNED", "INSTALLING"]),
+  START: new Set(["PLANNED", "STARTING", "VERIFYING"]),
+  RECREATE: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+  DEPLOY: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+  REMOVE_PLUGIN: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+  // A volume restore also writes BACKING_UP, a database restore does not.
+  RESTORE: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
+  // Written once it is done, on a start with no server running yet: it resolves and installs.
+  INSTALL: new Set(["RESOLVING", "INSTALLING"]),
 }
 
 function StageTrail({ stage, kind }: { stage: string; kind: string }) {
   const trail: readonly string[] = TRAIL
   const reached = trail.indexOf(stage)
   const ending = ENDINGS.has(stage)
-  const walked = stage === "DONE" ? WALKED[kind] : undefined
+  const walked = WALKED[kind]
 
   return (
     <ol className="flex flex-wrap items-center gap-x-2 gap-y-3">
       {TRAIL.map((step, index) => {
         /**
-         * A running run has walked everything before its stage. A finished one has walked what its kind walks, if it is DONE.
+         * A running run has walked what its kind walks before its stage. A finished one has walked what its kind walks, if it is DONE.
          */
-        const past = ending ? (walked?.has(step) ?? false) : reached >= 0 && index < reached
+        const past = ending
+          ? stage === "DONE" && (walked?.has(step) ?? false)
+          : reached >= 0 && index < reached && (walked?.has(step) ?? true)
         const now = index === reached
         return (
-          <li key={step} className="flex items-center gap-2">
-            <span
-              className={
-                now
-                  ? "flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/12 px-2 py-0.5 text-xs font-medium text-warning"
-                  : past
-                    ? "flex items-center gap-1.5 text-xs text-foreground"
-                    : "flex items-center gap-1.5 text-xs text-muted-foreground"
-              }
-            >
-              {past && !now ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
-              {stageLabel(step)}
-            </span>
+          <li key={step} aria-current={now ? "step" : undefined} className="flex items-center gap-2">
+            {now ? (
+              <Badge>{stageLabel(step)}</Badge>
+            ) : (
+              <span
+                className={cn("flex items-center gap-1.5 text-xs", past ? "text-foreground" : "text-muted-foreground")}
+              >
+                {past ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
+                {stageLabel(step)}
+              </span>
+            )}
             {index < TRAIL.length - 1 ? (
               <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
             ) : null}

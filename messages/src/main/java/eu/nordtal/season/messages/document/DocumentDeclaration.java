@@ -4,7 +4,6 @@ import eu.nordtal.season.messages.context.Contexts;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.value.Kind;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +35,20 @@ public record DocumentDeclaration(
         return slots.stream().filter(slot -> slot.id().equals(id)).findFirst();
     }
 
+    /** Returns this declaration with every value's example read as its kind, as Steward's editor shows it. */
+    public DocumentDeclaration withExampleValues() {
+        return new DocumentDeclaration(
+                namespace,
+                name,
+                area,
+                shape,
+                Value.withExampleValues(values),
+                slots.stream()
+                        .map(slot -> new Slot(
+                                slot.id(), slot.type(), slot.required(), Value.withExampleValues(slot.values())))
+                        .toList());
+    }
+
     /** Returns every value a text may name: the declared ones, each button's label and the global roles. */
     public Map<String, Value> named() {
         final Map<String, Value> named = new LinkedHashMap<>(values);
@@ -63,13 +76,10 @@ public record DocumentDeclaration(
             final Map<String, Value> item, final int limit, final boolean oneLine, final boolean markup) {
         final Map<String, Value> all = new LinkedHashMap<>(named());
         all.putAll(item);
-        final Map<String, Kind> kinds = new HashMap<>();
-        final Map<String, String> examples = new HashMap<>();
-        all.forEach((name, value) -> {
-            kinds.put(name, Kind.byToken(value.kind()).orElse(Kind.TEXT));
-            examples.put(name, value.example());
-        });
-        return new Declaration(kinds, Set.of(), Set.of(), markup, limit, examples, oneLine);
+        final Map<String, Declaration.Placeholder> placeholders = new LinkedHashMap<>();
+        all.forEach((name, value) -> placeholders.put(
+                name, new Declaration.Placeholder(value.kind(), value.example(), value.takes() != null)));
+        return Declaration.of(placeholders, Set.of(), Set.of(), markup, limit, oneLine);
     }
 
     public Map<String, Kind> kinds(final Map<String, Value> item) {

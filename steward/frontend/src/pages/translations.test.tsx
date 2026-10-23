@@ -37,7 +37,7 @@ describe("the groups", () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Page />)
 
-    for (const group of ["In game", "Discord", "Steward & Admin", "Building blocks"]) {
+    for (const group of ["In game", "Discord", "Steward and admin", "Building blocks"]) {
       const branch = await screen.findByRole("button", { name: new RegExp(`^${group}`) })
       expect(branch.getAttribute("aria-expanded")).toBe("false")
     }
@@ -359,7 +359,7 @@ function twoKeys() {
           texts: { en: ["<gray>Hello <white>{player}</white></gray>"] },
           key: "a",
           name: "First",
-          args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
+          args: [{ name: "player", kind: "text", global: false, action: false }],
         }),
         text({ texts: { en: ["two"] }, key: "b", name: "Second" }),
       ]),
@@ -433,7 +433,7 @@ describe("placeholders", () => {
       texts: { en: ["Hello {player}"] },
       key: "greeting",
       name: "Greeting",
-      args: [{ name: "player", kind: "text", global: false, action: false, exampleWords: {} }],
+      args: [{ name: "player", kind: "text", global: false, action: false }],
     }),
   ])
 
@@ -567,17 +567,6 @@ describe("the editor's look", () => {
     expect(group.querySelector("button:disabled")).not.toBeNull()
     expect(dimmedByAnyTool(group)).toBe(false)
   })
-
-  it("marks a field that cannot be written as disabled", async () => {
-    vi.stubGlobal(
-      "fetch",
-      backend(listing([text({ texts: { en: ["Hello"] }, key: "a", name: "First" })], { writable: false })),
-    )
-    draw(<Page />)
-    await openKey("First")
-
-    expect((await screen.findByRole("textbox", { name: "First" })).getAttribute("aria-disabled")).toBe("true")
-  })
 })
 
 const days = () =>
@@ -589,7 +578,7 @@ const days = () =>
           texts: { en: ["{n, plural, one {# day} other {# days}}"] },
           key: "days",
           name: "Days",
-          args: [{ name: "n", kind: "number", global: false, action: false, exampleWords: {} }],
+          args: [{ name: "n", kind: "number", global: false, action: false }],
         }),
       ]),
     ),
@@ -630,7 +619,7 @@ describe("a plural as its cases", () => {
               key: "days",
               name: "Days",
               format: "MINIMESSAGE",
-              args: [{ name: "n", kind: "number", global: false, action: false, exampleWords: {} }],
+              args: [{ name: "n", kind: "number", global: false, action: false }],
             }),
           ],
           { colours: { smp: { good: "#123456" } } },

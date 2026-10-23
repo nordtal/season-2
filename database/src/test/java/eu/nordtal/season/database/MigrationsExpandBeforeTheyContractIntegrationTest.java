@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import eu.nordtal.season.common.RepositoryRoot;
+import eu.nordtal.season.database.setting.SettingStore;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
@@ -11,6 +12,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +20,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.sql.DataSource;
+import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -81,7 +84,17 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             Map.entry("0.49.0", "77"),
             Map.entry("0.50.0", "77"),
             Map.entry("0.51.0", "78"),
-            Map.entry("0.52.0", "80"));
+            Map.entry("0.52.0", "80"),
+            Map.entry("0.53.0", "82"),
+            Map.entry("0.54.0", "85"),
+            Map.entry("0.54.1", "85"),
+            Map.entry("0.55.0", "88"),
+            Map.entry("0.56.0", "91"),
+            Map.entry("0.57.0", "92"),
+            Map.entry("0.58.0", "92"),
+            Map.entry("0.59.0", "92"),
+            Map.entry("0.60.0", "92"),
+            Map.entry("0.61.0", "92"));
 
     /** The privileges a release no longer uses, with that release. A grant may go in the release after it. */
     private static final Map<String, String> NO_LONGER_USED = noLongerUsed();
@@ -172,6 +185,27 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
                         + "'s standbys insert into");
     }
 
+    @Test
+    void anUpdateRunReadsItsSettingsOnTheSchemaOfTheReleaseBefore() throws IOException {
+        final String newest = NEWEST_MIGRATION.get(release());
+        final String before = NEWEST_MIGRATION.values().stream()
+                .filter(migration -> Integer.parseInt(migration) < Integer.parseInt(newest))
+                .max(Comparator.comparingInt(Integer::parseInt))
+                .orElseThrow();
+        final TestDatabase database = TestDatabase.empty();
+        database.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), before);
+        Jdbi.create(database.dataSource()).useHandle(handle -> handle.execute("""
+                INSERT INTO setting_override (service, name, path, actor_kind, changed)
+                VALUES ('steward-agent', 'runs', 'volumes-root', 'STEWARD', now());
+                INSERT INTO setting_override_node (service, name, path, node, parent, field, ordinal, kind, string, number, flag)
+                SELECT 'steward-agent', 'runs', 'volumes-root', n.* FROM setting_override_nodes('"/srv"') AS n"""));
+
+        // The one-shot of a new release reads its run settings before its own migrations have run.
+        assertEquals(
+                List.of(new SettingStore.Value("steward-agent", "runs", "volumes-root", "\"/srv\"")),
+                SettingStore.using(database.dataSource()).overrides(Set.of("steward-agent")));
+    }
+
     private static Map<String, String> noLongerUsed() {
         final Map<String, String> unused = new HashMap<>();
         // The legacy team tables, which the proxy read before registration moved to the bot.
@@ -193,6 +227,10 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         // An override's hash on each variant row, which proxy and limbo now compute from the texts it replaced.
         for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
             listed(unused, "0.50.0", role, "SELECT", "message_override", "replaced");
+        }
+        // An admin's setting as one composite value, which setting_override_node now holds as rows.
+        for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
+            listed(unused, "0.54.0", role, "SELECT", "setting_override", "value");
         }
         // The old journal, which no proxy or limbo code wrote.
         for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
@@ -217,6 +255,8 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             listed(unused, "0.33.0", role, "SELECT", "layout_row_element", "bundle", "element", "layout", "part");
             listed(unused, "0.33.0", role, "SELECT", "layout_row_element", "position");
         }
+        // A run's report, its request as JSON and the services it stops, which the proxy reads from run rows.
+        listed(unused, "0.56.0", "nordtal_proxy", "SELECT", "steward_inbox", "outcome", "payload", "moving");
         return Map.copyOf(unused);
     }
 

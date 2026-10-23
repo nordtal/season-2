@@ -15,6 +15,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.List;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,26 +39,9 @@ class UpdateBackupAndHoldIntegrationTest {
         updates = UpdateDirectory.using(dataSource);
     }
 
-    /** The one volume line that makes a report a backup, built through {@link UpdateReports#toJson}. */
-    private static UpdateReport report(final UpdateReport.State volume) {
-        return UpdateReport.at(UpdateReport.Stage.DONE)
-                .with(new UpdateReport.ServiceLine(
-                        "nordtal-s2_mc-smp",
-                        volume,
-                        List.of(new UpdateReport.Change("backup", null, "1.2 GiB in 41s")),
-                        null))
-                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
-    }
-
-    /** A run with every service back and nothing snapshotted, with the row DONE, which is no backup. */
-    private static UpdateReport reportWithNoVolumes() {
-        return UpdateReport.at(UpdateReport.Stage.DONE)
-                .with(new UpdateReport.ServiceLine("smp", UpdateReport.State.HEALTHY, List.of(), null));
-    }
-
     @Test
     void aRunThatFinishedAndSavedAVolumeIsTheOneItAnswersWith() {
-        final long id = backupRow("DONE", 0.25, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+        final long id = backupRow("DONE", 0.25, "DONE");
 
         final UpdateRequest found =
                 updates.lastSuccessfulBackup(Duration.ofHours(12)).orElseThrow();
@@ -67,34 +51,34 @@ class UpdateBackupAndHoldIntegrationTest {
 
     @Test
     void doneWithNothingSavedIsNotABackupTheA23Case() {
-        backupRow("DONE", 0.25, UpdateReports.toJson(reportWithNoVolumes()));
+        backupRow("DONE", 0.25, null);
 
         assertTrue(
                 updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
-                "a DONE row whose report lists no saved volume was accepted as a backup. That is"
+                "a DONE row that saved no archive was accepted as a backup. That is"
                         + " exactly run 23: every service healthy, every snapshot missing.");
     }
 
     @Test
     void doneWithEveryVolumeFailedIsNotABackupEither() {
-        backupRow("DONE", 0.25, UpdateReports.toJson(report(UpdateReport.State.FAILED)));
+        backupRow("DONE", 0.25, "FAILED");
 
         assertTrue(
                 updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
-                "the report is read, not just the status column");
+                "the archives are read, not just the status column");
     }
 
     @Test
-    void aFailedRunDoesNotCountEvenWhenItsReportSavedSomethingFirst() {
-        // The dump runs before servers stop, so a failed run can carry SAVED. Only the status decides.
-        backupRow("FAILED", 0.25, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+    void aFailedRunDoesNotCountEvenWhenItSavedSomethingFirst() {
+        // The dump runs before servers stop, so a failed run can hold an archive. Only the status decides.
+        backupRow("FAILED", 0.25, "DONE");
 
         assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
     }
 
     @Test
     void yesterdaysBackupIsOutsideAWindowMeasuredInHours() {
-        backupRow("DONE", 25.0, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
+        backupRow("DONE", 25.0, "DONE");
 
         assertTrue(
                 updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty(),
@@ -105,17 +89,9 @@ class UpdateBackupAndHoldIntegrationTest {
     }
 
     @Test
-    void aResultNobodyCanParseProvesNothing() {
-        // A result that is prose cannot tell a saved volume from a sentence.
-        backupRow("DONE", 0.25, "Update finished. smp: running");
-
-        assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
-    }
-
-    @Test
     void theNewestRowThatCanBeProvedWinsNotSimplyTheNewestRow() {
-        final long good = backupRow("DONE", 20.0, UpdateReports.toJson(report(UpdateReport.State.SAVED)));
-        backupRow("DONE", 1.0, UpdateReports.toJson(reportWithNoVolumes()));
+        final long good = backupRow("DONE", 20.0, "DONE");
+        backupRow("DONE", 1.0, null);
 
         // A LIMIT 1 would answer with the newest row and miss a provable backup further down.
         assertEquals(
@@ -125,26 +101,42 @@ class UpdateBackupAndHoldIntegrationTest {
 
     @Test
     void anUpdateIsNotABackupHoweverHealthyItCameBack() {
-        execute("INSERT INTO steward_inbox (kind, payload, actor_kind, status, started, finished, outcome)"
-                + " VALUES ('UPDATE', '{\"services\": []}', 'HOST', 'DONE', now(), now(), $json$"
-                + UpdateReports.toJson(report(UpdateReport.State.SAVED)) + "$json$)");
+        execute("INSERT INTO steward_inbox (kind, actor_kind, status, started, finished)"
+                + " VALUES ('UPDATE', 'HOST', 'DONE', now(), now())");
+        saved(lastId(), "DONE");
 
         assertTrue(updates.lastSuccessfulBackup(Duration.ofHours(12)).isEmpty());
     }
 
-    /** Writes a settled {@code BACKUP} row {@code hoursAgo} in the past and returns its id. */
-    private static long backupRow(final String status, final double hoursAgo, final String result) {
-        execute("INSERT INTO steward_inbox (kind, payload, actor_kind, status, requested, scheduled_for, started,"
-                + " finished, outcome) VALUES ('BACKUP', '{\"services\": []}', 'STEWARD', '" + status + "',"
+    /**
+     * Writes a settled {@code BACKUP} row {@code hoursAgo} in the past and returns its id.
+     *
+     * @param save how its one save step ended, {@code null} for none
+     */
+    private static long backupRow(final String status, final double hoursAgo, final @Nullable String save) {
+        final long ago = (long) (hoursAgo * 3600);
+        execute("INSERT INTO steward_inbox (kind, actor_kind, status, requested, scheduled_for, started, finished)"
+                + " VALUES ('BACKUP', 'STEWARD', '" + status + "',"
                 + " now() - make_interval(hours => " + (int) Math.ceil(hoursAgo) + "),"
-                + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
-                + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
-                + " now() - make_interval(secs => " + (long) (hoursAgo * 3600) + "),"
-                // A report is stored as an object and anything else as a JSON string, as steward stores them.
-                + (result.startsWith("{")
-                        ? " cast($json$" + result + "$json$ AS jsonb))"
-                        : " to_jsonb(cast($json$" + result + "$json$ AS text)))"));
-        return lastId();
+                + " now() - make_interval(secs => " + ago + "),"
+                + " now() - make_interval(secs => " + ago + "),"
+                + " now() - make_interval(secs => " + ago + "))");
+        final long id = lastId();
+        if (save != null) {
+            saved(id, save);
+        }
+        return id;
+    }
+
+    /** Writes a save step of the run that ended {@code outcome}, with its archive when it is DONE. */
+    private static void saved(final long run, final String outcome) {
+        execute("INSERT INTO run_step (run, seq, step, service, finished, outcome) VALUES (" + run
+                + ", 1, 'SAVE_VOLUME', 'nordtal-s2_mc-smp', now(), '" + outcome + "')");
+        if ("DONE".equals(outcome)) {
+            execute("INSERT INTO backup_archive (volume, file, bytes, took, saved_by, stop_verified)"
+                    + " SELECT 'nordtal-s2_mc-smp', 'mc-smp-" + run + ".tar.zst', 1, interval '41 seconds', id, true"
+                    + " FROM run_step WHERE run = " + run);
+        }
     }
 
     @Test

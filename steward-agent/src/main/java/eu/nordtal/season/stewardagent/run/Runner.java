@@ -1,16 +1,12 @@
 package eu.nordtal.season.stewardagent.run;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.setting.SettingStore;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.ServiceHold;
 import eu.nordtal.season.database.update.UpdateDirectory;
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReport.Note;
-import eu.nordtal.season.database.update.UpdateReport.Step;
-import eu.nordtal.season.database.update.UpdateReports;
+import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.internalapi.agent.AgentWire;
@@ -20,7 +16,6 @@ import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -29,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Carries out one claimed {@link UpdateRequest} and answers with an {@link UpdateReport}, never throwing.
+ * Carries out one claimed {@link UpdateRequest} and answers with the stage it ended in, never throwing.
  *
  * The countdown starts only after resolving, so players are warned only when the plan has work.
  */
@@ -157,35 +152,41 @@ public final class Runner implements RequestRunner {
     }
 
     @Override
-    public Outcome run(final UpdateRequest request, final Consumer<UpdateReport> progress) {
+    public Outcome run(final UpdateRequest request, final Consumer<RunStage> progress) {
         final Steps record = new Steps(directory.recorder(), request.id());
+        // Before the first step, so every step is shown under a stage. Only an update has more to work out.
+        final RunStage first = request.kind() == UpdateKind.UPDATE ? RunStage.RESOLVING : RunStage.PLANNED;
+        progress.accept(first);
         try {
             final UpdateRun steps = new UpdateRun(request.id(), containers, backups, progress, record);
             // Read before anything is planned, so a run that cannot stop a server never moves a jar.
             final RuntimeResult runtime = steps.check();
             if (!runtime.reached()) {
+                log.warn("Request {}: the runtime is unreachable: {}", request.id(), unreachableMessage(runtime));
                 record.ended(RunStep.Kind.RUNTIME, null, RunStep.Outcome.FAILED, RunStep.Reason.UNREACHABLE);
-                return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                        .withNote(Note.failed(Step.RUN, TEXTS.report().words(unreachableMessage(runtime))))));
+                return Outcome.failed();
             }
             // The row is the lock: the inbox holds one open run at a time.
             final Kinds.Planned planned = plan(request, progress, record);
-            return planned.outcome() != null
-                    ? planned.outcome()
-                    : new Run(this, steps, runtime, progress).carryOut(request, Objects.requireNonNull(planned.plan()));
+            if (planned.outcome() != null) {
+                return planned.outcome();
+            }
+            if (first != RunStage.PLANNED) {
+                progress.accept(RunStage.PLANNED);
+            }
+            return new Run(this, steps, runtime, progress).carryOut(request, Objects.requireNonNull(planned.plan()));
         } catch (final RuntimeException failure) {
             log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
             record.endOpen(RunStep.Outcome.FAILED, RunStep.Reason.UNEXPECTED);
-            return Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(Note.failed(Step.RUN, TEXTS.report().failedUnexpectedly(failure.toString())))));
+            return Outcome.failed();
         }
     }
 
-    private Kinds.Planned plan(final UpdateRequest request, final Consumer<UpdateReport> progress, final Steps record) {
+    private Kinds.Planned plan(final UpdateRequest request, final Consumer<RunStage> progress, final Steps record) {
         return switch (request.kind()) {
             case UPDATE -> Kinds.update(this, request, progress, record);
             case RESTART -> Kinds.restart(this, request, record);
-            case BACKUP -> Kinds.backup(this, progress, record);
+            case BACKUP -> Kinds.backup(this, record);
             case DOWN -> Kinds.down(this, request, record);
             case START -> Kinds.start(this, request, record);
             case RECREATE -> Kinds.remake(this, request, false, record);
@@ -202,11 +203,7 @@ public final class Runner implements RequestRunner {
      * @return the step the players are moved in, begun as the countdown ran out; {@code null} when cancelled
      */
     Steps.@Nullable Step countDown(
-            final long id,
-            final UpdateReport planned,
-            final List<String> moving,
-            final Consumer<UpdateReport> progress,
-            final Steps record) {
+            final long id, final List<String> moving, final Consumer<RunStage> progress, final Steps record) {
         final Steps.Step countdown = record.begin(RunStep.Kind.COUNTDOWN);
         final Optional<UpdateRequest> counting = directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN, moving);
         if (counting.isEmpty()) {
@@ -215,7 +212,7 @@ public final class Runner implements RequestRunner {
             countdown.skipped(RunStep.Reason.CANCELLED);
             return null;
         }
-        progress.accept(planned.withStage(UpdateReport.Stage.COUNTDOWN));
+        progress.accept(RunStage.COUNTDOWN);
 
         final Instant due = counting.get().due();
         while (waiting.now().isBefore(due)) {
@@ -261,51 +258,23 @@ public final class Runner implements RequestRunner {
     }
 
     /**
-     * Settles a run that stopped servers, noting any stop whose ending nobody could read.
+     * Returns the stage a run that stopped servers settles in.
      *
-     * @param verified the report after {@code verify}, with its stage not yet settled
+     * @param record the steps of the run, whose failure fails it
      * @param unverified {@link UpdateRun#unverifiedStops()}
      * @param alreadyFailed whether something else has already failed this run
      * @param doubt what an unverified stop costs here
      */
-    static UpdateReport settle(
-            final UpdateReport verified,
-            final List<String> unverified,
-            final boolean alreadyFailed,
-            final Doubt doubt) {
-        final UpdateReport told = unverified.isEmpty()
-                ? verified
-                : verified.withNotes(new Note(
-                                Step.STOP,
-                                doubt == Doubt.FAILS_THE_RUN
-                                        ? UpdateReport.Outcome.FAILED
-                                        : UpdateReport.Outcome.WARNING,
-                                null,
-                                TEXTS.report().unverifiedStop())
-                        .each(unverified));
-        final boolean failed = (doubt == Doubt.FAILS_THE_RUN && !unverified.isEmpty())
-                || alreadyFailed
-                || told.services().stream().anyMatch(line -> line.state() == UpdateReport.State.FAILED);
-        return told.withStage(failed ? UpdateReport.Stage.FAILED : UpdateReport.Stage.DONE);
-    }
-
-    /**
-     * Returns the services this run asked to stop that did not stop.
-     *
-     * Only {@code PLANNED} lines count, so the dump is never blamed.
-     */
-    static List<String> servicesThatRefused(final UpdateReport planned, final Collection<String> stopped) {
-        return planned.services().stream()
-                .filter(line -> line.state() == UpdateReport.State.PLANNED)
-                .map(UpdateReport.ServiceLine::service)
-                .filter(service -> !stopped.contains(service))
-                .toList();
+    static RunStage settle(
+            final Steps record, final List<String> unverified, final boolean alreadyFailed, final Doubt doubt) {
+        final boolean failed =
+                (doubt == Doubt.FAILS_THE_RUN && !unverified.isEmpty()) || alreadyFailed || record.failed();
+        return failed ? RunStage.FAILED : RunStage.DONE;
     }
 
     /** The answer to a run somebody stopped, usually discarded since the row is already {@code CANCELLED}. */
     static Outcome cancelled() {
-        return Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.CANCELLED)
-                .withNote(Note.skipped(Step.RUN, TEXTS.report().cancelled()))));
+        return Outcome.at(RunStage.CANCELLED);
     }
 
     /**
@@ -337,13 +306,5 @@ public final class Runner implements RequestRunner {
 
     boolean isMinecraft(final String service) {
         return topology().hasPlugins(service);
-    }
-
-    static List<String> movingServices(final UpdateReport report) {
-        return report.services().stream()
-                .filter(UpdateReport.ServiceLine::isMoving)
-                .map(UpdateReport.ServiceLine::service)
-                .filter(service -> !Snapshots.DATABASE.equals(service))
-                .toList();
     }
 }

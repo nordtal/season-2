@@ -7,24 +7,18 @@ import { useDebounced } from "@/lib/use-debounced"
 import type { MessageEntry, MessageFallback, MessagePreviewTarget } from "@/lib/api"
 import { previewPlacesOf, type Places } from "@/lib/text-places"
 import { ENGLISH, isLanguage, overrideOf, packagedOf, type Language } from "@/lib/message-text"
-import {
-  useCommandRun,
-  useGameAction,
-  useGlyphs,
-  useMessageCheck,
-  useMessageExamples,
-  useMessageSyntax,
-} from "@/lib/queries"
+import { useGameAction, useGlyphs, useMessageCheck, useMessageExamples, useMessageSyntax } from "@/lib/queries"
 import { branchesOf, formatOf, parse, plainText } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
 import type { GlyphInfo } from "@/lib/api"
 import { choice, message, t } from "@/lib/texts"
-import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Button } from "@/components/ui/button"
 import { InputGroupButton } from "@/components/ui/input-group"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RequestOutcome } from "@/components/steward/game-actions"
-import { exampleOf, type Fill } from "@/components/steward/message-editor/examples"
+import { RequestIcon } from "@/components/steward/game-actions"
+import { exampleOf, fillOf, sentOf, type Fill, useWords } from "@/components/steward/message-editor/examples"
 import { Preview, type Tones } from "@/components/steward/message-editor/preview"
 import { Failure } from "@/components/steward/query-state"
 import { RichField } from "@/components/steward/message-editor/rich-field"
@@ -44,7 +38,6 @@ export type MessageEditorProps = {
   languages: Language[]
   colours: Record<string, string>
   places: Places
-  writable: boolean
   draft: MessageDraft | undefined
   highlight: Highlight | null
   /** `undefined` drops this language's draft. `null` asks for the packaged texts back. */
@@ -70,7 +63,6 @@ export function MessageEditor({
   languages,
   colours,
   places,
-  writable,
   draft,
   highlight,
   onChange,
@@ -90,6 +82,7 @@ export function MessageEditor({
   const syntax = useMessageSyntax()
   const glyphs = useGlyphs()
   const examples = useMessageExamples()
+  const words = useWords()
   const tones = useMemo(
     () => (Object.keys(colours).length > 0 ? colours : (syntax.data?.tones ?? {})),
     [colours, syntax.data],
@@ -98,8 +91,8 @@ export function MessageEditor({
   const kinds = syntax.data?.kinds ?? {}
   const format = formatOf(entry.format)
   // A nested message shows as its words here. The server renders the key itself, so the preview sends the key.
-  const fill = (name: string) => exampleOf(name, entry.args, examples.data, language)
-  const sent = (name: string) => exampleOf(name, entry.args, examples.data)
+  const fill = fillOf(entry.args, examples.data, words(language, entry.bundle))
+  const sent = sentOf(entry.args, examples.data)
 
   const seenSeq = useRef<number | undefined | typeof UNSEEN>(UNSEEN)
   if (seenSeq.current !== highlight?.seq) {
@@ -119,7 +112,8 @@ export function MessageEditor({
   const writeText = (value: string) => write(variants.length === 0 ? [value] : variants.with(at, value))
 
   const runs = useMemo(() => parse(text, format, toneTags), [text, format, toneTags])
-  const drawn = runs === null ? null : branchesOf(runs, format, toneTags, fill)
+  const drawn =
+    runs === null ? null : branchesOf(runs, format, toneTags, (name) => exampleOf(name, entry.args, examples.data))
 
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
   const check = useMessageCheck(path, entry.key, checked)
@@ -141,7 +135,7 @@ export function MessageEditor({
     setVariant(0)
   }
 
-  const common = { format, args: entry.args, fill, tones, label, disabled: !writable }
+  const common = { format, args: entry.args, fill, tones, label }
 
   return (
     <div
@@ -155,7 +149,6 @@ export function MessageEditor({
         <FallbackPanel
           fallback={fallback}
           format={format}
-          writable={writable}
           busy={takingOver}
           onTakeOver={() => onTakeOver(language, fallback.override)}
         />
@@ -197,33 +190,29 @@ export function MessageEditor({
                 </TabsList>
               </Tabs>
             ) : null}
-            {writable ? (
-              <>
-                <InputGroupButton
-                  size="icon-xs"
-                  aria-label={t("steward.message-editor.add-variant")}
-                  title={t("steward.message-editor.add-variant")}
-                  onClick={() => {
-                    write([...(variants.length === 0 ? [""] : variants), text])
-                    setVariant(Math.max(variants.length, 1))
-                  }}
-                >
-                  <PlusIcon aria-hidden />
-                </InputGroupButton>
-                {variants.length > 1 ? (
-                  <InputGroupButton
-                    size="icon-xs"
-                    aria-label={t("steward.message-editor.remove-variant")}
-                    title={t("steward.message-editor.remove-variant")}
-                    onClick={() => {
-                      write(variants.toSpliced(at, 1))
-                      setVariant(Math.max(at - 1, 0))
-                    }}
-                  >
-                    <MinusIcon aria-hidden />
-                  </InputGroupButton>
-                ) : null}
-              </>
+            <InputGroupButton
+              size="icon-xs"
+              aria-label={t("steward.message-editor.add-variant")}
+              title={t("steward.message-editor.add-variant")}
+              onClick={() => {
+                write([...(variants.length === 0 ? [""] : variants), text])
+                setVariant(Math.max(variants.length, 1))
+              }}
+            >
+              <PlusIcon aria-hidden />
+            </InputGroupButton>
+            {variants.length > 1 ? (
+              <InputGroupButton
+                size="icon-xs"
+                aria-label={t("steward.message-editor.remove-variant")}
+                title={t("steward.message-editor.remove-variant")}
+                onClick={() => {
+                  write(variants.toSpliced(at, 1))
+                  setVariant(Math.max(at - 1, 0))
+                }}
+              >
+                <MinusIcon aria-hidden />
+              </InputGroupButton>
             ) : null}
           </>
         }
@@ -249,7 +238,7 @@ export function MessageEditor({
                 <ArrowCounterClockwiseIcon aria-hidden />
               </InputGroupButton>
             ) : null}
-            {override !== undefined && typed !== null && writable ? (
+            {override !== undefined && typed !== null ? (
               <InputGroupButton
                 size="icon-xs"
                 aria-label={t("steward.settings.reset-to-packaged")}
@@ -300,13 +289,11 @@ export function MessageEditor({
 function FallbackPanel({
   fallback,
   format,
-  writable,
   busy,
   onTakeOver,
 }: {
   fallback: MessageFallback
   format: Format
-  writable: boolean
   busy: boolean
   onTakeOver: () => void
 }) {
@@ -316,37 +303,36 @@ function FallbackPanel({
     [t("steward.message-editor.override"), fallback.override],
   ]
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-warning/40 p-3">
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="border-warning/40 text-warning">
-          {t("steward.message-editor.fallen-back")}
-        </Badge>
-        {fallback.reason === "STALE" && writable ? (
-          <Button type="button" size="sm" className="ml-auto" disabled={busy} onClick={onTakeOver}>
+    <Alert variant="warning" role="status">
+      <TERM_ICON.warning aria-hidden />
+      <AlertTitle>{t("steward.message-editor.fallen-back")}</AlertTitle>
+      <AlertDescription className="flex min-w-0 flex-col items-start gap-2 text-foreground">
+        <dl className="grid w-full grid-cols-1 gap-x-3 gap-y-1 text-xs md:grid-cols-[auto_1fr]">
+          {rows.map(([name, texts]) =>
+            texts === undefined ? null : (
+              <div key={name} className="contents">
+                <dt className="text-muted-foreground">{name}</dt>
+                <dd className={cn("min-w-0 break-words whitespace-pre-wrap", format !== "PLAIN" && "font-mono")}>
+                  {texts.join("\n")}
+                </dd>
+              </div>
+            ),
+          )}
+        </dl>
+        {fallback.problems.length > 0 ? (
+          <ul className="flex flex-col gap-0.5 text-xs text-destructive">
+            {fallback.problems.map((problem, index) => (
+              <li key={index}>{message(problem)}</li>
+            ))}
+          </ul>
+        ) : null}
+        {fallback.reason === "STALE" ? (
+          <Button type="button" size="sm" disabled={busy} onClick={onTakeOver}>
             {t("steward.message-editor.take-over")}
           </Button>
         ) : null}
-      </div>
-      <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-xs md:grid-cols-[auto_1fr]">
-        {rows.map(([name, texts]) =>
-          texts === undefined ? null : (
-            <div key={name} className="contents">
-              <dt className="text-muted-foreground">{name}</dt>
-              <dd className={cn("min-w-0 break-words whitespace-pre-wrap", format !== "PLAIN" && "font-mono")}>
-                {texts.join("\n")}
-              </dd>
-            </div>
-          ),
-        )}
-      </dl>
-      {fallback.problems.length > 0 ? (
-        <ul className="flex flex-col gap-0.5 text-xs text-destructive">
-          {fallback.problems.map((problem, index) => (
-            <li key={index}>{message(problem)}</li>
-          ))}
-        </ul>
-      ) : null}
-    </section>
+      </AlertDescription>
+    </Alert>
   )
 }
 
@@ -390,10 +376,11 @@ function PlacePreview({
               size="icon-xs"
               aria-label={sendLabel}
               title={sendLabel}
-              disabled={send.busy || blocked}
+              aria-invalid={send.isError || undefined}
+              disabled={send.isPending || blocked}
               onClick={send.send}
             >
-              <PaperPlaneTiltIcon aria-hidden />
+              <RequestIcon request={send} icon={PaperPlaneTiltIcon} />
             </Button>
           ) : null}
         </figcaption>
@@ -406,8 +393,7 @@ function PlacePreview({
         glyphs={glyphs}
         tones={tones}
       />
-      {send.error ? <Failure error={send.error} /> : null}
-      {send.run ? <RequestOutcome run={send.run} /> : null}
+      {send.error ? <Failure error={send.error} write /> : null}
     </figure>
   )
 }
@@ -424,23 +410,13 @@ type PreviewRequest = {
 /** A value that every message has belongs to the receiving process. */
 function usePreview({ path, service, entry, language, text, fill }: PreviewRequest, shown: string | undefined) {
   const action = useGameAction()
-  const [id, setId] = useState<string | null>(null)
-  const run = useCommandRun(id)
-  const settled = run.data !== undefined && run.data.status !== "PENDING" && run.data.status !== "RUNNING"
   const values = Object.fromEntries(
     entry.args.filter((arg) => !arg.action && !arg.global).map((arg) => [arg.name, fill(arg.name)]),
   )
+  const body = { bundle: path, key: entry.key, language, text, shown, values }
   return {
-    busy: action.isPending || (id !== null && !settled && !run.error),
-    error: action.error ?? run.error,
-    run: id === null ? undefined : run.data,
-    send: () => {
-      setId(null)
-      const body = { bundle: path, key: entry.key, language, text, shown, values }
-      action.mutate(
-        { path: "/api/message-preview", body: service === undefined ? body : { ...body, service } },
-        { onSuccess: (asked) => setId(asked.id) },
-      )
-    },
+    ...action,
+    send: () =>
+      action.mutate({ path: "/api/message-preview", body: service === undefined ? body : { ...body, service } }),
   }
 }

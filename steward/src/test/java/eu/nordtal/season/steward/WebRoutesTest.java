@@ -233,13 +233,11 @@ class WebRoutesTest extends WebTestSupport {
             final HttpResponse<String> asked = post(ask[0], ask[1]);
             assertEquals(202, asked.statusCode(), ask[0] + ": " + asked.body());
             final JsonObject answer = GSON.fromJson(asked.body(), JsonObject.class);
-            final long id = answer.get("id").getAsLong();
+            final String name = answer.get("id").getAsString();
 
-            assertAsked(id, ask);
+            assertAsked(Long.parseLong(name.substring("bot:".length())), ask);
 
-            final JsonObject polled =
-                    GSON.fromJson(get("/api/access/requests/" + id).body(), JsonObject.class);
-            assertEquals(ask[2], polled.get("kind").getAsString());
+            final JsonObject polled = GSON.fromJson(get("/api/commands/" + name).body(), JsonObject.class);
             assertEquals("PENDING", polled.get("status").getAsString());
         }
         assertEquals(
@@ -255,8 +253,14 @@ class WebRoutesTest extends WebTestSupport {
 
     private void assertAsked(final long id, final String[] ask) throws Exception {
         try (var connection = WebFixture.postgres.dataSource().getConnection();
-                var statement = connection.prepareStatement("select kind, payload = cast(? AS jsonb) AS asked,"
-                        + " payload, actor_kind, actor_id from bot_inbox where id = ?")) {
+                var statement = connection.prepareStatement("select kind, written = cast(? AS jsonb) AS asked,"
+                        + " written AS payload, actor_kind, actor_id from (select i.*, jsonb_strip_nulls(coalesce("
+                        + " (select to_jsonb(t) from bot_grant t where t.request = i.id),"
+                        + " (select to_jsonb(t) from bot_revoke t where t.request = i.id),"
+                        + " (select to_jsonb(t) from bot_unlink t where t.request = i.id),"
+                        + " (select to_jsonb(t) from bot_set_playtime t where t.request = i.id),"
+                        + " i.payload)) - 'request' AS written from bot_inbox i) AS asked_rows"
+                        + " where id = ?")) {
             statement.setString(1, ask[3]);
             statement.setLong(2, id);
             try (var row = statement.executeQuery()) {
@@ -305,24 +309,26 @@ class WebRoutesTest extends WebTestSupport {
 
     @Test
     void theBotsAnswerIsRead() throws Exception {
-        final long id = GSON.fromJson(
+        final String name = GSON.fromJson(
                         post("/api/access/revoke", "{\"discordId\":\"700000000000000008\"}")
                                 .body(),
                         JsonObject.class)
                 .get("id")
-                .getAsLong();
+                .getAsString();
+        final long id = Long.parseLong(name.substring("bot:".length()));
         // Stands in for the bot, as the owner: claims everything waiting and answers this one.
         eu.nordtal.season.database.inbox.Inbox.over(
                         WebFixture.postgres.dataSource(), eu.nordtal.season.database.inbox.BotRequest.TABLE)
-                .drain(request -> eu.nordtal.season.database.inbox.Outcome.done(
-                        request.id() == id ? java.util.Map.of("revoked", "2") : null));
+                .drain(request -> request.id() == id
+                        ? eu.nordtal.season.database.inbox.Outcome.done(
+                                new eu.nordtal.season.database.inbox.BotRequest.Revoke.Answer(2))
+                        : eu.nordtal.season.database.inbox.Outcome.failed(null));
 
-        final JsonObject polled =
-                GSON.fromJson(get("/api/access/requests/" + id).body(), JsonObject.class);
+        final JsonObject polled = GSON.fromJson(get("/api/commands/" + name).body(), JsonObject.class);
         assertEquals("DONE", polled.get("status").getAsString());
-        assertEquals("2", polled.getAsJsonObject("result").get("revoked").getAsString());
+        assertEquals(2, polled.getAsJsonObject("answer").get("revoked").getAsInt());
 
-        assertEquals(404, get("/api/access/requests/999999999").statusCode());
+        assertEquals(404, get("/api/commands/bot:999999999").statusCode());
         try (var connection = WebFixture.postgres.dataSource().getConnection();
                 var statement = connection.createStatement()) {
             statement.execute("delete from bot_inbox");

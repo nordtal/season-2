@@ -1,13 +1,12 @@
 package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.update.RunRecorder;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
-import eu.nordtal.season.messages.MessageRef;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -23,7 +22,13 @@ final class FakeDirectory implements UpdateDirectory {
     private final List<UpdateRequest> finished = new ArrayList<>();
 
     /** Every progress write, in order. */
-    final List<String> progressWrites = new ArrayList<>();
+    final List<RunStage> progressWrites = new ArrayList<>();
+
+    /** The steps every run wrote. */
+    final CollectedSteps steps = new CollectedSteps();
+
+    private final Map<Long, eu.nordtal.season.database.inbox.StewardRequest> requests = new LinkedHashMap<>();
+    private final Map<Long, List<String>> scopes = new LinkedHashMap<>();
 
     private long nextId = 1L;
     private Instant now = Instant.parse("2026-09-01T12:00:00Z");
@@ -43,7 +48,7 @@ final class FakeDirectory implements UpdateDirectory {
             final List<String> moving,
             final Instant started,
             final Instant finished,
-            final String result) {
+            final RunStage stage) {
         return new UpdateRequest(
                 row.id(),
                 row.kind(),
@@ -55,12 +60,15 @@ final class FakeDirectory implements UpdateDirectory {
                 moving,
                 started,
                 finished,
-                result);
+                stage);
     }
 
     @Override
     public UpdateRequest submit(
-            final eu.nordtal.season.database.inbox.StewardRequest asked, final Actor actor, final Duration delay) {
+            final eu.nordtal.season.database.inbox.StewardRequest asked,
+            final List<String> services,
+            final Actor actor,
+            final Duration delay) {
         final long id = nextId++;
         final UpdateRequest request = new UpdateRequest(
                 id,
@@ -75,7 +83,24 @@ final class FakeDirectory implements UpdateDirectory {
                 null,
                 null);
         rows.put(id, request);
+        requests.put(id, asked);
+        scopes.put(id, UpdateDirectory.cleaned(services));
         return request;
+    }
+
+    @Override
+    public Optional<eu.nordtal.season.database.inbox.StewardRequest> requestOf(final long id) {
+        return Optional.ofNullable(requests.get(id));
+    }
+
+    @Override
+    public List<String> scopeOf(final long id) {
+        return scopes.getOrDefault(id, List.of());
+    }
+
+    @Override
+    public RunRecorder recorder() {
+        return steps;
     }
 
     @Override
@@ -93,31 +118,38 @@ final class FakeDirectory implements UpdateDirectory {
                     return byTime != 0 ? byTime : Long.compare(left.id(), right.id());
                 })
                 .map(row -> {
-                    // The claim keeps the report.
-                    final UpdateRequest claimed =
-                            copy(row, UpdateStatus.RUNNING, row.countdownEnd(), row.moving(), now, null, row.result());
+                    final UpdateRequest claimed = copy(
+                            row, UpdateStatus.RUNNING, row.countdownEnd(), row.moving(), now, null, RunStage.RESOLVING);
                     rows.put(row.id(), claimed);
                     return claimed;
                 });
     }
 
     @Override
-    public Optional<UpdateRequest> finish(final long id, final UpdateStatus status, final String result) {
+    public Optional<UpdateRequest> finish(final long id, final RunStage stage) {
+        if (!stage.isFinished() || stage == RunStage.CANCELLED) {
+            throw new IllegalArgumentException("A claimed request does not finish " + stage);
+        }
         final UpdateRequest row = rows.get(id);
         if (row == null || row.status() != UpdateStatus.RUNNING) {
             return Optional.empty();
         }
-        final UpdateRequest done = copy(row, status, row.countdownEnd(), row.moving(), row.started(), now, result);
+        final UpdateStatus status = stage == RunStage.FAILED ? UpdateStatus.FAILED : UpdateStatus.DONE;
+        final UpdateRequest done = copy(row, status, row.countdownEnd(), row.moving(), row.started(), now, stage);
         rows.put(id, done);
         finished.add(done);
         return Optional.of(done);
     }
 
     @Override
-    public boolean progress(final long id, final String result) {
-        progressWrites.add(result);
+    public boolean progress(final long id, final RunStage stage) {
+        progressWrites.add(stage);
         final UpdateRequest row = rows.get(id);
-        return row != null && row.status() == UpdateStatus.RUNNING;
+        if (row == null || row.status() != UpdateStatus.RUNNING) {
+            return false;
+        }
+        rows.put(id, copy(row, row.status(), row.countdownEnd(), row.moving(), row.started(), null, stage));
+        return true;
     }
 
     @Override
@@ -155,7 +187,7 @@ final class FakeDirectory implements UpdateDirectory {
             return Optional.empty();
         }
         final UpdateRequest counting = copy(
-                row, row.status(), now.plus(seconds), List.copyOf(moving), row.started(), row.finished(), row.result());
+                row, row.status(), now.plus(seconds), List.copyOf(moving), row.started(), row.finished(), row.stage());
         rows.put(id, counting);
         return Optional.of(counting);
     }
@@ -166,7 +198,7 @@ final class FakeDirectory implements UpdateDirectory {
         if (row == null || row.status() != UpdateStatus.RUNNING) {
             return false;
         }
-        rows.put(id, copy(row, row.status(), now, row.moving(), row.started(), row.finished(), row.result()));
+        rows.put(id, copy(row, row.status(), now, row.moving(), row.started(), row.finished(), row.stage()));
         return true;
     }
 
@@ -182,11 +214,8 @@ final class FakeDirectory implements UpdateDirectory {
     @Override
     public Optional<UpdateRequest> cancelCountdown() {
         return countingDown().map(row -> {
-            final String report = UpdateReports.toJson(UpdateReports.parse(row.result())
-                    .orElseGet(() -> UpdateReport.at(UpdateReport.Stage.CANCELLED))
-                    .withStage(UpdateReport.Stage.CANCELLED));
             final UpdateRequest cancelled =
-                    copy(row, UpdateStatus.CANCELLED, row.countdownEnd(), row.moving(), null, now, report);
+                    copy(row, UpdateStatus.CANCELLED, row.countdownEnd(), row.moving(), null, now, RunStage.CANCELLED);
             rows.put(row.id(), cancelled);
             return cancelled;
         });
@@ -230,9 +259,7 @@ final class FakeDirectory implements UpdateDirectory {
     }
 
     @Override
-    public int settleOrphans(final MessageRef why, final java.util.function.Predicate<String> stillRunning) {
-        final String failed = UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                .withNote(UpdateReport.Note.failed(UpdateReport.Step.RUN, why)));
+    public int settleOrphans(final java.util.function.Predicate<String> stillRunning) {
         int settled = 0;
         for (final UpdateRequest row : List.copyOf(rows.values())) {
             if (row.status() != UpdateStatus.RUNNING) {
@@ -245,7 +272,14 @@ final class FakeDirectory implements UpdateDirectory {
             // A RESTART counts too, because a redeploy takes steward down mid-call.
             rows.put(
                     row.id(),
-                    copy(row, UpdateStatus.FAILED, row.countdownEnd(), row.moving(), row.started(), now, failed));
+                    copy(
+                            row,
+                            UpdateStatus.FAILED,
+                            row.countdownEnd(),
+                            row.moving(),
+                            row.started(),
+                            now,
+                            RunStage.FAILED));
             settled++;
         }
         return settled;

@@ -1,14 +1,11 @@
 package eu.nordtal.season.discordbot.access.discord;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.LinkRedemption;
 import eu.nordtal.season.database.alert.Alert;
-import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AdminLog;
@@ -107,12 +104,10 @@ public final class LinkFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("Redeeming a link code failed", exception);
                 admin.alert(new Alert(
-                        AlertType.BOT,
+                        JournalAction.LINK_FAILED,
                         Alert.Level.DOWN,
-                        "link",
-                        TEXTS.alert().linkFailed(),
-                        List.of(TEXTS.alert().failedFor(member(event.getUser()), String.valueOf(exception))),
-                        "/access"));
+                        new JournalDetail.MemberFailed(
+                                DiscordId.of(event.getUser().getId()), String.valueOf(exception))));
                 event.getHook().editOriginal(reply(locale, Replies.LINK_FAILED)).queue();
             }
         });

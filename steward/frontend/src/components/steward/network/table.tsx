@@ -61,14 +61,9 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                 </Link>
 
                 {players === undefined ? null : (
-                  <span
-                    /**
-                     * The icon shows the word on screen. The title gives it to a screen reader and a test.
-                     */
-                    title={t("steward.network.players")}
-                    className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground"
-                  >
+                  <span className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground">
                     <TERM_ICON.people className="size-3" aria-hidden />
+                    <span className="sr-only">{t("steward.network.players")}</span>
                     <span className="tnum">{players}</span>
                   </span>
                 )}

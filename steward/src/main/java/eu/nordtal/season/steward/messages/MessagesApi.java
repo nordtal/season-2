@@ -27,7 +27,6 @@ import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import java.time.DateTimeException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -51,17 +50,11 @@ public final class MessagesApi {
     private static final Pattern LANGUAGE = Pattern.compile("[a-z]{2,3}(-[a-z0-9]+)*");
 
     private final AgentClient agent;
-    private final @Nullable MessageOverrideStore overrides;
-    private final @Nullable SettingStore settings;
+    private final MessageOverrideStore overrides;
+    private final SettingStore settings;
 
-    /**
-     * @param overrides the override store, or {@code null} without a database, which makes {@code save} refuse
-     * @param settings  the store of the network's languages and each service's colours, or {@code null} for defaults
-     */
-    public MessagesApi(
-            final AgentClient agent,
-            final @Nullable MessageOverrideStore overrides,
-            final @Nullable SettingStore settings) {
+    /** @param settings the store of the network's languages and each service's colours */
+    public MessagesApi(final AgentClient agent, final MessageOverrideStore overrides, final SettingStore settings) {
         this.agent = agent;
         this.overrides = overrides;
         this.settings = settings;
@@ -79,10 +72,6 @@ public final class MessagesApi {
      * @return the bundles a row was written for, in the order the body names them
      */
     public List<String> save(final Context ctx, final Actor actor) {
-        final MessageOverrideStore store = overrides;
-        if (store == null) {
-            throw new RequestRefused(403, ANSWER.noDatabase(StewardTexts.Kept.OVERRIDES));
-        }
         final List<Change> changes = changesOf(bodyOf(ctx.body()));
         final List<Found> union = union();
         final Map<String, MessageEntry> entries = new HashMap<>();
@@ -107,7 +96,7 @@ public final class MessagesApi {
         for (final Change change : changes) {
             final MessageEntry entry =
                     Objects.requireNonNull(entries.get(change.bundle() + "/" + change.key()), change.key());
-            store.change(
+            overrides.change(
                     entry.bundle(),
                     change.key(),
                     change.language(),
@@ -158,11 +147,24 @@ public final class MessagesApi {
         final JsonElement values = body.get("values");
         final JsonElement service = body.get("service");
         return new MessagePreview(
-                exampleOf(entry, values != null && values.isJsonObject() ? values.getAsJsonObject() : new JsonObject()),
+                key,
                 language,
                 text,
                 shown,
-                coloursOf(service != null && service.isJsonPrimitive() ? service.getAsString() : SettingStore.NETWORK));
+                service != null && service.isJsonPrimitive() ? service.getAsString() : SettingStore.NETWORK,
+                givenOf(entry, values != null && values.isJsonObject() ? values.getAsJsonObject() : new JsonObject()));
+    }
+
+    /** Returns the value given for each placeholder of the key's own, as typed. The recipient reads it. */
+    private static Map<String, String> givenOf(final MessageEntry entry, final JsonObject values) {
+        final Map<String, String> given = new LinkedHashMap<>();
+        for (final MessageArg arg : entry.args()) {
+            final JsonElement value = values.get(arg.name());
+            if (!arg.action() && !arg.global() && value != null && value.isJsonPrimitive()) {
+                given.put(arg.name(), value.getAsString());
+            }
+        }
+        return given;
     }
 
     /** Returns the places of a key that a preview reaches, in schema order, without the Steward surface. */
@@ -171,40 +173,6 @@ public final class MessagesApi {
                 .map(Display::valueOf)
                 .filter(display -> display.surface() != Display.Surface.STEWARD)
                 .toList();
-    }
-
-    /**
-     * Returns the key's message with a typed value for each placeholder, without actions and globals.
-     * The value is the one in {@code values}, else the schema's example, else the kind's example. A placeholder
-     * none of them parses is left out.
-     */
-    private static MessageRef exampleOf(final MessageEntry entry, final JsonObject values) {
-        final Map<String, Object> args = new LinkedHashMap<>();
-        for (final MessageArg arg : entry.args()) {
-            if (arg.action() || arg.global()) {
-                continue;
-            }
-            final String token = arg.kind();
-            final Kind kind = token == null ? Kind.TEXT : Kind.byToken(token).orElse(Kind.TEXT);
-            final JsonElement given = values.get(arg.name());
-            final List<String> candidates = new ArrayList<>();
-            if (given != null && given.isJsonPrimitive()) {
-                candidates.add(given.getAsString());
-            }
-            if (arg.example() != null) {
-                candidates.add(arg.example());
-            }
-            candidates.add(kind.defaultExample());
-            for (final String candidate : candidates) {
-                try {
-                    args.put(arg.name(), kind.example(candidate));
-                    break;
-                } catch (final IllegalArgumentException | DateTimeException unread) {
-                    // Tries the next candidate.
-                }
-            }
-        }
-        return new MessageRef(entry.key(), args);
     }
 
     /**
@@ -228,22 +196,17 @@ public final class MessagesApi {
      * Processes show the packaged text for these.
      */
     public void fallbacks(final Context ctx) {
-        final MessageOverrideStore store = overrides;
         final List<Fallback> found = new ArrayList<>();
-        if (store == null) {
-            ctx.json(found);
-            return;
-        }
         final Map<String, MessageEntry> entries = new HashMap<>();
         union().forEach(text -> entries.put(idOf(text.entry()), text.entry()));
         final Set<String> bundles =
                 entries.values().stream().map(MessageEntry::bundle).collect(Collectors.toSet());
         final Map<String, List<MessageOverride>> sets = new LinkedHashMap<>();
-        for (final MessageOverride row : store.overrides(bundles)) {
+        for (final MessageOverride row : overrides.overrides(bundles)) {
             sets.computeIfAbsent(row.bundle() + "/" + row.key() + "/" + row.language(), ignored -> new ArrayList<>())
                     .add(row);
         }
-        final Map<String, List<String>> originals = store.originals(bundles);
+        final Map<String, List<String>> originals = overrides.originals(bundles);
         sets.forEach((name, rows) -> {
             final MessageOverride first = rows.getFirst();
             final MessageEntry entry = entries.get(first.bundle() + "/" + first.key());
@@ -305,15 +268,11 @@ public final class MessagesApi {
     }
 
     private List<Found> layered(final List<Found> union) {
-        final MessageOverrideStore store = overrides;
-        if (store == null) {
-            return union;
-        }
         final Set<String> bundles =
                 union.stream().map(found -> found.entry().bundle()).collect(Collectors.toSet());
         // Maps bundle/key to language to variant number to text.
         final Map<String, Map<String, TreeMap<Integer, String>>> stored = new HashMap<>();
-        for (final MessageOverride row : store.overrides(bundles)) {
+        for (final MessageOverride row : overrides.overrides(bundles)) {
             stored.computeIfAbsent(row.bundle() + "/" + row.key(), ignored -> new HashMap<>())
                     .computeIfAbsent(row.language(), ignored -> new TreeMap<>())
                     .put(row.variant(), row.text());
@@ -363,13 +322,11 @@ public final class MessagesApi {
     /**
      * The answer to {@code list}.
      *
-     * @param writable  whether Steward has a database for overrides
      * @param languages the network's languages, the default first
      * @param colours   each tone's colour by tag, for each service that shows a text
      * @param places    every place a text can be shown with its surface
      */
     public record Texts(
-            boolean writable,
             List<Text> texts,
             List<String> languages,
             Map<String, Map<String, String>> colours,
@@ -460,21 +417,18 @@ public final class MessagesApi {
         for (final Display place : Display.values()) {
             places.put(place.name(), place.surface());
         }
-        return new Texts(overrides != null, texts, languages(settings), colours, places);
+        return new Texts(texts, languages(settings), colours, places);
     }
 
-    /** Returns the network's languages, the default first, and the defaults without a database. */
-    static List<String> languages(final @Nullable SettingStore store) {
-        if (store != null) {
-            try {
-                return NetworkSettings.languages(DatabaseSettings.current(
-                                store, SettingStore.NETWORK, NetworkSettings.LANGUAGE_AND_TIME))
-                        .tags();
-            } catch (final SettingsException unreadable) {
-                // Falls back to the default languages.
-            }
+    /** Returns the network's languages, the default first, and the defaults when the settings cannot be read. */
+    static List<String> languages(final SettingStore store) {
+        try {
+            return NetworkSettings.languages(
+                            DatabaseSettings.current(store, SettingStore.NETWORK, NetworkSettings.LANGUAGE_AND_TIME))
+                    .tags();
+        } catch (final SettingsException unreadable) {
+            return NetworkSettings.defaultLanguages().tags();
         }
-        return NetworkSettings.defaultLanguages().tags();
     }
 
     /** Returns each tone's colour by tag, with the {@code colours} settings of {@code service} applied. */
@@ -483,15 +437,7 @@ public final class MessagesApi {
         for (final Tone tone : Tone.values()) {
             colours.put(tone.tag(), tone.hex());
         }
-        final SettingStore store = settings;
-        if (store != null) {
-            try {
-                Colours.declared(DatabaseSettings.current(store, service, Colours.GROUP))
-                        .forEach((tone, hex) -> colours.put(tone.tag(), hex));
-            } catch (final SettingsException unreadable) {
-                // Every tone keeps its default colour.
-            }
-        }
+        Colours.current(settings, service).forEach((tone, hex) -> colours.put(tone.tag(), hex));
         return colours;
     }
 

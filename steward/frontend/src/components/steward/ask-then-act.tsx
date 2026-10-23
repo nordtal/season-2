@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react"
+import { SpinnerIcon } from "@phosphor-icons/react"
 
 import { Failure } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
@@ -30,9 +31,6 @@ export function AskThenAct({
   destructive = false,
   disabled = false,
   act,
-  answered,
-  busy = false,
-  closeLabel = t("steward.form.close"),
 }: {
   /** When set, the caller decides whether the dialog is open. */
   open?: boolean
@@ -50,11 +48,6 @@ export function AskThenAct({
    * A returned promise keeps the dialog open until it ends. A rejection shows inside the dialog.
    */
   act: () => Promise<unknown> | void
-  /** A success keeps the dialog open, and then only Close is offered. */
-  answered?: ReactNode
-  /** Keeps the dialog open like the change does. */
-  busy?: boolean
-  closeLabel?: string
 }) {
   const [ownOpen, setOwnOpen] = useState(false)
   const [pending, setPending] = useState(false)
@@ -62,7 +55,7 @@ export function AskThenAct({
   const open = openProp ?? ownOpen
 
   const setOpen = (next: boolean) => {
-    if (!next && (pending || busy)) return
+    if (!next && pending) return
     if (!next) setFailure(null)
     setOwnOpen(next)
     onOpenChange?.(next)
@@ -79,7 +72,7 @@ export function AskThenAct({
     try {
       await result
       setPending(false)
-      if (answered === undefined) setOpen(false)
+      setOpen(false)
     } catch (error) {
       setPending(false)
       setFailure(error)
@@ -95,24 +88,18 @@ export function AskThenAct({
           {description ? <ResponsiveAlertDialogDescription>{description}</ResponsiveAlertDialogDescription> : null}
         </ResponsiveAlertDialogHeader>
         {children}
-        {failure ? <Failure error={failure} /> : null}
-        {answered ?? null}
+        {failure ? <Failure error={failure} write /> : null}
         <ResponsiveAlertDialogFooter>
-          {answered ? (
-            <ResponsiveAlertDialogCancel disabled={pending || busy}>{closeLabel}</ResponsiveAlertDialogCancel>
-          ) : (
-            <>
-              <ResponsiveAlertDialogCancel disabled={pending}>{cancel}</ResponsiveAlertDialogCancel>
-              <Button
-                type="button"
-                variant={destructive ? "destructive" : "default"}
-                disabled={disabled || pending}
-                onClick={() => void run()}
-              >
-                {pending ? (acting ?? action) : action}
-              </Button>
-            </>
-          )}
+          <ResponsiveAlertDialogCancel disabled={pending}>{cancel}</ResponsiveAlertDialogCancel>
+          <Button
+            type="button"
+            variant={destructive ? "destructive" : "default"}
+            disabled={disabled || pending}
+            onClick={() => void run()}
+          >
+            {pending ? <SpinnerIcon aria-hidden className="animate-spin" /> : null}
+            {pending ? (acting ?? action) : action}
+          </Button>
         </ResponsiveAlertDialogFooter>
       </ResponsiveAlertDialogContent>
     </ResponsiveAlertDialog>

@@ -120,13 +120,7 @@ public final class GuildLanguages {
         if (!configured.isEmpty()) {
             return configured;
         }
-        return ownName(Locales.parse(language.tag() == null ? "" : language.tag()));
-    }
-
-    /** Returns the capitalised name of the language in itself, such as Deutsch, or its tag when the JDK has none. */
-    private static String ownName(final Locale locale) {
-        final String own = locale.getDisplayLanguage(locale);
-        return own.isEmpty() ? Locales.tag(locale) : own.substring(0, 1).toUpperCase(locale) + own.substring(1);
+        return Locales.ownName(Locales.parse(language.tag() == null ? "" : language.tag()));
     }
 
     /**
@@ -169,7 +163,7 @@ public final class GuildLanguages {
 
         /** Returns the name of the language in itself, such as Deutsch, whatever the role is called. */
         public String ownName() {
-            return GuildLanguages.ownName(locale());
+            return Locales.ownName(locale());
         }
 
         public Locale locale() {

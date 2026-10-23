@@ -1,7 +1,7 @@
 package eu.nordtal.season.discordbot.access.payment;
 
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.database.inbox.BotRequest;
+import eu.nordtal.season.database.payment.BookedPayment;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.access.SeasonStart;
@@ -43,7 +43,7 @@ public final class BookingReaction {
         this.seasonStart = seasonStart;
     }
 
-    public void tell(final BotRequest.PaymentBooked booked) {
+    public void tell(final BookedPayment booked) {
         final DiscordId payer = booked.person();
         seasonStart.warnIfUnanchored(payer, booked.from());
         final Locale locale = roles.localeOf(payer);

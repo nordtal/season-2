@@ -25,6 +25,13 @@ class LocalesTest {
     }
 
     @Test
+    void namesALanguageInItselfCapitalised() {
+        assertEquals("Deutsch", Locales.ownName(Locale.GERMAN));
+        assertEquals("Français", Locales.ownName(Locale.FRENCH));
+        assertEquals("xx", Locales.ownName(Locale.of("xx")));
+    }
+
+    @Test
     void storesTheLanguageOnly() {
         assertEquals("de", Locales.tag(Locale.GERMANY));
         assertEquals("de", Locales.tag(Locale.forLanguageTag("de-AT")));

@@ -30,9 +30,9 @@ public final class ServiceRows {
 
     private final AgentClient agent;
     private final UpdateDirectory updates;
-    private final @Nullable ServicesApi players;
+    private final ServicesApi players;
 
-    ServiceRows(final AgentClient agent, final UpdateDirectory updates, final @Nullable ServicesApi players) {
+    ServiceRows(final AgentClient agent, final UpdateDirectory updates, final ServicesApi players) {
         this.agent = agent;
         this.updates = updates;
         this.players = players;
@@ -297,7 +297,7 @@ public final class ServiceRows {
 
     /** Returns the player counts and lists, or {@code Online.NONE} without a database. */
     ServicesApi.Online online() {
-        return players == null ? ServicesApi.Online.NONE : players.read();
+        return players.read();
     }
 
     /** Returns true for a standby service and {@code null} for every other. */

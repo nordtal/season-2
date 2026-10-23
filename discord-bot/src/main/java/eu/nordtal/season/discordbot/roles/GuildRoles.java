@@ -1,14 +1,12 @@
 package eu.nordtal.season.discordbot.roles;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.JournalDetail;
+import eu.nordtal.season.database.JournalDetail.RoleNamed;
 import eu.nordtal.season.database.alert.Alert;
-import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.DiscordRole;
+import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AlertOnce;
-import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.value.Mention;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -38,9 +36,6 @@ public final class GuildRoles {
 
     /** The role of a member who has not chosen a language and a region. */
     public static final String LOCK = "lock";
-
-    /** The page in Steward that a role alert opens. */
-    private static final String PAGE = "/access";
 
     /** A role the bot uses, with the key it is stored under and the name it is found by. */
     public record Wanted(String key, String name) {}
@@ -109,8 +104,7 @@ public final class GuildRoles {
         if (named.size() > 1) {
             alertOnce(
                     wanted.key(),
-                    TEXTS.alert().roleAmbiguous(wanted.name()),
-                    List.of(TEXTS.alert().noneAdopted()));
+                    new Alert(JournalAction.ROLE_AMBIGUOUS, Alert.Level.WARN, new RoleNamed(wanted.name(), null)));
             return;
         }
         if (named.size() == 1) {
@@ -124,8 +118,10 @@ public final class GuildRoles {
         } catch (final RuntimeException failure) {
             alertOnce(
                     wanted.key(),
-                    TEXTS.alert().roleNotCreated(wanted.name()),
-                    List.of(TEXTS.alert().words(String.valueOf(failure.getMessage()))));
+                    new Alert(
+                            JournalAction.ROLE_NOT_CREATED,
+                            Alert.Level.WARN,
+                            new RoleNamed(wanted.name(), String.valueOf(failure.getMessage()))));
             return;
         }
         store(wanted.key(), created);
@@ -157,16 +153,13 @@ public final class GuildRoles {
     public static Alert notChanged(
             final DiscordRole role, final boolean given, final DiscordId member, final Throwable failure) {
         return new Alert(
-                AlertType.BOT,
+                JournalAction.ROLE_NOT_CHANGED,
                 Alert.Level.WARN,
-                "role",
-                TEXTS.alert().roleNotChanged(role, given),
-                List.of(TEXTS.alert().failedFor(Mention.of(member), String.valueOf(failure.getMessage()))),
-                PAGE);
+                new JournalDetail.RoleNotChanged(role, given, member, String.valueOf(failure.getMessage())));
     }
 
-    private void alertOnce(final String key, final MessageRef title, final List<MessageRef> detail) {
-        if (!alerts.raise(key, new Alert(AlertType.BOT, Alert.Level.WARN, "role " + key, title, detail, PAGE))) {
+    private void alertOnce(final String key, final Alert alert) {
+        if (!alerts.raise(key, alert)) {
             log.debug("Still no role for {}", key);
         }
     }

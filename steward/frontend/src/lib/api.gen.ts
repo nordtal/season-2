@@ -52,7 +52,6 @@ export type Alerts = {
   unreadable?: string
   level: AlertLevel
   alerts: Alert[]
-  recent: RecentAlert[]
 }
 
 export type AlertPreference = {
@@ -87,7 +86,7 @@ export type Run = {
   moving: string[]
   started?: string
   finished?: string
-  stage?: ReportStage
+  stage?: RunStage
   steps: RunStep[]
 }
 
@@ -128,11 +127,27 @@ export type CommandAsked = {
   status: string
 }
 
+export type PlayerInventories = {
+  linked: boolean
+  online?: string
+  states: InventoryState[]
+}
+
+export type StackRemoval = {
+  server: string
+  mode: StateMode
+  container: StateContainer
+  slot: number
+  item: string
+  amount: number
+}
+
 export type CommandRun = {
   id: string
   status: InboxStatus
   result?: MessageRef
   reason?: string
+  answer?: Record<string, unknown>
 }
 
 export type AnnouncementsAsked = {
@@ -144,13 +159,6 @@ export type Settled = {
   days?: number
   until?: string
   was?: string
-}
-
-export type AccessRequestRun = {
-  id: string
-  kind: string
-  status: InboxStatus
-  result?: Record<string, unknown>
 }
 
 export type Person = {
@@ -179,6 +187,8 @@ export type Person = {
   packExemptAt?: string
   aura: number
   spins: number
+  online: boolean
+  lastSeen?: string
 }
 
 export type Grant = {
@@ -221,6 +231,12 @@ export type JournalEntry = {
   subject?: string
   mcUuid?: string
   line: MessageRef
+}
+
+export type JournalPage = {
+  items: JournalItem[]
+  next?: string
+  terms: JournalTerm[]
 }
 
 export type KeyRegistered = {
@@ -272,6 +288,7 @@ export type GameData = {
   registries: Record<string, GameEntry[]>
   tags: Record<string, GameTag[]>
   icons?: GameIcons
+  worlds: Record<string, string[]>
 }
 
 export type ConsoleTree = {
@@ -344,15 +361,6 @@ export type Available = {
   steps: PlannedStep[]
 }
 
-export type Action = {
-  kind: string
-  occurred: string
-  label: MessageRef
-  extent: MessageRef
-  actorKind: ActorKind
-  actorId: string
-}
-
 export type RestoreAsked = {
   id: number
   kind: UpdateKind
@@ -411,9 +419,12 @@ export type ConfigDocument = {
   readable: boolean
   writable: boolean
   revision: string
-  restartRequired: boolean
   entries: ConfigEntry[]
-  reload?: ReloadOutcome
+}
+
+export type ConfigSaved = {
+  document: ConfigDocument
+  reload: ReloadOutcome
 }
 
 export type PluginDescriptor = {
@@ -423,7 +434,6 @@ export type PluginDescriptor = {
 }
 
 export type MessageTexts = {
-  writable: boolean
   texts: MessageText[]
   languages: string[]
   colours: Record<string, Record<string, string>>
@@ -453,7 +463,6 @@ export type MessageSyntax = {
 }
 
 export type DocumentList = {
-  writable: boolean
   documents: DocumentView[]
   languages: string[]
   sharedParts: SharedPartView[]
@@ -573,19 +582,6 @@ export type Alert = {
   path: string
 }
 
-export type RecentAlert = {
-  id: number
-  raised: string
-  raisedBy: string
-  type: AlertType
-  level: AlertLevel
-  subject: string
-  title: MessageRef
-  detail: MessageRef[]
-  measured: Measure[]
-  path: string
-}
-
 export type MetricPoint = {
   at: string
   value: number
@@ -608,7 +604,7 @@ export type UpdateStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED" | "CANCELLE
 
 export type ActorKind = "PERSON" | "STEWARD" | "HOST" | "BOT"
 
-export type ReportStage =
+export type RunStage =
   | "RESOLVING"
   | "PLANNED"
   | "COUNTDOWN"
@@ -644,6 +640,20 @@ export type SmpMilestone = {
   unlocked?: string
   objectives: SmpObjective[]
 }
+
+export type InventoryState = {
+  server: string
+  mode: StateMode
+  status: StateStatus
+  level: number
+  progress: number
+  saved: string
+  stacks: InventoryStack[]
+}
+
+export type StateMode = "SURVIVAL" | "CREATIVE"
+
+export type StateContainer = "INVENTORY" | "ENDER_CHEST"
 
 export type InboxStatus = "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" | "EXPIRED" | "CANCELLED"
 
@@ -709,10 +719,44 @@ export type JournalAction =
   | "LINK_CODES_EXHAUSTED"
   | "SET_AURA"
   | "SET_SPINS"
+  | "REMOVE_STACK"
+  | "SERVICE_DOWN"
+  | "BACKUP_STALE"
+  | "DISK_FULL"
+  | "MEMORY_FULL"
+  | "IMAGE_DRIFT"
+  | "PACK_DEAD"
+  | "RUN_FAILED"
+  | "PAYMENT_NEEDS_LOOK"
+  | "LINK_REFUSED"
+  | "LINK_FAILED"
+  | "PURCHASE_FAILED"
+  | "DM_NOT_DELIVERED"
+  | "ROLE_NOT_CHANGED"
+  | "ROLE_AMBIGUOUS"
+  | "ROLE_NOT_CREATED"
+  | "LOCK_NOT_KEPT"
+  | "LOCK_WITHOUT_CHANNEL"
 
 export type Actor = {
   kind: ActorKind
   person?: string
+}
+
+export type JournalItem = {
+  key: string
+  occurred: string
+  actor: Actor
+  entry?: JournalEntry
+  alert?: Alert
+  opened?: string
+  run?: JournalRun
+}
+
+export type JournalTerm = {
+  kind: TermKind
+  word: string
+  values: string[]
 }
 
 export type QrCode = {
@@ -1024,6 +1068,7 @@ export type StepReason =
   | "UNVERIFIABLE"
   | "LOCAL_BUILD"
   | "FOREIGN_NEWER"
+  | "VELOCITY_AHEAD"
 
 export type RunChange = {
   artefact: string
@@ -1049,6 +1094,36 @@ export type SmpObjective = {
   completed: boolean
   completedAt?: string
 }
+
+export type StateStatus = "STORED" | "AWAY" | "HELD"
+
+export type InventoryStack = {
+  container: StateContainer
+  slot: number
+  item: string
+  amount: number
+}
+
+export type JournalRun = {
+  id: number
+  kind: UpdateKind
+  status: UpdateStatus
+  services: string[]
+  why: MessageRef[]
+}
+
+export type TermKind =
+  | "PAYMENT"
+  | "DISCORD"
+  | "UUID"
+  | "DAYS"
+  | "SERVICE"
+  | "LEVEL"
+  | "RUN_KIND"
+  | "RUN_STATUS"
+  | "GAUGE"
+  | "ACTION"
+  | "NAME"
 
 export type ImageState = "OUTDATED" | "UP_TO_DATE" | "LOCAL" | "UNKNOWN"
 
@@ -1125,6 +1200,7 @@ export type DocumentValue = {
   kind: string
   example: string
   takes?: string[]
+  exampleValue?: unknown
 }
 
 export type DocumentAdaptation = {
@@ -1183,6 +1259,8 @@ export type Gauge =
   | "RESTARTS"
   | "EXIT_CODE"
   | "OLDER_IMAGE"
+  | "REGISTRY"
+  | "PACK"
 
 export type ChangeImage = "PULLED" | "KEPT"
 
@@ -1203,6 +1281,7 @@ export type ReferenceKind =
   | "COLOUR"
   | "DISCORD_CHANNEL"
   | "DISCORD_USER"
+  | "WORLD"
 
 export type MessageArg = {
   name: string
@@ -1211,7 +1290,8 @@ export type MessageArg = {
   global: boolean
   example?: string
   action: boolean
-  exampleWords: Record<string, string>
+  takes?: string[]
+  exampleValue?: unknown
 }
 
 export type DocumentChange = "SLOT_ADDED" | "SLOT_REMOVED" | "SET_ASIDE"

@@ -10,6 +10,7 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import { errorMessage } from "@/lib/api"
 import { continuesPrevious, parseLogLine } from "@/lib/log-line"
 import type { Level, ParsedLine } from "@/lib/log-line"
 import { complete, suggest } from "@/lib/command-tree"
@@ -310,7 +311,8 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
                 className="col-span-full flex flex-wrap gap-x-3 pt-1 sm:grid sm:grid-cols-subgrid sm:pt-0"
               >
                 <span className="text-muted-foreground tabular-nums select-none">{line.time}</span>
-                <span className="max-w-[14ch] truncate text-muted-foreground" title={line.source || undefined}>
+                {/* A phone wraps the line and shows the whole source; a desktop's column truncates it to the title. */}
+                <span className="text-muted-foreground sm:max-w-[14ch] sm:truncate" title={line.source || undefined}>
                   {line.source}
                 </span>
                 <span
@@ -399,7 +401,7 @@ function ConsoleLine({ name }: { name: string }) {
             setCommand("")
           },
           onError: (error) => {
-            toast.error(t("steward.service-page.not-sent"), { description: String(error) })
+            toast.error(t("steward.service-page.not-sent"), { description: errorMessage(error) })
           },
         })
       }}

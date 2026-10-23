@@ -3,12 +3,11 @@ package eu.nordtal.season.steward.game;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.json.Json;
-import eu.nordtal.season.database.DatabaseMessages;
+import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
-import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.Schedule;
@@ -19,17 +18,15 @@ import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import org.jspecify.annotations.Nullable;
 
-/** Writes an announcement of an admin as one request with a message per language into the bot's inbox. */
+/** Writes an announcement of an admin as one request with a line per language into the bot's inbox. */
 public final class Announcements {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -40,22 +37,14 @@ public final class Announcements {
     /** The longest message that Discord accepts. */
     public static final int MAX_LENGTH = 2000;
 
-    /** The time a request waits for the bot. */
-    private static final Duration PATIENCE = Duration.ofMinutes(2);
-
     private static final Pattern TAG = Pattern.compile("[a-z]{2,8}");
 
-    private final @Nullable Data data;
+    private final Data data;
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    public Announcements(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
+    public Announcements(final Data data, final Function<Context, DiscordAuth.Account> accounts) {
         this.data = data;
         this.accounts = accounts;
-    }
-
-    private Inbox<BotRequest> bot() {
-        return Objects.requireNonNull(data, "no database - this route is not available without one")
-                .bot();
     }
 
     /** The answer to {@code POST /api/announcements}: the line id of each language by tag. */
@@ -67,14 +56,12 @@ public final class Announcements {
      */
     public void send(final Context ctx) {
         final Map<String, String> checked = texts(ctx);
-        final Map<String, MessageRef> messages = new LinkedHashMap<>();
-        checked.forEach((tag, text) ->
-                messages.put(tag, DatabaseMessages.MESSAGES.announcement().words(text)));
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final Request<BotRequest> asked = bot().submit(
-                        new BotRequest.Announce(messages),
+        final Request<BotRequest> asked = data.bot()
+                .submit(
+                        BotRequest.Announce.words(checked),
                         who.actor(),
-                        Schedule.within(PATIENCE),
+                        Schedule.within(CommandApi.PATIENCE),
                         AuditLine.of(
                                 JournalAction.ANNOUNCE,
                                 who.actor(),
@@ -115,24 +102,29 @@ public final class Announcements {
         return checked;
     }
 
-    /** Returns the status for the browser. */
-    static InboxStatus status(final InboxStatus status) {
-        return switch (status) {
-            case PENDING, RUNNING, DONE, FAILED, EXPIRED -> status;
+    /** Returns the status of one language's line for the browser: a line the bot did not post failed. */
+    static InboxStatus status(final Request<BotRequest> row, final String language) {
+        return switch (row.status()) {
+            case PENDING, RUNNING, FAILED, EXPIRED -> row.status();
+            case DONE -> posted(row, language).orElse(true) ? InboxStatus.DONE : InboxStatus.FAILED;
             case REFUSED -> InboxStatus.FAILED;
             case CANCELLED -> InboxStatus.EXPIRED;
         };
     }
 
-    /** Returns the result for one language once the bot has answered. */
+    /** Returns why the bot did not post the line of {@code language}, if it did not. */
     static Optional<MessageRef> result(final Request<BotRequest> row, final String language) {
-        final @Nullable String posted = row.outcome(Map.class)
-                .map(answer -> answer.get(language))
-                .map(String::valueOf)
-                .orElse(null);
-        if (posted == null) {
-            return Optional.empty();
-        }
-        return Optional.of(SAID.announced(BotRequest.Announce.POSTED.equals(posted), language));
+        final Locale locale = Locales.parse(language);
+        return posted(row, language)
+                .filter(posted -> !posted)
+                .map(posted -> SAID.notAnnounced(Locales.ownName(locale)));
+    }
+
+    private static Optional<Boolean> posted(final Request<BotRequest> row, final String language) {
+        return row.answer(BotRequest.Announce.Answer.class).stream()
+                .flatMap(answer -> answer.lines().stream())
+                .filter(line -> line.language().equals(language))
+                .findFirst()
+                .map(BotRequest.Announce.Posted::posted);
     }
 }

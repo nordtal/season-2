@@ -1,8 +1,8 @@
 import { cleanup, render } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
-import { Preview } from "@/components/steward/message-editor/preview"
-import { parse } from "@/lib/rich-text"
+import { DiscordRuns, Preview } from "@/components/steward/message-editor/preview"
+import { markdownRuns, parse } from "@/lib/rich-text"
 
 afterEach(cleanup)
 
@@ -82,5 +82,16 @@ describe("a game place's preview", () => {
     )
     const lines = [...container.querySelectorAll<HTMLElement>("[data-slot=mc-line]")]
     expect(lines.map((line) => line.textContent)).toEqual(["One moment", "You will be connected"])
+  })
+})
+
+describe("a Discord preview", () => {
+  it("breaks a code span inside its column, keeping its frame on each line", () => {
+    const { getByText } = render(
+      <DiscordRuns runs={markdownRuns("Join `play.nordtal.eu` now")} fill={(name) => name} />,
+    )
+    // jsdom has no layout, so this pins the rule; a picture at a narrow column shows the wrap.
+    expect(getByText("play.nordtal.eu").className).toMatch(/\bwrap-anywhere\b/)
+    expect(getByText("play.nordtal.eu").className).toMatch(/\bbox-decoration-clone\b/)
   })
 })

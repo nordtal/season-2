@@ -1,6 +1,7 @@
 package eu.nordtal.season.messages.spec;
 
 import eu.nordtal.season.common.json.Json;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.context.Contexts;
 import eu.nordtal.season.messages.text.Declaration;
@@ -13,11 +14,13 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.RecordComponent;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -202,33 +205,31 @@ public final class MessageSchema {
                         + ", which is no kind a message can show"));
         final Example example = element.getAnnotation(Example.class);
         final Takes takes = element.getAnnotation(Takes.class);
-        if (takes != null && kind != Kind.MESSAGE) {
+        final boolean messages = kind == Kind.MESSAGE || listsMessages(element);
+        if (takes != null && !messages) {
             throw new IllegalStateException(
                     where + ": " + name + " is a " + kind.token() + ", and only a message takes keys");
         }
-        final List<String> choices = takes == null ? choices(type) : List.of(takes.value());
+        if (takes == null && kind == Kind.LIST && messages) {
+            throw new IllegalStateException(where + ": " + name + " is a list of messages, so it needs @Takes");
+        }
+        final List<String> choices = takes == null ? Kind.choices(type) : List.of(takes.value());
         if (example == null && takes != null && whole(choices.getFirst())) {
             throw new IllegalStateException(
                     where + ": " + name + " takes " + choices.getFirst() + ", so it needs an @Example to preview");
         }
-        if (example != null && !choices.isEmpty() && !takes(choices, example.value())) {
+        if (example == null && choices.isEmpty()) {
+            throw new IllegalStateException(where + ": " + name + " needs an @Example that fits what it names");
+        }
+        if (example != null
+                && !choices.isEmpty()
+                && !(kind == Kind.LIST ? Kind.items(example.value()) : List.of(example.value()))
+                        .stream().allMatch(item -> takes(choices, item))) {
             throw new IllegalStateException(where + ": the example " + example.value() + " of " + name
                     + " is none of its values " + String.join(", ", choices));
         }
-        final String shown =
-                example != null ? example.value() : choices.isEmpty() ? kind.defaultExample() : choices.getFirst();
+        final String shown = example != null ? example.value() : choices.getFirst();
         return new Arg(name, kind.token(), null, shown, false, takes == null ? null : choices);
-    }
-
-    /** Returns the values a {@code select} tells apart: enum constants, else true and false. */
-    private static List<String> choices(final Class<?> type) {
-        if (type == boolean.class || type == Boolean.class) {
-            return List.of("true", "false");
-        }
-        final Object[] constants = type.getEnumConstants();
-        return constants == null
-                ? List.of()
-                : Arrays.stream(constants).map(Kind::choiceOf).toList();
     }
 
     /** Returns the context types that the messages name and the global roles use, by key. */
@@ -334,6 +335,18 @@ public final class MessageSchema {
         return Json.decode(json, Bundle.class);
     }
 
+    /** Returns whether {@code element} is a list of messages, whose items an example names as keys. */
+    private static boolean listsMessages(final AnnotatedElement element) {
+        final @Nullable Type type = switch (element) {
+            case final RecordComponent component -> component.getGenericType();
+            case final Parameter parameter -> parameter.getParameterizedType();
+            default -> null;
+        };
+        return type instanceof final ParameterizedType list
+                && List.class.isAssignableFrom((Class<?>) list.getRawType())
+                && list.getActualTypeArguments()[0] == MessageRef.class;
+    }
+
     /** Returns whether a key that {@link Takes} names is a whole bundle, {@code bundle/*}. */
     public static boolean whole(final String taken) {
         return taken.endsWith("/*");
@@ -358,8 +371,7 @@ public final class MessageSchema {
 
         /** Returns what the texts of {@code entry} may name. */
         public Declaration declaration(final Entry entry) {
-            final Map<String, Kind> values = new HashMap<>();
-            final Map<String, String> examples = new HashMap<>();
+            final Map<String, Declaration.Placeholder> placeholders = new HashMap<>();
             final Set<String> roles = new HashSet<>();
             final Set<String> actions = new HashSet<>();
             for (final Arg arg : entry.args()) {
@@ -372,44 +384,37 @@ public final class MessageSchema {
                 }
                 roles.add(arg.name());
                 if (arg.context() != null) {
-                    expand(arg.name(), arg.context(), values, examples);
+                    expand(arg.name(), arg.context(), placeholders);
                 } else if (arg.kind() != null) {
-                    values.put(arg.name(), Kind.byToken(arg.kind()).orElse(Kind.TEXT));
-                    if (arg.example() != null) {
-                        examples.put(arg.name(), arg.example());
-                    }
+                    placeholders.put(
+                            arg.name(), new Declaration.Placeholder(arg.kind(), arg.example(), arg.takes() != null));
                 }
             }
             for (final GlobalJson global : globals) {
                 if (!roles.contains(global.name())) {
-                    expand(global.name(), global.context(), values, examples);
+                    expand(global.name(), global.context(), placeholders);
                 }
             }
-            return new Declaration(
-                    values,
+            return Declaration.of(
+                    placeholders,
                     roles,
                     actions,
                     entry.format() == TextFormat.MINIMESSAGE,
                     entry.limit(),
-                    examples,
                     Display.oneLine(entry.shown()));
         }
 
         private void expand(
-                final String role,
-                final String type,
-                final Map<String, Kind> values,
-                final Map<String, String> examples) {
+                final String role, final String type, final Map<String, Declaration.Placeholder> placeholders) {
             final ContextJson context = contexts.get(type);
             if (context == null) {
                 throw new IllegalStateException(
                         "the role " + role + " has the type " + type + ", which the schema does not describe");
             }
             for (final AttributeJson attribute : context.attributes()) {
-                values.put(
+                placeholders.put(
                         role + "." + attribute.name(),
-                        Kind.byToken(attribute.kind()).orElse(Kind.TEXT));
-                examples.put(role + "." + attribute.name(), attribute.example());
+                        new Declaration.Placeholder(attribute.kind(), attribute.example(), false));
             }
         }
     }

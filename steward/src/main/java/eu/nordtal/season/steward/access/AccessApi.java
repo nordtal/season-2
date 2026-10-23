@@ -1,26 +1,22 @@
 package eu.nordtal.season.steward.access;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.inbox.BotRequest;
-import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.database.payment.Bookings;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.data.Data;
+import eu.nordtal.season.steward.game.CommandApi;
+import eu.nordtal.season.steward.game.GameActions;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -38,23 +34,16 @@ public final class AccessApi {
     /** The most days one grant gives. */
     static final int MOST_DAYS = 365;
 
-    /** The time a request waits for the bot. */
-    static final Duration PATIENCE = Duration.ofMinutes(2);
-
     /** The most play time in seconds, ten years. */
     static final long MOST_PLAYTIME_SECONDS = 10L * 365 * 24 * 3600;
 
-    private final @Nullable Data data;
+    private final Data data;
 
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    public AccessApi(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
+    public AccessApi(final Data data, final Function<Context, DiscordAuth.Account> accounts) {
         this.data = data;
         this.accounts = accounts;
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "no database - this route is not available without one");
     }
 
     /** {@code POST /api/access/grant} with {@code {discordId, days}}. */
@@ -93,13 +82,6 @@ public final class AccessApi {
             @Nullable Instant until,
             @Nullable String was) {}
 
-    /** A request in the bot's inbox with the bot's answer, and a text answer is {@code {text}}. */
-    public record AccessRequestRun(
-            String id,
-            String kind,
-            InboxStatus status,
-            @Nullable JsonObject result) {}
-
     /** {@code POST /api/access/settle} with {@code {reference}} books an open payment request by hand as ordered. */
     public void settle(final Context ctx) {
         final Body ask = bodyOf(ctx);
@@ -107,13 +89,13 @@ public final class AccessApi {
             throw new BadRequestResponse("reference is the payment to settle");
         }
         final String reference = ask.reference.trim();
-        final Optional<PaymentRequest> found = data().payments().byReference(reference);
+        final Optional<PaymentRequest> found = data.payments().byReference(reference);
         if (found.isEmpty()) {
             ctx.json(new Settled(SettleOutcome.UNKNOWN, null, null, null));
             return;
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final Bookings.Booking booking = data().bookings()
+        final Bookings.Booking booking = data.bookings()
                 .book(
                         found.get().id(),
                         Bookings.Arrival.byHand(),
@@ -133,7 +115,7 @@ public final class AccessApi {
                         SettleOutcome.NOT_OPEN,
                         found.get().days(),
                         null,
-                        data().payments()
+                        data.payments()
                                 .byId(found.get().id())
                                 .map(row -> row.status().name())
                                 .orElse(found.get().status().name())));
@@ -151,45 +133,15 @@ public final class AccessApi {
         submit(ctx, new BotRequest.SetPlaytime(discordId(ctx.pathParam("id")), ask.seconds));
     }
 
-    /** {@code GET /api/access/requests/{id}} answers the status of a request. */
-    public void outcome(final Context ctx) {
-        final long id;
-        try {
-            id = Long.parseLong(ctx.pathParam("id"));
-        } catch (final NumberFormatException e) {
-            throw new RequestRefused(404, ANSWER.noRequest(ctx.pathParam("id")));
-        }
-        final Request<BotRequest> row =
-                data().bot().find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(String.valueOf(id))));
-
-        final String outcome = row.outcome();
-        ctx.json(new AccessRequestRun(
-                String.valueOf(row.id()), row.kind(), row.status(), outcome == null ? null : parsed(outcome)));
-    }
-
     private void submit(final Context ctx, final BotRequest request) {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Request<BotRequest> written =
-                data().bot().submit(request, Actor.person(DiscordId.of(who.id())), Schedule.within(PATIENCE));
+                data.bot().submit(request, Actor.person(DiscordId.of(who.id())), Schedule.within(CommandApi.PATIENCE));
         log.info("{} asked the bot for {}", who.name(), request);
 
         ctx.status(202)
-                .json(new AccessRequestRun(String.valueOf(written.id()), written.kind(), written.status(), null));
-    }
-
-    /** Returns the bot's answer as an object, and a row that is not JSON as {@code {text}}. */
-    private static JsonObject parsed(final String result) {
-        try {
-            final JsonElement element = Json.tree(result);
-            if (element.isJsonObject()) {
-                return element.getAsJsonObject();
-            }
-        } catch (final JsonSyntaxException notJson) {
-            // The result is shown as text.
-        }
-        final JsonObject text = new JsonObject();
-        text.addProperty("text", result);
-        return text;
+                .json(new GameActions.CommandAsked(
+                        "bot:" + written.id(), written.status().name()));
     }
 
     private static Body bodyOf(final Context ctx) {

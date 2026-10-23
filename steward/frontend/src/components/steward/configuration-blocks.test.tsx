@@ -21,6 +21,7 @@ import {
   requestBody,
   visibleText,
 } from "@/components/steward/configuration.fixtures"
+import { configSaved } from "@/lib/query-fixtures"
 
 afterEach(() => {
   cleanup()
@@ -66,7 +67,6 @@ describe("repeatable cards for a SECTIONS entry", () => {
         [file]: {
           ...location({ path: file, name: "access", service: "discord-bot" }),
           revision: "r1",
-          restartRequired: false,
           entries: [languages([section("en", "")])],
         },
       }),
@@ -88,7 +88,6 @@ describe("repeatable cards for a SECTIONS entry", () => {
         [file]: {
           ...location({ path: file, name: "access", service: "discord-bot" }),
           revision: "r1",
-          restartRequired: false,
           entries: [languages([section("en", ""), section("de", "")])],
         },
       }),
@@ -114,7 +113,6 @@ describe("repeatable cards for a SECTIONS entry", () => {
         [file]: {
           ...location({ path: file, name: "access", service: "discord-bot" }),
           revision: "r1",
-          restartRequired: false,
           entries: [languages([section("en", "")])],
         },
       }),
@@ -138,18 +136,18 @@ describe("repeatable cards for a SECTIONS entry", () => {
         const parsed: unknown = JSON.parse(requestBody(init.body))
         if (!isBodyWithChanges(parsed)) throw new Error("the save did not carry changes")
         putChanges = parsed.changes
-        return json({
-          ...location({ path: file, name: "access", service: "discord-bot" }),
-          revision: "r2",
-          restartRequired: false,
-          entries: [languages([section("en", "")])],
-        })
+        return json(
+          configSaved({
+            ...location({ path: file, name: "access", service: "discord-bot" }),
+            revision: "r2",
+            entries: [languages([section("en", "")])],
+          }),
+        )
       }
       if (url === `/api/setting-groups/${file}`) {
         return json({
           ...location({ path: file, name: "access", service: "discord-bot" }),
           revision: "r1",
-          restartRequired: false,
           entries: [languages([section("en", ""), section("de", "")])],
         })
       }
@@ -185,7 +183,6 @@ describe("a file of colours, side by side", () => {
         [file]: {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
-          restartRequired: false,
           entries: [
             colourEntry("good", "#8ba888"),
             colourEntry("bad", "#a8888b"),
@@ -214,7 +211,6 @@ describe("a file of colours, side by side", () => {
         [file]: {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
-          restartRequired: false,
           entries: [colourEntry("good", "#8ba888"), entry({ path: "label", key: "label", value: "smp" })],
         },
       }),
@@ -232,7 +228,6 @@ describe("a file of colours, side by side", () => {
         [file]: {
           ...location({ path: file, name: "colours.yml", service: "smp" }),
           revision: "r1",
-          restartRequired: false,
           entries: [entry({ path: "label", key: "label", label: "Label", value: "smp" })],
         },
       }),
@@ -255,7 +250,6 @@ describe("two blocks that share their keys, as one row per key", () => {
         [file]: {
           ...location({ path: file, name: "prestige.yml", service: "smp" }),
           revision: "r1",
-          restartRequired: false,
           entries: ladder(["0", "2", "5"], ["#5fbfae", "#5ea9d6", "#6f93e0"]),
         },
       }),
@@ -343,7 +337,6 @@ describe("two blocks that share their keys, as one row per key", () => {
         [file]: {
           ...location({ path: file, name: "prestige.yml", service: "smp" }),
           revision: "r1",
-          restartRequired: false,
           entries: [
             entry({ path: "hours", key: "hours", label: "hours", kind: "MAP", editable: false }),
             entry({ path: "hours.tier-01", key: "tier-01", label: "tier-01", value: "0" }),

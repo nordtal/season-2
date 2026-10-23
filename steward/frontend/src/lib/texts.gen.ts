@@ -2,6 +2,11 @@
 import type { Arg } from "@/lib/texts"
 
 export type TextArgs = {
+  "alert.age": {
+    subject: Arg["text"]
+    hours: Arg["number"]
+    limit: Arg["number"]
+  }
   "alert.claimed": {
     payment: Arg["text"]
     amount: Arg["money"]
@@ -11,14 +16,20 @@ export type TextArgs = {
     type: Arg["choice"]
   }
   "alert.dead-pack": Record<string, never>
-  "alert.disk": {
+  "alert.disk": Record<string, never>
+  "alert.disk-use": {
     percent: Arg["number"]
+    threshold: Arg["number"]
   }
   "alert.dm": Record<string, never>
   "alert.docker-state": {
+    service: Arg["text"]
     state: Arg["text"]
   }
-  "alert.dump-matters": Record<string, never>
+  "alert.exit-code": {
+    service: Arg["text"]
+    code: Arg["number"]
+  }
   "alert.failed-for": {
     person: Arg["mention"]
     error: Arg["text"]
@@ -29,31 +40,30 @@ export type TextArgs = {
   }
   "alert.failed-once": {
     service: Arg["text"]
-    code: Arg["number"]
   }
-  "alert.failure": {
+  "alert.health-fails": {
     service: Arg["text"]
-    what: Arg["message"]
   }
-  "alert.health-fails": Record<string, never>
   "alert.level": {
     level: Arg["choice"]
   }
   "alert.link-failed": Record<string, never>
   "alert.link-refused": Record<string, never>
-  "alert.lock-not-kept": {
-    count: Arg["number"]
-  }
+  "alert.lock-not-kept": Record<string, never>
   "alert.lock-without-channel": Record<string, never>
-  "alert.memory": {
+  "alert.memory": Record<string, never>
+  "alert.memory-use": {
     percent: Arg["number"]
+    threshold: Arg["number"]
+  }
+  "alert.missing": {
+    subject: Arg["text"]
   }
   "alert.no-archive": {
     volume: Arg["text"]
   }
   "alert.no-backup": Record<string, never>
   "alert.no-dump": Record<string, never>
-  "alert.no-limit": Record<string, never>
   "alert.no-offsite": Record<string, never>
   "alert.no-services": Record<string, never>
   "alert.no-tier": {
@@ -78,32 +88,25 @@ export type TextArgs = {
   }
   "alert.old-archive": {
     volume: Arg["text"]
-    hours: Arg["number"]
   }
-  "alert.old-dump": {
-    hours: Arg["number"]
-  }
-  "alert.old-offsite": {
-    hours: Arg["number"]
-  }
+  "alert.old-dump": Record<string, never>
+  "alert.old-offsite": Record<string, never>
   "alert.older-image": {
     services: Arg["list"]
     count: Arg["number"]
   }
-  "alert.only-started": Record<string, never>
   "alert.payment": Record<string, never>
-  "alert.permitted-age": {
-    hours: Arg["number"]
-  }
   "alert.purchase-failed": Record<string, never>
   "alert.refused": {
     reference: Arg["text"]
     refusal: Arg["choice"]
   }
-  "alert.restarted-by-docker": Record<string, never>
-  "alert.restarting": {
+  "alert.restarted-by-docker": {
     service: Arg["text"]
     count: Arg["number"]
+  }
+  "alert.restarting": {
+    service: Arg["text"]
   }
   "alert.role-ambiguous": {
     name: Arg["text"]
@@ -120,10 +123,15 @@ export type TextArgs = {
   }
   "alert.several": {
     subjects: Arg["list"]
-    count: Arg["number"]
   }
-  "alert.threshold": {
-    percent: Arg["number"]
+  "alert.step": {
+    kind: Arg["message"]
+    why: Arg["message"]
+  }
+  "alert.step-on": {
+    kind: Arg["message"]
+    service: Arg["text"]
+    why: Arg["message"]
   }
   "alert.to": {
     person: Arg["mention"]
@@ -351,6 +359,10 @@ export type TextArgs = {
     service: Arg["text"]
     artifact: Arg["text"]
   }
+  "journal.remove-stack": {
+    item: Arg["text"]
+    amount: Arg["number"]
+  }
   "journal.rename-key": {
     label: Arg["text"]
   }
@@ -440,153 +452,23 @@ export type TextArgs = {
     alert: Arg["choice"]
   }
   "journal.web-push-unsubscribe": Record<string, never>
-  "report.agent-not-renewed": {
-    reason: Arg["text"]
-  }
-  "report.backup-unread": {
-    reason: Arg["text"]
-  }
-  "report.backup-wont-fit": {
-    expected: Arg["message"]
-    free: Arg["message"]
-    percent: Arg["number"]
-    reserve: Arg["message"]
-  }
-  "report.cancelled": Record<string, never>
-  "report.down-refused": Record<string, never>
-  "report.down-unnamed": Record<string, never>
-  "report.evacuation-interrupted": Record<string, never>
-  "report.failed-unexpectedly": {
-    error: Arg["text"]
-  }
-  "report.fell-back": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-  }
-  "report.fell-back-down": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-    minutes: Arg["number"]
-    seen: Arg["message"]
-  }
-  "report.fell-back-healthy": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-  }
-  "report.fell-back-interrupted": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-  }
-  "report.foreign-newer": Record<string, never>
-  "report.foreign-not-recreated": {
-    reason: Arg["text"]
-  }
-  "report.handed": {
-    release: Arg["text"]
-  }
-  "report.held-back": {
-    reason: Arg["message"]
-    held: Arg["list"]
-  }
-  "report.held-down": Record<string, never>
-  "report.held-left-out": Record<string, never>
-  "report.held-not-remade": Record<string, never>
-  "report.held-not-restarted": Record<string, never>
-  "report.image-outdated": Record<string, never>
-  "report.image-renewed": Record<string, never>
-  "report.images-local": Record<string, never>
-  "report.images-not-pruned": {
-    error: Arg["text"]
-  }
-  "report.images-pruned": {
-    images: Arg["number"]
-    freed: Arg["message"]
-  }
-  "report.images-uncompared": Record<string, never>
-  "report.images-unread": {
-    answer: Arg["text"]
-  }
-  "report.images-unverifiable": Record<string, never>
-  "report.local-builds-kept": Record<string, never>
-  "report.made-again": {
-    pull: Arg["choice"]
-  }
-  "report.no-backup-volumes": Record<string, never>
   "report.no-build": {
     artefact: Arg["text"]
     minecraft: Arg["text"]
     loader: Arg["text"]
   }
-  "report.no-container": Record<string, never>
-  "report.no-container-to-start": Record<string, never>
-  "report.no-container-to-stop": Record<string, never>
   "report.no-database": Record<string, never>
-  "report.no-offsite": Record<string, never>
   "report.no-source": {
     artefact: Arg["text"]
-  }
-  "report.no-standby": Record<string, never>
-  "report.not-fell-back": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-    answer: Arg["text"]
-  }
-  "report.not-healthy": {
-    minutes: Arg["number"]
-    seen: Arg["message"]
-  }
-  "report.not-in-release": {
-    reason: Arg["message"]
-    installed: Arg["text"]
-  }
-  "report.not-installed": {
-    artefact: Arg["text"]
-    reason: Arg["text"]
-  }
-  "report.not-migrated": {
-    reason: Arg["text"]
   }
   "report.not-mounted": {
     directory: Arg["text"]
   }
-  "report.not-recreated": {
-    outdated: Arg["choice"]
-    reason: Arg["text"]
-  }
-  "report.not-restored": Record<string, never>
-  "report.not-saved": Record<string, never>
-  "report.not-stopped": {
-    run: Arg["choice"]
-  }
-  "report.nothing-changes": Record<string, never>
-  "report.nothing-held": Record<string, never>
-  "report.older-release": {
-    release: Arg["text"]
-    own: Arg["text"]
-  }
-  "report.one-shot-not-started": {
-    release: Arg["text"]
-    reason: Arg["text"]
-  }
-  "report.orphaned": Record<string, never>
-  "report.pack-moves": {
-    version: Arg["text"]
-  }
-  "report.pack-unchecked": {
-    reason: Arg["message"]
-  }
-  "report.players-unknown": {
-    seconds: Arg["number"]
-  }
-  "report.plugin-removed": Record<string, never>
   "report.proxy-pack-unread": {
     error: Arg["text"]
   }
   "report.proxy-pack-without-sha-1": Record<string, never>
   "report.proxy-without-pack": Record<string, never>
-  "report.recreating": {
-    pull: Arg["choice"]
-  }
   "report.release-jar-without-digest": {
     release: Arg["text"]
     jar: Arg["text"]
@@ -606,62 +488,6 @@ export type TextArgs = {
     release: Arg["text"]
     zip: Arg["text"]
   }
-  "report.released-meanwhile": {
-    release: Arg["text"]
-    own: Arg["text"]
-  }
-  "report.remake-agent": Record<string, never>
-  "report.remake-unknown": Record<string, never>
-  "report.remake-unnamed": Record<string, never>
-  "report.removal-empty": {
-    artifact: Arg["text"]
-  }
-  "report.removal-failed": {
-    reason: Arg["text"]
-  }
-  "report.removal-unknown": {
-    artifact: Arg["text"]
-  }
-  "report.removal-unnamed": Record<string, never>
-  "report.removed": {
-    files: Arg["list"]
-  }
-  "report.renewing-agent": Record<string, never>
-  "report.restart-all-held": Record<string, never>
-  "report.restart-none-in-scope": Record<string, never>
-  "report.restarted": {
-    reason: Arg["text"]
-  }
-  "report.restore-database-unsaved": {
-    reason: Arg["text"]
-  }
-  "report.restore-failed": Record<string, never>
-  "report.restore-left-down": {
-    services: Arg["list"]
-    backup: Arg["text"]
-  }
-  "report.restore-not-a-volume": {
-    archive: Arg["text"]
-  }
-  "report.restore-unknown": {
-    archive: Arg["text"]
-  }
-  "report.restore-unnamed": Record<string, never>
-  "report.restore-unsaved": Record<string, never>
-  "report.restored": {
-    size: Arg["message"]
-  }
-  "report.restored-over": {
-    dump: Arg["text"]
-  }
-  "report.runtime-unread": {
-    answer: Arg["text"]
-  }
-  "report.saved": {
-    size: Arg["message"]
-    took: Arg["duration"]
-  }
-  "report.saving": Record<string, never>
   "report.sha-1-unread": {
     file: Arg["text"]
     error: Arg["text"]
@@ -670,61 +496,10 @@ export type TextArgs = {
     amount: Arg["number"]
     unit: Arg["choice"]
   }
-  "report.standby-no-container": Record<string, never>
-  "report.standby-not-started": {
-    reason: Arg["text"]
-  }
-  "report.standby-not-stopped": {
-    reason: Arg["text"]
-  }
-  "report.standby-stopped": Record<string, never>
-  "report.standby-stopped-interrupted": {
-    players: Arg["number"]
-  }
-  "report.standby-stopped-with-players": {
-    players: Arg["number"]
-    seconds: Arg["number"]
-  }
-  "report.standbys-interrupted": Record<string, never>
-  "report.standbys-ready": Record<string, never>
-  "report.standbys-unhealthy": {
-    minutes: Arg["number"]
-    seen: Arg["message"]
-  }
-  "report.start-failed": {
-    reason: Arg["text"]
-  }
-  "report.start-refused": {
-    reason: Arg["text"]
-  }
-  "report.starts-again": Record<string, never>
-  "report.stays-down": Record<string, never>
-  "report.stop-failed": {
-    reason: Arg["text"]
-  }
-  "report.stopped-for-restore": {
-    archive: Arg["text"]
-  }
-  "report.stopped-while-saving": Record<string, never>
-  "report.stopped-with-players": {
-    players: Arg["number"]
-    seconds: Arg["number"]
-  }
-  "report.unclaimed": {
-    file: Arg["text"]
-  }
-  "report.unmarked-archive": {
-    archive: Arg["text"]
-  }
-  "report.unverified-archive": {
-    archive: Arg["text"]
-  }
-  "report.unverified-stop": Record<string, never>
   "report.velocity-ahead": {
     version: Arg["text"]
     api: Arg["text"]
   }
-  "report.wait-interrupted": Record<string, never>
   "report.words": {
     text: Arg["text"]
   }
@@ -737,6 +512,9 @@ export type TextArgs = {
     size: Arg["message"]
     took: Arg["duration"]
     verified: Arg["choice"]
+  }
+  "run.artefact": {
+    artefact: Arg["text"]
   }
   "run.cache-freed": {
     freed: Arg["message"]
@@ -783,21 +561,11 @@ export type TextArgs = {
     needed: Arg["message"]
     free: Arg["message"]
   }
-  "run.state": {
-    state: Arg["choice"]
-  }
   "run.status": {
     status: Arg["choice"]
   }
-  "run.step": {
-    step: Arg["choice"]
-  }
   "run.step-kind": {
     kind: Arg["choice"]
-  }
-  "run.successful": {
-    successful: Arg["number"]
-    total: Arg["number"]
   }
   "run.title": {
     kind: Arg["choice"]
@@ -806,19 +574,16 @@ export type TextArgs = {
   "run.version": {
     to: Arg["text"]
   }
-  "steward.alerts.all-clear": Record<string, never>
-  "steward.alerts.none-raised": Record<string, never>
-  "steward.alerts.now": Record<string, never>
-  "steward.alerts.raised-by": {
-    who: Arg["text"]
-  }
-  "steward.alerts.recent": Record<string, never>
-  "steward.alerts.title": Record<string, never>
-  "steward.alerts.unreadable": Record<string, never>
   "steward.announcements.ask": Record<string, never>
   "steward.announcements.compose": Record<string, never>
   "steward.announcements.host-channel": Record<string, never>
   "steward.announcements.no-channel": Record<string, never>
+  "steward.announcements.not-posted": {
+    language: Arg["text"]
+  }
+  "steward.announcements.posted": {
+    language: Arg["text"]
+  }
   "steward.announcements.send": Record<string, never>
   "steward.announcements.where": {
     languages: Arg["number"]
@@ -885,6 +650,10 @@ export type TextArgs = {
     mebibytes: Arg["number"]
   }
   "steward.answer.interrupted": Record<string, never>
+  "steward.answer.inventory-held": {
+    server: Arg["text"]
+  }
+  "steward.answer.inventory-unlinked": Record<string, never>
   "steward.answer.keep-section": {
     path: Arg["text"]
     field: Arg["text"]
@@ -913,9 +682,6 @@ export type TextArgs = {
     bundle: Arg["text"]
   }
   "steward.answer.no-code": Record<string, never>
-  "steward.answer.no-database": {
-    kept: Arg["choice"]
-  }
   "steward.answer.no-document": {
     namespace: Arg["text"]
     name: Arg["text"]
@@ -977,6 +743,9 @@ export type TextArgs = {
     path: Arg["text"]
   }
   "steward.answer.self": Record<string, never>
+  "steward.answer.server-silent": {
+    server: Arg["text"]
+  }
   "steward.answer.settings-changed": {
     service: Arg["text"]
     group: Arg["text"]
@@ -1012,9 +781,9 @@ export type TextArgs = {
     status: Arg["choice"]
   }
   "steward.backup-settings.no-at": Record<string, never>
-  "steward.backup-settings.no-days": Record<string, never>
   "steward.backup-settings.no-night": Record<string, never>
   "steward.backup-settings.retention-saved": Record<string, never>
+  "steward.backups.all-backups": Record<string, never>
   "steward.backups.all-partial": Record<string, never>
   "steward.backups.archive": Record<string, never>
   "steward.backups.archives": Record<string, never>
@@ -1040,11 +809,12 @@ export type TextArgs = {
   "steward.backups.missing": Record<string, never>
   "steward.backups.next": Record<string, never>
   "steward.backups.no-archive": Record<string, never>
+  "steward.backups.no-archive-yet": Record<string, never>
   "steward.backups.no-clock": Record<string, never>
   "steward.backups.no-run": Record<string, never>
-  "steward.backups.no-such-run": Record<string, never>
   "steward.backups.none": Record<string, never>
   "steward.backups.none-finished": Record<string, never>
+  "steward.backups.not-catalogued": Record<string, never>
   "steward.backups.not-tracked": Record<string, never>
   "steward.backups.nothing-to-restore": Record<string, never>
   "steward.backups.pruned": {
@@ -1064,6 +834,10 @@ export type TextArgs = {
   "steward.backups.when": Record<string, never>
   "steward.backups.written": Record<string, never>
   "steward.document-editor.accent": Record<string, never>
+  "steward.document-editor.adaptations": Record<string, never>
+  "steward.document-editor.adapted": {
+    change: Arg["choice"]
+  }
   "steward.document-editor.add": Record<string, never>
   "steward.document-editor.add-image": Record<string, never>
   "steward.document-editor.add-line": Record<string, never>
@@ -1122,7 +896,6 @@ export type TextArgs = {
   "steward.document-editor.shared-part-exists": {
     name: Arg["text"]
   }
-  "steward.document-editor.shared-part-explained": Record<string, never>
   "steward.document-editor.shared-part-menu": Record<string, never>
   "steward.document-editor.shared-part-name": Record<string, never>
   "steward.document-editor.shared-part-name-rule": Record<string, never>
@@ -1145,31 +918,39 @@ export type TextArgs = {
     version: Arg["choice"]
   }
   "steward.document-editor.versions": Record<string, never>
-  "steward.document-editor.when": Record<string, never>
+  "steward.document-editor.when": {
+    of: Arg["choice"]
+  }
   "steward.failure.agent-silent": Record<string, never>
-  "steward.failure.bot-failed": Record<string, never>
-  "steward.failure.bot-silent": Record<string, never>
   "steward.failure.docker-silent": Record<string, never>
   "steward.failure.http": {
     status: Arg["number"]
   }
+  "steward.failure.loading": Record<string, never>
   "steward.failure.log-lost": Record<string, never>
+  "steward.failure.not-done": Record<string, never>
   "steward.failure.not-loaded": Record<string, never>
   "steward.failure.not-requested": Record<string, never>
-  "steward.failure.smp-failed": Record<string, never>
-  "steward.failure.smp-silent": Record<string, never>
+  "steward.failure.server-failed": {
+    service: Arg["text"]
+  }
+  "steward.failure.server-silent": {
+    service: Arg["text"]
+  }
   "steward.failure.try-again": Record<string, never>
   "steward.failure.unreachable": Record<string, never>
   "steward.form.cancel": Record<string, never>
   "steward.form.changed": {
     count: Arg["number"]
   }
-  "steward.form.changed-meanwhile": Record<string, never>
   "steward.form.close": Record<string, never>
   "steward.form.days": Record<string, never>
   "steward.form.discard": Record<string, never>
   "steward.form.done": Record<string, never>
   "steward.form.remove": Record<string, never>
+  "steward.form.remove-named": {
+    name: Arg["text"]
+  }
   "steward.form.removing": Record<string, never>
   "steward.form.reset": Record<string, never>
   "steward.form.save": Record<string, never>
@@ -1179,10 +960,18 @@ export type TextArgs = {
   "steward.form.saving": Record<string, never>
   "steward.form.schedule": Record<string, never>
   "steward.form.schedule-saved": Record<string, never>
-  "steward.form.sending": Record<string, never>
   "steward.form.waiting": Record<string, never>
+  "steward.form.weekday": {
+    day: Arg["choice"]
+  }
   "steward.game.active": Record<string, never>
+  "steward.game.advancement": Record<string, never>
   "steward.game.all-milestones": Record<string, never>
+  "steward.game.arena": Record<string, never>
+  "steward.game.aura-of": {
+    name: Arg["text"]
+  }
+  "steward.game.chance": Record<string, never>
   "steward.game.complete": Record<string, never>
   "steward.game.complete-ask": {
     name: Arg["text"]
@@ -1195,10 +984,15 @@ export type TextArgs = {
   "steward.game.done-at": {
     at: Arg["text"]
   }
+  "steward.game.duel-types": Record<string, never>
+  "steward.game.item": Record<string, never>
   "steward.game.keep": Record<string, never>
+  "steward.game.loadout": Record<string, never>
   "steward.game.locked": Record<string, never>
+  "steward.game.max": Record<string, never>
   "steward.game.milestone": Record<string, never>
   "steward.game.milestones": Record<string, never>
+  "steward.game.min": Record<string, never>
   "steward.game.move-down": {
     name: Arg["text"]
   }
@@ -1209,12 +1003,12 @@ export type TextArgs = {
   "steward.game.no-track": Record<string, never>
   "steward.game.no-way-back": Record<string, never>
   "steward.game.objective": Record<string, never>
-  "steward.game.outcome": {
-    status: Arg["choice"]
-  }
+  "steward.game.platform": Record<string, never>
+  "steward.game.prize": Record<string, never>
   "steward.game.progress": {
     name: Arg["text"]
   }
+  "steward.game.region": Record<string, never>
   "steward.game.registered": {
     count: Arg["number"]
   }
@@ -1224,6 +1018,9 @@ export type TextArgs = {
   "steward.game.remove-it": Record<string, never>
   "steward.game.round": Record<string, never>
   "steward.game.running": Record<string, never>
+  "steward.game.spins-of": {
+    name: Arg["text"]
+  }
   "steward.game.start": {
     anyway: Arg["choice"]
   }
@@ -1233,6 +1030,9 @@ export type TextArgs = {
   "steward.game.start-round": Record<string, never>
   "steward.game.tasks": {
     finished: Arg["number"]
+    total: Arg["number"]
+  }
+  "steward.game.total-weight": {
     total: Arg["number"]
   }
   "steward.game.track": Record<string, never>
@@ -1264,22 +1064,38 @@ export type TextArgs = {
   "steward.image.label": Record<string, never>
   "steward.image.local-jars": Record<string, never>
   "steward.image.unchecked-tip": Record<string, never>
-  "steward.journal.action": Record<string, never>
-  "steward.journal.actor": Record<string, never>
-  "steward.journal.concerns": Record<string, never>
-  "steward.journal.count": {
-    count: Arg["number"]
+  "steward.journal.after-hours": {
+    hours: Arg["number"]
+    minutes: Arg["number"]
+  }
+  "steward.journal.after-minutes": {
+    minutes: Arg["number"]
+  }
+  "steward.journal.checked": {
+    when: Arg["text"]
+  }
+  "steward.journal.days": {
+    days: Arg["number"]
+  }
+  "steward.journal.meter": {
+    subject: Arg["text"]
+    value: Arg["number"]
     limit: Arg["number"]
   }
-  "steward.journal.detail": Record<string, never>
-  "steward.journal.entries": Record<string, never>
-  "steward.journal.exact-id": Record<string, never>
-  "steward.journal.min-days": Record<string, never>
   "steward.journal.no-entry": Record<string, never>
-  "steward.journal.reference": Record<string, never>
-  "steward.journal.subject": Record<string, never>
+  "steward.journal.nothing-open": Record<string, never>
+  "steward.journal.older": Record<string, never>
+  "steward.journal.open-now": Record<string, never>
+  "steward.journal.quoted": {
+    word: Arg["text"]
+  }
+  "steward.journal.read-as": Record<string, never>
+  "steward.journal.search": Record<string, never>
+  "steward.journal.search-hint": Record<string, never>
   "steward.journal.title": Record<string, never>
-  "steward.journal.when": Record<string, never>
+  "steward.journal.today": Record<string, never>
+  "steward.journal.unreadable": Record<string, never>
+  "steward.journal.yesterday": Record<string, never>
   "steward.keys.aborted": Record<string, never>
   "steward.keys.add": Record<string, never>
   "steward.keys.add-note": {
@@ -1294,7 +1110,7 @@ export type TextArgs = {
   "steward.keys.app-scan": Record<string, never>
   "steward.keys.app-secret": Record<string, never>
   "steward.keys.app-title": Record<string, never>
-  "steward.keys.back-to-status": Record<string, never>
+  "steward.keys.back-to-overview": Record<string, never>
   "steward.keys.brand": Record<string, never>
   "steward.keys.browser-cannot": Record<string, never>
   "steward.keys.call-it": Record<string, never>
@@ -1464,6 +1280,9 @@ export type TextArgs = {
     service: Arg["text"]
   }
   "steward.network.players": Record<string, never>
+  "steward.network.players-online": {
+    count: Arg["number"]
+  }
   "steward.network.title": Record<string, never>
   "steward.network.up": {
     since: Arg["text"]
@@ -1581,7 +1400,6 @@ export type TextArgs = {
     kind: Arg["text"]
     run: Arg["number"]
   }
-  "steward.overview.authored": Record<string, never>
   "steward.overview.behind": Record<string, never>
   "steward.overview.cores": {
     count: Arg["number"]
@@ -1621,7 +1439,6 @@ export type TextArgs = {
     was: Arg["text"]
   }
   "steward.payments.nothing-booked": Record<string, never>
-  "steward.payments.nothing-settled": Record<string, never>
   "steward.payments.only-overdue": Record<string, never>
   "steward.payments.open": Record<string, never>
   "steward.payments.overdue": Record<string, never>
@@ -1660,8 +1477,8 @@ export type TextArgs = {
   }
   "steward.people.admin": Record<string, never>
   "steward.people.admins": Record<string, never>
+  "steward.people.armour": Record<string, never>
   "steward.people.aura": Record<string, never>
-  "steward.people.aura-not-written": Record<string, never>
   "steward.people.aura-now": {
     aura: Arg["number"]
   }
@@ -1684,7 +1501,7 @@ export type TextArgs = {
     becoming: Arg["duration"]
     usable: Arg["choice"]
   }
-  "steward.people.discord-id": Record<string, never>
+  "steward.people.ender-chest": Record<string, never>
   "steward.people.exact-tip": {
     at: Arg["instant"]
   }
@@ -1695,21 +1512,34 @@ export type TextArgs = {
   "steward.people.filter-name": Record<string, never>
   "steward.people.grant": Record<string, never>
   "steward.people.grant-access": Record<string, never>
-  "steward.people.grant-title": Record<string, never>
+  "steward.people.grant-title": {
+    name: Arg["text"]
+  }
   "steward.people.granted": Record<string, never>
   "steward.people.granted-by": {
     name: Arg["text"]
   }
   "steward.people.guild": Record<string, never>
+  "steward.people.hotbar": Record<string, never>
   "steward.people.hours": Record<string, never>
-  "steward.people.id-example": Record<string, never>
+  "steward.people.inventories": Record<string, never>
+  "steward.people.inventory-server": Record<string, never>
+  "steward.people.inventory-status": {
+    status: Arg["choice"]
+    server: Arg["text"]
+  }
   "steward.people.language": Record<string, never>
   "steward.people.last-changed": {
     at: Arg["instant"]
   }
+  "steward.people.last-seen": Record<string, never>
+  "steward.people.level": {
+    level: Arg["number"]
+  }
   "steward.people.linked-at": {
     at: Arg["instant"]
   }
+  "steward.people.main-inventory": Record<string, never>
   "steward.people.make-admin": Record<string, never>
   "steward.people.make-admin-title": {
     name: Arg["text"]
@@ -1719,16 +1549,21 @@ export type TextArgs = {
   }
   "steward.people.minecraft": Record<string, never>
   "steward.people.minutes": Record<string, never>
+  "steward.people.mode": {
+    mode: Arg["choice"]
+  }
   "steward.people.most-days": {
     most: Arg["number"]
   }
   "steward.people.never": Record<string, never>
+  "steward.people.never-seen": Record<string, never>
   "steward.people.next": Record<string, never>
   "steward.people.no-access": Record<string, never>
   "steward.people.no-access-tip": {
     until: Arg["instant"]
   }
   "steward.people.no-entry": Record<string, never>
+  "steward.people.no-inventory": Record<string, never>
   "steward.people.no-longer-admin": Record<string, never>
   "steward.people.no-match": Record<string, never>
   "steward.people.no-pack": Record<string, never>
@@ -1741,17 +1576,13 @@ export type TextArgs = {
   "steward.people.nobody": Record<string, never>
   "steward.people.none-linked": Record<string, never>
   "steward.people.none-running": Record<string, never>
-  "steward.people.not-granted": Record<string, never>
   "steward.people.not-linked": Record<string, never>
   "steward.people.not-linked-tip": {
     paid: Arg["choice"]
   }
-  "steward.people.not-made-admin": Record<string, never>
-  "steward.people.not-revoked": Record<string, never>
-  "steward.people.not-unlinked": Record<string, never>
-  "steward.people.nothing-changed": Record<string, never>
   "steward.people.nothing-to-revoke": Record<string, never>
   "steward.people.nothing-to-unlink": Record<string, never>
+  "steward.people.online": Record<string, never>
   "steward.people.only-linked": Record<string, never>
   "steward.people.only-unlinked": Record<string, never>
   "steward.people.over": Record<string, never>
@@ -1771,7 +1602,6 @@ export type TextArgs = {
   "steward.people.playtime-from": {
     time: Arg["duration"]
   }
-  "steward.people.playtime-not-written": Record<string, never>
   "steward.people.playtime-set": {
     name: Arg["text"]
   }
@@ -1781,6 +1611,13 @@ export type TextArgs = {
     from: Arg["number"]
     to: Arg["number"]
     total: Arg["number"]
+  }
+  "steward.people.remove-stack": {
+    item: Arg["text"]
+    amount: Arg["number"]
+  }
+  "steward.people.remove-stack-loss": {
+    server: Arg["text"]
   }
   "steward.people.request": Record<string, never>
   "steward.people.request-gone": {
@@ -1805,13 +1642,15 @@ export type TextArgs = {
   "steward.people.roles": Record<string, never>
   "steward.people.root-admin": Record<string, never>
   "steward.people.running": Record<string, never>
+  "steward.people.seen-at": {
+    at: Arg["instant"]
+  }
   "steward.people.some-admin": Record<string, never>
   "steward.people.source": {
     source: Arg["choice"]
   }
   "steward.people.source-column": Record<string, never>
   "steward.people.spins": Record<string, never>
-  "steward.people.spins-not-written": Record<string, never>
   "steward.people.spins-now": {
     spins: Arg["number"]
   }
@@ -1820,6 +1659,14 @@ export type TextArgs = {
     spins: Arg["number"]
   }
   "steward.people.spins-title": Record<string, never>
+  "steward.people.stack": {
+    item: Arg["text"]
+    amount: Arg["number"]
+  }
+  "steward.people.stack-removed": {
+    item: Arg["text"]
+    amount: Arg["number"]
+  }
   "steward.people.state": Record<string, never>
   "steward.people.supporter": Record<string, never>
   "steward.people.supporters": Record<string, never>
@@ -1834,15 +1681,13 @@ export type TextArgs = {
   }
   "steward.people.window": Record<string, never>
   "steward.people.with-access": Record<string, never>
-  "steward.said.announced": {
-    posted: Arg["choice"]
-    language: Arg["text"]
-  }
   "steward.said.channels-not-published": Record<string, never>
   "steward.said.guild-not-listed": Record<string, never>
   "steward.said.message": Record<string, never>
   "steward.said.no-guild-id": Record<string, never>
-  "steward.said.preview-sent": Record<string, never>
+  "steward.said.not-announced": {
+    language: Arg["text"]
+  }
   "steward.said.setting": {
     network: Arg["choice"]
     service: Arg["text"]
@@ -2023,6 +1868,8 @@ export type TextArgs = {
     what: Arg["text"]
   }
   "steward.settings.all": Record<string, never>
+  "steward.settings.applies-after-restart": Record<string, never>
+  "steward.settings.applies-on-save": Record<string, never>
   "steward.settings.back-to-files": Record<string, never>
   "steward.settings.back-to-top": Record<string, never>
   "steward.settings.cannot-remove": Record<string, never>
@@ -2050,18 +1897,30 @@ export type TextArgs = {
   "steward.settings.incomplete": {
     missing: Arg["text"]
   }
+  "steward.settings.invalid-fields": {
+    count: Arg["number"]
+  }
   "steward.settings.keep-it": Record<string, never>
   "steward.settings.no-colour": Record<string, never>
   "steward.settings.no-entries": Record<string, never>
   "steward.settings.no-files": Record<string, never>
+  "steward.settings.no-game-data": Record<string, never>
   "steward.settings.no-match": Record<string, never>
   "steward.settings.no-such-file": Record<string, never>
+  "steward.settings.no-worlds": {
+    service: Arg["text"]
+  }
   "steward.settings.none": Record<string, never>
   "steward.settings.not-in-bundle": Record<string, never>
+  "steward.settings.not-of-type": {
+    expected: Arg["choice"]
+  }
   "steward.settings.not-readable": Record<string, never>
+  "steward.settings.not-saved": Record<string, never>
   "steward.settings.not-set": Record<string, never>
   "steward.settings.overridden": Record<string, never>
   "steward.settings.pick-colour": Record<string, never>
+  "steward.settings.plugin-files": Record<string, never>
   "steward.settings.preview": {
     shown: Arg["choice"]
   }
@@ -2083,7 +1942,6 @@ export type TextArgs = {
   "steward.settings.remove-entry-ask": Record<string, never>
   "steward.settings.remove-it": Record<string, never>
   "steward.settings.reset-to-packaged": Record<string, never>
-  "steward.settings.restart-needed": Record<string, never>
   "steward.settings.search": Record<string, never>
   "steward.settings.search-file": Record<string, never>
   "steward.settings.search-in": {

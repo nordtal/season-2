@@ -1,10 +1,13 @@
 package eu.nordtal.season.database.alert;
 
+import eu.nordtal.season.common.id.Actor;
 import java.time.Instant;
+import java.util.UUID;
 
 /**
- * One row of {@code admin_alert}.
+ * An alert as the journal holds it.
  *
- * @param raisedBy the module that raised it, such as {@code discord-bot}
+ * @param id its journal entry
+ * @param raisedBy steward or the bot
  */
-public record RaisedAlert(long id, Instant raised, String raisedBy, Alert alert) {}
+public record RaisedAlert(UUID id, Instant raised, Actor raisedBy, Alert alert) {}

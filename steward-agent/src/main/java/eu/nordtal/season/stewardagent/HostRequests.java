@@ -89,7 +89,7 @@ final class HostRequests {
         final Duration delay = Duration.ofMinutes(args.size() > 3 ? Long.parseLong(args.get(3)) : 0);
         try {
             final UpdateRequest written = replaceLocal
-                    ? runs.submit(new StewardRequest.Update(UpdateDirectory.cleaned(services), true), Actor.HOST, delay)
+                    ? runs.submit(new StewardRequest.Update(true), services, Actor.HOST, delay)
                     : runs.submit(kind, Actor.HOST, delay, services);
             System.out.println(written.id());
             return 0;

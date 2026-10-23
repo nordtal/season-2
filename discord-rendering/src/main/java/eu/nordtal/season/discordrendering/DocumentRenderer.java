@@ -322,8 +322,8 @@ public final class DocumentRenderer {
      */
     public String preview(final Documents.Packaged draft, final List<Locale> languages, final Locale locale) {
         final DocumentDeclaration declaration = draft.declaration();
-        final Map<String, Object> values = Value.examples(declaration.named());
-        final Map<String, Filled> slots = ExampleSlots.of(declaration, languages);
+        final Map<String, Object> values = Value.examples(declaration.named(), messages.raw());
+        final Map<String, Filled> slots = ExampleSlots.of(declaration, languages, messages.raw());
         return switch (declaration.shape()) {
             case MESSAGE ->
                 new MessageCreateBuilder()
@@ -352,10 +352,10 @@ public final class DocumentRenderer {
     public MessageCreateData message(
             final Documents.Packaged draft, final List<Locale> languages, final Locale locale) {
         final DocumentDeclaration declaration = draft.declaration();
-        final Map<String, Object> values = Value.examples(declaration.named());
+        final Map<String, Object> values = Value.examples(declaration.named(), messages.raw());
         return switch (declaration.shape()) {
             case MESSAGE ->
-                draw(draft, values, ExampleSlots.of(declaration, languages), locale)
+                draw(draft, values, ExampleSlots.of(declaration, languages, messages.raw()), locale)
                         .create();
             case PLAIN -> MessageCreateData.fromContent(plain(draft, values, locale));
             case MODAL,

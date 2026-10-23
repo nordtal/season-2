@@ -21,13 +21,13 @@ class PlanViewTest {
                 false,
                 List.of(new Change("smp", "chunky", Change.Status.NOT_IN_RELEASE, "Chunky-1.4.jar", null, null)),
                 List.of(new UpdatePlan.Unclaimed("limbo", "Somebodys-1.0.jar")),
-                List.of(TEXTS.report().words("Velocity is newer than its API")));
+                List.of(TEXTS.report().velocityAhead("4.4.0", "4.3.0")));
 
         final List<AgentWire.PlannedStep> steps = PlanView.of(plan).steps();
 
         assertEquals(
                 List.of(
-                        "RESOLVE - WARNING SOURCE_FAILED [run.reason]",
+                        "RESOLVE - WARNING VELOCITY_AHEAD [run.reason]",
                         "RESOLVE smp WARNING NOT_IN_RELEASE [run.reason]",
                         "RESOLVE limbo WARNING UNCLAIMED [run.reason]"),
                 steps.stream()

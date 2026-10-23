@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.spec.annotation.ConfigSpec;
-import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
@@ -31,10 +30,11 @@ public interface DuelsSpec {
         return 200;
     }
 
+    /** The height between two stacked arenas. It exceeds the arena's own height, or the arenas overlap. */
     @Order(23)
     @Name("Duel arena spacing")
     @Key("duel-arena-spacing")
-    @Explain("Must exceed the arena's own height, or stacked arenas overlap.")
+    @NoExplanationNeeded
     default int duelArenaSpacing() {
         return 16;
     }
@@ -67,7 +67,7 @@ public interface DuelsSpec {
     @Name("Duel loadout: sword")
     @Key("duel-loadout-sword")
     @NoExplanationNeeded
-    default List<WheelPrizeSpec> duelLoadoutSword() {
+    default List<DuelLoadoutItemSpec> duelLoadoutSword() {
         return DefaultSmp.DUEL_LOADOUT_SWORD;
     }
 
@@ -75,7 +75,7 @@ public interface DuelsSpec {
     @Name("Duel loadout: bow")
     @Key("duel-loadout-bow")
     @NoExplanationNeeded
-    default List<WheelPrizeSpec> duelLoadoutBow() {
+    default List<DuelLoadoutItemSpec> duelLoadoutBow() {
         return DefaultSmp.DUEL_LOADOUT_BOW;
     }
 }

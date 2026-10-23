@@ -1,15 +1,15 @@
 package eu.nordtal.season.steward.metric;
 
 import eu.nordtal.season.database.metric.MetricPoint;
+import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.data.Data;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
-import org.jspecify.annotations.Nullable;
 
 /** {@code /api/metrics} answers the curves of the start page from Postgres. */
 public final class Metrics {
@@ -17,17 +17,13 @@ public final class Metrics {
     /** The default window in minutes, six hours. */
     private static final int DEFAULT_MINUTES = 360;
 
-    private final @Nullable Data data;
+    private final Data data;
 
     private final Clock clock;
 
-    public Metrics(final @Nullable Data data, final Clock clock) {
+    public Metrics(final Data data, final Clock clock) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.data = data;
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "this route needs the database, which this instance has none of");
     }
 
     /** The curve of one metric of one subject since {@code from}, oldest point first. */
@@ -44,6 +40,10 @@ public final class Metrics {
                 .getOrDefault(DEFAULT_MINUTES);
         final Instant now = clock.instant();
         final Instant from = now.minus(Duration.ofMinutes(minutes));
-        ctx.json(new Curve(subject, metric, from, data().metrics().range(subject, metric, from, now)));
+        ctx.json(new Curve(subject, metric, from, data.metrics().range(subject, metric, from, now)));
+    }
+
+    public void register(final JavalinConfig cfg) {
+        cfg.routes.get("/api/metrics", this::range, Gate.KEY_HELD);
     }
 }

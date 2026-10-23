@@ -23,7 +23,6 @@ import org.slf4j.LoggerFactory;
 /** Tests that a log follow ends without an exception when its browser leaves and when Steward stops. */
 class FollowEndsTest {
 
-    private static final int PORT = 18084;
     private static final Gson GSON = new Gson();
 
     private static final class Warnings extends AppenderBase<ILoggingEvent> {
@@ -45,15 +44,16 @@ class FollowEndsTest {
         final AgentStandIn agent = new AgentStandIn(scratch, 0, config -> {});
         final StackApi api = StackServer.api(agent);
         boolean closedByTheTest = false;
-        final Javalin server = StackServer.start(api, PORT);
+        // Any free port, so two builds on one host never collide.
+        final Javalin server = StackServer.start(api, 0);
         try {
             final HttpClient http = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(5))
                     .build();
-            final String name = aRunningService(http);
+            final String name = aRunningService(http, server.port());
 
             try (WarningWatch watch = WarningWatch.attach()) {
-                followThenLeaveLikeABrowser(http, name);
+                followThenLeaveLikeABrowser(http, server.port(), name);
                 Thread.sleep(200);
 
                 api.close();
@@ -82,10 +82,11 @@ class FollowEndsTest {
     }
 
     /** Opens the follow, reads the first line and closes the body. */
-    private static void followThenLeaveLikeABrowser(final HttpClient http, final String name) throws Exception {
+    private static void followThenLeaveLikeABrowser(final HttpClient http, final int port, final String name)
+            throws Exception {
         final HttpResponse<InputStream> follow = http.send(
                 HttpRequest.newBuilder(
-                                URI.create("http://127.0.0.1:" + PORT + "/api/services/" + name + "/logs?tail=200"))
+                                URI.create("http://127.0.0.1:" + port + "/api/services/" + name + "/logs?tail=200"))
                         .header("Accept", "text/event-stream")
                         .GET()
                         .build(),
@@ -130,9 +131,9 @@ class FollowEndsTest {
     }
 
     /** Returns a service with a running container, or skips the test. */
-    private static String aRunningService(final HttpClient http) throws Exception {
+    private static String aRunningService(final HttpClient http, final int port) throws Exception {
         final HttpResponse<String> response = http.send(
-                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + PORT + "/api/services"))
+                HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/services"))
                         .GET()
                         .build(),
                 HttpResponse.BodyHandlers.ofString());

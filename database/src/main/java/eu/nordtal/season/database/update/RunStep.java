@@ -111,7 +111,9 @@ public final class RunStep {
         /** An image whose registry could not be compared. */
         UNVERIFIABLE,
         LOCAL_BUILD,
-        FOREIGN_NEWER
+        FOREIGN_NEWER,
+        /** The newest Velocity is newer than the API the proxy is built against. */
+        VELOCITY_AHEAD
     }
 
     /** Which image a container was recreated from. */

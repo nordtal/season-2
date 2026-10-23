@@ -1,5 +1,8 @@
 package eu.nordtal.season.messages.document;
 
+import eu.nordtal.season.messages.MessageJson;
+import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.context.Contexts;
 import eu.nordtal.season.messages.spec.MessageSchema;
 import eu.nordtal.season.messages.value.Kind;
@@ -15,25 +18,59 @@ import org.jspecify.annotations.Nullable;
  *
  * @param kind the kind's token
  * @param example what a preview and the length check fill in
- * @param takes the keys a message value may take, else {@code null}
+ * @param takes the keys a message value, or each item of a list of messages, may take, else {@code null}
+ * @param exampleValue the example read as its kind, as {@code {kind, value}}, where Steward's editor shows it, else
+ *     {@code null}, which keeps it out of the declaration's hash
  */
-public record Value(String kind, String example, @Nullable List<String> takes) {
+public record Value(
+        String kind,
+        String example,
+        @Nullable List<String> takes,
+        @Nullable Object exampleValue) {
 
-    /** Returns the example as a value of its kind, or as the text it is where it does not read as one. */
-    public Object exampleValue() {
-        final Kind token = Kind.byToken(kind).orElse(Kind.TEXT);
-        try {
-            return token.example(example);
-        } catch (final RuntimeException unreadable) {
-            return example;
-        }
+    public Value(final String kind, final String example, final @Nullable List<String> takes) {
+        this(kind, example, takes, null);
     }
 
-    /** Returns each declared value's example by name, what a preview fills in. */
-    public static Map<String, Object> examples(final Map<String, Value> declared) {
+    /** Returns the example as a value of its kind, or null where it reads as none. */
+    public @Nullable Object typedExample() {
+        return Kind.byToken(kind).orElse(Kind.TEXT).typedExample(example, takes != null);
+    }
+
+    /**
+     * Returns each declared value's example by name, what a preview fills in, without one that reads as none.
+     * A nested message, alone or in a list, carries its own declared examples, as {@link Messages#example} fills them.
+     */
+    public static Map<String, Object> examples(final Map<String, Value> declared, final Messages messages) {
         final Map<String, Object> examples = new LinkedHashMap<>();
-        declared.forEach((name, value) -> examples.put(name, value.exampleValue()));
+        declared.forEach((name, value) -> {
+            final Object typed = value.typedExample();
+            if (typed != null) {
+                examples.put(name, filled(typed, messages));
+            }
+        });
         return examples;
+    }
+
+    private static Object filled(final Object example, final Messages messages) {
+        return switch (example) {
+            case MessageRef message -> messages.example(message.key(), Map.of());
+            case List<?> items ->
+                items.stream().map(item -> filled(item, messages)).toList();
+            default -> example;
+        };
+    }
+
+    /** Returns each value with its example read as its kind, as Steward's editor shows it. */
+    public static Map<String, Value> withExampleValues(final Map<String, Value> declared) {
+        final Map<String, Value> values = new LinkedHashMap<>();
+        declared.forEach((name, value) -> {
+            final Object typed = value.typedExample();
+            values.put(
+                    name,
+                    new Value(value.kind, value.example, value.takes, typed == null ? null : MessageJson.typed(typed)));
+        });
+        return values;
     }
 
     /** Returns the values of a record's components by name, with a context expanded into its attributes. */

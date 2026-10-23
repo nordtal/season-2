@@ -1,12 +1,14 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { cleanup, renderHook, waitFor } from "@testing-library/react"
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ApiError, currentCsrf, rememberCsrf, type ConfigDocument } from "@/lib/api"
-import { RECONCILE } from "@/lib/live"
+import { RECONCILE, announce } from "@/lib/live"
 import { useCommandRun, useMe, useSaveConfig } from "@/lib/queries"
+import { useSetAura } from "@/lib/queries-access"
 import { keys } from "@/lib/query-keys"
+import { t } from "@/lib/texts"
 
 /**
  * A poll must stop once its query errors. A save must drop the cached document on a 409 and only then.
@@ -65,6 +67,49 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals()
   cleanup()
+})
+
+/** Answers the POST with request 9 and every read of it with `status`. */
+function request(status: () => Record<string, unknown>) {
+  fetched.mockImplementation(async (_url, init) =>
+    init?.method === "POST"
+      ? answer(202, { id: "smp:9", status: "PENDING" })
+      : answer(200, { id: "smp:9", ...status() }),
+  )
+}
+
+describe("a request a mutation asks for", () => {
+  it("is followed through useCommandRun's query and ends once a change of the requests reads it final", async () => {
+    const queryClient = client()
+    let status = "PENDING"
+    request(() => ({ status }))
+    const { result } = renderHook(() => useSetAura(), { wrapper: wrap(queryClient) })
+
+    const done = result.current.mutateAsync({ discordId: "1", aura: 5 })
+    await waitFor(() => expect(queryClient.getQueryState(keys.commandRun("smp:9"))?.data).toMatchObject({ status }))
+    status = "DONE"
+    act(() => announce(queryClient, "REQUESTS"))
+
+    await expect(done).resolves.toBeUndefined()
+  })
+
+  it("fails with the run's own result when the server refuses it", async () => {
+    const queryClient = client()
+    request(() => ({ status: "REFUSED", result: { key: "steward.said.words", args: { text: "No such player." } } }))
+    const { result } = renderHook(() => useSetAura(), { wrapper: wrap(queryClient) })
+
+    await expect(result.current.mutateAsync({ discordId: "1", aura: 5 })).rejects.toThrow("No such player.")
+  })
+
+  it("fails with the silent text when nobody picked it up", async () => {
+    const queryClient = client()
+    request(() => ({ status: "EXPIRED" }))
+    const { result } = renderHook(() => useSetAura(), { wrapper: wrap(queryClient) })
+
+    await expect(result.current.mutateAsync({ discordId: "1", aura: 5 })).rejects.toThrow(
+      t("steward.failure.server-silent", { service: "smp" }),
+    )
+  })
 })
 
 describe("useCommandRun - when the reconciliation stops", () => {
@@ -151,9 +196,9 @@ describe("useSaveConfig - the revision travels with the change", () => {
     readable: true,
     writable: true,
     revision: "rev-2",
-    restartRequired: false,
     entries: [],
   }
+  const ANSWER = { document: SAVED, reload: { status: "APPLIED", message: { key: "steward.said.message" } } }
 
   async function save(queryClient: QueryClient, response: Response | Error) {
     if (response instanceof Error) fetched.mockRejectedValue(response)
@@ -165,7 +210,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
   }
 
   it("puts the revision and the changes in the body, at the path the listing gave", async () => {
-    await save(client(), answer(200, SAVED))
+    await save(client(), answer(200, ANSWER))
 
     const [url, init] = fetched.mock.calls[0]
     expect(url).toBe("/api/setting-groups/steward/web")
@@ -178,7 +223,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
 
   it("redraws the form from the answer, so the next save carries the new revision", async () => {
     const queryClient = client()
-    await save(queryClient, answer(200, SAVED))
+    await save(queryClient, answer(200, ANSWER))
 
     expect(queryClient.getQueryData(keys.config(FILE))).toEqual(SAVED)
   })
@@ -186,7 +231,7 @@ describe("useSaveConfig - the revision travels with the change", () => {
   it("drops the cached document on 409, because its revision is provably stale", async () => {
     /** Somebody else saved first, so the stale copy is dropped. */
     const queryClient = client()
-    queryClient.setQueryData(keys.config(FILE), { ...SAVED, revision: "rev-1", restartRequired: false })
+    queryClient.setQueryData(keys.config(FILE), { ...SAVED, revision: "rev-1" })
     const invalidated = vi.spyOn(queryClient, "invalidateQueries")
 
     const result = await save(queryClient, answer(409, { error: "The file has changed in the meantime." }))

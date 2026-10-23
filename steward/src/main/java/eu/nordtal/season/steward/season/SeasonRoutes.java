@@ -3,14 +3,16 @@ package eu.nordtal.season.steward.season;
 import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.steward.auth.DiscordAuth;
+import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.data.Data;
+import eu.nordtal.season.steward.journal.Unjournaled;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
+import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
@@ -20,16 +22,12 @@ public final class SeasonRoutes {
     private static final StewardTexts.Steward.Answer ANSWER =
             StewardTexts.TEXTS.steward().answer();
 
-    private final @Nullable Data data;
+    private final Data data;
     private final Function<Context, DiscordAuth.Account> accounts;
 
-    public SeasonRoutes(final @Nullable Data data, final Function<Context, DiscordAuth.Account> accounts) {
+    public SeasonRoutes(final Data data, final Function<Context, DiscordAuth.Account> accounts) {
         this.data = data;
         this.accounts = accounts;
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "this route needs the database, which this instance has none of");
     }
 
     /** Sets the season phase. {@code PhaseDirectory} writes the journal entry. */
@@ -45,7 +43,7 @@ public final class SeasonRoutes {
             throw new BadRequestResponse(ask.phase + " is not a phase");
         }
         final DiscordAuth.Account who = accounts.apply(ctx);
-        final var change = data().phase().switchPhase(phase, who.actor(), ask.reason);
+        final var change = data.phase().switchPhase(phase, who.actor(), ask.reason);
         ctx.json(change);
     }
 
@@ -69,8 +67,8 @@ public final class SeasonRoutes {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Actor actor = who.actor();
         final var change = switch (ask.which == null ? "" : ask.which.trim()) {
-            case "smpStart" -> data().phase().setSmpStart(at, actor);
-            case "launch" -> data().phase().setLaunch(at, actor);
+            case "smpStart" -> data.phase().setSmpStart(at, actor);
+            case "launch" -> data.phase().setLaunch(at, actor);
             default -> throw new BadRequestResponse("which is smpStart or launch");
         };
         ctx.json(change);
@@ -88,9 +86,9 @@ public final class SeasonRoutes {
 
     public Season read() {
         return new Season(
-                data().phase().currentPhase(),
-                data().phase().launch().orElse(null),
-                data().phase().smpStart().orElse(null));
+                data.phase().currentPhase(),
+                data.phase().launch().orElse(null),
+                data.phase().smpStart().orElse(null));
     }
 
     static final class SeasonChange {
@@ -105,5 +103,11 @@ public final class SeasonRoutes {
 
         @Nullable
         String at;
+    }
+
+    public void register(final JavalinConfig cfg) {
+        cfg.routes.post("/api/season/phase", this::phase, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.post("/api/season/date", this::date, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.get("/api/season", this::summary, Gate.KEY_HELD);
     }
 }

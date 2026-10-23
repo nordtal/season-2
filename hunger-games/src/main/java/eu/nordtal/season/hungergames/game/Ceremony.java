@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,9 +35,13 @@ public final class Ceremony {
     }
 
     /** {@code winner} is {@code null} after a tie without a winner and when nobody won. */
-    record Result(Ending outcome, @Nullable PlayerContext winner, int winnerKills, int loserKills) {}
+    record Result(
+            Ending outcome,
+            @Nullable PlayerContext winner,
+            @Example("7") int winnerKills,
+            @Example("2") int loserKills) {}
 
-    record Kills(PlayerContext player, int kills) {}
+    record Kills(PlayerContext player, @Example("3") int kills) {}
 
     static final DocumentSpec<Result> RESULT = line("ceremony-result", Result.class);
     static final DocumentSpec<Kills> KILLS = line("ceremony-kills", Kills.class);

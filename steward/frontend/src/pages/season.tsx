@@ -8,6 +8,7 @@ import { useSeason, useSetPhase, useSetSeasonDate } from "@/lib/queries"
 import { SEASON_PHASES as PHASES, type SeasonPhaseName as PhaseName } from "@/lib/season-phases"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
+import { Panel } from "@/components/steward/panel"
 import { NETWORK, ServiceSettings } from "@/components/steward/settings"
 import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
@@ -48,14 +49,13 @@ export function SeasonPage() {
         )}
       </QueryState>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-foreground">{t("steward.season.network")}</h2>
+      <Panel title={t("steward.season.network")}>
         <ServiceSettings
           service={NETWORK}
           file={search.file}
           onFile={(file, replace) => void navigate({ search: file ? { file } : {}, replace })}
         />
-      </section>
+      </Panel>
     </div>
   )
 }
@@ -85,7 +85,7 @@ function PhaseCard({ season }: { season?: Season }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {/* Only while the dialog is shut. A refused switch repeats the refusal inside it. */}
-        {change.error && asked === null ? <Failure error={change.error} /> : null}
+        {change.error && asked === null ? <Failure error={change.error} write /> : null}
 
         {PHASES.map((phase) => {
           const active = phase.name === season?.phase
@@ -259,7 +259,7 @@ function DateField({
           {at ? t("steward.season.saved-at", { at }) : t("steward.season.no-date")}
         </p>
       )}
-      {change.error && !removing ? <Failure error={change.error} /> : null}
+      {change.error && !removing ? <Failure error={change.error} write /> : null}
     </div>
   )
 }

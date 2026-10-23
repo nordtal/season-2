@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.database.metric.Metric;
-import io.javalin.Javalin;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -21,8 +20,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,7 +27,7 @@ import org.junit.jupiter.api.Test;
  *
  * It does not check whether the answer is right.
  */
-class EveryCalledPathIsRoutedTest {
+class EveryCalledPathIsRoutedTest extends WebFixture {
 
     private static final String FRONTEND = "steward/frontend/src";
 
@@ -39,20 +36,6 @@ class EveryCalledPathIsRoutedTest {
 
     /** The catch-all {@code /api/<path>}. It matches every path, so it does not count as an answer. */
     private static final Pattern CATCH_ALL = Pattern.compile("/api/(?:\\{[^}]+}|<[^>]+>)");
-
-    private static Javalin app;
-
-    @BeforeAll
-    static void start() {
-        app = RouteTable.start();
-    }
-
-    @AfterAll
-    static void stop() {
-        if (app != null) {
-            app.stop();
-        }
-    }
 
     @Test
     void nothingIsCalledThatIsNotRouted() {

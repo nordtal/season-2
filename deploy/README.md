@@ -171,7 +171,7 @@ a confirmation and a 30 second countdown. During the countdown the players of a 
 to stop move to `limbo`. From the host:
 
 ```bash
-./nordtal.sh update                # update the whole network and wait for the report
+./nordtal.sh update                # update the whole network and wait for the run to end
 ./nordtal.sh update --restart      # restart everything, install nothing
 ./nordtal.sh update --backup       # run one backup
 ./nordtal.sh update --down smp     # stop one service and keep it down
@@ -187,8 +187,8 @@ In a terminal, the command asks whether to go on. Without a terminal, it says to
 `--replace-local`. The update dialog of Steward lists the services and asks the same question.
 
 The command asks `steward-agent` through `docker exec`, so it meets the same refusals as a button.
-Each request is a row in `steward_inbox`, and the `outcome` of the row is the report. One run is open
-at a time. Before it asks, an installed `nordtal.sh` replaces itself with the copy of the newest
+Each request is a row in `steward_inbox`, and each step of its run is a row in `run_step`. One run is
+open at a time. Before it asks, an installed `nordtal.sh` replaces itself with the copy of the newest
 release and runs that copy. The new copy knows the flags of that release and generates the secrets
 that the release adds. After an update that ends `DONE`, `nordtal.sh` is the copy of the release that
 the run installed. It reads the version from the image of `steward-agent`.

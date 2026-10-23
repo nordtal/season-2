@@ -28,12 +28,16 @@ public final class UpdateRequestMapper implements RowMapper<UpdateRequest> {
                 texts(rs.getArray("moving")),
                 instant(rs, "started"),
                 instant(rs, "finished"),
-                rs.getString("outcome"));
+                stage(rs.getString("stage")));
     }
 
     private static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {
         final OffsetDateTime value = rs.getObject(column, OffsetDateTime.class);
         return value == null ? null : value.toInstant();
+    }
+
+    private static @Nullable RunStage stage(final @Nullable String stage) {
+        return stage == null ? null : RunStage.valueOf(stage);
     }
 
     private static List<String> texts(final @Nullable Array array) throws SQLException {

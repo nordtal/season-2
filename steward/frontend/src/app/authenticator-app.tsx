@@ -15,6 +15,7 @@ import {
   ResponsiveDialog,
   ResponsiveDialogContent,
   ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
@@ -198,11 +199,6 @@ export function AuthenticatorAppRow({ state }: { state: AuthenticatorActions }) 
       ) : (
         <p className="px-1 py-1 text-sm text-muted-foreground">{t("steward.keys.no-app")}</p>
       )}
-      {state.remove.error ? (
-        <p role="alert" className="px-1 text-xs text-destructive">
-          {state.remove.error.message}
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -221,7 +217,8 @@ export function AuthenticatorAppDialogs({ state }: { state: AuthenticatorActions
         description={t("steward.keys.remove-app-note")}
         cancel={t("steward.keys.keep-it")}
         action={t("steward.keys.remove-it")}
-        act={() => state.remove.mutate()}
+        destructive
+        act={() => state.remove.mutateAsync()}
       />
     </>
   )
@@ -282,14 +279,14 @@ export function EnrolDialog({ state }: { state: AuthenticatorActions }) {
             </p>
           ) : null}
 
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="ghost" onClick={onClose}>
+          <ResponsiveDialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               {t("steward.form.cancel")}
             </Button>
             <Button type="submit" disabled={!enrolment || finish.isPending || !looksLikeACode(code)}>
               {finish.isPending ? t("steward.keys.checking") : t("steward.keys.confirm-code")}
             </Button>
-          </div>
+          </ResponsiveDialogFooter>
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

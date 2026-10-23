@@ -38,6 +38,7 @@ import eu.nordtal.season.messages.context.TeamContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.chat.SystemLines;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.PaperUser;
@@ -65,7 +66,7 @@ import org.jspecify.annotations.Nullable;
 /** The plugin of the Hunger Games. */
 public final class HungerGamesPlugin extends NordtalPlugin {
 
-    record Count(long count) {}
+    record Count(@Example("16") long count) {}
 
     record Readiness(TeamContext team, boolean ready) {}
 
@@ -169,7 +170,17 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         answer(HungerGamesRequest.TABLE, (request, actor) -> switch (request) {
             case HungerGamesRequest.StartGame start -> startGame(start.confirmed());
             case HungerGamesRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
+            case HungerGamesRequest.PreviewDocument preview -> preview(preview.player(), preview.preview());
             case HungerGamesRequest.CheckSettings check -> checkSettings(check.change());
+            case HungerGamesRequest.StoreModeState store -> storeModeState(store.player());
+            case HungerGamesRequest.RemoveStack remove ->
+                removeStack(
+                        remove.player(),
+                        remove.mode(),
+                        remove.container(),
+                        remove.slot(),
+                        remove.item(),
+                        remove.amount());
         });
         final PhaseDirectory phases = PhaseDirectory.using(pool(), clock());
         hub().on(Channel.PHASE, "the season phase", () -> phase = phases.currentPhase());

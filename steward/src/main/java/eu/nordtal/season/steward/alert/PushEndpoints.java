@@ -11,7 +11,6 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Objects;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
@@ -22,23 +21,19 @@ public final class PushEndpoints {
             StewardTexts.TEXTS.steward().answer();
 
     private final Function<Context, Sessions.Session> sessions;
-    private final @Nullable PushSubscriptions pushSubscriptions;
-    private final @Nullable AlertRouter router;
+    private final PushSubscriptions pushSubscriptions;
+    private final AlertRouter router;
     private final com.interaso.webpush.@Nullable VapidKeys vapidKeys;
 
     public PushEndpoints(
             final Function<Context, Sessions.Session> sessions,
-            final @Nullable PushSubscriptions pushSubscriptions,
-            final @Nullable AlertRouter router,
+            final PushSubscriptions pushSubscriptions,
+            final AlertRouter router,
             final com.interaso.webpush.@Nullable VapidKeys vapidKeys) {
         this.sessions = sessions;
         this.pushSubscriptions = pushSubscriptions;
         this.router = router;
         this.vapidKeys = vapidKeys;
-    }
-
-    private PushSubscriptions pushSubscriptions() {
-        return Objects.requireNonNull(pushSubscriptions, "web-push is not configured on this deployment yet");
     }
 
     public void publicKey(final Context ctx) {
@@ -61,16 +56,11 @@ public final class PushEndpoints {
                 || body.keys.auth == null
                 || body.keys.auth.isBlank()) {
             throw new BadRequestResponse(
-                    "that is not a PushSubscription - endpoint and" + " keys.p256dh/keys.auth are required");
+                    "that is not a PushSubscription - endpoint and keys.p256dh/keys.auth are required");
         }
         // The User-Agent becomes a system and a browser; the raw string is stored nowhere.
-        pushSubscriptions()
-                .subscribe(
-                        who.signedInDiscordId(),
-                        body.endpoint,
-                        body.keys.p256dh,
-                        body.keys.auth,
-                        ctx.header("User-Agent"));
+        pushSubscriptions.subscribe(
+                who.signedInDiscordId(), body.endpoint, body.keys.p256dh, body.keys.auth, ctx.header("User-Agent"));
         Journaling.line(ctx, who.signedInDiscordId(), null);
         ctx.status(204);
     }
@@ -81,7 +71,7 @@ public final class PushEndpoints {
         if (body == null || body.endpoint == null || body.endpoint.isBlank()) {
             throw new BadRequestResponse("no endpoint in that request");
         }
-        if (!pushSubscriptions().unsubscribe(who.signedInDiscordId(), body.endpoint)) {
+        if (!pushSubscriptions.unsubscribe(who.signedInDiscordId(), body.endpoint)) {
             throw new RequestRefused(404, ANSWER.noSubscription());
         }
         Journaling.line(ctx, who.signedInDiscordId(), null);
@@ -100,7 +90,7 @@ public final class PushEndpoints {
 
     public void devices(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
-        ctx.json(pushSubscriptions().of(who.signedInDiscordId()).stream()
+        ctx.json(pushSubscriptions.of(who.signedInDiscordId()).stream()
                 .map(subscription -> new PushDevice(
                         subscription.endpoint(),
                         subscription.system(),
@@ -113,17 +103,16 @@ public final class PushEndpoints {
     /** Sends one notification of one type to one browser of the account. Preferences are ignored. */
     public void test(final Context ctx) {
         final Sessions.Session who = sessions.apply(ctx);
-        if (router == null || vapidKeys == null) {
+        if (vapidKeys == null) {
             throw new RequestRefused(404, ANSWER.pushUnconfigured());
         }
         final PushTestBody body = ctx.bodyAsClass(PushTestBody.class);
         final AlertType type = body == null ? null : AlertType.of(body.type);
         if (body == null || body.endpoint == null || body.endpoint.isBlank() || type == null) {
-            throw new BadRequestResponse(
-                    "a test send is an endpoint of this account and a known" + " notification type");
+            throw new BadRequestResponse("a test send is an endpoint of this account and a known notification type");
         }
         final PushSubscriptions.Subscription subscription =
-                pushSubscriptions().find(who.signedInDiscordId(), body.endpoint);
+                pushSubscriptions.find(who.signedInDiscordId(), body.endpoint);
         if (subscription == null) {
             throw new RequestRefused(404, ANSWER.noSubscription());
         }

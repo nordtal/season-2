@@ -17,11 +17,12 @@ import {
   type TreeLeaf,
 } from "@/lib/settings-tree"
 import { fileTitle } from "@/lib/words"
-import { Failure, SkeletonText } from "@/components/steward/query-state"
+import { Empty, Failure, SkeletonText } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"
 import { DraftDot, type FileItem, NodeList, type Target, useWide } from "@/components/steward/settings-view"
 import { ConfigFile } from "@/components/steward/settings-config"
 import { PluginFileEditor } from "@/components/steward/settings-plugin-file"
+import { SettingsService } from "@/components/steward/reference-picker"
 import { Thumbnail } from "@/components/steward/plugins"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { t } from "@/lib/texts"
@@ -69,10 +70,11 @@ export function ServiceSettings({
   const loading = configs.isPending
   /**
    * On a wide screen the first readable file shows when none is chosen. The component derives it and does not write it to the URL.
+   * It waits for Nordtal's groups, so a plugin file that arrives first never opens its rows.
    */
   const shown =
     file ??
-    (wide
+    (wide && !loading
       ? (files.find((item) => item.readable)?.id ?? pluginLeaves.find((leaf) => leaf.file.readable)?.id)
       : undefined)
   const selected = files.find((item) => item.id === shown)
@@ -120,22 +122,35 @@ export function ServiceSettings({
             </div>
           ))
         ) : files.length === 0 && plugins.length === 0 && !failure ? (
-          <p className="px-2 text-sm text-muted-foreground">{t("steward.settings.no-files")}</p>
+          <Empty title={t("steward.settings.no-files")} />
         ) : (
-          files.map((item) => (
-            <FileRow
-              key={item.id}
-              item={item}
-              selected={item.id === shown}
-              dirty={dirty.includes(item.id)}
-              icon={<StewardMark className="size-4 shrink-0" />}
-              onSelect={() => onFile(item.id)}
-            />
-          ))
+          [
+            { live: true, heading: t("steward.settings.applies-on-save") },
+            { live: false, heading: t("steward.settings.applies-after-restart") },
+          ].map(({ live, heading }) => {
+            const section = files.filter((item) => item.location.live === live)
+            return section.length === 0 ? null : (
+              <section key={heading} className="flex flex-col gap-0.5 not-first:mt-3">
+                <h2 className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{heading}</h2>
+                {section.map((item) => (
+                  <FileRow
+                    key={item.id}
+                    item={item}
+                    selected={item.id === shown}
+                    dirty={dirty.includes(item.id)}
+                    icon={<StewardMark className="size-4 shrink-0" />}
+                    onSelect={() => onFile(item.id)}
+                  />
+                ))}
+              </section>
+            )
+          })
         )}
         {plugins.length > 0 ? (
-          <>
-            {files.length > 0 ? <hr className="mx-2 my-1.5 border-border" /> : null}
+          <section className="flex flex-col gap-0.5 not-first:mt-3">
+            <h2 className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+              {t("steward.settings.plugin-files")}
+            </h2>
             <NodeList<PluginFileLeaf>
               nodes={plugins}
               isOpen={isOpen}
@@ -160,38 +175,40 @@ export function ServiceSettings({
                 />
               )}
             />
-          </>
+          </section>
         ) : null}
       </nav>
 
       <div className={cn("min-w-0", file === undefined && "max-lg:hidden")}>
-        {selected ? (
-          <>
-            <BackRow label={selected.label} onFile={onFile} />
-            <ConfigFile key={selected.id} item={selected} target={target} />
-          </>
-        ) : selectedPlugin ? (
-          <>
-            <BackRow
-              label={
-                <>
-                  {pluginLabel(selectedPlugin.file)}
-                  <span className="truncate font-normal text-muted-foreground">{selectedPlugin.file.path}</span>
-                </>
-              }
-              onFile={onFile}
-            />
-            <PluginFileEditor
-              key={selectedPlugin.id}
-              id={selectedPlugin.id}
-              file={selectedPlugin.file}
-              label={selectedPlugin.label}
-              target={target}
-            />
-          </>
-        ) : file !== undefined && !loading && !ownService.isPending && !pluginFiles.isLoading ? (
-          <p className="text-sm text-muted-foreground">{t("steward.settings.no-such-file")}</p>
-        ) : null}
+        <SettingsService value={service}>
+          {selected ? (
+            <>
+              <BackRow label={selected.label} onFile={onFile} />
+              <ConfigFile key={selected.id} item={selected} target={target} />
+            </>
+          ) : selectedPlugin ? (
+            <>
+              <BackRow
+                label={
+                  <>
+                    {pluginLabel(selectedPlugin.file)}
+                    <span className="truncate font-normal text-muted-foreground">{selectedPlugin.file.path}</span>
+                  </>
+                }
+                onFile={onFile}
+              />
+              <PluginFileEditor
+                key={selectedPlugin.id}
+                id={selectedPlugin.id}
+                file={selectedPlugin.file}
+                label={selectedPlugin.label}
+                target={target}
+              />
+            </>
+          ) : file !== undefined && !loading && !ownService.isPending && !pluginFiles.isLoading ? (
+            <Empty title={t("steward.settings.no-such-file")} />
+          ) : null}
+        </SettingsService>
       </div>
     </div>
   )

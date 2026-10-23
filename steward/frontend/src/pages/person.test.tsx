@@ -87,16 +87,16 @@ describe("PersonPage - one person on an address of their own", () => {
     const asked = fetch.mock.calls.map(([url]) => url)
     expect(asked).toContain(`/api/people/${ALLY}/payments`)
     expect(asked).not.toContain("/api/payments")
-    expect(asked.some((url) => url.startsWith("/api/journal") && url.includes(`subject=${ALLY}`))).toBe(true)
+    expect(asked.some((url) => url.startsWith("/api/journal") && url.includes(`q=${ALLY}`))).toBe(true)
   })
 
-  it("leaves the journal's Concerns column out, since every entry there concerns them", async () => {
+  it("names nobody concerned in the journal, since every entry there concerns them", async () => {
     vi.stubGlobal("fetch", allysBackend())
     draw(<PersonPage />, `/access/${ALLY}`)
 
     const journal = assertElement((await screen.findByText("Journal")).closest("section"), "the journal panel")
     await within(journal).findAllByText("Access granted")
-    expect(within(journal).queryByText("Concerns")).toBeNull()
+    expect(within(journal).queryByText("Ally")).toBeNull()
   })
 
   it("lists their periods without a dialog to open first", async () => {
@@ -132,5 +132,42 @@ describe("PersonPage - one person on an address of their own", () => {
 
     expect(await screen.findByText("Nobody by this id")).toBeTruthy()
     expect(screen.queryByText("Periods")).toBeNull()
+  })
+
+  it("draws a stored inventory and removes the stack picked, naming what the slot showed", async () => {
+    const removed: unknown[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        inventories: () => ({
+          linked: true,
+          states: [
+            {
+              server: "smp",
+              mode: "SURVIVAL",
+              status: "STORED",
+              level: 7,
+              progress: 0.5,
+              saved: "2026-10-20T09:00:00Z",
+              stacks: [{ container: "ENDER_CHEST", slot: 3, item: "minecraft:oak_log", amount: 12 }],
+            },
+          ],
+        }),
+        removeStack: (_url, body) => removed.push(body),
+      }),
+    )
+    draw(<PersonPage />, `/access/${ALLY}`)
+
+    const panel = assertElement((await screen.findByText("Inventories")).closest("section"), "the inventories panel")
+    expect(await within(panel).findByText("Stored")).toBeTruthy()
+    expect(within(panel).getByText("Level 7")).toBeTruthy()
+    fireEvent.click(within(panel).getByRole("button", { name: "12 minecraft:oak_log" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }))
+
+    await vi.waitFor(() =>
+      expect(removed).toEqual([
+        { server: "smp", mode: "SURVIVAL", container: "ENDER_CHEST", slot: 3, item: "minecraft:oak_log", amount: 12 },
+      ]),
+    )
   })
 })

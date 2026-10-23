@@ -19,6 +19,7 @@ import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.game.GameCatalogue;
 import eu.nordtal.season.database.game.GameDataStore;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.InboxTable;
 import eu.nordtal.season.database.inbox.MessagePreview;
@@ -27,6 +28,8 @@ import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.mode.ModeStateStore;
+import eu.nordtal.season.database.mode.ModeStateStore.Container;
+import eu.nordtal.season.database.mode.ModeStateStore.Mode;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
@@ -131,6 +134,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Hud hud;
     private Menus menus;
     private AdminWatch adminWatch;
+    private ModeStates modeStates;
     private CommandTrees commandTrees;
     private @Nullable SignalHub hub;
 
@@ -207,8 +211,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         renderer = MessageRenderer.of(
                         messages, (name, reader) -> names.draw(name, reader), identities.cards(this::prestige))
                 .reading(documents);
-        previews = new Previews(
-                getServer()::getPlayer, renderer, PaperScheduler.of(this).mainThread());
+        previews = newPreviews();
         hud = new Hud(this, identities);
         listen(hud);
         // Declared first, the drafted bar stands above the lines the plugin declares in enable().
@@ -223,7 +226,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 this, identities, operators, renderer, refusesWithoutIdentity(), this::languageKnown, logger()));
         adminWatch = new AdminWatch(this, access, operators, logger());
         filterCommands(adminWatch);
-        listen(new ModeStates(this, ModeStateStore.using(pool), adminWatch::isAdmin, logger()));
+        modeStates = new ModeStates(this, ModeStateStore.using(pool), adminWatch::isAdmin, logger());
+        listen(modeStates);
         // Only the proxy enforces the network's limit.
         listen(new Unbounded());
 
@@ -370,6 +374,9 @@ public abstract class NordtalPlugin extends JavaPlugin {
             quietly("menus.stopAll", menus::stopAll);
         }
         quietly("disable", this::disable);
+        if (modeStates != null) {
+            quietly("modeStates.close", modeStates::close);
+        }
         if (adminWatch != null) {
             quietly("adminWatch.close", adminWatch::close);
         }
@@ -432,6 +439,39 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return previews.show(player, preview);
     }
 
+    /** A preview is painted in the colours of the key's own service, as its settings name them. */
+    private Previews newPreviews() {
+        final SettingStore store = SettingStore.using(pool);
+        return new Previews(
+                getServer()::getPlayer,
+                renderer,
+                service -> ToneColours.parse(Colours.current(store, service), unreadable -> {}),
+                PaperScheduler.of(this).mainThread());
+    }
+
+    protected final Answer preview(final PlayerId player, final DocumentPreview preview) {
+        return previews.show(player, preview);
+    }
+
+    /** Stores a copy of the state a player here holds, so Steward shows it as it is. */
+    protected final Answer storeModeState(final PlayerId player) {
+        modeStates.storeHeld(player);
+        return Answer.done(Sent.of(Replies.STATE_STORED));
+    }
+
+    /** Removes the stack Steward showed, if the slot of the state a player here holds still has it. */
+    protected final Answer removeStack(
+            final PlayerId player,
+            final Mode mode,
+            final Container container,
+            final int slot,
+            final String item,
+            final int amount) {
+        return modeStates.remove(player, mode, container, slot, item, amount)
+                ? Answer.done(Sent.of(Replies.STACK_REMOVED))
+                : Answer.refused(ServerRefusal.STACK_CHANGED.with());
+    }
+
     protected static LiteralArgumentBuilder<CommandSourceStack> console(final String literal) {
         return Commands.literal(literal).requires(NordtalPlugin::isConsole);
     }
@@ -463,12 +503,15 @@ public abstract class NordtalPlugin extends JavaPlugin {
         }
     }
 
-    /** Returns the outcome of an answer in an inbox: English plain text, or the refusal. */
-    protected final Outcome outcome(final Answer answer) {
+    /** Returns the outcome of an answer in an inbox: its status and a refusal. A failure's words go to the log. */
+    private Outcome outcome(final Answer answer) {
         return switch (answer) {
-            case Answer.Done done -> Outcome.done(english(done.message()));
+            case Answer.Done done -> Outcome.done(null);
             case Answer.Refused refused -> Outcome.refused(refused.refusal());
-            case Answer.Failed failed -> Outcome.failed(english(failed.message()));
+            case Answer.Failed failed -> {
+                getLogger().warning("a request failed: " + english(failed.message()));
+                yield Outcome.failed(null);
+            }
         };
     }
 

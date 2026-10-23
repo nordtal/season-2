@@ -59,7 +59,7 @@ class RosterApiTest extends WebTestSupport {
     }
 
     @Test
-    void theJournalIsFilteredByAPaymentReferenceAndByTheLeastDays() throws Exception {
+    void theJournalIsSearchedByAPaymentReferenceAndByTheLeastDays() throws Exception {
         final AuditDirectory journal = AuditDirectory.using(WebFixture.postgres.dataSource());
         final PaymentRequests payments = new PaymentRequests(WebFixture.postgres.dataSource());
         final DiscordId payer = DiscordId.of("700000000000000003");
@@ -78,9 +78,9 @@ class RosterApiTest extends WebTestSupport {
         }
         final String reference = route.reference();
         try {
-            assertEquals(List.of(reference), references("/api/journal?reference=" + reference));
-            assertEquals(List.of(reference), references("/api/journal?reference=" + reference + "&minDays=30"));
-            assertEquals(List.of(), references("/api/journal?reference=" + reference + "&minDays=31"));
+            assertEquals(List.of(reference), references("/api/journal?q=" + reference));
+            assertEquals(List.of(reference), references("/api/journal?q=" + reference + "+30d"));
+            assertEquals(List.of(), references("/api/journal?q=" + reference + "+31d"));
         } finally {
             sql("DELETE FROM journal_entry WHERE subject = '" + payer + "'");
             sql("DELETE FROM payment_request WHERE discord_id IN ('700000000000000003', '700000000000000004')");
@@ -90,8 +90,9 @@ class RosterApiTest extends WebTestSupport {
     private static List<String> references(final String query) throws Exception {
         final HttpResponse<String> answer = get(query);
         assertEquals(200, answer.statusCode(), answer.body());
-        return GSON.fromJson(answer.body(), JsonArray.class).asList().stream()
-                .map(entry -> entry.getAsJsonObject()
+        return GSON.fromJson(answer.body(), JsonObject.class).getAsJsonArray("items").asList().stream()
+                .map(item -> item.getAsJsonObject()
+                        .getAsJsonObject("entry")
                         .getAsJsonObject("line")
                         .getAsJsonObject("args")
                         .getAsJsonObject("reference")
@@ -126,9 +127,8 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
-    @Test
-    void aPreviewGoesToTheAdminsPlayerWhereTheRosterHasThemOrToTheirDirectMessagesAndIsJournaledNowhere()
-            throws Exception {
+    /** An SMP jar with a welcome to the game, whose player has an example, and a link message on Discord. */
+    private Path welcomeJar() throws Exception {
         final Path jar = agent.configs.resolve("smp/smp-0.9.1.jar");
         PluginJars.smp(
                 jar,
@@ -144,6 +144,13 @@ class RosterApiTest extends WebTestSupport {
                    "shown": ["DISCORD_EMBED"], "args": []}],
                  "contexts": {}, "globals": []}
                 """));
+        return jar;
+    }
+
+    @Test
+    void aPreviewGoesToTheAdminsPlayerWhereTheRosterHasThemOrToTheirDirectMessagesAndIsJournaledNowhere()
+            throws Exception {
+        final Path jar = welcomeJar();
         final String welcome = """
                 {"bundle": "smp/smp", "key": "welcome", "language": "en", "text": "Hi {player}",
                  "shown": "CHAT", "values": {"player": "Ally"}}
@@ -164,7 +171,12 @@ class RosterApiTest extends WebTestSupport {
                     GSON.fromJson(shown.body(), JsonObject.class).get("id").getAsString();
             assertTrue(inGame.startsWith("smp:"), inGame);
             assertEquals("PREVIEW_MESSAGE", row(inGame).get("kind"));
-            assertTrue(row(inGame).get("payload").contains(player), row(inGame).get("payload"));
+            final String request = inGame.substring("smp:".length());
+            assertEquals(
+                    1,
+                    count("SELECT count(*) FROM smp_preview_message p JOIN smp_preview_message_example e"
+                            + " USING (request) WHERE request = " + request + " AND p.player = '" + player
+                            + "' AND p.key = 'welcome' AND e.name = 'player' AND e.value = 'Ally'"));
 
             final HttpResponse<String> sent = post(
                     "/api/message-preview",
@@ -241,13 +253,6 @@ class RosterApiTest extends WebTestSupport {
                 var rows = statement.executeQuery(query)) {
             assertTrue(rows.next());
             return rows.getString(1);
-        }
-    }
-
-    private static void sql(final String statement) throws Exception {
-        try (var connection = WebFixture.postgres.dataSource().getConnection();
-                var run = connection.createStatement()) {
-            run.execute(statement);
         }
     }
 
@@ -415,6 +420,27 @@ class RosterApiTest extends WebTestSupport {
                     get("/api/commands/" + ids.get(tag).getAsString()).body(), JsonObject.class);
             assertEquals("PENDING", line.get("status").getAsString(), line.toString());
         }
+
+        // Stands in for the bot: posts English and finds no channel for German.
+        final long asked = Long.parseLong(ids.get("en").getAsString().replaceAll("\\D", ""));
+        eu.nordtal.season.database.inbox.Inbox.over(
+                        WebFixture.postgres.dataSource(), eu.nordtal.season.database.inbox.BotRequest.TABLE)
+                .drain(request -> request.id() == asked
+                        ? eu.nordtal.season.database.inbox.Outcome.done(
+                                new eu.nordtal.season.database.inbox.BotRequest.Announce.Answer(List.of(
+                                        new eu.nordtal.season.database.inbox.BotRequest.Announce.Posted("de", false),
+                                        new eu.nordtal.season.database.inbox.BotRequest.Announce.Posted("en", true))))
+                        : eu.nordtal.season.database.inbox.Outcome.failed(null));
+        final JsonObject en = GSON.fromJson(
+                get("/api/commands/" + ids.get("en").getAsString()).body(), JsonObject.class);
+        assertEquals("DONE", en.get("status").getAsString(), en.toString());
+        assertFalse(en.has("result"), en.toString());
+        final JsonObject de = GSON.fromJson(
+                get("/api/commands/" + ids.get("de").getAsString()).body(), JsonObject.class);
+        assertEquals("FAILED", de.get("status").getAsString(), de.toString());
+        assertEquals(
+                "steward.said.not-announced",
+                de.getAsJsonObject("result").get("key").getAsString());
     }
 
     private static void assertRow(

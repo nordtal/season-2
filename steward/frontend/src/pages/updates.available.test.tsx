@@ -295,11 +295,19 @@ describe("the available card", () => {
     await screen.findByText("coreprotect")
     expect(screen.getByText("unsupported")).toBeTruthy()
     expect(screen.queryByText(/incomplete/)).toBeNull()
-    /** The reason belongs in the title and the badge. */
+    /** The reason shows on a tap of the dash, so a phone reaches it too. */
     expect(screen.queryByText(/no stable build/)).toBeNull()
+    const dash = [...document.querySelectorAll<HTMLElement>('span[tabindex="0"]')].find(
+      (element) => element.textContent === "\u2013",
+    )
+    expect(dash).toBeTruthy()
+    fireEvent.pointerDown(dash!, { pointerType: "touch" })
+    fireEvent.pointerUp(dash!, { pointerType: "touch" })
+    dash!.focus()
+    fireEvent.click(dash!)
     expect(
-      document.querySelector('[title^="coreprotect has no stable build for Minecraft 26.2 on paper"]'),
-    ).toBeTruthy()
+      (await screen.findAllByText(/coreprotect has no stable build for Minecraft 26\.2 on paper/)).length,
+    ).toBeGreaterThan(0)
   })
 
   it("says how old the reading is", async () => {

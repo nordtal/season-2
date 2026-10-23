@@ -1,13 +1,14 @@
 package eu.nordtal.season.database.alert;
 
-import java.time.Duration;
+import eu.nordtal.season.common.id.Actor;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import javax.sql.DataSource;
 
 /**
- * Stores admin alerts. Steward and the bot raise them, only steward routes them.
- *
- * A raise sends {@code Channel.ALERT} on commit.
+ * Writes alerts as journal entries with a level and reads them back.
+ * Steward and the bot raise them, only steward routes them. A raise sends {@code Channel.ALERT} on commit.
  */
 public interface AlertBook {
 
@@ -16,23 +17,22 @@ public interface AlertBook {
         return new JdbiAlertBook(dataSource);
     }
 
-    /** Raises {@code alert} for the module {@code raisedBy}, such as {@code discord-bot}. */
-    void raise(Alert alert, String raisedBy);
+    /** Raises {@code alert} as {@code actor} and returns its entry's id. */
+    UUID raise(Alert alert, Actor actor);
 
     /**
-     * Raises {@code alert} unless {@code source} raised one already.
+     * Raises {@code alert} unless an alert of its action was raised for its run or its bank payment already.
      *
-     * @param source what raised it, such as {@code run:42}
-     * @return whether a row was written
+     * @return whether an entry was written
      */
-    boolean raiseOnce(String source, Alert alert, String raisedBy);
+    boolean raiseOnce(Alert alert, Actor actor);
 
     /** Marks every unrouted alert as routed and returns them, oldest first. Steward only. */
     List<RaisedAlert> claimUnrouted();
 
-    /** Returns at most {@code limit} alerts, newest first. Steward only. */
-    List<RaisedAlert> recent(int limit);
+    /** Returns the alerts of the entries {@code ids} in no order, leaving out an entry that is no alert. */
+    List<RaisedAlert> alerts(List<UUID> ids);
 
-    /** Deletes routed alerts older than {@code age}. Steward only. */
-    int purge(Duration age);
+    /** Returns the alert of the entry {@code id}, empty for an entry that is no alert. */
+    Optional<RaisedAlert> alert(UUID id);
 }

@@ -32,6 +32,10 @@ class GameDataApiTest extends WebTestSupport {
     }
 
     private static GameCatalogue catalogue(final String... advancements) {
+        return catalogue(List.of(), advancements);
+    }
+
+    private static GameCatalogue catalogue(final List<String> worlds, final String... advancements) {
         return new GameCatalogue(
                 "26.2",
                 List.of("vanilla"),
@@ -40,7 +44,27 @@ class GameDataApiTest extends WebTestSupport {
                         java.util.Arrays.stream(advancements)
                                 .map(id -> GameCatalogue.Entry.named(id, null, null))
                                 .toList()),
-                Map.of());
+                Map.of(),
+                worlds);
+    }
+
+    @Test
+    void eachServerKeepsTheWorldsItReportedLast() throws Exception {
+        final GameDataStore store = GameDataStore.using(WebFixture.postgres.dataSource());
+        store.publish("smp", catalogue(List.of("world-nordtal", "world-nether"), "minecraft:story/root"));
+        store.publish("limbo", catalogue(List.of("limbo"), "minecraft:story/root"));
+        // smp stops; its row, and so its worlds, stay until it exports again.
+        store.publish("hunger-games", new GameCatalogue("26.3", List.of(), Map.of(), Map.of(), List.of("arena")));
+
+        final JsonObject read = GSON.fromJson(get("/api/game-data").body(), JsonObject.class);
+
+        assertEquals("26.3", read.get("version").getAsString());
+        assertEquals(
+                GSON.toJsonTree(Map.of(
+                        "smp", List.of("world-nordtal", "world-nether"),
+                        "limbo", List.of("limbo"),
+                        "hunger-games", List.of("arena"))),
+                read.get("worlds"));
     }
 
     @Test

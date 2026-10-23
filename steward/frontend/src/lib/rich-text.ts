@@ -597,7 +597,7 @@ export function branchesOf(
   runs: Run[],
   format: Format,
   tones: readonly string[],
-  example: (name: string) => string,
+  example: (name: string) => unknown,
 ): Run[] {
   const markup = format === "MINIMESSAGE"
   return normalize(
@@ -605,7 +605,7 @@ export function branchesOf(
       const nodes = run.kind === "raw" ? readText(run.source, markup) : null
       const node = nodes?.length === 1 ? nodes[0] : undefined
       if (node === undefined || typeof node === "string" || !("c" in node)) return [run]
-      const picked = chosen(node, exampleValue(example(node.c)))
+      const picked = chosen(node, example(node.c))
       const inner = parse(writeText(node.plural ? numbered(picked, node.c) : picked, markup), format, tones)
       if (inner === null) return [run]
       return branchesOf(inner, format, tones, example).map((part) => ({
@@ -648,11 +648,6 @@ export function choiceSource(choice: Choice, format: Format, outer: string | nul
   return `{${choice.name}, ${choice.plural ? "plural" : "select"}, ${cases.join(" ")}}`
 }
 
-function exampleValue(example: string): number | string {
-  const number = Number(example)
-  return example.trim() !== "" && Number.isFinite(number) ? number : example
-}
-
 function numbered(nodes: TextNode[], name: string): TextNode[] {
   return nodes.map((node) => {
     if (typeof node === "string" || "v" in node) return node
@@ -689,13 +684,13 @@ export function textRuns(text: string, breaks: boolean): Run[] {
   return out
 }
 
-export function plainText(runs: Run[], fill: (name: string) => string = (name) => `{${name}}`): string {
+export function plainText(runs: Run[], fill: (name: string, style?: string) => string = (name) => `{${name}}`): string {
   return runs
     .map((run) =>
       run.kind === "text"
         ? run.text
         : run.kind === "placeholder"
-          ? fill(run.name)
+          ? fill(run.name, run.s)
           : run.kind === "break"
             ? "\n"
             : run.kind === "glyph"

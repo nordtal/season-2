@@ -3,10 +3,11 @@ package eu.nordtal.season.discordbot.discord;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.database.update.RunLines;
+import eu.nordtal.season.database.update.RunRecord;
+import eu.nordtal.season.database.update.RunStage;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateDirectory;
-import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.discordbot.AdminLog;
@@ -21,8 +22,8 @@ import eu.nordtal.season.messages.value.Example;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -34,12 +35,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * Posts a card in the admin channel, in English, for every update run that {@link #shown} admits.
  *
- * An edit notifies nobody, so steward's alert reports a failed run.
+ * An edit notifies nobody, so steward's alert reports a failed run and takes the place of its card.
  */
 @Slf4j
 public final class UpdateFeed {
-
-    private static final java.util.regex.Pattern SHA1 = java.util.regex.Pattern.compile("[0-9a-f]{40}");
 
     /** The age limit of a finished run that {@link #start} posts. */
     public static final Duration CATCH_UP = Duration.ofMinutes(12);
@@ -77,12 +76,14 @@ public final class UpdateFeed {
             @Takes({"admin/journal.actor", "admin/journal.person"}) @Nullable
             MessageRef by,
 
-            @Nullable Duration took) {}
+            @Nullable @Example("PT4M30S") Duration took) {}
 
     record Service(
             @Example(Mark.PREVIEW) String mark,
             @Example("smp") String service,
-            @Takes("admin/run.state") MessageRef state,
+            @Takes("admin/run.step-kind") MessageRef state,
+
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
             List<MessageRef> changes) {}
 
     record Failure(
@@ -101,7 +102,7 @@ public final class UpdateFeed {
             Slot.list("why", Failure.class),
             Slot.button("open").optional());
 
-    private record Drawn(String messageId, @Nullable String showing) {}
+    private record Drawn(String messageId, @Nullable RunRecord showing) {}
 
     private final UpdateDirectory updates;
     private final Board board;
@@ -115,6 +116,9 @@ public final class UpdateFeed {
 
     /** The runs in progress that have no card yet, by request id. */
     private final java.util.Set<Long> held = ConcurrentHashMap.newKeySet();
+
+    /** The card of each failed run, by request id, until its alert takes its place. */
+    private final ConcurrentHashMap<Long, String> failed = new ConcurrentHashMap<>();
 
     private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -135,6 +139,11 @@ public final class UpdateFeed {
         this.documents = Objects.requireNonNull(documents, "documents");
     }
 
+    /** Returns the card of a failed run once, for the alert that takes its place, or {@code null}. */
+    public @Nullable String failedCard(final long run) {
+        return failed.remove(run);
+    }
+
     /** Starts from the highest request id and posts the runs that finished within {@link #CATCH_UP}. */
     public void start() {
         try {
@@ -144,7 +153,7 @@ public final class UpdateFeed {
                 if (request.id() > mark || !shown(request)) {
                     continue;
                 }
-                board.post(card(request), messageId -> {});
+                board.post(card(request), messageId -> ended(request, messageId));
             }
             // A run in progress is registered, so tick() follows it.
             for (final UpdateRequest request : updates.since(0L)) {
@@ -231,10 +240,17 @@ public final class UpdateFeed {
         final boolean over = request.status().isFinished();
         board.post(card(request), messageId -> {
             if (over) {
+                ended(request, messageId);
                 return;
             }
-            drawing.put(request.id(), new Drawn(messageId, request.result()));
+            drawing.put(request.id(), new Drawn(messageId, shownOf(request)));
         });
+    }
+
+    private void ended(final UpdateRequest request, final String messageId) {
+        if (request.status() == UpdateStatus.FAILED) {
+            failed.put(request.id(), messageId);
+        }
     }
 
     /** Reads the held runs again and posts each one that is shown now. */
@@ -263,7 +279,7 @@ public final class UpdateFeed {
         return switch (request.kind()) {
             case INSTALL -> request.status() == UpdateStatus.FAILED;
             case UPDATE ->
-                switch (report(request).stage()) {
+                switch (stageOf(request)) {
                     case RESOLVING -> request.status().isFinished();
                     case NOTHING_TO_DO -> false;
                     default -> true;
@@ -289,47 +305,67 @@ public final class UpdateFeed {
             }
             final UpdateRequest request = row.get();
             final Drawn drawn = entry.getValue();
+            final RunRecord showing = shownOf(request);
             // Discord rate-limits edits.
-            if (!java.util.Objects.equals(drawn.showing(), request.result())) {
+            if (!java.util.Objects.equals(drawn.showing(), showing)) {
                 board.edit(drawn.messageId(), card(request));
-                drawing.put(id, new Drawn(drawn.messageId(), request.result()));
+                drawing.put(id, new Drawn(drawn.messageId(), showing));
             }
             if (request.status().isFinished()) {
                 drawing.remove(id);
+                ended(request, drawn.messageId());
             }
         }
     }
 
-    /** Draws one run. A row with no parsable report has the stage {@code RESOLVING}. */
+    /** Draws one run from its rows. */
     private DocumentRenderer.Drawn card(final UpdateRequest request) {
         return card(
-                report(request), request, documents, true, stewardUrl.isBlank() ? null : stewardUrl + request.page());
+                updates.recordOf(request.id()),
+                request,
+                documents,
+                true,
+                stewardUrl.isBlank() ? null : stewardUrl + request.page());
     }
 
-    private static UpdateReport report(final UpdateRequest request) {
-        return UpdateReports.parse(request.result()).orElseGet(() -> UpdateReport.at(UpdateReport.Stage.RESOLVING));
+    /** What a card shows of a run: its steps, with the stage of the row it was read with. */
+    private RunRecord shownOf(final UpdateRequest request) {
+        return new RunRecord(request.stage(), updates.recordOf(request.id()).steps());
+    }
+
+    /** Returns the stage of a run. A row no statement gave one yet is resolving. */
+    private static RunStage stageOf(final UpdateRequest request) {
+        return request.stage() == null ? RunStage.RESOLVING : request.stage();
     }
 
     /**
-     * Draws one run: the kind and stage as title, the outcome as mark and one line per service.
+     * Draws one run: the kind and stage as title, the outcome as mark and one line per service its steps name.
      *
      * @param context whether to name who asked
      * @param page the run's page in Steward, which the button opens, or {@code null} for no button
      */
     static DocumentRenderer.Drawn card(
-            final UpdateReport report,
+            final RunRecord record,
             final UpdateRequest request,
             final DocumentRenderer documents,
             final boolean context,
             final @Nullable String page) {
+        final RunStage stage = stageOf(request);
+        final Map<String, List<RunStep.Row>> byService = new LinkedHashMap<>();
         final List<Failure> why = new ArrayList<>();
-        for (final UpdateReport.Failure said : report.failures()) {
-            // A multi-line text is not shown.
-            final String shown =
-                    documents.messages().format(Locales.DEFAULT, said.what()).strip();
-            if (!shown.isBlank() && shown.indexOf('\n') < 0) {
-                final String service = said.service();
-                why.add(new Failure(service != null, service == null ? "" : service, said.what()));
+        for (final RunStep.Row step : record.steps()) {
+            if (step.service() != null) {
+                byService
+                        .computeIfAbsent(step.service(), service -> new ArrayList<>())
+                        .add(step);
+            }
+            // The card is edited once the run settles, and only a failed run says why.
+            if (stage == RunStage.FAILED && step.outcome() == RunStep.Outcome.FAILED && step.reason() != null) {
+                final String service = step.service();
+                why.add(new Failure(
+                        service != null,
+                        service == null ? "" : service,
+                        TEXTS.run().reason(step.reason())));
             }
         }
         final Instant requested = request.requested();
@@ -337,18 +373,14 @@ public final class UpdateFeed {
         return documents.render(
                 RUN,
                 new Run(
-                        glance(report.stage()).symbol(),
-                        TEXTS.run().title(request.kind(), report.stage()),
+                        glance(stage).symbol(),
+                        TEXTS.run().title(request.kind(), stage),
                         context ? TEXTS.journal().who(request.actor()) : null,
                         finished != null && requested != null ? Duration.between(requested, finished) : null),
                 Map.of(
                         "services",
-                        DocumentRenderer.FilledList.of(report.services().stream()
-                                .map(line -> new Service(
-                                        marker(line.state()).symbol(),
-                                        line.service(),
-                                        TEXTS.run().state(line.state()),
-                                        changes(line, request.kind())))
+                        DocumentRenderer.FilledList.of(byService.entrySet().stream()
+                                .map(service -> line(service.getKey(), service.getValue()))
                                 .toList()),
                         "why",
                         DocumentRenderer.FilledList.of(why),
@@ -357,50 +389,32 @@ public final class UpdateFeed {
                 Locales.DEFAULT);
     }
 
-    /** Returns the changes of a service. A told change named after the run's kind has no artefact name. */
-    private static List<MessageRef> changes(final UpdateReport.ServiceLine line, final UpdateKind kind) {
-        final List<MessageRef> changes = new ArrayList<>();
-        for (final UpdateReport.Change change : line.changes()) {
-            final MessageRef shown = switch (change.state()) {
-                case UNSUPPORTED -> TEXTS.run().noBuild();
-                case MOVING -> moving(change);
-            };
-            changes.add(
-                    change.told() != null
-                                    && change.artefact().equals(kind.name().toLowerCase(Locale.ROOT))
-                            ? shown
-                            : TEXTS.run().change(change.artefact(), shown));
+    /** One service: the worst of its steps as mark, its latest step, and the artefacts of the latest step with any. */
+    private static Service line(final String service, final List<RunStep.Row> steps) {
+        final RunStep.Row latest = steps.getLast();
+        final List<MessageRef> changes = steps.reversed().stream()
+                .filter(step -> !step.changes().isEmpty())
+                .findFirst()
+                .map(step -> step.changes().stream().map(RunLines::change).toList())
+                .orElse(List.of());
+        return new Service(marker(steps).symbol(), service, TEXTS.run().stepKind(latest.step()), changes);
+    }
+
+    private static Mark marker(final List<RunStep.Row> steps) {
+        if (steps.stream().anyMatch(step -> step.outcome() == RunStep.Outcome.FAILED)) {
+            return Mark.FAILED;
         }
-        return changes;
-    }
-
-    /** Returns the text of a moving change: its told text, else its version or the old and new version. */
-    private static MessageRef moving(final UpdateReport.Change change) {
-        final MessageRef told = change.told();
-        if (told != null) {
-            return told;
+        if (steps.stream().anyMatch(step -> step.outcome() == null)) {
+            return Mark.WORKING;
         }
-        final String from = change.from();
-        return from == null ? TEXTS.run().version(change.to()) : TEXTS.run().moved(version(from), change.to());
-    }
-
-    /** Returns the version, with a SHA-1 cut to its first seven characters. */
-    private static String version(final String version) {
-        return SHA1.matcher(version).matches() ? version.substring(0, 7) : version;
-    }
-
-    private static Mark marker(final UpdateReport.State state) {
-        return switch (state) {
-            case UNCHANGED -> Mark.UNCHANGED;
-            case PLANNED -> Mark.WAITING;
-            case STOPPED, INSTALLED, STARTING -> Mark.WORKING;
-            case HEALTHY, SAVED, RESTORED -> Mark.DONE;
-            case FAILED -> Mark.FAILED;
-        };
+        if (steps.stream().anyMatch(step -> step.outcome() == RunStep.Outcome.WARNING)) {
+            return Mark.WARNING;
+        }
+        return steps.stream().allMatch(step -> step.outcome() == RunStep.Outcome.SKIPPED) ? Mark.UNCHANGED : Mark.DONE;
     }
 
     /** Returns the mark in front of a stage. It is the only place that shows the outcome. */
-    private static Mark glance(final UpdateReport.Stage stage) {
+    private static Mark glance(final RunStage stage) {
         return switch (stage) {
             case RESOLVING -> Mark.LOOKING;
             case PLANNED -> Mark.PLANNED;

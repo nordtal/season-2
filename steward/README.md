@@ -45,8 +45,8 @@ a statement without a grant fails in `check`.
 
 ## What it does
 
-- **Runs:** The agent writes each report into the `steward_inbox` row, and the interface follows it on
-  `nordtal_update`.
+- **Runs:** The agent writes the stage of a run into its `steward_inbox` row and each step into
+  `run_step`, and the interface follows the run on `nordtal_update`.
 - **Containers and images:** The agent supplies state, health and the last sample. A console suggests
   commands from the `command_tree` of its server. An image whose registry did not answer shows as
   unchecked.
@@ -59,8 +59,9 @@ a statement without a grant fails in `check`.
   names why a route writes no line. `JournaledRoutesTest` fails on a changing route with neither.
 - **Alerts:** Steward measures the stack every 30 seconds against the thresholds of the `web` group. It
   downloads the proxy's pack URL every ten minutes. It raises failed runs and unbookable payments. The bot
-  raises what it could not do in Discord. Steward sends each `admin_alert` row once per alert type and
-  admin to Web Push and to the admin channel through the bot's inbox.
+  raises what it could not do in Discord. An alert is a journal entry with a level and its measure rows.
+  Steward sends each one once per alert type and admin to Web Push, and asks the bot to post it in the admin
+  channel. The bot draws the card from the entry.
 - **Payments:** Steward holds no bank credential. `Bookings` in `:database` books a payment in one
   transaction: it marks the request paid, appends the access, sets the donor flag, writes the journal line
   and tells the bot. The poll books a matched payment at the `prices` read at start. Every question to
@@ -211,3 +212,8 @@ restores a `pg_dump`. Preview writes the session cookie to `build/preview/state.
 `storageState`. The stand-in agent has no bundle of its own, so the Translations page lists nothing until
 `--jars DIR` supplies real jars, one directory per service (`DIR/smp/smp-<version>.jar`,
 `DIR/discord-bot/discord-bot-<version>.jar`).
+
+`SettingsPageEndToEndTest` starts the same preview and drives smp's settings tab in Chromium with
+`frontend/e2e/settings-plugins.ts`, run by the private Node with `playwright-core`. It needs a Chromium
+binary in `NORDTAL_CHROMIUM` and skips without one; CI sets it to the runner's Chrome. Its screenshots,
+390 and 1280 pixels wide, land in `build/e2e-shots/`.

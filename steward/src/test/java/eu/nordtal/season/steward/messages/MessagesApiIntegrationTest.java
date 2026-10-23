@@ -18,7 +18,6 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.spec.Display;
-import eu.nordtal.season.messages.value.DisplayName;
 import eu.nordtal.season.messages.value.Kind;
 import eu.nordtal.season.steward.ErrorHandlers;
 import eu.nordtal.season.steward.texts.WebTexts;
@@ -33,7 +32,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -280,17 +278,18 @@ class MessagesApiIntegrationTest {
 
         final HttpResponse<String> asked = send("POST", "/api/message-preview", """
                 {"bundle": "smp/smp", "key": "greeting", "language": "de", "text": "Moin {player} nach {time}",
-                 "shown": "TITLE", "values": {"player": "Alex", "time": "eine Weile"}}
+                 "shown": "TITLE", "values": {"player": "Alex", "time": "eine Weile", "stray": "x"}}
                 """);
         assertEquals(204, asked.statusCode(), asked.body());
+        assertEquals("greeting", previewed.key());
         assertEquals(Display.TITLE, previewed.shown());
         assertEquals("de", previewed.language());
         assertEquals("Moin {player} nach {time}", previewed.text());
-        assertEquals("Alex", ((DisplayName) previewed.message().args().get("player")).name());
+        assertEquals(SettingStore.NETWORK, previewed.service(), "a page not filtered to a service takes the network's");
         assertEquals(
-                Duration.ofMinutes(5),
-                previewed.message().args().get("time"),
-                "a value that does not read as its kind is the schema's example");
+                java.util.Map.of("player", "Alex", "time", "eine Weile"),
+                previewed.given(),
+                "the values of the key's own placeholders as typed, which the recipient reads by its schema");
     }
 
     @Test
@@ -328,7 +327,7 @@ class MessagesApiIntegrationTest {
 
     /** Tests that a network language is offered before a bundle has it and that tones are per service. */
     @Test
-    void theTextsNameTheNetworksLanguagesAndEachServicesColoursAndAPreviewCarriesTheOneAskedFor() throws Exception {
+    void theTextsNameTheNetworksLanguagesAndEachServicesColoursAndAPreviewNamesTheServiceAskedFor() throws Exception {
         PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),
                 java.util.Map.of(
@@ -357,11 +356,7 @@ class MessagesApiIntegrationTest {
                 {"bundle": "smp/smp", "key": "greeting", "language": "nl", "text": "<bad>Hallo</bad>", "shown": "CHAT",
                  "service": "smp"}
                 """);
-        assertEquals("#123456", previewed.colours().get("bad"), "the palette of the service the page is filtered to");
-        send("POST", "/api/message-preview", """
-                {"bundle": "smp/smp", "key": "greeting", "language": "nl", "text": "<bad>Hallo</bad>", "shown": "CHAT"}
-                """);
-        assertEquals(Tone.BAD.hex(), previewed.colours().get("bad"), "else the network's");
+        assertEquals("smp", previewed.service(), "the palette of the service the page is filtered to");
     }
 
     @Test

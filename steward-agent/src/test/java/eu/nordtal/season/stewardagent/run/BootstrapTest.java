@@ -2,13 +2,11 @@ package eu.nordtal.season.stewardagent.run;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.database.DatabaseText;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.stewardagent.apply.ApplyResult;
 import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
@@ -37,19 +35,21 @@ class BootstrapTest {
                     null),
             null);
 
+    private final CollectedSteps steps = new CollectedSteps();
+
     @Test
     void nothingMissingAndEverythingCheckedIsNoRunAtAll() {
-        final Optional<UpdateReport> report = Bootstrap.report(Steps.NONE, plan(), missing -> {
+        final Optional<RunStage> stage = report(plan(), missing -> {
             throw new AssertionError("nothing is installed when nothing is missing");
         });
 
-        assertTrue(report.isEmpty(), "a restart with full volumes writes no run: " + report);
+        assertTrue(stage.isEmpty(), "a restart with full volumes writes no run: " + stage);
+        assertEquals(List.of(), steps.rows());
     }
 
     @Test
     void aMissingJarThatWentInIsAFinishedRunWithItsServiceInstalled() {
-        final UpdateReport report = Bootstrap.report(
-                        Steps.NONE,
+        final RunStage stage = report(
                         plan(PACKETEVENTS),
                         missing -> new ApplyResult(List.of(new ApplyResult.Outcome(
                                 "smp",
@@ -59,54 +59,50 @@ class BootstrapTest {
                                 "packetevents-spigot-2.13.0.jar"))))
                 .orElseThrow();
 
-        assertEquals(UpdateReport.Stage.DONE, report.stage());
-        final UpdateReport.ServiceLine smp = report.line("smp");
-        assertEquals(UpdateReport.State.INSTALLED, smp.state());
-        assertEquals(List.of(new UpdateReport.Change("packetevents", null, "2.13.0")), smp.changes());
+        assertEquals(RunStage.DONE, stage);
     }
 
     @Test
-    void aJarThatDidNotGoInFailsTheRunAndSaysWhy() {
-        final UpdateReport report = Bootstrap.report(
-                        Steps.NONE,
+    void aJarThatDidNotGoInFailsTheRunAndItsInstallStep() {
+        final RunStage stage = report(
                         plan(PACKETEVENTS),
                         missing -> new ApplyResult(List.of(new ApplyResult.Outcome(
                                 "smp", "packetevents", ApplyResult.Status.FAILED, "checksum did not match"))))
                 .orElseThrow();
 
-        assertEquals(UpdateReport.Stage.FAILED, report.stage());
-        assertEquals(UpdateReport.State.FAILED, report.line("smp").state());
-        assertTrue(
-                report.failures().stream()
-                        .anyMatch(failure -> "smp".equals(failure.service())
-                                && DatabaseText.english(failure.what()).contains("checksum did not match")),
-                "the bot's card and the alert say the failures: " + report.failures());
+        assertEquals(RunStage.FAILED, stage);
+        final RunStep.Row install = steps.rows().getLast();
+        assertEquals(RunStep.Kind.INSTALL, install.step());
+        assertEquals("smp", install.service());
+        assertEquals(RunStep.Outcome.FAILED, install.outcome(), "the bot's card and the alert say the failures");
     }
 
     @Test
     void aJarLeftOutBecauseItsServerCouldNotBeCheckedFailsTheRun() {
-        final UpdateReport report = Bootstrap.report(
-                        Steps.NONE,
+        final RunStage stage = report(
                         plan(PACKETEVENTS),
                         missing -> new ApplyResult(List.of(new ApplyResult.Outcome(
                                 "smp", "packetevents", ApplyResult.Status.SKIPPED, "the season jar is unknown"))))
                 .orElseThrow();
 
-        assertEquals(UpdateReport.Stage.FAILED, report.stage(), "skipping everything is not a finished install");
+        assertEquals(RunStage.FAILED, stage, "skipping everything is not a finished install");
     }
 
     @Test
     void anArtefactThatCouldNotBeCheckedFailsTheRunEvenWithNothingMissing() {
-        final UpdateReport report = Bootstrap.report(
-                        Steps.NONE,
+        final RunStage stage = report(
                         plan(Change.unresolved("limbo", "limbo", TEXTS.report().words("GitHub answered 503"))),
                         missing -> {
                             throw new AssertionError("nothing is installed when nothing is missing");
                         })
                 .orElseThrow();
 
-        assertEquals(UpdateReport.Stage.FAILED, report.stage());
-        assertEquals(UpdateReport.State.FAILED, report.line("limbo").state());
+        assertEquals(RunStage.FAILED, stage);
+        final RunStep.Row limbo = steps.rows().getLast();
+        assertEquals(RunStep.Kind.RESOLVE, limbo.step());
+        assertEquals("limbo", limbo.service());
+        assertEquals(RunStep.Outcome.FAILED, limbo.outcome());
+        assertEquals(RunStep.Reason.SOURCE_FAILED, limbo.reason());
     }
 
     @Test
@@ -124,22 +120,25 @@ class BootstrapTest {
 
     @Test
     void anInstallThatThrowsIsAFailedRunThatKeepsWhatWasPlanned() {
-        final UpdateReport report = Bootstrap.report(Steps.NONE, plan(PACKETEVENTS), missing -> {
+        final RunStage stage = report(plan(PACKETEVENTS), missing -> {
                     throw new IllegalStateException("disk full");
                 })
                 .orElseThrow();
 
-        assertEquals(UpdateReport.Stage.FAILED, report.stage());
-        assertFalse(report.failures().isEmpty(), "a failed run says why");
-        assertTrue(report.line("smp").isMoving(), "what it meant to install stays named");
+        assertEquals(RunStage.FAILED, stage);
+        final RunStep.Row resolved = steps.rows().stream()
+                .filter(row -> "smp".equals(row.service()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                List.of(new RunStep.Change("packetevents", null, "2.13.0", null)),
+                resolved.changes(),
+                "what it meant to install stays named");
     }
 
     @Test
     void theInstallWritesItsStepsWithTheVersionsItMoved() {
-        final CollectedSteps steps = new CollectedSteps();
-
-        Bootstrap.report(
-                new Steps(steps, 1),
+        report(
                 plan(PACKETEVENTS),
                 missing -> new ApplyResult(List.of(new ApplyResult.Outcome(
                         "smp",
@@ -157,9 +156,7 @@ class BootstrapTest {
 
     @Test
     void anInstallThatThrowsEndsItsStepUnexpectedly() {
-        final CollectedSteps steps = new CollectedSteps();
-
-        Bootstrap.report(new Steps(steps, 1), plan(PACKETEVENTS), missing -> {
+        report(plan(PACKETEVENTS), missing -> {
             throw new IllegalStateException("disk full");
         });
 
@@ -167,6 +164,10 @@ class BootstrapTest {
         assertEquals(RunStep.Kind.INSTALL, install.step());
         assertEquals(RunStep.Outcome.FAILED, install.outcome());
         assertEquals(RunStep.Reason.UNEXPECTED, install.reason());
+    }
+
+    private Optional<RunStage> report(final UpdatePlan missing, final Function<UpdatePlan, ApplyResult> apply) {
+        return Bootstrap.report(new Steps(steps, 1), missing, apply);
     }
 
     private static UpdatePlan plan(final Change... changes) {

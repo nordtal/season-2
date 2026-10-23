@@ -2,12 +2,10 @@ package eu.nordtal.season.stewardagent.run;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.stewardagent.Told;
 import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
 import java.time.Duration;
 import java.time.Instant;
@@ -52,11 +50,11 @@ class ChoreographyTest {
     @Test
     void theStandbysAreStartedBeforeAnythingElseHappensAndFromTheLocalImage() {
         final FakeContainers containers = new FakeContainers().running("proxy", "limbo", "smp");
-        final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());
+        final Choreography choreography = choreography(containers, Occupancy.NONE, driven());
 
         final Choreography.Window window = choreography.open(List.of("proxy", "limbo", "smp"));
 
-        assertTrue(window.opened(), Told.joined(window.refusal()));
+        assertTrue(window.opened(), collected.rows().toString());
         assertEquals(List.of("proxy-standby", "limbo-standby"), window.standbys());
         // The standby must run the image its live service runs, which is often built here.
         assertEquals(
@@ -70,11 +68,11 @@ class ChoreographyTest {
         // A one-shot's compose file names the next release's image, which no container on this host runs yet.
         final FakeContainers containers =
                 new FakeContainers().running("proxy", "limbo").imageNotHere("limbo-standby");
-        final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());
+        final Choreography choreography = choreography(containers, Occupancy.NONE, driven());
 
         final Choreography.Window window = choreography.open(List.of("limbo"));
 
-        assertTrue(window.opened(), Told.joined(window.refusal()));
+        assertTrue(window.opened(), collected.rows().toString());
         assertEquals(
                 List.of("fetch:limbo-standby", "recreate-local:limbo-standby"),
                 containers.calls,
@@ -85,15 +83,13 @@ class ChoreographyTest {
     void aStandbyThatNeverBecomesHealthyAbortsTheRunWithNothingStopped() {
         final FakeContainers containers =
                 new FakeContainers().running("proxy", "limbo").neverHealthy("limbo-standby");
-        final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());
+        final Choreography choreography = choreography(containers, Occupancy.NONE, driven());
 
         final Choreography.Window window = choreography.open(List.of("limbo"));
 
         assertFalse(window.opened(), "a run with nowhere to put the players must not go ahead");
-        final String refusal = Told.joined(window.refusal());
-        assertNotNull(refusal);
-        assertTrue(refusal.contains("limbo-standby"), refusal);
-        assertTrue(refusal.contains("unhealthy"), refusal);
+        assertEquals(
+                List.of("STANDBY_UP limbo-standby FAILED NOT_HEALTHY", "STANDBY_DOWN limbo-standby DONE"), steps());
         // A refused run leaves no second network behind.
         assertTrue(
                 containers.calls.contains("stop:limbo-standby-container-2"),
@@ -120,7 +116,7 @@ class ChoreographyTest {
         final Counts counts = new Counts().on("smp", 0);
         final Choreography choreography = new Choreography(new FakeContainers(), counts, driven());
 
-        assertEquals(List.of(), choreography.waitUntilEmpty(List.of("smp")).notes());
+        assertEquals(Choreography.Left.EMPTY, choreography.waitUntilEmpty(List.of("smp")));
     }
 
     @Test
@@ -130,7 +126,7 @@ class ChoreographyTest {
         clock.onSleep(() -> counts.on("smp", 0));
         final Choreography choreography = new Choreography(new FakeContainers(), counts, clock);
 
-        assertEquals(List.of(), choreography.waitUntilEmpty(List.of("smp")).notes());
+        assertEquals(Choreography.Left.EMPTY, choreography.waitUntilEmpty(List.of("smp")));
         assertEquals(
                 Duration.ofSeconds(1),
                 clock.slept(),
@@ -148,7 +144,7 @@ class ChoreographyTest {
 
         final Choreography.Left left = choreography.waitUntilEmpty(List.of("smp"));
 
-        assertEquals(List.of(), left.notes(), "a move that waits for the resource pack is waited for");
+        assertEquals(Choreography.Left.EMPTY, left, "a move that waits for the resource pack is waited for");
         assertEquals(Duration.ofSeconds(25), clock.slept(), "the stale zero did not end the wait at once");
     }
 
@@ -159,11 +155,9 @@ class ChoreographyTest {
         final Choreography choreography = new Choreography(new FakeContainers(), counts, clock);
 
         final Choreography.Left left = choreography.waitUntilEmpty(List.of("smp"));
-        final String said = Told.joined(left.notes());
 
         assertEquals(RunStep.Reason.PLAYERS_STAYED, left.reason());
-        assertFalse(said.isEmpty(), "a stop with somebody still on it is a line in the report, not silence");
-        assertEquals("PLAYERS WARNING smp: stopped after 60s, 1 player still on", said);
+        assertEquals(RunStep.Outcome.WARNING, left.outcome(), "a stop with somebody still on it is not silence");
         assertTrue(clock.slept().compareTo(Choreography.EMPTY_CAP) >= 0, "it waited the whole cap before giving up");
     }
 
@@ -173,46 +167,26 @@ class ChoreographyTest {
         final Choreography choreography = new Choreography(new FakeContainers(), Occupancy.NONE, driven());
 
         final Choreography.Left left = choreography.waitUntilEmpty(List.of("smp"));
-        final String said = Told.joined(left.notes());
 
         assertEquals(RunStep.Reason.PLAYERS_UNKNOWN, left.reason(), "unknown is not the same as somebody stayed");
-        assertFalse(said.isEmpty());
-        assertEquals("PLAYERS WARNING smp: no recent player count, stopped after 60s", said);
-    }
-
-    @Test
-    void theTwoHalvesOfTheSentenceAreToldApart() {
-        final Map<String, Integer> occupied = new LinkedHashMap<>();
-        occupied.put("smp", 2);
-        occupied.put("hunger-games", 1);
-        final List<String> said = Told.records(Choreography.stoppedAnyway(occupied, List.of("limbo")));
-
-        assertEquals(
-                List.of(
-                        "PLAYERS WARNING smp: stopped after 60s, 2 players still on",
-                        "PLAYERS WARNING hunger-games: stopped after 60s, 1 player still on",
-                        "PLAYERS WARNING limbo: no recent player count, stopped after 60s"),
-                said,
-                "each server keeps its own count, and no answer is told apart from players still on");
     }
 
     @Test
     void theStandbyIsStoppedAgainOnceItIsEmptyAndOnlyOnce() {
         final FakeContainers containers = new FakeContainers().running("limbo");
         final Counts counts = new Counts().on("limbo-standby", 0);
-        final Choreography choreography = new Choreography(containers, counts, driven());
+        final Choreography choreography = choreography(containers, counts, driven());
         choreography.open(List.of("limbo"));
         containers.calls.clear();
 
-        final List<String> said = Told.records(choreography.close());
+        choreography.close();
 
-        assertEquals(1, said.size(), said.toString());
-        assertTrue(said.get(0).contains("limbo-standby"), said.toString());
-        assertTrue(said.get(0).contains("stopped again"), said.toString());
+        assertEquals(List.of("STANDBY_UP limbo-standby DONE", "STANDBY_DOWN limbo-standby DONE"), steps());
         assertEquals(List.of("stop:limbo-standby-container-2", "hand-over-mounts:limbo-standby"), containers.calls);
 
         // Idempotent, because the run closes its window on the ordinary path AND in a finally.
-        assertEquals(List.of(), choreography.close());
+        choreography.close();
+        assertEquals(List.of("STANDBY_UP limbo-standby DONE", "STANDBY_DOWN limbo-standby DONE"), steps());
         assertEquals(List.of("stop:limbo-standby-container-2", "hand-over-mounts:limbo-standby"), containers.calls);
     }
 
@@ -241,18 +215,36 @@ class ChoreographyTest {
         final Counts counts = new Counts().standbyProxy(2);
         final Driven clock = driven();
         clock.onSleep(() -> counts.standbyProxy(0));
-        final Choreography choreography = new Choreography(containers, counts, clock);
+        final Choreography choreography = choreography(containers, counts, clock);
         choreography.open(List.of("proxy"));
         containers.calls.clear();
 
-        final List<String> said = Told.records(choreography.close());
+        choreography.close();
 
         assertEquals(List.of("stop:proxy-standby-container-2", "hand-over-mounts:proxy-standby"), containers.calls);
-        assertEquals(List.of("STANDBY DONE proxy-standby: stopped again"), said);
+        assertEquals(List.of("STANDBY_UP proxy-standby DONE", "STANDBY_DOWN proxy-standby DONE"), steps());
         assertEquals(
                 Duration.ofSeconds(1),
                 clock.slept(),
                 "it waited for the two players to go home before pulling the standby out" + " from under them");
+    }
+
+    private final CollectedSteps collected = new CollectedSteps();
+
+    private Choreography choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock) {
+        return new Choreography(containers, occupancy, clock, new Steps(collected, 1));
+    }
+
+    /** The steps written so far: kind, subject, outcome and reason. */
+    private List<String> steps() {
+        return collected.rows().stream()
+                .map(row -> String.join(
+                        " ",
+                        java.util.stream.Stream.of(row.step(), row.service(), row.outcome(), row.reason())
+                                .filter(java.util.Objects::nonNull)
+                                .map(String::valueOf)
+                                .toList()))
+                .toList();
     }
 
     private static Driven driven() {

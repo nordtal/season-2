@@ -204,28 +204,30 @@ interface RunStepDao {
             boolean stopVerified,
             RunStep.@Nullable PruneRule pruneRule) {}
 
-    @SqlUpdate("UPDATE steward_inbox SET stage = :stage WHERE id = :run AND stage IS DISTINCT FROM :stage")
-    void stage(@Bind("run") long run, @Bind("stage") String stage);
-
     /** Sets the stage of every failed run to {@code FAILED}, where no statement wrote it. */
     @SqlUpdate("UPDATE steward_inbox SET stage = 'FAILED' WHERE status = 'FAILED' AND stage IS DISTINCT FROM 'FAILED'")
     void failedStages();
 
-    /** Writes the services that a request names as not moving. */
+    /** Ends every open step of a failed run as interrupted, since nothing ends it any more. */
     @SqlUpdate("""
-            INSERT INTO run_service (run, service, moving)
-            SELECT :run, service, false FROM unnest(cast(:services AS text[])) AS named (service)
+            UPDATE run_step SET finished = now(), outcome = 'FAILED', reason = 'INTERRUPTED'
+            WHERE finished IS NULL AND run IN (SELECT id FROM steward_inbox WHERE status = 'FAILED')
+            """)
+    void interrupted();
+
+    /** Returns the services of a run as JSON, so they can outlive a table that a restore replaces. */
+    @SqlQuery("""
+            SELECT cast(coalesce(jsonb_agg(to_jsonb(s)), '[]'::jsonb) AS text) FROM run_service s WHERE s.run = :run
+            """)
+    String services(@Bind("run") long run);
+
+    /** Writes back the services that {@link #services} returned. */
+    @SqlUpdate("""
+            INSERT INTO run_service
+            SELECT * FROM jsonb_populate_recordset(null::run_service, cast(:services AS jsonb))
             ON CONFLICT (run, service) DO NOTHING
             """)
-    void named(@Bind("run") long run, @Bind("services") String[] services);
-
-    /** Marks the services that a run stops as moving, and adds those that the request did not name. */
-    @SqlUpdate("""
-            INSERT INTO run_service (run, service, moving)
-            SELECT :run, service, true FROM unnest(cast(:services AS text[])) AS stopped (service)
-            ON CONFLICT (run, service) DO UPDATE SET moving = true
-            """)
-    void moving(@Bind("run") long run, @Bind("services") String[] services);
+    void services(@Bind("services") String services);
 
     /** Adds players moved off a service to the latest move of the run, which steward-agent began before it. */
     @SqlUpdate("""

@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { vi } from "vitest"
 
 import { Translations } from "@/pages/translations"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import type { Opened } from "@/components/steward/texts"
 import type {
   CommandRun,
@@ -25,6 +26,7 @@ import type {
   SharedPartChange,
 } from "@/lib/api"
 import { asTextArea } from "@/lib/test-elements"
+import { APPLIED } from "@/lib/query-fixtures"
 
 /** The fake backend, the texts and the helpers the Translations page tests share. */
 
@@ -79,7 +81,7 @@ export function text(over: Partial<MessageEntry> & { key: string }, around: Part
 }
 
 export function listing(texts: MessageText[], over: Partial<MessageTexts> = {}): MessageTexts {
-  return { writable: true, texts, languages: [], colours: {}, places: PLACES, ...over }
+  return { texts, languages: [], colours: {}, places: PLACES, ...over }
 }
 
 /** A Discord document of the bot, a message of the area Contribution unless `over` and `around` say otherwise. */
@@ -102,7 +104,7 @@ export function view(
 }
 
 export function documents(views: DocumentView[], over: Partial<DocumentList> = {}): DocumentList {
-  return { writable: true, documents: views, languages: ["en"], sharedParts: [], ...over }
+  return { documents: views, languages: ["en"], sharedParts: [], ...over }
 }
 
 /** What the editor asks besides the texts; a test answers any of them otherwise. */
@@ -136,7 +138,7 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/messages" && init?.method === "PUT") {
       if (!put) throw new Error("the page saved, which this test did not expect")
-      const saved = { texts, warnings: [], ...put(JSON.parse(init.body ?? "")) }
+      const saved = { texts, warnings: [], reload: APPLIED, ...put(JSON.parse(init.body ?? "")) }
       texts = saved.texts
       return json(saved)
     }
@@ -184,7 +186,11 @@ export function draw(node: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return render(<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>)
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>{node}</TooltipProvider>
+    </QueryClientProvider>,
+  )
 }
 
 /** The page as its route draws it, with its search parameters kept in state instead of the URL. */

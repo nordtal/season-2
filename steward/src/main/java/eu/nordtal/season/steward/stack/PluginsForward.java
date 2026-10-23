@@ -66,7 +66,7 @@ public final class PluginsForward {
         final UpdateRequest written;
         try {
             written = updates.submit(
-                    new StewardRequest.RemovePlugin(List.of(service(ctx)), artifact), actor, Duration.ZERO);
+                    new StewardRequest.RemovePlugin(artifact), List.of(service(ctx)), actor, Duration.ZERO);
         } catch (final IllegalArgumentException malformed) {
             throw new BadRequestResponse(malformed.getMessage());
         }

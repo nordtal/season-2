@@ -1,6 +1,7 @@
 package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.stewardagent.source.Versions;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -45,6 +46,11 @@ final class Release {
             // The newest published release runs, whatever its name says about order.
             return Standing.NEWER;
         }
+    }
+
+    /** Returns the release a resolve step names as a change: the tag's version unless it is this agent's own. */
+    static Optional<String> changed(final @Nullable String tag, final @Nullable String own) {
+        return Optional.ofNullable(tag).map(Release::version).filter(version -> !version.equals(own));
     }
 
     static String version(final String tag) {

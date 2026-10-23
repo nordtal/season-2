@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>The stack is removed.</good>",
+            "de": "<good>Der Stapel ist entfernt.</good>"
+          }
+        }
+      ]
+    }
+  ]
+}

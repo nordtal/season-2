@@ -1,27 +1,27 @@
 package eu.nordtal.season.discordbot.discord;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.DatabaseMessages;
-import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.Outcome;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.ServerRefusal;
-import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Display;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 class BotInboxTest {
@@ -63,14 +63,19 @@ class BotInboxTest {
                 return !tag.equals("fr");
             },
             alert -> {
-                carriedOut.add("alert " + alert.level() + " " + alert.title().key() + " " + alert.mentions());
+                carriedOut.add("alert " + alert.entry() + " " + alert.mention());
                 return true;
             },
-            booked -> carriedOut.add("told " + booked.person() + " " + booked.days()),
+            booked -> carriedOut.add("told " + booked.payment()),
             previewed -> {
                 carriedOut.add("preview " + previewed.person() + " "
                         + previewed.preview().text());
                 return !previewed.person().equals(CLOSED);
+            },
+            previewed -> {
+                carriedOut.add("document " + previewed.person() + " "
+                        + previewed.preview().language());
+                return true;
             });
 
     /** Discord delivers nothing to this admin, whose direct messages are closed. */
@@ -78,15 +83,7 @@ class BotInboxTest {
 
     private static final BotRequest.PaymentBooked BOOKED = new BotRequest.PaymentBooked(
             UUID.fromString("00000000-0000-0000-0000-000000000007"),
-            DiscordId.of("400000000000000002"),
-            "NT-7",
-            30,
-            0,
-            false,
-            300,
-            Instant.parse("2026-10-02T00:00:00Z"),
-            Instant.parse("2026-11-01T00:00:00Z"),
-            UUID.fromString("00000000-0000-0000-0000-000000000007"));
+            UUID.fromString("00000000-0000-0000-0000-000000000008"));
 
     private static Request<BotRequest> row(final BotRequest payload, final Actor actor) {
         return new Request<>(
@@ -100,12 +97,18 @@ class BotInboxTest {
                 null,
                 Instant.now(),
                 null,
+                null,
+                null,
                 null);
     }
 
     private String answer(final BotRequest payload) {
+        return Json.encode(done(payload));
+    }
+
+    private @Nullable Object done(final BotRequest payload) {
         final Outcome outcome = subject.handle(row(payload, Actor.person(ADMIN)));
-        return Json.encode(assertInstanceOf(Outcome.Done.class, outcome).answer());
+        return assertInstanceOf(Outcome.Done.class, outcome).answer();
     }
 
     @Test
@@ -122,27 +125,32 @@ class BotInboxTest {
                         "grant 400000000000000002 30 by PERSON 400000000000000001",
                         "revoke 400000000000000002 by PERSON 400000000000000001",
                         "unlink 400000000000000002 by PERSON 400000000000000001",
-                        "told 400000000000000002 30",
+                        "told 00000000-0000-0000-0000-000000000007",
                         "playtime 400000000000000002 7200 by PERSON 400000000000000001"),
                 carriedOut);
     }
 
     @Test
-    void theAnswerIsAFlatObjectOfStringsASurfaceCanRead() {
+    void anAccessChangeAnswersWithItsKindsTypedAnswer() {
         final DiscordId someone = DiscordId.of("400000000000000002");
-        assertEquals("{\"until\":\"2026-10-20T00:00:00Z\"}", answer(new BotRequest.Grant(someone, 30)));
-        assertEquals("{\"revoked\":\"2\"}", answer(new BotRequest.Revoke(someone)));
-        assertEquals("{\"told\":\"400000000000000002\"}", answer(BOOKED));
+        assertEquals(
+                new BotRequest.Grant.Answer(Instant.parse("2026-10-20T00:00:00Z")),
+                done(new BotRequest.Grant(someone, 30)));
+        assertEquals(new BotRequest.Revoke.Answer(2), done(new BotRequest.Revoke(someone)));
+        assertEquals(new BotRequest.Unlink.Answer(true), done(new BotRequest.Unlink(someone)));
+        assertNull(done(BOOKED));
+        assertNull(done(new BotRequest.SetPlaytime(someone, 7200)));
     }
 
     @Test
     void aPreviewIsSentToTheAdminAndRefusedWhereDiscordDeliversNothing() {
         final MessagePreview preview = new MessagePreview(
-                DatabaseMessages.MESSAGES.announcement().words("Hallo"),
+                DatabaseMessages.MESSAGES.announcement().words("Hallo").key(),
                 "de",
                 "**{text}**",
                 Display.DISCORD_MESSAGE,
-                Map.of());
+                "network",
+                Map.of("text", "Hallo"));
 
         final Outcome sent = subject.handle(row(new BotRequest.PreviewMessage(ADMIN, preview), Actor.person(ADMIN)));
         final Outcome bounced =
@@ -158,22 +166,38 @@ class BotInboxTest {
 
     @Test
     void anAnnouncementPostsEveryLanguageAndSaysWhichWentOut() {
-        final java.util.Map<String, MessageRef> messages = new java.util.LinkedHashMap<>();
-        messages.put("de", DatabaseMessages.MESSAGES.announcement().words("Hallo"));
-        messages.put("fr", DatabaseMessages.MESSAGES.announcement().words("Bonjour"));
+        final Map<String, String> words = new LinkedHashMap<>();
+        words.put("de", "Hallo");
+        words.put("fr", "Bonjour");
 
-        final String answer = answer(new BotRequest.Announce(messages));
+        final Object answer = done(BotRequest.Announce.words(words));
 
         assertEquals(List.of("announce de announcement.words", "announce fr announcement.words"), carriedOut);
-        assertEquals("{\"de\":\"POSTED\",\"fr\":\"NOT_POSTED\"}", answer);
+        assertEquals(
+                new BotRequest.Announce.Answer(List.of(
+                        new BotRequest.Announce.Posted("de", true), new BotRequest.Announce.Posted("fr", false))),
+                answer);
     }
 
     @Test
-    void anAlertIsPostedWithItsMentionsAndSaysItWentOut() {
-        final String answer = answer(new BotRequest.PostAlert(
-                Alert.Level.WARN, TEXTS.alert().disk(91), List.of(), "https://steward.example/", List.of(ADMIN)));
+    void aMilestoneIsRenderedInEachLanguageFromItsName() {
+        final Map<String, String> names = new LinkedHashMap<>();
+        names.put("de", "Standbein");
+        names.put("en", "Foothold");
 
-        assertEquals(List.of("alert WARN alert.disk [400000000000000001]"), carriedOut);
+        done(BotRequest.Announce.milestone(BotRequest.Announce.Message.MILESTONE_BORDER, "border.1", names));
+
+        assertEquals(
+                List.of("announce de announcement.milestone.border", "announce en announcement.milestone.border"),
+                carriedOut);
+    }
+
+    @Test
+    void anAlertIsPostedWithItsMentionAndSaysItWentOut() {
+        final UUID entry = UUID.fromString("00000000-0000-0000-0000-000000000042");
+        final String answer = answer(new BotRequest.PostAlert(entry, true));
+
+        assertEquals(List.of("alert " + entry + " true"), carriedOut);
         assertEquals("{\"posted\":\"true\"}", answer);
     }
 

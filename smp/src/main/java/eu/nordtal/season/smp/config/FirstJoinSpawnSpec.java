@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -12,6 +13,7 @@ public interface FirstJoinSpawnSpec {
     @Order(1)
     @Name("World")
     @Key("world")
+    @Refers(Refers.To.WORLD)
     @NoExplanationNeeded
     default String world() {
         return "nordtal";

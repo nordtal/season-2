@@ -1,7 +1,7 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
 
 import type { ConfigChoices, ConfigEntry } from "@/lib/api"
-import { isColour } from "@/lib/references"
+import { isColour, isGameReference } from "@/lib/references"
 import { useGameData } from "@/lib/queries"
 import { ColourControl } from "@/components/steward/colour-control"
 import { GameIcon } from "@/components/steward/game-icon"
@@ -36,6 +36,45 @@ export function explanationOf(entry: ConfigEntry): string | null {
  */
 export function isRequiredChannel(entry: ConfigEntry): boolean {
   return entry.refers?.to === "DISCORD_CHANNEL" && !entry.refers.optional
+}
+
+const WHOLE = /^[+-]?\d+$/
+const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/
+/** A game's resource location, or a tag of them: lower case, the namespace optional. */
+const KEY = /^#?([a-z0-9_.-]+:)?[a-z0-9_./-]+$/
+
+/**
+ * Says in words why `value` cannot be stored in `entry`, or returns null. The server converts by the same type and
+ * keeps its own check; this only answers while the value is typed. A bound a setting's check holds is the server's.
+ */
+export function problemOf(entry: ConfigEntry, value: string): string | null {
+  const text = value.trim()
+  if (entry.choices || entry.secret) return null
+  if (entry.type === "INTEGER") {
+    const fits = WHOLE.test(text) && BigInt(text) >= -(2n ** 63n) && BigInt(text) < 2n ** 63n
+    return fits ? null : t("steward.settings.not-of-type", { expected: "integer" })
+  }
+  if (entry.type === "DECIMAL")
+    return NUMBER.test(text) ? null : t("steward.settings.not-of-type", { expected: "decimal" })
+  if (entry.type === "BOOLEAN") {
+    return text === "true" || text === "false" ? null : t("steward.settings.not-of-type", { expected: "boolean" })
+  }
+  // An empty reference is the game's to judge, as is whether the key names anything.
+  const key = entry.refers && isGameReference(entry.refers) && entry.refers.to !== "WORLD"
+  if (key && text !== "" && !KEY.test(text)) {
+    return t("steward.settings.not-of-type", { expected: "key" })
+  }
+  return null
+}
+
+/** The reason under a field that holds a value it cannot take. */
+export function FieldProblem({ id, problem }: { id: string; problem: string | null }) {
+  if (problem === null) return null
+  return (
+    <p id={id} className="text-xs text-destructive">
+      {problem}
+    </p>
+  )
 }
 
 export function choiceName(choices: ConfigChoices, value: string): string {
@@ -113,6 +152,7 @@ function TextControl({
   disabled: boolean
   onChange: (value: string) => void
 }) {
+  const problem = problemOf(entry, value)
   if (value.includes("\n")) {
     return (
       <Textarea
@@ -127,15 +167,20 @@ function TextControl({
     )
   }
   return (
-    <Input
-      id={id}
-      disabled={disabled}
-      value={value}
-      inputMode={entry.type === "INTEGER" || entry.type === "DECIMAL" ? "decimal" : undefined}
-      spellCheck={false}
-      className="font-mono text-sm max-md:text-base"
-      onChange={(event) => onChange(event.target.value)}
-    />
+    <div className="flex flex-col gap-1">
+      <Input
+        id={id}
+        disabled={disabled}
+        value={value}
+        inputMode={entry.type === "INTEGER" ? "numeric" : entry.type === "DECIMAL" ? "decimal" : undefined}
+        spellCheck={false}
+        aria-invalid={problem !== null}
+        aria-describedby={problem === null ? undefined : `${id}-problem`}
+        className="font-mono text-sm max-md:text-base"
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <FieldProblem id={`${id}-problem`} problem={problem} />
+    </div>
   )
 }
 
@@ -227,7 +272,7 @@ export function ListControl({
   sibling?: string
   onChange: (items: string[]) => void
 }) {
-  const rows = <ListRows id={id} items={items} disabled={disabled} onChange={onChange} />
+  const rows = <ListRows id={id} entry={entry} items={items} disabled={disabled} onChange={onChange} />
   if (!entry.refers || isColour(entry.refers)) return rows
   return (
     <ReferencePicker
@@ -246,11 +291,13 @@ export function ListControl({
 
 function ListRows({
   id,
+  entry,
   items,
   disabled,
   onChange,
 }: {
   id: string
+  entry: ConfigEntry
   items: string[]
   disabled: boolean
   onChange: (items: string[]) => void
@@ -260,31 +307,39 @@ function ListRows({
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("steward.settings.empty-list")}</p>
       ) : (
-        items.map((item, index) => (
-          <div key={index} className="flex items-center gap-2">
-            <Input
-              id={index === 0 ? id : undefined}
-              disabled={disabled}
-              value={item}
-              spellCheck={false}
-              className="font-mono text-sm max-md:text-base"
-              aria-label={t("steward.settings.entry", { index: index + 1 })}
-              onChange={(event) => onChange(items.map((old, at) => (at === index ? event.target.value : old)))}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={disabled}
-              aria-label={t("steward.settings.remove-entry", {
-                index: index + 1,
-              })}
-              onClick={() => onChange(items.filter((_, at) => at !== index))}
-            >
-              <TrashIcon aria-hidden />
-            </Button>
-          </div>
-        ))
+        items.map((item, index) => {
+          const problem = problemOf(entry, item)
+          return (
+            <div key={index} className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Input
+                  id={index === 0 ? id : undefined}
+                  disabled={disabled}
+                  value={item}
+                  spellCheck={false}
+                  aria-invalid={problem !== null}
+                  aria-describedby={problem === null ? undefined : `${id}-${index}-problem`}
+                  className="font-mono text-sm max-md:text-base"
+                  aria-label={t("steward.settings.entry", { index: index + 1 })}
+                  onChange={(event) => onChange(items.map((old, at) => (at === index ? event.target.value : old)))}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={disabled}
+                  aria-label={t("steward.settings.remove-entry", {
+                    index: index + 1,
+                  })}
+                  onClick={() => onChange(items.filter((_, at) => at !== index))}
+                >
+                  <TrashIcon aria-hidden />
+                </Button>
+              </div>
+              <FieldProblem id={`${id}-${index}-problem`} problem={problem} />
+            </div>
+          )
+        })
       )}
       <div>
         <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onChange([...items, ""])}>

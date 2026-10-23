@@ -25,22 +25,22 @@ public final class Profile {
 
     private final Function<Context, Sessions.Session> requireSession;
     private final Function<Context, Optional<Sessions.Session>> session;
-    private final @Nullable Credentials credentials;
-    private final @Nullable Authenticators authenticators;
-    private final @Nullable Data data;
+    private final Credentials credentials;
+    private final Authenticators authenticators;
+    private final Data data;
     private final Supplier<Optional<String>> signInMissing;
-    private final @Nullable WebAuthn webauthn;
-    private final @Nullable ExampleValues exampleValues;
+    private final WebAuthn webauthn;
+    private final ExampleValues exampleValues;
 
     public Profile(
             final Function<Context, Sessions.Session> requireSession,
             final Function<Context, Optional<Sessions.Session>> session,
-            final @Nullable Credentials credentials,
-            final @Nullable Authenticators authenticators,
-            final @Nullable Data data,
+            final Credentials credentials,
+            final Authenticators authenticators,
+            final Data data,
             final Supplier<Optional<String>> signInMissing,
-            final @Nullable WebAuthn webauthn,
-            final @Nullable ExampleValues exampleValues) {
+            final WebAuthn webauthn,
+            final ExampleValues exampleValues) {
         this.requireSession = requireSession;
         this.session = session;
         this.credentials = credentials;
@@ -51,25 +51,9 @@ public final class Profile {
         this.exampleValues = exampleValues;
     }
 
-    private Credentials credentials() {
-        return Objects.requireNonNull(credentials, "this route needs credentials, which this instance has none of");
-    }
-
-    private Data data() {
-        return Objects.requireNonNull(data, "this route needs the database, which this instance has none of");
-    }
-
-    private WebAuthn webauthn() {
-        return Objects.requireNonNull(webauthn, "this route needs webauthn, which this instance has none of");
-    }
-
-    private ExampleValues exampleValues() {
-        return Objects.requireNonNull(exampleValues, "this route needs exampleValues, which this instance has none of");
-    }
-
     public void messageExamples(final Context ctx) {
         final Sessions.Session who = requireSession.apply(ctx);
-        ctx.json(exampleValues().of(who.signedInDiscordId(), who.signedInDisplayName()));
+        ctx.json(exampleValues.of(who.signedInDiscordId(), who.signedInDisplayName()));
     }
 
     /** {@code backedUp} is null when the authenticator did not report it. */
@@ -109,21 +93,19 @@ public final class Profile {
             .toList();
 
     private boolean offered() {
-        return authenticators != null && authenticators.offered();
+        return authenticators.offered();
     }
 
     private @Nullable Authenticator appOf(final DiscordId discordId) {
-        return authenticators == null
-                ? null
-                : authenticators
-                        .of(discordId)
-                        .map(row -> new Authenticator(Objects.requireNonNull(row.confirmedAt()), row.lastUsedAt()))
-                        .orElse(null);
+        return authenticators
+                .of(discordId)
+                .map(row -> new Authenticator(Objects.requireNonNull(row.confirmedAt()), row.lastUsedAt()))
+                .orElse(null);
     }
 
     private List<SecurityKey> keysOf(final DiscordId discordId) {
         final List<SecurityKey> listed = new ArrayList<>();
-        for (final Credentials.Key key : credentials().of(discordId)) {
+        for (final Credentials.Key key : credentials.of(discordId)) {
             listed.add(new SecurityKey(
                     new ByteArray(key.credentialId()).getBase64Url(),
                     key.label(),
@@ -138,7 +120,7 @@ public final class Profile {
     /** Returns the Discord avatar URL from the {@code person} row, or empty on any failure. */
     private Optional<String> avatarOf(final DiscordId discordId) {
         try {
-            return data().access()
+            return data.access()
                     .personOf(discordId)
                     .map(Person::discordAvatarUrl)
                     .filter(url -> url != null && !url.isBlank());
@@ -172,7 +154,7 @@ public final class Profile {
                 offered(),
                 who.verified(),
                 who.verifiedAt(),
-                webauthn().relyingPartyId(),
+                webauthn.relyingPartyId(),
                 who.stepUpUntil(),
                 HOLDS,
                 avatarOf(who.signedInDiscordId()).orElse(null)));

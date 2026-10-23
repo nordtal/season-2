@@ -8,6 +8,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Clock;
@@ -27,7 +28,8 @@ import org.jspecify.annotations.Nullable;
  */
 public final class BorderController {
 
-    record Shrink(long target, long seconds) {}
+    record Shrink(
+            @Example("100") long target, @Example("60") long seconds) {}
 
     static final DocumentSpec<Shrink> SHRINK_STARTED =
             DocumentSpec.game("hunger-games", "border-shrink-started", "Game", DocumentSpec.Shape.CHAT, Shrink.class);

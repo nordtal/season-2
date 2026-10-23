@@ -37,6 +37,8 @@ public @interface Refers {
         DAMAGE_TYPE,
         COLOUR,
         DISCORD_CHANNEL,
-        DISCORD_USER
+        DISCORD_USER,
+        /** A world the setting's own server had loaded when it last started, by name. */
+        WORLD
     }
 }

@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
-import org.jspecify.annotations.Nullable;
 
 /** Implements {@link AuditDirectory} with JDBI. */
 final class JdbiAuditDirectory implements AuditDirectory {
@@ -27,9 +26,8 @@ final class JdbiAuditDirectory implements AuditDirectory {
     }
 
     @Override
-    public List<AuditEntry> search(final JournalFilter filter, final int limit) {
-        return dao.search(
-                any(filter.action()), any(filter.subject()), any(filter.reference()), filter.minDays(), clamp(limit));
+    public List<AuditEntry> entries(final List<UUID> ids) {
+        return ids.isEmpty() ? List.of() : dao.entries(ids.toArray(UUID[]::new));
     }
 
     @Override
@@ -40,11 +38,6 @@ final class JdbiAuditDirectory implements AuditDirectory {
     @Override
     public void record(final AuditLine line) {
         jdbi.useHandle(handle -> Journal.write(handle, line));
-    }
-
-    /** Turns a blank search box into null. */
-    private static @Nullable String any(final @Nullable String filter) {
-        return filter == null || filter.isBlank() ? null : filter;
     }
 
     /** Raises the limit to 1, as {@code JdbiUpdateDirectory#recent} does. */

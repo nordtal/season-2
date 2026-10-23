@@ -66,6 +66,18 @@ class SmpSettingsTest {
         assertFalse(milestones.milestones().isEmpty());
     }
 
+    /** Steward writes every item it saves as a namespaced key, so a default in the other form shows as a change. */
+    @Test
+    void everyDefaultItemIsANamespacedKey() {
+        final List<String> items = new ArrayList<>();
+        DefaultSmp.WHEEL_PRIZES.forEach(prize -> items.add(prize.item()));
+        DefaultSmp.DUEL_LOADOUT_SWORD.forEach(entry -> items.add(entry.item()));
+        DefaultSmp.DUEL_LOADOUT_BOW.forEach(entry -> items.add(entry.item()));
+        assertEquals(
+                List.of(),
+                items.stream().filter(item -> !item.startsWith("minecraft:")).toList());
+    }
+
     @Test
     void aDuelLimitBelowOneIsRefused() {
         final Exception refused =

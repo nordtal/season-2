@@ -32,11 +32,6 @@ export async function rowFor(name: string): Promise<HTMLElement> {
   return assertElement(first?.closest("tr") ?? null, `a <tr> for ${name}`)
 }
 
-/** Reads a toast's description back as a string, since sonner types it as arbitrary React content. */
-export function toastDescription(description: unknown): string {
-  return typeof description === "string" ? description : ""
-}
-
 /** Opens a row's actions popover when it has one, behind a button named "Actions for …". */
 export async function openActions(name: string): Promise<HTMLElement> {
   const row = await rowFor(name)
@@ -57,13 +52,11 @@ export async function actionsOf(name: string): Promise<string[]> {
     .filter((label) => label !== "")
 }
 
-export async function openGrant() {
-  fireEvent.click(await screen.findByRole("button", { name: "Grant access" }))
-  const dialog = await screen.findByRole("alertdialog")
-  fireEvent.change(within(dialog).getByLabelText("Discord-ID"), {
-    target: { value: "214906139328839681" },
-  })
-  return dialog
+/** Opens the grant for one person from their row's actions. */
+export async function openGrant(name = "Ally") {
+  const actions = await openActions(name)
+  fireEvent.click(within(actions).getByRole("button", { name: "Grant access" }))
+  return await screen.findByRole("alertdialog")
 }
 
 export function person(over: Partial<Record<string, unknown>>): Record<string, unknown> {
@@ -120,6 +113,17 @@ export function manyMatches(): Record<string, unknown>[] {
   )
 }
 
+/** One page of the journal's stream: each entry as its item, after the given items. */
+export function journalPage(entries: Record<string, unknown>[], items: Record<string, unknown>[] = []) {
+  return {
+    items: [
+      ...items,
+      ...entries.map((entry) => ({ key: `e${String(entry.id)}`, occurred: entry.occurred, actor: entry.actor, entry })),
+    ],
+    terms: [],
+  }
+}
+
 /** Who is signed in, in every test here: the root of the admin tree below. */
 export const ME = "500000000000000000"
 
@@ -127,7 +131,10 @@ export function backend(
   over: {
     people?: () => Record<string, unknown>[]
     payments?: () => Record<string, unknown>[]
+    /** Journal entries, newest first, which the backend answers as one page of the stream. */
     journal?: () => Record<string, unknown>[]
+    /** The stream's items as they are, for alerts and runs. */
+    stream?: () => Record<string, unknown>[]
     /** One person's own requests and periods, which their page asks for by their Discord id. */
     personPayments?: (discordId: string) => Record<string, unknown>[]
     grants?: (discordId: string) => Record<string, unknown>[]
@@ -135,18 +142,20 @@ export function backend(
     /** An aura or spins set, which the SMP carries out; DONE when polled unless a test says otherwise. */
     smpPost?: (url: string, body: unknown) => void
     smpRun?: () => Record<string, unknown>
-    /** What the bot answered, by kind; DONE with an empty result unless a test says otherwise. */
+    /** A person's inventories; none stored unless a test says otherwise. */
+    inventories?: (discordId: string) => Record<string, unknown>
+    /** A stack removal, which Steward answers itself. */
+    removeStack?: (url: string, body: unknown) => void
+    /** The bot's run of a request, by kind; DONE with an empty answer unless a test says otherwise. */
     answer?: (kind: string) => Record<string, unknown>
   } = {},
 ) {
-  const asked = new Map<string, string>()
   return vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(async (url, init) => {
     if (url.endsWith("/playtime") && init?.method === "POST") {
       const answer = over.playtimePost?.(url, requestBody(init)) ?? {
         status: 202,
-        body: { id: "a-playtime", kind: "SET_PLAYTIME", status: "PENDING" },
+        body: { id: "bot:set_playtime", status: "PENDING" },
       }
-      asked.set("a-playtime", "SET_PLAYTIME")
       return json(answer.status, answer.body)
     }
     if (/^\/api\/people\/\d+\/(aura|spins)$/.test(url) && init?.method === "POST") {
@@ -158,17 +167,13 @@ export function backend(
       // steward books it itself and answers at once; the bot only reacts.
       return json(200, { outcome: "BOOKED", days: 30, until: "2026-10-01T00:00:00Z" })
     }
-    if (url.startsWith("/api/access/") && !url.startsWith("/api/access/requests/")) {
+    if (url.startsWith("/api/access/")) {
       // Every other write is a request in the bot's inbox, which the bot carries out: 202 and an id to poll.
-      const kind = url.split("/").pop()!.toUpperCase()
-      const id = `a-${kind.toLowerCase()}`
-      asked.set(id, kind)
-      return json(202, { id, kind, status: "PENDING" })
+      return json(202, { id: `bot:${url.split("/").pop()!}`, status: "PENDING" })
     }
-    if (url.startsWith("/api/access/requests/")) {
-      const id = url.split("/").pop()!
-      const kind = asked.get(id) ?? "UNKNOWN"
-      return json(200, over.answer?.(kind) ?? { id, kind, status: "DONE", result: {} })
+    if (url.startsWith("/api/commands/bot:")) {
+      const id = url.slice("/api/commands/".length)
+      return json(200, over.answer?.(id.slice("bot:".length).toUpperCase()) ?? { id, status: "DONE", answer: {} })
     }
     if (url.startsWith("/api/pack-exemptions/") && init?.method === "POST") {
       return json(200, { outcome: "CHANGED" })
@@ -183,9 +188,18 @@ export function backend(
       const [, discordId, what] = own
       return json(200, (what === "payments" ? over.personPayments : over.grants)?.(discordId) ?? [])
     }
+    const inventories = /^\/api\/people\/(\d+)\/inventories(\/remove)?$/.exec(url)
+    if (inventories) {
+      const [, discordId, removal] = inventories
+      if (!removal) return json(200, over.inventories?.(discordId) ?? { linked: true, states: [] })
+      over.removeStack?.(url, requestBody(init))
+      return new Response(null, { status: 204 })
+    }
+    if (url === "/api/game-data") return json(200, { datapacks: [], registries: {}, tags: {} })
     if (url === "/api/topology") return json(200, NETWORK_MAP)
     if (url === "/api/payments") return json(200, over.payments ? over.payments() : [])
-    if (url.startsWith("/api/journal")) return json(200, over.journal ? over.journal() : [])
+    if (url.startsWith("/api/journal")) return json(200, journalPage(over.journal?.() ?? [], over.stream?.() ?? []))
+    if (url === "/api/alerts") return json(200, { checkedAt: "2026-09-18T09:30:00Z", level: "ok", alerts: [] })
     if (url === "/api/settings") {
       return json(200, { greenDays: 3, yellowDays: 7, minecraftHeadBaseUrl: "https://crafatar.com/avatars" })
     }

@@ -11,6 +11,7 @@ import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.classfile.Instruction;
 import java.lang.classfile.MethodModel;
+import java.lang.classfile.constantpool.ClassEntry;
 import java.lang.classfile.constantpool.StringEntry;
 import java.lang.classfile.instruction.ConstantInstruction;
 import java.lang.classfile.instruction.InvokeDynamicInstruction;
@@ -43,7 +44,8 @@ import java.util.stream.Stream;
  *
  * A page holds the literal keys in the code its route's component reaches, and the texts the server answers with on
  * the routes that code calls. A text the shell reaches is on every page. {@code :steward:generateApiTypes} runs it;
- * {@code TextPagesTest} fails while the committed file differs, and {@link #pages()} refuses a text on no page.
+ * {@code TextPagesTest} fails while the committed file differs, and {@link #pages()} refuses a text on no page and a
+ * route registered with a handler it cannot follow.
  */
 public final class TextPages {
 
@@ -110,7 +112,7 @@ public final class TextPages {
     }
 
     private static Map<String, Set<String>> pages(final Frontend frontend) {
-        final Map<String, Set<String>> answered = Server.answers();
+        final Map<String, Set<String>> answered = Server.answers(Server.STEWARD);
         final Map<String, Set<String>> on = new TreeMap<>();
         frontend.pages.forEach((page, code) -> {
             keysIn(code)
@@ -439,7 +441,10 @@ public final class TextPages {
     }
 
     /** The texts each route of Steward answers with, read from the compiled classes. */
-    private static final class Server {
+    static final class Server {
+
+        /** Steward's compiled classes. */
+        static final Path STEWARD = classesOf(StewardTexts.class);
 
         private record Ref(String owner, String name, String type) {}
 
@@ -451,9 +456,20 @@ public final class TextPages {
 
         private final Map<String, List<Ref>> routes = new LinkedHashMap<>();
 
-        /** Each route's path, Javalin's {@code {name}} as {@code {}}, to the keys of Steward's texts it may answer. */
-        static Map<String, Set<String>> answers() {
-            final Server server = new Server();
+        /** Each route registered with no method reference or lambda in its registering method, as path and method. */
+        private final List<String> unseen = new ArrayList<>();
+
+        /**
+         * Each route's path, Javalin's {@code {name}} as {@code {}}, to the keys of Steward's texts it may answer.
+         *
+         * @throws IllegalStateException for a route whose handler this cannot see, naming its path
+         */
+        static Map<String, Set<String>> answers(final Path classes) {
+            final Server server = new Server(classes);
+            if (!server.unseen.isEmpty()) {
+                throw new IllegalStateException("these routes get their handler as a value, so their texts cannot be"
+                        + " placed: register each with a method reference or a lambda: " + server.unseen);
+            }
             final Map<Ref, String> texts = texts();
             final Map<String, Set<String>> answers = new LinkedHashMap<>();
             server.routes.forEach((path, handlers) -> {
@@ -491,17 +507,18 @@ public final class TextPages {
             return true;
         }
 
-        private Server() {
-            final Path root;
+        /** The directory or class file {@code type} was loaded from. */
+        static Path classesOf(final Class<?> type) {
             try {
-                root = Path.of(StewardTexts.class
-                        .getProtectionDomain()
-                        .getCodeSource()
-                        .getLocation()
-                        .toURI());
+                return Path.of(
+                        type.getProtectionDomain().getCodeSource().getLocation().toURI());
             } catch (final URISyntaxException e) {
                 throw new IllegalStateException(e);
             }
+        }
+
+        /** Reads every class file under {@code root}, which may be one class file. */
+        private Server(final Path root) {
             try (Stream<Path> files = Files.walk(root)) {
                 for (final Path file :
                         files.filter(f -> f.toString().endsWith(".class")).toList()) {
@@ -514,12 +531,8 @@ public final class TextPages {
 
         private void read(final ClassModel model) {
             final String owner = model.thisClass().asInternalName();
-            model.superclass()
-                    .ifPresent(parent -> subtypes.computeIfAbsent(parent.asInternalName(), p -> new HashSet<>())
-                            .add(owner));
-            model.interfaces()
-                    .forEach(parent -> subtypes.computeIfAbsent(parent.asInternalName(), p -> new HashSet<>())
-                            .add(owner));
+            model.superclass().ifPresent(parent -> subtype(parent, owner));
+            model.interfaces().forEach(parent -> subtype(parent, owner));
             for (final MethodModel method : model.methods()) {
                 final Ref self = new Ref(
                         owner,
@@ -563,12 +576,20 @@ public final class TextPages {
                         } else if (path != null
                                 && REGISTERS.contains(target.name())
                                 && target.owner().startsWith("io/javalin/")) {
+                            if (handlers.isEmpty()) {
+                                unseen.add(path + " in " + self.owner() + "." + self.name());
+                            }
                             routes.computeIfAbsent(path, p -> new ArrayList<>()).addAll(handlers);
                             path = null;
                         }
                     }
                 }
             }
+        }
+
+        private void subtype(final ClassEntry parent, final String owner) {
+            subtypes.computeIfAbsent(parent.asInternalName(), p -> new HashSet<>())
+                    .add(owner);
         }
 
         /** Every method a call from the handlers may run, an interface's or a parent's call running each override. */

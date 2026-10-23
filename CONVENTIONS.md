@@ -185,6 +185,7 @@ run `git config core.hooksPath .githooks` once per clone.
 
 - **Commit scope** is the module directory (`feat(steward): …`, `fix(smp): …`), `deploy` for
   `deploy/` and `compose.yml`, `build-logic` for `build-logic/` and the version catalog.
+  A commit that spans several modules has no scope.
 - **Architecture** _(checked by ArchUnit)_:
   - `:common` depends only on the JDK, JSpecify and Gson, which every platform ships and nothing
     shades.
@@ -205,7 +206,13 @@ run `git config core.hooksPath .githooks` once per clone.
 - **YAML, Markdown and JSON** are formatted by oxfmt. _(checked)_
 - **Data is in third normal form.** Every column holds one atomic value: no stored note, composed text or
   message document (`{key, args}`). Steward, the bot and the terminal render text when they show a value.
-  A jsonb or array column exists only on the shrinking list of `ColumnsAreAtomicIntegrationTest`. _(checked)_
+  A jsonb or array column exists only on a list of `ColumnsAreAtomicIntegrationTest`: the published
+  snapshots, the values read and written whole, and the shrinking list still to normalize. _(checked)_
+  The published snapshots stay composite columns, each written and read whole and mirroring another
+  system's structure: `command_tree.tree`, `game_catalogue.catalogue`, `game_catalogue.datapacks`,
+  `game_assets.icon_index`, `guild_channels.channels`, `setting_group.schema`, `setting_group.defaults`,
+  `setting_group.environment`, `setting_group.problem` and `steward_session.webauthn_request`. The last
+  two are text: the config library's message and the WebAuthn library's JSON.
 - **SQL migrations** are never reformatted: an applied migration whose checksum changes is refused
   by Flyway `validate()`.
 - The one file under `steward-bunq/src/main/java/com/bunq/sdk` keeps the vendor's package.

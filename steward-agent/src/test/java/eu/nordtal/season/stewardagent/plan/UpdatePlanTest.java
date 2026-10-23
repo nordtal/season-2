@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.RunStep;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -89,10 +89,9 @@ class UpdatePlanTest {
                         + " incomplete and installs the two that resolved");
         assertEquals(3, bootstrap.changes().size());
 
-        assertEquals(
-                UpdateReport.State.FAILED,
-                PlanReport.of(bootstrap).line("smp").state(),
-                "the bootstrap's report has to say that part of the picture is missing");
+        assertTrue(
+                Work.of(bootstrap).about("smp").stream().anyMatch(found -> found.outcome() == RunStep.Outcome.FAILED),
+                "the bootstrap's steps have to say that part of the picture is missing");
     }
 
     @Test

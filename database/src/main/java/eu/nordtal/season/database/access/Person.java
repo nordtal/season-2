@@ -15,7 +15,9 @@ import org.jspecify.annotations.Nullable;
  * @param adminGrantedBy the admin who granted this one, null for the root and for non-admins
  * @param packExemptBy the admin who let this account play without the resource pack, null unless one did
  * @param aura the aura on the SMP, zero before the first change
- * @param spins the extra wheel spins left, beside the free spin of each day
+ * @param spins the earned wheel spins left
+ * @param online whether the proxy lists the linked Minecraft account as connected
+ * @param lastSeen when the linked Minecraft account last left the network, null if it never did
  */
 public record Person(
         DiscordId discordId,
@@ -42,4 +44,6 @@ public record Person(
         @Nullable String packExemptBy,
         @Nullable Instant packExemptAt,
         int aura,
-        int spins) {}
+        int spins,
+        boolean online,
+        @Nullable Instant lastSeen) {}

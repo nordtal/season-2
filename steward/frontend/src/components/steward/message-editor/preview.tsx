@@ -145,7 +145,7 @@ function gradientPositions(runs: Run[], fill: Fill): ({ start: number; total: nu
 }
 
 function visible(run: Run, fill: Fill): string {
-  return run.kind === "text" ? run.text : run.kind === "placeholder" ? fill(run.name) : ""
+  return run.kind === "text" ? run.text : run.kind === "placeholder" ? fill(run.name, run.s) : ""
 }
 
 function McRun({
@@ -484,7 +484,7 @@ export function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
         if (run.kind === "break") return <br key={index} />
         if (run.kind === "raw" || run.kind === "glyph") return null
         const style = run.style
-        const value = run.kind === "text" ? run.text : fill(run.name)
+        const value = run.kind === "text" ? run.text : fill(run.name, run.s)
         const mention = run.kind === "placeholder" && value.startsWith("@")
         let node: ReactNode = (
           <span
@@ -495,7 +495,8 @@ export function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
               style.underlined && "underline",
               style.strikethrough && "line-through",
               mention && "rounded-[3px] px-0.5 font-medium",
-              style.code && "rounded-[4px] px-1 py-0.5 font-mono text-[0.85em]",
+              // An address is one word to the line breaker, so a narrow column breaks it, framing each piece.
+              style.code && "box-decoration-clone rounded-[4px] px-1 py-0.5 font-mono text-[0.85em] wrap-anywhere",
             )}
             style={{
               ...(mention ? { background: "rgba(88,101,242,0.3)", color: "#c9cdfb" } : {}),

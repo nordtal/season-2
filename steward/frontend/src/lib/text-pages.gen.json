@@ -113,6 +113,7 @@
     "steward.backups.missing": ["backups"],
     "steward.backups.next": ["backups"],
     "steward.backups.no-archive": ["backups"],
+    "steward.backups.no-archive-yet": ["backups"],
     "steward.backups.no-clock": ["backups"],
     "steward.backups.no-run": ["backups"],
     "steward.backups.none": ["backups"],

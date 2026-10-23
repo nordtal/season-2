@@ -624,6 +624,16 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(await screen.findByText("This run wrote archives that the catalogue does not list")).toBeTruthy()
   })
 
+  it("says a running backup has written no archive yet", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({ runs: [run({ status: "RUNNING", stage: "PLANNED", finished: null, steps: [] })], backups: [] }),
+    )
+    drawDetail("41")
+
+    expect(await screen.findByText("This run has written no archive yet")).toBeTruthy()
+  })
+
   it("says a run whose saves all failed wrote no archive", async () => {
     vi.stubGlobal("fetch", backend({ runs: [run()], backups: [] }))
     drawDetail("41")

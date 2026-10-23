@@ -156,6 +156,15 @@ describe("a run's steps read as Steward words them", () => {
     expect(ticked("Backing up")).toBe(false)
   })
 
+  it("ticks only the stages a running run of its kind has walked", async () => {
+    vi.stubGlobal("fetch", backend([], "STOPPING", "RECREATE"))
+    draw()
+
+    await screen.findByText("Planned", { selector: "span" })
+    expect(ticked("Planned")).toBe(true)
+    expect(ticked("Resolving")).toBe(false)
+  })
+
   it("ticks no backup on a finished update", async () => {
     vi.stubGlobal("fetch", backend())
     draw()

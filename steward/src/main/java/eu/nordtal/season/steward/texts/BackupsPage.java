@@ -108,6 +108,9 @@ public interface BackupsPage {
     @Name("No archive")
     MessageRef noArchive();
 
+    @Name("No archive yet")
+    MessageRef noArchiveYet();
+
     @Name("Archives not catalogued")
     MessageRef notCatalogued();
 

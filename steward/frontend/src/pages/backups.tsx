@@ -338,7 +338,15 @@ function Archives({ run }: { run?: Run }) {
       {backups.error ? (
         <QueryState query={backups}>{() => null}</QueryState>
       ) : run && backups.data && files.length === 0 ? (
-        <Empty title={t(savedCount(run) > 0 ? "steward.backups.not-catalogued" : "steward.backups.no-archive")} />
+        <Empty
+          title={t(
+            savedCount(run) > 0
+              ? "steward.backups.not-catalogued"
+              : run.status === "PENDING" || run.status === "RUNNING"
+                ? "steward.backups.no-archive-yet"
+                : "steward.backups.no-archive",
+          )}
+        />
       ) : (
         <DataTable
           rows={run && backups.data ? files : undefined}

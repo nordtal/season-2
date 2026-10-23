@@ -386,7 +386,7 @@ function RunDetail({ run, children }: { run?: Run; children?: ReactNode }) {
 }
 
 /**
- * The stages that a finished run of each kind walked, because a run keeps only the last one. A run that did not end DONE gets no ticks.
+ * The stages that a run of each kind walks, because a run keeps only the last one. A run that did not end DONE gets no ticks.
  */
 const WALKED: Record<string, ReadonlySet<string>> = {
   UPDATE: new Set(["RESOLVING", "PLANNED", "COUNTDOWN", "STOPPING", "INSTALLING", "STARTING", "VERIFYING"]),
@@ -408,15 +408,17 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
   const trail: readonly string[] = TRAIL
   const reached = trail.indexOf(stage)
   const ending = ENDINGS.has(stage)
-  const walked = stage === "DONE" ? WALKED[kind] : undefined
+  const walked = WALKED[kind]
 
   return (
     <ol className="flex flex-wrap items-center gap-x-2 gap-y-3">
       {TRAIL.map((step, index) => {
         /**
-         * A running run has walked everything before its stage. A finished one has walked what its kind walks, if it is DONE.
+         * A running run has walked what its kind walks before its stage. A finished one has walked what its kind walks, if it is DONE.
          */
-        const past = ending ? (walked?.has(step) ?? false) : reached >= 0 && index < reached
+        const past = ending
+          ? stage === "DONE" && (walked?.has(step) ?? false)
+          : reached >= 0 && index < reached && (walked?.has(step) ?? true)
         const now = index === reached
         return (
           <li key={step} aria-current={now ? "step" : undefined} className="flex items-center gap-2">

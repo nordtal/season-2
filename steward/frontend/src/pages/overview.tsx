@@ -22,6 +22,8 @@ export function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* The players line heads the page on screen. */}
+      <h1 className="sr-only">{t("steward.shell.page", { page: "overview" })}</h1>
       <OnlineLine online={online} />
 
       <MetricRow />

@@ -289,7 +289,8 @@ describe("OverviewPage - the heading is how many are in the game", () => {
     draw()
 
     await waitFor(() => expect(screen.getByText("players online").closest("p")?.textContent).toContain("7"))
-    expect(screen.queryByRole("heading", { name: "Overview" })).toBeNull()
+    /** The page's name is there for a screen reader alone. */
+    expect(screen.getByRole("heading", { level: 1, name: "Overview" }).className).toContain("sr-only")
   })
 
   it("draws a dash, not a zero, when no row carries a player count", async () => {

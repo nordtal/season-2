@@ -68,20 +68,12 @@ final class JdbiSettingStore implements SettingStore {
         if (services.isEmpty()) {
             return List.of();
         }
-        return jdbi.withHandle(handle -> handle.createQuery("SELECT service, name, path, " + valueColumn(handle)
-                        + " AS value FROM setting_override WHERE service = ANY(:services) ORDER BY service, name, path")
+        return jdbi.withHandle(handle -> handle.createQuery(
+                        "SELECT service, name, path, setting_override_value(service, name, path)::text AS value"
+                                + " FROM setting_override WHERE service = ANY(:services) ORDER BY service, name, path")
                 .bindArray("services", String.class, List.copyOf(services))
                 .map((rows, context) -> valueOf(rows))
                 .list());
-    }
-
-    /** The value column as text, also on the schema of the release before, which an update run reads first. */
-    private static String valueColumn(final Handle handle) {
-        return handle.createQuery("SELECT to_regclass('setting_override_node') IS NOT NULL")
-                        .mapTo(Boolean.class)
-                        .one()
-                ? "setting_override_value(service, name, path)::text"
-                : "value::text";
     }
 
     @Override

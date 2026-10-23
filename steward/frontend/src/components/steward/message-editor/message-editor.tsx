@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { InputGroupButton } from "@/components/ui/input-group"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RequestIcon } from "@/components/steward/game-actions"
-import { exampleOf, type Fill } from "@/components/steward/message-editor/examples"
+import { exampleOf, fillOf, sentOf, type Fill } from "@/components/steward/message-editor/examples"
 import { Preview, type Tones } from "@/components/steward/message-editor/preview"
 import { Failure } from "@/components/steward/query-state"
 import { RichField } from "@/components/steward/message-editor/rich-field"
@@ -90,8 +90,8 @@ export function MessageEditor({
   const kinds = syntax.data?.kinds ?? {}
   const format = formatOf(entry.format)
   // A nested message shows as its words here. The server renders the key itself, so the preview sends the key.
-  const fill = (name: string) => exampleOf(name, entry.args, examples.data, language)
-  const sent = (name: string) => exampleOf(name, entry.args, examples.data)
+  const fill = fillOf(entry.args, examples.data, language)
+  const sent = sentOf(entry.args, examples.data)
 
   const seenSeq = useRef<number | undefined | typeof UNSEEN>(UNSEEN)
   if (seenSeq.current !== highlight?.seq) {
@@ -111,7 +111,10 @@ export function MessageEditor({
   const writeText = (value: string) => write(variants.length === 0 ? [value] : variants.with(at, value))
 
   const runs = useMemo(() => parse(text, format, toneTags), [text, format, toneTags])
-  const drawn = runs === null ? null : branchesOf(runs, format, toneTags, fill)
+  const drawn =
+    runs === null
+      ? null
+      : branchesOf(runs, format, toneTags, (name) => exampleOf(name, entry.args, examples.data, language))
 
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
   const check = useMessageCheck(path, entry.key, checked)

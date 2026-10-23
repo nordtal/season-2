@@ -6,6 +6,7 @@ import eu.nordtal.season.internalapi.agent.JarName;
 import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageBundle;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
+import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.document.Documents;
@@ -20,6 +21,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.DateTimeException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Enumeration;
@@ -151,7 +153,7 @@ public final class MessageBundles {
                 schema == null
                         ? List.of()
                         : schema.args().stream()
-                                .map(arg -> withWords(arg, packaged))
+                                .map(arg -> withExample(arg, packaged))
                                 .toList(),
                 schema == null ? List.of() : schema.section(),
                 schema == null ? null : schema.format(),
@@ -160,31 +162,39 @@ public final class MessageBundles {
     }
 
     /**
-     * The example's own words for a value that is a message, from the jar that ships both, in every language.
+     * The example read as its kind and, for a value that is a message, its words in every language of the jar.
      *
      * The editor previews a nested message as a player reads it; the server, which renders the key, is sent the key.
      */
-    private static MessageArg withWords(final MessageArg arg, final Packaged packaged) {
+    private static MessageArg withExample(final MessageArg arg, final Packaged packaged) {
         final String example = arg.example();
-        if (example == null || !Kind.MESSAGE.token().equals(arg.kind())) {
+        final Kind kind = arg.kind() == null ? null : Kind.byToken(arg.kind()).orElse(null);
+        if (example == null || kind == null) {
             return arg;
         }
-        final String key = ((MessageRef) Kind.MESSAGE.example(example)).key();
-        final int slash = example.indexOf('/');
-        final String bundle = slash < 0 ? null : example.substring(0, slash).strip();
+        final Object value;
+        try {
+            value = kind.example(example);
+        } catch (final IllegalArgumentException | DateTimeException unread) {
+            return arg;
+        }
         final Map<String, String> words = new TreeMap<>();
-        packaged.texts().forEach((name, languages) -> {
-            if (bundle != null && !bundle.equals(name)) {
-                return;
-            }
-            languages.forEach((language, byKey) -> {
-                final List<String> variants = byKey.get(key);
-                if (variants != null && !variants.isEmpty()) {
-                    words.putIfAbsent(language, variants.getFirst());
+        if (value instanceof final MessageRef message) {
+            final int slash = example.indexOf('/');
+            final String bundle = slash < 0 ? null : example.substring(0, slash).strip();
+            packaged.texts().forEach((name, languages) -> {
+                if (bundle != null && !bundle.equals(name)) {
+                    return;
                 }
+                languages.forEach((language, byKey) -> {
+                    final List<String> variants = byKey.get(message.key());
+                    if (variants != null && !variants.isEmpty()) {
+                        words.putIfAbsent(language, variants.getFirst());
+                    }
+                });
             });
-        });
-        return arg.withExampleWords(words);
+        }
+        return arg.withExample(words, MessageJson.typed(value));
     }
 
     /**

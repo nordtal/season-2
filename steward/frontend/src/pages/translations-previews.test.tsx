@@ -148,7 +148,17 @@ describe("the previews", () => {
             key: "online",
             name: "Online",
             shown: ["STEWARD"],
-            args: [{ name: "count", kind: "number", global: false, example: "1", action: false, exampleWords: {} }],
+            args: [
+              {
+                name: "count",
+                kind: "number",
+                global: false,
+                example: "1",
+                action: false,
+                exampleWords: {},
+                exampleValue: { kind: "number", value: 1 },
+              },
+            ],
           }),
         ]),
       ),

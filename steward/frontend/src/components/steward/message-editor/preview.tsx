@@ -145,7 +145,7 @@ function gradientPositions(runs: Run[], fill: Fill): ({ start: number; total: nu
 }
 
 function visible(run: Run, fill: Fill): string {
-  return run.kind === "text" ? run.text : run.kind === "placeholder" ? fill(run.name) : ""
+  return run.kind === "text" ? run.text : run.kind === "placeholder" ? fill(run.name, run.s) : ""
 }
 
 function McRun({
@@ -484,7 +484,7 @@ export function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
         if (run.kind === "break") return <br key={index} />
         if (run.kind === "raw" || run.kind === "glyph") return null
         const style = run.style
-        const value = run.kind === "text" ? run.text : fill(run.name)
+        const value = run.kind === "text" ? run.text : fill(run.name, run.s)
         const mention = run.kind === "placeholder" && value.startsWith("@")
         let node: ReactNode = (
           <span

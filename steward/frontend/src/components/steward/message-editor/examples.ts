@@ -1,24 +1,44 @@
 import type { MessageArg, MessageExamples } from "@/lib/api"
 import { ENGLISH, type Language } from "@/lib/message-text"
+import { valueText } from "@/lib/texts"
 
-export type Fill = (name: string) => string
+export type Fill = (name: string, style?: string) => string
 
 /**
- * The first that exists wins: the live example for its type, then a nested message's example in the language or in English, then its schema's example, then its name.
+ * The first that exists wins: the live example for its type, then a nested message's example in the language or in English, then its schema's example read as its kind, then as written, then its name.
  */
 export function exampleOf(
   name: string,
   args: MessageArg[],
   examples: MessageExamples | undefined,
-  language?: Language,
-): string {
+  language: Language,
+): unknown {
   const arg = args.find((candidate) => candidate.name === name)
-  if (arg?.type) {
-    const live = examples?.[arg.type]?.[name.slice(name.indexOf(".") + 1)]
-    if (live) return live
+  return (
+    liveOf(arg, name, examples) ??
+    arg?.exampleWords[language] ??
+    arg?.exampleWords[ENGLISH] ??
+    arg?.exampleValue ??
+    arg?.example ??
+    name
+  )
+}
+
+/** Draws each value's example as the game and the bot render its kind. */
+export function fillOf(args: MessageArg[], examples: MessageExamples | undefined, language: Language): Fill {
+  return (name, style) => valueText(exampleOf(name, args, examples, language), style)
+}
+
+/** The server renders each example itself, so it is sent as written: a nested message as its key. */
+export function sentOf(args: MessageArg[], examples: MessageExamples | undefined): Fill {
+  return (name) => {
+    const arg = args.find((candidate) => candidate.name === name)
+    return liveOf(arg, name, examples) ?? arg?.example ?? name
   }
-  const words = language === undefined ? undefined : (arg?.exampleWords[language] ?? arg?.exampleWords[ENGLISH])
-  return words ?? arg?.example ?? name
+}
+
+function liveOf(arg: MessageArg | undefined, name: string, examples: MessageExamples | undefined): string | undefined {
+  return arg?.type ? examples?.[arg.type]?.[name.slice(name.indexOf(".") + 1)] || undefined : undefined
 }
 
 export type PlaceholderGroup = { role: string | null; args: MessageArg[] }

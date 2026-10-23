@@ -1290,6 +1290,7 @@ export type MessageArg = {
   example?: string
   action: boolean
   exampleWords: Record<string, string>
+  exampleValue?: unknown
 }
 
 export type DocumentChange = "SLOT_ADDED" | "SLOT_REMOVED" | "SET_ASIDE"

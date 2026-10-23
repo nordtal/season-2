@@ -1,4 +1,5 @@
 import { ArrowRightIcon, CheckIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { cn } from "cn"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
@@ -383,19 +384,17 @@ function StageTrail({ stage, kind }: { stage: string; kind: string }) {
         const past = ending ? (walked?.has(step) ?? false) : reached >= 0 && index < reached
         const now = index === reached
         return (
-          <li key={step} className="flex items-center gap-2">
-            <span
-              className={
-                now
-                  ? "flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/12 px-2 py-0.5 text-xs font-medium text-warning"
-                  : past
-                    ? "flex items-center gap-1.5 text-xs text-foreground"
-                    : "flex items-center gap-1.5 text-xs text-muted-foreground"
-              }
-            >
-              {past && !now ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
-              {stageLabel(step)}
-            </span>
+          <li key={step} aria-current={now ? "step" : undefined} className="flex items-center gap-2">
+            {now ? (
+              <Badge>{stageLabel(step)}</Badge>
+            ) : (
+              <span
+                className={cn("flex items-center gap-1.5 text-xs", past ? "text-foreground" : "text-muted-foreground")}
+              >
+                {past ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
+                {stageLabel(step)}
+              </span>
+            )}
             {index < TRAIL.length - 1 ? (
               <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
             ) : null}

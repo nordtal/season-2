@@ -38,7 +38,7 @@ class OnlineRosterIntegrationTest {
 
     @BeforeEach
     void freshTable() {
-        execute("TRUNCATE TABLE online_player");
+        execute("TRUNCATE TABLE online_player, player_last_seen");
         roster = OnlineRoster.using(dataSource, Clock.systemUTC());
     }
 
@@ -92,6 +92,20 @@ class OnlineRosterIntegrationTest {
                 List.of(ADA),
                 roster.current().stream().map(OnlinePlayer::uuid).toList(),
                 "Ben logged off, so Ben is gone - a reader must not have to age him out");
+    }
+
+    @Test
+    void aPlayerWhoLeavesIsLastSeenAtTheirLastWrite() {
+        roster.replace(List.of(new OnlineRoster.Presence(ADA, "Ada", "smp")));
+        final Instant online = roster.current().getFirst().updated();
+        assertEquals(0, count("SELECT count(*) FROM player_last_seen"), "nobody has left yet");
+
+        roster.replace(List.of());
+
+        assertEquals(
+                online.toEpochMilli(),
+                count("SELECT floor(extract(epoch FROM seen) * 1000)::bigint FROM player_last_seen WHERE mc_uuid = '"
+                        + ADA + "'"));
     }
 
     @Test

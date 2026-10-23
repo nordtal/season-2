@@ -249,6 +249,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V88__a_text_preview_is_a_row_with_its_examples.sql",
                 "6018a136e63b3ff69b8c2be2adaefcdef51536d8ec4078f69593400f3bb9f9e0");
+        FROZEN.put(
+                "V89__the_proxy_records_when_a_player_was_last_online.sql",
+                "875d48f38dc92c5fdff3ebdc5f166e89c85d9f64aa06d7eedcd36e3516d861f0");
     }
 
     @Test

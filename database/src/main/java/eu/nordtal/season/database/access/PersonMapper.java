@@ -43,7 +43,9 @@ public final class PersonMapper implements RowMapper<Person> {
                 rs.getString("pack_exempt_by"),
                 instant(rs, "pack_exempt_at"),
                 rs.getInt("aura"),
-                rs.getInt("spins"));
+                rs.getInt("spins"),
+                rs.getBoolean("online"),
+                instant(rs, "last_seen"));
     }
 
     static @Nullable Instant instant(final ResultSet rs, final String column) throws SQLException {

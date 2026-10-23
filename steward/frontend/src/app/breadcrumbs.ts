@@ -14,6 +14,7 @@ const SECTIONS = new Set([
   "operations",
   "updates",
   "backups",
+  "runs",
   "season",
   "translations",
   "access",
@@ -34,20 +35,36 @@ function personId(pathname: string): string | undefined {
   return /^\/access\/([^/]+)$/.exec(pathname)?.[1]
 }
 
-/** A user's page is named after the user once `people` holds them, else by the id in its path. */
+/** How the page below a section that lists runs names the run in its path. */
+function runLabel(section: string | undefined, segment: string): string | undefined {
+  if (section === "updates" || section === "runs") return t("steward.operations.run", { id: segment })
+  if (section === "backups") return t("steward.backups.backup", { id: segment })
+  return undefined
+}
+
+/**
+ * A user's page is named after the user once `people` holds them, by the id in its path until then, and as nobody when
+ * the loaded `people` lack the id.
+ */
 export function breadcrumbsFor(pathname: string, people?: Person[]): Crumb[] {
   const segments = pathname.split("/").filter(Boolean)
   const crumbs: Crumb[] = [{ label: t("steward.shell.page", { page: "overview" }), href: "/" }]
-  const person = people?.find((candidate) => candidate.discordId === personId(pathname))
   let href = ""
+  let section: string | undefined
   for (const segment of segments) {
     href += `/${segment}`
+    const known = SECTIONS.has(segment)
     crumbs.push({
-      label: SECTIONS.has(segment) ? t("steward.shell.page", { page: segment }) : readable(segment),
+      label: known ? t("steward.shell.page", { page: segment }) : (runLabel(section, segment) ?? readable(segment)),
       href,
     })
+    section = known ? segment : undefined
   }
-  if (person) crumbs[crumbs.length - 1].label = personName(person)
+  const id = personId(pathname)
+  if (id !== undefined && people) {
+    const person = people.find((candidate) => candidate.discordId === id)
+    crumbs[crumbs.length - 1].label = person ? personName(person) : t("steward.people.unknown-person")
+  }
   return crumbs
 }
 

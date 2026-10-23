@@ -26,6 +26,7 @@ import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.stack.StackApi;
 import eu.nordtal.season.stewardagent.AgentStandIn;
+import eu.nordtal.season.stewardagent.config.AgentSettings;
 import eu.nordtal.season.stewardagent.docker.FakeDaemon;
 import eu.nordtal.season.stewardagent.plan.PluginFiles;
 import java.io.IOException;
@@ -143,7 +144,7 @@ public final class StewardPreview {
             final TestDatabase postgres =
                     options.dump() == null ? TestDatabase.fresh() : TestDatabase.restored(options.dump(), DUMP_OWNER);
             if (options.dump() == null) {
-                publishSmpGroup(postgres);
+                publishServerGroups(postgres);
             }
             final Database database = push(started, Database.open(asSteward(postgres), "steward-preview"));
             final ProcessScheduler scheduler = push(
@@ -232,8 +233,13 @@ public final class StewardPreview {
         }
     }
 
-    /** Publishes smp's {@code distances} group as smp does at its start, so the settings tab has a Nordtal group. */
-    private static void publishSmpGroup(final TestDatabase postgres) throws Exception {
+    /**
+     * Publishes smp's {@code distances} group and steward-agent's {@code runs} group as each does at its start.
+     *
+     * smp's settings tab then has a Nordtal group, and the backup schedule dialog has its retention fields.
+     */
+    private static void publishServerGroups(final TestDatabase postgres) throws Exception {
+        AgentSettings.runs(AgentSettings.stored(postgres.dataSource(), LoggerFactory.getLogger(StewardPreview.class)));
         DatabaseSettings.over(
                         SettingStore.using(postgres.dataSourceAs(DatabaseRole.SMP)),
                         "smp",

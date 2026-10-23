@@ -29,7 +29,12 @@ function useGroupConfig(service: string, name: string) {
   const configs = useConfigs()
   const file = configs.data?.find((location) => location.service === service && location.name === name)
   const document = useConfig(file?.path ?? "", Boolean(file))
-  return { file: file?.path, document: document.data, pending: configs.isPending || document.isPending }
+  /** A query that is not enabled stays pending, so an unpublished group would wait forever. */
+  return {
+    file: file?.path,
+    document: document.data,
+    pending: configs.isPending || (Boolean(file) && document.isPending),
+  }
 }
 
 export function entryAt(document: ConfigDocument | undefined, path: string): ConfigEntry | undefined {

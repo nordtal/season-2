@@ -173,21 +173,27 @@ function backend(
     runs?: unknown[]
     backups?: unknown[]
     people?: Person[]
+    /** steward-agent has not published its runs group yet. */
+    noRuns?: boolean
   } = {},
 ) {
   return vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>(async (url, init) => {
     if (url === "/api/setting-groups") {
       return json(200, [
         { service: "steward", name: "steward", path: FILE, label: "", live: true, readable: true, writable: true },
-        {
-          service: "steward-agent",
-          name: "runs",
-          path: RUNS_FILE,
-          label: "",
-          live: true,
-          readable: true,
-          writable: true,
-        },
+        ...(over.noRuns
+          ? []
+          : [
+              {
+                service: "steward-agent",
+                name: "runs",
+                path: RUNS_FILE,
+                label: "",
+                live: true,
+                readable: true,
+                writable: true,
+              },
+            ]),
       ])
     }
     if (url === `/api/setting-groups/${RUNS_FILE}`) {
@@ -276,6 +282,16 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
 
     const daily = asInput(await screen.findByLabelText("Daily"))
     expect(daily.value).toBe("14")
+  })
+
+  it("draws steward's own fields while steward-agent has not published its runs group", async () => {
+    vi.stubGlobal("fetch", backend({ noRuns: true }))
+    draw()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Schedule" }))
+
+    expect(asInput(await screen.findByLabelText("At")).value).toBe("04:45")
+    expect(screen.queryByLabelText("Daily")).toBeNull()
   })
 
   it("saves a retention change into the runs group and leaves steward's own group alone", async () => {

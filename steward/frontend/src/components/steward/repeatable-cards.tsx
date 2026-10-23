@@ -145,7 +145,8 @@ export function RepeatableCards({
   }
 
   const titleOf = (section: SectionValues, index: number) =>
-    sectionTitle?.(section, index) ?? (textOf(section, "key").trim() || `Entry ${index + 1}`)
+    sectionTitle?.(section, index) ??
+    (textOf(section, "key").trim() || t("steward.settings.entry", { index: index + 1 }))
 
   return (
     <div className="flex flex-col gap-3">

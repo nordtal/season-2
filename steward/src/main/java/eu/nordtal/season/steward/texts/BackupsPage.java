@@ -108,6 +108,9 @@ public interface BackupsPage {
     @Name("No archive")
     MessageRef noArchive();
 
+    @Name("Archives not catalogued")
+    MessageRef notCatalogued();
+
     @Name("Holds")
     MessageRef holdsColumn();
 

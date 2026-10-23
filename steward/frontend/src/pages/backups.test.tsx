@@ -611,6 +611,26 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(screen.getByText("Save a volume")).toBeTruthy()
   })
 
+  it("says a run that saved archives without catalogue rows wrote archives the catalogue does not list", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        runs: [run({ status: "DONE", stage: "DONE", steps: [saving("nordtal-s2_mc-smp", [])] })],
+        backups: [],
+      }),
+    )
+    drawDetail("41")
+
+    expect(await screen.findByText("This run wrote archives that the catalogue does not list")).toBeTruthy()
+  })
+
+  it("says a run whose saves all failed wrote no archive", async () => {
+    vi.stubGlobal("fetch", backend({ runs: [run()], backups: [] }))
+    drawDetail("41")
+
+    expect(await screen.findByText("This run wrote no archive")).toBeTruthy()
+  })
+
   it("names a failed catalogue in the archives panel instead of waiting on it", async () => {
     vi.stubGlobal("fetch", backend({ backupsDown: true }))
     drawDetail("41")

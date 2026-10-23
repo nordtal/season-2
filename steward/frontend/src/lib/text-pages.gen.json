@@ -117,6 +117,7 @@
     "steward.backups.no-run": ["backups"],
     "steward.backups.none": ["backups"],
     "steward.backups.none-finished": ["backups"],
+    "steward.backups.not-catalogued": ["backups"],
     "steward.backups.not-tracked": ["backups"],
     "steward.backups.nothing-to-restore": ["backups"],
     "steward.backups.pruned": ["backups"],

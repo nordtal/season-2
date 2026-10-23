@@ -807,6 +807,7 @@ export type TextArgs = {
   "steward.backups.no-run": Record<string, never>
   "steward.backups.none": Record<string, never>
   "steward.backups.none-finished": Record<string, never>
+  "steward.backups.not-catalogued": Record<string, never>
   "steward.backups.not-tracked": Record<string, never>
   "steward.backups.nothing-to-restore": Record<string, never>
   "steward.backups.pruned": {

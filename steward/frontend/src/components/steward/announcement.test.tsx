@@ -139,6 +139,8 @@ describe("AnnouncementForm", () => {
 
     fireEvent.change(english, { target: { value: "The end opens at nine." } })
     expect(within(send()).getByRole("status").textContent).toBe("")
+    expect(screen.queryByText("Posted in Deutsch")).toBeNull()
+    expect(screen.queryByText("Not posted in English")).toBeNull()
   })
 
   it("names the reason of a language the bot did not post, and keeps the texts for another try", async () => {

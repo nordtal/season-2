@@ -32,6 +32,8 @@ export function AnnouncementForm() {
   const [asking, setAsking] = useState(false)
   /** The text each language went out with, so a retry sends only the others. */
   const [posted, setPosted] = useState<Record<string, string>>({})
+  /** Whether the last send failed, so the pills name which languages went out. */
+  const [failed, setFailed] = useState(false)
 
   const text = (tag: string) => texts[tag] ?? ""
   const send = useSendAnnouncement((tag, sent) => setPosted((current) => ({ ...current, [tag]: sent })))
@@ -77,7 +79,7 @@ export function AnnouncementForm() {
         </div>
         {asking ? null : (
           <>
-            <PostedLanguages tags={tags} unposted={unposted} />
+            {failed ? <PostedLanguages tags={tags} unposted={unposted} /> : null}
             {send.error ? <Failure error={send.error} write /> : null}
           </>
         )}
@@ -102,15 +104,19 @@ export function AnnouncementForm() {
         description={t("steward.announcements.where", { languages: unposted.length })}
         action={t("steward.announcements.send")}
         acting={t("steward.form.waiting")}
-        act={() => send.mutateAsync(Object.fromEntries(unposted.map((tag) => [tag, text(tag).trim()])))}
+        act={() =>
+          send.mutateAsync(Object.fromEntries(unposted.map((tag) => [tag, text(tag).trim()])), {
+            onSettled: (_, error) => setFailed(error !== null),
+          })
+        }
       >
-        <PostedLanguages tags={tags} unposted={unposted} />
+        {failed ? <PostedLanguages tags={tags} unposted={unposted} /> : null}
       </AskThenAct>
     </Card>
   )
 }
 
-/** One pill per language after a send that posted some languages and not others; nothing otherwise. */
+/** One pill per language when some languages are posted and others are not. Nothing shows when none or all are posted. */
 function PostedLanguages({ tags, unposted }: { tags: string[]; unposted: string[] }) {
   if (unposted.length === 0 || unposted.length === tags.length) return null
   return (
@@ -120,7 +126,7 @@ function PostedLanguages({ tags, unposted }: { tags: string[]; unposted: string[
         return (
           <li key={tag}>
             <Badge variant="outline" className={missing ? "text-destructive" : undefined}>
-              {missing ? <TERM_ICON.warning aria-hidden /> : <CheckIcon aria-hidden />}
+              {missing ? <TERM_ICON.failed aria-hidden /> : <CheckIcon aria-hidden />}
               {t(missing ? "steward.announcements.not-posted" : "steward.announcements.posted", {
                 language: languageName(tag),
               })}

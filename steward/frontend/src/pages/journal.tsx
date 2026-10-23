@@ -9,6 +9,7 @@ import type { Icon } from "@phosphor-icons/react"
 import type { Alert, AlertLevel, AlertType, JournalItem, JournalTerm, Measure } from "@/lib/api"
 import { LOCALE, relative, time } from "@/lib/format"
 import { useAlerts, useJournal } from "@/lib/queries"
+import { runPath } from "@/lib/run-path"
 import { choice, message, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { actionIcon } from "@/components/steward/actions"
@@ -277,11 +278,7 @@ function JournalRow({
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <icons.Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           {run ? (
-            <Link
-              to="/operations/updates/$id"
-              params={{ id: String(run.id) }}
-              className="text-sm font-medium underline-offset-4 tap-target hover:underline"
-            >
+            <Link {...runPath(run)} className="text-sm font-medium underline-offset-4 tap-target hover:underline">
               {itemTitle(item)}
             </Link>
           ) : (

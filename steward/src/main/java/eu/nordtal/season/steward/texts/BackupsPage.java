@@ -102,6 +102,9 @@ public interface BackupsPage {
     @Name("A backup's title")
     MessageRef backup(@Arg("id") String id);
 
+    @Name("All backups")
+    MessageRef allBackups();
+
     @Name("No such run")
     MessageRef noSuchRun();
 

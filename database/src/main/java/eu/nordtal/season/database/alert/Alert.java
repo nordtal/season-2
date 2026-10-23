@@ -147,8 +147,10 @@ public record Alert(
             case BACKUP_STALE -> "/operations/backups";
             case IMAGE_DRIFT -> "/operations/updates";
             case PACK_DEAD -> "/services/proxy";
-            case RUN_FAILED ->
-                "/operations/updates/" + Objects.requireNonNull(detail).run();
+            case RUN_FAILED -> {
+                final JournalDetail.RunFailed failed = (JournalDetail.RunFailed) Objects.requireNonNull(detail);
+                yield failed.kind().page(failed.run());
+            }
             case PAYMENT_NEEDS_LOOK, LINK_REFUSED, PURCHASE_FAILED -> "/payments";
             case LINK_FAILED, DM_NOT_DELIVERED, ROLE_NOT_CHANGED, ROLE_AMBIGUOUS, ROLE_NOT_CREATED -> "/access";
             case LOCK_NOT_KEPT, LOCK_WITHOUT_CHANNEL -> "/services/discord-bot";

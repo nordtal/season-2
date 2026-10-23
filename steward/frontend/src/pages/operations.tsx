@@ -1,13 +1,14 @@
 import { ArrowRightIcon, CheckIcon, ShieldWarningIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 import { TERM_ICON } from "@/components/steward/term-icons"
-import { Link, useParams } from "@tanstack/react-router"
+import { Link, Navigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import type { Run } from "@/lib/api"
 import { dateTime, parseInstant, relative, NO_VALUE } from "@/lib/format"
 import { useAskForRun, useCancelRun, useRun, useServices } from "@/lib/queries"
 import { useRunLock } from "@/lib/run-lock"
+import { runPath } from "@/lib/run-path"
 import { choice, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
@@ -244,12 +245,15 @@ export function CancelButton({ run }: { run: Run }) {
 }
 
 /**
- * One run, drawn and not dumped, for every kind but BACKUP. `useRun` polls while the run is unfinished, so its steps grow on screen.
+ * One run, drawn and not dumped, for every kind but BACKUP, which it sends to its page under Backups. `useRun` polls while the run is unfinished, so its steps grow on screen.
  */
 export function UpdateRunPage() {
   const { id } = useParams({ from: "/operations/updates/$id" })
   const numeric = /^\d+$/.test(id)
   const run = useRun(id, numeric)
+
+  // A Discord card posted earlier can name a backup run under Updates.
+  if (run.data?.kind === "BACKUP") return <Navigate {...runPath(run.data)} replace />
 
   return (
     <div className="flex flex-col gap-6">

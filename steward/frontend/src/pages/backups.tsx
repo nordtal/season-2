@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import { DownloadIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon, DownloadIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { toast } from "sonner"
 
@@ -324,7 +324,17 @@ export function BackupRunDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("steward.backups.backup", { id })} />
+      <PageHeader
+        title={t("steward.backups.backup", { id })}
+        actions={
+          <Button asChild variant="outline">
+            <Link to="/operations/backups">
+              <ArrowRightIcon aria-hidden />
+              {t("steward.backups.all-backups")}
+            </Link>
+          </Button>
+        }
+      />
 
       <QueryState query={runs} isEmpty={() => !run} empty={{ title: t("steward.backups.no-such-run") }}>
         {(answer) => (

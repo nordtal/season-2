@@ -1024,6 +1024,7 @@ export type TextArgs = {
   "steward.backup-settings.no-at": Record<string, never>
   "steward.backup-settings.no-night": Record<string, never>
   "steward.backup-settings.retention-saved": Record<string, never>
+  "steward.backups.all-backups": Record<string, never>
   "steward.backups.all-partial": Record<string, never>
   "steward.backups.archive": Record<string, never>
   "steward.backups.archives": Record<string, never>

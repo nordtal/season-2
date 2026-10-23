@@ -34,7 +34,7 @@ public record UpdateRequest(
 
     /** Returns the path of the page of this run in Steward. */
     public String page() {
-        return "/operations/updates/" + id;
+        return kind.page(id);
     }
 
     /** Returns the countdown end if it has started, else the scheduled instant. */

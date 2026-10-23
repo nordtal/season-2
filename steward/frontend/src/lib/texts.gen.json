@@ -830,6 +830,7 @@
     "steward.backup-settings.no-at": [["Steward's settings have no backup.at"]],
     "steward.backup-settings.no-night": [["No backup runs until a night is picked."]],
     "steward.backup-settings.retention-saved": [["Retention saved."]],
+    "steward.backups.all-backups": [["All backups"]],
     "steward.backups.all-partial": [["Every file still has the .partial suffix."]],
     "steward.backups.archive": [["Archive"]],
     "steward.backups.archives": [["Archives"]],

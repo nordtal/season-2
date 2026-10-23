@@ -48,6 +48,11 @@ public enum UpdateKind {
      */
     INSTALL;
 
+    /** Returns the path of the page of run {@code id} of this kind in Steward: Backups for a backup, else Updates. */
+    public String page(final long id) {
+        return (this == BACKUP ? "/operations/backups/" : "/operations/updates/") + id;
+    }
+
     /** Returns whether this kind stops servers, which a confirmation is asked for. */
     public boolean stopsServers() {
         return this != START && this != INSTALL;

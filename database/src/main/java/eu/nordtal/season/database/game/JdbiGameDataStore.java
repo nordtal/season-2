@@ -41,7 +41,9 @@ final class JdbiGameDataStore implements GameDataStore {
                     .bind("server", server)
                     .bind("version", catalogue.minecraftVersion())
                     .bindArray("datapacks", String.class, catalogue.datapacks())
-                    .bind("catalogue", Json.encode(new Stored(catalogue.registries(), catalogue.tags())))
+                    .bind(
+                            "catalogue",
+                            Json.encode(new Stored(catalogue.registries(), catalogue.tags(), catalogue.worlds())))
                     .execute();
             signal(handle);
         });
@@ -149,7 +151,8 @@ final class JdbiGameDataStore implements GameDataStore {
                 rows.getString("minecraft_version"),
                 List.of((String[]) datapacks.getArray()),
                 stored.registries() == null ? Map.of() : stored.registries(),
-                stored.tags() == null ? Map.of() : stored.tags());
+                stored.tags() == null ? Map.of() : stored.tags(),
+                stored.worlds() == null ? List.of() : stored.worlds());
     }
 
     // In the writing transaction, so a listener woken by it reads the row.
@@ -161,6 +164,9 @@ final class JdbiGameDataStore implements GameDataStore {
     }
 
     // The catalogue column: everything but the version and the datapacks, which have columns.
+    /** An export from before worlds were reported decodes with {@code worlds} null. */
     private record Stored(
-            Map<String, List<GameCatalogue.Entry>> registries, Map<String, List<GameCatalogue.Tag>> tags) {}
+            Map<String, List<GameCatalogue.Entry>> registries,
+            Map<String, List<GameCatalogue.Tag>> tags,
+            List<String> worlds) {}
 }

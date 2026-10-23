@@ -24,12 +24,13 @@ import org.bukkit.Keyed;
 import org.bukkit.Registry;
 import org.bukkit.Server;
 import org.bukkit.Statistic;
+import org.bukkit.World;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.damage.DamageType;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Reads every registry that the pickers offer into one {@link GameCatalogue}.
+ * Reads every registry that the pickers offer, and the server's worlds, into one {@link GameCatalogue}.
  * English is the server's en_us.
  * Recipe advancements are left out.
  */
@@ -64,7 +65,9 @@ public final class GameDataExport {
                 .map(Datapack::getName)
                 .sorted()
                 .toList();
-        return new GameCatalogue(server.getMinecraftVersion(), datapacks, registries, tags);
+        final List<String> worlds =
+                server.getWorlds().stream().map(World::getName).toList();
+        return new GameCatalogue(server.getMinecraftVersion(), datapacks, registries, tags, worlds);
     }
 
     private static <T extends Keyed> void named(

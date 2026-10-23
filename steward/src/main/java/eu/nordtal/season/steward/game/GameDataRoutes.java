@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
 /** Serves the game catalogue of the network's version and its icons to the pickers. */
@@ -30,13 +31,15 @@ public final class GameDataRoutes {
      *
      * @param version {@code null} before any server exported, and then every registry is empty
      * @param icons {@code null} until steward-agent has drawn them
+     * @param worlds the worlds each server reported at its last export, by server, kept while it is down
      */
     public record GameData(
             @Nullable String version,
             List<String> datapacks,
             Map<String, List<GameCatalogue.Entry>> registries,
             Map<String, List<GameCatalogue.Tag>> tags,
-            @Nullable Icons icons) {}
+            @Nullable Icons icons,
+            Map<String, List<String>> worlds) {}
 
     /**
      * The icon sheet of one version.
@@ -57,17 +60,19 @@ public final class GameDataRoutes {
 
     public GameData read() {
         if (store == null) {
-            return new GameData(null, List.of(), Map.of(), Map.of(), null);
+            return new GameData(null, List.of(), Map.of(), Map.of(), null, Map.of());
         }
-        final GameCatalogue catalogue = catalogue(store);
+        final Merged current = merged(store);
+        final GameCatalogue catalogue = current.catalogue();
         if (catalogue == null) {
-            return new GameData(null, List.of(), Map.of(), Map.of(), null);
+            return new GameData(null, List.of(), Map.of(), Map.of(), null, current.worlds());
         }
         final String version = catalogue.minecraftVersion();
         final Icons icons = store.iconIndex(version)
                 .map(index -> new Icons(iconsUrl(version, index.painter()), index.columns(), index.slots()))
                 .orElse(null);
-        return new GameData(version, catalogue.datapacks(), catalogue.registries(), catalogue.tags(), icons);
+        return new GameData(
+                version, catalogue.datapacks(), catalogue.registries(), catalogue.tags(), icons, current.worlds());
     }
 
     /** Answers the icon sheet of one version. */
@@ -87,11 +92,11 @@ public final class GameDataRoutes {
                 + URLEncoder.encode(painter, StandardCharsets.UTF_8);
     }
 
-    /** Returns the union catalogue of the newest export's version, merged again after a new export. */
-    private synchronized @Nullable GameCatalogue catalogue(final GameDataStore store) {
+    /** Returns the newest version's union catalogue and every server's worlds, merged again after an export. */
+    private synchronized Merged merged(final GameDataStore store) {
         final Map<String, Instant> exports = store.exports();
         if (merged != null && merged.exports().equals(exports)) {
-            return merged.catalogue();
+            return merged;
         }
         final Map<String, GameCatalogue> catalogues = store.catalogues();
         final String newest = exports.entrySet().stream()
@@ -101,10 +106,12 @@ public final class GameDataRoutes {
         final GameCatalogue latest = newest == null ? null : catalogues.get(newest);
         final GameCatalogue union =
                 latest == null ? null : GameCatalogue.union(latest.minecraftVersion(), catalogues.values());
-        merged = new Merged(exports, union);
-        return union;
+        final Map<String, List<String>> worlds = new TreeMap<>();
+        catalogues.forEach((server, catalogue) -> worlds.put(server, catalogue.worlds()));
+        merged = new Merged(exports, union, worlds);
+        return merged;
     }
 
     private record Merged(
-            Map<String, Instant> exports, @Nullable GameCatalogue catalogue) {}
+            Map<String, Instant> exports, @Nullable GameCatalogue catalogue, Map<String, List<String>> worlds) {}
 }

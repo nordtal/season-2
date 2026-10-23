@@ -19,14 +19,16 @@ class GameCatalogueTest {
                 "26.2",
                 List.of("vanilla", "nordtal"),
                 Map.of("advancement", List.of(entry("minecraft:story/root"), entry("nordtal:smp/first_night"))),
-                Map.of("item", List.of(new GameCatalogue.Tag("minecraft:logs", List.of("minecraft:oak_log")))));
+                Map.of("item", List.of(new GameCatalogue.Tag("minecraft:logs", List.of("minecraft:oak_log")))),
+                List.of("world-nordtal"));
         final GameCatalogue limbo = new GameCatalogue(
                 "26.2",
                 List.of("vanilla"),
                 Map.of("advancement", List.of(entry("minecraft:story/root"))),
-                Map.of("item", List.of(new GameCatalogue.Tag("minecraft:logs", List.of("minecraft:oak_log")))));
+                Map.of("item", List.of(new GameCatalogue.Tag("minecraft:logs", List.of("minecraft:oak_log")))),
+                List.of("limbo"));
         final GameCatalogue older = new GameCatalogue(
-                "26.1", List.of("old"), Map.of("advancement", List.of(entry("minecraft:gone"))), Map.of());
+                "26.1", List.of("old"), Map.of("advancement", List.of(entry("minecraft:gone"))), Map.of(), List.of());
 
         final GameCatalogue union = GameCatalogue.union("26.2", List.of(smp, limbo, older));
 

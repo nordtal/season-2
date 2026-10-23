@@ -17,12 +17,14 @@ import org.jspecify.annotations.Nullable;
  * @param datapacks the names of the datapacks enabled at export
  * @param registries the entries of each registry by name, such as {@code item} or {@code advancement}
  * @param tags the tags of each registry by name
+ * @param worlds the names of the worlds the server had loaded at export, in the server's order
  */
 public record GameCatalogue(
         String minecraftVersion,
         List<String> datapacks,
         Map<String, List<Entry>> registries,
-        Map<String, List<Tag>> tags) {
+        Map<String, List<Tag>> tags,
+        List<String> worlds) {
 
     /** The names of the registries a server exports. */
     public static final List<String> REGISTRIES = List.of(
@@ -39,6 +41,7 @@ public record GameCatalogue(
 
     /**
      * Merges the catalogues of servers of one version into every entry and tag any has, by id, the first kept.
+     * Worlds belong to one server each, so the union has none.
      */
     public static GameCatalogue union(final String minecraftVersion, final Collection<GameCatalogue> catalogues) {
         final Set<String> datapacks = new TreeSet<>();
@@ -58,7 +61,7 @@ public record GameCatalogue(
                 declared.forEach(tag -> byId.putIfAbsent(tag.id(), tag));
             });
         }
-        return new GameCatalogue(minecraftVersion, List.copyOf(datapacks), values(registries), values(tags));
+        return new GameCatalogue(minecraftVersion, List.copyOf(datapacks), values(registries), values(tags), List.of());
     }
 
     private static <T> Map<String, List<T>> values(final Map<String, Map<String, T>> byRegistry) {

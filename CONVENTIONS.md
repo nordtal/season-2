@@ -185,6 +185,7 @@ run `git config core.hooksPath .githooks` once per clone.
 
 - **Commit scope** is the module directory (`feat(steward): …`, `fix(smp): …`), `deploy` for
   `deploy/` and `compose.yml`, `build-logic` for `build-logic/` and the version catalog.
+  A commit that spans several modules has no scope.
 - **Architecture** _(checked by ArchUnit)_:
   - `:common` depends only on the JDK, JSpecify and Gson, which every platform ships and nothing
     shades.

@@ -75,7 +75,12 @@ export function AnnouncementForm() {
             </div>
           ))}
         </div>
-        {send.error && !asking ? <Failure error={send.error} write /> : null}
+        {asking ? null : (
+          <>
+            <PostedLanguages tags={tags} unposted={unposted} />
+            {send.error ? <Failure error={send.error} write /> : null}
+          </>
+        )}
         <div className="flex justify-end">
           <Button
             type="button"
@@ -99,25 +104,31 @@ export function AnnouncementForm() {
         acting={t("steward.form.waiting")}
         act={() => send.mutateAsync(Object.fromEntries(unposted.map((tag) => [tag, text(tag).trim()])))}
       >
-        {unposted.length < tags.length ? (
-          <ul className="flex flex-wrap gap-2">
-            {tags.map((tag) => {
-              const missing = unposted.includes(tag)
-              return (
-                <li key={tag}>
-                  <Badge variant="outline" className={missing ? "text-destructive" : undefined}>
-                    {missing ? <TERM_ICON.warning aria-hidden /> : <CheckIcon aria-hidden />}
-                    {t(missing ? "steward.announcements.not-posted" : "steward.announcements.posted", {
-                      language: languageName(tag),
-                    })}
-                  </Badge>
-                </li>
-              )
-            })}
-          </ul>
-        ) : null}
+        <PostedLanguages tags={tags} unposted={unposted} />
       </AskThenAct>
     </Card>
+  )
+}
+
+/** One pill per language after a send that posted some languages and not others; nothing otherwise. */
+function PostedLanguages({ tags, unposted }: { tags: string[]; unposted: string[] }) {
+  if (unposted.length === 0 || unposted.length === tags.length) return null
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {tags.map((tag) => {
+        const missing = unposted.includes(tag)
+        return (
+          <li key={tag}>
+            <Badge variant="outline" className={missing ? "text-destructive" : undefined}>
+              {missing ? <TERM_ICON.warning aria-hidden /> : <CheckIcon aria-hidden />}
+              {t(missing ? "steward.announcements.not-posted" : "steward.announcements.posted", {
+                language: languageName(tag),
+              })}
+            </Badge>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

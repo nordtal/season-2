@@ -174,6 +174,24 @@ describe("AnnouncementForm", () => {
     expect(sent[1]).toEqual({ texts: { de: "Heute Abend." } })
   })
 
+  it("keeps naming the languages that went out on the card once the dialog is cancelled", async () => {
+    backend(accessFile(), { de: { status: "FAILED", result: words("Not posted. No German channel.") } })
+    draw(<AnnouncementForm />)
+
+    fireEvent.change(await screen.findByLabelText("English"), { target: { value: "Tonight." } })
+    fireEvent.change(screen.getByLabelText("Deutsch"), { target: { value: "Heute Abend." } })
+    fireEvent.click(send())
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }))
+    await within(dialog).findByText("Posted in English")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+    expect(screen.getByText("Posted in English")).toBeTruthy()
+    expect(screen.getByText("Not posted in Deutsch")).toBeTruthy()
+    expect(screen.getByRole("alert").textContent).toContain("Not posted. No German channel.")
+  })
+
   it("names the channel each language lands in, and says when one has none", async () => {
     backend()
     draw(<AnnouncementForm />)

@@ -61,12 +61,16 @@ public final class StewardPreview {
 
     private static final String DUMP_OWNER = "nordtal";
 
-    /** A one-shot that ran and a standby at rest, beside the stand-in's smp, so their pages show. */
+    /**
+     * A one-shot that ran, a standby at rest and Steward itself, beside the stand-in's smp, so their pages show.
+     * Steward and smp carry the section label that lists them in the navigation, as compose.yml does.
+     */
     private static final com.google.gson.JsonObject RESTING =
             com.google.gson.JsonParser.parseString("""
                     {"migrate": {"image": "ghcr.io/nordtal/steward-agent:latest", "restart": "no"},
                      "proxy-standby": {"image": "ghcr.io/nordtal/minecraft:latest", "restart": "unless-stopped",
-                       "labels": {"eu.nordtal.standby-of": "proxy"}}}
+                       "labels": {"eu.nordtal.standby-of": "proxy"}},
+                     "steward": {"image": "ghcr.io/nordtal/steward:latest", "labels": {"eu.nordtal.section": "Steward"}}}
                     """).getAsJsonObject();
 
     private static final String PREVIEW_TOTP_KEY = previewTotpKey();
@@ -363,13 +367,16 @@ public final class StewardPreview {
         cfg.routes.post(AgentWire.PLUGIN_FILE, files::save);
     }
 
-    /** {@link #RESTING}, and each service of {@code jars} that the compose.yml of the stand-in does not name yet. */
+    /** {@link #RESTING}, smp with its section label, and each service of {@code jars} that compose.yml lacks. */
     private static JsonObject servicesOf(final @org.jspecify.annotations.Nullable Path jars) throws IOException {
         final JsonObject services = RESTING.deepCopy();
+        final JsonObject named = JsonParser.parseString(AgentStandIn.SERVICES).getAsJsonObject();
+        final JsonObject smp = named.getAsJsonObject("smp").deepCopy();
+        smp.getAsJsonObject("labels").addProperty("eu.nordtal.section", "Paper");
+        services.add("smp", smp);
         if (jars == null) {
             return services;
         }
-        final JsonObject named = JsonParser.parseString(AgentStandIn.SERVICES).getAsJsonObject();
         try (Stream<Path> listed = Files.list(jars)) {
             for (final Path directory : listed.filter(Files::isDirectory).toList()) {
                 final String service = directory.getFileName().toString();

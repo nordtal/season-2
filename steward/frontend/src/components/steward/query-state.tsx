@@ -2,7 +2,7 @@ import { PlugsIcon, TrayIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import type { ReactNode } from "react"
 
-import { ApiError } from "@/lib/api"
+import { ApiError, errorMessage } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { t } from "@/lib/texts"
@@ -56,7 +56,7 @@ export function Failure({ error, onRetry }: { error: unknown; onRetry?: () => vo
                 : t("steward.failure.not-loaded")}
           </p>
           <p className="text-sm text-muted-foreground">
-            {api ? api.message : String(error)}
+            {errorMessage(error)}
             {api?.status ? ` ${t("steward.failure.http", { status: api.status })}` : null}
           </p>
           {api?.detail ? (

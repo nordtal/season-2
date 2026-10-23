@@ -4,7 +4,7 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.update.UpdateReport;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.List;
@@ -100,10 +100,7 @@ public record Alert(
         return switch (action) {
             case SERVICE_DOWN -> TEXTS.alert().noServices();
             case RUN_FAILED ->
-                TEXTS.run()
-                        .title(
-                                ((JournalDetail.RunFailed) Objects.requireNonNull(detail)).kind(),
-                                UpdateReport.Stage.FAILED);
+                TEXTS.run().title(((JournalDetail.RunFailed) Objects.requireNonNull(detail)).kind(), RunStage.FAILED);
             case PAYMENT_NEEDS_LOOK -> TEXTS.alert().payment();
             case LINK_REFUSED -> TEXTS.alert().linkRefused();
             case LINK_FAILED -> TEXTS.alert().linkFailed();

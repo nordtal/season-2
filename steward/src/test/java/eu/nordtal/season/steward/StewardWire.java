@@ -10,7 +10,6 @@ import eu.nordtal.season.database.command.CommandTree;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.phase.DateChange;
 import eu.nordtal.season.database.phase.PhaseChange;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.messages.document.DocumentCheck;
@@ -148,13 +147,6 @@ public final class StewardWire {
             Map.entry(eu.nordtal.season.database.journal.JournalSearch.Term.class, "JournalTerm"),
             Map.entry(eu.nordtal.season.database.journal.JournalSearch.Term.Kind.class, "TermKind"),
             Map.entry(Actor.Kind.class, "ActorKind"),
-            Map.entry(UpdateReport.class, "Report"),
-            Map.entry(UpdateReport.ServiceLine.class, "ReportLine"),
-            Map.entry(UpdateReport.Change.class, "ReportChange"),
-            Map.entry(UpdateReport.State.class, "LineState"),
-            Map.entry(UpdateReport.Change.State.class, "ChangeState"),
-            Map.entry(UpdateReport.Stage.class, "ReportStage"),
-            Map.entry(UpdateReport.Note.class, "RunNote"),
             Map.entry(Updates.Step.class, "RunStep"),
             Map.entry(eu.nordtal.season.database.update.RunStep.Kind.class, "StepKind"),
             Map.entry(eu.nordtal.season.database.update.RunStep.Outcome.class, "StepOutcome"),
@@ -163,14 +155,6 @@ public final class StewardWire {
             Map.entry(eu.nordtal.season.database.update.RunStep.Change.class, "RunChange"),
             Map.entry(eu.nordtal.season.database.update.RunStep.Image.class, "ChangeImage"),
             Map.entry(eu.nordtal.season.database.update.RunStep.PruneRule.class, "PruneRule"),
-            Map.entry(UpdateReport.Outcome.class, "RunOutcome"),
-            Map.entry(UpdateReport.Facts.class, "LineFacts"),
-            Map.entry(UpdateReport.Facts.Seen.class, "LineSeen"),
-            Map.entry(UpdateReport.Act.class, "LineAct"),
-            Map.entry(UpdateReport.Image.class, "LineImage"),
-            Map.entry(UpdateReport.Fallback.class, "LineFallback"),
-            Map.entry(UpdateReport.Back.class, "LineBack"),
-            Map.entry(UpdateReport.Mark.class, "ArchiveMark"),
             Map.entry(WebAuthn.Held.class, "KeyHeld"),
             Map.entry(AuthenticatorApp.Enrolment.class, "AuthenticatorEnrolment"),
             Map.entry(AuthenticatorApp.Qr.class, "QrCode"),

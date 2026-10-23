@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
  * @param seasonTag the resolved release tag, printed even when nothing changed
  * @param seasonPrerelease true only when an operator pinned a pre-release by tag
  * @param unclaimed jars in a {@code plugins/} folder no row accounts for, never touched and always reported
- * @param notes findings that belong to no single service, drawn only by {@link PlanReport}
+ * @param notes findings that belong to no single service, which only {@link Work} reads
  */
 public record UpdatePlan(
         Instant resolvedAt,

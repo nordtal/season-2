@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.update.RunRecord;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateStatus;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -63,7 +63,7 @@ class HostRequestsTest {
     }
 
     private static RunRecord failed(final RunStep.Row... steps) {
-        return new RunRecord(UpdateReport.Stage.FAILED, List.of(steps));
+        return new RunRecord(RunStage.FAILED, List.of(steps));
     }
 
     private static RunStep.Row step(

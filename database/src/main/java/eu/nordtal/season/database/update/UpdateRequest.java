@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
  * @param countdownEnd when the servers go down, null until the plan has work and counts down
  * @param moving the services the run stops, empty until the countdown starts
  * @param started when steward claimed it, null while {@link UpdateStatus#PENDING}
- * @param result the report verbatim, null until finished
+ * @param stage where the run has got to, null until steward-agent writes one
  */
 public record UpdateRequest(
         long id,
@@ -26,7 +26,7 @@ public record UpdateRequest(
         List<String> moving,
         @Nullable Instant started,
         @Nullable Instant finished,
-        @Nullable String result) {
+        @Nullable RunStage stage) {
 
     public UpdateRequest {
         moving = List.copyOf(moving);

@@ -1,7 +1,6 @@
 package eu.nordtal.season.database.update;
 
 import eu.nordtal.season.database.inbox.StewardRequest;
-import java.util.List;
 
 /**
  * What an {@link UpdateRequest} asks steward to do: the kind of its request in the run inbox.
@@ -59,22 +58,22 @@ public enum UpdateKind {
     }
 
     /**
-     * Returns the request of this kind for the services.
+     * Returns the request of this kind.
      *
-     * @throws IllegalArgumentException for a kind that names more than services (a restore, a plugin removal)
-     *     and for the start-up install
+     * @throws IllegalArgumentException for a kind that names more (a restore, a plugin removal) and for the start-up
+     *     install
      */
-    public StewardRequest request(final List<String> services) {
+    public StewardRequest request() {
         return switch (this) {
-            case UPDATE -> new StewardRequest.Update(services);
-            case RESTART -> new StewardRequest.Restart(services);
-            case BACKUP -> new StewardRequest.Backup(services);
-            case DOWN -> new StewardRequest.Down(services);
-            case START -> new StewardRequest.Start(services);
-            case RECREATE -> new StewardRequest.Recreate(services);
-            case DEPLOY -> new StewardRequest.Deploy(services);
+            case UPDATE -> new StewardRequest.Update();
+            case RESTART -> new StewardRequest.Restart();
+            case BACKUP -> new StewardRequest.Backup();
+            case DOWN -> new StewardRequest.Down();
+            case START -> new StewardRequest.Start();
+            case RECREATE -> new StewardRequest.Recreate();
+            case DEPLOY -> new StewardRequest.Deploy();
             case RESTORE, REMOVE_PLUGIN ->
-                throw new IllegalArgumentException(this + " names more than its services; submit the request itself");
+                throw new IllegalArgumentException(this + " names more than its kind; submit the request itself");
             case INSTALL ->
                 throw new IllegalArgumentException("steward-agent installs on its start; nobody asks for it");
         };

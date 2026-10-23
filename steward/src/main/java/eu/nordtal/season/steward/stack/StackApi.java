@@ -403,7 +403,7 @@ public final class StackApi implements AutoCloseable {
             throw new RequestRefused(400, ANSWER.confirmRestore(replaces));
         }
         final eu.nordtal.season.database.update.UpdateRequest written = updates.submit(
-                new eu.nordtal.season.database.inbox.StewardRequest.Restore(List.of(), name), actor, Duration.ZERO);
+                new eu.nordtal.season.database.inbox.StewardRequest.Restore(name), List.of(), actor, Duration.ZERO);
         log.info("restore of {} asked for as request {}", name, written.id());
         Journaling.line(ctx, new JournalDetail.RestoreAsked(written.id(), name));
         ctx.status(202).json(new RestoreAsked(written.id(), written.kind(), name));

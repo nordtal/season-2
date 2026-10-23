@@ -1,54 +1,46 @@
 package eu.nordtal.season.stewardagent.run;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReports;
+import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.stewardagent.Told;
+import eu.nordtal.season.stewardagent.plan.Work;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests that an image with a newer one in the registry is work and the report says so in a message.
- */
+/** Tests that an image with a newer one in the registry is work, and what a run finds about the images. */
 class ForeignImagesTest {
 
     @Test
-    void anOutdatedImageIsToldAsAMessageOfTheReportNotInEnglishWords() {
+    void anOutdatedImageIsPulledWork() {
         final FakeContainers containers =
                 new FakeContainers().running(Topology.SMP).imageOutdated(Topology.SMP);
 
-        final UpdateReport report = ForeignImages.withImages(
-                UpdateReport.at(UpdateReport.Stage.PLANNED), containers.images(), containers.topology(), List.of());
+        final Work work = ForeignImages.withImages(none(), containers.images(), containers.topology(), List.of());
 
-        assertTrue(report.line(Topology.SMP).isMoving(), "an outdated image is work, or the run never stops smp");
-        final String stored = UpdateReports.toJson(report);
-        assertTrue(stored.contains("\"key\":\"report.image-outdated\""), stored);
-        assertFalse(
-                stored.contains("out of date"),
-                "the words belong to the bundle, where every surface renders them and an admin can change them: "
-                        + stored);
-        assertTrue(Told.report(stored).contains("out of date"), "the host's terminal still reads them in English");
+        assertEquals(
+                List.of(new RunStep.Change(UpdateRun.IMAGE, null, null, RunStep.Image.PULLED)),
+                work.of(Topology.SMP),
+                "an outdated image is work, or the run never stops smp");
     }
 
     @Test
-    void anImageNobodyCouldCompareIsANoteNamingItsService() {
-        final List<String> notes = notes(ImageResult.of(
+    void anImageNobodyCouldCompareIsAWarningAboutItsService() {
+        final Work work = with(ImageResult.of(
                 Map.of(Topology.SMP, ImageResult.State.UP_TO_DATE, "steward", ImageResult.State.UNKNOWN),
                 Set.of("steward")));
 
-        assertEquals(List.of("report.images-unverifiable"), notes);
+        assertEquals(
+                List.of(new Work.Finding("steward", RunStep.Outcome.WARNING, RunStep.Reason.UNVERIFIABLE)),
+                work.findings());
     }
 
     @Test
-    void aLocalBuildIsANoteSayingThatARunReplacingItAsksFirst() {
-        final UpdateReport report = with(ImageResult.of(Map.of(
+    void aLocalBuildIsAWarningForEachService() {
+        final Work work = with(ImageResult.of(Map.of(
                 Topology.SMP,
                 ImageResult.State.UP_TO_DATE,
                 "steward",
@@ -57,44 +49,41 @@ class ForeignImagesTest {
                 ImageResult.State.LOCAL)));
 
         assertEquals(
-                List.of(
-                        "SOURCES WARNING steward: its image was built on this host",
-                        "SOURCES WARNING steward-agent: its image was built on this host"),
-                Told.notes(report),
-                "one record per service, so each can be found by its name");
+                Set.of(
+                        new Work.Finding("steward", RunStep.Outcome.WARNING, RunStep.Reason.LOCAL_BUILD),
+                        new Work.Finding("steward-agent", RunStep.Outcome.WARNING, RunStep.Reason.LOCAL_BUILD)),
+                Set.copyOf(work.findings()),
+                "one finding per service, so each can be found by its name");
     }
 
     @Test
-    void imagesNobodyCouldReadAreOneNoteCarryingTheRuntimesOwnAnswer() {
-        final UpdateReport report = with(ImageResult.unreachable("no docker socket"));
-
-        assertEquals(List.of("report.images-unread"), keys(report));
-        assertTrue(
-                Told.notes(report).getFirst().endsWith(": no docker socket"),
-                Told.notes(report).toString());
+    void imagesNobodyCouldReadAreAWarningOfTheRun() {
+        assertEquals(
+                List.of(new Work.Finding(null, RunStep.Outcome.WARNING, RunStep.Reason.UNVERIFIABLE)),
+                with(ImageResult.unreachable("no docker socket")).findings());
     }
 
     @Test
     void aProjectWhereNothingWasComparedSaysSoRatherThanReadingAsCurrent() {
-        assertEquals(List.of("report.images-uncompared"), notes(ImageResult.of(Map.of())));
+        assertEquals(
+                List.of(new Work.Finding(null, RunStep.Outcome.WARNING, RunStep.Reason.UNVERIFIABLE)),
+                with(ImageResult.of(Map.of())).findings());
     }
 
     @Test
-    void aCheckedCurrentProjectHasNoNoteAboutItsImages() {
-        assertEquals(List.of(), notes(ImageResult.of(Map.of(Topology.SMP, ImageResult.State.UP_TO_DATE))));
+    void aCheckedCurrentProjectHasNoFindingAboutItsImages() {
+        assertEquals(
+                List.of(),
+                with(ImageResult.of(Map.of(Topology.SMP, ImageResult.State.UP_TO_DATE)))
+                        .findings());
     }
 
-    private static UpdateReport with(final ImageResult images) {
+    private static Work none() {
+        return new Work(Map.of(), List.of());
+    }
+
+    private static Work with(final ImageResult images) {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
-        return ForeignImages.withImages(
-                UpdateReport.at(UpdateReport.Stage.PLANNED), images, containers.topology(), List.of());
-    }
-
-    private static List<String> notes(final ImageResult images) {
-        return keys(with(images));
-    }
-
-    private static List<String> keys(final UpdateReport report) {
-        return report.notes().stream().map(note -> note.what().key()).toList();
+        return ForeignImages.withImages(none(), images, containers.topology(), List.of());
     }
 }

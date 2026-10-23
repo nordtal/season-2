@@ -1,14 +1,8 @@
 package eu.nordtal.season.stewardagent.run;
 
-import static eu.nordtal.season.database.AdminTexts.TEXTS;
-
 import eu.nordtal.season.database.inbox.StewardRequest;
-import eu.nordtal.season.database.update.ByteSize;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReport.Note;
-import eu.nordtal.season.database.update.UpdateReport.Step;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
@@ -18,8 +12,8 @@ import eu.nordtal.season.internalapi.agent.SnapshotResult;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.stewardagent.apply.ApplyResult;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
-import eu.nordtal.season.stewardagent.plan.PlanReport;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
+import eu.nordtal.season.stewardagent.plan.Work;
 import eu.nordtal.season.stewardagent.schema.Schema;
 import java.util.List;
 import java.util.Objects;
@@ -60,11 +54,8 @@ final class Kinds {
     }
 
     static Planned update(
-            final Runner runner,
-            final UpdateRequest request,
-            final Consumer<UpdateReport> progress,
-            final Steps record) {
-        progress.accept(UpdateReport.at(UpdateReport.Stage.RESOLVING));
+            final Runner runner, final UpdateRequest request, final Consumer<RunStage> progress, final Steps record) {
+        progress.accept(RunStage.RESOLVING);
         final Steps.Step resolving = record.begin(RunStep.Kind.RESOLVE);
         // The image check belongs in the plan that a person confirms.
         final ImageResult images = runner.containers.images();
@@ -75,12 +66,14 @@ final class Kinds {
         final UpdatePlan plan = Runs.resolve(runner.config, topology, runner.plugins, runner.settings())
                 .onlyServices(scope)
                 .withoutServices(holds);
-        final UpdateReport planned = heldLeftOut(
-                ForeignImages.withImages(PlanReport.of(plan), images, topology, scope)
-                        .withoutLines(holds),
-                holds,
-                scope,
-                record);
+        final Work planned =
+                ForeignImages.withImages(Work.of(plan), images, topology, scope).without(holds);
+        skipped(
+                record,
+                holds.stream()
+                        .filter(service -> scope.isEmpty() || scope.contains(service))
+                        .toList(),
+                RunStep.Reason.HELD);
         Resolved.services(record, planned);
         Release.changed(plan.seasonTag(), Release.ownVersion())
                 .ifPresent(release -> resolving.change(RELEASE, Release.ownVersion(), release, null));
@@ -91,14 +84,13 @@ final class Kinds {
         final List<String> replacedLocal =
                 LocalBuilds.replaced(images, plan, planned, foreign, standing == Release.Standing.NEWER, scope, holds);
         if (standing != Release.Standing.OLDER && !replacedLocal.isEmpty() && !replacesLocal(runner, request)) {
+            log.info("Request {} would replace the local builds of {}, so it is refused", request.id(), replacedLocal);
             resolving.failed(RunStep.Reason.REFUSED_LOCAL_BUILD);
-            return refused(
-                    planned,
-                    Note.failed(Step.RELEASE, TEXTS.report().localBuildsKept()).each(replacedLocal));
+            return failed();
         }
 
         // An agent carries out only runs of its own release and never recreates itself.
-        final Planned elsewhere = elsewhere(runner, request, plan, planned, images, scope, progress, record, resolving);
+        final Planned elsewhere = elsewhere(runner, request, plan, planned, images, scope, record, resolving);
         if (elsewhere != null) {
             return elsewhere;
         }
@@ -106,21 +98,19 @@ final class Kinds {
         if (!planned.isWork() && foreign.isEmpty()) {
             // A one-shot with no work still recreates the agent.
             return runner.oneShot
-                    ? Planned.plan(onlyTheAgent(planned))
-                    : Planned.outcome(Outcome.done(UpdateReports.toJson(planned.withStage(
-                            plan.hasFailures() ? UpdateReport.Stage.FAILED : UpdateReport.Stage.NOTHING_TO_DO))));
+                    ? Planned.plan(onlyTheAgent())
+                    : Planned.outcome(Outcome.at(plan.hasFailures() ? RunStage.FAILED : RunStage.NOTHING_TO_DO));
         }
 
         return Planned.plan(Run.Plan.of(
-                        planned,
+                        planned.moving(),
                         pruningImages(
                                 runner.containers,
-                                planned.isWork() ? install(runner, plan, progress, record) : Run.Payload.NONE,
+                                planned.isWork() ? install(runner, plan, planned, progress, record) : Run.Payload.NONE,
                                 record),
-                        UpdateReport.Undertaking.INSTALL,
                         true,
                         Runner.Doubt.FAILS_THE_RUN)
-                .renewing(images, foreign, plan.hasFailures()));
+                .renewing(planned.services(), images, foreign, plan.hasFailures()));
     }
 
     private static List<String> renewed(final List<String> stale, final List<String> scope, final List<String> holds) {
@@ -129,16 +119,6 @@ final class Kinds {
                 // Recreating a held service's container is starting it.
                 .filter(service -> !holds.contains(service))
                 .toList();
-    }
-
-    private static UpdateReport heldLeftOut(
-            final UpdateReport planned, final List<String> holds, final List<String> scope, final Steps record) {
-        final List<String> skipped = holds.stream()
-                .filter(service -> scope.isEmpty() || scope.contains(service))
-                .toList();
-        skipped(record, skipped, RunStep.Reason.HELD);
-        return planned.withNotes(
-                Note.skipped(Step.SCOPE, TEXTS.report().heldLeftOut()).each(skipped));
     }
 
     private static boolean replacesLocal(final Runner runner, final UpdateRequest request) {
@@ -151,28 +131,22 @@ final class Kinds {
     static Run.Payload pruningImages(final ContainerOps containers, final Run.Payload payload, final Steps record) {
         return (steps, stopped) -> {
             final Run.Done done = payload.carryOut(steps, stopped);
-            return new Run.Done(done.report(), done.failed(), back -> {
-                final UpdateReport after = done.afterwards().apply(back);
-                final Steps.Step cleanup = record.begin(RunStep.Kind.CLEANUP);
-                final ContainerOps.Pruned pruned = containers.pruneImages();
-                pruned.removed().forEach(cleanup::imageRemoved);
-                if (pruned.failure() == null) {
-                    cleanup.cacheFreed(pruned.cacheBytes());
-                    cleanup.done();
-                } else {
-                    cleanup.warned(RunStep.Reason.REFUSED);
-                }
-                return after.withNote(
-                        pruned.failure() == null
-                                ? Note.done(
-                                        Step.CLEANUP,
-                                        TEXTS.report()
-                                                .imagesPruned(
-                                                        pruned.images(),
-                                                        ByteSize.of(pruned.freedBytes())
-                                                                .message()))
-                                : Note.warning(Step.CLEANUP, TEXTS.report().imagesNotPruned(pruned.failure())));
-            });
+            return new Run.Done(
+                    done.failed(),
+                    () -> {
+                        done.afterwards().run();
+                        final Steps.Step cleanup = record.begin(RunStep.Kind.CLEANUP);
+                        final ContainerOps.Pruned pruned = containers.pruneImages();
+                        pruned.removed().forEach(cleanup::imageRemoved);
+                        if (pruned.failure() == null) {
+                            cleanup.cacheFreed(pruned.cacheBytes());
+                            cleanup.done();
+                        } else {
+                            log.warn("Could not remove the unused images: {}", pruned.failure());
+                            cleanup.warned(RunStep.Reason.REFUSED);
+                        }
+                    },
+                    done.leftDown());
         };
     }
 
@@ -185,10 +159,9 @@ final class Kinds {
             final Runner runner,
             final UpdateRequest request,
             final UpdatePlan plan,
-            final UpdateReport planned,
+            final Work planned,
             final ImageResult images,
             final List<String> scope,
-            final Consumer<UpdateReport> progress,
             final Steps record,
             final Steps.Step resolving) {
         final String own = Release.ownVersion();
@@ -202,25 +175,12 @@ final class Kinds {
                     Resolved.run(planned).on(resolving);
                 }
                 return runner.oneShot
-                        ? refused(
-                                planned,
-                                List.of(Note.failed(
-                                        Step.RELEASE,
-                                        TEXTS.report().releasedMeanwhile(String.valueOf(tag), String.valueOf(own)))))
-                        : handOver(
-                                runner,
-                                request,
-                                planned,
-                                Release.version(Objects.requireNonNull(tag)),
-                                progress,
-                                record);
+                        ? failed()
+                        : handOver(runner, request, Release.version(Objects.requireNonNull(tag)), record);
             }
             case OLDER -> {
                 resolving.failed(RunStep.Reason.OLDER_RELEASE);
-                return refused(
-                        planned,
-                        List.of(Note.failed(
-                                Step.RELEASE, TEXTS.report().olderRelease(String.valueOf(tag), String.valueOf(own)))));
+                return failed();
             }
         }
         if (!runner.oneShot
@@ -228,24 +188,14 @@ final class Kinds {
                 && images.isOutdated(AgentWire.SERVICE)
                 && (scope.isEmpty() || scope.contains(AgentWire.SERVICE))) {
             Resolved.run(planned).on(resolving);
-            return handOver(runner, request, planned, own, progress, record);
+            return handOver(runner, request, own, record);
         }
         return null;
     }
 
-    private static Run.Plan onlyTheAgent(final UpdateReport planned) {
-        return Run.Plan.of(
-                        planned,
-                        Run.Payload.NONE,
-                        UpdateReport.Undertaking.RENEW_AGENT,
-                        false,
-                        Runner.Doubt.IS_ONLY_SAID)
+    private static Run.Plan onlyTheAgent() {
+        return Run.Plan.of(List.of(), Run.Payload.NONE, false, Runner.Doubt.IS_ONLY_SAID)
                 .stoppingNothing();
-    }
-
-    private static Planned refused(final UpdateReport planned, final List<Note> why) {
-        return Planned.outcome(Outcome.failed(UpdateReports.toJson(
-                planned.withStage(UpdateReport.Stage.FAILED).withNotes(why))));
     }
 
     /**
@@ -254,30 +204,25 @@ final class Kinds {
      * Nothing has stopped. The one-shot plans again and carries out the whole run.
      */
     private static Planned handOver(
-            final Runner runner,
-            final UpdateRequest request,
-            final UpdateReport planned,
-            final String release,
-            final Consumer<UpdateReport> progress,
-            final Steps record) {
+            final Runner runner, final UpdateRequest request, final String release, final Steps record) {
         final Steps.Step handing = record.begin(RunStep.Kind.HAND_OVER).change(RELEASE, null, release, null);
         if (!runner.directory.handOver(request.id(), runner.containers.oneShot())) {
             // No longer RUNNING since the claim, which in practice means cancelled.
             handing.skipped(RunStep.Reason.CANCELLED);
             return Planned.outcome(Runner.cancelled());
         }
-        final UpdateReport handed =
-                planned.withNote(Note.done(Step.RELEASE, TEXTS.report().handed(release)));
-        progress.accept(handed);
         final RedeployResult started = runner.containers.handOver(request.id(), release);
         UpdateRun.endBy(handing, started);
         if (!started.triggered()) {
-            return Planned.outcome(Outcome.failed(UpdateReports.toJson(handed.withStage(UpdateReport.Stage.FAILED)
-                    .withNote(
-                            Note.failed(Step.RELEASE, TEXTS.report().oneShotNotStarted(release, started.message()))))));
+            log.warn(
+                    "Request {}: the one-shot at release {} did not start: {}",
+                    request.id(),
+                    release,
+                    started.message());
+            return failed();
         }
         log.info("Request {} is handed to {} at release {}", request.id(), runner.containers.oneShot(), release);
-        return Planned.outcome(Outcome.handedOver(UpdateReports.toJson(handed)));
+        return Planned.outcome(Outcome.handedOver());
     }
 
     /**
@@ -286,65 +231,50 @@ final class Kinds {
      * The migration runs while the servers are stopped.
      */
     private static Run.Payload install(
-            final Runner runner, final UpdatePlan plan, final Consumer<UpdateReport> progress, final Steps record) {
+            final Runner runner,
+            final UpdatePlan plan,
+            final Work planned,
+            final Consumer<RunStage> progress,
+            final Steps record) {
         return (steps, state) -> {
-            UpdateReport report = state.report().withStage(UpdateReport.Stage.INSTALLING);
-            progress.accept(report);
+            progress.accept(RunStage.INSTALLING);
             final Steps.Step migrating = record.begin(RunStep.Kind.MIGRATE);
             final String schema = Schema.version(runner.database);
             final RedeployResult migrated = runner.containers.migrate();
             migrating.change(SCHEMA, schema, Schema.version(runner.database), null);
             UpdateRun.endBy(migrating, migrated);
             if (!migrated.triggered()) {
-                throw new Run.Abort(
-                        report.withNote(Note.failed(Step.MIGRATE, TEXTS.report().notMigrated(migrated.message()))));
+                log.warn("The migration did not run: {}", migrated.message());
+                throw new Run.Abort();
             }
             final ApplyResult result =
                     Runs.apply(runner.config, runner.topology(), plan, runner.settings(), runner.plugins);
-            Installed.record(record, state.report(), result, state.services());
-            report = Installed.into(report, result, state.services());
-            progress.accept(report);
-            return new Run.Done(report, result.hasFailures());
+            Installed.record(record, planned, result, state.services());
+            return new Run.Done(result.hasFailures());
         };
     }
 
     static Planned restart(final Runner runner, final UpdateRequest request, final Steps record) {
         final List<String> holds = runner.held();
         final List<String> scope = runner.directory.scopeOf(request.id());
-        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
         final List<String> servers = runner.servers();
-        for (final String service : Runner.restarted(servers, scope, holds)) {
-            planned = planned.with(new UpdateReport.ServiceLine(
-                    service,
-                    UpdateReport.State.PLANNED,
-                    List.of(UpdateReport.Change.told("restart", TEXTS.report().nothingChanges())),
-                    null));
-        }
-        if (planned.services().isEmpty()) {
+        final List<String> restarted = Runner.restarted(servers, scope, holds);
+        if (restarted.isEmpty()) {
             if (scope.isEmpty()) {
                 record.ended(RunStep.Kind.SCOPE, null, RunStep.Outcome.SKIPPED, RunStep.Reason.HELD);
             } else {
                 skipped(record, scope, RunStep.Reason.NOT_IN_SCOPE);
             }
-            return Planned.outcome(Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
-                    .withNotes(
-                            scope.isEmpty()
-                                    ? List.of(Note.skipped(
-                                            Step.SCOPE, TEXTS.report().restartAllHeld()))
-                                    : Note.skipped(Step.SCOPE, TEXTS.report().restartNoneInScope())
-                                            .each(scope)))));
+            return Planned.outcome(Outcome.at(RunStage.NOTHING_TO_DO));
         }
-        final List<String> untouched = servers.stream()
-                .filter(holds::contains)
-                .filter(service -> scope.isEmpty() || scope.contains(service))
-                .toList();
-        if (!untouched.isEmpty()) {
-            skipped(record, untouched, RunStep.Reason.HELD);
-            planned = planned.withNotes(
-                    Note.skipped(Step.SCOPE, TEXTS.report().heldNotRestarted()).each(untouched));
-        }
-        return Planned.plan(Run.Plan.of(
-                planned, Run.Payload.NONE, UpdateReport.Undertaking.RESTART, false, Runner.Doubt.IS_ONLY_SAID));
+        skipped(
+                record,
+                servers.stream()
+                        .filter(holds::contains)
+                        .filter(service -> scope.isEmpty() || scope.contains(service))
+                        .toList(),
+                RunStep.Reason.HELD);
+        return Planned.plan(Run.Plan.of(restarted, Run.Payload.NONE, false, Runner.Doubt.IS_ONLY_SAID));
     }
 
     /**
@@ -352,71 +282,54 @@ final class Kinds {
      *
      * compose.yml says what a backup saves and stops: the agent's mounts and the label {@code eu.nordtal.backup}.
      */
-    static Planned backup(final Runner runner, final Consumer<UpdateReport> progress, final Steps record) {
+    static Planned backup(final Runner runner, final Steps record) {
         final AgentWire.Topology topology;
         try {
             topology = runner.containers.topology();
         } catch (final RuntimeException unread) {
+            log.warn("The backup could not read what it saves", unread);
             record.ended(RunStep.Kind.SCOPE, null, RunStep.Outcome.FAILED, RunStep.Reason.UNEXPECTED);
-            return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(Note.failed(
-                            Step.SCOPE, TEXTS.report().backupUnread(String.valueOf(unread.getMessage())))))));
+            return failed();
         }
         if (topology.backupVolumes().isEmpty()) {
             // A compose.yml without backup mounts fails the run.
             record.ended(RunStep.Kind.SCOPE, null, RunStep.Outcome.FAILED, RunStep.Reason.NO_VOLUMES);
-            return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(Note.failed(Step.SCOPE, TEXTS.report().noBackupVolumes())))));
+            return failed();
         }
 
         final List<String> volumes = topology.backupVolumes();
         // Swept first, so a disk the budget can clear does not refuse the backup.
         prune(runner, volumes, record);
-        final UpdateReport swept = UpdateReport.at(UpdateReport.Stage.STOPPING);
-        final Planned noRoom = refusedWithoutRoom(runner, swept, volumes, record);
+        final Planned noRoom = refusedWithoutRoom(runner, volumes, record);
         if (noRoom != null) {
             return noRoom;
         }
 
         // pg_dump takes an MVCC snapshot, so nothing stops for it.
-        final SnapshotResult dumped = dump(runner, record);
-        UpdateReport planned = swept.with(UpdateRun.saved(Snapshots.DATABASE, dumped, null));
-        progress.accept(planned);
-        // A server that is down already holds a whole world, and one held down stays down.
-        for (final String service : running(runner, topology.stoppedForBackup())) {
-            planned = planned.with(new UpdateReport.ServiceLine(
-                    service,
-                    UpdateReport.State.PLANNED,
-                    List.of(UpdateReport.Change.told("backup", TEXTS.report().stoppedWhileSaving())),
-                    null));
-        }
-
+        dump(runner, record);
         final Run.Payload save = (steps, stopped) -> {
-            final UpdateReport saved = steps.save(stopped.report(), volumes);
+            steps.save(volumes);
             // It frees disk before the next run.
             prune(runner, volumes, record);
-            return new Run.Done(saved, false, back -> offsite(runner, back, progress, record));
+            return new Run.Done(false, () -> offsite(runner, record));
         };
+        // A server that is down already holds a whole world, and one held down stays down.
         return Planned.plan(
-                Run.Plan.of(planned, save, UpdateReport.Undertaking.BACKUP, true, Runner.Doubt.FAILS_THE_RUN));
+                Run.Plan.of(running(runner, topology.stoppedForBackup()), save, true, Runner.Doubt.FAILS_THE_RUN));
     }
 
-    private static UpdateReport offsite(
-            final Runner runner, final UpdateReport back, final Consumer<UpdateReport> progress, final Steps record) {
+    private static void offsite(final Runner runner, final Steps record) {
         final Steps.Step copying = record.begin(RunStep.Kind.OFFSITE_COPY);
         final Optional<SnapshotResult> copied = runner.backups.copyOffsite(policyOf(runner));
         if (copied.isEmpty()) {
             copying.skipped(RunStep.Reason.NO_REPOSITORY);
-            return back.withNote(Note.skipped(Step.BACKUP, TEXTS.report().noOffsite()));
+            return;
         }
         final SnapshotResult result = copied.get();
         if (result.ok()) {
             copying.offsite(String.valueOf(result.file()), result.bytes());
         }
         copying.ended(result);
-        final UpdateReport reported = back.with(UpdateRun.saved(Snapshots.OFFSITE, result, null));
-        progress.accept(reported);
-        return reported;
     }
 
     private static Retention policyOf(final Runner runner) {
@@ -435,8 +348,7 @@ final class Kinds {
     /**
      * Returns a failed run when the disk would not keep its free share after the backup, else {@code null}.
      */
-    static @Nullable Planned refusedWithoutRoom(
-            final Runner runner, final UpdateReport report, final List<String> volumes, final Steps record) {
+    static @Nullable Planned refusedWithoutRoom(final Runner runner, final List<String> volumes, final Steps record) {
         final Steps.Step checking = record.begin(RunStep.Kind.ROOM_CHECK);
         final Snapshots.Room room = runner.backups.room(volumes);
         checking.room(room.expectedBytes() + room.reserveBytes(), Math.max(0, room.usableBytes()));
@@ -445,16 +357,7 @@ final class Kinds {
             return null;
         }
         checking.failed(RunStep.Reason.NO_ROOM);
-        return Planned.outcome(Outcome.failed(UpdateReports.toJson(report.withStage(UpdateReport.Stage.FAILED)
-                .withNote(Note.failed(
-                        Step.BACKUP,
-                        TEXTS.report()
-                                .backupWontFit(
-                                        ByteSize.of(room.expectedBytes()).message(),
-                                        ByteSize.of(Math.max(0, room.usableBytes()))
-                                                .message(),
-                                        runner.config.backup().keepFreePercent(),
-                                        ByteSize.of(room.reserveBytes()).message()))))));
+        return failed();
     }
 
     /**
@@ -466,24 +369,13 @@ final class Kinds {
         final List<String> scope = runner.directory.scopeOf(request.id());
         if (scope.isEmpty()) {
             record.ended(RunStep.Kind.SCOPE, null, RunStep.Outcome.FAILED, RunStep.Reason.UNNAMED);
-            return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNote(Note.failed(Step.SCOPE, TEXTS.report().downUnnamed())))));
+            return failed();
         }
         final List<String> refused = scope.stream().filter(NEVER_DOWN::contains).toList();
         if (!refused.isEmpty()) {
             refused.forEach(service ->
                     record.ended(RunStep.Kind.SCOPE, service, RunStep.Outcome.FAILED, RunStep.Reason.NEVER_DOWN));
-            return Planned.outcome(Outcome.failed(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED)
-                    .withNotes(Note.failed(Step.SCOPE, TEXTS.report().downRefused())
-                            .each(refused)))));
-        }
-        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
-        for (final String service : scope) {
-            planned = planned.with(new UpdateReport.ServiceLine(
-                    service,
-                    UpdateReport.State.PLANNED,
-                    List.of(UpdateReport.Change.told("down", TEXTS.report().staysDown())),
-                    null));
+            return failed();
         }
         final Run.Payload hold = (steps, stopped) -> {
             for (final String service : stopped.services()) {
@@ -491,17 +383,12 @@ final class Kinds {
                 runner.directory.hold(service, request.actor(), request.id());
                 holding.done();
             }
-            return new Run.Done(
-                    stopped.report()
-                            .withNotes(Note.done(Step.STOP, TEXTS.report().heldDown())
-                                    .each(stopped.services())),
-                    false);
+            return new Run.Done(false);
         };
-        return Planned.plan(
-                Run.Plan.of(planned, hold, UpdateReport.Undertaking.TAKE_DOWN, false, Runner.Doubt.IS_ONLY_SAID)
-                        // Only when somebody could be standing on one of them, since the countdown warns players.
-                        .announced(scope.stream().anyMatch(runner::isMinecraft))
-                        .leavingThemDown());
+        return Planned.plan(Run.Plan.of(scope, hold, false, Runner.Doubt.IS_ONLY_SAID)
+                // Only when somebody could be standing on one of them, since the countdown warns players.
+                .announced(scope.stream().anyMatch(runner::isMinecraft))
+                .leavingThemDown());
     }
 
     /**
@@ -514,16 +401,7 @@ final class Kinds {
         final List<String> services = asked.isEmpty() ? runner.held() : asked;
         if (services.isEmpty()) {
             record.ended(RunStep.Kind.SCOPE, null, RunStep.Outcome.SKIPPED, RunStep.Reason.NOTHING_HELD);
-            return Planned.outcome(Outcome.done(UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.NOTHING_TO_DO)
-                    .withNote(Note.skipped(Step.SCOPE, TEXTS.report().nothingHeld())))));
-        }
-        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STARTING);
-        for (final String service : services) {
-            planned = planned.with(new UpdateReport.ServiceLine(
-                    service,
-                    UpdateReport.State.STOPPED,
-                    List.of(UpdateReport.Change.told("down", TEXTS.report().startsAgain())),
-                    null));
+            return Planned.outcome(Outcome.at(RunStage.NOTHING_TO_DO));
         }
         final Run.Payload release = (steps, stopped) -> {
             // The hold goes before the start, so a start that never returns leaves no row.
@@ -532,12 +410,11 @@ final class Kinds {
                 runner.directory.release(service);
                 letting.done();
             }
-            return new Run.Done(stopped.report(), false);
+            return new Run.Done(false);
         };
-        return Planned.plan(
-                Run.Plan.of(planned, release, UpdateReport.Undertaking.START, false, Runner.Doubt.IS_ONLY_SAID)
-                        .stoppingNothing()
-                        .alsoStarting(services));
+        return Planned.plan(Run.Plan.of(List.of(), release, false, Runner.Doubt.IS_ONLY_SAID)
+                .stoppingNothing()
+                .alsoStarting(services));
     }
 
     /**
@@ -549,12 +426,11 @@ final class Kinds {
         final List<String> scope = runner.directory.scopeOf(request.id());
         if (scope.isEmpty()) {
             record.ended(RunStep.Kind.SCOPE, null, RunStep.Outcome.FAILED, RunStep.Reason.UNNAMED);
-            return failed(List.of(Note.failed(Step.SCOPE, TEXTS.report().remakeUnnamed())));
+            return failed();
         }
         if (scope.contains(AgentWire.SERVICE)) {
             record.ended(RunStep.Kind.SCOPE, AgentWire.SERVICE, RunStep.Outcome.FAILED, RunStep.Reason.SELF);
-            return failed(List.of(
-                    Note.failed(Step.SCOPE, TEXTS.report().remakeAgent()).on(AgentWire.SERVICE)));
+            return failed();
         }
         final AgentWire.Topology topology = runner.topology();
         final List<String> recreatable = topology.renewed(AgentWire.Renewal.RUN);
@@ -566,8 +442,7 @@ final class Kinds {
         if (!unknown.isEmpty()) {
             unknown.forEach(service ->
                     record.ended(RunStep.Kind.SCOPE, service, RunStep.Outcome.FAILED, RunStep.Reason.UNKNOWN));
-            return failed(
-                    Note.failed(Step.SCOPE, TEXTS.report().remakeUnknown()).each(unknown));
+            return failed();
         }
         final List<String> holds = runner.held();
         final List<String> ours = scope.stream()
@@ -578,96 +453,48 @@ final class Kinds {
                 .filter(scope::contains)
                 .filter(service -> !holds.contains(service))
                 .toList();
-        UpdateReport planned = remadeLines(ours, pull);
-        final List<String> skipped = scope.stream().filter(holds::contains).toList();
-        if (!skipped.isEmpty()) {
-            skipped(record, skipped, RunStep.Reason.HELD);
-            planned = planned.withNotes(
-                    Note.skipped(Step.SCOPE, TEXTS.report().heldNotRemade()).each(skipped));
-        }
+        skipped(record, scope.stream().filter(holds::contains).toList(), RunStep.Reason.HELD);
         if (ours.isEmpty() && theirs.isEmpty()) {
-            return Planned.outcome(
-                    Outcome.done(UpdateReports.toJson(planned.withStage(UpdateReport.Stage.NOTHING_TO_DO))));
+            return Planned.outcome(Outcome.at(RunStage.NOTHING_TO_DO));
         }
-        return Planned.plan(Run.Plan.of(
-                        planned,
-                        Run.Payload.NONE,
-                        pull ? UpdateReport.Undertaking.DEPLOY : UpdateReport.Undertaking.RECREATE,
-                        true,
-                        Runner.Doubt.IS_ONLY_SAID)
+        return Planned.plan(Run.Plan.of(ours, Run.Payload.NONE, true, Runner.Doubt.IS_ONLY_SAID)
                 // Postgres and Caddy carry every server's connections, so they are announced like a stop.
                 .announced(ours.stream().anyMatch(runner::isMinecraft) || !theirs.isEmpty())
                 .remaking(ours, theirs, pull));
     }
 
-    private static UpdateReport remadeLines(final List<String> ours, final boolean pull) {
-        UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING);
-        for (final String service : ours) {
-            planned = planned.with(new UpdateReport.ServiceLine(
-                    service,
-                    UpdateReport.State.PLANNED,
-                    List.of(UpdateReport.Change.told("container", TEXTS.report().madeAgain(pull))),
-                    null));
-        }
-        return planned;
-    }
-
     static Planned removePlugin(final Runner runner, final UpdateRequest request, final Steps record) {
         final StewardRequest asked = runner.directory.requestOf(request.id()).orElse(null);
-        if (!(asked instanceof StewardRequest.RemovePlugin removal)) {
+        final List<String> scope = runner.directory.scopeOf(request.id());
+        if (!(asked instanceof StewardRequest.RemovePlugin removal) || scope.isEmpty()) {
             record.ended(RunStep.Kind.SCOPE, null, RunStep.Outcome.FAILED, RunStep.Reason.UNNAMED);
-            return failed(List.of(Note.failed(Step.SCOPE, TEXTS.report().removalUnnamed())));
+            return failed();
         }
-        final String service = removal.services().getFirst();
+        final String service = scope.getFirst();
         final String artifact = removal.artifact();
         if (!runner.removal.has(service, artifact)) {
             record.ended(RunStep.Kind.SCOPE, service, RunStep.Outcome.FAILED, RunStep.Reason.UNKNOWN);
-            return failed(List.of(Note.failed(Step.SCOPE, TEXTS.report().removalUnknown(artifact))
-                    .on(service)));
+            return failed();
         }
+        // A held server is already down, so the run neither stops nor starts it.
         final boolean held = runner.held().contains(service);
-        final UpdateReport planned = UpdateReport.at(UpdateReport.Stage.STOPPING)
-                .with(new UpdateReport.ServiceLine(
-                        service,
-                        // A held server is already down, so the run neither stops nor starts it.
-                        held ? UpdateReport.State.STOPPED : UpdateReport.State.PLANNED,
-                        List.of(UpdateReport.Change.told(
-                                artifact, TEXTS.report().pluginRemoved())),
-                        null));
         final Run.Payload remove = (steps, stopped) -> {
             final Steps.Step removing =
                     record.begin(RunStep.Kind.INSTALL, service).change(artifact, null, null, null);
             try {
-                final List<String> deleted = runner.removal.remove(service, artifact);
-                if (deleted.isEmpty()) {
+                if (runner.removal.remove(service, artifact).isEmpty()) {
                     removing.skipped(RunStep.Reason.NOTHING_TO_REMOVE);
                 } else {
                     removing.done();
                 }
-                return new Run.Done(
-                        stopped.report()
-                                .withNote((deleted.isEmpty()
-                                                ? Note.skipped(
-                                                        Step.INSTALL,
-                                                        TEXTS.report().removalEmpty(artifact))
-                                                : Note.done(
-                                                        Step.INSTALL,
-                                                        TEXTS.report().removed(deleted)))
-                                        .on(service)),
-                        false);
             } catch (final RuntimeException refused) {
+                log.warn("Could not remove {} from {}", artifact, service, refused);
                 removing.failed(RunStep.Reason.REFUSED);
-                return new Run.Done(
-                        stopped.report()
-                                .withNote(Note.failed(
-                                                Step.INSTALL,
-                                                TEXTS.report().removalFailed(String.valueOf(refused.getMessage())))
-                                        .on(service)),
-                        true);
+                return new Run.Done(true);
             }
+            return new Run.Done(false);
         };
-        final Run.Plan plan =
-                Run.Plan.of(planned, remove, UpdateReport.Undertaking.REMOVE_PLUGIN, true, Runner.Doubt.IS_ONLY_SAID);
+        final Run.Plan plan = Run.Plan.of(held ? List.of() : List.of(service), remove, true, Runner.Doubt.IS_ONLY_SAID);
         return Planned.plan(held ? plan.stoppingNothing().leavingThemDown() : plan);
     }
 
@@ -697,8 +524,8 @@ final class Kinds {
                 .toList();
     }
 
-    static Planned failed(final List<Note> why) {
-        return Planned.outcome(Outcome.failed(
-                UpdateReports.toJson(UpdateReport.at(UpdateReport.Stage.FAILED).withNotes(why))));
+    /** Ends a run before anything stopped. Its steps say why. */
+    static Planned failed() {
+        return Planned.outcome(Outcome.failed());
     }
 }

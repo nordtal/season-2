@@ -12,6 +12,7 @@ import eu.nordtal.season.database.audit.Journal;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.messages.value.Money;
 import java.util.Objects;
 import java.util.Optional;
@@ -133,7 +134,7 @@ public final class Bookings {
                     grant.validFrom(),
                     grant.validUntil(),
                     entry);
-            bot.submitWithin(handle, new BotRequest.PaymentBooked(open.id(), entry), by);
+            bot.submitWithin(handle, new BotRequest.PaymentBooked(open.id(), entry), by, Schedule.NOW);
             return new Booking.Booked(told);
         });
     }

@@ -6,10 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.update.RunProgress;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
-import eu.nordtal.season.database.update.UpdateReports;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import java.time.Duration;
@@ -64,14 +63,8 @@ class EvacuationTest {
     }
 
     @Test
-    void theRowsMovingServicesAreTheEvacuationWhateverTheReportSays() {
-        // Steward decides what moves when its countdown starts; the proxy never reads the report.
-        final UpdateReport report = UpdateReport.at(UpdateReport.Stage.STOPPING)
-                .with(new UpdateReport.ServiceLine(
-                        "hunger-games",
-                        UpdateReport.State.PLANNED,
-                        List.of(new UpdateReport.Change("smp", "0.8.0", "0.8.1")),
-                        null));
+    void theRowsMovingServicesAreTheEvacuation() {
+        // Steward decides what moves when its countdown starts.
         final UpdateRequest row = new UpdateRequest(
                 2L,
                 UpdateKind.UPDATE,
@@ -83,7 +76,7 @@ class EvacuationTest {
                 List.of("smp"),
                 NOW,
                 null,
-                UpdateReports.toJson(report));
+                RunStage.STOPPING);
 
         assertEquals(Set.of("smp"), Evacuation.imminent(Optional.of(row)));
     }

@@ -11,9 +11,9 @@ import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.TabRefusal;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
-import eu.nordtal.season.database.update.UpdateReport;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
@@ -261,19 +261,7 @@ public interface AdminTexts {
         /** A run named in words: the title of its card and of its failed alert, and its row in the feed. */
         @Name("A run's kind and stage, as a title")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT, Display.PUSH})
-        MessageRef title(@Arg("kind") UpdateKind kind, @Arg("stage") UpdateReport.Stage stage);
-
-        @Name("Services that came back")
-        @Shown(Display.STEWARD)
-        MessageRef successful(@Arg("successful") long successful, @Arg("total") long total);
-
-        @Name("A service's state in a run")
-        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef state(@Arg("state") UpdateReport.State state);
-
-        @Name("The part of a run a note is about")
-        @Shown(Display.STEWARD)
-        MessageRef step(@Arg("step") UpdateReport.Step step);
+        MessageRef title(@Arg("kind") UpdateKind kind, @Arg("stage") RunStage stage);
 
         @Name("How a step went")
         @Shown(Display.STEWARD)

@@ -34,5 +34,7 @@ export default defineConfig({
     globals: false,
     // A ceiling so the worker pool alone cannot saturate a host that runs other services.
     maxWorkers: 4,
+    // A page test that clicks through several fetches outlasts 5 seconds on a loaded CI runner.
+    testTimeout: 15_000,
   },
 })

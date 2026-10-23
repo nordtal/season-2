@@ -11,6 +11,7 @@ import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
+import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSettings;
 import eu.nordtal.season.settings.DatabaseSpec;
@@ -28,7 +29,11 @@ import eu.nordtal.season.steward.stack.StackApi;
 import eu.nordtal.season.stewardagent.AgentStandIn;
 import eu.nordtal.season.stewardagent.config.AgentSettings;
 import eu.nordtal.season.stewardagent.docker.FakeDaemon;
+import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.PluginFiles;
+import eu.nordtal.season.stewardagent.plan.UpdatePlan;
+import eu.nordtal.season.stewardagent.run.PlanView;
+import eu.nordtal.season.stewardagent.source.RemoteFile;
 import java.io.IOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
@@ -156,7 +161,7 @@ public final class StewardPreview {
                     new AgentStandIn(
                             scratch,
                             0,
-                            cfg -> pluginFiles(cfg, scratch.resolve("volumes")),
+                            cfg -> standInRoutes(cfg, scratch.resolve("volumes")),
                             servicesOf(options.jars())));
             final StandInDiscord discord = push(started, new StandInDiscord());
             furnish(agent);
@@ -364,8 +369,43 @@ public final class StewardPreview {
                 name, group, null, true, true, null, null, "1.0.0", null, name, null, null, null, null, icon, null);
     }
 
-    /** Serves the plugin files of {@code volumes}, the stand-in's own, which {@link #furnish} fills. */
-    private static void pluginFiles(final io.javalin.config.JavalinConfig cfg, final Path volumes) {
+    /** What the stand-in agent answers for the plan: smp behind the release, its server jar and the pack current. */
+    private static final UpdatePlan PLAN = new UpdatePlan(
+            Clock.systemUTC().instant(),
+            "v0.18.0",
+            false,
+            List.of(
+                    new Change(
+                            Topology.SMP,
+                            Topology.SMP,
+                            Change.Status.OUTDATED,
+                            "smp-0.17.0.jar",
+                            remote(Topology.SMP, "0.18.0", "smp-0.18.0.jar"),
+                            null),
+                    new Change(
+                            Topology.SMP,
+                            Topology.PAPER,
+                            Change.Status.UP_TO_DATE,
+                            "paper-1.21.10-130.jar",
+                            remote(Topology.PAPER, "1.21.10-130", "paper-1.21.10-130.jar"),
+                            null),
+                    new Change(
+                            null,
+                            Topology.RESOURCE_PACK,
+                            Change.Status.UP_TO_DATE,
+                            "3f2a9c1",
+                            remote(Topology.RESOURCE_PACK, "v0.18.0", "nordtal-pack.zip"),
+                            null)),
+            List.of(),
+            List.of());
+
+    private static RemoteFile remote(final String artifact, final String version, final String fileName) {
+        return new RemoteFile(artifact, version, fileName, URI.create("https://example.invalid/" + fileName), null);
+    }
+
+    /** Serves {@link #PLAN} and the plugin files of {@code volumes}, which {@link #furnish} fills. */
+    private static void standInRoutes(final io.javalin.config.JavalinConfig cfg, final Path volumes) {
+        cfg.routes.get(AgentWire.PLAN, ctx -> ctx.json(PlanView.of(PLAN)));
         final PluginFiles files =
                 new PluginFiles(service -> new AgentWire.Plugins(service, "paper", "1.21.10", true, PLUGINS), volumes);
         cfg.routes.get(AgentWire.PLUGIN_FILES, files::list);

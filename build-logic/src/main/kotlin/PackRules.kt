@@ -33,6 +33,7 @@ object PackRules {
                 if (image == null) findings += "${name(assets, file)} cannot be read as a PNG. Export it again as PNG."
             }
         fonts(assets).forEach { findings += fontFindings(assets, it, images) }
+        findings += itemFindings(assets)
         TRANSPARENT.map { assets.resolve(it) }.forEach { file ->
             val image = images[file] ?: return@forEach
             if (hasPixels(image, 0, 0, image.width, image.height)) {
@@ -60,6 +61,41 @@ object PackRules {
                 if (assets.parentFile.resolve(path).isFile) return@mapNotNull null
                 "art/${source.relativeTo(art).invariantSeparatorsPath} has no PNG at $path. Export the PNG from it."
             }.toList()
+
+    /**
+     * The rules of [ItemDefinitions] for each item definition, and its references into the pack. A reference into
+     * `minecraft` may name the client jar, which this check does not open, so it passes.
+     */
+    private fun itemFindings(assets: File): List<String> {
+        fun vanilla(path: String) = path.startsWith("minecraft/")
+
+        fun read(path: String) = assets.resolve(path).takeIf { it.isFile }?.readBytes() ?: "{}".toByteArray().takeIf { vanilla(path) }
+
+        fun sprite(texture: String) =
+            runCatching {
+                Identifier.resource(
+                    texture,
+                    "textures",
+                    ".png",
+                )
+            }.getOrNull()?.let { vanilla(it) || assets.resolve(it).isFile } ==
+                true
+        return assets
+            .listFiles()
+            .orEmpty()
+            .flatMap { namespace -> namespace.resolve("items").walkTopDown().filter { it.isFile && it.extension == "json" } }
+            .sorted()
+            .flatMap { file ->
+                val definition =
+                    runCatching { OxfmtJson.read(file) }.getOrElse {
+                        return@flatMap listOf("${name(assets, file)} is no JSON. Export or write it again.")
+                    }
+                ItemDefinitions
+                    .problems(definition)
+                    .ifEmpty { ItemDefinitions.missing(definition, ::read, ::sprite) }
+                    .map { "${name(assets, file)} breaks a rule of item definitions: $it" }
+            }
+    }
 
     private fun fonts(assets: File): List<File> =
         assets

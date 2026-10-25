@@ -1,6 +1,6 @@
 package eu.nordtal.season.build
 
-import org.gradle.api.DefaultTask
+import groovy.json.JsonOutput
 import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.MapProperty
@@ -9,14 +9,16 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
+import java.io.File
 
 /**
- * Makes one change of [kind] to the pack's sources through [NewTextures] or [GlyphEdits], with the [options] that
- * `resource-pack/README.md` lists per kind. It prints what it changed, and fails with the reason when it refuses.
+ * Reads or makes one change of [kind] to the pack's sources through [NewTextures], [GlyphEdits] or [ItemFiles], with the
+ * [options] that `resource-pack/README.md` lists per kind. It prints what it changed, and fails with the reason when it
+ * refuses. Only the item kinds read the client jar.
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
-abstract class EditPackSources : DefaultTask() {
-    /** `glyph`, `block`, `sheet`, `item`, `rename`, `resize`, `delete` or `codePoints`. */
+abstract class EditPackSources : VanillaClientTask() {
+    /** `glyph`, `block`, `sheet`, `item`, `rename`, `resize`, `delete`, `codePoints`, `readItem`, `writeItem` or `import`. */
     @get:Input
     abstract val kind: Property<String>
 
@@ -31,10 +33,6 @@ abstract class EditPackSources : DefaultTask() {
     /** The clone, whose tracked files show where a glyph is used and whose refs hold main. */
     @get:Internal
     abstract val repository: DirectoryProperty
-
-    init {
-        group = "resource pack"
-    }
 
     companion object {
         /** The `-P` properties that a kind may read. */
@@ -58,6 +56,9 @@ abstract class EditPackSources : DefaultTask() {
                 "from",
                 "coupled",
                 "main",
+                "definition",
+                "model",
+                "id",
             )
     }
 
@@ -138,6 +139,18 @@ abstract class EditPackSources : DefaultTask() {
                                 git(repository, listOf("show", "$main:${pack.relativeTo(repository).invariantSeparatorsPath}/glyphs.json")),
                             )
                         return moves.forEach { logger.quiet(it) }
+                    }
+
+                    "readItem" -> {
+                        return logger.quiet(JsonOutput.toJson(ItemFiles(pack, ::jar).use { it.describe(text("item")) }))
+                    }
+
+                    "writeItem" -> {
+                        listOf(ItemFiles(pack, ::jar).use { it.write(text("item"), File(text("definition")).readText()) })
+                    }
+
+                    "import" -> {
+                        ItemFiles(pack, ::jar).use { it.import(File(text("model")), text("id")) }
                     }
 
                     else -> {

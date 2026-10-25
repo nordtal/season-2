@@ -124,8 +124,9 @@ object NewTextures {
         val model = "$namespace:item/$path"
         AtomicFiles.write(
             mapOf(
-                files[0] to asset(mapOf("model" to mapOf("type" to "minecraft:model", "model" to model))),
-                files[1] to asset(mapOf("parent" to "minecraft:item/generated", "textures" to mapOf("layer0" to model))),
+                files[0] to OxfmtJson.asset(mapOf("model" to mapOf("type" to "minecraft:model", "model" to model))).toByteArray(),
+                files[1] to
+                    OxfmtJson.asset(mapOf("parent" to "minecraft:item/generated", "textures" to mapOf("layer0" to model))).toByteArray(),
                 files[2] to transparent(width, height),
             ),
         )
@@ -256,16 +257,6 @@ object NewTextures {
         pack: File,
         file: File,
     ) = check(!file.exists()) { "${file.relativeTo(pack).invariantSeparatorsPath} exists already." }
-
-    /** A file under `src/assets` in the layout of the pack's own: four spaces of indent and one member per line. */
-    private fun asset(value: Map<String, Any?>): ByteArray = OxfmtJson.format(expanded(value), "    ").toByteArray()
-
-    private fun expanded(value: Map<String, Any?>): OxfmtJson.Object =
-        OxfmtJson.Object().apply {
-            value.forEach { (key, member) ->
-                put(key, (member as? Map<String, Any?>)?.let { expanded(it) } ?: member)
-            }
-        }
 
     private fun transparent(
         width: Int,

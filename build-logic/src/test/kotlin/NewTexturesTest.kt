@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
 import javax.imageio.ImageIO
@@ -179,18 +180,37 @@ class NewTexturesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(
-        strings = [
-            "badges/x.png", "Nordtal:x.png", "nordtal:X.png", "nordtal:a b.png", "nordtal:a//b.png", "nordtal:/x.png",
-            "nordtal:x/", "nordtal:../x.png", "nordtal:./x.png", "..:x.png", "nord:tal:x.png", "nordtal:x", "nordtal:.png",
-            "nordtal:ä.png",
+    @CsvSource(
+        delimiter = '|',
+        value = [
+            "badges/x.png | is not namespace:path, with exactly one colon",
+            "nord:tal:x.png | is not namespace:path, with exactly one colon",
+            "Nordtal:x.png | The namespace of Nordtal:x.png may hold only",
+            "..:x.png | The namespace of ..:x.png ends in .",
+            "nordtal.:x.png | The namespace of nordtal.:x.png ends in .",
+            "nordtal:X.png | The path of nordtal:X.png may hold only",
+            "nordtal:a b.png | The path of nordtal:a b.png may hold only",
+            "nordtal:a//b.png | The path of nordtal:a//b.png may hold only",
+            "nordtal:/x.png | The path of nordtal:/x.png may hold only",
+            "nordtal:x/ | The path of nordtal:x/ may hold only",
+            "nordtal:ä.png | may hold only",
+            "nordtal:../x.png | A name in the path of nordtal:../x.png ends in .",
+            "nordtal:./x.png | A name in the path of nordtal:./x.png ends in .",
+            "nordtal:a./x.png | A name in the path of nordtal:a./x.png ends in .",
+            "nordtal:x | nordtal:x does not end in a name and .png.",
+            "nordtal:.png | nordtal:.png does not end in a name and .png.",
         ],
     )
-    fun anInvalidTextureIdIsRefused(id: String) {
+    fun anInvalidTextureIdIsRefused(
+        id: String,
+        rule: String,
+    ) {
         fixture()
         val before = allocation.readText()
 
-        assertThrows<IllegalArgumentException> { NewTextures.glyph(pack, "minecraft:default", "Badges", id, null, "x", 7, 7) }
+        val refusal = assertThrows<IllegalArgumentException> { NewTextures.glyph(pack, "minecraft:default", "Badges", id, null, "x", 7, 7) }
+
+        assertTrue(rule in refusal.message!!, refusal.message)
         assertEquals(before, allocation.readText())
         assertFalse(pack.resolve("src").exists())
     }
@@ -203,7 +223,7 @@ class NewTexturesTest {
         val refusal = assertThrows<IllegalStateException> { GlyphAllocation.read(allocation) }
 
         assertTrue(
-            "'texture' is a PNG such as nordtal:badges/star.png, but the path of nordtal:badges/../star.png has a . or .. folder" in
+            "'texture' is a PNG such as nordtal:badges/star.png, but a name in the path of nordtal:badges/../star.png ends in ." in
                 refusal.message!!,
             refusal.message,
         )
@@ -275,6 +295,18 @@ class NewTexturesTest {
             OxfmtJson.read(written[1]),
         )
         assertEquals(listOf(16, 32), ImageIO.read(written[2]).let { listOf(it.width, it.height) })
+        assertEquals(
+            """
+            {
+                "parent": "minecraft:item/generated",
+                "textures": {
+                    "layer0": "nordtal:item/tools/wand"
+                }
+            }
+
+            """.trimIndent(),
+            written[1].readText(),
+        )
     }
 
     @Test
@@ -299,5 +331,76 @@ class NewTexturesTest {
 
         assertFalse(pack.resolve("src").exists())
         assertEquals(before, allocation.readText())
+    }
+
+    @Test
+    fun aGlyphWhosePngCannotBeWrittenLeavesGlyphsJsonAsItWas() {
+        fixture()
+        pack.resolve("src/assets/nordtal/textures").mkdirs()
+        pack.resolve("src/assets/nordtal/textures/badges").writeText("a file where the folder belongs")
+        val before = allocation.readText()
+
+        val refusal =
+            assertThrows<IllegalStateException> {
+                NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/moon.png", null, "moon", 7, 7)
+            }
+
+        assertTrue("so nothing was written" in refusal.message!!, refusal.message)
+        assertEquals(before, allocation.readText())
+        assertEquals(
+            listOf("badges", "glyphs.json"),
+            pack
+                .walk()
+                .filter { it.isFile }
+                .map { it.name }
+                .sorted()
+                .toList(),
+        )
+    }
+
+    @Test
+    fun anItemWhosePngCannotBeWrittenWritesNoFile() {
+        pack.resolve("src/assets/nordtal").mkdirs()
+        pack.resolve("src/assets/nordtal/textures").writeText("a file where the folder belongs")
+
+        val refusal = assertThrows<IllegalStateException> { NewTextures.item(pack, "nordtal:wand", 16, 16) }
+
+        assertTrue("so nothing was written" in refusal.message!!, refusal.message)
+        assertEquals(
+            listOf("textures"),
+            pack
+                .walk()
+                .filter { it.isFile }
+                .map { it.name }
+                .toList(),
+        )
+        assertFalse(pack.resolve("src/assets/nordtal/items").exists())
+    }
+
+    @Test
+    fun aSheetRefusesAPngThatExistsNoCellsAndARangeThatOverlapsABlock() {
+        fixture()
+        pack.resolve("src/assets/nordtal/textures/hud").mkdirs()
+        pack.resolve("src/assets/nordtal/textures/hud/taken.png").writeText("")
+        val before = allocation.readText()
+
+        val existing =
+            assertThrows<IllegalStateException> {
+                NewTextures.sheet(pack, "nordtal:hud", "Taken", "nordtal:hud/taken.png", listOf("A"), 4, 4, 3)
+            }
+        val empty =
+            assertThrows<IllegalArgumentException> {
+                NewTextures.sheet(pack, "nordtal:hud", "Empty", "nordtal:hud/empty.png", emptyList(), 4, 4, 3)
+            }
+        val overlap =
+            assertThrows<IllegalStateException> {
+                NewTextures.sheet(pack, "minecraft:default", "Clash", "nordtal:clash.png", listOf("A"), 4, 4, 3, range = "FE008-FE017")
+            }
+
+        assertEquals("src/assets/nordtal/textures/hud/taken.png exists already.", existing.message)
+        assertEquals("A sheet needs at least one cell.", empty.message)
+        assertTrue("block Clash overlaps" in overlap.message!!, overlap.message)
+        assertEquals(before, allocation.readText())
+        assertFalse(pack.resolve("src/assets/nordtal/textures/clash.png").exists())
     }
 }

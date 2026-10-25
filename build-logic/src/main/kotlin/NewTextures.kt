@@ -1,6 +1,7 @@
 package eu.nordtal.season.build
 
 import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
 import javax.imageio.ImageIO
@@ -13,7 +14,7 @@ import javax.imageio.ImageIO
  */
 object NewTextures {
     private const val FIRST = 0xFE000
-    private const val LAST = 0xFFFFD
+    private val AREA = GlyphAllocation.SUPPLEMENTARY_PRIVATE_USE_A
 
     /**
      * Adds a glyph at the next free code point of [block], a provisional one until a publish assigns the final one.
@@ -122,10 +123,13 @@ object NewTextures {
         files.forEach { refuseExisting(pack, it) }
         checkSize(width, height)
         val model = "$namespace:item/$path"
-        files.forEach { it.parentFile.mkdirs() }
-        OxfmtJson.write(files[0], mapOf("model" to mapOf("type" to "minecraft:model", "model" to model)))
-        OxfmtJson.write(files[1], mapOf("parent" to "minecraft:item/generated", "textures" to mapOf("layer0" to model)))
-        transparent(files[2], width, height)
+        AtomicFiles.write(
+            mapOf(
+                files[0] to asset(mapOf("model" to mapOf("type" to "minecraft:model", "model" to model))),
+                files[1] to asset(mapOf("parent" to "minecraft:item/generated", "textures" to mapOf("layer0" to model))),
+                files[2] to transparent(width, height),
+            ),
+        )
         return files
     }
 
@@ -149,8 +153,7 @@ object NewTextures {
         } finally {
             draft.deleteRecursively()
         }
-        allocation.writeText(text)
-        png?.let { transparent(it, width, height) }
+        AtomicFiles.write(mapOf(allocation to text.toByteArray()) + listOfNotNull(png).associateWith { transparent(width, height) })
         return listOfNotNull(allocation, png)
     }
 
@@ -191,7 +194,7 @@ object NewTextures {
                     }
                 }
         return generateSequence(FIRST) { it + size }
-            .takeWhile { it + size - 1 <= LAST }
+            .takeWhile { it + size - 1 <= AREA.last }
             .map { it until it + size }
             .firstOrNull { run -> taken.none { it.first <= run.last && run.first <= it.last } }
             ?: throw IllegalArgumentException("No run of $size free code points is left.")
@@ -216,11 +219,8 @@ object NewTextures {
 
     private fun range(block: Map<*, *>): IntRange = parseRange(block["range"] as String)
 
-    private fun parseRange(text: String): IntRange {
-        val bounds = text.split('-').map { it.toIntOrNull(16) }
-        require(bounds.size == 2 && bounds.all { it != null }) { "$text is not a range such as FE000-FE00F." }
-        return bounds[0]!!..bounds[1]!!
-    }
+    private fun parseRange(text: String): IntRange =
+        GlyphAllocation.parseRange(text) ?: throw IllegalArgumentException("$text is not a range such as FE000-FE00F.")
 
     /** The file of the texture [id] under `src/assets`, refused when it exists. */
     private fun png(
@@ -236,14 +236,29 @@ object NewTextures {
         file: File,
     ) = check(!file.exists()) { "${file.relativeTo(pack).invariantSeparatorsPath} exists already." }
 
+    /** A file under `src/assets` in the layout of the pack's own: four spaces of indent and one member per line. */
+    private fun asset(value: Map<String, Any?>): ByteArray = OxfmtJson.format(expanded(value), "    ").toByteArray()
+
+    private fun expanded(value: Map<String, Any?>): OxfmtJson.Object =
+        OxfmtJson.Object().apply {
+            value.forEach { (key, member) ->
+                put(key, (member as? Map<String, Any?>)?.let { expanded(it) } ?: member)
+            }
+        }
+
     private fun transparent(
-        file: File,
         width: Int,
         height: Int,
-    ) {
+    ): ByteArray {
         checkSize(width, height)
-        file.parentFile.mkdirs()
-        ImageIO.write(BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB), "png", file)
+        return ByteArrayOutputStream()
+            .also {
+                ImageIO.write(
+                    BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB),
+                    "png",
+                    it,
+                )
+            }.toByteArray()
     }
 
     private fun checkSize(

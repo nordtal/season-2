@@ -77,7 +77,7 @@ class GlyphAllocation private constructor(
 
         private const val ROW = "{row}"
         private val STATUSES = setOf("keep", "final candidate", "placeholder")
-        private val SUPPLEMENTARY_PRIVATE_USE_A = 0xF0000..0xFFFFD
+        val SUPPLEMENTARY_PRIVATE_USE_A = 0xF0000..0xFFFFD
         private val CONSTANT = Regex("""[A-Z][A-Z0-9_]*""")
         private val NAME = Regex("""[a-z0-9]+(-[a-z0-9]+)*""")
         private val CODE = Regex("""[0-9A-F]{2,5}""")
@@ -193,16 +193,23 @@ class GlyphAllocation private constructor(
             node.problem("'texture' is a PNG such as nordtal:badges/star.png, but $problem")
         }
 
+        /** The code points of a range such as `FE000-FE00F`, or null when [text] is not two hex code points. */
+        fun parseRange(text: String): IntRange? =
+            text
+                .split("-")
+                .takeIf { bounds ->
+                    bounds.size == 2 && bounds.all { CODE.matches(it) }
+                }?.let { it[0].toInt(16)..it[1].toInt(16) }
+
         private fun readRange(
             block: Node,
             text: String,
         ): IntRange? {
-            val bounds = text.split("-")
-            if (bounds.size != 2 || bounds.any { !CODE.matches(it) }) {
+            val range = parseRange(text)
+            if (range == null) {
                 block.problem("'range' is two hex code points, such as FE000-FE00F")
                 return null
             }
-            val range = bounds[0].toInt(16)..bounds[1].toInt(16)
             if (range.isEmpty() || range.first !in SUPPLEMENTARY_PRIVATE_USE_A || range.last !in SUPPLEMENTARY_PRIVATE_USE_A) {
                 block.problem("'range' runs upwards inside Supplementary Private Use Area-A")
             }

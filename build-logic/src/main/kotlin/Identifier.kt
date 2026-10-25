@@ -4,7 +4,8 @@ package eu.nordtal.season.build
  * A resource location such as `nordtal:badges/star.png`, as `net.minecraft.resources.Identifier` of the client accepts it.
  *
  * The client allows `a-z 0-9 _ - .` in the namespace, except the namespace `..`, and also `/` in the path. A file under
- * `assets/` also needs every path segment to be a name, so empty, `.` and `..` segments are refused too.
+ * `assets/` also needs every path segment to be a name, so empty segments are refused, and so is a namespace or segment
+ * that ends in `.`, which Windows drops from a file name.
  */
 object Identifier {
     private val NAMESPACE = Regex("""[a-z0-9_.-]+""")
@@ -20,16 +21,20 @@ object Identifier {
                 "$id is not namespace:path, with exactly one colon"
             }
 
-            !NAMESPACE.matches(namespace) || namespace == "." || namespace == ".." -> {
-                "the namespace of $id may hold only a-z, 0-9, _, - and ., and is not . or .."
+            !NAMESPACE.matches(namespace) -> {
+                "the namespace of $id may hold only a-z, 0-9, _, - and ."
+            }
+
+            namespace.endsWith('.') -> {
+                "the namespace of $id ends in ., which Windows drops from a folder name"
             }
 
             segments.any { !SEGMENT.matches(it) } -> {
                 "the path of $id may hold only a-z, 0-9, _, -, . and /"
             }
 
-            segments.any { it == "." || it == ".." } -> {
-                "the path of $id has a . or .. folder"
+            segments.any { it.endsWith('.') } -> {
+                "a name in the path of $id ends in ., which Windows drops from a file name"
             }
 
             else -> {

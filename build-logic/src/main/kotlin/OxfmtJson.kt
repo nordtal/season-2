@@ -4,7 +4,8 @@ import java.io.File
 import java.math.BigDecimal
 
 /**
- * Reads and writes JSON in the layout that oxfmt checks with `.oxfmtrc.json`: 120 columns, two spaces of indent.
+ * Reads and writes JSON in the layout that oxfmt checks with `.oxfmtrc.json`: 120 columns, two spaces of indent. The
+ * files under the pack's `src/assets` keep four, which [format] takes as its `indent`.
  *
  * An object keeps its lines when the source breaks after its `{`, as oxfmt does, so a file read and written again
  * is unchanged. A designer's machine has no Node, so the tasks that edit `glyphs.json` write this layout themselves.
@@ -36,18 +37,17 @@ object OxfmtJson {
 
     fun read(text: String): Any? = Parser(text).document()
 
-    fun write(
-        file: File,
+    fun format(
         value: Any?,
-    ) = file.writeText(format(value))
-
-    fun format(value: Any?): String {
+        indent: String = INDENT,
+    ): String {
         val spellings = (value as? Object)?.spellings ?: (value as? Array)?.spellings ?: emptyMap()
-        return StringBuilder().also { Printer(spellings).print(value, 0, 0, 0, it) }.append('\n').toString()
+        return StringBuilder().also { Printer(spellings, indent).print(value, 0, 0, 0, it) }.append('\n').toString()
     }
 
     private class Printer(
         private val spellings: Map<String, String>,
+        private val step: String,
     ) {
         /** Appends [value] at column [column] with [indent] levels, followed on its line by [trailing] characters. */
         fun print(
@@ -63,7 +63,7 @@ object OxfmtJson {
             val flat = flat(value)
             if (!mustBreak(value) && column + flat.length + trailing <= WIDTH) return out.append(flat).let { }
 
-            val inner = INDENT.repeat(indent + 1)
+            val inner = step.repeat(indent + 1)
             val members: List<Pair<String, Any?>> =
                 if (value is Map<*, *>) {
                     value.map { (key, member) -> string(key as String) + ": " to member }
@@ -83,7 +83,7 @@ object OxfmtJson {
                 print(member, indent + 1, inner.length + prefix.length, if (last) 0 else 1, out)
                 if (!last) out.append(',')
             }
-            out.append('\n').append(INDENT.repeat(indent)).append(if (value is Map<*, *>) "}" else "]")
+            out.append('\n').append(step.repeat(indent)).append(if (value is Map<*, *>) "}" else "]")
         }
 
         /** Whether oxfmt breaks [value] whatever its width: an expanded object, or an array of objects or arrays with two or more members each. */

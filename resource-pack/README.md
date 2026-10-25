@@ -92,6 +92,42 @@ block holds. The `texture` of an item is the `layer0` of a `minecraft:model` in 
 `width` and `height` of a texture are its pixels, or null while its PNG is missing. `animation` and `scaling` are the `animation` and
 `gui.scaling` objects of the `.png.mcmeta`, or null. Language files are not listed.
 
+## New textures
+
+Nordtal Designer creates each kind of texture with a task. Each writes a transparent PNG and the JSON
+entries its kind needs, prints the absolute path of every file it wrote, one per line, and fails with
+the reason when it refuses. The app writes the `.aseprite` source itself.
+
+```bash
+./gradlew -q :resource-pack:createGlyph -Pfont=minecraft:default "-Pblock=Player badges" \
+  -Ptexture=nordtal:badges/moon.png -Pname=half-moon -Pwidth=7 -Pheight=7
+./gradlew -q :resource-pack:createGlyphBlock -Pfont=nordtal:bossbar -Ptitle=Arrows -Pheight=8 -Pascent=-9
+./gradlew -q :resource-pack:createGlyphSheet -Pfont=nordtal:bossbar -Ptitle=Arrows \
+  -Ptexture=nordtal:hud/arrows.png -Pconstants=ARROW_LEFT,ARROW_RIGHT -Pwidth=6 -Pheight=5 -Pascent=-4
+./gradlew -q :resource-pack:createItem -Pitem=nordtal:wand
+```
+
+| task               | options                                                                       | writes                                                                |
+| ------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `createGlyph`      | `font`, `block`, `texture`, `width`, `height`; `name`, `constant`, `ascent`   | the glyph in `glyphs.json`, its PNG                                   |
+| `createGlyphBlock` | `font`, `title`; `range`, `size` (16), `height`, `ascent`                     | an empty block in `glyphs.json`                                       |
+| `createGlyphSheet` | `font`, `title`, `texture`, `constants`, `width`, `height`, `ascent`; `range` | the sheet and its cells in `glyphs.json`, its PNG of one row of cells |
+| `createItem`       | `item`; `width`, `height` (16)                                                | `items/`, a `minecraft:item/generated` model and its PNG              |
+
+A vanilla override is created with `copyVanillaTexture`, under _Vanilla overrides_.
+
+- `block` is a block's `title`. `width` and `height` are pixels, and `height` is also the display
+  height. `ascent` falls back to the block's. `constant` falls back to the `name` in capitals.
+- A new glyph takes the code point after the last glyph of its block. It is provisional: a publish
+  assigns the final one.
+- A new block or sheet takes the first run of `size` free code points, aligned to `size`, of the
+  numbering its font shares, unless `range` names one.
+- Every id is a resource location with an explicit namespace, as the client accepts it: `a-z`, `0-9`,
+  `_`, `-` and `.`, and `/` in the path. A path segment is never empty, `.` or `..`, and a texture
+  ends in `.png`.
+- A task refuses a file that exists, and writes nothing until `glyphs.json` passes every rule below.
+  It writes `glyphs.json` in the layout that oxfmt checks, with every untouched line as it was.
+
 ## glyphs.json
 
 `fonts` lists one entry per font, in the order that `Glyphs` follows. The `about` of a font, block,
@@ -126,6 +162,7 @@ The build checks every rule before it writes anything. It names each broken rule
   a log names one glyph.
 - A code point declared as a space has the same advance in every font that declares it.
 - Constants are unique across the file, names are unique among the glyphs, and no text holds `*/`.
+- A font id and a texture are resource locations by the rule under _New textures_, and a texture ends in `.png`.
 
 ## The fonts
 

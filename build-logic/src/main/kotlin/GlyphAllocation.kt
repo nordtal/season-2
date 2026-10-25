@@ -77,8 +77,7 @@ class GlyphAllocation private constructor(
 
         private const val ROW = "{row}"
         private val STATUSES = setOf("keep", "final candidate", "placeholder")
-        private val SUPPLEMENTARY_PRIVATE_USE_A = 0xF0000..0xFFFFD
-        private val FONT_ID = Regex("""[a-z0-9_.-]+:[a-z0-9_./-]+""")
+        val SUPPLEMENTARY_PRIVATE_USE_A = 0xF0000..0xFFFFD
         private val CONSTANT = Regex("""[A-Z][A-Z0-9_]*""")
         private val NAME = Regex("""[a-z0-9]+(-[a-z0-9]+)*""")
         private val CODE = Regex("""[0-9A-F]{2,5}""")
@@ -102,7 +101,7 @@ class GlyphAllocation private constructor(
             val font = node.named(id)
             val rows = font.int("rows")
             val pitch = font.int("pitch")
-            if (!FONT_ID.matches(id.replace(ROW, "0"))) font.problem("'$id' is not a font id such as nordtal:board")
+            Identifier.problem(id.replace(ROW, "0"))?.let { font.problem("'$id' is not a font id such as nordtal:board: $it") }
             if ((ROW in id) != (rows != null)) font.problem("'{row}' belongs in the id exactly when 'rows' is set")
             if ((pitch != null) != (rows != null)) font.problem("'pitch' is set exactly when 'rows' is")
             val numbering = font.string("numbering")
@@ -137,7 +136,7 @@ class GlyphAllocation private constructor(
             node.allow("range", "title", "about", "texture", "height", "ascent", "status", "chars", "glyphs")
             val title = node.string("title", required = true) ?: ""
             val block = node.named(title)
-            val texture = block.string("texture")
+            val texture = block.string("texture")?.also { texture(block, it) }
             val chars = block.strings("chars")
             val range = block.string("range")?.let { readRange(block, it) }
             if (chars != null && (texture == null || range != null || block.has("glyphs"))) {
@@ -173,7 +172,7 @@ class GlyphAllocation private constructor(
             if (sheet != null && (glyph.has("texture") || glyph.has("height") || glyph.has("ascent"))) {
                 glyph.problem("a cell of a sheet takes 'texture', 'height' and 'ascent' from its block")
             }
-            val texture = sheet ?: glyph.string("texture", required = true) ?: ""
+            val texture = sheet ?: glyph.string("texture", required = true)?.also { texture(glyph, it) } ?: ""
             val height = glyph.int("height") ?: blockHeight
             val ascent = glyph.int("ascent") ?: blockAscent
             if (sheet == null && (height == null || ascent == null)) {
@@ -186,16 +185,31 @@ class GlyphAllocation private constructor(
             return Glyph(code, constant, glyph.string("name"), list, texture, height ?: 0, ascent ?: 0, status, glyph.string("about"))
         }
 
+        private fun texture(
+            node: Node,
+            id: String,
+        ) {
+            val problem = Identifier.problem(id) ?: "it does not end in .png".takeUnless { id.endsWith(".png") } ?: return
+            node.problem("'texture' is a PNG such as nordtal:badges/star.png, but $problem")
+        }
+
+        /** The code points of a range such as `FE000-FE00F`, or null when [text] is not two hex code points. */
+        fun parseRange(text: String): IntRange? =
+            text
+                .split("-")
+                .takeIf { bounds ->
+                    bounds.size == 2 && bounds.all { CODE.matches(it) }
+                }?.let { it[0].toInt(16)..it[1].toInt(16) }
+
         private fun readRange(
             block: Node,
             text: String,
         ): IntRange? {
-            val bounds = text.split("-")
-            if (bounds.size != 2 || bounds.any { !CODE.matches(it) }) {
+            val range = parseRange(text)
+            if (range == null) {
                 block.problem("'range' is two hex code points, such as FE000-FE00F")
                 return null
             }
-            val range = bounds[0].toInt(16)..bounds[1].toInt(16)
             if (range.isEmpty() || range.first !in SUPPLEMENTARY_PRIVATE_USE_A || range.last !in SUPPLEMENTARY_PRIVATE_USE_A) {
                 block.problem("'range' runs upwards inside Supplementary Private Use Area-A")
             }

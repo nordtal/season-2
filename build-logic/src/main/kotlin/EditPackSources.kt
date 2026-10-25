@@ -11,13 +11,12 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
 /**
- * Creates one texture of [kind] through [NewTextures], with the [options] that `resource-pack/README.md` lists per kind.
- *
- * It prints the absolute path of each file written, one per line, and fails with the reason when it refuses.
+ * Makes one change of [kind] to the pack's sources through [NewTextures] or [GlyphEdits], with the [options] that
+ * `resource-pack/README.md` lists per kind. It prints what it changed, and fails with the reason when it refuses.
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
-abstract class CreateTexture : DefaultTask() {
-    /** `glyph`, `block`, `sheet` or `item`. */
+abstract class EditPackSources : DefaultTask() {
+    /** `glyph`, `block`, `sheet`, `item`, `rename`, `resize`, `delete` or `codePoints`. */
     @get:Input
     abstract val kind: Property<String>
 
@@ -28,6 +27,10 @@ abstract class CreateTexture : DefaultTask() {
     /** The resource pack's directory, with `glyphs.json` and `src/`. */
     @get:Internal
     abstract val pack: DirectoryProperty
+
+    /** The clone, whose tracked files show where a glyph is used and whose refs hold main. */
+    @get:Internal
+    abstract val repository: DirectoryProperty
 
     init {
         group = "resource pack"
@@ -50,6 +53,11 @@ abstract class CreateTexture : DefaultTask() {
                 "height",
                 "ascent",
                 "item",
+                "glyph",
+                "to",
+                "from",
+                "coupled",
+                "main",
             )
     }
 
@@ -62,6 +70,7 @@ abstract class CreateTexture : DefaultTask() {
         fun number(key: String) = options[key]?.let { it.toIntOrNull() ?: throw GradleException("-P$key=$it is not a whole number.") }
 
         val pack = pack.get().asFile
+        val repository = repository.get().asFile
         val written =
             try {
                 when (val kind = kind.get()) {
@@ -109,14 +118,36 @@ abstract class CreateTexture : DefaultTask() {
                         NewTextures.item(pack, text("item"), number("width") ?: 16, number("height") ?: 16)
                     }
 
+                    "rename" -> {
+                        GlyphEdits.rename(pack, repository, text("glyph"), text("to"))
+                    }
+
+                    "resize" -> {
+                        GlyphEdits.resize(pack, text("glyph"), number("from") ?: text("from").toInt(), options["coupled"] != "false")
+                    }
+
+                    "delete" -> {
+                        GlyphEdits.delete(pack, repository, text("glyph"))
+                    }
+
+                    "codePoints" -> {
+                        val main = options["main"] ?: "origin/main"
+                        val moves =
+                            GlyphEdits.assignCodePoints(
+                                pack,
+                                git(repository, listOf("show", "$main:${pack.relativeTo(repository).invariantSeparatorsPath}/glyphs.json")),
+                            )
+                        return moves.forEach { logger.quiet(it) }
+                    }
+
                     else -> {
-                        throw GradleException("$kind is no kind of texture.")
+                        throw GradleException("$kind is no kind of change.")
                     }
                 }
             } catch (e: IllegalArgumentException) {
-                throw GradleException(e.message ?: "The texture cannot be created.", e)
+                throw GradleException(e.message ?: "The change is refused.", e)
             } catch (e: IllegalStateException) {
-                throw GradleException(e.message ?: "The texture cannot be created.", e)
+                throw GradleException(e.message ?: "The change is refused.", e)
             }
         written.forEach { logger.quiet(it.absolutePath) }
     }

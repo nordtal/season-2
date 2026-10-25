@@ -56,4 +56,16 @@ class OxfmtJsonTest {
         assertTrue(text.lines().all { it.length <= 120 }, text)
         assertEquals(chars, (OxfmtJson.read(text) as Map<*, *>)["chars"])
     }
+
+    @Test
+    fun anEmptyLineStaysBeforeItsMemberWhenAnotherIsInsertedOrRemoved() {
+        val long = "a".repeat(62) to "b".repeat(70)
+        val text = "[\n  \"${long.first}\",\n\n  \"${long.second}\"\n]\n"
+        val array = OxfmtJson.read(text) as OxfmtJson.Array
+
+        array.add(0, "c")
+        array.removeAt(0)
+
+        assertEquals(text, OxfmtJson.format(array))
+    }
 }

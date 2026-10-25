@@ -70,20 +70,10 @@ abstract class CheckSourcesTracked : DefaultTask() {
         root: File,
         pathspecs: List<String>,
     ): List<String> {
-        val command =
-            listOf(
-                "git",
-                "ls-files",
-                "--others",
-                "--ignored",
-                "--exclude-standard",
-                "-z",
-                "--",
-            ) + pathspecs
-
-        val process =
+        val arguments = listOf("ls-files", "--others", "--ignored", "--exclude-standard", "-z", "--") + pathspecs
+        val output =
             try {
-                ProcessBuilder(command).directory(root).redirectErrorStream(true).start()
+                git(root, arguments)
             } catch (e: IOException) {
                 logger.warn(
                     "{}: could not run git ({}), so a source file missing from the repository would go unnoticed",
@@ -92,13 +82,6 @@ abstract class CheckSourcesTracked : DefaultTask() {
                 )
                 return emptyList()
             }
-
-        process.outputStream.close()
-        val output = process.inputStream.bufferedReader().use { it.readText() }
-        val exit = process.waitFor()
-        if (exit != 0) {
-            throw GradleException("`${command.joinToString(" ")}` failed with exit code $exit:\n$output")
-        }
         return output.split('\u0000').filter { it.isNotBlank() }
     }
 }

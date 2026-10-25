@@ -91,10 +91,8 @@ object VanillaClient {
         id: String,
         assets: File,
     ): List<File> {
-        val path = "assets/${id.substringBefore(':')}/textures/${id.substringAfter(':')}"
-        require(
-            ':' in id && TEXTURE.matches(path) && ".." !in path.split('/'),
-        ) { "$id is not a texture id such as minecraft:block/stone.png." }
+        val (namespace, file) = Identifier.parse(id, ".png")
+        val path = "assets/$namespace/textures/$file"
         return ZipFile(jar).use { zip ->
             zip.getEntry(path) ?: throw IllegalArgumentException("The client jar has no texture $id.")
             val target = assets.resolve(path.removePrefix("assets/"))

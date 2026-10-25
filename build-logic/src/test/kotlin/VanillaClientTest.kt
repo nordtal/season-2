@@ -121,6 +121,8 @@ class VanillaClientTest {
 
         assertThrows(IllegalArgumentException::class.java) { VanillaClient.copy(file, "minecraft:block/nothing.png", assets) }
         assertThrows(IllegalArgumentException::class.java) { VanillaClient.copy(file, "minecraft:../../stone.png", assets) }
+        assertThrows(IllegalArgumentException::class.java) { VanillaClient.copy(file, "minecraft:Block/stone.png", assets) }
+        assertThrows(IllegalArgumentException::class.java) { VanillaClient.copy(file, "block/stone.png", assets) }
         assertThrows(IllegalStateException::class.java) { VanillaClient.copy(file, "minecraft:block/stone.png", assets) }
     }
 

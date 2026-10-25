@@ -7,6 +7,7 @@ import eu.nordtal.season.build.CheckNoTrackerIds
 import eu.nordtal.season.build.CheckPack
 import eu.nordtal.season.build.CheckSourcesTracked
 import eu.nordtal.season.build.CopyVanillaTexture
+import eu.nordtal.season.build.CreateTexture
 import eu.nordtal.season.build.DescribePack
 import eu.nordtal.season.build.DownloadVanillaClient
 import eu.nordtal.season.build.GenerateGlyphs
@@ -229,4 +230,15 @@ tasks.register<CopyVanillaTexture>("copyVanillaTexture") {
     vanillaClient()
     texture.set(providers.gradleProperty("texture"))
     assets.set(packSource.dir("assets"))
+}
+
+// Nordtal Designer creates each kind of texture with these. The README lists the -P options of each.
+val textureKinds = mapOf("createGlyph" to "glyph", "createGlyphBlock" to "block", "createGlyphSheet" to "sheet", "createItem" to "item")
+textureKinds.forEach { (name, kind) ->
+    tasks.register<CreateTexture>(name) {
+        description = "Creates a $kind in the pack's sources and prints each file it writes."
+        this.kind.set(kind)
+        options.set(providers.gradlePropertiesPrefixedBy("").map { it.filterKeys { key -> key in CreateTexture.OPTIONS } })
+        pack.set(layout.projectDirectory)
+    }
 }

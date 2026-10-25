@@ -21,6 +21,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.commands.arguments.item.ItemParser;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -29,9 +30,12 @@ import net.minecraft.network.protocol.game.ClientboundBossEventPacket;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -48,8 +52,11 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
         MenuType.GENERIC_9x4, MenuType.GENERIC_9x5, MenuType.GENERIC_9x6
     };
 
+    private static final int NO_CONTAINER = -1;
+
     private final Minecraft minecraft;
     private final Map<BlockPos, BlockState> replaced = new HashMap<>();
+    private @Nullable ClientLevel replacedIn;
     private boolean bossBarShown;
 
     ClientActions(final Minecraft minecraft) {
@@ -84,10 +91,11 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
                 removeBossBar(hud);
                 hud.clearTitles();
                 final ClientLevel level = minecraft.level;
-                if (level != null) {
+                if (level != null && level.equals(replacedIn)) {
                     replaced.forEach((pos, state) -> level.setBlock(pos, state, Block.UPDATE_ALL));
                 }
                 replaced.clear();
+                replacedIn = null;
             }
             case Request.Reload _ -> throw new IllegalStateException("A reload runs through apply.");
         }
@@ -114,11 +122,29 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
     }
 
     private void chest(final Request.Chest chest) {
-        final LocalPlayer player = player();
-        final int rows = chest.rows();
-        final ChestMenu menu =
-                new ChestMenu(CHESTS[rows - 1], 0, player.getInventory(), new SimpleContainer(9 * rows), rows);
-        minecraft.gui.setScreen(new ContainerScreen(menu, player.getInventory(), component(chest.text())));
+        final Inventory inventory = player().getInventory();
+        minecraft.gui.setScreen(
+                new ChestScreen(chestMenu(inventory, chest.rows()), inventory, component(chest.text())));
+    }
+
+    /**
+     * A menu under an id that the game never uses, so a click on it reaches nothing.
+     * The inventory is 0, and a server counts its menus from 1 to 100.
+     */
+    static ChestMenu chestMenu(final Inventory inventory, final int rows) {
+        return new ChestMenu(CHESTS[rows - 1], NO_CONTAINER, inventory, new SimpleContainer(9 * rows), rows);
+    }
+
+    /** Shows the chest and ignores every click, so nothing reaches the inventory or the server. */
+    private static final class ChestScreen extends ContainerScreen {
+
+        ChestScreen(final ChestMenu menu, final Inventory inventory, final Component title) {
+            super(menu, inventory, title);
+        }
+
+        @Override
+        protected void slotClicked(
+                final @Nullable Slot slot, final int index, final int button, final ContainerInput input) {}
     }
 
     private void give(final Request.Give give) {
@@ -126,17 +152,19 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
         if (!player.hasInfiniteMaterials() || minecraft.gameMode == null) {
             throw new IllegalArgumentException("give needs creative mode.");
         }
-        final ItemStack stack;
-        try {
-            stack = new ItemParser(connection().registryAccess())
-                    .parse(new StringReader(give.item()))
-                    .createItemStack(give.count());
-        } catch (CommandSyntaxException e) {
-            throw new IllegalArgumentException(e.getMessage(), e);
-        }
+        final ItemStack stack = stack(connection().registryAccess(), give.item(), give.count());
         final int slot = player.getInventory().getSelectedSlot();
         player.getInventory().setItem(slot, stack);
         minecraft.gameMode.handleCreativeModeItemAdd(stack, InventoryMenu.USE_ROW_SLOT_START + slot);
+    }
+
+    /** Reads the item as /give does, which refuses a count above the item's stack size. */
+    static ItemStack stack(final HolderLookup.Provider registries, final String item, final int count) {
+        try {
+            return new ItemParser(registries).parse(new StringReader(item)).createItemStack(count);
+        } catch (CommandSyntaxException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
     }
 
     private void block(final Request.Block block) {
@@ -151,6 +179,11 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
                     .blockState();
         } catch (CommandSyntaxException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
+        }
+        if (!level.equals(replacedIn)) {
+            // A new world or dimension has new blocks, so the old ones are not put back there.
+            replaced.clear();
+            replacedIn = level;
         }
         final BlockPos pos = position(block.pos());
         replaced.putIfAbsent(pos, level.getBlockState(pos));

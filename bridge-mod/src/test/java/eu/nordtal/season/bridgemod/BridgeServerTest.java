@@ -1,16 +1,26 @@
 package eu.nordtal.season.bridgemod;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.ConnectException;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 class BridgeServerTest {
@@ -41,7 +51,7 @@ class BridgeServerTest {
     }
 
     private BridgeServer server() throws InterruptedException {
-        return new BridgeServer(0, "secret"::equals, request -> {
+        return new BridgeServer(0, Duration.ofMillis(300), "secret"::equals, request -> {
             carriedOut.add(request);
             return CompletableFuture.completedFuture(null);
         });
@@ -80,6 +90,43 @@ class BridgeServerTest {
                     received.next());
             assertEquals("closed 1008", received.next());
             assertEquals(List.of(), carriedOut);
+        }
+    }
+
+    @Test
+    void aClientThatSendsNoHelloIsClosedAfterTheWait() throws InterruptedException {
+        try (BridgeServer server = server()) {
+            final Received received = new Received();
+            connect(server, received);
+            assertEquals("closed 1008", received.next());
+        }
+    }
+
+    @Test
+    void aClientWithTheTokenStaysConnectedPastTheWait() throws InterruptedException {
+        try (BridgeServer server = server()) {
+            final Received received = new Received();
+            connect(server, received)
+                    .sendText("{\"op\":\"hello\",\"token\":\"secret\"}", true)
+                    .join();
+            assertEquals("{\"ok\":true}", received.next());
+            assertNull(received.frames.poll(1, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void theServerListensOnTheLoopbackAddressOnly() throws Exception {
+        try (BridgeServer server = server()) {
+            final InetAddress other = NetworkInterface.networkInterfaces()
+                    .flatMap(NetworkInterface::inetAddresses)
+                    .filter(address -> !address.isLoopbackAddress() && address instanceof Inet4Address)
+                    .findFirst()
+                    .orElse(null);
+            Assumptions.assumeTrue(other != null, "This host has no address beside the loopback one.");
+            try (Socket loopback = new Socket(InetAddress.getLoopbackAddress(), server.port())) {
+                assertTrue(loopback.isConnected());
+            }
+            assertThrows(ConnectException.class, () -> new Socket(other, server.port()).close());
         }
     }
 }

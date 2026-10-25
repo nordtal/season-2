@@ -43,7 +43,7 @@ The mod answers each frame with one reply that echoes the request's `id` when it
 ```
 
 A wrong token, or any frame before the hello, gets a reply with `"ok": false` and then a close with
-status 1008. A reply comes once the client has carried the request out; for `reload` that is once the
+status 1008. A connection without a hello after 5 seconds is closed with status 1008 as well. A reply comes once the client has carried the request out; for `reload` that is once the
 packs are reloaded. A text component (`text`, `subtitle`) is the JSON that `/tellraw` takes.
 
 | `op`        | Fields                                                  | What the client does                                                                       |
@@ -53,10 +53,10 @@ packs are reloaded. A text component (`text`, `subtitle`) is the JSON that `/tel
 | `actionbar` | `text`                                                  | Shows the component above the hotbar.                                                      |
 | `title`     | `text`, `subtitle` optional                             | Shows the title with the default times.                                                    |
 | `bossbar`   | `text` (absent removes), `color`, `overlay`, `progress` | Shows the mod's one boss bar; `white`, `progress` and 1 by default.                        |
-| `chest`     | `text`, `rows` from 1 to 6, 3 by default                | Opens an empty chest under the title, in the client only.                                  |
-| `give`      | `item` as `/give` writes it, `count` from 1 to 99       | Puts the item into the selected hotbar slot, in creative mode only.                        |
+| `chest`     | `text`, `rows` from 1 to 6, 3 by default                | Opens an empty chest under the title, in the client only; it ignores every click.          |
+| `give`      | `item` as `/give` writes it, `count` from 1 to 99       | Puts the item into the selected hotbar slot, in creative mode and up to its stack size.    |
 | `block`     | `block` as `/setblock` writes it, `pos` as `[x, y, z]`  | Places the block state in the client only; without `pos`, on the face under the crosshair. |
-| `clear`     |                                                         | Removes the boss bar and the title, and puts back every block it placed.                   |
+| `clear`     |                                                         | Removes the boss bar and the title, and puts back every block it placed in this world.     |
 
 `color` is one of `pink`, `blue`, `red`, `green`, `yellow`, `purple` and `white`, and `overlay` one
 of `progress`, `notched_6`, `notched_10`, `notched_12` and `notched_20`. A server sends its own
@@ -65,6 +65,7 @@ state of a block again when the chunk reloads, which ends a client block.
 ## Testing
 
 `sh gradlew :bridge-mod:test` runs the protocol, the settings and the server against the JDK's
-WebSocket client, without Minecraft. In a client, write the settings file into
+WebSocket client, and the chest's menu and the item of `give` against the game's registries, without
+a client. In a client, write the settings file into
 `bridge-mod/run/config/`, start `sh gradlew :bridge-mod:runClient`, and send frames with any
 WebSocket client, such as `websocat ws://127.0.0.1:29415/`.

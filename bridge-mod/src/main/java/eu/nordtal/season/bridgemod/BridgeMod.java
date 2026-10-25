@@ -2,6 +2,7 @@ package eu.nordtal.season.bridgemod;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
@@ -25,6 +26,7 @@ public final class BridgeMod implements ClientModInitializer {
             // A daemon event loop ends with the client, so nothing has to close the server.
             final BridgeServer server = new BridgeServer(
                     settings.port(),
+                    Duration.ofSeconds(5),
                     token -> BridgeSettings.accepts(file, token),
                     new ClientActions(Minecraft.getInstance()));
             LOG.info("The bridge listens on 127.0.0.1:{}.", server.port());

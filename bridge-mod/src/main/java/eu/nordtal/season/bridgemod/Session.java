@@ -28,6 +28,11 @@ final class Session {
         this.client = client;
     }
 
+    /** Whether the hello with the token has come. */
+    boolean authenticated() {
+        return authenticated;
+    }
+
     /** Answers one text frame; the future completes once the client has carried the request out. */
     CompletableFuture<Reply> receive(final String frame) {
         final JsonObject json;

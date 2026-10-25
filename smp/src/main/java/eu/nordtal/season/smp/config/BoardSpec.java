@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.packrendering.board.BoardFrame;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
@@ -64,6 +65,6 @@ public interface BoardSpec {
     @Key("width")
     @NoExplanationNeeded
     default int width() {
-        return 180;
+        return BoardFrame.DEFAULT_WIDTH;
     }
 }

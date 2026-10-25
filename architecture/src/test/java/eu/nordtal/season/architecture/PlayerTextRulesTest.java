@@ -45,7 +45,7 @@ class PlayerTextRulesTest {
     private static final String BOSS_BAR_LINE = "eu.nordtal.season.packrendering.hud.BossBarLine";
     private static final String BOSS_BAR_WIDTH = "eu.nordtal.season.packrendering.hud.BossBarWidth";
     private static final String GLYPHS = "eu.nordtal.season.packrendering.Glyphs";
-    private static final String MENU_TITLE = "eu.nordtal.season.papercommon.menu.MenuTitle";
+    private static final String MENU_TITLE = "eu.nordtal.season.packrendering.menu.MenuTitle";
     private static final String MENU = "eu.nordtal.season.papercommon.menu.Menu";
 
     /** The classes that compose a component by hand, and why that is not a message going around the renderer. */
@@ -54,9 +54,9 @@ class PlayerTextRulesTest {
             Map.entry(
                     "eu.nordtal.season.papercommon.game.GameDataExport",
                     "placeholders in a game name rendered for Steward, never shown to a player"),
-            Map.entry("eu.nordtal.season.smp.board.BoardFrame", "pack glyphs around lines already rendered"),
+            Map.entry("eu.nordtal.season.packrendering.board.BoardFrame", "pack glyphs around lines already rendered"),
             Map.entry(
-                    "eu.nordtal.season.papercommon.menu.MenuTitle",
+                    "eu.nordtal.season.packrendering.menu.MenuTitle",
                     "pack glyphs and spacing around a title already rendered"),
             Map.entry("eu.nordtal.season.smp.welcome.SeasonWelcome", "the opening frames, pictures and not sentences"),
             Map.entry("eu.nordtal.season.hungergames.body.PlayerBodies", "a disconnected player's name on their body"),

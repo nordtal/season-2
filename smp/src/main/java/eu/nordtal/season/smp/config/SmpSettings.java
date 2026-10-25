@@ -1,7 +1,7 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.packrendering.board.BoardFrame;
 import eu.nordtal.season.settings.Checks;
-import eu.nordtal.season.smp.board.BoardFrame;
 
 public final class SmpSettings {
 

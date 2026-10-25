@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.packrendering.board.BoardFrame;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.aura.AuraRow;
 import eu.nordtal.season.smp.config.BoardSpec;

@@ -1,4 +1,4 @@
-package eu.nordtal.season.papercommon.menu;
+package eu.nordtal.season.packrendering.menu;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;

@@ -1,4 +1,4 @@
-package eu.nordtal.season.smp.board;
+package eu.nordtal.season.packrendering.board;
 
 import eu.nordtal.season.packrendering.Glyphs;
 import java.util.ArrayList;
@@ -26,6 +26,9 @@ public final class BoardFrame {
     public static final int EDGE_V_WIDTH = 6;
 
     public static final int MIN_WIDTH = 32;
+
+    /** The content width of a board whose settings name none. */
+    public static final int DEFAULT_WIDTH = 180;
 
     /** The largest content width in pixels, limited by the eight negative advances. */
     public static final int MAX_WIDTH = 240;

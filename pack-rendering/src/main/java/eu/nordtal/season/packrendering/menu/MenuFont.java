@@ -1,4 +1,4 @@
-package eu.nordtal.season.papercommon.menu;
+package eu.nordtal.season.packrendering.menu;
 
 import java.io.IOException;
 import java.io.InputStream;

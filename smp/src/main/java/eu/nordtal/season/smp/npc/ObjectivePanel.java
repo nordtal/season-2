@@ -1,10 +1,10 @@
 package eu.nordtal.season.smp.npc;
 
 import eu.nordtal.season.packrendering.Glyphs;
-import eu.nordtal.season.papercommon.menu.MenuFont;
+import eu.nordtal.season.packrendering.menu.MenuFont;
+import eu.nordtal.season.packrendering.menu.MenuTitle;
+import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import eu.nordtal.season.papercommon.menu.MenuPalette;
-import eu.nordtal.season.papercommon.menu.MenuTitle;
-import eu.nordtal.season.papercommon.menu.SlotGeometry;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 

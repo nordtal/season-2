@@ -1,4 +1,4 @@
-package eu.nordtal.season.smp.board;
+package eu.nordtal.season.packrendering.board;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

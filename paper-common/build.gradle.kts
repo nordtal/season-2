@@ -24,13 +24,9 @@ dependencies {
     // The base opens its pool by the driver's class name, so every plugin shades the driver as well.
     runtimeOnly(libs.postgresql.driver)
 
-    // The assembled resource pack: the fonts the menu tests measure against only exist there.
-    "resourcePack"(project(":resource-pack", "pack"))
-
     // A server's settings, loaded in a test as the plugin loads them.
     testImplementation(testFixtures(project(":settings")))
     testImplementation(testFixtures(project(":common")))
-    testImplementation(testFixtures(project(":pack-rendering")))
     testImplementation(libs.gson)
 }
 

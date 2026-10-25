@@ -42,6 +42,25 @@ object PackRules {
         return findings
     }
 
+    /**
+     * The findings about the `.aseprite` sources under [art], each at the path of its PNG in the pack at [assets].
+     *
+     * `art/assets/nordtal/textures/x.aseprite` is the source of `assets/nordtal/textures/x.png`.
+     */
+    fun artFindings(
+        art: File,
+        assets: File,
+    ): List<String> =
+        art
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "aseprite" }
+            .sortedBy { it.invariantSeparatorsPath }
+            .mapNotNull { source ->
+                val path = source.relativeTo(art).invariantSeparatorsPath.removeSuffix(".aseprite") + ".png"
+                if (assets.parentFile.resolve(path).isFile) return@mapNotNull null
+                "art/${source.relativeTo(art).invariantSeparatorsPath} has no PNG at $path. Export the PNG from it."
+            }.toList()
+
     private fun fonts(assets: File): List<File> =
         assets
             .listFiles()

@@ -12,8 +12,12 @@ writes as `<glyph:name>`.
 glyphs.json           every font, block and glyph
 src/assets/nordtal/   textures and font providers
 src/assets/minecraft/ the vanilla overrides
+art/                  the .aseprite sources, each at the path of its PNG under src/
 build/pack            the assembled pack: src/ plus the fonts the build writes
 ```
+
+`art/assets/nordtal/textures/x.aseprite` is the source of `src/assets/nordtal/textures/x.png`. The
+pack holds only the PNG, and `checkPack` refuses a source whose PNG is missing.
 
 ## Editing the art
 
@@ -65,6 +69,27 @@ Steward raises the pack alert when the URL stops answering.
   client's rule, and ship in the jar of `:pack-rendering`. `BossBarAdvancesTest` and `MenuFontTest`
   derive the widths again independently.
 - `manifest.json` and one PNG per named glyph, which Steward's translation editor lists.
+
+## The pack model
+
+`./gradlew -q :resource-pack:describePack` writes `build/pack-model.json`, the tree and the properties
+of Nordtal Designer. It reads `glyphs.json` through the same reader as `generateGlyphs`. Every path in
+it is relative to this directory, and every code point is capital hex without `U+`.
+
+```
+fonts[]       font, rows, constant, about, blocks[]
+  blocks[]    kind "block": title, range, status, about, glyphs[]
+              kind "sheet": title, range, status, about, height, ascent, texture, cells[]
+  glyphs[]    code, constant, name, list, status, height, ascent, about, texture
+  cells[]     row, column, code, and for a glyph cell constant, list, status, about
+items[]       category (the namespace), entries[]: id, file, model (the type of the root model)
+overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, scaling
+texture       id, png, aseprite, asepriteExists, width, height
+```
+
+`status` holds the block's value when the glyph sets none. `width` and `height` of a texture are its
+pixels, or null while its PNG is missing. `animation` and `scaling` are the `animation` and
+`gui.scaling` objects of the `.png.mcmeta`, or null. Language files are not listed.
 
 ## glyphs.json
 

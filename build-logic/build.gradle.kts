@@ -14,6 +14,19 @@ dependencies {
 
     // Lets `the<LibrariesForLibs>()` resolve inside precompiled script plugins.
     implementation(files(libs.javaClass.superclass.protectionDomain.codeSource.location))
+
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.test {
+    useJUnitPlatform()
+    // The tests read the real pack beside this build.
+    val resourcePack = layout.projectDirectory.dir("../resource-pack")
+    inputs.file(resourcePack.file("glyphs.json")).withPropertyName("allocation").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(resourcePack.dir("src")).withPropertyName("packSource").withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("nordtal.resourcePack", resourcePack.asFile.absolutePath)
 }
 
 fun Provider<PluginDependency>.marker(): Provider<String> =

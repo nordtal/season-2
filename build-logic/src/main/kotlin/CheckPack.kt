@@ -4,26 +4,32 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 
-/** Fails with every [PackRules] finding in the pack at [assets]. */
+/** Fails with every [PackRules] finding in the pack at [assets] and its `.aseprite` sources at [art]. */
 @DisableCachingByDefault(because = "Cheaper to run than to cache")
 abstract class CheckPack : DefaultTask() {
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val assets: DirectoryProperty
 
+    /** `resource-pack/art`, which may not exist. */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val art: DirectoryProperty
+
     init {
         group = "verification"
-        description = "Checks the pack's images against its fonts."
+        description = "Checks the pack's images against its fonts and its .aseprite sources."
     }
 
     @TaskAction
     fun check() {
-        val findings = PackRules.findings(assets.get().asFile)
+        val findings = PackRules.findings(assets.get().asFile) + PackRules.artFindings(art.get().asFile, assets.get().asFile)
         if (findings.isEmpty()) return
         throw GradleException(
             "The resource pack has ${findings.size} problem(s):\n" + findings.joinToString("\n") { "  - $it" },

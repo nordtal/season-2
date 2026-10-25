@@ -1,0 +1,179 @@
+package eu.nordtal.season.build
+
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.ImageIO
+
+class PackModelTest {
+    @TempDir
+    lateinit var pack: File
+
+    @Test
+    fun aGlyphNamesItsFilesPixelSizeAndTheValuesThePanelEdits() {
+        allocation(
+            """
+            {"fonts": [{"font": "minecraft:default", "blocks": [{"range": "FE000-FE00F", "title": "Badges", "glyphs": [
+              {"code": "FE001", "constant": "STAR", "name": "star", "texture": "nordtal:badges/star.png",
+               "height": 8, "ascent": 7, "status": "keep", "about": "A star."}]}]}]}
+            """,
+        )
+        png("src/assets/nordtal/textures/badges/star.png", 9, 7)
+        file("art/assets/nordtal/textures/badges/star.aseprite").writeText("")
+
+        val glyph = only(only(only(fonts()).list("blocks")).list("glyphs"))
+
+        assertEquals("FE001", glyph["code"])
+        assertEquals("STAR", glyph["constant"])
+        assertEquals("star", glyph["name"])
+        assertEquals("keep", glyph["status"])
+        assertEquals(8, glyph["height"])
+        assertEquals(7, glyph["ascent"])
+        assertEquals("A star.", glyph["about"])
+        val texture = glyph.map("texture")
+        assertEquals("nordtal:badges/star.png", texture["id"])
+        assertEquals("src/assets/nordtal/textures/badges/star.png", texture["png"])
+        assertEquals("art/assets/nordtal/textures/badges/star.aseprite", texture["aseprite"])
+        assertEquals(true, texture["asepriteExists"])
+        assertEquals(9, texture["width"])
+        assertEquals(7, texture["height"])
+    }
+
+    @Test
+    fun aSheetIsOneEntryWithItsCells() {
+        allocation(
+            """
+            {"fonts": [{"font": "nordtal:gui_r{row}", "rows": 2, "pitch": 18, "constant": "ROWS", "blocks": [
+              {"range": "FE110-FE11F", "title": "Icons", "texture": "nordtal:icons.png", "height": 8, "ascent": -9,
+               "glyphs": [{"code": "FE110", "constant": "SPAWN"}, {"code": "FE111", "constant": "DEATH", "status": "placeholder"}]},
+              {"title": "Text", "texture": "nordtal:text.png", "height": 5, "ascent": -10, "chars": ["AB", "C\u0000"]}]}]}
+            """,
+        )
+        png("src/assets/nordtal/textures/icons.png", 16, 8)
+        png("src/assets/nordtal/textures/text.png", 10, 10)
+
+        val font = only(fonts())
+        assertEquals(2, font["rows"])
+        val (icons, text) = font.list("blocks")
+
+        assertEquals("sheet", icons["kind"])
+        assertEquals(8, icons["height"])
+        assertEquals(16, icons.map("texture")["width"])
+        assertEquals(
+            listOf(listOf(0, 0, "FE110", "SPAWN", null), listOf(0, 1, "FE111", "DEATH", "placeholder")),
+            icons.list("cells").map { listOf(it["row"], it["column"], it["code"], it["constant"], it["status"]) },
+        )
+        assertEquals(
+            listOf(listOf(0, 0, "41"), listOf(0, 1, "42"), listOf(1, 0, "43")),
+            text.list("cells").map { listOf(it["row"], it["column"], it["code"]) },
+        )
+        assertFalse("glyphs" in icons)
+    }
+
+    @Test
+    fun overridesAreGroupedByFolderWithAnimationAndScaling() {
+        allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
+        png("src/assets/minecraft/textures/gui/sprites/boss_bar/white_progress.png", 182, 5)
+        png("src/assets/minecraft/textures/block/water_still.png", 16, 64)
+        file("src/assets/minecraft/textures/block/water_still.png.mcmeta")
+            .writeText("""{"animation": {"frametime": 2}}""")
+        png("src/assets/minecraft/textures/gui/sprites/widget/button.png", 200, 20)
+        file("src/assets/minecraft/textures/gui/sprites/widget/button.png.mcmeta")
+            .writeText("""{"gui": {"scaling": {"type": "nine_slice", "width": 200, "height": 20, "border": 3}}}""")
+
+        val overrides = model().list("overrides")
+
+        assertEquals(listOf("block", "gui/sprites/boss_bar", "gui/sprites/widget"), overrides.map { it["category"] })
+        val water = only(overrides[0].list("entries"))
+        assertEquals("minecraft:block/water_still.png", water.map("texture")["id"])
+        assertEquals("src/assets/minecraft/textures/block/water_still.png.mcmeta", water["mcmeta"])
+        assertEquals(mapOf("frametime" to 2), water["animation"])
+        assertEquals(null, water["scaling"])
+        val bar = only(overrides[1].list("entries"))
+        assertEquals(null, bar["mcmeta"])
+        assertEquals(182, bar.map("texture")["width"])
+        val button = only(overrides[2].list("entries"))
+        assertEquals("nine_slice", button.map("scaling")["type"])
+    }
+
+    @Test
+    fun itemsAreGroupedByNamespaceAndLanguageFilesAreLeftOut() {
+        allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
+        file("src/assets/nordtal/items/blank.json").writeText("""{"model": {"type": "minecraft:empty"}}""")
+        file("src/assets/minecraft/items/stick.json").writeText("""{"model": {"type": "minecraft:model", "model": "x"}}""")
+        file("src/assets/minecraft/lang/en_us.json").writeText("{}")
+
+        val model = model()
+        val items = model.list("items")
+
+        assertEquals(listOf("minecraft", "nordtal"), items.map { it["category"] })
+        val blank = only(items[1].list("entries"))
+        assertEquals("nordtal:blank", blank["id"])
+        assertEquals("src/assets/nordtal/items/blank.json", blank["file"])
+        assertEquals("minecraft:empty", blank["model"])
+        assertTrue(model.list("overrides").isEmpty())
+    }
+
+    @Test
+    fun theRealPackListsEveryGlyphAndSheetOfGlyphsJson() {
+        val root = File(System.getProperty("nordtal.resourcePack"))
+        val allocation = GlyphAllocation.read(root.resolve("glyphs.json"))
+
+        val model = PackModel.of(allocation, root)
+
+        val fonts = model.list("fonts")
+        assertEquals(allocation.fonts.map { it.id }, fonts.map { it["font"] })
+        val blocks = fonts.flatMap { it.list("blocks") }
+        val listed =
+            blocks.flatMap { block -> if (block["kind"] == "sheet") block.list("cells") else block.list("glyphs") }
+        val drawn =
+            allocation.fonts.flatMap { font ->
+                font.blocks.flatMap { block ->
+                    block.glyphs.map { "%X".format(it.codePoint) } +
+                        block.chars.orEmpty().flatMap { row ->
+                            row
+                                .codePoints()
+                                .toArray()
+                                .filter { it != 0 }
+                                .map { "%X".format(it) }
+                        }
+                }
+            }
+        assertEquals(drawn, listed.map { it["code"] })
+        val textures = blocks.mapNotNull { it["texture"] as Map<*, *>? } + listed.mapNotNull { it["texture"] as Map<*, *>? }
+        textures.forEach { assertTrue((it["width"] as Int) > 0, "${it["png"]} has a pixel size") }
+        val overrides = model.list("overrides").flatMap { it.list("entries") }.map { it.map("texture")["id"] }
+        assertTrue("minecraft:gui/sprites/boss_bar/white_progress.png" in overrides)
+        assertEquals(listOf("nordtal:blank"), model.list("items").flatMap { it.list("entries") }.map { it["id"] })
+    }
+
+    private fun model(): Map<String, Any?> = PackModel.of(GlyphAllocation.read(pack.resolve("glyphs.json")), pack)
+
+    private fun fonts() = model().list("fonts")
+
+    private fun allocation(json: String) = file("glyphs.json").writeText(json.trimIndent())
+
+    private fun file(path: String): File = pack.resolve(path).apply { parentFile.mkdirs() }
+
+    private fun png(
+        path: String,
+        width: Int,
+        height: Int,
+    ) {
+        val image = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+        image.setRGB(0, 0, -1)
+        ImageIO.write(image, "png", file(path))
+    }
+
+    private fun <T> only(items: List<T>): T = items.single()
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<*, *>.list(key: String): List<Map<String, Any?>> = this[key] as List<Map<String, Any?>>
+
+    @Suppress("UNCHECKED_CAST")
+    private fun Map<*, *>.map(key: String): Map<String, Any?> = this[key] as Map<String, Any?>
+}

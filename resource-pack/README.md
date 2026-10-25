@@ -170,7 +170,8 @@ fails with the reason when it refuses.
 Three tasks read and write item definitions under `assets/<namespace>/items/`, for Nordtal items and
 overrides of vanilla items, and import a model that Blockbench exported as Java model JSON. Each
 reads the client jar of the season's Minecraft version, which _Vanilla overrides_ describes, for what the pack
-does not hold. Paths are absolute.
+does not hold, and opens it only then. Paths are absolute. A written file has four spaces of indent
+and one member per line, like the pack's other files.
 
 ```bash
 ./gradlew -q :resource-pack:readItem -Pitem=minecraft:compass
@@ -197,12 +198,16 @@ the rules below know, for an editor to offer.
 - A definition is written only when it passes, and when each model it draws, each parent of those
   and each of their textures is in the pack or the jar. A texture may also be a sprite that an
   atlas generates, such as a paletted permutation of an armor trim.
+- `checkPack` holds every definition in the pack to the same rules and references, without the jar:
+  a reference into `minecraft` passes there, and `writeItem` is what checks it against the jar.
 - An import writes the model at `id` under `models/`. Each texture whose PNG lies beside the export
-  is copied, with its `.mcmeta`, into the folder of the model under `textures/`, and its reference
-  is rewritten to the namespace of `id`. A reference that the pack or the jar resolves, such as
-  `block/stone`, stays. A file that exists is refused.
-- Every item definition of the client jar passes these rules and is written back unchanged, which a
-  test checks against the jar.
+  is copied, with its `.mcmeta`, into the folder of the model under `textures/` under its name in
+  lower case, and its reference is rewritten to the namespace of `id`. A reference that the pack or
+  the jar resolves, such as `block/stone`, stays. A file that exists is refused, and the model and
+  its textures are written all or none.
+- Every item definition of the client jar passes these rules and is written back unchanged, keys in
+  their order, which a test checks against the jar. Without the jar in the cache and without the
+  network, that test is skipped.
 
 ## glyphs.json
 

@@ -1,13 +1,16 @@
 package eu.nordtal.season.build
 
+import groovy.json.JsonOutput
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
+import java.io.IOException
 import java.net.URI
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -190,9 +193,67 @@ class ItemDefinitionsTest {
     }
 
     @Test
+    fun anImportWhoseTextureCannotBeCopiedWritesNoFile() {
+        val export = directory.resolve("export").apply { mkdirs() }
+        export.resolve("lamp.json").writeText("""{ "textures": { "0": "lamp" } }""")
+        export.resolve("lamp.png").writeText("png")
+        pack.resolve("src/assets/nordtal").mkdirs()
+        pack.resolve("src/assets/nordtal/textures").writeText("a file where the folder belongs")
+
+        val refusal = assertThrows<IllegalStateException> { files().use { it.import(export.resolve("lamp.json"), "nordtal:item/lamp") } }
+
+        assertTrue("so nothing was written" in refusal.message!!, refusal.message)
+        assertTrue(!pack.resolve("src/assets/nordtal/models").exists())
+    }
+
+    @Test
+    fun aBlockbenchTextureWithCapitalsIsImportedUnderItsNameInLowerCase() {
+        val export = directory.resolve("export").apply { mkdirs() }
+        export.resolve("lamp.json").writeText("""{ "textures": { "0": "Lantern" } }""")
+        export.resolve("Lantern.png").writeText("png")
+
+        val written = files().use { it.import(export.resolve("lamp.json"), "nordtal:item/lamp") }
+
+        assertEquals(pack.resolve("src/assets/nordtal/textures/item/lantern.png"), written[1])
+        assertEquals(mapOf("0" to "nordtal:item/lantern"), (OxfmtJson.read(written[0]) as Map<*, *>)["textures"])
+    }
+
+    @Test
+    fun aDefinitionWhoseReferencesAreAllInThePackNeverOpensTheClientJar() {
+        pack.resolve("src/assets/nordtal/models/item/wand.json").apply { parentFile.mkdirs() }.writeText(
+            """{ "textures": { "layer0": "nordtal:item/wand" } }""",
+        )
+        pack.resolve("src/assets/nordtal/textures/item/wand.png").apply { parentFile.mkdirs() }.writeText("png")
+
+        val written =
+            ItemFiles(pack) { throw AssertionError("the client jar was opened") }.use {
+                it.write("nordtal:wand", model("""{ "type": "model", "model": "nordtal:item/wand" }"""))
+            }
+
+        assertEquals(
+            """
+            {
+                "model": {
+                    "type": "model",
+                    "model": "nordtal:item/wand"
+                }
+            }
+
+            """.trimIndent(),
+            written.readText(),
+        )
+    }
+
+    @Test
     fun everyItemDefinitionOfTheClientJarPassesAndIsWrittenBackUnchanged() {
         val version = MinecraftVersion.of(System.getProperty("nordtal.paperVersion"))
-        val client = VanillaClient.jar(version, URI(VanillaClient.MANIFEST), File(System.getProperty("nordtal.vanillaClientCache")))
+        // Without the jar in the cache and without the network, the round trip is skipped, not failed.
+        val client =
+            try {
+                VanillaClient.jar(version, URI(VanillaClient.MANIFEST), File(System.getProperty("nordtal.vanillaClientCache")))
+            } catch (e: IOException) {
+                Assumptions.abort<File>("The client jar of $version is neither cached nor downloadable: $e")
+            }
         val items =
             ZipFile(client).use { zip ->
                 zip
@@ -209,9 +270,18 @@ class ItemDefinitionsTest {
                     val definition = OxfmtJson.read(text)
                     val problems = ItemDefinitions.problems(definition) + ItemDefinitions.missing(definition, files::read, files::sprite)
                     when {
-                        problems.isNotEmpty() -> "$name: $problems"
-                        OxfmtJson.read(OxfmtJson.format(definition)) != definition -> "$name is not written back unchanged"
-                        else -> null
+                        problems.isNotEmpty() -> {
+                            "$name: $problems"
+                        }
+
+                        // JsonOutput keeps the order of each object, so a key that moves fails too.
+                        JsonOutput.toJson(OxfmtJson.read(OxfmtJson.asset(definition))) != JsonOutput.toJson(definition) -> {
+                            "$name is not written back unchanged"
+                        }
+
+                        else -> {
+                            null
+                        }
                     }
                 }
             }

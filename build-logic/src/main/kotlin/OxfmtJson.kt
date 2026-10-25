@@ -5,7 +5,7 @@ import java.math.BigDecimal
 
 /**
  * Reads and writes JSON in the layout that oxfmt checks with `.oxfmtrc.json`: 120 columns, two spaces of indent. The
- * files under the pack's `src/assets` keep four, which [format] takes as its `indent`.
+ * files under the pack's `src/assets`, which oxfmt leaves alone, keep the layout of [asset].
  *
  * An object keeps its lines when the source breaks after its `{`, as oxfmt does, so a file read and written again
  * is unchanged. A designer's machine has no Node, so the tasks that edit `glyphs.json` write this layout themselves.
@@ -56,6 +56,16 @@ object OxfmtJson {
     fun read(file: File): Any? = read(file.readText())
 
     fun read(text: String): Any? = Parser(text).document()
+
+    /** [value] in the layout of the pack's files under `src/assets`: four spaces of indent and one member per line. */
+    fun asset(value: Any?): String = format(expanded(value), "    ")
+
+    private fun expanded(value: Any?): Any? =
+        when (value) {
+            is Map<*, *> -> Object().also { copy -> value.forEach { (key, member) -> copy[key as String] = expanded(member) } }
+            is List<*> -> Array().also { copy -> value.forEach { copy += expanded(it) } }
+            else -> value
+        }
 
     fun format(
         value: Any?,

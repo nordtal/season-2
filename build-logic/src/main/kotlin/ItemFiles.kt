@@ -55,8 +55,10 @@ class ItemFiles(
     }
 
     /** Whether [texture] is a PNG in the pack or the client jar, or a sprite that an atlas generates. */
-    fun sprite(texture: String): Boolean =
-        full(texture) in generated || runCatching { read(Identifier.resource(texture, "textures", ".png")) }.getOrNull() != null
+    fun sprite(texture: String): Boolean {
+        val path = runCatching { Identifier.resource(texture, "textures", ".png") }.getOrNull() ?: return false
+        return assets.resolve(path).isFile || full(texture) in generated || read(path) != null
+    }
 
     private fun full(id: String) = if (':' in id) id else "minecraft:$id"
 
@@ -88,8 +90,7 @@ class ItemFiles(
         val problems = ItemDefinitions.problems(json).ifEmpty { ItemDefinitions.missing(json, ::read, ::sprite) }
         check(problems.isEmpty()) { "The item $id breaks ${problems.size} rule(s):\n" + problems.joinToString("\n") { "    $it" } }
         val file = assets.resolve(Identifier.resource(id, "items", ".json"))
-        file.parentFile.mkdirs()
-        OxfmtJson.write(file, json)
+        AtomicFiles.write(mapOf(file to OxfmtJson.asset(json).toByteArray()))
         return file
     }
 
@@ -112,11 +113,12 @@ class ItemFiles(
         for ((key, value) in textures.entries.toList()) {
             val reference = value as? String ?: continue
             if (reference.startsWith("#")) continue
-            val name = reference.substringAfterLast('/').substringAfterLast(':')
-            val png = source.resolveSibling("$name.png")
+            val exported = reference.substringAfterLast('/').substringAfterLast(':')
+            val png = source.resolveSibling("$exported.png")
+            val name = exported.lowercase()
             if (!png.isFile) {
                 require(sprite(reference)) {
-                    "Texture $key of ${source.name} is $reference, which is neither beside it as $name.png nor in the pack or the client jar."
+                    "Texture $key of ${source.name} is $reference, which is neither beside it as $exported.png nor in the pack or the client jar."
                 }
                 continue
             }
@@ -124,7 +126,7 @@ class ItemFiles(
             val (_, file) = Identifier.parse("$namespace:$texture.png", ".png")
             textures[key] = "$namespace:$texture"
             copies[png] = assets.resolve("$namespace/textures/$file")
-            source.resolveSibling("$name.png.mcmeta").takeIf { it.isFile }?.let {
+            source.resolveSibling("$exported.png.mcmeta").takeIf { it.isFile }?.let {
                 copies[it] =
                     assets.resolve("$namespace/textures/$file.mcmeta")
             }
@@ -134,9 +136,9 @@ class ItemFiles(
                 target,
             ) + copies.values
         ).forEach { check(!it.exists()) { "${it.relativeTo(pack).invariantSeparatorsPath} exists already." } }
-        target.parentFile.mkdirs()
-        OxfmtJson.write(target, model)
-        copies.forEach { (from, to) -> from.copyTo(to) }
+        AtomicFiles.write(
+            mapOf(target to OxfmtJson.asset(model).toByteArray()) + copies.entries.associate { (from, to) -> to to from.readBytes() },
+        )
         return listOf(target) + copies.values.distinct()
     }
 

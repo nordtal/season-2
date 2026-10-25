@@ -45,8 +45,7 @@ object NewTextures {
             requireNotNull(code) { "Block $block of $font has no free code point left in ${target["range"]}." }
             val entry = OxfmtJson.Object()
             entry["code"] = "%X".format(code)
-            entry["constant"] =
-                constant ?: name?.uppercase()?.replace('-', '_') ?: throw IllegalArgumentException("A glyph needs a constant or a name.")
+            entry["constant"] = constant ?: name?.let(::constantOf) ?: throw IllegalArgumentException("A glyph needs a constant or a name.")
             name?.let { entry["name"] = it }
             entry["texture"] = texture
             if (target["height"] != height) entry["height"] = height
@@ -134,7 +133,7 @@ object NewTextures {
     }
 
     /** Applies [change] to `glyphs.json`, checks the result, and writes it and a transparent [png] of [width] by [height]. */
-    private fun edit(
+    internal fun edit(
         pack: File,
         png: File?,
         width: Int,
@@ -167,42 +166,57 @@ object NewTextures {
         val entry = font(root, font)
         val blocks = entry["blocks"] as MutableList<Any?>
         require(blocks.none { (it as Map<*, *>)["title"] == title }) { "The font $font has a block $title already." }
-        val run = range?.let { parseRange(it) } ?: freeRun(root, entry, size)
+        val run = range?.let { parseRange(it) } ?: freeRun(taken(root, entry), size)
         val block = OxfmtJson.Object()
         block["range"] = "%X-%X".format(run.first, run.last)
         block["title"] = title
-        val index =
-            blocks.indexOfFirst { other ->
-                (other as Map<*, *>)["range"]?.let { parseRange(it as String).first > run.first } == true
-            }
-        blocks.add(if (index < 0) blocks.size else index, block)
+        place(blocks, block)
         return block
     }
 
-    /** The first run of [size] code points, aligned to [size], that no block of a font sharing the numbering of [font] and no space of [font] uses. */
-    private fun freeRun(
+    /** Inserts [block] into [blocks] before the first block whose range starts after its own. */
+    internal fun place(
+        blocks: MutableList<Any?>,
+        block: Map<*, *>,
+    ) {
+        val first = range(block).first
+        val index = blocks.indexOfFirst { other -> (other as Map<*, *>)["range"]?.let { parseRange(it as String).first > first } == true }
+        blocks.add(if (index < 0) blocks.size else index, block)
+    }
+
+    /** The Java constant that follows from a glyph's [name], such as `HALF_MOON` for `half-moon`. */
+    internal fun constantOf(name: String) = name.uppercase().replace('-', '_')
+
+    /** The ranges that a block of [font] must avoid: the blocks of every font sharing its numbering, and its own spaces. */
+    internal fun taken(
         root: Map<*, *>,
         font: Map<*, *>,
-        size: Int,
-    ): IntRange {
+    ): List<IntRange> {
         val sharing = if (font["numbering"] == "own") listOf(font) else fonts(root).filter { it === font || it["numbering"] != "own" }
-        val taken =
-            sharing.flatMap { f -> (f["blocks"] as List<*>).mapNotNull { (it as Map<*, *>)["range"] as String? }.map { parseRange(it) } } +
-                (font["spaces"] as List<*>? ?: emptyList<Any>()).map {
-                    ((it as Map<*, *>)["code"] as String).toInt(16).let { code ->
-                        code..code
-                    }
+        return sharing.flatMap { f ->
+            (f["blocks"] as List<*>).mapNotNull { (it as Map<*, *>)["range"] as String? }.map { parseRange(it) }
+        } +
+            (font["spaces"] as List<*>? ?: emptyList<Any>()).map {
+                ((it as Map<*, *>)["code"] as String).toInt(16).let { code ->
+                    code..code
                 }
-        return generateSequence(FIRST) { it + size }
+            }
+    }
+
+    /** The first run of [size] code points, aligned to [size], that overlaps none of [taken]. */
+    internal fun freeRun(
+        taken: List<IntRange>,
+        size: Int,
+    ): IntRange =
+        generateSequence(FIRST) { it + size }
             .takeWhile { it + size - 1 <= AREA.last }
             .map { it until it + size }
             .firstOrNull { run -> taken.none { it.first <= run.last && run.first <= it.last } }
             ?: throw IllegalArgumentException("No run of $size free code points is left.")
-    }
 
-    private fun fonts(root: Map<*, *>): List<Map<*, *>> = (root["fonts"] as List<*>).map { it as Map<*, *> }
+    internal fun fonts(root: Map<*, *>): List<Map<*, *>> = (root["fonts"] as List<*>).map { it as Map<*, *> }
 
-    private fun font(
+    internal fun font(
         root: Map<*, *>,
         font: String,
     ): OxfmtJson.Object =
@@ -217,9 +231,9 @@ object NewTextures {
         (font["blocks"] as List<*>).firstOrNull { (it as Map<*, *>)["title"] == title } as OxfmtJson.Object?
             ?: throw IllegalArgumentException("The font $id has no block $title.")
 
-    private fun range(block: Map<*, *>): IntRange = parseRange(block["range"] as String)
+    internal fun range(block: Map<*, *>): IntRange = parseRange(block["range"] as String)
 
-    private fun parseRange(text: String): IntRange =
+    internal fun parseRange(text: String): IntRange =
         GlyphAllocation.parseRange(text) ?: throw IllegalArgumentException("$text is not a range such as FE000-FE00F.")
 
     /** The file of the texture [id] under `src/assets`, refused when it exists. */

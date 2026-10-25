@@ -119,7 +119,7 @@ A vanilla override is created with `copyVanillaTexture`, under _Vanilla override
 - `block` is a block's `title`. `width` and `height` are pixels, and `height` is also the display
   height. `ascent` falls back to the block's. `constant` falls back to the `name` in capitals.
 - A new glyph takes the code point after the last glyph of its block. It is provisional: a publish
-  assigns the final one.
+  assigns the final one with `assignCodePoints`.
 - A new block or sheet takes the first run of `size` free code points, aligned to `size`, of the
   numbering its font shares, unless `range` names one.
 - Every id is a resource location with an explicit namespace, as the client accepts it: `a-z`, `0-9`,
@@ -127,6 +127,40 @@ A vanilla override is created with `copyVanillaTexture`, under _Vanilla override
   ends in `.png`.
 - A task refuses a file that exists, and writes nothing until `glyphs.json` passes every rule below.
   It writes `glyphs.json` in the layout that oxfmt checks, with every untouched line as it was.
+
+## Changing glyphs
+
+Three tasks change a glyph, which `glyph` names by its `name` or its `constant`, and a fourth gives new
+glyphs their final code points. Each writes nothing until `glyphs.json` passes every rule below, and
+fails with the reason when it refuses.
+
+```bash
+./gradlew -q :resource-pack:renameGlyph -Pglyph=half-moon -Pto=crescent
+./gradlew -q :resource-pack:resizeGlyph -Pglyph=crescent -Pfrom=7
+./gradlew -q :resource-pack:deleteGlyph -Pglyph=crescent
+./gradlew -q :resource-pack:assignCodePoints
+```
+
+| task               | options                           | prints                                                        |
+| ------------------ | --------------------------------- | ------------------------------------------------------------- |
+| `renameGlyph`      | `glyph`, `to`                     | the absolute path of `glyphs.json`                            |
+| `resizeGlyph`      | `glyph`, `from`; `coupled` (true) | the absolute path of `glyphs.json`, or nothing when decoupled |
+| `deleteGlyph`      | `glyph`                           | the absolute paths of `glyphs.json` and each file it removed  |
+| `assignCodePoints` | `main` (`origin/main`)            | one line `font old new constant` per glyph that moved         |
+
+- A rename sets the `name` to `to` and the `constant` to the name in capitals. A glyph without a name,
+  outside `minecraft:default`, takes `to` as its constant.
+- A rename and a delete refuse while a tracked file uses the glyph, as `Glyphs.CONSTANT` in Java or
+  Kotlin or as a `<glyph:name>` tag, and the refusal lists each place as `path:line`.
+- A delete removes the entry, and its PNG under `src/` and its `.aseprite` under `art/` when no other
+  glyph draws them. A cell of a sheet loses only its entry.
+- A resize reads the new pixel height from the PNG. `from` is the pixel height before. Coupled, the
+  `height` and `ascent` scale by the new height over `from`; decoupled, both stay, so the glyph shows
+  more detail at the same size. A cell takes its size from its sheet and is refused.
+- `assignCodePoints` reads `glyphs.json` at the ref `main` without fetching it, so the publish fetches
+  first. A glyph that main lacks keeps a code point that main has not taken, and otherwise moves behind
+  the last glyph of its block on both sides. A new block that overlaps a block of main moves to the
+  first free run with its glyphs.
 
 ## glyphs.json
 

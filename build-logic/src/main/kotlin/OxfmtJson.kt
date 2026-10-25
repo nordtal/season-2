@@ -31,6 +31,26 @@ object OxfmtJson {
     class Array : ArrayList<Any?>() {
         val spaced = mutableSetOf<Int>()
         val spellings = mutableMapOf<String, String>()
+
+        override fun add(
+            index: Int,
+            element: Any?,
+        ) {
+            super.add(index, element)
+            shift(index) { it + 1 }
+        }
+
+        override fun removeAt(index: Int): Any? = super.removeAt(index).also { shift(index + 1) { it - 1 } }
+
+        /** Moves each empty line from [from] on with its member, so that it stays before the same member. */
+        private fun shift(
+            from: Int,
+            by: (Int) -> Int,
+        ) {
+            val moved = spaced.map { if (it >= from) by(it) else it }
+            spaced.clear()
+            spaced += moved
+        }
     }
 
     fun read(file: File): Any? = read(file.readText())

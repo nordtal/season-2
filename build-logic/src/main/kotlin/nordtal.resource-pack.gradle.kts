@@ -7,9 +7,9 @@ import eu.nordtal.season.build.CheckNoTrackerIds
 import eu.nordtal.season.build.CheckPack
 import eu.nordtal.season.build.CheckSourcesTracked
 import eu.nordtal.season.build.CopyVanillaTexture
-import eu.nordtal.season.build.CreateTexture
 import eu.nordtal.season.build.DescribePack
 import eu.nordtal.season.build.DownloadVanillaClient
+import eu.nordtal.season.build.EditPackSources
 import eu.nordtal.season.build.GenerateGlyphs
 import eu.nordtal.season.build.InstallPack
 import eu.nordtal.season.build.ListVanillaTextures
@@ -232,13 +232,24 @@ tasks.register<CopyVanillaTexture>("copyVanillaTexture") {
     assets.set(packSource.dir("assets"))
 }
 
-// Nordtal Designer creates each kind of texture with these. The README lists the -P options of each.
-val textureKinds = mapOf("createGlyph" to "glyph", "createGlyphBlock" to "block", "createGlyphSheet" to "sheet", "createItem" to "item")
-textureKinds.forEach { (name, kind) ->
-    tasks.register<CreateTexture>(name) {
-        description = "Creates a $kind in the pack's sources and prints each file it writes."
+// Nordtal Designer creates and changes textures with these. The README lists the -P options and the output of each.
+val sourceEdits =
+    mapOf(
+        "createGlyph" to "glyph",
+        "createGlyphBlock" to "block",
+        "createGlyphSheet" to "sheet",
+        "createItem" to "item",
+        "renameGlyph" to "rename",
+        "resizeGlyph" to "resize",
+        "deleteGlyph" to "delete",
+        "assignCodePoints" to "codePoints",
+    )
+sourceEdits.forEach { (name, kind) ->
+    tasks.register<EditPackSources>(name) {
+        description = "Changes the pack's sources: $kind. The README lists its options and output."
         this.kind.set(kind)
-        options.set(providers.gradlePropertiesPrefixedBy("").map { it.filterKeys { key -> key in CreateTexture.OPTIONS } })
+        options.set(providers.gradlePropertiesPrefixedBy("").map { it.filterKeys { key -> key in EditPackSources.OPTIONS } })
         pack.set(layout.projectDirectory)
+        repository.set(rootProject.layout.projectDirectory)
     }
 }

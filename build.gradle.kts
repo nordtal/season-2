@@ -113,3 +113,6 @@ val checkPipeSafety =
     ) { dir(layout.projectDirectory.dir("deploy")).withPropertyName("deploy") }
 
 tasks.named("check") { dependsOn(checkEntrypoint, checkJvmSecrets, checkSetup, checkRestore, checkPipeSafety) }
+
+// The tests of the build's own tasks, which an included build does not run on its own.
+tasks.named("check") { dependsOn(gradle.includedBuild("build-logic").task(":test")) }

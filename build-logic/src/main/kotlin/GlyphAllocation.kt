@@ -49,6 +49,7 @@ class GlyphAllocation private constructor(
         val texture: String?,
         val height: Int,
         val ascent: Int,
+        val status: String?,
         val chars: List<String>?,
         val glyphs: List<Glyph>,
     )
@@ -61,6 +62,7 @@ class GlyphAllocation private constructor(
         val texture: String,
         val height: Int,
         val ascent: Int,
+        val status: String?,
         val about: String?,
     )
 
@@ -142,7 +144,7 @@ class GlyphAllocation private constructor(
                 block.problem("'chars' is a sheet of ordinary characters: it needs 'texture', and no 'range' or 'glyphs'")
             }
             if (chars == null && !block.has("range")) block.problem("'range' is missing")
-            block.status()
+            val status = block.status()
             val height = block.int("height")
             val ascent = block.int("ascent")
             if (texture != null && (height == null || ascent == null)) {
@@ -150,12 +152,12 @@ class GlyphAllocation private constructor(
             }
             val glyphs =
                 block.objects("glyphs", required = chars == null).map {
-                    readGlyph(it, texture, height, ascent)
+                    readGlyph(it, texture, height, ascent, status)
                 }
             chars?.map { it.codePointCount(0, it.length) }?.distinct()?.let {
                 if (it.size > 1) block.problem("every row of 'chars' has the same number of cells")
             }
-            return Block(range, title, block.string("about"), texture, height ?: 0, ascent ?: 0, chars, glyphs)
+            return Block(range, title, block.string("about"), texture, height ?: 0, ascent ?: 0, status, chars, glyphs)
         }
 
         private fun readGlyph(
@@ -163,6 +165,7 @@ class GlyphAllocation private constructor(
             sheet: String?,
             blockHeight: Int?,
             blockAscent: Int?,
+            blockStatus: String?,
         ): Glyph {
             node.allow("code", "constant", "name", "list", "texture", "height", "ascent", "status", "about")
             val code = node.code("code") ?: 0
@@ -177,11 +180,11 @@ class GlyphAllocation private constructor(
             if (sheet == null && (height == null || ascent == null)) {
                 glyph.problem("'height' and 'ascent' are set here or on the block")
             }
-            glyph.status()
+            val status = glyph.status() ?: blockStatus
             val constant = glyph.string("constant")
             val list = glyph.string("list")
             if (constant == null && list == null) glyph.problem("a glyph has a 'constant', a 'list', or both")
-            return Glyph(code, constant, glyph.string("name"), list, texture, height ?: 0, ascent ?: 0, glyph.string("about"))
+            return Glyph(code, constant, glyph.string("name"), list, texture, height ?: 0, ascent ?: 0, status, glyph.string("about"))
         }
 
         private fun readRange(

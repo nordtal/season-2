@@ -6,6 +6,7 @@ import eu.nordtal.season.build.CheckNoDashPunctuation
 import eu.nordtal.season.build.CheckNoTrackerIds
 import eu.nordtal.season.build.CheckPack
 import eu.nordtal.season.build.CheckSourcesTracked
+import eu.nordtal.season.build.DescribePack
 import eu.nordtal.season.build.GenerateGlyphs
 import eu.nordtal.season.build.InstallPack
 import eu.nordtal.season.build.MinecraftInstanceChooser
@@ -16,6 +17,9 @@ plugins {
 }
 
 val packSource = layout.projectDirectory.dir("src")
+
+// The .aseprite sources, each at the path of its PNG under src/. assemblePack copies src/ only, so art/ stays out of the pack.
+val packArt = layout.projectDirectory.dir("art")
 
 // The one allocation file. The build writes the fonts, Glyphs, the advance tables and the glyph menu of Steward from it.
 val generatedGlyphs = layout.buildDirectory.dir("generated/glyphs")
@@ -157,6 +161,7 @@ val checkPack =
     tasks.register<CheckPack>("checkPack") {
         dependsOn(assemblePack)
         assets.set(assembledPack.map { it.dir("assets") })
+        art.set(packArt)
     }
 
 tasks.named("check") {
@@ -179,6 +184,15 @@ tasks.register<JavaExec>("chooseMinecraftInstance") {
     args(minecraftInstance.asFile.absolutePath)
     argumentProviders.add(providers.gradleProperty("minecraftInstance").map { listOf(it) }.orElse(emptyList())::get)
     jvmArgs("-Dapple.awt.application.name=Nordtal")
+}
+
+// Nordtal Designer reads build/pack-model.json for its tree and its properties panel.
+tasks.register<DescribePack>("describePack") {
+    root.set(layout.projectDirectory)
+    allocation.set(layout.projectDirectory.file("glyphs.json"))
+    source.set(packSource)
+    art.set(packArt)
+    model.set(layout.buildDirectory.file("pack-model.json"))
 }
 
 tasks.register<InstallPack>("installPack") {

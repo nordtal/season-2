@@ -43,6 +43,9 @@ jackson = "2.22.4"
 # :steward's tests write authenticator answers; the version webauthn brings at runtime.
 cbor = "4.5.6"
 junit = "6.1.3"
+# The bridge mod; meta.fabricmc.net names the loader for the Minecraft version of `paper`.
+fabric-loader = "0.20.1"
+fabric-loom = "1.19.3"
 shadow = "9.6.1"
 runpaper = "3.1.0"
 # Web Push for :steward; needs only the Kotlin runtime, no Bouncy Castle.
@@ -97,6 +100,7 @@ errorprone-core = { module = "com.google.errorprone:error_prone_core", version.r
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 archunit-junit6 = { module = "com.tngtech.archunit:archunit-junit6", version.ref = "archunit" }
+fabric-loader = { module = "net.fabricmc:fabric-loader", version.ref = "fabric-loader" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
@@ -110,4 +114,5 @@ shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 run-paper = { id = "xyz.jpenilla.run-paper", version.ref = "runpaper" }
 node = { id = "com.github.node-gradle.node", version.ref = "node" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+fabric-loom = { id = "net.fabricmc.fabric-loom", version.ref = "fabric-loom" }
 errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }

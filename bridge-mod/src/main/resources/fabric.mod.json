@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "nordtal-bridge",
+  "version": "${version}",
+  "name": "Nordtal Bridge",
+  "description": "Lets the Nordtal Designer reload the resource pack and show previews in this client.",
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["eu.nordtal.season.bridgemod.BridgeMod"]
+  },
+  "depends": {
+    "fabricloader": ">=${loader}",
+    "minecraft": "~${minecraft}"
+  }
+}

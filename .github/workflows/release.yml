@@ -88,6 +88,7 @@ jobs:
           cp hunger-games/build/libs/hunger-games-${VERSION}.jar dist/
           cp smp/build/libs/smp-${VERSION}.jar dist/
           cp proxy/build/libs/proxy-${VERSION}.jar dist/
+          cp bridge-mod/build/libs/nordtal-bridge-${VERSION}.jar dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip dist/
           cp resource-pack/build/distributions/nordtal-resource-pack-${VERSION}.zip.sha1 dist/
           ls -la dist

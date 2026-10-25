@@ -3,20 +3,45 @@ package eu.nordtal.season.build
 import org.gradle.api.GradleException
 import java.io.File
 
+/**
+ * Runs `git` with [arguments] in [root] and returns what it prints. Its error output is kept apart and goes into the
+ * failure, so it never mixes into the result.
+ *
+ * @throws java.io.IOException when git cannot be started
+ */
+internal fun git(
+    root: File,
+    arguments: List<String>,
+): String {
+    val errors = File.createTempFile("git", ".err")
+    try {
+        val process = ProcessBuilder(listOf("git") + arguments).directory(root).redirectError(errors).start()
+        process.outputStream.close()
+        val output = process.inputStream.bufferedReader().use { it.readText() }
+        val exit = process.waitFor()
+        if (exit !=
+            0
+        ) {
+            throw GradleException(
+                "`git ${arguments.joinToString(" ")}` failed with exit code $exit in $root:\n${errors.readText().trim()}",
+            )
+        }
+        return output
+    } finally {
+        errors.delete()
+    }
+}
+
+/** The files under [pathspecs] that git tracks, and with [untracked] also those it would add, that no ignore rule matches. */
 internal fun trackedFiles(
     root: File,
     pathspecs: List<String>,
+    untracked: Boolean = false,
 ): List<String> {
-    val process = ProcessBuilder(listOf("git", "ls-files", "-z", "--") + pathspecs).directory(root).start()
-    process.outputStream.close()
-    val files =
-        process.inputStream
-            .bufferedReader()
-            .use { it.readText() }
-            .split('\u0000')
-            .filter { it.isNotBlank() }
-    if (process.waitFor() != 0) throw GradleException("git ls-files failed in $root")
-    return files
+    val others = if (untracked) listOf("--cached", "--others", "--exclude-standard") else emptyList()
+    return git(root, listOf("ls-files", "-z") + others + "--" + pathspecs)
+        .split('\u0000')
+        .filter { it.isNotBlank() }
 }
 
 /** Returns the text of [file], or null for a directory, a binary file or a file over one megabyte. */

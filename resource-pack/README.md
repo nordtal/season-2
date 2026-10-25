@@ -150,17 +150,20 @@ fails with the reason when it refuses.
 
 - A rename sets the `name` to `to` and the `constant` to the name in capitals. A glyph without a name,
   outside `minecraft:default`, takes `to` as its constant.
-- A rename and a delete refuse while a tracked file uses the glyph, as `Glyphs.CONSTANT` in Java or
-  Kotlin or as a `<glyph:name>` tag, and the refusal lists each place as `path:line`.
+- A rename and a delete refuse while a file that git tracks or would add uses the glyph, as
+  `Glyphs.CONSTANT` in Java or Kotlin or as a `<glyph:name>` tag, and the refusal lists each place as
+  `path:line`.
 - A delete removes the entry, and its PNG under `src/` and its `.aseprite` under `art/` when no other
-  glyph draws them. A cell of a sheet loses only its entry.
+  glyph, sheet or item model draws them, all or nothing. A cell of a sheet loses only its entry, and
+  only the last cell can go, since a sheet's cells are the columns of its texture.
 - A resize reads the new pixel height from the PNG. `from` is the pixel height before. Coupled, the
   `height` and `ascent` scale by the new height over `from`; decoupled, both stay, so the glyph shows
   more detail at the same size. A cell takes its size from its sheet and is refused.
 - `assignCodePoints` reads `glyphs.json` at the ref `main` without fetching it, so the publish fetches
-  first. A glyph that main lacks keeps a code point that main has not taken, and otherwise moves behind
-  the last glyph of its block on both sides. A new block that overlaps a block of main moves to the
-  first free run with its glyphs.
+  first. A block is main's when range and title match. A glyph that main lacks keeps a code point that
+  main has not taken, and otherwise moves behind the last glyph of its block on both sides. A cell of a
+  sheet is its code point, so a renamed cell keeps its place. A new block that overlaps a block of main
+  moves to the first free run with its glyphs.
 
 ## glyphs.json
 

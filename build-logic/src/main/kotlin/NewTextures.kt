@@ -132,12 +132,16 @@ object NewTextures {
         return files
     }
 
-    /** Applies [change] to `glyphs.json`, checks the result, and writes it and a transparent [png] of [width] by [height]. */
+    /**
+     * Applies [change] to `glyphs.json`, checks the result, and writes it and a transparent [png] of [width] by [height]
+     * and deletes [remove], all or none.
+     */
     internal fun edit(
         pack: File,
         png: File?,
         width: Int,
         height: Int,
+        remove: List<File> = emptyList(),
         change: (OxfmtJson.Object) -> Unit,
     ): List<File> {
         png?.let { checkSize(width, height) }
@@ -152,8 +156,11 @@ object NewTextures {
         } finally {
             draft.deleteRecursively()
         }
-        AtomicFiles.write(mapOf(allocation to text.toByteArray()) + listOfNotNull(png).associateWith { transparent(width, height) })
-        return listOfNotNull(allocation, png)
+        AtomicFiles.write(
+            mapOf(allocation to text.toByteArray()) + listOfNotNull(png).associateWith { transparent(width, height) } +
+                remove.associateWith { null },
+        )
+        return listOfNotNull(allocation, png) + remove
     }
 
     private fun newBlock(

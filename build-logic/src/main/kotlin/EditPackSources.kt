@@ -9,7 +9,6 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
-import java.io.File
 
 /**
  * Makes one change of [kind] to the pack's sources through [NewTextures] or [GlyphEdits], with the [options] that
@@ -136,7 +135,7 @@ abstract class EditPackSources : DefaultTask() {
                         val moves =
                             GlyphEdits.assignCodePoints(
                                 pack,
-                                show(repository, "$main:${pack.relativeTo(repository).invariantSeparatorsPath}/glyphs.json"),
+                                git(repository, listOf("show", "$main:${pack.relativeTo(repository).invariantSeparatorsPath}/glyphs.json")),
                             )
                         return moves.forEach { logger.quiet(it) }
                     }
@@ -151,15 +150,5 @@ abstract class EditPackSources : DefaultTask() {
                 throw GradleException(e.message ?: "The change is refused.", e)
             }
         written.forEach { logger.quiet(it.absolutePath) }
-    }
-
-    private fun show(
-        repository: File,
-        spec: String,
-    ): String {
-        val process = ProcessBuilder("git", "show", spec).directory(repository).redirectErrorStream(true).start()
-        val text = process.inputStream.bufferedReader().use { it.readText() }
-        if (process.waitFor() != 0) throw GradleException("git show $spec failed: ${text.trim()}")
-        return text
     }
 }

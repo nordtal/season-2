@@ -38,24 +38,53 @@ object GlyphEdits {
             }
         }
 
-    /** Removes [glyph] from `glyphs.json`, and its PNG and `.aseprite` source when no other glyph draws them. */
+    /**
+     * Removes [glyph] from `glyphs.json`, and its PNG and `.aseprite` source when no glyph, sheet or item model draws
+     * them any more. A sheet keeps its columns, so only its last cell can go.
+     */
     fun delete(
         pack: File,
         repository: File,
         glyph: String,
     ): List<File> {
-        var sources = emptyList<File>()
-        val written =
-            NewTextures.edit(pack, null, 0, 0) { root ->
-                val found = find(root, glyph)
-                refuseUsed(repository, found)
-                val glyphs = found.block["glyphs"] as MutableList<*>
-                glyphs.removeAt(glyphs.indexOfFirst { it === found.glyph })
-                val texture = found.glyph["texture"] as String?
-                if (texture != null && entries(root).none { (_, other) -> other["texture"] == texture }) sources = sources(pack, texture)
-            }
-        return written + sources.filter { it.delete() }
+        val root = OxfmtJson.read(pack.resolve("glyphs.json")) as Map<*, *>
+        val found = find(root, glyph)
+        val cells = found.block["glyphs"] as List<*>
+        require(found.block["texture"] == null || cells.last() === found.glyph) {
+            "${found.label} is cell ${cells.indexOfFirst {
+                it === found.glyph
+            } + 1} of ${cells.size} of the sheet ${found.block["title"]}. " +
+                "Only its last cell can be deleted, since a later cell would move to another column."
+        }
+        refuseUsed(repository, found)
+        val texture = found.glyph["texture"] as String?
+        val drawn = texture != null && (textures(root).count { it == texture } > 1 || texture.removeSuffix(".png") in modelTextures(pack))
+        val remove = if (texture == null || drawn) emptyList() else sources(pack, texture).filter { it.exists() }
+        return NewTextures.edit(pack, null, 0, 0, remove) { edited ->
+            val target = find(edited, glyph)
+            val glyphs = target.block["glyphs"] as MutableList<*>
+            glyphs.removeAt(glyphs.indexOfFirst { it === target.glyph })
+        }
     }
+
+    /** Every texture that `glyphs.json` draws, a sheet's once per block and a glyph's once per glyph. */
+    private fun textures(root: Map<*, *>): List<String> =
+        fonts(root).flatMap { it["blocks"] as List<*> }.map { it as Map<*, *> }.flatMap { block ->
+            listOfNotNull(block["texture"] as String?) +
+                (block["glyphs"] as List<*>?).orEmpty().mapNotNull { (it as Map<*, *>)["texture"] as String? }
+        }
+
+    /** The textures that the pack's models name, such as `nordtal:item/wand`, with `minecraft` where a name has no namespace. */
+    private fun modelTextures(pack: File): Set<String> =
+        pack
+            .resolve("src/assets")
+            .listFiles()
+            .orEmpty()
+            .flatMap { it.resolve("models").walk().filter { file -> file.extension == "json" } }
+            .flatMap { ((OxfmtJson.read(it) as? Map<*, *>)?.get("textures") as? Map<*, *>)?.values.orEmpty() }
+            .filterIsInstance<String>()
+            .map { if (':' in it) it else "minecraft:$it" }
+            .toSet()
 
     /**
      * Scales the height and ascent of [glyph] by its PNG's pixel height over the pixel height [from] it had, when [coupled].
@@ -76,7 +105,10 @@ object GlyphEdits {
                     "${found.label} is a cell of the sheet ${found.block["title"]}, which sets the size of every cell.",
                 )
         if (!coupled) return emptyList()
-        val to = ImageIO.read(sources(pack, texture)[0]).height
+        val png = sources(pack, texture)[0]
+        val to =
+            png.takeIf { it.isFile }?.let { ImageIO.read(it) }?.height
+                ?: throw IllegalArgumentException("${png.relativeTo(pack).invariantSeparatorsPath} is no PNG that can be read.")
         return NewTextures.edit(pack, null, 0, 0) { root ->
             val target = find(root, glyph)
             for (key in listOf("height", "ascent")) {
@@ -126,7 +158,11 @@ object GlyphEdits {
             val blocks = font["blocks"] as MutableList<Any?>
             for (block in blocks.toList().map { it as MutableMap<String, Any?> }) {
                 val glyphs = (block["glyphs"] as MutableList<*>?)?.map { it as MutableMap<String, Any?> } ?: continue
-                val mainBlock = (mainFont["blocks"] as List<*>).map { it as Map<*, *> }.firstOrNull { it["title"] == block["title"] }
+                val mainBlock =
+                    (mainFont["blocks"] as List<*>).map { it as Map<*, *> }.firstOrNull {
+                        it["range"] == block["range"] &&
+                            it["title"] == block["title"]
+                    }
 
                 fun move(
                     glyph: MutableMap<String, Any?>,
@@ -147,8 +183,9 @@ object GlyphEdits {
                     NewTextures.place(blocks, block)
                     continue
                 }
+                // A sheet's cell is its column, so its code alone names it: a renamed cell keeps its place.
                 val sheet = block["texture"] != null
-                val identity = { glyph: Map<*, *> -> glyph["code"] to glyph[if (sheet) "constant" else "texture"] }
+                val identity = { glyph: Map<*, *> -> if (sheet) glyph["code"] else glyph["code"] to glyph["texture"] }
                 val mainGlyphs = (mainBlock["glyphs"] as List<*>?).orEmpty().map { it as Map<*, *> }
                 val known = mainGlyphs.map(identity).toSet()
                 val taken = (mainGlyphs + glyphs.filter { identity(it) in known }).map(::code).toMutableSet()
@@ -159,7 +196,7 @@ object GlyphEdits {
                     taken += code
                 }
                 val list = block["glyphs"] as MutableList<Any?>
-                if (glyphs.zipWithNext().any { (a, b) -> code(a) > code(b) }) {
+                if (!sheet && glyphs.zipWithNext().any { (a, b) -> code(a) > code(b) }) {
                     val sorted = list.sortedBy { code(it as Map<*, *>) }
                     sorted.forEachIndexed { index, glyph -> list[index] = glyph }
                 }
@@ -170,7 +207,7 @@ object GlyphEdits {
 
     private fun code(glyph: Map<*, *>) = (glyph["code"] as String).toInt(16)
 
-    /** The places in the repository's tracked files that use [found]: `Glyphs.CONSTANT` in Java or Kotlin, or `<glyph:name>`. */
+    /** The places in the repository's files, tracked or not yet, that use [found]: `Glyphs.CONSTANT` in Java or Kotlin, or `<glyph:name>`. */
     private fun refuseUsed(
         repository: File,
         found: Found,
@@ -178,7 +215,7 @@ object GlyphEdits {
         val constant = (found.glyph["constant"] as String?)?.let { Regex("""\bGlyphs\.${Regex.escape(it)}\b""") }
         val tag = (found.glyph["name"] as String?)?.let { "<glyph:$it>" }
         val places =
-            trackedFiles(repository, emptyList()).flatMap { path ->
+            trackedFiles(repository, emptyList(), untracked = true).flatMap { path ->
                 val code = path.endsWith(".java") || path.endsWith(".kt")
                 val text = if (code || tag != null) readText(repository.resolve(path)) else null
                 text

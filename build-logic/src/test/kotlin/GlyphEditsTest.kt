@@ -288,4 +288,131 @@ class GlyphEditsTest {
         val block = GlyphAllocation.read(allocation).fonts[1].blocks[0]
         assertEquals(listOf(0xFE010..0xFE01F, 0xFE010), listOf(block.range, block.glyphs[0].codePoint))
     }
+
+    private fun icons(vararg cells: String) =
+        glyphs(badge("FE000", "star", "BADGE_STAR"), badge("FE001", "moon")).replace(
+            """[{ "code": "FE020", "constant": "SPAWN", "name": "spawn" }]""",
+            "[" +
+                cells.withIndex().joinToString(", ") { (index, name) ->
+                    """{ "code": "FE02$index", "constant": "${name.uppercase()}", "name": "$name" }"""
+                } + "]",
+        )
+
+    private fun cells() =
+        GlyphAllocation
+            .read(allocation)
+            .fonts[0]
+            .blocks[1]
+            .glyphs
+            .map { "%X %s".format(it.codePoint, it.constant) }
+
+    @Test
+    fun aRenamedSheetCellKeepsItsColumnAndCodePointWhenTheCodePointsAreAssigned() {
+        allocation.writeText(icons("spawn", "home", "shop"))
+
+        GlyphEdits.rename(pack, repository, "spawn", "base")
+        val moves = GlyphEdits.assignCodePoints(pack, icons("spawn", "home", "shop"))
+
+        assertEquals(emptyList<String>(), moves)
+        assertEquals(listOf("FE020 BASE", "FE021 HOME", "FE022 SHOP"), cells())
+    }
+
+    @Test
+    fun aBlockOfMainIsMatchedByItsRangeAndTitleNotItsTitleAlone() {
+        val bars = """{ "range": "FE040-FE04F", "title": "Bars", "height": 5, "ascent": 5, "glyphs": [] }"""
+        val heart = """{ "code": "%s", "constant": "HEART", "texture": "nordtal:heart.png" }"""
+        allocation.writeText(
+            glyphs(badge("FE000", "star", "BADGE_STAR")).replace(
+                bars,
+                """$bars, { "range": "FE050-FE05F", "title": "Hearts", "height": 5, "ascent": 5, "glyphs": [${heart.format("FE050")}] }""",
+            ),
+        )
+        val main =
+            glyphs(badge("FE000", "star", "BADGE_STAR")).replace(
+                bars,
+                """$bars, { "range": "FE050-FE05F", "title": "Coins", "glyphs": [] },
+                   { "range": "FE060-FE06F", "title": "Hearts", "height": 5, "ascent": 5, "glyphs": [${heart.format("FE060")}] }""",
+            )
+
+        val moves = GlyphEdits.assignCodePoints(pack, main)
+
+        assertEquals(listOf("nordtal:hud FE050 FE010 HEART"), moves)
+    }
+
+    @Test
+    fun aUseInAFileThatGitDoesNotTrackYetRefusesTheRename() {
+        repository
+            .resolve("smp/src/main/java/Draft.java")
+            .apply {
+                parentFile.mkdirs()
+            }.writeText("class Draft { String s = Glyphs.BADGE_STAR; }\n")
+
+        val refusal = assertThrows<IllegalStateException> { GlyphEdits.rename(pack, repository, "star", "sun") }
+
+        assertEquals("star is still used in 1 place:\n    smp/src/main/java/Draft.java:1", refusal.message)
+    }
+
+    @Test
+    fun aDeleteOfASheetCellBeforeItsLastRefusesSinceTheLaterCellsWouldShiftColumns() {
+        allocation.writeText(icons("spawn", "home", "shop"))
+        val before = allocation.readText()
+
+        val refusal = assertThrows<IllegalArgumentException> { GlyphEdits.delete(pack, repository, "home") }
+
+        assertEquals(
+            "home is cell 2 of 3 of the sheet Icons. Only its last cell can be deleted, since a later cell would move to another column.",
+            refusal.message,
+        )
+        assertEquals(before, allocation.readText())
+        GlyphEdits.delete(pack, repository, "shop")
+        assertEquals(listOf("FE020 SPAWN", "FE021 HOME"), cells())
+    }
+
+    @Test
+    fun aDeleteKeepsAPngThatASheetOrAnItemModelStillDraws() {
+        allocation.writeText(
+            glyphs(badge("FE000", "star", "BADGE_STAR"), badge("FE001", "moon"), badge("FE002", "icons"))
+                .replace("\"texture\": \"nordtal:badges/icons.png\"", "\"texture\": \"nordtal:icons.png\""),
+        )
+        val icons = pack.resolve("src/assets/nordtal/textures/icons.png").also { png(it, 8) }
+        pack.resolve("src/assets/nordtal/models/item/moon.json").apply { parentFile.mkdirs() }.writeText(
+            """{ "parent": "minecraft:item/generated", "textures": { "layer0": "nordtal:badges/moon" } }""",
+        )
+        val moon = pack.resolve("src/assets/nordtal/textures/badges/moon.png")
+
+        assertEquals(listOf(allocation), GlyphEdits.delete(pack, repository, "icons"))
+        assertEquals(listOf(allocation), GlyphEdits.delete(pack, repository, "moon"))
+
+        assertTrue(icons.exists())
+        assertTrue(moon.exists())
+    }
+
+    @Test
+    fun aDeleteThatCannotRemoveItsPngWritesNothing() {
+        val before = allocation.readText()
+        star.parentFile.setWritable(false)
+
+        val refusal =
+            try {
+                assertThrows<IllegalStateException> { GlyphEdits.delete(pack, repository, "star") }
+            } finally {
+                star.parentFile.setWritable(true)
+            }
+
+        assertTrue("so nothing was written" in refusal.message!!, refusal.message)
+        assertEquals(before, allocation.readText())
+        assertTrue(star.exists())
+        assertTrue(starArt.exists())
+    }
+
+    @Test
+    fun aResizeRefusesAPngThatIsMissingOrNoPng() {
+        star.delete()
+        val missing = assertThrows<IllegalArgumentException> { GlyphEdits.resize(pack, "star", 8, coupled = true) }
+        star.writeText("not a png")
+        val broken = assertThrows<IllegalArgumentException> { GlyphEdits.resize(pack, "star", 8, coupled = true) }
+
+        assertEquals("src/assets/nordtal/textures/badges/star.png is no PNG that can be read.", missing.message)
+        assertEquals(missing.message, broken.message)
+    }
 }

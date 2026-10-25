@@ -39,12 +39,15 @@ tasks.register<JavaExec>("renderGlyphPreviews") {
     description = "Renders one glyph in the menu panel, the HUD line and the board as text-component JSON."
     classpath = preview.runtimeClasspath
     mainClass.set("eu.nordtal.season.packrendering.preview.GlyphPreviews")
-    val resourcePack = rootProject.layout.projectDirectory.dir("resource-pack")
     val previews = layout.buildDirectory.file("glyph-previews.json")
+    // The assembled pack, built first.
+    val pack = configurations.named("resourcePackFiles").map { it.incoming.files }
+    inputs.files(pack).withPropertyName("pack").withPathSensitivity(PathSensitivity.RELATIVE)
+    // The path on stdout is what a caller reads, so the task runs every time.
+    outputs.upToDateWhen { false }
     argumentProviders.add(
         objects.newInstance<GlyphPreviewArguments>().apply {
-            allocation.set(resourcePack.file("glyphs.json"))
-            assets.set(resourcePack.dir("src/assets"))
+            assets.set(layout.dir(pack.map { it.singleFile.resolve("assets") }))
             font.set(providers.gradleProperty("font"))
             code.set(providers.gradleProperty("code"))
             mapOf("rows" to "rows", "row" to "row", "x" to "x", "text" to "text", "board-width" to "boardWidth")

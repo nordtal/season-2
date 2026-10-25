@@ -6,11 +6,18 @@ import eu.nordtal.season.build.CheckNoDashPunctuation
 import eu.nordtal.season.build.CheckNoTrackerIds
 import eu.nordtal.season.build.CheckPack
 import eu.nordtal.season.build.CheckSourcesTracked
+import eu.nordtal.season.build.CopyVanillaTexture
 import eu.nordtal.season.build.DescribePack
+import eu.nordtal.season.build.DownloadVanillaClient
 import eu.nordtal.season.build.GenerateGlyphs
 import eu.nordtal.season.build.InstallPack
+import eu.nordtal.season.build.ListVanillaTextures
 import eu.nordtal.season.build.MinecraftInstanceChooser
+import eu.nordtal.season.build.MinecraftVersion
 import eu.nordtal.season.build.Sha1File
+import eu.nordtal.season.build.VanillaClient
+import eu.nordtal.season.build.VanillaClientTask
+import org.gradle.accessors.dm.LibrariesForLibs
 
 plugins {
     id("base")
@@ -200,4 +207,26 @@ tasks.register<InstallPack>("installPack") {
     pack.set(assembledPack)
     instanceFile.set(minecraftInstance)
     packName.set("nordtal-dev")
+}
+
+// The client jar of the season's Minecraft version, the source of a vanilla override. It is cached outside the clone.
+val minecraftVersion = MinecraftVersion.of(the<LibrariesForLibs>().versions.paper.get())
+val vanillaClient: VanillaClientTask.() -> Unit = {
+    version.set(minecraftVersion)
+    manifest.set(VanillaClient.MANIFEST)
+    cache.set(File(gradle.gradleUserHomeDir, "caches/nordtal/vanilla-client"))
+}
+
+tasks.register<DownloadVanillaClient>("downloadVanillaClient") { vanillaClient() }
+
+tasks.register<ListVanillaTextures>("listVanillaTextures") {
+    vanillaClient()
+    listing.set(layout.buildDirectory.file("vanilla-textures.json"))
+}
+
+// Run with -Ptexture=minecraft:block/stone.png.
+tasks.register<CopyVanillaTexture>("copyVanillaTexture") {
+    vanillaClient()
+    texture.set(providers.gradleProperty("texture"))
+    assets.set(packSource.dir("assets"))
 }

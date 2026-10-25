@@ -197,7 +197,8 @@ YAML
         printf 'environment:\n  %s: true\n' "$key" > "$world"
         log "seeded config/paper-world-defaults.yml with ${key}: true"
     elif grep -qxF "  ${key}: false" "$world"; then
-        sed -i "s|^  ${key}: false\$|  ${key}: true|" "$world"
+        # A temporary file, as in set_property, since GNU and BSD sed spell -i differently.
+        sed "s|^  ${key}: false\$|  ${key}: true|" "$world" > "${world}.tmp" && mv "${world}.tmp" "$world"
         log "config/paper-world-defaults.yml: ${key} set to true"
     fi
 }

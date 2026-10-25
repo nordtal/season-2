@@ -286,4 +286,18 @@ class NewTexturesTest {
         val refusal = assertThrows<IllegalStateException> { NewTextures.item(pack, "nordtal:wand", 16, 16) }
         assertEquals("src/assets/nordtal/items/wand.json exists already.", refusal.message)
     }
+
+    @Test
+    fun aTextureOverTheSizeLimitWritesNothing() {
+        fixture()
+        val before = allocation.readText()
+
+        assertThrows<IllegalArgumentException> { NewTextures.item(pack, "nordtal:wand", 5000, 16) }
+        assertThrows<IllegalArgumentException> {
+            NewTextures.sheet(pack, "nordtal:hud", "Wide", "nordtal:hud/wide.png", (1..300).map { "W$it" }, 16, 8, 7)
+        }
+
+        assertFalse(pack.resolve("src").exists())
+        assertEquals(before, allocation.readText())
+    }
 }

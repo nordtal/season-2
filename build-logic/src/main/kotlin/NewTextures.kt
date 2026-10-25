@@ -120,6 +120,7 @@ object NewTextures {
         val files =
             listOf(assets.resolve("items/$path.json"), assets.resolve("models/item/$path.json"), assets.resolve("textures/item/$path.png"))
         files.forEach { refuseExisting(pack, it) }
+        checkSize(width, height)
         val model = "$namespace:item/$path"
         files.forEach { it.parentFile.mkdirs() }
         OxfmtJson.write(files[0], mapOf("model" to mapOf("type" to "minecraft:model", "model" to model)))
@@ -136,6 +137,7 @@ object NewTextures {
         height: Int,
         change: (OxfmtJson.Object) -> Unit,
     ): List<File> {
+        png?.let { checkSize(width, height) }
         val allocation = pack.resolve("glyphs.json")
         val root = OxfmtJson.read(allocation) as OxfmtJson.Object
         change(root)
@@ -239,8 +241,13 @@ object NewTextures {
         width: Int,
         height: Int,
     ) {
-        require(width in 1..4096 && height in 1..4096) { "A texture is 1 to 4096 pixels wide and high, not $width by $height." }
+        checkSize(width, height)
         file.parentFile.mkdirs()
         ImageIO.write(BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB), "png", file)
     }
+
+    private fun checkSize(
+        width: Int,
+        height: Int,
+    ) = require(width in 1..4096 && height in 1..4096) { "A texture is 1 to 4096 pixels wide and high, not $width by $height." }
 }

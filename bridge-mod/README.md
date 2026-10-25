@@ -6,14 +6,14 @@ boss bar, a chest title, the hand or a block placed in the client only. It works
 on servers, and it needs Fabric Loader but not the Fabric API. Every release attaches it as
 `nordtal-bridge-<version>.jar`.
 
-| File                  | What it does                                                               |
-| --------------------- | -------------------------------------------------------------------------- |
-| `BridgeMod`           | The client entry point: reads the settings file and starts the server.     |
-| `BridgeSettings`      | Reads port and token from the settings file.                               |
-| `BridgeServer`        | The WebSocket server, on Netty from the client's own libraries.            |
-| `Session`             | One connection: the hello with the token, then one reply per request.      |
-| `Request`             | Reads and checks a request's JSON.                                         |
-| `ClientActions`       | Carries a request out on the client thread.                                |
+| File             | What it does                                                           |
+| ---------------- | ---------------------------------------------------------------------- |
+| `BridgeMod`      | The client entry point: reads the settings file and starts the server. |
+| `BridgeSettings` | Reads port and token from the settings file.                           |
+| `BridgeServer`   | The WebSocket server, on Netty from the client's own libraries.        |
+| `Session`        | One connection: the hello with the token, then one reply per request.  |
+| `Request`        | Reads and checks a request's JSON.                                     |
+| `ClientActions`  | Carries a request out on the client thread.                            |
 
 ## Settings
 
@@ -46,17 +46,17 @@ A wrong token, or any frame before the hello, gets a reply with `"ok": false` an
 status 1008. A reply comes once the client has carried the request out; for `reload` that is once the
 packs are reloaded. A text component (`text`, `subtitle`) is the JSON that `/tellraw` takes.
 
-| `op`        | Fields                                                     | What the client does                                          |
-| ----------- | ---------------------------------------------------------- | ------------------------------------------------------------- |
-| `reload`    |                                                            | Reloads every resource pack.                                  |
-| `chat`      | `text`                                                     | Adds the component to the chat.                               |
-| `actionbar` | `text`                                                     | Shows the component above the hotbar.                         |
-| `title`     | `text`, `subtitle` optional                                | Shows the title with the default times.                       |
-| `bossbar`   | `text` (absent removes), `color`, `overlay`, `progress`    | Shows the mod's one boss bar; `white`, `progress` and 1 by default. |
-| `chest`     | `text`, `rows` from 1 to 6, 3 by default                   | Opens an empty chest under the title, in the client only.     |
-| `give`      | `item` as `/give` writes it, `count` from 1 to 99          | Puts the item into the selected hotbar slot, in creative mode only. |
-| `block`     | `block` as `/setblock` writes it, `pos` as `[x, y, z]`     | Places the block state in the client only; without `pos`, on the face under the crosshair. |
-| `clear`     |                                                            | Removes the boss bar and the title, and puts back every block it placed. |
+| `op`        | Fields                                                  | What the client does                                                                       |
+| ----------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `reload`    |                                                         | Reloads every resource pack.                                                               |
+| `chat`      | `text`                                                  | Adds the component to the chat.                                                            |
+| `actionbar` | `text`                                                  | Shows the component above the hotbar.                                                      |
+| `title`     | `text`, `subtitle` optional                             | Shows the title with the default times.                                                    |
+| `bossbar`   | `text` (absent removes), `color`, `overlay`, `progress` | Shows the mod's one boss bar; `white`, `progress` and 1 by default.                        |
+| `chest`     | `text`, `rows` from 1 to 6, 3 by default                | Opens an empty chest under the title, in the client only.                                  |
+| `give`      | `item` as `/give` writes it, `count` from 1 to 99       | Puts the item into the selected hotbar slot, in creative mode only.                        |
+| `block`     | `block` as `/setblock` writes it, `pos` as `[x, y, z]`  | Places the block state in the client only; without `pos`, on the face under the crosshair. |
+| `clear`     |                                                         | Removes the boss bar and the title, and puts back every block it placed.                   |
 
 `color` is one of `pink`, `blue`, `red`, `green`, `yellow`, `purple` and `white`, and `overlay` one
 of `progress`, `notched_6`, `notched_10`, `notched_12` and `notched_20`. A server sends its own

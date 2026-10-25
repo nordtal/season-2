@@ -82,13 +82,14 @@ fonts[]       font, rows, constant, about, blocks[]
               kind "sheet": title, range, status, about, height, ascent, texture, cells[]
   glyphs[]    code, constant, name, list, status, height, ascent, about, texture
   cells[]     row, column, code, and for a glyph cell constant, list, status, about
-items[]       category (the namespace), entries[]: id, file, model (the type of the root model)
+items[]       category (the namespace), entries[]: id, file, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, scaling
 texture       id, png, aseprite, asepriteExists, width, height
 ```
 
-`status` holds the block's value when the glyph sets none. `width` and `height` of a texture are its
-pixels, or null while its PNG is missing. `animation` and `scaling` are the `animation` and
+The `status` of a glyph or cell is its own value, null when it inherits the block's, which only the
+block holds. The `texture` of an item is the `layer0` of a `minecraft:model` in the pack, or null.
+`width` and `height` of a texture are its pixels, or null while its PNG is missing. `animation` and `scaling` are the `animation` and
 `gui.scaling` objects of the `.png.mcmeta`, or null. Language files are not listed.
 
 ## glyphs.json

@@ -75,6 +75,23 @@ class PackModelTest {
     }
 
     @Test
+    fun aGlyphHoldsOnlyTheStatusItSetsAndTheBlockHoldsItsOwn() {
+        allocation(
+            """
+            {"fonts": [{"font": "minecraft:default", "blocks": [{"range": "FE000-FE00F", "title": "Badges", "status": "placeholder",
+              "height": 8, "ascent": 7, "glyphs": [
+              {"code": "FE001", "constant": "STAR", "name": "star", "texture": "nordtal:star.png"},
+              {"code": "FE002", "constant": "MOON", "name": "moon", "texture": "nordtal:moon.png", "status": "keep"}]}]}]}
+            """,
+        )
+
+        val block = only(only(fonts()).list("blocks"))
+
+        assertEquals("placeholder", block["status"])
+        assertEquals(listOf(null, "keep"), block.list("glyphs").map { it["status"] })
+    }
+
+    @Test
     fun overridesAreGroupedByFolderWithAnimationAndScaling() {
         allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
         png("src/assets/minecraft/textures/gui/sprites/boss_bar/white_progress.png", 182, 5)
@@ -104,7 +121,11 @@ class PackModelTest {
     fun itemsAreGroupedByNamespaceAndLanguageFilesAreLeftOut() {
         allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
         file("src/assets/nordtal/items/blank.json").writeText("""{"model": {"type": "minecraft:empty"}}""")
-        file("src/assets/minecraft/items/stick.json").writeText("""{"model": {"type": "minecraft:model", "model": "x"}}""")
+        file("src/assets/minecraft/items/stick.json")
+            .writeText("""{"model": {"type": "minecraft:model", "model": "nordtal:item/wand"}}""")
+        file("src/assets/nordtal/models/item/wand.json")
+            .writeText("""{"parent": "minecraft:item/handheld", "textures": {"layer0": "nordtal:item/wand"}}""")
+        png("src/assets/nordtal/textures/item/wand.png", 16, 32)
         file("src/assets/minecraft/lang/en_us.json").writeText("{}")
 
         val model = model()
@@ -115,6 +136,10 @@ class PackModelTest {
         assertEquals("nordtal:blank", blank["id"])
         assertEquals("src/assets/nordtal/items/blank.json", blank["file"])
         assertEquals("minecraft:empty", blank["model"])
+        assertEquals(null, blank["texture"])
+        val stick = only(items[0].list("entries")).map("texture")
+        assertEquals("nordtal:item/wand.png", stick["id"])
+        assertEquals(listOf(16, 32), listOf(stick["width"], stick["height"]))
         assertTrue(model.list("overrides").isEmpty())
     }
 

@@ -128,10 +128,37 @@ object PackModel {
                         "id" to "${namespace.name}:${file.relativeTo(folder).invariantSeparatorsPath.removeSuffix(".json")}",
                         "file" to file.relativeTo(root).invariantSeparatorsPath,
                         "model" to model?.get("type"),
+                        "texture" to itemTexture(model, assets)?.let { texture(it, root) },
                     )
                 }
             entries.takeIf { it.isNotEmpty() }?.let { linkedMapOf("category" to namespace.name, "entries" to it) }
         }
+
+    /**
+     * The texture that a `minecraft:model` item draws: `layer0` of its model in the pack, or the model's first texture.
+     * It is null for any other item type, a model outside the pack, or a model without a texture.
+     */
+    private fun itemTexture(
+        model: Map<*, *>?,
+        assets: File,
+    ): String? {
+        if (model?.get("type") != "minecraft:model") return null
+        val file = resource(model["model"] as? String ?: return null, assets, "models", ".json")
+        val textures = (file.takeIf { it.isFile }?.let { json(it) } as? Map<*, *>)?.get("textures") as? Map<*, *>
+        val id = (textures?.get("layer0") ?: textures?.values?.firstOrNull()) as? String ?: return null
+        if (id.startsWith("#")) return null
+        return (if (':' in id) id else "minecraft:$id") + ".png"
+    }
+
+    private fun resource(
+        id: String,
+        assets: File,
+        kind: String,
+        suffix: String,
+    ): File {
+        val namespace = if (':' in id) id.substringBefore(':') else "minecraft"
+        return assets.resolve(namespace).resolve(kind).resolve(id.substringAfter(':') + suffix)
+    }
 
     /** The textures under `assets/minecraft/textures`, one category per folder. */
     private fun overrides(

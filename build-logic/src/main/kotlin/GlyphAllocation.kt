@@ -152,7 +152,7 @@ class GlyphAllocation private constructor(
             }
             val glyphs =
                 block.objects("glyphs", required = chars == null).map {
-                    readGlyph(it, texture, height, ascent, status)
+                    readGlyph(it, texture, height, ascent)
                 }
             chars?.map { it.codePointCount(0, it.length) }?.distinct()?.let {
                 if (it.size > 1) block.problem("every row of 'chars' has the same number of cells")
@@ -165,7 +165,6 @@ class GlyphAllocation private constructor(
             sheet: String?,
             blockHeight: Int?,
             blockAscent: Int?,
-            blockStatus: String?,
         ): Glyph {
             node.allow("code", "constant", "name", "list", "texture", "height", "ascent", "status", "about")
             val code = node.code("code") ?: 0
@@ -180,7 +179,7 @@ class GlyphAllocation private constructor(
             if (sheet == null && (height == null || ascent == null)) {
                 glyph.problem("'height' and 'ascent' are set here or on the block")
             }
-            val status = glyph.status() ?: blockStatus
+            val status = glyph.status()
             val constant = glyph.string("constant")
             val list = glyph.string("list")
             if (constant == null && list == null) glyph.problem("a glyph has a 'constant', a 'list', or both")

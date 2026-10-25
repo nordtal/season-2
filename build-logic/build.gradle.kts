@@ -18,6 +18,8 @@ dependencies {
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
+    // Runs a task in a build of its own, to see what it prints on the second run.
+    testImplementation(gradleTestKit())
 }
 
 tasks.test {

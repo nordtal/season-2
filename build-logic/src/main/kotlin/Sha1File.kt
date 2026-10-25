@@ -17,11 +17,9 @@ abstract class Sha1File : DefaultTask() {
 
     @TaskAction
     fun write() {
-        val hash =
-            MessageDigest
-                .getInstance("SHA-1")
-                .digest(source.get().asFile.readBytes())
-                .joinToString("") { "%02x".format(it) }
-        target.get().asFile.writeText(hash + "\n")
+        target.get().asFile.writeText(sha1(source.get().asFile.readBytes()) + "\n")
     }
 }
+
+/** Returns the SHA-1 of [bytes] in lower-case hex, as Mojang's manifests and the pack's `.sha1` write it. */
+fun sha1(bytes: ByteArray): String = MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }

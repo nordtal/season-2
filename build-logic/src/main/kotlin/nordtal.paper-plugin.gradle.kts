@@ -1,6 +1,7 @@
 // A Paper plugin with the Paper API, the shared code and a local test server through run-paper.
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import eu.nordtal.season.build.MinecraftVersion
 import org.gradle.accessors.dm.LibrariesForLibs
 import java.util.zip.ZipFile
 
@@ -25,7 +26,7 @@ dependencies {
 }
 
 tasks.named<xyz.jpenilla.runpaper.task.RunServer>("runServer") {
-    minecraftVersion("26.2")
+    minecraftVersion(MinecraftVersion.of(libs.versions.paper.get()))
 }
 
 // Paper provides Gson and SnakeYAML to plugins, so a shaded copy risks a version clash.

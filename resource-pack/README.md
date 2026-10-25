@@ -180,6 +180,20 @@ them, except `ß`, and maps unknown characters to `?`, because a missing-glyph b
 | `minecraft/lang/en_us.json`                                    | sets `menu.returnToGame`, `menu.game` (the logo glyph) and `menu.disconnect` |
 | `minecraft/lang/de_de.json`                                    | sets the same three keys in German                                           |
 
+A vanilla override starts as a copy from the client jar of the season's Minecraft version, the version
+of `paper` in the catalog. The jar is downloaded once from Mojang's version manifest, checked against
+the SHA-1 it names and cached under `~/.gradle/caches/nordtal/vanilla-client`. It is never part of the
+pack. Each task prints the absolute path of its result, one file per line.
+
+```bash
+./gradlew -q :resource-pack:downloadVanillaClient   # the path of client.jar
+./gradlew -q :resource-pack:listVanillaTextures     # build/vanilla-textures.json: id, width, height, mcmeta
+./gradlew -q :resource-pack:copyVanillaTexture -Ptexture=minecraft:block/stone.png
+```
+
+`copyVanillaTexture` writes the PNG and its `.mcmeta` to `src/assets/minecraft/textures` and refuses
+a texture that exists there already.
+
 `de_de.json` is the only place where the client language decides what a player sees, and it holds
 these three pause-menu strings only. `menu.game` names a glyph, so a language file is the one place
 besides `glyphs.json` that writes a code point by hand. `ResourcePackTest` parses the language files

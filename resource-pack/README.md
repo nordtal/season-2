@@ -165,6 +165,45 @@ fails with the reason when it refuses.
   sheet is its code point, so a renamed cell keeps its place. A new block that overlaps a block of main
   moves to the first free run with its glyphs.
 
+## Item definitions
+
+Three tasks read and write item definitions under `assets/<namespace>/items/`, for Nordtal items and
+overrides of vanilla items, and import a model that Blockbench exported as Java model JSON. Each
+reads the client jar of the season's Minecraft version, which _Vanilla overrides_ describes, for what the pack
+does not hold. Paths are absolute.
+
+```bash
+./gradlew -q :resource-pack:readItem -Pitem=minecraft:compass
+./gradlew -q :resource-pack:writeItem -Pitem=nordtal:lamp -Pdefinition=/tmp/lamp.json
+./gradlew -q :resource-pack:importBlockbench -Pmodel=/tmp/export/lamp.json -Pid=nordtal:item/lamp
+```
+
+| task               | options              | prints                                                              |
+| ------------------ | -------------------- | ------------------------------------------------------------------- |
+| `readItem`         | `item`               | one line of JSON: the definition, where it comes from, its problems |
+| `writeItem`        | `item`, `definition` | the absolute path of the definition it wrote                        |
+| `importBlockbench` | `model`, `id`        | the absolute path of the model and of each texture it copied        |
+
+The line of `readItem` holds `item`, `source` (`pack`, or `vanilla` for a definition only the jar
+has), `file` (the path in the pack, or null), `definition`, `problems` (a list of strings, empty when
+the definition passes) and `types`, every model type, property, tint source and special model that
+the rules below know, for an editor to offer.
+
+- The rules follow the codecs of the client jar: every model type (`empty`, `model`, `composite`,
+  `condition`, `select`, `range_dispatch`, `special` and `bundle/selected_item`), each property of
+  `condition`, `select` and `range_dispatch`, each tint source and each special model, with the
+  fields each requires and allows. A field that none of them knows is refused, except one whose name
+  starts with `_`, such as `_comment`.
+- A definition is written only when it passes, and when each model it draws, each parent of those
+  and each of their textures is in the pack or the jar. A texture may also be a sprite that an
+  atlas generates, such as a paletted permutation of an armor trim.
+- An import writes the model at `id` under `models/`. Each texture whose PNG lies beside the export
+  is copied, with its `.mcmeta`, into the folder of the model under `textures/`, and its reference
+  is rewritten to the namespace of `id`. A reference that the pack or the jar resolves, such as
+  `block/stone`, stays. A file that exists is refused.
+- Every item definition of the client jar passes these rules and is written back unchanged, which a
+  test checks against the jar.
+
 ## glyphs.json
 
 `fonts` lists one entry per font, in the order that `Glyphs` follows. The `about` of a font, block,

@@ -58,4 +58,17 @@ object Identifier {
         ) { "$id does not end in a name and $suffix." }
         return id.substringBefore(':') to id.substringAfter(':')
     }
+
+    /**
+     * The path under `assets/` of the resource [id] of [kind], such as `minecraft/models/item/apple.json` for `item/apple`.
+     * A model or texture reference may leave out the namespace `minecraft`.
+     */
+    fun resource(
+        id: String,
+        kind: String,
+        suffix: String,
+    ): String {
+        val (namespace, path) = parse(if (':' in id) id else "minecraft:$id")
+        return "$namespace/$kind/$path$suffix"
+    }
 }

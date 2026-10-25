@@ -143,21 +143,12 @@ object PackModel {
         assets: File,
     ): String? {
         if (model?.get("type") != "minecraft:model") return null
-        val file = resource(model["model"] as? String ?: return null, assets, "models", ".json")
+        val reference = model["model"] as? String ?: return null
+        val file = assets.resolve(runCatching { Identifier.resource(reference, "models", ".json") }.getOrNull() ?: return null)
         val textures = (file.takeIf { it.isFile }?.let { json(it) } as? Map<*, *>)?.get("textures") as? Map<*, *>
         val id = (textures?.get("layer0") ?: textures?.values?.firstOrNull()) as? String ?: return null
         if (id.startsWith("#")) return null
         return (if (':' in id) id else "minecraft:$id") + ".png"
-    }
-
-    private fun resource(
-        id: String,
-        assets: File,
-        kind: String,
-        suffix: String,
-    ): File {
-        val namespace = if (':' in id) id.substringBefore(':') else "minecraft"
-        return assets.resolve(namespace).resolve(kind).resolve(id.substringAfter(':') + suffix)
     }
 
     /** The textures under `assets/minecraft/textures`, one category per folder. */

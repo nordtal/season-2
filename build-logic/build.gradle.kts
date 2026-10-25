@@ -29,6 +29,9 @@ tasks.test {
     inputs.file(resourcePack.file("glyphs.json")).withPropertyName("allocation").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(resourcePack.dir("src")).withPropertyName("packSource").withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("nordtal.resourcePack", resourcePack.asFile.absolutePath)
+    // The round trip of every vanilla item definition reads the season's client jar from the cache that the pack's tasks share.
+    systemProperty("nordtal.paperVersion", libs.versions.paper.get())
+    systemProperty("nordtal.vanillaClientCache", File(gradle.gradleUserHomeDir, "caches/nordtal/vanilla-client").absolutePath)
 }
 
 fun Provider<PluginDependency>.marker(): Provider<String> =

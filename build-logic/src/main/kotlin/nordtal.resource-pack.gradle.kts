@@ -243,6 +243,9 @@ val sourceEdits =
         "resizeGlyph" to "resize",
         "deleteGlyph" to "delete",
         "assignCodePoints" to "codePoints",
+        "readItem" to "readItem",
+        "writeItem" to "writeItem",
+        "importBlockbench" to "import",
     )
 sourceEdits.forEach { (name, kind) ->
     tasks.register<EditPackSources>(name) {
@@ -251,5 +254,6 @@ sourceEdits.forEach { (name, kind) ->
         options.set(providers.gradlePropertiesPrefixedBy("").map { it.filterKeys { key -> key in EditPackSources.OPTIONS } })
         pack.set(layout.projectDirectory)
         repository.set(rootProject.layout.projectDirectory)
+        vanillaClient()
     }
 }

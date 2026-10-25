@@ -15,6 +15,7 @@ tasks.register("releaseArtifacts") {
         ":smp:shadowJar",
         ":proxy:shadowJar",
         ":resource-pack:packZip",
+        ":bridge-mod:jar",
     )
 }
 

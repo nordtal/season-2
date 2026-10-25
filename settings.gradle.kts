@@ -2,6 +2,8 @@ pluginManagement {
     includeBuild("build-logic")
     repositories {
         gradlePluginPortal()
+        // Fabric Loom, for :bridge-mod.
+        maven("https://maven.fabricmc.net/")
     }
 }
 
@@ -74,6 +76,9 @@ include("dev")
 
 // Packs src/ into the resource pack zip.
 include("resource-pack")
+
+// The Fabric mod through which the Nordtal Designer reloads the pack and shows previews in a running client.
+include("bridge-mod")
 
 // -PbuildRoot=<dir> moves every build directory under <dir>, so parallel builds in one tree do not collide.
 // Never pass it to a delivery build: the Dockerfiles COPY from each module's own `build/`.

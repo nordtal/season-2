@@ -21,6 +21,8 @@ bunq-config.conf
 /*/config/
 /run/
 /*/run/
+# The client's log4j configuration writes logs/ in the working directory of the bridge mod's tests.
+/bridge-mod/logs/
 
 # The servers' plugins/ folders, bound in by compose.yml.
 /deploy/servers/

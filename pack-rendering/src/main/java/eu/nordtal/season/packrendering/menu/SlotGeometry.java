@@ -1,4 +1,4 @@
-package eu.nordtal.season.papercommon.menu;
+package eu.nordtal.season.packrendering.menu;
 
 /** The pixel position of a chest slot in the window. A cell's origin is its top-left shadow pixel. */
 public final class SlotGeometry {

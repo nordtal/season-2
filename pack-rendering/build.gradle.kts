@@ -1,3 +1,5 @@
+import eu.nordtal.season.build.GlyphPreviewArguments
+
 plugins {
     id("nordtal.java-base")
     id("java-library")
@@ -21,6 +23,40 @@ val glyphSources =
 
 sourceSets.main {
     java.srcDir(glyphSources)
+}
+
+// GlyphPreviews, which renders a glyph with this module's code for Nordtal Designer. No plugin ships it.
+val preview =
+    sourceSets.create("preview") {
+        compileClasspath += sourceSets.main.get().output
+        runtimeClasspath += sourceSets.main.get().output
+    }
+configurations.named(preview.implementationConfigurationName) { extendsFrom(configurations.implementation.get()) }
+
+// sh gradlew :pack-rendering:renderGlyphPreviews -Pfont=nordtal:gui_r{row} -Pcode=FE100, as this module's README describes.
+tasks.register<JavaExec>("renderGlyphPreviews") {
+    group = "nordtal"
+    description = "Renders one glyph in the menu panel, the HUD line and the board as text-component JSON."
+    classpath = preview.runtimeClasspath
+    mainClass.set("eu.nordtal.season.packrendering.preview.GlyphPreviews")
+    val previews = layout.buildDirectory.file("glyph-previews.json")
+    // The assembled pack, built first.
+    val pack = configurations.named("resourcePackFiles").map { it.incoming.files }
+    inputs.files(pack).withPropertyName("pack").withPathSensitivity(PathSensitivity.RELATIVE)
+    // The path on stdout is what a caller reads, so the task runs every time.
+    outputs.upToDateWhen { false }
+    argumentProviders.add(
+        objects.newInstance<GlyphPreviewArguments>().apply {
+            assets.set(layout.dir(pack.map { it.singleFile.resolve("assets") }))
+            font.set(providers.gradleProperty("font"))
+            code.set(providers.gradleProperty("code"))
+            mapOf("rows" to "rows", "row" to "row", "x" to "x", "text" to "text", "board-width" to "boardWidth")
+                .forEach { (argument, property) ->
+                    options.putAll(providers.gradleProperty(property).map { mapOf(argument to it) }.orElse(emptyMap()))
+                }
+            out.set(previews)
+        },
+    )
 }
 
 tasks.named<ProcessResources>("processResources") {
@@ -52,6 +88,13 @@ dependencies {
     testFixturesImplementation(testFixtures(project(":common")))
     testFixturesImplementation(libs.gson)
 
+    "previewImplementation"(libs.adventure.api)
+    "previewImplementation"(libs.adventure.minimessage)
+    "previewImplementation"(libs.adventure.text.serializer.gson)
+    "previewImplementation"(libs.gson)
+
+    testImplementation(preview.output)
+    testImplementation(libs.adventure.text.serializer.gson)
     testImplementation(testFixtures(project(":common")))
     testImplementation(libs.adventure.api)
     testImplementation(libs.adventure.minimessage)

@@ -2,6 +2,8 @@ package eu.nordtal.season.papercommon.menu;
 
 import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messages.document.Part;
+import eu.nordtal.season.packrendering.menu.MenuTitle;
+import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import java.util.List;
 import java.util.Objects;
 import org.bukkit.Material;

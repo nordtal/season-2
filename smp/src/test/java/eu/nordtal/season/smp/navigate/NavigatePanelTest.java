@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.packrendering.Glyphs;
-import eu.nordtal.season.papercommon.menu.MenuFont;
-import eu.nordtal.season.papercommon.menu.MenuTitle;
-import eu.nordtal.season.papercommon.menu.SlotGeometry;
+import eu.nordtal.season.packrendering.menu.MenuFont;
+import eu.nordtal.season.packrendering.menu.MenuTitle;
+import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import eu.nordtal.season.smp.menu.PanelWalk;
 import eu.nordtal.season.smp.menu.PanelWalk.Run;
 import java.util.ArrayList;

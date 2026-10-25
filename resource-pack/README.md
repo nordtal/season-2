@@ -161,7 +161,7 @@ Text lands at **+4**, and `MenuFontTest` checks each ascent against `SlotGeometr
 
 `ui/gui/row_text.png` is the five-pixel sheet. It is an 8 × 7 grid of 5 × 5 cells that hold `A` to `Z`,
 `0` to `9`, `. , : / - + % ( ) ! ? ' "`, `Ä Ö Ü ß`, `∙` and `█` `░` for a text bar. A space is a `space`
-provider at **+3**. The sheet has capitals only. `MenuFont` in `:paper-common` folds lower case onto
+provider at **+3**. The sheet has capitals only. `MenuFont` in `:pack-rendering` folds lower case onto
 them, except `ß`, and maps unknown characters to `?`, because a missing-glyph box is six pixels wide.
 `O`, `0` and `8` are three pixels wide and drawn apart. `MenuFontTest` checks their distances:
 

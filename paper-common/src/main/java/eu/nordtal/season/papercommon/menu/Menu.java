@@ -1,5 +1,6 @@
 package eu.nordtal.season.papercommon.menu;
 
+import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;

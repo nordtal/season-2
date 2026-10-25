@@ -1,12 +1,12 @@
-package eu.nordtal.season.smp.board;
+package eu.nordtal.season.packrendering;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.packrendering.Glyphs;
+import eu.nordtal.season.packrendering.board.BoardFrame;
 import eu.nordtal.season.packrendering.hud.BossBarLine;
-import eu.nordtal.season.papercommon.menu.MenuTitle;
+import eu.nordtal.season.packrendering.menu.MenuTitle;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.ComponentIteratorType;

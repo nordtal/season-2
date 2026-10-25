@@ -1,4 +1,4 @@
-package eu.nordtal.season.papercommon.menu;
+package eu.nordtal.season.packrendering.menu;
 
 import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.packrendering.Glyphs;

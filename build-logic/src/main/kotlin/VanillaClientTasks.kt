@@ -47,6 +47,7 @@ abstract class DownloadVanillaClient : VanillaClientTask() {
 /**
  * Writes every texture of the client jar to [listing] as JSON: `version` and `textures`, a list of `id`, `width`,
  * `height` and `mcmeta`, sorted by id. An id reads `minecraft:block/stone.png`, the path under `textures/`.
+ * It prints the path of [listing] on every run.
  */
 @DisableCachingByDefault(because = "Reads a jar from a cache outside the build")
 abstract class ListVanillaTextures : VanillaClientTask() {
@@ -55,6 +56,8 @@ abstract class ListVanillaTextures : VanillaClientTask() {
 
     init {
         description = "Lists the textures of the client jar with their sizes."
+        // The path on stdout is what a caller reads, so the task runs every time.
+        outputs.upToDateWhen { false }
     }
 
     @TaskAction

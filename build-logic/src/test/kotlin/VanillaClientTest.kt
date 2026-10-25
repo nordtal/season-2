@@ -1,6 +1,7 @@
 package eu.nordtal.season.build
 
 import com.sun.net.httpserver.HttpServer
+import org.gradle.testkit.runner.GradleRunner
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,7 +16,6 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.InetSocketAddress
 import java.net.URI
-import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import javax.imageio.ImageIO
@@ -124,6 +124,37 @@ class VanillaClientTest {
         assertThrows(IllegalStateException::class.java) { VanillaClient.copy(file, "minecraft:block/stone.png", assets) }
     }
 
+    @Test
+    fun theListingPrintsItsPathOnARunThatIsUpToDate() {
+        serve("26.2", jar, sha1(jar))
+        // The build-logic classes, which the build below loads as its own.
+        val classes =
+            System
+                .getProperty("java.class.path")
+                .split(File.pathSeparator)
+                .filter { "build-logic" in it && "/build/" in it }
+                .joinToString(", ") { "'" + it.replace("\\", "/") + "'" }
+        val project = directory.resolve("project").apply { mkdirs() }
+        project.resolve("settings.gradle").writeText("")
+        project.resolve("build.gradle").writeText(
+            """
+            buildscript { dependencies { classpath files($classes) } }
+            tasks.register('list', eu.nordtal.season.build.ListVanillaTextures) {
+                version = '26.2'
+                manifest = '${manifest()}'
+                cache = file('cache')
+                listing = layout.buildDirectory.file('listing.json')
+            }
+            """.trimIndent(),
+        )
+        val runner = GradleRunner.create().withProjectDir(project).withArguments("list", "--quiet")
+
+        runner.build()
+        val second = runner.build().output
+
+        assertTrue(project.resolve("build/listing.json").absolutePath in second, second)
+    }
+
     private fun serve(
         version: String,
         client: ByteArray,
@@ -141,8 +172,6 @@ class VanillaClientTest {
     }
 
     private fun manifest() = URI("http://127.0.0.1:${server.address.port}/manifest.json")
-
-    private fun sha1(bytes: ByteArray) = MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }
 
     private fun png(
         width: Int,

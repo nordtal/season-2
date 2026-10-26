@@ -3,8 +3,7 @@
 
 local drafts = {}
 
--- How many lines of a refusal the publish dialog shows; the last one
--- holds the rest
+-- How many lines of a refusal the publish dialog shows
 local refusalLines = 6
 -- The width the publish dialog takes at least, so a long title shows
 local dialogWidth = 480
@@ -128,11 +127,12 @@ end
 
 -- Asks which drafts of context.list to publish or discard, with a
 -- check per draft and an editable title that follows the drafts
--- chosen until it is edited. context holds Dialog, tr, list, check
--- and confirm. check(title) returns true, or false and the lines of
+-- chosen until it is edited. context holds Dialog, tr, list, check,
+-- confirm and labels. check(title) returns true, or false and the lines of
 -- its reason, which the dialog shows before it asks again.
 -- confirm(text) returns whether the designer confirms a discard.
--- wrap(text) breaks a refusal into lines. Rectangle and screen, which
+-- labels(dialog, id, count, text, add) shows a refusal in the labels
+-- id1 to id<count> of the dialog. Rectangle and screen, which
 -- gives the window's width and height, widen the dialog.
 -- A draft with a conflict starts unchosen, and its publish is refused.
 -- Returns { publish=ids, title }, { discard=ids } or nil when cancelled.
@@ -170,21 +170,13 @@ function drafts.ask(context)
   generated = drafts.title(free)
   d:entry{ id="title", label=tr("publish.message"), text=generated,
            onchange=function() edited = d.data.title ~= generated end }
-  for i = 1, refusalLines do
-    d:label{ id="refusal" .. i, text="", visible=false }
-    d:newrow()
-  end
+  context.labels(d, "refusal", refusalLines, nil, true)
   d:button{ id="publish", text=tr("publish.publish"), focus=true }
   d:button{ id="discard", text=tr("publish.discard") }
   d:button{ id="cancel", text=tr("edit.cancel") }
 
   local function refuse(lines)
-    local text = table.concat(lines, " ")
-    local wrapped = context.wrap and context.wrap(text) or { text }
-    for i = 1, refusalLines do
-      local line = i == refusalLines and wrapped[i] and table.concat(wrapped, " ", i) or wrapped[i]
-      d:modify{ id="refusal" .. i, text=line or "", visible=line ~= nil }
-    end
+    context.labels(d, "refusal", refusalLines, table.concat(lines, " "))
   end
 
   -- Takes the dialog's own size, but at least dialogWidth inside the

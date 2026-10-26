@@ -1,29 +1,11 @@
 local conflicts = require("conflicts")
+local fake = require("spec.fake_dialog")
 
 local function tr(id, ...) return table.concat({ id, ... }, " ") end
 
--- A Dialog that records its widgets and answers its show with answer(dialog)
+-- A Dialog that answers each show with answer(dialog), and the dialogs it showed
 local function fakeDialog(answer)
-  local shown = {}
-  local function Dialog(args)
-    local d = { args=args, widgets={}, handlers={}, data={} }
-    for _, kind in ipairs({ "canvas", "label", "radio", "button", "separator", "newrow" }) do
-      d[kind] = function(self, t)
-        t = t or {}
-        table.insert(self.widgets, { kind=kind, args=t })
-        if t.id then
-          self.handlers[t.id] = t
-          if kind == "radio" then self.data[t.id] = t.selected or false end
-        end
-        return self
-      end
-    end
-    function d:show()
-      table.insert(shown, self)
-      answer(self)
-    end
-    return d
-  end
+  local Dialog, _, shown = fake(answer)
   return Dialog, shown
 end
 

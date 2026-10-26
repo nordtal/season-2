@@ -24,11 +24,22 @@ end
 
 -- tr(id, ...) for the strings of a language, with English for each
 -- key the language lacks. {0}, {1} name the arguments, {} takes the
--- next one, as in Aseprite's strings.
+-- next one, as in Aseprite's strings. tr takes the form <key>_one of a
+-- key when that form exists and the call's only number argument is 1.
 function language.translator(english, chosen)
+  local function lookup(id)
+    return (chosen and chosen[id]) or english[id]
+  end
   return function(id, ...)
-    local text = (chosen and chosen[id]) or english[id] or id
     local args, next = { ... }, 0
+    local numbers = {}
+    for i = 1, select("#", ...) do
+      if type(args[i]) == "number" then table.insert(numbers, args[i]) end
+    end
+    if #numbers == 1 and numbers[1] == 1 and lookup(id .. "_one") then
+      id = id .. "_one"
+    end
+    local text = lookup(id) or id
     return (text:gsub("{(%d*)}", function(n)
       local index
       if n == "" then

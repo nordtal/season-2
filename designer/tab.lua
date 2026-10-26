@@ -40,11 +40,21 @@ local tab = {}
 local treeWidth = 150
 local panelWidth = 120
 
+-- The characters a line of text in the wizard and the publish dialog
+-- holds at most
+local lineWidth = 48
+
 function tab.open(context)
   local api, modules, tr = context.api, context.modules, context.tr
   local preferences, clone = context.preferences, context.bootstrap.clone
   local properties = modules.properties
   local ctl = {}
+
+  -- Shows text in the labels id1 to id<count> of a dialog
+  local function labels(dialog, id, count, text, add)
+    modules.panel.labels(dialog, id, count, text, add, lineWidth, utf8.len)
+  end
+
   local dlg, nodes, index, lists, selected, closed, model
   -- The textures and items of the client jar, read once
   local vanilla
@@ -865,7 +875,7 @@ function tab.open(context)
     end
     local answer = modules.drafts.ask{ Dialog=api.Dialog, tr=tr, list=list, check=checkTitle, confirm=function(text)
       return api.alert{ title=tr("publish.discard"), text=text, buttons={ tr("properties.discard"), tr("edit.cancel") } } == 1
-    end, wrap=modules.wizard.wrap, Rectangle=api.Rectangle, screen=api.screen }
+    end, labels=labels, Rectangle=api.Rectangle, screen=api.screen }
     if not answer then
       return
     end
@@ -1131,6 +1141,7 @@ function tab.open(context)
       api=api,
       tr=tr,
       model=model or {},
+      labels=labels,
       run=function(job, done)
         setStatus(tr("status.writing"))
         enqueue(task(job), function(ok, err, out)

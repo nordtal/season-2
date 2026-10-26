@@ -1,5 +1,6 @@
 local tab = require("tab")
 local dkjson = require("dkjson")
+local fake = require("spec.fake_dialog")
 
 local clone = "/c"
 local star = "/c/resource-pack/src/assets/nordtal/textures/badges/star.png"
@@ -33,58 +34,6 @@ local function animatedModel()
   return dkjson.encode(m)
 end
 
--- A Dialog that records the widgets it was given and every modify
-local function fakeDialogs()
-  local dialogs = {}
-  local function Dialog(args)
-    -- Like Dialog, an assignment to data sets the values it names
-    local dlg = setmetatable({ args=args, widgets={}, modified={}, values={}, shown=0, closed=false, handlers={},
-                              sizeHint={ width=300, height=200 } }, {
-      __index=function(t, k) if k == "data" then return rawget(t, "values") end end,
-      __newindex=function(t, k, v)
-        if k ~= "data" then return rawset(t, k, v) end
-        for name, value in pairs(v) do t.values[name] = value end
-      end,
-    })
-    local function add(kind)
-      return function(self, t)
-        t = t or {}
-        table.insert(self.widgets, { kind=kind, args=t })
-        if t.id then self.handlers[t.id] = t end
-        if kind == "editor" then self.data[t.id] = t.sprite end
-        return self
-      end
-    end
-    for _, kind in ipairs({ "tree", "editor", "label", "separator", "canvas", "entry", "number", "combobox", "check",
-                            "button", "file", "radio" }) do
-      dlg[kind] = add(kind)
-    end
-    function dlg:samerow() table.insert(self.widgets, { kind="samerow" }) return self end
-    function dlg:newrow() table.insert(self.widgets, { kind="newrow" }) return self end
-    function dlg:repaint() self.repainted = (self.repainted or 0) + 1 end
-    -- A form waits for the answer the test gives
-    function dlg:show(showArgs)
-      self.shown = self.shown + 1
-      self.showArgs = showArgs
-      -- Where the app put the dialog, and how large it made it
-      if dialogs.bounds then self.bounds = dialogs.bounds(self) end
-      if not (args and args.tab) and dialogs.answer then dialogs.answer(self) end
-      return self
-    end
-    function dlg:close() self.closed = true end
-    function dlg:modifyNode(t) self.nodesModified = self.nodesModified or {} table.insert(self.nodesModified, t) end
-    function dlg:modify(t)
-      table.insert(self.modified, t)
-      if t.id and self.handlers[t.id] then
-        for k, v in pairs(t) do self.handlers[t.id][k] = v end
-        if t.sprite ~= nil then self.data[t.id] = t.sprite or nil end
-      end
-    end
-    table.insert(dialogs, dlg)
-    return dlg
-  end
-  return Dialog, dialogs
-end
 
 local function fakeSprite(filename, log)
   local sprite = { filename=filename, spec={}, palettes={ "palette" }, width=7, height=7, frames={ { duration=0.1 } } }
@@ -103,7 +52,7 @@ local function floats(value)
 end
 
 local function setUp(preferences, modelText)
-  local Dialog, dialogs = fakeDialogs()
+  local Dialog, dialogs = fake()
   local started, log, open, timers, sockets, instanceRuns = {}, {}, {}, {}, {}, {}
   local world = { active=nil }
   local api = {
@@ -905,7 +854,7 @@ describe("the Nordtal tab", function()
     local out = {}
     for _, w in ipairs(d.widgets) do
       if w.kind == "label" then
-        table.insert(out, "label " .. tostring(w.args.text))
+        if w.args.visible ~= false then table.insert(out, "label " .. tostring(w.args.text)) end
       elseif w.kind ~= "newrow" and w.kind ~= "separator" then
         table.insert(out, w.kind .. " " .. tostring(w.args.id))
       end
@@ -1133,7 +1082,7 @@ describe("the Nordtal tab", function()
 
     browser = t.dialogs[#t.dialogs]
     browser.handlers.choices.onchange({ node="minecraft:compass" })
-    assert.equal("new.chosen_item minecraft:compass", browser.handlers.chosen.text)
+    assert.equal("new.chosen_item minecraft:compass", browser.handlers.chosen1.text)
     browser.handlers.create.onclick()
     assert.equal(":resource-pack:editItem -Pitem=minecraft:compass", run(t.started[3]))
     local file = "src/assets/minecraft/items/compass.json"
@@ -1902,13 +1851,13 @@ describe("the Minecraft bar of the Nordtal tab", function()
     local t, dlg = connected()
     click(dlg, "minecraft.install_pack")
     local timers = #t.timers
-    local lines = bar(dlg, 150)
-    assert.same({ "fill tone", "<status> minecraft.in..." }, { lines[#lines - 1], lines[#lines] })
+    local lines = bar(dlg, 200)
+    assert.same({ "fill tone", "<status> minecraft.insta..." }, { lines[#lines - 1], lines[#lines] })
     -- The tip shows after the paint, with one tick of a timer
     assert.equal(timers + 1, #t.timers)
     t.timers[#t.timers].args.ontick()
     assert.same({ "tip", "minecraft.installing" }, t.log[#t.log])
-    bar(dlg, 150)
+    bar(dlg, 200)
     assert.equal(timers + 1, #t.timers)
     -- A status the bar shows whole has no tip
     finish(t, 0)
@@ -1996,7 +1945,7 @@ describe("the Minecraft bar of the Nordtal tab", function()
     local read = dkjson.decode(lampRead)
     read.states = { { label="", give='minecraft:paper[item_model="nordtal:lamp"]' } }
     finish(t, 0, dkjson.encode(read))
-    click(dlg, "minecraft.give minecraft.plain")
+    click(dlg, "minecraft.give_plain")
     assert.same({ op="give", item='minecraft:paper[item_model="nordtal:lamp"]', id=1 }, socket.sent[2])
   end)
 end)

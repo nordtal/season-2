@@ -1,4 +1,24 @@
 local wizard = require("wizard")
+local panel = require("panel")
+local fake = require("spec.fake_dialog")
+
+local function tr(id, ...) return table.concat({ id, ... }, " ") end
+
+
+-- Opens the wizard on the browser of kind, vanilla items by default,
+-- with listing and gives the dialog it shows and the jobs it ran
+local function browse(listing, kind)
+  local Dialog, dialogs = fake()
+  local jobs = {}
+  wizard.open{ api={ Dialog=Dialog }, tr=tr, model={},
+               labels=function(dialog, id, count, text, add) panel.labels(dialog, id, count, text, add, 48, utf8.len) end,
+               run=function(job) table.insert(jobs, job) end,
+               listing=function(done) done(listing) end, created=function() end }
+  local d = dialogs[#dialogs]
+  d.data.kind = "new.kind_" .. (kind or "vanilla_item")
+  d.handlers.kind.onchange()
+  return function() return dialogs[#dialogs] end, jobs
+end
 
 local model = {
   fonts={
@@ -142,8 +162,57 @@ describe("the new-texture wizard", function()
     assert.same({}, wizard.choices("vanilla_item", { textures={} }, {}))
   end)
 
-  it("breaks a reason into lines of at most width characters, at spaces", function()
-    assert.same({ "The path of", "nordtal:X.png may", "hold only a-z." }, wizard.wrap("The path of nordtal:X.png may hold only a-z.", 17))
-    assert.same({ "averyveryverylongword", "x" }, wizard.wrap("averyveryverylongword x", 10))
+  it("forgets the chosen item once a search hides it, so Create asks for one", function()
+    local dialog, jobs = browse({ items={ "minecraft:apple", "minecraft:compass" } })
+    dialog().handlers.choices.onchange({ node="minecraft:compass" })
+    dialog().data.search = "apple"
+    dialog().handlers.search.onchange()
+    assert.is_true(table.concat(dialog():labels(), " "):find("new.chosen_none_item", 1, true) ~= nil)
+    dialog().handlers.create.onclick()
+    assert.same({}, jobs)
+    assert.is_true(table.concat(dialog():labels(), " "):find("new.required_item", 1, true) ~= nil)
+  end)
+
+  it("forgets the chosen texture that a search under another kind hides", function()
+    local dialog, jobs = browse({ textures={ { id="minecraft:block/stone.png" } }, items={ "minecraft:apple" } }, "override")
+    dialog().handlers.choices.onchange({ node="minecraft:block/stone.png" })
+    dialog().data.kind = "new.kind_vanilla_item"
+    dialog().handlers.kind.onchange()
+    dialog().data.search = "apple"
+    dialog().handlers.search.onchange()
+    dialog().data.kind = "new.kind_override"
+    dialog().handlers.kind.onchange()
+    assert.is_true(table.concat(dialog():labels(), " "):find("new.chosen_none", 1, true) ~= nil)
+    dialog().handlers.create.onclick()
+    assert.same({}, jobs)
+  end)
+
+  it("hides the refusal once an item is chosen", function()
+    local dialog = browse({ items={ "minecraft:apple", "minecraft:compass" } })
+    dialog().handlers.create.onclick()
+    assert.is_true(table.concat(dialog():labels(), " "):find("new.required_item", 1, true) ~= nil)
+    dialog().handlers.choices.onchange({ node="minecraft:compass" })
+    assert.is_nil(table.concat(dialog():labels(), " "):find("new.required_item", 1, true))
+  end)
+
+  it("keeps the chosen item while a search shows it", function()
+    local dialog, jobs = browse({ items={ "minecraft:apple", "minecraft:compass" } })
+    dialog().handlers.choices.onchange({ node="minecraft:compass" })
+    dialog().data.search = "comp"
+    dialog().handlers.search.onchange()
+    dialog().handlers.create.onclick()
+    assert.same({ { "editItem", { item="minecraft:compass" } } }, jobs)
+  end)
+
+  it("wraps the line about the chosen item, so a long id does not widen the dialog", function()
+    local id = "minecraft:a_very_long_item_id_that_holds_more_characters_than_a_line"
+    local dialog = browse({ items={ id } })
+    dialog().handlers.choices.onchange({ node=id })
+    local text = {}
+    for _, line in ipairs(dialog():labels()) do
+      assert.is_true(utf8.len(line) <= 48, line)
+      table.insert(text, line)
+    end
+    assert.is_true(table.concat(text):find(id, 1, true) ~= nil)
   end)
 end)

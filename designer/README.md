@@ -61,8 +61,9 @@ vanilla item or vanilla override. It then shows the options of the kind's task i
 value. A refusal shows below the field it names, and the dialog stays open with what was typed. Once
 the task succeeded, the tab reads the pack again and opens the new texture in the editor. A vanilla
 override is chosen from the textures of the client jar, which `listVanillaAssets` lists once per
-session together with its items, with a search for the words of its id. A vanilla item is chosen the
-same way from the items that the pack does not override yet. Create runs `editItem` without a change,
+session together with its items, with a search for the words of its id. A search that hides the
+chosen id clears the choice. A choice hides the refusal of Create. A vanilla item is chosen the same
+way from the items that the pack does not override yet. Create runs `editItem` without a change,
 which writes the item's definition from the client jar into the pack, and the item editor opens it.
 
 The tree marks each draft of the pack model with the icon of a modified tab: a texture with its
@@ -73,8 +74,8 @@ the tree, such as a language file, is listed only in the publish dialog. The pan
 draft with a check, and a title that names the drafts chosen until it is edited. **Discard
 Chosen...** discards the chosen drafts once confirmed. **Publish** writes the title to
 `resource-pack/build/publish-message.txt` and runs `.githooks/commit-msg` on it through `git hook
-run` with the bootstrap's git. A refusal of the hook shows in the dialog over several lines, and the
-dialog stays open. An accepted title runs `publishDrafts` with the bootstrap's gh, and the status
+run` with the bootstrap's git. A refusal of the hook shows in the dialog over at most six lines, and the
+dialog stays open. The last line ends with `...` when the refusal is longer. An accepted title runs `publishDrafts` with the bootstrap's gh, and the status
 line shows the address of the pull request. After a publish, failed or not, the tab reads the pack
 again. Every task runs with the folder of the bootstrap's git first on `PATH`. A pack with drafts or
 pull requests runs `syncReviews` after the tab's first read and every five minutes, and the tab reads
@@ -110,8 +111,11 @@ connects again. The word reads **Connecting** while that read runs and becomes t
 when the read fails. The tab also connects again when `describeInstance` reads another port or
 token. A divider separates the status line from the state of the bridge mod. The bar shortens the
 instance box from its start and the status line from its end, each down to a few characters, and
-removes no item. Moving the pointer onto an item shows its long text in Aseprite's tip above the
-status bar. A status line that the bar cuts shows whole in that tip when it is set.
+removes no item. When the items do not fit even then, **Install Pack** and the button of the bridge
+mod show a short label. The status line takes the freed room. When the items still do not fit, the
+status line shortens below its few characters and ends with "..." inside the bar. Moving the
+pointer onto an item shows its long text in Aseprite's tip above the status bar. A status line that
+the bar cuts shows whole in that tip when it is set.
 
 The panel lists the previews of the selected entry. A glyph or a cell runs `renderGlyphPreviews`
 first, with **Show Previews**, and then offers itself alone in each place the bridge mod shows text,
@@ -125,7 +129,8 @@ ASCII as an SNBT escape, `\U000F0000` for U+F0000, so the text shown is the text
 longer than the chat's 256 characters is shown with its length and is not copied.
 
 The interface strings are Aseprite string files in `strings/`, in English and German. The plugin
-reads the one of Aseprite's language setting, and English for each key it lacks.
+reads the one of Aseprite's language setting, and English for each key it lacks. A key
+`<key>_one` holds the text of `<key>` for a count of 1.
 
 ```bash
 # Run the Lua tests with Lua 5.4.6 and the current busted and dkjson, as CI does.

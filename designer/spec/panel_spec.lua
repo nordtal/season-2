@@ -22,6 +22,11 @@ describe("the properties panel", function()
       texts(layout({ { text="Code", value="F0000" }, { text="Name", value="star" } }, 20)))
   end)
 
+  it("wraps a key to the panel's width and puts its value below its last line", function()
+    assert.same({ { "Give minecraft:", 0, 0, true }, { "lodestone_tracker", 0, 2, true }, { "/give", 0, 4, false } },
+      texts(layout({ { text="Give minecraft:lodestone_tracker", value="/give" } }, 20)))
+  end)
+
   it("draws a value without a key below the row before", function()
     assert.same({ { "Refused", 0, 0, true }, { "admin", 0, 2, false }, { "a.java:1", 0, 5, false } },
       texts(layout({ { text="Refused", value="admin" }, { value="a.java:1" } }, 20)))
@@ -110,6 +115,23 @@ describe("the properties panel", function()
     assert.same({ "9 × 9", "px" }, panel.wrap("9 × 9 px", 5, measure))
   end)
 
+  it("gives at most most lines, the last one the rest of the text cut at the width with ...", function()
+    assert.same({ "src/assets/", "nordtal/..." }, panel.wrap("src/assets/nordtal/star.png", 11, measure, 2))
+    assert.same({ "a short", "about" }, panel.wrap("a short about", 8, measure, 2))
+  end)
+
+  it("shows a text in a fixed set of labels and hides the labels it does not need", function()
+    local Dialog = require("spec.fake_dialog")()
+    local d = Dialog()
+    panel.labels(d, "hint", 3, "a short about", true, 8, measure)
+    assert.same({ "a short", "about" }, d:labels())
+    assert.same({ "hint1", "hint2", "hint3" }, { d.widgets[1].args.id, d.widgets[3].args.id, d.widgets[5].args.id })
+    panel.labels(d, "hint", 3, "src/assets/nordtal/star.png and more", false, 11, measure)
+    assert.same({ "src/assets/", "nordtal/", "star.png..." }, d:labels())
+    panel.labels(d, "hint", 3, nil, false, 11, measure)
+    assert.same({}, d:labels())
+  end)
+
   describe("bar", function()
     -- A bar 100 wide, its text 1 high
     local function bar(items, width)
@@ -152,19 +174,57 @@ describe("the properties panel", function()
       assert.equal("The change was refused", panel.hit(drawn, 30, 6, "tip"))
     end)
 
-    it("keeps each item that may shrink at its least characters and marks a text that the bar's end cuts", function()
+    it("keeps the items that may shrink at their least characters except the last, which shortens further, and marks a text that the bar's end cuts", function()
       local drawn = bar({ { kind="box", text="/Users/me/mc/fabric", field="choose", shrink="start", least=4 },
                           { kind="button", text="Install", field="pack" },
                           { kind="text", text="The change was refused", shrink="end", least=6 } }, 30)
       assert.same({ op="box", x=0, y=0, width=19, height=13 }, drawn.ops[1])
       assert.same({ op="text", text="...bric", x=6, y=6, cut=true }, drawn.ops[2])
-      assert.same({ op="text", text="The ch...", x=50, y=6, cut=true }, drawn.ops[5])
+      assert.same({ op="text", text="...", x=50, y=6, cut=true }, drawn.ops[5])
       assert.equal("choose", panel.hit(drawn, 1, 1))
       assert.equal("The change was refused", panel.hit(drawn, 51, 6, "tip"))
       -- A text that fits whole but runs past the end of the bar is cut too
       drawn = bar({ { kind="button", text="Install" }, { kind="text", text="ok", shrink="end", least=6 } }, 20)
       assert.same({ op="text", text="ok", x=25, y=6, cut=true }, drawn.ops[3])
       assert.equal("ok", panel.hit(drawn, 25, 6, "tip"))
+    end)
+
+    it("switches the buttons with a short text to it when the items do not fit at their least, and shows the long one as the tip", function()
+      local function items()
+        return { { kind="box", text="fabric", field="choose", shrink="start", least=4 },
+                 { kind="switch", text="Live-Sync", value=true, field="live" },
+                 { kind="button", text="Pack installieren", short="Installieren", field="pack" },
+                 { kind="button", text="Bridge-Mod aktualisieren", short="Bridge-Mod", field="bridge" },
+                 { kind="text", text="Nicht erreichbar", color="wait" },
+                 { kind="text", text="Die Bridge-Mod des neuesten Releases wird geladen...", shrink="end", least=12, divider=true } }
+      end
+      local drawn = bar(items(), 160)
+      assert.same({ op="button", x=44, y=0, width=24, height=15 }, drawn.ops[5])
+      assert.same({ op="text", text="Installieren", x=50, y=6, cut=true }, drawn.ops[6])
+      assert.same({ op="button", x=74, y=0, width=22, height=15 }, drawn.ops[7])
+      assert.same({ op="text", text="Bridge-Mod", x=80, y=6, cut=true }, drawn.ops[8])
+      assert.same({ op="text", text="Nicht erreichbar", x=102, y=6, color="wait" }, drawn.ops[9])
+      assert.same({ op="text", text="Die Bridge-Mod des neueste...", x=131, y=6, cut=true }, drawn.ops[11])
+      assert.equal("pack", panel.hit(drawn, 45, 1))
+      assert.equal("Pack installieren", panel.hit(drawn, 45, 1, "tip"))
+      assert.equal("Bridge-Mod aktualisieren", panel.hit(drawn, 75, 1, "tip"))
+      -- The long texts stay while every item fits at its least
+      drawn = bar(items(), 165)
+      assert.same({ op="text", text="Pack installieren", x=50, y=6 }, drawn.ops[6])
+      assert.same({ op="text", text="Bridge-Mod aktualisieren", x=85, y=6 }, drawn.ops[8])
+      assert.same({ op="text", text="Die Bridge-M...", x=150, y=6, cut=true }, drawn.ops[11])
+      -- The status gives up its least characters when the short labels do not free enough room
+      drawn = bar(items(), 140)
+      assert.same({ op="text", text="Bridge-Mod", x=80, y=6, cut=true }, drawn.ops[8])
+      assert.same({ op="text", text="Die Br...", x=131, y=6, cut=true }, drawn.ops[11])
+      assert.equal("Die Bridge-Mod des neuesten Releases wird geladen...", panel.hit(drawn, 135, 6, "tip"))
+    end)
+
+    it("shortens the short text of an item that has one and may shrink", function()
+      local drawn = bar({ { kind="button", text="Install the pack", short="Install" },
+                          { kind="text", text="abcdefghijklmnop", short="qrstuvwxyz", shrink="end", least=2 } }, 34)
+      assert.same({ op="text", text="qrstuv...", x=25, y=6, cut=true }, drawn.ops[3])
+      assert.equal("abcdefghijklmnop", panel.hit(drawn, 26, 6, "tip"))
     end)
 
     it("draws a divider with a gap on each side before an item that asks for one", function()

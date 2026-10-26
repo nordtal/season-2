@@ -1,49 +1,23 @@
 local drafts = require("drafts")
-local wizard = require("wizard")
+local fake = require("spec.fake_dialog")
+local panel = require("panel")
 
 local function tr(id, ...) return table.concat({ id, ... }, " ") end
+
+-- Shows a text in the labels of a dialog as the tab does, in lines of
+-- at most width characters
+local function labeller(width)
+  return function(dialog, id, count, text, add) panel.labels(dialog, id, count, text, add, width, utf8.len) end
+end
 
 local function texture(id, draft) return { id=id, draft=draft } end
 
 local function draft(label, state, review) return { id="nordtal:badges/" .. label .. ".png", label=label, state=state, review=review } end
 
--- A Dialog that records its widgets and answers each show with the
--- next of answers, a function(dialog)
+-- A Dialog that answers each show with the next of answers, a
+-- function(dialog), and the dialogs it showed
 local function fakeDialog(answers)
-  local shown = {}
-  local function Dialog(args)
-    local d = { args=args, widgets={}, handlers={}, values={}, modified={} }
-    setmetatable(d, {
-      __index=function(t, k) if k == "data" then return rawget(t, "values") end end,
-      __newindex=function(t, k, v)
-        if k ~= "data" then return rawset(t, k, v) end
-        for name, value in pairs(v) do t.values[name] = value end
-      end,
-    })
-    for _, kind in ipairs({ "check", "entry", "label", "button", "separator", "newrow" }) do
-      d[kind] = function(self, t)
-        t = t or {}
-        table.insert(self.widgets, { kind=kind, args=t })
-        if t.id then
-          self.handlers[t.id] = t
-          if kind == "check" then self.values[t.id] = t.selected end
-          if kind == "entry" then self.values[t.id] = t.text end
-        end
-        return self
-      end
-    end
-    function d:modify(t)
-      table.insert(self.modified, t)
-      for k, v in pairs(t) do self.handlers[t.id][k] = v end
-      if t.text and self.handlers[t.id] and self.values[t.id] ~= nil then self.values[t.id] = t.text end
-    end
-    function d:show()
-      table.insert(shown, self)
-      self.values.publish, self.values.discard, self.values.cancel = nil, nil, nil
-      table.remove(answers, 1)(self)
-    end
-    return d
-  end
+  local Dialog, _, shown = fake(answers)
   return Dialog, shown
 end
 
@@ -83,7 +57,7 @@ describe("drafts", function()
       d.data = { publish=true }
     end })
     local checked = {}
-    local answer = drafts.ask{ Dialog=Dialog, tr=tr, list=list, check=function(title)
+    local answer = drafts.ask{ labels=labeller(48), Dialog=Dialog, tr=tr, list=list, check=function(title)
       table.insert(checked, title)
       return true
     end }
@@ -93,7 +67,7 @@ describe("drafts", function()
 
   it("shows each draft's state and pull request beside its name", function()
     local Dialog, shown = fakeDialog({ function(d) d.data = { cancel=true } end })
-    assert.is_nil(drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed"), draft("moon", "added", 42) },
+    assert.is_nil(drafts.ask{ labels=labeller(48), Dialog=Dialog, tr=tr, list={ draft("star", "changed"), draft("moon", "added", 42) },
       check=function() return true end })
     local texts = {}
     for _, w in ipairs(shown[1].widgets) do
@@ -113,7 +87,7 @@ describe("drafts", function()
       d.handlers.draft2.onclick()
       d.data = { publish=true }
     end })
-    local answer = drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed"), draft("moon", "changed") },
+    local answer = drafts.ask{ labels=labeller(48), Dialog=Dialog, tr=tr, list={ draft("star", "changed"), draft("moon", "changed") },
       check=function() return true end }
     assert.equal("fix(resource-pack): the star shines", answer.title)
     assert.equal(1, #shown)
@@ -124,29 +98,36 @@ describe("drafts", function()
       function(d) d.data = { title="white star", publish=true } end,
       function(d) d.data = { cancel=true } end,
     })
-    local answer = drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed") }, check=function()
+    local answer = drafts.ask{ labels=labeller(48), Dialog=Dialog, tr=tr, list={ draft("star", "changed") }, check=function()
       return false, { "commit-msg: \"white star\" is not type(scope): description" }
     end }
     assert.is_nil(answer)
     assert.equal(2, #shown)
-    assert.same({ "commit-msg: \"white star\" is not type(scope): description", true },
-      { shown[2].handlers.refusal1.text, shown[2].handlers.refusal1.visible })
-    assert.is_false(shown[2].handlers.refusal2.visible)
+    assert.same({ "commit-msg: \"white star\" is not type(scope):", "description" }, shown[2]:labels())
   end)
 
-  it("wraps a long refusal over lines and keeps the last one for the rest", function()
+  it("wraps a long refusal over lines and ends the last one with ... when the refusal needs more", function()
     local Dialog, shown = fakeDialog({
       function(d) d.data = { publish=true } end,
       function(d) d.data = { cancel=true } end,
     })
-    drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed") }, wrap=function(text) return wizard.wrap(text, 9) end,
+    drafts.ask{ labels=labeller(9), Dialog=Dialog, tr=tr, list={ draft("star", "changed") },
       check=function() return false, { "one two three", "four five six seven eight nine ten eleven twelve" } end }
-    local lines = {}
-    for i = 1, 6 do
-      local label = shown[2].handlers["refusal" .. i]
-      table.insert(lines, label.visible and label.text or false)
-    end
-    assert.same({ "one two", "three", "four five", "six seven", "eight", "nine ten eleven twelve" }, lines)
+    assert.same({ "one two", "three", "four five", "six seven", "eight", "nine t..." }, shown[2]:labels())
+  end)
+
+  it("keeps an id of a long refusal whole and no line wider than 48 characters", function()
+    local Dialog, shown = fakeDialog({
+      function(d) d.data = { publish=true } end,
+      function(d) d.data = { cancel=true } end,
+    })
+    local line = string.rep("x", 48)
+    local id = "nordtal:textures/container/villager/profession/weaponsmith_level_two.png"
+    drafts.ask{ labels=labeller(48), Dialog=Dialog, tr=tr, list={ draft("star", "changed") },
+      check=function() return false, { line, line, line, line, line, id } end }
+    local labels = shown[2]:labels()
+    for _, label in ipairs(labels) do assert.is_true(utf8.len(label) <= 48, label) end
+    assert.same({ line, line, line, line, line, "nordtal:textures/container/villager/professio..." }, labels)
   end)
 
   it("makes the dialog wide enough for a long title and keeps it inside the window", function()
@@ -158,7 +139,7 @@ describe("drafts", function()
         rawset(d, "sizeHint", { width=200, height=100 })
         return d
       end
-      drafts.ask{ Dialog=Sized, tr=tr, list={ draft("star", "changed") }, Rectangle=Rectangle,
+      drafts.ask{ labels=labeller(48), Dialog=Sized, tr=tr, list={ draft("star", "changed") }, Rectangle=Rectangle,
         screen=function() return screenWidth, 400 end, check=function() return true end }
       return rawget(shown[#shown], "bounds")
     end
@@ -172,7 +153,7 @@ describe("drafts", function()
       function(d) d.data = { cancel=true } end,
     })
     local checked = false
-    drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed") }, check=function() checked = true return true end }
+    drafts.ask{ labels=labeller(48), Dialog=Dialog, tr=tr, list={ draft("star", "changed") }, check=function() checked = true return true end }
     assert.is_false(checked)
     assert.same({ "publish.none_chosen", true }, { shown[2].handlers.refusal1.text, shown[2].handlers.refusal1.visible })
   end)
@@ -180,7 +161,7 @@ describe("drafts", function()
   it("discards the chosen drafts once the designer confirms it", function()
     local Dialog = fakeDialog({ function(d) d.data = { draft1=false, discard=true } end })
     local asked
-    local answer = drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed"), draft("moon", "added") },
+    local answer = drafts.ask{ labels=labeller(48), Dialog=Dialog, tr=tr, list={ draft("star", "changed"), draft("moon", "added") },
       check=function() return true end, confirm=function(text) asked = text return true end }
     assert.same({ discard={ "nordtal:badges/moon.png" } }, answer)
     assert.equal("publish.discard_confirm moon", asked)
@@ -194,7 +175,7 @@ describe("drafts", function()
       function(d) d.data = { cancel=true } end,
     })
     local checked = false
-    drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed"), moon }, check=function() checked = true return true end }
+    drafts.ask{ labels=labeller(48), Dialog=Dialog, tr=tr, list={ draft("star", "changed"), moon }, check=function() checked = true return true end }
     assert.same({ "publish.draft_conflict moon drafts.changed", false },
       { shown[1].handlers.draft2.text, shown[1].handlers.draft2.selected })
     assert.equal("feat(resource-pack): the pack changes star", shown[1].handlers.title.text)

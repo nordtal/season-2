@@ -56,21 +56,54 @@ local function cut(word, width, measure)
   return pieces
 end
 
--- The lines of a text no wider than width, where a word allows it
-function panel.wrap(text, width, measure)
-  local lines, line = {}, ""
+-- text cut at its end to fit width with "..." after it
+local function shorten(text, width, measure)
+  local chars = {}
+  for _, code in utf8.codes(text) do table.insert(chars, utf8.char(code)) end
+  while #chars > 0 and measure(trim(table.concat(chars)) .. "...") > width do table.remove(chars) end
+  return trim(table.concat(chars)) .. "..."
+end
+
+-- The lines of a text no wider than width, where a word allows it. With
+-- most, it gives at most most lines. Then the last line holds the rest
+-- of the text, cut to the width with "..." when the text is longer.
+function panel.wrap(text, width, measure, most)
+  local pieces = {}
   for _, word in ipairs(words(text)) do
-    for _, piece in ipairs(cut(word, width, measure)) do
-      if line ~= "" and measure(trim(line .. piece)) > width then
-        table.insert(lines, trim(line))
-        line = piece
-      else
-        line = line .. piece
+    local parts = cut(word, width, measure)
+    table.move(parts, 1, #parts, #pieces + 1, pieces)
+  end
+  local lines, line = {}, ""
+  for i, piece in ipairs(pieces) do
+    if line ~= "" and measure(trim(line .. piece)) > width then
+      if most and #lines == most - 1 then
+        table.insert(lines, shorten(line .. table.concat(pieces, "", i), width, measure))
+        return lines
       end
+      table.insert(lines, trim(line))
+      line = piece
+    else
+      line = line .. piece
     end
   end
   if trim(line) ~= "" then table.insert(lines, trim(line)) end
   return lines
+end
+
+-- Shows text in the labels id1 to id<count> of dialog, in lines of at
+-- most width. add adds the labels to the dialog, else they change. A
+-- label without a line hides, and a nil text hides them all.
+function panel.labels(dialog, id, count, text, add, width, measure)
+  local lines = text and panel.wrap(text, width, measure, count) or {}
+  for i = 1, count do
+    local label = { id=id .. i, text=lines[i] or "", visible=lines[i] ~= nil }
+    if add then
+      dialog:label(label)
+      dialog:newrow()
+    else
+      dialog:modify(label)
+    end
+  end
 end
 
 -- The space between a box or a button and its text, in points: the
@@ -113,8 +146,10 @@ function panel.layout(rows, width, measure, lineHeight, textHeight)
       end
     else
       if row.text then
-        text(row.text, 0, y, true)
-        y = y + lineHeight
+        for _, line in ipairs(panel.wrap(row.text, width, measure)) do
+          text(line, 0, y, true)
+          y = y + lineHeight
+        end
       end
       top = y
       local lines = panel.wrap(row.value, width - (row.field and 2 * inset or 0), measure)
@@ -170,19 +205,15 @@ local function shorten(text, width, measure, from, least)
 end
 
 -- What to draw for a bar of items on one line and where a click hits one: { ops, hits, height }. An item is
--- { kind, text, value, field, tip, color, shrink, least, divider }: kind is "box", "switch", "button" or "text".
+-- { kind, text, short, value, field, tip, color, shrink, least, divider }: kind is "box", "switch", "button" or "text".
 -- An item with shrink ("start" or "end") gives up room when the line is too short: each first down to a quarter
 -- of the width, then from the last one on down to least characters, 1 unless given. Its text then loses its
--- start or end. No item leaves the bar. A text that is shortened or runs past the bar's end has cut set and
+-- start or end. Items that do not fit at their least characters show their short text. The items then shorten
+-- again, starting from their whole texts. If they still do not fit, the last item with shrink gives up its least
+-- characters. No item leaves the bar. A text that is shortened or runs past the bar's end has cut set. That text
 -- shows whole as its tip. An item with divider has a line before it, with a gap on each side.
 function panel.bar(items, width, measure, lineHeight, textHeight)
-  local sized = {}
-  for _, item in ipairs(items) do
-    local frame = (item.kind == "box" or item.kind == "button") and 2 * inset
-      or item.kind == "switch" and lineHeight + gap or 0
-    table.insert(sized, { item=item, text=item.text, frame=frame, inner=measure(item.text),
-                          lead=item.divider and inset + 1 or 0 })
-  end
+  local sized
   local function excess()
     local total = -inset
     for _, s in ipairs(sized) do
@@ -190,18 +221,36 @@ function panel.bar(items, width, measure, lineHeight, textHeight)
     end
     return total - width
   end
-  local function give(s, floor)
+  local function give(s, floor, least)
     local inner = math.max(floor, s.inner - math.max(0, excess()))
-    local short = inner < s.inner and shorten(s.item.text, inner, measure, s.item.shrink, s.item.least or 1)
+    local short = inner < s.inner and shorten(s.whole, inner, measure, s.item.shrink, least or s.item.least or 1)
     if short and measure(short) < s.inner then
       s.text, s.inner = short, measure(short)
     end
   end
-  for _, s in ipairs(sized) do
-    if s.item.shrink then give(s, math.min(s.inner, width // 4)) end
+  -- Sizes the items, with their short texts when useShort is set
+  local function size(useShort)
+    sized = {}
+    for _, item in ipairs(items) do
+      local frame = (item.kind == "box" or item.kind == "button") and 2 * inset
+        or item.kind == "switch" and lineHeight + gap or 0
+      local text = useShort and item.short or item.text
+      table.insert(sized, { item=item, text=text, whole=text, frame=frame, inner=measure(text),
+                            lead=item.divider and inset + 1 or 0 })
+    end
+    for _, s in ipairs(sized) do
+      if s.item.shrink then give(s, math.min(s.inner, width // 4)) end
+    end
+    for i = #sized, 1, -1 do
+      if sized[i].item.shrink then give(sized[i], 0) end
+    end
   end
-  for i = #sized, 1, -1 do
-    if sized[i].item.shrink then give(sized[i], 0) end
+  size(false)
+  if excess() > 0 then size(true) end
+  if excess() > 0 then
+    for i = #sized, 1, -1 do
+      if sized[i].item.shrink then give(sized[i], 0, 0) break end
+    end
   end
 
   local ops, hits, x = {}, {}, 0

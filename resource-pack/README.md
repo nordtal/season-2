@@ -345,6 +345,7 @@ property of its type. A value of another kind is refused with `refused` and the 
 required value is still missing, such as `block_state_property` after a new property, it prints
 `needs`, the field and its kind on a line for each, and fails. The result is checked and written like
 `writeItem`'s, and a vanilla item that the pack lacks is read from the jar and written as an override.
+Without `fields`, `add` and `remove`, it writes the definition unchanged, which starts such an override.
 
 - The rules follow the codecs of the client jar: every model type (`empty`, `model`, `composite`,
   `condition`, `select`, `range_dispatch`, `special` and `bundle/selected_item`), each property of
@@ -469,7 +470,7 @@ against the SHA-1 of Mojang's version manifest and keeps in `~/.gradle/caches/fa
 of its result, one file per line.
 
 ```bash
-./gradlew -q :resource-pack:listVanillaTextures     # build/vanilla-textures.json: id, width, height, mcmeta
+./gradlew -q :resource-pack:listVanillaAssets       # build/vanilla-assets.json: textures (id, width, height, mcmeta), items
 ./gradlew -q :resource-pack:copyVanillaTexture -Ptexture=minecraft:block/stone.png
 ```
 

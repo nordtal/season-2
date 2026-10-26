@@ -23,6 +23,8 @@ class VanillaClientTest {
             "assets/minecraft/textures/block/water_still.png" to png(16, 512),
             "assets/minecraft/textures/block/water_still.png.mcmeta" to """{"animation": {}}""".toByteArray(),
             "assets/minecraft/models/block/stone.json" to "{}".toByteArray(),
+            "assets/minecraft/items/stone.json" to "{}".toByteArray(),
+            "assets/minecraft/items/apple.json" to "{}".toByteArray(),
             "net/minecraft/Main.class" to ByteArray(4),
         )
 
@@ -37,6 +39,13 @@ class VanillaClientTest {
             ),
             VanillaClient.textures(file),
         )
+    }
+
+    @Test
+    fun theItemDefinitionsAreListedByTheirIds() {
+        val file = directory.resolve("client.jar").apply { writeBytes(jar) }
+
+        assertEquals(listOf("minecraft:apple", "minecraft:stone"), VanillaClient.items(file))
     }
 
     @Test
@@ -80,7 +89,7 @@ class VanillaClientTest {
         project.resolve("build.gradle").writeText(
             """
             buildscript { dependencies { classpath files($classes) } }
-            tasks.register('list', eu.nordtal.season.build.ListVanillaTextures) {
+            tasks.register('list', eu.nordtal.season.build.ListVanillaAssets) {
                 version = '26.2'
                 client.from('client.jar')
                 listing = layout.buildDirectory.file('listing.json')
@@ -93,7 +102,9 @@ class VanillaClientTest {
         val second = runner.build().output
 
         assertTrue(project.resolve("build/listing.json").absolutePath in second, second)
-        assertTrue("minecraft:block/water_still.png" in project.resolve("build/listing.json").readText())
+        val listing = project.resolve("build/listing.json").readText()
+        assertTrue("minecraft:block/water_still.png" in listing, listing)
+        assertTrue("\"minecraft:apple\"" in listing, listing)
     }
 
     private fun png(

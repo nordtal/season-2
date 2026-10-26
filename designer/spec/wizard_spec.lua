@@ -41,6 +41,8 @@ describe("the new-texture wizard", function()
       wizard.job("item", { namespace="nordtal", path="wand", width="16", height="" }))
     assert.same({ "copyVanillaTexture", { texture="minecraft:block/stone.png" } },
       wizard.job("override", { texture="minecraft:block/stone.png", search="sto" }))
+    assert.same({ "editItem", { item="minecraft:compass" } },
+      wizard.job("vanilla_item", { item="minecraft:compass", search="comp" }))
   end)
 
   it("leaves out an id whose path is empty, so the task asks for it", function()
@@ -84,12 +86,13 @@ describe("the new-texture wizard", function()
     assert.equal("item/nordtal:wand", wizard.target(index, { "createItem", { item="nordtal:wand" } }))
     assert.equal("override/minecraft:block/stone.png",
       wizard.target(index, { "copyVanillaTexture", { texture="minecraft:block/stone.png" } }))
+    assert.equal("item/nordtal:wand", wizard.target(index, { "editItem", { item="nordtal:wand" } }))
     assert.is_nil(wizard.target(index, { "createItem", { item="nordtal:lamp" } }))
   end)
 
   local textures = {
-    { id="minecraft:block/stone.png" }, { id="minecraft:block/stone_bricks.png" }, { id="minecraft:block/dirt.png" },
-    { id="minecraft:item/stone_sword.png" }, { id="minecraft:gui/sprites/hud/heart/full.png" },
+    "minecraft:block/stone.png", "minecraft:block/stone_bricks.png", "minecraft:block/dirt.png",
+    "minecraft:item/stone_sword.png", "minecraft:gui/sprites/hud/heart/full.png",
   }
 
   it("lists the client jar's textures by folder, with the words of the search in any order", function()
@@ -108,6 +111,14 @@ describe("the new-texture wizard", function()
     assert.is_true(nodes[1].expanded)
   end)
 
+  it("lists an id without a folder at the top, after the folders", function()
+    local nodes, count = wizard.matches({ "minecraft:compass", "minecraft:apple", "minecraft:block/dirt.png" }, "", 10)
+    assert.equal(3, count)
+    assert.same({ { id="folder/block", text="block" }, { id="minecraft:apple", text="apple" },
+                  { id="minecraft:compass", text="compass" } },
+      { { id=nodes[1].id, text=nodes[1].text }, nodes[2], nodes[3] })
+  end)
+
   it("shows at most limit textures and counts every match", function()
     local nodes, count = wizard.matches(textures, "stone", 2)
     assert.equal(3, count)
@@ -115,10 +126,20 @@ describe("the new-texture wizard", function()
     assert.equal(2, #nodes[1].children)
   end)
 
-  it("knows a folder's node from a texture's", function()
+  it("knows a folder's node from a choice's", function()
     local nodes = wizard.matches(textures, "", 10)
-    assert.is_false(wizard.isTexture(nodes[1].id))
-    assert.is_true(wizard.isTexture(nodes[1].children[1].id))
+    assert.is_false(wizard.isChoice(nodes[1].id))
+    assert.is_true(wizard.isChoice(nodes[1].children[1].id))
+  end)
+
+  it("offers the client jar's textures, and its items that the pack does not override", function()
+    local listing = { textures={ { id="minecraft:block/stone.png" } },
+                      items={ "minecraft:apple", "minecraft:compass", "minecraft:stone" } }
+    local pack = { items={ { category="minecraft", entries={ { id="minecraft:compass" } } },
+                           { category="nordtal", entries={ { id="nordtal:wand" } } } } }
+    assert.same({ "minecraft:block/stone.png" }, wizard.choices("override", listing, pack))
+    assert.same({ "minecraft:apple", "minecraft:stone" }, wizard.choices("vanilla_item", listing, pack))
+    assert.same({}, wizard.choices("vanilla_item", { textures={} }, {}))
   end)
 
   it("breaks a reason into lines of at most width characters, at spaces", function()

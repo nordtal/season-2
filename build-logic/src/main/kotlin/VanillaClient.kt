@@ -5,12 +5,25 @@ import java.io.File
 import java.util.zip.ZipFile
 
 /**
- * The textures in the client jar of the season's Minecraft version, which Fabric Loom downloads for `:bridge-mod`.
+ * The textures and item definitions in the season's client jar, which Fabric Loom downloads for `:bridge-mod`.
  *
  * The jar is a starting point for a vanilla override. It is never committed and never part of the pack.
  */
 object VanillaClient {
     private val TEXTURE = Regex("""assets/([a-z0-9_.-]+)/textures/([a-z0-9_./-]+\.png)""")
+    private val ITEM = Regex("""assets/([a-z0-9_.-]+)/items/([a-z0-9_./-]+)\.json""")
+
+    /** Lists the id of every item definition in [jar], such as `minecraft:compass`, sorted. */
+    fun items(jar: File): List<String> =
+        ZipFile(jar).use { zip ->
+            zip
+                .entries()
+                .asSequence()
+                .mapNotNull { ITEM.matchEntire(it.name) }
+                .map { "${it.groupValues[1]}:${it.groupValues[2]}" }
+                .sorted()
+                .toList()
+        }
 
     /** Lists every texture in [jar] by its id, such as `minecraft:block/stone.png`, with its pixels and whether it has a `.mcmeta`. */
     fun textures(jar: File): List<Map<String, Any>> =

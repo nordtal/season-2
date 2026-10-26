@@ -12,7 +12,7 @@ import eu.nordtal.season.build.EditMinecraftInstance
 import eu.nordtal.season.build.EditPackSources
 import eu.nordtal.season.build.GenerateGlyphs
 import eu.nordtal.season.build.InstallPack
-import eu.nordtal.season.build.ListVanillaTextures
+import eu.nordtal.season.build.ListVanillaAssets
 import eu.nordtal.season.build.MinecraftInstanceChooser
 import eu.nordtal.season.build.MinecraftVersion
 import eu.nordtal.season.build.Sha1File
@@ -232,9 +232,9 @@ val vanillaClient: VanillaClientTask.() -> Unit = {
     client.from(vanillaClientFiles)
 }
 
-tasks.register<ListVanillaTextures>("listVanillaTextures") {
+tasks.register<ListVanillaAssets>("listVanillaAssets") {
     vanillaClient()
-    listing.set(layout.buildDirectory.file("vanilla-textures.json"))
+    listing.set(layout.buildDirectory.file("vanilla-assets.json"))
 }
 
 // Run with -Ptexture=minecraft:block/stone.png.

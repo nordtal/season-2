@@ -13,7 +13,11 @@ local model = dkjson.encode({
                   aseprite="art/assets/nordtal/textures/badges/star.aseprite", asepriteExists=false,
                   width=7, height=7 } },
     } } } } },
-  items={}, overrides={},
+  items={},
+  overrides={ { category="gui/sprites/container", entries={
+    { texture={ id="minecraft:gui/sprites/container/slot.png", png="src/slot.png",
+                aseprite="art/slot.aseprite", asepriteExists=false, width=24, height=24 } },
+  } } },
 })
 
 -- A Dialog that records the widgets it was given and every modify
@@ -37,9 +41,10 @@ local function fakeDialogs()
         return self
       end
     end
-    for _, kind in ipairs({ "tree", "editor", "label", "separator" }) do dlg[kind] = add(kind) end
+    for _, kind in ipairs({ "tree", "editor", "label", "separator", "canvas" }) do dlg[kind] = add(kind) end
     function dlg:samerow() table.insert(self.widgets, { kind="samerow" }) return self end
     function dlg:newrow() table.insert(self.widgets, { kind="newrow" }) return self end
+    function dlg:repaint() self.repainted = (self.repainted or 0) + 1 end
     function dlg:show() self.shown = self.shown + 1 return self end
     function dlg:close() self.closed = true end
     function dlg:modify(t)
@@ -61,6 +66,14 @@ local function fakeSprite(filename, log)
   return sprite
 end
 
+local function floats(value)
+  if type(value) == "number" then return value + 0.0 end
+  if type(value) ~= "table" then return value end
+  local copy = {}
+  for k, v in pairs(value) do copy[k] = floats(v) end
+  return copy
+end
+
 local function setUp(preferences)
   local Dialog, dialogs = fakeDialogs()
   local started, log, open = {}, {}, {}
@@ -77,7 +90,8 @@ local function setUp(preferences)
     read=function(path)
       if path == "/c/resource-pack/build/pack-model.json" then return model end
     end,
-    decode=dkjson.decode,
+    -- Aseprite's json.decode gives every number as a float
+    decode=function(text) return floats(dkjson.decode(text)) end,
     sprites=function() return open end,
     isFile=function(fn) return fn == star end,
     open=function(fn)
@@ -94,10 +108,12 @@ local function setUp(preferences)
       return image
     end,
     activeSprite=function() return world.active end,
+    fitScreen=function() world.fitted = (world.fitted or 0) + 1 end,
   }
   local ctl = tab.open{
     api=api,
-    modules={ pack=require("pack"), tree=require("tree"), textures=require("textures") },
+    modules={ pack=require("pack"), tree=require("tree"), textures=require("textures"),
+               panel=require("panel") },
     bootstrap={ clone=clone, env={} },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
@@ -113,13 +129,16 @@ local function kinds(dlg)
   return out
 end
 
+-- The lines the properties panel draws, as "key" or "  value"
 local function texts(dlg)
-  local out = {}
-  for _, w in ipairs(dlg.widgets) do
-    if w.kind == "label" and w.args.visible ~= false and w.args.text ~= "" then
-      table.insert(out, w.args.text)
-    end
-  end
+  local out, color = {}, nil
+  local theme = { color={ text="text", separator_label="key", face="face" } }
+  local gc = { width=1000, height=1000, theme=theme }
+  setmetatable(gc, { __newindex=function(t, k, v) if k == "color" then color = v else rawset(t, k, v) end end })
+  function gc:measureText(text) return { width=utf8.len(text), height=1 } end
+  function gc:fillRect() table.insert(out, "fill " .. color) end
+  function gc:fillText(text) table.insert(out, (color == "key" and "" or "  ") .. text) end
+  dlg.handlers.properties.onpaint({ context=gc })
   return out
 end
 
@@ -139,12 +158,12 @@ describe("the Nordtal tab", function()
 
   it("puts the tree left of the editor by default", function()
     local t = setUp()
-    assert.same({ "tree", "samerow", "editor" }, kinds(t.dialogs[1]))
+    assert.same({ "tree", "samerow", "editor", "samerow", "canvas" }, kinds(t.dialogs[1]))
   end)
 
   it("puts the tree right of the editor when the setting says so", function()
     local t = setUp({ treeSide="right" })
-    assert.same({ "editor", "samerow", "tree" }, kinds(t.dialogs[1]))
+    assert.same({ "canvas", "samerow", "editor", "samerow", "tree" }, kinds(t.dialogs[1]))
   end)
 
   it("moves the tree to the other side and keeps the sprite and the nodes", function()
@@ -156,11 +175,28 @@ describe("the Nordtal tab", function()
     assert.equal("right", preferences.treeSide)
     assert.is_true(first.closed)
     local second = t.dialogs[#t.dialogs]
-    assert.same({ "editor", "samerow", "tree" }, kinds(second))
+    assert.same({ "canvas", "samerow", "editor", "samerow", "tree" }, kinds(second))
     assert.equal(t.open[1], second.data.editor)
     assert.equal("glyphs", second.handlers.tree.nodes[1].id)
     assert.equal("glyph/minecraft:default/F0000", second.data.tree)
     assert.equal(1, second.shown)
+    assert.equal(2, t.world.fitted)
+  end)
+
+  it("leaves out what an entry does not have", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local shown = table.concat(texts(dlg), "\n")
+    assert.is_falsy(shown:find("false", 1, true))
+    assert.is_falsy(shown:find("properties.scaling", 1, true))
+    assert.is_falsy(shown:find("properties.animation", 1, true))
+  end)
+
+  it("asks for an entry while none is selected", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    assert.same({ "fill face", "  properties.none" }, texts(dlg))
   end)
 
   it("shows that it reads the pack, then the pack's nodes", function()
@@ -186,9 +222,14 @@ describe("the Nordtal tab", function()
     assert.equal(1, #t.open)
     assert.equal(star, t.open[1].filename)
     assert.equal(t.open[1], dlg.data.editor)
-    local shown = texts(dlg)
-    assert.is_truthy(table.concat(shown, "\n"):find("properties.row properties.code F0000", 1, true))
-    assert.is_truthy(table.concat(shown, "\n"):find("properties.row properties.name star", 1, true))
+    assert.is_true((dlg.repainted or 0) > 0)
+    assert.equal(1, t.world.fitted)
+    local shown = table.concat(texts(dlg), "\n")
+    assert.equal("fill face", texts(dlg)[1])
+    assert.is_truthy(shown:find("properties.code\n  F0000\n", 1, true))
+    assert.is_truthy(shown:find("properties.name\n  star\n", 1, true))
+    assert.is_truthy(shown:find("properties.height\n  7\n", 1, true))
+    assert.is_truthy(shown:find("properties.size\n  properties.pixels 7 7\n", 1, true))
   end)
 
   it("writes the source and the PNG when the embedded sprite is saved", function()

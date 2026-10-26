@@ -1,22 +1,31 @@
--- The Nordtal tab: the pack tree beside the embedded editor, and the
--- properties of the selected entry below them.
+-- The Nordtal tab: the pack tree, the embedded editor and the
+-- properties of the selected entry, side by side. The properties
+-- stay beside the editor, on the side away from the tree.
 --
 -- tab.open{ api, modules, bootstrap, preferences, tr } builds the tab
 -- and reads the pack. api holds the Aseprite functions that pack and
 -- textures name, plus Dialog and activeSprite. modules holds pack,
--- tree and textures. preferences.treeSide is "left" or "right".
+-- tree, textures and panel. preferences.treeSide is "left" or "right".
 
 local tab = {}
 
--- The most rows the properties of one entry take
-local rows = 14
+-- The width of the properties panel, in points
+local panelWidth = 150
+
+-- A number of the model as text: JSON gives every number as a float
+local function shown(value)
+  if type(value) == "number" then
+    return tostring(math.tointeger(value) or value)
+  end
+  return tostring(value)
+end
 
 -- The properties of a tree entry, as { key, value } in display order
 local function properties(info, tr)
   local list = {}
   local function add(key, value)
-    if value ~= nil and value ~= "" then
-      table.insert(list, { key, tostring(value) })
+    if value ~= nil and value ~= false and value ~= "" then
+      table.insert(list, { key, shown(value) })
     end
   end
   if not info then
@@ -60,7 +69,7 @@ local function properties(info, tr)
   local t = info.texture
   if t then
     add("texture", t.id)
-    add("size", t.width and tr("properties.pixels", t.width, t.height))
+    add("size", t.width and tr("properties.pixels", shown(t.width), shown(t.height)))
     add("png", t.png)
     add("source", t.asepriteExists and t.aseprite or tr("properties.no_source"))
   end
@@ -82,15 +91,37 @@ function tab.open(context)
   end
 
   local function showProperties()
-    local list = properties(index and selected and index[selected], tr)
-    for i = 1, rows do
-      local row = list[i]
-      if row then
-        dlg:modify{ id="property" .. i, visible=true,
-                    text=tr("properties.row", tr("properties." .. row[1]), row[2]) }
-      else
-        dlg:modify{ id="property" .. i, visible=false }
+    dlg:repaint()
+  end
+
+  -- Draws the properties of the selected entry on the theme's face,
+  -- keys in the color of its section labels and values below them
+  local function paintProperties(ev)
+    local gc = ev.context
+    gc.color = gc.theme.color.face
+    gc:fillRect{ x=0, y=0, width=gc.width, height=gc.height }
+    local rows = {}
+    for _, row in ipairs(properties(index and selected and index[selected], tr)) do
+      table.insert(rows, { tr("properties." .. row[1]), row[2] })
+    end
+    local pad = 4
+    local function measure(text) return gc:measureText(text).width end
+    local lineHeight = gc:measureText("Ag").height + 2
+    local width = gc.width - 2 * pad
+    local lines = modules.panel.lines(rows, width, measure)
+    if #rows == 0 then
+      for _, text in ipairs(modules.panel.wrap(tr("properties.none"), width, measure)) do
+        table.insert(lines, { text=text })
       end
+    end
+    local y = pad
+    for i, line in ipairs(lines) do
+      if line.key and i > 1 then
+        y = y + lineHeight // 2
+      end
+      gc.color = line.key and gc.theme.color.separator_label or gc.theme.color.text
+      gc:fillText(line.text, pad, y)
+      y = y + lineHeight
     end
   end
 
@@ -103,21 +134,19 @@ function tab.open(context)
     local function addEditor()
       dlg:editor{ id="editor", sprite=sprite }
     end
+    local function addPanel()
+      dlg:canvas{ id="properties", width=panelWidth, hexpand=false, onpaint=paintProperties }
+    end
+    local order = { addTree, addEditor, addPanel }
     if preferences.treeSide == "right" then
-      addEditor()
-      dlg:samerow()
-      addTree()
-    else
-      addTree()
-      dlg:samerow()
-      addEditor()
+      order = { addPanel, addEditor, addTree }
+    end
+    for i, add in ipairs(order) do
+      if i > 1 then dlg:samerow() end
+      add()
     end
     dlg:newrow()
     dlg:label{ id="status", text=status.text, visible=status.visible }
-    for i = 1, rows do
-      dlg:newrow()
-      dlg:label{ id="property" .. i, text="", visible=false }
-    end
     if selected then
       dlg.data = { tree=selected }
     end
@@ -143,6 +172,8 @@ function tab.open(context)
     opened[paths.png], opened[paths.aseprite] = record, record
     setStatus(nil)
     dlg:modify{ id="editor", sprite=sprite }
+    -- A texture of a few pixels fills the editor
+    api.fitScreen()
   end
 
   -- Moves the tree to "left" or "right" of the editor
@@ -151,6 +182,9 @@ function tab.open(context)
     local sprite = dlg.data.editor
     dlg:close()
     build(sprite)
+    if sprite then
+      api.fitScreen()
+    end
   end
 
   -- Saves a sprite the tab opened as its source and its PNG instead

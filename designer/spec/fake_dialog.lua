@@ -20,6 +20,11 @@ local starts = {
   radio=function(t) return t.selected or false end,
 }
 
+-- Like luaL_checkoption in the fork, a side other than left or right raises
+local function checkSide(side)
+  assert(side == nil or side == "left" or side == "right", "the side panel's side is \"left\" or \"right\"")
+end
+
 return function(answer)
   local dialogs, shown = {}, {}
   dialogs.answer = answer
@@ -39,6 +44,7 @@ return function(answer)
         if kind == "panel" then
           assert(args and args.tab, "Dialog:panel{} needs a Dialog{ tab=true }")
           assert(not self.panelArgs, "a Dialog has one side panel at most")
+          checkSide(t.side)
           self.panelArgs = t
         end
         if t.id and self.panelArgs and self.kinds[t.id] and (kind == "panel" or self.kinds[t.id] == "panel") then
@@ -64,6 +70,7 @@ return function(answer)
       table.insert(self.modified, t)
       local widget = t.id and self.handlers[t.id]
       if not widget then return end
+      if self.kinds[t.id] == "panel" then checkSide(t.side) end
       for k, v in pairs(t) do widget[k] = v end
       if t.sprite ~= nil then self.values[t.id] = t.sprite or nil end
       if t.text and self.kinds[t.id] == "entry" then self.values[t.id] = t.text end

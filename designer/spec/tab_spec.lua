@@ -528,6 +528,20 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:describePack", run(t.started[3]))
   end)
 
+  it("closes the deleted glyph's sprite and keeps an entry the designer selected while the task ran", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.world.confirm = 1
+    click(dlg, "properties.delete")
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local slot = dlg.data.editor
+    t.started[2].args.onexit(0)
+    assert.same({ "close", star }, t.log[#t.log])
+    assert.equal(slot, dlg.data.editor)
+    assert.is_truthy(slot)
+  end)
+
   it("writes every frame of an override and its animation on its save", function()
     local t = setUp()
     local dlg = loaded(t)

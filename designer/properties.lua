@@ -83,7 +83,11 @@ function properties.rows(info, tr, context)
         table.insert(list, { key="coupled", value=context.coupled ~= false, field="coupled" })
       end
     end
-    add("about", e.about, editable and "about")
+    if editable then
+      table.insert(list, { key="about", value=e.about or "", field="about" })
+    else
+      add("about", e.about)
+    end
   elseif kind == "item" then
     add("item", e.id)
     add("model", e.model)

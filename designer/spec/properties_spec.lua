@@ -55,10 +55,14 @@ describe("the properties of an entry", function()
     assert.is_truthy(table.concat(shown(glyph(), false), "\n"):find("coupled=false*", 1, true))
   end)
 
+  it("shows an empty about of a glyph that has none, so the designer can write one", function()
+    assert.is_truthy(table.concat(shown(glyph({ about=false }), true), "\n"):find("about=*", 1, true))
+  end)
+
   it("keeps the height and ascent of a cell with its sheet and shows the size of the sheet read-only", function()
     assert.same({
       "font=nordtal:gui", "block=Board", "code=E000", "constant=CORNER*", "status=keep*",
-      "height=9", "ascent=8", "texture=nordtal:gui/board.png", "size=properties.pixels 36 9",
+      "height=9", "ascent=8", "about=*", "texture=nordtal:gui/board.png", "size=properties.pixels 36 9",
       "source=properties.no_source", "delete=properties.delete*",
     }, shown(cell(), true))
   end)

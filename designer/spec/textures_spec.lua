@@ -38,6 +38,33 @@ local function api(files, open, log)
   }
 end
 
+-- The sprite textures.open makes of the PNG of an animation without
+-- a source, after change has changed the opened PNG
+local function animated(frames, change)
+  local a = api({ [paths.png]=true }, {}, {})
+  local open = a.open
+  a.open = function(fn)
+    local png = open(fn)
+    png.colorMode = "indexed"
+    if change then change(png) end
+    return png
+  end
+  a.Image = function(from, rect)
+    if rect then
+      return { from=from, rect=rect }
+    end
+    return { drawSprite=function() end }
+  end
+  a.Sprite = function()
+    local made = { frames={ {} }, layers={ "layer" }, cels={} }
+    function made:setPalette() end
+    function made:newEmptyFrame() local f = {} table.insert(self.frames, f) return f end
+    function made:newCel(layer, frame, image, point) table.insert(self.cels, { layer, frame, image.rect, point.x, point.y }) end
+    return made
+  end
+  return (textures.open({ asepriteExists=false }, paths, a, frames))
+end
+
 describe("textures", function()
   it("opens the source of a texture that has one", function()
     local a = api({ [paths.aseprite]=true, [paths.png]=true }, {}, {})
@@ -83,11 +110,11 @@ describe("textures", function()
   it("writes every frame of the sprite as a column of the PNG when asked", function()
     local log = {}
     local sprite = fakeSprite(paths.png, log)
-    sprite.colorMode = "rgb"
+    sprite.spec = { width=7, height=7, colorMode="indexed", transparentColor=5 }
     sprite.frames = { {}, {}, {} }
     local a = api({}, { sprite }, log)
-    a.Image = function(width, height, colorMode)
-      local image = { size={ width, height, colorMode } }
+    a.Image = function(spec)
+      local image = { size={ spec.width, spec.height, spec.colorMode, spec.transparentColor } }
       function image:drawSprite(s, frame, point) table.insert(log, { "drawSprite", frame, point.x, point.y }) end
       function image:saveAs(args) table.insert(log, { "image:saveAs", args.filename, self.size }) end
       return image
@@ -97,7 +124,7 @@ describe("textures", function()
       { "mkdir", "/c/resource-pack/art/assets/nordtal/textures/badges" },
       { "sprite:saveAs", paths.aseprite },
       { "drawSprite", 1, 0, 0 }, { "drawSprite", 2, 0, 7 }, { "drawSprite", 3, 0, 14 },
-      { "image:saveAs", paths.png, { 7, 21, "rgb" } },
+      { "image:saveAs", paths.png, { 7, 21, "indexed", 5 } },
     }, log)
   end)
 
@@ -130,5 +157,15 @@ describe("textures", function()
     assert.same({ { "layer", 1, { x=0, y=7, width=7, height=7 }, 0, 0 },
                   { "layer", 2, { x=0, y=0, width=7, height=7 }, 0, 0 } }, made.cels)
     assert.is_true(a.closed[1] == paths.png)
+  end)
+
+  it("keeps the transparent index of an indexed PNG in the sprite of its animation", function()
+    local made = animated({ { x=0, y=0, width=7, height=7, duration=50 } }, function(png) png.transparentColor = 5 end)
+    assert.equal(5, made.transparentColor)
+  end)
+
+  it("opens an animation that plays one frame as that frame alone", function()
+    local made = animated({ { x=0, y=7, width=7, height=7, duration=50 } })
+    assert.same({ { "layer", 1, { x=0, y=7, width=7, height=7 }, 0, 0 } }, made.cels)
   end)
 end)

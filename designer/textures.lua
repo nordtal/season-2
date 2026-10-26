@@ -6,7 +6,8 @@
 local textures = {}
 
 -- A new sprite with one frame per entry of frames, each { x, y,
--- width, height, duration } in the PNG's sprite png, which it closes.
+-- width, height, duration } in the PNG's sprite png, which it closes,
+-- and with its transparent index.
 -- Its filename is the source, so the first save writes it.
 local function animation(png, frames, source, api)
   local whole = api.Image(png.spec)
@@ -14,6 +15,7 @@ local function animation(png, frames, source, api)
   local first = frames[1]
   local sprite = api.Sprite(first.width, first.height, png.colorMode)
   sprite:setPalette(png.palettes[1])
+  sprite.transparentColor = png.transparentColor
   for i, f in ipairs(frames) do
     local frame = i == 1 and sprite.frames[1] or sprite:newEmptyFrame()
     frame.duration = f.duration / 1000
@@ -25,8 +27,7 @@ local function animation(png, frames, source, api)
 end
 
 -- The sprite of a texture: one that is open already, else its source,
--- else its PNG, split into frames when more than one of frames, the
--- frames the model gives for its animation, plays. nil and the PNG's
+-- else its PNG, cut into the frames the model gives for its animation. nil and the PNG's
 -- path while the PNG is missing.
 function textures.open(texture, paths, api, frames)
   for _, sprite in ipairs(api.sprites()) do
@@ -39,7 +40,7 @@ function textures.open(texture, paths, api, frames)
   end
   if api.isFile(paths.png) then
     local png = api.open(paths.png)
-    if png and frames and #frames > 1 then
+    if png and frames and #frames > 0 then
       return (animation(png, frames, paths.aseprite, api))
     end
     return png
@@ -55,7 +56,9 @@ function textures.save(sprite, texture, paths, api, column)
   sprite:saveAs(paths.aseprite)
   local image
   if column then
-    image = api.Image(sprite.width, sprite.height * #sprite.frames, sprite.colorMode)
+    local spec = sprite.spec
+    spec.height = sprite.height * #sprite.frames
+    image = api.Image(spec)
     for i = 1, #sprite.frames do
       image:drawSprite(sprite, i, { x=0, y=(i - 1) * sprite.height })
     end

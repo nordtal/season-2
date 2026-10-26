@@ -272,11 +272,13 @@ function tab.open(context)
       if yes ~= 1 then
         return
       end
+      local id, sprite = selected, dlg.data.editor
       write(properties.jobs(info, field, {}, tr), function()
-        local sprite = dlg.data.editor
-        dlg:modify{ id="editor", sprite=false }
+        if selected == id then
+          dlg:modify{ id="editor", sprite=false }
+          ctl.clear()
+        end
         if sprite then sprite:close() end
-        ctl.clear()
       end)
       return
     end

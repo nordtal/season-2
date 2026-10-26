@@ -298,14 +298,19 @@ function tab.open(context)
         showProperties()
         return
       end
+      local function show(item, children)
+        local shown = findNode(nodes, item)
+        if shown then shown.children, shown.expanded = children, true end
+        dlg:modifyNode{ id="tree", node=item, children=children or {}, expanded=children and true or nil }
+      end
       local old = definition and definition.item ~= id and index and index["item/" .. definition.item]
       if old then
-        dlg:modifyNode{ id="tree", node="item/" .. definition.item, children={} }
+        show("item/" .. definition.item, nil)
       end
       definition = read
-      local children, node = attach()
+      local children, item = attach()
       if children then
-        dlg:modifyNode{ id="tree", node=node, children=children, expanded=true }
+        show(item, children)
       end
       showProperties()
       if after then after() end

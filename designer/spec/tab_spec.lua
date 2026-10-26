@@ -911,6 +911,14 @@ describe("the Nordtal tab", function()
     assert.is_truthy(shown:find("items.type\n  select\nproperty\n  display_context", 1, true))
   end)
 
+  it("keeps a definition's nodes when the tree moves to the other side", function()
+    local t = setUp(nil, lampModel)
+    lamp(t)
+    t.ctl.setSide("right")
+    local lampNode = t.dialogs[#t.dialogs].handlers.tree.nodes[2].children[1].children[1]
+    assert.equal("item/nordtal:lamp#model/cases/0", lampNode.children[1].id)
+  end)
+
   it("drops a definition that was read for an item no longer selected", function()
     local twoItems = dkjson.encode({ fonts={}, overrides={}, items={ { category="nordtal", entries={
       { id="nordtal:lamp", model="minecraft:select", file="src/assets/nordtal/items/lamp.json" },

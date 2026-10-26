@@ -187,4 +187,14 @@ describe("a save of a texture", function()
     assert.is_nil(properties.saved(override({ animation={ frametime=2 } }), { width=200, height=20, durations={ 100 } }, true))
     assert.is_nil(properties.saved(override(), { width=200, height=20, durations={ 100 } }, true))
   end)
+
+  it("writes the animation of a texture that an item definition's model draws", function()
+    local entry = { key="layer0", texture={ id="nordtal:item/lamp.png", width=16, height=16 } }
+    local info = { kind="texture", entry=entry, texture=entry.texture }
+    assert.is_true(properties.animated(info))
+    assert.is_true(properties.animated(override()))
+    assert.is_false(properties.animated(glyph()))
+    assert.same({ "animateTexture", { texture="nordtal:item/lamp.png", frames="100,250" } },
+      properties.saved(info, { width=16, height=16, durations={ 100, 250 } }, true))
+  end)
 end)

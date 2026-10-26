@@ -1242,6 +1242,16 @@ describe("the Nordtal tab", function()
     assert.equal("status.reviewed 42", t.dialogs[1].handlers.status.text)
   end)
 
+  it("only says so when GitHub did not answer for a pull request", function()
+    local m = dkjson.decode(draftModel)
+    m.reviews = { { number=42, url="https://github.com/nordtal/season-2/pull/42" } }
+    local t = setUp(nil, dkjson.encode(m))
+    loaded(t)
+    synced(t, "unanswered 42")
+    assert.equal(2, #t.started)
+    assert.equal("status.unanswered 42", t.dialogs[1].handlers.status.text)
+  end)
+
   it("compares both versions of a conflict, resolves it as the designer chooses and opens the texture it kept", function()
     local m = dkjson.decode(draftModel)
     m.drafts[1].conflict = { files={ "src/assets/nordtal/textures/badges/star.png" },

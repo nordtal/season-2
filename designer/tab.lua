@@ -601,17 +601,24 @@ function tab.open(context)
         setStatus(tr("status.sync_failed") .. " " .. table.concat(modules.pack.refusal(err), " "))
         return
       end
-      local ended, moved = {}, false
+      -- What changed the pack, and what only the status says
+      local ended, unanswered, moved = {}, {}, false
       for _, line in ipairs(out) do
         local state, number = line:match("^(%a+) (%d+)$")
-        if state then table.insert(ended, tr("status." .. state, number)) end
+        if state then
+          table.insert(state == "unanswered" and unanswered or ended, tr("status." .. state, number))
+        end
         if line == "restored" then table.insert(ended, tr("status.restored")) end
         moved = moved or line == "moved"
       end
-      if #ended > 0 then
-        reloadThen(table.concat(ended, " "))
+      table.move(unanswered, 1, #unanswered, #ended + 1, ended)
+      local text = table.concat(ended, " ")
+      if #ended > #unanswered or (moved and #ended > 0) then
+        reloadThen(text)
       elseif moved then
         ctl.reload()
+      elseif #ended > 0 then
+        setStatus(text)
       end
     end, function() syncing = nil end)
   end

@@ -33,6 +33,9 @@ local function api(files, open, log)
       function image:saveAs(args) table.insert(log, { "image:saveAs", args.filename, args.palette, self.spec }) end
       return image
     end,
+    -- Like Rectangle: Image(image, rectangle) copies only that part of
+    -- image, and all of it for a plain table
+    Rectangle=function(x, y, width, height) return { x=x, y=y, width=width, height=height, rectangle=true } end,
     opened=opened,
     closed=closed,
   }
@@ -51,7 +54,7 @@ local function animated(frames, change)
   end
   a.Image = function(from, rect)
     if rect then
-      return { from=from, rect=rect }
+      return { from=from, rect=rect.rectangle and rect or nil }
     end
     return { drawSprite=function() end }
   end
@@ -134,7 +137,7 @@ describe("textures", function()
     local made
     a.Image = function(from, rect)
       if rect then
-        return { from=from, rect=rect }
+        return { from=from, rect=rect.rectangle and rect or nil }
       end
       local image = { spec=from }
       function image:drawSprite(s, frame) table.insert(log, { "drawSprite", s.filename, frame }) end
@@ -154,8 +157,8 @@ describe("textures", function()
     assert.same({ 7, 7, "rgb" }, made.size)
     assert.equal("palette", made.palette)
     assert.same({ 0.5, 0.05 }, { made.frames[1].duration, made.frames[2].duration })
-    assert.same({ { "layer", 1, { x=0, y=7, width=7, height=7 }, 0, 0 },
-                  { "layer", 2, { x=0, y=0, width=7, height=7 }, 0, 0 } }, made.cels)
+    assert.same({ { "layer", 1, { x=0, y=7, width=7, height=7, rectangle=true }, 0, 0 },
+                  { "layer", 2, { x=0, y=0, width=7, height=7, rectangle=true }, 0, 0 } }, made.cels)
     assert.is_true(a.closed[1] == paths.png)
   end)
 
@@ -166,6 +169,6 @@ describe("textures", function()
 
   it("opens an animation that plays one frame as that frame alone", function()
     local made = animated({ { x=0, y=7, width=7, height=7, duration=50 } })
-    assert.same({ { "layer", 1, { x=0, y=7, width=7, height=7 }, 0, 0 } }, made.cels)
+    assert.same({ { "layer", 1, { x=0, y=7, width=7, height=7, rectangle=true }, 0, 0 } }, made.cels)
   end)
 end)

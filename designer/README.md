@@ -61,8 +61,8 @@ value. A refusal shows below the field it names, and the dialog stays open with 
 the task succeeded, the tab reads the pack again and opens the new texture in the editor. A vanilla
 override is chosen from the textures of the client jar, which `listVanillaAssets` lists once per
 session together with its items, with a search for the words of its id. A search that hides the
-chosen id clears the choice. A vanilla item is chosen the
-same way from the items that the pack does not override yet. Create runs `editItem` without a change,
+chosen id clears the choice. A choice hides the refusal of Create. A vanilla item is chosen the same
+way from the items that the pack does not override yet. Create runs `editItem` without a change,
 which writes the item's definition from the client jar into the pack, and the item editor opens it.
 
 The tree marks each draft of the pack model with the icon of a modified tab: a texture with its
@@ -73,8 +73,8 @@ the tree, such as a language file, is listed only in the publish dialog. The pan
 draft with a check, and a title that names the drafts chosen until it is edited. **Discard
 Chosen...** discards the chosen drafts once confirmed. **Publish** writes the title to
 `resource-pack/build/publish-message.txt` and runs `.githooks/commit-msg` on it through `git hook
-run` with the bootstrap's git. A refusal of the hook shows in the dialog over several lines, and the
-dialog stays open. An accepted title runs `publishDrafts` with the bootstrap's gh, and the status
+run` with the bootstrap's git. A refusal of the hook shows in the dialog over at most six lines, and the
+dialog stays open. The last line ends with `...` when the refusal is longer. An accepted title runs `publishDrafts` with the bootstrap's gh, and the status
 line shows the address of the pull request. After a publish, failed or not, the tab reads the pack
 again. Every task runs with the folder of the bootstrap's git first on `PATH`. A pack with drafts or
 pull requests runs `syncReviews` after the tab's first read and every five minutes, and the tab reads

@@ -56,21 +56,54 @@ local function cut(word, width, measure)
   return pieces
 end
 
--- The lines of a text no wider than width, where a word allows it
-function panel.wrap(text, width, measure)
-  local lines, line = {}, ""
+-- text cut at its end to fit width with "..." after it
+local function shorten(text, width, measure)
+  local chars = {}
+  for _, code in utf8.codes(text) do table.insert(chars, utf8.char(code)) end
+  while #chars > 0 and measure(trim(table.concat(chars)) .. "...") > width do table.remove(chars) end
+  return trim(table.concat(chars)) .. "..."
+end
+
+-- The lines of a text no wider than width, where a word allows it. With
+-- most, it gives at most most lines. Then the last line holds the rest
+-- of the text, cut to the width with "..." when the text is longer.
+function panel.wrap(text, width, measure, most)
+  local pieces = {}
   for _, word in ipairs(words(text)) do
-    for _, piece in ipairs(cut(word, width, measure)) do
-      if line ~= "" and measure(trim(line .. piece)) > width then
-        table.insert(lines, trim(line))
-        line = piece
-      else
-        line = line .. piece
+    local parts = cut(word, width, measure)
+    table.move(parts, 1, #parts, #pieces + 1, pieces)
+  end
+  local lines, line = {}, ""
+  for i, piece in ipairs(pieces) do
+    if line ~= "" and measure(trim(line .. piece)) > width then
+      if most and #lines == most - 1 then
+        table.insert(lines, shorten(line .. table.concat(pieces, "", i), width, measure))
+        return lines
       end
+      table.insert(lines, trim(line))
+      line = piece
+    else
+      line = line .. piece
     end
   end
   if trim(line) ~= "" then table.insert(lines, trim(line)) end
   return lines
+end
+
+-- Shows text in the labels id1 to id<count> of dialog, in lines of at
+-- most width. add adds the labels to the dialog, else they change. A
+-- label without a line hides, and a nil text hides them all.
+function panel.labels(dialog, id, count, text, add, width, measure)
+  local lines = text and panel.wrap(text, width, measure, count) or {}
+  for i = 1, count do
+    local label = { id=id .. i, text=lines[i] or "", visible=lines[i] ~= nil }
+    if add then
+      dialog:label(label)
+      dialog:newrow()
+    else
+      dialog:modify(label)
+    end
+  end
 end
 
 -- The space between a box or a button and its text, in points: the

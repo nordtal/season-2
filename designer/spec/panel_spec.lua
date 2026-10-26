@@ -115,6 +115,23 @@ describe("the properties panel", function()
     assert.same({ "9 × 9", "px" }, panel.wrap("9 × 9 px", 5, measure))
   end)
 
+  it("gives at most most lines, the last one the rest of the text cut at the width with ...", function()
+    assert.same({ "src/assets/", "nordtal/..." }, panel.wrap("src/assets/nordtal/star.png", 11, measure, 2))
+    assert.same({ "a short", "about" }, panel.wrap("a short about", 8, measure, 2))
+  end)
+
+  it("shows a text in a fixed set of labels and hides the labels it does not need", function()
+    local Dialog = require("spec.fake_dialog")()
+    local d = Dialog()
+    panel.labels(d, "hint", 3, "a short about", true, 8, measure)
+    assert.same({ "a short", "about" }, d:labels())
+    assert.same({ "hint1", "hint2", "hint3" }, { d.widgets[1].args.id, d.widgets[3].args.id, d.widgets[5].args.id })
+    panel.labels(d, "hint", 3, "src/assets/nordtal/star.png and more", false, 11, measure)
+    assert.same({ "src/assets/", "nordtal/", "star.png..." }, d:labels())
+    panel.labels(d, "hint", 3, nil, false, 11, measure)
+    assert.same({}, d:labels())
+  end)
+
   describe("bar", function()
     -- A bar 100 wide, its text 1 high
     local function bar(items, width)

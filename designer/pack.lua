@@ -60,12 +60,28 @@ function pack.describe(bootstrap, api, done)
   return process
 end
 
--- The absolute paths { png, aseprite } of a texture of the model
+-- Whether the normalized path lies in the folder dir
+local function under(path, dir)
+  local after = path:sub(#dir + 1, #dir + 1)
+  return path:sub(1, #dir) == dir and (after == "/" or after == "\\")
+end
+
+-- The absolute paths { png, aseprite } of a texture of the model, or
+-- nil and the path that lies outside its folder: a PNG outside
+-- resource-pack/src, a source outside resource-pack/art. join
+-- normalizes, so .. in a path of the model counts.
 function pack.paths(clone, texture, join)
-  return {
+  local paths = {
     png=join(clone, "resource-pack", texture.png),
     aseprite=join(clone, "resource-pack", texture.aseprite),
   }
+  if not under(paths.png, join(clone, "resource-pack", "src")) then
+    return nil, paths.png
+  end
+  if not under(paths.aseprite, join(clone, "resource-pack", "art")) then
+    return nil, paths.aseprite
+  end
+  return paths
 end
 
 return pack

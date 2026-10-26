@@ -97,4 +97,11 @@ describe("tree", function()
     assert.is_nil(index[lamp.id].texture)
     assert.is_nil(index[font.id].texture)
   end)
+
+  it("names a cell whose code is no code point", function()
+    local bad = { fonts={ { font="nordtal:gui", blocks={
+      { kind="sheet", title="Row text", texture=texture("a.png"), cells={ { row=0, column=0, code="ZZ" } } },
+    } } } }
+    assert.has_error(function() tree.build(bad, tr) end, "nordtal:gui > Row text: ZZ is no code point")
+  end)
 end)

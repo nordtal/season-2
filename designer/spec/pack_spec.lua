@@ -1,7 +1,18 @@
 local pack = require("pack")
 local dkjson = require("dkjson")
 
-local function join(...) return table.concat({ ... }, "/") end
+-- Like app.fs.joinPath and normalizePath: empty and . names drop out, .. removes the name before it
+local function join(...)
+  local names = {}
+  for name in table.concat({ ... }, "/"):gmatch("[^/]+") do
+    if name == ".." then
+      table.remove(names)
+    elseif name ~= "." then
+      table.insert(names, name)
+    end
+  end
+  return (select(1, ...):sub(1, 1) == "/" and "/" or "") .. table.concat(names, "/")
+end
 
 local function fakeProcess(started)
   return function(args)
@@ -107,5 +118,20 @@ describe("pack", function()
     local paths = pack.paths("/c", { png="src/assets/nordtal/textures/a.png", aseprite="art/assets/nordtal/textures/a.aseprite" }, join)
     assert.same({ png="/c/resource-pack/src/assets/nordtal/textures/a.png",
                   aseprite="/c/resource-pack/art/assets/nordtal/textures/a.aseprite" }, paths)
+  end)
+
+  it("refuses a PNG outside resource-pack/src and a source outside resource-pack/art", function()
+    local art = "art/assets/a.aseprite"
+    for _, case in ipairs({
+      { png="src/../../../Library/a.png", aseprite=art, refused="/Library/a.png" },
+      { png="/Library/a.png", aseprite=art, refused="/c/resource-pack/Library/a.png" },
+      { png="src/assets/../../srcx/a.png", aseprite=art, refused="/c/resource-pack/srcx/a.png" },
+      { png="src/assets/a.png", aseprite="src/assets/a.aseprite", refused="/c/resource-pack/src/assets/a.aseprite" },
+      { png="src/assets/a.png", aseprite="art/../../a.aseprite", refused="/c/a.aseprite" },
+    }) do
+      local paths, refused = pack.paths("/c", case, join)
+      assert.is_nil(paths)
+      assert.equal(case.refused, refused)
+    end
   end)
 end)

@@ -4,7 +4,8 @@
 local tree = {}
 
 -- The nodes for Dialog:tree{} and an index from each node's id to
--- { kind, entry, texture, font, block }
+-- { kind, entry, texture, font, block }. It raises an error that names
+-- the place of a cell whose code is no code point.
 function tree.build(model, tr)
   local index = {}
 
@@ -17,8 +18,15 @@ function tree.build(model, tr)
     return glyph.name or glyph.constant or glyph.code
   end
 
-  local function cellText(cell)
-    return cell.constant or utf8.char(tonumber(cell.code, 16))
+  local function cellText(cell, font, block)
+    if cell.constant then
+      return cell.constant
+    end
+    local code = tonumber(cell.code, 16)
+    if not code or code > 0x10FFFF then
+      error(font.font .. " > " .. tostring(block.title) .. ": " .. tostring(cell.code) .. " is no code point", 0)
+    end
+    return utf8.char(code)
   end
 
   local fonts = {}
@@ -29,7 +37,7 @@ function tree.build(model, tr)
       local children = {}
       if block.kind == "sheet" then
         for _, cell in ipairs(block.cells or {}) do
-          table.insert(children, node("cell/" .. font.font .. "/" .. cell.code, cellText(cell),
+          table.insert(children, node("cell/" .. font.font .. "/" .. cell.code, cellText(cell, font, block),
             { kind="cell", entry=cell, texture=block.texture, font=font, block=block }))
         end
       else

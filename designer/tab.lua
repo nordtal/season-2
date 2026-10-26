@@ -52,7 +52,7 @@ local function properties(info, tr)
     add("code", e.code)
     add("name", e.name)
     add("constant", e.constant)
-    add("status", e.status or info.block.status)
+    add("status", e.effectiveStatus)
     add("height", e.height)
     add("ascent", e.ascent)
     add("about", e.about)
@@ -80,7 +80,7 @@ function tab.open(context)
   local api, modules, tr = context.api, context.modules, context.tr
   local preferences, clone = context.preferences, context.bootstrap.clone
   local ctl = {}
-  local dlg, nodes, index, selected
+  local dlg, nodes, index, selected, describing
   local status = { text=tr("status.loading"), visible=true }
   -- What the tab opened, by the filenames of its PNG and its source
   local opened = {}
@@ -131,8 +131,13 @@ function tab.open(context)
       dlg:tree{ id="tree", nodes=nodes or {}, hexpand=false,
                 onchange=function(ev) ctl.select(ev.node) end }
     end
+    local own = dlg
     local function addEditor()
-      dlg:editor{ id="editor", sprite=sprite }
+      dlg:editor{ id="editor", sprite=sprite, onchange=function()
+        -- The sprite left without the tab: it was closed, or embedded
+        -- elsewhere. A dialog that setSide replaced has nothing to clear.
+        if own == dlg then ctl.clear() end
+      end }
     end
     local function addPanel()
       dlg:canvas{ id="properties", width=panelWidth, hexpand=false, onpaint=paintProperties }
@@ -162,7 +167,11 @@ function tab.open(context)
     if not (info and info.texture) then
       return
     end
-    local paths = modules.pack.paths(clone, info.texture, api.join)
+    local paths, outside = modules.pack.paths(clone, info.texture, api.join)
+    if not paths then
+      setStatus(tr("status.outside", outside))
+      return
+    end
     local sprite, missing = modules.textures.open(info.texture, paths, api)
     if not sprite then
       setStatus(tr("status.missing", missing))
@@ -174,6 +183,15 @@ function tab.open(context)
     dlg:modify{ id="editor", sprite=sprite }
     -- A texture of a few pixels fills the editor
     api.fitScreen()
+  end
+
+  -- Selects no entry, so that a click on the last one opens it again.
+  -- An ID that no node has selects none.
+  function ctl.clear()
+    selected = nil
+    dlg.data = { tree="" }
+    setStatus(nil)
+    showProperties()
   end
 
   -- Moves the tree to "left" or "right" of the editor
@@ -210,20 +228,39 @@ function tab.open(context)
 
   -- Reads the pack again and shows its nodes
   function ctl.reload()
+    if describing and describing.isRunning then
+      describing:stop()
+    end
     setStatus(tr("status.loading"))
-    return (modules.pack.describe(context.bootstrap, api, function(model, err)
-      if not model then
-        setStatus(tr("status.failed") .. "\n" .. table.concat(err, "\n"))
+    local this
+    this = modules.pack.describe(context.bootstrap, api, function(model, err)
+      -- A read that was stopped, or that a newer one replaced
+      if describing ~= this then
         return
       end
-      nodes, index = modules.tree.build(model, tr)
-      dlg:modify{ id="tree", nodes=nodes }
-      setStatus(nil)
-      showProperties()
-    end))
+      describing = nil
+      if model then
+        local ok, built, builtIndex = pcall(modules.tree.build, model, tr)
+        if ok then
+          nodes, index = built, builtIndex
+          dlg:modify{ id="tree", nodes=nodes }
+          setStatus(nil)
+          showProperties()
+          return
+        end
+        err = { tostring(built) }
+      end
+      setStatus(tr("status.failed") .. "\n" .. table.concat(err, "\n"))
+    end)
+    describing = this
+    return this
   end
 
   function ctl.close()
+    if describing and describing.isRunning then
+      describing:stop()
+    end
+    describing = nil
     dlg:close()
   end
 

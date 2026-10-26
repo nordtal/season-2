@@ -3,7 +3,7 @@
 -- plugin.path is this folder, plugin.bootstrap holds the clone and
 -- the environment its tools run with.
 
--- plugin.require() came with version 4 of the fork's API
+-- plugin.require() is in version 4 of the fork's API
 local forkApi = 4
 
 local ctl, listener

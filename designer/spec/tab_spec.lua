@@ -7,8 +7,8 @@ local starSource = "/c/resource-pack/art/assets/nordtal/textures/badges/star.ase
 
 local model = dkjson.encode({
   fonts={ { font="minecraft:default", constant="DEFAULT", blocks={
-    { kind="block", title="Player badges", range="F0000-F000F", status="keep", glyphs={
-      { code="F0000", constant="STAR", name="star", height=7, ascent=6,
+    { kind="block", title="Player badges", range="F0000-F000F", glyphs={
+      { code="F0000", constant="STAR", name="star", effectiveStatus="keep", height=7, ascent=6,
         texture={ id="nordtal:badges/star.png", png="src/assets/nordtal/textures/badges/star.png",
                   aseprite="art/assets/nordtal/textures/badges/star.aseprite", asepriteExists=false,
                   width=7, height=7 } },
@@ -17,6 +17,8 @@ local model = dkjson.encode({
   overrides={ { category="gui/sprites/container", entries={
     { texture={ id="minecraft:gui/sprites/container/slot.png", png="src/slot.png",
                 aseprite="art/slot.aseprite", asepriteExists=false, width=24, height=24 } },
+    { texture={ id="minecraft:gui/sprites/container/out.png", png="src/../../../Library/out.png",
+                aseprite="art/out.aseprite", asepriteExists=false } },
   } } },
 })
 
@@ -74,21 +76,29 @@ local function floats(value)
   return copy
 end
 
-local function setUp(preferences)
+local function setUp(preferences, modelText)
   local Dialog, dialogs = fakeDialogs()
   local started, log, open = {}, {}, {}
   local world = { active=nil }
   local api = {
     Dialog=Dialog,
     Process=function(args)
-      local p = { args=args }
-      function p:start() table.insert(started, self) end
+      local p = { args=args, isRunning=false }
+      function p:start() self.isRunning = true table.insert(started, self) end
+      function p:stop() self.isRunning = false self.stopped = true end
       return p
     end,
     windows=false,
-    join=function(...) return table.concat({ ... }, "/") end,
+    -- Like app.fs.joinPath and normalizePath
+    join=function(...)
+      local names = {}
+      for name in table.concat({ ... }, "/"):gmatch("[^/]+") do
+        if name == ".." then table.remove(names) elseif name ~= "." then table.insert(names, name) end
+      end
+      return (select(1, ...):sub(1, 1) == "/" and "/" or "") .. table.concat(names, "/")
+    end,
     read=function(path)
-      if path == "/c/resource-pack/build/pack-model.json" then return model end
+      if path == "/c/resource-pack/build/pack-model.json" then return modelText or model end
     end,
     -- Aseprite's json.decode gives every number as a float
     decode=function(text) return floats(dkjson.decode(text)) end,
@@ -143,6 +153,7 @@ local function texts(dlg)
 end
 
 local function loaded(t)
+  t.started[1].isRunning = false
   t.started[1].args.onexit(0)
   return t.dialogs[#t.dialogs]
 end
@@ -256,5 +267,61 @@ describe("the Nordtal tab", function()
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() stopped = true end })
     assert.is_false(stopped)
     assert.same({}, t.log)
+  end)
+
+  it("shows the status that applies to a glyph, which the model sends", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    assert.is_truthy(table.concat(texts(dlg), "\n"):find("properties.status\n  keep\n", 1, true))
+  end)
+
+  it("refuses a texture whose files lie outside the resource pack", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/out.png" })
+    assert.equal(0, #t.open)
+    assert.equal("status.outside /Library/out.png", dlg.handlers.status.text)
+  end)
+
+  it("shows why the pack's nodes could not be built", function()
+    local t = setUp(nil, dkjson.encode({ fonts={ { font="nordtal:gui", blocks={
+      { kind="sheet", title="Row text", texture={ id="nordtal:a.png", png="src/a.png", aseprite="art/a.aseprite" },
+        cells={ { row=0, column=0, code="ZZ" } } } } } }, items={}, overrides={} }))
+    local dlg = loaded(t)
+    assert.equal("status.failed\nnordtal:gui > Row text: ZZ is no code point", dlg.handlers.status.text)
+  end)
+
+  it("stops reading the pack when it closes and leaves the closed dialog alone", function()
+    local t = setUp()
+    local dlg = t.dialogs[1]
+    t.ctl.close()
+    assert.is_true(t.started[1].stopped)
+    local changes = #dlg.modified
+    t.started[1].args.onexit(143)
+    assert.equal(changes, #dlg.modified)
+  end)
+
+  it("clears the selection when the sprite leaves the editor without the tab", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    dlg.data.editor = nil
+    dlg.handlers.editor.onchange()
+    assert.equal("", dlg.data.tree)
+    assert.same({ "fill face", "  properties.none" }, texts(dlg))
+    -- A click on the same entry opens it again
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    assert.equal(t.open[1], dlg.data.editor)
+  end)
+
+  it("ignores the editor of a dialog the tab replaced", function()
+    local t = setUp()
+    local first = loaded(t)
+    first.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.ctl.setSide("right")
+    local second = t.dialogs[#t.dialogs]
+    first.handlers.editor.onchange()
+    assert.equal("glyph/minecraft:default/F0000", second.data.tree)
   end)
 end)

@@ -17,7 +17,8 @@ on servers, and it needs Fabric Loader but not the Fabric API. Every release att
 
 ## Settings
 
-The app writes `config/nordtal-bridge.properties` into the instance before the client starts:
+`:resource-pack:installBridgeMod` writes `config/nordtal-bridge.properties` into the instance once,
+beside the jar in `mods/`:
 
 ```properties
 port=29415

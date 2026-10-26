@@ -31,6 +31,11 @@ Minecraft 26.2.
    Options > Resource Packs.
 4. Press **F3+T** in the game.
 
+`describeInstance` prints the chosen instance as one line of JSON: `instance`, `fabric`, `bridge` (the
+name of the installed bridge mod), `port` and `token`. `installBridgeMod -Pgh=<path>` downloads the
+bridge mod of the newest release with that gh into `mods/` of an instance with Fabric, removes every
+other version of it there and writes its settings once.
+
 A new glyph is an image plus one entry in `glyphs.json`: a free code point in its block, a constant,
 a texture and, in `minecraft:default`, a name. The next build names every rule that an entry breaks.
 
@@ -84,7 +89,7 @@ fonts[]       font, rows, constant, about, draft, review, blocks[]
   glyphs[]    code, constant, name, list, status, effectiveStatus, height, ascent, about, texture
   cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, model (the type of the root model), texture
-overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite
+overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite, block, item
 texture       id, png, aseprite, asepriteExists, draft, review, width, height
 drafts[]      id, label, state, files, review, conflict: files, fields[]: name, clone, main
 reviews[]     number, url, decision, checks, comments[]: author, body, path, url
@@ -95,7 +100,8 @@ The `status` of a glyph or cell is its own value, null when it inherits the bloc
 `texture` of an item is the `layer0` of a `minecraft:model` in the pack, or null, also when it is no
 identifier.
 `width` and `height` of a texture are its pixels, or null while its PNG is missing. `animation` and `scaling` are the `animation` and
-`gui.scaling` objects of the `.png.mcmeta`, or null. `frames` lists the frames the animation plays, each as
+`gui.scaling` objects of the `.png.mcmeta`, or null. `block` and `item` are the `minecraft:` id of the
+PNG's name for an override under `block` or `item`, or null. `frames` lists the frames the animation plays, each as
 `x`, `y`, `width`, `height` in the PNG and `duration` in milliseconds, or is null when the animation's frames do
 not divide the PNG. `guiSprite` is true for a texture under `textures/gui/sprites/`. Language files are not listed.
 `draft` is the id of the draft that a texture, block or font is, as `drafts` names it, which the
@@ -303,12 +309,12 @@ and one member per line, like the pack's other files.
 ./gradlew -q :resource-pack:importBlockbench -Pmodel=/tmp/lamp.bbmodel -Pid=nordtal:item/lamp -Pitem=nordtal:lamp -Pat=model
 ```
 
-| task               | options                                 | prints                                                                                    |
-| ------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `readItem`         | `item`                                  | one line of JSON: the definition, where it comes from, its problems, `types` and `models` |
-| `writeItem`        | `item`, `definition`                    | the absolute path of the definition it wrote                                              |
-| `editItem`         | `item`, `at`, `fields`, `add`, `remove` | the absolute path of the definition it wrote                                              |
-| `importBlockbench` | `model`, `id`, `item`, `at`             | the absolute path of the model, of each texture and of the definition it wrote            |
+| task               | options                                 | prints                                                                                              |
+| ------------------ | --------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `readItem`         | `item`                                  | one line of JSON: the definition, where it comes from, its problems, `types`, `models` and `states` |
+| `writeItem`        | `item`, `definition`                    | the absolute path of the definition it wrote                                                        |
+| `editItem`         | `item`, `at`, `fields`, `add`, `remove` | the absolute path of the definition it wrote                                                        |
+| `importBlockbench` | `model`, `id`, `item`, `at`             | the absolute path of the model, of each texture and of the definition it wrote                      |
 
 The line of `readItem` holds `item`, `source` (`pack`, or `vanilla` for a definition only the jar
 has), `file` (the path in the pack, or null), `definition`, `problems` (a list of strings, empty when
@@ -321,6 +327,10 @@ kind to its table of types. `models` lists each model that the definition draws 
 their parents' textures. A texture whose PNG the pack holds has the fields of an override in the pack
 model (`texture`, `mcmeta`, `animation`, `frames`), any other only its `id`. A texture is a draft
 when its id is one of the pack model's `drafts`.
+`states` lists the states a `/give` shows, each as `label` and `give`, the item with its components.
+A state sets the custom model data, the damage, a component or a block state for each case of a
+select, condition or range of the definition. The plain item comes last, except under a select
+without a fallback. A list holds at most 64 states.
 
 `editItem` changes the object at `at`, a path of keys and list indices such as `model/cases/0`.
 `fields` is a JSON object whose members it sets, and a member that is null is removed. With `add`, it

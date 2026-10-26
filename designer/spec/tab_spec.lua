@@ -1967,7 +1967,7 @@ describe("the Minecraft bar of the Nordtal tab", function()
     local read = dkjson.decode(lampRead)
     read.states = { { label="", give='minecraft:paper[item_model="nordtal:lamp"]' } }
     finish(t, 0, dkjson.encode(read))
-    click(dlg, "minecraft.give minecraft.plain")
+    click(dlg, "minecraft.give_plain")
     assert.same({ op="give", item='minecraft:paper[item_model="nordtal:lamp"]', id=1 }, socket.sent[2])
   end)
 end)

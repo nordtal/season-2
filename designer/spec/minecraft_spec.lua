@@ -56,7 +56,7 @@ describe("minecraft", function()
     local definition = { item="nordtal:lamp", states={ { label="strings[0]=lit", give="a" }, { label="", give="b" } } }
     assert.same({
       { label="minecraft.give strings[0]=lit", requests={ { op="give", item="a" } } },
-      { label="minecraft.give minecraft.plain", requests={ { op="give", item="b" } } },
+      { label="minecraft.give_plain", requests={ { op="give", item="b" } } },
     }, (minecraft.previews({ kind="item", entry={ id="nordtal:lamp" } }, nil, definition, tr)))
     assert.same({}, (minecraft.previews({ kind="item", entry={ id="nordtal:other" } }, nil, definition, tr)))
 

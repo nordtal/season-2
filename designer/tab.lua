@@ -587,6 +587,8 @@ function tab.open(context)
     end
     if texture then
       open(id, texture, properties.animated(followed) and followed.entry.frames or nil, followed ~= info and followed or nil)
+    else
+      dlg:modify{ id="editor", sprite=false }
     end
   end
 

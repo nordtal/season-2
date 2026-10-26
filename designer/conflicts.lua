@@ -49,7 +49,7 @@ local function paint(gc, images, color, light, dark)
           gc:fillRect{ x=x + cx, y=top + cy, width=math.min(check, w - cx), height=math.min(check, h - cy) }
         end
       end
-      gc:drawImage(image, { x=0, y=0, width=image.width, height=image.height }, { x=x, y=top, width=w, height=h })
+      gc:drawImage(image, 0, 0, image.width, image.height, x, top, w, h)
     end
   end
 end

@@ -8,7 +8,7 @@ tree.draftIcon = "tab_modified_icon_normal"
 -- The theme part that marks a draft with a conflict and each node above it
 tree.conflictIcon = "warning_box"
 -- What follows the number of a pull request whose checks failed
-tree.failed = "✗"
+tree.failed = "!"
 
 -- The nodes for Dialog:tree{} and an index from each node's id to
 -- { kind, entry, texture, font, block }. mark(info) gives the marks of

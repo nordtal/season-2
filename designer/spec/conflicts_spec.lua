@@ -34,7 +34,7 @@ local function painted(d, width, height)
   local ops = {}
   local gc = { width=width, height=height, theme={ color={ face="face", text="text" } } }
   function gc:fillRect(r) table.insert(ops, { "fill", self.color, r.x, r.y, r.width, r.height }) end
-  function gc:drawImage(img, src, dst) table.insert(ops, { "image", img, dst.x, dst.y, dst.width, dst.height }) end
+  function gc:drawImage(img, _, _, _, _, x, y, w, h) table.insert(ops, { "image", img, x, y, w, h }) end
   function gc:fillText(text, x, y) table.insert(ops, { "text", text, x, y }) end
   function gc:measureText(text) return { width=#text, height=10 } end
   d.handlers.compare.onpaint({ context=gc })

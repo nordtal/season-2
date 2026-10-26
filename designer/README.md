@@ -83,7 +83,7 @@ both versions of the texture side by side, the clone's on the left. The dialog a
 the files to keep and which side of each field, the clone's chosen at first. OK runs
 `resolveConflict`, and a texture that takes main's version opens again once the pack was read.
 
-A node in review shows the number of its pull request as its badge, such as `#42`, followed by `✗`
+A node in review shows the number of its pull request as its badge, such as `#42`, followed by `!`
 while a check fails. A glyph shows it in place of its code point. The panel shows the pull request's
 review decision, its checks and its comments, and **Open on GitHub** opens it in the browser. Replies
 are written on GitHub.

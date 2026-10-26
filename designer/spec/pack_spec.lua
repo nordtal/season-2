@@ -33,26 +33,45 @@ local function api(started, files, windows)
 end
 
 describe("pack", function()
-  it("runs describePack with the clone's gradlew and the bootstrap's environment", function()
+  it("runs describePack with the clone's Gradle wrapper on the bootstrap's JDK and environment", function()
     local started = {}
     local env = { JAVA_HOME="/jdk" }
     pack.describe({ clone="/c", env=env }, api(started, {}), function() end)
     assert.equal(1, #started)
-    assert.same({ "/bin/sh", "/c/gradlew", "-q", ":resource-pack:describePack" }, started[1].args.cmd)
+    assert.same({ "/jdk/bin/java", "-jar", "/c/gradle/wrapper/gradle-wrapper.jar", "-q", ":resource-pack:describePack" },
+      started[1].args.cmd)
     assert.equal("/c", started[1].args.cwd)
     assert.equal(env, started[1].args.env)
   end)
 
-  it("runs gradlew.bat on Windows", function()
+  it("starts java.exe on Windows and passes text that a batch file could not take", function()
     local started = {}
-    pack.describe({ clone="C:/c", env={} }, api(started, {}, true), function() end)
-    assert.same({ "C:/c/gradlew.bat", "-q", ":resource-pack:describePack" }, started[1].args.cmd)
+    pack.run({ clone="C:/c", env={ JAVA_HOME="C:/jdk" } }, api(started, {}, true), "editGlyph",
+      { glyph="star", about="Stern (gold) & 100%" }, function() end)
+    assert.same({ "C:/jdk/bin/java.exe", "-jar", "C:/c/gradle/wrapper/gradle-wrapper.jar", "-q", ":resource-pack:editGlyph",
+                  "-Pabout=Stern (gold) & 100%", "-Pglyph=star" }, started[1].args.cmd)
+  end)
+
+  it("gives the reason when the process cannot start, and calls nothing back", function()
+    local called = false
+    local a = api({}, {})
+    a.Process = function(args)
+      return { args=args, start=function() error("cannot start 'java'") end }
+    end
+    local process, problem = pack.run({ clone="/c", env={ JAVA_HOME="/jdk" } }, a, "describePack", {}, function() called = true end)
+    assert.is_nil(process)
+    assert.truthy(problem:find("cannot start 'java'", 1, true))
+    assert.is_false(called)
+    process, problem = pack.describe({ clone="/c", env={} }, a, function() called = true end)
+    assert.is_nil(process)
+    assert.truthy(problem:find("JAVA_HOME", 1, true))
+    assert.is_false(called)
   end)
 
   it("reads the model the task wrote", function()
     local started, got = {}, nil
     local files = { ["/c/resource-pack/build/pack-model.json"]='{"fonts":[{"font":"nordtal:gui"}],"items":[],"overrides":[]}' }
-    pack.describe({ clone="/c", env={} }, api(started, files), function(model, err) got = { model, err } end)
+    pack.describe({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, files), function(model, err) got = { model, err } end)
     started[1].args.onexit(0)
     assert.equal("nordtal:gui", got[1].fonts[1].font)
     assert.is_nil(got[2])
@@ -60,7 +79,7 @@ describe("pack", function()
 
   it("reports what gradlew printed to stderr when it fails", function()
     local started, got = {}, nil
-    pack.describe({ clone="/c", env={} }, api(started, {}), function(model, err) got = { model, err } end)
+    pack.describe({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, {}), function(model, err) got = { model, err } end)
     started[1].args.onstderr("FAILURE: Build failed")
     started[1].args.onstderr("glyphs.json > nordtal:gui: overlaps")
     started[1].args.onexit(1)
@@ -71,7 +90,7 @@ describe("pack", function()
   it("reports a model it cannot read", function()
     local started, got = {}, nil
     local files = { ["/c/resource-pack/build/pack-model.json"]="{" }
-    pack.describe({ clone="/c", env={} }, api(started, files), function(model, err) got = { model, err } end)
+    pack.describe({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, files), function(model, err) got = { model, err } end)
     started[1].args.onexit(0)
     assert.is_nil(got[1])
     assert.equal(1, #got[2])
@@ -108,7 +127,7 @@ describe("pack", function()
     a.decode = function()
       return jsonObj({ fonts={ { font="nordtal:gui", blocks={} } }, items={}, overrides={} })
     end
-    pack.describe({ clone="/c", env={} }, a, function(model) got = model end)
+    pack.describe({ clone="/c", env={ JAVA_HOME="/jdk" } }, a, function(model) got = model end)
     started[1].args.onexit(0)
     assert.same({ fonts={ { font="nordtal:gui", blocks={} } }, items={}, overrides={} }, got)
     assert.is_nil(getmetatable(got.fonts[1]))
@@ -136,9 +155,9 @@ describe("pack", function()
   end)
   it("runs a task of the resource pack with its options in a fixed order", function()
     local started, got = {}, nil
-    pack.run({ clone="/c", env={} }, api(started, {}), "editGlyph", { glyph="star", about="a star", height=7 },
+    pack.run({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, {}), "editGlyph", { glyph="star", about="a star", height=7 },
       function(ok, err) got = { ok, err } end)
-    assert.same({ "/bin/sh", "/c/gradlew", "-q", ":resource-pack:editGlyph",
+    assert.same({ "/jdk/bin/java", "-jar", "/c/gradle/wrapper/gradle-wrapper.jar", "-q", ":resource-pack:editGlyph",
                   "-Pabout=a star", "-Pglyph=star", "-Pheight=7" }, started[1].args.cmd)
     started[1].args.onexit(0)
     assert.same({ true, {} }, got)
@@ -146,7 +165,7 @@ describe("pack", function()
 
   it("reports what a failed task printed to stderr", function()
     local started, got = {}, nil
-    pack.run({ clone="/c", env={} }, api(started, {}), "deleteGlyph", { glyph="star" },
+    pack.run({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, {}), "deleteGlyph", { glyph="star" },
       function(ok, err) got = { ok, err } end)
     started[1].args.onstderr("FAILURE: Build failed")
     started[1].args.onexit(1)

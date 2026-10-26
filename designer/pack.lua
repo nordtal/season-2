@@ -24,18 +24,19 @@ end
 
 -- Runs the task :resource-pack:<task> in the clone with options as
 -- -P properties, sorted by name, and calls done(true, {}) or
--- done(false, lines) with what it printed to stderr. api holds
--- Process, windows and join. Returns the started Process.
+-- done(false, lines) with what it printed to stderr. The Gradle
+-- wrapper's jar runs on the JDK of the bootstrap's JAVA_HOME, so no
+-- shell or batch file reads an option. api holds Process, windows and
+-- join. Returns the started Process, or nil and the reason why none
+-- started, and then calls nothing back.
 function pack.run(bootstrap, api, task, options, done)
-  local clone = bootstrap.clone
-  local cmd
-  if api.windows then
-    cmd = { api.join(clone, "gradlew.bat") }
-  else
-    cmd = { "/bin/sh", api.join(clone, "gradlew") }
+  local clone, home = bootstrap.clone, bootstrap.env.JAVA_HOME
+  if not home then
+    return nil, "the bootstrap gives no JAVA_HOME"
   end
-  table.insert(cmd, "-q")
-  table.insert(cmd, ":resource-pack:" .. task)
+  local cmd = { api.join(home, "bin", api.windows and "java.exe" or "java"),
+                "-jar", api.join(clone, "gradle", "wrapper", "gradle-wrapper.jar"),
+                "-q", ":resource-pack:" .. task }
   local keys = {}
   for key in pairs(options or {}) do table.insert(keys, key) end
   table.sort(keys)
@@ -50,7 +51,10 @@ function pack.run(bootstrap, api, task, options, done)
     env=bootstrap.env,
     onstderr=function(line) table.insert(err, line) end,
     onexit=function(code) done(code == 0, code == 0 and {} or err) end }
-  process:start()
+  local started, problem = pcall(process.start, process)
+  if not started then
+    return nil, tostring(problem)
+  end
   return process
 end
 
@@ -81,9 +85,9 @@ end
 
 -- Runs describePack in the clone and calls done(model) or done(nil,
 -- lines) with the reason. api holds Process, windows, join, read and
--- decode.
+-- decode. Returns what pack.run returns.
 function pack.describe(bootstrap, api, done)
-  return (pack.run(bootstrap, api, "describePack", {}, function(ok, err)
+  local process, problem = pack.run(bootstrap, api, "describePack", {}, function(ok, err)
     if not ok then
       done(nil, err)
       return
@@ -96,7 +100,8 @@ function pack.describe(bootstrap, api, done)
       return
     end
     done(model)
-  end))
+  end)
+  return process, problem
 end
 
 -- Whether the normalized path lies in the folder dir

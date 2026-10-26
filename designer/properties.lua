@@ -2,7 +2,7 @@
 -- form that asks for a new value and the tasks of the resource pack
 -- that write it. Every rule of the pack, such as the constant a name
 -- gives or the display height a pixel size gives, stays in those
--- tasks; the panel shows what the pack model says after each one.
+-- tasks. The panel shows what the pack model says after each one.
 
 local properties = {}
 
@@ -26,9 +26,9 @@ function properties.label(info)
 end
 
 -- The rows of an entry as { key, value, field } in display order. A
--- row with a field can be edited, and field names the edit; the
+-- row with a field can be edited, and field names the edit. The
 -- coupled row is the switch, its value true or false. context holds
--- statuses and coupled.
+-- coupled.
 function properties.rows(info, tr, context)
   local list = {}
   local function add(key, value, field)
@@ -127,13 +127,14 @@ local function number(id, label, value)
 end
 
 -- The form that asks for a new value of field: { title, widgets },
--- each widget { kind, id, label, ... } as Dialog takes it
-function properties.form(info, field, tr, statuses)
+-- each widget { kind, id, label, ... } as Dialog takes it. lists holds
+-- the statuses and scalings of the pack model.
+function properties.form(info, field, tr, lists)
   local e, t = info.entry, info.texture
   local title = tr("properties." .. field)
   if field == "status" then
     local options = { fromBlock(info, tr) }
-    for _, status in ipairs(statuses or {}) do table.insert(options, status) end
+    for _, status in ipairs(lists.statuses or {}) do table.insert(options, status) end
     return { title=title, widgets={
       { kind="combobox", id="value", label=title, options=options, option=e.status or options[1] } } }
   elseif field == "height" or field == "ascent" then
@@ -148,7 +149,7 @@ function properties.form(info, field, tr, statuses)
       border = { left=border, top=border, right=border, bottom=border }
     end
     local widgets = {
-      { kind="combobox", id="type", label=tr("properties.scaling_type"), options={ "stretch", "tile", "nine_slice" },
+      { kind="combobox", id="type", label=tr("properties.scaling_type"), options=lists.scalings or {},
         option=s.type or "stretch" },
       number("width", tr("properties.width"), s.width or t.width),
       number("height", tr("properties.pixel_height"), s.height or t.height),
@@ -164,33 +165,37 @@ function properties.form(info, field, tr, statuses)
   return { title=title, widgets={ { kind="entry", id="value", label=title, text=e[field] or "" } } }
 end
 
--- The tasks that write the values data of a form for field, each as
--- { task, options }, or { resize={ width, height } } for a pixel size,
--- which the sprite takes before its save writes it
+-- The task that writes the values data of a form for field as
+-- { task, options }, nil for none, or { resize={ width, height,
+-- lossy } } for a pixel size, which the sprite takes before its save
+-- writes it. A size that is no whole multiple of the old one up is
+-- lossy: nearest neighbour drops or doubles rows and columns.
 function properties.jobs(info, field, data, tr)
   local e, t = info.entry, info.texture
   local glyph = properties.label(info)
   local value = data.value
   if field == "name" or field == "constant" then
-    if value == e[field] or value == "" then return {} end
-    return { { "renameGlyph", { glyph=glyph, to=value } } }
+    if value == e[field] or value == "" then return nil end
+    return { "renameGlyph", { glyph=glyph, to=value } }
   elseif field == "status" then
     if value == fromBlock(info, tr) then value = "" end
-    if value == (e.status or "") then return {} end
-    return { { "editGlyph", { glyph=glyph, status=value } } }
+    if value == (e.status or "") then return nil end
+    return { "editGlyph", { glyph=glyph, status=value } }
   elseif field == "height" or field == "ascent" then
     value = int(value)
-    if value == int(e[field]) then return {} end
-    return { { "editGlyph", { glyph=glyph, [field]=value } } }
+    if value == int(e[field]) then return nil end
+    return { "editGlyph", { glyph=glyph, [field]=value } }
   elseif field == "about" then
-    if value == (e.about or "") then return {} end
-    return { { "editGlyph", { glyph=glyph, about=value } } }
+    if value == (e.about or "") then return nil end
+    return { "editGlyph", { glyph=glyph, about=value } }
   elseif field == "delete" then
-    return { { "deleteGlyph", { glyph=glyph } } }
+    return { "deleteGlyph", { glyph=glyph } }
   elseif field == "size" then
     local width, height = int(data.width), int(data.height)
-    if width == int(t.width) and height == int(t.height) then return {} end
-    return { resize={ width=width, height=height } }
+    local oldWidth, oldHeight = int(t.width), int(t.height)
+    if width == oldWidth and height == oldHeight then return nil end
+    local whole = width % oldWidth == 0 and height % oldHeight == 0 and width >= oldWidth and height >= oldHeight
+    return { resize={ width=width, height=height, lossy=not whole or nil } }
   elseif field == "scaling" then
     local options = { texture=t.id, scaling=data.type }
     if data.type ~= "stretch" then
@@ -202,27 +207,28 @@ function properties.jobs(info, field, data, tr)
       options.border = table.concat(sides, ",")
       options.stretchInner = data.stretchInner == true
     end
-    return { { "scaleTexture", options } }
+    return { "scaleTexture", options }
   end
-  return {}
+  return nil
 end
 
--- The tasks that follow a save of the texture of info, whose sprite
+-- The task that follows a save of the texture of info, whose sprite
 -- now is { width, height, durations } with a duration in milliseconds
 -- per frame: a glyph whose pixel height changed scales its display
 -- height when coupled, and an override writes its animation. An
 -- animation the model could not split into frames stays as it is.
+-- nil when nothing follows.
 function properties.saved(info, sprite, coupled)
   local e, t = info.entry, info.texture
   if info.kind == "glyph" and properties.label(info) and t.height and sprite.height ~= int(t.height) then
-    return { { "resizeGlyph", { glyph=properties.label(info), from=int(t.height), coupled=coupled ~= false } } }
+    return { "resizeGlyph", { glyph=properties.label(info), from=int(t.height), coupled=coupled ~= false } }
   end
   if info.kind == "override" and (#sprite.durations > 1 or (e.animation and e.frames)) then
     local frames = {}
     for _, ms in ipairs(sprite.durations) do table.insert(frames, shown(int(ms))) end
-    return { { "animateTexture", { texture=t.id, frames=table.concat(frames, ",") } } }
+    return { "animateTexture", { texture=t.id, frames=table.concat(frames, ",") } }
   end
-  return {}
+  return nil
 end
 
 return properties

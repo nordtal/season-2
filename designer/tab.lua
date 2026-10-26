@@ -16,7 +16,7 @@
 local tab = {}
 
 -- The widths of the tree and the properties panel, in points. The
--- editor takes the rest; a longer node of the tree scrolls.
+-- editor takes the rest, and a longer node of the tree scrolls.
 local treeWidth = 150
 local panelWidth = 120
 
@@ -25,13 +25,13 @@ function tab.open(context)
   local preferences, clone = context.preferences, context.bootstrap.clone
   local properties = modules.properties
   local ctl = {}
-  local dlg, nodes, index, statuses, selected, closed
+  local dlg, nodes, index, lists, selected, closed
   local status = { text=tr("status.loading"), visible=true }
   -- What the tab opened, by the filenames of its PNG and its source:
   -- { id, paths } with the id of the entry's node
   local opened = {}
   -- The Gradle runs that wait, each a function(done) that starts one
-  -- and returns its Process, and the one that runs
+  -- and returns its Process, and the one that runs as { process }
   local queue, running = {}, nil
   -- The reason why the last task for the selected entry was refused
   local refused
@@ -57,7 +57,7 @@ function tab.open(context)
       table.insert(list, { text=i == 1 and tr("properties.refused") or nil, value=line })
     end
     local info = index and selected and index[selected]
-    for _, row in ipairs(properties.rows(info, tr, { statuses=statuses, coupled=preferences.coupled })) do
+    for _, row in ipairs(properties.rows(info, tr, { coupled=preferences.coupled })) do
       if row.key == "coupled" then
         table.insert(list, { text=tr("properties.coupled"), value=row.value, field=row.field, kind="switch" })
       elseif row.key == "delete" then
@@ -110,26 +110,27 @@ function tab.open(context)
     timer:start()
   end
 
-  -- Starts the next Gradle run that waits, unless one runs
+  -- Starts the next Gradle run that waits, unless one runs. A run that
+  -- could not start calls done at once, and the next one starts.
   local function pump()
     if running or closed or #queue == 0 then
       return
     end
     local job = table.remove(queue, 1)
-    local this
-    this = job(function()
+    local this = {}
+    running = this
+    this.process = job(function()
       redraw()
       if running == this then
         running = nil
         pump()
       end
     end)
-    running = this
   end
 
   -- Reads the pack again and shows its nodes
   local function describe(done)
-    return (modules.pack.describe(context.bootstrap, api, function(model, err)
+    local process, problem = modules.pack.describe(context.bootstrap, api, function(model, err)
       if closed then
         return
       end
@@ -137,7 +138,7 @@ function tab.open(context)
         local ok, built, builtIndex = pcall(modules.tree.build, model, tr)
         if ok then
           nodes, index = built, builtIndex
-          statuses = model.statuses
+          lists = { statuses=model.statuses, scalings=model.scalings }
           dlg:modify{ id="tree", nodes=nodes }
           if selected and not index[selected] then
             ctl.clear()
@@ -152,7 +153,12 @@ function tab.open(context)
       -- The status label draws one line
       setStatus(tr("status.failed") .. " " .. table.concat(err, " "))
       done()
-    end))
+    end)
+    if not process then
+      setStatus(tr("status.not_started") .. " " .. problem)
+      done()
+    end
+    return process
   end
 
   function ctl.reload()
@@ -166,51 +172,88 @@ function tab.open(context)
     pump()
   end
 
-  -- Runs each { task, options } of jobs in turn, then after(), and
-  -- reads the pack again. A refusal stops the rest and shows its
-  -- reason in the panel.
-  local function write(jobs, after)
-    if #jobs == 0 then
-      return
-    end
+  -- Runs job, a { task, options }, then after() once it succeeded and
+  -- finally() in any case, and reads the pack again. A refusal shows
+  -- its reason in the panel while its entry stays selected, and in the
+  -- status line too when shown is true.
+  local function write(job, after, finally, shown)
     local id = selected
     refused = nil
     setStatus(tr("status.writing"))
-    local stopped = false
-    for n, job in ipairs(jobs) do
-      table.insert(queue, function(done)
-        if stopped then
-          done()
-          return nil
+    table.insert(queue, function(done)
+      local process, problem = modules.pack.run(context.bootstrap, api, job[1], job[2], function(ok, err)
+        if closed then
+          return
         end
-        return (modules.pack.run(context.bootstrap, api, job[1], job[2], function(ok, err)
-          if closed then
-            return
+        if ok then
+          if after then after() end
+          if finally then finally() end
+          ctl.reload()
+        else
+          for i = #queue, 1, -1 do
+            if queue[i] == describe then table.remove(queue, i) end
           end
-          if not ok then
-            stopped = true
-            for i = #queue, 1, -1 do
-              if queue[i] == describe then table.remove(queue, i) end
-            end
-            setStatus(nil)
-            if selected == id then
-              refused = modules.pack.refusal(err)
-            end
-            showProperties()
-          elseif n == #jobs then
-            if after then after() end
-            ctl.reload()
+          local reason = modules.pack.refusal(err)
+          setStatus(shown and tr("status.refused") .. " " .. table.concat(reason, " ") or nil)
+          if selected == id then
+            refused = reason
           end
-          done()
-        end))
+          if finally then finally() end
+          showProperties()
+        end
+        done()
       end)
-    end
+      if not process then
+        setStatus(tr("status.not_started") .. " " .. problem)
+        if finally then finally() end
+        done()
+      end
+      return process
+    end)
     pump()
   end
 
+  -- Runs the task that a save of the sprite of record implies: a
+  -- glyph's display height for a new pixel height, an override's
+  -- animation. The model takes the new size and animation only once
+  -- the task succeeded. A save while the task waits or runs is taken
+  -- up after it, so no task runs twice on the same model.
+  local function follow(sprite, record)
+    local info = index and index[record.id]
+    if not info then
+      return
+    end
+    if record.writing then
+      record.again = true
+      return
+    end
+    local durations = {}
+    for i, frame in ipairs(sprite.frames) do durations[i] = math.floor(frame.duration * 1000 + 0.5) end
+    local job = properties.saved(info, { width=sprite.width, height=sprite.height, durations=durations },
+      preferences.coupled)
+    if not job then
+      info.texture.width, info.texture.height = sprite.width, sprite.height
+      return
+    end
+    local width, height = sprite.width, sprite.height
+    record.writing = true
+    write(job, function()
+      info.texture.width, info.texture.height = width, height
+      if info.kind == "override" then
+        info.entry.animation = #durations > 1 or nil
+        info.entry.frames = nil
+      end
+    end, function()
+      record.writing = nil
+      if record.again then
+        record.again = nil
+        follow(sprite, record)
+      end
+    end, true)
+  end
+
   -- Saves a sprite the tab opened as its source and its PNG, and runs
-  -- what follows from it: a glyph's display height for a new pixel
-  -- height, an override's animation
+  -- what follows from it
   local function save(sprite, record)
     local info = index and index[record.id]
     local texture = info and info.texture or record.texture
@@ -221,24 +264,11 @@ function tab.open(context)
       return
     end
     setStatus(nil)
-    if info then
-      local durations = {}
-      for i, frame in ipairs(sprite.frames) do durations[i] = math.floor(frame.duration * 1000 + 0.5) end
-      local jobs = properties.saved(info, { width=sprite.width, height=sprite.height, durations=durations },
-        preferences.coupled)
-      -- The model has this size and animation until the pack is read
-      -- again, so a second save runs nothing twice
-      texture.width, texture.height = sprite.width, sprite.height
-      if #jobs > 0 and info.kind == "override" then
-        info.entry.animation = #durations > 1 or nil
-        info.entry.frames = nil
-      end
-      write(jobs)
-    end
+    follow(sprite, record)
     showProperties()
   end
 
-  -- Asks for the values of a form { title, widgets }; nil when cancelled
+  -- Asks for the values of a form { title, widgets }, nil when cancelled
   local function ask(form)
     local d = api.Dialog{ title=form.title }
     for _, w in ipairs(form.widgets) do
@@ -258,7 +288,11 @@ function tab.open(context)
   -- Edits field of the selected entry
   function ctl.edit(field)
     local info = index and selected and index[selected]
-    if not info or running or #queue > 0 then
+    if not info then
+      return
+    end
+    if running or #queue > 0 then
+      setStatus(tr("status.busy"))
       return
     end
     if field == "coupled" then
@@ -282,21 +316,34 @@ function tab.open(context)
       end)
       return
     end
-    local data = ask(properties.form(info, field, tr, statuses))
+    local data = ask(properties.form(info, field, tr, lists or {}))
     if not data then
       return
     end
-    local jobs = properties.jobs(info, field, data, tr)
-    if jobs.resize then
+    local job = properties.jobs(info, field, data, tr)
+    if job and job.resize then
+      local size = job.resize
       local sprite = dlg.data.editor
       local record = sprite and opened[sprite.filename]
-      if record then
-        sprite:resize(jobs.resize.width, jobs.resize.height)
-        save(sprite, record)
+      if not record then
+        return
       end
+      if size.lossy then
+        local yes = api.alert{ title=tr("properties.size"),
+                               text={ tr("properties.resize_confirm", sprite.width, sprite.height, size.width, size.height),
+                                      tr("properties.resize_ratio"), tr("properties.resize_lossy") },
+                               buttons={ tr("properties.resize"), tr("edit.cancel") } }
+        if yes ~= 1 then
+          return
+        end
+      end
+      sprite:resize(size.width, size.height)
+      save(sprite, record)
       return
     end
-    write(jobs)
+    if job then
+      write(job)
+    end
   end
 
   local function click(ev)
@@ -306,8 +353,8 @@ function tab.open(context)
     end
   end
 
-  -- Scrolls the panel three lines a step; the next paint keeps it
-  -- between its first and its last row
+  -- Scrolls the panel three lines a step. The next paint keeps it
+  -- between its first and its last row.
   local function wheel(ev)
     scroll = math.max(0, scroll + ev.deltaY * 3 * lineHeight)
     showProperties()
@@ -416,8 +463,9 @@ function tab.open(context)
   function ctl.close()
     closed = true
     queue = {}
-    if running and running.isRunning then
-      running:stop()
+    local process = running and running.process
+    if process and process.isRunning then
+      process:stop()
     end
     running = nil
     dlg:close()

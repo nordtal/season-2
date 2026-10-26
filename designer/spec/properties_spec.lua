@@ -2,7 +2,7 @@ local properties = require("properties")
 
 local function tr(id, ...) return table.concat({ id, ... }, " ") end
 
-local statuses = { "keep", "final candidate", "placeholder" }
+local lists = { statuses={ "keep", "final candidate", "placeholder" }, scalings={ "stretch", "tile", "nine_slice", "new" } }
 
 local function glyph(fields)
   local entry = { code="F0000", constant="STAR", name="star", status=nil, effectiveStatus="keep",
@@ -30,7 +30,7 @@ end
 -- The rows as "key=value", "key=value*" where it can be edited
 local function shown(info, coupled)
   local out = {}
-  for _, row in ipairs(properties.rows(info, tr, { statuses=statuses, coupled=coupled })) do
+  for _, row in ipairs(properties.rows(info, tr, { statuses=lists.statuses, coupled=coupled })) do
     table.insert(out, row.key .. "=" .. tostring(row.value) .. (row.field and "*" or ""))
   end
   return out
@@ -92,61 +92,64 @@ end)
 
 describe("an edit of a property", function()
   it("renames a glyph by its name", function()
-    assert.same({ { "renameGlyph", { glyph="star", to="big-star" } } },
+    assert.same({ "renameGlyph", { glyph="star", to="big-star" } },
       properties.jobs(glyph(), "name", { value="big-star" }))
   end)
 
   it("renames a cell by its constant", function()
-    assert.same({ { "renameGlyph", { glyph="CORNER", to="EDGE" } } },
+    assert.same({ "renameGlyph", { glyph="CORNER", to="EDGE" } },
       properties.jobs(cell(), "constant", { value="EDGE" }))
   end)
 
   it("changes nothing when the value stays", function()
-    assert.same({}, properties.jobs(glyph(), "name", { value="star" }))
-    assert.same({}, properties.jobs(glyph(), "height", { value=7 }))
+    assert.is_nil(properties.jobs(glyph(), "name", { value="star" }))
+    assert.is_nil(properties.jobs(glyph(), "height", { value=7 }))
   end)
 
   it("writes the status, and the block's status for the first choice", function()
-    local form = properties.form(glyph({ status="placeholder" }), "status", tr, statuses)
+    local form = properties.form(glyph({ status="placeholder" }), "status", tr, lists)
     assert.same({ "properties.from_block keep", "keep", "final candidate", "placeholder" }, form.widgets[1].options)
     assert.equal("placeholder", form.widgets[1].option)
-    assert.same({ { "editGlyph", { glyph="star", status="" } } },
+    assert.same({ "editGlyph", { glyph="star", status="" } },
       properties.jobs(glyph({ status="placeholder" }), "status", { value="properties.from_block keep" }, tr))
-    assert.same({ { "editGlyph", { glyph="star", status="final candidate" } } },
+    assert.same({ "editGlyph", { glyph="star", status="final candidate" } },
       properties.jobs(glyph(), "status", { value="final candidate" }, tr))
   end)
 
   it("writes the display height, the ascent and the about of a glyph", function()
-    assert.same({ { "editGlyph", { glyph="star", height=9 } } }, properties.jobs(glyph(), "height", { value=9 }))
-    assert.same({ { "editGlyph", { glyph="star", ascent=5 } } }, properties.jobs(glyph(), "ascent", { value=5 }))
-    assert.same({ { "editGlyph", { glyph="star", about="" } } }, properties.jobs(glyph(), "about", { value="" }))
+    assert.same({ "editGlyph", { glyph="star", height=9 } }, properties.jobs(glyph(), "height", { value=9 }))
+    assert.same({ "editGlyph", { glyph="star", ascent=5 } }, properties.jobs(glyph(), "ascent", { value=5 }))
+    assert.same({ "editGlyph", { glyph="star", about="" } }, properties.jobs(glyph(), "about", { value="" }))
   end)
 
   it("asks for a number as a whole number", function()
-    local form = properties.form(glyph(), "height", tr, statuses)
+    local form = properties.form(glyph(), "height", tr, lists)
     assert.same({ kind="number", id="value", label="properties.height", text="7", decimals=0 }, form.widgets[1])
   end)
 
-  it("asks for the width and the height of the pixel size", function()
-    local form = properties.form(glyph(), "size", tr, statuses)
+  it("asks for the pixel size and marks one that is no whole multiple of the old as lossy", function()
+    local form = properties.form(glyph(), "size", tr, lists)
     assert.same({ "width", "height" }, { form.widgets[1].id, form.widgets[2].id })
-    assert.same({ resize={ width=14, height=14 } }, properties.jobs(glyph(), "size", { width=14, height=14 }))
-    assert.same({}, properties.jobs(glyph(), "size", { width=7, height=7 }))
+    assert.same({ resize={ width=14, height=21 } }, properties.jobs(glyph(), "size", { width=14, height=21 }))
+    assert.same({ resize={ width=9, height=9, lossy=true } }, properties.jobs(glyph(), "size", { width=9, height=9 }))
+    assert.same({ resize={ width=14, height=6, lossy=true } }, properties.jobs(glyph(), "size", { width=14, height=6 }))
+    assert.is_nil(properties.jobs(glyph(), "size", { width=7, height=7 }))
   end)
 
   it("deletes a glyph by its name", function()
-    assert.same({ { "deleteGlyph", { glyph="star" } } }, properties.jobs(glyph(), "delete", {}))
+    assert.same({ "deleteGlyph", { glyph="star" } }, properties.jobs(glyph(), "delete", {}))
   end)
 
   it("writes a nine-slice scaling with its border as four numbers", function()
     local info = override({ guiSprite=true, scaling={ type="nine_slice", width=200, height=20, border=3 } })
-    local form = properties.form(info, "scaling", tr, statuses)
+    local form = properties.form(info, "scaling", tr, lists)
     local values = {}
+    assert.same(lists.scalings, form.widgets[1].options)
     for _, w in ipairs(form.widgets) do values[w.id] = w.option or w.text or w.selected end
     assert.same({ type="nine_slice", width="200", height="20", left="3", top="3", right="3", bottom="3",
                   stretchInner=false }, values)
-    assert.same({ { "scaleTexture", { texture="minecraft:gui/sprites/widget/button.png", scaling="nine_slice",
-                    width=200, height=20, border="2,3,2,0", stretchInner=true } } },
+    assert.same({ "scaleTexture", { texture="minecraft:gui/sprites/widget/button.png", scaling="nine_slice",
+                    width=200, height=20, border="2,3,2,0", stretchInner=true } },
       properties.jobs(info, "scaling", { type="nine_slice", width=200, height=20, left=2, top=3, right=2, bottom=0,
                                          stretchInner=true }))
   end)
@@ -154,34 +157,34 @@ describe("an edit of a property", function()
   it("reads a border of four sides and writes a tile and a stretch without one", function()
     local info = override({ guiSprite=true, scaling={ type="nine_slice", width=20, height=20,
                                                       border={ left=1, top=2, right=3, bottom=4 } } })
-    local form = properties.form(info, "scaling", tr, statuses)
+    local form = properties.form(info, "scaling", tr, lists)
     assert.same({ "1", "2", "3", "4" }, { form.widgets[4].text, form.widgets[5].text, form.widgets[6].text, form.widgets[7].text })
-    assert.same({ { "scaleTexture", { texture="minecraft:gui/sprites/widget/button.png", scaling="tile", width=8, height=8 } } },
+    assert.same({ "scaleTexture", { texture="minecraft:gui/sprites/widget/button.png", scaling="tile", width=8, height=8 } },
       properties.jobs(info, "scaling", { type="tile", width=8, height=8, left=1, top=2, right=3, bottom=4 }))
-    assert.same({ { "scaleTexture", { texture="minecraft:gui/sprites/widget/button.png", scaling="stretch" } } },
+    assert.same({ "scaleTexture", { texture="minecraft:gui/sprites/widget/button.png", scaling="stretch" } },
       properties.jobs(info, "scaling", { type="stretch", width=8, height=8 }))
   end)
 end)
 
 describe("a save of a texture", function()
   it("scales the display height of a glyph whose pixel height changed, as the switch says", function()
-    assert.same({ { "resizeGlyph", { glyph="star", from=7, coupled=true } } },
+    assert.same({ "resizeGlyph", { glyph="star", from=7, coupled=true } },
       properties.saved(glyph(), { width=14, height=14, durations={ 100 } }, true))
-    assert.same({ { "resizeGlyph", { glyph="star", from=7, coupled=false } } },
+    assert.same({ "resizeGlyph", { glyph="star", from=7, coupled=false } },
       properties.saved(glyph(), { width=14, height=14, durations={ 100 } }, false))
-    assert.same({}, properties.saved(glyph(), { width=7, height=7, durations={ 100 } }, true))
+    assert.is_nil(properties.saved(glyph(), { width=7, height=7, durations={ 100 } }, true))
   end)
 
   it("writes the animation of an override from the sprite's frames", function()
-    assert.same({ { "animateTexture", { texture="minecraft:gui/sprites/widget/button.png", frames="100,250" } } },
+    assert.same({ "animateTexture", { texture="minecraft:gui/sprites/widget/button.png", frames="100,250" } },
       properties.saved(override(), { width=200, height=20, durations={ 100, 250 } }, true))
   end)
 
   it("removes the animation of an override that has one frame left, and leaves one it could not read", function()
-    assert.same({ { "animateTexture", { texture="minecraft:gui/sprites/widget/button.png", frames="100" } } },
+    assert.same({ "animateTexture", { texture="minecraft:gui/sprites/widget/button.png", frames="100" } },
       properties.saved(override({ animation={ frametime=2 }, frames={ { duration=100 }, { duration=100 } } }),
         { width=200, height=20, durations={ 100 } }, true))
-    assert.same({}, properties.saved(override({ animation={ frametime=2 } }), { width=200, height=20, durations={ 100 } }, true))
-    assert.same({}, properties.saved(override(), { width=200, height=20, durations={ 100 } }, true))
+    assert.is_nil(properties.saved(override({ animation={ frametime=2 } }), { width=200, height=20, durations={ 100 } }, true))
+    assert.is_nil(properties.saved(override(), { width=200, height=20, durations={ 100 } }, true))
   end)
 end)

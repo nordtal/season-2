@@ -100,7 +100,11 @@ local function setUp(preferences, modelText)
     end,
     Process=function(args)
       local p = { args=args, isRunning=false }
-      function p:start() self.isRunning = true table.insert(started, self) end
+      function p:start()
+        if world.failStart then error(world.failStart) end
+        self.isRunning = true
+        table.insert(started, self)
+      end
       function p:stop() self.isRunning = false self.stopped = true end
       return p
     end,
@@ -141,7 +145,7 @@ local function setUp(preferences, modelText)
     api=api,
     modules={ pack=require("pack"), tree=require("tree"), textures=require("textures"),
                panel=require("panel"), properties=require("properties") },
-    bootstrap={ clone=clone, env={} },
+    bootstrap={ clone=clone, env={ JAVA_HOME="/jdk" } },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
   }
@@ -182,9 +186,9 @@ local function click(dlg, text, height)
   dlg.handlers.properties.onmousedown({ x=at.x, y=at.y })
 end
 
--- The -P options and the task of a started gradlew
+-- The -P options and the task of a started Gradle wrapper
 local function run(p)
-  return table.concat(p.args.cmd, " ", 4)
+  return table.concat(p.args.cmd, " ", 5)
 end
 
 local function loaded(t)
@@ -473,6 +477,88 @@ describe("the Nordtal tab", function()
     t.started[2].args.onexit(0)
     assert.equal(":resource-pack:describePack", run(t.started[3]))
     assert.equal(3, #t.started)
+  end)
+
+  it("asks before a pixel size that loses or doubles rows, and resizes only once confirmed", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.dialogs.answer = function(d) d.data = { ok=true, width=9, height=9 } end
+    click(dlg, "properties.pixels 7 7")
+    assert.same({ { "alert", { "properties.resize_confirm 7 7 9 9", "properties.resize_ratio", "properties.resize_lossy" } } }, t.log)
+    t.world.confirm = 1
+    click(dlg, "properties.pixels 7 7")
+    assert.same({ "resize", 9, 9 }, t.log[3])
+  end)
+
+  it("keeps the old pixel height after a refused resize, shows the refusal and runs it again on the next save", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local sprite = t.open[1]
+    sprite.height = 14
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(":resource-pack:resizeGlyph -Pcoupled=true -Pfrom=7 -Pglyph=star", run(t.started[2]))
+    -- The refusal reaches the status line whatever entry is selected
+    dlg.handlers.tree.onchange({ node="glyphs" })
+    for _, line in ipairs({ "* What went wrong:", "> star has no block", "* Try:" }) do
+      t.started[2].args.onstderr(line)
+    end
+    t.started[2].args.onexit(1)
+    assert.equal("status.refused star has no block", dlg.handlers.status.text)
+    assert.is_true(dlg.handlers.status.visible)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(":resource-pack:resizeGlyph -Pcoupled=true -Pfrom=7 -Pglyph=star", run(t.started[3]))
+  end)
+
+  it("shows why Gradle could not start and runs the next task", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.dialogs.answer = function(d) d.data = { ok=true, value="a star" } end
+    t.world.failStart = "cannot start java"
+    click(dlg, "star")
+    assert.is_truthy(dlg.handlers.status.text:find("^status.not_started .*cannot start java"))
+    t.world.failStart = nil
+    click(dlg, "star")
+    assert.equal(":resource-pack:renameGlyph -Pglyph=star -Pto=a star", run(t.started[2]))
+  end)
+
+  it("shows that a change is being written when a value is clicked meanwhile", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local forms = 0
+    t.dialogs.answer = function(d) forms = forms + 1 d.data = { ok=true, value="a star" } end
+    click(dlg, "star")
+    click(dlg, "7")
+    assert.equal(1, forms)
+    assert.equal("status.busy", dlg.handlers.status.text)
+    assert.equal(2, #t.started)
+  end)
+
+  it("runs a second save of an override after the task of the first, never beside it", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local sprite = t.open[1]
+    sprite.frames = { { duration=0.1 }, { duration=0.25 } }
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    sprite.frames = { { duration=0.1 }, { duration=0.2 } }
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(2, #t.started)
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    assert.equal(3, #t.started)
+    assert.equal(":resource-pack:animateTexture -Pframes=100,200 -Ptexture=minecraft:gui/sprites/container/slot.png",
+      run(t.started[3]))
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    assert.equal(":resource-pack:describePack", run(t.started[4]))
   end)
 
   it("keeps the coupling switch in the preferences, and a decoupled resize keeps the display height", function()

@@ -51,8 +51,11 @@ local function fakeDialogs()
     function dlg:newrow() table.insert(self.widgets, { kind="newrow" }) return self end
     function dlg:repaint() self.repainted = (self.repainted or 0) + 1 end
     -- A form waits for the answer the test gives
-    function dlg:show()
+    function dlg:show(showArgs)
       self.shown = self.shown + 1
+      self.showArgs = showArgs
+      -- Where the app put the dialog, and how large it made it
+      if dialogs.bounds then self.bounds = dialogs.bounds(self) end
       if not (args and args.tab) and dialogs.answer then dialogs.answer(self) end
       return self
     end
@@ -109,6 +112,8 @@ local function setUp(preferences, modelText)
       return p
     end,
     windows=false,
+    Rectangle=function(x, y, width, height) return { x=x, y=y, width=width, height=height } end,
+    screen=function() return 450, 400 end,
     -- Like app.fs.joinPath and normalizePath
     join=function(...)
       local names = {}
@@ -119,6 +124,7 @@ local function setUp(preferences, modelText)
     end,
     read=function(path)
       if path == "/c/resource-pack/build/pack-model.json" then return modelText or model end
+      if path == "/c/resource-pack/build/vanilla-textures.json" then return world.vanilla end
     end,
     -- Aseprite's json.decode gives every number as a float
     decode=function(text) return floats(dkjson.decode(text)) end,
@@ -144,7 +150,7 @@ local function setUp(preferences, modelText)
   local ctl = tab.open{
     api=api,
     modules={ pack=require("pack"), tree=require("tree"), textures=require("textures"),
-               panel=require("panel"), properties=require("properties") },
+               panel=require("panel"), properties=require("properties"), wizard=require("wizard") },
     bootstrap={ clone=clone, env={ JAVA_HOME="/jdk" } },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
@@ -651,5 +657,210 @@ describe("the Nordtal tab", function()
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
     assert.equal(2, #t.started)
+  end)
+  -- The widgets of a dialog as "kind id", and a label as its text
+  local function layout(d)
+    local out = {}
+    for _, w in ipairs(d.widgets) do
+      if w.kind == "label" then
+        table.insert(out, "label " .. tostring(w.args.text))
+      elseif w.kind ~= "newrow" and w.kind ~= "separator" then
+        table.insert(out, w.kind .. " " .. tostring(w.args.id))
+      end
+    end
+    return out
+  end
+
+  local function wizard(t)
+    loaded(t)
+    t.ctl.create()
+    return t.dialogs[#t.dialogs]
+  end
+
+  it("asks for the kind of a new texture first, then the fields of a glyph, in a dialog that does not wait", function()
+    local t = setUp()
+    local w = wizard(t)
+    assert.equal("new.dialog", w.args.title)
+    assert.same({ "combobox kind", "combobox font", "combobox block", "entry namespace", "entry path", "entry name",
+                  "entry constant", "entry width", "entry height", "entry ascent", "button create", "button cancel" },
+      layout(w))
+    assert.same({ "new.kind_glyph", "new.kind_block", "new.kind_sheet", "new.kind_item", "new.kind_override" },
+      w.handlers.kind.options)
+    assert.same({ "minecraft:default" }, w.handlers.font.options)
+    assert.same({ "Player badges" }, w.handlers.block.options)
+    assert.equal("nordtal", w.handlers.namespace.text)
+    assert.same({ wait=false }, w.showArgs)
+  end)
+
+  it("shows the fields of the kind chosen and keeps what was typed", function()
+    local t = setUp()
+    local w = wizard(t)
+    w.values.namespace, w.values.path = "nordtal", "wand"
+    w.values.kind = "new.kind_item"
+    w.handlers.kind.onchange()
+    local item = t.dialogs[#t.dialogs]
+    assert.is_true(w.closed)
+    assert.same({ "combobox kind", "entry namespace", "entry path", "entry width", "entry height", "button create",
+                  "button cancel" }, layout(item))
+    assert.equal("wand", item.handlers.path.text)
+    assert.equal("16", item.handlers.width.text)
+  end)
+
+  it("creates a glyph, reads the pack again and opens the new texture in the editor", function()
+    local t = setUp()
+    local tabDialog = t.dialogs[1]
+    local w = wizard(t)
+    w.values = { kind="new.kind_glyph", font="minecraft:default", block="Player badges", namespace="nordtal",
+                 path="badges/star", name="star", constant="", width="7", height="7", ascent="" }
+    w.handlers.create.onclick()
+    assert.equal(":resource-pack:createGlyph -Pblock=Player badges -Pfont=minecraft:default -Pheight=7 -Pname=star "
+      .. "-Ptexture=nordtal:badges/star.png -Pwidth=7", run(t.started[2]))
+    t.started[2].args.onstdout(star)
+    t.started[2].args.onexit(0)
+    assert.is_true(w.closed)
+    assert.equal(":resource-pack:describePack", run(t.started[3]))
+    t.started[3].args.onexit(0)
+    assert.equal("glyph/minecraft:default/F0000", tabDialog.data.tree)
+    assert.equal(star, tabDialog.data.editor.filename)
+  end)
+
+  it("shows a refusal under the field it names and keeps the dialog and its values", function()
+    local t = setUp()
+    local w = wizard(t)
+    w.values = { kind="new.kind_glyph", font="minecraft:default", block="Player badges", namespace="nordtal",
+                 path="badges/moon", name="moon", width="5000", height="7" }
+    w.handlers.create.onclick()
+    t.started[2].args.onstdout("refused width")
+    t.started[2].args.onstderr("* What went wrong:")
+    t.started[2].args.onstderr("> A texture is 1 to 4096 pixels wide and high, not 5000 by 7.")
+    t.started[2].args.onstderr("* Try:")
+    t.started[2].args.onexit(1)
+    local again = t.dialogs[#t.dialogs]
+    assert.is_true(w.closed)
+    local shown = layout(again)
+    local at
+    for i, line in ipairs(shown) do if line == "entry width" then at = i end end
+    assert.equal("label A texture is 1 to 4096 pixels wide and high, not", shown[at + 1])
+    assert.equal("label 5000 by 7.", shown[at + 2])
+    assert.equal("entry height", shown[at + 3])
+    assert.equal("5000", again.handlers.width.text)
+    assert.equal(2, #t.started)
+  end)
+
+  it("asks for a field that was left empty in words of its own, not in the task's", function()
+    local t = setUp()
+    local w = wizard(t)
+    w.values.namespace, w.values.path = "nordtal", ""
+    w.handlers.create.onclick()
+    assert.is_falsy(run(t.started[2]):find("-Ptexture", 1, true))
+    t.started[2].args.onstdout("refused texture")
+    t.started[2].args.onstderr("* What went wrong:")
+    t.started[2].args.onstderr("> Set -Ptexture.")
+    t.started[2].args.onexit(1)
+    local shown = layout(t.dialogs[#t.dialogs])
+    local at
+    for i, line in ipairs(shown) do if line == "entry path" then at = i end end
+    assert.equal("label new.required", shown[at + 1])
+  end)
+
+  it("asks for a texture when none of the client jar was chosen, without running a task", function()
+    local t = setUp()
+    t.world.vanilla = dkjson.encode({ version="26.2", textures={ { id="minecraft:block/stone.png" } } })
+    local w = wizard(t)
+    w.values.kind = "new.kind_override"
+    w.handlers.kind.onchange()
+    t.started[2].args.onexit(0)
+    t.dialogs[#t.dialogs].handlers.create.onclick()
+    assert.is_nil(t.started[3])
+    local shown = layout(t.dialogs[#t.dialogs])
+    assert.same({ "label new.chosen_none", "label new.required_texture" }, { shown[#shown - 3], shown[#shown - 2] })
+  end)
+
+  it("stays closed when a run or the listing ends after a cancel or a close", function()
+    local t = setUp()
+    local w = wizard(t)
+    w.handlers.create.onclick()
+    w.handlers.cancel.onclick()
+    local count = #t.dialogs
+    t.started[2].args.onstdout("refused width")
+    t.started[2].args.onexit(1)
+    assert.equal(count, #t.dialogs)
+
+    t.ctl.create()
+    local again = t.dialogs[#t.dialogs]
+    again.values.kind = "new.kind_override"
+    again.handlers.kind.onchange()
+    local browser = t.dialogs[#t.dialogs]
+    -- The close that building the dialog again causes does not count
+    again.args.onclose()
+    browser.args.onclose()
+    count = #t.dialogs
+    t.started[#t.started].args.onexit(0)
+    assert.equal(count, #t.dialogs)
+  end)
+
+  it("shows a refusal that names no field of the form below the fields", function()
+    local t = setUp()
+    local w = wizard(t)
+    w.handlers.create.onclick()
+    t.started[2].args.onstderr("* What went wrong:")
+    t.started[2].args.onstderr("> Gradle broke.")
+    t.started[2].args.onexit(1)
+    local shown = layout(t.dialogs[#t.dialogs])
+    assert.equal("label Gradle broke.", shown[#shown - 2])
+  end)
+
+  it("keeps a dialog built again where it was, and inside the window when it grew", function()
+    local t = setUp()
+    t.dialogs.bounds = function() return { x=60, y=50, width=300, height=200 } end
+    local w = wizard(t)
+    assert.same({ x=60, y=50, width=300, height=200 }, w.bounds)
+    w.bounds = { x=120, y=150, width=300, height=200 }
+    t.dialogs.bounds = function() return { x=60, y=50, width=380, height=300 } end
+    w.values.kind = "new.kind_item"
+    w.handlers.kind.onchange()
+    assert.same({ x=70, y=100, width=380, height=300 }, t.dialogs[#t.dialogs].bounds)
+    t.dialogs.bounds = function() return { x=0, y=0, width=500, height=420 } end
+    t.dialogs[#t.dialogs].values.kind = "new.kind_glyph"
+    t.dialogs[#t.dialogs].handlers.kind.onchange()
+    assert.same({ x=0, y=0, width=500, height=420 }, t.dialogs[#t.dialogs].bounds)
+  end)
+
+  it("offers the blocks of the font chosen", function()
+    local t = setUp(nil, dkjson.encode({ fonts={
+      { font="minecraft:default", blocks={ { kind="block", title="Player badges", glyphs={} } } },
+      { font="nordtal:hud", blocks={ { kind="block", title="Bars", glyphs={} }, { kind="sheet", title="Rows" } } },
+    }, items={}, overrides={} }))
+    local w = wizard(t)
+    w.values.font = "nordtal:hud"
+    w.handlers.font.onchange()
+    assert.same({ id="block", options={ "Bars" }, option="Bars" }, w.modified[#w.modified])
+  end)
+
+  it("reads the client jar's textures once, filters them as typed and copies the one chosen", function()
+    local t = setUp()
+    t.world.vanilla = dkjson.encode({ version="26.2", textures={
+      { id="minecraft:block/stone.png", width=16, height=16 }, { id="minecraft:block/dirt.png", width=16, height=16 } } })
+    local w = wizard(t)
+    w.values.kind = "new.kind_override"
+    w.handlers.kind.onchange()
+    assert.equal(":resource-pack:listVanillaTextures", run(t.started[2]))
+    assert.same({ "combobox kind", "label new.reading", "button create", "button cancel" }, layout(t.dialogs[#t.dialogs]))
+    t.started[2].args.onexit(0)
+    local browser = t.dialogs[#t.dialogs]
+    assert.same({ "combobox kind", "entry search", "tree textures", "label new.count 2", "label new.chosen_none",
+                  "button create", "button cancel" }, layout(browser))
+    browser.values.search = "sto"
+    browser.handlers.search.onchange()
+    assert.same("minecraft:block/stone.png", browser.handlers.textures.nodes[1].children[1].id)
+    browser.handlers.textures.onchange({ node="minecraft:block/stone.png" })
+    browser.handlers.create.onclick()
+    assert.equal(":resource-pack:copyVanillaTexture -Ptexture=minecraft:block/stone.png", run(t.started[3]))
+    t.started[3].args.onexit(0)
+    t.ctl.create()
+    t.dialogs[#t.dialogs].values.kind = "new.kind_override"
+    t.dialogs[#t.dialogs].handlers.kind.onchange()
+    assert.equal(":resource-pack:describePack", run(t.started[4]))
+    assert.is_nil(t.started[5])
   end)
 end)

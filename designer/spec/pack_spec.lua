@@ -87,6 +87,33 @@ describe("pack", function()
     assert.same({ "FAILURE: Build failed", "glyphs.json > nordtal:gui: overlaps" }, got[2])
   end)
 
+  it("hands what the task printed to stdout to done, also when it fails", function()
+    local started, got = {}, {}
+    local a = api(started, {})
+    pack.run({ clone="/c", env={ JAVA_HOME="/jdk" } }, a, "createItem", { item="nordtal:wand" },
+      function(ok, err, out) table.insert(got, { ok, err, out }) end)
+    pack.run({ clone="/c", env={ JAVA_HOME="/jdk" } }, a, "createItem", { item="nordtal:Wand" },
+      function(ok, err, out) table.insert(got, { ok, err, out }) end)
+    started[1].args.onstdout("/c/resource-pack/src/assets/nordtal/items/wand.json")
+    started[1].args.onexit(0)
+    started[2].args.onstdout("refused path")
+    started[2].args.onstderr("* What went wrong:")
+    started[2].args.onexit(1)
+    assert.same({ { true, {}, { "/c/resource-pack/src/assets/nordtal/items/wand.json" } },
+                  { false, { "* What went wrong:" }, { "refused path" } } }, got)
+  end)
+
+  it("reads the textures of the client jar that listVanillaTextures wrote", function()
+    local started, got = {}, nil
+    local files = { ["/c/resource-pack/build/vanilla-textures.json"]=
+      '{"version":"26.2","textures":[{"id":"minecraft:block/stone.png","width":16,"height":16}]}' }
+    pack.vanilla({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, files), function(textures, err) got = { textures, err } end)
+    assert.equal(":resource-pack:listVanillaTextures", started[1].args.cmd[5])
+    started[1].args.onexit(0)
+    assert.same({ { id="minecraft:block/stone.png", width=16, height=16 } }, got[1])
+    assert.is_nil(got[2])
+  end)
+
   it("reports a model it cannot read", function()
     local started, got = {}, nil
     local files = { ["/c/resource-pack/build/pack-model.json"]="{" }

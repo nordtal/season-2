@@ -124,7 +124,7 @@ class NewTexturesTest {
         val before = allocation.readText()
 
         val refusal =
-            assertThrows<IllegalStateException> {
+            assertThrows<FieldRefusal> {
                 NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/star.png", null, "star-two", 7, 7)
             }
 
@@ -138,7 +138,7 @@ class NewTexturesTest {
         val before = allocation.readText()
 
         val refusal =
-            assertThrows<IllegalStateException> {
+            assertThrows<FieldRefusal> {
                 NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/other.png", null, "star", 7, 7)
             }
 
@@ -177,6 +177,46 @@ class NewTexturesTest {
             ),
             messages + full.message,
         )
+    }
+
+    @Test
+    fun eachRefusalNamesTheFieldItConcerns() {
+        fixture()
+        pack.resolve("src/assets/nordtal/textures/badges").mkdirs()
+        pack.resolve("src/assets/nordtal/textures/badges/star.png").writeText("")
+        val refusals =
+            listOf<Pair<String, () -> Unit>>(
+                "path" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/star.png", null, "two", 7, 7) },
+                "path" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:X.png", null, "two", 7, 7) },
+                "path" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:x", null, "two", 7, 7) },
+                "namespace" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "Nordtal:x.png", null, "two", 7, 7) },
+                "font" to { NewTextures.glyph(pack, "nordtal:none", "Bars", "nordtal:hud/c.png", "BAR_C", null, 4, 4) },
+                "block" to { NewTextures.glyph(pack, "nordtal:hud", "None", "nordtal:hud/c.png", "BAR_C", null, 4, 4) },
+                "block" to { NewTextures.glyph(pack, "minecraft:default", "Icons", "nordtal:x.png", null, "x", 8, 8) },
+                "name" to { NewTextures.glyph(pack, "nordtal:hud", "Bars", "nordtal:hud/c.png", null, null, 4, 4, ascent = 0) },
+                "name" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/two.png", null, "star", 7, 7) },
+                "name" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/two.png", null, "Two", 7, 7) },
+                "constant" to { NewTextures.glyph(pack, "nordtal:hud", "Bars", "nordtal:hud/c.png", "bar", null, 4, 4, ascent = 0) },
+                "ascent" to { NewTextures.glyph(pack, "nordtal:hud", "Bars", "nordtal:hud/c.png", "BAR_C", null, 4, 4) },
+                "width" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/two.png", null, "two", 5000, 7) },
+                "height" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/two.png", null, "two", 7, 0) },
+                "title" to { NewTextures.block(pack, "minecraft:default", "Badges") },
+                "title" to { NewTextures.block(pack, "minecraft:default", "Clash", range = "FE008-FE017") },
+                "size" to { NewTextures.block(pack, "minecraft:default", "Huge", size = 0x20000) },
+                "constants" to { NewTextures.sheet(pack, "nordtal:hud", "Empty", "nordtal:hud/empty.png", emptyList(), 4, 4, 3) },
+                "constants" to { NewTextures.sheet(pack, "nordtal:hud", "Twice", "nordtal:hud/twice.png", listOf("A", "A"), 4, 4, 3) },
+                "width" to { NewTextures.sheet(pack, "nordtal:hud", "Wide", "nordtal:hud/wide.png", (1..300).map { "W$it" }, 16, 8, 7) },
+                "path" to { NewTextures.item(pack, "nordtal:Wand", 16, 16) },
+                "namespace" to { NewTextures.item(pack, "Nordtal:wand", 16, 16) },
+            )
+        val before = allocation.readText()
+
+        val fields = refusals.map { (_, refused) -> assertThrows<FieldRefusal> { refused() }.field }
+
+        assertEquals(refusals.map { it.first }, fields)
+        assertEquals(before, allocation.readText())
+        NewTextures.item(pack, "nordtal:wand", 16, 16)
+        assertEquals("path", assertThrows<FieldRefusal> { NewTextures.item(pack, "nordtal:wand", 16, 16) }.field)
     }
 
     @ParameterizedTest
@@ -315,7 +355,7 @@ class NewTexturesTest {
 
         val invalid = assertThrows<IllegalArgumentException> { NewTextures.item(pack, "nordtal:Wand", 16, 16) }
         assertEquals("The path of nordtal:Wand may hold only a-z, 0-9, _, -, . and /.", invalid.message)
-        val refusal = assertThrows<IllegalStateException> { NewTextures.item(pack, "nordtal:wand", 16, 16) }
+        val refusal = assertThrows<FieldRefusal> { NewTextures.item(pack, "nordtal:wand", 16, 16) }
         assertEquals("src/assets/nordtal/items/wand.json exists already.", refusal.message)
     }
 
@@ -385,7 +425,7 @@ class NewTexturesTest {
         val before = allocation.readText()
 
         val existing =
-            assertThrows<IllegalStateException> {
+            assertThrows<FieldRefusal> {
                 NewTextures.sheet(pack, "nordtal:hud", "Taken", "nordtal:hud/taken.png", listOf("A"), 4, 4, 3)
             }
         val empty =
@@ -393,7 +433,7 @@ class NewTexturesTest {
                 NewTextures.sheet(pack, "nordtal:hud", "Empty", "nordtal:hud/empty.png", emptyList(), 4, 4, 3)
             }
         val overlap =
-            assertThrows<IllegalStateException> {
+            assertThrows<FieldRefusal> {
                 NewTextures.sheet(pack, "minecraft:default", "Clash", "nordtal:clash.png", listOf("A"), 4, 4, 3, range = "FE008-FE017")
             }
 

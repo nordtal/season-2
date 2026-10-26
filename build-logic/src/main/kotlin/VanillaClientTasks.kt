@@ -2,6 +2,7 @@ package eu.nordtal.season.build
 
 import groovy.json.JsonOutput
 import org.gradle.api.DefaultTask
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
@@ -11,37 +12,24 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 import java.io.File
-import java.net.URI
 
-/** A task that reads the client jar of [version], which [VanillaClient.jar] downloads once into [cache]. */
+/**
+ * A task that reads [client], the one client jar of Minecraft [version]. Fabric Loom downloads it for `:bridge-mod` and
+ * checks it against the SHA-1 of Mojang's version manifest, so no second download exists.
+ */
 @DisableCachingByDefault(because = "The jar lives in a cache outside the build")
 abstract class VanillaClientTask : DefaultTask() {
     @get:Input
     abstract val version: Property<String>
 
-    @get:Input
-    abstract val manifest: Property<String>
-
     @get:Internal
-    abstract val cache: DirectoryProperty
+    abstract val client: ConfigurableFileCollection
 
     init {
         group = "resource pack"
     }
 
-    protected fun jar(): File = VanillaClient.jar(version.get(), URI(manifest.get()), cache.get().asFile)
-}
-
-/** Downloads the client jar once and prints its absolute path as the one line on stdout. */
-@DisableCachingByDefault(because = "The jar lives in a cache outside the build")
-abstract class DownloadVanillaClient : VanillaClientTask() {
-    init {
-        description = "Downloads the client jar of the season's Minecraft version once."
-        outputs.upToDateWhen { false }
-    }
-
-    @TaskAction
-    fun download() = logger.quiet(jar().absolutePath)
+    protected fun jar(): File = client.singleFile
 }
 
 /**

@@ -37,6 +37,15 @@ is refused, and the model keeps the old size until such a task succeeds. A save 
 waits runs after it. An override with an animation and no source yet opens with one frame per frame
 it plays.
 
+**File > New Texture...** opens a dialog that asks for the kind first: glyph, glyph block, sheet, item
+or vanilla override. It then shows the options of the kind's task in `resource-pack/README.md`, with
+font and block to choose and namespace and path for the id. Create runs the task, which checks every
+value. A refusal shows below the field it names, and the dialog stays open with what was typed. Once
+the task succeeded, the tab reads the pack again and opens the new texture in the editor. A vanilla
+override is chosen from the textures of the client jar, which `listVanillaTextures` lists once per
+session, with a search for the words of its id. The tree marks a texture that differs from the last
+commit, a draft, with the icon of a modified tab.
+
 The interface strings are Aseprite string files in `strings/`, in English and German. The plugin
 reads the one of Aseprite's language setting, and English for each key it lacks.
 

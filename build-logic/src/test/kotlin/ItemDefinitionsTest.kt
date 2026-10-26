@@ -10,8 +10,6 @@ import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.File
-import java.io.IOException
-import java.net.URI
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
@@ -247,13 +245,10 @@ class ItemDefinitionsTest {
     @Test
     fun everyItemDefinitionOfTheClientJarPassesAndIsWrittenBackUnchanged() {
         val version = MinecraftVersion.of(System.getProperty("nordtal.paperVersion"))
-        // Without the jar in the cache and without the network, the round trip is skipped, not failed.
-        val client =
-            try {
-                VanillaClient.jar(version, URI(VanillaClient.MANIFEST), File(System.getProperty("nordtal.vanillaClientCache")))
-            } catch (e: IOException) {
-                Assumptions.abort<File>("The client jar of $version is neither cached nor downloadable: $e")
-            }
+        // Loom keeps the jar it downloaded for :bridge-mod there. Before Loom ran once, or after Loom moves that file, the round
+        // trip is skipped, not failed.
+        val client = File(System.getProperty("nordtal.loomCache"), "$version/minecraft-client.jar")
+        Assumptions.assumeTrue(client.isFile, "Fabric Loom has not downloaded the client jar of $version yet: $client")
         val items =
             ZipFile(client).use { zip ->
                 zip

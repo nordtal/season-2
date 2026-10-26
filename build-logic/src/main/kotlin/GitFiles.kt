@@ -50,3 +50,15 @@ internal fun readText(file: File): String? {
     val text = file.readText()
     return if ('\u0000' in text) null else text
 }
+
+/**
+ * The files under [root] whose content differs from the last commit: changed, added or deleted ones, and those git would
+ * add. Each path is relative to [root].
+ */
+internal fun changedFiles(root: File): Set<String> =
+    (
+        git(root, listOf("diff", "--name-only", "-z", "--relative", "HEAD", "--", ".")) + "\u0000" +
+            git(root, listOf("ls-files", "-z", "--others", "--exclude-standard", "--", "."))
+    ).split('\u0000')
+        .filter { it.isNotBlank() }
+        .toSet()

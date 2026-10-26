@@ -10,7 +10,8 @@ import javax.imageio.ImageIO
  * Creates each kind of texture in the resource pack at [pack]: a glyph, a glyph block, a sheet and an item.
  *
  * Each function writes a transparent PNG and the JSON entries that its kind needs, and returns the files it wrote. It
- * refuses a file that exists, and checks `glyphs.json` with [GlyphAllocation] before it writes anything.
+ * refuses a file that exists, and checks `glyphs.json` with [GlyphAllocation] before it writes anything. A refusal is a
+ * [FieldRefusal] that names the option it concerns, such as `font` or `width`, or the `namespace` or `path` of a texture.
  */
 object NewTextures {
     private const val FIRST = 0xFE000
@@ -33,25 +34,25 @@ object NewTextures {
         ascent: Int? = null,
     ): List<File> {
         val png = png(pack, texture)
-        return edit(pack, png, width, height) { root ->
+        return edit(pack, png, width, height, refused = if (name != null) "name" else "constant") { root ->
             val target = block(font(root, font), font, block)
-            require(target["texture"] == null && target["chars"] == null) {
-                "Block $block of $font is a sheet, whose cells are drawn in its one texture."
+            if (target["texture"] != null || target["chars"] != null) {
+                throw FieldRefusal("block", "Block $block of $font is a sheet, whose cells are drawn in its one texture.")
             }
             val range = range(target)
             val glyphs = target.getOrPut("glyphs") { OxfmtJson.Array() } as MutableList<Any?>
             val used = glyphs.mapNotNull { ((it as Map<*, *>)["code"] as? String)?.toIntOrNull(16) }
             val code = (used.maxOrNull()?.plus(1) ?: range.first).takeIf { it in range }
-            requireNotNull(code) { "Block $block of $font has no free code point left in ${target["range"]}." }
+            code ?: throw FieldRefusal("block", "Block $block of $font has no free code point left in ${target["range"]}.")
             val entry = OxfmtJson.Object()
             entry["code"] = "%X".format(code)
-            entry["constant"] = constant ?: name?.let(::constantOf) ?: throw IllegalArgumentException("A glyph needs a constant or a name.")
+            entry["constant"] = constant ?: name?.let(::constantOf) ?: throw FieldRefusal("name", "A glyph needs a constant or a name.")
             name?.let { entry["name"] = it }
             entry["texture"] = texture
             if (target["height"] != height) entry["height"] = height
             val ascentOf =
                 ascent ?: target["ascent"] as Int?
-                    ?: throw IllegalArgumentException("Block $block of $font sets no ascent, so the glyph needs one.")
+                    ?: throw FieldRefusal("ascent", "Block $block of $font sets no ascent, so the glyph needs one.")
             if (target["ascent"] != ascentOf) entry["ascent"] = ascentOf
             glyphs += entry
         }
@@ -67,7 +68,7 @@ object NewTextures {
         height: Int? = null,
         ascent: Int? = null,
     ): List<File> =
-        edit(pack, null, 0, 0) { root ->
+        edit(pack, null, 0, 0, refused = "title") { root ->
             val block = newBlock(root, font, title, range, size)
             height?.let { block["height"] = it }
             ascent?.let { block["ascent"] = it }
@@ -86,9 +87,9 @@ object NewTextures {
         ascent: Int,
         range: String? = null,
     ): List<File> {
-        require(constants.isNotEmpty()) { "A sheet needs at least one cell." }
+        if (constants.isEmpty()) throw FieldRefusal("constants", "A sheet needs at least one cell.")
         val png = png(pack, texture)
-        return edit(pack, png, width * constants.size, height) { root ->
+        return edit(pack, png, width * constants.size, height, refused = "constants") { root ->
             val block = newBlock(root, font, title, range, maxOf(16, constants.size))
             val first = range(block).first
             block["texture"] = texture
@@ -135,7 +136,8 @@ object NewTextures {
 
     /**
      * Applies [change] to `glyphs.json`, checks the result, and writes it and a transparent [png] of [width] by [height]
-     * and deletes [remove], all or none.
+     * and deletes [remove], all or none. A result that [GlyphAllocation] refuses is a [FieldRefusal] of the field [refused]
+     * when one is given.
      */
     internal fun edit(
         pack: File,
@@ -143,6 +145,7 @@ object NewTextures {
         width: Int,
         height: Int,
         remove: List<File> = emptyList(),
+        refused: String? = null,
         change: (OxfmtJson.Object) -> Unit,
     ): List<File> {
         png?.let { checkSize(width, height) }
@@ -154,6 +157,8 @@ object NewTextures {
         try {
             draft.resolve(allocation.name).writeText(text)
             GlyphAllocation.read(draft.resolve(allocation.name))
+        } catch (e: IllegalStateException) {
+            throw refused?.let { FieldRefusal(it, e.message ?: "glyphs.json is refused.", e) } ?: e
         } finally {
             draft.deleteRecursively()
         }
@@ -173,8 +178,9 @@ object NewTextures {
     ): OxfmtJson.Object {
         val entry = font(root, font)
         val blocks = entry["blocks"] as MutableList<Any?>
-        require(blocks.none { (it as Map<*, *>)["title"] == title }) { "The font $font has a block $title already." }
-        val run = range?.let { parseRange(it) } ?: freeRun(taken(root, entry), size)
+        if (blocks.any { (it as Map<*, *>)["title"] == title }) throw FieldRefusal("title", "The font $font has a block $title already.")
+        val run =
+            range?.let { at("range") { parseRange(it) } } ?: at("size") { freeRun(taken(root, entry), size) }
         val block = OxfmtJson.Object()
         block["range"] = "%X-%X".format(run.first, run.last)
         block["title"] = title
@@ -229,7 +235,7 @@ object NewTextures {
         font: String,
     ): OxfmtJson.Object =
         fonts(root).firstOrNull { it["font"] == font } as OxfmtJson.Object?
-            ?: throw IllegalArgumentException("glyphs.json has no font $font.")
+            ?: throw FieldRefusal("font", "glyphs.json has no font $font.")
 
     private fun block(
         font: Map<*, *>,
@@ -237,7 +243,7 @@ object NewTextures {
         title: String,
     ): OxfmtJson.Object =
         (font["blocks"] as List<*>).firstOrNull { (it as Map<*, *>)["title"] == title } as OxfmtJson.Object?
-            ?: throw IllegalArgumentException("The font $id has no block $title.")
+            ?: throw FieldRefusal("block", "The font $id has no block $title.")
 
     internal fun range(block: Map<*, *>): IntRange = parseRange(block["range"] as String)
 
@@ -256,7 +262,20 @@ object NewTextures {
     private fun refuseExisting(
         pack: File,
         file: File,
-    ) = check(!file.exists()) { "${file.relativeTo(pack).invariantSeparatorsPath} exists already." }
+    ) {
+        if (file.exists()) throw FieldRefusal("path", "${file.relativeTo(pack).invariantSeparatorsPath} exists already.")
+    }
+
+    /** Runs [check] and makes its refusal a [FieldRefusal] of [field]. */
+    private inline fun <T> at(
+        field: String,
+        check: () -> T,
+    ): T =
+        try {
+            check()
+        } catch (e: IllegalArgumentException) {
+            throw FieldRefusal(field, e.message ?: "$field is refused.", e)
+        }
 
     private fun transparent(
         width: Int,
@@ -276,5 +295,8 @@ object NewTextures {
     private fun checkSize(
         width: Int,
         height: Int,
-    ) = require(width in 1..4096 && height in 1..4096) { "A texture is 1 to 4096 pixels wide and high, not $width by $height." }
+    ) {
+        val wrong = listOf("width" to width, "height" to height).firstOrNull { it.second !in 1..4096 } ?: return
+        throw FieldRefusal(wrong.first, "A texture is 1 to 4096 pixels wide and high, not $width by $height.")
+    }
 }

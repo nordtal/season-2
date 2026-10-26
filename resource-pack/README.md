@@ -85,7 +85,7 @@ fonts[]       font, rows, constant, about, blocks[]
   cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite
-texture       id, png, aseprite, asepriteExists, width, height
+texture       id, png, aseprite, asepriteExists, draft, width, height
 ```
 
 The `status` of a glyph or cell is its own value, null when it inherits the block's, and
@@ -96,6 +96,8 @@ identifier.
 `gui.scaling` objects of the `.png.mcmeta`, or null. `frames` lists the frames the animation plays, each as
 `x`, `y`, `width`, `height` in the PNG and `duration` in milliseconds, or is null when the animation's frames do
 not divide the PNG. `guiSprite` is true for a texture under `textures/gui/sprites/`. Language files are not listed.
+`draft` is true while the PNG or the `.aseprite` source differs from the last commit: changed, new
+or deleted. `describePack` therefore reads git on every run.
 
 ## New textures
 
@@ -132,6 +134,10 @@ A vanilla override is created with `copyVanillaTexture`, under _Vanilla override
   ends in `.png`.
 - A task refuses a file that exists, and writes nothing until `glyphs.json` passes every rule below.
   It writes `glyphs.json` in the layout that oxfmt checks, with every untouched line as it was.
+- A refusal first prints `refused` and the field it concerns on a line of its own, so the app shows it
+  at that field: an option such as `font`, `block` or `width`, or `namespace` or `path` of the id.
+  A rule of `glyphs.json` that the result breaks is `name` or `constant` for a glyph, `title` for a
+  block and `constants` for a sheet.
 
 ## Changing glyphs
 
@@ -336,12 +342,12 @@ them, except `ß`, and maps unknown characters to `?`, because a missing-glyph b
 | `minecraft/lang/de_de.json`                                    | sets the same three keys in German                                           |
 
 A vanilla override starts as a copy from the client jar of the season's Minecraft version, the version
-of `paper` in the catalog. The jar is downloaded once from Mojang's version manifest, checked against
-the SHA-1 it names and cached under `~/.gradle/caches/nordtal/vanilla-client`. It is never part of the
-pack. Each task prints the absolute path of its result, one file per line.
+of `paper` in the catalog. It is the jar that Fabric Loom downloads for `:bridge-mod` once, checks
+against the SHA-1 of Mojang's version manifest and keeps in `~/.gradle/caches/fabric-loom`, which
+`:bridge-mod` hands to these tasks. It is never part of the pack. Each task prints the absolute path
+of its result, one file per line.
 
 ```bash
-./gradlew -q :resource-pack:downloadVanillaClient   # the path of client.jar
 ./gradlew -q :resource-pack:listVanillaTextures     # build/vanilla-textures.json: id, width, height, mcmeta
 ./gradlew -q :resource-pack:copyVanillaTexture -Ptexture=minecraft:block/stone.png
 ```

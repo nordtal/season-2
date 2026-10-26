@@ -3,15 +3,20 @@
 
 local tree = {}
 
+-- The theme part that marks the node of a draft texture
+tree.draftIcon = "tab_modified_icon_normal"
+
 -- The nodes for Dialog:tree{} and an index from each node's id to
--- { kind, entry, texture, font, block }. It raises an error that names
--- the place of a cell whose code is no code point.
+-- { kind, entry, texture, font, block }. A node whose texture is a
+-- draft has its own icon, a cell none, as its sheet has it. It raises
+-- an error that names the place of a cell whose code is no code point.
 function tree.build(model, tr)
   local index = {}
 
   local function node(id, text, info, children)
     index[id] = info
-    return { id=id, text=text, children=children }
+    local draft = info.kind ~= "cell" and info.texture and info.texture.draft
+    return { id=id, text=text, children=children, icon=draft and tree.draftIcon or nil }
   end
 
   local function glyphText(glyph)

@@ -68,9 +68,10 @@ describe("the string files of the designer", function()
   it("hold every id the plugin translates", function()
     local en = language.parse(read("strings/en.ini"))
     local missing = {}
-    for _, file in ipairs({ "init.lua", "tab.lua", "tree.lua", "properties.lua" }) do
+    for _, file in ipairs({ "init.lua", "tab.lua", "tree.lua", "properties.lua", "wizard.lua" }) do
       for id in read(file):gmatch('tr%("([%w_]+%.[%w_]+)"') do
-        if not en[id] then table.insert(missing, file .. ": " .. id) end
+        -- An id that ends in _ is put together, as the kinds below
+        if not en[id] and not id:match("_$") then table.insert(missing, file .. ": " .. id) end
       end
     end
     for key in read("properties.lua"):gmatch('add%("([%w_]+)"') do
@@ -79,6 +80,14 @@ describe("the string files of the designer", function()
     -- The sides of a border, whose ids properties.lua puts together
     for _, side in ipairs({ "left", "top", "right", "bottom" }) do
       if not en["properties.border_" .. side] then table.insert(missing, "properties.lua: properties.border_" .. side) end
+    end
+    -- The kinds and fields of the wizard, whose ids wizard.lua puts together
+    local wizard = require("wizard")
+    for _, kind in ipairs(wizard.kinds) do
+      if not en["new.kind_" .. kind] then table.insert(missing, "wizard.lua: new.kind_" .. kind) end
+      for _, field in ipairs(wizard.fields[kind] or {}) do
+        if not en["new." .. field] then table.insert(missing, "wizard.lua: new." .. field) end
+      end
     end
     assert.same({}, missing)
   end)

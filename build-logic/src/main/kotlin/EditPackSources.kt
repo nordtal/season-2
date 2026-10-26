@@ -152,7 +152,12 @@ abstract class EditPackSources : VanillaClientTask() {
                     }
 
                     "animate" -> {
-                        val animated = TextureMeta.animate(pack, text("texture"), numbers("frames") ?: throw FieldRefusal("frames", "Set -Pframes."))
+                        val animated =
+                            TextureMeta.animate(
+                                pack,
+                                text("texture"),
+                                numbers("frames") ?: throw FieldRefusal("frames", "Set -Pframes."),
+                            )
                         animated.dropped.forEach { logger.quiet("dropped $it") }
                         animated.written
                     }

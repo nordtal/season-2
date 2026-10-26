@@ -338,6 +338,24 @@ class ItemDefinitionsTest {
     }
 
     @Test
+    fun anAnimatedTextureOfAnItemIsDescribedWithItsMcmetaAndFrames() {
+        pack.resolve("src/assets/nordtal/models/item/wand.json").apply { parentFile.mkdirs() }.writeText(
+            """{ "parent": "minecraft:item/generated", "textures": { "layer0": "nordtal:item/wand" } }""",
+        )
+        val png = pack.resolve("src/assets/nordtal/textures/item/wand.png").apply { parentFile.mkdirs() }
+        ImageIO.write(BufferedImage(2, 4, BufferedImage.TYPE_INT_ARGB), "png", png)
+        File(png.path + ".mcmeta").writeText("""{ "animation": { "frametime": 3 } }""")
+        files().use { it.write("nordtal:wand", model("""{ "type": "minecraft:model", "model": "nordtal:item/wand" }""")) }
+
+        val models = files().use { it.describe("nordtal:wand", emptySet()) }["models"] as List<*>
+        val texture = ((models.single() as Map<*, *>)["textures"] as List<*>).single() as Map<*, *>
+
+        assertEquals("src/assets/nordtal/textures/item/wand.png.mcmeta", texture["mcmeta"])
+        assertEquals(mapOf("frametime" to 3), texture["animation"])
+        assertEquals(listOf(0, 2), (texture["frames"] as List<*>).map { (it as Map<*, *>)["y"] })
+    }
+
+    @Test
     fun anItemIsDescribedWithTheTexturesOfEachModelItDraws() {
         pack.resolve("src/assets/nordtal/models/item/wand.json").apply { parentFile.mkdirs() }.writeText(
             """{ "parent": "minecraft:item/generated", "textures": { "layer0": "nordtal:item/wand", "particle": "#layer0" } }""",
@@ -371,6 +389,9 @@ class ItemDefinitionsTest {
                                         "width" to 2,
                                         "height" to 3,
                                     ),
+                                "mcmeta" to null,
+                                "animation" to null,
+                                "frames" to null,
                             ),
                         ),
                 ),

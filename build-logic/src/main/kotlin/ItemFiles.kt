@@ -87,7 +87,7 @@ class ItemFiles(
 
     /**
      * The textures of [model] and of its parents, each `{ key, texture }`, the child's for a key that both name. A texture
-     * whose PNG the pack holds is described as [PackModel] describes one, any other by its id alone.
+     * whose PNG the pack holds is described as [PackModel] describes an override, any other by its id alone.
      */
     private fun textures(
         model: String,
@@ -96,7 +96,12 @@ class ItemFiles(
         ItemDefinitions.textures(model, ::read, mutableListOf()).distinctBy { it.key }.map { (_, key, texture) ->
             val png = runCatching { Identifier.resource(texture, "textures", ".png") }.getOrNull()?.let { assets.resolve(it) }
             val id = "${full(texture)}.png"
-            linkedMapOf("key" to key, "texture" to if (png?.isFile == true) PackModel.texture(id, pack, drafts) else mapOf("id" to id))
+            if (png?.isFile == true) {
+                val described = PackModel.texture(id, pack, drafts)
+                linkedMapOf("key" to key, "texture" to described) + PackModel.animation(png, pack, described)
+            } else {
+                linkedMapOf("key" to key, "texture" to mapOf("id" to id))
+            }
         }
 
     /** Writes [definition], the text of an item definition, as the item [id] in the pack, after every rule passed. */

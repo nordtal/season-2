@@ -399,6 +399,18 @@ class ItemDefinitionsTest {
     }
 
     @Test
+    fun anEditNamesEachRequiredValueThatItStillLacks() {
+        files().use { it.write("nordtal:example", model(apple)) }
+
+        val type = assertThrows<FieldsNeeded> { edited("model", """{ "type": "minecraft:select", "property": "minecraft:block_state" }""") }
+        files().use { it.write("nordtal:example", select) }
+        val case = assertThrows<FieldsNeeded> { edited("model", "{}", add = "cases") }
+
+        assertEquals(mapOf("block_state_property" to "text"), type.fields)
+        assertEquals(mapOf("when" to "json"), case.fields)
+    }
+
+    @Test
     fun anEditSetsAFieldAtItsPlaceAndKeepsTheRest() {
         files().use { it.write("nordtal:example", select) }
 

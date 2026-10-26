@@ -106,11 +106,16 @@ object ItemDefinitions {
     /** The table of the properties of each model type that has one. */
     private val PROPERTIES = mapOf("select" to SELECT, "condition" to CONDITION, "range_dispatch" to RANGE)
 
+    /** The class of a value of each kind that holds one. */
+    private val VALUES =
+        mapOf("id" to String::class, "text" to String::class, "number" to Number::class, "boolean" to Boolean::class, "json" to Any::class)
+
+    /** The element kind of each list kind. */
+    private val LISTS = mapOf("models" to "model", "cases" to "case", "entries" to "entry", "tints" to "tint")
+
     /**
-     * Every field of the definition, of a case and of an entry, and every model type, property, tint source and special
-     * model with its fields, for the Designer's editor. A field is `{ name, kind, required }`. A kind names a value
-     * (`id`, `text`, `number`, `boolean`, `json`), the table of a nested object (`model`, `special`, `property`) or a list
-     * (`models`, `cases`, `entries`, `tints`).
+     * The fields of every kind of object, each `{ name, kind, required }`, for the Designer's editor.
+     * `kinds` holds the value kinds, the element kind of each list kind and the table of types of each typed kind.
      */
     val types: Map<String, Any> =
         mapOf(
@@ -130,6 +135,12 @@ object ItemDefinitions {
             "range_dispatch" to table(RANGE),
             "tints" to table(TINTS),
             "special" to table(SPECIALS),
+            "kinds" to
+                mapOf(
+                    "values" to VALUES.mapValues { it.value.simpleName!!.lowercase() },
+                    "lists" to LISTS,
+                    "tables" to mapOf("model" to "models", "tint" to "tints", "special" to "special"),
+                ),
         )
 
     private fun table(entries: Map<String, Fields>) =
@@ -322,9 +333,6 @@ object ItemDefinitions {
         return textures
     }
 
-    /** The element kind of each list kind. */
-    private val LISTS = mapOf("models" to "model", "cases" to "case", "entries" to "entry", "tints" to "tint")
-
     /** The fields of [node], an object of [kind]: its type's and its property's for a model, a tint or a special model. */
     private fun fieldsOf(
         kind: String,
@@ -351,12 +359,10 @@ object ItemDefinitions {
         }
 
     /**
-     * Changes [definition] at [at], a path of keys and list indices such as `model/cases/0`, and returns false when
-     * nothing is there. [fields] sets each field and a null removes one. With [add], they go to a new object instead,
-     * appended to the list of that name or set as the model of that name, which must be absent. [remove] removes the
-     * object at [at]. A new type or property drops each field it does not allow or gives another kind. A model, list or
-     * property that the object requires and lacks starts as `minecraft:empty`, an empty list or the first property of
-     * its type.
+     * Changes [definition] at [at], a path such as `model/cases/0`, and returns false when nothing is there.
+     * [fields] sets fields and a null removes one, [add] puts them into a new object of that list or model, [remove]
+     * removes the object. A new type or property drops each field it does not allow or gives another kind.
+     * @throws FieldsNeeded when a required value is still missing
      */
     fun edit(
         definition: MutableMap<String, Any?>,
@@ -447,6 +453,8 @@ object ItemDefinitions {
                 in LISTS -> node[field.name] = mutableListOf<Any?>()
             }
         }
+        val needed = fieldsOf(kind, node).all.filter { it.required && it.name !in node && it.kind in VALUES }
+        if (needed.isNotEmpty()) throw FieldsNeeded(needed.associate { it.name to it.kind })
     }
 
     private fun typed(
@@ -474,9 +482,6 @@ object ItemDefinitions {
             .filterNot { it in known || it.startsWith("_") }
             .forEach { problems += "$where has no field '$it'" }
     }
-
-    /** The class of a value of each kind that holds one. A `json` value may be any. */
-    private val VALUES = mapOf("id" to String::class, "text" to String::class, "number" to Number::class, "boolean" to Boolean::class)
 
     /** Why [value] cannot be the value of [field], or null when it can. */
     private fun misfit(

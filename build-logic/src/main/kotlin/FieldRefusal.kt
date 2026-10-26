@@ -9,3 +9,8 @@ class FieldRefusal(
     message: String,
     cause: Throwable? = null,
 ) : IllegalArgumentException(message, cause)
+
+/** A refused change that lacks a value for each of [fields], a map from each field's name to its kind. */
+class FieldsNeeded(
+    val fields: Map<String, String>,
+) : IllegalArgumentException("Set " + fields.keys.joinToString(", ") + ".")

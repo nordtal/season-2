@@ -63,8 +63,8 @@ class ItemFiles(
     private fun full(id: String) = if (':' in id) id else "minecraft:$id"
 
     /**
-     * The definition of the item [id] as one map: `item`, `source` (`pack` or `vanilla`), `file` (the absolute path in
-     * the pack, or null), `definition`, `problems`, `types` (the tables of [ItemDefinitions.types]) and `models`. [drafts] are the changed files, as [PackModel.texture] takes them.
+     * The definition of the item [id] as one map, the shape that `resource-pack/README.md` documents for `readItem`.
+     * A texture is a draft when its PNG or its source is among [drafts], the files that differ from the last commit.
      */
     fun describe(
         id: String,

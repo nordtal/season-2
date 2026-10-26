@@ -152,7 +152,7 @@ and troubleshooting.
 
 ## Development
 
-The build requires JDK 25. Build only the modules you changed.
+The build runs on JDK 25 from Eclipse Temurin, as `gradle/gradle-daemon-jvm.properties` asks; Gradle downloads it when the machine has none. Build only the modules you changed.
 
 ```bash
 ./gradlew :smp:check                 # one module, with its tests and the convention checks

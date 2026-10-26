@@ -208,16 +208,11 @@ end
 -- { kind, text, value, field, tip, color, shrink, least, divider }: kind is "box", "switch", "button" or "text".
 -- An item with shrink ("start" or "end") gives up room when the line is too short: each first down to a quarter
 -- of the width, then from the last one on down to least characters, 1 unless given. Its text then loses its
--- start or end. No item leaves the bar. A text that is shortened or runs past the bar's end has cut set and
+-- start or end. When the items do not fit at that, each item with a short text shows it, and the items give up
+-- room again from their whole texts. No item leaves the bar. A text that is shortened or runs past the bar's end has cut set and
 -- shows whole as its tip. An item with divider has a line before it, with a gap on each side.
 function panel.bar(items, width, measure, lineHeight, textHeight)
-  local sized = {}
-  for _, item in ipairs(items) do
-    local frame = (item.kind == "box" or item.kind == "button") and 2 * inset
-      or item.kind == "switch" and lineHeight + gap or 0
-    table.insert(sized, { item=item, text=item.text, frame=frame, inner=measure(item.text),
-                          lead=item.divider and inset + 1 or 0 })
-  end
+  local sized
   local function excess()
     local total = -inset
     for _, s in ipairs(sized) do
@@ -232,12 +227,25 @@ function panel.bar(items, width, measure, lineHeight, textHeight)
       s.text, s.inner = short, measure(short)
     end
   end
-  for _, s in ipairs(sized) do
-    if s.item.shrink then give(s, math.min(s.inner, width // 4)) end
+  -- Sizes the items, with their short texts when useShort is set
+  local function size(useShort)
+    sized = {}
+    for _, item in ipairs(items) do
+      local frame = (item.kind == "box" or item.kind == "button") and 2 * inset
+        or item.kind == "switch" and lineHeight + gap or 0
+      local text = useShort and item.short or item.text
+      table.insert(sized, { item=item, text=text, frame=frame, inner=measure(text),
+                            lead=item.divider and inset + 1 or 0 })
+    end
+    for _, s in ipairs(sized) do
+      if s.item.shrink then give(s, math.min(s.inner, width // 4)) end
+    end
+    for i = #sized, 1, -1 do
+      if sized[i].item.shrink then give(sized[i], 0) end
+    end
   end
-  for i = #sized, 1, -1 do
-    if sized[i].item.shrink then give(sized[i], 0) end
-  end
+  size(false)
+  if excess() > 0 then size(true) end
 
   local ops, hits, x = {}, {}, 0
   local height = textHeight + 2 * inset + buttonShadow

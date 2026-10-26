@@ -118,8 +118,8 @@ describe("minecraft", function()
       assert.same({
         { kind="box", text="i", tip="/mc/i", field={ minecraft="choose" }, shrink="start", least=4 },
         { kind="switch", text="minecraft.live_sync", value=false, field={ minecraft="live" }, tip="minecraft.live_sync_tip" },
-        { kind="button", text="minecraft.install_pack", field={ minecraft="pack" } },
-        { kind="button", text="minecraft.install_bridge", field={ minecraft="bridge" } },
+        { kind="button", text="minecraft.install_pack", short="minecraft.install_pack_short", field={ minecraft="pack" } },
+        { kind="button", text="minecraft.install_bridge", short="minecraft.bridge_short", field={ minecraft="bridge" } },
         { kind="text", text="minecraft.state_connected", color="good", tip="minecraft.bridge_connected" },
       }, items)
       assert.same({ kind="text", text="minecraft.state_none", color="off", tip="minecraft.bridge_none" },
@@ -128,7 +128,8 @@ describe("minecraft", function()
 
     it("offers an update of the bridge mod once its jar is there, and reads a jar without a connection as unreachable", function()
       local items = minecraft.bar({ instance={ instance="/i", fabric=true, bridge="nordtal-bridge-0.63.0.jar" } }, tr)
-      assert.same({ kind="button", text="minecraft.update_bridge", field={ minecraft="bridge" } }, items[4])
+      assert.same({ kind="button", text="minecraft.update_bridge", short="minecraft.bridge_short", field={ minecraft="bridge" } },
+        items[4])
       assert.same({ kind="text", text="minecraft.state_unreachable", color="wait", tip="minecraft.bridge_unreachable" },
         items[5])
     end)

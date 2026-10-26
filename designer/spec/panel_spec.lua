@@ -189,6 +189,32 @@ describe("the properties panel", function()
       assert.equal("ok", panel.hit(drawn, 25, 6, "tip"))
     end)
 
+    it("switches the buttons with a short text to it when the items do not fit at their least, and shows the long one as the tip", function()
+      local function items()
+        return { { kind="box", text="fabric", field="choose", shrink="start", least=4 },
+                 { kind="switch", text="Live-Sync", value=true, field="live" },
+                 { kind="button", text="Pack installieren", short="Installieren", field="pack" },
+                 { kind="button", text="Bridge-Mod aktualisieren", short="Bridge-Mod", field="bridge" },
+                 { kind="text", text="Nicht erreichbar", color="wait" },
+                 { kind="text", text="Die Bridge-Mod des neuesten Releases wird geladen...", shrink="end", least=12, divider=true } }
+      end
+      local drawn = bar(items(), 160)
+      assert.same({ op="button", x=44, y=0, width=24, height=15 }, drawn.ops[5])
+      assert.same({ op="text", text="Installieren", x=50, y=6, cut=true }, drawn.ops[6])
+      assert.same({ op="button", x=74, y=0, width=22, height=15 }, drawn.ops[7])
+      assert.same({ op="text", text="Bridge-Mod", x=80, y=6, cut=true }, drawn.ops[8])
+      assert.same({ op="text", text="Nicht erreichbar", x=102, y=6, color="wait" }, drawn.ops[9])
+      assert.same({ op="text", text="Die Bridge-Mod des neueste...", x=131, y=6, cut=true }, drawn.ops[11])
+      assert.equal("pack", panel.hit(drawn, 45, 1))
+      assert.equal("Pack installieren", panel.hit(drawn, 45, 1, "tip"))
+      assert.equal("Bridge-Mod aktualisieren", panel.hit(drawn, 75, 1, "tip"))
+      -- The long texts stay while every item fits at its least
+      drawn = bar(items(), 165)
+      assert.same({ op="text", text="Pack installieren", x=50, y=6 }, drawn.ops[6])
+      assert.same({ op="text", text="Bridge-Mod aktualisieren", x=85, y=6 }, drawn.ops[8])
+      assert.same({ op="text", text="Die Bridge-M...", x=150, y=6, cut=true }, drawn.ops[11])
+    end)
+
     it("draws a divider with a gap on each side before an item that asks for one", function()
       local drawn = bar({ { kind="text", text="ok", color="good" }, { kind="text", text="Saved", divider=true } })
       assert.same({ op="divider", x=8, y=3, height=7 }, drawn.ops[2])

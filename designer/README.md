@@ -110,8 +110,10 @@ connects again. The word reads **Connecting** while that read runs and becomes t
 when the read fails. The tab also connects again when `describeInstance` reads another port or
 token. A divider separates the status line from the state of the bridge mod. The bar shortens the
 instance box from its start and the status line from its end, each down to a few characters, and
-removes no item. Moving the pointer onto an item shows its long text in Aseprite's tip above the
-status bar. A status line that the bar cuts shows whole in that tip when it is set.
+removes no item. When the items do not fit even then, **Install Pack** and the button of the bridge
+mod show a short label, and the status line takes the room that this frees. Moving the pointer onto
+an item shows its long text in Aseprite's tip above the status bar. A status line that the bar cuts
+shows whole in that tip when it is set.
 
 The panel lists the previews of the selected entry. A glyph or a cell runs `renderGlyphPreviews`
 first, with **Show Previews**, and then offers itself alone in each place the bridge mod shows text,

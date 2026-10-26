@@ -12,11 +12,12 @@ import java.io.File
 internal fun git(
     root: File,
     arguments: List<String>,
-): String = run("git", root, arguments)
+    output: File? = null,
+): String = run("git", root, arguments, output)
 
 /**
- * Runs [program] with [arguments] in [root] and returns what it prints, as [git] does. The failure names the program by
- * its file name.
+ * Runs [program] with [arguments] in [root] and returns what it prints, as [git] does, or writes it into [output]. The
+ * failure names the program by its file name.
  *
  * @throws java.io.IOException when the program cannot be started
  */
@@ -24,10 +25,12 @@ internal fun run(
     program: String,
     root: File,
     arguments: List<String>,
+    output: File? = null,
 ): String {
     val errors = File.createTempFile("run", ".err")
     try {
-        val process = ProcessBuilder(listOf(program) + arguments).directory(root).redirectError(errors).start()
+        val builder = ProcessBuilder(listOf(program) + arguments).directory(root).redirectError(errors)
+        val process = (if (output == null) builder else builder.redirectOutput(output)).start()
         process.outputStream.close()
         val output = process.inputStream.bufferedReader().use { it.readText() }
         val exit = process.waitFor()

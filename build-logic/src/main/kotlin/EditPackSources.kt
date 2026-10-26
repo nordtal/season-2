@@ -1,6 +1,7 @@
 package eu.nordtal.season.build
 
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.MapProperty
@@ -21,7 +22,7 @@ import java.io.File
 abstract class EditPackSources : VanillaClientTask() {
     /**
      * `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`,
-     * `readItem`, `writeItem`, `editItem`, `import`, `discard`, `publish` or `sync`.
+     * `readItem`, `writeItem`, `editItem`, `import`, `discard`, `resolve`, `conflict`, `publish` or `sync`.
      */
     @get:Input
     abstract val kind: Property<String>
@@ -75,6 +76,7 @@ abstract class EditPackSources : VanillaClientTask() {
                 "remove",
                 "draft",
                 "drafts",
+                "keep",
                 "gh",
             )
     }
@@ -205,6 +207,20 @@ abstract class EditPackSources : VanillaClientTask() {
 
                     "discard" -> {
                         Drafts.discard(pack, text("draft"))
+                    }
+
+                    "resolve" -> {
+                        val fields =
+                            options["fields"]?.let { text ->
+                                val json = runCatching { JsonSlurper().parseText(text) as? Map<*, *> }.getOrNull()
+                                json?.entries?.associate { (field, side) -> field.toString() to side.toString() }
+                                    ?: throw FieldRefusal("fields", "-Pfields=$text is no JSON object.")
+                            }
+                        Drafts.resolve(pack, text("draft"), options["keep"], fields.orEmpty())
+                    }
+
+                    "conflict" -> {
+                        Drafts.readConflict(pack, text("draft"))
                     }
 
                     "publish" -> {

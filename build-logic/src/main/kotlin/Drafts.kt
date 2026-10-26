@@ -12,11 +12,13 @@ import java.io.File
 object Drafts {
     private const val GLYPHS = "glyphs.json"
     private const val REVIEWS = "nordtal-designer/reviews.json"
+    private const val BASES = "nordtal-designer/bases.json"
+    private const val MAIN = "origin/main"
 
     /**
      * One draft. [id] is its texture's id, `font <font>` or `block <font> <range>` for the fields of a font or block,
-     * or the path of a file. [state] is `added`, `changed` or `deleted`, [files] are its files relative to the pack, and
-     * [review] is the number of the pull request that holds an older version of it.
+     * or the path of a file. [state] is `added`, `changed` or `deleted`, [files] are its files relative to the pack,
+     * [review] is the number of the pull request that holds an older version of it, and [conflict] what main changed too.
      */
     data class Draft(
         val id: String,
@@ -24,11 +26,28 @@ object Drafts {
         val state: String,
         val files: List<String>,
         val review: Int?,
+        val conflict: Conflict? = null,
+    )
+
+    /**
+     * What the clone and main both changed of one draft since its base: the [files], with `glyphs.json` for an entry
+     * that one side deleted and the other changed, and the [fields] of its entries.
+     */
+    data class Conflict(
+        val files: List<String>,
+        val fields: List<Field>,
+    )
+
+    /** A field of an entry that the clone and main changed each its own way, with each side's value as JSON, or null. */
+    data class Field(
+        val name: String,
+        val clone: String?,
+        val main: String?,
     )
 
     /**
      * A pull request that a publish opened: its [number], [url] and [branch], the [drafts] it holds and the [commit] that
-     * was pushed last.
+     * was pushed last. [decision], [checks] and [comments] are what the last sync read of its review.
      */
     data class Review(
         val number: Int,
@@ -36,16 +55,51 @@ object Drafts {
         val branch: String,
         val drafts: List<String>,
         val commit: String,
+        val decision: String? = null,
+        val checks: String? = null,
+        val comments: List<Comment> = emptyList(),
     )
 
-    /** The entries of one draft in `glyphs.json`, each as JSON text, and the name the designer knows it by. */
+    /** A review comment by [author], on the file [path] where it is a line comment, and its [url] on GitHub. */
+    data class Comment(
+        val author: String,
+        val body: String,
+        val path: String?,
+        val url: String,
+    )
+
+    /** The entries of one draft in `glyphs.json` by their key, and the name the designer knows it by. */
     private class Part(
         val label: String,
     ) {
-        val content = mutableListOf<String>()
+        val entries = linkedMapOf<String, Entry>()
+        val content get() = entries.values.map { it.json }
     }
 
-    /** The drafts of [pack], sorted by id. A change that equals its version in a pull request is no draft. */
+    /**
+     * One entry of `glyphs.json`: a font's, a block's, a sheet's or a glyph's [fields], as [json] with its place, in
+     * [font] and, for a glyph, [block]. [name] tells it apart from the other entries of its draft.
+     */
+    internal class Entry(
+        val kind: String,
+        val name: String,
+        val font: Map<*, *>,
+        val block: Map<*, *>?,
+        val fields: Map<*, *>,
+        val json: String,
+    )
+
+    /** A three-way merge of one draft's entries: the [entries] it keeps, the [fields] both sides changed, and [whole]. */
+    internal class Merge(
+        val entries: List<Entry>,
+        val fields: List<Field>,
+        val whole: Boolean,
+    )
+
+    /**
+     * The drafts of [pack], sorted by id, each with its conflict with main. A change that equals its version in a pull
+     * request or on main is no draft.
+     */
     fun list(pack: File): List<Draft> {
         val head = glyphs(pack, "HEAD")
         val work = pack.resolve(GLYPHS).takeIf { it.isFile }?.let { OxfmtJson.read(it) as Map<*, *> }
@@ -58,10 +112,27 @@ object Drafts {
         }
         val committed = git(pack, listOf("ls-tree", "-r", "-z", "--name-only", "HEAD", "--", ".")).split('\u0000').toSet()
         val reviews = reviews(pack)
+        val main = commit(pack, MAIN)
+        val bases = bases(pack)
+        val trees = mutableMapOf<String, Map<String, String>>()
+        val roots = mutableMapOf<String, Map<*, *>?>()
         return ids.mapNotNull { (id, files) ->
             files.sort()
             val review = reviews.lastOrNull { id in it.drafts }
             if (review != null && same(pack, review.commit, id, files, workParts)) return@mapNotNull null
+            if (main != null && same(pack, main, id, files, workParts)) return@mapNotNull null
+            val conflict =
+                main?.let { m ->
+                    val base = bases[id] ?: mergeBase(pack) ?: return@let null
+                    if (base == m) return@let null
+                    fun tree(ref: String) = trees.getOrPut(ref) { blobs(pack, ref) }
+                    val clone = files.filter { pack.resolve(it).exists() }.let { blobs(pack, it) }
+                    val changed = files.filter { tree(base)[it] != tree(m)[it] && clone[it] != tree(m)[it] }
+                    val merge =
+                        merge(roots.getOrPut(base) { glyphs(pack, base) }, work, roots.getOrPut(m) { glyphs(pack, m) }, id)
+                    Conflict(changed + listOfNotNull(GLYPHS.takeIf { merge.whole }), merge.fields)
+                        .takeIf { it.files.isNotEmpty() || it.fields.isNotEmpty() }
+                }
             val before = id in headParts || files.any { it in committed }
             val after = id in workParts || files.any { pack.resolve(it).exists() }
             Draft(
@@ -76,6 +147,7 @@ object Drafts {
                 },
                 files,
                 review?.number,
+                conflict,
             )
         }
     }
@@ -99,21 +171,124 @@ object Drafts {
     ): List<File> {
         val draft = list(pack).firstOrNull { it.id == id } ?: throw IllegalArgumentException("$id is no draft.")
         val ref = draft.review?.let { number -> "origin/${reviews(pack).last { it.number == number }.branch}" } ?: "HEAD"
-        val kept = git(pack, listOf("ls-tree", "-r", "-z", "--name-only", ref, "--", ".")).split('\u0000').toSet()
-        val (restored, removed) = draft.files.partition { it in kept }
-        if (restored.isNotEmpty()) git(pack, listOf("restore", "--source=$ref", "--worktree", "--") + restored)
-        if (removed.isNotEmpty()) AtomicFiles.write(removed.map { pack.resolve(it) }.filter { it.exists() }.associateWith { null })
-        val files = draft.files.map { pack.resolve(it) }
+        val files = restore(pack, ref, draft.files)
         val source = glyphs(pack, ref)
         if (id !in changedIds(source, OxfmtJson.read(pack.resolve(GLYPHS)) as Map<*, *>)) return files
         return files + NewTextures.edit(pack, null, 0, 0) { apply(it, source, setOf(id)) }
     }
 
-    /** Writes the files and entries of [drafts] as [pack] holds them into [target], the pack of another work tree. */
+    /** Writes [files] of [pack] as [ref] holds them, or deletes those it lacks, and returns them. */
+    private fun restore(
+        pack: File,
+        ref: String,
+        files: List<String>,
+    ): List<File> {
+        val kept = git(pack, listOf("ls-tree", "-r", "-z", "--name-only", ref, "--", ".")).split('\u0000').toSet()
+        val (restored, removed) = files.partition { it in kept }
+        if (restored.isNotEmpty()) git(pack, listOf("restore", "--source=$ref", "--worktree", "--") + restored)
+        if (removed.isNotEmpty()) AtomicFiles.write(removed.map { pack.resolve(it) }.filter { it.exists() }.associateWith { null })
+        return files.map { pack.resolve(it) }
+    }
+
+    /**
+     * Ends the conflict of the draft [id] with main: [keep] `clone` or `main` chooses the version of every file of it,
+     * [fields] the version of each field that both changed. Main's version is the draft's new base, and the files it
+     * wrote are returned.
+     */
+    fun resolve(
+        pack: File,
+        id: String,
+        keep: String?,
+        fields: Map<String, String>,
+    ): List<File> {
+        val draft = list(pack).firstOrNull { it.id == id } ?: throw IllegalArgumentException("$id is no draft.")
+        val conflict = draft.conflict ?: throw IllegalArgumentException("${draft.label} has no conflict with main.")
+        if (conflict.files.isNotEmpty() && keep != "clone" && keep != "main") {
+            throw FieldRefusal("keep", "Set -Pkeep to clone or main, the version of ${conflict.files.joinToString()} to keep.")
+        }
+        val open = conflict.fields.map { it.name }.filter { fields[it] != "clone" && fields[it] != "main" }
+        if (open.isNotEmpty()) throw FieldRefusal("fields", "Choose clone or main in -Pfields for ${open.joinToString()}.")
+        val main = commit(pack, MAIN)!!
+        val base = bases(pack)[id] ?: mergeBase(pack)
+        val written = if (keep == "main") restore(pack, main, draft.files) else emptyList()
+        val work = OxfmtJson.read(pack.resolve(GLYPHS)) as Map<*, *>
+        val merge = merge(base?.let { glyphs(pack, it) }, work, glyphs(pack, main), id, keep, fields)
+        writeBases(pack, bases(pack) + (id to main))
+        return written + NewTextures.edit(pack, null, 0, 0) { write(it, merge, id) }
+    }
+
+    /** Writes main's version of each file of the conflict of the draft [id] under `build/conflict/` and returns them. */
+    fun readConflict(
+        pack: File,
+        id: String,
+    ): List<File> {
+        val draft = list(pack).firstOrNull { it.id == id } ?: throw IllegalArgumentException("$id is no draft.")
+        val conflict = draft.conflict ?: throw IllegalArgumentException("${draft.label} has no conflict with main.")
+        val tree = blobs(pack, MAIN)
+        return (conflict.files - GLYPHS).filter { it in tree }.map { path ->
+            pack.resolve("build/conflict/$path").also {
+                it.parentFile.mkdirs()
+                git(pack, listOf("cat-file", "blob", tree.getValue(path)), it)
+            }
+        }
+    }
+
+    /** The commit that [ref] names in the clone of [pack], or null where it names none. */
+    private fun commit(
+        pack: File,
+        ref: String,
+    ): String? = runCatching { git(pack, listOf("rev-parse", "-q", "--verify", "$ref^{commit}")).trim() }.getOrNull()
+
+    /** The commit where the clone's history meets main's, or null without main. */
+    private fun mergeBase(pack: File): String? = runCatching { git(pack, listOf("merge-base", "HEAD", MAIN)).trim() }.getOrNull()
+
+    /** The commit that the draft [id] in [pack] last took main's changes from, or null without main. */
+    internal fun base(
+        pack: File,
+        id: String,
+    ): String? = bases(pack)[id] ?: mergeBase(pack)
+
+    /** The blob of each file of [pack] at [ref] by its path, or of each of the [files] as they are. */
+    private fun blobs(
+        pack: File,
+        ref: String,
+    ): Map<String, String> =
+        git(pack, listOf("ls-tree", "-r", "-z", ref, "--", "."))
+            .split('\u0000')
+            .filter { it.isNotBlank() }
+            .associate { it.substringAfter('\t') to it.substringBefore('\t').split(' ')[2] }
+
+    private fun blobs(
+        pack: File,
+        files: List<String>,
+    ): Map<String, String> =
+        if (files.isEmpty()) emptyMap() else files.zip(git(pack, listOf("hash-object", "--") + files).lines()).toMap()
+
+    /** The base of each draft whose base is no longer where the clone meets main. */
+    private fun bases(pack: File): Map<String, String> {
+        val file = record(pack, BASES)
+        if (!file.isFile) return emptyMap()
+        return (JsonSlurper().parse(file) as Map<*, *>).entries.associate { (id, commit) -> id.toString() to commit.toString() }
+    }
+
+    internal fun writeBases(
+        pack: File,
+        bases: Map<String, String>,
+    ) {
+        val file = record(pack, BASES)
+        file.parentFile.mkdirs()
+        file.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(bases.toSortedMap())) + "\n")
+    }
+
+    /**
+     * Writes the files and entries of [drafts] as [pack] holds them into [target], the pack of another work tree. With
+     * [merge], each entry keeps the fields that only [target] changed since the draft's base.
+     */
     internal fun copy(
         pack: File,
         target: File,
         drafts: List<Draft>,
+        merge: Boolean = false,
     ) {
         AtomicFiles.write(
             drafts
@@ -124,9 +299,47 @@ object Drafts {
                 }.filter { (file, bytes) -> bytes != null || file.exists() },
         )
         val work = pack.resolve(GLYPHS).takeIf { it.isFile }?.let { OxfmtJson.read(it) as Map<*, *> }
-        val ids = changedIds(glyphs(target, "HEAD"), work).intersect(drafts.map { it.id }.toSet())
-        if (ids.isNotEmpty()) NewTextures.edit(target, null, 0, 0) { apply(it, work, ids) }
+        val main = glyphs(target, "HEAD")
+        val ids = changedIds(main, work).intersect(drafts.map { it.id }.toSet())
+        if (ids.isEmpty()) return
+        NewTextures.edit(target, null, 0, 0) { root ->
+            if (!merge) return@edit apply(root, work, ids)
+            ids.forEach { id -> write(root, merge(base(pack, id)?.let { glyphs(pack, it) } ?: main, work, main, id), id) }
+        }
     }
+
+    /**
+     * Merges the entries of the draft [id] in [clone] and [main], two versions of `glyphs.json`, since [base]: a side's
+     * change wins where the other made none. A field both changed takes the side [fields] names, else the clone's; an
+     * entry one deleted and the other changed takes the side [keep] names, else the clone's.
+     */
+    internal fun merge(
+        base: Map<*, *>?,
+        clone: Map<*, *>?,
+        main: Map<*, *>?,
+        id: String,
+        keep: String? = null,
+        fields: Map<String, String> = emptyMap(),
+    ): Merge {
+        val (b, c, m) = listOf(base, clone, main).map { parts(it)[id]?.entries.orEmpty() }
+        val keys = (c.keys + m.keys + b.keys).distinct()
+        val entries = mutableListOf<Entry>()
+        val both = mutableListOf<Field>()
+        var whole = false
+        for (key in keys) {
+            val (was, mine, theirs) = Triple(b[key], c[key], m[key])
+            val kept =
+                when {
+                    mine?.json == theirs?.json || theirs?.json == was?.json -> mine
+                    mine?.json == was?.json -> theirs
+                    mine != null && theirs != null -> merged(was, mine, theirs, if (keys.size > 1 && mine.name.isNotEmpty()) "${mine.name} " else "", fields, both)
+                    else -> (if (keep == "main") theirs else mine).also { whole = true }
+                }
+            kept?.let(entries::add)
+        }
+        return Merge(entries, both, whole)
+    }
+
 
     /** The ids whose entries differ between [before] and [after], two versions of `glyphs.json`. */
     internal fun changedIds(
@@ -146,7 +359,7 @@ object Drafts {
 
     /** The pull requests that publishes of [pack] opened and that are neither merged nor closed. */
     fun reviews(pack: File): List<Review> {
-        val file = reviewsFile(pack)
+        val file = record(pack, REVIEWS)
         if (!file.isFile) return emptyList()
         return (JsonSlurper().parse(file) as List<*>).map { it as Map<*, *> }.map {
             Review(
@@ -155,6 +368,11 @@ object Drafts {
                 it["branch"] as String,
                 (it["drafts"] as List<*>).map(Any?::toString),
                 it["commit"] as String,
+                it["decision"] as String?,
+                it["checks"] as String?,
+                (it["comments"] as List<*>?).orEmpty().map { it as Map<*, *> }.map { comment ->
+                    Comment(comment["author"] as String, comment["body"] as String, comment["path"] as String?, comment["url"] as String)
+                },
             )
         }
     }
@@ -163,7 +381,7 @@ object Drafts {
         pack: File,
         reviews: List<Review>,
     ) {
-        val file = reviewsFile(pack)
+        val file = record(pack, REVIEWS)
         file.parentFile.mkdirs()
         file.writeText(
             JsonOutput.prettyPrint(
@@ -175,6 +393,12 @@ object Drafts {
                             "branch" to it.branch,
                             "drafts" to it.drafts,
                             "commit" to it.commit,
+                            "decision" to it.decision,
+                            "checks" to it.checks,
+                            "comments" to
+                                it.comments.map { comment ->
+                                    linkedMapOf("author" to comment.author, "body" to comment.body, "path" to comment.path, "url" to comment.url)
+                                },
                         )
                     },
                 ),
@@ -183,9 +407,11 @@ object Drafts {
         )
     }
 
-    /** The record of the pull requests, in the clone's git directory, so no commit ever holds it. */
-    private fun reviewsFile(pack: File): File =
-        File(git(pack, listOf("rev-parse", "--git-path", REVIEWS)).trim()).let { if (it.isAbsolute) it else pack.resolve(it) }
+    /** The record [name] in the clone's git directory, such as that of the pull requests, so no commit ever holds it. */
+    private fun record(
+        pack: File,
+        name: String,
+    ): File = File(git(pack, listOf("rev-parse", "--git-path", name)).trim()).let { if (it.isAbsolute) it else pack.resolve(it) }
 
     /**
      * Moves the entries of [ids] from [source] into [target], two versions of `glyphs.json`: each entry of an id leaves
@@ -256,6 +482,68 @@ object Drafts {
         }
     }
 
+    /**
+     * Merges the fields of [mine] and [theirs], both versions of one entry, since [was]. A field both changed is added
+     * to [both] by its name after [prefix] and takes the side [fields] names, else the clone's.
+     */
+    private fun merged(
+        was: Entry?,
+        mine: Entry,
+        theirs: Entry,
+        prefix: String,
+        fields: Map<String, String>,
+        both: MutableList<Field>,
+    ): Entry {
+        val out = OxfmtJson.Object()
+        for (field in (mine.fields.keys + theirs.fields.keys).distinct()) {
+            val (b, c, m) = listOf(was, mine, theirs).map { e -> e?.fields?.takeIf { field in it }?.let { JsonOutput.toJson(it[field]) } }
+            val name = prefix + field
+            val side =
+                when {
+                    c == m || m == b -> mine
+                    c == b -> theirs
+                    else -> (if (fields[name] == "main") theirs else mine).also { both += Field(name, c, m) }
+                }
+            if (field in side.fields) out[field as String] = side.fields[field]
+        }
+        return Entry(mine.kind, mine.name, mine.font, mine.block, out, mine.json)
+    }
+
+    /** Puts the entries of [merge] in place of those of the draft [id] in [target], a version of `glyphs.json`. */
+    internal fun write(
+        target: OxfmtJson.Object,
+        merge: Merge,
+        id: String,
+    ) {
+        val fonts = mutableListOf<OxfmtJson.Object>()
+
+        fun font(from: Map<*, *>) = fonts.firstOrNull { it["font"] == from["font"] } ?: copy(from, "blocks").also { fonts += it }
+
+        fun blocks(font: Map<*, *>) = font["blocks"] as MutableList<Any?>
+        for (entry in merge.entries) {
+            val font = font(entry.font)
+            when (entry.kind) {
+                "font" -> replace(font, ordered(entry.font, entry.fields, "blocks"), "blocks")
+                "sheet" -> blocks(font) += entry.fields
+                "block" -> blocks(font) += copy(ordered(entry.block!!, entry.fields, "glyphs"), "glyphs")
+                else -> {
+                    val block =
+                        blocks(font).firstOrNull { blockId("", it as Map<*, *>) == blockId("", entry.block!!) } as OxfmtJson.Object?
+                            ?: copy(entry.block!!, "glyphs").also { blocks(font) += it }
+                    (block["glyphs"] as MutableList<Any?>) += entry.fields
+                }
+            }
+        }
+        apply(target, mapOf("fonts" to fonts), setOf(id))
+    }
+
+    /** The [fields] in the order of [original], with its [list] in its place. */
+    private fun ordered(
+        original: Map<*, *>,
+        fields: Map<*, *>,
+        list: String,
+    ): Map<*, *> = (original.keys.filter { it == list || it in fields } + fields.keys).distinct().associateWith { fields[it] }
+
     /** The parts of `glyphs.json` by the id of the draft they belong to. */
     private fun parts(root: Map<*, *>?): Map<String, Part> {
         val parts = linkedMapOf<String, Part>()
@@ -263,22 +551,32 @@ object Drafts {
         fun add(
             id: String,
             label: Any?,
-            value: Any?,
+            key: String,
+            entry: Entry,
         ) {
-            parts.getOrPut(id) { Part(label.toString()) }.content += JsonOutput.toJson(value)
+            val entries = parts.getOrPut(id) { Part(label.toString()) }.entries
+            entries[generateSequence(key) { "$it+" }.first { it !in entries }] = entry
         }
         for (font in root?.let(NewTextures::fonts).orEmpty()) {
             val id = font["font"] as String
-            add("font $id", id, font - "blocks")
+            val fields = font - "blocks"
+            add("font $id", id, "font", Entry("font", "", font, null, fields, JsonOutput.toJson(fields)))
             for (block in (font["blocks"] as List<*>).map { it as Map<*, *> }) {
                 val texture = block["texture"] as String?
                 if (texture != null) {
-                    add(texture, block["title"], listOf(id, block))
+                    add(texture, block["title"], "sheet $id", Entry("sheet", "", font, null, block, JsonOutput.toJson(listOf(id, block))))
                     continue
                 }
-                add(blockId(id, block), block["title"], listOf(id, block - "glyphs"))
+                val own = block - "glyphs"
+                add(blockId(id, block), block["title"], "block", Entry("block", "", font, block, own, JsonOutput.toJson(listOf(id, own))))
                 for (glyph in (block["glyphs"] as List<*>?).orEmpty().map { it as Map<*, *> }) {
-                    add(glyphId(id, glyph), glyph["name"] ?: glyph["constant"] ?: glyph["code"], listOf(id, block["range"], glyph))
+                    val code = glyph["code"].toString()
+                    add(
+                        glyphId(id, glyph),
+                        glyph["name"] ?: glyph["constant"] ?: glyph["code"],
+                        "glyph $id $code",
+                        Entry("glyph", code, font, block, glyph, JsonOutput.toJson(listOf(id, block["range"], glyph))),
+                    )
                 }
             }
         }

@@ -245,7 +245,7 @@ class PublishTest {
         clone.git(clone.origin, "update-ref", "refs/heads/main", branch)
         clone.prState.writeText("MERGED\n")
 
-        assertEquals(listOf("merged 42"), publish(clone).sync())
+        assertEquals(listOf("moved", "merged 42"), publish(clone).sync())
 
         assertEquals(clone.git(clone.origin, "rev-parse", "main:$starPng"), clone.git(clone.clone, "hash-object", starPng))
         assertEquals(emptyList<Pair<String, Int?>>(), ids(clone))
@@ -303,6 +303,51 @@ class PublishTest {
 
         assertTrue("nordtal-designer-edits" in refusal.message!!, refusal.stackTraceToString())
         assertTrue("aborted by hook" in refusal.suppressed.single().message!!, refusal.stackTraceToString())
+    }
+
+    @Test
+    fun aSyncKeepsTheReviewDecisionTheChecksAndTheCommentsOfEachPullRequest() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        publish(clone).publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+        clone.prView.writeText(
+            """
+            "reviewDecision": "CHANGES_REQUESTED",
+            "statusCheckRollup": [
+              { "__typename": "CheckRun", "name": "build", "status": "COMPLETED", "conclusion": "FAILURE" },
+              { "__typename": "StatusContext", "context": "CodeRabbit", "state": "SUCCESS" }
+            ],
+            "reviews": [
+              { "author": { "login": "rabbit" }, "body": "<!-- hidden -->**Looks** fine.<details><summary>More</summary>long</details>" },
+              { "author": { "login": "owner" }, "body": "" }
+            ]
+            """.trimIndent(),
+        )
+        clone.prComments.writeText(
+            """[{ "user": { "login": "owner" }, "body": "Brighter.", "path": "$starPng", "html_url": "https://github.com/c/1" }]""",
+        )
+
+        assertEquals(listOf("reviewed 42"), publish(clone).sync())
+
+        val review = Drafts.reviews(clone.pack).single()
+        assertEquals(listOf("CHANGES_REQUESTED", "failure"), listOf(review.decision, review.checks))
+        assertEquals(
+            listOf(
+                Drafts.Comment("rabbit", "Looks fine.", null, "https://github.com/nordtal/season-2/pull/42"),
+                Drafts.Comment("owner", "Brighter.", starPng, "https://github.com/c/1"),
+            ),
+            review.comments,
+        )
+        assertEquals(emptyList<String>(), publish(clone).sync())
+    }
+
+    @Test
+    fun aSyncSaysWhenMainMoved() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.commitOnMain("feat: the star is red") { clone.png("star", 0xFFFF0000.toInt(), it) }
+
+        assertEquals(listOf("moved"), publish(clone).sync())
+        assertEquals(emptyList<String>(), publish(clone).sync())
     }
 
     /** Leaves the clone's changes in the stash of a pull that stopped halfway. */
@@ -385,7 +430,7 @@ class PublishTest {
         clone.git(clone.origin, "update-ref", "refs/heads/main", "designer/the-star-is-white")
         clone.prState.writeText("MERGED\n")
 
-        assertEquals(listOf("merged 42"), publish(clone).sync())
+        assertEquals(listOf("moved", "merged 42"), publish(clone).sync())
 
         assertEquals(clone.git(clone.origin, "rev-parse", "main"), clone.git(clone.clone, "rev-parse", "HEAD"))
         assertEquals("On main: mine\n", clone.git(clone.clone, "stash", "list", "--format=%gs"))
@@ -401,7 +446,7 @@ class PublishTest {
         clone.git(clone.origin, "update-ref", "refs/heads/main", "designer/the-star-is-white")
         clone.prState.writeText("MERGED\n")
 
-        assertEquals(listOf("merged 42"), publish(clone).sync())
+        assertEquals(listOf("moved", "merged 42"), publish(clone).sync())
 
         assertEquals(clone.git(clone.origin, "rev-parse", "main"), clone.git(clone.clone, "rev-parse", "HEAD"))
         assertEquals(listOf("nordtal:badges/comet.png" to null, "nordtal:badges/moon.png" to null), ids(clone))

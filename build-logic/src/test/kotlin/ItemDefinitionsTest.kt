@@ -600,6 +600,7 @@ class ItemDefinitionsTest {
                                         "aseprite" to "art/assets/nordtal/textures/item/wand.aseprite",
                                         "asepriteExists" to false,
                                         "draft" to null,
+                                        "review" to null,
                                         "width" to 2,
                                         "height" to 3,
                                     ),

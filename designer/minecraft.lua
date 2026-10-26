@@ -41,7 +41,7 @@ function minecraft.commands(request, encode)
   elseif op == "give" then
     return { "/give @s " .. request.item }
   elseif op == "block" then
-    return { "/setblock ^ ^ ^2 " .. request.block }
+    return { "/setblock ^ ^ ^2 " .. request.block .. " keep" }
   end
   return {}
 end
@@ -88,11 +88,16 @@ function minecraft.rows(view, tr, encode)
   local list = {
     { text=tr("minecraft.instance"), value=chosen or tr("minecraft.no_instance"), field={ minecraft="choose" } },
     { text=tr("minecraft.live_sync"), value=view.liveSync == true, field={ minecraft="live" }, kind="switch" },
-    { text=tr("minecraft.install_pack"), field={ minecraft="pack" }, kind="button" },
   }
+  if chosen then
+    table.insert(list, { text=tr("minecraft.install_pack"), field={ minecraft="pack" }, kind="button" })
+  end
   if chosen and fabric then
     table.insert(list, { text=tr("minecraft.install_bridge"), field={ minecraft="bridge" }, kind="button" })
-    table.insert(list, { text=tr("minecraft.bridge"), value=tr("minecraft.bridge_" .. (view.bridge or "none")) })
+    local state = view.bridge or "none"
+    local row = { text=tr("minecraft.bridge"), value=view.instance.problem or tr("minecraft.bridge_" .. state) }
+    if state == "refused" then row.field = { minecraft="retry" } end
+    table.insert(list, row)
   elseif chosen then
     table.insert(list, { text=tr("minecraft.bridge"), value=tr("minecraft.no_fabric") })
   end
@@ -128,7 +133,8 @@ end
 -- A connection to the bridge mod on the loopback address: { state,
 -- send(request, done), close() }. state is "connecting", "connected",
 -- "unreachable" or "refused", and changed() is called on each change.
--- The socket connects again by itself after a close. args holds
+-- The socket connects again by itself after a close. A refusal
+-- closes it for good, and a new bridge() connects again. args holds
 -- WebSocket, types (WebSocketMessageType), encode, decode, port,
 -- token and changed.
 function minecraft.bridge(args)
@@ -154,6 +160,8 @@ function minecraft.bridge(args)
         end
         if reply.id == nil then
           set(reply.ok and "connected" or "refused", reply.error)
+          -- IXWebSocket would connect again at once and be refused again
+          if not reply.ok then socket:close() end
           return
         end
         local done = waiting[reply.id]
@@ -182,7 +190,11 @@ function minecraft.bridge(args)
     local frame = { id=last }
     for k, v in pairs(request) do frame[k] = v end
     waiting[last] = done
-    socket:sendText(args.encode(frame))
+    local sent, err = pcall(socket.sendText, socket, args.encode(frame))
+    if not sent then
+      waiting[last] = nil
+      done(false, err)
+    end
   end
 
   function bridge.close()

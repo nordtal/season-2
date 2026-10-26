@@ -20,7 +20,7 @@ describe("minecraft", function()
                   "/bossbar set nordtal:preview players @s" }, minecraft.commands({ op="bossbar", text=star }, encode))
     assert.same({ "/give @s chest[custom_name=" .. json .. "]" }, minecraft.commands({ op="chest", text=star }, encode))
     assert.same({ "/give @s minecraft:apple" }, minecraft.commands({ op="give", item="minecraft:apple" }, encode))
-    assert.same({ "/setblock ^ ^ ^2 minecraft:stone" }, minecraft.commands({ op="block", block="minecraft:stone" }, encode))
+    assert.same({ "/setblock ^ ^ ^2 minecraft:stone keep" }, minecraft.commands({ op="block", block="minecraft:stone" }, encode))
   end)
 
   it("writes a text that is a bare string as an object, which Aseprite's json.encode writes", function()
@@ -68,7 +68,7 @@ describe("minecraft", function()
     assert.same({}, (minecraft.previews(nil, nil, nil, tr)))
   end)
 
-  it("offers each preview as commands to copy without Fabric under its label, one too long without a copy", function()
+  it("offers each preview as commands to copy without Fabric under its label, one too long without a copy, and no install without an instance", function()
     local long = { text=string.rep("x", 300) }
     local rows = minecraft.rows({ liveSync=true, previews={
       { label="chat", requests={ { op="chat", text=star } } },
@@ -79,7 +79,6 @@ describe("minecraft", function()
     assert.same({
       { text="minecraft.instance", value="minecraft.no_instance", field={ minecraft="choose" } },
       { text="minecraft.live_sync", value=true, field={ minecraft="live" }, kind="switch" },
-      { text="minecraft.install_pack", field={ minecraft="pack" }, kind="button" },
       { text="minecraft.previews", value="minecraft.copy" },
       { text="chat", value=command, field={ minecraft="copy", text=command } },
       { text="long", value="minecraft.too_long " .. #("/tellraw @s " .. encode(long)) },
@@ -113,6 +112,17 @@ describe("minecraft", function()
 
     rows = minecraft.rows({ instance={ instance="/i", fabric=true }, previews={} }, tr, encode)
     assert.same({ text="minecraft.bridge", value="minecraft.bridge_none" }, rows[5])
+  end)
+
+  it("offers a click that connects again to a bridge that refused the token", function()
+    local rows = minecraft.rows({ instance={ instance="/i", fabric=true, bridge="nordtal-bridge-0.63.0.jar" },
+                                  bridge="refused", previews={} }, tr, encode)
+    assert.same({ text="minecraft.bridge", value="minecraft.bridge_refused", field={ minecraft="retry" } }, rows[5])
+  end)
+
+  it("shows the problem describeInstance found with the bridge mod in place of its state", function()
+    local rows = minecraft.rows({ instance={ instance="/i", fabric=true, problem="Two jars." }, previews={} }, tr, encode)
+    assert.same({ text="minecraft.bridge", value="Two jars." }, rows[5])
   end)
 
   describe("bridge", function()
@@ -157,16 +167,36 @@ describe("minecraft", function()
       assert.is_true(changes() >= 2)
     end)
 
-    it("says when the client is not reachable or refused the token, and closes", function()
+    it("says when the client is not reachable, and closes", function()
       local bridge, socket = connect()
       socket.args.onreceive(types.ERROR, "", "Connection refused")
       assert.equal("unreachable", bridge.state)
-      socket.args.onreceive(types.OPEN, "", "")
-      socket.args.onreceive(types.TEXT, '{"ok":false,"error":"wrong token"}', "")
-      socket.args.onreceive(types.CLOSE, "", "")
-      assert.equal("refused", bridge.state)
+      assert.is_nil(socket.closed)
       bridge.close()
       assert.is_true(socket.closed)
+    end)
+
+    it("closes the socket once the client refused the token and stays refused", function()
+      local bridge, socket = connect()
+      socket.args.onreceive(types.OPEN, "", "")
+      socket.args.onreceive(types.TEXT, '{"ok":false,"error":"wrong token"}', "")
+      assert.equal("refused", bridge.state)
+      assert.is_true(socket.closed)
+      socket.args.onreceive(types.CLOSE, "", "")
+      socket.args.onreceive(types.ERROR, "", "Connection refused")
+      assert.equal("refused", bridge.state)
+    end)
+
+    it("hands back a send that the socket raised as a failed reply", function()
+      local bridge, socket = connect()
+      socket.args.onreceive(types.OPEN, "", "")
+      socket.args.onreceive(types.TEXT, '{"ok":true}', "")
+      function socket:sendText() error("closed", 0) end
+      local replies = {}
+      bridge.send({ op="reload" }, function(ok, err) table.insert(replies, { ok, err }) end)
+      assert.same({ { false, "closed" } }, replies)
+      socket.args.onreceive(types.CLOSE, "", "")
+      assert.equal(1, #replies)
     end)
   end)
 end)

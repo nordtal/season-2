@@ -264,8 +264,8 @@ describe("pack", function()
   end)
 
   it("takes the reason of a failed program out of what it printed before Gradle's report", function()
-    assert.same({ "/x has neither options.txt nor a resourcepacks folder, so it is not a Minecraft instance." }, pack.refusal({
-      "/x has neither options.txt nor a resourcepacks folder, so it is not a Minecraft instance.",
+    assert.same({ "/x holds no file of Minecraft or of a launcher, so it is not a Minecraft instance." }, pack.refusal({
+      "/x holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.",
       "",
       "FAILURE: Build failed with an exception.",
       "",

@@ -1467,10 +1467,10 @@ describe("the Minecraft section of the Nordtal tab", function()
     -- A folder the chooser refuses shows its reason
     t.world.folder = "/mc/empty"
     click(dlg, "/mc/fabric")
-    finish(t, 1, "/mc/empty has neither options.txt nor a resourcepacks folder, so it is not a Minecraft instance.", "",
+    finish(t, 1, "/mc/empty holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.", "",
       "FAILURE: Build failed with an exception.", "", "* What went wrong:", "Execution failed for task 'x'.",
       "> Process 'command '/jdk/bin/java'' finished with non-zero exit value 1", "", "* Try:")
-    assert.equal("status.refused /mc/empty has neither options.txt nor a resourcepacks folder, so it is not a Minecraft instance.",
+    assert.equal("status.refused /mc/empty holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.",
       dlg.handlers.status.text)
     assert.equal(2, #t.instanceRuns)
   end)
@@ -1522,6 +1522,28 @@ describe("the Minecraft section of the Nordtal tab", function()
     assert.equal(1, #t.sockets)
     assert.equal("minecraft.bridge_installed", dlg.handlers.status.text)
     assert.is_truthy(table.concat(texts(dlg), "\n"):find("minecraft.bridge\n  minecraft.bridge_connecting", 1, true))
+  end)
+
+  it("connects again to a bridge that refused the token only on a click or a new token", function()
+    local t = setUp()
+    t.world.instance = fabric
+    local dlg = loaded(t)
+    t.sockets[1].args.onreceive(1, "", "")
+    t.sockets[1].args.onreceive(2, '{"ok":false,"error":"wrong token"}', "")
+    assert.is_true(t.sockets[1].closed)
+    t.ctl.readInstance()
+    assert.equal(1, #t.sockets)
+
+    click(dlg, "minecraft.bridge_refused")
+    assert.equal(3, #t.instanceRuns)
+    assert.equal(2, #t.sockets)
+    assert.is_true(t.sockets[2].connected)
+
+    t.world.instance = fabric:gsub("0123456789abcdef0123456789abcdef", "fedcba9876543210fedcba9876543210")
+    t.ctl.readInstance()
+    assert.equal(3, #t.sockets)
+    t.sockets[3].args.onreceive(1, "", "")
+    assert.same({ op="hello", token="fedcba9876543210fedcba9876543210" }, t.sockets[3].sent[1])
   end)
 
   it("renders a glyph's previews and shows one in the client", function()

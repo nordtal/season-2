@@ -511,6 +511,9 @@ function tab.open(context)
       preview(field.requests)
     elseif action == "render" then
       render()
+    elseif action == "retry" then
+      bridgeFor = nil
+      ctl.readInstance()
     elseif action == "pack" then
       installPack()
     elseif action == "bridge" then

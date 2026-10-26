@@ -81,6 +81,17 @@ function pack.needs(out)
   return list
 end
 
+-- The members of a texture's animation that animateTexture printed
+-- on its lines "dropped <member>" to its stdout out
+function pack.dropped(out)
+  local list = {}
+  for _, line in ipairs(out) do
+    local member = line:match("^dropped (%S+)$")
+    if member then table.insert(list, member) end
+  end
+  return list
+end
+
 -- The reason of a failed task: the lines under "What went wrong" in
 -- Gradle's report without the task's name, each place a refusal lists
 -- on a line of its own. A program that a task ran printed its reason

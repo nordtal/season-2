@@ -324,13 +324,17 @@ function tab.open(context)
   -- finally() in any case, and reads the pack again. A refusal shows
   -- its reason in the panel while its entry stays selected, and in the
   -- status line too when shown is true. A refusal that names fields
-  -- the task needs calls needed(fields) instead.
+  -- the task needs calls needed(fields) instead. The status line names
+  -- the members of an animation that the task dropped.
   local function write(job, after, finally, shown, needed)
     local id = selected
     refused = nil
     setStatus(tr("status.writing"))
     enqueue(task(job), function(ok, err, out)
       if ok then
+        local dropped = {}
+        for _, member in ipairs(modules.pack.dropped(out or {})) do table.insert(dropped, tr("status.dropped_" .. member)) end
+        if #dropped > 0 then notice = table.concat(dropped, " ") end
         if after then after() end
         if finally then finally() end
         ctl.reload()

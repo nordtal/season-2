@@ -746,6 +746,24 @@ describe("the Nordtal tab", function()
       run(t.started[2]))
   end)
 
+  it("names in the status line what the animation of a save dropped from the .mcmeta", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local sprite = t.open[1]
+    sprite.frames = { { duration=0.1 }, { duration=0.25 } }
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    t.started[2].args.onstdout("dropped width")
+    t.started[2].args.onstdout("/c/resource-pack/src/assets/minecraft/textures/gui/sprites/container/slot.png.mcmeta")
+    t.started[2].args.onstdout("dropped frames")
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    assert.equal("status.dropped_width status.dropped_frames", dlg.handlers.status.text)
+  end)
+
   it("runs one task at a time", function()
     local t = setUp()
     local dlg = loaded(t)

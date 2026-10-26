@@ -35,7 +35,7 @@ class TextureMetaTest {
 
         val written = TextureMeta.animate(pack, lava, listOf(100, 100, 100))
 
-        assertEquals(listOf(lavaMeta), written)
+        assertEquals(TextureMeta.Animated(listOf(lavaMeta), emptyList()), written)
         assertEquals("{\n    \"animation\": {\n        \"frametime\": 2\n    }\n}\n", lavaMeta.readText())
     }
 
@@ -69,7 +69,7 @@ class TextureMetaTest {
     @Test
     fun anAnimationKeepsInterpolateAndTheOtherMembersOfTheMcmeta() {
         png(lavaPng, 16, 32)
-        lavaMeta.writeText("""{"texture": {"blur": true}, "animation": {"frametime": 3, "interpolate": true, "frames": [0, 1, 0]}}""")
+        lavaMeta.writeText("""{"texture": {"blur": true}, "animation": {"frametime": 3, "interpolate": true}}""")
 
         TextureMeta.animate(pack, lava, listOf(50, 50))
 
@@ -80,13 +80,61 @@ class TextureMetaTest {
     }
 
     @Test
+    fun anAnimationKeepsTheFrameWidthAndTheOrderThatBlockbenchWroteWhileTheSpriteStillHoldsThem() {
+        png(lavaPng, 32, 64)
+        val blockbench =
+            """{"animation": {"frametime": 3, "width": 32, "height": 16, "interpolate": true, "frames": [3, 2, {"index": 1, "time": 5}, 0]}}"""
+        lavaMeta.writeText(blockbench)
+
+        val written = TextureMeta.animate(pack, lava, listOf(150, 250, 150, 150))
+
+        assertEquals(TextureMeta.Animated(listOf(lavaMeta), emptyList()), written)
+        assertEquals(OxfmtJson.asset(OxfmtJson.read(blockbench)), lavaMeta.readText())
+    }
+
+    @Test
+    fun aNewDurationIsWrittenIntoEachEntryOfTheOrderThatPlaysItsFrame() {
+        png(lavaPng, 16, 32)
+        lavaMeta.writeText("""{"animation": {"frametime": 2, "frames": [0, {"index": 1, "time": 5}, 0, 1]}}""")
+
+        TextureMeta.animate(pack, lava, listOf(100, 400))
+
+        assertEquals(
+            mapOf(
+                "animation" to
+                    mapOf(
+                        "frames" to
+                            listOf(
+                                mapOf("index" to 0, "time" to 2),
+                                mapOf("index" to 1, "time" to 8),
+                                mapOf("index" to 0, "time" to 2),
+                                mapOf("index" to 1, "time" to 8),
+                            ),
+                    ),
+            ),
+            OxfmtJson.read(lavaMeta),
+        )
+    }
+
+    @Test
+    fun anOrderThatPlaysAFrameTheSpriteNoLongerHoldsAndAFrameWidthOfAnotherWidthAreDroppedAndNamed() {
+        png(lavaPng, 16, 32)
+        lavaMeta.writeText("""{"animation": {"frametime": 3, "width": 32, "height": 16, "frames": [3, 2, 1, 0]}}""")
+
+        val written = TextureMeta.animate(pack, lava, listOf(150, 150))
+
+        assertEquals(TextureMeta.Animated(listOf(lavaMeta), listOf("width", "frames")), written)
+        assertEquals(mapOf("animation" to mapOf("frametime" to 3)), OxfmtJson.read(lavaMeta))
+    }
+
+    @Test
     fun oneFrameRemovesTheAnimationAndAnMcmetaLeftEmpty() {
         png(lavaPng, 16, 16)
         lavaMeta.writeText("""{"animation": {"frametime": 3}}""")
 
         val written = TextureMeta.animate(pack, lava, listOf(100))
 
-        assertEquals(listOf(lavaMeta), written)
+        assertEquals(listOf(lavaMeta), written.written)
         assertFalse(lavaMeta.exists())
     }
 
@@ -198,10 +246,10 @@ class TextureMetaTest {
     }
 
     @Test
-    fun theFramesOfARowAreSquaresOfTheSmallerSideAndAListPlaysEachEntryWithItsTime() {
+    fun theFramesOfARowAreSquaresOfTheSmallerSideEachOnceWithTheTimeTheOrderFirstPlaysItFor() {
         assertEquals(
-            listOf(frame(16, 0, 16, 16, 100), frame(0, 0, 16, 16, 450), frame(16, 0, 16, 16, 100)),
-            TextureMeta.frames(32, 16, mapOf("frametime" to 2, "frames" to listOf(1, mapOf("index" to 0, "time" to 9), 1))),
+            listOf(frame(0, 0, 16, 16, 450), frame(16, 0, 16, 16, 100), frame(32, 0, 16, 16, 100)),
+            TextureMeta.frames(48, 16, mapOf("frametime" to 2, "frames" to listOf(1, mapOf("index" to 0, "time" to 9), 1, 0))),
         )
     }
 

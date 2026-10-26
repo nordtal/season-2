@@ -15,8 +15,8 @@ import java.io.File
 /**
  * Reads or makes one change of [kind] to the pack's sources through [NewTextures], [GlyphEdits], [TextureMeta], [ItemFiles],
  * [Drafts] or [Publish], with the [options] that `resource-pack/README.md` lists per kind. It prints what it changed, and
- * fails with the reason when it refuses. A [FieldRefusal] first prints `refused` and the option's name, a [FieldsNeeded] `needs`, a field and its kind
- * per line. Only the item kinds read the client jar.
+ * fails with the reason when it refuses. A [FieldRefusal] first prints `refused` and the option's name, a [FieldsNeeded] `needs`,
+ * a field and its kind per line. `animate` prints `dropped` and each member of the animation it dropped. Only the item kinds read the client jar.
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class EditPackSources : VanillaClientTask() {
@@ -152,7 +152,9 @@ abstract class EditPackSources : VanillaClientTask() {
                     }
 
                     "animate" -> {
-                        TextureMeta.animate(pack, text("texture"), numbers("frames") ?: throw FieldRefusal("frames", "Set -Pframes."))
+                        val animated = TextureMeta.animate(pack, text("texture"), numbers("frames") ?: throw FieldRefusal("frames", "Set -Pframes."))
+                        animated.dropped.forEach { logger.quiet("dropped $it") }
+                        animated.written
                     }
 
                     "scaling" -> {

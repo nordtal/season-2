@@ -17,35 +17,61 @@ object TextureMeta {
 
     /**
      * Writes the `animation` of [texture], whose PNG is a column of one frame per entry of [frames], each its duration in
-     * milliseconds. One frame removes the animation. `interpolate` stays.
+     * milliseconds. One frame removes the animation. `interpolate` stays, and so do `width` and the order in `frames` while
+     * the sprite still holds them, with a changed duration written into each entry of its frame.
      */
     fun animate(
         pack: File,
         texture: String,
         frames: List<Int>,
-    ): List<File> {
+    ): Animated {
         require(frames.isNotEmpty() && frames.all { it > 0 }) { "Each frame lasts at least 1 millisecond." }
         val png = png(pack, texture)
         val image = ImageIO.read(png) ?: throw IllegalArgumentException("${relative(pack, png)} is no PNG that can be read.")
         require(image.height % frames.size == 0) {
             "${relative(pack, png)} is ${image.height} pixels high, which ${frames.size} frames do not divide."
         }
-        return change(pack, png) { meta ->
-            val old = meta.remove("animation") as? Map<*, *>
-            if (frames.size == 1) return@change
-            val animation = OxfmtJson.Object()
-            val ticks = frames.map { maxOf(1, Math.round(it / TICK.toDouble()).toInt()) }
-            if (ticks.distinct().size == 1) {
-                animation["frametime"] = ticks[0]
-            } else {
-                animation["frames"] = ticks.mapIndexed { index, time -> linkedMapOf("index" to index, "time" to time) }
+        val dropped = mutableListOf<String>()
+        val written =
+            change(pack, png) { meta ->
+                val old = meta.remove("animation") as? Map<*, *>
+                if (frames.size == 1) return@change
+                val ticks = frames.map { maxOf(1, Math.round(it / TICK.toDouble()).toInt()) }
+                val width = old?.get("width")?.takeIf { it == image.width }
+                if (old?.get("width") != null && width == null) dropped += "width"
+                val order = old?.let { order(it) }?.takeIf { entries -> entries.all { it.first in ticks.indices } }
+                if (old?.get("frames") != null && order == null) dropped += "frames"
+                val frametime = (old?.get("frametime") as? Int) ?: 1
+                val changed = ticks.indices.filter { i -> ticks[i] != (order?.firstOrNull { it.first == i }?.second ?: frametime) }
+                val entries = order?.map { (i, time) -> i to if (i in changed) ticks[i] else time } ?: ticks.indices.map { it to ticks[it] }
+                val animation = OxfmtJson.Object()
+                val kept = order != null && changed.isEmpty()
+                if (kept) {
+                    old!!["frametime"]?.let { animation["frametime"] = it }
+                } else if (entries.map { it.second }.distinct().size == 1) {
+                    animation["frametime"] = entries[0].second
+                }
+                val height = image.height / frames.size
+                if (width != null) animation["width"] = width
+                if (width != null || height != image.width) animation["height"] = height
+                old?.get("interpolate")?.let { animation["interpolate"] = it }
+                if (kept) {
+                    animation["frames"] = old!!["frames"]
+                } else if (animation["frametime"] == null) {
+                    animation["frames"] = entries.map { (index, time) -> linkedMapOf("index" to index, "time" to time) }
+                } else if (order != null) {
+                    animation["frames"] = entries.map { it.first }
+                }
+                meta["animation"] = animation
             }
-            old?.get("interpolate")?.let { animation["interpolate"] = it }
-            val height = image.height / frames.size
-            if (height != image.width) animation["height"] = height
-            meta["animation"] = animation
-        }
+        return Animated(written, dropped)
     }
+
+    /** The `.mcmeta` that [animate] wrote or removed, and the members of the old `animation` that it dropped. */
+    data class Animated(
+        val written: List<File>,
+        val dropped: List<String>,
+    )
 
     /**
      * Writes the `gui.scaling` of the GUI sprite [texture]: [type] `stretch` removes it, `tile` takes [width] and [height],
@@ -108,8 +134,9 @@ object TextureMeta {
     }
 
     /**
-     * The frames that an `animation` of an image [width] by [height] pixels plays, each as `x`, `y`, `width`, `height` and
-     * `duration` in milliseconds, or null when its frames do not divide the image or a frame index lies outside it.
+     * The frames of an image [width] by [height] pixels that its `animation` cuts, each once as `x`, `y`, `width`, `height`
+     * and `duration` in milliseconds, the time of the first entry of `frames` that plays it, or null when its frames do not
+     * divide the image or an entry lies outside it.
      */
     fun frames(
         width: Int,
@@ -122,19 +149,24 @@ object TextureMeta {
         val columns = width / frameWidth
         val count = columns * (height / frameHeight)
         val frametime = (animation["frametime"] as? Int) ?: 1
-        val played =
-            (animation["frames"] as? List<*>)?.map {
-                if (it is Map<*, *>) (it["index"] as? Int ?: -1) to ((it["time"] as? Int) ?: frametime) else (it as? Int ?: -1) to frametime
-            } ?: (0 until count).map { it to frametime }
-        if (played.any { it.first !in 0 until count }) return null
-        return played.map { (index, time) ->
+        val order = order(animation)
+        if (order != null && order.any { it.first !in 0 until count }) return null
+        return (0 until count).map { index ->
             linkedMapOf(
                 "x" to index % columns * frameWidth,
                 "y" to index / columns * frameHeight,
                 "width" to frameWidth,
                 "height" to frameHeight,
-                "duration" to time * TICK,
+                "duration" to (order?.firstOrNull { it.first == index }?.second ?: frametime) * TICK,
             )
+        }
+    }
+
+    /** Each entry of the `frames` of [animation] as its index and its time in ticks, or null without `frames`. */
+    private fun order(animation: Map<*, *>): List<Pair<Int, Int>>? {
+        val frametime = (animation["frametime"] as? Int) ?: 1
+        return (animation["frames"] as? List<*>)?.map {
+            if (it is Map<*, *>) (it["index"] as? Int ?: -1) to ((it["time"] as? Int) ?: frametime) else (it as? Int ?: -1) to frametime
         }
     }
 

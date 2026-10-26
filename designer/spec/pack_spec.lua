@@ -160,6 +160,11 @@ describe("pack", function()
     assert.same({}, pack.needs({ "refused id" }))
   end)
 
+  it("reads the members of the animation that animateTexture dropped", function()
+    assert.same({ "width", "frames" }, pack.dropped({ "dropped width", "/c/x.png.mcmeta", "dropped frames" }))
+    assert.same({}, pack.dropped({ "/c/x.png.mcmeta" }))
+  end)
+
   it("reports a model it cannot read", function()
     local started, got = {}, nil
     local files = { ["/c/resource-pack/build/pack-model.json"]="{" }

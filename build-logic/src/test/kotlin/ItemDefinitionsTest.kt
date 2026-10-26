@@ -239,6 +239,20 @@ class ItemDefinitionsTest {
     }
 
     @Test
+    fun anImportRefusesAModelOrTextureThatTheClientJarHas() {
+        val export = directory.resolve("export").apply { mkdirs() }
+        export.resolve("apple.json").writeText("""{ "textures": { "layer0": "stone" } }""")
+        export.resolve("stone.png").writeText("png")
+
+        val model = assertThrows<FieldRefusal> { imported(export.resolve("apple.json"), "minecraft:item/apple") }
+        val texture = assertThrows<FieldRefusal> { imported(export.resolve("apple.json"), "minecraft:block/apple") }
+
+        assertEquals("minecraft:models/item/apple.json is in the client jar, which the import would hide.", model.message)
+        assertEquals("minecraft:textures/block/stone.png is in the client jar, which the import would hide.", texture.message)
+        assertTrue(!pack.resolve("src/assets/minecraft").exists())
+    }
+
+    @Test
     fun anImportWhoseItemRefusesTheModelWritesNoFileAndCanBeRepeated() {
         val export = directory.resolve("export").apply { mkdirs() }
         export.resolve("lamp.json").writeText("""{ "textures": { "0": "lamp" } }""")

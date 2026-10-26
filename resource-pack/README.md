@@ -269,8 +269,9 @@ required value is still missing, such as `block_state_property` after a new prop
 - An import writes the model at `id` under `models/` and sets the object at `at` of `item` to a
   `minecraft:model` that draws it. Each texture goes, with its `.mcmeta`, into the folder of the model
   under `textures/` under its name in lower case, and its reference is rewritten to the namespace of
-  `id`. A reference that the pack or the jar resolves, such as `block/stone`, stays. A file that exists
-  is refused, and the model, its textures and the definition are written all or none.
+  `id`. A reference that the pack or the jar resolves, such as `block/stone`, stays. A file that the
+  pack or the jar holds already is refused, so an import never hides a vanilla model or texture. The
+  model, its textures and the definition are written all or none.
 - Every item definition of the client jar passes these rules and is written back unchanged, keys in
   their order, which a test checks against the jar. Without the jar in the cache and without the
   network, that test is skipped.

@@ -207,7 +207,11 @@ class ItemFiles(
             image.mcmeta?.let { pending[File(png.path + ".mcmeta")] = it }
         }
         for (file in pending.keys) {
+            val relative = file.relativeTo(assets).invariantSeparatorsPath
             if (file.exists()) throw FieldRefusal("id", "${file.relativeTo(pack).invariantSeparatorsPath} exists already.")
+            if (read(relative) != null) {
+                throw FieldRefusal("id", "${relative.replaceFirst('/', ':')} is in the client jar, which the import would hide.")
+            }
         }
         pending[target] = OxfmtJson.asset(model).toByteArray()
         val definition = definition(item)

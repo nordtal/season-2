@@ -1,0 +1,100 @@
+local tree = require("tree")
+
+local function tr(id) return "<" .. id .. ">" end
+
+local function texture(path)
+  return { id="nordtal:" .. path, png="src/assets/nordtal/textures/" .. path,
+           aseprite="art/assets/nordtal/textures/" .. path:gsub("%.png$", ".aseprite"),
+           asepriteExists=false, width=8, height=8 }
+end
+
+local model = {
+  fonts = {
+    { font="minecraft:default", constant="DEFAULT", blocks={
+      { kind="block", title="Player badges", range="F0000-F000F", status="keep", glyphs={
+        { code="F0000", constant="STAR", name="star", status=nil, height=7, ascent=6, texture=texture("badges/star.png") },
+        { code="F0001", constant="MOON", name="moon", height=7, ascent=6, texture=texture("badges/moon.png") },
+      } },
+    } },
+    { font="nordtal:gui", blocks={
+      { kind="sheet", title="Row text", range="F1000-F100F", height=5, ascent=-10,
+        texture=texture("ui/gui/row_text.png"),
+        cells={ { row=0, column=0, code="41" }, { row=0, column=1, code="F1001", constant="BAR" } } },
+    } },
+  },
+  items = {
+    { category="nordtal", entries={
+      { id="nordtal:wand", file="src/assets/nordtal/items/wand.json", model="minecraft:model", texture=texture("item/wand.png") },
+      { id="nordtal:lamp", file="src/assets/nordtal/items/lamp.json", model="minecraft:select", texture=nil },
+    } },
+  },
+  overrides = {
+    { category="gui/sprites/boss_bar", entries={
+      { texture={ id="minecraft:gui/sprites/boss_bar/white_background.png",
+                  png="src/assets/minecraft/textures/gui/sprites/boss_bar/white_background.png" } },
+    } },
+  },
+}
+
+local function texts(nodes)
+  local out = {}
+  for _, node in ipairs(nodes) do
+    local entry = { node.text }
+    if node.children then entry[2] = texts(node.children) end
+    table.insert(out, entry)
+  end
+  return out
+end
+
+describe("tree", function()
+  it("lists glyphs by font, block and glyph, a sheet as one entry with cells, then items and overrides by category", function()
+    local nodes = tree.build(model, tr)
+    assert.same({
+      { "<tree.glyphs>", {
+        { "minecraft:default", { { "Player badges", { { "star" }, { "moon" } } } } },
+        { "nordtal:gui", { { "Row text", { { "A" }, { "BAR" } } } } },
+      } },
+      { "<tree.items>", { { "nordtal", { { "nordtal:wand" }, { "nordtal:lamp" } } } } },
+      { "<tree.overrides>", { { "gui/sprites/boss_bar", { { "white_background" } } } } },
+    }, texts(nodes))
+  end)
+
+  it("gives every node an id of its own", function()
+    local seen, duplicates = {}, {}
+    local function walk(nodes)
+      for _, node in ipairs(nodes) do
+        if seen[node.id] then table.insert(duplicates, node.id) end
+        seen[node.id] = true
+        walk(node.children or {})
+      end
+    end
+    walk(tree.build(model, tr))
+    assert.same({}, duplicates)
+  end)
+
+  it("shows a glyph's code point as its badge and opens the top level", function()
+    local nodes = tree.build(model, tr)
+    local star = nodes[1].children[1].children[1].children[1]
+    assert.equal("F0000", star.badge)
+    assert.is_true(nodes[1].expanded)
+    assert.is_true(nodes[2].expanded)
+  end)
+
+  it("indexes each node with what it shows and the texture a click opens", function()
+    local nodes, index = tree.build(model, tr)
+    local font = nodes[1].children[2]
+    local sheet = font.children[1]
+    local cell = sheet.children[2]
+    assert.equal("sheet", index[sheet.id].kind)
+    assert.equal("nordtal:ui/gui/row_text.png", index[sheet.id].texture.id)
+    assert.equal("cell", index[cell.id].kind)
+    assert.equal("nordtal:ui/gui/row_text.png", index[cell.id].texture.id)
+    assert.equal("BAR", index[cell.id].entry.constant)
+    assert.equal("nordtal:gui", index[cell.id].font.font)
+
+    local lamp = nodes[2].children[1].children[2]
+    assert.equal("item", index[lamp.id].kind)
+    assert.is_nil(index[lamp.id].texture)
+    assert.is_nil(index[font.id].texture)
+  end)
+end)

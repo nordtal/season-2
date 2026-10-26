@@ -8,17 +8,10 @@
 
 local items = {}
 
--- The kinds of a field that hold a value the panel edits as text
-local values = { id=true, text=true, number=true, boolean=true, json=true }
-
--- The kind of an element of each list kind
-local elements = { models="model", cases="case", entries="entry", tints="tint" }
-
--- The table of types that names the types of each kind of object
-local typed = { model="models", tint="tints", special="special" }
-
 -- A JSON value as text, objects with their keys sorted. A table with
 -- no members is an empty list, as plain() gives it either way.
+-- Aseprite's json.encode takes no string or number and writes a
+-- number with 17 digits, so 0.1 would reach the task as 0.10000000000000001.
 local function encode(value)
   local kind = type(value)
   if kind == "string" then
@@ -82,7 +75,7 @@ local function fieldsOf(types, kind, object)
   if kind == "item" or kind == "case" or kind == "entry" then
     return types[kind] or {}
   end
-  local own = entry(types[typed[kind]], object and object.type)
+  local own = entry(types[types.kinds.tables[kind]], object and object.type)
   local list = {}
   for _, field in ipairs(own and own.fields or {}) do table.insert(list, field) end
   local property = own and own.properties and entry(types[own.properties], object.property)
@@ -123,7 +116,7 @@ local function children(read, at, tr, prefix, index)
   end
   for _, field in ipairs(fieldsOf(read.types, "model", model)) do
     local value = model[field.name]
-    local element = elements[field.kind]
+    local element = read.types.kinds.lists[field.kind]
     if field.kind == "model" and value ~= nil then
       local path = join(at, field.name)
       add(path, "model", field.name .. ": " .. modelLabel(value), children(read, path, tr, prefix, index))
@@ -214,11 +207,11 @@ local function texturesOf(read, at, part)
 end
 
 -- The textures of the node's model that the pack holds, which the
--- editor opens
+-- editor opens, each { key, texture, mcmeta, animation, frames }
 function items.textures(read, at, part)
   local list = {}
   for _, t in ipairs(texturesOf(read, at, part)) do
-    if t.texture.png then table.insert(list, t.texture) end
+    if t.texture.png then table.insert(list, t) end
   end
   return list
 end
@@ -243,26 +236,27 @@ function items.rows(read, at, part, tr)
   end
   for _, p in ipairs(parts(read, at, part)) do
     local object = find(read.definition, p.at) or {}
-    if typed[p.kind] then
+    local kinds = read.types.kinds
+    if kinds.tables[p.kind] then
       local label = p.kind == "special" and tr("items.special") or tr("items.type")
       row(label, short(object.type), { op="type", at=p.at, part=p.kind })
     end
     for _, field in ipairs(fieldsOf(read.types, p.kind, object)) do
       local value = object[field.name]
-      if values[field.kind] then
+      if kinds.values[field.kind] then
         row(field.name, text(value, field.kind), { op="set", at=p.at, part=p.kind, name=field.name, kind=field.kind,
                                                     required=field.required })
       elseif field.kind == "property" then
         row(field.name, short(value), { op="set", at=p.at, part=p.kind, name=field.name, kind=field.kind,
                                         required=true })
-      elseif elements[field.kind] or (field.kind == "model" and value == nil and p.kind ~= "item") then
+      elseif kinds.lists[field.kind] or (field.kind == "model" and value == nil and p.kind ~= "item") then
         button(tr("items.add", field.name), { op="add", at=p.at, part=p.kind, name=field.name,
-                                              element=elements[field.kind] or "model" })
+                                              element=kinds.lists[field.kind] or "model" })
       end
     end
   end
   for _, t in ipairs(texturesOf(read, at, part)) do
-    row("#" .. t.key, t.texture.id, t.texture.png and { op="texture", texture=t.texture } or nil)
+    row("#" .. t.key, t.texture.id, t.texture.png and { op="texture", entry=t } or nil)
   end
   -- An import replaces a model that draws one model or nothing
   local model, modelAt = modelOf(read, at, part)
@@ -287,42 +281,41 @@ end
 
 local function typeOptions(read, kind)
   local options = {}
-  for _, t in ipairs(read.types[typed[kind]] or {}) do table.insert(options, t.type) end
+  for _, t in ipairs(read.types[read.types.kinds.tables[kind]] or {}) do table.insert(options, t.type) end
   return options
 end
 
--- The fields of kind with object changed to change that it requires,
--- that hold a value and that neither it keeps nor the data has
-local function needed(read, kind, object, change, data)
-  local old = {}
-  for _, field in ipairs(fieldsOf(read.types, kind, object)) do old[field.name] = field.kind end
-  local new = {}
-  for k, v in pairs(object or {}) do new[k] = v end
-  for k, v in pairs(change) do new[k] = v end
-  local list = {}
-  for _, field in ipairs(fieldsOf(read.types, kind, new)) do
-    local kept = object and object[field.name] ~= nil and old[field.name] == field.kind
-    if field.required and values[field.kind] and not kept and change[field.name] == nil and data[field.name] == nil then
-      table.insert(list, field)
-    end
-  end
-  return list
+-- The id of the widget that asks for a field the task needs, apart
+-- from the ids of the form's own widgets
+local function need(field)
+  return "need:" .. field.name
 end
 
--- The form of the required fields still missing, or nil
-local function missing(read, kind, object, change, data, title, tr)
-  local list = needed(read, kind, object, change, {})
-  local widgets = {}
-  for _, field in ipairs(list) do
-    if data[field.name] == nil then table.insert(widgets, widget(read, field.name, field, nil, tr)) end
+-- Adds to data the fields { name, kind } that the task named as still
+-- missing, so that the next form asks for each of them again and the
+-- next run sends them with those asked before
+function items.needs(data, fields)
+  data.needs = data.needs or {}
+  for _, field in ipairs(fields) do
+    local known = false
+    for _, old in ipairs(data.needs) do known = known or old.name == field.name end
+    if not known then table.insert(data.needs, field) end
+    data[need(field)] = nil
   end
-  return #widgets > 0 and { title=title, widgets=widgets } or nil
 end
 
 -- The next form that action asks for, given the data of the forms
--- before it, or nil once nothing more is needed
+-- before it, or nil once nothing more is needed. data.needs lists the
+-- fields { name, kind } that the task named as still missing.
 function items.form(read, action, data, tr)
   local object = action.at and find(read.definition, action.at)
+  if data.needs then
+    local widgets = {}
+    for _, field in ipairs(data.needs) do
+      if data[need(field)] == nil then table.insert(widgets, widget(read, need(field), field, nil, tr)) end
+    end
+    return #widgets > 0 and { title=tr("items.needs"), widgets=widgets } or nil
+  end
   if action.op == "set" then
     -- A property's choice is kept apart from a field named value
     if action.kind == "property" and data.property == nil then
@@ -332,11 +325,7 @@ function items.form(read, action, data, tr)
       return { title=action.name, widgets={
         { kind="combobox", id="property", label=action.name, options=options, option=object.property } } }
     end
-    if action.kind == "property" then
-      if data.property == object.property then return nil end
-      return missing(read, action.part, object, { property=data.property }, data, action.name, tr)
-    end
-    if data.value == nil then
+    if data.value == nil and action.kind ~= "property" then
       local field = { name=action.name, kind=action.kind }
       return { title=action.name, widgets={ widget(read, "value", field, object[action.name], tr) } }
     end
@@ -347,99 +336,79 @@ function items.form(read, action, data, tr)
         { kind="combobox", id="type", label=tr("items.type"), options=typeOptions(read, action.part),
           option=object.type } } }
     end
-    if data.type == object.type then return nil end
-    return missing(read, action.part, object, { type=data.type }, data, short(data.type), tr)
+    return nil
   elseif action.op == "add" then
+    -- A new model starts empty, as the task adds it
     local kind = action.element
-    if kind == "model" then return nil end
-    if typed[kind] then
-      if data.type == nil then
-        return { title=tr("items.add", action.name), widgets={
-          { kind="combobox", id="type", label=tr("items.type"), options=typeOptions(read, kind) } } }
-      end
-      return missing(read, kind, nil, { type=data.type }, data, short(data.type), tr)
+    if kind ~= "model" and read.types.kinds.tables[kind] and data.type == nil then
+      return { title=tr("items.add", action.name), widgets={
+        { kind="combobox", id="type", label=tr("items.type"), options=typeOptions(read, kind) } } }
     end
-    return missing(read, kind, nil, {}, data, tr("items.add", action.name), tr)
+    return nil
   elseif action.op == "import" then
     if data.file == nil then
       return { title=tr("items.import_title"), widgets={
         { kind="file", id="file", label=tr("items.file"), open=true, filetypes={ "json", "bbmodel" } } } }
     end
-    -- The model is named after the file, in the item's namespace
+    -- The model is named after the file, in the pack's own namespace,
+    -- so that no import hides a model of the client jar
     local name = data.file:match("([^/\\]+)%.%w+$")
     if data.id == nil and name then
       return { title=tr("items.import_title"), widgets={
-        { kind="entry", id="id", label=tr("items.model"),
-          text=read.item:match("^[^:]+") .. ":item/" .. name:lower() } } }
+        { kind="entry", id="id", label=tr("items.model"), text="nordtal:item/" .. name:lower() } } }
     end
   end
   return nil
 end
 
 -- A value of a field as JSON text: a number as a number, an empty
--- field that is not required as null, anything else as the kind says.
--- What the kind does not allow is left to the task to refuse.
-local function value(field, given)
+-- field that is not required as null, a json field that decode cannot
+-- read as a string, anything else as the kind says. What the kind does
+-- not allow is left to the task to refuse.
+local function value(field, given, decode)
   if field.kind == "boolean" then
     return (given == "true" or given == "false") and given or "null"
   end
   if given == "" and not field.required then return "null" end
-  if field.kind == "json" then return given end
+  if field.kind == "json" then
+    local ok, decoded = pcall(decode, given)
+    return (ok and decoded ~= nil) and given or encode(given)
+  end
   if field.kind == "number" and tonumber(given) then return encode(tonumber(given)) end
   return encode(given)
 end
 
--- The pairs { name, JSON } of the required fields that the forms asked for
-local function asked(read, kind, object, change, data)
-  local list = {}
-  for _, field in ipairs(needed(read, kind, object, change, {})) do
-    if data[field.name] ~= nil then table.insert(list, { field.name, value(field, data[field.name]) }) end
-  end
-  return list
-end
-
--- The runs that write what the forms asked for, each { task, options },
--- or nil when nothing changed
-function items.jobs(read, action, data)
+-- The run that writes what the forms asked for, { task, options }, or
+-- nil when nothing changed. decode reads the text of a json field.
+function items.job(read, action, data, decode)
   local object = action.at and find(read.definition, action.at)
-  local function edit(fields, extra)
-    local options = { item=read.item, at=action.at, fields=fields }
+  local function edit(list, extra)
+    for _, field in ipairs(data.needs or {}) do
+      table.insert(list, { field.name, value({ kind=field.kind, required=true }, data[need(field)] or "", decode) })
+    end
+    local options = { item=read.item, at=action.at, fields=members(list) }
     for k, v in pairs(extra or {}) do options[k] = v end
-    return { { "editItem", options } }
+    return { "editItem", options }
   end
   if action.op == "set" then
-    local given = action.kind == "property" and data.property or data.value
     if action.kind == "property" then
-      if given == object.property then return nil end
-      local list = { { "property", encode(given) } }
-      for _, pair in ipairs(asked(read, action.part, object, { property=given }, data)) do table.insert(list, pair) end
-      return edit(members(list))
+      if data.property == object.property then return nil end
+      return edit({ { "property", encode(data.property) } })
     end
+    local given = data.value
     if action.kind == "boolean" and given ~= "true" and given ~= "false" then given = "" end
     if given == text(object[action.name], action.kind) then return nil end
-    return edit(members({ { action.name, value(action, given) } }))
+    return edit({ { action.name, value(action, given, decode) } })
   elseif action.op == "type" then
     if data.type == object.type then return nil end
-    local list = { { "type", encode(data.type) } }
-    for _, pair in ipairs(asked(read, action.part, object, { type=data.type }, data)) do table.insert(list, pair) end
-    return edit(members(list))
+    return edit({ { "type", encode(data.type) } })
   elseif action.op == "add" then
-    local kind, list = action.element, {}
-    if kind ~= "model" then
-      local change = typed[kind] and { type=data.type } or {}
-      if change.type then table.insert(list, { "type", encode(change.type) }) end
-      for _, pair in ipairs(asked(read, kind, nil, change, data)) do table.insert(list, pair) end
-    end
-    return edit(members(list), { add=action.name })
+    return edit(data.type and { { "type", encode(data.type) } } or {}, { add=action.name })
   elseif action.op == "remove" then
-    return { { "editItem", { item=read.item, at=action.at, remove=true } } }
+    return { "editItem", { item=read.item, at=action.at, remove=true } }
   elseif action.op == "import" then
     if (data.file or "") == "" or (data.id or "") == "" then return nil end
-    return {
-      { "importBlockbench", { model=data.file, id=data.id } },
-      { "editItem", { item=read.item, at=action.at,
-                      fields=members({ { "type", encode("minecraft:model") }, { "model", encode(data.id) } }) } },
-    }
+    return { "importBlockbench", { model=data.file, id=data.id, item=read.item, at=action.at } }
   end
   return nil
 end

@@ -60,6 +60,17 @@ function pack.run(bootstrap, api, task, options, done)
   return process
 end
 
+-- The fields { name, kind } that a refused editItem printed on its
+-- lines "needs <name> <kind>" to its stdout out
+function pack.needs(out)
+  local list = {}
+  for _, line in ipairs(out) do
+    local name, kind = line:match("^needs (%S+) (%S+)$")
+    if name then table.insert(list, { name=name, kind=kind }) end
+  end
+  return list
+end
+
 -- The reason of a failed task: the lines under "What went wrong" in
 -- Gradle's report without the task's name, each place a refusal lists
 -- on a line of its own. Without the report, every line that is not

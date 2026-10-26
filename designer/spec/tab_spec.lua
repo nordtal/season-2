@@ -205,6 +205,15 @@ local function loaded(t)
   return t.dialogs[#t.dialogs]
 end
 
+-- The types that readItem prints, which a test of build-logic checks
+-- against the task
+local itemTypes = (function()
+  local file = assert(io.open("spec/item-types.json"))
+  local types = dkjson.decode(file:read("a"))
+  file:close()
+  return types
+end)()
+
 -- A pack with one item, and the line readItem prints for it
 local lampModel = dkjson.encode({ fonts={}, overrides={}, items={ { category="nordtal", entries={
   { id="nordtal:lamp", model="minecraft:select", file="src/assets/nordtal/items/lamp.json" } } } } })
@@ -213,19 +222,7 @@ local lampRead = dkjson.encode({
   item="nordtal:lamp", source="pack", file="/c/resource-pack/src/assets/nordtal/items/lamp.json", problems={},
   definition={ model={ type="minecraft:select", property="minecraft:display_context",
     cases={ { when="gui", model={ type="minecraft:model", model="nordtal:item/star" } } } } },
-  types={
-    item={ { name="model", kind="model", required=true } },
-    case={ { name="when", kind="json", required=true }, { name="model", kind="model", required=true } },
-    entry={},
-    models={
-      { type="minecraft:empty", fields={} },
-      { type="minecraft:model", fields={ { name="model", kind="id", required=true } } },
-      { type="minecraft:select", properties="select", fields={ { name="property", kind="property", required=true },
-        { name="cases", kind="cases", required=true }, { name="fallback", kind="model", required=false } } },
-    },
-    select={ { type="minecraft:display_context", fields={} } },
-    tints={}, special={},
-  },
+  types=itemTypes,
   models={ { model="nordtal:item/star", textures={ { key="layer0", texture={ id="nordtal:badges/star.png",
     png="src/assets/nordtal/textures/badges/star.png", aseprite="art/assets/nordtal/textures/badges/star.aseprite",
     width=7, height=7 } } } } },
@@ -978,19 +975,58 @@ describe("the Nordtal tab", function()
       1, true))
   end)
 
-  it("imports a Blockbench model into a case and then shows it there", function()
+  it("asks for the fields that a refused edit still needs and runs it again with them", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    local asked = {}
+    t.dialogs.answer = function(d)
+      local id = d.widgets[1].args.id
+      table.insert(asked, id)
+      d.data = id == "type" and { ok=true, type="minecraft:special" } or { ok=true, ["need:base"]="minecraft:item/bell" }
+    end
+    click(dlg, "model")
+    local edit = t.started[#t.started]
+    assert.equal(':resource-pack:editItem -Pat=model/cases/0/model -Pfields={"type":"minecraft:special"} -Pitem=nordtal:lamp',
+      run(edit))
+    edit.args.onstdout("needs base id")
+    for _, line in ipairs({ "* What went wrong:", "> Set base.", "* Try:" }) do edit.args.onstderr(line) end
+    edit.isRunning = false
+    edit.args.onexit(1)
+    assert.same({ "type", "need:base" }, asked)
+    local again = t.started[#t.started]
+    assert.equal(':resource-pack:editItem -Pat=model/cases/0/model -Pfields={"type":"minecraft:special","base":"minecraft:item/bell"} -Pitem=nordtal:lamp',
+      run(again))
+    again.isRunning = false
+    again.args.onexit(0)
+    assert.equal(":resource-pack:readItem -Pitem=nordtal:lamp", run(t.started[#t.started]))
+  end)
+
+  it("writes every frame of a definition's texture and its animation on its save", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    local sprite = t.open[1]
+    sprite.frames = { { duration=0.1 }, { duration=0.25 } }
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(":resource-pack:animateTexture -Pframes=100,250 -Ptexture=nordtal:badges/star.png",
+      run(t.started[#t.started]))
+  end)
+
+  it("imports a Blockbench model into a case in one run and then shows it there", function()
     local t = setUp(nil, lampModel)
     local dlg = lamp(t)
     dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
     local form
-    t.dialogs.answer = function(d) form = d d.data = { ok=true, file="/tmp/lamp.json", id="nordtal:item/lamp" } end
+    t.dialogs.answer = function(d) form = d d.data = { ok=true, file="/tmp/lamp.bbmodel", id="nordtal:item/lamp" } end
     click(dlg, "items.import")
     assert.equal("file", form.widgets[1].kind)
     local import = t.started[#t.started]
-    assert.equal(":resource-pack:importBlockbench -Pid=nordtal:item/lamp -Pmodel=/tmp/lamp.json", run(import))
+    assert.equal(":resource-pack:importBlockbench -Pat=model/cases/0/model -Pid=nordtal:item/lamp -Pitem=nordtal:lamp -Pmodel=/tmp/lamp.bbmodel",
+      run(import))
     import.isRunning = false
     import.args.onexit(0)
-    assert.equal(':resource-pack:editItem -Pat=model/cases/0/model -Pfields={"type":"minecraft:model","model":"nordtal:item/lamp"} -Pitem=nordtal:lamp',
-      run(t.started[#t.started]))
+    assert.equal(":resource-pack:readItem -Pitem=nordtal:lamp", run(t.started[#t.started]))
   end)
 end)

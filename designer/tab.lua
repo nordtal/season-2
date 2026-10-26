@@ -248,20 +248,28 @@ function tab.open(context)
   -- Runs job, a { task, options }, then after() once it succeeded and
   -- finally() in any case, and reads the pack again. A refusal shows
   -- its reason in the panel while its entry stays selected, and in the
-  -- status line too when shown is true.
-  local function write(job, after, finally, shown)
+  -- status line too when shown is true. A refusal that names fields
+  -- the task needs calls needed(fields) instead.
+  local function write(job, after, finally, shown, needed)
     local id = selected
     refused = nil
     setStatus(tr("status.writing"))
-    enqueue(task(job), function(ok, err)
+    enqueue(task(job), function(ok, err, out)
       if ok then
         if after then after() end
         if finally then finally() end
         ctl.reload()
+        return
+      end
+      for i = #queue, 1, -1 do
+        if queue[i] == describe then table.remove(queue, i) end
+      end
+      local needs = needed and modules.pack.needs(out or {}) or {}
+      if #needs > 0 then
+        setStatus(nil)
+        if finally then finally() end
+        needed(needs)
       else
-        for i = #queue, 1, -1 do
-          if queue[i] == describe then table.remove(queue, i) end
-        end
         local reason = modules.pack.refusal(err)
         setStatus(shown and tr("status.refused") .. " " .. table.concat(reason, " ") or nil)
         if selected == id then
@@ -310,7 +318,7 @@ function tab.open(context)
   -- the task succeeded. A save while the task waits or runs is taken
   -- up after it, so no task runs twice on the same model.
   local function follow(sprite, record)
-    local info = index and index[record.id]
+    local info = record.info or index and index[record.id]
     if not (info and info.texture) then
       return
     end
@@ -330,7 +338,7 @@ function tab.open(context)
     record.writing = true
     write(job, function()
       info.texture.width, info.texture.height = width, height
-      if info.kind == "override" then
+      if properties.animated(info) then
         info.entry.animation = #durations > 1 or nil
         info.entry.frames = nil
       end
@@ -346,10 +354,10 @@ function tab.open(context)
   -- Saves a sprite the tab opened as its source and its PNG, and runs
   -- what follows from it
   local function save(sprite, record)
-    local info = index and index[record.id]
+    local info = record.info or index and index[record.id]
     local texture = info and info.texture or record.texture
-    local override = info and info.kind == "override"
-    local ok, err = pcall(modules.textures.save, sprite, texture, record.paths, api, override)
+    local column = info and properties.animated(info)
+    local ok, err = pcall(modules.textures.save, sprite, texture, record.paths, api, column)
     if not ok then
       setStatus(tr("status.save_failed") .. " " .. tostring(err))
       return
@@ -376,16 +384,23 @@ function tab.open(context)
     return data.ok and data or nil
   end
 
+  -- The texture entry e of a definition's model as the info that a
+  -- save of it follows up
+  local function definitionTexture(e)
+    return { kind="texture", entry=e, texture=e.texture }
+  end
+
   -- Takes the action of a row of an item definition: opens a texture,
-  -- or asks for what the action needs and runs its tasks one after the
-  -- other. After the last one the item's definition is read again and
-  -- the node stays selected while it is there.
-  local function editDefinition(action)
+  -- or asks for what the action needs and runs its task. A task that
+  -- names fields it still needs asks for them and runs again. After it
+  -- the item's definition is read again and the node stays selected
+  -- while it is there.
+  local function editDefinition(action, data)
     if action.op == "texture" then
-      open(selected, action.texture)
+      open(selected, action.entry.texture, action.entry.frames, definitionTexture(action.entry))
       return
     end
-    local data = {}
+    data = data or {}
     while true do
       local form = modules.items.form(definition, action, data, tr)
       if not form then break end
@@ -393,26 +408,22 @@ function tab.open(context)
       if not answer then return end
       for key, value in pairs(answer) do data[key] = value end
     end
-    local jobs = modules.items.jobs(definition, action, data)
-    if not jobs then
+    local job = modules.items.job(definition, action, data, api.decode)
+    if not job then
       return
     end
     local id, item = selected, definition.item
-    local function step(i)
-      write(jobs[i], function()
-        if jobs[i + 1] then
-          step(i + 1)
-          return
+    write(job, function()
+      readDefinition(item, function()
+        if selected == id and index[id] then
+          dlg.data = { tree=id }
+          ctl.select(id)
         end
-        readDefinition(item, function()
-          if selected == id and index[id] then
-            dlg.data = { tree=id }
-            ctl.select(id)
-          end
-        end)
       end)
-    end
-    step(1)
+    end, nil, nil, function(needs)
+      modules.items.needs(data, needs)
+      editDefinition(action, data)
+    end)
   end
 
   -- Edits field of the selected entry
@@ -530,8 +541,9 @@ function tab.open(context)
   end
 
   -- Opens texture in the editor for the node id. frames are the
-  -- durations of an override's frames.
-  function open(id, texture, frames)
+  -- durations of an animated texture's frames, and info is what a save
+  -- of it follows up when the node's own info is not.
+  function open(id, texture, frames, info)
     local paths, outside = modules.pack.paths(clone, texture, api.join)
     local sprite, missing
     if paths then
@@ -543,7 +555,7 @@ function tab.open(context)
       setStatus(paths and tr("status.missing", missing) or tr("status.outside", outside))
       return
     end
-    local record = { id=id, texture=texture, paths=paths }
+    local record = { id=id, texture=texture, paths=paths, info=info }
     opened[paths.png], opened[paths.aseprite] = record, record
     dlg:modify{ id="editor", sprite=sprite }
     -- A texture of a few pixels fills the editor
@@ -563,12 +575,13 @@ function tab.open(context)
     if info and info.kind == "item" then
       readDefinition(info.entry.id)
     end
-    local texture = info and info.texture
+    local texture, followed = info and info.texture, info
     if info and info.kind == "definition" then
-      texture = modules.items.textures(definition, info.at, info.part)[1]
+      local e = modules.items.textures(definition, info.at, info.part)[1]
+      texture, followed = e and e.texture, e and definitionTexture(e)
     end
     if texture then
-      open(id, texture, info.kind == "override" and info.entry.frames or nil)
+      open(id, texture, properties.animated(followed) and followed.entry.frames or nil, followed ~= info and followed or nil)
     end
   end
 

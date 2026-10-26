@@ -22,6 +22,17 @@ local model = dkjson.encode({
   } } },
 })
 
+-- The model with an animation of two frames in the order 1, 0 on the
+-- slot override, whose source exists
+local function animatedModel()
+  local m = dkjson.decode(model)
+  local slot = m.overrides[1].entries[1]
+  slot.texture.asepriteExists, slot.texture.height = true, 48
+  slot.animation = { frametime=2, frames={ 1, 0 } }
+  slot.frames = { { x=0, y=0, width=24, height=24, duration=100 }, { x=0, y=24, width=24, height=24, duration=100 } }
+  return dkjson.encode(m)
+end
+
 -- A Dialog that records the widgets it was given and every modify
 local function fakeDialogs()
   local dialogs = {}
@@ -660,7 +671,7 @@ describe("the Nordtal tab", function()
     t.started[2].isRunning = false
     t.started[2].args.onexit(0)
     assert.equal(3, #t.started)
-    assert.equal(":resource-pack:animateTexture -Pframes=100,200 -Ptexture=minecraft:gui/sprites/container/slot.png",
+    assert.equal(":resource-pack:animateTexture -Pframes=100,200 -Pfrom=2 -Ptexture=minecraft:gui/sprites/container/slot.png",
       run(t.started[3]))
     t.started[3].isRunning = false
     t.started[3].args.onexit(0)
@@ -744,6 +755,69 @@ describe("the Nordtal tab", function()
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
     assert.equal(":resource-pack:animateTexture -Pframes=100,250 -Ptexture=minecraft:gui/sprites/container/slot.png",
       run(t.started[2]))
+  end)
+
+  it("passes the frame count the sprite was opened with, and after a save the count it saved", function()
+    local t = setUp(nil, animatedModel())
+    t.world.files = { ["/c/resource-pack/art/slot.aseprite"]=true }
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local sprite = t.open[1]
+    sprite.frames = { { duration=0.1 }, { duration=0.1 }, { duration=0.25 } }
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(":resource-pack:animateTexture -Pframes=100,100,250 -Pfrom=2 "
+      .. "-Ptexture=minecraft:gui/sprites/container/slot.png", run(t.started[2]))
+    sprite.frames = { { duration=0.1 }, { duration=0.1 } }
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    assert.equal(":resource-pack:animateTexture -Pframes=100,100 -Pfrom=3 "
+      .. "-Ptexture=minecraft:gui/sprites/container/slot.png", run(t.started[3]))
+  end)
+
+  it("shows every notice of the animation of a save on the status line, the unplayed frames in one", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local sprite = t.open[1]
+    sprite.frames = { { duration=0.1 }, { duration=0.25 } }
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    t.started[2].args.onstdout("dropped width")
+    t.started[2].args.onstdout("/c/resource-pack/src/assets/minecraft/textures/gui/sprites/container/slot.png.mcmeta")
+    t.started[2].args.onstdout("unplayed 1")
+    t.started[2].args.onstdout("unplayed 3")
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    assert.equal("status.dropped_width status.unplayed_many 2, 4", dlg.handlers.status.text)
+  end)
+
+  it("drops the notice of a save when the next task is refused before the pack was read again", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local slot = t.open[1]
+    slot.frames = { { duration=0.1 }, { duration=0.25 } }
+    t.world.active = slot
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local glyph = t.open[2]
+    glyph.height = 14
+    t.world.active = glyph
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    t.started[2].args.onstdout("dropped width")
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    assert.equal(":resource-pack:resizeGlyph -Pcoupled=true -Pfrom=7 -Pglyph=star", run(t.started[3]))
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(1)
+    t.ctl.reload()
+    t.started[4].isRunning = false
+    t.started[4].args.onexit(0)
+    assert.equal("", dlg.handlers.status.text)
   end)
 
   it("runs one task at a time", function()

@@ -104,9 +104,10 @@ The `status` of a glyph or cell is its own value, null when it inherits the bloc
 identifier.
 `width` and `height` of a texture are its pixels, or null while its PNG is missing. `animation` and `scaling` are the `animation` and
 `gui.scaling` objects of the `.png.mcmeta`, or null. `block` and `item` are the `minecraft:` id of the
-PNG's name for an override under `block` or `item`, or null. `frames` lists the frames the animation plays, each as
-`x`, `y`, `width`, `height` in the PNG and `duration` in milliseconds, or is null when the animation's frames do
-not divide the PNG. `guiSprite` is true for a texture under `textures/gui/sprites/`. Language files are not listed.
+PNG's name for an override under `block` or `item`, or null. `frames` lists each frame of the PNG once, as `x`, `y`,
+`width`, `height` in the PNG and `duration` in milliseconds, the time of the first entry of the animation's `frames`
+that plays it. It is null when the animation's frames do not divide the PNG. `guiSprite` is true for a texture under
+`textures/gui/sprites/`. Language files are not listed.
 `draft` is the id of the draft that a texture, block, font or item is, as `drafts` names it, which the
 next section describes, or null where it is none. An item without a texture is the draft of its file.
 The file of an item with a texture is part of its texture's draft. `review` is the number of the pull request that holds the texture, block,
@@ -284,15 +285,22 @@ of indent, and removes a file left empty.
 ./gradlew -q :resource-pack:scaleTexture -Ptexture=minecraft:gui/sprites/widget/button.png -Pscaling=nine_slice -Pwidth=200 -Pheight=20 -Pborder=3
 ```
 
-| task             | options                                                                   | prints                        |
-| ---------------- | ------------------------------------------------------------------------- | ----------------------------- |
-| `animateTexture` | `texture`, `frames`                                                       | the absolute path of the file |
-| `scaleTexture`   | `texture`, `scaling`; `width`, `height`, `border`, `stretchInner` (false) | the absolute path of the file |
+| task             | options                                                                   | prints                                     |
+| ---------------- | ------------------------------------------------------------------------- | ------------------------------------------ |
+| `animateTexture` | `texture`, `frames`; `from`                                               | its notices, the absolute path of the file |
+| `scaleTexture`   | `texture`, `scaling`; `width`, `height`, `border`, `stretchInner` (false) | the absolute path of the file              |
 
 - `frames` is the duration of each frame in milliseconds, and the PNG is a column of the frames from the
   top. The `animation` gets one `frametime` in ticks of 50 milliseconds when every frame lasts as long,
   and otherwise `frames` with the `time` of each; a frame shorter than a tick lasts one. A frame that is
   not square sets `height`. `interpolate` stays, and one frame removes the animation.
+- `width` stays while it equals the PNG's width, and the task prints `dropped width` when it removes it.
+- `from` is the frame count of the PNG before the change. The order in the animation's `frames` stays while
+  `from` equals the new count, and each entry that plays a frame with a changed duration gets the new time.
+  Without `from` or with another count, the task removes the order and prints `changed frames`. An order that
+  plays a frame the PNG lacks is removed with `dropped frames`.
+- A reorder of the frames that keeps their count is not detected: the kept order plays the frames at their new indices.
+- The task prints `unplayed` and the index of each frame whose new duration no entry of a kept order plays.
 - `scaling` is `stretch`, `tile` or `nine_slice`, and only a texture under `textures/gui/sprites/` takes
   one. `stretch` removes `gui.scaling`. `tile` and `nine_slice` need `width` and `height`, and
   `nine_slice` a `border` of one number for every side or four for left, top, right and bottom. As in

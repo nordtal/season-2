@@ -81,6 +81,23 @@ function pack.needs(out)
   return list
 end
 
+-- The notices that animateTexture printed to its stdout out, each
+-- { key } of a line "dropped width", "dropped frames" or "changed
+-- frames", and { key="unplayed", frame } of a line "unplayed <index>"
+-- with the frame as Aseprite counts it, from 1
+function pack.notices(out)
+  local list = {}
+  for _, line in ipairs(out) do
+    local index = line:match("^unplayed (%d+)$")
+    if index then
+      table.insert(list, { key="unplayed", frame=tonumber(index) + 1 })
+    elseif line:match("^dropped %a+$") or line:match("^changed %a+$") then
+      table.insert(list, { key=line:gsub(" ", "_") })
+    end
+  end
+  return list
+end
+
 -- The reason of a failed task: the lines under "What went wrong" in
 -- Gradle's report without the task's name, each place a refusal lists
 -- on a line of its own. A program that a task ran printed its reason

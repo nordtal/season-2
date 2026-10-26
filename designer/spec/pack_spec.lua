@@ -161,6 +161,12 @@ describe("pack", function()
     assert.same({}, pack.needs({ "refused id" }))
   end)
 
+  it("reads the notices of animateTexture, each unplayed frame counted from 1", function()
+    assert.same({ { key="dropped_width" }, { key="changed_frames" }, { key="unplayed", frame=3 } },
+      pack.notices({ "dropped width", "/c/x.png.mcmeta", "changed frames", "unplayed 2" }))
+    assert.same({}, pack.notices({ "/c/x.png.mcmeta", "dropped" }))
+  end)
+
   it("reports a model it cannot read", function()
     local started, got = {}, nil
     local files = { ["/c/resource-pack/build/pack-model.json"]="{" }

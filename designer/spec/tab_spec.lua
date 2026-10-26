@@ -45,7 +45,7 @@ local function fakeDialogs()
       end
     end
     for _, kind in ipairs({ "tree", "editor", "label", "separator", "canvas", "entry", "number", "combobox", "check",
-                            "button", "file" }) do
+                            "button", "file", "radio" }) do
       dlg[kind] = add(kind)
     end
     function dlg:samerow() table.insert(self.widgets, { kind="samerow" }) return self end
@@ -137,8 +137,10 @@ local function setUp(preferences, modelText)
     end,
     -- Aseprite's json.decode gives every number as a float
     decode=function(text) return floats(dkjson.decode(text)) end,
+    encode=dkjson.encode,
+    launch=function(url) table.insert(log, { "launch", url }) end,
     sprites=function() return open end,
-    isFile=function(fn) return fn == star or fn == "/c/resource-pack/src/slot.png" end,
+    isFile=function(fn) return fn == star or fn == "/c/resource-pack/src/slot.png" or (world.files or {})[fn] == true end,
     open=function(fn)
       local sprite = fakeSprite(fn, log)
       table.insert(open, sprite)
@@ -146,8 +148,9 @@ local function setUp(preferences, modelText)
     end,
     filePath=function(fn) return (fn:match("^(.*)/[^/]*$")) end,
     makeAllDirectories=function() end,
-    Image=function()
-      local image = {}
+    Image=function(t)
+      if t and t.fromFile then table.insert(log, { "image", t.fromFile }) end
+      local image = { width=7, height=7 }
       function image:drawSprite() end
       function image:saveAs(t) table.insert(log, { "png", t.filename }) end
       return image
@@ -162,7 +165,7 @@ local function setUp(preferences, modelText)
     api=api,
     modules={ pack=require("pack"), tree=require("tree"), textures=require("textures"),
                panel=require("panel"), properties=require("properties"), items=require("items"),
-               wizard=require("wizard"), drafts=require("drafts") },
+               wizard=require("wizard"), drafts=require("drafts"), conflicts=require("conflicts") },
     bootstrap={ clone=clone, env={ JAVA_HOME="/jdk" }, git="/usr/bin/git", gh="/gh" },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
@@ -213,6 +216,15 @@ local function loaded(t)
   t.started[1].isRunning = false
   t.started[1].args.onexit(0)
   return t.dialogs[#t.dialogs]
+end
+
+-- Ends the sync that runs after the first read, with the lines it prints
+local function synced(t, ...)
+  local p = t.started[#t.started]
+  assert.equal(":resource-pack:syncReviews -Pgh=/gh", run(p))
+  for _, line in ipairs({ ... }) do p.args.onstdout(line) end
+  p.isRunning = false
+  p.args.onexit(0)
 end
 
 -- The types that readItem prints, which a test of build-logic checks
@@ -1069,17 +1081,18 @@ describe("the Nordtal tab", function()
   it("discards the selected draft once the designer confirms it, and closes its sprite", function()
     local t = setUp(nil, draftModel)
     local dlg = loaded(t)
+    synced(t)
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     click(dlg, "properties.discard")
-    assert.equal(1, #t.started)
+    assert.equal(2, #t.started)
     assert.same({ "alert", "properties.discard_confirm star" }, t.log[#t.log])
     t.world.confirm = 1
     click(dlg, "properties.discard")
-    assert.equal(":resource-pack:discardDraft -Pdraft=nordtal:badges/star.png", run(t.started[2]))
-    t.started[2].args.onexit(0)
+    assert.equal(":resource-pack:discardDraft -Pdraft=nordtal:badges/star.png", run(t.started[3]))
+    t.started[3].args.onexit(0)
     assert.is_nil(dlg.data.editor)
     assert.same({ "close", star }, t.log[#t.log])
-    assert.equal(":resource-pack:describePack", run(t.started[3]))
+    assert.equal(":resource-pack:describePack", run(t.started[4]))
   end)
 
   it("offers no discard for an entry that is no draft", function()
@@ -1092,6 +1105,7 @@ describe("the Nordtal tab", function()
   it("publishes the chosen drafts once the commit hook accepts the title, then reads the pack", function()
     local t = setUp(nil, draftModel)
     loaded(t)
+    synced(t)
     local form
     t.dialogs.answer = function(d)
       form = d
@@ -1100,40 +1114,42 @@ describe("the Nordtal tab", function()
     t.ctl.publish()
     local message = "/c/resource-pack/build/publish-message.txt"
     assert.same({ "write", message, "feat(resource-pack): the star is white\n" }, t.log[#t.log])
-    assert.same({ "/usr/bin/git", "hook", "run", "commit-msg", "--", message }, t.started[2].args.cmd)
-    assert.equal(clone, t.started[2].args.cwd)
+    assert.same({ "/usr/bin/git", "hook", "run", "commit-msg", "--", message }, t.started[3].args.cmd)
+    assert.equal(clone, t.started[3].args.cwd)
     assert.equal(":resource-pack:publishDrafts -Pdrafts=nordtal:badges/star.png -Pgh=/gh -Ptitle=feat(resource-pack): the star is white",
-      run(t.started[3]))
+      run(t.started[4]))
     assert.equal("check", form.widgets[1].kind)
-    t.started[3].args.onstdout("https://github.com/nordtal/season-2/pull/42")
-    t.started[3].isRunning = false
-    t.started[3].args.onexit(0)
-    assert.equal(":resource-pack:describePack", run(t.started[4]))
+    t.started[4].args.onstdout("https://github.com/nordtal/season-2/pull/42")
     t.started[4].isRunning = false
     t.started[4].args.onexit(0)
+    assert.equal(":resource-pack:describePack", run(t.started[5]))
+    t.started[5].isRunning = false
+    t.started[5].args.onexit(0)
     assert.equal("status.published https://github.com/nordtal/season-2/pull/42", t.dialogs[1].handlers.status.text)
   end)
 
   it("reads the pack again after a publish that failed, since it may have moved code points, and says why", function()
     local t = setUp(nil, draftModel)
     loaded(t)
+    synced(t)
     t.dialogs.answer = function(d)
       d.data = { draft1=true, draft2=false, title="feat(resource-pack): the star is white", publish=true }
     end
     t.ctl.publish()
-    t.started[3].args.onstderr("* What went wrong:")
-    t.started[3].args.onstderr("> the star is too bright")
-    t.started[3].isRunning = false
-    t.started[3].args.onexit(1)
-    assert.equal(":resource-pack:describePack", run(t.started[4]))
+    t.started[4].args.onstderr("* What went wrong:")
+    t.started[4].args.onstderr("> the star is too bright")
     t.started[4].isRunning = false
-    t.started[4].args.onexit(0)
+    t.started[4].args.onexit(1)
+    assert.equal(":resource-pack:describePack", run(t.started[5]))
+    t.started[5].isRunning = false
+    t.started[5].args.onexit(0)
     assert.equal("status.refused the star is too bright", t.dialogs[1].handlers.status.text)
   end)
 
   it("keeps the publish dialog open with the reason the commit hook gives, and sends nothing", function()
     local t = setUp(nil, draftModel)
     loaded(t)
+    synced(t)
     t.world.hook = { code=1, err={ "commit-msg: \"white star\" is not type(scope): description" } }
     local answers = 0
     t.dialogs.answer = function(d)
@@ -1142,7 +1158,7 @@ describe("the Nordtal tab", function()
     end
     t.ctl.publish()
     assert.equal(2, answers)
-    assert.equal(2, #t.started)
+    assert.equal(3, #t.started)
     local refusal = t.dialogs[#t.dialogs].handlers
     assert.same({ "commit-msg: \"white star\" is not type(scope):", "description" }, { refusal.refusal1.text, refusal.refusal2.text })
   end)
@@ -1150,16 +1166,17 @@ describe("the Nordtal tab", function()
   it("discards the drafts chosen in the publish dialog one after the other", function()
     local t = setUp(nil, draftModel)
     loaded(t)
+    synced(t)
     t.world.confirm = 1
     t.dialogs.answer = function(d) d.data = { draft1=true, draft2=true, title="x", discard=true } end
     t.ctl.publish()
-    assert.equal(":resource-pack:discardDraft -Pdraft=nordtal:badges/star.png", run(t.started[2]))
-    t.started[2].isRunning = false
-    t.started[2].args.onexit(0)
-    assert.equal(":resource-pack:discardDraft -Pdraft=src/assets/minecraft/lang/en_us.json", run(t.started[3]))
+    assert.equal(":resource-pack:discardDraft -Pdraft=nordtal:badges/star.png", run(t.started[3]))
     t.started[3].isRunning = false
     t.started[3].args.onexit(0)
-    assert.equal(":resource-pack:describePack", run(t.started[4]))
+    assert.equal(":resource-pack:discardDraft -Pdraft=src/assets/minecraft/lang/en_us.json", run(t.started[4]))
+    t.started[4].isRunning = false
+    t.started[4].args.onexit(0)
+    assert.equal(":resource-pack:describePack", run(t.started[5]))
   end)
 
   it("says that there is nothing to publish while the pack has no drafts", function()
@@ -1206,5 +1223,73 @@ describe("the Nordtal tab", function()
     t.started[3].isRunning = false
     t.started[3].args.onexit(0)
     assert.equal("status.restored", t.dialogs[1].handlers.status.text)
+  end)
+
+  it("asks GitHub after the first read while the pack has drafts, and reads the pack again when main moved or a review changed", function()
+    local t = setUp(nil, draftModel)
+    loaded(t)
+    synced(t, "moved")
+    assert.equal(":resource-pack:describePack", run(t.started[3]))
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    assert.is_false(t.dialogs[1].handlers.status.visible)
+    for _, timer in ipairs(t.timers) do
+      if timer.args.interval == 300 then timer.args.ontick() end
+    end
+    synced(t, "reviewed 42")
+    t.started[5].isRunning = false
+    t.started[5].args.onexit(0)
+    assert.equal("status.reviewed 42", t.dialogs[1].handlers.status.text)
+  end)
+
+  it("compares both versions of a conflict, resolves it as the designer chooses and opens the texture it kept", function()
+    local m = dkjson.decode(draftModel)
+    m.drafts[1].conflict = { files={ "src/assets/nordtal/textures/badges/star.png" },
+                             fields={ { name="about", clone="\"a\"", main="\"b\"" } } }
+    local t = setUp(nil, dkjson.encode(m))
+    local main = "/c/resource-pack/build/conflict/src/assets/nordtal/textures/badges/star.png"
+    t.world.files = { [main]=true }
+    local dlg = loaded(t)
+    synced(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local shown = table.concat(texts(dlg), "\n")
+    assert.truthy(shown:find("properties.conflict\n  src/assets/nordtal/textures/badges/star.png, about", 1, true))
+    click(dlg, "properties.resolve")
+    assert.equal(":resource-pack:readConflict -Pdraft=nordtal:badges/star.png", run(t.started[3]))
+    local compare
+    t.dialogs.answer = function(d)
+      compare = d
+      d.data = { keep_clone=false, keep_main=true, clone1=true, main1=false, ok=true }
+    end
+    t.started[3].args.onstdout(main)
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    assert.truthy(compare.handlers.compare)
+    assert.same({ { "image", star }, { "image", main } }, { t.log[#t.log - 1], t.log[#t.log] })
+    assert.equal(":resource-pack:resolveConflict -Pdraft=nordtal:badges/star.png -Pfields={\"about\":\"clone\"} -Pkeep=main",
+      run(t.started[4]))
+    t.started[4].isRunning = false
+    t.started[4].args.onexit(0)
+    assert.same({ "close", star }, t.log[#t.log])
+    assert.is_nil(dlg.data.editor)
+    t.started[5].isRunning = false
+    t.started[5].args.onexit(0)
+    assert.equal("glyph/minecraft:default/F0000", dlg.data.tree)
+    assert.equal(t.open[#t.open], dlg.data.editor)
+  end)
+
+  it("shows the pull request of a change in review with its comments, and opens it on GitHub", function()
+    local m = dkjson.decode(model)
+    m.fonts[1].blocks[1].glyphs[1].texture.review = 42
+    m.reviews = { { number=42, url="https://github.com/nordtal/season-2/pull/42", decision="APPROVED", checks="success",
+                    comments={ { author="ana", body="Nice." } } } }
+    local t = setUp(nil, dkjson.encode(m))
+    local dlg = loaded(t)
+    synced(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local shown = table.concat(texts(dlg), "\n")
+    assert.truthy(shown:find("properties.review\n  review.approved 42\nproperties.checks\n  checks.success\nana\n  Nice.", 1, true))
+    click(dlg, "properties.github")
+    assert.same({ "launch", "https://github.com/nordtal/season-2/pull/42" }, t.log[#t.log])
   end)
 end)

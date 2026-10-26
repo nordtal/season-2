@@ -6,7 +6,7 @@
 -- and reads the pack. api holds the Aseprite functions that pack and
 -- textures name, plus Dialog, Rectangle, screen, alert, activeSprite
 -- and write. modules holds pack, tree, textures, panel, properties,
--- items, wizard and drafts. preferences.treeSide is
+-- items, wizard, drafts and conflicts. preferences.treeSide is
 -- "left" or "right", and preferences.coupled is false once the
 -- designer decoupled pixel size and display height.
 --
@@ -21,9 +21,9 @@
 -- pack holds opens in the editor.
 --
 -- ctl.publish() asks which drafts to publish or discard. A publish
--- runs the commit hook on its title first, and a pack with pull
--- requests asks GitHub for their state after the first read and
--- every five minutes.
+-- runs the commit hook on its title first, and a pack with drafts or
+-- pull requests asks GitHub for main and their state after the first
+-- read and every five minutes.
 
 local tab = {}
 
@@ -64,6 +64,8 @@ function tab.open(context)
   local synced, every, syncing
   -- sync asks GitHub for the pull requests; it is defined below
   local sync
+  -- The node that opens again once the pack was read
+  local reopen
 
   local function setStatus(text)
     status = { text=text or "", visible=text ~= nil }
@@ -96,8 +98,8 @@ function tab.open(context)
         table.insert(list, { text=tr("properties." .. row.key), value=row.value, field=row.field })
       end
     end
-    if modules.drafts.id(info) then
-      table.insert(list, { text=tr("properties.discard"), field="discard", kind="button" })
+    for _, row in ipairs(modules.drafts.rows(model, info, tr)) do
+      table.insert(list, row)
     end
     return list
   end
@@ -190,7 +192,7 @@ function tab.open(context)
         return
       end
       if read then
-        local ok, built, builtIndex = pcall(modules.tree.build, read, tr, modules.drafts.id)
+        local ok, built, builtIndex = pcall(modules.tree.build, read, tr, modules.drafts.marks(read))
         if ok then
           nodes, index, model = built, builtIndex, read
           local children, id = attach()
@@ -204,6 +206,12 @@ function tab.open(context)
             ctl.clear()
           end
           setStatus(nil)
+          local again = reopen
+          reopen = nil
+          if again and index[again] then
+            dlg.data = { tree=again }
+            ctl.select(again)
+          end
           showProperties()
           if not synced then
             synced = true
@@ -477,12 +485,44 @@ function tab.open(context)
     end
   end
 
-  -- The draft of the model with id
-  local function draftOf(id)
-    for _, draft in ipairs(model and model.drafts or {}) do
-      if draft.id == id then return draft end
-    end
-    return nil
+  -- The image of the PNG at path, or nil where there is none
+  local function image(path)
+    return api.isFile(path) and api.Image{ fromFile=path } or nil
+  end
+
+  -- Writes main's version of the files of draft's conflict, asks how to
+  -- resolve it beside both versions of its texture, and resolves it.
+  -- The texture closes when main's version replaces it, and opens again
+  -- once the pack was read.
+  local function resolve(draft)
+    local id = selected
+    enqueue(task({ "readConflict", { draft=draft.id } }), function(ok, err)
+      if not ok then
+        refused = modules.pack.refusal(err)
+        showProperties()
+        return
+      end
+      local png
+      for _, file in ipairs(draft.conflict.files) do
+        if file:match("%.png$") then png = file end
+      end
+      local answer = modules.conflicts.ask{ Dialog=api.Dialog, tr=tr, Color=api.Color, draft=draft,
+        clone=png and image(api.join(clone, "resource-pack", png)),
+        main=png and image(api.join(clone, "resource-pack", "build", "conflict", png)) }
+      if not answer then
+        return
+      end
+      local sprite = dlg.data.editor
+      write({ "resolveConflict", { draft=draft.id, keep=answer.keep,
+                                   fields=next(answer.fields) and api.encode(answer.fields) or nil } }, function()
+        if answer.keep ~= "main" then return end
+        if selected == id then
+          dlg:modify{ id="editor", sprite=false }
+          reopen = id
+        end
+        if sprite then sprite:close() end
+      end, nil, true)
+    end, function() end)
   end
 
   -- Runs .githooks/commit-msg on title through git, as a commit would,
@@ -538,10 +578,11 @@ function tab.open(context)
       end, function() end)
   end
 
-  -- Runs syncReviews while the pack has pull requests. After a merge
-  -- or a close the tab reads the pack again and says which one ended.
+  -- Runs syncReviews while the pack has drafts or pull requests. The
+  -- tab reads the pack again when main moved or a pull request changed,
+  -- and says which one changed.
   function sync()
-    if syncing or not (model and model.reviews and #model.reviews > 0) then
+    if syncing or not (model and (#(model.reviews or {}) > 0 or #(model.drafts or {}) > 0)) then
       return
     end
     syncing = true
@@ -551,14 +592,17 @@ function tab.open(context)
         setStatus(tr("status.sync_failed") .. " " .. table.concat(modules.pack.refusal(err), " "))
         return
       end
-      local ended = {}
+      local ended, moved = {}, false
       for _, line in ipairs(out) do
         local state, number = line:match("^(%a+) (%d+)$")
         if state then table.insert(ended, tr("status." .. state, number)) end
         if line == "restored" then table.insert(ended, tr("status.restored")) end
+        moved = moved or line == "moved"
       end
       if #ended > 0 then
         reloadThen(table.concat(ended, " "))
+      elseif moved then
+        ctl.reload()
       end
     end, function() syncing = nil end)
   end
@@ -584,12 +628,20 @@ function tab.open(context)
     end
     if field == "discard" then
       local id = modules.drafts.id(info)
-      local draft = draftOf(id)
+      local draft = modules.drafts.find(model, id)
       local yes = api.alert{ title=tr("properties.discard"), text=tr("properties.discard_confirm", draft and draft.label or id),
                              buttons={ tr("properties.discard"), tr("edit.cancel") } }
       if yes == 1 then
         discard({ id })
       end
+      return
+    end
+    if field == "resolve" then
+      resolve(modules.drafts.find(model, modules.drafts.id(info)))
+      return
+    end
+    if field == "github" then
+      api.launch(modules.drafts.reviewOf(model, info).url)
       return
     end
     if field == "delete" then

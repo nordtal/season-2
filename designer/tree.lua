@@ -5,27 +5,42 @@ local tree = {}
 
 -- The theme part that marks the node of a draft
 tree.draftIcon = "tab_modified_icon_normal"
+-- The theme part that marks a draft with a conflict and each node above it
+tree.conflictIcon = "warning_box"
+-- What follows the number of a pull request whose checks failed
+tree.failed = "✗"
 
 -- The nodes for Dialog:tree{} and an index from each node's id to
--- { kind, entry, texture, font, block }. draftOf(info) names the
--- draft an entry is, or nil. The node of a draft has its own icon,
--- and a node with drafts inside it shows their count in brackets as
--- its badge, apart from a code point's, so a collapsed one shows them
--- too. It raises an error that names the place of a
--- cell whose code is no code point.
-function tree.build(model, tr, draftOf)
+-- { kind, entry, texture, font, block }. mark(info) gives the marks of
+-- an entry as drafts.marks does. The node of a draft has its own icon,
+-- a draft with a conflict and each node above it a warning, and a node
+-- in review the number of its pull request as its badge. A node with
+-- drafts inside it shows their count in brackets as its badge, so a
+-- collapsed one shows them too. It raises an error that names the
+-- place of a cell whose code is no code point.
+function tree.build(model, tr, mark)
   local index = {}
-  -- How many drafts each node and the nodes inside it are
-  local counts = {}
+  -- How many drafts each node and the nodes inside it are, and the
+  -- nodes with a conflict inside them
+  local counts, conflicts = {}, {}
 
   local function node(id, text, info, children)
     index[id] = info
-    local draft = draftOf(info) ~= nil
-    local n = { id=id, text=text, children=children, icon=draft and tree.draftIcon or nil }
-    local inside = 0
-    for _, child in ipairs(children or {}) do inside = inside + counts[child] end
-    if inside > 0 then n.badge = "(" .. inside .. ")" end
-    counts[n] = inside + (draft and 1 or 0)
+    local marks = mark(info) or {}
+    local n = { id=id, text=text, children=children, icon=marks.draft and tree.draftIcon or nil }
+    local inside, conflict = 0, marks.conflict
+    for _, child in ipairs(children or {}) do
+      inside = inside + counts[child]
+      conflict = conflict or conflicts[child]
+    end
+    local badges = {}
+    if marks.review then
+      table.insert(badges, "#" .. math.tointeger(marks.review) .. (marks.failed and " " .. tree.failed or ""))
+    end
+    if inside > 0 then table.insert(badges, "(" .. inside .. ")") end
+    n.badge = badges[1] and table.concat(badges, " ")
+    if conflict then n.icon = tree.conflictIcon end
+    counts[n], conflicts[n] = inside + (marks.draft and 1 or 0), conflict
     return n
   end
 
@@ -59,7 +74,7 @@ function tree.build(model, tr, draftOf)
         for _, glyph in ipairs(block.glyphs or {}) do
           local n = node("glyph/" .. font.font .. "/" .. glyph.code, glyphText(glyph),
             { kind="glyph", entry=glyph, texture=glyph.texture, font=font, block=block })
-          n.badge = glyph.code
+          n.badge = n.badge or glyph.code
           table.insert(children, n)
         end
       end

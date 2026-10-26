@@ -71,9 +71,22 @@ Chosen...** discards the chosen drafts once confirmed. **Publish** writes the ti
 run` with the bootstrap's git. A refusal of the hook shows in the dialog over several lines, and the
 dialog stays open. An accepted title runs `publishDrafts` with the bootstrap's gh, and the status
 line shows the address of the pull request. After a publish, failed or not, the tab reads the pack
-again. Every task runs with the folder of the bootstrap's git first on `PATH`. A pack with pull
-requests runs `syncReviews` after the tab's first read and every five minutes, and the tab reads the
-pack again after a merge, a close or a put back of a pull that stopped halfway.
+again. Every task runs with the folder of the bootstrap's git first on `PATH`. A pack with drafts or
+pull requests runs `syncReviews` after the tab's first read and every five minutes, and the tab reads
+the pack again after a merge, a close, a put back of a pull that stopped halfway, a move of main or a
+change of a pull request.
+
+A draft that main changed too has a conflict. The tree marks it and each node above it with the
+theme's warning box, and the publish dialog leaves it unchosen and refuses it. Its panel lists the
+files and fields of the conflict and has **Resolve Conflict...**, which runs `readConflict` and shows
+both versions of the texture side by side, the clone's on the left. The dialog asks which version of
+the files to keep and which side of each field, the clone's chosen at first. OK runs
+`resolveConflict`, and a texture that takes main's version opens again once the pack was read.
+
+A node in review shows the number of its pull request as its badge, such as `#42`, followed by `✗`
+while a check fails. A glyph shows it in place of its code point. The panel shows the pull request's
+review decision, its checks and its comments, and **Open on GitHub** opens it in the browser. Replies
+are written on GitHub.
 
 The interface strings are Aseprite string files in `strings/`, in English and German. The plugin
 reads the one of Aseprite's language setting, and English for each key it lacks.

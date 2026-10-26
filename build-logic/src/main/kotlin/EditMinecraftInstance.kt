@@ -2,6 +2,7 @@ package eu.nordtal.season.build
 
 import groovy.json.JsonOutput
 import org.gradle.api.DefaultTask
+import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
@@ -41,9 +42,10 @@ abstract class EditMinecraftInstance : DefaultTask() {
     @TaskAction
     fun run() {
         val store = instanceFile.get().asFile
-        when (kind.get()) {
+        when (val kind = kind.get()) {
             "describe" -> logger.quiet(JsonOutput.toJson(MinecraftInstance.describe(store)))
-            else -> logger.quiet(MinecraftInstance.installBridge(store, gh.getOrElse("gh"), repository.get().asFile).absolutePath)
+            "bridge" -> logger.quiet(MinecraftInstance.installBridge(store, gh.getOrElse("gh"), repository.get().asFile).absolutePath)
+            else -> throw GradleException("kind is describe or bridge, not $kind.")
         }
     }
 }

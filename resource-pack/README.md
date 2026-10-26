@@ -24,7 +24,9 @@ pack holds only the PNG, and `checkPack` refuses a source whose PNG is missing.
 The steps run from the Run menu of IntelliJ, folder **resource pack**, on any operating system, with
 Minecraft 26.2.
 
-1. Run **pack: 1. choose Minecraft instance** once and pick the folder that holds `options.txt` and `resourcepacks`.
+1. Run **pack: 1. choose Minecraft instance** once and pick the folder of the instance. A folder that
+   never ran is taken when its launcher marked it: `versions` or `.fabric` in it, or `mmc-pack.json`
+   of Prism or MultiMC.
 2. Edit an image under `src/assets/nordtal/textures` and save it in place.
 3. Run **pack: 2. install into Minecraft**. It names every image it cannot use and copies the pack
    in as `nordtal-dev`. It enables the pack when the game is closed. Otherwise enable it once under
@@ -32,9 +34,10 @@ Minecraft 26.2.
 4. Press **F3+T** in the game.
 
 `describeInstance` prints the chosen instance as one line of JSON: `instance`, `fabric`, `bridge` (the
-name of the installed bridge mod), `port` and `token`. `installBridgeMod -Pgh=<path>` downloads the
-bridge mod of the newest release with that gh into `mods/` of an instance with Fabric, removes every
-other version of it there and writes its settings once.
+name of the installed bridge mod), `problem` (a sentence while `mods/` holds more than one), `port` and
+`token`. `installBridgeMod -Pgh=<path>` downloads the bridge mod of the newest release with that gh into
+`mods/` of an instance with Fabric, deletes every other version of it there and writes its settings
+once. It stops before the copy when an old version cannot be deleted.
 
 A new glyph is an image plus one entry in `glyphs.json`: a free code point in its block, a constant,
 a texture and, in `minecraft:default`, a name. The next build names every rule that an entry breaks.
@@ -328,9 +331,9 @@ their parents' textures. A texture whose PNG the pack holds has the fields of an
 model (`texture`, `mcmeta`, `animation`, `frames`), any other only its `id`. A texture is a draft
 when its id is one of the pack model's `drafts`.
 `states` lists the states a `/give` shows, each as `label` and `give`, the item with its components.
-A state sets the custom model data, the damage, a component or a block state for each case of a
-select, condition or range of the definition. The plain item comes last, except under a select
-without a fallback. A list holds at most 64 states.
+A state sets the custom model data, the damage, a component, a block state, a trim or the charged
+projectiles for each case of a select, condition or range of the definition. The plain item comes
+last, except under a select or range without a fallback. A list holds at most 64 states.
 
 `editItem` changes the object at `at`, a path of keys and list indices such as `model/cases/0`.
 `fields` is a JSON object whose members it sets, and a member that is null is removed. With `add`, it

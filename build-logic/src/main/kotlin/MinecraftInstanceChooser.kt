@@ -24,12 +24,13 @@ object MinecraftInstanceChooser {
     fun main(args: Array<String>) {
         val store = File(args[0])
         val given = args.getOrNull(1)?.takeIf { it.isNotBlank() }?.let(::File)
-        val picked = given ?: ask(start(store)) ?: finish(0, "Nothing was chosen, so nothing changed.")
-        val instance = normalise(picked)
-        if (!instance.isDirectory) finish(1, "$instance is not a folder.")
-        if (!looksLikeInstance(instance) && (given != null || !confirm(instance))) {
-            finish(1, "$instance has neither options.txt nor a resourcepacks folder, so it is not a Minecraft instance.")
-        }
+        val picked = (given ?: ask(start(store)) ?: finish(0, "Nothing was chosen, so nothing changed.")).absoluteFile
+        if (!picked.isDirectory) finish(1, "$picked is not a folder.")
+        val instance =
+            instance(picked)
+                ?: picked.takeIf { given == null && confirm(it) }
+                ?: finish(1, "$picked holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.")
+        instance.mkdirs()
         Properties().apply { setProperty("instance", instance.absolutePath) }.also { properties ->
             store.writer().use { properties.store(it, "The Minecraft instance the resource pack is installed into") }
         }
@@ -67,7 +68,7 @@ object MinecraftInstanceChooser {
             answer =
                 JOptionPane.showConfirmDialog(
                     null,
-                    "$instance\nhas no options.txt and no resourcepacks folder yet.\n" +
+                    "$instance\nholds no file of Minecraft or of a launcher yet.\n" +
                         "Is this the folder of a Minecraft instance that was never started?",
                     TITLE,
                     JOptionPane.YES_NO_OPTION,
@@ -77,17 +78,24 @@ object MinecraftInstanceChooser {
         return answer == JOptionPane.YES_OPTION
     }
 
-    /** Returns the folder that the game runs in, for the folders that people often pick instead. */
-    private fun normalise(picked: File): File {
+    /** Returns the folder that the game runs in for [picked], or null when [picked] is no Minecraft instance. */
+    internal fun instance(picked: File): File? {
         val folder = picked.absoluteFile
         if (folder.name == "resourcepacks") return folder.parentFile
+        if (folder.resolve("mmc-pack.json").isFile) {
+            // Prism and MultiMC run the game in minecraft/, or in .minecraft/ while only that one exists.
+            val dotted = folder.resolve(".minecraft")
+            return if (dotted.isDirectory && !folder.resolve("minecraft").exists()) dotted else folder.resolve("minecraft")
+        }
         if (looksLikeInstance(folder)) return folder
-        // Prism and MultiMC keep the game one level down, in minecraft/ or .minecraft/.
-        return listOf("minecraft", ".minecraft").map(folder::resolve).firstOrNull(::looksLikeInstance) ?: folder
+        return listOf("minecraft", ".minecraft").map(folder::resolve).firstOrNull(::looksLikeInstance)
     }
 
+    /** Whether a file of the game or of a launcher marks [folder], which then may never have run. */
     private fun looksLikeInstance(folder: File): Boolean =
-        folder.resolve("options.txt").isFile || folder.resolve("resourcepacks").isDirectory
+        folder.resolve("options.txt").isFile ||
+            listOf("resourcepacks", "versions", ".fabric").any { folder.resolve(it).isDirectory } ||
+            folder.parentFile?.resolve("mmc-pack.json")?.isFile == true
 
     private fun start(store: File): File {
         val previous = runCatching { Properties().apply { store.reader().use { load(it) } }.getProperty("instance") }.getOrNull()

@@ -20,15 +20,17 @@ object MinecraftInstance {
 
     /** Returns the chosen instance, or throws when none is chosen or its folder is gone. */
     fun chosen(store: File): File {
-        val chosen =
+        val saved =
             saved(store)
                 ?: throw GradleException("No Minecraft instance is chosen yet. Run 'pack: 1. choose Minecraft instance' first.")
-        return File(chosen).absoluteFile.takeIf { it.isDirectory }
-            ?: throw GradleException("$chosen does not exist any more. Run 'pack: 1. choose Minecraft instance' again.")
+        return folder(saved) ?: throw GradleException("$saved does not exist any more. Run 'pack: 1. choose Minecraft instance' again.")
     }
 
     private fun saved(store: File): String? =
         store.takeIf { it.isFile }?.let { file -> Properties().apply { file.reader().use { load(it) } }.getProperty("instance") }
+
+    /** The folder [saved] names, or null when it is gone. */
+    private fun folder(saved: String): File? = File(saved).absoluteFile.takeIf { it.isDirectory }
 
     /**
      * Whether Fabric Loader runs in [instance]: its `.fabric` folder, which the loader writes on the first start, a Prism or
@@ -80,7 +82,13 @@ object MinecraftInstance {
                 .listFiles()
                 .orEmpty()
                 .filter { bridge(it) && it.name != jar.name }
-                .forEach { it.delete() }
+                .forEach {
+                    if (!it.delete()) {
+                        throw GradleException(
+                            "$it cannot be deleted. Close Minecraft and install the bridge mod again.",
+                        )
+                    }
+                }
             val target = jar.copyTo(mods.resolve(jar.name), overwrite = true)
             settings(instance) ?: writeSettings(instance)
             return target
@@ -111,21 +119,28 @@ object MinecraftInstance {
     }
 
     /**
-     * The chosen instance as `instance`, `fabric`, `bridge` (the name of the installed jar), `port` and `token`, or only
-     * `instance` as null while none is chosen or its folder is gone.
+     * The chosen instance as `instance`, `fabric`, `bridge` (the name of the one installed jar), `problem` (a sentence
+     * while `mods` holds several), `port` and `token`, or only `instance` as null while none is chosen or its folder is gone.
      */
     fun describe(store: File): Map<String, Any?> {
-        val instance = saved(store)?.let(::File)?.absoluteFile?.takeIf { it.isDirectory } ?: return mapOf("instance" to null)
+        val instance = saved(store)?.let(::folder) ?: return mapOf("instance" to null)
         val settings = settings(instance)
+        val bridges =
+            mods(instance)
+                .listFiles()
+                .orEmpty()
+                .filter { bridge(it) }
+                .map { it.name }
+                .sorted()
+        val problem =
+            bridges.takeIf { it.size > 1 }?.let {
+                "mods holds more than one bridge mod: ${it.joinToString(", ")}. Close Minecraft and install the bridge mod again."
+            }
         return linkedMapOf(
             "instance" to instance.absolutePath,
             "fabric" to fabric(instance),
-            "bridge" to
-                mods(instance)
-                    .listFiles()
-                    .orEmpty()
-                    .filter { bridge(it) }
-                    .maxOfOrNull { it.name },
+            "bridge" to bridges.singleOrNull(),
+            "problem" to problem,
             "port" to settings?.first,
             "token" to settings?.second,
         )

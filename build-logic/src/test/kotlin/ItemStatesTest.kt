@@ -74,6 +74,81 @@ class ItemStatesTest {
     }
 
     @Test
+    fun eachTrimMaterialOfAVanillaArmourIsATrimWithTheCoastPattern() {
+        // The shape of minecraft:iron_chestplate in the 26.2 client jar, cut to two of its eleven cases
+        val chestplate =
+            """{ "type": "minecraft:select", "property": "minecraft:trim_material",
+                 "cases": [{ "model": { "type": "minecraft:model", "model": "minecraft:item/iron_chestplate_quartz_trim" }, "when": "minecraft:quartz" },
+                           { "model": { "type": "minecraft:model", "model": "minecraft:item/iron_chestplate_iron_trim" }, "when": "minecraft:iron" }],
+                 "fallback": { "type": "minecraft:model", "model": "minecraft:item/iron_chestplate" } }"""
+        assertEquals(
+            listOf(
+                "trim_material=minecraft:quartz" to
+                    "minecraft:iron_chestplate[trim={material:\"minecraft:quartz\",pattern:\"minecraft:coast\"}]",
+                "trim_material=minecraft:iron" to
+                    "minecraft:iron_chestplate[trim={material:\"minecraft:iron\",pattern:\"minecraft:coast\"}]",
+                "" to "minecraft:iron_chestplate",
+            ),
+            states("minecraft:iron_chestplate", chestplate).map { it["label"] to it["give"] },
+        )
+    }
+
+    @Test
+    fun aChargeTypeIsTheChargedProjectileABrokenItemHasItsLastDamageAndAPresentComponentIsSet() {
+        val crossbow =
+            """{ "type": "minecraft:select", "property": "minecraft:charge_type",
+                 "cases": [{ "when": "arrow", "model": $lamp }, { "when": "rocket", "model": $lamp }, { "when": "none", "model": $lamp }] }"""
+        assertEquals(
+            listOf(
+                "charge_type=arrow" to "minecraft:crossbow[charged_projectiles=[{id:\"minecraft:arrow\"}]]",
+                "charge_type=rocket" to "minecraft:crossbow[charged_projectiles=[{id:\"minecraft:firework_rocket\"}]]",
+                "charge_type=none" to "minecraft:crossbow[charged_projectiles=[]]",
+            ),
+            states("minecraft:crossbow", crossbow).map { it["label"] to it["give"] },
+        )
+        val elytra = """{ "type": "minecraft:condition", "property": "minecraft:broken", "on_true": $lamp, "on_false": $lamp }"""
+        assertEquals(
+            listOf("broken" to "minecraft:elytra[max_damage=2,damage=1]", "" to "minecraft:elytra"),
+            states("minecraft:elytra", elytra).map { it["label"] to it["give"] },
+        )
+        val armour =
+            """{ "type": "minecraft:condition", "property": "minecraft:has_component", "component": "minecraft:dyed_color",
+                 "on_true": $lamp, "on_false": $lamp }"""
+        assertEquals(
+            listOf("minecraft:dyed_color" to "minecraft:wolf_armor[minecraft:dyed_color=11546150]", "" to "minecraft:wolf_armor"),
+            states("minecraft:wolf_armor", armour).map { it["label"] to it["give"] },
+        )
+        val compass =
+            """{ "type": "minecraft:condition", "property": "minecraft:has_component", "component": "minecraft:lodestone_tracker",
+                 "on_true": $lamp, "on_false": $lamp }"""
+        assertEquals(
+            "minecraft:compass[minecraft:lodestone_tracker={}]",
+            states("minecraft:compass", compass).first()["give"],
+        )
+    }
+
+    @Test
+    fun aRangeOfDamageSetsTheDamageThatReachesEachThresholdAndARangeWithoutFallbackHasNoOtherState() {
+        val normalized =
+            """{ "type": "minecraft:range_dispatch", "property": "minecraft:damage",
+                 "entries": [{ "threshold": 0.07, "model": $lamp }, { "threshold": 0.58, "model": $lamp }] }"""
+        assertEquals(
+            listOf(
+                "damage=0.07" to "minecraft:shield[max_damage=1000,damage=70]",
+                "damage=0.58" to "minecraft:shield[max_damage=1000,damage=580]",
+            ),
+            states("minecraft:shield", normalized).map { it["label"] to it["give"] },
+        )
+        val counted =
+            """{ "type": "minecraft:range_dispatch", "property": "minecraft:damage", "normalize": false, "scale": 2,
+                 "entries": [{ "threshold": 3, "model": $lamp }], "fallback": $lamp }"""
+        assertEquals(
+            listOf("damage=1.5" to "minecraft:shield[max_damage=3,damage=2]", "" to "minecraft:shield"),
+            states("minecraft:shield", counted).map { it["label"] to it["give"] },
+        )
+    }
+
+    @Test
     fun aPropertyThatNoComponentSetsAddsNoState() {
         val condition = """{ "type": "minecraft:condition", "property": "minecraft:using_item", "on_true": $lamp, "on_false": $lamp }"""
         assertEquals(listOf(""), states("nordtal:lamp", condition).map { it["label"] })

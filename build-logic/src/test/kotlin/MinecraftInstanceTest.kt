@@ -108,6 +108,37 @@ class MinecraftInstanceTest {
     }
 
     @Test
+    fun anOldBridgeModThatCannotBeDeletedStopsTheInstallBeforeTheNewOneIsCopied() {
+        val instance = chosen().apply { resolve(".fabric").mkdirs() }
+        val mods = instance.resolve("mods").apply { mkdirs() }
+        mods.resolve("nordtal-bridge-0.62.0.jar").writeText("old")
+        mods.setWritable(false)
+        val failure =
+            try {
+                assertThrows<GradleException> { MinecraftInstance.installBridge(store, gh(), root) }
+            } finally {
+                mods.setWritable(true)
+            }
+        assertTrue(failure.message!!.endsWith("Close Minecraft and install the bridge mod again."), failure.message)
+        assertEquals(listOf("nordtal-bridge-0.62.0.jar"), mods.list()!!.toList())
+    }
+
+    @Test
+    fun severalBridgeModsAreAProblemOfTheDescriptionAndNoneIsTheBridge() {
+        val instance = chosen().apply { resolve(".fabric").mkdirs() }
+        val mods = instance.resolve("mods").apply { mkdirs() }
+        mods.resolve("nordtal-bridge-0.62.0.jar").writeText("old")
+        mods.resolve("nordtal-bridge-0.63.0.jar").writeText("new")
+        val described = MinecraftInstance.describe(store)
+        assertNull(described["bridge"])
+        assertEquals(
+            "mods holds more than one bridge mod: nordtal-bridge-0.62.0.jar, nordtal-bridge-0.63.0.jar. " +
+                "Close Minecraft and install the bridge mod again.",
+            described["problem"],
+        )
+    }
+
+    @Test
     fun anInstanceWithoutFabricGetsNoBridgeMod() {
         val instance = chosen()
         val failure = assertThrows<GradleException> { MinecraftInstance.installBridge(store, gh(), root) }
@@ -122,7 +153,14 @@ class MinecraftInstanceTest {
 
         val instance = chosen()
         assertEquals(
-            mapOf("instance" to instance.absolutePath, "fabric" to false, "bridge" to null, "port" to null, "token" to null),
+            mapOf(
+                "instance" to instance.absolutePath,
+                "fabric" to false,
+                "bridge" to null,
+                "problem" to null,
+                "port" to null,
+                "token" to null,
+            ),
             MinecraftInstance.describe(store),
         )
 

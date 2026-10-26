@@ -51,8 +51,7 @@ abstract class ListVanillaAssets : VanillaClientTask() {
     @TaskAction
     fun list() {
         val file = listing.get().asFile
-        val assets =
-            mapOf("version" to version.get(), "textures" to VanillaClient.textures(jar()), "items" to VanillaClient.items(jar()))
+        val assets = mapOf("version" to version.get()) + VanillaClient.assets(jar())
         file.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(assets)) + "\n")
         logger.quiet(file.absolutePath)
     }

@@ -13,31 +13,22 @@ object VanillaClient {
     private val TEXTURE = Regex("""assets/([a-z0-9_.-]+)/textures/([a-z0-9_./-]+\.png)""")
     private val ITEM = Regex("""assets/([a-z0-9_.-]+)/items/([a-z0-9_./-]+)\.json""")
 
-    /** Lists the id of every item definition in [jar], such as `minecraft:compass`, sorted. */
-    fun items(jar: File): List<String> =
-        ZipFile(jar).use { zip ->
-            zip
-                .entries()
-                .asSequence()
-                .mapNotNull { ITEM.matchEntire(it.name) }
-                .map { "${it.groupValues[1]}:${it.groupValues[2]}" }
-                .sorted()
-                .toList()
-        }
-
-    /** Lists every texture in [jar] by its id, such as `minecraft:block/stone.png`, with its pixels and whether it has a `.mcmeta`. */
-    fun textures(jar: File): List<Map<String, Any>> =
+    /**
+     * Lists the `textures` and `items` of [jar] from one read of its entries. A texture is a map of its id, such as
+     * `minecraft:block/stone.png`, its pixels and whether it has a `.mcmeta`. An item is its id, such as
+     * `minecraft:compass`. Both lists are sorted by id.
+     */
+    fun assets(jar: File): Map<String, List<Any>> =
         ZipFile(jar).use { zip ->
             val names =
                 zip
                     .entries()
                     .asSequence()
                     .map { it.name }
-                    .toSet()
-            names
-                .mapNotNull { name -> TEXTURE.matchEntire(name)?.let { name to it } }
-                .sortedBy { it.first }
-                .map { (name, match) ->
+                    .toSortedSet()
+            val textures =
+                names.mapNotNull { name ->
+                    val match = TEXTURE.matchEntire(name) ?: return@mapNotNull null
                     DataInputStream(zip.getInputStream(zip.getEntry(name))).use { png ->
                         // The IHDR chunk follows the 8-byte signature and its own 8-byte header.
                         png.skipNBytes(16)
@@ -49,6 +40,8 @@ object VanillaClient {
                         )
                     }
                 }
+            val items = names.mapNotNull { ITEM.matchEntire(it) }.map { "${it.groupValues[1]}:${it.groupValues[2]}" }.sorted()
+            mapOf("textures" to textures, "items" to items)
         }
 
     /**

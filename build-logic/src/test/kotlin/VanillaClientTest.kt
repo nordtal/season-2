@@ -29,23 +29,20 @@ class VanillaClientTest {
         )
 
     @Test
-    fun theTexturesAreListedWithTheirPixelsAndAnimation() {
+    fun theTexturesAreListedWithTheirPixelsAndAnimationAndTheItemDefinitionsByTheirIds() {
         val file = directory.resolve("client.jar").apply { writeBytes(jar) }
 
         assertEquals(
-            listOf(
-                mapOf("id" to "minecraft:block/stone.png", "width" to 16, "height" to 16, "mcmeta" to false),
-                mapOf("id" to "minecraft:block/water_still.png", "width" to 16, "height" to 512, "mcmeta" to true),
+            mapOf(
+                "textures" to
+                    listOf(
+                        mapOf("id" to "minecraft:block/stone.png", "width" to 16, "height" to 16, "mcmeta" to false),
+                        mapOf("id" to "minecraft:block/water_still.png", "width" to 16, "height" to 512, "mcmeta" to true),
+                    ),
+                "items" to listOf("minecraft:apple", "minecraft:stone"),
             ),
-            VanillaClient.textures(file),
+            VanillaClient.assets(file),
         )
-    }
-
-    @Test
-    fun theItemDefinitionsAreListedByTheirIds() {
-        val file = directory.resolve("client.jar").apply { writeBytes(jar) }
-
-        assertEquals(listOf("minecraft:apple", "minecraft:stone"), VanillaClient.items(file))
     }
 
     @Test

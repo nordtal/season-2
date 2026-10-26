@@ -188,6 +188,7 @@ class ItemDefinitionsTest {
             listOf(vanilla["source"], vanilla["file"], vanilla["definition"]),
         )
         assertEquals(listOf("pack", written.absolutePath), listOf(override["source"], override["file"]))
+        assertEquals(listOf(mapOf("label" to "", "give" to "minecraft:apple")), override["states"])
     }
 
     /** Imports [source] as the model [id] into the model of the item `nordtal:lamp`, which draws an apple before. */

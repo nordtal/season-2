@@ -115,6 +115,7 @@ class PackModelTest {
     @Test
     fun overridesAreGroupedByFolderWithAnimationAndScaling() {
         allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
+        png("src/assets/minecraft/textures/item/apple.png", 16, 16)
         png("src/assets/minecraft/textures/gui/sprites/boss_bar/white_progress.png", 182, 5)
         png("src/assets/minecraft/textures/block/water_still.png", 16, 64)
         file("src/assets/minecraft/textures/block/water_still.png.mcmeta")
@@ -125,13 +126,14 @@ class PackModelTest {
 
         val overrides = model().list("overrides")
 
-        assertEquals(listOf("block", "gui/sprites/boss_bar", "gui/sprites/widget"), overrides.map { it["category"] })
+        assertEquals(listOf("block", "gui/sprites/boss_bar", "gui/sprites/widget", "item"), overrides.map { it["category"] })
         val water = only(overrides[0].list("entries"))
         assertEquals("minecraft:block/water_still.png", water.map("texture")["id"])
         assertEquals("src/assets/minecraft/textures/block/water_still.png.mcmeta", water["mcmeta"])
         assertEquals(mapOf("frametime" to 2), water["animation"])
         assertEquals(null, water["scaling"])
         assertEquals(false, water["guiSprite"])
+        assertEquals(listOf("minecraft:water_still", null), listOf(water["block"], water["item"]))
         assertEquals(
             (0 until 4).map { mapOf("x" to 0, "y" to 16 * it, "width" to 16, "height" to 16, "duration" to 100) },
             water["frames"],
@@ -140,9 +142,11 @@ class PackModelTest {
         assertEquals(null, bar["mcmeta"])
         assertEquals(182, bar.map("texture")["width"])
         assertEquals(true, bar["guiSprite"])
+        assertEquals(listOf(null, null), listOf(bar["block"], bar["item"]))
         assertEquals(null, bar["frames"])
         val button = only(overrides[2].list("entries"))
         assertEquals("nine_slice", button.map("scaling")["type"])
+        assertEquals(listOf(null, "minecraft:apple"), only(overrides[3].list("entries")).let { listOf(it["block"], it["item"]) })
     }
 
     @Test

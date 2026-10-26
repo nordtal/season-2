@@ -269,6 +269,9 @@ object PackModel {
                                 linkedMapOf(
                                     "scaling" to (meta?.get("gui") as? Map<*, *>)?.get("scaling"),
                                     "guiSprite" to png.relativeTo(textures).invariantSeparatorsPath.startsWith("gui/sprites/"),
+                                    // The block or item of the same name, which Nordtal Designer places or gives as a preview.
+                                    "block" to "minecraft:${png.nameWithoutExtension}".takeIf { category == "block" },
+                                    "item" to "minecraft:${png.nameWithoutExtension}".takeIf { category == "item" },
                                 )
                         },
                 )

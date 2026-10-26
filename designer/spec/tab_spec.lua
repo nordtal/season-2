@@ -831,7 +831,7 @@ describe("the Nordtal tab", function()
     t.started[2].args.onexit(0)
     t.started[3].isRunning = false
     t.started[3].args.onexit(0)
-    assert.equal("status.dropped_width status.unplayed_many 2, 4", dlg.handlers.status.text)
+    assert.equal("status.dropped_width status.unplayed_many 2, 4", status(dlg))
   end)
 
   it("drops the notice of a save when the next task is refused before the pack was read again", function()
@@ -856,7 +856,7 @@ describe("the Nordtal tab", function()
     t.ctl.reload()
     t.started[4].isRunning = false
     t.started[4].args.onexit(0)
-    assert.equal("", dlg.handlers.status.text)
+    assert.is_nil(status(dlg))
   end)
 
   it("runs one task at a time", function()

@@ -8,8 +8,8 @@
 -- dialogs.bounds(dialog) gives where a shown dialog is. A dialog with
 -- the argument tab is a tab and gets no answer.
 
-local kinds = { "button", "canvas", "check", "combobox", "editor", "entry", "file", "label", "number", "panel",
-                "radio", "separator", "splitter", "tree" }
+local kinds = { "button", "canvas", "check", "combobox", "editor", "endtabs", "entry", "file", "label", "number",
+                "panel", "radio", "separator", "splitter", "tab", "tree" }
 
 -- The value that a widget of kind starts with in the dialog's data
 local starts = {
@@ -49,9 +49,12 @@ return function(answer)
         end
         if kind == "splitter" then
           assert(self.panelArgs, "Dialog:splitter{} needs a Dialog:panel{} before it")
+          assert(not self.inTabs, "Dialog:splitter{} can't be between Dialog:tab{} and Dialog:endtabs{}")
           assert(not self.split, "a side panel has one splitter at most")
           self.split = true
         end
+        if kind == "tab" then self.inTabs = true end
+        if kind == "endtabs" then self.inTabs = nil end
         if t.id and self.panelArgs and self.kinds[t.id] and (kind == "panel" or self.kinds[t.id] == "panel") then
           error("the id \"" .. t.id .. "\" is taken by the side panel or a widget")
         end

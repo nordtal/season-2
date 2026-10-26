@@ -14,4 +14,12 @@ describe("the fake Dialog", function()
     local dlg = Dialog{ tab=true }:panel{ id="side" }:splitter{}
     assert.has_error(function() dlg:splitter{} end)
   end)
+
+  it("refuses a splitter between tab{} and endtabs{}, as the fork's API does", function()
+    local dlg = fake()({ tab=true }):panel{ id="side" }:tab{ id="t", text="T" }
+    assert.has_error(function() dlg:splitter{} end,
+                     "Dialog:splitter{} can't be between Dialog:tab{} and Dialog:endtabs{}")
+    dlg:endtabs{}
+    dlg:splitter{}
+  end)
 end)

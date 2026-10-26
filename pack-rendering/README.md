@@ -34,11 +34,13 @@ does not fit. The file holds one object:
 | ------- | ------------------------------ |
 | `font`  | the font as given              |
 | `code`  | the code point in capital hex  |
+| `glyph` | the glyph alone in its font    |
 | `menu`  | the chest menu title, or null  |
 | `hud`   | the boss bar name, or null     |
 | `board` | the text of the board, or null |
 
-Each component is Minecraft text-component JSON as Adventure's Gson serializer writes it. A place
+Each component is Minecraft text-component JSON as Adventure's Gson serializer writes it. `glyph`
+names the font of a row glyph's row and has no shadow, except in `minecraft:default`. A place
 that the font never reaches is null:
 
 | font                 | menu                                         | hud                  | board                     |

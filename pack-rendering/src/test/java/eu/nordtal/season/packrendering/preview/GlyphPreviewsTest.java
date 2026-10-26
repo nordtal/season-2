@@ -18,7 +18,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -111,6 +113,26 @@ class GlyphPreviewsTest {
         assertEquals("FEF00", written.get("code").getAsString());
         assertEquals(
                 json(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, "Nordtal")))), written.get("hud"));
+    }
+
+    @Test
+    void theGlyphAloneStandsInItsFontAndOnlyTheDefaultFontKeepsItsShadow() {
+        assertEquals(
+                json(Component.text(Glyphs.GUI_ROW_PILL)
+                        .font(Key.key(Glyphs.FONT_GUI_ROWS.get(1)))
+                        .shadowColor(ShadowColor.none())),
+                GlyphPreviews.render("nordtal:gui_r{row}", Glyphs.GUI_ROW_PILL, 0, LAYOUT)
+                        .get("glyph"));
+        assertEquals(
+                json(Component.text(Glyphs.BOSSBAR_ICON_COMPASS)
+                        .font(Key.key(Glyphs.FONT_BOSSBAR))
+                        .shadowColor(ShadowColor.none())),
+                GlyphPreviews.render("nordtal:bossbar", Glyphs.BOSSBAR_ICON_COMPASS, 9, LAYOUT)
+                        .get("glyph"));
+        assertEquals(
+                json(Component.text(Glyphs.BADGE_DONOR_STAR)),
+                GlyphPreviews.render("minecraft:default", Glyphs.BADGE_DONOR_STAR, 7, LAYOUT)
+                        .get("glyph"));
     }
 
     @Test

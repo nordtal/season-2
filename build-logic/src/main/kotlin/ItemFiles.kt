@@ -121,7 +121,8 @@ class ItemFiles(
     ): List<File> {
         val pendingOrRead = { path: String -> pending[assets.resolve(path)] ?: read(path) }
         val pendingOrSprite = { texture: String ->
-            runCatching { assets.resolve(Identifier.resource(texture, "textures", ".png")) in pending }.getOrDefault(false) || sprite(texture)
+            runCatching { assets.resolve(Identifier.resource(texture, "textures", ".png")) in pending }.getOrDefault(false) ||
+                sprite(texture)
         }
         val problems = ItemDefinitions.problems(json).ifEmpty { ItemDefinitions.missing(json, pendingOrRead, pendingOrSprite) }
         check(problems.isEmpty()) { "The item $id breaks ${problems.size} rule(s):\n" + problems.joinToString("\n") { "    $it" } }
@@ -195,8 +196,9 @@ class ItemFiles(
             if (reference.startsWith("#")) continue
             val image = images[reference]
             if (image == null) {
+                val beside = name(reference) + ".png"
                 require(sprite(reference)) {
-                    "Texture $key of ${source.name} is $reference, which is neither beside it as ${name(reference)}.png nor in the pack or the client jar."
+                    "Texture $key of ${source.name} is $reference, which is neither beside it as $beside nor in the pack or the client jar."
                 }
                 continue
             }
@@ -224,14 +226,19 @@ class ItemFiles(
     /** A model that Blockbench exported as JSON to [source], and each texture beside it by the reference that names it */
     private fun exported(source: File): Pair<MutableMap<String, Any?>, Map<String, Blockbench.Texture>> {
         @Suppress("UNCHECKED_CAST")
-        val model = OxfmtJson.read(source) as? MutableMap<String, Any?> ?: throw IllegalArgumentException("${source.name} is no model object.")
+        val model =
+            OxfmtJson.read(source) as? MutableMap<String, Any?> ?: throw IllegalArgumentException("${source.name} is no model object.")
         val images =
-            (model["textures"] as? Map<*, *>).orEmpty().values.filterIsInstance<String>().mapNotNull { reference ->
-                val exported = name(reference)
-                val png = source.resolveSibling("$exported.png").takeIf { it.isFile } ?: return@mapNotNull null
-                val mcmeta = File(png.path + ".mcmeta").takeIf { it.isFile }?.readBytes()
-                reference to Blockbench.Texture(exported.lowercase(), png.readBytes(), mcmeta)
-            }.toMap()
+            (model["textures"] as? Map<*, *>)
+                .orEmpty()
+                .values
+                .filterIsInstance<String>()
+                .mapNotNull { reference ->
+                    val exported = name(reference)
+                    val png = source.resolveSibling("$exported.png").takeIf { it.isFile } ?: return@mapNotNull null
+                    val mcmeta = File(png.path + ".mcmeta").takeIf { it.isFile }?.readBytes()
+                    reference to Blockbench.Texture(exported.lowercase(), png.readBytes(), mcmeta)
+                }.toMap()
         return model to images
     }
 

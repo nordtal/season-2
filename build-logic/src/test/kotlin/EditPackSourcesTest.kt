@@ -191,12 +191,21 @@ class EditPackSourcesTest {
 
     @Test
     fun anEditThatLacksARequiredValuePrintsEachFieldAndItsKind() {
-        pack.resolve("src/assets/nordtal/items/wand.json").apply { parentFile.mkdirs() }.writeText("""{ "model": { "type": "minecraft:empty" } }""")
+        pack
+            .resolve(
+                "src/assets/nordtal/items/wand.json",
+            ).apply { parentFile.mkdirs() }
+            .writeText("""{ "model": { "type": "minecraft:empty" } }""")
 
         val output =
             runner("editItem", "item", "at", "fields")
-                .withArguments("edit", "-q", "-Pitem=nordtal:wand", "-Pat=model", """-Pfields={"type":"minecraft:select","property":"minecraft:block_state"}""")
-                .buildAndFail()
+                .withArguments(
+                    "edit",
+                    "-q",
+                    "-Pitem=nordtal:wand",
+                    "-Pat=model",
+                    """-Pfields={"type":"minecraft:select","property":"minecraft:block_state"}""",
+                ).buildAndFail()
                 .output
 
         assertTrue("needs block_state_property text\n" in output, output)

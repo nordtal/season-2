@@ -54,7 +54,8 @@ object Blockbench {
                                 put("uv", (face["uv"] as List<*>).mapIndexed { i, n -> scaled(decimal(n!!), if (i % 2 == 0) u else v) })
                             }
                             (face["rotation"] as? Number)?.takeIf { it.toInt() != 0 }?.let { put("rotation", it) }
-                            put("texture", source?.let { used += index; "#" + it["id"] } ?: "#missing")
+                            if (source != null) used += index
+                            put("texture", source?.let { "#" + it["id"] } ?: "#missing")
                             (face["cullface"] as? String)?.takeIf { it.isNotEmpty() }?.let { put("cullface", it) }
                             (face["tint"] as? Number)?.takeIf { it.toInt() >= 0 }?.let { put("tintindex", it) }
                         }

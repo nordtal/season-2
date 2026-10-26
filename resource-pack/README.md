@@ -222,11 +222,11 @@ and one member per line, like the pack's other files.
 ./gradlew -q :resource-pack:importBlockbench -Pmodel=/tmp/lamp.bbmodel -Pid=nordtal:item/lamp -Pitem=nordtal:lamp -Pat=model
 ```
 
-| task               | options                                 | prints                                                                                     |
-| ------------------ | --------------------------------------- | ------------------------------------------------------------------------------------------ |
+| task               | options                                 | prints                                                                                    |
+| ------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------- |
 | `readItem`         | `item`                                  | one line of JSON: the definition, where it comes from, its problems, `types` and `models` |
-| `writeItem`        | `item`, `definition`                    | the absolute path of the definition it wrote                                               |
-| `editItem`         | `item`, `at`, `fields`, `add`, `remove` | the absolute path of the definition it wrote                                               |
+| `writeItem`        | `item`, `definition`                    | the absolute path of the definition it wrote                                              |
+| `editItem`         | `item`, `at`, `fields`, `add`, `remove` | the absolute path of the definition it wrote                                              |
 | `importBlockbench` | `model`, `id`, `item`, `at`             | the absolute path of the model, of each texture and of the definition it wrote            |
 
 The line of `readItem` holds `item`, `source` (`pack`, or `vanilla` for a definition only the jar

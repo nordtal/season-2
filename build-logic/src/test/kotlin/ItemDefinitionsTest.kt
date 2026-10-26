@@ -124,7 +124,9 @@ class ItemDefinitionsTest {
         files().use {
             it.write(
                 "nordtal:example",
-                model("""{ "type": "minecraft:range_dispatch", "property": "minecraft:damage", "entries": [{ "threshold": 1, "model": $apple }] }"""),
+                model(
+                    """{ "type": "minecraft:range_dispatch", "property": "minecraft:damage", "entries": [{ "threshold": 1, "model": $apple }] }""",
+                ),
             )
         }
 
@@ -293,6 +295,7 @@ class ItemDefinitionsTest {
     /** A copy of the Blockbench project `blockbench/lamp.bbmodel` of the test resources, changed by [change]. */
     private fun project(change: (MutableMap<String, Any?>) -> Unit = {}): File {
         val text = javaClass.getResource("/blockbench/lamp.bbmodel")!!.readText()
+
         @Suppress("UNCHECKED_CAST")
         val json = JsonSlurper().parseText(text) as MutableMap<String, Any?>
         change(json)
@@ -341,13 +344,29 @@ class ItemDefinitionsTest {
 
     @Test
     fun aBlockbenchProjectOfAnotherFormatOrWithAMeshIsRefused() {
-        val format = assertThrows<IllegalArgumentException> { imported(project { (it["meta"] as MutableMap<String, Any?>)["model_format"] = "bedrock" }) }
+        val format =
+            assertThrows<IllegalArgumentException> {
+                imported(
+                    project {
+                        (it["meta"] as MutableMap<String, Any?>)["model_format"] =
+                            "bedrock"
+                    },
+                )
+            }
         val mesh =
             assertThrows<IllegalArgumentException> {
-                imported(project { (it["elements"] as MutableList<Any?>) += mapOf("name" to "blob", "type" to "mesh", "vertices" to emptyMap<String, Any>()) })
+                imported(
+                    project {
+                        (it["elements"] as MutableList<Any?>) +=
+                            mapOf("name" to "blob", "type" to "mesh", "vertices" to emptyMap<String, Any>())
+                    },
+                )
             }
 
-        assertEquals("lamp.bbmodel is a Blockbench project of the format bedrock. Only Java Block/Item models can be imported.", format.message)
+        assertEquals(
+            "lamp.bbmodel is a Blockbench project of the format bedrock. Only Java Block/Item models can be imported.",
+            format.message,
+        )
         assertEquals("Element blob of lamp.bbmodel is a mesh. A Java Block/Item model holds only cubes.", mesh.message)
         assertTrue(!pack.resolve("src/assets/nordtal/models/item/lamp.json").exists())
     }
@@ -433,7 +452,15 @@ class ItemDefinitionsTest {
 
         val models = files().use { it.describe("nordtal:wand", setOf("src/assets/nordtal/textures/item/wand.png")) }["models"]
 
-        assertEquals(true, (((models as List<*>).single() as Map<*, *>)["textures"] as List<*>).single().let { it as Map<*, *> }["texture"].let { it as Map<*, *> }["draft"])
+        assertEquals(
+            true,
+            (((models as List<*>).single() as Map<*, *>)["textures"] as List<*>)
+                .single()
+                .let {
+                    it as Map<*, *>
+                }["texture"]
+                .let { it as Map<*, *> }["draft"],
+        )
     }
 
     @Test

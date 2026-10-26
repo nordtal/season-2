@@ -98,9 +98,9 @@ identifier.
 `gui.scaling` objects of the `.png.mcmeta`, or null. `frames` lists the frames the animation plays, each as
 `x`, `y`, `width`, `height` in the PNG and `duration` in milliseconds, or is null when the animation's frames do
 not divide the PNG. `guiSprite` is true for a texture under `textures/gui/sprites/`. Language files are not listed.
-`draft` is the id of the draft that a texture, block or font is, as `drafts` names it, which the next
-section describes, or null where it is none. `reviews` lists the pull requests that `publishDrafts` opened. `describePack` reads git on
-every run.
+`draft` is the id of the draft that a texture, block or font is, as `drafts` names it, which the
+next section describes, or null where it is none. `reviews` lists the pull requests that
+`publishDrafts` opened. `describePack` reads git on every run.
 
 ## New textures
 
@@ -191,10 +191,10 @@ fails with the reason when it refuses.
 A draft is one change of the clone that is in no pull request yet. A texture's draft holds its PNG,
 its `.png.mcmeta`, its `.aseprite` source, the item models and definitions that draw it, and its
 entries in `glyphs.json`. The fields of a font or a block in `glyphs.json` are a draft of their own,
-and so is every other changed file. A draft's `id` is its texture's id, `font <font>`,
-`block <font> <range or title>` or the file's path. Its `state` is `added`, `changed` or `deleted`, and
-`review` is the number of the pull request that holds an older version of it. A draft that equals
-its version in a pull request is not listed.
+and so is every other changed file. A draft's `id` is its texture's id, `font <font>`, `block <font>
+<range or title>` or the file's path. Its `state` is `added`, `changed` or `deleted`, and `review`
+is the number of the pull request that holds an older version of it. A draft that equals its version
+in a pull request is not listed.
 
 ```bash
 ./gradlew -q :resource-pack:discardDraft -Pdraft=nordtal:badges/star.png
@@ -202,11 +202,11 @@ its version in a pull request is not listed.
 ./gradlew -q :resource-pack:syncReviews -Pgh=gh
 ```
 
-| task            | options                                | prints                                                                      |
-| --------------- | -------------------------------------- | --------------------------------------------------------------------------- |
-| `discardDraft`  | `draft`                                | the absolute path of each file it wrote or deleted                          |
-| `publishDrafts` | `drafts` (a comma list), `title`; `gh` | the address of the pull request                                             |
-| `syncReviews`   | `gh`                                   | one line `merged <number>` or `closed <number>` per pull request that ended |
+| task            | options                                | prints                                                                                          |
+| --------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `discardDraft`  | `draft`                                | the absolute path of each file it wrote or deleted                                              |
+| `publishDrafts` | `drafts` (a comma list), `title`; `gh` | the address of the pull request                                                                 |
+| `syncReviews`   | `gh`                                   | `merged <number>` or `closed <number>` per pull request that ended, `restored` after a put back |
 
 - `discardDraft` restores the draft's files and entries to the last commit, or to its pull request
   when one holds it.
@@ -218,15 +218,19 @@ its version in a pull request is not listed.
   in lowercase words. The commit runs `.githooks/commit-msg`, carries the name and address of the
   account that `gh` is signed in to, and is pushed to `origin`. `gh pr create` opens the pull request
   against `main`, with one line per draft as its body; when it fails, the publish deletes the pushed
-  branch again. A failed publish leaves the code points it moved in the clone. A draft that a pull request holds already gets
-  a further commit on that pull request's branch. Drafts of two pull requests are refused together.
+  branch again. A failed publish leaves the code points it moved in the clone. A draft that a pull
+  request holds already gets a further commit on that pull request's branch. Drafts of two pull
+  requests are refused together.
 - `syncReviews` asks `gh` for the state of every pull request that `publishDrafts` opened. After a
   merge it fast-forwards the clone to `origin/main` and puts every other change back on top: a file
   takes the clone's version, and `glyphs.json` takes the clone's entries onto main's. A change of the
   merged pull request that equals the commit pushed last takes main's version, so a commit a reviewer
   added before the merge stays. A pull request closed without a merge makes its changes drafts again.
 - The pull keeps the clone's changes in a stash named `nordtal-designer-pull`. A pull that fails puts
-  them back, and one that stopped halfway is put back by the next `syncReviews`.
+  them back, and one that stopped halfway is put back by the next `syncReviews`, which prints
+  `restored`. Edits made since go back on top. Edits that clash stay in the stash
+  `nordtal-designer-edits` beside the pull's, and every sync is refused until both are applied by
+  hand.
 - The clone's git directory holds the record of the open pull requests, as
   `nordtal-designer/reviews.json`, with the commit pushed last for each, so no commit holds it.
 

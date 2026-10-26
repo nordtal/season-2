@@ -35,7 +35,7 @@ object Drafts {
         val url: String,
         val branch: String,
         val drafts: List<String>,
-        val commit: String?,
+        val commit: String,
     )
 
     /** The entries of one draft in `glyphs.json`, each as JSON text, and the name the designer knows it by. */
@@ -61,7 +61,7 @@ object Drafts {
         return ids.mapNotNull { (id, files) ->
             files.sort()
             val review = reviews.lastOrNull { id in it.drafts }
-            if (review != null && same(pack, review.commit ?: "origin/${review.branch}", id, files, workParts)) return@mapNotNull null
+            if (review != null && same(pack, review.commit, id, files, workParts)) return@mapNotNull null
             val before = id in headParts || files.any { it in committed }
             val after = id in workParts || files.any { pack.resolve(it).exists() }
             Draft(
@@ -154,7 +154,7 @@ object Drafts {
                 it["url"] as String,
                 it["branch"] as String,
                 (it["drafts"] as List<*>).map(Any?::toString),
-                it["commit"] as String?,
+                it["commit"] as String,
             )
         }
     }

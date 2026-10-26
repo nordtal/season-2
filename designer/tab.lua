@@ -555,6 +555,7 @@ function tab.open(context)
       for _, line in ipairs(out) do
         local state, number = line:match("^(%a+) (%d+)$")
         if state then table.insert(ended, tr("status." .. state, number)) end
+        if line == "restored" then table.insert(ended, tr("status.restored")) end
       end
       if #ended > 0 then
         reloadThen(table.concat(ended, " "))

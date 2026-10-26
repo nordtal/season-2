@@ -273,12 +273,8 @@ class PublishTest {
         assertEquals(listOf(42), Drafts.reviews(clone.pack).map { it.number })
     }
 
-    @Test
-    fun aPullThatStoppedHalfwayIsPutBackByTheNextSync() {
-        val clone = DraftClone(root, "star@FE000")
-        clone.clone.resolve("mine.txt").writeText("the owner's own stash\n")
-        clone.git(clone.clone, "stash", "push", "-q", "--include-untracked", "-m", "mine")
-        clone.png("star", 0xFFFFFFFF.toInt())
+    /** Leaves the clone's changes in the stash of a pull that stopped halfway. */
+    private fun leaveAPullHalfway(clone: DraftClone) {
         clone.git(
             clone.clone,
             "-c",
@@ -292,11 +288,57 @@ class PublishTest {
             "-m",
             "nordtal-designer-pull",
         )
+    }
 
-        assertEquals(emptyList<String>(), publish(clone).sync())
+    @Test
+    fun aPullThatStoppedHalfwayIsPutBackByTheNextSync() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.clone.resolve("mine.txt").writeText("the owner's own stash\n")
+        clone.git(clone.clone, "stash", "push", "-q", "--include-untracked", "-m", "mine")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        leaveAPullHalfway(clone)
+
+        assertEquals(listOf("restored"), publish(clone).sync())
 
         assertEquals(listOf("nordtal:badges/star.png" to null), ids(clone))
         assertEquals("On main: mine\n", clone.git(clone.clone, "stash", "list", "--format=%gs"))
+    }
+
+    @Test
+    fun anEditMadeAfterAPullStoppedHalfwaySurvivesThePutBack() {
+        val clone = DraftClone(root, "star@FE000", "moon@FE001")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        leaveAPullHalfway(clone)
+        clone.png("moon", 0xFF00FF00.toInt())
+        val notes = clone.pack.resolve("src/assets/nordtal/lang/en_us.json")
+        notes.parentFile.mkdirs()
+        notes.writeText("{}\n")
+
+        assertEquals(listOf("restored"), publish(clone).sync())
+
+        assertEquals(
+            listOf("nordtal:badges/moon.png", "nordtal:badges/star.png", "src/assets/nordtal/lang/en_us.json"),
+            ids(clone).map { it.first },
+        )
+        assertEquals("", clone.git(clone.clone, "stash", "list"))
+    }
+
+    @Test
+    fun anEditThatClashesWithAPullStoppedHalfwayKeepsBothStashesAndIsRefused() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        leaveAPullHalfway(clone)
+        clone.png("star", 0xFF00FF00.toInt())
+
+        val refusal = assertThrows<GradleException> { publish(clone).sync() }
+
+        assertTrue("nordtal-designer-pull" in refusal.message!! && "nordtal-designer-edits" in refusal.message!!, refusal.message)
+        assertEquals(
+            "On main: nordtal-designer-edits\nOn main: nordtal-designer-pull\n",
+            clone.git(clone.clone, "stash", "list", "--format=%gs"),
+        )
+        assertEquals("", clone.git(clone.clone, "status", "--porcelain"))
+        assertThrows<GradleException> { publish(clone).sync() }
     }
 
     @Test

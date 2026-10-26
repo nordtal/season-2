@@ -82,12 +82,12 @@ class Publish(
     /**
      * Asks GitHub for the state of every pull request a publish opened, after it puts back a pull that stopped halfway.
      * A merge pulls `main` and keeps the other drafts; a close turns the pull request's changes back into drafts. Returns
-     * one line per pull request that ended, such as `merged 42`.
+     * one line per pull request that ended, such as `merged 42`, and `restored` after a put back.
      */
     fun sync(): List<String> {
-        pullStash()?.let(::putBack)
-        val reviews = Drafts.reviews(pack)
         val ended = mutableListOf<String>()
+        if (resume()) ended += "restored"
+        val reviews = Drafts.reviews(pack)
         val merged = mutableListOf<Drafts.Review>()
         val open =
             reviews.filter { review ->
@@ -122,7 +122,7 @@ class Publish(
             repository,
             listOf("-c", "user.name=$name", "-c", "user.email=$email", "stash", "push", "-q", "--include-untracked", "-m", PULL),
         )
-        val stash = pullStash()
+        val stash = named(PULL)
         if (stash == null) {
             git(repository, listOf("merge", "-q", "--ff-only", "origin/main"))
             return
@@ -150,19 +150,69 @@ class Publish(
         git(repository, listOf("stash", "drop", "-q", stash.ref))
     }
 
-    /** Puts the clone back to where it was when the pull stashed its changes, with every one of them. */
-    private fun putBack(stash: Stash) {
-        git(repository, listOf("reset", "-q", "--hard", "${stash.commit}^1"))
-        AtomicFiles.write(untracked(stash.commit).map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
-        git(repository, listOf("stash", "pop", "-q", stash.ref))
+    /**
+     * Puts back the changes of a pull that stopped halfway, with the edits made since on top, and returns whether there
+     * were any. Edits that clash with them stay in a stash of their own beside the pull's, and the sync is refused.
+     */
+    private fun resume(): Boolean {
+        named(EDITS)?.let { throw GradleException(clash(it)) }
+        val stash = named(PULL) ?: return false
+        if (git(repository, listOf("status", "--porcelain")).isBlank()) {
+            putBack(stash)
+            return true
+        }
+        val (name, email) = author()
+        git(
+            repository,
+            listOf("-c", "user.name=$name", "-c", "user.email=$email", "stash", "push", "-q", "--include-untracked", "-m", EDITS),
+        )
+        val edits = named(EDITS)!!
+        val pull = named(PULL)!!
+        putBack(pull, keep = true)
+        try {
+            git(repository, listOf("stash", "apply", "-q", edits.ref))
+        } catch (failure: Exception) {
+            clear(pull, edits)
+            throw GradleException(clash(edits), failure)
+        }
+        git(repository, listOf("stash", "drop", "-q", edits.ref))
+        git(repository, listOf("stash", "drop", "-q", named(PULL)!!.ref))
+        return true
     }
 
-    /** The stash entry of a pull, or null where there is none. */
-    private fun pullStash(): Stash? =
+    /** Why a sync is refused while the stash [edits] holds edits that clash with a pull that stopped halfway. */
+    private fun clash(edits: Stash) =
+        "The edits made while a pull stopped halfway clash with its changes: they are in the stash \"$EDITS\" (${edits.ref}), " +
+            "the pull's changes in the stash \"$PULL\". Apply both by hand and drop them."
+
+    /**
+     * Puts the clone back to where it was when the pull stashed its changes, with every one of them, and drops the stash
+     * unless [keep] is set.
+     */
+    private fun putBack(
+        stash: Stash,
+        keep: Boolean = false,
+    ) {
+        clear(stash)
+        git(repository, listOf("stash", if (keep) "apply" else "pop", "-q", stash.ref))
+    }
+
+    /** Resets the clone to the commit that [stash] was made on, without the untracked files of it and of [others]. */
+    private fun clear(
+        stash: Stash,
+        vararg others: Stash,
+    ) {
+        git(repository, listOf("reset", "-q", "--hard", "${stash.commit}^1"))
+        val files = (listOf(stash) + others).flatMap { untracked(it.commit) }.distinct()
+        AtomicFiles.write(files.map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
+    }
+
+    /** The stash entry with the message [message], or null where there is none. */
+    private fun named(message: String): Stash? =
         git(repository, listOf("stash", "list", "-z", "--format=%gd%x01%H%x01%gs"))
             .split('\u0000')
             .map { it.split('\u0001') }
-            .firstOrNull { it.size == 3 && it[2].endsWith(": $PULL") }
+            .firstOrNull { it.size == 3 && it[2].endsWith(": $message") }
             ?.let { Stash(it[0], it[1]) }
 
     /** The untracked files that the stash [commit] holds. */
@@ -199,6 +249,9 @@ class Publish(
 
 /** The message of the stash that a pull keeps the clone's changes in. */
 private const val PULL = "nordtal-designer-pull"
+
+/** The message of the stash that keeps the edits made while a pull stopped halfway. */
+private const val EDITS = "nordtal-designer-edits"
 
 /** Runs `:resource-pack:check` with the Gradle wrapper of the work tree [root]. */
 private fun checkPack(root: File) {

@@ -1193,4 +1193,18 @@ describe("the Nordtal tab", function()
     t.ctl.close()
     assert.is_false(every.running)
   end)
+
+  it("reads the pack again after a sync put back the changes of a pull that stopped halfway", function()
+    local m = dkjson.decode(draftModel)
+    m.reviews = { { number=42, url="https://github.com/nordtal/season-2/pull/42" } }
+    local t = setUp(nil, dkjson.encode(m))
+    loaded(t)
+    t.started[2].args.onstdout("restored")
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    assert.equal(":resource-pack:describePack", run(t.started[3]))
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    assert.equal("status.restored", t.dialogs[1].handlers.status.text)
+  end)
 end)

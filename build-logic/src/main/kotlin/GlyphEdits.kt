@@ -161,10 +161,8 @@ object GlyphEdits {
     }
 
     /**
-     * Gives each glyph that [main], the text of `glyphs.json` on main, lacks a code point that main has not taken: a new
-     * block that overlaps one of main moves to a free run, a glyph on a taken code moves behind its block's last glyph. A
-     * block is main's when its range and title match, or its range matches the clone's last commit. Returns each move as
-     * `font old new constant`.
+     * Gives each glyph that [main], the text of `glyphs.json` on main, lacks a code point main has not taken, as the README
+     * describes. Returns each move as `font old new constant`.
      */
     fun assignCodePoints(
         pack: File,

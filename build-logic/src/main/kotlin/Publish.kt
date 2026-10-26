@@ -144,7 +144,7 @@ class Publish(
                 if (ids.isNotEmpty()) NewTextures.edit(pack, null, 0, 0) { Drafts.apply(it, mine, ids) }
             }
         } catch (failure: Exception) {
-            putBack(stash)
+            runCatching { putBack(stash) }.onFailure { failure.addSuppressed(it) }
             throw failure
         }
         git(repository, listOf("stash", "drop", "-q", stash.ref))
@@ -172,8 +172,9 @@ class Publish(
         try {
             git(repository, listOf("stash", "apply", "-q", edits.ref))
         } catch (failure: Exception) {
-            clear(pull, edits)
-            throw GradleException(clash(edits), failure)
+            val refusal = GradleException(clash(edits), failure)
+            runCatching { clear(pull, edits) }.onFailure { refusal.addSuppressed(it) }
+            throw refusal
         }
         git(repository, listOf("stash", "drop", "-q", edits.ref))
         git(repository, listOf("stash", "drop", "-q", named(PULL)!!.ref))

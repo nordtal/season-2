@@ -273,6 +273,38 @@ class PublishTest {
         assertEquals(listOf(42), Drafts.reviews(clone.pack).map { it.number })
     }
 
+    @Test
+    fun aRollbackThatFailsAfterAFailedPullKeepsThePullsOwnFailure() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        publish(clone).publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+        clone.writeGlyphs("star@FE000", "comet@FE001")
+        clone.png("comet", 0xFFFFFFFF.toInt())
+        clone.commitOnMain("feat: sun") { pack ->
+            pack.resolve("glyphs.json").writeText(OxfmtJson.format(OxfmtJson.read(clone.glyphs("star@FE000", "sun@FE001=COMET"))))
+        }
+        clone.prState.writeText("MERGED\n")
+        clone.failHeadMove(3)
+
+        val failure = assertThrows<IllegalStateException> { publish(clone).sync() }
+
+        assertTrue("aborted by hook" in failure.suppressed.single().message!!, failure.stackTraceToString())
+    }
+
+    @Test
+    fun aRollbackThatFailsAfterAClashKeepsTheClashAsTheReason() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        leaveAPullHalfway(clone)
+        clone.png("star", 0xFF00FF00.toInt())
+        clone.failHeadMove(3)
+
+        val refusal = assertThrows<GradleException> { publish(clone).sync() }
+
+        assertTrue("nordtal-designer-edits" in refusal.message!!, refusal.stackTraceToString())
+        assertTrue("aborted by hook" in refusal.suppressed.single().message!!, refusal.stackTraceToString())
+    }
+
     /** Leaves the clone's changes in the stash of a pull that stopped halfway. */
     private fun leaveAPullHalfway(clone: DraftClone) {
         clone.git(

@@ -130,6 +130,29 @@ class DraftClone(
         git(other, "push", "-q", "origin", "HEAD:$branch")
     }
 
+    /**
+     * Makes the [nth] move of `HEAD` from now on fail, as a rollback would that cannot write the clone. A move is each
+     * reset or merge that writes `ORIG_HEAD`.
+     */
+    fun failHeadMove(nth: Int) {
+        val hooks = root.resolve("hooks")
+        hooks.mkdirs()
+        clone.resolve(".githooks/commit-msg").copyTo(hooks.resolve("commit-msg"), overwrite = true).setExecutable(true)
+        val count = root.resolve("head-moves")
+        count.writeText("0\n")
+        hooks.resolve("reference-transaction").writeText(
+            """
+            #!/bin/sh
+            [ "${'$'}1" = prepared ] && grep -q ' ORIG_HEAD${'$'}' || exit 0
+            n=${'$'}(( ${'$'}(cat '${count.absolutePath}') + 1 ))
+            echo ${'$'}n > '${count.absolutePath}'
+            [ ${'$'}n -ne $nth ]
+            """.trimIndent() + "\n",
+        )
+        hooks.resolve("reference-transaction").setExecutable(true)
+        git(clone, "config", "core.hooksPath", hooks.absolutePath)
+    }
+
     /** The text of [path] on [ref] of origin. */
     fun onOrigin(
         ref: String,

@@ -80,15 +80,17 @@ it is relative to this directory, and every code point is capital hex without `U
 fonts[]       font, rows, constant, about, blocks[]
   blocks[]    kind "block": title, range, status, about, glyphs[]
               kind "sheet": title, range, status, about, height, ascent, texture, cells[]
-  glyphs[]    code, constant, name, list, status, height, ascent, about, texture
-  cells[]     row, column, code, and for a glyph cell constant, list, status, about
+  glyphs[]    code, constant, name, list, status, effectiveStatus, height, ascent, about, texture
+  cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, scaling
 texture       id, png, aseprite, asepriteExists, width, height
 ```
 
-The `status` of a glyph or cell is its own value, null when it inherits the block's, which only the
-block holds. The `texture` of an item is the `layer0` of a `minecraft:model` in the pack, or null.
+The `status` of a glyph or cell is its own value, null when it inherits the block's, and
+`effectiveStatus` is the one that applies. The `height` and `ascent` of a cell are its block's. The
+`texture` of an item is the `layer0` of a `minecraft:model` in the pack, or null, also when it is no
+identifier.
 `width` and `height` of a texture are its pixels, or null while its PNG is missing. `animation` and `scaling` are the `animation` and
 `gui.scaling` objects of the `.png.mcmeta`, or null. Language files are not listed.
 

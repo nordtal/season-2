@@ -21,11 +21,12 @@
 -- the node selected there, and the first texture of its model that the
 -- pack holds opens in the editor.
 --
--- Below the entry the panel shows the Minecraft instance the pack is
--- installed into, which describeInstance reads after the pack. With
--- live sync on, every save installs the pack there, and a client with
--- the bridge mod reloads it. The previews of the entry go to that
--- client, or without Fabric are commands to copy.
+-- A bar along the top of the tab shows the Minecraft instance the pack
+-- is installed into, which describeInstance reads after the pack, the
+-- state of the bridge mod and the status. With live sync on, every
+-- save installs the pack there, and a client with the bridge mod
+-- reloads it. Below the entry the panel lists its previews, which go
+-- to that client, or without Fabric are commands to copy.
 --
 -- ctl.publish() asks which drafts to publish or discard. A publish
 -- runs the commit hook on its title first, and a pack with drafts or
@@ -47,7 +48,8 @@ function tab.open(context)
   local dlg, nodes, index, lists, selected, closed, model
   -- The textures and items of the client jar, read once
   local vanilla
-  local status = { text=tr("status.loading"), visible=true }
+  -- The text of the status, nil while there is none
+  local status = tr("status.loading")
   -- What the tab opened, by the filenames of its PNG and its source:
   -- { id, paths, frames } with the id of the entry's node and the count
   -- of frames of its PNG when it was opened or last saved
@@ -61,9 +63,9 @@ function tab.open(context)
   local definition
   -- Opens a texture in the editor, defined below
   local open
-  -- Where the panel last drew its fields, its margin, how far the
-  -- wheel scrolled it and the height of a line
-  local drawn
+  -- Where the panel and the bar last drew their fields, their margin,
+  -- how far the wheel scrolled the panel and the height of a line
+  local drawn, barDrawn
   local pad = 4
   local scroll, lineHeight = 0, 0
   -- synced says whether the tab asked for the pull requests since it
@@ -80,17 +82,25 @@ function tab.open(context)
   -- connection to its bridge mod with the port and token it was made
   -- for, and whether an installPack waits in the queue
   local instance, bridge, bridgeFor, installing
+  -- Whether a click on Refused reads the instance again
+  local retrying
+  -- The status that the bar showed cut and then as a tip
+  local tippedStatus
   -- What renderGlyphPreviews wrote since the pack was read, by font
   -- and code
   local rendered = {}
 
-  local function setStatus(text)
-    status = { text=text or "", visible=text ~= nil }
-    dlg:modify{ id="status", text=status.text, visible=status.visible }
-  end
-
+  -- Repaints the panel and the bar
   local function showProperties()
     dlg:repaint()
+  end
+
+  -- Sets the status. A status that the bar cuts shows whole as a tip
+  -- once its paint has measured it.
+  local function setStatus(text)
+    status = text
+    tippedStatus = nil
+    showProperties()
   end
 
   -- The rows of the selected entry as the panel lays them out
@@ -131,7 +141,7 @@ function tab.open(context)
     return info and info.font and info.entry and info.entry.code and info.font.font .. "/" .. info.entry.code or nil
   end
 
-  -- The rows of the selected entry and below them the Minecraft section
+  -- The rows of the selected entry and below them its previews
   local function rows()
     local list = entryRows()
     if #list == 0 then
@@ -140,8 +150,7 @@ function tab.open(context)
     local info = index and selected and index[selected]
     local key = glyphKey(info)
     local previews, render = modules.minecraft.previews(info, key and rendered[key], definition, tr)
-    local section = modules.minecraft.rows({ instance=instance, liveSync=preferences.liveSync ~= false,
-      bridge=bridge and bridge.state, previews=previews, render=render }, tr, api.encode)
+    local section = modules.minecraft.rows({ instance=instance, previews=previews, render=render }, tr, api.encode)
     table.move(section, 1, #section, #list + 1, list)
     return list
   end
@@ -166,6 +175,75 @@ function tab.open(context)
       if op.op == "text" then
         gc.color = op.key and color.separator_label or color.text
         gc:fillText(op.text, x, y)
+      elseif op.op == "box" then
+        gc:drawThemeRect("sunken_normal", { x=x, y=y, width=op.width, height=op.height })
+      elseif op.op == "button" then
+        gc:drawThemeRect("button_normal", { x=x, y=y, width=op.width, height=op.height })
+      elseif op.op == "check" then
+        gc:drawThemeImage(op.checked and "check_selected" or "check_normal", { x=x, y=y })
+      end
+    end
+  end
+
+  -- The colours of the bar's words, which the theme has none for.
+  -- paintBar mixes off, the grey, from two thirds of the theme's text
+  -- colour and one third of its face colour.
+  local tones = {
+    good=api.Color{ r=0x2e, g=0x8b, b=0x3c },
+    wait=api.Color{ r=0xb0, g=0x78, b=0x00 },
+    bad=api.Color{ r=0xc8, g=0x32, b=0x32 },
+  }
+
+  -- The height of the bar, which a canvas keeps from its creation. It
+  -- starts as a guess for the theme's font, and a paint that finds it
+  -- too low sets the height it measured and builds the tab again once.
+  local barHeight, grown = 32, false
+
+  -- Draws the Minecraft bar and the status on one line, centred on the
+  -- canvas's height. A canvas too low for it builds the tab again once.
+  local function paintBar(ev)
+    local gc = ev.context
+    local color = gc.theme.color
+    gc.color = color.face
+    gc:fillRect{ x=0, y=0, width=gc.width, height=gc.height }
+    local function measure(text) return gc:measureText(text).width end
+    local textHeight = gc:measureText("Ag").height
+    local text, face = color.text, color.face
+    tones.off = api.Color{ r=(2 * text.red + face.red) // 3, g=(2 * text.green + face.green) // 3,
+                           b=(2 * text.blue + face.blue) // 3 }
+    local items = modules.minecraft.bar({ instance=instance, liveSync=preferences.liveSync ~= false,
+                                          bridge=retrying and "connecting" or bridge and bridge.state }, tr)
+    if status then
+      table.insert(items, { kind="text", text=status, color="status", shrink="end", least=12, divider=true })
+    end
+    barDrawn = modules.panel.bar(items, gc.width - 2 * pad, measure, textHeight + 2, textHeight)
+    barDrawn.top = (gc.height - barDrawn.height) // 2
+    if barDrawn.height + 2 * pad > gc.height and not grown then
+      grown, barHeight = true, barDrawn.height + 2 * pad
+      local timer
+      timer = api.Timer{ interval=0, ontick=function()
+        timer:stop()
+        if not closed then ctl.setSide(preferences.treeSide) end
+      end }
+      timer:start()
+    end
+    for _, op in ipairs(barDrawn.ops) do
+      local x, y = op.x + pad, op.y + barDrawn.top
+      if op.op == "text" then
+        gc.color = op.color == "status" and color.status_bar_text or tones[op.color] or color.text
+        gc:fillText(op.text, x, y)
+        if op.color == "status" and op.cut and tippedStatus ~= status then
+          tippedStatus = status
+          local timer
+          timer = api.Timer{ interval=0, ontick=function()
+            timer:stop()
+            if status == tippedStatus then api.tip(status) end
+          end }
+          timer:start()
+        end
+      elseif op.op == "divider" then
+        gc.color = tones.off
+        gc:fillRect{ x=x, y=y, width=1, height=op.height }
       elseif op.op == "box" then
         gc:drawThemeRect("sunken_normal", { x=x, y=y, width=op.width, height=op.height })
       elseif op.op == "button" then
@@ -266,7 +344,7 @@ function tab.open(context)
         end
         err = { tostring(built) }
       end
-      -- The status label draws one line
+      -- The bar shows the status on one line
       setStatus(tr("status.failed") .. " " .. table.concat(err, " "))
       done()
     end)
@@ -427,8 +505,9 @@ function tab.open(context)
     showProperties()
   end
 
-  -- Reads the chosen Minecraft instance
-  function ctl.readInstance()
+  -- Reads the chosen Minecraft instance, then calls after(read) with
+  -- whether it was read
+  function ctl.readInstance(after)
     enqueue(function(finish)
       local process, problem = modules.pack.printed(context.bootstrap, api, "describeInstance", {}, finish)
       return process, problem
@@ -436,9 +515,14 @@ function tab.open(context)
       if read then
         showInstance(read)
       else
+        -- An instance that could not be read can still be chosen
+        instance = instance or {}
         setStatus(tr("minecraft.failed") .. " " .. table.concat(modules.pack.refusal(err), " "))
       end
-    end, function() end)
+      if after then after(read ~= nil) end
+    end, function()
+      if after then after(false) end
+    end)
   end
 
   -- Runs job, a { task, options }, for the instance with status in the
@@ -516,7 +600,8 @@ function tab.open(context)
     end, function() end)
   end
 
-  -- Takes the action of a row of the Minecraft section
+  -- Takes the action of an item of the Minecraft bar or of a preview in
+  -- the panel
   local function minecraftAction(field)
     local action = field.minecraft
     if action == "live" then
@@ -530,9 +615,23 @@ function tab.open(context)
     elseif action == "render" then
       render()
     elseif action == "retry" then
-      if bridge then bridge.close() end
-      bridge, bridgeFor = nil, nil
-      ctl.readInstance()
+      -- The bar shows Connecting while the read runs, and the refused
+      -- bridge again when it fails
+      if retrying then
+        return
+      end
+      local before = bridgeFor
+      retrying, bridgeFor = true, false
+      setStatus(tr("minecraft.checking"))
+      ctl.readInstance(function(read)
+        retrying = nil
+        if read then
+          if status == tr("minecraft.checking") then setStatus(nil) end
+        else
+          bridgeFor = before
+        end
+        showProperties()
+      end)
     elseif action == "pack" then
       installPack()
     elseif action == "bridge" then
@@ -547,7 +646,8 @@ function tab.open(context)
     elseif action == "choose" then
       local folder = api.chooseFolder{ title=tr("minecraft.choose"), path=instance and instance.instance or nil }
       if folder then
-        instanceTask({ "chooseMinecraftInstance", { minecraftInstance=folder } }, tr("minecraft.checking"), ctl.readInstance)
+        instanceTask({ "chooseMinecraftInstance", { minecraftInstance=folder } }, tr("minecraft.checking"),
+          function() ctl.readInstance() end)
       end
     end
   end
@@ -822,7 +922,8 @@ function tab.open(context)
   end
 
   -- Edits field of the selected entry, or takes an action of the
-  -- Minecraft section, which needs no entry and queues its tasks
+  -- Minecraft bar or of a preview, which needs no entry and queues its
+  -- tasks
   function ctl.edit(field)
     if type(field) == "table" and field.minecraft then
       minecraftAction(field)
@@ -915,6 +1016,25 @@ function tab.open(context)
     end
   end
 
+  local function clickBar(ev)
+    local field = barDrawn and modules.panel.hit(barDrawn, ev.x - pad, ev.y - barDrawn.top)
+    if field then
+      ctl.edit(field)
+    end
+  end
+
+  -- Shows the tip of what the pointer moved onto in the bar, once. A
+  -- canvas tells no leave, so a move over the properties panel forgets
+  -- the item last tipped.
+  local tipped
+  local function hover(ev)
+    local tip = barDrawn and modules.panel.hit(barDrawn, ev.x - pad, ev.y - barDrawn.top, "tip")
+    if tip ~= tipped then
+      tipped = tip
+      if tip then api.tip(tip) end
+    end
+  end
+
   -- Scrolls the panel three lines a step. The next paint keeps it
   -- between its first and its last row.
   local function wheel(ev)
@@ -924,6 +1044,8 @@ function tab.open(context)
 
   local function build(sprite)
     dlg = api.Dialog{ title=tr("tab.title"), tab=true, closable=false }
+    dlg:canvas{ id="bar", height=barHeight, hexpand=true, vexpand=false, onpaint=paintBar, onmousedown=clickBar, onmousemove=hover }
+    dlg:newrow()
     local function addTree()
       dlg:tree{ id="tree", nodes=nodes or {}, width=treeWidth, hexpand=false,
                 onchange=function(ev) ctl.select(ev.node) end }
@@ -938,7 +1060,7 @@ function tab.open(context)
     end
     local function addPanel()
       dlg:canvas{ id="properties", width=panelWidth, hexpand=false, onpaint=paintProperties, onmousedown=click,
-                  onwheel=wheel }
+                  onwheel=wheel, onmousemove=function() tipped = nil end }
     end
     local order = { addTree, addEditor, addPanel }
     if preferences.treeSide == "right" then
@@ -948,8 +1070,6 @@ function tab.open(context)
       if i > 1 then dlg:samerow() end
       add()
     end
-    dlg:newrow()
-    dlg:label{ id="status", text=status.text, visible=status.visible }
     if selected then
       dlg.data = { tree=selected }
     end

@@ -58,6 +58,7 @@ function init(plugin)
       Color=Color,
       Sprite=Sprite,
       alert=app.alert,
+      tip=function(text) app.tip{ text=text, duration=5 } end,
       windows=app.os.windows,
       join=join,
       read=read,

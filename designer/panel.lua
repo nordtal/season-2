@@ -9,12 +9,34 @@ local function trim(text)
   return (text:gsub("%s+$", ""))
 end
 
--- The words of a text, each with the space or slash that ends it
+-- The words of a text, each with the spaces after it. A word ends after
+-- a space, and after a punctuation mark that follows a letter. A run of
+-- marks ends the word only after its last mark. An opening mark (a
+-- quote, a bracket or a backslash), an underscore and a full stop
+-- between two letters or digits end no word.
 local function words(text)
-  local list = {}
-  for word in text:gmatch("[^%s/]*[%s/]*") do
-    if word ~= "" then table.insert(list, word) end
+  local chars = {}
+  for _, code in utf8.codes(text) do table.insert(chars, utf8.char(code)) end
+  local function kind(c)
+    if c == nil then return "end" end
+    if c:match("^%s$") then return "space" end
+    if c:match("^[\\%[{(\"'_]$") then return "open" end
+    if c:match("^%p$") then return "mark" end
+    return "letter"
   end
+  local list, word, letters = {}, "", false
+  for i, c in ipairs(chars) do
+    word = word .. c
+    local this, after = kind(c), kind(chars[i + 1])
+    local joins = c == "." and kind(chars[i - 1]) == "letter" and after == "letter"
+    local ends = this == "space" or letters and this == "mark" and after ~= "mark" and not joins
+    letters = letters or this == "letter"
+    if ends and after ~= "space" then
+      table.insert(list, word)
+      word, letters = "", false
+    end
+  end
+  if word ~= "" then table.insert(list, word) end
   return list
 end
 
@@ -113,13 +135,108 @@ function panel.layout(rows, width, measure, lineHeight, textHeight)
   return { ops=ops, hits=hits, height=y }
 end
 
--- The field of a layout that a click at x, y hits, or nil
-function panel.hit(layout, x, y)
+-- The field of a layout that a click at x, y hits, or with what="tip"
+-- the tip of what lies there, or nil
+function panel.hit(layout, x, y, what)
   for _, h in ipairs(layout.hits) do
-    if x >= h.x and x < h.x + h.width and y >= h.y and y < h.y + h.height then
-      return h.field
+    local value = h[what or "field"]
+    if value ~= nil and x >= h.x and x < h.x + h.width and y >= h.y and y < h.y + h.height then
+      return value
     end
   end
+end
+
+-- chars as a text that keeps keep of them, with "..." at its start or end
+local function clip(chars, keep, from)
+  if keep >= #chars then
+    return (table.concat(chars))
+  end
+  return from == "start" and "..." .. table.concat(chars, "", #chars - keep + 1)
+    or trim(table.concat(chars, "", 1, keep)) .. "..."
+end
+
+-- text cut to width with "..." at its start or end, keeping at least
+-- least of its characters
+local function shorten(text, width, measure, from, least)
+  local chars = {}
+  for _, code in utf8.codes(text) do table.insert(chars, utf8.char(code)) end
+  for keep = #chars - 1, least + 1, -1 do
+    local short = clip(chars, keep, from)
+    if measure(short) <= width then
+      return short
+    end
+  end
+  return (clip(chars, least, from))
+end
+
+-- What to draw for a bar of items on one line and where a click hits one: { ops, hits, height }. An item is
+-- { kind, text, value, field, tip, color, shrink, least, divider }: kind is "box", "switch", "button" or "text".
+-- An item with shrink ("start" or "end") gives up room when the line is too short: each first down to a quarter
+-- of the width, then from the last one on down to least characters, 1 unless given. Its text then loses its
+-- start or end. No item leaves the bar. A text that is shortened or runs past the bar's end has cut set and
+-- shows whole as its tip. An item with divider has a line before it, with a gap on each side.
+function panel.bar(items, width, measure, lineHeight, textHeight)
+  local sized = {}
+  for _, item in ipairs(items) do
+    local frame = (item.kind == "box" or item.kind == "button") and 2 * inset
+      or item.kind == "switch" and lineHeight + gap or 0
+    table.insert(sized, { item=item, text=item.text, frame=frame, inner=measure(item.text),
+                          lead=item.divider and inset + 1 or 0 })
+  end
+  local function excess()
+    local total = -inset
+    for _, s in ipairs(sized) do
+      total = total + inset + s.lead + s.frame + s.inner
+    end
+    return total - width
+  end
+  local function give(s, floor)
+    local inner = math.max(floor, s.inner - math.max(0, excess()))
+    local short = inner < s.inner and shorten(s.item.text, inner, measure, s.item.shrink, s.item.least or 1)
+    if short and measure(short) < s.inner then
+      s.text, s.inner = short, measure(short)
+    end
+  end
+  for _, s in ipairs(sized) do
+    if s.item.shrink then give(s, math.min(s.inner, width // 4)) end
+  end
+  for i = #sized, 1, -1 do
+    if sized[i].item.shrink then give(sized[i], 0) end
+  end
+
+  local ops, hits, x = {}, {}, 0
+  local height = textHeight + 2 * inset + buttonShadow
+  for _, s in ipairs(sized) do
+    local item = s.item
+    if #ops > 0 then
+      x = x + inset
+      if item.divider then
+        table.insert(ops, { op="divider", x=x, y=inset // 2, height=textHeight + inset })
+        x = x + 1 + inset
+      end
+    end
+    local w = s.frame + s.inner
+    local tx = x
+    if item.kind == "box" then
+      table.insert(ops, { op="box", x=x, y=0, width=w, height=textHeight + 2 * inset })
+      tx = x + inset
+    elseif item.kind == "button" then
+      table.insert(ops, { op="button", x=x, y=0, width=w, height=height })
+      tx = x + inset
+    elseif item.kind == "switch" then
+      table.insert(ops, { op="check", x=x, y=inset + (textHeight - lineHeight) // 2, size=lineHeight,
+                          checked=item.value == true })
+      tx = x + lineHeight + gap
+    end
+    local cut = s.text ~= item.text or x + w > width or nil
+    table.insert(ops, { op="text", text=s.text, x=tx, y=inset, color=item.color, cut=cut })
+    local tip = item.tip or (cut and item.text or nil)
+    if item.field ~= nil or tip then
+      table.insert(hits, { field=item.field, tip=tip, x=x, y=0, width=w, height=height })
+    end
+    x = x + w
+  end
+  return { ops=ops, hits=hits, height=height }
 end
 
 return panel

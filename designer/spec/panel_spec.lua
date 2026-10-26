@@ -83,11 +83,100 @@ describe("the properties panel", function()
       panel.wrap("src/assets/nordtal/star.png", 11, measure))
   end)
 
+  it("wraps a command only at spaces and punctuation, never inside a word or an escape", function()
+    assert.same({ "/tellraw @s", '{"text":', '"\\U000F0000"}' },
+      panel.wrap('/tellraw @s {"text":"\\U000F0000"}', 14, measure))
+  end)
+
+  it("keeps a run of punctuation marks together and ends the word after the last one", function()
+    assert.same({ "wird", "geprüft..." }, panel.wrap("wird geprüft...", 13, measure))
+  end)
+
+  it("ends no word at an underscore or at a full stop between two letters or digits", function()
+    assert.same({ "at", "0.63.0" }, panel.wrap("at 0.63.0", 6, measure))
+    assert.same({ "give", "custom_name" }, panel.wrap("give custom_name", 12, measure))
+    assert.same({ "nordtal-bridge-", "0.63.0.jar" }, panel.wrap("nordtal-bridge-0.63.0.jar", 17, measure))
+  end)
+
+  it("keeps an umlaut and an SNBT escape whole", function()
+    assert.same({ "Größe:", '"\\U000FE011"' }, panel.wrap('Größe:"\\U000FE011"', 12, measure))
+  end)
+
   it("cuts a word wider than the panel", function()
     assert.same({ "BOARD_", "CORNER" }, panel.wrap("BOARD_CORNER", 6, measure))
   end)
 
   it("keeps characters of more than one byte whole", function()
     assert.same({ "9 × 9", "px" }, panel.wrap("9 × 9 px", 5, measure))
+  end)
+
+  describe("bar", function()
+    -- A bar 100 wide, its text 1 high
+    local function bar(items, width)
+      return panel.bar(items, width or 100, measure, 2, 1)
+    end
+
+    it("puts its items on one line, each beside the one before with a gap, and their texts on one baseline", function()
+      local drawn = bar({ { kind="box", text="/mc", field="choose" }, { kind="switch", text="Sync", value=true, field="live" },
+                          { kind="button", text="Install", field="pack" }, { kind="text", text="ok", color="good" } })
+      assert.same({
+        { op="box", x=0, y=0, width=15, height=13 },
+        { op="text", text="/mc", x=6, y=6 },
+        { op="check", x=21, y=5, size=2, checked=true },
+        { op="text", text="Sync", x=26, y=6 },
+        { op="button", x=36, y=0, width=19, height=15 },
+        { op="text", text="Install", x=42, y=6 },
+        { op="text", text="ok", x=61, y=6, color="good" },
+      }, drawn.ops)
+      assert.equal(15, drawn.height)
+      assert.equal("choose", panel.hit(drawn, 1, 1))
+      assert.equal("live", panel.hit(drawn, 29, 6))
+      assert.equal("pack", panel.hit(drawn, 54, 14))
+      assert.is_nil(panel.hit(drawn, 62, 6))
+    end)
+
+    it("keeps the text of a box and of a button inside its edge, with the same gap above as at the sides", function()
+      local drawn = bar({ { kind="button", text="Install" } })
+      local frame, text = drawn.ops[1], drawn.ops[2]
+      assert.equal(text.x - frame.x, text.y - frame.y)
+      assert.equal(frame.x + frame.width - (text.x + 7), text.y - frame.y)
+    end)
+
+    it("shortens the items that may shrink to a quarter of the bar each, and gives a shortened one its whole text as a tip", function()
+      local drawn = bar({ { kind="box", text="/Users/me/mc/fabric", field="choose", shrink="start" },
+                          { kind="text", text="The change was refused", shrink="end" } }, 40)
+      assert.same({ op="box", x=0, y=0, width=22, height=13 }, drawn.ops[1])
+      assert.same({ op="text", text=".../fabric", x=6, y=6, cut=true }, drawn.ops[2])
+      assert.same({ op="text", text="The chang...", x=28, y=6, cut=true }, drawn.ops[3])
+      assert.equal("/Users/me/mc/fabric", panel.hit(drawn, 1, 1, "tip"))
+      assert.equal("The change was refused", panel.hit(drawn, 30, 6, "tip"))
+    end)
+
+    it("keeps each item that may shrink at its least characters and marks a text that the bar's end cuts", function()
+      local drawn = bar({ { kind="box", text="/Users/me/mc/fabric", field="choose", shrink="start", least=4 },
+                          { kind="button", text="Install", field="pack" },
+                          { kind="text", text="The change was refused", shrink="end", least=6 } }, 30)
+      assert.same({ op="box", x=0, y=0, width=19, height=13 }, drawn.ops[1])
+      assert.same({ op="text", text="...bric", x=6, y=6, cut=true }, drawn.ops[2])
+      assert.same({ op="text", text="The ch...", x=50, y=6, cut=true }, drawn.ops[5])
+      assert.equal("choose", panel.hit(drawn, 1, 1))
+      assert.equal("The change was refused", panel.hit(drawn, 51, 6, "tip"))
+      -- A text that fits whole but runs past the end of the bar is cut too
+      drawn = bar({ { kind="button", text="Install" }, { kind="text", text="ok", shrink="end", least=6 } }, 20)
+      assert.same({ op="text", text="ok", x=25, y=6, cut=true }, drawn.ops[3])
+      assert.equal("ok", panel.hit(drawn, 25, 6, "tip"))
+    end)
+
+    it("draws a divider with a gap on each side before an item that asks for one", function()
+      local drawn = bar({ { kind="text", text="ok", color="good" }, { kind="text", text="Saved", divider=true } })
+      assert.same({ op="divider", x=8, y=3, height=7 }, drawn.ops[2])
+      assert.same({ op="text", text="Saved", x=15, y=6 }, drawn.ops[3])
+    end)
+
+    it("shows the tip of an item that has one", function()
+      local drawn = bar({ { kind="text", text="refused", color="bad", tip="Minecraft refused the token." } })
+      assert.equal("Minecraft refused the token.", panel.hit(drawn, 1, 6, "tip"))
+      assert.is_nil(panel.hit(drawn, 1, 6))
+    end)
   end)
 end)

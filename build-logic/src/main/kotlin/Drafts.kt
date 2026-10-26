@@ -214,8 +214,9 @@ object Drafts {
         val written = if (keep == "main") restore(pack, main, draft.files) else emptyList()
         val work = OxfmtJson.read(pack.resolve(GLYPHS)) as Map<*, *>
         val merge = merge(base?.let { glyphs(pack, it) }, work, glyphs(pack, main), id, keep, fields)
+        val edited = NewTextures.edit(pack, null, 0, 0) { write(it, merge, id) }
         writeBases(pack, bases(pack) + (id to main))
-        return written + NewTextures.edit(pack, null, 0, 0) { write(it, merge, id) }
+        return written + edited
     }
 
     /** Writes main's version of each file of the conflict of the draft [id] under `build/conflict/` and returns them. */

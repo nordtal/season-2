@@ -512,7 +512,7 @@ function tab.open(context)
       if not answer then
         return
       end
-      local sprite = dlg.data.editor
+      local sprite = selected == id and dlg.data.editor or nil
       write({ "resolveConflict", { draft=draft.id, keep=answer.keep,
                                    fields=next(answer.fields) and api.encode(answer.fields) or nil } }, function()
         if answer.keep ~= "main" then return end

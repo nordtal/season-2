@@ -127,6 +127,21 @@ class ConflictsTest {
     }
 
     @Test
+    fun aResolveThatTheGlyphRulesRefuseKeepsTheConflict() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.editBadge(clone.pack, "FE000", "about", "Ours.")
+        clone.commitOnMain("docs: the star is described") {
+            clone.editBadge(it, "FE000", "about", "Theirs.")
+            clone.editBadge(it, "FE000", "status", "lost")
+        }
+        fetch(clone)
+
+        assertThrows<IllegalStateException> { Drafts.resolve(clone.pack, star, null, mapOf("about" to "clone")) }
+
+        assertEquals(listOf("about"), draft(clone).conflict?.fields?.map { it.name })
+    }
+
+    @Test
     fun aResolvedConflictComesBackOnlyWhenMainChangesTheDraftAgain() {
         val clone = starOnBothSides()
 

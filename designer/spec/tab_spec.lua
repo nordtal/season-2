@@ -1278,6 +1278,28 @@ describe("the Nordtal tab", function()
     assert.equal(t.open[#t.open], dlg.data.editor)
   end)
 
+  it("keeps the texture of another entry open that the designer chose while a conflict was read", function()
+    local m = dkjson.decode(draftModel)
+    m.drafts[1].conflict = { files={ "src/assets/nordtal/textures/badges/star.png" }, fields={} }
+    local t = setUp(nil, dkjson.encode(m))
+    local dlg = loaded(t)
+    synced(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    click(dlg, "properties.resolve")
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local other = dlg.data.editor
+    t.dialogs.answer = function(d) d.data = { keep_clone=false, keep_main=true, ok=true } end
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    t.started[4].isRunning = false
+    t.started[4].args.onexit(0)
+    assert.truthy(other)
+    assert.equal(other, dlg.data.editor)
+    for _, entry in ipairs(t.log) do
+      assert.are_not.same({ "close", other.filename }, entry)
+    end
+  end)
+
   it("shows the pull request of a change in review with its comments, and opens it on GitHub", function()
     local m = dkjson.decode(model)
     m.fonts[1].blocks[1].glyphs[1].texture.review = 42

@@ -264,8 +264,10 @@ required value is still missing, such as `block_state_property` after a new prop
   a reference into `minecraft` passes there, and `writeItem` is what checks it against the jar.
 - An import reads a `.bbmodel` project of the format Java Block/Item, with its textures embedded,
   and converts it as Blockbench's export would: cubes with their rotation, faces, textures and
-  `display`. A mesh is refused. It also reads a model that Blockbench exported as JSON, whose textures
-  lie beside it as PNG files.
+  `display`. An element that is not exported is left out, and its light is kept within 0 to 15. A
+  mesh, an element outside -16 to 32, a face without UV and a texture whose name no texture path can
+  hold are refused, as are two textures that would be the same file. It also reads a model that
+  Blockbench exported as JSON, whose textures lie beside it as PNG files.
 - An import writes the model at `id` under `models/` and sets the object at `at` of `item` to a
   `minecraft:model` that draws it. Each texture goes, with its `.mcmeta`, into the folder of the model
   under `textures/` under its name in lower case, and its reference is rewritten to the namespace of

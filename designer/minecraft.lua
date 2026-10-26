@@ -17,10 +17,12 @@ function minecraft.length(text)
 end
 
 -- The commands that show request; the JSON of a text component is
--- valid SNBT, so encode writes both
+-- valid SNBT, so encode writes both. A bare string is written as an
+-- object, since Aseprite's json.encode writes tables only.
 function minecraft.commands(request, encode)
   local op = request.op
-  local text = request.text ~= nil and encode(request.text) or nil
+  local component = type(request.text) == "string" and { text=request.text } or request.text
+  local text = component ~= nil and encode(component) or nil
   if op == "chat" then
     return { "/tellraw @s " .. text }
   elseif op == "actionbar" or op == "title" then
@@ -98,7 +100,7 @@ function minecraft.rows(view, tr, encode)
   table.insert(list, { text=tr("minecraft.previews"), value=tr(fabric and "minecraft.send" or "minecraft.copy") })
   for _, preview in ipairs(previews) do
     if fabric then
-      table.insert(list, { value=preview.label, field={ minecraft="preview", requests=preview.requests } })
+      table.insert(list, { text=preview.label, field={ minecraft="preview", requests=preview.requests }, kind="button" })
     else
       table.insert(list, { value=preview.label })
       for _, request in ipairs(preview.requests) do

@@ -30,6 +30,11 @@ describe("minecraft", function()
     assert.same({ "/setblock ^ ^ ^2 minecraft:stone" }, minecraft.commands({ op="block", block="minecraft:stone" }, encode))
   end)
 
+  it("writes a text that is a bare string as an object, which Aseprite's json.encode writes", function()
+    local function tables(value) return type(value) == "table" and encode(value) or nil end
+    assert.same({ '/tellraw @s {"text":"\u{F0000}"}' }, minecraft.commands({ op="chat", text="\u{F0000}" }, tables))
+  end)
+
   it("asks for a glyph's previews to be rendered first, then shows it alone and in each place that draws it", function()
     local list, render = minecraft.previews(glyph(), nil, nil, tr)
     assert.same({}, list)
@@ -84,7 +89,7 @@ describe("minecraft", function()
     }, rows)
   end)
 
-  it("shows the bridge with Fabric, and each preview as a box that sends it", function()
+  it("shows the bridge with Fabric, and each preview as a button that sends it", function()
     local requests = { { op="give", item="minecraft:apple" } }
     local rows = minecraft.rows({ instance={ instance="/i", fabric=true }, liveSync=false, bridge="connected",
                                   previews={ { label="apple", requests=requests } }, render=false }, tr, encode)
@@ -95,7 +100,7 @@ describe("minecraft", function()
       { text="minecraft.install_bridge", field={ minecraft="bridge" }, kind="button" },
       { text="minecraft.bridge", value="minecraft.bridge_connected" },
       { text="minecraft.previews", value="minecraft.send" },
-      { value="apple", field={ minecraft="preview", requests=requests } },
+      { text="apple", field={ minecraft="preview", requests=requests }, kind="button" },
     }, rows)
 
     rows = minecraft.rows({ instance={ instance="/i", fabric=false }, liveSync=true, previews={}, render=true }, tr, encode)

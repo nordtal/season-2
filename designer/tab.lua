@@ -149,10 +149,11 @@ function tab.open(context)
     gc.color = color.face
     gc:fillRect{ x=0, y=0, width=gc.width, height=gc.height }
     local function measure(text) return gc:measureText(text).width end
-    lineHeight = gc:measureText("Ag").height + 2
+    local textHeight = gc:measureText("Ag").height
+    lineHeight = textHeight + 2
     local width = gc.width - 2 * pad
     local list = rows()
-    drawn = modules.panel.layout(list, width, measure, lineHeight)
+    drawn = modules.panel.layout(list, width, measure, lineHeight, textHeight)
     scroll = math.max(0, math.min(scroll, drawn.height + 2 * pad - gc.height))
     for _, op in ipairs(drawn.ops) do
       local x, y = op.x + pad, op.y + pad - scroll

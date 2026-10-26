@@ -689,8 +689,8 @@ describe("the Nordtal tab", function()
     dlg.handlers.properties.onwheel({ deltaY=1000 })
     _, at = texts(dlg, 20)
     assert.is_true(at["properties.font"].y < 0)
-    -- The last row, the button of the previews, is 9 high with its text 3 below its top, and ends at the margin
-    assert.equal(20 - 4 - 9 + 3, at["minecraft.render"].y)
+    -- The last row, the button of the previews, is 15 high with its text 6 below its top, and ends at the margin
+    assert.equal(20 - 4 - 15 + 6, at["minecraft.render"].y)
     click(dlg, "properties.delete", 20)
     assert.same({ "alert", "properties.delete_confirm star" }, t.log[#t.log])
     dlg.handlers.properties.onwheel({ deltaY=-1000 })

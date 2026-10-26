@@ -104,28 +104,40 @@ class Publish(
 
     /**
      * Moves the clone to `origin/main` and puts every local change back on top of it. A file both changed keeps the
-     * clone's version; `glyphs.json` takes the clone's entries onto main's.
+     * clone's version; `glyphs.json` takes the clone's entries onto main's. A pull that fails leaves the clone as it was.
      */
     private fun pull() {
         git(repository, listOf("fetch", "-q", "origin"))
+        val head = git(repository, listOf("rev-parse", "HEAD")).trim()
         val before = stash()
         val (name, email) = author()
         git(repository, listOf("-c", "user.name=$name", "-c", "user.email=$email", "stash", "push", "-q", "--include-untracked"))
         val stash = stash()?.takeIf { it != before }
-        git(repository, listOf("merge", "-q", "--ff-only", "origin/main"))
-        if (stash == null) return
-        val glyphs = pack.resolve("glyphs.json").relativeTo(repository).invariantSeparatorsPath
-        val changed = paths(listOf("diff", "--name-only", "-z", "$stash^1", stash))
+        if (stash == null) {
+            git(repository, listOf("merge", "-q", "--ff-only", "origin/main"))
+            return
+        }
         val untracked = runCatching { paths(listOf("ls-tree", "-r", "-z", "--name-only", "$stash^3")) }.getOrDefault(emptyList())
-        val kept = paths(listOf("ls-tree", "-r", "-z", "--name-only", stash)).toSet()
-        val (restored, deleted) = (changed - glyphs).partition { it in kept }
-        if (restored.isNotEmpty()) git(repository, listOf("restore", "--source=$stash", "--worktree", "--") + restored)
-        if (untracked.isNotEmpty()) git(repository, listOf("restore", "--source=$stash^3", "--worktree", "--") + untracked)
-        AtomicFiles.write(deleted.map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
-        if (glyphs in changed) {
-            val mine = Drafts.glyphs(pack, stash)
-            val ids = Drafts.changedIds(Drafts.glyphs(pack, "$stash^1"), mine)
-            NewTextures.edit(pack, null, 0, 0) { Drafts.apply(it, mine, ids) }
+        try {
+            git(repository, listOf("merge", "-q", "--ff-only", "origin/main"))
+            val glyphs = pack.resolve("glyphs.json").relativeTo(repository).invariantSeparatorsPath
+            val changed = paths(listOf("diff", "--name-only", "-z", "$stash^1", stash))
+            val kept = paths(listOf("ls-tree", "-r", "-z", "--name-only", stash)).toSet()
+            val (restored, deleted) = (changed - glyphs).partition { it in kept }
+            if (restored.isNotEmpty()) git(repository, listOf("restore", "--source=$stash", "--worktree", "--") + restored)
+            if (untracked.isNotEmpty()) git(repository, listOf("restore", "--source=$stash^3", "--worktree", "--") + untracked)
+            AtomicFiles.write(deleted.map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
+            if (glyphs in changed) {
+                val mine = Drafts.glyphs(pack, stash)
+                val ids = Drafts.changedIds(Drafts.glyphs(pack, "$stash^1"), mine)
+                NewTextures.edit(pack, null, 0, 0) { Drafts.apply(it, mine, ids) }
+            }
+        } catch (failure: Exception) {
+            // The clone goes back to where it was, with every draft, so the next sync tries again.
+            git(repository, listOf("reset", "-q", "--hard", head))
+            AtomicFiles.write(untracked.map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
+            git(repository, listOf("stash", "pop", "-q"))
+            throw failure
         }
         git(repository, listOf("stash", "drop", "-q"))
     }

@@ -144,6 +144,27 @@ class PublishTest {
     }
 
     @Test
+    fun aPullThatFailsPutsEveryDraftBack() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.clone.resolve("notes.txt").writeText("only here\n")
+        clone.commitAll("docs: notes")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        clone.writeGlyphs("star@FE000", "comet@FE001")
+        clone.png("comet", 0xFFFFFFFF.toInt())
+        publish(clone).publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+        clone.git(clone.origin, "update-ref", "refs/heads/main", "designer/the-star-is-white")
+        clone.prState.writeText("MERGED\n")
+        val before = ids(clone)
+
+        assertThrows<GradleException> { publish(clone).sync() }
+
+        assertEquals(listOf("nordtal:badges/comet.png" to null), before)
+        assertEquals(before, ids(clone))
+        assertEquals("", clone.git(clone.clone, "stash", "list"))
+        assertEquals(listOf(42), Drafts.reviews(clone.pack).map { it.number })
+    }
+
+    @Test
     fun aPullRequestClosedWithoutAMergeTurnsItsChangesBackIntoDrafts() {
         val clone = DraftClone(root, "star@FE000")
         clone.png("star", 0xFFFFFFFF.toInt())

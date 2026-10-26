@@ -26,11 +26,14 @@ class Publish(
     ): String {
         sync()
         git(repository, listOf("fetch", "-q", "origin"))
-        GlyphEdits.assignCodePoints(pack, git(pack, listOf("show", "origin/main:./glyphs.json")))
+        val main = git(repository, listOf("rev-parse", "origin/main")).trim()
+        GlyphEdits.assignCodePoints(pack, git(pack, listOf("show", "$main:./glyphs.json")))
         val drafts = Drafts.list(pack).filter { it.id in ids }
         require(drafts.isNotEmpty() && drafts.size == ids.toSet().size) {
             "${ids.toSet() - drafts.map { it.id }.toSet()} are no drafts."
         }
+        val conflicts = drafts.filter { it.conflict != null }.map { it.label }
+        require(conflicts.isEmpty()) { "Main changed ${conflicts.joinToString()} too; resolve each conflict before the publish." }
         val reviews = Drafts.reviews(pack)
         val held = drafts.mapNotNull { it.review }.distinct()
         require(held.size <= 1) { "The chosen drafts are in the pull requests ${held.joinToString()}; publish each one's on its own." }
@@ -43,7 +46,7 @@ class Publish(
             try {
                 git(repository, listOf("worktree", "add", "-q", "--detach", work.absolutePath, "origin/${review?.branch ?: "main"}"))
                 val path = pack.relativeTo(repository).invariantSeparatorsPath
-                Drafts.copy(pack, work.resolve(path), drafts)
+                Drafts.copy(pack, work.resolve(path), drafts, merge = review == null)
                 check(work)
                 git(work, listOf("add", "-A", "--", path))
                 git(work, listOf("-c", "user.name=$name", "-c", "user.email=$email", "commit", "-q", "-m", title))
@@ -59,6 +62,7 @@ class Publish(
         val number = url.substringAfterLast('/').toInt()
         val heldIds = (review?.drafts.orEmpty() + ids).distinct()
         Drafts.writeReviews(pack, reviews.filter { it.number != number } + Drafts.Review(number, url, branch, heldIds, commit))
+        Drafts.rebase(pack, ids.toSet(), main)
         return url
     }
 
@@ -80,26 +84,100 @@ class Publish(
     }
 
     /**
-     * Asks GitHub for the state of every pull request a publish opened, after it puts back a pull that stopped halfway.
-     * A merge pulls `main` and keeps the other drafts; a close turns the pull request's changes back into drafts. Returns
-     * one line per pull request that ended, such as `merged 42`, and `restored` after a put back.
+     * Fetches main and asks GitHub for the state, review and checks of every pull request a publish opened, after it puts
+     * back a pull that stopped halfway. A merge pulls `main`; a close turns the pull request's changes back into drafts.
+     * Returns a line per change: `merged 42`, `closed 42`, `reviewed 42`, `unanswered 42` where GitHub did not answer,
+     * `moved` for main and `restored` after a put back.
      */
     fun sync(): List<String> {
         val ended = mutableListOf<String>()
         if (resume()) ended += "restored"
+        val before = runCatching { git(repository, listOf("rev-parse", "-q", "--verify", "origin/main")) }.getOrNull()
+        try {
+            git(repository, listOf("fetch", "-q", "origin"))
+        } catch (failure: GradleException) {
+            throw GradleException("origin could not be fetched: ${failure.message}", failure)
+        }
+        if (git(repository, listOf("rev-parse", "origin/main")) != before) ended += "moved"
         val reviews = Drafts.reviews(pack)
         val merged = mutableListOf<Drafts.Review>()
         val open =
-            reviews.filter { review ->
-                when (run(gh, repository, listOf("pr", "view", review.number.toString(), "--json", "state", "--jq", ".state")).trim()) {
-                    "MERGED" -> false.also { ended += "merged ${review.number}" }.also { merged += review }
-                    "CLOSED" -> false.also { ended += "closed ${review.number}" }
-                    else -> true
+            reviews.mapNotNull { review ->
+                val answer =
+                    runCatching {
+                        val pr = view(review.number)
+                        pr["state"] to if (pr["state"] == "MERGED" || pr["state"] == "CLOSED") review else reviewed(review, pr)
+                    }.getOrNull()
+                when (answer?.first) {
+                    null -> review.also { ended += "unanswered ${review.number}" }
+                    "MERGED" -> null.also { ended += "merged ${review.number}" }.also { merged += review }
+                    "CLOSED" -> null.also { ended += "closed ${review.number}" }
+                    else -> answer.second.also { if (it != review) ended += "reviewed ${review.number}" }
                 }
             }
         if (merged.isNotEmpty()) pull(merged)
-        if (open.size != reviews.size) Drafts.writeReviews(pack, open)
+        if (open != reviews) Drafts.writeReviews(pack, open)
         return ended
+    }
+
+    /** The state, review decision, checks and reviews of the pull request [number]. */
+    private fun view(number: Int): Map<*, *> =
+        JsonSlurper().parseText(
+            run(gh, repository, listOf("pr", "view", number.toString(), "--json", "state,reviewDecision,statusCheckRollup,reviews")),
+        ) as Map<*, *>
+
+    /** [review] with the decision, the checks and the comments of [pr], its pull request as GitHub shows it. */
+    private fun reviewed(
+        review: Drafts.Review,
+        pr: Map<*, *>,
+    ): Drafts.Review {
+        val checks = (pr["statusCheckRollup"] as List<*>?).orEmpty().map { it as Map<*, *> }
+        val outcomes = checks.map { (it["conclusion"] ?: it["state"]).toString() }
+        val lines =
+            JsonSlurper().parseText(
+                run(gh, repository, listOf("api", "repos/{owner}/{repo}/pulls/${review.number}/comments?per_page=100")),
+            ) as List<*>
+        val comments =
+            (pr["reviews"] as List<*>?).orEmpty().map { it as Map<*, *> }.filter { !(it["body"] as String?).isNullOrBlank() }.map {
+                Drafts.Comment(
+                    ((it["author"] as Map<*, *>?)?.get("login") ?: "").toString(),
+                    shortened(it["body"] as String),
+                    null,
+                    review.url,
+                )
+            } +
+                lines.map { it as Map<*, *> }.map {
+                    Drafts.Comment(
+                        ((it["user"] as Map<*, *>?)?.get("login") ?: "").toString(),
+                        shortened(it["body"] as String? ?: ""),
+                        it["path"] as String?,
+                        it["html_url"] as String? ?: review.url,
+                    )
+                }
+        return review.copy(
+            decision = (pr["reviewDecision"] as String?)?.takeIf { it.isNotEmpty() },
+            checks =
+                when {
+                    checks.isEmpty() -> null
+                    outcomes.any { it in FAILED } -> "failure"
+                    checks.any { (it["status"] ?: "COMPLETED") != "COMPLETED" } || outcomes.any { it in PENDING } -> "pending"
+                    else -> "success"
+                },
+            comments = comments,
+        )
+    }
+
+    /** The text of a comment's [body] without its markup, hidden parts and folded details, cut to a few lines. */
+    private fun shortened(body: String): String {
+        val text =
+            body
+                .replace(Regex("(?s)<!--.*?-->|<details>.*?</details>"), " ")
+                .replace(Regex("<[^>]+>|[*`#]"), "")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+        if (text.length <= COMMENT) return text
+        val end = if (text[COMMENT - 2].isHighSurrogate()) COMMENT - 2 else COMMENT - 1
+        return text.take(end).trimEnd() + "…"
     }
 
     /** A stash entry: [ref] such as `stash@{0}` for pop and drop, [commit] for its content. */
@@ -109,14 +187,16 @@ class Publish(
     )
 
     /**
-     * Moves the clone to `origin/main` and puts every local change back on top of it. A draft of a [merged] pull request
-     * that equals what was last pushed takes main's version. A pull that fails leaves the clone as it was.
+     * Moves the clone to `origin/main` and puts every local change back on top of it, with main's changes to its entries
+     * merged field by field. A draft of a [merged] pull request that equals what was last pushed takes main's version.
+     * A draft in conflict with main keeps its base, so the conflict stays. A pull that fails leaves the clone as it was.
      */
     private fun pull(merged: List<Drafts.Review>) {
-        git(repository, listOf("fetch", "-q", "origin"))
         val taken = merged.flatMap { it.drafts }.toSet() - Drafts.ids(pack)
         val prefix = pack.relativeTo(repository).invariantSeparatorsPath
         val skipped = Drafts.files(pack, taken).map { "$prefix/$it" }.toSet()
+        val drafts = Drafts.list(pack)
+        val bases = drafts.mapNotNull { draft -> Drafts.base(pack, draft.id)?.let { draft.id to it } }.toMap()
         val (name, email) = author()
         git(
             repository,
@@ -125,7 +205,7 @@ class Publish(
         val stash = named(PULL)
         if (stash == null) {
             git(repository, listOf("merge", "-q", "--ff-only", "origin/main"))
-            return
+            return Drafts.writeBases(pack, emptyMap())
         }
         val commit = stash.commit
         try {
@@ -140,14 +220,27 @@ class Publish(
             AtomicFiles.write(deleted.map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
             if (glyphs in changed) {
                 val mine = Drafts.glyphs(pack, commit)
+                val main = Drafts.glyphs(pack, "HEAD")
                 val ids = Drafts.changedIds(Drafts.glyphs(pack, "$commit^1"), mine) - taken
-                if (ids.isNotEmpty()) NewTextures.edit(pack, null, 0, 0) { Drafts.apply(it, mine, ids) }
+                if (ids.isNotEmpty()) {
+                    NewTextures.edit(pack, null, 0, 0) { root ->
+                        ids.forEach { Drafts.write(root, Drafts.merge(Drafts.glyphs(pack, bases[it] ?: "$commit^1"), mine, main, it), it) }
+                    }
+                }
             }
         } catch (failure: Exception) {
-            putBack(stash)
+            runCatching { putBack(stash) }.onFailure { failure.addSuppressed(it) }
             throw failure
         }
         git(repository, listOf("stash", "drop", "-q", stash.ref))
+        Drafts.writeBases(
+            pack,
+            drafts
+                .filter { it.conflict != null }
+                .mapNotNull { draft ->
+                    bases[draft.id]?.let { draft.id to it }
+                }.toMap(),
+        )
     }
 
     /**
@@ -172,8 +265,9 @@ class Publish(
         try {
             git(repository, listOf("stash", "apply", "-q", edits.ref))
         } catch (failure: Exception) {
-            clear(pull, edits)
-            throw GradleException(clash(edits), failure)
+            val refusal = GradleException(clash(edits), failure)
+            runCatching { clear(pull, edits) }.onFailure { refusal.addSuppressed(it) }
+            throw refusal
         }
         git(repository, listOf("stash", "drop", "-q", edits.ref))
         git(repository, listOf("stash", "drop", "-q", named(PULL)!!.ref))
@@ -246,6 +340,15 @@ class Publish(
             .first { runCatching { git(repository, listOf("rev-parse", "-q", "--verify", "refs/remotes/origin/$it")) }.isFailure }
     }
 }
+
+/** The outcomes of a check that fail it, a check run's conclusion or a commit status's state. */
+private val FAILED = setOf("FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE")
+
+/** The states of a commit status that is not done yet. */
+private val PENDING = setOf("PENDING", "EXPECTED")
+
+/** How many characters of a review comment the designer shows. */
+private const val COMMENT = 280
 
 /** The message of the stash that a pull keeps the clone's changes in. */
 private const val PULL = "nordtal-designer-pull"

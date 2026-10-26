@@ -185,4 +185,52 @@ describe("drafts", function()
     assert.same({ discard={ "nordtal:badges/moon.png" } }, answer)
     assert.equal("publish.discard_confirm moon", asked)
   end)
+
+  it("leaves a draft with a conflict unchosen, and refuses it when the designer chooses it", function()
+    local moon = draft("moon", "changed")
+    moon.conflict = { files={ "src/moon.png" }, fields={} }
+    local Dialog, shown = fakeDialog({
+      function(d) d.data = { draft2=true, publish=true } end,
+      function(d) d.data = { cancel=true } end,
+    })
+    local checked = false
+    drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed"), moon }, check=function() checked = true return true end }
+    assert.same({ "publish.draft_conflict moon drafts.changed", false },
+      { shown[1].handlers.draft2.text, shown[1].handlers.draft2.selected })
+    assert.equal("feat(resource-pack): the pack changes star", shown[1].handlers.title.text)
+    assert.is_false(checked)
+    assert.equal("publish.conflict moon", shown[2].handlers.refusal1.text)
+  end)
+
+  it("lists a draft's conflict with the button that resolves it, and the pull request that holds the entry", function()
+    local info = { kind="glyph", entry={}, texture={ id="nordtal:badges/moon.png", draft="nordtal:badges/moon.png", review=42 } }
+    local model = {
+      drafts={ { id="nordtal:badges/moon.png", label="moon", state="changed",
+                 conflict={ files={ "src/moon.png" }, fields={ { name="about", clone="\"a\"", main="\"b\"" } } } } },
+      reviews={ { number=42, url="https://github.com/nordtal/season-2/pull/42", decision="CHANGES_REQUESTED", checks="failure",
+                  comments={ { author="ana", body="Too bright.", path="resource-pack/src/moon.png", url="u1" },
+                             { author="bo", body="Fine otherwise." } } } },
+    }
+    assert.same({
+      { text="properties.conflict", value="src/moon.png, about" },
+      { text="properties.resolve", field="resolve", kind="button" },
+      { text="properties.discard", field="discard", kind="button" },
+      { text="properties.review", value="review.changes_requested 42" },
+      { text="properties.checks", value="checks.failure" },
+      { text="review.comment_at ana moon.png", value="Too bright." },
+      { text="bo", value="Fine otherwise." },
+      { text="properties.github", field="github", kind="button" },
+    }, drafts.rows(model, info, tr))
+  end)
+
+  it("shows an open pull request without a decision or checks, and nothing for an entry that is neither a draft nor in review", function()
+    local info = { kind="block", entry={ review=7 } }
+    local model = { reviews={ { number=7, url="https://github.com/nordtal/season-2/pull/7", comments={} } } }
+    assert.same({
+      { text="properties.review", value="review.open 7" },
+      { text="properties.github", field="github", kind="button" },
+    }, drafts.rows(model, info, tr))
+    assert.same({}, drafts.rows(model, { kind="block", entry={} }, tr))
+    assert.equal("https://github.com/nordtal/season-2/pull/7", drafts.reviewOf(model, info).url)
+  end)
 end)

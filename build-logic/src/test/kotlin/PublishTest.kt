@@ -245,7 +245,7 @@ class PublishTest {
         clone.git(clone.origin, "update-ref", "refs/heads/main", branch)
         clone.prState.writeText("MERGED\n")
 
-        assertEquals(listOf("merged 42"), publish(clone).sync())
+        assertEquals(listOf("moved", "merged 42"), publish(clone).sync())
 
         assertEquals(clone.git(clone.origin, "rev-parse", "main:$starPng"), clone.git(clone.clone, "hash-object", starPng))
         assertEquals(emptyList<Pair<String, Int?>>(), ids(clone))
@@ -271,6 +271,135 @@ class PublishTest {
         assertEquals(listOf("nordtal:badges/comet.png" to null), ids(clone))
         assertEquals("", clone.git(clone.clone, "stash", "list"))
         assertEquals(listOf(42), Drafts.reviews(clone.pack).map { it.number })
+    }
+
+    @Test
+    fun aRollbackThatFailsAfterAFailedPullKeepsThePullsOwnFailure() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        publish(clone).publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+        clone.writeGlyphs("star@FE000", "comet@FE001")
+        clone.png("comet", 0xFFFFFFFF.toInt())
+        clone.commitOnMain("feat: sun") { pack ->
+            pack.resolve("glyphs.json").writeText(OxfmtJson.format(OxfmtJson.read(clone.glyphs("star@FE000", "sun@FE001=COMET"))))
+        }
+        clone.prState.writeText("MERGED\n")
+        clone.failHeadMove(3)
+
+        val failure = assertThrows<IllegalStateException> { publish(clone).sync() }
+
+        assertTrue("`git reset" in failure.suppressed.single().message!!, failure.stackTraceToString())
+    }
+
+    @Test
+    fun aRollbackThatFailsAfterAClashKeepsTheClashAsTheReason() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        leaveAPullHalfway(clone)
+        clone.png("star", 0xFF00FF00.toInt())
+        clone.failHeadMove(3)
+
+        val refusal = assertThrows<GradleException> { publish(clone).sync() }
+
+        assertTrue("nordtal-designer-edits" in refusal.message!!, refusal.stackTraceToString())
+        assertTrue("`git reset" in refusal.suppressed.single().message!!, refusal.stackTraceToString())
+    }
+
+    @Test
+    fun aSyncKeepsTheReviewDecisionTheChecksAndTheCommentsOfEachPullRequest() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        publish(clone).publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+        clone.prView.writeText(
+            """
+            "reviewDecision": "CHANGES_REQUESTED",
+            "statusCheckRollup": [
+              { "__typename": "CheckRun", "name": "build", "status": "COMPLETED", "conclusion": "FAILURE" },
+              { "__typename": "StatusContext", "context": "CodeRabbit", "state": "SUCCESS" }
+            ],
+            "reviews": [
+              { "author": { "login": "rabbit" }, "body": "<!-- hidden -->**Looks** fine.<details><summary>More</summary>long</details>" },
+              { "author": { "login": "owner" }, "body": "" }
+            ]
+            """.trimIndent(),
+        )
+        clone.prComments.writeText(
+            """[{ "user": { "login": "owner" }, "body": "Brighter.", "path": "$starPng", "html_url": "https://github.com/c/1" }]""",
+        )
+
+        assertEquals(listOf("reviewed 42"), publish(clone).sync())
+
+        val review = Drafts.reviews(clone.pack).single()
+        assertEquals(listOf("CHANGES_REQUESTED", "failure"), listOf(review.decision, review.checks))
+        assertEquals(
+            listOf(
+                Drafts.Comment("rabbit", "Looks fine.", null, "https://github.com/nordtal/season-2/pull/42"),
+                Drafts.Comment("owner", "Brighter.", starPng, "https://github.com/c/1"),
+            ),
+            review.comments,
+        )
+        assertEquals(emptyList<String>(), publish(clone).sync())
+    }
+
+    @Test
+    fun aCommentKeepsItsUnderscoresAndQuotesAndIsNeverCutInsideACharacter() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        publish(clone).publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+        val long = "a".repeat(278) + "😀b"
+        clone.prComments.writeText(
+            """
+            [{ "user": { "login": "o" }, "body": "Use snake_case > camelCase.", "html_url": "https://github.com/c/1" },
+             { "user": { "login": "o" }, "body": "$long", "html_url": "https://github.com/c/2" }]
+            """.trimIndent(),
+        )
+
+        publish(clone).sync()
+
+        assertEquals(
+            listOf("Use snake_case > camelCase.", "a".repeat(278) + "…"),
+            Drafts
+                .reviews(clone.pack)
+                .single()
+                .comments
+                .map { it.body },
+        )
+    }
+
+    @Test
+    fun aPullRequestThatGitHubDoesNotAnswerForLeavesTheOthersToTheSync() {
+        val clone = DraftClone(root, "star@FE000")
+        Drafts.writeReviews(
+            clone.pack,
+            listOf(41, 42).map { Drafts.Review(it, "https://github.com/nordtal/season-2/pull/$it", "designer/$it", emptyList(), "x") },
+        )
+        clone.prViewFails.writeText("41\n")
+        clone.prState.writeText("MERGED\n")
+        clone.commitOnMain("feat: the star is red") { clone.png("star", 0xFFFF0000.toInt(), it) }
+
+        assertEquals(listOf("moved", "unanswered 41", "merged 42"), publish(clone).sync())
+
+        assertEquals(clone.git(clone.clone, "rev-parse", "origin/main"), clone.git(clone.clone, "rev-parse", "HEAD"))
+        assertEquals(listOf(41), Drafts.reviews(clone.pack).map { it.number })
+    }
+
+    @Test
+    fun aFetchThatFailsSaysThatOriginCouldNotBeFetched() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.git(clone.clone, "remote", "set-url", "origin", root.resolve("gone.git").absolutePath)
+
+        val failure = assertThrows<GradleException> { publish(clone).sync() }
+
+        assertTrue(failure.message!!.startsWith("origin could not be fetched:"), failure.message)
+    }
+
+    @Test
+    fun aSyncSaysWhenMainMoved() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.commitOnMain("feat: the star is red") { clone.png("star", 0xFFFF0000.toInt(), it) }
+
+        assertEquals(listOf("moved"), publish(clone).sync())
+        assertEquals(emptyList<String>(), publish(clone).sync())
     }
 
     /** Leaves the clone's changes in the stash of a pull that stopped halfway. */
@@ -353,7 +482,7 @@ class PublishTest {
         clone.git(clone.origin, "update-ref", "refs/heads/main", "designer/the-star-is-white")
         clone.prState.writeText("MERGED\n")
 
-        assertEquals(listOf("merged 42"), publish(clone).sync())
+        assertEquals(listOf("moved", "merged 42"), publish(clone).sync())
 
         assertEquals(clone.git(clone.origin, "rev-parse", "main"), clone.git(clone.clone, "rev-parse", "HEAD"))
         assertEquals("On main: mine\n", clone.git(clone.clone, "stash", "list", "--format=%gs"))
@@ -369,7 +498,7 @@ class PublishTest {
         clone.git(clone.origin, "update-ref", "refs/heads/main", "designer/the-star-is-white")
         clone.prState.writeText("MERGED\n")
 
-        assertEquals(listOf("merged 42"), publish(clone).sync())
+        assertEquals(listOf("moved", "merged 42"), publish(clone).sync())
 
         assertEquals(clone.git(clone.origin, "rev-parse", "main"), clone.git(clone.clone, "rev-parse", "HEAD"))
         assertEquals(listOf("nordtal:badges/comet.png" to null, "nordtal:badges/moon.png" to null), ids(clone))

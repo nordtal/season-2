@@ -271,6 +271,50 @@ class PackModelTest {
         assertEquals(emptyList<Any>(), model["reviews"])
     }
 
+    @Test
+    fun theModelMarksEachChangeInReviewAndListsEachConflictAndEachReview() {
+        val clone = DraftClone(pack, "star@FE000", "moon@FE001")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        Publish(clone.clone, clone.pack, clone.gh.absolutePath) {
+        }.publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+        clone.prView.writeText(""" "reviewDecision": "APPROVED", "statusCheckRollup": [], "reviews": [] """)
+        clone.prComments.writeText(
+            """[{ "user": { "login": "owner" }, "body": "Fine.", "path": "a.png", "html_url": "https://github.com/c/1" }]""",
+        )
+        Publish(clone.clone, clone.pack, clone.gh.absolutePath) {}.sync()
+        clone.png("moon", 0xFFFFFFFF.toInt())
+        clone.commitOnMain("feat: the moon is red") { clone.png("moon", 0xFFFF0000.toInt(), it) }
+        clone.git(clone.clone, "fetch", "-q", "origin")
+
+        val model =
+            PackModel.of(
+                GlyphAllocation.read(clone.pack.resolve("glyphs.json")),
+                clone.pack,
+                Drafts.list(clone.pack),
+                Drafts.reviews(clone.pack),
+            )
+
+        val glyphs = only(only(model.list("fonts")).list("blocks")).list("glyphs").map { it.map("texture") }
+        assertEquals(listOf(42 to null, null to "nordtal:badges/moon.png"), glyphs.map { it["review"] to it["draft"] })
+        assertEquals(
+            mapOf("files" to listOf("src/assets/nordtal/textures/badges/moon.png"), "fields" to emptyList<Any>()),
+            only(model.list("drafts"))["conflict"],
+        )
+        assertEquals(
+            listOf(
+                mapOf(
+                    "number" to 42,
+                    "url" to "https://github.com/nordtal/season-2/pull/42",
+                    "decision" to "APPROVED",
+                    "checks" to null,
+                    "comments" to
+                        listOf(mapOf("author" to "owner", "body" to "Fine.", "path" to "a.png", "url" to "https://github.com/c/1")),
+                ),
+            ),
+            model["reviews"],
+        )
+    }
+
     private fun model(): Map<String, Any?> = PackModel.of(GlyphAllocation.read(pack.resolve("glyphs.json")), pack)
 
     private fun fonts() = model().list("fonts")

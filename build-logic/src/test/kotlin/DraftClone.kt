@@ -18,8 +18,17 @@ class DraftClone(
     val gh: File = root.resolve("gh")
     val ghLog: File = root.resolve("gh.log")
 
-    /** What the stub prints for `gh pr view`: OPEN, MERGED or CLOSED. */
+    /** The state that the stub's `gh pr view` prints: OPEN, MERGED or CLOSED. */
     val prState: File = root.resolve("pr-state")
+
+    /** The review decision, checks and reviews that the stub's `gh pr view` prints beside the state, as JSON fields. */
+    val prView: File = root.resolve("pr-view")
+
+    /** What the stub prints for the line comments of a pull request, a JSON list. */
+    val prComments: File = root.resolve("pr-comments")
+
+    /** The number of the pull request whose `gh pr view` fails, while this file exists. */
+    val prViewFails: File = root.resolve("pr-view-fails")
 
     /** While this file exists, the stub's `gh pr create` fails. */
     val prCreateFails: File = root.resolve("pr-create-fails")
@@ -45,13 +54,17 @@ class DraftClone(
               "api user") echo '{"login":"drawer","id":7,"name":"Dee Drawer","email":null}' ;;
               "pr create") [ -e '${prCreateFails.absolutePath}' ] && { echo "GraphQL: refused" >&2; exit 1; }
                 echo "Creating pull request"; echo "https://github.com/nordtal/season-2/pull/42" ;;
-              "pr view") cat '${prState.absolutePath}' ;;
+              "pr view") [ "${'$'}3" = "${'$'}(cat '${prViewFails.absolutePath}' 2>/dev/null)" ] && { echo "HTTP 502" >&2; exit 1; }
+                printf '{"state":"%s",%s}' "${'$'}(cat '${prState.absolutePath}')" "${'$'}(cat '${prView.absolutePath}')" ;;
+              "api repos/{owner}/{repo}/pulls/"*) cat '${prComments.absolutePath}' ;;
               *) echo "stub gh: ${'$'}*" >&2; exit 1 ;;
             esac
             """.trimIndent() + "\n",
         )
         gh.setExecutable(true)
-        prState.writeText("OPEN\n")
+        prState.writeText("OPEN")
+        prView.writeText(""" "reviewDecision": "", "statusCheckRollup": [], "reviews": [] """)
+        prComments.writeText("[]")
     }
 
     fun glyphs(vararg badges: String): String =
@@ -90,18 +103,54 @@ class DraftClone(
         pack.resolve("glyphs.json").writeText(OxfmtJson.format(OxfmtJson.read(glyphs(*badges))))
     }
 
-    fun pngFile(badge: String): File = pack.resolve("src/assets/nordtal/textures/badges/${badge.substringBefore('@')}.png")
+    fun pngFile(
+        badge: String,
+        pack: File = this.pack,
+    ): File = pack.resolve("src/assets/nordtal/textures/badges/${badge.substringBefore('@')}.png")
 
-    /** Writes the badge's PNG, 8 by 8 pixels of [color]. */
+    /** Writes the badge's PNG into [pack], 8 by 8 pixels of [color]. */
     fun png(
         badge: String,
         color: Int,
+        pack: File = this.pack,
     ) {
         val image = BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB)
         for (x in 0 until 8) for (y in 0 until 8) image.setRGB(x, y, color)
-        pngFile(badge).parentFile.mkdirs()
-        ImageIO.write(image, "png", pngFile(badge))
+        pngFile(badge, pack).parentFile.mkdirs()
+        ImageIO.write(image, "png", pngFile(badge, pack))
     }
+
+    /** Sets the [field] of the glyph [code] in the `glyphs.json` of [pack] to [value], or removes it for null. */
+    fun editBadge(
+        pack: File,
+        code: String,
+        field: String,
+        value: String?,
+    ) {
+        val file = pack.resolve("glyphs.json")
+        val root = OxfmtJson.read(file) as Map<*, *>
+        val glyph =
+            NewTextures
+                .fonts(root)
+                .flatMap { it["blocks"] as List<*> }
+                .flatMap { (it as Map<*, *>)["glyphs"] as List<*> }
+                .map { it as MutableMap<String, Any?> }
+                .single { it["code"] == code }
+        if (value == null) glyph.remove(field) else glyph[field] = value
+        file.writeText(OxfmtJson.format(root))
+    }
+
+    /** The glyph [code] of the `glyphs.json` [text]. */
+    fun glyphOf(
+        text: String,
+        code: String,
+    ): Map<*, *> =
+        NewTextures
+            .fonts(OxfmtJson.read(text) as Map<*, *>)
+            .flatMap { it["blocks"] as List<*> }
+            .flatMap { (it as Map<*, *>)["glyphs"] as List<*> }
+            .map { it as Map<*, *> }
+            .single { it["code"] == code }
 
     fun commitAll(message: String) {
         git(clone, "add", "-A")
@@ -128,6 +177,29 @@ class DraftClone(
         git(other, "add", "-A")
         git(other, "-c", "user.name=o", "-c", "user.email=o@o", "commit", "-q", "-m", message)
         git(other, "push", "-q", "origin", "HEAD:$branch")
+    }
+
+    /**
+     * Makes the [nth] move of `HEAD` from now on fail, as a rollback would that cannot write the clone. A move is each
+     * reset or merge that writes `ORIG_HEAD`.
+     */
+    fun failHeadMove(nth: Int) {
+        val hooks = root.resolve("hooks")
+        hooks.mkdirs()
+        clone.resolve(".githooks/commit-msg").copyTo(hooks.resolve("commit-msg"), overwrite = true).setExecutable(true)
+        val count = root.resolve("head-moves")
+        count.writeText("0\n")
+        hooks.resolve("reference-transaction").writeText(
+            """
+            #!/bin/sh
+            [ "${'$'}1" = prepared ] && grep -q ' ORIG_HEAD${'$'}' || exit 0
+            n=${'$'}(( ${'$'}(cat '${count.absolutePath}') + 1 ))
+            echo ${'$'}n > '${count.absolutePath}'
+            [ ${'$'}n -ne $nth ]
+            """.trimIndent() + "\n",
+        )
+        hooks.resolve("reference-transaction").setExecutable(true)
+        git(clone, "config", "core.hooksPath", hooks.absolutePath)
     }
 
     /** The text of [path] on [ref] of origin. */

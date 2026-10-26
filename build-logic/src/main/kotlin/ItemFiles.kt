@@ -97,7 +97,7 @@ class ItemFiles(
             val png = runCatching { Identifier.resource(texture, "textures", ".png") }.getOrNull()?.let { assets.resolve(it) }
             val id = "${full(texture)}.png"
             if (png?.isFile == true) {
-                val described = PackModel.texture(id, pack, drafts)
+                val described = PackModel.texture(id, pack, PackModel.Marks(drafts))
                 linkedMapOf("key" to key, "texture" to described) + PackModel.animation(png, pack, described)
             } else {
                 linkedMapOf("key" to key, "texture" to mapOf("id" to id))

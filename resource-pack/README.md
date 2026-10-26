@@ -78,16 +78,16 @@ it is relative to this directory, and every code point is capital hex without `U
 
 ```
 statuses      the statuses a glyph or block can have
-fonts[]       font, rows, constant, about, draft, blocks[]
-  blocks[]    kind "block": title, range, status, about, draft, glyphs[]
-              kind "sheet": title, range, status, about, draft, height, ascent, texture, cells[]
+fonts[]       font, rows, constant, about, draft, review, blocks[]
+  blocks[]    kind "block": title, range, status, about, draft, review, glyphs[]
+              kind "sheet": title, range, status, about, draft, review, height, ascent, texture, cells[]
   glyphs[]    code, constant, name, list, status, effectiveStatus, height, ascent, about, texture
   cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite
-texture       id, png, aseprite, asepriteExists, draft, width, height
-drafts[]      id, label, state, files, review
-reviews[]     number, url
+texture       id, png, aseprite, asepriteExists, draft, review, width, height
+drafts[]      id, label, state, files, review, conflict: files, fields[]: name, clone, main
+reviews[]     number, url, decision, checks, comments[]: author, body, path, url
 ```
 
 The `status` of a glyph or cell is its own value, null when it inherits the block's, and
@@ -99,8 +99,10 @@ identifier.
 `x`, `y`, `width`, `height` in the PNG and `duration` in milliseconds, or is null when the animation's frames do
 not divide the PNG. `guiSprite` is true for a texture under `textures/gui/sprites/`. Language files are not listed.
 `draft` is the id of the draft that a texture, block or font is, as `drafts` names it, which the
-next section describes, or null where it is none. `reviews` lists the pull requests that
-`publishDrafts` opened. `describePack` reads git on every run.
+next section describes, or null where it is none. `review` is the number of the pull request that
+holds the texture, block or font, or null. `conflict` is null for a draft without a conflict with
+main. `reviews` lists the pull requests that `publishDrafts` opened, as the last `syncReviews` read
+them. `describePack` reads git on every run.
 
 ## New textures
 
@@ -194,24 +196,44 @@ entries in `glyphs.json`. The fields of a font or a block in `glyphs.json` are a
 and so is every other changed file. A draft's `id` is its texture's id, `font <font>`, `block <font>
 <range or title>` or the file's path. Its `state` is `added`, `changed` or `deleted`, and `review`
 is the number of the pull request that holds an older version of it. A draft that equals its version
-in a pull request is not listed.
+in a pull request or on `origin/main` is not listed.
+
+A draft has a conflict when `origin/main` changed it too since its base. The base is the commit
+where the clone meets `origin/main`, or the commit that `resolveConflict` recorded. A file conflicts
+when both sides changed it. An entry in `glyphs.json` merges field by field: a field that one side
+changed takes that side's value, and a field that both changed each their own way conflicts. An
+entry that one side deleted and the other changed makes `glyphs.json` a file of the conflict.
 
 ```bash
 ./gradlew -q :resource-pack:discardDraft -Pdraft=nordtal:badges/star.png
+./gradlew -q :resource-pack:readConflict -Pdraft=nordtal:badges/star.png
+./gradlew -q :resource-pack:resolveConflict -Pdraft=nordtal:badges/star.png -Pkeep=main -Pfields='{"about":"clone"}'
 ./gradlew -q :resource-pack:publishDrafts -Pdrafts=nordtal:badges/star.png -Ptitle='feat(resource-pack): the star is white' -Pgh=gh
 ./gradlew -q :resource-pack:syncReviews -Pgh=gh
 ```
 
-| task            | options                                | prints                                                                                          |
-| --------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `discardDraft`  | `draft`                                | the absolute path of each file it wrote or deleted                                              |
-| `publishDrafts` | `drafts` (a comma list), `title`; `gh` | the address of the pull request                                                                 |
-| `syncReviews`   | `gh`                                   | `merged <number>` or `closed <number>` per pull request that ended, `restored` after a put back |
+| task              | options                                | prints                                                                                              |
+| ----------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `discardDraft`    | `draft`                                | the absolute path of each file it wrote or deleted                                                  |
+| `readConflict`    | `draft`                                | the absolute path of main's version of each file of the conflict                                    |
+| `resolveConflict` | `draft`; `keep`, `fields`              | the absolute path of each file it wrote or deleted                                                  |
+| `publishDrafts`   | `drafts` (a comma list), `title`; `gh` | the address of the pull request                                                                     |
+| `syncReviews`     | `gh`                                   | `merged`, `closed`, `reviewed` or `unanswered` and the number per pull request, `moved`, `restored` |
 
 - `discardDraft` restores the draft's files and entries to the last commit, or to its pull request
-  when one holds it.
+  when one holds it, and forgets the draft's base. A publish makes the commit of `origin/main` it
+  started from the base of each draft it publishes, so a resolved conflict stays resolved.
+- `readConflict` writes main's version of each file of the conflict under `build/conflict/`, at the
+  file's path in the pack, after it removed what an earlier read left there.
+- `resolveConflict` ends a conflict. `keep` is `clone` or `main`, the version of every file of the
+  draft, and it is required when files conflict. `fields` is a JSON object that names `clone` or
+  `main` for each conflicting field. The entry takes the merged fields, and `origin/main` becomes the
+  draft's base, in `nordtal-designer/bases.json` of the clone's git directory. With `main`, the
+  clone's version of each file goes to `build/conflict/yours/` first, where it stays until `:resource-pack:clean` removes it. A glyph of a texture is the
+  same glyph when main moved its code point, so the code point is one of its fields.
 - `publishDrafts` fetches `origin`, gives new glyphs their final code points as `assignCodePoints`
-  does against `origin/main`, and copies only the chosen drafts into a work tree of `origin/main`.
+  does against `origin/main`, and copies only the chosen drafts into a work tree of `origin/main`. A
+  chosen draft with a conflict is refused. Each entry keeps the fields that only main changed.
   `:resource-pack:check` runs there, so a draft that is not chosen cannot block the publish, and a
   chosen draft that needs one that is not chosen fails. The work tree commits them with the message
   `title`. The branch is `designer/` and the title's description
@@ -221,9 +243,14 @@ in a pull request is not listed.
   branch again. A failed publish leaves the code points it moved in the clone. A draft that a pull
   request holds already gets a further commit on that pull request's branch. Drafts of two pull
   requests are refused together.
-- `syncReviews` asks `gh` for the state of every pull request that `publishDrafts` opened. After a
-  merge it fast-forwards the clone to `origin/main` and puts every other change back on top: a file
-  takes the clone's version, and `glyphs.json` takes the clone's entries onto main's. A change of the
+- `syncReviews` fetches `origin` and prints `moved` when `origin/main` moved. A failed fetch fails the
+  sync and says that `origin` could not be fetched. It asks `gh` for the
+  state, the review decision, the checks and the reviews of every pull request that `publishDrafts`
+  opened, and for its line comments, and prints `reviewed` when one of them changed, or `unanswered`
+  when `gh` failed for it, which keeps the pull request for the next sync. After a merge
+  it fast-forwards the clone to `origin/main` and puts every other change back on top: a file takes
+  the clone's version, and `glyphs.json` merges the clone's entries with main's field by field. A
+  draft with a conflict keeps its base, so the conflict stays. A change of the
   merged pull request that equals the commit pushed last takes main's version, so a commit a reviewer
   added before the merge stays. A pull request closed without a merge makes its changes drafts again.
 - The pull keeps the clone's changes in a stash named `nordtal-designer-pull`. A pull that fails puts
@@ -232,7 +259,9 @@ in a pull request is not listed.
   `nordtal-designer-edits` beside the pull's, and every sync is refused until both are applied by
   hand.
 - The clone's git directory holds the record of the open pull requests, as
-  `nordtal-designer/reviews.json`, with the commit pushed last for each, so no commit holds it.
+  `nordtal-designer/reviews.json`, with the commit pushed last for each and what the last sync read.
+  `checks` is `failure`, `pending`, `success` or null. A comment's `body` is its text without markup
+  and folded details, cut to 280 characters.
 
 ## Texture metadata
 

@@ -250,6 +250,8 @@ val sourceEdits =
         "editItem" to "editItem",
         "importBlockbench" to "import",
         "discardDraft" to "discard",
+        "resolveConflict" to "resolve",
+        "readConflict" to "conflict",
         "publishDrafts" to "publish",
         "syncReviews" to "sync",
     )

@@ -18,7 +18,7 @@ object PackModel {
         listed: List<Drafts.Draft> = emptyList(),
         reviews: List<Drafts.Review> = emptyList(),
     ): Map<String, Any?> {
-        val drafts = listed.map { it.id }.toSet()
+        val drafts = Marks(listed.map { it.id }.toSet(), reviews.flatMap { review -> review.drafts.map { it to review.number } }.toMap())
         val assets = root.resolve("src/assets")
         return linkedMapOf(
             "fonts" to allocation.fonts.map { font(it, root, drafts) },
@@ -34,23 +34,63 @@ object PackModel {
                         "state" to it.state,
                         "files" to it.files,
                         "review" to it.review,
+                        "conflict" to
+                            it.conflict?.let { conflict ->
+                                linkedMapOf(
+                                    "files" to conflict.files,
+                                    "fields" to
+                                        conflict.fields.map { field ->
+                                            linkedMapOf(
+                                                "name" to field.name,
+                                                "clone" to field.clone,
+                                                "main" to field.main,
+                                            )
+                                        },
+                                )
+                            },
                     )
                 },
-            "reviews" to reviews.map { linkedMapOf("number" to it.number, "url" to it.url) },
+            "reviews" to
+                reviews.map {
+                    linkedMapOf(
+                        "number" to it.number,
+                        "url" to it.url,
+                        "decision" to it.decision,
+                        "checks" to it.checks,
+                        "comments" to
+                            it.comments.map { comment ->
+                                linkedMapOf(
+                                    "author" to comment.author,
+                                    "body" to comment.body,
+                                    "path" to comment.path,
+                                    "url" to comment.url,
+                                )
+                            },
+                    )
+                },
         )
+    }
+
+    /** The ids of the [drafts], and of each change in review with the number of its pull request. */
+    internal class Marks(
+        val drafts: Set<String>,
+        val reviews: Map<String, Int> = emptyMap(),
+    ) {
+        /** The marks of the entry [id]: `draft` where it is one and `review` where a pull request holds it. */
+        fun of(id: String) = arrayOf<Pair<String, Any?>>("draft" to id.takeIf { it in drafts }, "review" to reviews[id])
     }
 
     private fun font(
         font: GlyphAllocation.Font,
         root: File,
-        drafts: Set<String>,
+        drafts: Marks,
     ): Map<String, Any?> =
         linkedMapOf(
             "font" to font.id,
             "rows" to font.rows,
             "constant" to font.constant,
             "about" to font.about,
-            "draft" to "font ${font.id}".takeIf { it in drafts },
+            *drafts.of("font ${font.id}"),
             "blocks" to font.blocks.map { block(it, font.id, root, drafts) },
         )
 
@@ -58,7 +98,7 @@ object PackModel {
         block: GlyphAllocation.Block,
         font: String,
         root: File,
-        drafts: Set<String>,
+        drafts: Marks,
     ): Map<String, Any?> {
         val range = block.range?.let { "%X-%X".format(it.first, it.last) }
         val entry =
@@ -68,7 +108,7 @@ object PackModel {
                 "range" to range,
                 "status" to block.status,
                 "about" to block.about,
-                "draft" to (block.texture ?: Drafts.blockId(font, range ?: block.title)).takeIf { it in drafts },
+                *drafts.of(block.texture ?: Drafts.blockId(font, range ?: block.title)),
             )
         if (block.texture == null) {
             entry["glyphs"] = block.glyphs.map { glyph(it, block, root, drafts) }
@@ -90,7 +130,7 @@ object PackModel {
         glyph: GlyphAllocation.Glyph,
         block: GlyphAllocation.Block,
         root: File,
-        drafts: Set<String>,
+        drafts: Marks,
     ): Map<String, Any?> =
         linkedMapOf(
             "code" to "%X".format(glyph.codePoint),
@@ -134,7 +174,7 @@ object PackModel {
     internal fun texture(
         id: String,
         root: File,
-        drafts: Set<String>,
+        drafts: Marks,
     ): Map<String, Any?> {
         val png = GlyphAdvances.texture(root.resolve("src/assets"), id)
         val aseprite = root.resolve("art").resolve(png.relativeTo(root.resolve("src")).path.removeSuffix(".png") + ".aseprite")
@@ -144,7 +184,7 @@ object PackModel {
             "png" to png.relativeTo(root).invariantSeparatorsPath,
             "aseprite" to aseprite.relativeTo(root).invariantSeparatorsPath,
             "asepriteExists" to aseprite.isFile,
-            "draft" to id.takeIf { it in drafts },
+            *drafts.of(id),
             "width" to image?.width,
             "height" to image?.height,
         )
@@ -173,7 +213,7 @@ object PackModel {
     private fun items(
         assets: File,
         root: File,
-        drafts: Set<String>,
+        drafts: Marks,
     ): List<Map<String, Any?>> =
         namespaces(assets).mapNotNull { namespace ->
             val folder = namespace.resolve("items")
@@ -212,7 +252,7 @@ object PackModel {
     private fun overrides(
         assets: File,
         root: File,
-        drafts: Set<String>,
+        drafts: Marks,
     ): List<Map<String, Any?>> {
         val textures = assets.resolve("minecraft/textures")
         return files(textures, "png")

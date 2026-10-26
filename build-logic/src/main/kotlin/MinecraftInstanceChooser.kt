@@ -28,16 +28,29 @@ object MinecraftInstanceChooser {
         val store = File(args[0])
         val given = args.getOrNull(1)?.takeIf { it.isNotBlank() }?.let(::File)
         val picked = (given ?: ask(start(store)) ?: finish(0, "Nothing was chosen, so nothing changed.")).absoluteFile
-        if (!picked.isDirectory) finish(1, "$picked is not a folder.")
+        save(store, picked, given)?.let { finish(1, it) }
+        finish(0, "Minecraft instance: ${instance(picked) ?: picked}\nNext, run 'pack: 2. install into Minecraft'.")
+    }
+
+    /**
+     * Saves the instance of [picked] to [store] and returns null, or returns why it saved nothing. Without a [given]
+     * answer, it asks whether a folder that no file marks is an instance.
+     */
+    internal fun save(
+        store: File,
+        picked: File,
+        given: File?,
+    ): String? {
+        if (!picked.isDirectory) return "$picked is not a folder."
         val instance =
             instance(picked)
                 ?: picked.takeIf { given == null && confirm(it) }
-                ?: finish(1, "$picked holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.")
-        if (!instance.isDirectory && !instance.mkdirs()) finish(1, "$instance cannot be created, so nothing changed.")
+                ?: return "$picked holds no file of Minecraft or of a launcher, so it is not a Minecraft instance."
+        if (!instance.isDirectory && !instance.mkdirs()) return "$instance cannot be created, so nothing changed."
         Properties().apply { setProperty("instance", instance.absolutePath) }.also { properties ->
             store.writer().use { properties.store(it, "The Minecraft instance the resource pack is installed into") }
         }
-        finish(0, "Minecraft instance: $instance\nNext, run 'pack: 2. install into Minecraft'.")
+        return null
     }
 
     private fun ask(start: File): File? {

@@ -45,28 +45,28 @@ class MinecraftInstanceChooserTest {
 
     @Test
     fun aGameFolderThatCannotBeCreatedFailsTheChoiceAndSavesNothing() {
-        val prism = folder("locked").apply { resolve("mmc-pack.json").writeText("{}") }
+        val prism =
+            folder("blocked").apply {
+                resolve("mmc-pack.json").writeText("{}")
+                resolve("minecraft").writeText("")
+            }
         val store = root.resolve("minecraft-instance.properties")
-        prism.setWritable(false)
-        try {
-            val java = File(System.getProperty("java.home"), "bin/java").path
-            val process =
-                ProcessBuilder(
-                    java,
-                    "-Djava.awt.headless=true",
-                    "-cp",
-                    System.getProperty("java.class.path"),
-                    MinecraftInstanceChooser::class.java.name,
-                    store.path,
-                    prism.path,
-                ).redirectErrorStream(true).start()
-            val printed = process.inputStream.bufferedReader().readText()
-            assertEquals(1, process.waitFor(), printed)
-            assertEquals("${prism.resolve("minecraft")} cannot be created, so nothing changed.\n", printed)
-            assertFalse(store.exists())
-        } finally {
-            prism.setWritable(true)
-        }
+        assertEquals(
+            "${prism.resolve("minecraft")} cannot be created, so nothing changed.",
+            MinecraftInstanceChooser.save(store, prism, prism)?.trim(),
+        )
+        assertFalse(store.exists())
+    }
+
+    @Test
+    fun aChosenInstanceIsSaved() {
+        val started = folder("started", "resourcepacks")
+        val store = root.resolve("minecraft-instance.properties")
+        assertNull(MinecraftInstanceChooser.save(store, started.resolve("resourcepacks"), started.resolve("resourcepacks")))
+        assertEquals(
+            started.absolutePath,
+            java.util.Properties().apply { store.reader().use { load(it) } }.getProperty("instance"),
+        )
     }
 
     @Test

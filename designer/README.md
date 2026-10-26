@@ -37,7 +37,8 @@ state. A save of a vanilla override writes all its frames as a column of the PNG
 is refused, and the model keeps the old size until such a task succeeds. A save while its task still
 waits runs after it. An override with an animation and no source yet opens with one frame per frame
 of its PNG. A save passes the frame count the sprite was opened with as `from`, and the status line
-shows each notice that `animateTexture` printed.
+shows each notice that `animateTexture` printed. The pixel size of an animated texture is the size
+of one frame.
 
 A click on an item runs `readItem`, and the tree shows the models of its definition below it: each
 case, entry, tint and model that the definition nests, such as the fallback of a `select`. The panel

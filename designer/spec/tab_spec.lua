@@ -597,6 +597,17 @@ describe("the Nordtal tab", function()
     assert.same({ "resize", 9, 9 }, t.log[3])
   end)
 
+  it("compares a new pixel size with the open sprite, not with the size the model gives", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    -- The model gives 7 by 7, the open sprite is a strip of three frames
+    t.open[1].height = 21
+    t.dialogs.answer = function(d) d.data = { ok=true, width=14, height=14 } end
+    click(dlg, "properties.pixels 7 7")
+    assert.same({ { "alert", { "properties.resize_confirm 7 21 14 14", "properties.resize_ratio", "properties.resize_lossy" } } }, t.log)
+  end)
+
   it("keeps the old pixel height after a refused resize, shows the refusal and runs it again on the next save", function()
     local t = setUp()
     local dlg = loaded(t)
@@ -731,6 +742,35 @@ describe("the Nordtal tab", function()
     assert.same({ "close", star }, t.log[#t.log])
     assert.equal(slot, dlg.data.editor)
     assert.is_truthy(slot)
+  end)
+
+  it("shows and resizes the size of one frame of an animated texture when opened, edited and saved", function()
+    local t = setUp(nil, animatedModel())
+    t.world.files = { ["/c/resource-pack/art/slot.aseprite"]=true }
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    -- The source holds one frame of the PNG per frame of the sprite
+    local sprite = t.open[1]
+    sprite.width, sprite.height = 24, 24
+    sprite.frames = { { duration=0.1 }, { duration=0.1 } }
+    t.dialogs.answer = function(d) d.data = { ok=true, width=48, height=48 } end
+    click(dlg, "properties.pixels 24 24")
+    assert.same({ { "resize", 48, 48 }, { "saveAs", "/c/resource-pack/art/slot.aseprite" },
+                  { "png", "/c/resource-pack/src/slot.png" } }, t.log)
+    assert.equal(":resource-pack:animateTexture -Pframes=100,100 -Pfrom=2 "
+      .. "-Ptexture=minecraft:gui/sprites/container/slot.png", run(t.started[2]))
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    assert.is_truthy(table.concat(texts(dlg), "\n"):find("properties.pixels 48 48", 1, true))
+    -- The pack read again holds the PNG 48 by 96 with two frames 48 by 48
+    local m = dkjson.decode(animatedModel())
+    local slot = m.overrides[1].entries[1]
+    slot.texture.width, slot.texture.height = 48, 96
+    slot.frames = { { x=0, y=0, width=48, height=48, duration=100 }, { x=0, y=48, width=48, height=48, duration=100 } }
+    t.world.model = dkjson.encode(m)
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    assert.is_truthy(table.concat(texts(dlg), "\n"):find("properties.pixels 48 48", 1, true))
   end)
 
   it("writes every frame of an override and its animation on its save", function()

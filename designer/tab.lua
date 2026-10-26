@@ -993,10 +993,10 @@ function tab.open(context)
     if not data then
       return
     end
-    local job = properties.jobs(info, field, data, tr)
+    local sprite = dlg.data.editor
+    local job = properties.jobs(info, field, data, tr, sprite)
     if job and job.resize then
       local size = job.resize
-      local sprite = dlg.data.editor
       local record = sprite and opened[sprite.filename]
       if not record then
         return

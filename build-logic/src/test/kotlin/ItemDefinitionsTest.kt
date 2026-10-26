@@ -371,6 +371,77 @@ class ItemDefinitionsTest {
         assertTrue(!pack.resolve("src/assets/nordtal/models/item/lamp.json").exists())
     }
 
+    @Suppress("UNCHECKED_CAST")
+    private fun MutableMap<String, Any?>.part(
+        list: String,
+        index: Int,
+    ) = (this[list] as List<Any?>)[index] as MutableMap<String, Any?>
+
+    @Test
+    fun aBlockbenchTextureWhoseNameNoTexturePathCanHoldIsRefusedByItsName() {
+        val space = assertThrows<IllegalArgumentException> { imported(project { it.part("textures", 0)["name"] = "Lamp Texture.png" }) }
+        val up = assertThrows<IllegalArgumentException> { imported(project { it.part("textures", 0)["name"] = "../x.png" }) }
+
+        fun refusal(name: String) =
+            "Texture $name of lamp.bbmodel cannot be imported under its name. Rename it in Blockbench to a name of only " +
+                "a-z, 0-9, _, - and . that does not end in ."
+        assertEquals(listOf(refusal("Lamp Texture"), refusal("../x")), listOf(space.message, up.message))
+        assertTrue(!pack.resolve("src/assets/nordtal/models").exists())
+    }
+
+    @Test
+    fun twoBlockbenchTexturesThatWouldBeTheSameFileAreRefused() {
+        val same = assertThrows<IllegalArgumentException> { imported(project { it.part("textures", 1)["name"] = "lamp_base.png" }) }
+        val case = assertThrows<IllegalArgumentException> { imported(project { it.part("textures", 1)["name"] = "Lamp_Base.png" }) }
+
+        assertEquals("Two textures of lamp.bbmodel are named lamp_base.", same.message)
+        assertEquals("Textures lamp_base and Lamp_Base of lamp.bbmodel would both be nordtal:item/lamp_base.", case.message)
+        assertTrue(!pack.resolve("src/assets/nordtal/models").exists())
+    }
+
+    @Test
+    fun aBlockbenchElementOutsideTheSpaceOfAJavaModelIsRefusedByItsName() {
+        val refusal =
+            assertThrows<IllegalArgumentException> {
+                imported(
+                    project {
+                        it.part("elements", 2)["inflate"] = 30
+                    },
+                )
+            }
+
+        assertEquals(
+            "Element tilted of lamp.bbmodel leaves the space from -16 to 32 that a Java Block/Item model allows.",
+            refusal.message,
+        )
+    }
+
+    @Test
+    fun aBlockbenchImportClampsTheLightAndLeavesOutAnElementThatIsNotExported() {
+        val written =
+            imported(
+                project {
+                    it.part("elements", 0)["light_emission"] = 20
+                    it.part("elements", 1)["export"] = false
+                    it.part("elements", 2)["export"] = false
+                },
+            )
+
+        val elements = (OxfmtJson.read(written[0]) as Map<*, *>)["elements"] as List<*>
+        assertEquals(listOf(15), elements.map { (it as Map<*, *>)["light_emission"] })
+    }
+
+    @Test
+    fun aBlockbenchFaceWithoutUvIsRefusedByItsElement() {
+        @Suppress("UNCHECKED_CAST")
+        val refusal =
+            assertThrows<IllegalArgumentException> {
+                imported(project { ((it.part("elements", 1)["faces"] as Map<*, *>)["north"] as MutableMap<String, Any?>).remove("uv") })
+            }
+
+        assertEquals("Face north of element glass of lamp.bbmodel has no uv.", refusal.message)
+    }
+
     @Test
     fun aDefinitionWhoseReferencesAreAllInThePackNeverOpensTheClientJar() {
         pack.resolve("src/assets/nordtal/models/item/wand.json").apply { parentFile.mkdirs() }.writeText(

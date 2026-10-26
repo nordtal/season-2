@@ -30,6 +30,9 @@ object Blockbench {
         val height = decimal(resolution?.get("height") ?: 16)
         val sources = (project["textures"] as? List<*>).orEmpty().map { it as Map<*, *> }
         val references = sources.map { (it["name"] as String).replace(Regex("""\.\w{2,8}$"""), "") }
+        references.groupingBy { it }.eachCount().entries.firstOrNull { it.value > 1 }?.let {
+            throw IllegalArgumentException("Two textures of $file are named ${it.key}.")
+        }
         val model = linkedMapOf<String, Any?>()
         (project["parent"] as? String)?.takeIf { it.isNotEmpty() }?.let { model["parent"] = it }
         if (project["ambientocclusion"] == false) model["ambientocclusion"] = false
@@ -38,6 +41,7 @@ object Blockbench {
         val used = linkedSetOf<Int>()
         val elements =
             (project["elements"] as? List<*>).orEmpty().map { it as Map<*, *> }.mapNotNull { element ->
+                if (element["export"] == false) return@mapNotNull null
                 require((element["type"] ?: "cube") == "cube") {
                     "Element ${element["name"]} of $file is a ${element["type"]}. A Java Block/Item model holds only cubes."
                 }
@@ -51,7 +55,9 @@ object Blockbench {
                     faces[side as String] =
                         linkedMapOf<String, Any?>().apply {
                             if (face["enabled"] != false) {
-                                put("uv", (face["uv"] as List<*>).mapIndexed { i, n -> scaled(decimal(n!!), if (i % 2 == 0) u else v) })
+                                val uv = face["uv"] as? List<*>
+                                require(uv != null) { "Face $side of element ${element["name"]} of $file has no uv." }
+                                put("uv", uv.mapIndexed { i, n -> scaled(decimal(n!!), if (i % 2 == 0) u else v) })
                             }
                             (face["rotation"] as? Number)?.takeIf { it.toInt() != 0 }?.let { put("rotation", it) }
                             if (source != null) used += index
@@ -63,11 +69,17 @@ object Blockbench {
                 if (faces.isEmpty()) return@mapNotNull null
                 linkedMapOf<String, Any?>().apply {
                     val inflate = decimal(element["inflate"] ?: 0)
-                    put("from", (element["from"] as List<*>).map { number(decimal(it!!) - inflate) })
-                    put("to", (element["to"] as List<*>).map { number(decimal(it!!) + inflate) })
+                    val from = (element["from"] as List<*>).map { decimal(it!!) - inflate }
+                    val to = (element["to"] as List<*>).map { decimal(it!!) + inflate }
+                    require((from + to).all { it in SPACE }) {
+                        "Element ${element["name"]} of $file leaves the space from -16 to 32 that a Java Block/Item model allows."
+                    }
+                    put("from", from.map(::number))
+                    put("to", to.map(::number))
                     rotation(element)?.let { put("rotation", it) }
                     if (element["shade"] == false) put("shade", false)
-                    (element["light_emission"] as? Number)?.takeIf { it.toInt() != 0 }?.let { put("light_emission", it) }
+                    val light = (element["light_emission"] as? Number)?.toInt()?.coerceIn(0, 15) ?: 0
+                    if (light != 0) put("light_emission", light)
                     put("faces", faces)
                 }
             }
@@ -190,6 +202,9 @@ object Blockbench {
             ?.takeIf { it.isNotEmpty() }
 
     private val TRANSFORMS = setOf("rotation", "translation", "scale")
+
+    /** The coordinates that an element of a Java Block/Item model may take */
+    private val SPACE = BigDecimal(-16)..BigDecimal(32)
 
     private fun decimal(value: Any): BigDecimal = value as? BigDecimal ?: BigDecimal(value.toString())
 

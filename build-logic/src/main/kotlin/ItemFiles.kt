@@ -191,6 +191,7 @@ class ItemFiles(
 
         @Suppress("UNCHECKED_CAST")
         val textures = model["textures"] as? MutableMap<String, Any?> ?: mutableMapOf()
+        val claimed = mutableMapOf<File, String>()
         for ((key, value) in textures.entries.toList()) {
             val reference = value as? String ?: continue
             if (reference.startsWith("#")) continue
@@ -202,9 +203,17 @@ class ItemFiles(
                 }
                 continue
             }
+            require('/' !in image.name && Identifier.problem("$namespace:${image.name}") == null) {
+                "Texture $reference of ${source.name} cannot be imported under its name. Rename it in Blockbench to a name of only " +
+                    "a-z, 0-9, _, - and . that does not end in ."
+            }
             val texture = listOfNotNull(path.substringBeforeLast('/', "").ifEmpty { null }, image.name).joinToString("/")
             textures[key] = "$namespace:$texture"
             val png = assets.resolve("$namespace/textures/$texture.png")
+            val other = claimed.putIfAbsent(png, reference)
+            require(other == null || other == reference) {
+                "Textures $other and $reference of ${source.name} would both be $namespace:$texture."
+            }
             pending[png] = image.png
             image.mcmeta?.let { pending[File(png.path + ".mcmeta")] = it }
         }

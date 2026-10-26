@@ -341,10 +341,12 @@ model (`texture`, `mcmeta`, `animation`, `frames`), any other only its `id`. A t
 when its id is one of the pack model's `drafts`.
 `states` lists the states a `/give` shows, each as `label` and `give`, the item with its components.
 A state sets the custom model data, the damage, a component, a block state, a trim or the charged
-projectiles for each case of a select, condition or range of the definition. The plain item comes
-last, except under a select or range without a fallback. A condition on `has_component` has a state
-of its true case only for a component of which `ItemStates` holds a valid value. A list holds at most
-64 states.
+projectiles for each case of a select, condition or range of the definition. A state of `damaged`,
+`broken` or a range of `damage` also sets `max_stack_size` to 1. A condition on `has_component` has a
+state of its true case only for `damage`, `charged_projectiles`, `dyed_color` and `lodestone_tracker`.
+Its false case removes the component with `!component`, unless `ignore_default` is true. The plain
+item comes last, except under a select or range without a fallback and under such a removal. A list
+holds at most 64 states.
 
 `editItem` changes the object at `at`, a path of keys and list indices such as `model/cases/0`.
 `fields` is a JSON object whose members it sets, and a member that is null is removed. With `add`, it

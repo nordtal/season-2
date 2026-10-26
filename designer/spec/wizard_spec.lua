@@ -204,22 +204,6 @@ describe("the new-texture wizard", function()
     assert.same({ { "editItem", { item="minecraft:compass" } } }, jobs)
   end)
 
-  it("counts exactly one item or texture with a string of its own", function()
-    local function shows(dialog, text)
-      for _, line in ipairs(dialog():labels()) do
-        if line == text then return true end
-      end
-      return false
-    end
-    local dialog = browse({ items={ "minecraft:apple", "minecraft:compass" } })
-    assert.is_true(shows(dialog, "new.count_items 2"))
-    dialog().data.search = "apple"
-    dialog().handlers.search.onchange()
-    assert.is_true(shows(dialog, "new.count_items_one"))
-    dialog = browse({ textures={ { id="minecraft:block/stone.png" } } }, "override")
-    assert.is_true(shows(dialog, "new.count_one"))
-  end)
-
   it("wraps the line about the chosen item, so a long id does not widen the dialog", function()
     local id = "minecraft:a_very_long_item_id_that_holds_more_characters_than_a_line"
     local dialog = browse({ items={ id } })

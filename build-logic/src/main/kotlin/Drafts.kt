@@ -5,10 +5,9 @@ import groovy.json.JsonSlurper
 import java.io.File
 
 /**
- * The drafts of the pack at a clone's `resource-pack`: the changes that differ from the last commit and are in no pull
- * request yet. A draft is one texture together with its source, its `.mcmeta`, the model and item definition that draw
- * it and its entries in `glyphs.json`. A change outside them is a draft of its own: a font's or a block's fields in
- * `glyphs.json`, or any other file.
+ * The drafts of a clone's pack: changes against the last commit that no pull request holds yet. A draft is one texture
+ * with its source, `.mcmeta`, model, item definition and entries in `glyphs.json`; a font's or block's fields and any
+ * other file are drafts of their own.
  */
 object Drafts {
     private const val GLYPHS = "glyphs.json"
@@ -27,12 +26,16 @@ object Drafts {
         val review: Int?,
     )
 
-    /** A pull request that a publish opened: its [number], [url] and [branch], and the [drafts] it holds. */
+    /**
+     * A pull request that a publish opened: its [number], [url] and [branch], the [drafts] it holds and the [commit] that
+     * was pushed last.
+     */
     data class Review(
         val number: Int,
         val url: String,
         val branch: String,
         val drafts: List<String>,
+        val commit: String?,
     )
 
     /** The entries of one draft in `glyphs.json`, each as JSON text, and the name the designer knows it by. */
@@ -49,9 +52,7 @@ object Drafts {
         val headParts = parts(head)
         val workParts = parts(work)
         val ids = sortedMapOf<String, MutableList<String>>()
-        (headParts.keys + workParts.keys)
-            .filter { headParts[it]?.content != workParts[it]?.content }
-            .forEach { ids.getOrPut(it) { mutableListOf() } }
+        changedIds(head, work).forEach { ids.getOrPut(it) { mutableListOf() } }
         for (path in changedFiles(pack) - GLYPHS) {
             ids.getOrPut(idOf(pack, path)) { mutableListOf() } += path
         }
@@ -60,7 +61,7 @@ object Drafts {
         return ids.mapNotNull { (id, files) ->
             files.sort()
             val review = reviews.lastOrNull { id in it.drafts }
-            if (review != null && same(pack, "origin/${review.branch}", id, files, workParts)) return@mapNotNull null
+            if (review != null && same(pack, review.commit ?: "origin/${review.branch}", id, files, workParts)) return@mapNotNull null
             val before = id in headParts || files.any { it in committed }
             val after = id in workParts || files.any { pack.resolve(it).exists() }
             Draft(
@@ -81,6 +82,12 @@ object Drafts {
 
     /** The ids of the drafts of [pack], which [PackModel] marks. */
     fun ids(pack: File): Set<String> = list(pack).map { it.id }.toSet()
+
+    /** The changed files of [pack] that belong to the drafts [ids], relative to the pack. */
+    internal fun files(
+        pack: File,
+        ids: Set<String>,
+    ): List<String> = (changedFiles(pack) - GLYPHS).filter { idOf(pack, it) in ids }
 
     /**
      * Restores the files and entries of the draft [id] in [pack] to the last commit, or to its pull request when one
@@ -147,6 +154,7 @@ object Drafts {
                 it["url"] as String,
                 it["branch"] as String,
                 (it["drafts"] as List<*>).map(Any?::toString),
+                it["commit"] as String?,
             )
         }
     }
@@ -166,6 +174,7 @@ object Drafts {
                             "url" to it.url,
                             "branch" to it.branch,
                             "drafts" to it.drafts,
+                            "commit" to it.commit,
                         )
                     },
                 ),

@@ -541,7 +541,7 @@ class ItemDefinitionsTest {
         val models = files().use { it.describe("nordtal:wand", setOf("nordtal:item/wand.png")) }["models"]
 
         assertEquals(
-            true,
+            "nordtal:item/wand.png",
             (((models as List<*>).single() as Map<*, *>)["textures"] as List<*>)
                 .single()
                 .let {
@@ -599,7 +599,7 @@ class ItemDefinitionsTest {
                                         "png" to "src/assets/nordtal/textures/item/wand.png",
                                         "aseprite" to "art/assets/nordtal/textures/item/wand.aseprite",
                                         "asepriteExists" to false,
-                                        "draft" to false,
+                                        "draft" to null,
                                         "width" to 2,
                                         "height" to 3,
                                     ),

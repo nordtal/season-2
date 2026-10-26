@@ -13,11 +13,12 @@ class Publish(
     private val repository: File,
     private val pack: File,
     private val gh: String = "gh",
+    private val check: (File) -> Unit = ::checkPack,
 ) {
     /**
-     * Commits the drafts [ids] with the message [title] on a branch of `origin/main` that holds only them, pushes it and
-     * opens its pull request, or adds the commit to the pull request that holds them already. New glyphs get their final
-     * code points against `origin/main` first, in the clone too. Returns the pull request's address.
+     * Commits the drafts [ids] with the message [title] on a branch of `origin/main` that holds only them, after their
+     * final code points and the check, pushes it and opens its pull request, or adds the commit to the pull request that
+     * holds them already. Returns the pull request's address.
      */
     fun publish(
         ids: List<String>,
@@ -38,111 +39,137 @@ class Publish(
         val (name, email) = author()
         val tree = Files.createTempDirectory("publish").toFile()
         val work = tree.resolve("tree")
-        git(repository, listOf("worktree", "add", "-q", "--detach", work.absolutePath, "origin/${review?.branch ?: "main"}"))
-        try {
-            val path = pack.relativeTo(repository).invariantSeparatorsPath
-            Drafts.copy(pack, work.resolve(path), drafts)
-            git(work, listOf("add", "-A", "--", path))
-            git(work, listOf("-c", "user.name=$name", "-c", "user.email=$email", "commit", "-q", "-m", title))
-            git(work, listOf("push", "-q", "origin", "HEAD:refs/heads/$branch"))
-        } finally {
-            git(repository, listOf("worktree", "remove", "--force", work.absolutePath))
-            tree.deleteRecursively()
-        }
-        val url =
-            review?.url
-                ?: run(
-                    gh,
-                    repository,
-                    listOf(
-                        "pr",
-                        "create",
-                        "--base",
-                        "main",
-                        "--head",
-                        branch,
-                        "--title",
-                        title,
-                        "--body",
-                        drafts
-                            .joinToString(
-                                "\n",
-                            ) {
-                                "- ${it.label}"
-                            },
-                    ),
-                ).lines()
-                    .last { it.startsWith("https://") }
+        val commit =
+            try {
+                git(repository, listOf("worktree", "add", "-q", "--detach", work.absolutePath, "origin/${review?.branch ?: "main"}"))
+                val path = pack.relativeTo(repository).invariantSeparatorsPath
+                Drafts.copy(pack, work.resolve(path), drafts)
+                check(work)
+                git(work, listOf("add", "-A", "--", path))
+                git(work, listOf("-c", "user.name=$name", "-c", "user.email=$email", "commit", "-q", "-m", title))
+                git(work, listOf("push", "-q", "origin", "HEAD:refs/heads/$branch"))
+                git(work, listOf("rev-parse", "HEAD")).trim()
+            } finally {
+                // A work tree that is left over must not hide why the publish failed.
+                runCatching { git(repository, listOf("worktree", "remove", "--force", work.absolutePath)) }
+                tree.deleteRecursively()
+                runCatching { git(repository, listOf("worktree", "prune")) }
+            }
+        val url = review?.url ?: open(branch, title, drafts)
         val number = url.substringAfterLast('/').toInt()
-        Drafts.writeReviews(
-            pack,
-            reviews.filter { it.number != number } + Drafts.Review(number, url, branch, (review?.drafts.orEmpty() + ids).distinct()),
-        )
+        val heldIds = (review?.drafts.orEmpty() + ids).distinct()
+        Drafts.writeReviews(pack, reviews.filter { it.number != number } + Drafts.Review(number, url, branch, heldIds, commit))
         return url
     }
 
+    /** Opens the pull request of [branch] and returns its address, or deletes the branch on origin when that fails. */
+    private fun open(
+        branch: String,
+        title: String,
+        drafts: List<Drafts.Draft>,
+    ): String {
+        val body = drafts.joinToString("\n") { "- ${it.label}" }
+        try {
+            return run(gh, repository, listOf("pr", "create", "--base", "main", "--head", branch, "--title", title, "--body", body))
+                .lines()
+                .last { it.startsWith("https://") }
+        } catch (failure: Exception) {
+            runCatching { git(repository, listOf("push", "-q", "origin", "--delete", branch)) }
+            throw failure
+        }
+    }
+
     /**
-     * Asks GitHub for the state of every pull request a publish opened. After a merge the clone pulls `main` and keeps
-     * its other drafts; a pull request closed without a merge turns its changes back into drafts. Returns one line per
-     * pull request that ended, such as `merged 42`.
+     * Asks GitHub for the state of every pull request a publish opened, after it puts back a pull that stopped halfway.
+     * A merge pulls `main` and keeps the other drafts; a close turns the pull request's changes back into drafts. Returns
+     * one line per pull request that ended, such as `merged 42`.
      */
     fun sync(): List<String> {
+        pullStash()?.let(::putBack)
         val reviews = Drafts.reviews(pack)
         val ended = mutableListOf<String>()
+        val merged = mutableListOf<Drafts.Review>()
         val open =
             reviews.filter { review ->
                 when (run(gh, repository, listOf("pr", "view", review.number.toString(), "--json", "state", "--jq", ".state")).trim()) {
-                    "MERGED" -> false.also { ended += "merged ${review.number}" }
+                    "MERGED" -> false.also { ended += "merged ${review.number}" }.also { merged += review }
                     "CLOSED" -> false.also { ended += "closed ${review.number}" }
                     else -> true
                 }
             }
-        if (ended.any { it.startsWith("merged") }) pull()
+        if (merged.isNotEmpty()) pull(merged)
         if (open.size != reviews.size) Drafts.writeReviews(pack, open)
         return ended
     }
 
+    /** A stash entry: [ref] such as `stash@{0}` for pop and drop, [commit] for its content. */
+    private class Stash(
+        val ref: String,
+        val commit: String,
+    )
+
     /**
-     * Moves the clone to `origin/main` and puts every local change back on top of it. A file both changed keeps the
-     * clone's version; `glyphs.json` takes the clone's entries onto main's. A pull that fails leaves the clone as it was.
+     * Moves the clone to `origin/main` and puts every local change back on top of it. A draft of a [merged] pull request
+     * that equals what was last pushed takes main's version. A pull that fails leaves the clone as it was.
      */
-    private fun pull() {
+    private fun pull(merged: List<Drafts.Review>) {
         git(repository, listOf("fetch", "-q", "origin"))
-        val head = git(repository, listOf("rev-parse", "HEAD")).trim()
-        val before = stash()
+        val taken = merged.flatMap { it.drafts }.toSet() - Drafts.ids(pack)
+        val prefix = pack.relativeTo(repository).invariantSeparatorsPath
+        val skipped = Drafts.files(pack, taken).map { "$prefix/$it" }.toSet()
         val (name, email) = author()
-        git(repository, listOf("-c", "user.name=$name", "-c", "user.email=$email", "stash", "push", "-q", "--include-untracked"))
-        val stash = stash()?.takeIf { it != before }
+        git(
+            repository,
+            listOf("-c", "user.name=$name", "-c", "user.email=$email", "stash", "push", "-q", "--include-untracked", "-m", PULL),
+        )
+        val stash = pullStash()
         if (stash == null) {
             git(repository, listOf("merge", "-q", "--ff-only", "origin/main"))
             return
         }
-        val untracked = runCatching { paths(listOf("ls-tree", "-r", "-z", "--name-only", "$stash^3")) }.getOrDefault(emptyList())
+        val commit = stash.commit
         try {
             git(repository, listOf("merge", "-q", "--ff-only", "origin/main"))
-            val glyphs = pack.resolve("glyphs.json").relativeTo(repository).invariantSeparatorsPath
-            val changed = paths(listOf("diff", "--name-only", "-z", "$stash^1", stash))
-            val kept = paths(listOf("ls-tree", "-r", "-z", "--name-only", stash)).toSet()
+            val glyphs = "$prefix/glyphs.json"
+            val changed = paths(listOf("diff", "--name-only", "-z", "$commit^1", commit)) - skipped
+            val kept = paths(listOf("ls-tree", "-r", "-z", "--name-only", commit)).toSet()
             val (restored, deleted) = (changed - glyphs).partition { it in kept }
-            if (restored.isNotEmpty()) git(repository, listOf("restore", "--source=$stash", "--worktree", "--") + restored)
-            if (untracked.isNotEmpty()) git(repository, listOf("restore", "--source=$stash^3", "--worktree", "--") + untracked)
+            val untracked = untracked(commit) - skipped
+            if (restored.isNotEmpty()) git(repository, listOf("restore", "--source=$commit", "--worktree", "--") + restored)
+            if (untracked.isNotEmpty()) git(repository, listOf("restore", "--source=$commit^3", "--worktree", "--") + untracked)
             AtomicFiles.write(deleted.map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
             if (glyphs in changed) {
-                val mine = Drafts.glyphs(pack, stash)
-                val ids = Drafts.changedIds(Drafts.glyphs(pack, "$stash^1"), mine)
-                NewTextures.edit(pack, null, 0, 0) { Drafts.apply(it, mine, ids) }
+                val mine = Drafts.glyphs(pack, commit)
+                val ids = Drafts.changedIds(Drafts.glyphs(pack, "$commit^1"), mine) - taken
+                if (ids.isNotEmpty()) NewTextures.edit(pack, null, 0, 0) { Drafts.apply(it, mine, ids) }
             }
         } catch (failure: Exception) {
-            // The clone goes back to where it was, with every draft, so the next sync tries again.
-            git(repository, listOf("reset", "-q", "--hard", head))
-            AtomicFiles.write(untracked.map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
-            git(repository, listOf("stash", "pop", "-q"))
+            putBack(stash)
             throw failure
         }
-        git(repository, listOf("stash", "drop", "-q"))
+        git(repository, listOf("stash", "drop", "-q", stash.ref))
     }
 
-    private fun stash(): String? = runCatching { git(repository, listOf("rev-parse", "-q", "--verify", "refs/stash")).trim() }.getOrNull()
+    /** Puts the clone back to where it was when the pull stashed its changes, with every one of them. */
+    private fun putBack(stash: Stash) {
+        git(repository, listOf("reset", "-q", "--hard", "${stash.commit}^1"))
+        AtomicFiles.write(untracked(stash.commit).map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
+        git(repository, listOf("stash", "pop", "-q", stash.ref))
+    }
+
+    /** The stash entry of a pull, or null where there is none. */
+    private fun pullStash(): Stash? =
+        git(repository, listOf("stash", "list", "-z", "--format=%gd%x01%H%x01%gs"))
+            .split('\u0000')
+            .map { it.split('\u0001') }
+            .firstOrNull { it.size == 3 && it[2].endsWith(": $PULL") }
+            ?.let { Stash(it[0], it[1]) }
+
+    /** The untracked files that the stash [commit] holds. */
+    private fun untracked(commit: String): List<String> {
+        val parents = git(repository, listOf("rev-list", "--parents", "-n", "1", commit)).trim().split(' ')
+        return if (parents.size < 4) emptyList() else paths(listOf("ls-tree", "-r", "-z", "--name-only", "$commit^3"))
+    }
 
     private fun paths(arguments: List<String>) = git(repository, arguments).split('\u0000').filter { it.isNotBlank() }
 
@@ -167,5 +194,22 @@ class Publish(
         return generateSequence(1) { it + 1 }
             .map { if (it == 1) "designer/$slug" else "designer/$slug-$it" }
             .first { runCatching { git(repository, listOf("rev-parse", "-q", "--verify", "refs/remotes/origin/$it")) }.isFailure }
+    }
+}
+
+/** The message of the stash that a pull keeps the clone's changes in. */
+private const val PULL = "nordtal-designer-pull"
+
+/** Runs `:resource-pack:check` with the Gradle wrapper of the work tree [root]. */
+private fun checkPack(root: File) {
+    val windows = System.getProperty("os.name").startsWith("Windows")
+    if (windows) {
+        run(
+            "cmd",
+            root,
+            listOf("/c", "gradlew.bat", "-q", ":resource-pack:check"),
+        )
+    } else {
+        run("sh", root, listOf("gradlew", "-q", ":resource-pack:check"))
     }
 }

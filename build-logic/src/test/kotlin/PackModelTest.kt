@@ -253,9 +253,12 @@ class PackModelTest {
         val font = only(model.list("fonts"))
         val block = only(font.list("blocks"))
 
-        assertEquals(false, font["draft"])
-        assertEquals(true, block["draft"])
-        assertEquals(listOf(true, true, false), block.list("glyphs").map { it.map("texture")["draft"] })
+        assertEquals(null, font["draft"])
+        assertEquals("block minecraft:default FE000-FE00F", block["draft"])
+        assertEquals(
+            listOf("nordtal:badges/star.png", "nordtal:badges/moon.png", null),
+            block.list("glyphs").map { it.map("texture")["draft"] },
+        )
         assertEquals(
             listOf(
                 listOf("block minecraft:default FE000-FE00F", "Sky", "changed", null),

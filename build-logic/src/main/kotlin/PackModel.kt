@@ -50,7 +50,7 @@ object PackModel {
             "rows" to font.rows,
             "constant" to font.constant,
             "about" to font.about,
-            "draft" to ("font ${font.id}" in drafts),
+            "draft" to "font ${font.id}".takeIf { it in drafts },
             "blocks" to font.blocks.map { block(it, font.id, root, drafts) },
         )
 
@@ -68,7 +68,7 @@ object PackModel {
                 "range" to range,
                 "status" to block.status,
                 "about" to block.about,
-                "draft" to ((block.texture ?: Drafts.blockId(font, range ?: block.title)) in drafts),
+                "draft" to (block.texture ?: Drafts.blockId(font, range ?: block.title)).takeIf { it in drafts },
             )
         if (block.texture == null) {
             entry["glyphs"] = block.glyphs.map { glyph(it, block, root, drafts) }
@@ -144,7 +144,7 @@ object PackModel {
             "png" to png.relativeTo(root).invariantSeparatorsPath,
             "aseprite" to aseprite.relativeTo(root).invariantSeparatorsPath,
             "asepriteExists" to aseprite.isFile,
-            "draft" to (id in drafts),
+            "draft" to id.takeIf { it in drafts },
             "width" to image?.width,
             "height" to image?.height,
         )

@@ -263,5 +263,3 @@ sourceEdits.forEach { (name, kind) ->
         vanillaClient()
     }
 }
-// A publish sends only a pack that passes its checks.
-tasks.named("publishDrafts") { dependsOn("check") }

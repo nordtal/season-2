@@ -21,6 +21,9 @@ class DraftClone(
     /** What the stub prints for `gh pr view`: OPEN, MERGED or CLOSED. */
     val prState: File = root.resolve("pr-state")
 
+    /** While this file exists, the stub's `gh pr create` fails. */
+    val prCreateFails: File = root.resolve("pr-create-fails")
+
     init {
         clone.mkdirs()
         git(clone, "init", "-q", "-b", "main")
@@ -40,7 +43,8 @@ class DraftClone(
             echo "${'$'}*" >> '${ghLog.absolutePath}'
             case "${'$'}1 ${'$'}2" in
               "api user") echo '{"login":"drawer","id":7,"name":"Dee Drawer","email":null}' ;;
-              "pr create") echo "Creating pull request"; echo "https://github.com/nordtal/season-2/pull/42" ;;
+              "pr create") [ -e '${prCreateFails.absolutePath}' ] && { echo "GraphQL: refused" >&2; exit 1; }
+                echo "Creating pull request"; echo "https://github.com/nordtal/season-2/pull/42" ;;
               "pr view") cat '${prState.absolutePath}' ;;
               *) echo "stub gh: ${'$'}*" >&2; exit 1 ;;
             esac
@@ -108,14 +112,22 @@ class DraftClone(
     fun commitOnMain(
         message: String,
         change: (File) -> Unit,
+    ) = commitOn("main", message, change)
+
+    /** Commits on origin's [branch] as another clone would, with [change] made in that clone's pack. */
+    fun commitOn(
+        branch: String,
+        message: String,
+        change: (File) -> Unit,
     ) {
         val other = root.resolve("other")
         if (!other.exists()) git(root, "clone", "-q", origin.absolutePath, other.name)
-        git(other, "pull", "-q", "--ff-only")
+        git(other, "fetch", "-q", "origin")
+        git(other, "checkout", "-q", "-B", branch, "origin/$branch")
         change(other.resolve("resource-pack"))
         git(other, "add", "-A")
         git(other, "-c", "user.name=o", "-c", "user.email=o@o", "commit", "-q", "-m", message)
-        git(other, "push", "-q", "origin", "HEAD:main")
+        git(other, "push", "-q", "origin", "HEAD:$branch")
     }
 
     /** The text of [path] on [ref] of origin. */

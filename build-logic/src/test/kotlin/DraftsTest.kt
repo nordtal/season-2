@@ -76,4 +76,19 @@ class DraftsTest {
         assertFalse(clone.pngFile("comet").exists())
         assertEquals(committed.replace("\"MOON\"", "\"HALF_MOON\""), clone.pack.resolve("glyphs.json").readText())
     }
+
+    @Test
+    fun aDiscardOfADraftInReviewGoesBackToItsPullRequest() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        Publish(clone.clone, clone.pack, clone.gh.absolutePath) {
+        }.publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+        val published = clone.git(clone.clone, "hash-object", "--", clone.pngFile("star").absolutePath)
+        clone.png("star", 0xFF00FF00.toInt())
+
+        Drafts.discard(clone.pack, "nordtal:badges/star.png")
+
+        assertEquals(published, clone.git(clone.clone, "hash-object", "--", clone.pngFile("star").absolutePath))
+        assertEquals(emptyList<String>(), Drafts.list(clone.pack).map { it.id })
+    }
 }

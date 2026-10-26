@@ -280,30 +280,46 @@ object ItemDefinitions {
         sprite: (String) -> Boolean,
     ): List<String> {
         val problems = mutableListOf<String>()
-        val seen = mutableSetOf<String>()
-
-        fun check(id: String) {
-            if (id.startsWith("builtin/") || !seen.add(id)) return
-            val path =
-                runCatching {
-                    Identifier.resource(
-                        id,
-                        "models",
-                        ".json",
-                    )
-                }.getOrElse { return run { problems += "model ${it.message}" } }
-            val bytes = read(path) ?: return run { problems += "model $id is in neither the pack nor the client jar" }
-            val model = JsonSlurper().parse(bytes) as? Map<*, *> ?: return
-            (model["parent"] as? String)?.let { check(it) }
-            (model["textures"] as? Map<*, *>)?.values?.forEach { value ->
-                val texture = value as? String ?: (value as? Map<*, *>)?.get("sprite") as? String ?: return@forEach
-                if (!texture.startsWith("#") && !sprite(texture)) {
-                    problems += "texture $texture of model $id is in neither the pack nor the client jar"
-                }
+        models(definition).forEach { id ->
+            for ((model, _, texture) in textures(id, read, problems)) {
+                if (!sprite(texture)) problems += "texture $texture of model $model is in neither the pack nor the client jar"
             }
         }
-        models(definition).forEach { check(it) }
-        return problems
+        return problems.distinct()
+    }
+
+    /** A texture that [model] names under [key]. */
+    data class ModelTexture(
+        val model: String,
+        val key: String,
+        val texture: String,
+    )
+
+    /**
+     * The textures that [model] and its parents name, the child's first, read with [read] by a path under `assets/`. A
+     * reference to another key is left out, and each model that cannot be read is added to [problems].
+     */
+    fun textures(
+        model: String,
+        read: (String) -> ByteArray?,
+        problems: MutableList<String>,
+    ): List<ModelTexture> {
+        val textures = mutableListOf<ModelTexture>()
+        val seen = mutableSetOf<String>()
+        var id: String? = model
+        while (id != null && !id.startsWith("builtin/") && seen.add(id)) {
+            val path =
+                runCatching { Identifier.resource(id, "models", ".json") }
+                    .getOrElse { return textures.also { _ -> problems += "model ${it.message}" } }
+            val bytes = read(path) ?: return textures.also { problems += "model $id is in neither the pack nor the client jar" }
+            val json = runCatching { JsonSlurper().parse(bytes) }.getOrNull() as? Map<*, *> ?: break
+            (json["textures"] as? Map<*, *>)?.forEach { (key, value) ->
+                val texture = value as? String ?: (value as? Map<*, *>)?.get("sprite") as? String
+                if (texture != null && !texture.startsWith("#")) textures += ModelTexture(id!!, key as String, texture)
+            }
+            id = json["parent"] as? String
+        }
+        return textures
     }
 
     /** The element kind of each list kind. */

@@ -83,35 +83,15 @@ class ItemFiles(
     }
 
     /**
-     * The textures of [model] and of its parents, each `{ key, texture }`. A texture whose PNG the pack holds is described
-     * as [PackModel] describes one, any other by its id alone.
+     * The textures of [model] and of its parents, each `{ key, texture }`, the child's for a key that both name. A texture
+     * whose PNG the pack holds is described as [PackModel] describes one, any other by its id alone.
      */
-    private fun textures(model: String): List<Map<String, Any?>> {
-        val textures = linkedMapOf<String, String>()
-        val seen = mutableSetOf<String>()
-        var id: String? = model
-        while (id != null && !id.startsWith("builtin/") && seen.add(id)) {
-            val path = runCatching { Identifier.resource(id, "models", ".json") }.getOrNull() ?: break
-            val json = read(path)?.let { runCatching { JsonSlurper().parse(it) }.getOrNull() } as? Map<*, *> ?: break
-            (json["textures"] as? Map<*, *>)?.forEach { (key, value) ->
-                val texture = value as? String ?: (value as? Map<*, *>)?.get("sprite") as? String
-                if (texture != null && !texture.startsWith("#")) textures.putIfAbsent(key as String, texture)
-            }
-            id = json["parent"] as? String
-        }
-        return textures.map { (key, texture) ->
+    private fun textures(model: String): List<Map<String, Any?>> =
+        ItemDefinitions.textures(model, ::read, mutableListOf()).distinctBy { it.key }.map { (_, key, texture) ->
             val png = runCatching { Identifier.resource(texture, "textures", ".png") }.getOrNull()?.let { assets.resolve(it) }
-            val described =
-                if (png?.isFile ==
-                    true
-                ) {
-                    PackModel.texture("${full(texture)}.png", pack)
-                } else {
-                    mapOf("id" to "${full(texture)}.png")
-                }
-            linkedMapOf("key" to key, "texture" to described)
+            val id = "${full(texture)}.png"
+            linkedMapOf("key" to key, "texture" to if (png?.isFile == true) PackModel.texture(id, pack) else mapOf("id" to id))
         }
-    }
 
     /** Writes [definition], the text of an item definition, as the item [id] in the pack, after every rule passed. */
     fun write(

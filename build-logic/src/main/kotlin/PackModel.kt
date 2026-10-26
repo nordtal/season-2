@@ -220,9 +220,12 @@ object PackModel {
             val entries =
                 files(folder, "json").map { file ->
                     val model = (json(file) as? Map<*, *>)?.get("model") as? Map<*, *>
+                    val path = file.relativeTo(root).invariantSeparatorsPath
                     linkedMapOf(
                         "id" to "${namespace.name}:${file.relativeTo(folder).invariantSeparatorsPath.removeSuffix(".json")}",
-                        "file" to file.relativeTo(root).invariantSeparatorsPath,
+                        "file" to path,
+                        // An item without a texture is a draft of its own file, as Drafts names it.
+                        *drafts.of(path),
                         "model" to model?.get("type"),
                         "texture" to itemTexture(model, assets)?.let { texture(it, root, drafts) },
                     )

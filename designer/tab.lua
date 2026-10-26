@@ -103,6 +103,11 @@ function tab.open(context)
       for _, row in ipairs(modules.items.rows(definition, info.at or "", info.part or "item", tr)) do
         table.insert(list, row)
       end
+      if info.kind == "item" then
+        for _, row in ipairs(modules.drafts.rows(model, info, tr)) do
+          table.insert(list, row)
+        end
+      end
       return list
     end
     for _, row in ipairs(properties.rows(info, tr, { coupled=preferences.coupled })) do

@@ -994,14 +994,49 @@ describe("the Nordtal tab", function()
     assert.equal("new.chosen minecraft:compass", browser.handlers.chosen.text)
     browser.handlers.create.onclick()
     assert.equal(":resource-pack:editItem -Pitem=minecraft:compass", run(t.started[3]))
-    t.world.model = dkjson.encode({ fonts={}, overrides={}, items={
-      { category="minecraft", entries={ { id="minecraft:apple" }, { id="minecraft:compass" } } } } })
+    local file = "src/assets/minecraft/items/compass.json"
+    t.world.model = dkjson.encode({ fonts={}, overrides={}, reviews={}, items={
+      { category="minecraft", entries={ { id="minecraft:apple" },
+        { id="minecraft:compass", model="minecraft:select", file=file, draft=file } } } },
+      drafts={ { id=file, label="compass.json", state="added", files={ file } } } })
     t.started[3].args.onexit(0)
     assert.is_true(browser.closed)
     assert.equal(":resource-pack:describePack", run(t.started[4]))
+    t.started[4].isRunning = false
     t.started[4].args.onexit(0)
     assert.equal("item/minecraft:compass", tabDialog.data.tree)
-    assert.equal(":resource-pack:readItem -Pitem=minecraft:compass", run(t.started[5]))
+    local read = t.started[#t.started]
+    assert.equal(":resource-pack:readItem -Pitem=minecraft:compass", run(read))
+    read.args.onstdout(dkjson.encode({ item="minecraft:compass", source="pack", file="/c/resource-pack/" .. file,
+      problems={}, definition={ model={ type="minecraft:select", property="minecraft:context_dimension", cases={} } },
+      types=itemTypes, models={} }))
+    read.isRunning = false
+    read.args.onexit(0)
+    local items = tabDialog.handlers.tree.nodes[2]
+    assert.same({ "items", "minecraft:compass", "tab_modified_icon_normal" },
+      { items.id, items.children[1].children[2].text, items.children[1].children[2].icon })
+
+    t.world.confirm = 1
+    click(tabDialog, "properties.discard")
+    local discard = t.started[#t.started]
+    assert.equal(":resource-pack:discardDraft -Pdraft=" .. file, run(discard))
+    t.world.model = dkjson.encode({ fonts={}, overrides={}, items={
+      { category="minecraft", entries={ { id="minecraft:apple" } } } } })
+    discard.isRunning = false
+    discard.args.onexit(0)
+    local reread = t.started[#t.started]
+    assert.equal(":resource-pack:describePack", run(reread))
+    reread.isRunning = false
+    reread.args.onexit(0)
+    local count = #t.started
+    t.ctl.create()
+    w = t.dialogs[#t.dialogs]
+    w.values.kind = "new.kind_vanilla_item"
+    w.handlers.kind.onchange()
+    assert.equal(count, #t.started)
+    browser = t.dialogs[#t.dialogs]
+    assert.same({ "minecraft:compass", "minecraft:stone" },
+      { browser.handlers.choices.nodes[1].id, browser.handlers.choices.nodes[2].id })
   end)
 
   it("reads the client jar once for the textures and the items", function()

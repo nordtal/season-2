@@ -284,18 +284,22 @@ of indent, and removes a file left empty.
 ./gradlew -q :resource-pack:scaleTexture -Ptexture=minecraft:gui/sprites/widget/button.png -Pscaling=nine_slice -Pwidth=200 -Pheight=20 -Pborder=3
 ```
 
-| task             | options                                                                   | prints                                             |
-| ---------------- | ------------------------------------------------------------------------- | -------------------------------------------------- |
-| `animateTexture` | `texture`, `frames`                                                       | each dropped member, the absolute path of the file |
-| `scaleTexture`   | `texture`, `scaling`; `width`, `height`, `border`, `stretchInner` (false) | the absolute path of the file                      |
+| task             | options                                                                   | prints                                     |
+| ---------------- | ------------------------------------------------------------------------- | ------------------------------------------ |
+| `animateTexture` | `texture`, `frames`; `from`                                               | its notices, the absolute path of the file |
+| `scaleTexture`   | `texture`, `scaling`; `width`, `height`, `border`, `stretchInner` (false) | the absolute path of the file              |
 
 - `frames` is the duration of each frame in milliseconds, and the PNG is a column of the frames from the
   top. The `animation` gets one `frametime` in ticks of 50 milliseconds when every frame lasts as long,
   and otherwise `frames` with the `time` of each; a frame shorter than a tick lasts one. A frame that is
   not square sets `height`. `interpolate` stays, and one frame removes the animation.
-- `width` stays while it equals the PNG's width. The order in the animation's `frames` stays while the PNG holds
-  each frame it plays. Each entry that plays a frame with a changed duration gets the new time. The task prints
-  `dropped width` or `dropped frames` for a member that no longer fits.
+- `width` stays while it equals the PNG's width, and the task prints `dropped width` when it removes it.
+- `from` is the frame count of the PNG before the change. The order in the animation's `frames` stays while
+  `from` equals the new count, and each entry that plays a frame with a changed duration gets the new time.
+  Without `from` or with another count, the task removes the order and prints `changed frames`. An order that
+  plays a frame the PNG lacks is removed with `dropped frames`.
+- A reorder of the frames that keeps their count is not detected: the kept order plays the frames at their new indices.
+- The task prints `unplayed` and the index of each frame whose new duration no entry of a kept order plays.
 - `scaling` is `stretch`, `tile` or `nine_slice`, and only a texture under `textures/gui/sprites/` takes
   one. `stretch` removes `gui.scaling`. `tile` and `nine_slice` need `width` and `height`, and
   `nine_slice` a `border` of one number for every side or four for left, top, right and bottom. As in

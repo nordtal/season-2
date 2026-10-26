@@ -49,7 +49,8 @@ function tab.open(context)
   local vanilla
   local status = { text=tr("status.loading"), visible=true }
   -- What the tab opened, by the filenames of its PNG and its source:
-  -- { id, paths } with the id of the entry's node
+  -- { id, paths, frames } with the id of the entry's node and the count
+  -- of frames of its PNG when it was opened or last saved
   local opened = {}
   -- The Gradle runs that wait, each a function(done) that starts one
   -- and returns its Process, and the one that runs as { process }
@@ -324,22 +325,29 @@ function tab.open(context)
   -- finally() in any case, and reads the pack again. A refusal shows
   -- its reason in the panel while its entry stays selected, and in the
   -- status line too when shown is true. A refusal that names fields
-  -- the task needs calls needed(fields) instead. The status line names
-  -- the members of an animation that the task dropped.
+  -- the task needs calls needed(fields) instead. The status line shows
+  -- the notices that the task printed once the pack was read again.
   local function write(job, after, finally, shown, needed)
     local id = selected
     refused = nil
     setStatus(tr("status.writing"))
     enqueue(task(job), function(ok, err, out)
       if ok then
-        local dropped = {}
-        for _, member in ipairs(modules.pack.dropped(out or {})) do table.insert(dropped, tr("status.dropped_" .. member)) end
-        if #dropped > 0 then notice = table.concat(dropped, " ") end
+        local texts, unplayed = {}, {}
+        for _, n in ipairs(modules.pack.notices(out or {})) do
+          if n.frame then table.insert(unplayed, n.frame) else table.insert(texts, tr("status." .. n.key)) end
+        end
+        if #unplayed > 0 then
+          table.insert(texts, tr(#unplayed == 1 and "status.unplayed" or "status.unplayed_many", table.concat(unplayed, ", ")))
+        end
+        if #texts > 0 then notice = table.concat(texts, " ") end
         if after then after() end
         if finally then finally() end
         ctl.reload()
         return
       end
+      -- No read follows that would show a notice of an earlier write
+      notice = nil
       for i = #queue, 1, -1 do
         if queue[i] == describe then table.remove(queue, i) end
       end
@@ -555,8 +563,8 @@ function tab.open(context)
     end
     local durations = {}
     for i, frame in ipairs(sprite.frames) do durations[i] = math.floor(frame.duration * 1000 + 0.5) end
-    local job = properties.saved(info, { width=sprite.width, height=sprite.height, durations=durations },
-      preferences.coupled)
+    local job = properties.saved(info, { width=sprite.width, height=sprite.height, durations=durations,
+      opened=record.frames }, preferences.coupled)
     if not job then
       info.texture.width, info.texture.height = sprite.width, sprite.height
       return
@@ -568,6 +576,7 @@ function tab.open(context)
       if properties.animated(info) then
         info.entry.animation = #durations > 1 or nil
         info.entry.frames = nil
+        record.frames = #durations
       end
     end, function()
       record.writing = nil
@@ -958,7 +967,7 @@ function tab.open(context)
       setStatus(paths and tr("status.missing", missing) or tr("status.outside", outside))
       return
     end
-    local record = { id=id, texture=texture, paths=paths, info=info }
+    local record = { id=id, texture=texture, paths=paths, info=info, frames=frames and #frames or nil }
     opened[paths.png], opened[paths.aseprite] = record, record
     dlg:modify{ id="editor", sprite=sprite }
     -- A texture of a few pixels fills the editor

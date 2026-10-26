@@ -6,7 +6,8 @@ import javax.imageio.ImageIO
 /**
  * Reads and writes the `.png.mcmeta` of a texture in the pack at [pack]: its `animation` and its `gui.scaling`.
  *
- * Each write keeps every other member, removes an `.mcmeta` left empty, and returns the `.mcmeta` it wrote or removed.
+ * Each write keeps every other member and removes an `.mcmeta` left empty. [scale] returns the `.mcmeta` it wrote or
+ * removed, and [animate] an [Animated] that holds it.
  */
 object TextureMeta {
     /** The milliseconds of one game tick, the unit of `frametime` and `time`. */
@@ -17,13 +18,14 @@ object TextureMeta {
 
     /**
      * Writes the `animation` of [texture], whose PNG is a column of one frame per entry of [frames], each its duration in
-     * milliseconds. One frame removes the animation. `interpolate` stays, and so do `width` and the order in `frames` while
-     * the sprite still holds them, with a changed duration written into each entry of its frame.
+     * milliseconds, and held [from] frames before. One frame removes the animation. `interpolate` stays, `width` while it is
+     * the PNG's width, and the order in `frames` while the count is [from], each changed duration written into its entries.
      */
     fun animate(
         pack: File,
         texture: String,
         frames: List<Int>,
+        from: Int?,
     ): Animated {
         require(frames.isNotEmpty() && frames.all { it > 0 }) { "Each frame lasts at least 1 millisecond." }
         val png = png(pack, texture)
@@ -31,18 +33,21 @@ object TextureMeta {
         require(image.height % frames.size == 0) {
             "${relative(pack, png)} is ${image.height} pixels high, which ${frames.size} frames do not divide."
         }
-        val dropped = mutableListOf<String>()
+        val notices = mutableListOf<String>()
         val written =
             change(pack, png) { meta ->
                 val old = meta.remove("animation") as? Map<*, *>
                 if (frames.size == 1) return@change
                 val ticks = frames.map { maxOf(1, Math.round(it / TICK.toDouble()).toInt()) }
                 val width = old?.get("width")?.takeIf { it == image.width }
-                if (old?.get("width") != null && width == null) dropped += "width"
-                val order = old?.let { order(it) }?.takeIf { entries -> entries.all { it.first in ticks.indices } }
-                if (old?.get("frames") != null && order == null) dropped += "frames"
+                if (old?.get("width") != null && width == null) notices += "dropped width"
+                val read = old?.let { order(it) }
+                val order = read?.takeIf { from == ticks.size && it.all { (i, _) -> i in ticks.indices } }
+                if (read != null && order == null) notices += if (from == ticks.size) "dropped frames" else "changed frames"
                 val frametime = (old?.get("frametime") as? Int) ?: 1
-                val changed = ticks.indices.filter { i -> ticks[i] != (order?.firstOrNull { it.first == i }?.second ?: frametime) }
+                val played = order?.map { it.first }?.toSet().orEmpty()
+                val changed = played.filter { ticks[it] != time(order, it, frametime) }
+                if (order != null) ticks.indices.filter { it !in played && ticks[it] != frametime }.forEach { notices += "unplayed $it" }
                 val entries = order?.map { (i, time) -> i to if (i in changed) ticks[i] else time } ?: ticks.indices.map { it to ticks[it] }
                 val animation = OxfmtJson.Object()
                 val kept = order != null && changed.isEmpty()
@@ -64,13 +69,16 @@ object TextureMeta {
                 }
                 meta["animation"] = animation
             }
-        return Animated(written, dropped)
+        return Animated(written, notices)
     }
 
-    /** The `.mcmeta` that [animate] wrote or removed, and the members of the old `animation` that it dropped. */
+    /**
+     * The `.mcmeta` that [animate] wrote or removed, and its [notices]: `dropped width`, `dropped frames`, `changed frames`
+     * or `unplayed` and the index of a frame whose new duration the order never plays.
+     */
     data class Animated(
         val written: List<File>,
-        val dropped: List<String>,
+        val notices: List<String>,
     )
 
     /**
@@ -157,7 +165,7 @@ object TextureMeta {
                 "y" to index / columns * frameHeight,
                 "width" to frameWidth,
                 "height" to frameHeight,
-                "duration" to (order?.firstOrNull { it.first == index }?.second ?: frametime) * TICK,
+                "duration" to time(order, index, frametime) * TICK,
             )
         }
     }
@@ -169,6 +177,13 @@ object TextureMeta {
             if (it is Map<*, *>) (it["index"] as? Int ?: -1) to ((it["time"] as? Int) ?: frametime) else (it as? Int ?: -1) to frametime
         }
     }
+
+    /** The time in ticks of the frame [index]: that of the first entry of [order] that plays it, else [frametime]. */
+    private fun time(
+        order: List<Pair<Int, Int>>?,
+        index: Int,
+        frametime: Int,
+    ) = order?.firstOrNull { it.first == index }?.second ?: frametime
 
     /** Applies [edit] to the `.mcmeta` of [png], and writes it, or removes it when it is left empty. */
     private fun change(

@@ -33,7 +33,7 @@ class TextureMetaTest {
     fun framesOfOneLengthWriteOneFrametimeInTicks() {
         png(lavaPng, 16, 48)
 
-        val written = TextureMeta.animate(pack, lava, listOf(100, 100, 100))
+        val written = TextureMeta.animate(pack, lava, listOf(100, 100, 100), null)
 
         assertEquals(TextureMeta.Animated(listOf(lavaMeta), emptyList()), written)
         assertEquals("{\n    \"animation\": {\n        \"frametime\": 2\n    }\n}\n", lavaMeta.readText())
@@ -43,7 +43,7 @@ class TextureMetaTest {
     fun framesOfDifferentLengthsListEachFrameWithItsTicksAndAFrameShorterThanATickLastsOne() {
         png(lavaPng, 16, 48)
 
-        TextureMeta.animate(pack, lava, listOf(500, 20, 175))
+        TextureMeta.animate(pack, lava, listOf(500, 20, 175), null)
 
         assertEquals(
             mapOf(
@@ -61,7 +61,7 @@ class TextureMetaTest {
     fun aFrameThatIsNotSquareNamesItsHeight() {
         png(lavaPng, 16, 30)
 
-        TextureMeta.animate(pack, lava, listOf(100, 100))
+        TextureMeta.animate(pack, lava, listOf(100, 100), null)
 
         assertEquals(mapOf("animation" to mapOf("frametime" to 2, "height" to 15)), OxfmtJson.read(lavaMeta))
     }
@@ -71,7 +71,7 @@ class TextureMetaTest {
         png(lavaPng, 16, 32)
         lavaMeta.writeText("""{"texture": {"blur": true}, "animation": {"frametime": 3, "interpolate": true}}""")
 
-        TextureMeta.animate(pack, lava, listOf(50, 50))
+        TextureMeta.animate(pack, lava, listOf(50, 50), null)
 
         assertEquals(
             mapOf("texture" to mapOf("blur" to true), "animation" to mapOf("frametime" to 1, "interpolate" to true)),
@@ -86,7 +86,7 @@ class TextureMetaTest {
             """{"animation": {"frametime": 3, "width": 32, "height": 16, "interpolate": true, "frames": [3, 2, {"index": 1, "time": 5}, 0]}}"""
         lavaMeta.writeText(blockbench)
 
-        val written = TextureMeta.animate(pack, lava, listOf(150, 250, 150, 150))
+        val written = TextureMeta.animate(pack, lava, listOf(150, 250, 150, 150), 4)
 
         assertEquals(TextureMeta.Animated(listOf(lavaMeta), emptyList()), written)
         assertEquals(OxfmtJson.asset(OxfmtJson.read(blockbench)), lavaMeta.readText())
@@ -97,7 +97,7 @@ class TextureMetaTest {
         png(lavaPng, 16, 32)
         lavaMeta.writeText("""{"animation": {"frametime": 2, "frames": [0, {"index": 1, "time": 5}, 0, 1]}}""")
 
-        TextureMeta.animate(pack, lava, listOf(100, 400))
+        TextureMeta.animate(pack, lava, listOf(100, 400), 2)
 
         assertEquals(
             mapOf(
@@ -121,10 +121,54 @@ class TextureMetaTest {
         png(lavaPng, 16, 32)
         lavaMeta.writeText("""{"animation": {"frametime": 3, "width": 32, "height": 16, "frames": [3, 2, 1, 0]}}""")
 
-        val written = TextureMeta.animate(pack, lava, listOf(150, 150))
+        val written = TextureMeta.animate(pack, lava, listOf(150, 150), 2)
 
-        assertEquals(TextureMeta.Animated(listOf(lavaMeta), listOf("width", "frames")), written)
+        assertEquals(TextureMeta.Animated(listOf(lavaMeta), listOf("dropped width", "dropped frames")), written)
         assertEquals(mapOf("animation" to mapOf("frametime" to 3)), OxfmtJson.read(lavaMeta))
+    }
+
+    @Test
+    fun aSquareFrameWithAKeptWidthStillWritesItsHeight() {
+        png(lavaPng, 16, 32)
+        lavaMeta.writeText("""{"animation": {"width": 16, "frametime": 2}}""")
+
+        TextureMeta.animate(pack, lava, listOf(100, 100), 2)
+
+        assertEquals(mapOf("animation" to mapOf("frametime" to 2, "width" to 16, "height" to 16)), OxfmtJson.read(lavaMeta))
+    }
+
+    @Test
+    fun aFrameAddedToTheSpriteDropsTheOrderAndNamesTheChangedFrames() {
+        png(lavaPng, 16, 48)
+        lavaMeta.writeText("""{"animation": {"frametime": 2, "frames": [1, 0]}}""")
+
+        val written = TextureMeta.animate(pack, lava, listOf(100, 100, 100), 2)
+
+        assertEquals(TextureMeta.Animated(listOf(lavaMeta), listOf("changed frames")), written)
+        assertEquals(mapOf("animation" to mapOf("frametime" to 2)), OxfmtJson.read(lavaMeta))
+    }
+
+    @Test
+    fun aFrameDeletedFromTheSpriteDropsTheOrderAndNamesTheChangedFrames() {
+        png(lavaPng, 16, 32)
+        lavaMeta.writeText("""{"animation": {"frametime": 2, "frames": [0, 1, 0]}}""")
+
+        val written = TextureMeta.animate(pack, lava, listOf(100, 100), 3)
+
+        assertEquals(TextureMeta.Animated(listOf(lavaMeta), listOf("changed frames")), written)
+        assertEquals(mapOf("animation" to mapOf("frametime" to 2)), OxfmtJson.read(lavaMeta))
+    }
+
+    @Test
+    fun aNewDurationOfAFrameTheOrderNeverPlaysKeepsTheOrderAndNamesTheFrame() {
+        png(lavaPng, 16, 48)
+        val order = """{"animation": {"frametime": 2, "frames": [0, 1]}}"""
+        lavaMeta.writeText(order)
+
+        val written = TextureMeta.animate(pack, lava, listOf(100, 100, 400), 3)
+
+        assertEquals(TextureMeta.Animated(listOf(lavaMeta), listOf("unplayed 2")), written)
+        assertEquals(OxfmtJson.asset(OxfmtJson.read(order)), lavaMeta.readText())
     }
 
     @Test
@@ -132,7 +176,7 @@ class TextureMetaTest {
         png(lavaPng, 16, 16)
         lavaMeta.writeText("""{"animation": {"frametime": 3}}""")
 
-        val written = TextureMeta.animate(pack, lava, listOf(100))
+        val written = TextureMeta.animate(pack, lava, listOf(100), null)
 
         assertEquals(listOf(lavaMeta), written.written)
         assertFalse(lavaMeta.exists())
@@ -142,7 +186,7 @@ class TextureMetaTest {
     fun anAnimationRefusesAPngThatIsNoColumnOfItsFrames() {
         png(lavaPng, 16, 40)
 
-        val error = assertThrows<IllegalArgumentException> { TextureMeta.animate(pack, lava, listOf(100, 100, 100)) }
+        val error = assertThrows<IllegalArgumentException> { TextureMeta.animate(pack, lava, listOf(100, 100, 100), null) }
 
         assertEquals("src/assets/minecraft/textures/block/lava_still.png is 40 pixels high, which 3 frames do not divide.", error.message)
         assertFalse(lavaMeta.exists())

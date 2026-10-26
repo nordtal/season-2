@@ -219,8 +219,8 @@ function properties.animated(info)
 end
 
 -- The task that follows a save of the texture of info, whose sprite
--- now is { width, height, durations } with a duration in milliseconds
--- per frame: a glyph whose pixel height changed scales its display
+-- now is { width, height, durations, opened } with a duration in
+-- milliseconds per frame and the count of frames it was opened with: a glyph whose pixel height changed scales its display
 -- height when coupled, and an animated texture writes its animation. An
 -- animation the model could not split into frames stays as it is.
 -- nil when nothing follows.
@@ -232,7 +232,7 @@ function properties.saved(info, sprite, coupled)
   if properties.animated(info) and (#sprite.durations > 1 or (e.animation and e.frames)) then
     local frames = {}
     for _, ms in ipairs(sprite.durations) do table.insert(frames, shown(int(ms))) end
-    return { "animateTexture", { texture=t.id, frames=table.concat(frames, ",") } }
+    return { "animateTexture", { texture=t.id, frames=table.concat(frames, ","), from=sprite.opened } }
   end
   return nil
 end

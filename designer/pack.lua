@@ -81,13 +81,19 @@ function pack.needs(out)
   return list
 end
 
--- The members of a texture's animation that animateTexture printed
--- on its lines "dropped <member>" to its stdout out
-function pack.dropped(out)
+-- The notices that animateTexture printed to its stdout out, each
+-- { key } of a line "dropped width", "dropped frames" or "changed
+-- frames", and { key="unplayed", frame } of a line "unplayed <index>"
+-- with the frame as Aseprite counts it, from 1
+function pack.notices(out)
   local list = {}
   for _, line in ipairs(out) do
-    local member = line:match("^dropped (%S+)$")
-    if member then table.insert(list, member) end
+    local index = line:match("^unplayed (%d+)$")
+    if index then
+      table.insert(list, { key="unplayed", frame=tonumber(index) + 1 })
+    elseif line:match("^dropped %a+$") or line:match("^changed %a+$") then
+      table.insert(list, { key=line:gsub(" ", "_") })
+    end
   end
   return list
 end

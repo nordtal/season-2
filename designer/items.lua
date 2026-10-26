@@ -12,6 +12,8 @@ local items = {}
 -- no members is an empty list, as plain() gives it either way.
 -- Aseprite's json.encode takes no string or number and writes a
 -- number with 17 digits, so 0.1 would reach the task as 0.10000000000000001.
+-- Aseprite builds Lua with LUA_FLOORN2I=F2Ifloor, so math.tointeger
+-- rounds 0.5 down to 0 and cannot tell a whole number.
 local function encode(value)
   local kind = type(value)
   if kind == "string" then
@@ -20,7 +22,7 @@ local function encode(value)
       return named[c] or string.format("\\u%04x", c:byte())
     end) .. '"'
   elseif kind == "number" then
-    return tostring(math.tointeger(value) or value)
+    return value % 1 == 0 and math.abs(value) < 2^53 and string.format("%d", value) or tostring(value)
   elseif kind == "table" then
     local out = {}
     if next(value) == nil or value[1] ~= nil then

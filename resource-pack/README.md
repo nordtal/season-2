@@ -91,7 +91,7 @@ fonts[]       font, rows, constant, about, draft, review, blocks[]
               kind "sheet": title, range, status, about, draft, review, height, ascent, texture, cells[]
   glyphs[]    code, constant, name, list, status, effectiveStatus, height, ascent, about, texture
   cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
-items[]       category (the namespace), entries[]: id, file, model (the type of the root model), texture
+items[]       category (the namespace), entries[]: id, file, draft, review, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite, block, item
 texture       id, png, aseprite, asepriteExists, draft, review, width, height
 drafts[]      id, label, state, files, review, conflict: files, fields[]: name, clone, main
@@ -108,9 +108,10 @@ PNG's name for an override under `block` or `item`, or null. `frames` lists each
 `width`, `height` in the PNG and `duration` in milliseconds, the time of the first entry of the animation's `frames`
 that plays it. It is null when the animation's frames do not divide the PNG. `guiSprite` is true for a texture under
 `textures/gui/sprites/`. Language files are not listed.
-`draft` is the id of the draft that a texture, block or font is, as `drafts` names it, which the
-next section describes, or null where it is none. `review` is the number of the pull request that
-holds the texture, block or font, or null. `conflict` is null for a draft without a conflict with
+`draft` is the id of the draft that a texture, block, font or item is, as `drafts` names it, which the
+next section describes, or null where it is none. An item without a texture is the draft of its file.
+The file of an item with a texture is part of its texture's draft. `review` is the number of the pull request that holds the texture, block,
+font or item, or null. `conflict` is null for a draft without a conflict with
 main. `reviews` lists the pull requests that `publishDrafts` opened, as the last `syncReviews` read
 them. `describePack` reads git on every run.
 
@@ -353,6 +354,7 @@ property of its type. A value of another kind is refused with `refused` and the 
 required value is still missing, such as `block_state_property` after a new property, it prints
 `needs`, the field and its kind on a line for each, and fails. The result is checked and written like
 `writeItem`'s, and a vanilla item that the pack lacks is read from the jar and written as an override.
+Without `fields`, `add` and `remove`, it writes the definition unchanged, which starts such an override.
 
 - The rules follow the codecs of the client jar: every model type (`empty`, `model`, `composite`,
   `condition`, `select`, `range_dispatch`, `special` and `bundle/selected_item`), each property of
@@ -477,7 +479,7 @@ against the SHA-1 of Mojang's version manifest and keeps in `~/.gradle/caches/fa
 of its result, one file per line.
 
 ```bash
-./gradlew -q :resource-pack:listVanillaTextures     # build/vanilla-textures.json: id, width, height, mcmeta
+./gradlew -q :resource-pack:listVanillaAssets       # build/vanilla-assets.json: textures (id, width, height, mcmeta), items
 ./gradlew -q :resource-pack:copyVanillaTexture -Ptexture=minecraft:block/stone.png
 ```
 

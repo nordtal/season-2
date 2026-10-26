@@ -155,6 +155,25 @@ describe("the item definition editor", function()
     assert.equal("{\"when\":3}", items.job(r, when, { value="3" }, decode)[2].fields)
   end)
 
+  it("labels and sends a fraction whole in Aseprite's Lua, whose math.tointeger rounds a float down", function()
+    local tointeger = math.tointeger
+    math.tointeger = function(x)
+      if type(x) == "number" then return tointeger(math.floor(x)) end
+      return tointeger(x)
+    end
+    local r = read()
+    r.definition.model = { type="minecraft:range_dispatch", property="minecraft:compass", scale=2.0, entries={
+      { threshold=0.0, model={ type="minecraft:empty" } }, { threshold=0.5, model={ type="minecraft:empty" } } } }
+    local ok, err = pcall(function()
+      local p = prefix("nordtal:lamp")
+      assert.same({ p .. "model/entries/0 0: empty", p .. "model/entries/1 0.5: empty" }, outline((items.nodes(r, tr))))
+      local scale = field(items.rows(r, "", "item", tr), "scale")
+      assert.equal("{\"scale\":0.5}", items.job(r, scale, { value="0.5" }, decode)[2].fields)
+    end)
+    math.tointeger = tointeger
+    assert(ok, err)
+  end)
+
   it("sends a number as a number, a text that is none as text for the task to refuse, and an empty optional field as null", function()
     local r = read()
     r.definition.model = { type="minecraft:range_dispatch", property="minecraft:damage", entries={}, scale=2 }

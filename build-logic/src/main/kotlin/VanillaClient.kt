@@ -5,26 +5,30 @@ import java.io.File
 import java.util.zip.ZipFile
 
 /**
- * The textures in the client jar of the season's Minecraft version, which Fabric Loom downloads for `:bridge-mod`.
+ * The textures and item definitions in the season's client jar, which Fabric Loom downloads for `:bridge-mod`.
  *
  * The jar is a starting point for a vanilla override. It is never committed and never part of the pack.
  */
 object VanillaClient {
     private val TEXTURE = Regex("""assets/([a-z0-9_.-]+)/textures/([a-z0-9_./-]+\.png)""")
+    private val ITEM = Regex("""assets/([a-z0-9_.-]+)/items/([a-z0-9_./-]+)\.json""")
 
-    /** Lists every texture in [jar] by its id, such as `minecraft:block/stone.png`, with its pixels and whether it has a `.mcmeta`. */
-    fun textures(jar: File): List<Map<String, Any>> =
+    /**
+     * Lists the `textures` and `items` of [jar] from one read of its entries. A texture is a map of its id, such as
+     * `minecraft:block/stone.png`, its pixels and whether it has a `.mcmeta`. An item is its id, such as
+     * `minecraft:compass`. Both lists are sorted by id.
+     */
+    fun assets(jar: File): Map<String, List<Any>> =
         ZipFile(jar).use { zip ->
             val names =
                 zip
                     .entries()
                     .asSequence()
                     .map { it.name }
-                    .toSet()
-            names
-                .mapNotNull { name -> TEXTURE.matchEntire(name)?.let { name to it } }
-                .sortedBy { it.first }
-                .map { (name, match) ->
+                    .toSortedSet()
+            val textures =
+                names.mapNotNull { name ->
+                    val match = TEXTURE.matchEntire(name) ?: return@mapNotNull null
                     DataInputStream(zip.getInputStream(zip.getEntry(name))).use { png ->
                         // The IHDR chunk follows the 8-byte signature and its own 8-byte header.
                         png.skipNBytes(16)
@@ -36,6 +40,8 @@ object VanillaClient {
                         )
                     }
                 }
+            val items = names.mapNotNull { ITEM.matchEntire(it) }.map { "${it.groupValues[1]}:${it.groupValues[2]}" }.sorted()
+            mapOf("textures" to textures, "items" to items)
         }
 
     /**

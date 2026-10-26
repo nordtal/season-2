@@ -162,13 +162,11 @@ function pack.describe(bootstrap, api, done)
   return process, problem
 end
 
--- Runs listVanillaTextures and calls done(textures) with the textures
--- of the client jar, each { id, width, height, mcmeta }, or done(nil,
--- lines)
+-- Runs listVanillaAssets and calls done(listing) with the textures
+-- of the client jar, each { id, width, height, mcmeta }, and the ids
+-- of its items, or done(nil, lines)
 function pack.vanilla(bootstrap, api, done)
-  local process, problem = written(bootstrap, api, "listVanillaTextures", "vanilla-textures.json", function(listing, err)
-    done(listing and (listing.textures or {}), err)
-  end)
+  local process, problem = written(bootstrap, api, "listVanillaAssets", "vanilla-assets.json", done)
   return process, problem
 end
 

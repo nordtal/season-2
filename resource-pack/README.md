@@ -212,12 +212,12 @@ entry that one side deleted and the other changed makes `glyphs.json` a file of 
 ./gradlew -q :resource-pack:syncReviews -Pgh=gh
 ```
 
-| task              | options                                | prints                                                                                |
-| ----------------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
-| `discardDraft`    | `draft`                                | the absolute path of each file it wrote or deleted                                    |
-| `readConflict`    | `draft`                                | the absolute path of main's version of each file of the conflict                      |
-| `resolveConflict` | `draft`; `keep`, `fields`              | the absolute path of each file it wrote or deleted                                    |
-| `publishDrafts`   | `drafts` (a comma list), `title`; `gh` | the address of the pull request                                                       |
+| task              | options                                | prints                                                                                              |
+| ----------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `discardDraft`    | `draft`                                | the absolute path of each file it wrote or deleted                                                  |
+| `readConflict`    | `draft`                                | the absolute path of main's version of each file of the conflict                                    |
+| `resolveConflict` | `draft`; `keep`, `fields`              | the absolute path of each file it wrote or deleted                                                  |
+| `publishDrafts`   | `drafts` (a comma list), `title`; `gh` | the address of the pull request                                                                     |
 | `syncReviews`     | `gh`                                   | `merged`, `closed`, `reviewed` or `unanswered` and the number per pull request, `moved`, `restored` |
 
 - `discardDraft` restores the draft's files and entries to the last commit, or to its pull request

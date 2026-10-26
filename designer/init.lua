@@ -41,7 +41,10 @@ function init(plugin)
     api={
       Dialog=Dialog,
       Process=Process,
+      Timer=Timer,
       Image=Image,
+      Sprite=Sprite,
+      alert=app.alert,
       windows=app.os.windows,
       join=join,
       read=read,
@@ -59,6 +62,7 @@ function init(plugin)
       tree=plugin.require("tree"),
       textures=plugin.require("textures"),
       panel=plugin.require("panel"),
+      properties=plugin.require("properties"),
     },
     bootstrap=plugin.bootstrap,
     preferences=plugin.preferences,

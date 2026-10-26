@@ -1,6 +1,7 @@
--- The lines of the properties panel: each key on a line of its own
--- and its value below it, wrapped to the panel's width. measure(text)
--- gives the width of a text.
+-- The layout of the properties panel: each key on a line of its own
+-- and its value below it, wrapped to the panel's width, a value that
+-- can be edited in a box, a switch as a check box and a button.
+-- measure(text) gives the width of a text.
 
 local panel = {}
 
@@ -50,16 +51,66 @@ function panel.wrap(text, width, measure)
   return lines
 end
 
--- The lines of { key, value } rows
-function panel.lines(rows, width, measure)
-  local lines = {}
-  for _, row in ipairs(rows) do
-    table.insert(lines, { text=row[1], key=true })
-    for _, text in ipairs(panel.wrap(row[2], width, measure)) do
-      table.insert(lines, { text=text })
+-- The space between a box and its text, in points
+local padX, padY = 3, 3
+
+-- What to draw for rows { text, value, field, kind }, and where a
+-- click hits a field: { ops, hits, height }. An op is a text { text,
+-- x, y, key }, a box, a check of a size, or a button. kind is nil for
+-- a key and its value, or a value alone without text, "switch" for a check box with the text and the
+-- value true or false, or "button".
+function panel.layout(rows, width, measure, lineHeight)
+  local ops, hits, y = {}, {}, 0
+  local function text(t, x, ty, key)
+    table.insert(ops, { op="text", text=t, x=x, y=ty, key=key })
+  end
+  for i, row in ipairs(rows) do
+    if i > 1 then
+      y = y + lineHeight // 2
+    end
+    local top, height = y, 0
+    if row.kind == "switch" then
+      local size = lineHeight
+      table.insert(ops, { op="check", x=0, y=y, size=size, checked=row.value == true })
+      local lines = panel.wrap(row.text, width - size - padX, measure)
+      for n, line in ipairs(lines) do text(line, size + padX, y + (n - 1) * lineHeight) end
+      height = math.max(size, #lines * lineHeight)
+    elseif row.kind == "button" then
+      height = lineHeight + 2 * padX
+      table.insert(ops, { op="button", x=0, y=y, width=width, height=height })
+      text(row.text, (width - measure(row.text)) // 2, y + padX)
+    else
+      if row.text then
+        text(row.text, 0, y, true)
+        y = y + lineHeight
+      end
+      top = y
+      local inset = row.field and padX or 0
+      local lines = panel.wrap(row.value, width - 2 * inset, measure)
+      if row.field then
+        height = math.max(1, #lines) * lineHeight + 2 * padY
+        table.insert(ops, { op="box", x=0, y=y, width=width, height=height })
+        for n, line in ipairs(lines) do text(line, inset, y + padY + (n - 1) * lineHeight) end
+      else
+        for n, line in ipairs(lines) do text(line, 0, y + (n - 1) * lineHeight) end
+        height = #lines * lineHeight
+      end
+    end
+    if row.field then
+      table.insert(hits, { field=row.field, x=0, y=top, width=width, height=height })
+    end
+    y = top + height
+  end
+  return { ops=ops, hits=hits, height=y }
+end
+
+-- The field of a layout that a click at x, y hits, or nil
+function panel.hit(layout, x, y)
+  for _, h in ipairs(layout.hits) do
+    if x >= h.x and x < h.x + h.width and y >= h.y and y < h.y + h.height then
+      return h.field
     end
   end
-  return lines
 end
 
 return panel

@@ -1,0 +1,224 @@
+-- The properties of a tree entry, which of them the panel edits, the
+-- form that asks for a new value and the tasks of the resource pack
+-- that write it. Every rule of the pack, such as the constant a name
+-- gives or the display height a pixel size gives, stays in those
+-- tasks; the panel shows what the pack model says after each one.
+
+local properties = {}
+
+-- A number of the model as text: JSON gives every number as a float
+local function shown(value)
+  if type(value) == "number" then
+    return (tostring(math.tointeger(value) or value))
+  end
+  return (tostring(value))
+end
+
+local function int(value)
+  return math.tointeger(value) or value
+end
+
+-- The name or constant by which the tasks find a glyph or cell, or
+-- nil for a cell of ordinary characters, which has neither
+function properties.label(info)
+  local e = info.entry
+  return (e.name or nil) or (e.constant or nil)
+end
+
+-- The rows of an entry as { key, value, field } in display order. A
+-- row with a field can be edited, and field names the edit; the
+-- coupled row is the switch, its value true or false. context holds
+-- statuses and coupled.
+function properties.rows(info, tr, context)
+  local list = {}
+  local function add(key, value, field)
+    if value ~= nil and value ~= false and value ~= "" then
+      table.insert(list, { key=key, value=shown(value), field=field })
+    end
+  end
+  if not info then
+    return list
+  end
+
+  local e, kind, t = info.entry, info.kind, info.texture
+  local editable = (kind == "glyph" or kind == "cell") and properties.label(info) ~= nil
+  local function size(field)
+    if t and t.width then
+      add("size", tr("properties.pixels", shown(t.width), shown(t.height)), field)
+    end
+  end
+  local function files()
+    if t then
+      add("png", t.png)
+      add("source", t.asepriteExists and t.aseprite or tr("properties.no_source"))
+    end
+  end
+
+  if info.font and kind ~= "font" then
+    add("font", info.font.font)
+  end
+  if kind == "font" then
+    add("font", e.font)
+    add("constant", e.constant)
+    add("about", e.about)
+  elseif kind == "block" or kind == "sheet" then
+    add("block", e.title)
+    add("range", e.range)
+    add("status", e.status)
+    add("height", e.height)
+    add("ascent", e.ascent)
+    add("about", e.about)
+  elseif kind == "glyph" or kind == "cell" then
+    local glyph = kind == "glyph"
+    add("block", info.block.title)
+    add("code", e.code)
+    add("name", e.name, editable and "name")
+    add("constant", e.constant, editable and not e.name and "constant" or nil)
+    add("status", e.effectiveStatus, editable and "status")
+    add("height", e.height, editable and glyph and "height")
+    add("ascent", e.ascent, editable and glyph and "ascent")
+    if glyph then
+      size(editable and "size")
+      if editable then
+        table.insert(list, { key="coupled", value=context.coupled ~= false, field="coupled" })
+      end
+    end
+    add("about", e.about, editable and "about")
+  elseif kind == "item" then
+    add("item", e.id)
+    add("model", e.model)
+    add("file", e.file)
+  elseif kind == "override" then
+    add("mcmeta", e.mcmeta)
+    if e.frames then
+      add("animation", tr("properties.frames", #e.frames))
+    else
+      add("animation", e.animation and tr("properties.yes"))
+    end
+    if e.guiSprite then
+      add("scaling", type(e.scaling) == "table" and e.scaling.type or "stretch", "scaling")
+    end
+  end
+
+  if t then
+    add("texture", t.id)
+    if kind ~= "glyph" then
+      size(kind == "override" and "size" or nil)
+    end
+    files()
+  end
+  if editable then
+    table.insert(list, { key="delete", value=tr("properties.delete"), field="delete" })
+  end
+  return list
+end
+
+-- The first choice of a status, which leaves the glyph with its block's
+local function fromBlock(info, tr)
+  return (tr("properties.from_block", info.block.status or "-"))
+end
+
+local function number(id, label, value)
+  return { kind="number", id=id, label=label, text=shown(value or 0), decimals=0 }
+end
+
+-- The form that asks for a new value of field: { title, widgets },
+-- each widget { kind, id, label, ... } as Dialog takes it
+function properties.form(info, field, tr, statuses)
+  local e, t = info.entry, info.texture
+  local title = tr("properties." .. field)
+  if field == "status" then
+    local options = { fromBlock(info, tr) }
+    for _, status in ipairs(statuses or {}) do table.insert(options, status) end
+    return { title=title, widgets={
+      { kind="combobox", id="value", label=title, options=options, option=e.status or options[1] } } }
+  elseif field == "height" or field == "ascent" then
+    return { title=title, widgets={ number("value", title, e[field]) } }
+  elseif field == "size" then
+    return { title=title, widgets={
+      number("width", tr("properties.width"), t.width), number("height", tr("properties.pixel_height"), t.height) } }
+  elseif field == "scaling" then
+    local s = type(e.scaling) == "table" and e.scaling or {}
+    local border = s.border
+    if type(border) ~= "table" then
+      border = { left=border, top=border, right=border, bottom=border }
+    end
+    local widgets = {
+      { kind="combobox", id="type", label=tr("properties.scaling_type"), options={ "stretch", "tile", "nine_slice" },
+        option=s.type or "stretch" },
+      number("width", tr("properties.width"), s.width or t.width),
+      number("height", tr("properties.pixel_height"), s.height or t.height),
+    }
+    for _, side in ipairs({ "left", "top", "right", "bottom" }) do
+      local key = "properties.border_" .. side
+      table.insert(widgets, number(side, tr(key), border[side]))
+    end
+    table.insert(widgets, { kind="check", id="stretchInner", label=tr("properties.stretch_inner"),
+                            selected=s.stretch_inner == true })
+    return { title=title, widgets=widgets }
+  end
+  return { title=title, widgets={ { kind="entry", id="value", label=title, text=e[field] or "" } } }
+end
+
+-- The tasks that write the values data of a form for field, each as
+-- { task, options }, or { resize={ width, height } } for a pixel size,
+-- which the sprite takes before its save writes it
+function properties.jobs(info, field, data, tr)
+  local e, t = info.entry, info.texture
+  local glyph = properties.label(info)
+  local value = data.value
+  if field == "name" or field == "constant" then
+    if value == e[field] or value == "" then return {} end
+    return { { "renameGlyph", { glyph=glyph, to=value } } }
+  elseif field == "status" then
+    if value == fromBlock(info, tr) then value = "" end
+    if value == (e.status or "") then return {} end
+    return { { "editGlyph", { glyph=glyph, status=value } } }
+  elseif field == "height" or field == "ascent" then
+    value = int(value)
+    if value == int(e[field]) then return {} end
+    return { { "editGlyph", { glyph=glyph, [field]=value } } }
+  elseif field == "about" then
+    if value == (e.about or "") then return {} end
+    return { { "editGlyph", { glyph=glyph, about=value } } }
+  elseif field == "delete" then
+    return { { "deleteGlyph", { glyph=glyph } } }
+  elseif field == "size" then
+    local width, height = int(data.width), int(data.height)
+    if width == int(t.width) and height == int(t.height) then return {} end
+    return { resize={ width=width, height=height } }
+  elseif field == "scaling" then
+    local options = { texture=t.id, scaling=data.type }
+    if data.type ~= "stretch" then
+      options.width, options.height = int(data.width), int(data.height)
+    end
+    if data.type == "nine_slice" then
+      local sides = {}
+      for _, side in ipairs({ "left", "top", "right", "bottom" }) do table.insert(sides, shown(int(data[side]))) end
+      options.border = table.concat(sides, ",")
+      options.stretchInner = data.stretchInner == true
+    end
+    return { { "scaleTexture", options } }
+  end
+  return {}
+end
+
+-- The tasks that follow a save of the texture of info, whose sprite
+-- now is { width, height, durations } with a duration in milliseconds
+-- per frame: a glyph whose pixel height changed scales its display
+-- height when coupled, and an override writes its animation. An
+-- animation the model could not split into frames stays as it is.
+function properties.saved(info, sprite, coupled)
+  local e, t = info.entry, info.texture
+  if info.kind == "glyph" and properties.label(info) and t.height and sprite.height ~= int(t.height) then
+    return { { "resizeGlyph", { glyph=properties.label(info), from=int(t.height), coupled=coupled ~= false } } }
+  end
+  if info.kind == "override" and (#sprite.durations > 1 or (e.animation and e.frames)) then
+    local frames = {}
+    for _, ms in ipairs(sprite.durations) do table.insert(frames, shown(int(ms))) end
+    return { { "animateTexture", { texture=t.id, frames=table.concat(frames, ",") } } }
+  end
+  return {}
+end
+
+return properties

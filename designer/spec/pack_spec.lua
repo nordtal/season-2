@@ -134,4 +134,44 @@ describe("pack", function()
       assert.equal(case.refused, refused)
     end
   end)
+  it("runs a task of the resource pack with its options in a fixed order", function()
+    local started, got = {}, nil
+    pack.run({ clone="/c", env={} }, api(started, {}), "editGlyph", { glyph="star", about="a star", height=7 },
+      function(ok, err) got = { ok, err } end)
+    assert.same({ "/bin/sh", "/c/gradlew", "-q", ":resource-pack:editGlyph",
+                  "-Pabout=a star", "-Pglyph=star", "-Pheight=7" }, started[1].args.cmd)
+    started[1].args.onexit(0)
+    assert.same({ true, {} }, got)
+  end)
+
+  it("reports what a failed task printed to stderr", function()
+    local started, got = {}, nil
+    pack.run({ clone="/c", env={} }, api(started, {}), "deleteGlyph", { glyph="star" },
+      function(ok, err) got = { ok, err } end)
+    started[1].args.onstderr("FAILURE: Build failed")
+    started[1].args.onexit(1)
+    assert.same({ false, { "FAILURE: Build failed" } }, got)
+  end)
+
+  it("takes the reason of a refusal out of Gradle's report, with each place it lists", function()
+    assert.same({ "admin is still used in 2 places:",
+                  "database/src/main/resources/messages/database/de.properties:25",
+                  "proxy/src/main/java/eu/nordtal/season/proxy/command/Replies.java:30" }, pack.refusal({
+      "",
+      "FAILURE: Build failed with an exception.",
+      "",
+      "* What went wrong:",
+      "Execution failed for task ':resource-pack:renameGlyph' (registered by plugin 'nordtal.resource-pack').",
+      "> admin is still used in 2 places:",
+      "      database/src/main/resources/messages/database/de.properties:25",
+      "      proxy/src/main/java/eu/nordtal/season/proxy/command/Replies.java:30",
+      "",
+      "* Try:",
+      "> Run with --stacktrace option to get the stack trace.",
+    }))
+  end)
+
+  it("gives every line of a failure without Gradle's report", function()
+    assert.same({ "error: no java" }, pack.refusal({ "", "error: no java" }))
+  end)
 end)

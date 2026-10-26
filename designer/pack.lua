@@ -22,10 +22,11 @@ local function plain(value)
   return copy
 end
 
--- Runs describePack in the clone and calls done(model) or done(nil,
--- lines) with the reason. api holds Process, windows, join, read and
--- decode.
-function pack.describe(bootstrap, api, done)
+-- Runs the task :resource-pack:<task> in the clone with options as
+-- -P properties, sorted by name, and calls done(true, {}) or
+-- done(false, lines) with what it printed to stderr. api holds
+-- Process, windows and join. Returns the started Process.
+function pack.run(bootstrap, api, task, options, done)
   local clone = bootstrap.clone
   local cmd
   if api.windows then
@@ -34,7 +35,13 @@ function pack.describe(bootstrap, api, done)
     cmd = { "/bin/sh", api.join(clone, "gradlew") }
   end
   table.insert(cmd, "-q")
-  table.insert(cmd, ":resource-pack:describePack")
+  table.insert(cmd, ":resource-pack:" .. task)
+  local keys = {}
+  for key in pairs(options or {}) do table.insert(keys, key) end
+  table.sort(keys)
+  for _, key in ipairs(keys) do
+    table.insert(cmd, "-P" .. key .. "=" .. tostring(options[key]))
+  end
 
   local err = {}
   local process = api.Process{
@@ -42,22 +49,54 @@ function pack.describe(bootstrap, api, done)
     cwd=clone,
     env=bootstrap.env,
     onstderr=function(line) table.insert(err, line) end,
-    onexit=function(code)
-      if code ~= 0 then
-        done(nil, err)
-        return
-      end
-      local file = api.join(clone, "resource-pack", "build", "pack-model.json")
-      local ok, model = pcall(api.decode, api.read(file) or "")
-      model = ok and plain(model) or model
-      if not ok or type(model) ~= "table" then
-        done(nil, { ok and file or tostring(model) })
-        return
-      end
-      done(model)
-    end }
+    onexit=function(code) done(code == 0, code == 0 and {} or err) end }
   process:start()
   return process
+end
+
+-- The reason of a failed task: the lines under "What went wrong" in
+-- Gradle's report without the task's name, each place a refusal lists
+-- on a line of its own. Without the report, every line that is not
+-- empty.
+function pack.refusal(lines)
+  local reason, inside = {}, false
+  for _, line in ipairs(lines) do
+    if line:match("^%* What went wrong:") then
+      inside = true
+    elseif inside and line:match("^%* ") then
+      break
+    elseif inside then
+      local text = line:match("^> (.*)$") or (#reason > 0 and line:match("^%s+(%S.*)$"))
+      if text then table.insert(reason, text) end
+    end
+  end
+  if #reason > 0 then
+    return reason
+  end
+  for _, line in ipairs(lines) do
+    if line:match("%S") then table.insert(reason, line) end
+  end
+  return reason
+end
+
+-- Runs describePack in the clone and calls done(model) or done(nil,
+-- lines) with the reason. api holds Process, windows, join, read and
+-- decode.
+function pack.describe(bootstrap, api, done)
+  return (pack.run(bootstrap, api, "describePack", {}, function(ok, err)
+    if not ok then
+      done(nil, err)
+      return
+    end
+    local file = api.join(bootstrap.clone, "resource-pack", "build", "pack-model.json")
+    local decoded, model = pcall(api.decode, api.read(file) or "")
+    model = decoded and plain(model) or model
+    if not decoded or type(model) ~= "table" then
+      done(nil, { decoded and file or tostring(model) })
+      return
+    end
+    done(model)
+  end))
 end
 
 -- Whether the normalized path lies in the folder dir

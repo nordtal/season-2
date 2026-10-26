@@ -43,11 +43,19 @@ local function fakeDialogs()
         return self
       end
     end
-    for _, kind in ipairs({ "tree", "editor", "label", "separator", "canvas" }) do dlg[kind] = add(kind) end
+    for _, kind in ipairs({ "tree", "editor", "label", "separator", "canvas", "entry", "number", "combobox", "check",
+                            "button" }) do
+      dlg[kind] = add(kind)
+    end
     function dlg:samerow() table.insert(self.widgets, { kind="samerow" }) return self end
     function dlg:newrow() table.insert(self.widgets, { kind="newrow" }) return self end
     function dlg:repaint() self.repainted = (self.repainted or 0) + 1 end
-    function dlg:show() self.shown = self.shown + 1 return self end
+    -- A form waits for the answer the test gives
+    function dlg:show()
+      self.shown = self.shown + 1
+      if not (args and args.tab) and dialogs.answer then dialogs.answer(self) end
+      return self
+    end
     function dlg:close() self.closed = true end
     function dlg:modify(t)
       table.insert(self.modified, t)
@@ -63,8 +71,10 @@ local function fakeDialogs()
 end
 
 local function fakeSprite(filename, log)
-  local sprite = { filename=filename, spec={}, palettes={ "palette" } }
+  local sprite = { filename=filename, spec={}, palettes={ "palette" }, width=7, height=7, frames={ { duration=0.1 } } }
   function sprite:saveAs(fn) table.insert(log, { "saveAs", fn }) self.filename = fn end
+  function sprite:resize(w, h) table.insert(log, { "resize", w, h }) self.width, self.height = w, h end
+  function sprite:close() table.insert(log, { "close", self.filename }) end
   return sprite
 end
 
@@ -78,10 +88,16 @@ end
 
 local function setUp(preferences, modelText)
   local Dialog, dialogs = fakeDialogs()
-  local started, log, open = {}, {}, {}
+  local started, log, open, timers = {}, {}, {}, {}
   local world = { active=nil }
   local api = {
     Dialog=Dialog,
+    Timer=function(args)
+      local timer = { args=args }
+      function timer:start() self.running = true table.insert(timers, self) end
+      function timer:stop() self.running = false end
+      return timer
+    end,
     Process=function(args)
       local p = { args=args, isRunning=false }
       function p:start() self.isRunning = true table.insert(started, self) end
@@ -103,7 +119,7 @@ local function setUp(preferences, modelText)
     -- Aseprite's json.decode gives every number as a float
     decode=function(text) return floats(dkjson.decode(text)) end,
     sprites=function() return open end,
-    isFile=function(fn) return fn == star end,
+    isFile=function(fn) return fn == star or fn == "/c/resource-pack/src/slot.png" end,
     open=function(fn)
       local sprite = fakeSprite(fn, log)
       table.insert(open, sprite)
@@ -118,17 +134,18 @@ local function setUp(preferences, modelText)
       return image
     end,
     activeSprite=function() return world.active end,
+    alert=function(t) table.insert(log, { "alert", t.text }) return world.confirm or 2 end,
     fitScreen=function() world.fitted = (world.fitted or 0) + 1 end,
   }
   local ctl = tab.open{
     api=api,
     modules={ pack=require("pack"), tree=require("tree"), textures=require("textures"),
-               panel=require("panel") },
+               panel=require("panel"), properties=require("properties") },
     bootstrap={ clone=clone, env={} },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
   }
-  return { ctl=ctl, dialogs=dialogs, started=started, log=log, open=open, world=world }
+  return { ctl=ctl, dialogs=dialogs, started=started, log=log, open=open, world=world, timers=timers }
 end
 
 local function kinds(dlg)
@@ -140,16 +157,34 @@ local function kinds(dlg)
 end
 
 -- The lines the properties panel draws, as "key" or "  value"
-local function texts(dlg)
-  local out, color = {}, nil
+local function texts(dlg, height)
+  local out, at, color = {}, {}, nil
   local theme = { color={ text="text", separator_label="key", face="face" } }
-  local gc = { width=1000, height=1000, theme=theme }
+  local gc = { width=1000, height=height or 1000, theme=theme }
   setmetatable(gc, { __newindex=function(t, k, v) if k == "color" then color = v else rawset(t, k, v) end end })
   function gc:measureText(text) return { width=utf8.len(text), height=1 } end
   function gc:fillRect() table.insert(out, "fill " .. color) end
-  function gc:fillText(text) table.insert(out, (color == "key" and "" or "  ") .. text) end
+  function gc:fillText(text, x, y)
+    table.insert(out, (color == "key" and "" or "  ") .. text)
+    at[text] = at[text] or { x=x, y=y }
+  end
+  function gc:drawThemeRect() end
+  function gc:drawThemeImage() end
   dlg.handlers.properties.onpaint({ context=gc })
-  return out
+  return out, at
+end
+
+-- Clicks the properties panel on a text it draws
+local function click(dlg, text, height)
+  local _, drawn = texts(dlg, height)
+  local at = drawn[text]
+  assert(at, text .. " is not drawn")
+  dlg.handlers.properties.onmousedown({ x=at.x, y=at.y })
+end
+
+-- The -P options and the task of a started gradlew
+local function run(p)
+  return table.concat(p.args.cmd, " ", 4)
 end
 
 local function loaded(t)
@@ -360,5 +395,161 @@ describe("the Nordtal tab", function()
     local second = t.dialogs[#t.dialogs]
     first.handlers.editor.onchange()
     assert.equal("glyph/minecraft:default/F0000", second.data.tree)
+  end)
+  it("writes a value that a form asks for with its task, then reads the pack again", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local form
+    t.dialogs.answer = function(d) form = d d.data = { ok=true, value=9 } end
+    click(dlg, "7")
+    assert.equal("properties.height", form.args.title)
+    assert.same({ kind="number", args={ id="value", label="properties.height", text="7", decimals=0 } }, form.widgets[1])
+    assert.equal(":resource-pack:editGlyph -Pglyph=star -Pheight=9", run(t.started[2]))
+    assert.equal("status.writing", dlg.handlers.status.text)
+    t.started[2].args.onexit(0)
+    assert.equal(":resource-pack:describePack", run(t.started[3]))
+  end)
+
+  it("draws what a refused run changed at once, with one tick of a timer", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.dialogs.answer = function(d) d.data = { ok=true, value="big-star" } end
+    click(dlg, "star")
+    local before = #t.timers
+    t.started[2].args.onexit(1)
+    assert.equal(before + 1, #t.timers)
+    local timer = t.timers[#t.timers]
+    assert.is_true(timer.running)
+    timer.args.ontick()
+    assert.is_false(timer.running)
+  end)
+
+  it("writes nothing when the form is cancelled", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.dialogs.answer = function(d) d.data = { cancel=true, value=9 } end
+    click(dlg, "star")
+    assert.equal(1, #t.started)
+  end)
+
+  it("shows each place that still uses a glyph whose rename is refused", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.dialogs.answer = function(d) d.data = { ok=true, value="big-star" } end
+    click(dlg, "star")
+    assert.equal(":resource-pack:renameGlyph -Pglyph=star -Pto=big-star", run(t.started[2]))
+    for _, line in ipairs({ "* What went wrong:", "Execution failed for task ':resource-pack:renameGlyph'.",
+                            "> star is still used in 1 place:", "      smp/src/Badges.java:12", "", "* Try:" }) do
+      t.started[2].args.onstderr(line)
+    end
+    t.started[2].args.onexit(1)
+    local lines = texts(dlg)
+    -- The refusal comes first, where the panel never cuts it off
+    assert.same({ "fill face", "properties.refused" }, { lines[1], lines[2] })
+    local shown = table.concat(lines, "\n")
+    assert.is_truthy(shown:find("properties.refused\n  star is still used in 1 place:\n  smp/src/Badges.java:12", 1, true))
+    assert.is_false(dlg.handlers.status.visible)
+    assert.equal(2, #t.started)
+    -- Another entry shows no refusal of this one
+    dlg.handlers.tree.onchange({ node="glyphs" })
+    assert.is_falsy(table.concat(texts(dlg), "\n"):find("properties.refused", 1, true))
+  end)
+
+  it("resizes the sprite to a new pixel size and scales the display height with its save", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.dialogs.answer = function(d) d.data = { ok=true, width=14, height=14 } end
+    click(dlg, "properties.pixels 7 7")
+    assert.same({ { "resize", 14, 14 }, { "saveAs", starSource }, { "png", star } }, t.log)
+    assert.equal(":resource-pack:resizeGlyph -Pcoupled=true -Pfrom=7 -Pglyph=star", run(t.started[2]))
+    -- A second save before the pack is read again scales nothing twice
+    t.world.active = t.open[1]
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    t.started[2].args.onexit(0)
+    assert.equal(":resource-pack:describePack", run(t.started[3]))
+    assert.equal(3, #t.started)
+  end)
+
+  it("keeps the coupling switch in the preferences, and a decoupled resize keeps the display height", function()
+    local preferences = {}
+    local t = setUp(preferences)
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    click(dlg, "properties.coupled")
+    assert.is_false(preferences.coupled)
+    t.open[1].height = 14
+    t.world.active = t.open[1]
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(":resource-pack:resizeGlyph -Pcoupled=false -Pfrom=7 -Pglyph=star", run(t.started[2]))
+  end)
+
+  it("scrolls a panel taller than its canvas with the wheel, down to its last row", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local _, at = texts(dlg, 20)
+    assert.equal(4, at["properties.font"].y)
+    dlg.handlers.properties.onwheel({ deltaY=1000 })
+    _, at = texts(dlg, 20)
+    assert.is_true(at["properties.font"].y < 0)
+    -- The button is 9 high with its text 3 below its top, and ends at the margin
+    assert.equal(20 - 4 - 9 + 3, at["properties.delete"].y)
+    click(dlg, "properties.delete", 20)
+    assert.same({ "alert", "properties.delete_confirm star" }, t.log[#t.log])
+    dlg.handlers.properties.onwheel({ deltaY=-1000 })
+    _, at = texts(dlg, 20)
+    assert.equal(4, at["properties.font"].y)
+    -- Another entry starts at the top
+    dlg.handlers.properties.onwheel({ deltaY=1000 })
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local out
+    out, at = texts(dlg, 20)
+    assert.equal(4, at[out[2]].y)
+  end)
+
+  it("deletes a glyph once the designer confirms it, and empties the editor", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    click(dlg, "properties.delete")
+    assert.equal(1, #t.started)
+    t.world.confirm = 1
+    click(dlg, "properties.delete")
+    assert.equal(":resource-pack:deleteGlyph -Pglyph=star", run(t.started[2]))
+    t.started[2].args.onexit(0)
+    assert.is_nil(dlg.data.editor)
+    assert.same({ "close", star }, t.log[#t.log])
+    assert.equal("", dlg.data.tree)
+    assert.equal(":resource-pack:describePack", run(t.started[3]))
+  end)
+
+  it("writes every frame of an override and its animation on its save", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local sprite = t.open[1]
+    sprite.frames = { { duration=0.1 }, { duration=0.25 } }
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(":resource-pack:animateTexture -Pframes=100,250 -Ptexture=minecraft:gui/sprites/container/slot.png",
+      run(t.started[2]))
+  end)
+
+  it("runs one task at a time", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.dialogs.answer = function(d) d.data = { ok=true, value="a star" } end
+    click(dlg, "properties.coupled")
+    t.open[1].height = 14
+    t.world.active = t.open[1]
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(2, #t.started)
   end)
 end)

@@ -131,13 +131,14 @@ describe("an edit of a property", function()
   it("asks for the pixel size and marks one that is no whole multiple of the old as lossy", function()
     local form = properties.form(glyph(), "size", tr, lists)
     assert.same({ "width", "height" }, { form.widgets[1].id, form.widgets[2].id })
-    assert.same({ resize={ width=14, height=21 } }, properties.jobs(glyph(), "size", { width=14, height=21 }))
-    assert.same({ resize={ width=9, height=9, lossy=true } }, properties.jobs(glyph(), "size", { width=9, height=9 }))
-    assert.same({ resize={ width=14, height=6, lossy=true } }, properties.jobs(glyph(), "size", { width=14, height=6 }))
-    assert.is_nil(properties.jobs(glyph(), "size", { width=7, height=7 }))
+    local old = { width=7, height=7 }
+    assert.same({ resize={ width=14, height=21 } }, properties.jobs(glyph(), "size", { width=14, height=21 }, tr, old))
+    assert.same({ resize={ width=9, height=9, lossy=true } }, properties.jobs(glyph(), "size", { width=9, height=9 }, tr, old))
+    assert.same({ resize={ width=14, height=6, lossy=true } }, properties.jobs(glyph(), "size", { width=14, height=6 }, tr, old))
+    assert.is_nil(properties.jobs(glyph(), "size", { width=7, height=7 }, tr, old))
   end)
 
-  it("asks for and compares the size of one frame of an animated texture, not the size of its PNG", function()
+  it("asks for the size of one frame of an animated texture, not the size of its PNG", function()
     -- A PNG 32 by 64 that holds four frames 32 by 16 in a column
     local frames = {}
     for i = 0, 3 do table.insert(frames, { x=0, y=i * 16, width=32, height=16, duration=50 }) end
@@ -145,9 +146,6 @@ describe("an edit of a property", function()
     info.texture.width, info.texture.height = 32, 64
     local form = properties.form(info, "size", tr, lists)
     assert.same({ "32", "16" }, { form.widgets[1].text, form.widgets[2].text })
-    assert.same({ resize={ width=64, height=32 } }, properties.jobs(info, "size", { width=64, height=32 }))
-    assert.same({ resize={ width=48, height=16, lossy=true } }, properties.jobs(info, "size", { width=48, height=16 }))
-    assert.is_nil(properties.jobs(info, "size", { width=32, height=16 }))
   end)
 
   it("deletes a glyph by its name", function()

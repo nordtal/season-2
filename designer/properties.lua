@@ -180,9 +180,10 @@ end
 -- The task that writes the values data of a form for field as
 -- { task, options }, nil for none, or { resize={ width, height,
 -- lossy } } for a pixel size, which the sprite takes before its save
--- writes it. A size that is no whole multiple of the old one up is
--- lossy: nearest neighbour drops or doubles rows and columns.
-function properties.jobs(info, field, data, tr)
+-- writes it. old is the { width, height } of the open sprite, nil for
+-- none. A size that is no whole multiple of old up is lossy: nearest
+-- neighbour drops or doubles rows and columns.
+function properties.jobs(info, field, data, tr, old)
   local e, t = info.entry, info.texture
   local glyph = properties.label(info)
   local value = data.value
@@ -202,9 +203,8 @@ function properties.jobs(info, field, data, tr)
     return { "editGlyph", { glyph=glyph, about=value } }
   elseif field == "delete" then
     return { "deleteGlyph", { glyph=glyph } }
-  elseif field == "size" then
+  elseif field == "size" and old then
     local width, height = int(data.width), int(data.height)
-    local old = size(info)
     local oldWidth, oldHeight = int(old.width), int(old.height)
     if width == oldWidth and height == oldHeight then return nil end
     local whole = width % oldWidth == 0 and height % oldHeight == 0 and width >= oldWidth and height >= oldHeight

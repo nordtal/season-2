@@ -597,6 +597,17 @@ describe("the Nordtal tab", function()
     assert.same({ "resize", 9, 9 }, t.log[3])
   end)
 
+  it("compares a new pixel size with the open sprite, not with the size the model gives", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    -- The model gives 7 by 7, the open sprite is a strip of three frames
+    t.open[1].height = 21
+    t.dialogs.answer = function(d) d.data = { ok=true, width=14, height=14 } end
+    click(dlg, "properties.pixels 7 7")
+    assert.same({ { "alert", { "properties.resize_confirm 7 21 14 14", "properties.resize_ratio", "properties.resize_lossy" } } }, t.log)
+  end)
+
   it("keeps the old pixel height after a refused resize, shows the refusal and runs it again on the next save", function()
     local t = setUp()
     local dlg = loaded(t)

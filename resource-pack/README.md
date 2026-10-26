@@ -85,7 +85,7 @@ fonts[]       font, rows, constant, about, blocks[]
   cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite
-texture       id, png, aseprite, asepriteExists, width, height
+texture       id, png, aseprite, asepriteExists, draft, width, height
 ```
 
 The `status` of a glyph or cell is its own value, null when it inherits the block's, and
@@ -96,6 +96,8 @@ identifier.
 `gui.scaling` objects of the `.png.mcmeta`, or null. `frames` lists the frames the animation plays, each as
 `x`, `y`, `width`, `height` in the PNG and `duration` in milliseconds, or is null when the animation's frames do
 not divide the PNG. `guiSprite` is true for a texture under `textures/gui/sprites/`. Language files are not listed.
+`draft` is true while the PNG or the `.aseprite` source differs from the last commit: changed, new
+or deleted. `describePack` therefore reads git on every run.
 
 ## New textures
 

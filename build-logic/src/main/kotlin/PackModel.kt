@@ -7,18 +7,20 @@ import javax.imageio.ImageIO
 /**
  * The resource pack as one tree of plain maps and lists, for the tree and the properties panel of Nordtal Designer.
  *
- * Every path is relative to the resource pack's directory. `resource-pack/README.md` documents the shape.
+ * Every path is relative to the resource pack's directory. `resource-pack/README.md` documents the shape. A texture is a
+ * draft when its PNG or its source is among [of]'s `drafts`, the files that differ from the last commit.
  */
 object PackModel {
     fun of(
         allocation: GlyphAllocation,
         root: File,
+        drafts: Set<String> = emptySet(),
     ): Map<String, Any?> {
         val assets = root.resolve("src/assets")
         return linkedMapOf(
-            "fonts" to allocation.fonts.map { font(it, root) },
-            "items" to items(assets, root),
-            "overrides" to overrides(assets, root),
+            "fonts" to allocation.fonts.map { font(it, root, drafts) },
+            "items" to items(assets, root, drafts),
+            "overrides" to overrides(assets, root, drafts),
             "statuses" to GlyphAllocation.STATUSES.toList(),
             "scalings" to TextureMeta.SCALINGS,
         )
@@ -27,18 +29,20 @@ object PackModel {
     private fun font(
         font: GlyphAllocation.Font,
         root: File,
+        drafts: Set<String>,
     ): Map<String, Any?> =
         linkedMapOf(
             "font" to font.id,
             "rows" to font.rows,
             "constant" to font.constant,
             "about" to font.about,
-            "blocks" to font.blocks.map { block(it, root) },
+            "blocks" to font.blocks.map { block(it, root, drafts) },
         )
 
     private fun block(
         block: GlyphAllocation.Block,
         root: File,
+        drafts: Set<String>,
     ): Map<String, Any?> {
         val entry =
             linkedMapOf<String, Any?>(
@@ -49,12 +53,12 @@ object PackModel {
                 "about" to block.about,
             )
         if (block.texture == null) {
-            entry["glyphs"] = block.glyphs.map { glyph(it, block, root) }
+            entry["glyphs"] = block.glyphs.map { glyph(it, block, root, drafts) }
             return entry
         }
         entry["height"] = block.height
         entry["ascent"] = block.ascent
-        entry["texture"] = texture(block.texture, root)
+        entry["texture"] = texture(block.texture, root, drafts)
         entry["cells"] =
             (block.chars?.let { chars(it) } ?: block.glyphs.mapIndexed { column, glyph -> cell(0, column, glyph, block) })
                 .onEach {
@@ -68,6 +72,7 @@ object PackModel {
         glyph: GlyphAllocation.Glyph,
         block: GlyphAllocation.Block,
         root: File,
+        drafts: Set<String>,
     ): Map<String, Any?> =
         linkedMapOf(
             "code" to "%X".format(glyph.codePoint),
@@ -79,7 +84,7 @@ object PackModel {
             "height" to glyph.height,
             "ascent" to glyph.ascent,
             "about" to glyph.about,
-            "texture" to texture(glyph.texture, root),
+            "texture" to texture(glyph.texture, root, drafts),
         )
 
     private fun cell(
@@ -111,6 +116,7 @@ object PackModel {
     private fun texture(
         id: String,
         root: File,
+        drafts: Set<String>,
     ): Map<String, Any?> {
         val png = GlyphAdvances.texture(root.resolve("src/assets"), id)
         val aseprite = root.resolve("art").resolve(png.relativeTo(root.resolve("src")).path.removeSuffix(".png") + ".aseprite")
@@ -120,6 +126,8 @@ object PackModel {
             "png" to png.relativeTo(root).invariantSeparatorsPath,
             "aseprite" to aseprite.relativeTo(root).invariantSeparatorsPath,
             "asepriteExists" to aseprite.isFile,
+            "draft" to
+                (png.relativeTo(root).invariantSeparatorsPath in drafts || aseprite.relativeTo(root).invariantSeparatorsPath in drafts),
             "width" to image?.width,
             "height" to image?.height,
         )
@@ -129,6 +137,7 @@ object PackModel {
     private fun items(
         assets: File,
         root: File,
+        drafts: Set<String>,
     ): List<Map<String, Any?>> =
         namespaces(assets).mapNotNull { namespace ->
             val folder = namespace.resolve("items")
@@ -139,7 +148,7 @@ object PackModel {
                         "id" to "${namespace.name}:${file.relativeTo(folder).invariantSeparatorsPath.removeSuffix(".json")}",
                         "file" to file.relativeTo(root).invariantSeparatorsPath,
                         "model" to model?.get("type"),
-                        "texture" to itemTexture(model, assets)?.let { texture(it, root) },
+                        "texture" to itemTexture(model, assets)?.let { texture(it, root, drafts) },
                     )
                 }
             entries.takeIf { it.isNotEmpty() }?.let { linkedMapOf("category" to namespace.name, "entries" to it) }
@@ -167,6 +176,7 @@ object PackModel {
     private fun overrides(
         assets: File,
         root: File,
+        drafts: Set<String>,
     ): List<Map<String, Any?>> {
         val textures = assets.resolve("minecraft/textures")
         return files(textures, "png")
@@ -179,7 +189,7 @@ object PackModel {
                         pngs.map { png ->
                             val mcmeta = File(png.path + ".mcmeta").takeIf { it.isFile }
                             val meta = mcmeta?.let { json(it) as? Map<*, *> }
-                            val texture = texture("minecraft:" + png.relativeTo(textures).invariantSeparatorsPath, root)
+                            val texture = texture("minecraft:" + png.relativeTo(textures).invariantSeparatorsPath, root, drafts)
                             val animation = meta?.get("animation") as? Map<*, *>
                             linkedMapOf(
                                 "texture" to texture,

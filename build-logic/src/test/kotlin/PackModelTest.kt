@@ -232,6 +232,43 @@ class PackModelTest {
         assertEquals(listOf("nordtal:blank"), model.list("items").flatMap { it.list("entries") }.map { it["id"] })
     }
 
+    @Test
+    fun aTextureIsADraftWhileItsPngOrItsSourceDiffersFromTheLastCommit() {
+        allocation(
+            """
+            {"fonts": [{"font": "minecraft:default", "blocks": [{"range": "FE000-FE00F", "title": "Badges", "height": 4, "ascent": 4, "glyphs": [
+              {"code": "FE000", "constant": "STAR", "name": "star", "texture": "nordtal:star.png"},
+              {"code": "FE001", "constant": "MOON", "name": "moon", "texture": "nordtal:moon.png"},
+              {"code": "FE002", "constant": "COMET", "name": "comet", "texture": "nordtal:comet.png"},
+              {"code": "FE003", "constant": "SUN", "name": "sun", "texture": "nordtal:sun.png"}]}]}]}
+            """,
+        )
+        png("src/assets/nordtal/textures/star.png", 4, 4)
+        png("src/assets/nordtal/textures/moon.png", 4, 4)
+        png("src/assets/nordtal/textures/sun.png", 4, 4)
+        git(pack, listOf("init", "-q"))
+        git(pack, listOf("add", "-A"))
+        git(pack, listOf("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "start"))
+        png("src/assets/nordtal/textures/moon.png", 5, 4)
+        png("src/assets/nordtal/textures/comet.png", 4, 4)
+        file("art/assets/nordtal/textures/star.aseprite").writeText("")
+
+        val drafts = changedFiles(pack)
+        val glyphs =
+            only(only(PackModel.of(GlyphAllocation.read(pack.resolve("glyphs.json")), pack, drafts).list("fonts")).list("blocks"))
+                .list("glyphs")
+
+        assertEquals(
+            setOf(
+                "src/assets/nordtal/textures/moon.png",
+                "src/assets/nordtal/textures/comet.png",
+                "art/assets/nordtal/textures/star.aseprite",
+            ),
+            drafts,
+        )
+        assertEquals(listOf(true, true, true, false), glyphs.map { it.map("texture")["draft"] })
+    }
+
     private fun model(): Map<String, Any?> = PackModel.of(GlyphAllocation.read(pack.resolve("glyphs.json")), pack)
 
     private fun fonts() = model().list("fonts")

@@ -20,7 +20,7 @@ object ItemStates {
     private val CHARGES =
         mapOf("none" to "[]", "arrow" to "[{id:\"minecraft:arrow\"}]", "rocket" to "[{id:\"minecraft:firework_rocket\"}]")
 
-    /** The value of each component that `has_component` shows as present, of the component's type in the 26.2 client jar. */
+    /** The value that /give accepts for each component that has_component shows as present. */
     private val PRESENT =
         mapOf(
             "charged_projectiles" to CHARGES.getValue("arrow"),
@@ -37,7 +37,13 @@ object ItemStates {
         fun with(
             label: String,
             vararg set: Pair<String, String>,
-        ) = copy(labels = labels + label, components = components + set)
+        ) = copy(labels = labels + label, components = components - set.map { "!${it.first}" }.toSet() + set)
+
+        /** This state with [component] removed from the item, written `!component` in the give. */
+        fun without(
+            label: String,
+            component: String,
+        ) = copy(labels = labels + label, components = components - component + ("!$component" to ""))
 
         fun withData(
             label: String,
@@ -71,7 +77,11 @@ object ItemStates {
         if (state.components.isEmpty()) return item
         val components =
             state.components.map { (name, value) ->
-                if (name == "custom_model_data") "$name=${data(state.data)}" else "$name=$value"
+                when {
+                    name.startsWith("!") -> name
+                    name == "custom_model_data" -> "$name=${data(state.data)}"
+                    else -> "$name=$value"
+                }
             }
         return "$item[${components.joinToString(",")}]"
     }
@@ -99,13 +109,13 @@ object ItemStates {
             "condition" -> {
                 val on =
                     when (property) {
-                        "damaged" -> state.with("damaged", "max_damage" to "2", "damage" to "1")
-                        "broken" -> state.with("broken", "max_damage" to "2", "damage" to "1")
+                        "damaged" -> state.with("damaged", "max_stack_size" to "1", "max_damage" to "2", "damage" to "1")
+                        "broken" -> state.with("broken", "max_stack_size" to "1", "max_damage" to "2", "damage" to "1")
                         "has_component" -> present(model["component"] as? String, state)
                         "custom_model_data" -> state.withData("flags[$index]", "flags", index, true)
                         else -> state
                     }
-                (on?.let { walk(model["on_true"], it) }).orEmpty() + walk(model["on_false"], state)
+                (on?.let { walk(model["on_true"], it) }).orEmpty() + walk(model["on_false"], absent(model, property, state))
             }
 
             "select" -> {
@@ -152,7 +162,7 @@ object ItemStates {
 
             "component" -> {
                 val component = model["component"] as? String ?: return state
-                state.with("$component=$text", component to JsonOutput.toJson(value))
+                state.with("$component=$text", component.removePrefix("minecraft:") to JsonOutput.toJson(value))
             }
 
             "trim_material" -> {
@@ -183,9 +193,30 @@ object ItemStates {
     private fun present(
         component: String?,
         state: State,
-    ): State? = component?.let { name -> PRESENT[name.removePrefix("minecraft:")]?.let { state.with(name, name to it) } }
+    ): State? =
+        component?.let { name ->
+            val key = name.removePrefix("minecraft:")
+            PRESENT[key]?.let { state.with(name, key to it) }
+        }
 
-    /** [state] with the damage at which the property `damage` reaches [value], a share of the max damage if [normalize]. */
+    /**
+     * [state] as the false case of a condition reads it. A condition on `has_component` counts the default component of
+     * the item's prototype as present unless `ignore_default` is true, so that state removes the component.
+     */
+    private fun absent(
+        model: Map<*, *>,
+        property: String?,
+        state: State,
+    ): State {
+        val component = (model["component"] as? String).takeIf { property == "has_component" } ?: return state
+        if (model["ignore_default"] == true) return state
+        return state.without("!$component", component.removePrefix("minecraft:"))
+    }
+
+    /**
+     * [state] with the damage at which the property `damage` reaches [value], a share of the max damage if [normalize].
+     * A damageable item must not stack, so the state also sets `max_stack_size` to 1.
+     */
     private fun damage(
         normalize: Boolean,
         value: Double,
@@ -194,6 +225,6 @@ object ItemStates {
         // The tolerance keeps a threshold such as 0.07, which is 70.00000000000001 thousandths as a double, at 70.
         val damage = ceil(value * (if (normalize) MAX_DAMAGE else 1) - 1e-9).toInt().coerceAtLeast(0)
         val max = if (normalize) MAX_DAMAGE else damage + 1
-        return state.with("damage=$value", "max_damage" to "$max", "damage" to "$damage")
+        return state.with("damage=$value", "max_stack_size" to "1", "max_damage" to "$max", "damage" to "$damage")
     }
 }

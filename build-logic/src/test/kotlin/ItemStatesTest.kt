@@ -52,10 +52,10 @@ class ItemStatesTest {
         assertEquals(
             listOf(
                 "damaged, flags[0], facing=north, floats[0]=0.5" to
-                    "minecraft:paper[item_model=\"nordtal:lamp\",max_damage=2,damage=1,custom_model_data={floats:[0.5],flags:[true]},block_state={facing:\"north\"}]",
+                    "minecraft:paper[item_model=\"nordtal:lamp\",max_stack_size=1,max_damage=2,damage=1,custom_model_data={floats:[0.5],flags:[true]},block_state={facing:\"north\"}]",
                 "damaged, flags[0], facing=north" to
-                    "minecraft:paper[item_model=\"nordtal:lamp\",max_damage=2,damage=1,custom_model_data={flags:[true]},block_state={facing:\"north\"}]",
-                "damaged" to "minecraft:paper[item_model=\"nordtal:lamp\",max_damage=2,damage=1]",
+                    "minecraft:paper[item_model=\"nordtal:lamp\",max_stack_size=1,max_damage=2,damage=1,custom_model_data={flags:[true]},block_state={facing:\"north\"}]",
+                "damaged" to "minecraft:paper[item_model=\"nordtal:lamp\",max_stack_size=1,max_damage=2,damage=1]",
                 "" to "minecraft:paper[item_model=\"nordtal:lamp\"]",
             ),
             states("nordtal:lamp", model).map { it["label"] to it["give"] },
@@ -68,7 +68,7 @@ class ItemStatesTest {
             """{ "type": "minecraft:select", "property": "minecraft:component", "component": "minecraft:rarity",
                  "cases": [{ "when": "epic", "model": $lamp }] }"""
         assertEquals(
-            listOf("minecraft:rarity=epic" to "minecraft:apple[minecraft:rarity=\"epic\"]"),
+            listOf("minecraft:rarity=epic" to "minecraft:apple[rarity=\"epic\"]"),
             states("minecraft:apple", select).map { it["label"] to it["give"] },
         )
     }
@@ -108,21 +108,24 @@ class ItemStatesTest {
         )
         val elytra = """{ "type": "minecraft:condition", "property": "minecraft:broken", "on_true": $lamp, "on_false": $lamp }"""
         assertEquals(
-            listOf("broken" to "minecraft:elytra[max_damage=2,damage=1]", "" to "minecraft:elytra"),
+            listOf("broken" to "minecraft:elytra[max_stack_size=1,max_damage=2,damage=1]", "" to "minecraft:elytra"),
             states("minecraft:elytra", elytra).map { it["label"] to it["give"] },
         )
         val armour =
             """{ "type": "minecraft:condition", "property": "minecraft:has_component", "component": "minecraft:dyed_color",
                  "on_true": $lamp, "on_false": $lamp }"""
         assertEquals(
-            listOf("minecraft:dyed_color" to "minecraft:wolf_armor[minecraft:dyed_color=11546150]", "" to "minecraft:wolf_armor"),
+            listOf(
+                "minecraft:dyed_color" to "minecraft:wolf_armor[dyed_color=11546150]",
+                "!minecraft:dyed_color" to "minecraft:wolf_armor[!dyed_color]",
+            ),
             states("minecraft:wolf_armor", armour).map { it["label"] to it["give"] },
         )
         val compass =
             """{ "type": "minecraft:condition", "property": "minecraft:has_component", "component": "minecraft:lodestone_tracker",
                  "on_true": $lamp, "on_false": $lamp }"""
         assertEquals(
-            "minecraft:compass[minecraft:lodestone_tracker={}]",
+            "minecraft:compass[lodestone_tracker={}]",
             states("minecraft:compass", compass).first()["give"],
         )
     }
@@ -137,16 +140,40 @@ class ItemStatesTest {
             ).map { it["label"] to it["give"] }
         assertEquals(
             listOf(
-                "minecraft:damage" to "minecraft:paper[item_model=\"nordtal:lamp\",minecraft:damage=1]",
-                "" to "minecraft:paper[item_model=\"nordtal:lamp\"]",
+                "minecraft:damage" to "minecraft:paper[item_model=\"nordtal:lamp\",damage=1]",
+                "!minecraft:damage" to "minecraft:paper[item_model=\"nordtal:lamp\",!damage]",
             ),
             present("minecraft:damage"),
         )
         assertEquals(
-            "minecraft:paper[item_model=\"nordtal:lamp\",minecraft:charged_projectiles=[{id:\"minecraft:arrow\"}]]",
+            "minecraft:paper[item_model=\"nordtal:lamp\",charged_projectiles=[{id:\"minecraft:arrow\"}]]",
             present("minecraft:charged_projectiles").first().second,
         )
-        assertEquals(listOf("" to "minecraft:paper[item_model=\"nordtal:lamp\"]"), present("minecraft:custom_name"))
+        assertEquals(listOf("!minecraft:custom_name" to "minecraft:paper[item_model=\"nordtal:lamp\",!custom_name]"), present("minecraft:custom_name"))
+    }
+
+    @Test
+    fun aPresentDamageAroundARangeOfDamageIsGivenOnceAndADefaultComponentIsRemovedOnlyUnlessIgnored() {
+        val model =
+            """{ "type": "minecraft:condition", "property": "minecraft:has_component", "component": "minecraft:damage",
+                 "on_true": { "type": "minecraft:range_dispatch", "property": "minecraft:damage",
+                   "entries": [{ "threshold": 0.07, "model": $lamp }] },
+                 "on_false": $lamp }"""
+        assertEquals(
+            listOf(
+                "minecraft:damage, damage=0.07" to
+                    "minecraft:paper[item_model=\"nordtal:lamp\",damage=70,max_stack_size=1,max_damage=1000]",
+                "!minecraft:damage" to "minecraft:paper[item_model=\"nordtal:lamp\",!damage]",
+            ),
+            states("nordtal:lamp", model).map { it["label"] to it["give"] },
+        )
+        val ignored =
+            """{ "type": "minecraft:condition", "property": "minecraft:has_component", "component": "minecraft:damage",
+                 "ignore_default": true, "on_true": $lamp, "on_false": $lamp }"""
+        assertEquals(
+            listOf("minecraft:damage" to "minecraft:iron_sword[damage=1]", "" to "minecraft:iron_sword"),
+            states("minecraft:iron_sword", ignored).map { it["label"] to it["give"] },
+        )
     }
 
     @Test
@@ -156,8 +183,8 @@ class ItemStatesTest {
                  "entries": [{ "threshold": 0.07, "model": $lamp }, { "threshold": 0.58, "model": $lamp }] }"""
         assertEquals(
             listOf(
-                "damage=0.07" to "minecraft:shield[max_damage=1000,damage=70]",
-                "damage=0.58" to "minecraft:shield[max_damage=1000,damage=580]",
+                "damage=0.07" to "minecraft:shield[max_stack_size=1,max_damage=1000,damage=70]",
+                "damage=0.58" to "minecraft:shield[max_stack_size=1,max_damage=1000,damage=580]",
             ),
             states("minecraft:shield", normalized).map { it["label"] to it["give"] },
         )
@@ -165,7 +192,7 @@ class ItemStatesTest {
             """{ "type": "minecraft:range_dispatch", "property": "minecraft:damage", "normalize": false, "scale": 2,
                  "entries": [{ "threshold": 3, "model": $lamp }], "fallback": $lamp }"""
         assertEquals(
-            listOf("damage=1.5" to "minecraft:shield[max_damage=3,damage=2]", "" to "minecraft:shield"),
+            listOf("damage=1.5" to "minecraft:shield[max_stack_size=1,max_damage=3,damage=2]", "" to "minecraft:shield"),
             states("minecraft:shield", counted).map { it["label"] to it["give"] },
         )
     }

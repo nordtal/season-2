@@ -113,10 +113,10 @@ object PackModel {
         }
 
     /** A texture by its id, such as `nordtal:badges/star.png`: its PNG, its `.aseprite` source under `art/` and its size. */
-    private fun texture(
+    internal fun texture(
         id: String,
         root: File,
-        drafts: Set<String>,
+        drafts: Set<String> = emptySet(),
     ): Map<String, Any?> {
         val png = GlyphAdvances.texture(root.resolve("src/assets"), id)
         val aseprite = root.resolve("art").resolve(png.relativeTo(root.resolve("src")).path.removeSuffix(".png") + ".aseprite")

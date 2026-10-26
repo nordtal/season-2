@@ -247,6 +247,7 @@ val sourceEdits =
         "scaleTexture" to "scaling",
         "readItem" to "readItem",
         "writeItem" to "writeItem",
+        "editItem" to "editItem",
         "importBlockbench" to "import",
     )
 sourceEdits.forEach { (name, kind) ->

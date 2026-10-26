@@ -19,7 +19,7 @@ import java.io.File
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class EditPackSources : VanillaClientTask() {
-    /** `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`, `readItem`, `writeItem` or `import`. */
+    /** `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`, `readItem`, `writeItem`, `editItem` or `import`. */
     @get:Input
     abstract val kind: Property<String>
 
@@ -66,6 +66,10 @@ abstract class EditPackSources : VanillaClientTask() {
                 "scaling",
                 "border",
                 "stretchInner",
+                "at",
+                "fields",
+                "add",
+                "remove",
             )
     }
 
@@ -179,6 +183,14 @@ abstract class EditPackSources : VanillaClientTask() {
 
                     "writeItem" -> {
                         listOf(ItemFiles(pack, ::jar).use { it.write(text("item"), File(text("definition")).readText()) })
+                    }
+
+                    "editItem" -> {
+                        listOf(
+                            ItemFiles(pack, ::jar).use {
+                                it.edit(text("item"), options["at"] ?: "", options["fields"], options["add"], options["remove"] == "true")
+                            },
+                        )
                     }
 
                     "import" -> {

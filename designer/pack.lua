@@ -123,6 +123,24 @@ function pack.vanilla(bootstrap, api, done)
   return process, problem
 end
 
+-- Runs readItem for the item id and calls done(read) with the line
+-- of JSON it printed last, or done(nil, lines) with the reason. api
+-- holds Process, windows, join and decode.
+function pack.item(bootstrap, api, id, done)
+  local process, problem = pack.run(bootstrap, api, "readItem", { item=id }, function(ok, err, out)
+    local decoded, value = false, nil
+    if ok then
+      decoded, value = pcall(api.decode, out[#out] or "")
+    end
+    if not decoded or type(value) ~= "table" and type(value) ~= "userdata" then
+      done(nil, ok and { tostring(value) } or err)
+      return
+    end
+    done(plain(value))
+  end)
+  return process, problem
+end
+
 -- Whether the normalized path lies in the folder dir
 local function under(path, dir)
   local after = path:sub(#dir + 1, #dir + 1)

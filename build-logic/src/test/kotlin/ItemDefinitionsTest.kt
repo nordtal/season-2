@@ -9,10 +9,12 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import java.awt.image.BufferedImage
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
+import javax.imageio.ImageIO
 
 class ItemDefinitionsTest {
     @TempDir
@@ -240,6 +242,258 @@ class ItemDefinitionsTest {
             """.trimIndent(),
             written.readText(),
         )
+    }
+
+    @Test
+    fun theTypesNameEachFieldWithItsKindAndWhetherItIsRequired() {
+        fun field(
+            name: String,
+            kind: String,
+            required: Boolean = false,
+        ) = mapOf("name" to name, "kind" to kind, "required" to required)
+
+        fun entry(
+            table: String,
+            type: String,
+        ) = (ItemDefinitions.types[table] as List<*>).map { it as Map<*, *> }.single { it["type"] == type }
+
+        assertEquals(
+            listOf(
+                field("model", "model", true),
+                field("hand_animation_on_swap", "boolean"),
+                field("oversized_in_gui", "boolean"),
+                field("swap_animation_scale", "number"),
+            ),
+            ItemDefinitions.types["item"],
+        )
+        assertEquals(listOf(field("when", "json", true), field("model", "model", true)), ItemDefinitions.types["case"])
+        assertEquals(
+            mapOf(
+                "type" to "minecraft:select",
+                "properties" to "select",
+                "fields" to
+                    listOf(
+                        field("property", "property", true),
+                        field("cases", "cases", true),
+                        field("fallback", "model"),
+                        field("transformation", "json"),
+                    ),
+            ),
+            entry("models", "minecraft:select"),
+        )
+        assertEquals(listOf(field("wobble", "boolean"), field("source", "text", true)), entry("range_dispatch", "minecraft:time")["fields"])
+        assertEquals(
+            listOf(field("model", "special", true), field("base", "id", true), field("transformation", "json")),
+            entry("models", "minecraft:special")["fields"],
+        )
+    }
+
+    @Test
+    fun anItemIsDescribedWithTheTexturesOfEachModelItDraws() {
+        pack.resolve("src/assets/nordtal/models/item/wand.json").apply { parentFile.mkdirs() }.writeText(
+            """{ "parent": "minecraft:item/generated", "textures": { "layer0": "nordtal:item/wand", "particle": "#layer0" } }""",
+        )
+        val png = pack.resolve("src/assets/nordtal/textures/item/wand.png").apply { parentFile.mkdirs() }
+        ImageIO.write(BufferedImage(2, 3, BufferedImage.TYPE_INT_ARGB), "png", png)
+        files().use {
+            it.write(
+                "nordtal:wand",
+                model("""{ "type": "minecraft:composite", "models": [{ "type": "model", "model": "nordtal:item/wand" }, $apple] }"""),
+            )
+        }
+
+        val models = files().use { it.describe("nordtal:wand") }["models"]
+
+        assertEquals(
+            listOf(
+                mapOf(
+                    "model" to "nordtal:item/wand",
+                    "textures" to
+                        listOf(
+                            mapOf(
+                                "key" to "layer0",
+                                "texture" to
+                                    mapOf(
+                                        "id" to "nordtal:item/wand.png",
+                                        "png" to "src/assets/nordtal/textures/item/wand.png",
+                                        "aseprite" to "art/assets/nordtal/textures/item/wand.aseprite",
+                                        "asepriteExists" to false,
+                                        "draft" to false,
+                                        "width" to 2,
+                                        "height" to 3,
+                                    ),
+                            ),
+                        ),
+                ),
+                mapOf(
+                    "model" to "minecraft:item/apple",
+                    "textures" to listOf(mapOf("key" to "layer0", "texture" to mapOf("id" to "minecraft:item/apple.png"))),
+                ),
+            ),
+            models,
+        )
+    }
+
+    private val select =
+        model(
+            """{ "type": "minecraft:select", "property": "minecraft:display_context",
+                 "cases": [{ "when": "gui", "model": $apple }], "fallback": $apple }""",
+        )
+
+    private fun edited(
+        at: String,
+        fields: String? = null,
+        add: String? = null,
+        remove: Boolean = false,
+    ): Any? {
+        val file = files().use { it.edit("nordtal:example", at, fields, add, remove) }
+        return (OxfmtJson.read(file) as Map<*, *>)["model"]
+    }
+
+    @Test
+    fun anEditSetsAFieldAtItsPlaceAndKeepsTheRest() {
+        files().use { it.write("nordtal:example", select) }
+
+        val model = edited("model/cases/0", """{ "when": ["gui", "ground"] }""")
+
+        assertEquals(
+            OxfmtJson.read(
+                """{ "type": "minecraft:select", "property": "minecraft:display_context",
+                     "cases": [{ "when": ["gui", "ground"], "model": $apple }], "fallback": $apple }""",
+            ),
+            model,
+        )
+    }
+
+    @Test
+    fun aNewTypeDropsTheFieldsItDoesNotAllowAndStartsEachModelItRequiresEmpty() {
+        files().use { it.write("nordtal:example", select) }
+
+        val model = edited("model", """{ "type": "minecraft:condition" }""")
+
+        assertEquals(
+            OxfmtJson.read(
+                """{ "type": "minecraft:condition", "property": "minecraft:custom_model_data",
+                     "on_true": { "type": "minecraft:empty" }, "on_false": { "type": "minecraft:empty" } }""",
+            ),
+            model,
+        )
+    }
+
+    @Test
+    fun aNewTypeDropsAFieldOfTheSameNameAndAnotherKind() {
+        files().use { it.write("nordtal:example", model(apple)) }
+
+        val model = edited("model", """{ "type": "minecraft:special", "base": "minecraft:item/apple" }""")
+
+        assertEquals(
+            OxfmtJson.read(
+                """{ "type": "minecraft:special", "base": "minecraft:item/apple", "model": { "type": "minecraft:bell" } }""",
+            ),
+            model,
+        )
+    }
+
+    @Test
+    fun aNewPropertyDropsTheFieldsOfTheOldOne() {
+        files().use {
+            it.write(
+                "nordtal:example",
+                model("""{ "type": "minecraft:select", "property": "minecraft:local_time", "pattern": "MM-dd", "cases": [] }"""),
+            )
+        }
+
+        val model = edited("model", """{ "property": "minecraft:component", "component": "minecraft:custom_name" }""")
+
+        assertEquals(
+            OxfmtJson.read(
+                """{ "type": "minecraft:select", "property": "minecraft:component", "cases": [], "component": "minecraft:custom_name" }""",
+            ),
+            model,
+        )
+    }
+
+    @Test
+    fun anAddedCaseEntryOrTintStartsWithTheGivenFieldsAndAnEmptyModel() {
+        files().use { it.write("nordtal:example", select) }
+
+        val cases = (edited("model", """{ "when": "ground" }""", add = "cases") as Map<*, *>)["cases"] as List<*>
+        val tints = (edited("model/fallback", """{ "type": "minecraft:constant", "value": -1 }""", add = "tints") as Map<*, *>)
+
+        assertEquals(OxfmtJson.read("""{ "when": "ground", "model": { "type": "minecraft:empty" } }"""), cases[1])
+        assertEquals(OxfmtJson.read("""[{ "type": "minecraft:constant", "value": -1 }]"""), (tints["fallback"] as Map<*, *>)["tints"])
+    }
+
+    @Test
+    fun anAddedFallbackStartsAsAnEmptyModelAndOnlyWhereThereIsNone() {
+        files().use { it.write("nordtal:example", select) }
+        edited("model/fallback", remove = true)
+
+        val model = edited("model", add = "fallback") as Map<*, *>
+
+        assertEquals(OxfmtJson.read("""{ "type": "minecraft:empty" }"""), model["fallback"])
+        assertThrows<IllegalArgumentException> { edited("model", add = "fallback") }
+    }
+
+    @Test
+    fun aRemovedCaseLeavesItsListAndARemovedFallbackItsModel() {
+        files().use { it.write("nordtal:example", select) }
+
+        edited("model/cases/0", remove = true)
+        val model = edited("model/fallback", remove = true)
+
+        assertEquals(
+            OxfmtJson.read("""{ "type": "minecraft:select", "property": "minecraft:display_context", "cases": [] }"""),
+            model,
+        )
+    }
+
+    @Test
+    fun anEditThatBreaksARuleIsRefusedAndWritesNothing() {
+        val file = files().use { it.write("nordtal:example", select) }
+        val before = file.readText()
+
+        val refusal = assertThrows<IllegalStateException> { edited("model/fallback", """{ "model": "nordtal:item/none" }""") }
+        val nowhere = assertThrows<IllegalArgumentException> { edited("model/cases/3", """{ "when": "gui" }""") }
+
+        assertEquals(
+            "The item nordtal:example breaks 1 rule(s):\n    model nordtal:item/none is in neither the pack nor the client jar",
+            refusal.message,
+        )
+        assertEquals("The item nordtal:example has nothing at model/cases/3.", nowhere.message)
+        assertEquals(before, file.readText())
+    }
+
+    @Test
+    fun anEditOfAVanillaItemWritesItsOverrideIntoThePack() {
+        ZipOutputStream(directory.resolve("client.jar").outputStream()).use { zip ->
+            zip.putNextEntry(ZipEntry("assets/minecraft/items/apple.json"))
+            zip.write(model(apple).toByteArray())
+            zip.putNextEntry(ZipEntry("assets/minecraft/models/item/apple.json"))
+            zip.write("{}".toByteArray())
+        }
+
+        val written = files().use { it.edit("minecraft:apple", "model", """{ "type": "minecraft:empty" }""", null, false) }
+
+        assertEquals(pack.resolve("src/assets/minecraft/items/apple.json"), written)
+        assertEquals(OxfmtJson.read(model("""{ "type": "minecraft:empty" }""")), OxfmtJson.read(written))
+    }
+
+    @Test
+    fun aBlockbenchProjectIsRefusedWithHowToExportIt() {
+        val project =
+            directory
+                .resolve(
+                    "lamp.bbmodel",
+                ).apply { writeText("""{ "meta": { "model_format": "java_block" }, "textures": [] }""") }
+
+        val refusal = assertThrows<IllegalArgumentException> { files().use { it.import(project, "nordtal:item/lamp") } }
+
+        assertEquals(
+            "lamp.bbmodel is a Blockbench project. Export it in Blockbench with File > Export > Export Block/Item Model and import the .json.",
+            refusal.message,
+        )
+        assertTrue(!pack.resolve("src/assets/nordtal/models/item/lamp.json").exists())
     }
 
     @Test

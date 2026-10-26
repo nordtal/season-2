@@ -64,7 +64,7 @@ class ItemFiles(
 
     /**
      * The definition of the item [id] as one map: `item`, `source` (`pack` or `vanilla`), `file` (the absolute path in
-     * the pack, or null), `definition`, `problems` and `types`, the tables of [ItemDefinitions.types].
+     * the pack, or null), `definition`, `problems`, `types` (the tables of [ItemDefinitions.types]) and `models`.
      */
     fun describe(id: String): Map<String, Any?> {
         val path = Identifier.resource(id, "items", ".json")
@@ -78,20 +78,86 @@ class ItemFiles(
             "definition" to definition,
             "problems" to ItemDefinitions.problems(definition) + ItemDefinitions.missing(definition, ::read, ::sprite),
             "types" to ItemDefinitions.types,
+            "models" to ItemDefinitions.models(definition).map { linkedMapOf("model" to it, "textures" to textures(it)) },
         )
+    }
+
+    /**
+     * The textures of [model] and of its parents, each `{ key, texture }`. A texture whose PNG the pack holds is described
+     * as [PackModel] describes one, any other by its id alone.
+     */
+    private fun textures(model: String): List<Map<String, Any?>> {
+        val textures = linkedMapOf<String, String>()
+        val seen = mutableSetOf<String>()
+        var id: String? = model
+        while (id != null && !id.startsWith("builtin/") && seen.add(id)) {
+            val path = runCatching { Identifier.resource(id, "models", ".json") }.getOrNull() ?: break
+            val json = read(path)?.let { runCatching { JsonSlurper().parse(it) }.getOrNull() } as? Map<*, *> ?: break
+            (json["textures"] as? Map<*, *>)?.forEach { (key, value) ->
+                val texture = value as? String ?: (value as? Map<*, *>)?.get("sprite") as? String
+                if (texture != null && !texture.startsWith("#")) textures.putIfAbsent(key as String, texture)
+            }
+            id = json["parent"] as? String
+        }
+        return textures.map { (key, texture) ->
+            val png = runCatching { Identifier.resource(texture, "textures", ".png") }.getOrNull()?.let { assets.resolve(it) }
+            val described =
+                if (png?.isFile ==
+                    true
+                ) {
+                    PackModel.texture("${full(texture)}.png", pack)
+                } else {
+                    mapOf("id" to "${full(texture)}.png")
+                }
+            linkedMapOf("key" to key, "texture" to described)
+        }
     }
 
     /** Writes [definition], the text of an item definition, as the item [id] in the pack, after every rule passed. */
     fun write(
         id: String,
         definition: String,
+    ): File = store(id, OxfmtJson.read(definition))
+
+    private fun store(
+        id: String,
+        json: Any?,
     ): File {
-        val json = OxfmtJson.read(definition)
         val problems = ItemDefinitions.problems(json).ifEmpty { ItemDefinitions.missing(json, ::read, ::sprite) }
         check(problems.isEmpty()) { "The item $id breaks ${problems.size} rule(s):\n" + problems.joinToString("\n") { "    $it" } }
         val file = assets.resolve(Identifier.resource(id, "items", ".json"))
         AtomicFiles.write(mapOf(file to OxfmtJson.asset(json).toByteArray()))
         return file
+    }
+
+    /**
+     * Changes the item [id] at [at] with [ItemDefinitions.edit], where [fields] is the text of a JSON object, and writes it
+     * after every rule passed. A vanilla item that the pack lacks is read from the client jar and written as an override.
+     */
+    fun edit(
+        id: String,
+        at: String,
+        fields: String?,
+        add: String?,
+        remove: Boolean,
+    ): File {
+        val bytes =
+            read(Identifier.resource(id, "items", ".json"))
+                ?: throw IllegalArgumentException("The item $id is in neither the pack nor the client jar.")
+
+        @Suppress("UNCHECKED_CAST")
+        val definition =
+            OxfmtJson.read(bytes.decodeToString()) as? MutableMap<String, Any?>
+                ?: throw IllegalArgumentException("The item $id is no JSON object.")
+        val changes =
+            fields?.let {
+                runCatching { OxfmtJson.read(it) }.getOrNull() as? Map<*, *>
+                    ?: throw FieldRefusal("fields", "-Pfields=$it is no JSON object.")
+            }
+
+        @Suppress("UNCHECKED_CAST")
+        require(ItemDefinitions.edit(definition, at, changes as Map<String, Any?>?, add, remove)) { "The item $id has nothing at $at." }
+        return store(id, definition)
     }
 
     /**
@@ -104,6 +170,9 @@ class ItemFiles(
         source: File,
         id: String,
     ): List<File> {
+        require(source.extension.lowercase() != "bbmodel") {
+            "${source.name} is a Blockbench project. Export it in Blockbench with File > Export > Export Block/Item Model and import the .json."
+        }
         val (namespace, path) = Identifier.parse(id)
         val model =
             OxfmtJson.read(source) as? MutableMap<String, Any?> ?: throw IllegalArgumentException("${source.name} is no model object.")

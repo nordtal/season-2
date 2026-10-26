@@ -65,6 +65,7 @@ function init(plugin)
       textures=plugin.require("textures"),
       panel=plugin.require("panel"),
       properties=plugin.require("properties"),
+      items=plugin.require("items"),
       wizard=plugin.require("wizard"),
     },
     bootstrap=plugin.bootstrap,

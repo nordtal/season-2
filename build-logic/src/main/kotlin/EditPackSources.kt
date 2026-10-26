@@ -12,13 +12,13 @@ import org.gradle.work.DisableCachingByDefault
 import java.io.File
 
 /**
- * Reads or makes one change of [kind] to the pack's sources through [NewTextures], [GlyphEdits] or [ItemFiles], with the
+ * Reads or makes one change of [kind] to the pack's sources through [NewTextures], [GlyphEdits], [TextureMeta] or [ItemFiles], with the
  * [options] that `resource-pack/README.md` lists per kind. It prints what it changed, and fails with the reason when it
  * refuses. Only the item kinds read the client jar.
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class EditPackSources : VanillaClientTask() {
-    /** `glyph`, `block`, `sheet`, `item`, `rename`, `resize`, `delete`, `codePoints`, `readItem`, `writeItem` or `import`. */
+    /** `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`, `readItem`, `writeItem` or `import`. */
     @get:Input
     abstract val kind: Property<String>
 
@@ -59,6 +59,12 @@ abstract class EditPackSources : VanillaClientTask() {
                 "definition",
                 "model",
                 "id",
+                "status",
+                "about",
+                "frames",
+                "scaling",
+                "border",
+                "stretchInner",
             )
     }
 
@@ -69,6 +75,11 @@ abstract class EditPackSources : VanillaClientTask() {
         fun text(key: String) = options[key] ?: throw GradleException("Set -P$key.")
 
         fun number(key: String) = options[key]?.let { it.toIntOrNull() ?: throw GradleException("-P$key=$it is not a whole number.") }
+
+        fun numbers(key: String) =
+            options[key]?.let { text ->
+                text.split(',').map { it.trim().toIntOrNull() ?: throw GradleException("-P$key=$text is not a list of whole numbers.") }
+            }
 
         val pack = pack.get().asFile
         val repository = repository.get().asFile
@@ -121,6 +132,26 @@ abstract class EditPackSources : VanillaClientTask() {
 
                     "rename" -> {
                         GlyphEdits.rename(pack, repository, text("glyph"), text("to"))
+                    }
+
+                    "edit" -> {
+                        GlyphEdits.edit(pack, text("glyph"), options["status"], number("height"), number("ascent"), options["about"])
+                    }
+
+                    "animate" -> {
+                        TextureMeta.animate(pack, text("texture"), numbers("frames") ?: throw GradleException("Set -Pframes."))
+                    }
+
+                    "scaling" -> {
+                        TextureMeta.scale(
+                            pack,
+                            text("texture"),
+                            text("scaling"),
+                            number("width"),
+                            number("height"),
+                            numbers("border")?.let { if (it.size == 1) List(4) { _ -> it[0] } else it },
+                            options["stretchInner"] == "true",
+                        )
                     }
 
                     "resize" -> {

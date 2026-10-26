@@ -95,4 +95,43 @@ class EditPackSourcesTest {
         assertTrue(show.message!!.startsWith("`git show nowhere:resource-pack/glyphs.json` failed"), show.message)
         assertTrue("fatal:" in show.message!!, show.message)
     }
+
+    @Test
+    fun anEditReadsItsValuesAndAnEmptyTextRemovesOne() {
+        pack.mkdirs()
+        pack.resolve("glyphs.json").writeText(badges("FE000"))
+
+        task("edit", "glyph" to "bfe000", "status" to "keep", "height" to "9", "about" to "A badge.").create()
+        task("edit", "glyph" to "bfe000", "about" to "").create()
+
+        val glyph = GlyphAllocation.read(pack.resolve("glyphs.json")).fonts[0].glyphs[0]
+        assertEquals(listOf("keep", 9, 6, null), listOf(glyph.status, glyph.height, glyph.ascent, glyph.about))
+    }
+
+    @Test
+    fun theTextureTasksReadTheFramesAndTheBorderAsListsOfNumbers() {
+        val png = pack.resolve("src/assets/minecraft/textures/gui/sprites/slot.png")
+        png.parentFile.mkdirs()
+        javax.imageio.ImageIO.write(java.awt.image.BufferedImage(8, 16, java.awt.image.BufferedImage.TYPE_INT_ARGB), "png", png)
+
+        task("animate", "texture" to "minecraft:gui/sprites/slot.png", "frames" to "100,150").create()
+        task(
+            "scaling",
+            "texture" to "minecraft:gui/sprites/slot.png",
+            "scaling" to "nine_slice",
+            "width" to "18",
+            "height" to "18",
+            "border" to "2,2,2,1",
+            "stretchInner" to "true",
+        ).create()
+        val error = assertThrows<GradleException> { task("animate", "texture" to "minecraft:gui/sprites/slot.png", "frames" to "100,x").create() }
+
+        val meta = OxfmtJson.read(File(png.path + ".mcmeta")) as Map<*, *>
+        assertEquals(listOf(mapOf("index" to 0, "time" to 2), mapOf("index" to 1, "time" to 3)), (meta["animation"] as Map<*, *>)["frames"])
+        assertEquals(
+            mapOf("left" to 2, "top" to 2, "right" to 2, "bottom" to 1),
+            ((meta["gui"] as Map<*, *>)["scaling"] as Map<*, *>)["border"],
+        )
+        assertEquals("-Pframes=100,x is not a list of whole numbers.", error.message)
+    }
 }

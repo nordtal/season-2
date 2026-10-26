@@ -76,7 +76,7 @@ class GlyphAllocation private constructor(
         const val DEFAULT_FONT = "minecraft:default"
 
         private const val ROW = "{row}"
-        private val STATUSES = setOf("keep", "final candidate", "placeholder")
+        val STATUSES = setOf("keep", "final candidate", "placeholder")
         val SUPPLEMENTARY_PRIVATE_USE_A = 0xF0000..0xFFFFD
         private val CONSTANT = Regex("""[A-Z][A-Z0-9_]*""")
         private val NAME = Regex("""[a-z0-9]+(-[a-z0-9]+)*""")

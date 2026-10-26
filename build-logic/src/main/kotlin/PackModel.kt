@@ -19,6 +19,7 @@ object PackModel {
             "fonts" to allocation.fonts.map { font(it, root) },
             "items" to items(assets, root),
             "overrides" to overrides(assets, root),
+            "statuses" to GlyphAllocation.STATUSES.toList(),
         )
     }
 
@@ -177,11 +178,19 @@ object PackModel {
                         pngs.map { png ->
                             val mcmeta = File(png.path + ".mcmeta").takeIf { it.isFile }
                             val meta = mcmeta?.let { json(it) as? Map<*, *> }
+                            val texture = texture("minecraft:" + png.relativeTo(textures).invariantSeparatorsPath, root)
+                            val animation = meta?.get("animation") as? Map<*, *>
                             linkedMapOf(
-                                "texture" to texture("minecraft:" + png.relativeTo(textures).invariantSeparatorsPath, root),
+                                "texture" to texture,
                                 "mcmeta" to mcmeta?.relativeTo(root)?.invariantSeparatorsPath,
-                                "animation" to meta?.get("animation"),
+                                "animation" to animation,
+                                "frames" to
+                                    animation?.let {
+                                        val width = texture["width"] as Int? ?: return@let null
+                                        TextureMeta.frames(width, texture["height"] as Int, it)
+                                    },
                                 "scaling" to (meta?.get("gui") as? Map<*, *>)?.get("scaling"),
+                                "guiSprite" to png.relativeTo(textures).invariantSeparatorsPath.startsWith("gui/sprites/"),
                             )
                         },
                 )

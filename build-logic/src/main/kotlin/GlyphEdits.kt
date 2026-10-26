@@ -7,7 +7,7 @@ import java.io.File
 import javax.imageio.ImageIO
 
 /**
- * Renames, resizes and deletes a glyph of the pack at [pack], found by its name or its constant, and gives provisional
+ * Renames, edits, resizes and deletes a glyph of the pack at [pack], found by its name or its constant, and gives provisional
  * code points their final ones. Every change goes through [NewTextures.edit], so `glyphs.json` keeps its layout and rules.
  */
 object GlyphEdits {
@@ -87,6 +87,47 @@ object GlyphEdits {
             .toSet()
 
     /**
+     * Sets the [status], display [height], [ascent] and [about] of [glyph] that are not null. An empty status or about
+     * removes it, and a height or ascent equal to the block's leaves the glyph without its own.
+     */
+    fun edit(
+        pack: File,
+        glyph: String,
+        status: String? = null,
+        height: Int? = null,
+        ascent: Int? = null,
+        about: String? = null,
+    ): List<File> =
+        NewTextures.edit(pack, null, 0, 0) { root ->
+            val target = find(root, glyph)
+            require((height == null && ascent == null) || target.block["texture"] == null) {
+                "${target.label} is a cell of the sheet ${target.block["title"]}, which sets the display height and ascent of every cell."
+            }
+            for ((key, value) in listOf("height" to height, "ascent" to ascent)) {
+                if (value == null) continue
+                if (value == target.block[key]) target.glyph.remove(key) else target.glyph[key] = value
+            }
+            for ((key, value) in listOf("status" to status, "about" to about)) {
+                if (value == null) continue
+                if (value.isEmpty()) target.glyph.remove(key) else target.glyph[key] = value
+            }
+            order(target.glyph)
+        }
+
+    /** Puts the keys of [glyph] in the order that `glyphs.json` writes them. */
+    private fun order(glyph: OxfmtJson.Object) {
+        val entries =
+            glyph.entries
+                .sortedBy {
+                    KEYS.indexOf(it.key).takeIf { index ->
+                        index >= 0
+                    } ?: KEYS.size
+                }.map { it.toPair() }
+        glyph.clear()
+        glyph.putAll(entries)
+    }
+
+    /**
      * Scales the height and ascent of [glyph] by its PNG's pixel height over the pixel height [from] it had, when [coupled].
      *
      * Decoupled, both stay, so the glyph shows more detail at the same size, and nothing is written.
@@ -115,15 +156,7 @@ object GlyphEdits {
                 val scaled = Math.round((target.glyph[key] ?: target.block[key]) as Int * to / from.toDouble()).toInt()
                 if (scaled == target.block[key]) target.glyph.remove(key) else target.glyph[key] = scaled
             }
-            val entries =
-                target.glyph.entries
-                    .sortedBy {
-                        KEYS.indexOf(it.key).takeIf { index ->
-                            index >= 0
-                        } ?: KEYS.size
-                    }.map { it.toPair() }
-            target.glyph.clear()
-            target.glyph.putAll(entries)
+            order(target.glyph)
         }
     }
 

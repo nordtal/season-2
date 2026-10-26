@@ -77,13 +77,14 @@ of Nordtal Designer. It reads `glyphs.json` through the same reader as `generate
 it is relative to this directory, and every code point is capital hex without `U+`.
 
 ```
+statuses      the statuses a glyph or block can have
 fonts[]       font, rows, constant, about, blocks[]
   blocks[]    kind "block": title, range, status, about, glyphs[]
               kind "sheet": title, range, status, about, height, ascent, texture, cells[]
   glyphs[]    code, constant, name, list, status, effectiveStatus, height, ascent, about, texture
   cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, model (the type of the root model), texture
-overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, scaling
+overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite
 texture       id, png, aseprite, asepriteExists, width, height
 ```
 
@@ -92,7 +93,9 @@ The `status` of a glyph or cell is its own value, null when it inherits the bloc
 `texture` of an item is the `layer0` of a `minecraft:model` in the pack, or null, also when it is no
 identifier.
 `width` and `height` of a texture are its pixels, or null while its PNG is missing. `animation` and `scaling` are the `animation` and
-`gui.scaling` objects of the `.png.mcmeta`, or null. Language files are not listed.
+`gui.scaling` objects of the `.png.mcmeta`, or null. `frames` lists the frames the animation plays, each as
+`x`, `y`, `width`, `height` in the PNG and `duration` in milliseconds, or is null when the animation's frames do
+not divide the PNG. `guiSprite` is true for a texture under `textures/gui/sprites/`. Language files are not listed.
 
 ## New textures
 
@@ -132,26 +135,31 @@ A vanilla override is created with `copyVanillaTexture`, under _Vanilla override
 
 ## Changing glyphs
 
-Three tasks change a glyph, which `glyph` names by its `name` or its `constant`, and a fourth gives new
+Four tasks change a glyph, which `glyph` names by its `name` or its `constant`. A fifth gives new
 glyphs their final code points. Each writes nothing until `glyphs.json` passes every rule below, and
 fails with the reason when it refuses.
 
 ```bash
 ./gradlew -q :resource-pack:renameGlyph -Pglyph=half-moon -Pto=crescent
+./gradlew -q :resource-pack:editGlyph -Pglyph=crescent -Pstatus=keep -Pabout='The moon'
 ./gradlew -q :resource-pack:resizeGlyph -Pglyph=crescent -Pfrom=7
 ./gradlew -q :resource-pack:deleteGlyph -Pglyph=crescent
 ./gradlew -q :resource-pack:assignCodePoints
 ```
 
-| task               | options                           | prints                                                        |
-| ------------------ | --------------------------------- | ------------------------------------------------------------- |
-| `renameGlyph`      | `glyph`, `to`                     | the absolute path of `glyphs.json`                            |
-| `resizeGlyph`      | `glyph`, `from`; `coupled` (true) | the absolute path of `glyphs.json`, or nothing when decoupled |
-| `deleteGlyph`      | `glyph`                           | the absolute paths of `glyphs.json` and each file it removed  |
-| `assignCodePoints` | `main` (`origin/main`)            | one line `font old new constant` per glyph that moved         |
+| task               | options                                        | prints                                                        |
+| ------------------ | ---------------------------------------------- | ------------------------------------------------------------- |
+| `renameGlyph`      | `glyph`, `to`                                  | the absolute path of `glyphs.json`                            |
+| `editGlyph`        | `glyph`; `status`, `height`, `ascent`, `about` | the absolute path of `glyphs.json`                            |
+| `resizeGlyph`      | `glyph`, `from`; `coupled` (true)              | the absolute path of `glyphs.json`, or nothing when decoupled |
+| `deleteGlyph`      | `glyph`                                        | the absolute paths of `glyphs.json` and each file it removed  |
+| `assignCodePoints` | `main` (`origin/main`)                         | one line `font old new constant` per glyph that moved         |
 
 - A rename sets the `name` to `to` and the `constant` to the name in capitals. A glyph without a name,
   outside `minecraft:default`, takes `to` as its constant.
+- An edit sets each option it is given. An empty `status` or `about` removes it, and a `height` or
+  `ascent` equal to the block's leaves the glyph without its own. A cell takes its `height` and `ascent`
+  from its sheet and refuses both.
 - A rename and a delete refuse while a file that git tracks or would add uses the glyph, as
   `Glyphs.CONSTANT` in Java or Kotlin or as a `<glyph:name>` tag, and the refusal lists each place as
   `path:line`.
@@ -166,6 +174,31 @@ fails with the reason when it refuses.
   main has not taken, and otherwise moves behind the last glyph of its block on both sides. A cell of a
   sheet is its code point, so a renamed cell keeps its place. A new block that overlaps a block of main
   moves to the first free run with its glyphs.
+
+## Texture metadata
+
+Two tasks write the `.png.mcmeta` of a texture, which `texture` names by its id, such as
+`minecraft:block/lava_still.png`. Each keeps every other member of the file, writes it with four spaces
+of indent, and removes a file left empty.
+
+```bash
+./gradlew -q :resource-pack:animateTexture -Ptexture=minecraft:block/lava_still.png -Pframes=100,100,250
+./gradlew -q :resource-pack:scaleTexture -Ptexture=minecraft:gui/sprites/widget/button.png -Pscaling=nine_slice -Pwidth=200 -Pheight=20 -Pborder=3
+```
+
+| task             | options                                                                   | prints                        |
+| ---------------- | ------------------------------------------------------------------------- | ----------------------------- |
+| `animateTexture` | `texture`, `frames`                                                       | the absolute path of the file |
+| `scaleTexture`   | `texture`, `scaling`; `width`, `height`, `border`, `stretchInner` (false) | the absolute path of the file |
+
+- `frames` is the duration of each frame in milliseconds, and the PNG is a column of the frames from the
+  top. The `animation` gets one `frametime` in ticks of 50 milliseconds when every frame lasts as long,
+  and otherwise `frames` with the `time` of each; a frame shorter than a tick lasts one. A frame that is
+  not square sets `height`. `interpolate` stays, and one frame removes the animation.
+- `scaling` is `stretch`, `tile` or `nine_slice`, and only a texture under `textures/gui/sprites/` takes
+  one. `stretch` removes `gui.scaling`. `tile` and `nine_slice` need `width` and `height`, and
+  `nine_slice` a `border` of one number for every side or four for left, top, right and bottom, which
+  fit the PNG.
 
 ## Item definitions
 

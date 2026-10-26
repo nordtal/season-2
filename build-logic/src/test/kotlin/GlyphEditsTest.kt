@@ -415,4 +415,58 @@ class GlyphEditsTest {
         assertEquals("src/assets/nordtal/textures/badges/star.png is no PNG that can be read.", missing.message)
         assertEquals(missing.message, broken.message)
     }
+
+    @Test
+    fun anEditSetsTheStatusDisplayHeightAscentAndAboutOfAGlyph() {
+        val written = GlyphEdits.edit(pack, "star", status = "final candidate", height = 9, ascent = 7, about = "A gold star.")
+
+        assertEquals(listOf(allocation), written)
+        val glyph = glyph("star")
+        assertEquals(listOf("final candidate", 9, 7, "A gold star."), listOf(glyph.status, glyph.height, glyph.ascent, glyph.about))
+        assertEquals(listOf(null, 8, 6, null), glyph("moon").let { listOf(it.status, it.height, it.ascent, it.about) })
+    }
+
+    @Test
+    fun anEditLeavesWhatItIsNotGivenAndKeepsTheOrderOfTheKeys() {
+        GlyphEdits.edit(pack, "star", about = "A star.")
+        GlyphEdits.edit(pack, "star", height = 10)
+
+        assertEquals(listOf("code", "constant", "name", "texture", "height", "about"), entry(0).keys.toList())
+        assertEquals("A star.", glyph("star").about)
+    }
+
+    @Test
+    fun anEditToTheBlocksValueOrToAnEmptyTextRemovesTheGlyphsOwnValue() {
+        GlyphEdits.edit(pack, "star", status = "keep", height = 10, ascent = 9, about = "A star.")
+
+        GlyphEdits.edit(pack, "star", status = "", height = 8, ascent = 6, about = "")
+
+        assertEquals(listOf("code", "constant", "name", "texture"), entry(0).keys.toList())
+    }
+
+    @Test
+    fun anEditRefusesAStatusThatGlyphsJsonForbidsAndWritesNothing() {
+        val before = allocation.readText()
+
+        val error = assertThrows<IllegalStateException> { GlyphEdits.edit(pack, "star", status = "done") }
+
+        assertTrue(error.message!!.contains("'status' is one of keep, final candidate, placeholder, not 'done'"), error.message)
+        assertEquals(before, allocation.readText())
+    }
+
+    @Test
+    fun anEditRefusesTheDisplayHeightOrAscentOfASheetCellButSetsItsStatus() {
+        val error = assertThrows<IllegalArgumentException> { GlyphEdits.edit(pack, "spawn", height = 9) }
+        GlyphEdits.edit(pack, "spawn", status = "placeholder")
+
+        assertEquals("spawn is a cell of the sheet Icons, which sets the display height and ascent of every cell.", error.message)
+        assertEquals("placeholder", glyph("spawn").status)
+    }
+
+    private fun entry(index: Int): Map<*, *> =
+        (groovy.json.JsonSlurper().parse(allocation) as Map<*, *>).let { root ->
+            (((root["fonts"] as List<*>)[0] as Map<*, *>)["blocks"] as List<*>).let {
+                ((it[0] as Map<*, *>)["glyphs"] as List<*>)[index] as Map<*, *>
+            }
+        }
 }

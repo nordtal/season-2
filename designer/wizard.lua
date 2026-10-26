@@ -21,10 +21,10 @@ wizard.kinds = { "glyph", "block", "sheet", "item", "vanilla_item", "override" }
 -- The kinds chosen in a browser of the client jar: the option of the
 -- task that names the choice and the strings of the browser
 local browsers = {
-  override={ option="texture", count="new.count", more="new.count_more", chosen="new.chosen",
-             none="new.chosen_none", required="new.required_texture" },
-  vanilla_item={ option="item", count="new.count_items", more="new.count_items_more", chosen="new.chosen_item",
-                 none="new.chosen_none_item", required="new.required_item" },
+  override={ option="texture", count="new.count", one="new.count_one", more="new.count_more",
+             chosen="new.chosen", none="new.chosen_none", required="new.required_texture" },
+  vanilla_item={ option="item", count="new.count_items", one="new.count_items_one", more="new.count_items_more",
+                 chosen="new.chosen_item", none="new.chosen_none_item", required="new.required_item" },
 }
 
 -- The fields of each kind but those of a browser, in the order the dialog
@@ -295,7 +295,9 @@ function wizard.open(context)
     local browser = browsers[kind]
     local ids = wizard.choices(kind, listing, model)
     local function counted(n)
-      return n > limit and tr(browser.more, limit, n) or tr(browser.count, n)
+      return n > limit and tr(browser.more, limit, n)
+        or n == 1 and tr(browser.one)
+        or tr(browser.count, n)
     end
     -- The hint below the list names the chosen id. It adds its labels
     -- to the dialog with add, or else changes them.

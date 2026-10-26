@@ -20,6 +20,9 @@ import kotlin.system.exitProcess
 object MinecraftInstanceChooser {
     private const val TITLE = "Choose your Minecraft instance folder"
 
+    /** The folders that Prism and MultiMC run the game in, below the folder of `mmc-pack.json`. */
+    private val GAME_FOLDERS = listOf("minecraft", ".minecraft")
+
     @JvmStatic
     fun main(args: Array<String>) {
         val store = File(args[0])
@@ -30,7 +33,7 @@ object MinecraftInstanceChooser {
             instance(picked)
                 ?: picked.takeIf { given == null && confirm(it) }
                 ?: finish(1, "$picked holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.")
-        instance.mkdirs()
+        if (!instance.isDirectory && !instance.mkdirs()) finish(1, "$instance cannot be created, so nothing changed.")
         Properties().apply { setProperty("instance", instance.absolutePath) }.also { properties ->
             store.writer().use { properties.store(it, "The Minecraft instance the resource pack is installed into") }
         }
@@ -88,14 +91,17 @@ object MinecraftInstanceChooser {
             return if (dotted.isDirectory && !folder.resolve("minecraft").exists()) dotted else folder.resolve("minecraft")
         }
         if (looksLikeInstance(folder)) return folder
-        return listOf("minecraft", ".minecraft").map(folder::resolve).firstOrNull(::looksLikeInstance)
+        return GAME_FOLDERS.map(folder::resolve).firstOrNull(::looksLikeInstance)
     }
 
-    /** Whether a file of the game or of a launcher marks [folder], which then may never have run. */
+    /**
+     * Whether a file of the game or of a launcher marks [folder], which then may never have run. The `mmc-pack.json` of
+     * Prism and MultiMC marks only the `minecraft/` or `.minecraft/` beside it.
+     */
     private fun looksLikeInstance(folder: File): Boolean =
         folder.resolve("options.txt").isFile ||
             listOf("resourcepacks", "versions", ".fabric").any { folder.resolve(it).isDirectory } ||
-            folder.parentFile?.resolve("mmc-pack.json")?.isFile == true
+            (folder.name in GAME_FOLDERS && folder.parentFile?.resolve("mmc-pack.json")?.isFile == true)
 
     private fun start(store: File): File {
         val previous = runCatching { Properties().apply { store.reader().use { load(it) } }.getProperty("instance") }.getOrNull()

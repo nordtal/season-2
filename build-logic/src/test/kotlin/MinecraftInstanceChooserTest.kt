@@ -1,6 +1,7 @@
 package eu.nordtal.season.build
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -33,6 +34,39 @@ class MinecraftInstanceChooserTest {
 
         val dotted = folder("dotted", ".minecraft").apply { resolve("mmc-pack.json").writeText("{}") }
         assertEquals(dotted.resolve(".minecraft"), MinecraftInstanceChooser.instance(dotted))
+        assertEquals(dotted.resolve(".minecraft"), MinecraftInstanceChooser.instance(dotted.resolve(".minecraft")))
+    }
+
+    @Test
+    fun anotherFolderOfAPrismInstanceIsNoInstance() {
+        val prism = folder("prism", "patches").apply { resolve("mmc-pack.json").writeText("{}") }
+        assertNull(MinecraftInstanceChooser.instance(prism.resolve("patches")))
+    }
+
+    @Test
+    fun aGameFolderThatCannotBeCreatedFailsTheChoiceAndSavesNothing() {
+        val prism = folder("locked").apply { resolve("mmc-pack.json").writeText("{}") }
+        val store = root.resolve("minecraft-instance.properties")
+        prism.setWritable(false)
+        try {
+            val java = File(System.getProperty("java.home"), "bin/java").path
+            val process =
+                ProcessBuilder(
+                    java,
+                    "-Djava.awt.headless=true",
+                    "-cp",
+                    System.getProperty("java.class.path"),
+                    MinecraftInstanceChooser::class.java.name,
+                    store.path,
+                    prism.path,
+                ).redirectErrorStream(true).start()
+            val printed = process.inputStream.bufferedReader().readText()
+            assertEquals(1, process.waitFor(), printed)
+            assertEquals("${prism.resolve("minecraft")} cannot be created, so nothing changed.\n", printed)
+            assertFalse(store.exists())
+        } finally {
+            prism.setWritable(true)
+        }
     }
 
     @Test

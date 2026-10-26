@@ -98,6 +98,24 @@ describe("tree", function()
     assert.is_nil(index[font.id].texture)
   end)
 
+  it("marks the node of a draft texture with the icon of a modified tab", function()
+    local drafted = texture("badges/moon.png")
+    drafted.draft = true
+    local sheet = texture("ui/gui/row_text.png")
+    sheet.draft = true
+    model.fonts[1].blocks[1].glyphs[2].texture = drafted
+    model.fonts[2].blocks[1].texture = sheet
+    local nodes = tree.build(model, tr)
+    model.fonts[1].blocks[1].glyphs[2].texture = texture("badges/moon.png")
+    model.fonts[2].blocks[1].texture = texture("ui/gui/row_text.png")
+    local block = nodes[1].children[1].children[1]
+    local rows = nodes[1].children[2].children[1]
+    assert.same({ nil, "tab_modified_icon_normal" }, { block.children[1].icon, block.children[2].icon })
+    assert.equal("tab_modified_icon_normal", rows.icon)
+    assert.is_nil(rows.children[1].icon)
+    assert.is_nil(nodes[2].children[1].children[1].icon)
+  end)
+
   it("names a cell whose code is no code point", function()
     local bad = { fonts={ { font="nordtal:gui", blocks={
       { kind="sheet", title="Row text", texture=texture("a.png"), cells={ { row=0, column=0, code="ZZ" } } },

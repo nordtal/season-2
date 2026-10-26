@@ -40,6 +40,8 @@ function init(plugin)
   ctl = plugin.require("tab").open{
     api={
       Dialog=Dialog,
+      Rectangle=Rectangle,
+      screen=function() return app.window.width, app.window.height end,
       Process=Process,
       Timer=Timer,
       Image=Image,
@@ -63,12 +65,20 @@ function init(plugin)
       textures=plugin.require("textures"),
       panel=plugin.require("panel"),
       properties=plugin.require("properties"),
+      wizard=plugin.require("wizard"),
     },
     bootstrap=plugin.bootstrap,
     preferences=plugin.preferences,
     tr=tr,
   }
   listener = app.events:on("beforecommand", function(ev) ctl.onBeforeCommand(ev) end)
+
+  plugin:newCommand{
+    id="NordtalNewTexture",
+    title=tr("command.new_texture"),
+    group="file_new",
+    onclick=function() ctl.create() end,
+  }
 
   plugin:newCommand{
     id="NordtalTreeRight",

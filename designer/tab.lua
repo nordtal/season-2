@@ -4,14 +4,15 @@
 --
 -- tab.open{ api, modules, bootstrap, preferences, tr } builds the tab
 -- and reads the pack. api holds the Aseprite functions that pack and
--- textures name, plus Dialog, alert and activeSprite. modules holds
--- pack, tree, textures, panel and properties. preferences.treeSide is
+-- textures name, plus Dialog, Rectangle, screen, alert and activeSprite.
+-- modules holds pack, tree, textures, panel, properties and wizard. preferences.treeSide is
 -- "left" or "right", and preferences.coupled is false once the
 -- designer decoupled pixel size and display height.
 --
 -- A click on a value of the panel asks for a new one in a form, and
 -- OK runs the task that writes it. The tasks run one at a time, and
--- after them the tab reads the pack again.
+-- after them the tab reads the pack again. ctl.create() opens the
+-- wizard for a new texture, which opens in the editor once created.
 
 local tab = {}
 
@@ -25,7 +26,9 @@ function tab.open(context)
   local preferences, clone = context.preferences, context.bootstrap.clone
   local properties = modules.properties
   local ctl = {}
-  local dlg, nodes, index, lists, selected, closed
+  local dlg, nodes, index, lists, selected, closed, model
+  -- The textures of the client jar, read once
+  local vanilla
   local status = { text=tr("status.loading"), visible=true }
   -- What the tab opened, by the filenames of its PNG and its source:
   -- { id, paths } with the id of the entry's node
@@ -130,15 +133,15 @@ function tab.open(context)
 
   -- Reads the pack again and shows its nodes
   local function describe(done)
-    local process, problem = modules.pack.describe(context.bootstrap, api, function(model, err)
+    local process, problem = modules.pack.describe(context.bootstrap, api, function(read, err)
       if closed then
         return
       end
-      if model then
-        local ok, built, builtIndex = pcall(modules.tree.build, model, tr)
+      if read then
+        local ok, built, builtIndex = pcall(modules.tree.build, read, tr)
         if ok then
-          nodes, index = built, builtIndex
-          lists = { statuses=model.statuses, scalings=model.scalings }
+          nodes, index, model = built, builtIndex, read
+          lists = { statuses=read.statuses, scalings=read.scalings }
           dlg:modify{ id="tree", nodes=nodes }
           if selected and not index[selected] then
             ctl.clear()
@@ -172,6 +175,34 @@ function tab.open(context)
     pump()
   end
 
+  -- Queues start(finish), which starts a Gradle run with a function
+  -- of pack and returns what it returns. finish(...) gets the run's
+  -- result unless the tab closed meanwhile, and failed(problem) the
+  -- reason when no run started.
+  local function enqueue(start, finish, failed)
+    table.insert(queue, function(done)
+      local process, problem = start(function(...)
+        if not closed then finish(...) end
+        done()
+      end)
+      if not process then
+        setStatus(tr("status.not_started") .. " " .. problem)
+        failed(problem)
+        done()
+      end
+      return process
+    end)
+    pump()
+  end
+
+  -- The start of a run of job, a { task, options }, for enqueue
+  local function task(job)
+    return function(finish)
+      local process, problem = modules.pack.run(context.bootstrap, api, job[1], job[2], finish)
+      return process, problem
+    end
+  end
+
   -- Runs job, a { task, options }, then after() once it succeeded and
   -- finally() in any case, and reads the pack again. A refusal shows
   -- its reason in the panel while its entry stays selected, and in the
@@ -180,37 +211,26 @@ function tab.open(context)
     local id = selected
     refused = nil
     setStatus(tr("status.writing"))
-    table.insert(queue, function(done)
-      local process, problem = modules.pack.run(context.bootstrap, api, job[1], job[2], function(ok, err)
-        if closed then
-          return
-        end
-        if ok then
-          if after then after() end
-          if finally then finally() end
-          ctl.reload()
-        else
-          for i = #queue, 1, -1 do
-            if queue[i] == describe then table.remove(queue, i) end
-          end
-          local reason = modules.pack.refusal(err)
-          setStatus(shown and tr("status.refused") .. " " .. table.concat(reason, " ") or nil)
-          if selected == id then
-            refused = reason
-          end
-          if finally then finally() end
-          showProperties()
-        end
-        done()
-      end)
-      if not process then
-        setStatus(tr("status.not_started") .. " " .. problem)
+    enqueue(task(job), function(ok, err)
+      if ok then
+        if after then after() end
         if finally then finally() end
-        done()
+        ctl.reload()
+      else
+        for i = #queue, 1, -1 do
+          if queue[i] == describe then table.remove(queue, i) end
+        end
+        local reason = modules.pack.refusal(err)
+        setStatus(shown and tr("status.refused") .. " " .. table.concat(reason, " ") or nil)
+        if selected == id then
+          refused = reason
+        end
+        if finally then finally() end
+        showProperties()
       end
-      return process
+    end, function()
+      if finally then finally() end
     end)
-    pump()
   end
 
   -- Runs the task that a save of the sprite of record implies: a
@@ -423,6 +443,54 @@ function tab.open(context)
     dlg:modify{ id="editor", sprite=sprite }
     -- A texture of a few pixels fills the editor
     api.fitScreen()
+  end
+
+  -- Opens the wizard for a new texture. Its tasks run in the queue,
+  -- and what it created opens once the pack was read again.
+  function ctl.create()
+    modules.wizard.open{
+      api=api,
+      tr=tr,
+      model=model or {},
+      run=function(job, done)
+        setStatus(tr("status.writing"))
+        enqueue(task(job), function(ok, err, out)
+          setStatus(nil)
+          done(ok, ok and {} or modules.pack.refusal(err), out)
+        end, function(problem)
+          done(false, { problem }, {})
+        end)
+      end,
+      listing=function(done)
+        if vanilla then
+          done(vanilla)
+          return
+        end
+        setStatus(tr("status.reading_jar"))
+        enqueue(function(finish)
+          local process, problem = modules.pack.vanilla(context.bootstrap, api, finish)
+          return process, problem
+        end, function(textures, err)
+          setStatus(nil)
+          vanilla = textures
+          done(textures, textures == nil and modules.pack.refusal(err) or nil)
+        end, function(problem)
+          done(nil, { problem })
+        end)
+      end,
+      created=function(job)
+        ctl.reload()
+        table.insert(queue, function(done)
+          local id = modules.wizard.target(index, job)
+          if id then
+            dlg.data = { tree=id }
+            ctl.select(id)
+          end
+          done()
+        end)
+        pump()
+      end,
+    }
   end
 
   -- Selects no entry, so that a click on the last one opens it again.

@@ -23,8 +23,9 @@ local function plain(value)
 end
 
 -- Runs the task :resource-pack:<task> in the clone with options as
--- -P properties, sorted by name, and calls done(true, {}) or
--- done(false, lines) with what it printed to stderr. The Gradle
+-- -P properties, sorted by name, and calls done(true, {}, out) or
+-- done(false, lines, out) with what it printed to stderr. out holds
+-- the lines it printed to stdout, such as the files it wrote. The Gradle
 -- wrapper's jar runs on the JDK of the bootstrap's JAVA_HOME, so no
 -- shell or batch file reads an option. api holds Process, windows and
 -- join. Returns the started Process, or nil and the reason why none
@@ -44,13 +45,14 @@ function pack.run(bootstrap, api, task, options, done)
     table.insert(cmd, "-P" .. key .. "=" .. tostring(options[key]))
   end
 
-  local err = {}
+  local err, out = {}, {}
   local process = api.Process{
     cmd=cmd,
     cwd=clone,
     env=bootstrap.env,
+    onstdout=function(line) table.insert(out, line) end,
     onstderr=function(line) table.insert(err, line) end,
-    onexit=function(code) done(code == 0, code == 0 and {} or err) end }
+    onexit=function(code) done(code == 0, code == 0 and {} or err, out) end }
   local started, problem = pcall(process.start, process)
   if not started then
     return nil, tostring(problem)
@@ -83,23 +85,40 @@ function pack.refusal(lines)
   return reason
 end
 
--- Runs describePack in the clone and calls done(model) or done(nil,
--- lines) with the reason. api holds Process, windows, join, read and
--- decode. Returns what pack.run returns.
-function pack.describe(bootstrap, api, done)
-  local process, problem = pack.run(bootstrap, api, "describePack", {}, function(ok, err)
+-- Runs task in the clone and calls done(value) with what it wrote to
+-- file under resource-pack/build, or done(nil, lines) with the
+-- reason. api holds Process, windows, join, read and decode. Returns
+-- what pack.run returns.
+local function written(bootstrap, api, task, name, done)
+  local process, problem = pack.run(bootstrap, api, task, {}, function(ok, err)
     if not ok then
       done(nil, err)
       return
     end
-    local file = api.join(bootstrap.clone, "resource-pack", "build", "pack-model.json")
-    local decoded, model = pcall(api.decode, api.read(file) or "")
-    model = decoded and plain(model) or model
-    if not decoded or type(model) ~= "table" then
-      done(nil, { decoded and file or tostring(model) })
+    local file = api.join(bootstrap.clone, "resource-pack", "build", name)
+    local decoded, value = pcall(api.decode, api.read(file) or "")
+    value = decoded and plain(value) or value
+    if not decoded or type(value) ~= "table" then
+      done(nil, { decoded and file or tostring(value) })
       return
     end
-    done(model)
+    done(value)
+  end)
+  return process, problem
+end
+
+-- Runs describePack and calls done(model) or done(nil, lines)
+function pack.describe(bootstrap, api, done)
+  local process, problem = written(bootstrap, api, "describePack", "pack-model.json", done)
+  return process, problem
+end
+
+-- Runs listVanillaTextures and calls done(textures) with the textures
+-- of the client jar, each { id, width, height, mcmeta }, or done(nil,
+-- lines)
+function pack.vanilla(bootstrap, api, done)
+  local process, problem = written(bootstrap, api, "listVanillaTextures", "vanilla-textures.json", function(listing, err)
+    done(listing and (listing.textures or {}), err)
   end)
   return process, problem
 end

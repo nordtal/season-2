@@ -9,12 +9,24 @@ local function trim(text)
   return (text:gsub("%s+$", ""))
 end
 
--- The words of a text, each with the space or slash that ends it
+-- The words of a text, each with the spaces after it. A word ends after
+-- a space, and after a punctuation mark that follows a letter, unless
+-- the mark opens something: a quote, a bracket or a backslash.
 local function words(text)
-  local list = {}
-  for word in text:gmatch("[^%s/]*[%s/]*") do
-    if word ~= "" then table.insert(list, word) end
+  local list, word, letters = {}, "", false
+  local chars = {}
+  for _, code in utf8.codes(text) do table.insert(chars, utf8.char(code)) end
+  for i, c in ipairs(chars) do
+    word = word .. c
+    local space = c:match("^%s$") ~= nil
+    local ends = space or letters and c:match("^%p$") and not c:match("^[\\%[{(\"']$")
+    letters = letters or not (space or c:match("^%p$"))
+    if ends and not (chars[i + 1] or ""):match("^%s$") then
+      table.insert(list, word)
+      word, letters = "", false
+    end
   end
+  if word ~= "" then table.insert(list, word) end
   return list
 end
 
@@ -113,13 +125,91 @@ function panel.layout(rows, width, measure, lineHeight, textHeight)
   return { ops=ops, hits=hits, height=y }
 end
 
--- The field of a layout that a click at x, y hits, or nil
-function panel.hit(layout, x, y)
+-- The field of a layout that a click at x, y hits, or with what="tip"
+-- the tip of what lies there, or nil
+function panel.hit(layout, x, y, what)
   for _, h in ipairs(layout.hits) do
-    if x >= h.x and x < h.x + h.width and y >= h.y and y < h.y + h.height then
-      return h.field
+    local value = h[what or "field"]
+    if value ~= nil and x >= h.x and x < h.x + h.width and y >= h.y and y < h.y + h.height then
+      return value
     end
   end
+end
+
+-- text cut to width with "..." at its start or end, or nil when not
+-- even one character fits
+local function shorten(text, width, measure, from)
+  local chars = {}
+  for _, code in utf8.codes(text) do table.insert(chars, utf8.char(code)) end
+  for keep = #chars - 1, 1, -1 do
+    local short = from == "start" and "..." .. table.concat(chars, "", #chars - keep + 1)
+      or trim(table.concat(chars, "", 1, keep)) .. "..."
+    if measure(short) <= width then
+      return short
+    end
+  end
+end
+
+-- What to draw for a bar of items on one line and where a click hits one: { ops, hits, height }. An item is
+-- { kind, text, value, field, tip, color, shrink }: kind is "box", "switch", "button" or "text". An item with
+-- shrink ("start" or "end") gives up room when the line is too short: each first down to a quarter of the
+-- width, then the last one down to nothing. Its text then loses its start or end and shows whole as its tip.
+function panel.bar(items, width, measure, lineHeight, textHeight)
+  local sized = {}
+  for _, item in ipairs(items) do
+    local frame = (item.kind == "box" or item.kind == "button") and 2 * inset
+      or item.kind == "switch" and lineHeight + gap or 0
+    table.insert(sized, { item=item, text=item.text, frame=frame, inner=measure(item.text) })
+  end
+  local function excess()
+    local total = -inset
+    for _, s in ipairs(sized) do
+      if s.text then total = total + inset + s.frame + s.inner end
+    end
+    return total - width
+  end
+  local function give(s, floor)
+    local inner = math.max(floor, s.inner - math.max(0, excess()))
+    if inner < s.inner then
+      s.text = inner > 0 and shorten(s.item.text, inner, measure, s.item.shrink) or nil
+      s.inner = s.text and measure(s.text) or 0
+    end
+  end
+  for _, s in ipairs(sized) do
+    if s.item.shrink then give(s, math.min(s.inner, width // 4)) end
+  end
+  for i = #sized, 1, -1 do
+    if sized[i].item.shrink then give(sized[i], 0) end
+  end
+
+  local ops, hits, x = {}, {}, 0
+  local height = textHeight + 2 * inset + buttonShadow
+  for _, s in ipairs(sized) do
+    local item = s.item
+    if s.text then
+      if #ops > 0 then x = x + inset end
+      local w = s.frame + s.inner
+      local tx = x
+      if item.kind == "box" then
+        table.insert(ops, { op="box", x=x, y=0, width=w, height=textHeight + 2 * inset })
+        tx = x + inset
+      elseif item.kind == "button" then
+        table.insert(ops, { op="button", x=x, y=0, width=w, height=height })
+        tx = x + inset
+      elseif item.kind == "switch" then
+        table.insert(ops, { op="check", x=x, y=inset + (textHeight - lineHeight) // 2, size=lineHeight,
+                            checked=item.value == true })
+        tx = x + lineHeight + gap
+      end
+      table.insert(ops, { op="text", text=s.text, x=tx, y=inset, color=item.color })
+      local tip = item.tip or (s.text ~= item.text and item.text or nil)
+      if item.field ~= nil or tip then
+        table.insert(hits, { field=item.field, tip=tip, x=x, y=0, width=w, height=height })
+      end
+      x = x + w
+    end
+  end
+  return { ops=ops, hits=hits, height=height }
 end
 
 return panel

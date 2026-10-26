@@ -5,7 +5,7 @@ bootstrap loads `init.lua` from the clone of this repository. The plugin require
 fork's Lua API (`app.forkApiVersion`) and shows an alert to update the app on an older one.
 
 The Nordtal tab holds the tree of the resource pack, the embedded editor and the properties of the
-selected entry, side by side. The properties stay on the side of the editor away from the tree. The
+selected entry, side by side, below the Minecraft bar. The bar ends in the status line. The properties stay on the side of the editor away from the tree. The
 tree and the properties have widths of their own and the editor takes the rest, so a longer node of
 the tree scrolls. The plugin runs `:resource-pack:describePack` with the clone's Gradle wrapper and
 builds the tree from `build/pack-model.json`. Every task starts as `java -jar
@@ -90,23 +90,27 @@ A node in review shows the number of its pull request as its badge, such as `#42
 review decision, its checks and its comments, and **Open on GitHub** opens it in the browser. Replies
 are written on GitHub.
 
-The Minecraft section below the panel's entries installs the pack into a Minecraft instance of any
-launcher. A click on the instance opens a folder dialog and runs `chooseMinecraftInstance`, and the
-tab then reads the instance with `describeInstance`. **Install Pack** appears once an instance is
-chosen and runs `installPack`. With
-**Install the pack on every save**, which is on at first, each save of a texture runs it too. After
-an install, the bridge mod reloads the pack, or the status line asks for F3+T. **Install Bridge Mod**
-appears for an instance with Fabric and runs `installBridgeMod` with the bootstrap's gh. The tab
-connects to the bridge mod with the port and token of the instance. A refused token closes the
-connection. The tab connects again on a click on the bridge mod's state or when `describeInstance`
-reads another port or token.
+The Minecraft bar along the top of the tab installs the pack into a Minecraft instance of any
+launcher. It stays empty until `describeInstance` has answered once. A click on the instance opens a
+folder dialog and runs `chooseMinecraftInstance`, and the tab then reads the instance with
+`describeInstance`. **Install Pack** appears once an instance is chosen and runs `installPack`. With
+**Live sync**, which is on at first, each save of a texture runs it too. After an install, the bridge
+mod reloads the pack, or the status line asks for F3+T. **Install Bridge Mod** appears for an
+instance with Fabric and runs `installBridgeMod` with the bootstrap's gh. It reads **Update Bridge
+Mod** once a jar of the bridge mod is in the instance. The tab connects to the bridge mod with the
+port and token of the instance. The state of the bridge mod is one coloured word. A refused token
+closes the connection, and the word becomes a button that connects again. The tab also connects again
+when `describeInstance` reads another port or token. The bar shortens the instance path from its
+start and the status line from its end. Moving the pointer onto an item shows its long text in
+Aseprite's tip above the status bar.
 
-The section lists the previews of the selected entry. A glyph or a cell runs `renderGlyphPreviews`
+The panel lists the previews of the selected entry. A glyph or a cell runs `renderGlyphPreviews`
 first, with **Show Previews**, and then offers itself alone in each place the bridge mod shows text,
 and the menu, HUD line or board that its font draws. An item offers a give of each of its `states`, an
 override under `block` or `item` the block or item of its name. With Fabric, a click sends the
 preview to the bridge mod. Without Fabric, each preview is a list of vanilla commands, and a click
-copies one. A command writes each character beyond ASCII as an SNBT escape, `\U000F0000` for
+copies one. A command wraps only at a space or after a punctuation mark, and splits a word only when
+the word is longer than the line. A command writes each character beyond ASCII as an SNBT escape, `\U000F0000` for
 U+F0000, so the text shown is the text copied. A command longer than the chat's 256 characters is shown with its length and is not
 copied.
 

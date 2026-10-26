@@ -111,6 +111,8 @@ local function setUp(preferences, modelText)
       return world.folder
     end,
     setClipboard=function(text) table.insert(log, { "clipboard", text }) end,
+    tip=function(text) table.insert(log, { "tip", text }) end,
+    Color=function(t) return t end,
     Timer=function(args)
       local timer = { args=args }
       function timer:start() self.running = true table.insert(timers, self) end
@@ -205,30 +207,56 @@ local function kinds(dlg)
   return out
 end
 
--- The lines the properties panel draws, as "key" or "  value"
-local function texts(dlg, height)
+-- Paints the canvas id on a fake context 1000 wide and returns the
+-- lines it draws, as "key", "  value", "<status> text" or "<tone> text"
+-- for a colour of the tab's own, and where it drew each text
+local function paint(dlg, id, height)
   local out, at, color = {}, {}, nil
-  local theme = { color={ text="text", separator_label="key", face="face" } }
+  local theme = { color={ text="text", separator_label="key", face="face", status_bar_text="status" } }
   local gc = { width=1000, height=height or 1000, theme=theme }
   setmetatable(gc, { __newindex=function(t, k, v) if k == "color" then color = v else rawset(t, k, v) end end })
   function gc:measureText(text) return { width=utf8.len(text), height=1 } end
   function gc:fillRect() table.insert(out, "fill " .. color) end
   function gc:fillText(text, x, y)
-    table.insert(out, (color == "key" and "" or "  ") .. text)
+    local mark = color == "key" and "" or color == "text" and "  " or "<" .. (type(color) == "table" and "tone" or tostring(color)) .. "> "
+    table.insert(out, mark .. text)
     at[text] = at[text] or { x=x, y=y }
   end
-  function gc:drawThemeRect() end
-  function gc:drawThemeImage() end
-  dlg.handlers.properties.onpaint({ context=gc })
+  function gc:drawThemeRect(part) if id == "bar" then table.insert(out, part) end end
+  function gc:drawThemeImage(part) table.insert(out, part) end
+  dlg.handlers[id].onpaint({ context=gc })
   return out, at
 end
 
--- Clicks the properties panel on a text it draws
+-- The lines the properties panel draws, as "key" or "  value"
+local function texts(dlg, height)
+  return paint(dlg, "properties", height)
+end
+
+-- The lines the Minecraft bar draws
+local function bar(dlg)
+  return paint(dlg, "bar")
+end
+
+-- The status in the bar, or nil while there is none
+local function status(dlg)
+  for _, line in ipairs((bar(dlg))) do
+    local text = line:match("^<status> (.*)$")
+    if text then return text end
+  end
+end
+
+-- Clicks the properties panel or else the bar on a text it draws
 local function click(dlg, text, height)
   local _, drawn = texts(dlg, height)
+  local id = "properties"
+  if not drawn[text] then
+    _, drawn = bar(dlg)
+    id = "bar"
+  end
   local at = drawn[text]
   assert(at, text .. " is not drawn")
-  dlg.handlers.properties.onmousedown({ x=at.x, y=at.y })
+  dlg.handlers[id].onmousedown({ x=at.x, y=at.y })
 end
 
 -- The -P options and the task of a started Gradle wrapper
@@ -304,9 +332,13 @@ describe("the Nordtal tab", function()
     assert.equal(1, dlg.shown)
   end)
 
-  it("puts the tree left of the editor by default", function()
+  it("puts the Minecraft bar above the tree, the editor and the panel, and no row below them", function()
     local t = setUp()
-    assert.same({ "tree", "samerow", "editor", "samerow", "canvas" }, kinds(t.dialogs[1]))
+    assert.same({ "canvas", "tree", "samerow", "editor", "samerow", "canvas" }, kinds(t.dialogs[1]))
+    assert.equal("bar", t.dialogs[1].widgets[1].args.id)
+    -- A canvas grows with the window unless told otherwise, and the bar keeps one line
+    assert.is_false(t.dialogs[1].widgets[1].args.vexpand)
+    for _, w in ipairs(t.dialogs[1].widgets) do assert.not_equal("label", w.kind) end
   end)
 
   it("gives the tree and the panel a width of their own, so the editor takes the spare room", function()
@@ -317,12 +349,12 @@ describe("the Nordtal tab", function()
         table.insert(widths, { w.kind, w.args.width, w.args.hexpand })
       end
     end
-    assert.same({ { "tree", 150, false }, { "editor" }, { "canvas", 120, false } }, widths)
+    assert.same({ { "canvas", nil, true }, { "tree", 150, false }, { "editor" }, { "canvas", 120, false } }, widths)
   end)
 
   it("puts the tree right of the editor when the setting says so", function()
     local t = setUp({ treeSide="right" })
-    assert.same({ "canvas", "samerow", "editor", "samerow", "tree" }, kinds(t.dialogs[1]))
+    assert.same({ "canvas", "canvas", "samerow", "editor", "samerow", "tree" }, kinds(t.dialogs[1]))
   end)
 
   it("moves the tree to the other side and keeps the sprite and the nodes", function()
@@ -334,7 +366,7 @@ describe("the Nordtal tab", function()
     assert.equal("right", preferences.treeSide)
     assert.is_true(first.closed)
     local second = t.dialogs[#t.dialogs]
-    assert.same({ "canvas", "samerow", "editor", "samerow", "tree" }, kinds(second))
+    assert.same({ "canvas", "canvas", "samerow", "editor", "samerow", "tree" }, kinds(second))
     assert.equal(t.open[1], second.data.editor)
     assert.equal("glyphs", second.handlers.tree.nodes[1].id)
     assert.equal("glyph/minecraft:default/F0000", second.data.tree)
@@ -363,25 +395,25 @@ describe("the Nordtal tab", function()
   it("asks for an entry while none is selected", function()
     local t = setUp()
     local dlg = loaded(t)
-    assert.same({ "fill face", "  properties.none", "minecraft.instance" }, { table.unpack((texts(dlg)), 1, 3) })
+    assert.same({ "fill face", "  properties.none" }, (texts(dlg)))
   end)
 
   it("shows that it reads the pack, then the pack's nodes", function()
     local t = setUp()
     local dlg = t.dialogs[1]
-    assert.equal("status.loading", dlg.handlers.status.text)
+    assert.equal("status.loading", status(dlg))
     loaded(t)
     assert.equal("glyphs", dlg.handlers.tree.nodes[1].id)
-    assert.is_false(dlg.handlers.status.visible)
+    assert.is_nil(status(dlg))
   end)
 
-  -- A label draws one line, so the reason follows the text on it
+  -- The bar draws one line, so the reason follows the text on it
   it("shows why the pack could not be read", function()
     local t = setUp()
     t.started[1].args.onstderr("FAILURE: Build failed")
     t.started[1].args.onstderr("glyphs.json > nordtal:gui: overlaps")
     t.started[1].args.onexit(1)
-    assert.equal("status.failed FAILURE: Build failed glyphs.json > nordtal:gui: overlaps", t.dialogs[1].handlers.status.text)
+    assert.equal("status.failed FAILURE: Build failed glyphs.json > nordtal:gui: overlaps", status(t.dialogs[1]))
   end)
 
   it("opens a clicked texture in the embedded editor and shows its properties", function()
@@ -439,7 +471,7 @@ describe("the Nordtal tab", function()
     local dlg = loaded(t)
     dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/out.png" })
     assert.equal(0, #t.open)
-    assert.equal("status.outside /Library/out.png", dlg.handlers.status.text)
+    assert.equal("status.outside /Library/out.png", status(dlg))
   end)
 
   it("clears the reason of the last entry when another one is selected", function()
@@ -447,7 +479,7 @@ describe("the Nordtal tab", function()
     local dlg = loaded(t)
     dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/out.png" })
     dlg.handlers.tree.onchange({ node="glyphs" })
-    assert.is_false(dlg.handlers.status.visible)
+    assert.is_nil(status(dlg))
   end)
 
   it("empties the editor when the clicked texture cannot be opened", function()
@@ -462,8 +494,7 @@ describe("the Nordtal tab", function()
     local t = setUp()
     local dlg = t.dialogs[1]
     dlg.handlers.editor.onchange()
-    assert.equal("status.loading", dlg.handlers.status.text)
-    assert.is_not_false(dlg.handlers.status.visible)
+    assert.equal("status.loading", status(dlg))
   end)
 
   it("shows why the pack's nodes could not be built", function()
@@ -471,7 +502,7 @@ describe("the Nordtal tab", function()
       { kind="sheet", title="Row text", texture={ id="nordtal:a.png", png="src/a.png", aseprite="art/a.aseprite" },
         cells={ { row=0, column=0, code="ZZ" } } } } } }, items={}, overrides={} }))
     local dlg = loaded(t)
-    assert.equal("status.failed nordtal:gui > Row text: ZZ is no code point", dlg.handlers.status.text)
+    assert.equal("status.failed nordtal:gui > Row text: ZZ is no code point", status(dlg))
   end)
 
   it("stops reading the pack when it closes and leaves the closed dialog alone", function()
@@ -491,7 +522,7 @@ describe("the Nordtal tab", function()
     dlg.data.editor = nil
     dlg.handlers.editor.onchange()
     assert.equal("", dlg.data.tree)
-    assert.same({ "fill face", "  properties.none", "minecraft.instance" }, { table.unpack((texts(dlg)), 1, 3) })
+    assert.same({ "fill face", "  properties.none" }, (texts(dlg)))
     -- A click on the same entry opens it again
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     assert.equal(t.open[1], dlg.data.editor)
@@ -516,7 +547,7 @@ describe("the Nordtal tab", function()
     assert.equal("properties.height", form.args.title)
     assert.same({ kind="number", args={ id="value", label="properties.height", text="7", decimals=0 } }, form.widgets[1])
     assert.equal(":resource-pack:editGlyph -Pglyph=star -Pheight=9", run(t.started[2]))
-    assert.equal("status.writing", dlg.handlers.status.text)
+    assert.equal("status.writing", status(dlg))
     t.started[2].args.onexit(0)
     assert.equal(":resource-pack:describePack", run(t.started[3]))
   end)
@@ -562,7 +593,7 @@ describe("the Nordtal tab", function()
     assert.same({ "fill face", "properties.refused" }, { lines[1], lines[2] })
     local shown = table.concat(lines, "\n")
     assert.is_truthy(shown:find("properties.refused\n  star is still used in 1 place:\n  smp/src/Badges.java:12", 1, true))
-    assert.is_false(dlg.handlers.status.visible)
+    assert.is_nil(status(dlg))
     assert.equal(2, #t.started)
     -- Another entry shows no refusal of this one
     dlg.handlers.tree.onchange({ node="glyphs" })
@@ -612,8 +643,7 @@ describe("the Nordtal tab", function()
       t.started[2].args.onstderr(line)
     end
     t.started[2].args.onexit(1)
-    assert.equal("status.refused star has no block", dlg.handlers.status.text)
-    assert.is_true(dlg.handlers.status.visible)
+    assert.equal("status.refused star has no block", status(dlg))
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     t.world.active = sprite
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
@@ -627,7 +657,7 @@ describe("the Nordtal tab", function()
     t.dialogs.answer = function(d) d.data = { ok=true, value="a star" } end
     t.world.failStart = "cannot start java"
     click(dlg, "star")
-    assert.is_truthy(dlg.handlers.status.text:find("^status.not_started .*cannot start java"))
+    assert.is_truthy(status(dlg):find("^status.not_started .*cannot start java"))
     t.world.failStart = nil
     click(dlg, "star")
     assert.equal(":resource-pack:renameGlyph -Pglyph=star -Pto=a star", run(t.started[2]))
@@ -642,7 +672,7 @@ describe("the Nordtal tab", function()
     click(dlg, "star")
     click(dlg, "7")
     assert.equal(1, forms)
-    assert.equal("status.busy", dlg.handlers.status.text)
+    assert.equal("status.busy", status(dlg))
     assert.equal(2, #t.started)
   end)
 
@@ -1149,7 +1179,7 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:describePack", run(t.started[5]))
     t.started[5].isRunning = false
     t.started[5].args.onexit(0)
-    assert.equal("status.published https://github.com/nordtal/season-2/pull/42", t.dialogs[1].handlers.status.text)
+    assert.equal("status.published https://github.com/nordtal/season-2/pull/42", status(t.dialogs[1]))
   end)
 
   it("reads the pack again after a publish that failed, since it may have moved code points, and says why", function()
@@ -1167,7 +1197,7 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:describePack", run(t.started[5]))
     t.started[5].isRunning = false
     t.started[5].args.onexit(0)
-    assert.equal("status.refused the star is too bright", t.dialogs[1].handlers.status.text)
+    assert.equal("status.refused the star is too bright", status(t.dialogs[1]))
   end)
 
   it("keeps the publish dialog open with the reason the commit hook gives, and sends nothing", function()
@@ -1223,7 +1253,7 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:describePack", run(t.started[3]))
     t.started[3].isRunning = false
     t.started[3].args.onexit(0)
-    assert.equal("status.merged 42", t.dialogs[1].handlers.status.text)
+    assert.equal("status.merged 42", status(t.dialogs[1]))
     local every
     for _, timer in ipairs(t.timers) do
       if timer.args.interval == 300 then every = timer end
@@ -1246,7 +1276,7 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:describePack", run(t.started[3]))
     t.started[3].isRunning = false
     t.started[3].args.onexit(0)
-    assert.equal("status.restored", t.dialogs[1].handlers.status.text)
+    assert.equal("status.restored", status(t.dialogs[1]))
   end)
 
   it("asks GitHub after the first read while the pack has drafts, and reads the pack again when main moved or a review changed", function()
@@ -1256,14 +1286,14 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:describePack", run(t.started[3]))
     t.started[3].isRunning = false
     t.started[3].args.onexit(0)
-    assert.is_false(t.dialogs[1].handlers.status.visible)
+    assert.is_nil(status(t.dialogs[1]))
     for _, timer in ipairs(t.timers) do
       if timer.args.interval == 300 then timer.args.ontick() end
     end
     synced(t, "reviewed 42")
     t.started[5].isRunning = false
     t.started[5].args.onexit(0)
-    assert.equal("status.reviewed 42", t.dialogs[1].handlers.status.text)
+    assert.equal("status.reviewed 42", status(t.dialogs[1]))
   end)
 
   it("only says so when GitHub did not answer for a pull request", function()
@@ -1273,7 +1303,7 @@ describe("the Nordtal tab", function()
     loaded(t)
     synced(t, "unanswered 42")
     assert.equal(2, #t.started)
-    assert.equal("status.unanswered 42", t.dialogs[1].handlers.status.text)
+    assert.equal("status.unanswered 42", status(t.dialogs[1]))
   end)
 
   it("compares both versions of a conflict, resolves it as the designer chooses and opens the texture it kept", function()
@@ -1395,11 +1425,11 @@ describe("the Nordtal tab", function()
     t.started[4].args.onexit(0)
     t.started[5].isRunning = false
     t.started[5].args.onexit(0)
-    assert.equal("status.yours /c/resource-pack/build/conflict/yours", dlg.handlers.status.text)
+    assert.equal("status.yours /c/resource-pack/build/conflict/yours", status(dlg))
   end)
 end)
 
-describe("the Minecraft section of the Nordtal tab", function()
+describe("the Minecraft bar of the Nordtal tab", function()
   local fabric = '{"instance":"/mc/fabric","fabric":true,"bridge":"nordtal-bridge-0.63.0.jar","port":29415,'
     .. '"token":"0123456789abcdef0123456789abcdef"}'
   local plain = '{"instance":"/mc/plain","fabric":false,"bridge":null,"port":null,"token":null}'
@@ -1439,16 +1469,45 @@ describe("the Minecraft section of the Nordtal tab", function()
     finish(t, 0, previews)
   end
 
-  it("reads the chosen instance once the pack is read and shows it below the entry, with live sync on", function()
+  it("shows only the status before the instance is read, and no instance to choose", function()
+    local t = setUp()
+    assert.same({ "fill face", "<status> status.loading" }, (bar(t.dialogs[1])))
+  end)
+
+  it("reads the chosen instance once the pack is read and shows it in the bar, with live sync on", function()
     local t = setUp()
     t.world.instance = plain
     local dlg = loaded(t)
     assert.equal(1, #t.instanceRuns)
-    local lines = texts(dlg)
-    assert.same({ "fill face", "  properties.none", "minecraft.instance", "  /mc/plain", "  minecraft.live_sync" },
-      { table.unpack(lines, 1, 5) })
-    assert.is_truthy(table.concat(lines, "\n"):find("minecraft.bridge\n  minecraft.no_fabric", 1, true))
+    assert.same({ "fill face", "sunken_normal", "  /mc/plain", "check_selected", "  minecraft.live_sync", "button_normal",
+                  "  minecraft.install_pack", "<tone> minecraft.state_no_fabric" }, (bar(dlg)))
     assert.equal(0, #t.sockets)
+  end)
+
+  it("asks for an instance when none is chosen, and when the instance could not be read", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    assert.same({ "fill face", "sunken_normal", "  minecraft.no_instance", "check_selected", "  minecraft.live_sync" },
+      (bar(dlg)))
+    t = setUp()
+    t.world.instance = "no JSON"
+    dlg = loaded(t)
+    assert.same({ "fill face", "sunken_normal", "  minecraft.no_instance" }, { table.unpack((bar(dlg)), 1, 3) })
+    assert.is_truthy(status(dlg):find("^minecraft.failed"))
+  end)
+
+  it("shows the long text of the bridge's state as a tip while the pointer rests on its word", function()
+    local t, dlg = connected()
+    local _, at = bar(dlg)
+    local word = at["minecraft.state_connected"]
+    dlg.handlers.bar.onmousemove({ x=word.x, y=word.y })
+    assert.same({ "tip", "minecraft.bridge_connected" }, t.log[#t.log])
+    local count = #t.log
+    dlg.handlers.bar.onmousemove({ x=word.x + 1, y=word.y })
+    assert.equal(count, #t.log)
+    dlg.handlers.bar.onmousemove({ x=at["minecraft.install_pack"].x, y=word.y })
+    dlg.handlers.bar.onmousemove({ x=word.x, y=word.y })
+    assert.equal(count + 1, #t.log)
   end)
 
   it("chooses an instance in the system's folder chooser, checks it with the chooser task and reads it again", function()
@@ -1462,7 +1521,7 @@ describe("the Minecraft section of the Nordtal tab", function()
     finish(t, 0)
     assert.equal(2, #t.instanceRuns)
     assert.equal("ws://127.0.0.1:29415", t.sockets[1].args.url)
-    assert.is_truthy(table.concat(texts(dlg), "\n"):find("minecraft.instance\n  /mc/fabric", 1, true))
+    assert.is_truthy(table.concat(bar(dlg), "\n"):find("  /mc/fabric", 1, true))
 
     -- A folder the chooser refuses shows its reason
     t.world.folder = "/mc/empty"
@@ -1471,7 +1530,7 @@ describe("the Minecraft section of the Nordtal tab", function()
       "FAILURE: Build failed with an exception.", "", "* What went wrong:", "Execution failed for task 'x'.",
       "> Process 'command '/jdk/bin/java'' finished with non-zero exit value 1", "", "* Try:")
     assert.equal("status.refused /mc/empty holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.",
-      dlg.handlers.status.text)
+      status(dlg))
     assert.equal(2, #t.instanceRuns)
   end)
 
@@ -1485,7 +1544,7 @@ describe("the Minecraft section of the Nordtal tab", function()
     finish(t, 0)
     assert.same({ op="reload", id=1 }, socket.sent[2])
     socket.args.onreceive(2, '{"id":1,"ok":true}', "")
-    assert.equal("minecraft.installed", dlg.handlers.status.text)
+    assert.equal("minecraft.installed", status(dlg))
 
     click(dlg, "minecraft.live_sync")
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
@@ -1506,22 +1565,24 @@ describe("the Minecraft section of the Nordtal tab", function()
     click(dlg, "minecraft.install_pack")
     assert.equal(":resource-pack:installPack", run(t.started[2]))
     finish(t, 0)
-    assert.equal("minecraft.installed_f3t", dlg.handlers.status.text)
+    assert.equal("minecraft.installed_f3t", status(dlg))
   end)
 
   it("installs the bridge mod with the bundled gh and reads the instance again", function()
     local t = setUp()
     t.world.instance = '{"instance":"/mc/fabric","fabric":true}'
     local dlg = loaded(t)
-    assert.is_truthy(table.concat(texts(dlg), "\n"):find("minecraft.bridge\n  minecraft.bridge_none", 1, true))
+    assert.is_truthy(table.concat(bar(dlg), "\n"):find("<tone> minecraft.state_none", 1, true))
     click(dlg, "minecraft.install_bridge")
     assert.equal(":resource-pack:installBridgeMod -Pgh=/gh", run(t.started[#t.started]))
     t.world.instance = fabric
     finish(t, 0, "/mc/fabric/mods/nordtal-bridge-0.63.0.jar")
     assert.equal(2, #t.instanceRuns)
     assert.equal(1, #t.sockets)
-    assert.equal("minecraft.bridge_installed", dlg.handlers.status.text)
-    assert.is_truthy(table.concat(texts(dlg), "\n"):find("minecraft.bridge\n  minecraft.bridge_connecting", 1, true))
+    assert.equal("minecraft.bridge_installed", status(dlg))
+    local shown = table.concat(bar(dlg), "\n")
+    assert.is_truthy(shown:find("  minecraft.update_bridge", 1, true))
+    assert.is_truthy(shown:find("<tone> minecraft.state_connecting", 1, true))
   end)
 
   it("draws a change of the bridge's state at once, with one tick of a timer", function()
@@ -1545,7 +1606,7 @@ describe("the Minecraft section of the Nordtal tab", function()
     t.ctl.readInstance()
     assert.equal(1, #t.sockets)
 
-    click(dlg, "minecraft.bridge_refused")
+    click(dlg, "minecraft.state_refused")
     assert.equal(3, #t.instanceRuns)
     assert.equal(2, #t.sockets)
     assert.is_true(t.sockets[2].connected)
@@ -1557,6 +1618,16 @@ describe("the Minecraft section of the Nordtal tab", function()
     assert.same({ op="hello", token="fedcba9876543210fedcba9876543210" }, t.sockets[3].sent[1])
   end)
 
+  it("draws a bridge that refused the token as a button", function()
+    local t = setUp()
+    t.world.instance = fabric
+    local dlg = loaded(t)
+    t.sockets[1].args.onreceive(1, "", "")
+    t.sockets[1].args.onreceive(2, '{"ok":false,"error":"wrong token"}', "")
+    local lines = bar(dlg)
+    assert.same({ "button_normal", "<tone> minecraft.state_refused" }, { lines[#lines - 1], lines[#lines] })
+  end)
+
   it("drops a refused bridge on a click once its mod is gone", function()
     local t = setUp()
     t.world.instance = fabric
@@ -1564,10 +1635,10 @@ describe("the Minecraft section of the Nordtal tab", function()
     t.sockets[1].args.onreceive(1, "", "")
     t.sockets[1].args.onreceive(2, '{"ok":false,"error":"wrong token"}', "")
     t.world.instance = '{"instance":"/mc/fabric","fabric":true,"bridge":null,"port":null,"token":null}'
-    click(dlg, "minecraft.bridge_refused")
-    local shown = table.concat(texts(dlg), "\n")
-    assert.is_falsy(shown:find("minecraft.bridge_refused", 1, true))
-    assert.is_truthy(shown:find("minecraft.bridge_none", 1, true))
+    click(dlg, "minecraft.state_refused")
+    local shown = table.concat(bar(dlg), "\n")
+    assert.is_falsy(shown:find("minecraft.state_refused", 1, true))
+    assert.is_truthy(shown:find("minecraft.state_none", 1, true))
   end)
 
   it("renders a glyph's previews and shows one in the client", function()
@@ -1580,11 +1651,11 @@ describe("the Minecraft section of the Nordtal tab", function()
     click(dlg, "minecraft.menu")
     assert.same({ op="chest", text={ text="menu" }, rows=3, id=1 }, socket.sent[2])
     socket.args.onreceive(2, '{"id":1,"ok":false,"error":"no world"}', "")
-    assert.equal("minecraft.not_shown no world", dlg.handlers.status.text)
+    assert.equal("minecraft.not_shown no world", status(dlg))
     -- A click while the client is gone says so
     socket.args.onreceive(3, "", "")
     click(dlg, "minecraft.chat")
-    assert.equal("minecraft.not_connected", dlg.handlers.status.text)
+    assert.equal("minecraft.not_connected", status(dlg))
   end)
 
   it("offers the commands of each preview to copy without Fabric", function()
@@ -1593,7 +1664,7 @@ describe("the Minecraft section of the Nordtal tab", function()
     local command = '/tellraw @s {"text":"\\U000F0000"}'
     click(dlg, command)
     assert.same({ "clipboard", command }, t.log[#t.log])
-    assert.equal("minecraft.copied", dlg.handlers.status.text)
+    assert.equal("minecraft.copied", status(dlg))
   end)
 
   it("gives each state of the selected item", function()

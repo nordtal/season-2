@@ -98,7 +98,9 @@ describe("the string files of the designer", function()
                           -- the places a glyph is shown in and the states of the bridge, which minecraft.lua puts together
                           "minecraft.chat", "minecraft.actionbar", "minecraft.title", "minecraft.bossbar", "minecraft.chest",
                           "minecraft.bridge_none", "minecraft.bridge_connecting", "minecraft.bridge_connected",
-                          "minecraft.bridge_unreachable", "minecraft.bridge_refused" }) do
+                          "minecraft.bridge_unreachable", "minecraft.bridge_refused", "minecraft.state_none",
+                          "minecraft.state_connecting", "minecraft.state_connected", "minecraft.state_unreachable",
+                          "minecraft.state_refused", "minecraft.update_bridge" }) do
       if not en[id] then table.insert(missing, id) end
     end
     assert.same({}, missing)

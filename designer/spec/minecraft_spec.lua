@@ -68,17 +68,15 @@ describe("minecraft", function()
     assert.same({}, (minecraft.previews(nil, nil, nil, tr)))
   end)
 
-  it("offers each preview as commands to copy without Fabric under its label, one too long without a copy, and no install without an instance", function()
+  it("offers each preview as commands to copy without Fabric under its label, and one too long without a copy", function()
     local long = { text=string.rep("x", 300) }
-    local rows = minecraft.rows({ liveSync=true, previews={
+    local rows = minecraft.rows({ instance={ instance="/i", fabric=false }, previews={
       { label="chat", requests={ { op="chat", text=star } } },
       { label="long", requests={ { op="chat", text=long } } },
       { label="boss", requests={ { op="bossbar", text={ text="b" } } } },
     } }, tr, encode)
     local command = '/tellraw @s {"font":"nordtal:badges","text":"\\U000F0000"}'
     assert.same({
-      { text="minecraft.instance", value="minecraft.no_instance", field={ minecraft="choose" } },
-      { text="minecraft.live_sync", value=true, field={ minecraft="live" }, kind="switch" },
       { text="minecraft.previews", value="minecraft.copy" },
       { text="chat", value=command, field={ minecraft="copy", text=command } },
       { text="long", value="minecraft.too_long " .. #("/tellraw @s " .. encode(long)) },
@@ -91,38 +89,67 @@ describe("minecraft", function()
     }, rows)
   end)
 
-  it("shows the bridge with Fabric, and each preview as a button that sends it", function()
+  it("shows each preview with Fabric as a button that sends it, after the button that renders a glyph's previews", function()
     local requests = { { op="give", item="minecraft:apple" } }
-    local rows = minecraft.rows({ instance={ instance="/i", fabric=true }, liveSync=false, bridge="connected",
-                                  previews={ { label="apple", requests=requests } }, render=false }, tr, encode)
     assert.same({
-      { text="minecraft.instance", value="/i", field={ minecraft="choose" } },
-      { text="minecraft.live_sync", value=false, field={ minecraft="live" }, kind="switch" },
-      { text="minecraft.install_pack", field={ minecraft="pack" }, kind="button" },
-      { text="minecraft.install_bridge", field={ minecraft="bridge" }, kind="button" },
-      { text="minecraft.bridge", value="minecraft.bridge_connected" },
       { text="minecraft.previews", value="minecraft.send" },
       { text="apple", field={ minecraft="preview", requests=requests }, kind="button" },
-    }, rows)
-
-    rows = minecraft.rows({ instance={ instance="/i", fabric=false }, liveSync=true, previews={}, render=true }, tr, encode)
-    assert.same({ text="minecraft.bridge", value="minecraft.no_fabric" }, rows[4])
-    assert.same({ text="minecraft.render", field={ minecraft="render" }, kind="button" }, rows[5])
-    assert.equal(5, #rows)
-
-    rows = minecraft.rows({ instance={ instance="/i", fabric=true }, previews={} }, tr, encode)
-    assert.same({ text="minecraft.bridge", value="minecraft.bridge_none" }, rows[5])
+    }, minecraft.rows({ instance={ instance="/i", fabric=true }, previews={ { label="apple", requests=requests } } },
+                      tr, encode))
+    assert.same({ { text="minecraft.render", field={ minecraft="render" }, kind="button" } },
+      minecraft.rows({ instance={ instance="/i", fabric=true }, previews={}, render=true }, tr, encode))
+    assert.same({}, minecraft.rows({ previews={} }, tr, encode))
   end)
 
-  it("offers a click that connects again to a bridge that refused the token", function()
-    local rows = minecraft.rows({ instance={ instance="/i", fabric=true, bridge="nordtal-bridge-0.63.0.jar" },
-                                  bridge="refused", previews={} }, tr, encode)
-    assert.same({ text="minecraft.bridge", value="minecraft.bridge_refused", field={ minecraft="retry" } }, rows[5])
-  end)
+  describe("bar", function()
+    it("shows nothing before the first read of the instance", function()
+      assert.same({}, minecraft.bar({ liveSync=true }, tr))
+    end)
 
-  it("shows the problem describeInstance found with the bridge mod in place of its state", function()
-    local rows = minecraft.rows({ instance={ instance="/i", fabric=true, problem="Two jars." }, previews={} }, tr, encode)
-    assert.same({ text="minecraft.bridge", value="Two jars." }, rows[5])
+    it("asks for an instance and offers live sync while none is chosen", function()
+      assert.same({
+        { kind="box", text="minecraft.no_instance", field={ minecraft="choose" }, shrink="start" },
+        { kind="switch", text="minecraft.live_sync", value=true, field={ minecraft="live" }, tip="minecraft.live_sync_tip" },
+      }, minecraft.bar({ instance={}, liveSync=true }, tr))
+    end)
+
+    it("installs the pack and the bridge mod into an instance with Fabric and shows the bridge's state as a coloured word", function()
+      local items = minecraft.bar({ instance={ instance="/i", fabric=true }, liveSync=false, bridge="connected" }, tr)
+      assert.same({
+        { kind="box", text="/i", field={ minecraft="choose" }, shrink="start" },
+        { kind="switch", text="minecraft.live_sync", value=false, field={ minecraft="live" }, tip="minecraft.live_sync_tip" },
+        { kind="button", text="minecraft.install_pack", field={ minecraft="pack" } },
+        { kind="button", text="minecraft.install_bridge", field={ minecraft="bridge" } },
+        { kind="text", text="minecraft.state_connected", color="good", tip="minecraft.bridge_connected" },
+      }, items)
+      assert.same({ kind="text", text="minecraft.state_none", color="off", tip="minecraft.bridge_none" },
+        minecraft.bar({ instance={ instance="/i", fabric=true } }, tr)[5])
+    end)
+
+    it("offers an update of the bridge mod once its jar is there, and waits for a client that never ran it", function()
+      local items = minecraft.bar({ instance={ instance="/i", fabric=true, bridge="nordtal-bridge-0.63.0.jar" } }, tr)
+      assert.same({ kind="button", text="minecraft.update_bridge", field={ minecraft="bridge" } }, items[4])
+      assert.same({ kind="text", text="minecraft.state_unreachable", color="wait", tip="minecraft.bridge_unreachable" },
+        items[5])
+    end)
+
+    it("draws a bridge that refused the token as a button that connects again", function()
+      local items = minecraft.bar({ instance={ instance="/i", fabric=true, bridge="nordtal-bridge-0.63.0.jar" },
+                                    bridge="refused" }, tr)
+      assert.same({ kind="button", text="minecraft.state_refused", color="bad", tip="minecraft.bridge_refused",
+                    field={ minecraft="retry" } }, items[5])
+    end)
+
+    it("shows the problem describeInstance found with the bridge mod as the tip of its state", function()
+      local items = minecraft.bar({ instance={ instance="/i", fabric=true, problem="Two jars." } }, tr)
+      assert.same({ kind="text", text="minecraft.state_problem", color="bad", tip="Two jars." }, items[5])
+    end)
+
+    it("says that an instance without Fabric has no bridge", function()
+      local items = minecraft.bar({ instance={ instance="/i", fabric=false } }, tr)
+      assert.equal(4, #items)
+      assert.same({ kind="text", text="minecraft.state_no_fabric", color="off", tip="minecraft.no_fabric" }, items[4])
+    end)
   end)
 
   describe("bridge", function()

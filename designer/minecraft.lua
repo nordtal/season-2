@@ -1,8 +1,9 @@
--- The Minecraft section of the properties panel: the instance the
--- pack is installed into, live sync, the bridge mod and the previews
--- of the selected entry. A preview is a list of requests of the bridge
--- mod's protocol, which bridge-mod/README.md documents. Without Fabric
--- the panel offers the vanilla commands that show the same.
+-- The Minecraft bar of the Nordtal tab and the previews of the
+-- selected entry in the properties panel. The bar holds the instance
+-- the pack is installed into, live sync and the bridge mod. A preview
+-- is a list of requests of the bridge mod's protocol, which
+-- bridge-mod/README.md documents. Without Fabric the panel offers the
+-- vanilla commands that show the same.
 
 local minecraft = {}
 
@@ -78,29 +79,54 @@ function minecraft.previews(info, rendered, definition, tr)
   return list, false
 end
 
--- The panel rows of the section for view: { instance, liveSync,
--- bridge, previews, render }. instance is what describeInstance
--- printed, bridge the state of the connection. A field is a table
--- whose minecraft names the action.
-function minecraft.rows(view, tr, encode)
-  local chosen = view.instance and view.instance.instance
-  local fabric = chosen and view.instance.fabric
+-- The colour of each state of the bridge, as the tab names it
+local tones = { connected="good", connecting="wait", unreachable="wait", refused="bad", none="off" }
+
+-- The items of the Minecraft bar for view: { instance, liveSync,
+-- bridge }. instance is what describeInstance printed, nil before its
+-- first read, and bridge the state of the connection. A field is a
+-- table whose minecraft names the action.
+function minecraft.bar(view, tr)
+  if not view.instance then
+    return {}
+  end
+  local chosen = view.instance.instance
   local list = {
-    { text=tr("minecraft.instance"), value=chosen or tr("minecraft.no_instance"), field={ minecraft="choose" } },
-    { text=tr("minecraft.live_sync"), value=view.liveSync == true, field={ minecraft="live" }, kind="switch" },
+    { kind="box", text=chosen or tr("minecraft.no_instance"), field={ minecraft="choose" }, shrink="start" },
+    { kind="switch", text=tr("minecraft.live_sync"), value=view.liveSync == true, field={ minecraft="live" },
+      tip=tr("minecraft.live_sync_tip") },
   }
-  if chosen then
-    table.insert(list, { text=tr("minecraft.install_pack"), field={ minecraft="pack" }, kind="button" })
+  if not chosen then
+    return list
   end
-  if chosen and fabric then
-    table.insert(list, { text=tr("minecraft.install_bridge"), field={ minecraft="bridge" }, kind="button" })
-    local state = view.bridge or "none"
-    local row = { text=tr("minecraft.bridge"), value=view.instance.problem or tr("minecraft.bridge_" .. state) }
-    if state == "refused" then row.field = { minecraft="retry" } end
-    table.insert(list, row)
-  elseif chosen then
-    table.insert(list, { text=tr("minecraft.bridge"), value=tr("minecraft.no_fabric") })
+  table.insert(list, { kind="button", text=tr("minecraft.install_pack"), field={ minecraft="pack" } })
+  if not view.instance.fabric then
+    table.insert(list, { kind="text", text=tr("minecraft.state_no_fabric"), color="off", tip=tr("minecraft.no_fabric") })
+    return list
   end
+  local jar = view.instance.bridge
+  table.insert(list, { kind="button", text=tr(jar and "minecraft.update_bridge" or "minecraft.install_bridge"),
+                       field={ minecraft="bridge" } })
+  if view.instance.problem then
+    table.insert(list, { kind="text", text=tr("minecraft.state_problem"), color="bad", tip=view.instance.problem })
+    return list
+  end
+  -- A jar without a connection belongs to a client that has not run it yet
+  local state = view.bridge or (jar and "unreachable" or "none")
+  local item = { kind="text", text=tr("minecraft.state_" .. state), color=tones[state], tip=tr("minecraft.bridge_" .. state) }
+  if state == "refused" then
+    item.kind, item.field = "button", { minecraft="retry" }
+  end
+  table.insert(list, item)
+  return list
+end
+
+-- The panel rows of the previews for view: { instance, previews,
+-- render }. instance is what describeInstance printed. A field is a
+-- table whose minecraft names the action.
+function minecraft.rows(view, tr, encode)
+  local fabric = view.instance and view.instance.instance and view.instance.fabric
+  local list = {}
   if view.render then
     table.insert(list, { text=tr("minecraft.render"), field={ minecraft="render" }, kind="button" })
   end

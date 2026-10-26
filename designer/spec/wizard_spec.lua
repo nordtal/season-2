@@ -43,8 +43,9 @@ describe("the new-texture wizard", function()
       wizard.job("override", { texture="minecraft:block/stone.png", search="sto" }))
   end)
 
-  it("leaves out an id whose namespace and path are both empty, so the task asks for it", function()
+  it("leaves out an id whose path is empty, so the task asks for it", function()
     assert.same({ "createItem", {} }, wizard.job("item", { namespace="", path="" }))
+    assert.same({ "createItem", {} }, wizard.job("item", { namespace="nordtal", path=" " }))
   end)
 
   it("reads the field that a refusal names, and shows the id's refusal at its path", function()

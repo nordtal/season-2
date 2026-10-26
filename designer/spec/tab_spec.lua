@@ -750,8 +750,9 @@ describe("the Nordtal tab", function()
   it("asks for a field that was left empty in words of its own, not in the task's", function()
     local t = setUp()
     local w = wizard(t)
-    w.values.path = ""
+    w.values.namespace, w.values.path = "nordtal", ""
     w.handlers.create.onclick()
+    assert.is_falsy(run(t.started[2]):find("-Ptexture", 1, true))
     t.started[2].args.onstdout("refused texture")
     t.started[2].args.onstderr("* What went wrong:")
     t.started[2].args.onstderr("> Set -Ptexture.")
@@ -762,7 +763,7 @@ describe("the Nordtal tab", function()
     assert.equal("label new.required", shown[at + 1])
   end)
 
-  it("asks for a texture when none of the client jar was chosen", function()
+  it("asks for a texture when none of the client jar was chosen, without running a task", function()
     local t = setUp()
     t.world.vanilla = dkjson.encode({ version="26.2", textures={ { id="minecraft:block/stone.png" } } })
     local w = wizard(t)
@@ -770,10 +771,32 @@ describe("the Nordtal tab", function()
     w.handlers.kind.onchange()
     t.started[2].args.onexit(0)
     t.dialogs[#t.dialogs].handlers.create.onclick()
-    t.started[3].args.onstdout("refused texture")
-    t.started[3].args.onexit(1)
+    assert.is_nil(t.started[3])
     local shown = layout(t.dialogs[#t.dialogs])
     assert.same({ "label new.chosen_none", "label new.required_texture" }, { shown[#shown - 3], shown[#shown - 2] })
+  end)
+
+  it("stays closed when a run or the listing ends after a cancel or a close", function()
+    local t = setUp()
+    local w = wizard(t)
+    w.handlers.create.onclick()
+    w.handlers.cancel.onclick()
+    local count = #t.dialogs
+    t.started[2].args.onstdout("refused width")
+    t.started[2].args.onexit(1)
+    assert.equal(count, #t.dialogs)
+
+    t.ctl.create()
+    local again = t.dialogs[#t.dialogs]
+    again.values.kind = "new.kind_override"
+    again.handlers.kind.onchange()
+    local browser = t.dialogs[#t.dialogs]
+    -- The close that building the dialog again causes does not count
+    again.args.onclose()
+    browser.args.onclose()
+    count = #t.dialogs
+    t.started[#t.started].args.onexit(0)
+    assert.equal(count, #t.dialogs)
   end)
 
   it("shows a refusal that names no field of the form below the fields", function()

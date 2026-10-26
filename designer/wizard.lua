@@ -69,7 +69,7 @@ end
 
 -- The task of kind and its options from the values of the form. An
 -- empty value is left out, so the task falls back to its default or
--- asks for it.
+-- asks for it. The id is left out while its path is empty.
 function wizard.job(kind, values)
   local options = {}
   if kind == "override" then
@@ -81,7 +81,7 @@ function wizard.job(kind, values)
     local value = trim(values[field])
     if field ~= "namespace" and field ~= "path" and value ~= "" then options[field] = value end
   end
-  if namespace ~= "" or path ~= "" then
+  if path ~= "" then
     if kind == "item" then
       options.item = namespace .. ":" .. path
     else
@@ -186,6 +186,9 @@ function wizard.open(context)
   local kind, values, refusal = "glyph", {}, nil
   local textures, reading, chosen
   local dlg
+  -- Set once the designer closed the wizard, so no late run or
+  -- listing opens it again
+  local closed = false
 
   local labels, byLabel = {}, {}
   for _, k in ipairs(wizard.kinds) do
@@ -213,7 +216,14 @@ function wizard.open(context)
 
   local function create()
     keep()
-    if kind == "override" then values.texture = chosen end
+    if kind == "override" then
+      if not chosen then
+        refusal = { lines={ tr("new.required_texture") } }
+        build()
+        return
+      end
+      values.texture = chosen
+    end
     local job = wizard.job(kind, values)
     dlg:modify{ id="create", enabled=false }
     context.run(job, function(ok, lines, out)
@@ -227,7 +237,7 @@ function wizard.open(context)
         lines = { tr(kind == "override" and "new.required_texture" or "new.required") }
       end
       refusal = { field=wizard.refused(out), lines=lines }
-      build()
+      if not closed then build() end
     end)
   end
 
@@ -289,8 +299,15 @@ function wizard.open(context)
   function build()
     keep()
     local bounds = dlg and dlg.bounds
-    if dlg then dlg:close() end
-    dlg = api.Dialog{ title=tr("new.dialog") }
+    -- The close of the dialog built before is not the designer's
+    local old = dlg
+    dlg = nil
+    if old then old:close() end
+    local this
+    this = api.Dialog{ title=tr("new.dialog"), onclose=function()
+      if dlg == this then closed = true end
+    end }
+    dlg = this
     dlg:combobox{ id="kind", label=tr("new.kind"), options=labels, option=tr("new.kind_" .. kind), onchange=function()
       keep()
       kind = byLabel[dlg.data.kind] or kind
@@ -303,7 +320,10 @@ function wizard.open(context)
     if refusal and not own[refusal.field] then reason(refusal.lines) end
     dlg:separator()
     dlg:button{ id="create", text=tr("new.create"), focus=true, onclick=create }
-    dlg:button{ id="cancel", text=tr("edit.cancel"), onclick=function() dlg:close() end }
+    dlg:button{ id="cancel", text=tr("edit.cancel"), onclick=function()
+      closed = true
+      dlg:close()
+    end }
     dlg:show{ wait=false }
     -- A dialog built again stays where it was and takes the size of its
     -- new fields, and one that grew moves back inside the window
@@ -321,7 +341,7 @@ function wizard.open(context)
         reading = false
         textures = list or {}
         if problem then refusal = { lines=problem } end
-        build()
+        if not closed then build() end
       end)
     end
   end

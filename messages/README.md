@@ -58,6 +58,8 @@ name another block. A cycle, or a key that is no block, shows the replacement wo
 The check refuses a key that is no block, a binding of a value the block does not declare, a value
 the block needs and the text does not offer, a value of another kind, and a block in a tag argument.
 Its declarations come from the block specs (`Messages.BLOCK_SPECS`).
+`MessageCheck` and `DocumentCheck` measure a text with the blocks they are given, the packaged
+English ones by default, so Steward checks a document with an admin's blocks.
 
 ## Values and contexts
 

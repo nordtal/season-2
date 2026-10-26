@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
+import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
@@ -14,9 +15,15 @@ import eu.nordtal.season.internalapi.agent.MessageArg;
 import eu.nordtal.season.internalapi.agent.MessageEntry;
 import eu.nordtal.season.messages.MessageOverride;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.Tone;
 import eu.nordtal.season.messages.spec.Display;
+import eu.nordtal.season.messages.text.Declaration;
+import eu.nordtal.season.messages.text.Filling;
 import eu.nordtal.season.messages.text.MessageCheck;
+import eu.nordtal.season.messages.text.MessageSyntaxException;
+import eu.nordtal.season.messages.text.MessageText;
 import eu.nordtal.season.messages.value.Kind;
 import eu.nordtal.season.settings.Colours;
 import eu.nordtal.season.settings.DatabaseSettings;
@@ -29,13 +36,16 @@ import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
@@ -52,12 +62,21 @@ public final class MessagesApi {
     private final AgentClient agent;
     private final MessageOverrideStore overrides;
     private final SettingStore settings;
+    private final DocumentsApi documents;
 
-    /** @param settings the store of the network's languages and each service's colours */
-    public MessagesApi(final AgentClient agent, final MessageOverrideStore overrides, final SettingStore settings) {
+    /**
+     * @param settings  the store of the network's languages and each service's colours
+     * @param documents the documents that a change of a building block draws anew
+     */
+    public MessagesApi(
+            final AgentClient agent,
+            final MessageOverrideStore overrides,
+            final SettingStore settings,
+            final DocumentsApi documents) {
         this.agent = agent;
         this.overrides = overrides;
         this.settings = settings;
+        this.documents = documents;
     }
 
     /** {@code GET /api/messages} answers every text of every bundle with its packaged text and its override. */
@@ -92,6 +111,7 @@ public final class MessagesApi {
                 }
             }
         }
+        refuseBroken(affected(changes, entries, union));
         final Set<String> written = new LinkedHashSet<>();
         for (final Change change : changes) {
             final MessageEntry entry =
@@ -111,6 +131,170 @@ public final class MessagesApi {
                 Reloading.applied(StewardTexts.TEXTS.steward().said().message())));
         return List.copyOf(written);
     }
+
+    /**
+     * {@code POST /api/message-changes} answers each text and document that names a building block the body changes.
+     * Each one is answered before and after the change, with what the change breaks in it. It changes nothing.
+     */
+    public void blockChanges(final Context ctx) {
+        final List<Found> union = union();
+        final Map<String, MessageEntry> entries = new HashMap<>();
+        union.forEach(found -> entries.put(idOf(found.entry()), found.entry()));
+        final List<Change> changes = changesOf(bodyOf(ctx.body()));
+        for (final Change change : changes) {
+            if (!entries.containsKey(change.bundle() + "/" + change.key())) {
+                throw new RequestRefused(400, ANSWER.noMessage(change.bundle(), change.key()));
+            }
+        }
+        ctx.json(affected(changes, entries, union));
+    }
+
+    /** Refuses a change of a building block that breaks a text or a document that names it. */
+    private static void refuseBroken(final BlockChanges affected) {
+        for (final BlockText text : affected.texts()) {
+            if (!text.breaks().isEmpty()) {
+                throw new RequestRefused(
+                        400,
+                        ANSWER.blockRefused(
+                                text.bundle() + "/" + text.key(),
+                                text.language(),
+                                MessageCheck.english(text.breaks().getFirst())));
+            }
+        }
+        for (final DocumentsApi.BlockChange document : affected.documents()) {
+            final List<String> breaks = document.breaks();
+            if (!breaks.isEmpty()) {
+                throw new RequestRefused(
+                        400, ANSWER.blockRefused(document.declaration().id(), document.language(), breaks.getFirst()));
+            }
+        }
+    }
+
+    /** Returns each text and document naming a changed block, directly or through another, before and after. */
+    private BlockChanges affected(
+            final List<Change> changes, final Map<String, MessageEntry> entries, final List<Found> union) {
+        final List<Change> blocks = changes.stream()
+                .filter(change -> Messages.BLOCKS.contains(change.bundle()))
+                .toList();
+        if (blocks.isEmpty()) {
+            return new BlockChanges(List.of(), List.of());
+        }
+        final Set<String> changed = blocks.stream().map(Change::key).collect(Collectors.toCollection(TreeSet::new));
+        final List<Locale> languages = documents.languages();
+        final DocumentsApi.Renderer before = documents.renderer(languages);
+        final List<MessageOverride> rows = rows(blocks, entries, before.blocks());
+        final DocumentsApi.Renderer after = DocumentsApi.renderer(languages, rows);
+        final Set<String> keys = naming(changed, List.of(before, after));
+        final List<BlockText> texts = new ArrayList<>();
+        for (final Found found : layered(union)) {
+            final MessageEntry entry = found.entry();
+            if (!entry.described() || (changed.contains(entry.key()) && Messages.BLOCKS.contains(entry.bundle()))) {
+                continue;
+            }
+            final Declaration declaration = OverrideCheck.declaration(entry);
+            for (final Locale locale : languages) {
+                final String language = Locales.tag(locale);
+                final List<String> current = entry.overrides().getOrDefault(language, entry.packaged(language));
+                for (final String version : current) {
+                    final MessageText parsed;
+                    try {
+                        parsed = MessageText.parse(version, declaration.markup());
+                    } catch (final MessageSyntaxException unreadable) {
+                        continue;
+                    }
+                    if (parsed.blocks().stream().noneMatch(keys::contains)) {
+                        continue;
+                    }
+                    final Filling.Blocks was = before.blocks(language);
+                    final Filling.Blocks will = after.blocks(language);
+                    final Set<MessageRef> had = errors(version, declaration, was);
+                    texts.add(new BlockText(
+                            entry.bundle(),
+                            entry.key(),
+                            language,
+                            MessageCheck.shown(parsed, declaration, was),
+                            MessageCheck.shown(parsed, declaration, will),
+                            errors(version, declaration, will).stream()
+                                    .filter(error -> !had.contains(error))
+                                    .toList()));
+                }
+            }
+        }
+        return new BlockChanges(texts, documents.blockChanges(keys, after));
+    }
+
+    /** Returns the block rows after {@code blocks}: their own rows and the stored rows they do not replace. */
+    private static List<MessageOverride> rows(
+            final List<Change> blocks, final Map<String, MessageEntry> entries, final List<MessageOverride> stored) {
+        final Set<String> replaced = new HashSet<>();
+        final List<MessageOverride> rows = new ArrayList<>();
+        for (final Change change : blocks) {
+            replaced.add(change.bundle() + "/" + change.key() + "/" + change.language());
+            final List<String> packaged = Objects.requireNonNull(entries.get(change.bundle() + "/" + change.key()))
+                    .packaged(change.language());
+            for (int variant = 0; variant < change.texts().size(); variant++) {
+                rows.add(new MessageOverride(
+                        change.bundle(),
+                        change.key(),
+                        change.language(),
+                        variant,
+                        change.texts().get(variant),
+                        packaged.isEmpty() ? null : PackagedTexts.hash(packaged)));
+            }
+        }
+        stored.stream()
+                .filter(row -> !replaced.contains(row.bundle() + "/" + row.key() + "/" + row.language()))
+                .forEach(rows::add);
+        return rows;
+    }
+
+    private static Set<MessageRef> errors(
+            final String text, final Declaration declaration, final Filling.Blocks blocks) {
+        return MessageCheck.check(text, declaration, MessageCheck.Mode.OVERRIDE, blocks).stream()
+                .filter(MessageCheck.Problem::error)
+                .map(MessageCheck.Problem::text)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /** Returns {@code changed} with every building block that names one of them, in any language of any renderer. */
+    private static Set<String> naming(final Set<String> changed, final List<DocumentsApi.Renderer> renderers) {
+        final Set<String> keys = new TreeSet<>(changed);
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (final String key : Messages.blocks().keySet()) {
+                if (!keys.contains(key) && renderers.stream().anyMatch(renderer -> names(renderer, key, keys))) {
+                    keys.add(key);
+                    grew = true;
+                }
+            }
+        }
+        return keys;
+    }
+
+    private static boolean names(final DocumentsApi.Renderer renderer, final String key, final Set<String> keys) {
+        return renderer.languages().stream().anyMatch(language -> {
+            final Filling.@Nullable Block block =
+                    renderer.messages().blocks(language).block(key);
+            return block != null && block.text().blocks().stream().anyMatch(keys::contains);
+        });
+    }
+
+    /**
+     * What a change of building blocks reaches.
+     *
+     * @param texts     each text in each language that names a changed block
+     * @param documents each document in each language that names a changed block
+     */
+    public record BlockChanges(List<BlockText> texts, List<DocumentsApi.BlockChange> documents) {}
+
+    /**
+     * A text in one language that names a changed building block, as it shows with every value at its example.
+     *
+     * @param breaks the validator errors that the change adds, as messages of the {@code check} bundle
+     */
+    public record BlockText(
+            String bundle, String key, String language, String before, String after, List<MessageRef> breaks) {}
 
     /** {@code GET /api/message-check?bundle=&key=&text=} answers the validator's errors and warnings for a text. */
     public void check(final Context ctx) {

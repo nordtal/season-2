@@ -6,6 +6,7 @@ import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.inbox.DocumentPreview;
+import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
@@ -13,6 +14,7 @@ import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.MessageOverride;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.Document;
@@ -22,8 +24,12 @@ import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Part;
+import eu.nordtal.season.messages.document.Text;
 import eu.nordtal.season.messages.document.Value;
+import eu.nordtal.season.messages.text.Filling;
 import eu.nordtal.season.messages.text.MessageCheck;
+import eu.nordtal.season.messages.text.MessageSyntaxException;
+import eu.nordtal.season.messages.text.MessageText;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.Context;
@@ -38,7 +44,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TranslatableComponent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -70,16 +78,23 @@ public final class DocumentsApi {
     private final AgentClient agent;
     private final DocumentStore store;
     private final SettingStore settings;
+    private final MessageOverrideStore overrides;
     private volatile @Nullable Renderer renderer;
 
     /**
-     * @param store    the admins' documents and images
-     * @param settings the network's languages and prices
+     * @param store     the admins' documents and images
+     * @param settings  the network's languages and prices
+     * @param overrides the admins' texts, of which the building blocks fill every drawing
      */
-    public DocumentsApi(final AgentClient agent, final DocumentStore store, final SettingStore settings) {
+    public DocumentsApi(
+            final AgentClient agent,
+            final DocumentStore store,
+            final SettingStore settings,
+            final MessageOverrideStore overrides) {
         this.agent = agent;
         this.store = store;
         this.settings = settings;
+        this.overrides = overrides;
     }
 
     /**
@@ -168,6 +183,31 @@ public final class DocumentsApi {
      */
     public record DocumentVersion(long id, @Nullable Document document, Actor actor, Instant saved) {}
 
+    /**
+     * A document in one language that names a building block an admin changes, drawn before and after the change.
+     *
+     * @param document the admin's document, else the packaged one
+     */
+    public record BlockChange(
+            DocumentDeclaration declaration,
+            Document document,
+            String language,
+            DocumentDrawing before,
+            DocumentDrawing after) {
+
+        /** Returns each error of {@code after} that {@code before} does not have. */
+        public List<String> breaks() {
+            final Set<String> had = before.problems().stream()
+                    .filter(DocumentCheck.Problem::error)
+                    .map(DocumentCheck.Problem::text)
+                    .collect(Collectors.toSet());
+            return after.problems().stream()
+                    .filter(problem -> problem.error() && !had.contains(problem.text()))
+                    .map(DocumentCheck.Problem::text)
+                    .toList();
+        }
+    }
+
     public void list(final Context ctx) {
         ctx.json(documents());
     }
@@ -178,33 +218,84 @@ public final class DocumentsApi {
      */
     public void render(final Context ctx) {
         final DocumentDraft draft = draftOf(ctx);
-        final List<Locale> languages =
-                MessagesApi.languages(settings).stream().map(Locales::parse).toList();
+        ctx.json(draw(draft.declaration(), draft.document(), draft.language(), renderer(languages())));
+    }
+
+    /** Draws a document in {@code language} with {@code renderer}, and refuses one the renderer cannot draw. */
+    private static DocumentDrawing draw(
+            final DocumentDeclaration declaration,
+            final Document document,
+            final String language,
+            final Renderer renderer) {
         final @Nullable String drawn;
         final @Nullable MenuDrawing menu;
         final @Nullable List<String> game;
         final int components;
         final List<DocumentCheck.Problem> problems;
         try {
-            components = DocumentCheck.components(draft.declaration(), draft.document());
-            problems = DocumentCheck.check(draft.declaration(), draft.document(), MessageCheck.Mode.OVERRIDE);
-            final Documents.Packaged packaged = new Documents.Packaged(draft.declaration(), draft.document());
-            final Locale language = Locales.parse(draft.language());
-            final DocumentSpec.Shape shape = draft.declaration().shape();
-            drawn = shape.game() ? null : renderer(languages).documents().preview(packaged, languages, language);
-            menu = shape == DocumentSpec.Shape.MENU ? menu(renderer(languages).game(), packaged, language) : null;
-            game = shape.game() && menu == null ? text(renderer(languages).game(), packaged, language) : null;
+            components = DocumentCheck.components(declaration, document);
+            problems = DocumentCheck.check(declaration, document, MessageCheck.Mode.OVERRIDE, renderer::blocks);
+            final Documents.Packaged packaged = new Documents.Packaged(declaration, document);
+            final Locale locale = Locales.parse(language);
+            final DocumentSpec.Shape shape = declaration.shape();
+            drawn = shape.game() ? null : renderer.documents().preview(packaged, renderer.languages(), locale);
+            menu = shape == DocumentSpec.Shape.MENU ? menu(renderer.game(), packaged, locale) : null;
+            game = shape.game() && menu == null ? text(renderer.game(), packaged, locale) : null;
         } catch (final RuntimeException undrawable) {
             throw new RequestRefused(
-                    422, ANSWER.draftUndrawable(draft.declaration().id(), String.valueOf(undrawable.getMessage())));
+                    422, ANSWER.draftUndrawable(declaration.id(), String.valueOf(undrawable.getMessage())));
         }
-        ctx.json(new DocumentDrawing(
+        return new DocumentDrawing(
                 drawn == null ? null : Json.tree(drawn).getAsJsonObject(),
                 menu,
                 game,
                 components,
                 DocumentCheck.COMPONENTS,
-                problems));
+                problems);
+    }
+
+    /**
+     * Returns each document that names a building block of {@code keys}, in each of its languages.
+     * Each one is drawn with the stored building blocks and with {@code after}.
+     *
+     * @param after every admin's text of the block bundles once the change is written
+     */
+    List<BlockChange> blockChanges(final Set<String> keys, final Renderer after) {
+        final Renderer before = renderer(after.languages());
+        final List<BlockChange> changes = new ArrayList<>();
+        for (final DocumentView view : documents().documents()) {
+            final Document document = Objects.requireNonNullElse(view.written(), view.packaged());
+            if (!names(document, keys)) {
+                continue;
+            }
+            for (final String language : document.languages()) {
+                changes.add(new BlockChange(
+                        view.declaration(),
+                        document,
+                        language,
+                        draw(view.declaration(), document, language, before),
+                        draw(view.declaration(), document, language, after)));
+            }
+        }
+        return changes;
+    }
+
+    /** Returns whether a text of {@code document} names one of the building blocks {@code keys} itself. */
+    private static boolean names(final Document document, final Set<String> keys) {
+        for (final Text text : document.texts()) {
+            for (final List<String> versions : text.languages().values()) {
+                for (final String version : versions) {
+                    try {
+                        if (MessageText.parse(version, false).blocks().stream().anyMatch(keys::contains)) {
+                            return true;
+                        }
+                    } catch (final MessageSyntaxException unreadable) {
+                        // The check reports it.
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -221,7 +312,8 @@ public final class DocumentsApi {
         }
         final List<String> problems;
         try {
-            problems = DocumentCheck.errors(declaration, draft.document(), MessageCheck.Mode.OVERRIDE);
+            problems = DocumentCheck.errors(
+                    declaration, draft.document(), MessageCheck.Mode.OVERRIDE, renderer(languages())::blocks);
         } catch (final RuntimeException unreadable) {
             throw new RequestRefused(
                     400, ANSWER.draftRefused(declaration.id(), String.valueOf(unreadable.getMessage())));
@@ -230,8 +322,7 @@ public final class DocumentsApi {
             throw new RequestRefused(400, ANSWER.draftRefused(declaration.id(), problems.getFirst()));
         }
         final Documents.Packaged packaged = new Documents.Packaged(declaration, draft.document());
-        final List<Locale> languages =
-                MessagesApi.languages(settings).stream().map(Locales::parse).toList();
+        final List<Locale> languages = languages();
         final Locale language = Locales.parse(draft.language());
         try {
             if (shape == DocumentSpec.Shape.MENU) {
@@ -330,7 +421,8 @@ public final class DocumentsApi {
         }
         final List<String> problems;
         try {
-            problems = DocumentCheck.errors(declaration, document, MessageCheck.Mode.OVERRIDE);
+            problems = DocumentCheck.errors(
+                    declaration, document, MessageCheck.Mode.OVERRIDE, renderer(languages())::blocks);
         } catch (final RuntimeException unreadable) {
             throw new RequestRefused(
                     400, ANSWER.documentRefused(declaration.id(), String.valueOf(unreadable.getMessage())));
@@ -461,6 +553,7 @@ public final class DocumentsApi {
 
     private List<Rewrite> changes(final String name, final @Nullable Part part) {
         final List<Rewrite> changes = new ArrayList<>();
+        final Renderer drawing = renderer(languages());
         for (final DocumentView view : documents().documents()) {
             final Document before = view.written();
             if (before == null || !before.sharedParts().contains(name)) {
@@ -469,7 +562,7 @@ public final class DocumentsApi {
             final Document after = before.withSharedPart(name, part);
             List<String> problems;
             try {
-                problems = DocumentCheck.errors(view.declaration(), after, MessageCheck.Mode.OVERRIDE);
+                problems = DocumentCheck.errors(view.declaration(), after, MessageCheck.Mode.OVERRIDE, drawing::blocks);
             } catch (final RuntimeException unreadable) {
                 problems = List.of(String.valueOf(unreadable.getMessage()));
             }
@@ -557,22 +650,55 @@ public final class DocumentsApi {
         ctx.result(image.bytes());
     }
 
-    /** Returns the renderers of drafts in {@code languages}, the last ones again while the languages stay. */
-    private Renderer renderer(final List<Locale> languages) {
+    /** Returns the network's languages, the default first. */
+    List<Locale> languages() {
+        return MessagesApi.languages(settings).stream().map(Locales::parse).toList();
+    }
+
+    /**
+     * Returns the renderers of drafts in {@code languages} with the stored building blocks.
+     * It returns the last ones again while the languages and the blocks stay.
+     */
+    Renderer renderer(final List<Locale> languages) {
+        final List<MessageOverride> blocks = overrides.overrides(Messages.BLOCKS);
         final Renderer last = renderer;
-        if (last != null && last.languages().equals(languages)) {
+        if (last != null && last.languages().equals(languages) && last.blocks().equals(blocks)) {
             return last;
         }
-        final Messages messages = Messages.load(
-                DocumentsApi.class.getClassLoader(), DocumentRenderer.BUNDLES, languages.toArray(Locale[]::new));
-        final Renderer made = new Renderer(
-                languages, new DocumentRenderer(DiscordRenderer.of(messages)), MessageRenderer.of(messages));
+        final Renderer made = renderer(languages, blocks);
         renderer = made;
         return made;
     }
 
-    /** @param game the game's renderer, which draws a menu */
-    private record Renderer(List<Locale> languages, DocumentRenderer documents, MessageRenderer game) {}
+    /** Returns renderers of drafts in {@code languages} with {@code blocks}, the admins' texts of the block bundles. */
+    static Renderer renderer(final List<Locale> languages, final List<MessageOverride> blocks) {
+        final Messages messages = Messages.load(
+                DocumentsApi.class.getClassLoader(), DocumentRenderer.BUNDLES, languages.toArray(Locale[]::new));
+        messages.override(blocks);
+        return new Renderer(
+                languages,
+                List.copyOf(blocks),
+                messages,
+                new DocumentRenderer(DiscordRenderer.of(messages)),
+                MessageRenderer.of(messages));
+    }
+
+    /**
+     * @param blocks the admins' texts of the block bundles that {@code messages} holds
+     * @param game   the game's renderer, which draws a menu
+     */
+    record Renderer(
+            List<Locale> languages,
+            List<MessageOverride> blocks,
+            Messages messages,
+            DocumentRenderer documents,
+            MessageRenderer game) {
+
+        /** Returns the building blocks of a language tag. */
+        Filling.Blocks blocks(final String language) {
+            return messages.blocks(Locales.parse(language));
+        }
+    }
 
     /** A packaged document with the services whose jars ship it; the first jar's document wins. */
     private record Shipped(Documents.Packaged packaged, List<String> services) {}

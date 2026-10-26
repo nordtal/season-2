@@ -3,10 +3,13 @@ package eu.nordtal.season.messages.document;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.messages.text.Filling;
 import eu.nordtal.season.messages.text.MessageCheck;
+import eu.nordtal.season.messages.text.MessageText;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class DocumentCheckTest {
@@ -115,6 +118,26 @@ class DocumentCheckTest {
 
     private static List<String> errors(final DocumentSpec<?> spec, final String json) {
         return DocumentCheck.errors(spec.declaration(), Document.decode(json), MessageCheck.Mode.PACKAGED);
+    }
+
+    /** A block's save not yet written is measured in every document that names it. */
+    @Test
+    void aBlockThatGrowsPastTheLimitBreaksTheDocumentThatNamesIt() {
+        final Document document = Document.decode(SOUND.replace("With a donation", "With {@terms.access}"));
+        assertEquals(List.of(), DocumentCheck.errors(SUMMARY.declaration(), document, MessageCheck.Mode.OVERRIDE));
+        final Filling.Blocks grown = key -> key.equals("terms.access")
+                ? new Filling.Block(MessageText.parse("a".repeat(DocumentCheck.TEXT), false), Map.of())
+                : null;
+        assertEquals(
+                List.of(
+                        "a text block in en (With {@terms.access}): with its examples the text has 4,005 characters,"
+                                + " and its place fits 4,000",
+                        "its text blocks in en show 4055 characters, Discord takes 4000"),
+                DocumentCheck.check(SUMMARY.declaration(), document, MessageCheck.Mode.OVERRIDE, language -> grown)
+                        .stream()
+                        .filter(DocumentCheck.Problem::error)
+                        .map(DocumentCheck.Problem::text)
+                        .toList());
     }
 
     @Test

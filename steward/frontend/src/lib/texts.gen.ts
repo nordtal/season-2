@@ -637,6 +637,11 @@ export type TextArgs = {
   "steward.answer.backup-unfinished": {
     backup: Arg["text"]
   }
+  "steward.answer.block-refused": {
+    output: Arg["text"]
+    language: Arg["text"]
+    problem: Arg["text"]
+  }
   "steward.answer.ceremony-elsewhere": {
     registration: Arg["choice"]
   }

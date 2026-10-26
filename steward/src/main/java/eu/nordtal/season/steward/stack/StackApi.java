@@ -153,8 +153,8 @@ public final class StackApi implements AutoCloseable {
         this.settings = new SettingsApi(settings, agent, messageOverrides, trial);
         this.agent = agent;
         this.nightly = nightly;
-        this.messages = new MessagesApi(agent, messageOverrides, settings);
-        this.documents = new DocumentsApi(agent, documentStore, settings);
+        this.documents = new DocumentsApi(agent, documentStore, settings, messageOverrides);
+        this.messages = new MessagesApi(agent, messageOverrides, settings, documents);
         this.disk = new DiskUsage(agent, scheduler, clock::instant);
         this.logFollows = new LogFollows(agent, scheduler);
         this.serviceRows = new ServiceRows(agent, updates, online);

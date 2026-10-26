@@ -14,6 +14,7 @@ import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.inbox.DocumentPreview;
+import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.messages.Messages;
@@ -83,8 +84,11 @@ class DocumentsApiIntegrationTest {
                         "documents/smp/welcome.json", WELCOME));
         final javax.sql.DataSource database = TestDatabase.fresh().dataSource();
         store = DocumentStore.using(database);
-        final DocumentsApi documents =
-                new DocumentsApi(new AgentClient(agent.client()), store, SettingStore.using(database));
+        final DocumentsApi documents = new DocumentsApi(
+                new AgentClient(agent.client()),
+                store,
+                SettingStore.using(database),
+                MessageOverrideStore.using(database));
         app = Javalin.create(config -> {
                     config.jsonMapper(new JavalinGson(Json.gson(), true));
                     config.http.maxRequestSize = DocumentsApi.IMAGE_BYTES;

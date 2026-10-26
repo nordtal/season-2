@@ -150,6 +150,11 @@ forwards the asker.
 - The send button of a place calls `POST /api/message-preview`. A Discord place arrives as a direct
   message from the bot. A game place arrives on the server of the admin's linked player.
 - `PUT /api/messages` saves the changes of every bundle, keyed by bundle and key.
+- A building block reaches every text and document that names it, itself or through another block.
+  `POST /api/message-changes` answers each one, before and after the change in the body, with what
+  the change breaks in it: a text as it shows with every value at its example, a document as
+  `POST /api/documents/render` draws it. `PUT /api/messages` refuses a change of a block that breaks
+  one. Every drawing of a document fills the blocks with the admins' texts.
 
 ### Documents
 

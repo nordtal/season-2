@@ -99,6 +99,9 @@ public final class Routes {
         config.routes.get("/api/message-fallbacks", api.messages::fallbacks, Gate.KEY_HELD);
         config.routes.get("/api/message-check", api.messages::check, Gate.KEY_HELD);
         config.routes.get("/api/message-syntax", api.messages::syntax, Gate.KEY_HELD);
+        // Draws a change of building blocks for the admin alone and changes nothing.
+        config.routes.post(
+                "/api/message-changes", api.messages::blockChanges, Gate.KEY_HELD, Unjournaled.SHOWN_TO_ONESELF);
         config.routes.put(
                 "/api/messages",
                 ctx -> {

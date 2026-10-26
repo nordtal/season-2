@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class MessageTextTest {
@@ -42,6 +43,16 @@ class MessageTextTest {
         assertThrows(MessageSyntaxException.class, () -> parse("{@terms.access, n}"));
         assertThrows(MessageSyntaxException.class, () -> parse("{@terms.access, n=a, n=b}"));
         assertThrows(MessageSyntaxException.class, () -> parse("{@terms.access"));
+    }
+
+    @Test
+    void aTextNamesTheBlocksOfEveryCase() {
+        assertEquals(
+                Set.of("terms.access", "values.duration.days"),
+                MessageText.parse(
+                                "{@terms.access}: {n, plural, one {{@values.duration.days}} other {{@terms.access}}}",
+                                false)
+                        .blocks());
     }
 
     @Test

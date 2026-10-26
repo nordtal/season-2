@@ -318,6 +318,13 @@ public interface StewardTexts {
                     @Arg("key") @Example("steward.answer.no-bundle") String key,
                     @Arg("language") @Example("Deutsch") String language);
 
+            @Name("Building block refused")
+            MessageRef blockRefused(
+                    @Arg("output") @Example("bot/rules") String output,
+                    @Arg("language") @Example("de") String language,
+                    @Arg("problem") @Example("its text blocks in de show 4055 characters, Discord takes 4000")
+                            String problem);
+
             @Name("Preview refused")
             MessageRef previewRefused(
                     @Arg("key") @Example("steward.answer.no-bundle") String key,

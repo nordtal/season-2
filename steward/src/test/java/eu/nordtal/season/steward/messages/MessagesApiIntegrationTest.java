@@ -9,6 +9,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.TestDatabase;
+import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.setting.SettingStore;
@@ -44,6 +45,9 @@ class MessagesApiIntegrationTest {
 
     private static final Gson GSON = new Gson();
 
+    /** The longest text of a Discord text display. */
+    private static final int DOCUMENT_TEXT = 4000;
+
     /** The bundles of the stand-in agent, set per test. */
     private Path configs;
 
@@ -75,7 +79,9 @@ class MessagesApiIntegrationTest {
         final javax.sql.DataSource database = TestDatabase.fresh().dataSource();
         store = MessageOverrideStore.using(database);
         settings = SettingStore.using(database);
-        final MessagesApi messages = new MessagesApi(new AgentClient(agent.client()), store, settings);
+        final AgentClient client = new AgentClient(agent.client());
+        final MessagesApi messages = new MessagesApi(
+                client, store, settings, new DocumentsApi(client, DocumentStore.using(database), settings, store));
         app = Javalin.create(config -> {
                     config.jsonMapper(new JavalinGson(new Gson(), true));
                     ErrorHandlers.install(config, WebTexts.load().messages(), Messages.load("messages/database"));
@@ -84,6 +90,7 @@ class MessagesApiIntegrationTest {
                     config.routes.get("/api/message-check", messages::check);
                     config.routes.get("/api/message-syntax", messages::syntax);
                     config.routes.put("/api/messages", ctx -> journalled = messages.save(ctx, Actor.STEWARD));
+                    config.routes.post("/api/message-changes", messages::blockChanges);
                     config.routes.post("/api/message-preview", ctx -> {
                         previewed = messages.preview(ctx);
                         ctx.status(204);
@@ -529,6 +536,58 @@ class MessagesApiIntegrationTest {
         assertEquals(400, refused.statusCode(), refused.body());
         assertTrue(refused.body().contains("welcom"), refused.body());
         assertEquals(List.of(), store.overrides(Set.of("smp")));
+    }
+
+    @Test
+    void aBuildingBlockThatGrowsADocumentPastItsLimitIsRefusedAndTheChangeShowsTheDocumentBeforeAndAfter()
+            throws Exception {
+        // The text fits with the packaged "access" and not with the longer block.
+        final String text = "x".repeat(DOCUMENT_TEXT - " access".length()) + " {@terms.access}";
+        PluginJars.smp(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/terms/en.properties", "terms.access=access\n",
+                        "documents/smp/declarations.json", """
+                        [{"namespace":"smp","name":"notice","area":"Join","shape":"MESSAGE","values":{},"slots":[]}]""",
+                        "documents/smp/notice.json", """
+                        {"parts":[{"type":"CONTAINER","parts":[{"type":"TEXT","lines":[{"text":{"en":"%s"}}]}]}]}""".formatted(text)));
+        final String change = "{\"changes\":{\"terms\":{\"terms.access\":{\"en\":[\"access to the whole network\"]}}}}";
+
+        final JsonObject document = GSON.fromJson(
+                        send("POST", "/api/message-changes", change).body(), JsonObject.class)
+                .getAsJsonArray("documents")
+                .get(0)
+                .getAsJsonObject();
+        final HttpResponse<String> refused = send("PUT", "/api/messages", change);
+
+        assertEquals(
+                "notice", document.getAsJsonObject("declaration").get("name").getAsString(), document.toString());
+        assertEquals("en", document.get("language").getAsString());
+        assertTrue(
+                document.getAsJsonObject("before").get("discord").toString().contains("x access\""),
+                document.toString());
+        // The bot cuts a text that Discord does not take.
+        assertTrue(
+                document.getAsJsonObject("after").get("discord").toString().contains("x acces…\""),
+                document.toString());
+        assertTrue(errors(document.getAsJsonObject("before")).isEmpty(), document.toString());
+        assertFalse(errors(document.getAsJsonObject("after")).isEmpty(), document.toString());
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("smp/notice"), refused.body());
+        assertEquals(List.of(), store.overrides(Set.of("terms")), "a refused save must not write anything");
+        put("/api/messages", "{\"changes\":{\"terms\":{\"terms.access\":{\"en\":[\"entry\"]}}}}");
+        assertEquals(1, store.overrides(Set.of("terms")).size(), "a block that still fits is saved");
+    }
+
+    /** Returns the text of each error of a drawing. */
+    private static List<String> errors(final JsonObject drawing) {
+        final List<String> errors = new java.util.ArrayList<>();
+        drawing.getAsJsonArray("problems").forEach(problem -> {
+            if (problem.getAsJsonObject().get("error").getAsBoolean()) {
+                errors.add(problem.getAsJsonObject().get("text").getAsString());
+            }
+        });
+        return errors;
     }
 
     /** Returns the variants of a language under {@code field} of one entry. */

@@ -2,6 +2,8 @@ package eu.nordtal.season.messages.text;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 
 /** One text of a bundle, parsed once. The messages README describes the syntax.
  * A MiniMessage text reads its tags as structure, so a value inside a tag's argument is never spliced into markup
@@ -43,6 +45,23 @@ public final class MessageText {
 
     public List<Node> nodes() {
         return nodes;
+    }
+
+    /** Returns the key of each building block the text names itself, in every case of a choice. */
+    public Set<String> blocks() {
+        final Set<String> keys = new TreeSet<>();
+        blocks(nodes, keys);
+        return keys;
+    }
+
+    private static void blocks(final List<Node> nodes, final Set<String> into) {
+        for (final Node node : nodes) {
+            if (node instanceof Node.Block block) {
+                into.add(block.key());
+            } else if (node instanceof Node.Choice choice) {
+                choice.cases().values().forEach(inner -> blocks(inner, into));
+            }
+        }
     }
 
     @Override

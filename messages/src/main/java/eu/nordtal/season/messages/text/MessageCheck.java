@@ -56,25 +56,36 @@ public final class MessageCheck {
 
     private final Declaration declaration;
     private final Mode mode;
+    private final Filling.Blocks blocks;
     private final List<Problem> problems = new ArrayList<>();
     private final Set<String> used = new LinkedHashSet<>();
 
     /** Holds the value of each open {@code <click:open_url>} tag, or an empty name for a literal address. */
     private final Deque<String> links = new ArrayDeque<>();
 
-    private MessageCheck(final Declaration declaration, final Mode mode) {
+    private MessageCheck(final Declaration declaration, final Mode mode, final Filling.Blocks blocks) {
         this.declaration = declaration;
         this.mode = mode;
+        this.blocks = blocks;
     }
 
+    /** The packaged English building blocks, which the length check draws unless it is given others. */
+    public static final Filling.Blocks PACKAGED_BLOCKS = key -> Packaged.BLOCKS.block(key);
+
     public static List<Problem> check(final String text, final Declaration declaration, final Mode mode) {
+        return check(text, declaration, mode, PACKAGED_BLOCKS);
+    }
+
+    /** Checks {@code text} with the length that {@code blocks} draw, such as the blocks of a save not yet written. */
+    public static List<Problem> check(
+            final String text, final Declaration declaration, final Mode mode, final Filling.Blocks blocks) {
         final MessageText parsed;
         try {
             parsed = MessageText.parse(text, declaration.markup());
         } catch (final MessageSyntaxException e) {
             return List.of(new Problem(true, e.reason()));
         }
-        final MessageCheck check = new MessageCheck(declaration, mode);
+        final MessageCheck check = new MessageCheck(declaration, mode, blocks);
         check.sequence(parsed.nodes());
         check.roles();
         if (check.problems.stream().noneMatch(Problem::error)) {
@@ -343,7 +354,7 @@ public final class MessageCheck {
         if (declaration.limit() <= 0) {
             return;
         }
-        final int shown = shownLength(text, declaration);
+        final int shown = shown(text, declaration, blocks).length();
         if (shown > declaration.limit()) {
             error(SAYS.tooLong(shown, declaration.limit()));
         }
@@ -351,6 +362,11 @@ public final class MessageCheck {
 
     /** Returns how many characters the text shows with every value at its example. */
     public static int shownLength(final MessageText text, final Declaration declaration) {
+        return shown(text, declaration, Packaged.BLOCKS).length();
+    }
+
+    /** Returns the text as it shows with every value at its example, each value a run of dots. */
+    public static String shown(final MessageText text, final Declaration declaration, final Filling.Blocks blocks) {
         final Map<String, Object> examples = new HashMap<>();
         declaration.examples().forEach((name, example) -> {
             final Object read = declaration.read(name, example);
@@ -359,11 +375,10 @@ public final class MessageCheck {
             }
         });
         return PlainText.of(
-                        Filling.fill(text, examples, declaration.values(), ignored -> {}, Packaged.BLOCKS),
-                        Locale.ENGLISH,
-                        ZoneOffset.UTC,
-                        MEASURE)
-                .length();
+                Filling.fill(text, examples, declaration.values(), ignored -> {}, blocks),
+                Locale.ENGLISH,
+                ZoneOffset.UTC,
+                MEASURE);
     }
 
     private static List<String> sorted(final Set<String> names) {

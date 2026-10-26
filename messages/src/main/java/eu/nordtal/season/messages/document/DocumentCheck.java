@@ -3,6 +3,7 @@ package eu.nordtal.season.messages.document;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.text.Declaration;
+import eu.nordtal.season.messages.text.Filling;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.messages.text.MessageSyntaxException;
 import eu.nordtal.season.messages.text.MessageText;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
@@ -54,21 +56,39 @@ public final class DocumentCheck {
 
     private final DocumentDeclaration declaration;
     private final MessageCheck.Mode mode;
+    private final Function<String, Filling.Blocks> blocks;
     private final Set<String> languages;
     private final List<Problem> problems = new ArrayList<>();
     private final Map<String, Integer> placed = new LinkedHashMap<>();
     private final Set<String> used = new HashSet<>();
 
     private DocumentCheck(
-            final DocumentDeclaration declaration, final Document document, final MessageCheck.Mode mode) {
+            final DocumentDeclaration declaration,
+            final Document document,
+            final MessageCheck.Mode mode,
+            final Function<String, Filling.Blocks> blocks) {
         this.declaration = declaration;
         this.mode = mode;
+        this.blocks = blocks;
         this.languages = document.languages();
     }
 
     public static List<Problem> check(
             final DocumentDeclaration declaration, final Document document, final MessageCheck.Mode mode) {
-        final DocumentCheck check = new DocumentCheck(declaration, document, mode);
+        return check(declaration, document, mode, language -> MessageCheck.PACKAGED_BLOCKS);
+    }
+
+    /**
+     * Checks the document with the length that the building blocks of each language draw, such as an admin's.
+     *
+     * @param blocks the blocks of a language tag
+     */
+    public static List<Problem> check(
+            final DocumentDeclaration declaration,
+            final Document document,
+            final MessageCheck.Mode mode,
+            final Function<String, Filling.Blocks> blocks) {
+        final DocumentCheck check = new DocumentCheck(declaration, document, mode, blocks);
         check.shape(document);
         check.parts(document.parts(), false, false);
         check.slots();
@@ -79,13 +99,23 @@ public final class DocumentCheck {
 
     /** Returns how many components the document draws at its largest, a block per language once per language. */
     public static int components(final DocumentDeclaration declaration, final Document document) {
-        return new Measure(declaration, document.languages()).components(document.parts());
+        return new Measure(declaration, document.languages(), language -> Filling.Blocks.NONE)
+                .components(document.parts());
     }
 
     /** Returns the text of each problem that refuses the document. */
     public static List<String> errors(
             final DocumentDeclaration declaration, final Document document, final MessageCheck.Mode mode) {
-        return check(declaration, document, mode).stream()
+        return errors(declaration, document, mode, language -> MessageCheck.PACKAGED_BLOCKS);
+    }
+
+    /** Returns the text of each problem that refuses the document with the building blocks of each language. */
+    public static List<String> errors(
+            final DocumentDeclaration declaration,
+            final Document document,
+            final MessageCheck.Mode mode,
+            final Function<String, Filling.Blocks> blocks) {
+        return check(declaration, document, mode, blocks).stream()
                 .filter(Problem::error)
                 .map(Problem::text)
                 .toList();
@@ -436,7 +466,7 @@ public final class DocumentCheck {
             }
             for (final String version : versions) {
                 final String where = place + " in " + language + " (" + version + ")";
-                MessageCheck.check(version, rules, mode)
+                MessageCheck.check(version, rules, mode, blocks.apply(language))
                         .forEach(problem -> problems.add(
                                 new Problem(problem.error(), where + ": " + MessageCheck.english(problem.text()))));
                 Typography.problems(version)
@@ -499,7 +529,7 @@ public final class DocumentCheck {
      * A block per language counts once per language of the file.
      */
     private void limits(final Document document) {
-        final Measure measure = new Measure(declaration, languages);
+        final Measure measure = new Measure(declaration, languages, blocks);
         switch (declaration.shape()) {
             case MESSAGE -> {
                 final int components = measure.components(document.parts());
@@ -556,7 +586,8 @@ public final class DocumentCheck {
     }
 
     /** Measures a document at its largest. */
-    private record Measure(DocumentDeclaration declaration, Set<String> languages) {
+    private record Measure(
+            DocumentDeclaration declaration, Set<String> languages, Function<String, Filling.Blocks> blocks) {
 
         int components(final List<Part> parts) {
             int count = 0;
@@ -600,7 +631,10 @@ public final class DocumentCheck {
                 int longest = 0;
                 for (final String version : line.text().versions(language)) {
                     try {
-                        longest = Math.max(longest, MessageCheck.shownLength(MessageText.parse(version, false), rules));
+                        longest = Math.max(
+                                longest,
+                                MessageCheck.shown(MessageText.parse(version, false), rules, blocks.apply(language))
+                                        .length());
                     } catch (final MessageSyntaxException ignored) {
                         // The message check reports it.
                     }

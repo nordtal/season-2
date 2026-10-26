@@ -432,6 +432,23 @@ class ItemDefinitionsTest {
     }
 
     @Test
+    fun aBlockbenchTextureWithoutItsOwnUvSizeTakesTheProjectResolutionToFindItsFrames() {
+        val written =
+            imported(
+                project {
+                    it.part("textures", 1).apply {
+                        remove("uv_width")
+                        remove("uv_height")
+                    }
+                },
+            )
+
+        val glow = pack.resolve("src/assets/nordtal/textures/item/lamp_glow.png.mcmeta")
+        assertTrue(glow in written)
+        assertEquals(mapOf("animation" to mapOf("frametime" to 3, "interpolate" to true, "frames" to listOf(1, 0))), OxfmtJson.read(glow))
+    }
+
+    @Test
     fun aBlockbenchFaceWithoutUvIsRefusedByItsElement() {
         @Suppress("UNCHECKED_CAST")
         val refusal =

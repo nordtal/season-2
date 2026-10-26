@@ -92,7 +92,7 @@ object Blockbench {
             val kept = index in used || elements.isEmpty()
             if (particle) textures["particle"] = reference
             if (kept) textures[source["id"].toString()] = reference
-            if (particle || kept) images[reference] = image(source, reference, file)
+            if (particle || kept) images[reference] = image(source, reference, file, width, height)
         }
         if (textures.isNotEmpty()) model["textures"] = textures
         if (elements.isNotEmpty()) model["elements"] = elements
@@ -131,22 +131,26 @@ object Blockbench {
         return rotation
     }
 
-    /** The texture [source] of [file] as the PNG it embeds and the `.mcmeta` of its animation. */
+    /**
+     * The texture [source] of [file] as the PNG it embeds and the `.mcmeta` of its animation. A texture without a UV size
+     * of its own takes the project's [width] and [height].
+     */
     private fun image(
         source: Map<*, *>,
         reference: String,
         file: String,
+        width: BigDecimal,
+        height: BigDecimal,
     ): Texture {
         val data = source["source"] as? String
         require(data != null && data.startsWith("data:image/png;base64,")) {
             "Texture ${source["name"]} of $file is not embedded. Save the project in Blockbench with its textures embedded."
         }
         val png = Base64.getDecoder().decode(data.substringAfter(","))
-        val width = (source["width"] as Number).toDouble()
-        val height = (source["height"] as Number).toDouble()
-        val u = (source["uv_width"] as? Number)?.toDouble() ?: width
-        val v = (source["uv_height"] as? Number)?.toDouble() ?: height
-        val frames = Math.ceil((u / v) / (width / height) - 0.05).toInt()
+        val pixels = (source["width"] as Number).toDouble() / (source["height"] as Number).toDouble()
+        val u = (source["uv_width"] as? Number)?.toDouble() ?: width.toDouble()
+        val v = (source["uv_height"] as? Number)?.toDouble() ?: height.toDouble()
+        val frames = Math.ceil((u / v) / pixels - 0.05).toInt()
         val mcmeta =
             if (frames > 1) {
                 val animation = linkedMapOf<String, Any?>("frametime" to (source["frame_time"] ?: 1))

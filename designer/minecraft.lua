@@ -136,8 +136,7 @@ end
 -- The socket connects again by itself after a close. A refusal
 -- closes it for good, and a new bridge() connects again. args holds
 -- WebSocket, types (WebSocketMessageType), encode, decode (text to a
--- plain table, or nil), port,
--- token and changed.
+-- plain table, or nil), port, token and changed.
 function minecraft.bridge(args)
   local bridge = { state="connecting" }
   local waiting, last = {}, 0

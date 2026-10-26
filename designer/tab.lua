@@ -39,7 +39,7 @@ local tab = {}
 -- The side panel's id and its width in points, until the designer
 -- drags it to another. The editor takes the rest, and a longer node of
 -- the tree scrolls.
-local sidePanel = "pack"
+local sidePanel = "nordtal_pack"
 local sideWidth = 150
 
 -- The characters a line of text in the wizard and the publish dialog
@@ -1185,14 +1185,10 @@ function tab.open(context)
     showProperties()
   end
 
-  -- Moves the side panel to "left" or "right" of the window. The
-  -- editor's width changes, so its texture is fitted again.
+  -- Moves the side panel to "left" or "right" of the window
   function ctl.setSide(side)
     preferences.treeSide = side
     dlg:modify{ id=sidePanel, side=side }
-    if dlg.data.editor then
-      api.fitScreen()
-    end
   end
 
   function rebuild()

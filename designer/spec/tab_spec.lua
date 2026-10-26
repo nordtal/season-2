@@ -301,13 +301,6 @@ describe("the Nordtal tab", function()
     assert.equal(1, dlg.shown)
   end)
 
-  -- The widget of kind in dlg
-  local function widget(dlg, kind)
-    for _, w in ipairs(dlg.widgets) do
-      if w.kind == kind then return w end
-    end
-  end
-
   it("puts the Minecraft bar above the editor, and the tree above the properties in the side panel", function()
     local t = setUp()
     assert.same({ "canvas", "editor", "panel", "tree", "canvas" }, kinds(t.dialogs[1]))
@@ -320,21 +313,21 @@ describe("the Nordtal tab", function()
 
   it("gives the side panel a width of its own, which the tree and the properties fill", function()
     local t = setUp()
-    assert.same({ id="pack", side="left", width=150 }, widget(t.dialogs[1], "panel").args)
-    for _, w in ipairs(t.dialogs[1].widgets) do
-      if w.kind == "tree" or w.args and w.args.id == "properties" then
-        assert.same({ nil, nil }, { w.args.width, w.args.hexpand })
-      end
+    local handlers = t.dialogs[1].handlers
+    assert.same({ id="nordtal_pack", side="left", width=150 }, handlers.nordtal_pack)
+    for _, id in ipairs({ "tree", "properties" }) do
+      assert.is_nil(handlers[id].width)
+      assert.is_nil(handlers[id].hexpand)
     end
   end)
 
   it("docks the side panel on the right when the setting says so", function()
     local t = setUp({ treeSide="right" })
     assert.same({ "canvas", "editor", "panel", "tree", "canvas" }, kinds(t.dialogs[1]))
-    assert.equal("right", widget(t.dialogs[1], "panel").args.side)
+    assert.equal("right", t.dialogs[1].handlers.nordtal_pack.side)
   end)
 
-  it("moves the side panel to the other side in the same tab, which keeps the sprite and fits it again", function()
+  it("moves the side panel to the other side in the same tab, which keeps the sprite", function()
     local preferences = {}
     local t = setUp(preferences)
     local dlg = loaded(t)
@@ -342,12 +335,10 @@ describe("the Nordtal tab", function()
     local count = #t.dialogs
     t.ctl.setSide("right")
     assert.equal("right", preferences.treeSide)
-    assert.same({ id="pack", side="right" }, dlg.modified[#dlg.modified])
+    assert.same({ id="nordtal_pack", side="right" }, dlg.modified[#dlg.modified])
     assert.equal(count, #t.dialogs)
     assert.is_false(dlg.closed)
     assert.equal(t.open[1], dlg.data.editor)
-    -- The editor changed its width, and the texture fills it again
-    assert.equal(2, t.world.fitted)
   end)
 
   it("builds the tab again with the side panel on the side it was moved to", function()
@@ -359,7 +350,7 @@ describe("the Nordtal tab", function()
     t.timers[#t.timers].args.ontick()
     local second = t.dialogs[#t.dialogs]
     assert.is_true(first.closed)
-    assert.equal("right", widget(second, "panel").args.side)
+    assert.equal("right", second.handlers.nordtal_pack.side)
     assert.equal(t.open[1], second.data.editor)
     assert.equal("glyphs", second.handlers.tree.nodes[1].id)
     assert.equal("glyph/minecraft:default/F0000", second.data.tree)

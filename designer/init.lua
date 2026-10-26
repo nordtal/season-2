@@ -3,8 +3,8 @@
 -- plugin.path is this folder, plugin.bootstrap holds the clone and
 -- the environment its tools run with.
 
--- Process{ env } came with version 3 of the fork's API
-local forkApi = 3
+-- plugin.require() came with version 4 of the fork's API
+local forkApi = 4
 
 local ctl, listener
 
@@ -26,8 +26,12 @@ function init(plugin)
   local function join(...)
     return (fs.normalizePath(fs.joinPath(...)))
   end
-  local tr = plugin.require("language").load(plugin.path, app.preferences.general.language, read, join)
-  if (app.forkApiVersion or 0) < forkApi then
+  -- An older app has no plugin.require(), so the alert that asks for
+  -- an update loads the strings' module itself
+  local old = (app.forkApiVersion or 0) < forkApi
+  local language = old and dofile(join(plugin.path, "language.lua")) or plugin.require("language")
+  local tr = language.load(plugin.path, app.preferences.general.language, read, join)
+  if old then
     app.alert{ title=tr("tab.title"), text=tr("update.text") }
     return
   end
@@ -47,11 +51,13 @@ function init(plugin)
       isFile=fs.isFile,
       filePath=fs.filePath,
       makeAllDirectories=fs.makeAllDirectories,
+      fitScreen=function() app.command.FitScreen() end,
     },
     modules={
       pack=plugin.require("pack"),
       tree=plugin.require("tree"),
       textures=plugin.require("textures"),
+      panel=plugin.require("panel"),
     },
     bootstrap=plugin.bootstrap,
     preferences=plugin.preferences,

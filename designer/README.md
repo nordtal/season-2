@@ -128,7 +128,8 @@ ASCII as an SNBT escape, `\U000F0000` for U+F0000, so the text shown is the text
 longer than the chat's 256 characters is shown with its length and is not copied.
 
 The interface strings are Aseprite string files in `strings/`, in English and German. The plugin
-reads the one of Aseprite's language setting, and English for each key it lacks.
+reads the one of Aseprite's language setting, and English for each key it lacks. A key
+`<key>_one` holds the text of `<key>` for a count of 1.
 
 ```bash
 # Run the Lua tests with Lua 5.4.6 and the current busted and dkjson, as CI does.

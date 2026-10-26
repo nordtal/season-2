@@ -28,6 +28,19 @@ describe("language", function()
     assert.equal("1 and 2", tr("a.p", 1, 2))
   end)
 
+  it("takes the _one form of a key when the key has one and its only number argument is 1", function()
+    local tr = language.translator({ ["a.n"] = "{0} frames", ["a.n_one"] = "1 frame", ["a.s"] = "{0}: {1} frames",
+                                     ["a.s_one"] = "{0}: 1 frame", ["a.m"] = "{0} of {1}", ["a.m_one"] = "one",
+                                     ["a.x"] = "{0} x" },
+      { ["a.n"] = "{0} Frames", ["a.n_one"] = "1 Frame" })
+    assert.equal("1 Frame", tr("a.n", 1))
+    assert.equal("2 Frames", tr("a.n", 2))
+    assert.equal("0 Frames", tr("a.n", 0))
+    assert.equal("Stone: 1 frame", tr("a.s", "Stone", 1))
+    assert.equal("1 of 1", tr("a.m", 1, 1))
+    assert.equal("1 x", tr("a.x", 1))
+  end)
+
   it("loads the strings of the language Aseprite is set to", function()
     local files = {
       ["/d/strings/en.ini"] = "[a]\nx = cat\ny = dog\n",
@@ -74,6 +87,10 @@ describe("the string files of the designer", function()
         -- An id that ends in _ is put together, as the kinds below
         if not en[id] and not id:match("_$") then table.insert(missing, file .. ": " .. id) end
       end
+    end
+    -- The ids in the browsers of wizard.lua
+    for id in read("wizard.lua"):gmatch('"(new%.[%w_]+)"') do
+      if not en[id] and not id:match("_$") then table.insert(missing, "wizard.lua: " .. id) end
     end
     for key in read("properties.lua"):gmatch('add%("([%w_]+)"') do
       if not en["properties." .. key] then table.insert(missing, "properties.lua: properties." .. key) end

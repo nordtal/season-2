@@ -127,7 +127,12 @@ class Publish(
             ) as List<*>
         val comments =
             (pr["reviews"] as List<*>?).orEmpty().map { it as Map<*, *> }.filter { !(it["body"] as String?).isNullOrBlank() }.map {
-                Drafts.Comment(((it["author"] as Map<*, *>?)?.get("login") ?: "").toString(), shortened(it["body"] as String), null, review.url)
+                Drafts.Comment(
+                    ((it["author"] as Map<*, *>?)?.get("login") ?: "").toString(),
+                    shortened(it["body"] as String),
+                    null,
+                    review.url,
+                )
             } +
                 lines.map { it as Map<*, *> }.map {
                     Drafts.Comment(
@@ -215,7 +220,14 @@ class Publish(
             throw failure
         }
         git(repository, listOf("stash", "drop", "-q", stash.ref))
-        Drafts.writeBases(pack, drafts.filter { it.conflict != null }.mapNotNull { draft -> bases[draft.id]?.let { draft.id to it } }.toMap())
+        Drafts.writeBases(
+            pack,
+            drafts
+                .filter { it.conflict != null }
+                .mapNotNull { draft ->
+                    bases[draft.id]?.let { draft.id to it }
+                }.toMap(),
+        )
     }
 
     /**

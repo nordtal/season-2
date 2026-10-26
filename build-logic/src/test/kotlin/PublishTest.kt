@@ -288,7 +288,7 @@ class PublishTest {
 
         val failure = assertThrows<IllegalStateException> { publish(clone).sync() }
 
-        assertTrue("aborted by hook" in failure.suppressed.single().message!!, failure.stackTraceToString())
+        assertTrue("`git reset" in failure.suppressed.single().message!!, failure.stackTraceToString())
     }
 
     @Test
@@ -302,7 +302,7 @@ class PublishTest {
         val refusal = assertThrows<GradleException> { publish(clone).sync() }
 
         assertTrue("nordtal-designer-edits" in refusal.message!!, refusal.stackTraceToString())
-        assertTrue("aborted by hook" in refusal.suppressed.single().message!!, refusal.stackTraceToString())
+        assertTrue("`git reset" in refusal.suppressed.single().message!!, refusal.stackTraceToString())
     }
 
     @Test

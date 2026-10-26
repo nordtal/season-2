@@ -125,6 +125,7 @@ object Drafts {
                 main?.let { m ->
                     val base = bases[id] ?: mergeBase(pack) ?: return@let null
                     if (base == m) return@let null
+
                     fun tree(ref: String) = trees.getOrPut(ref) { blobs(pack, ref) }
                     val clone = files.filter { pack.resolve(it).exists() }.let { blobs(pack, it) }
                     val changed = files.filter { tree(base)[it] != tree(m)[it] && clone[it] != tree(m)[it] }
@@ -261,8 +262,7 @@ object Drafts {
     private fun blobs(
         pack: File,
         files: List<String>,
-    ): Map<String, String> =
-        if (files.isEmpty()) emptyMap() else files.zip(git(pack, listOf("hash-object", "--") + files).lines()).toMap()
+    ): Map<String, String> = if (files.isEmpty()) emptyMap() else files.zip(git(pack, listOf("hash-object", "--") + files).lines()).toMap()
 
     /** The base of each draft whose base is no longer where the clone meets main. */
     private fun bases(pack: File): Map<String, String> {
@@ -330,16 +330,39 @@ object Drafts {
             val (was, mine, theirs) = Triple(b[key], c[key], m[key])
             val kept =
                 when {
-                    mine?.json == theirs?.json || theirs?.json == was?.json -> mine
-                    mine?.json == was?.json -> theirs
-                    mine != null && theirs != null -> merged(was, mine, theirs, if (keys.size > 1 && mine.name.isNotEmpty()) "${mine.name} " else "", fields, both)
-                    else -> (if (keep == "main") theirs else mine).also { whole = true }
+                    mine?.json == theirs?.json || theirs?.json == was?.json -> {
+                        mine
+                    }
+
+                    mine?.json == was?.json -> {
+                        theirs
+                    }
+
+                    mine != null && theirs != null -> {
+                        merged(
+                            was,
+                            mine,
+                            theirs,
+                            if (keys.size > 1 &&
+                                mine.name.isNotEmpty()
+                            ) {
+                                "${mine.name} "
+                            } else {
+                                ""
+                            },
+                            fields,
+                            both,
+                        )
+                    }
+
+                    else -> {
+                        (if (keep == "main") theirs else mine).also { whole = true }
+                    }
                 }
             kept?.let(entries::add)
         }
         return Merge(entries, both, whole)
     }
-
 
     /** The ids whose entries differ between [before] and [after], two versions of `glyphs.json`. */
     internal fun changedIds(
@@ -397,7 +420,12 @@ object Drafts {
                             "checks" to it.checks,
                             "comments" to
                                 it.comments.map { comment ->
-                                    linkedMapOf("author" to comment.author, "body" to comment.body, "path" to comment.path, "url" to comment.url)
+                                    linkedMapOf(
+                                        "author" to comment.author,
+                                        "body" to comment.body,
+                                        "path" to comment.path,
+                                        "url" to comment.url,
+                                    )
                                 },
                         )
                     },
@@ -523,9 +551,18 @@ object Drafts {
         for (entry in merge.entries) {
             val font = font(entry.font)
             when (entry.kind) {
-                "font" -> replace(font, ordered(entry.font, entry.fields, "blocks"), "blocks")
-                "sheet" -> blocks(font) += entry.fields
-                "block" -> blocks(font) += copy(ordered(entry.block!!, entry.fields, "glyphs"), "glyphs")
+                "font" -> {
+                    replace(font, ordered(entry.font, entry.fields, "blocks"), "blocks")
+                }
+
+                "sheet" -> {
+                    blocks(font) += entry.fields
+                }
+
+                "block" -> {
+                    blocks(font) += copy(ordered(entry.block!!, entry.fields, "glyphs"), "glyphs")
+                }
+
                 else -> {
                     val block =
                         blocks(font).firstOrNull { blockId("", it as Map<*, *>) == blockId("", entry.block!!) } as OxfmtJson.Object?

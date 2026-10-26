@@ -38,7 +38,14 @@ object PackModel {
                             it.conflict?.let { conflict ->
                                 linkedMapOf(
                                     "files" to conflict.files,
-                                    "fields" to conflict.fields.map { field -> linkedMapOf("name" to field.name, "clone" to field.clone, "main" to field.main) },
+                                    "fields" to
+                                        conflict.fields.map { field ->
+                                            linkedMapOf(
+                                                "name" to field.name,
+                                                "clone" to field.clone,
+                                                "main" to field.main,
+                                            )
+                                        },
                                 )
                             },
                     )
@@ -52,7 +59,12 @@ object PackModel {
                         "checks" to it.checks,
                         "comments" to
                             it.comments.map { comment ->
-                                linkedMapOf("author" to comment.author, "body" to comment.body, "path" to comment.path, "url" to comment.url)
+                                linkedMapOf(
+                                    "author" to comment.author,
+                                    "body" to comment.body,
+                                    "path" to comment.path,
+                                    "url" to comment.url,
+                                )
                             },
                     )
                 },

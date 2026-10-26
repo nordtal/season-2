@@ -126,7 +126,10 @@ class DraftClone(
         val file = pack.resolve("glyphs.json")
         val root = OxfmtJson.read(file) as Map<*, *>
         val glyph =
-            NewTextures.fonts(root).flatMap { it["blocks"] as List<*> }.flatMap { (it as Map<*, *>)["glyphs"] as List<*> }
+            NewTextures
+                .fonts(root)
+                .flatMap { it["blocks"] as List<*> }
+                .flatMap { (it as Map<*, *>)["glyphs"] as List<*> }
                 .map { it as MutableMap<String, Any?> }
                 .single { it["code"] == code }
         if (value == null) glyph.remove(field) else glyph[field] = value
@@ -138,7 +141,9 @@ class DraftClone(
         text: String,
         code: String,
     ): Map<*, *> =
-        NewTextures.fonts(OxfmtJson.read(text) as Map<*, *>).flatMap { it["blocks"] as List<*> }
+        NewTextures
+            .fonts(OxfmtJson.read(text) as Map<*, *>)
+            .flatMap { it["blocks"] as List<*> }
             .flatMap { (it as Map<*, *>)["glyphs"] as List<*> }
             .map { it as Map<*, *> }
             .single { it["code"] == code }

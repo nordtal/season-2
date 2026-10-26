@@ -92,7 +92,8 @@ class ConflictsTest {
     fun aPublishRefusesADraftWithAConflict() {
         val clone = starOnBothSides()
 
-        val refusal = assertThrows<IllegalArgumentException> { publish(clone).publish(listOf(star), "feat(resource-pack): the star is white") }
+        val refusal =
+            assertThrows<IllegalArgumentException> { publish(clone).publish(listOf(star), "feat(resource-pack): the star is white") }
 
         assertTrue("star" in refusal.message!!, refusal.message)
         assertFalse(clone.ghLog.exists() && clone.ghLog.readText().contains("pr create"))

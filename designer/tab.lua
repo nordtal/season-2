@@ -1,6 +1,7 @@
--- The Nordtal tab: the pack tree, the embedded editor and the
--- properties of the selected entry, side by side. The properties
--- stay beside the editor, on the side away from the tree.
+-- The Nordtal tab: the embedded editor below the Minecraft bar, and a
+-- side panel with the pack tree above the properties of the selected
+-- entry. The main window docks the panel outside the colour bar, or
+-- outside the tools when preferences.treeSide is "right".
 --
 -- tab.open{ api, modules, bootstrap, preferences, tr } builds the tab
 -- and reads the pack. api holds the Aseprite functions that pack and
@@ -35,10 +36,11 @@
 
 local tab = {}
 
--- The widths of the tree and the properties panel, in points. The
--- editor takes the rest, and a longer node of the tree scrolls.
-local treeWidth = 150
-local panelWidth = 120
+-- The side panel's id and its width in points, until the designer
+-- drags it to another. The editor takes the rest, and a longer node of
+-- the tree scrolls.
+local sidePanel = "pack"
+local sideWidth = 150
 
 -- The characters a line of text in the wizard and the publish dialog
 -- holds at most
@@ -112,6 +114,9 @@ function tab.open(context)
     tippedStatus = nil
     showProperties()
   end
+
+  -- Builds the tab again, defined below
+  local rebuild
 
   -- The rows of the selected entry as the panel lays them out
   local function entryRows()
@@ -233,7 +238,7 @@ function tab.open(context)
       local timer
       timer = api.Timer{ interval=0, ontick=function()
         timer:stop()
-        if not closed then ctl.setSide(preferences.treeSide) end
+        if not closed then rebuild() end
       end }
       timer:start()
     end
@@ -1056,30 +1061,18 @@ function tab.open(context)
     dlg = api.Dialog{ title=tr("tab.title"), tab=true, closable=false }
     dlg:canvas{ id="bar", height=barHeight, hexpand=true, vexpand=false, onpaint=paintBar, onmousedown=clickBar, onmousemove=hover }
     dlg:newrow()
-    local function addTree()
-      dlg:tree{ id="tree", nodes=nodes or {}, width=treeWidth, hexpand=false,
-                onchange=function(ev) ctl.select(ev.node) end }
-    end
     local own = dlg
-    local function addEditor()
-      dlg:editor{ id="editor", sprite=sprite, onchange=function()
-        -- The sprite left without the tab: it was closed, or embedded
-        -- elsewhere. A dialog that setSide replaced has nothing to clear.
-        if own == dlg then ctl.clear() end
-      end }
-    end
-    local function addPanel()
-      dlg:canvas{ id="properties", width=panelWidth, hexpand=false, onpaint=paintProperties, onmousedown=click,
-                  onwheel=wheel, onmousemove=function() tipped = nil end }
-    end
-    local order = { addTree, addEditor, addPanel }
-    if preferences.treeSide == "right" then
-      order = { addPanel, addEditor, addTree }
-    end
-    for i, add in ipairs(order) do
-      if i > 1 then dlg:samerow() end
-      add()
-    end
+    dlg:editor{ id="editor", sprite=sprite, onchange=function()
+      -- The sprite left without the tab: it was closed, or embedded
+      -- elsewhere. A dialog that rebuild replaced has nothing to clear.
+      if own == dlg then ctl.clear() end
+    end }
+    -- The widgets from the panel on go into it, one below the other
+    dlg:panel{ id=sidePanel, side=preferences.treeSide == "right" and "right" or "left", width=sideWidth }
+    dlg:tree{ id="tree", nodes=nodes or {}, onchange=function(ev) ctl.select(ev.node) end }
+    dlg:newrow()
+    dlg:canvas{ id="properties", onpaint=paintProperties, onmousedown=click, onwheel=wheel,
+                onmousemove=function() tipped = nil end }
     if selected then
       dlg.data = { tree=selected }
     end
@@ -1192,9 +1185,17 @@ function tab.open(context)
     showProperties()
   end
 
-  -- Moves the tree to "left" or "right" of the editor
+  -- Moves the side panel to "left" or "right" of the window. The
+  -- editor's width changes, so its texture is fitted again.
   function ctl.setSide(side)
     preferences.treeSide = side
+    dlg:modify{ id=sidePanel, side=side }
+    if dlg.data.editor then
+      api.fitScreen()
+    end
+  end
+
+  function rebuild()
     local sprite = dlg.data.editor
     dlg:close()
     build(sprite)

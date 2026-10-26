@@ -4,8 +4,8 @@
 -- the environment its tools run with.
 
 -- plugin.require() is in version 4 of the fork's API, the width of
--- Dialog:tree{} in version 5
-local forkApi = 5
+-- Dialog:tree{} in version 5, Dialog:panel{} in version 6
+local forkApi = 6
 
 local ctl, listener
 

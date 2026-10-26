@@ -1,13 +1,13 @@
 # designer
 
 The Nordtal plugin of Nordtal Designer, the Aseprite build of `nordtal/aseprite`. The app's
-bootstrap loads `init.lua` from the clone of this repository. The plugin requires version 5 of the
+bootstrap loads `init.lua` from the clone of this repository. The plugin requires version 6 of the
 fork's Lua API (`app.forkApiVersion`) and shows an alert to update the app on an older one.
 
-The Nordtal tab holds the tree of the resource pack, the embedded editor and the properties of the
-selected entry, side by side, below the Minecraft bar. The bar ends in the status line. The
-properties stay on the side of the editor away from the tree. The tree and the properties have
-widths of their own and the editor takes the rest, so a longer node of the tree scrolls. The plugin
+The Nordtal tab holds the embedded editor below the Minecraft bar. The bar ends in the status line.
+The tab's side panel holds the tree of the resource pack above the properties of the selected entry.
+While the tab is active, the main window docks the panel left of the colour bar. The panel keeps the
+width the designer drags it to, and the editor takes the rest, so a longer node of the tree scrolls. The plugin
 runs `:resource-pack:describePack` with the clone's Gradle wrapper and builds the tree from
 `build/pack-model.json`. Every task starts as `java -jar gradle/wrapper/gradle-wrapper.jar` on the
 JDK of the bootstrap's `JAVA_HOME`, so no shell and no batch file reads an option. A task that
@@ -17,8 +17,7 @@ zoomed to fit, unless its PNG lies outside `resource-pack/src/` or its source ou
 editor without the tab, such as with **File > Close**, the tree selects nothing, so a click opens
 the entry again. Each save of that sprite writes its `.aseprite` source under `resource-pack/art/`
 and its PNG: the first frame for a glyph or an item, every frame for a vanilla override. **View >
-Nordtal Tree on the Right** moves the tree to the right of the editor and the properties to its
-left.
+Nordtal Tree on the Right** docks the side panel right of the tools.
 
 The properties panel shows each value it edits in a sunken box. The mouse wheel scrolls the panel. A
 click on a box asks for the new value in a form. OK runs the resource pack's task that writes it:

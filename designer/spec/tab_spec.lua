@@ -301,46 +301,69 @@ describe("the Nordtal tab", function()
     assert.equal(1, dlg.shown)
   end)
 
-  it("puts the Minecraft bar above the tree, the editor and the panel, and no row below them", function()
+  -- The widget of kind in dlg
+  local function widget(dlg, kind)
+    for _, w in ipairs(dlg.widgets) do
+      if w.kind == kind then return w end
+    end
+  end
+
+  it("puts the Minecraft bar above the editor, and the tree above the properties in the side panel", function()
     local t = setUp()
-    assert.same({ "canvas", "tree", "samerow", "editor", "samerow", "canvas" }, kinds(t.dialogs[1]))
+    assert.same({ "canvas", "editor", "panel", "tree", "canvas" }, kinds(t.dialogs[1]))
     assert.equal("bar", t.dialogs[1].widgets[1].args.id)
+    assert.equal("properties", t.dialogs[1].widgets[#t.dialogs[1].widgets].args.id)
     -- A canvas grows with the window unless told otherwise, and the bar keeps one line
     assert.is_false(t.dialogs[1].widgets[1].args.vexpand)
     for _, w in ipairs(t.dialogs[1].widgets) do assert.not_equal("label", w.kind) end
   end)
 
-  it("gives the tree and the panel a width of their own, so the editor takes the spare room", function()
+  it("gives the side panel a width of its own, which the tree and the properties fill", function()
     local t = setUp()
-    local widths = {}
+    assert.same({ id="pack", side="left", width=150 }, widget(t.dialogs[1], "panel").args)
     for _, w in ipairs(t.dialogs[1].widgets) do
-      if w.kind == "tree" or w.kind == "canvas" or w.kind == "editor" then
-        table.insert(widths, { w.kind, w.args.width, w.args.hexpand })
+      if w.kind == "tree" or w.args and w.args.id == "properties" then
+        assert.same({ nil, nil }, { w.args.width, w.args.hexpand })
       end
     end
-    assert.same({ { "canvas", nil, true }, { "tree", 150, false }, { "editor" }, { "canvas", 120, false } }, widths)
   end)
 
-  it("puts the tree right of the editor when the setting says so", function()
+  it("docks the side panel on the right when the setting says so", function()
     local t = setUp({ treeSide="right" })
-    assert.same({ "canvas", "canvas", "samerow", "editor", "samerow", "tree" }, kinds(t.dialogs[1]))
+    assert.same({ "canvas", "editor", "panel", "tree", "canvas" }, kinds(t.dialogs[1]))
+    assert.equal("right", widget(t.dialogs[1], "panel").args.side)
   end)
 
-  it("moves the tree to the other side and keeps the sprite and the nodes", function()
+  it("moves the side panel to the other side in the same tab, which keeps the sprite and fits it again", function()
     local preferences = {}
     local t = setUp(preferences)
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local count = #t.dialogs
+    t.ctl.setSide("right")
+    assert.equal("right", preferences.treeSide)
+    assert.same({ id="pack", side="right" }, dlg.modified[#dlg.modified])
+    assert.equal(count, #t.dialogs)
+    assert.is_false(dlg.closed)
+    assert.equal(t.open[1], dlg.data.editor)
+    -- The editor changed its width, and the texture fills it again
+    assert.equal(2, t.world.fitted)
+  end)
+
+  it("builds the tab again with the side panel on the side it was moved to", function()
+    local t = setUp()
     local first = loaded(t)
     first.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     t.ctl.setSide("right")
-    assert.equal("right", preferences.treeSide)
-    assert.is_true(first.closed)
+    paint(first, "bar", 10)
+    t.timers[#t.timers].args.ontick()
     local second = t.dialogs[#t.dialogs]
-    assert.same({ "canvas", "canvas", "samerow", "editor", "samerow", "tree" }, kinds(second))
+    assert.is_true(first.closed)
+    assert.equal("right", widget(second, "panel").args.side)
     assert.equal(t.open[1], second.data.editor)
     assert.equal("glyphs", second.handlers.tree.nodes[1].id)
     assert.equal("glyph/minecraft:default/F0000", second.data.tree)
     assert.equal(1, second.shown)
-    assert.equal(2, t.world.fitted)
   end)
 
   it("empties the editor when the selected node has no texture", function()
@@ -501,7 +524,8 @@ describe("the Nordtal tab", function()
     local t = setUp()
     local first = loaded(t)
     first.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
-    t.ctl.setSide("right")
+    paint(first, "bar", 10)
+    t.timers[#t.timers].args.ontick()
     local second = t.dialogs[#t.dialogs]
     first.handlers.editor.onchange()
     assert.equal("glyph/minecraft:default/F0000", second.data.tree)

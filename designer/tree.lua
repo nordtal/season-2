@@ -7,17 +7,11 @@ local tree = {}
 tree.draftIcon = "tab_modified_icon_normal"
 -- The theme part that marks a draft with a conflict and each node above it
 tree.conflictIcon = "warning_box"
--- What follows the number of a pull request whose checks failed
-tree.failed = "!"
 
 -- The nodes for Dialog:tree{} and an index from each node's id to
--- { kind, entry, texture, font, block }. mark(info) gives the marks of
--- an entry as drafts.marks does. The node of a draft has its own icon,
--- a draft with a conflict and each node above it a warning, and a node
--- in review the number of its pull request as its badge. A node with
--- drafts inside it shows their count in brackets as its badge, so a
--- collapsed one shows them too. It raises an error that names the
--- place of a cell whose code is no code point.
+-- { kind, entry, texture, font, block }, with the marks that mark(info)
+-- gives as icons and badges, as the README says. It raises an error
+-- that names the place of a cell whose code is no code point.
 function tree.build(model, tr, mark)
   local index = {}
   -- How many drafts each node and the nodes inside it are, and the
@@ -35,7 +29,7 @@ function tree.build(model, tr, mark)
     end
     local badges = {}
     if marks.review then
-      table.insert(badges, "#" .. math.tointeger(marks.review) .. (marks.failed and " " .. tree.failed or ""))
+      table.insert(badges, "#" .. math.tointeger(marks.review) .. (marks.failed and " " .. tr("tree.failed") or ""))
     end
     if inside > 0 then table.insert(badges, "(" .. inside .. ")") end
     n.badge = badges[1] and table.concat(badges, " ")

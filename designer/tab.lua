@@ -66,6 +66,8 @@ function tab.open(context)
   local sync
   -- The node that opens again once the pack was read
   local reopen
+  -- What the status says once the pack was read again, in place of nothing
+  local notice
 
   local function setStatus(text)
     status = { text=text or "", visible=text ~= nil }
@@ -212,6 +214,8 @@ function tab.open(context)
             dlg.data = { tree=again }
             ctl.select(again)
           end
+          if notice then setStatus(notice) end
+          notice = nil
           showProperties()
           if not synced then
             synced = true
@@ -251,8 +255,10 @@ function tab.open(context)
   local function enqueue(start, finish, failed)
     table.insert(queue, function(done)
       local process, problem = start(function(...)
-        if not closed then finish(...) end
+        local ok, raised = true, nil
+        if not closed then ok, raised = pcall(finish, ...) end
         done()
+        if not ok then error(raised, 0) end
       end)
       if not process then
         setStatus(tr("status.not_started") .. " " .. problem)
@@ -270,6 +276,14 @@ function tab.open(context)
       local process, problem = modules.pack.run(context.bootstrap, api, job[1], job[2], finish)
       return process, problem
     end
+  end
+
+  -- Closes sprite once a write changed its file, after it leaves the
+  -- editor if shown is true, and returns shown
+  local function drop(sprite, shown)
+    if shown then dlg:modify{ id="editor", sprite=false } end
+    if sprite then sprite:close() end
+    return shown
   end
 
   -- Runs job, a { task, options }, then after() once it succeeded and
@@ -476,11 +490,9 @@ function tab.open(context)
       local sprite = dlg.data.editor
       write({ "discardDraft", { draft=id } }, function()
         if id ~= shown then return end
-        if selected and index[selected] and modules.drafts.id(index[selected]) == id then
-          dlg:modify{ id="editor", sprite=false }
+        if drop(sprite, selected and index[selected] and modules.drafts.id(index[selected]) == id) then
           ctl.clear()
         end
-        if sprite then sprite:close() end
       end, nil, true)
     end
   end
@@ -516,11 +528,8 @@ function tab.open(context)
       write({ "resolveConflict", { draft=draft.id, keep=answer.keep,
                                    fields=next(answer.fields) and api.encode(answer.fields) or nil } }, function()
         if answer.keep ~= "main" then return end
-        if selected == id then
-          dlg:modify{ id="editor", sprite=false }
-          reopen = id
-        end
-        if sprite then sprite:close() end
+        notice = tr("status.yours", api.join(clone, "resource-pack", "build", "conflict", "yours"))
+        if drop(sprite, selected == id) then reopen = id end
       end, nil, true)
     end, function() end)
   end
@@ -641,7 +650,10 @@ function tab.open(context)
       return
     end
     if field == "github" then
-      api.launch(modules.drafts.reviewOf(model, info).url)
+      local review = modules.drafts.reviewOf(model, info)
+      if review and review.url:sub(1, #"https://github.com/") == "https://github.com/" then
+        api.launch(review.url)
+      end
       return
     end
     if field == "delete" then
@@ -652,11 +664,7 @@ function tab.open(context)
       end
       local id, sprite = selected, dlg.data.editor
       write(properties.jobs(info, field, {}, tr), function()
-        if selected == id then
-          dlg:modify{ id="editor", sprite=false }
-          ctl.clear()
-        end
-        if sprite then sprite:close() end
+        if drop(sprite, selected == id) then ctl.clear() end
       end)
       return
     end

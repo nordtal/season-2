@@ -79,6 +79,18 @@ describe("conflicts", function()
     assert.is_nil(shown[1].handlers.compare)
   end)
 
+  it("names a field that one side removed as absent", function()
+    local Dialog, shown = fakeDialog(function(d) d.data.cancel = true end)
+    local removed = { id="nordtal:badges/moon.png", label="moon", state="changed",
+                      conflict={ files={}, fields={ { name="about", main="\"A moon\"" } } } }
+    conflicts.ask{ Dialog=Dialog, tr=tr, draft=removed }
+    local texts = {}
+    for _, w in ipairs(shown[1].widgets) do
+      if w.kind == "radio" then table.insert(texts, w.args.text) end
+    end
+    assert.same({ "conflict.clone_value conflict.absent", "conflict.main_value \"A moon\"" }, texts)
+  end)
+
   it("asks for no version of the files when only fields conflict, and shortens a long value", function()
     local long = string.rep("x", 60)
     local only = { id="font nordtal:gui", label="nordtal:gui", conflict={ files={}, fields={

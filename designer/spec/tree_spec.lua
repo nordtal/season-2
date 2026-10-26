@@ -163,7 +163,7 @@ describe("tree", function()
     assert.same({ "warning_box", "F0001" }, { moon.icon, moon.badge })
     assert.same({ "warning_box", "warning_box", "warning_box" }, { font.children[1].icon, font.icon, nodes[1].icon })
     assert.is_nil(nodes[1].children[2].icon)
-    assert.equal("#42 " .. tree.failed, nodes[1].children[2].children[1].badge)
+    assert.equal("#42 <tree.failed>", nodes[1].children[2].children[1].badge)
   end)
 
   it("shows the pull request of a glyph in review in place of its code point, and no failure while its checks pass", function()

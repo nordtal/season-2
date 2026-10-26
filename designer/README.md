@@ -81,10 +81,12 @@ theme's warning box, and the publish dialog leaves it unchosen and refuses it. I
 files and fields of the conflict and has **Resolve Conflict...**, which runs `readConflict` and shows
 both versions of the texture side by side, the clone's on the left. The dialog asks which version of
 the files to keep and which side of each field, the clone's chosen at first. OK runs
-`resolveConflict`, and a texture that takes main's version opens again once the pack was read.
+`resolveConflict`, and a texture that takes main's version opens again once the pack was read. The
+status line then names the folder that holds the clone's version. A value that one side removed reads
+as such.
 
-A node in review shows the number of its pull request as its badge, such as `#42`, followed by `!`
-while a check fails. A glyph shows it in place of its code point. The panel shows the pull request's
+A node in review shows the number of its pull request as its badge, such as `#42`, followed by
+**failed** while a check fails. A glyph shows it in place of its code point. The panel shows the pull request's
 review decision, its checks and its comments, and **Open on GitHub** opens it in the browser. Replies
 are written on GitHub.
 

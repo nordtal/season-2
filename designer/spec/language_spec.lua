@@ -92,7 +92,7 @@ describe("the string files of the designer", function()
     -- The states of a draft, the ends and changes of a pull request, its
     -- decisions and its checks, whose ids drafts.lua and tab.lua put together
     for _, id in ipairs({ "drafts.added", "drafts.changed", "drafts.deleted", "status.merged", "status.closed",
-                          "status.reviewed", "review.open", "review.approved", "review.changes_requested",
+                          "status.reviewed", "status.unanswered", "review.open", "review.approved", "review.changes_requested",
                           "review.review_required", "checks.failure", "checks.pending", "checks.success" }) do
       if not en[id] then table.insert(missing, id) end
     end

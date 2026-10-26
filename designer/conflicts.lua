@@ -10,8 +10,12 @@ local compareWidth, compareHeight, gap = 320, 180, 10
 -- How many characters of a field's value the dialog shows
 local valueLength = 40
 
--- The value as the dialog shows it, cut to valueLength characters
-local function short(value)
+-- The value as the dialog shows it, cut to valueLength characters, or
+-- the word for absent where that side removed the field
+local function short(value, tr)
+  if value == nil then
+    return tr("conflict.absent")
+  end
   if utf8.len(value) <= valueLength then
     return value
   end
@@ -76,8 +80,8 @@ function conflicts.ask(context)
     d:radio{ id="keep_main", text=tr("conflict.main") }
   end
   for i, field in ipairs(conflict.fields) do
-    d:radio{ id="clone" .. i, label=field.name, text=tr("conflict.clone_value", short(field.clone)), selected=true }
-    d:radio{ id="main" .. i, text=tr("conflict.main_value", short(field.main)) }
+    d:radio{ id="clone" .. i, label=field.name, text=tr("conflict.clone_value", short(field.clone, tr)), selected=true }
+    d:radio{ id="main" .. i, text=tr("conflict.main_value", short(field.main, tr)) }
   end
   d:button{ id="ok", text=tr("edit.ok"), focus=true }
   d:button{ id="cancel", text=tr("edit.cancel") }

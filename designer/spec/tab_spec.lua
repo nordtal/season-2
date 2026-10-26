@@ -1314,4 +1314,53 @@ describe("the Nordtal tab", function()
     click(dlg, "properties.github")
     assert.same({ "launch", "https://github.com/nordtal/season-2/pull/42" }, t.log[#t.log])
   end)
+
+  it("opens only an address on GitHub, and nothing once the pull request is gone", function()
+    local m = dkjson.decode(model)
+    m.fonts[1].blocks[1].glyphs[1].texture.review = 42
+    m.reviews = { { number=42, url="file:///etc/passwd" } }
+    local t = setUp(nil, dkjson.encode(m))
+    local dlg = loaded(t)
+    synced(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    click(dlg, "properties.github")
+    m.reviews = {}
+    t.ctl.edit("github")
+    for _, entry in ipairs(t.log) do
+      assert.are_not.equal("launch", entry[1])
+    end
+  end)
+
+  it("goes on with the next run when what a run's result calls raises an error", function()
+    local m = dkjson.decode(draftModel)
+    m.drafts[1].conflict = { files={}, fields={ { name="about", clone="\"a\"", main="\"b\"" } } }
+    local t = setUp(nil, dkjson.encode(m))
+    local dlg = loaded(t)
+    synced(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    click(dlg, "properties.resolve")
+    t.dialogs.answer = function() error("broken dialog") end
+    t.started[3].isRunning = false
+    assert.has_error(function() t.started[3].args.onexit(0) end)
+    t.ctl.reload()
+    assert.equal(":resource-pack:describePack", run(t.started[4]))
+  end)
+
+  it("says where the clone's version went once a resolve kept main's", function()
+    local m = dkjson.decode(draftModel)
+    m.drafts[1].conflict = { files={ "src/assets/nordtal/textures/badges/star.png" }, fields={} }
+    local t = setUp(nil, dkjson.encode(m))
+    local dlg = loaded(t)
+    synced(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    click(dlg, "properties.resolve")
+    t.dialogs.answer = function(d) d.data = { keep_clone=false, keep_main=true, ok=true } end
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    t.started[4].isRunning = false
+    t.started[4].args.onexit(0)
+    t.started[5].isRunning = false
+    t.started[5].args.onexit(0)
+    assert.equal("status.yours /c/resource-pack/build/conflict/yours", dlg.handlers.status.text)
+  end)
 end)

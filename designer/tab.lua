@@ -58,10 +58,11 @@ function tab.open(context)
   local drawn
   local pad = 4
   local scroll, lineHeight = 0, 0
-  -- Whether the pull requests were asked for since the tab opened, the
-  -- timer that asks again and whether such a run waits
+  -- synced says whether the tab asked for the pull requests since it
+  -- opened, every holds the timer that asks again, and syncing says
+  -- whether such a run waits
   local synced, every, syncing
-  -- Asks GitHub for the pull requests, defined below
+  -- sync asks GitHub for the pull requests; it is defined below
   local sync
 
   local function setStatus(text)
@@ -189,7 +190,7 @@ function tab.open(context)
         return
       end
       if read then
-        local ok, built, builtIndex = pcall(modules.tree.build, read, tr)
+        local ok, built, builtIndex = pcall(modules.tree.build, read, tr, modules.drafts.id)
         if ok then
           nodes, index, model = built, builtIndex, read
           local children, id = attach()
@@ -517,7 +518,7 @@ function tab.open(context)
     end
     local answer = modules.drafts.ask{ Dialog=api.Dialog, tr=tr, list=list, check=checkTitle, confirm=function(text)
       return api.alert{ title=tr("publish.discard"), text=text, buttons={ tr("properties.discard"), tr("edit.cancel") } } == 1
-    end }
+    end, wrap=modules.wizard.wrap, Rectangle=api.Rectangle, screen=api.screen }
     if not answer then
       return
     end
@@ -531,7 +532,8 @@ function tab.open(context)
         if ok then
           reloadThen(tr("status.published", out[#out] or ""))
         else
-          setStatus(tr("status.refused") .. " " .. table.concat(modules.pack.refusal(err), " "))
+          -- A publish that failed may still have moved code points
+          reloadThen(tr("status.refused") .. " " .. table.concat(modules.pack.refusal(err), " "))
         end
       end, function() end)
   end

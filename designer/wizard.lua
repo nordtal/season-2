@@ -169,9 +169,11 @@ function wizard.matches(textures, query, most)
   return nodes, count
 end
 
--- text in lines of at most width characters, broken at spaces. A word
--- longer than width takes a line of its own.
+-- text in lines of at most width characters, broken at spaces, or of
+-- the width a refusal takes when width is nil. A word longer than
+-- width takes a line of its own.
 function wizard.wrap(text, width)
+  width = width or lineWidth
   local lines, line = {}, nil
   for word in text:gmatch("%S+") do
     if line and utf8.len(line) + 1 + utf8.len(word) <= width then

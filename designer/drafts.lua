@@ -3,26 +3,23 @@
 
 local drafts = {}
 
+-- How many lines of a refusal the publish dialog shows; the last one
+-- holds the rest
+local refusalLines = 6
+-- The width the publish dialog takes at least, so a long title shows
+local dialogWidth = 480
+
 -- The id of the draft that the tree's entry info is, as the pack
--- model's drafts name it, or nil when the entry is no draft. A cell
--- is part of its sheet's draft.
+-- model names it beside its texture or entry, or nil when the entry
+-- is no draft. A cell is part of its sheet's draft.
 function drafts.id(info)
   if not info or info.kind == "cell" then
     return nil
   end
   if info.texture then
-    return info.texture.draft and info.texture.id or nil
+    return info.texture.draft
   end
-  if not (info.entry and info.entry.draft) then
-    return nil
-  end
-  if info.kind == "font" then
-    return "font " .. info.entry.font
-  end
-  if info.kind == "block" then
-    return "block " .. info.font.font .. " " .. (info.entry.range or info.entry.title)
-  end
-  return nil
+  return info.entry and info.entry.draft or nil
 end
 
 -- The commit title for the drafts list: what they do to the pack and
@@ -57,6 +54,8 @@ end
 -- and confirm. check(title) returns true, or false and the lines of
 -- its reason, which the dialog shows before it asks again.
 -- confirm(text) returns whether the designer confirms a discard.
+-- wrap(text) breaks a refusal into lines. Rectangle and screen, which
+-- gives the window's width and height, widen the dialog.
 -- Returns { publish=ids, title }, { discard=ids } or nil when cancelled.
 function drafts.ask(context)
   local tr, list = context.tr, context.list
@@ -87,16 +86,35 @@ function drafts.ask(context)
   generated = drafts.title(list)
   d:entry{ id="title", label=tr("publish.message"), text=generated,
            onchange=function() edited = d.data.title ~= generated end }
-  d:label{ id="refusal", text="", visible=false }
+  for i = 1, refusalLines do
+    d:label{ id="refusal" .. i, text="", visible=false }
+    d:newrow()
+  end
   d:button{ id="publish", text=tr("publish.publish"), focus=true }
   d:button{ id="discard", text=tr("publish.discard") }
   d:button{ id="cancel", text=tr("edit.cancel") }
 
   local function refuse(lines)
-    d:modify{ id="refusal", text=table.concat(lines, " "), visible=true }
+    local text = table.concat(lines, " ")
+    local wrapped = context.wrap and context.wrap(text) or { text }
+    for i = 1, refusalLines do
+      local line = i == refusalLines and wrapped[i] and table.concat(wrapped, " ", i) or wrapped[i]
+      d:modify{ id="refusal" .. i, text=line or "", visible=line ~= nil }
+    end
+  end
+
+  -- Takes the dialog's own size, but at least dialogWidth inside the
+  -- window, and centres it there
+  local function fit()
+    if not (context.Rectangle and context.screen) then return end
+    local hint = d.sizeHint
+    local width, height = context.screen()
+    local w = math.max(1, math.min(width - 16, math.max(hint.width, dialogWidth)))
+    d.bounds = context.Rectangle((width - w) // 2, (height - hint.height) // 2, w, hint.height)
   end
 
   while true do
+    fit()
     d:show()
     local data = d.data
     if not (data.publish or data.discard) then

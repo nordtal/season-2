@@ -27,7 +27,8 @@ local function fakeDialogs()
   local dialogs = {}
   local function Dialog(args)
     -- Like Dialog, an assignment to data sets the values it names
-    local dlg = setmetatable({ args=args, widgets={}, modified={}, values={}, shown=0, closed=false, handlers={} }, {
+    local dlg = setmetatable({ args=args, widgets={}, modified={}, values={}, shown=0, closed=false, handlers={},
+                              sizeHint={ width=300, height=200 } }, {
       __index=function(t, k) if k == "data" then return rawget(t, "values") end end,
       __newindex=function(t, k, v)
         if k ~= "data" then return rawset(t, k, v) end
@@ -251,7 +252,7 @@ end
 -- The pack with the star as a draft and a language file as another
 local draftModel = (function()
   local m = dkjson.decode(model)
-  m.fonts[1].blocks[1].glyphs[1].texture.draft = true
+  m.fonts[1].blocks[1].glyphs[1].texture.draft = m.fonts[1].blocks[1].glyphs[1].texture.id
   m.drafts = { { id="nordtal:badges/star.png", label="star", state="changed", files={} },
                { id="src/assets/minecraft/lang/en_us.json", label="en_us.json", state="added", files={} } }
   m.reviews = {}
@@ -1113,6 +1114,23 @@ describe("the Nordtal tab", function()
     assert.equal("status.published https://github.com/nordtal/season-2/pull/42", t.dialogs[1].handlers.status.text)
   end)
 
+  it("reads the pack again after a publish that failed, since it may have moved code points, and says why", function()
+    local t = setUp(nil, draftModel)
+    loaded(t)
+    t.dialogs.answer = function(d)
+      d.data = { draft1=true, draft2=false, title="feat(resource-pack): the star is white", publish=true }
+    end
+    t.ctl.publish()
+    t.started[3].args.onstderr("* What went wrong:")
+    t.started[3].args.onstderr("> the star is too bright")
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(1)
+    assert.equal(":resource-pack:describePack", run(t.started[4]))
+    t.started[4].isRunning = false
+    t.started[4].args.onexit(0)
+    assert.equal("status.refused the star is too bright", t.dialogs[1].handlers.status.text)
+  end)
+
   it("keeps the publish dialog open with the reason the commit hook gives, and sends nothing", function()
     local t = setUp(nil, draftModel)
     loaded(t)
@@ -1125,8 +1143,8 @@ describe("the Nordtal tab", function()
     t.ctl.publish()
     assert.equal(2, answers)
     assert.equal(2, #t.started)
-    assert.equal("commit-msg: \"white star\" is not type(scope): description",
-      t.dialogs[#t.dialogs].handlers.refusal.text)
+    local refusal = t.dialogs[#t.dialogs].handlers
+    assert.same({ "commit-msg: \"white star\" is not type(scope):", "description" }, { refusal.refusal1.text, refusal.refusal2.text })
   end)
 
   it("discards the drafts chosen in the publish dialog one after the other", function()

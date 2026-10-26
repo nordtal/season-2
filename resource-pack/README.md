@@ -98,8 +98,8 @@ identifier.
 `gui.scaling` objects of the `.png.mcmeta`, or null. `frames` lists the frames the animation plays, each as
 `x`, `y`, `width`, `height` in the PNG and `duration` in milliseconds, or is null when the animation's frames do
 not divide the PNG. `guiSprite` is true for a texture under `textures/gui/sprites/`. Language files are not listed.
-`draft` is true for a texture, block or font that is one of `drafts`, which the next section
-describes. `reviews` lists the pull requests that `publishDrafts` opened. `describePack` reads git on
+`draft` is the id of the draft that a texture, block or font is, as `drafts` names it, which the next
+section describes, or null where it is none. `reviews` lists the pull requests that `publishDrafts` opened. `describePack` reads git on
 every run.
 
 ## New textures
@@ -210,19 +210,25 @@ its version in a pull request is not listed.
 
 - `discardDraft` restores the draft's files and entries to the last commit, or to its pull request
   when one holds it.
-- `publishDrafts` runs `check` first. It fetches `origin`, gives new glyphs their final code points
-  as `assignCodePoints` does against `origin/main`, and commits only the chosen drafts with the
-  message `title` on a branch of `origin/main`. The branch is `designer/` and the title's description
+- `publishDrafts` fetches `origin`, gives new glyphs their final code points as `assignCodePoints`
+  does against `origin/main`, and copies only the chosen drafts into a work tree of `origin/main`.
+  `:resource-pack:check` runs there, so a draft that is not chosen cannot block the publish, and a
+  chosen draft that needs one that is not chosen fails. The work tree commits them with the message
+  `title`. The branch is `designer/` and the title's description
   in lowercase words. The commit runs `.githooks/commit-msg`, carries the name and address of the
   account that `gh` is signed in to, and is pushed to `origin`. `gh pr create` opens the pull request
-  against `main`, with one line per draft as its body. A draft that a pull request holds already gets
+  against `main`, with one line per draft as its body; when it fails, the publish deletes the pushed
+  branch again. A failed publish leaves the code points it moved in the clone. A draft that a pull request holds already gets
   a further commit on that pull request's branch. Drafts of two pull requests are refused together.
 - `syncReviews` asks `gh` for the state of every pull request that `publishDrafts` opened. After a
   merge it fast-forwards the clone to `origin/main` and puts every other change back on top: a file
-  takes the clone's version, and `glyphs.json` takes the clone's entries onto main's. A pull request
-  closed without a merge turns its drafts back into drafts of the clone.
-- The record of the open pull requests lies in the clone's git directory, as
-  `nordtal-designer/reviews.json`, so no commit holds it.
+  takes the clone's version, and `glyphs.json` takes the clone's entries onto main's. A change of the
+  merged pull request that equals the commit pushed last takes main's version, so a commit a reviewer
+  added before the merge stays. A pull request closed without a merge makes its changes drafts again.
+- The pull keeps the clone's changes in a stash named `nordtal-designer-pull`. A pull that fails puts
+  them back, and one that stopped halfway is put back by the next `syncReviews`.
+- The clone's git directory holds the record of the open pull requests, as
+  `nordtal-designer/reviews.json`, with the commit pushed last for each, so no commit holds it.
 
 ## Texture metadata
 

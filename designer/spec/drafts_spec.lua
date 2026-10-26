@@ -1,4 +1,5 @@
 local drafts = require("drafts")
+local wizard = require("wizard")
 
 local function tr(id, ...) return table.concat({ id, ... }, " ") end
 
@@ -49,15 +50,16 @@ end
 describe("drafts", function()
   it("names the draft of an entry the tree marks, and none of an entry that is no draft", function()
     local font = { font="minecraft:default" }
-    assert.equal("nordtal:a.png", drafts.id({ kind="glyph", entry={}, texture=texture("nordtal:a.png", true), font=font }))
-    assert.equal("nordtal:s.png", drafts.id({ kind="sheet", entry={ draft=true }, texture=texture("nordtal:s.png", true), font=font }))
+    assert.equal("nordtal:a.png", drafts.id({ kind="glyph", entry={}, texture=texture("nordtal:a.png", "nordtal:a.png"), font=font }))
+    assert.equal("nordtal:s.png",
+      drafts.id({ kind="sheet", entry={ draft="nordtal:s.png" }, texture=texture("nordtal:s.png", "nordtal:s.png"), font=font }))
     assert.equal("block minecraft:default FE000-FE00F",
-      drafts.id({ kind="block", entry={ draft=true, range="FE000-FE00F", title="Badges" }, font=font }))
-    assert.equal("block minecraft:default Badges", drafts.id({ kind="block", entry={ draft=true, title="Badges" }, font=font }))
-    assert.equal("font minecraft:default", drafts.id({ kind="font", entry={ font="minecraft:default", draft=true }, font=font }))
-    assert.equal("minecraft:x.png", drafts.id({ kind="override", entry={}, texture=texture("minecraft:x.png", true) }))
-    assert.is_nil(drafts.id({ kind="glyph", entry={}, texture=texture("nordtal:a.png", false), font=font }))
-    assert.is_nil(drafts.id({ kind="cell", entry={}, texture=texture("nordtal:s.png", true), font=font }))
+      drafts.id({ kind="block", entry={ draft="block minecraft:default FE000-FE00F", range="FE000-FE00F", title="Badges" }, font=font }))
+    assert.equal("block minecraft:default Badges", drafts.id({ kind="block", entry={ draft="block minecraft:default Badges", title="Badges" }, font=font }))
+    assert.equal("font minecraft:default", drafts.id({ kind="font", entry={ font="minecraft:default", draft="font minecraft:default" }, font=font }))
+    assert.equal("minecraft:x.png", drafts.id({ kind="override", entry={}, texture=texture("minecraft:x.png", "minecraft:x.png") }))
+    assert.is_nil(drafts.id({ kind="glyph", entry={}, texture=texture("nordtal:a.png", nil), font=font }))
+    assert.is_nil(drafts.id({ kind="cell", entry={}, texture=texture("nordtal:s.png", "nordtal:s.png"), font=font }))
     assert.is_nil(drafts.id({ kind="block", entry={ title="Badges" }, font=font }))
     assert.is_nil(drafts.id(nil))
   end)
@@ -127,8 +129,41 @@ describe("drafts", function()
     end }
     assert.is_nil(answer)
     assert.equal(2, #shown)
-    assert.same({ id="refusal", text="commit-msg: \"white star\" is not type(scope): description", visible=true },
-      shown[2].modified[#shown[2].modified])
+    assert.same({ "commit-msg: \"white star\" is not type(scope): description", true },
+      { shown[2].handlers.refusal1.text, shown[2].handlers.refusal1.visible })
+    assert.is_false(shown[2].handlers.refusal2.visible)
+  end)
+
+  it("wraps a long refusal over lines and keeps the last one for the rest", function()
+    local Dialog, shown = fakeDialog({
+      function(d) d.data = { publish=true } end,
+      function(d) d.data = { cancel=true } end,
+    })
+    drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed") }, wrap=function(text) return wizard.wrap(text, 9) end,
+      check=function() return false, { "one two three", "four five six seven eight nine ten eleven twelve" } end }
+    local lines = {}
+    for i = 1, 6 do
+      local label = shown[2].handlers["refusal" .. i]
+      table.insert(lines, label.visible and label.text or false)
+    end
+    assert.same({ "one two", "three", "four five", "six seven", "eight", "nine ten eleven twelve" }, lines)
+  end)
+
+  it("makes the dialog wide enough for a long title and keeps it inside the window", function()
+    local Dialog, shown = fakeDialog({ function(d) d.data = { cancel=true } end, function(d) d.data = { cancel=true } end })
+    local function Rectangle(x, y, width, height) return { x=x, y=y, width=width, height=height } end
+    local function wide(screenWidth)
+      local Sized = function(args)
+        local d = Dialog(args)
+        rawset(d, "sizeHint", { width=200, height=100 })
+        return d
+      end
+      drafts.ask{ Dialog=Sized, tr=tr, list={ draft("star", "changed") }, Rectangle=Rectangle,
+        screen=function() return screenWidth, 400 end, check=function() return true end }
+      return rawget(shown[#shown], "bounds")
+    end
+    assert.same({ x=60, y=150, width=480, height=100 }, wide(600))
+    assert.same({ x=8, y=150, width=284, height=100 }, wide(300))
   end)
 
   it("asks for a draft when none is chosen, without the check", function()
@@ -139,7 +174,7 @@ describe("drafts", function()
     local checked = false
     drafts.ask{ Dialog=Dialog, tr=tr, list={ draft("star", "changed") }, check=function() checked = true return true end }
     assert.is_false(checked)
-    assert.same({ id="refusal", text="publish.none_chosen", visible=true }, shown[2].modified[#shown[2].modified])
+    assert.same({ "publish.none_chosen", true }, { shown[2].handlers.refusal1.text, shown[2].handlers.refusal1.visible })
   end)
 
   it("discards the chosen drafts once the designer confirms it", function()

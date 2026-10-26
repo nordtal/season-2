@@ -128,7 +128,7 @@ describe("minecraft", function()
   describe("bridge", function()
     local types = { OPEN=1, TEXT=2, CLOSE=3, ERROR=4 }
 
-    local function connect()
+    local function connect(decode)
       local sent, socket, changes = {}, nil, 0
       local function WebSocket(args)
         socket = { args=args }
@@ -137,7 +137,7 @@ describe("minecraft", function()
         function socket:close() self.closed = true end
         return socket
       end
-      local bridge = minecraft.bridge{ WebSocket=WebSocket, types=types, encode=encode, decode=dkjson.decode,
+      local bridge = minecraft.bridge{ WebSocket=WebSocket, types=types, encode=encode, decode=decode or dkjson.decode,
                                        port=29415, token="0123456789abcdef", changed=function() changes = changes + 1 end }
       return bridge, socket, sent, function() return changes end
     end
@@ -185,6 +185,24 @@ describe("minecraft", function()
       socket.args.onreceive(types.CLOSE, "", "")
       socket.args.onreceive(types.ERROR, "", "Connection refused")
       assert.equal("refused", bridge.state)
+    end)
+
+    it("reads the replies that Aseprite's json.decode gives as userdata", function()
+      -- A file handle is the userdata at hand, with the reply's members as its fields
+      local function decode(text)
+        local reply = io.tmpfile()
+        debug.setmetatable(reply, { __index=dkjson.decode(text) })
+        return reply
+      end
+      local bridge, socket, sent = connect(decode)
+      socket.args.onreceive(types.OPEN, "", "")
+      socket.args.onreceive(types.TEXT, '{"ok":true}', "")
+      assert.equal("connected", bridge.state)
+      local replies = {}
+      bridge.send({ op="reload" }, function(ok, err) table.insert(replies, { ok, err }) end)
+      socket.args.onreceive(types.TEXT, '{"id":1,"ok":false,"error":"no world"}', "")
+      assert.same({ { false, "no world" } }, replies)
+      assert.equal(1, sent[2].id)
     end)
 
     it("hands back a send that the socket raised as a failed reply", function()

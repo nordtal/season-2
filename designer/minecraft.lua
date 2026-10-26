@@ -154,8 +154,9 @@ function minecraft.bridge(args)
         set("connecting")
         socket:sendText(args.encode({ op="hello", token=args.token }))
       elseif kind == args.types.TEXT then
+        -- Aseprite's json.decode gives an object as a userdata
         local ok, reply = pcall(args.decode, data)
-        if not ok or type(reply) ~= "table" then
+        if not ok or (type(reply) ~= "table" and type(reply) ~= "userdata") then
           return
         end
         if reply.id == nil then

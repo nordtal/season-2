@@ -1524,6 +1524,17 @@ describe("the Minecraft section of the Nordtal tab", function()
     assert.is_truthy(table.concat(texts(dlg), "\n"):find("minecraft.bridge\n  minecraft.bridge_connecting", 1, true))
   end)
 
+  it("draws a change of the bridge's state at once, with one tick of a timer", function()
+    local t = setUp()
+    t.world.instance = fabric
+    loaded(t)
+    local before = #t.timers
+    t.sockets[1].args.onreceive(1, "", "")
+    t.sockets[1].args.onreceive(2, '{"ok":false,"error":"wrong token"}', "")
+    assert.is_true(#t.timers > before)
+    assert.is_true(t.timers[#t.timers].running)
+  end)
+
   it("connects again to a bridge that refused the token only on a click or a new token", function()
     local t = setUp()
     t.world.instance = fabric

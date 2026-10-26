@@ -170,9 +170,9 @@ function tab.open(context)
     end
   end
 
-  -- Draws what a callback changed. Aseprite hands a Process's events
-  -- to Lua without a message of its own and draws nothing until the
-  -- next one, which a timer's tick gives.
+  -- Draws what a callback changed. Aseprite hands the events of a
+  -- Process or a WebSocket to Lua without a message of its own and
+  -- draws nothing until the next one, which a timer's tick gives.
   local function redraw()
     local timer
     timer = api.Timer{ interval=0, ontick=function() timer:stop() end }
@@ -403,7 +403,8 @@ function tab.open(context)
       bridge, bridgeFor = nil, wanted
       if wanted then
         bridge = modules.minecraft.bridge{ WebSocket=api.WebSocket, types=api.messages, encode=api.encode,
-          decode=api.decode, port=read.port, token=read.token, changed=showProperties }
+          decode=api.decode, port=read.port, token=read.token,
+          changed=function() showProperties() redraw() end }
       end
     end
     showProperties()

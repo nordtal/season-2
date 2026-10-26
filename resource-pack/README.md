@@ -221,14 +221,15 @@ entry that one side deleted and the other changed makes `glyphs.json` a file of 
 | `syncReviews`     | `gh`                                   | `merged`, `closed`, `reviewed` or `unanswered` and the number per pull request, `moved`, `restored` |
 
 - `discardDraft` restores the draft's files and entries to the last commit, or to its pull request
-  when one holds it, and forgets the draft's base. So does a publish for each draft it publishes.
+  when one holds it, and forgets the draft's base. A publish makes the commit of `origin/main` it
+  started from the base of each draft it publishes, so a resolved conflict stays resolved.
 - `readConflict` writes main's version of each file of the conflict under `build/conflict/`, at the
   file's path in the pack, after it removed what an earlier read left there.
 - `resolveConflict` ends a conflict. `keep` is `clone` or `main`, the version of every file of the
   draft, and it is required when files conflict. `fields` is a JSON object that names `clone` or
   `main` for each conflicting field. The entry takes the merged fields, and `origin/main` becomes the
   draft's base, in `nordtal-designer/bases.json` of the clone's git directory. With `main`, the
-  clone's version of each file goes to `build/conflict/yours/` first. A glyph of a texture is the
+  clone's version of each file goes to `build/conflict/yours/` first, where it stays until `:resource-pack:clean` removes it. A glyph of a texture is the
   same glyph when main moved its code point, so the code point is one of its fields.
 - `publishDrafts` fetches `origin`, gives new glyphs their final code points as `assignCodePoints`
   does against `origin/main`, and copies only the chosen drafts into a work tree of `origin/main`. A

@@ -26,7 +26,8 @@ class Publish(
     ): String {
         sync()
         git(repository, listOf("fetch", "-q", "origin"))
-        GlyphEdits.assignCodePoints(pack, git(pack, listOf("show", "origin/main:./glyphs.json")))
+        val main = git(repository, listOf("rev-parse", "origin/main")).trim()
+        GlyphEdits.assignCodePoints(pack, git(pack, listOf("show", "$main:./glyphs.json")))
         val drafts = Drafts.list(pack).filter { it.id in ids }
         require(drafts.isNotEmpty() && drafts.size == ids.toSet().size) {
             "${ids.toSet() - drafts.map { it.id }.toSet()} are no drafts."
@@ -61,7 +62,7 @@ class Publish(
         val number = url.substringAfterLast('/').toInt()
         val heldIds = (review?.drafts.orEmpty() + ids).distinct()
         Drafts.writeReviews(pack, reviews.filter { it.number != number } + Drafts.Review(number, url, branch, heldIds, commit))
-        Drafts.forget(pack, ids.toSet())
+        Drafts.rebase(pack, ids.toSet(), main)
         return url
     }
 

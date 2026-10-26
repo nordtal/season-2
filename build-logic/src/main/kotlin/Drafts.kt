@@ -298,6 +298,13 @@ object Drafts {
         ids: Set<String>,
     ) = writeBases(pack, bases(pack) - ids)
 
+    /** Makes [commit] the base of the drafts [ids]. */
+    internal fun rebase(
+        pack: File,
+        ids: Set<String>,
+        commit: String,
+    ) = writeBases(pack, bases(pack) + ids.associateWith { commit })
+
     internal fun writeBases(
         pack: File,
         bases: Map<String, String>,
@@ -539,7 +546,8 @@ object Drafts {
 
     /**
      * Merges the fields of [mine] and [theirs], both versions of one entry, since [was]. A field both changed is added
-     * to [both] by its name after [prefix] and takes the side [fields] names, else the clone's.
+     * to [both] by its name after [prefix] and takes the side [fields] names, else the clone's. A glyph lies in the
+     * block and font of the side whose code it takes.
      */
     private fun merged(
         was: Entry?,
@@ -550,6 +558,7 @@ object Drafts {
         both: MutableList<Field>,
     ): Entry {
         val out = OxfmtJson.Object()
+        var place = mine
         for (field in (mine.fields.keys + theirs.fields.keys).distinct()) {
             val (b, c, m) = listOf(was, mine, theirs).map { e -> e?.fields?.takeIf { field in it }?.let { JsonOutput.toJson(it[field]) } }
             val name = prefix + field
@@ -560,8 +569,9 @@ object Drafts {
                     else -> (if (fields[name] == "main") theirs else mine).also { both += Field(name, c, m) }
                 }
             if (field in side.fields) out[field as String] = side.fields[field]
+            if (field == "code") place = side
         }
-        return Entry(mine.kind, mine.name, mine.font, mine.block, out, mine.json)
+        return Entry(mine.kind, mine.name, place.font, place.block, out, mine.json)
     }
 
     /** Puts the entries of [merge] in place of those of the draft [id] in [target], a version of `glyphs.json`. */
@@ -634,12 +644,11 @@ object Drafts {
                 val own = block - "glyphs"
                 add(blockId(id, block), block["title"], "block", Entry("block", "", font, block, own, JsonOutput.toJson(listOf(id, own))))
                 for (glyph in (block["glyphs"] as List<*>?).orEmpty().map { it as Map<*, *> }) {
-                    val code = glyph["code"].toString()
                     add(
                         glyphId(id, glyph),
                         glyph["name"] ?: glyph["constant"] ?: glyph["code"],
                         "glyph $id",
-                        Entry("glyph", code, font, block, glyph, JsonOutput.toJson(listOf(id, block["range"], glyph))),
+                        Entry("glyph", id, font, block, glyph, JsonOutput.toJson(listOf(id, block["range"], glyph))),
                     )
                 }
             }

@@ -170,13 +170,15 @@ class ConflictsTest {
     }
 
     @Test
-    fun aPublishForgetsTheBaseOfItsDrafts() {
+    fun aPublishMakesMainItBranchedFromTheBaseOfItsDrafts() {
         val clone = starOnBothSides()
         Drafts.resolve(clone.pack, star, "clone", emptyMap())
 
         publish(clone).publish(listOf(star), "feat(resource-pack): the star is white")
+        clone.png("star", green)
 
-        assertEquals(clone.git(clone.clone, "merge-base", "HEAD", "origin/main").trim(), Drafts.base(clone.pack, star))
+        assertEquals(clone.git(clone.clone, "rev-parse", "origin/main").trim(), Drafts.base(clone.pack, star))
+        assertNull(draft(clone).conflict)
     }
 
     /** The glyphs of the star in the clone's `glyphs.json`. */
@@ -219,6 +221,100 @@ class ConflictsTest {
         publish(clone).sync()
 
         assertEquals(listOf("FE005" to "Ours."), stars(clone).map { it["code"] to it["about"] })
+    }
+
+    /** Moves the star on main into a new block of its own at FE100, in the pack [main]. */
+    private fun moveStarToItsOwnBlock(main: File) {
+        val file = main.resolve("glyphs.json")
+        val root = OxfmtJson.read(file) as Map<*, *>
+        val blocks = NewTextures.fonts(root).single()["blocks"] as MutableList<Any?>
+        val glyphs = (blocks.single() as Map<*, *>)["glyphs"] as MutableList<Any?>
+        val moved = glyphs.single { (it as Map<*, *>)["texture"] == star } as MutableMap<String, Any?>
+        glyphs.remove(moved)
+        moved["code"] = "FE100"
+        blocks += OxfmtJson.read("""{ "range": "FE100-FE10F", "title": "Stars", "height": 8, "ascent": 6, "glyphs": [] }""")
+        ((blocks.last() as Map<*, *>)["glyphs"] as MutableList<Any?>) += moved
+        file.writeText(OxfmtJson.format(root))
+    }
+
+    /** The title of the block of each glyph of the star in the clone's `glyphs.json`, with its code and about text. */
+    private fun starPlaces(clone: DraftClone) =
+        NewTextures
+            .fonts(OxfmtJson.read(clone.pack.resolve("glyphs.json")) as Map<*, *>)
+            .flatMap { it["blocks"] as List<*> }
+            .map { it as Map<*, *> }
+            .flatMap { block ->
+                (block["glyphs"] as List<*>).map { it as Map<*, *> }.filter { it["texture"] == star }.map {
+                    listOf(block["title"], it["code"], it["about"])
+                }
+            }
+
+    @Test
+    fun aGlyphThatMainMovedIntoAnotherBlockStaysThereInAResolve() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.editBadge(clone.pack, "FE000", "about", "Ours.")
+        clone.commitOnMain("feat: the star moves and is described") {
+            clone.editBadge(it, "FE000", "about", "Theirs.")
+            moveStarToItsOwnBlock(it)
+        }
+        fetch(clone)
+
+        Drafts.resolve(clone.pack, star, null, mapOf("about" to "clone"))
+
+        assertEquals(listOf(listOf("Stars", "FE100", "Ours.")), starPlaces(clone))
+    }
+
+    @Test
+    fun aGlyphThatMainMovedIntoAnotherBlockStaysThereInAPull() {
+        val clone = DraftClone(root, "star@FE000", "moon@FE001")
+        clone.png("moon", white)
+        publish(clone).publish(listOf("nordtal:badges/moon.png"), "feat(resource-pack): the moon is white")
+        clone.commitOnMain("feat: the moon is white and the star moves") {
+            clone.png("moon", white, it)
+            moveStarToItsOwnBlock(it)
+        }
+        clone.editBadge(clone.pack, "FE000", "about", "Ours.")
+        clone.prState.writeText("MERGED\n")
+
+        publish(clone).sync()
+
+        assertEquals(listOf(listOf("Stars", "FE100", "Ours.")), starPlaces(clone))
+        publish(clone).sync()
+    }
+
+    @Test
+    fun theFieldsOfOneTextureInTwoFontsAreRowsOfTheirOwn() {
+        val clone = DraftClone(root, "star@FE000")
+
+        fun twoFonts(pack: File) {
+            val file = pack.resolve("glyphs.json")
+            val root = OxfmtJson.read(file) as Map<*, *>
+            val fonts = root["fonts"] as MutableList<Any?>
+            fonts += OxfmtJson.read(OxfmtJson.format(fonts.single() as Map<*, *>).replace("minecraft:default", "nordtal:board"))
+            file.writeText(OxfmtJson.format(root))
+        }
+        twoFonts(clone.pack)
+        clone.commitAll("feat: the star is in two fonts")
+        clone.git(clone.clone, "push", "-q", "origin", "HEAD:main")
+
+        fun about(
+            pack: File,
+            text: String,
+        ) {
+            val file = pack.resolve("glyphs.json")
+            val root = OxfmtJson.read(file) as Map<*, *>
+            NewTextures
+                .fonts(root)
+                .flatMap { it["blocks"] as List<*> }
+                .flatMap { (it as Map<*, *>)["glyphs"] as List<*> }
+                .forEach { (it as MutableMap<String, Any?>)["about"] = text }
+            file.writeText(OxfmtJson.format(root))
+        }
+        about(clone.pack, "Ours.")
+        clone.commitOnMain("docs: the star is described") { about(it, "Theirs.") }
+        fetch(clone)
+
+        assertEquals(listOf("minecraft:default about", "nordtal:board about"), draft(clone).conflict?.fields?.map { it.name })
     }
 
     @Test

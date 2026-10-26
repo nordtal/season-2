@@ -7,15 +7,18 @@ import javax.imageio.ImageIO
 /**
  * The resource pack as one tree of plain maps and lists, for the tree and the properties panel of Nordtal Designer.
  *
- * Every path is relative to the resource pack's directory. `resource-pack/README.md` documents the shape. A texture is a
- * draft when its PNG or its source is among [of]'s `drafts`, the files that differ from the last commit.
+ * Every path is relative to the resource pack's directory. `resource-pack/README.md` documents the shape. [of] marks a
+ * texture, a block and a font that is one of the [Drafts] it is given, and lists them with the pull requests that hold
+ * an older version of one.
  */
 object PackModel {
     fun of(
         allocation: GlyphAllocation,
         root: File,
-        drafts: Set<String> = emptySet(),
+        listed: List<Drafts.Draft> = emptyList(),
+        reviews: List<Drafts.Review> = emptyList(),
     ): Map<String, Any?> {
+        val drafts = listed.map { it.id }.toSet()
         val assets = root.resolve("src/assets")
         return linkedMapOf(
             "fonts" to allocation.fonts.map { font(it, root, drafts) },
@@ -23,6 +26,17 @@ object PackModel {
             "overrides" to overrides(assets, root, drafts),
             "statuses" to GlyphAllocation.STATUSES.toList(),
             "scalings" to TextureMeta.SCALINGS,
+            "drafts" to
+                listed.map {
+                    linkedMapOf(
+                        "id" to it.id,
+                        "label" to it.label,
+                        "state" to it.state,
+                        "files" to it.files,
+                        "review" to it.review,
+                    )
+                },
+            "reviews" to reviews.map { linkedMapOf("number" to it.number, "url" to it.url) },
         )
     }
 
@@ -36,21 +50,25 @@ object PackModel {
             "rows" to font.rows,
             "constant" to font.constant,
             "about" to font.about,
-            "blocks" to font.blocks.map { block(it, root, drafts) },
+            "draft" to "font ${font.id}".takeIf { it in drafts },
+            "blocks" to font.blocks.map { block(it, font.id, root, drafts) },
         )
 
     private fun block(
         block: GlyphAllocation.Block,
+        font: String,
         root: File,
         drafts: Set<String>,
     ): Map<String, Any?> {
+        val range = block.range?.let { "%X-%X".format(it.first, it.last) }
         val entry =
             linkedMapOf<String, Any?>(
                 "kind" to if (block.texture == null) "block" else "sheet",
                 "title" to block.title,
-                "range" to block.range?.let { "%X-%X".format(it.first, it.last) },
+                "range" to range,
                 "status" to block.status,
                 "about" to block.about,
+                "draft" to (block.texture ?: Drafts.blockId(font, range ?: block.title)).takeIf { it in drafts },
             )
         if (block.texture == null) {
             entry["glyphs"] = block.glyphs.map { glyph(it, block, root, drafts) }
@@ -126,8 +144,7 @@ object PackModel {
             "png" to png.relativeTo(root).invariantSeparatorsPath,
             "aseprite" to aseprite.relativeTo(root).invariantSeparatorsPath,
             "asepriteExists" to aseprite.isFile,
-            "draft" to
-                (png.relativeTo(root).invariantSeparatorsPath in drafts || aseprite.relativeTo(root).invariantSeparatorsPath in drafts),
+            "draft" to id.takeIf { it in drafts },
             "width" to image?.width,
             "height" to image?.height,
         )
@@ -178,7 +195,7 @@ object PackModel {
      * It is null for any other item type, a model outside the pack, a model without a texture, or a texture that is no
      * identifier, so that no path of the model leads out of the pack.
      */
-    private fun itemTexture(
+    internal fun itemTexture(
         model: Map<*, *>?,
         assets: File,
     ): String? {

@@ -27,9 +27,10 @@ end
 -- done(false, lines, out) with what it printed to stderr. out holds
 -- the lines it printed to stdout, such as the files it wrote. The Gradle
 -- wrapper's jar runs on the JDK of the bootstrap's JAVA_HOME, so no
--- shell or batch file reads an option. api holds Process, windows and
--- join. Returns the started Process, or nil and the reason why none
--- started, and then calls nothing back.
+-- shell or batch file reads an option. The folder of the bootstrap's
+-- git comes first on PATH, so the task's git calls find it. api holds
+-- Process, windows, join and getenv. Returns the started Process, or
+-- nil and the reason why none started, and then calls nothing back.
 function pack.run(bootstrap, api, task, options, done)
   local clone, home = bootstrap.clone, bootstrap.env.JAVA_HOME
   if not home then
@@ -45,11 +46,19 @@ function pack.run(bootstrap, api, task, options, done)
     table.insert(cmd, "-P" .. key .. "=" .. tostring(options[key]))
   end
 
+  local env = bootstrap.env
+  local tools = bootstrap.git and bootstrap.git:match("^(.*)[/\\][^/\\]*$")
+  if tools then
+    env = {}
+    for key, value in pairs(bootstrap.env) do env[key] = value end
+    env.PATH = tools .. (api.windows and ";" or ":") .. (api.getenv("PATH") or "")
+  end
+
   local err, out = {}, {}
   local process = api.Process{
     cmd=cmd,
     cwd=clone,
-    env=bootstrap.env,
+    env=env,
     onstdout=function(line) table.insert(out, line) end,
     onstderr=function(line) table.insert(err, line) end,
     onexit=function(code) done(code == 0, code == 0 and {} or err, out) end }

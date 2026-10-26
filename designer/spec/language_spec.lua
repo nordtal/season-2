@@ -68,7 +68,7 @@ describe("the string files of the designer", function()
   it("hold every id the plugin translates", function()
     local en = language.parse(read("strings/en.ini"))
     local missing = {}
-    for _, file in ipairs({ "init.lua", "tab.lua", "tree.lua", "properties.lua", "wizard.lua" }) do
+    for _, file in ipairs({ "init.lua", "tab.lua", "tree.lua", "properties.lua", "wizard.lua", "drafts.lua" }) do
       for id in read(file):gmatch('tr%("([%w_]+%.[%w_]+)"') do
         -- An id that ends in _ is put together, as the kinds below
         if not en[id] and not id:match("_$") then table.insert(missing, file .. ": " .. id) end
@@ -88,6 +88,11 @@ describe("the string files of the designer", function()
       for _, field in ipairs(wizard.fields[kind] or {}) do
         if not en["new." .. field] then table.insert(missing, "wizard.lua: new." .. field) end
       end
+    end
+    -- The states of a draft and the ends of a pull request, whose ids
+    -- drafts.lua and tab.lua put together
+    for _, id in ipairs({ "drafts.added", "drafts.changed", "drafts.deleted", "status.merged", "status.closed" }) do
+      if not en[id] then table.insert(missing, id) end
     end
     assert.same({}, missing)
   end)

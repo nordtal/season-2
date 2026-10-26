@@ -3,20 +3,30 @@
 
 local tree = {}
 
--- The theme part that marks the node of a draft texture
+-- The theme part that marks the node of a draft
 tree.draftIcon = "tab_modified_icon_normal"
 
 -- The nodes for Dialog:tree{} and an index from each node's id to
--- { kind, entry, texture, font, block }. A node whose texture is a
--- draft has its own icon, a cell none, as its sheet has it. It raises
--- an error that names the place of a cell whose code is no code point.
-function tree.build(model, tr)
+-- { kind, entry, texture, font, block }. draftOf(info) names the
+-- draft an entry is, or nil. The node of a draft has its own icon,
+-- and a node with drafts inside it shows their count in brackets as
+-- its badge, apart from a code point's, so a collapsed one shows them
+-- too. It raises an error that names the place of a
+-- cell whose code is no code point.
+function tree.build(model, tr, draftOf)
   local index = {}
+  -- How many drafts each node and the nodes inside it are
+  local counts = {}
 
   local function node(id, text, info, children)
     index[id] = info
-    local draft = info.kind ~= "cell" and info.texture and info.texture.draft
-    return { id=id, text=text, children=children, icon=draft and tree.draftIcon or nil }
+    local draft = draftOf(info) ~= nil
+    local n = { id=id, text=text, children=children, icon=draft and tree.draftIcon or nil }
+    local inside = 0
+    for _, child in ipairs(children or {}) do inside = inside + counts[child] end
+    if inside > 0 then n.badge = "(" .. inside .. ")" end
+    counts[n] = inside + (draft and 1 or 0)
+    return n
   end
 
   local function glyphText(glyph)

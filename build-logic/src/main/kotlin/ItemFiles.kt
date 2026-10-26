@@ -64,7 +64,7 @@ class ItemFiles(
 
     /**
      * The definition of the item [id] as one map, the shape that `resource-pack/README.md` documents for `readItem`.
-     * A texture is a draft when its PNG or its source is among [drafts], the files that differ from the last commit.
+     * A texture is a draft when its id is among [drafts], the ids of the pack's [Drafts].
      */
     fun describe(
         id: String,

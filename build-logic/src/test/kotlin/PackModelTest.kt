@@ -233,40 +233,42 @@ class PackModelTest {
     }
 
     @Test
-    fun aTextureIsADraftWhileItsPngOrItsSourceDiffersFromTheLastCommit() {
-        allocation(
-            """
-            {"fonts": [{"font": "minecraft:default", "blocks": [{"range": "FE000-FE00F", "title": "Badges", "height": 4, "ascent": 4, "glyphs": [
-              {"code": "FE000", "constant": "STAR", "name": "star", "texture": "nordtal:star.png"},
-              {"code": "FE001", "constant": "MOON", "name": "moon", "texture": "nordtal:moon.png"},
-              {"code": "FE002", "constant": "COMET", "name": "comet", "texture": "nordtal:comet.png"},
-              {"code": "FE003", "constant": "SUN", "name": "sun", "texture": "nordtal:sun.png"}]}]}]}
-            """,
-        )
-        png("src/assets/nordtal/textures/star.png", 4, 4)
-        png("src/assets/nordtal/textures/moon.png", 4, 4)
-        png("src/assets/nordtal/textures/sun.png", 4, 4)
-        git(pack, listOf("init", "-q"))
-        git(pack, listOf("add", "-A"))
-        git(pack, listOf("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "start"))
-        png("src/assets/nordtal/textures/moon.png", 5, 4)
-        png("src/assets/nordtal/textures/comet.png", 4, 4)
-        file("art/assets/nordtal/textures/star.aseprite").writeText("")
+    fun theModelMarksEveryDraftAndListsTheDraftsWithTheirPullRequests() {
+        val clone = DraftClone(pack, "star@FE000", "moon@FE001", "sun@FE002")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        clone.writeGlyphs("star@FE000", "moon@FE001=HALF_MOON", "sun@FE002")
+        clone.pack.resolve("glyphs.json").apply { writeText(readText().replace("\"Badges\"", "\"Sky\"")) }
+        clone.pack
+            .resolve("src/assets/minecraft/lang/en_us.json")
+            .apply { parentFile.mkdirs() }
+            .writeText("{}")
 
-        val drafts = changedFiles(pack)
-        val glyphs =
-            only(only(PackModel.of(GlyphAllocation.read(pack.resolve("glyphs.json")), pack, drafts).list("fonts")).list("blocks"))
-                .list("glyphs")
+        val model =
+            PackModel.of(
+                GlyphAllocation.read(clone.pack.resolve("glyphs.json")),
+                clone.pack,
+                Drafts.list(clone.pack),
+                Drafts.reviews(clone.pack),
+            )
+        val font = only(model.list("fonts"))
+        val block = only(font.list("blocks"))
 
+        assertEquals(null, font["draft"])
+        assertEquals("block minecraft:default FE000-FE00F", block["draft"])
         assertEquals(
-            setOf(
-                "src/assets/nordtal/textures/moon.png",
-                "src/assets/nordtal/textures/comet.png",
-                "art/assets/nordtal/textures/star.aseprite",
-            ),
-            drafts,
+            listOf("nordtal:badges/star.png", "nordtal:badges/moon.png", null),
+            block.list("glyphs").map { it.map("texture")["draft"] },
         )
-        assertEquals(listOf(true, true, true, false), glyphs.map { it.map("texture")["draft"] })
+        assertEquals(
+            listOf(
+                listOf("block minecraft:default FE000-FE00F", "Sky", "changed", null),
+                listOf("nordtal:badges/moon.png", "moon", "changed", null),
+                listOf("nordtal:badges/star.png", "star", "changed", null),
+                listOf("src/assets/minecraft/lang/en_us.json", "en_us.json", "added", null),
+            ),
+            model.list("drafts").map { listOf(it["id"], it["label"], it["state"], it["review"]) },
+        )
+        assertEquals(emptyList<Any>(), model["reviews"])
     }
 
     private fun model(): Map<String, Any?> = PackModel.of(GlyphAllocation.read(pack.resolve("glyphs.json")), pack)

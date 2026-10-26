@@ -44,6 +44,20 @@ describe("pack", function()
     assert.equal(env, started[1].args.env)
   end)
 
+  it("puts the folder of the bootstrap's git first on PATH and keeps the rest of its environment", function()
+    local started = {}
+    local env = { JAVA_HOME="/jdk", GH_CONFIG_DIR="/gh" }
+    local a = api(started, {})
+    a.getenv = function(name) return name == "PATH" and "/usr/bin:/bin" or nil end
+    pack.run({ clone="/c", env=env, git="/app/mingit/cmd/git" }, a, "describePack", {}, function() end)
+    assert.same({ JAVA_HOME="/jdk", GH_CONFIG_DIR="/gh", PATH="/app/mingit/cmd:/usr/bin:/bin" }, started[1].args.env)
+    assert.is_nil(env.PATH)
+    local windows = api(started, {}, true)
+    windows.getenv = function() return "C:\\Windows" end
+    pack.run({ clone="C:/c", env=env, git="C:\\app\\mingit\\cmd\\git.exe" }, windows, "describePack", {}, function() end)
+    assert.equal("C:\\app\\mingit\\cmd;C:\\Windows", started[2].args.env.PATH)
+  end)
+
   it("starts java.exe on Windows and passes text that a batch file could not take", function()
     local started = {}
     pack.run({ clone="C:/c", env={ JAVA_HOME="C:/jdk" } }, api(started, {}, true), "editGlyph",

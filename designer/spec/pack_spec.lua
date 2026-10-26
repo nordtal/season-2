@@ -117,14 +117,15 @@ describe("pack", function()
                   { false, { "* What went wrong:" }, { "refused path" } } }, got)
   end)
 
-  it("reads the textures of the client jar that listVanillaTextures wrote", function()
+  it("reads the textures and items of the client jar that listVanillaAssets wrote", function()
     local started, got = {}, nil
-    local files = { ["/c/resource-pack/build/vanilla-textures.json"]=
-      '{"version":"26.2","textures":[{"id":"minecraft:block/stone.png","width":16,"height":16}]}' }
-    pack.vanilla({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, files), function(textures, err) got = { textures, err } end)
-    assert.equal(":resource-pack:listVanillaTextures", started[1].args.cmd[5])
+    local files = { ["/c/resource-pack/build/vanilla-assets.json"]=
+      '{"version":"26.2","textures":[{"id":"minecraft:block/stone.png","width":16,"height":16}],"items":["minecraft:apple"]}' }
+    pack.vanilla({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, files), function(listing, err) got = { listing, err } end)
+    assert.equal(":resource-pack:listVanillaAssets", started[1].args.cmd[5])
     started[1].args.onexit(0)
-    assert.same({ { id="minecraft:block/stone.png", width=16, height=16 } }, got[1])
+    assert.same({ version="26.2", textures={ { id="minecraft:block/stone.png", width=16, height=16 } },
+                  items={ "minecraft:apple" } }, got[1])
     assert.is_nil(got[2])
   end)
 

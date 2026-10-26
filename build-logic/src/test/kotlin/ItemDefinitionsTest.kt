@@ -785,6 +785,21 @@ class ItemDefinitionsTest {
     }
 
     @Test
+    fun anEditWithoutChangesStartsTheOverrideOfAVanillaItemAsTheJarHasIt() {
+        ZipOutputStream(directory.resolve("client.jar").outputStream()).use { zip ->
+            zip.putNextEntry(ZipEntry("assets/minecraft/items/apple.json"))
+            zip.write(model(apple).toByteArray())
+            zip.putNextEntry(ZipEntry("assets/minecraft/models/item/apple.json"))
+            zip.write("{}".toByteArray())
+        }
+
+        val written = files().use { it.edit("minecraft:apple", "", null, null, false) }
+
+        assertEquals(pack.resolve("src/assets/minecraft/items/apple.json"), written)
+        assertEquals(OxfmtJson.read(model(apple)), OxfmtJson.read(written))
+    }
+
+    @Test
     fun everyItemDefinitionOfTheClientJarPassesAndIsWrittenBackUnchanged() {
         val version = MinecraftVersion.of(System.getProperty("nordtal.paperVersion"))
         // Loom keeps the jar it downloaded for :bridge-mod there. Before Loom ran once, or after Loom moves that file, the round

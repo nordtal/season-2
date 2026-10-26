@@ -45,7 +45,7 @@ function tab.open(context)
   local properties = modules.properties
   local ctl = {}
   local dlg, nodes, index, lists, selected, closed, model
-  -- The textures of the client jar, read once
+  -- The textures and items of the client jar, read once
   local vanilla
   local status = { text=tr("status.loading"), visible=true }
   -- What the tab opened, by the filenames of its PNG and its source:
@@ -102,6 +102,11 @@ function tab.open(context)
     if info and definition and (info.kind == "definition" or info.kind == "item" and info.entry.id == definition.item) then
       for _, row in ipairs(modules.items.rows(definition, info.at or "", info.part or "item", tr)) do
         table.insert(list, row)
+      end
+      if info.kind == "item" then
+        for _, row in ipairs(modules.drafts.rows(model, info, tr)) do
+          table.insert(list, row)
+        end
       end
       return list
     end
@@ -1011,10 +1016,10 @@ function tab.open(context)
         enqueue(function(finish)
           local process, problem = modules.pack.vanilla(context.bootstrap, api, finish)
           return process, problem
-        end, function(textures, err)
+        end, function(listing, err)
           setStatus(nil)
-          vanilla = textures
-          done(textures, textures == nil and modules.pack.refusal(err) or nil)
+          vanilla = listing
+          done(listing, listing == nil and modules.pack.refusal(err) or nil)
         end, function(problem)
           done(nil, { problem })
         end)

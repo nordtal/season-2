@@ -61,9 +61,9 @@ override is chosen from the textures of the client jar, which `listVanillaTextur
 session, with a search for the words of its id.
 
 The tree marks each draft of the pack model with the icon of a modified tab: a texture with its
-entries, or the fields of a block or a font. A node with drafts inside it shows their count, so a
-collapsed font or block shows them too. A draft outside the tree, such as a language file, is listed
-only in the publish dialog. The panel of a draft has **Discard Changes**, which
+entries, or the fields of a block or a font. A node with drafts inside it shows their count as its
+badge, so a collapsed font or block shows them too. A draft outside the tree, such as a language
+file, is listed only in the publish dialog. The panel of a draft has **Discard Changes**, which
 runs `discardDraft` once confirmed. **File > Publish...** lists every draft with a check, and a title
 that names the drafts chosen until it is edited. **Discard Chosen...** discards the chosen drafts
 once confirmed. **Publish** writes the title to `resource-pack/build/publish-message.txt` and runs

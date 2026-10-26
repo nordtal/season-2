@@ -134,13 +134,13 @@ describe("tree", function()
     drafted.draft = drafted.id
     model.fonts[1].blocks[1].glyphs[2].texture = drafted
     model.fonts[1].blocks[1].draft = "block minecraft:default F0000-F000F"
-    local nodes = tree.build(model, function(id, count) return id .. " " .. tostring(count) end, drafts.id)
+    local nodes = tree.build(model, tr, drafts.id)
     model.fonts[1].blocks[1].glyphs[2].texture = texture("badges/moon.png")
     model.fonts[1].blocks[1].draft = nil
     local font = nodes[1].children[1]
-    assert.equal("tree.drafts 2", font.badge)
-    assert.equal("tree.drafts 1", font.children[1].badge)
-    assert.equal("tree.drafts 2", nodes[1].badge)
+    assert.equal("2", font.badge)
+    assert.equal("1", font.children[1].badge)
+    assert.equal("2", nodes[1].badge)
     assert.is_nil(nodes[1].children[2].badge)
     assert.is_nil(nodes[2].badge)
   end)

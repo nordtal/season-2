@@ -16,12 +16,18 @@ object ItemStates {
     /** The max damage that a range of normalized damage gives, so a threshold to three decimals is met exactly. */
     private const val MAX_DAMAGE = 1000
 
-    /** The value `has_component` gives a component that `{}` does not describe. */
-    private val PRESENT = mapOf("dyed_color" to "11546150")
-
     /** The charged projectiles that show each case of `charge_type`. */
     private val CHARGES =
         mapOf("none" to "[]", "arrow" to "[{id:\"minecraft:arrow\"}]", "rocket" to "[{id:\"minecraft:firework_rocket\"}]")
+
+    /** The value of each component that `has_component` shows as present, of the component's type in the 26.2 client jar. */
+    private val PRESENT =
+        mapOf(
+            "charged_projectiles" to CHARGES.getValue("arrow"),
+            "damage" to "1",
+            "dyed_color" to "11546150",
+            "lodestone_tracker" to "{}",
+        )
 
     private data class State(
         val labels: List<String> = emptyList(),
@@ -99,7 +105,7 @@ object ItemStates {
                         "custom_model_data" -> state.withData("flags[$index]", "flags", index, true)
                         else -> state
                     }
-                walk(model["on_true"], on) + walk(model["on_false"], state)
+                (on?.let { walk(model["on_true"], it) }).orEmpty() + walk(model["on_false"], state)
             }
 
             "select" -> {
@@ -173,11 +179,11 @@ object ItemStates {
         }
     }
 
-    /** [state] with [component] set, as a condition on `has_component` reads it. */
+    /** [state] with [component] set, as a condition on `has_component` reads it, or null when [PRESENT] has no value for it. */
     private fun present(
         component: String?,
         state: State,
-    ): State = component?.let { state.with(it, it to (PRESENT[it.removePrefix("minecraft:")] ?: "{}")) } ?: state
+    ): State? = component?.let { name -> PRESENT[name.removePrefix("minecraft:")]?.let { state.with(name, name to it) } }
 
     /** [state] with the damage at which the property `damage` reaches [value], a share of the max damage if [normalize]. */
     private fun damage(

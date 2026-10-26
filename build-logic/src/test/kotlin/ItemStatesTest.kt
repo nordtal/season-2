@@ -128,6 +128,28 @@ class ItemStatesTest {
     }
 
     @Test
+    fun aPresentComponentHasAValueOfItsTypeAndAComponentWithoutAKnownValueShowsOnlyItsAbsence() {
+        fun present(component: String) =
+            states(
+                "nordtal:lamp",
+                """{ "type": "minecraft:condition", "property": "minecraft:has_component", "component": "$component",
+                     "on_true": $lamp, "on_false": $lamp }""",
+            ).map { it["label"] to it["give"] }
+        assertEquals(
+            listOf(
+                "minecraft:damage" to "minecraft:paper[item_model=\"nordtal:lamp\",minecraft:damage=1]",
+                "" to "minecraft:paper[item_model=\"nordtal:lamp\"]",
+            ),
+            present("minecraft:damage"),
+        )
+        assertEquals(
+            "minecraft:paper[item_model=\"nordtal:lamp\",minecraft:charged_projectiles=[{id:\"minecraft:arrow\"}]]",
+            present("minecraft:charged_projectiles").first().second,
+        )
+        assertEquals(listOf("" to "minecraft:paper[item_model=\"nordtal:lamp\"]"), present("minecraft:custom_name"))
+    }
+
+    @Test
     fun aRangeOfDamageSetsTheDamageThatReachesEachThresholdAndARangeWithoutFallbackHasNoOtherState() {
         val normalized =
             """{ "type": "minecraft:range_dispatch", "property": "minecraft:damage",

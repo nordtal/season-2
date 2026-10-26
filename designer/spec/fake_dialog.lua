@@ -9,7 +9,7 @@
 -- the argument tab is a tab and gets no answer.
 
 local kinds = { "button", "canvas", "check", "combobox", "editor", "entry", "file", "label", "number", "panel",
-                "radio", "separator", "tree" }
+                "radio", "separator", "splitter", "tree" }
 
 -- The value that a widget of kind starts with in the dialog's data
 local starts = {
@@ -46,6 +46,11 @@ return function(answer)
           assert(not self.panelArgs, "a Dialog has one side panel at most")
           checkSide(t.side)
           self.panelArgs = t
+        end
+        if kind == "splitter" then
+          assert(self.panelArgs, "Dialog:splitter{} needs a Dialog:panel{} before it")
+          assert(not self.split, "a side panel has one splitter at most")
+          self.split = true
         end
         if t.id and self.panelArgs and self.kinds[t.id] and (kind == "panel" or self.kinds[t.id] == "panel") then
           error("the id \"" .. t.id .. "\" is taken by the side panel or a widget")

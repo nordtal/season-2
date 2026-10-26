@@ -1,6 +1,6 @@
 -- The Nordtal tab: the embedded editor below the Minecraft bar, and a
 -- side panel with the pack tree above the properties of the selected
--- entry. The main window docks the panel outside the colour bar, or
+-- entry and a splitter between them. The main window docks the panel outside the colour bar, or
 -- outside the tools when preferences.treeSide is "right".
 --
 -- tab.open{ api, modules, bootstrap, preferences, tr } builds the tab
@@ -1070,7 +1070,7 @@ function tab.open(context)
     -- The widgets from the panel on go into it, one below the other
     dlg:panel{ id=sidePanel, side=preferences.treeSide == "right" and "right" or "left", width=sideWidth }
     dlg:tree{ id="tree", nodes=nodes or {}, onchange=function(ev) ctl.select(ev.node) end }
-    dlg:newrow()
+    dlg:splitter{}
     dlg:canvas{ id="properties", onpaint=paintProperties, onmousedown=click, onwheel=wheel,
                 onmousemove=function() tipped = nil end }
     if selected then

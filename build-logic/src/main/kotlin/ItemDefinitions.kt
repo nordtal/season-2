@@ -359,9 +359,9 @@ object ItemDefinitions {
         }
 
     /**
-     * Changes [definition] at [at], a path such as `model/cases/0`, and returns false when nothing is there.
-     * [fields] sets fields and a null removes one, [add] puts them into a new object of that list or model, [remove]
-     * removes the object. A new type or property drops each field it does not allow or gives another kind.
+     * Changes [definition] at [at], such as `model/cases/0`, and returns false when nothing is there. [fields] sets
+     * fields, a null removes one, [add] puts them into a new object there and [remove] removes the object. A new type
+     * or property drops each field it does not allow or gives another kind.
      * @throws FieldsNeeded when a required value is still missing
      */
     fun edit(

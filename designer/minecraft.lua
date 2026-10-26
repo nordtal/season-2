@@ -101,14 +101,15 @@ function minecraft.bar(view, tr)
   if not chosen then
     return list
   end
-  table.insert(list, { kind="button", text=tr("minecraft.install_pack"), field={ minecraft="pack" } })
+  table.insert(list, { kind="button", text=tr("minecraft.install_pack"), short=tr("minecraft.install_pack_short"),
+                       field={ minecraft="pack" } })
   if not view.instance.fabric then
     table.insert(list, { kind="text", text=tr("minecraft.state_no_fabric"), color="off", tip=tr("minecraft.no_fabric") })
     return list
   end
   local jar = view.instance.bridge
   table.insert(list, { kind="button", text=tr(jar and "minecraft.update_bridge" or "minecraft.install_bridge"),
-                       field={ minecraft="bridge" } })
+                       short=tr("minecraft.bridge_short"), field={ minecraft="bridge" } })
   if view.instance.problem then
     table.insert(list, { kind="text", text=tr("minecraft.state_problem"), color="bad", tip=view.instance.problem })
     return list

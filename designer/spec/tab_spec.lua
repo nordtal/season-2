@@ -1822,13 +1822,13 @@ describe("the Minecraft bar of the Nordtal tab", function()
     local t, dlg = connected()
     click(dlg, "minecraft.install_pack")
     local timers = #t.timers
-    local lines = bar(dlg, 150)
-    assert.same({ "fill tone", "<status> minecraft.in..." }, { lines[#lines - 1], lines[#lines] })
+    local lines = bar(dlg, 200)
+    assert.same({ "fill tone", "<status> minecraft.insta..." }, { lines[#lines - 1], lines[#lines] })
     -- The tip shows after the paint, with one tick of a timer
     assert.equal(timers + 1, #t.timers)
     t.timers[#t.timers].args.ontick()
     assert.same({ "tip", "minecraft.installing" }, t.log[#t.log])
-    bar(dlg, 150)
+    bar(dlg, 200)
     assert.equal(timers + 1, #t.timers)
     -- A status the bar shows whole has no tip
     finish(t, 0)

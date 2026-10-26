@@ -650,7 +650,7 @@ export function choiceSource(choice: Choice, format: Format, outer: string | nul
 
 function numbered(nodes: TextNode[], name: string): TextNode[] {
   return nodes.map((node) => {
-    if (typeof node === "string" || "v" in node) return node
+    if (typeof node === "string" || "v" in node || "b" in node) return node
     if ("pound" in node) return { v: name, k: "number" }
     if ("c" in node) {
       if (node.plural) return node

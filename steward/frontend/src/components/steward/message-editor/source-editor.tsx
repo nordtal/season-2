@@ -175,6 +175,7 @@ const MARK_CLASSES: Record<Mark["kind"], string> = {
   tag: "text-chart-2",
   choice: "text-chart-4",
   pound: "text-chart-4",
+  block: "rounded-sm bg-chart-3/15 text-chart-3",
 }
 
 function styleOf(mark: Mark, tones: Tones): CSSProperties | undefined {

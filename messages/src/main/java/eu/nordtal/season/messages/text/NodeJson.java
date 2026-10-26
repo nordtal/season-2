@@ -41,6 +41,8 @@ public final class NodeJson {
                 json.put("cases", cases);
                 yield json;
             }
+            case Node.Block block ->
+                block.with().isEmpty() ? Map.of("b", block.key()) : Map.of("b", block.key(), "with", block.with());
             case Node.Pound pound -> Map.of("pound", pound.name());
             case Node.Tag tag -> {
                 final Map<String, Object> json = new LinkedHashMap<>();

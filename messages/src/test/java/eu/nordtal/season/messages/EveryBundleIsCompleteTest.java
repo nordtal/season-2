@@ -193,6 +193,10 @@ class EveryBundleIsCompleteTest {
                     into.add(choice.name());
                     choice.cases().values().forEach(inner -> collect(inner, into));
                 }
+                case Node.Block block -> {
+                    into.add("@" + block.key());
+                    into.addAll(block.with().values());
+                }
                 default -> {
                     // Literals, the # of a plural and tags name nothing.
                 }

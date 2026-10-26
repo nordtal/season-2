@@ -164,5 +164,12 @@
     ],
     "args": { "n": { "kind": "number", "value": 2 } },
     "plain": "2 files # something"
-  }
+  },
+  {
+    "text": "{@values.duration.days, n=days} left",
+    "nodes": [{ "b": "values.duration.days", "with": { "n": "days" } }, " left"],
+    "args": { "days": { "kind": "number", "value": 2 } },
+    "plain": "2 days left"
+  },
+  { "text": "{@nothing.here} left", "nodes": [{ "b": "nothing.here" }, " left"], "args": {}, "plain": "something left" }
 ]

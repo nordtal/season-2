@@ -46,6 +46,19 @@ name colours and gradients. A value may appear in a hover text and, quoted, in a
 in no other tag argument. `<glyph:name>` draws a glyph of the pack. `<action:name>…</action>` is a
 click whose command the code binds.
 
+### Building blocks
+
+A building block is a text of the block bundles (`Messages.BLOCKS`: `values` and `terms`) that
+other texts name instead of copying it: `{@values.duration.days, n=days} left`. Each renderer fills
+it at its place for the same reader, so an admin's override of the block reaches every text that
+names it. `n=days` binds the block's value `n` to the outer value `days`; a binding of a context role
+also binds its attributes. A value left unbound takes the outer value of the same name. A block may
+name another block. A cycle, or a key that is no block, shows the replacement word of `text`.
+
+The check refuses a key that is no block, a binding of a value the block does not declare, a value
+the block needs and the text does not offer, a value of another kind, and a block in a tag argument.
+Its declarations come from the block specs (`Messages.BLOCK_SPECS`).
+
 ## Values and contexts
 
 A message declares its values in its spec with `@Arg`, and the Java type of a value gives its kind.

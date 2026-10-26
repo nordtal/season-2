@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class MessageTextTest {
@@ -29,6 +30,18 @@ class MessageTextTest {
         assertEquals(
                 List.of(new Node.Pound("n"), new Node.Literal(" x")),
                 choice.cases().get("other"));
+    }
+
+    @Test
+    void aBuildingBlockCarriesItsKeyAndBindings() {
+        assertEquals(
+                List.of(new Node.Block("values.duration.days", Map.of("n", "days")), new Node.Literal(" left")),
+                parse("{@values.duration.days, n = days} left"));
+        assertEquals(List.of(new Node.Block("terms.access", Map.of())), parse("{@terms.access}"));
+        assertThrows(MessageSyntaxException.class, () -> parse("{@}"));
+        assertThrows(MessageSyntaxException.class, () -> parse("{@terms.access, n}"));
+        assertThrows(MessageSyntaxException.class, () -> parse("{@terms.access, n=a, n=b}"));
+        assertThrows(MessageSyntaxException.class, () -> parse("{@terms.access"));
     }
 
     @Test

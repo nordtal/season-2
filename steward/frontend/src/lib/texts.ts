@@ -11,6 +11,7 @@ export type TextNode =
   | { v: string; k?: string; s?: string }
   | { c: string; plural: boolean; cases: Record<string, TextNode[]> }
   | { pound: string }
+  | { b: string; with?: Record<string, string> }
   | { tag: string; shape: string; args: TextNode[][] }
 
 export type Texts = Record<string, TextNode[][]>
@@ -138,7 +139,7 @@ export function runs(key: string, args: Record<string, unknown>, texts: Texts = 
   if (!variants || variants.length === 0) return [{ text: key }]
   const nodes = variants.length === 1 ? variants[0] : variants[Math.floor(Math.random() * variants.length)]
   const out: Run[] = []
-  fill(nodes, args, PACKAGED.kinds[key] ?? {}, out)
+  fill(nodes, args, PACKAGED.kinds[key] ?? {}, out, texts, new Set([key]))
   return out
 }
 
@@ -166,7 +167,14 @@ function plain(pieces: Run[]): string {
   return pieces.map((piece) => piece.text).join("")
 }
 
-function fill(nodes: TextNode[], args: Record<string, unknown>, declared: Record<string, Kind>, out: Run[]): void {
+function fill(
+  nodes: TextNode[],
+  args: Record<string, unknown>,
+  declared: Record<string, Kind>,
+  out: Run[],
+  texts: Texts,
+  open: Set<string>,
+): void {
   for (const node of nodes) {
     if (typeof node === "string") {
       out.push({ text: node })
@@ -175,11 +183,39 @@ function fill(nodes: TextNode[], args: Record<string, unknown>, declared: Record
     } else if ("pound" in node) {
       out.push(filled(node.pound, "number", undefined, args, declared))
     } else if ("c" in node) {
-      fill(chosen(node, args[node.c]), args, declared, out)
+      fill(chosen(node, args[node.c]), args, declared, out, texts, open)
+    } else if ("b" in node) {
+      block(node, args, out, texts, open)
     } else if (LINE_BREAKS.has(node.tag)) {
       out.push({ text: "\n" })
     }
   }
+}
+
+/**
+ * Fills a building block with the values around it, as Java's `Filling` does. A bound value takes the outer one and its `outer.*` attributes. A cycle or a key that is no text shows the missing word.
+ */
+function block(
+  node: { b: string; with?: Record<string, string> },
+  args: Record<string, unknown>,
+  out: Run[],
+  texts: Texts,
+  open: Set<string>,
+): void {
+  const variants = texts[node.b] ?? current[node.b] ?? PACKAGED.texts[node.b]
+  if (open.has(node.b) || !variants || variants.length === 0) {
+    out.push({ text: missing("text", { locale: LOCALE, texts }), kind: "text", name: `@${node.b}` })
+    return
+  }
+  const inner: Record<string, unknown> = { ...args }
+  for (const [name, outer] of Object.entries(node.with ?? {})) {
+    for (const held of Object.keys(inner)) if (held === name || held.startsWith(`${name}.`)) delete inner[held]
+    for (const [given, value] of Object.entries(args)) {
+      if (given === outer) inner[name] = value
+      else if (given.startsWith(`${outer}.`)) inner[name + given.slice(outer.length)] = value
+    }
+  }
+  fill(variants[0], inner, PACKAGED.kinds[node.b] ?? {}, out, texts, new Set([...open, node.b]))
 }
 
 function filled(

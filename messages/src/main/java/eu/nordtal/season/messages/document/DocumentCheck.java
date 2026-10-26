@@ -1,6 +1,7 @@
 package eu.nordtal.season.messages.document;
 
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.messages.text.MessageSyntaxException;
@@ -464,6 +465,15 @@ public final class DocumentCheck {
                     choice.cases().values().forEach(this::nodes);
                 }
                 case Node.Tag tag -> tag.args().forEach(arg -> nodes(arg.parts()));
+                case Node.Block block -> {
+                    used.addAll(block.with().values());
+                    final Declaration declared = Messages.blocks().get(block.key());
+                    if (declared != null) {
+                        declared.roles().stream()
+                                .filter(role -> !block.with().containsKey(role))
+                                .forEach(used::add);
+                    }
+                }
                 case Node.Literal ignored -> {}
             }
         }

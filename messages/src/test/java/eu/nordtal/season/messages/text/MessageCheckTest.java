@@ -210,4 +210,36 @@ class MessageCheckTest {
                         .toList());
         assertEquals(List.of(), packaged("{winner.name} {n} Lobbyist, Saison 2, {reason}"));
     }
+
+    @Test
+    void aBlockBoundToANumberOfTheTextPasses() {
+        assertEquals(List.of(), packaged("{winner.name} has {@values.duration.days}"));
+        assertEquals(List.of(), packaged("{winner.name} waited {@values.duration.days, n=n}"));
+    }
+
+    @Test
+    void aBlockThatDoesNotExistIsRefused() {
+        refused(packaged("{winner.name} {n} {@values.duration.weeks}"), "names no building block");
+        refused(packaged("{winner.name} {n} {@winner.name}"), "names no building block");
+    }
+
+    @Test
+    void aBindingTheBlockDoesNotDeclareIsRefused() {
+        refused(packaged("{winner.name} {@values.duration.days, count=n}"), "offers n, not count");
+    }
+
+    @Test
+    void aValueTheBlockNeedsAndTheTextLacksIsRefused() {
+        refused(packaged("{winner.name} {n} {@values.duration.days, n=days}"), "needs n");
+    }
+
+    @Test
+    void aValueOfAnotherKindIsRefused() {
+        refused(packaged("{winner.name} {n} {@values.duration.days, n=reason}"), "as a number, and it is given a text");
+    }
+
+    @Test
+    void aBlockInATagArgumentIsUnreadable() {
+        refused(packaged("{winner.name} {n} <hover:show_text:'{@values.duration.days}'>x</hover>"), "tag's argument");
+    }
 }

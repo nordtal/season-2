@@ -30,8 +30,9 @@ import org.junit.jupiter.api.Test;
  */
 class WebTargetVectorsTest {
 
-    private static final Words WORDS = Messages.load("messages/test")
-            .prepare(Viewer.of(Locale.ENGLISH), new MessageRef("plain", Map.of()))
+    private static final Messages TEST = Messages.load("messages/test");
+
+    private static final Words WORDS = TEST.prepare(Viewer.of(Locale.ENGLISH), new MessageRef("plain", Map.of()))
             .words();
 
     @Test
@@ -55,8 +56,11 @@ class WebTargetVectorsTest {
             final JsonObject vector = element.getAsJsonObject();
             final MessageText text = MessageText.parse(vector.get("text").getAsString(), markup(vector));
             final Map<String, Object> args = MessageJson.decodeArgs(asRead(vector.get("args")));
-            final String shown =
-                    PlainText.of(Filling.fill(text, args, Map.of(), name -> {}), Locale.ENGLISH, ZoneOffset.UTC, WORDS);
+            final String shown = PlainText.of(
+                    Filling.fill(text, args, Map.of(), name -> {}, TEST.blocks(Locale.ENGLISH)),
+                    Locale.ENGLISH,
+                    ZoneOffset.UTC,
+                    WORDS);
             if (!shown.equals(vector.get("plain").getAsString())) {
                 wrong.add(vector.get("text").getAsString() + " with " + vector.get("args") + " shows " + shown);
             }

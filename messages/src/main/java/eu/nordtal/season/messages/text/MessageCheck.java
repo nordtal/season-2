@@ -94,6 +94,16 @@ public final class MessageCheck {
         return English.MESSAGES.format(Locales.DEFAULT, problem);
     }
 
+    /** The packaged English building blocks, which the length check draws. */
+    private static final class Packaged {
+
+        private static final Filling.Blocks BLOCKS = Messages.load(
+                        MessageCheck.class.getClassLoader(), "messages/" + Messages.TERMS, Locales.DEFAULT)
+                .blocks(Locales.DEFAULT);
+
+        private Packaged() {}
+    }
+
     private static final class English {
 
         private static final Messages MESSAGES =
@@ -117,6 +127,7 @@ public final class MessageCheck {
                     value(value);
                 }
                 case Node.Choice choice -> choice(choice);
+                case Node.Block block -> block(block);
                 case Node.Tag tag -> {
                     tag(tag, open);
                     link(tag);
@@ -168,6 +179,41 @@ public final class MessageCheck {
             }
             sequence(branch.getValue());
         }
+    }
+
+    /** Each value of the block is bound to a value of this text, or takes one of the same name. */
+    private void block(final Node.Block reference) {
+        final String key = reference.key();
+        final Declaration block = Messages.blocks().get(key);
+        if (block == null) {
+            error(SAYS.block().unknown(key));
+            return;
+        }
+        for (final String name : reference.with().keySet()) {
+            if (!block.roles().contains(name)) {
+                error(SAYS.block().noValue(key, name, sorted(block.roles())));
+            }
+        }
+        for (final String role : block.roles()) {
+            final String outer = reference.with().getOrDefault(role, role);
+            if (!offers(declaration, outer)) {
+                error(SAYS.block()
+                        .unbound(key, role, sorted(declaration.values().keySet())));
+                continue;
+            }
+            used.add(outer);
+            final Kind wanted = block.values().get(role);
+            final Kind given = declaration.values().get(outer);
+            if (wanted != null && given != null && wanted != given) {
+                error(SAYS.block().otherKind(key, role, wanted.token(), given.token()));
+            }
+        }
+    }
+
+    /** Returns whether {@code declared} offers {@code name} as a value or as a context with attributes. */
+    private static boolean offers(final Declaration declared, final String name) {
+        return declared.values().containsKey(name)
+                || declared.values().keySet().stream().anyMatch(value -> value.startsWith(name + "."));
     }
 
     private void tag(final Node.Tag tag, final Deque<String> open) {
@@ -313,7 +359,7 @@ public final class MessageCheck {
             }
         });
         return PlainText.of(
-                        Filling.fill(text, examples, declaration.values(), ignored -> {}),
+                        Filling.fill(text, examples, declaration.values(), ignored -> {}, Packaged.BLOCKS),
                         Locale.ENGLISH,
                         ZoneOffset.UTC,
                         MEASURE)

@@ -35,7 +35,12 @@ export function readText(text: string, markup: boolean, plural: string | null = 
 /**
  * One piece of syntax, `from` inclusive and `to` exclusive. A tag's marks include the values in its arguments, which have marks of their own.
  */
-export type Mark = { from: number; to: number; kind: "value" | "choice" | "tag" | "escape" | "pound"; node?: TextNode }
+export type Mark = {
+  from: number
+  to: number
+  kind: "value" | "choice" | "tag" | "escape" | "pound" | "block"
+  node?: TextNode
+}
 
 /** Returns the syntax of `text` as far as it reads, and where reading stopped, or `null`. */
 export function marksOf(text: string, markup: boolean): { marks: Mark[]; error: number | null } {
@@ -130,6 +135,7 @@ class Reader {
   private placeholder(plural: string | null): TextNode {
     const start = this.at
     this.at++
+    if (this.peek() === "@") return this.block(start)
     const name = this.name()
     if (!name) throw new UnreadableText(start)
     this.space()
@@ -157,6 +163,33 @@ class Reader {
     }
     this.expect("}")
     return this.value(start, style === undefined ? { v: name, k: second } : { v: name, k: second, s: style })
+  }
+
+  private block(start: number): TextNode {
+    this.at++
+    const key = this.name()
+    if (!key) throw new UnreadableText(start)
+    const bound: Record<string, string> = {}
+    this.space()
+    while (this.peek() === ",") {
+      this.at++
+      this.space()
+      const binding = this.at
+      const value = this.name()
+      this.space()
+      if (!value || this.peek() !== "=") throw new UnreadableText(this.at)
+      this.at++
+      this.space()
+      const outer = this.name()
+      if (!outer) throw new UnreadableText(this.at)
+      if (Object.hasOwn(bound, value)) throw new UnreadableText(binding)
+      bound[value] = outer
+      this.space()
+    }
+    this.expect("}")
+    const node: TextNode = Object.keys(bound).length === 0 ? { b: key } : { b: key, with: bound }
+    this.mark(start, "block", node)
+    return node
   }
 
   private choice(name: string, plural: boolean, outer: string | null, start: number): TextNode {
@@ -333,6 +366,10 @@ function written(node: TextNode, markup: boolean, plural: string | null): string
   if (typeof node === "string") return escaped(node, markup, plural !== null)
   if ("v" in node) return `{${[node.v, node.k, node.s].filter((part) => part !== undefined).join(", ")}}`
   if ("pound" in node) return "#"
+  if ("b" in node) {
+    const bound = Object.entries(node.with ?? {}).map(([value, outer]) => `, ${value}=${outer}`)
+    return `{@${node.b}${bound.join("")}}`
+  }
   if ("c" in node) {
     const inner = node.plural ? node.c : plural
     const cases = Object.entries(node.cases).map(([key, value]) => `${key} {${writeText(value, markup, inner)}}`)

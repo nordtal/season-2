@@ -74,6 +74,13 @@ describe("the web target", () => {
     expect(message({ key: "vector", args: { what: inner } })).toBe("Next: 2 days.")
   })
 
+  it("fills a building block with its bound values, and a block that names itself shows the missing word", () => {
+    replaceTexts({ ...PACKAGED, vector: [[{ b: "inner", with: { n: "days" } }, "."]], inner: [[{ v: "n" }, " days"]] })
+    expect(message({ key: "vector", args: { days: { kind: "number", value: 3 } } })).toBe("3 days.")
+    replaceTexts({ ...PACKAGED, vector: [[{ b: "loop" }]], loop: [["a ", { b: "loop" }]] })
+    expect(message({ key: "vector" })).toBe("a something")
+  })
+
   it("chooses on an enum constant as Java names it", () => {
     expect(choice("REMOVE_PLUGIN")).toBe("remove-plugin")
     expect(t("run.kind", { kind: choice("REMOVE_PLUGIN") })).toBe("Remove plugin")

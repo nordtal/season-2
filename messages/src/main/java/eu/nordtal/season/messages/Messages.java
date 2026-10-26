@@ -51,6 +51,12 @@ public final class Messages {
 
     public static final String TERMS = "terms";
 
+    /** The bundles of the building blocks, which lie under every other bundle so any text can name them. */
+    private static final List<Class<?>> BLOCK_SPECS = List.of(ValueMessages.class, TermMessages.class);
+
+    public static final List<String> BLOCKS =
+            BLOCK_SPECS.stream().map(MessageSchema::bundle).toList();
+
     /** The bundle names, least specific first. */
     private final List<String> bundles;
 
@@ -129,16 +135,15 @@ public final class Messages {
                     "a Messages with no bundle would answer every key" + " with the key itself, silently");
         }
         final List<String> named = roots.stream().map(Messages::bundleOf).toList();
-        final List<String> bundles = new ArrayList<>();
-        bundles.add(VALUES);
-        named.stream().filter(bundle -> !VALUES.equals(bundle)).forEach(bundles::add);
+        final List<String> bundles = new ArrayList<>(BLOCKS);
+        named.stream().filter(bundle -> !BLOCKS.contains(bundle)).forEach(bundles::add);
         final List<Locale> loaded = withDefault(locales);
         final Map<String, Map<String, Map<String, List<String>>>> packaged = new LinkedHashMap<>();
         final Map<String, MessageSchema.Bundle> schemas = new LinkedHashMap<>();
         boolean english = false;
         for (final String bundle : bundles) {
-            // A plugin's class loader may not see the values bundle of this jar first.
-            final ClassLoader loader = VALUES.equals(bundle) ? Messages.class.getClassLoader() : classLoader;
+            // A plugin's class loader may not see the bundles of this jar first.
+            final ClassLoader loader = BLOCKS.contains(bundle) ? Messages.class.getClassLoader() : classLoader;
             final Map<String, Map<String, List<String>>> byLanguage = new LinkedHashMap<>();
             for (final Locale locale : loaded) {
                 final Map<String, List<String>> texts = PackagedTexts.read(loader, bundle, Locales.tag(locale));
@@ -146,7 +151,8 @@ public final class Messages {
                     byLanguage.put(Locales.tag(locale), texts);
                 }
             }
-            english |= !VALUES.equals(bundle) && byLanguage.containsKey(Locales.tag(Locales.DEFAULT));
+            english |= (!BLOCKS.contains(bundle) || named.contains(bundle))
+                    && byLanguage.containsKey(Locales.tag(Locales.DEFAULT));
             packaged.put(bundle, Map.copyOf(byLanguage));
             final MessageSchema.Bundle schema = schemaOf(loader, bundle);
             if (schema != null) {
@@ -195,6 +201,35 @@ public final class Messages {
             }
         }
         return Map.copyOf(declared);
+    }
+
+    /** Returns what the texts of each building block may name, by key, as their specs declare it. */
+    public static Map<String, Declaration> blocks() {
+        return Blocks.DECLARED;
+    }
+
+    private static final class Blocks {
+
+        private static final Map<String, Declaration> DECLARED = declared();
+
+        private Blocks() {}
+
+        private static Map<String, Declaration> declared() {
+            final Map<String, Declaration> declared = new HashMap<>();
+            for (final Class<?> spec : BLOCK_SPECS) {
+                final MessageSchema.Bundle schema = MessageSchema.of(spec);
+                schema.messages().forEach(entry -> declared.put(entry.key(), schema.declaration(entry)));
+            }
+            return Map.copyOf(declared);
+        }
+    }
+
+    /** Returns the building blocks as a reader of {@code language} sees them, overrides included. */
+    public Filling.Blocks blocks(final Locale language) {
+        return key -> {
+            final Declaration declaration = Blocks.DECLARED.get(key);
+            return declaration == null ? null : new Filling.Block(text(language, key), declaration.values());
+        };
     }
 
     private static Map<String, TextFormat> formats(
@@ -272,7 +307,7 @@ public final class Messages {
                 final Map<String, List<String>> own = shipped.get(language);
                 if (own != null) {
                     own.forEach((key, texts) -> merged.put(key, parsed(bundle, key, texts)));
-                    any |= !VALUES.equals(bundle);
+                    any |= !BLOCKS.contains(bundle);
                 }
                 final Set<String> declared = new HashSet<>();
                 shipped.values().forEach(texts -> declared.addAll(texts.keySet()));
@@ -491,7 +526,8 @@ public final class Messages {
                 MessageText.parse(text, format == TextFormat.MINIMESSAGE),
                 Contexts.flatten(values, environment, viewer.player()),
                 kinds,
-                name -> reportMissingValue(source, name));
+                name -> reportMissingValue(source, name),
+                blocks(viewer.language()));
         return new Prepared(
                 pieces, viewer.language(), zone, format, words(new Viewer(viewer.language(), zone, viewer.player())));
     }
@@ -505,7 +541,8 @@ public final class Messages {
                 text,
                 values,
                 declaration == null ? Map.<String, Kind>of() : declaration.values(),
-                name -> reportMissingValue(message.key(), name));
+                name -> reportMissingValue(message.key(), name),
+                blocks(language));
         return new Prepared(
                 pieces,
                 language,
@@ -545,7 +582,8 @@ public final class Messages {
                         text,
                         values,
                         declaration == null ? Map.<String, Kind>of() : declaration.values(),
-                        missing -> reportMissingValue(name, missing));
+                        missing -> reportMissingValue(name, missing),
+                        blocks(language));
                 return PlainText.of(pieces, language, zone, (inner, ignored) -> "");
             }
 

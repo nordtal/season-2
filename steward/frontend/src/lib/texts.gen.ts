@@ -147,12 +147,50 @@ export type TextArgs = {
   "alert.words": {
     text: Arg["text"]
   }
+  "check.block.no-value": {
+    block: Arg["text"]
+    name: Arg["text"]
+    offered: Arg["list"]
+  }
+  "check.block.other-kind": {
+    block: Arg["text"]
+    name: Arg["text"]
+    kind: Arg["text"]
+    given: Arg["text"]
+  }
+  "check.block.unbound": {
+    block: Arg["text"]
+    name: Arg["text"]
+    offered: Arg["list"]
+  }
+  "check.block.unknown": {
+    block: Arg["text"]
+  }
   "check.synonym": {
     word: Arg["text"]
     term: Arg["text"]
   }
   "check.syntax.attribute-missing": {
     name: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.binding-incomplete": {
+    block: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.binding-twice": {
+    block: Arg["text"]
+    name: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.block-in-argument": {
+    at: Arg["number"]
+  }
+  "check.syntax.block-not-closed": {
+    block: Arg["text"]
+    at: Arg["number"]
+  }
+  "check.syntax.block-unnamed": {
     at: Arg["number"]
   }
   "check.syntax.case-never-closed": {

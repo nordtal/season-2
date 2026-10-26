@@ -3,22 +3,50 @@ package eu.nordtal.season.messages.text;
 import eu.nordtal.season.messages.value.Kind;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 
-/** Chooses a text's plurals and selects and finds its values. */
+/** Chooses a text's plurals and selects, finds its values and draws its building blocks. */
 public final class Filling {
+
+    /** A building block's text in the reader's language, with the kinds its values declare. */
+    public record Block(MessageText text, Map<String, Kind> values) {}
+
+    /** Finds the building blocks a text names. */
+    @FunctionalInterface
+    public interface Blocks {
+
+        Blocks NONE = key -> null;
+
+        /** Returns the block of {@code key}, else {@code null} for a key that is no building block. */
+        @Nullable
+        Block block(String key);
+    }
 
     private final Map<String, ?> values;
     private final Map<String, Kind> declared;
     private final Consumer<String> missing;
+    private final Blocks blocks;
 
-    private Filling(final Map<String, ?> values, final Map<String, Kind> declared, final Consumer<String> missing) {
+    /** The blocks being drawn around this text, so a block that names itself shows its replacement word. */
+    private final Set<String> open;
+
+    private Filling(
+            final Map<String, ?> values,
+            final Map<String, Kind> declared,
+            final Consumer<String> missing,
+            final Blocks blocks,
+            final Set<String> open) {
         this.values = values;
         this.declared = declared;
         this.missing = missing;
+        this.blocks = blocks;
+        this.open = open;
     }
 
     /**
@@ -33,8 +61,18 @@ public final class Filling {
             final Map<String, ?> values,
             final Map<String, Kind> declared,
             final Consumer<String> missing) {
+        return fill(text, values, declared, missing, Blocks.NONE);
+    }
+
+    /** Fills {@code text} and draws each building block it names from {@code blocks}. */
+    public static List<Piece> fill(
+            final MessageText text,
+            final Map<String, ?> values,
+            final Map<String, Kind> declared,
+            final Consumer<String> missing,
+            final Blocks blocks) {
         final List<Piece> pieces = new ArrayList<>();
-        new Filling(values, declared, missing).add(text.nodes(), pieces);
+        new Filling(values, declared, missing, blocks, Set.of()).add(text.nodes(), pieces);
         return pieces;
     }
 
@@ -45,6 +83,7 @@ public final class Filling {
                 case Node.Value value -> into.add(filled(value.name(), value.kind(), value.style()));
                 case Node.Pound pound -> into.add(filled(pound.name(), Kind.NUMBER.token(), null));
                 case Node.Choice choice -> add(chosen(choice), into);
+                case Node.Block block -> block(block, into);
                 case Node.Tag tag -> {
                     final List<List<Piece>> args = new ArrayList<>();
                     for (final Node.Tag.Arg arg : tag.args()) {
@@ -61,6 +100,32 @@ public final class Filling {
                 }
             }
         }
+    }
+
+    /** A block that is unknown or names itself shows the replacement word of a text. */
+    private void block(final Node.Block reference, final List<Piece> into) {
+        final String key = reference.key();
+        final Block block = open.contains(key) ? null : blocks.block(key);
+        if (block == null) {
+            missing.accept("@" + key);
+            into.add(new Piece.Filled("@" + key, Kind.TEXT, null, null));
+            return;
+        }
+        final Map<String, Object> inner = new HashMap<>(values);
+        reference.with().forEach((name, outer) -> {
+            inner.keySet().removeIf(shown -> shown.equals(name) || shown.startsWith(name + "."));
+            values.forEach((shown, value) -> {
+                if (shown.equals(outer)) {
+                    inner.put(name, value);
+                } else if (shown.startsWith(outer + ".")) {
+                    inner.put(name + shown.substring(outer.length()), value);
+                }
+            });
+        });
+        final Set<String> around = new HashSet<>(open);
+        around.add(key);
+        new Filling(inner, block.values(), missing, blocks, around)
+                .add(block.text().nodes(), into);
     }
 
     /** A value of no kind shows the replacement word, as a missing value does, and never its {@code toString}. */

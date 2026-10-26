@@ -40,6 +40,20 @@ public sealed interface Node {
         }
     }
 
+    /**
+     * A building block, {@code {@key}} or {@code {@key, value=outer}}, drawn where it stands.
+     *
+     * @param with each value of the block to the value of the text it shows. A value of the block
+     *     that it leaves out shows the text's value of the same name.
+     */
+    record Block(String key, Map<String, String> with) implements Node {
+
+        public Block {
+            Objects.requireNonNull(key, "key");
+            with = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(with));
+        }
+    }
+
     /** {@code #} in a plural case. It stands for the number the plural depends on. */
     record Pound(String name) implements Node {}
 

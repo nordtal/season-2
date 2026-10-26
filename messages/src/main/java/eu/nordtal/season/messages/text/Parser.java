@@ -88,6 +88,9 @@ final class Parser {
     private Node placeholder(final @Nullable String plural) {
         final int start = at;
         at++;
+        if (peek() == '@') {
+            return block(start);
+        }
         final String name = name();
         if (name.isEmpty()) {
             throw fail(SAYS.opensNothing(start + 1), start);
@@ -120,6 +123,39 @@ final class Parser {
         }
         expect('}', SAYS.valueNotClosed(name, at + 1));
         return new Node.Value(name, second, style);
+    }
+
+    /** Reads {@code {@key}} or {@code {@key, value=outer, ...}} after its brace. */
+    private Node.Block block(final int start) {
+        at++;
+        final String key = name();
+        if (key.isEmpty()) {
+            throw fail(SAYS.blockUnnamed(start + 1), start);
+        }
+        final Map<String, String> with = new LinkedHashMap<>();
+        space();
+        while (peek() == ',') {
+            at++;
+            space();
+            final int binding = at;
+            final String value = name();
+            space();
+            if (value.isEmpty() || peek() != '=') {
+                throw fail(SAYS.bindingIncomplete(key, at + 1), at);
+            }
+            at++;
+            space();
+            final String outer = name();
+            if (outer.isEmpty()) {
+                throw fail(SAYS.bindingIncomplete(key, at + 1), at);
+            }
+            if (with.put(value, outer) != null) {
+                throw fail(SAYS.bindingTwice(key, value, binding + 1), binding);
+            }
+            space();
+        }
+        expect('}', SAYS.blockNotClosed(key, at + 1));
+        return new Node.Block(key, with);
     }
 
     private Node.Choice choice(
@@ -242,6 +278,9 @@ final class Parser {
                 flush(literal, parts);
                 final int start = at;
                 final Node value = placeholder(null);
+                if (value instanceof Node.Block) {
+                    throw fail(SAYS.blockInArgument(start + 1), start);
+                }
                 if (!(value instanceof Node.Value)) {
                     throw fail(SAYS.choiceInArgument(start + 1), start);
                 }

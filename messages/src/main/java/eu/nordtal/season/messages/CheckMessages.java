@@ -82,6 +82,26 @@ public interface CheckMessages {
 
             @Name("A case is not opened")
             MessageRef caseNotOpened(@Arg("case") @Example("one") String key, @Arg("at") @Example("14") int at);
+
+            @Name("A building block without a name")
+            MessageRef blockUnnamed(@Arg("at") @Example("14") int at);
+
+            @Name("A value of a building block bound halfway")
+            MessageRef bindingIncomplete(
+                    @Arg("block") @Example("values.duration.days") String block, @Arg("at") @Example("14") int at);
+
+            @Name("A value of a building block bound twice")
+            MessageRef bindingTwice(
+                    @Arg("block") @Example("values.duration.days") String block,
+                    @Arg("name") @Example("n") String name,
+                    @Arg("at") @Example("14") int at);
+
+            @Name("A building block is not closed")
+            MessageRef blockNotClosed(
+                    @Arg("block") @Example("values.duration.days") String block, @Arg("at") @Example("14") int at);
+
+            @Name("A building block stands in a tag's argument")
+            MessageRef blockInArgument(@Arg("at") @Example("14") int at);
         }
 
         Value value();
@@ -134,6 +154,34 @@ public interface CheckMessages {
 
             @Name("A value never shown")
             MessageRef unshown(@Arg("role") @Example("player") String role);
+        }
+
+        Block block();
+
+        @Name("Building blocks")
+        interface Block {
+
+            @Name("No such building block")
+            MessageRef unknown(@Arg("block") @Example("values.duration.weeks") String block);
+
+            @Name("A value the building block lacks")
+            MessageRef noValue(
+                    @Arg("block") @Example("values.duration.days") String block,
+                    @Arg("name") @Example("count") String name,
+                    @Arg("offered") @Example("n") List<String> offered);
+
+            @Name("A value the building block needs")
+            MessageRef unbound(
+                    @Arg("block") @Example("values.duration.days") String block,
+                    @Arg("name") @Example("n") String name,
+                    @Arg("offered") @Example("days,player") List<String> offered);
+
+            @Name("A value of another kind")
+            MessageRef otherKind(
+                    @Arg("block") @Example("values.duration.days") String block,
+                    @Arg("name") @Example("n") String name,
+                    @Arg("kind") @Example("number") String kind,
+                    @Arg("given") @Example("text") String given);
         }
 
         Tag tag();

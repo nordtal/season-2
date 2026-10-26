@@ -43,10 +43,12 @@ public final class Ceremony {
 
     record Kills(PlayerContext player, @Example("3") int kills) {}
 
-    static final DocumentSpec<Result> RESULT = line("ceremony-result", Result.class);
-    static final DocumentSpec<Kills> KILLS = line("ceremony-kills", Kills.class);
-    static final DocumentSpec<DocumentSpec.None> FOOTER =
-            DocumentSpec.game("hunger-games", "ceremony-footer", "Ceremony", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<Result> RESULT =
+            line("ceremony-result", Result.class).titled("Result");
+    static final DocumentSpec<Kills> KILLS = line("ceremony-kills", Kills.class).titled("Kills of a player");
+    static final DocumentSpec<DocumentSpec.None> FOOTER = DocumentSpec.game(
+                    "hunger-games", "ceremony-footer", "Ceremony", DocumentSpec.Shape.CHAT)
+            .titled("Next phase note");
 
     private static <V extends Record> DocumentSpec<V> line(final String name, final Class<V> values) {
         return DocumentSpec.game("hunger-games", name, "Ceremony", DocumentSpec.Shape.CHAT, values);

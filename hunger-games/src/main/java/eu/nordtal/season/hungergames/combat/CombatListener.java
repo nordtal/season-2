@@ -44,8 +44,9 @@ public final class CombatListener implements Listener {
     record BodyDeath(PlayerContext player, @Nullable PlayerContext killer, boolean killed) {}
 
     /** A stand's death; a player's own death is paper-common's line. */
-    static final DocumentSpec<BodyDeath> BODY_DEATH =
-            DocumentSpec.game("hunger-games", "death-body", "Game", DocumentSpec.Shape.CHAT, BodyDeath.class);
+    static final DocumentSpec<BodyDeath> BODY_DEATH = DocumentSpec.game(
+                    "hunger-games", "death-body", "Game", DocumentSpec.Shape.CHAT, BodyDeath.class)
+            .titled("Player eliminated while offline");
 
     private final Plugin plugin;
     private final GameDao dao;

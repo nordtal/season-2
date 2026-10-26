@@ -42,11 +42,13 @@ public final class Wheel {
 
     record Available(@Example("3") int count) {}
 
-    static final DocumentSpec<Won> WON = chat("wheel-won", Won.class);
-    static final DocumentSpec<NoSpin> NONE = chat("wheel-none", NoSpin.class);
-    static final DocumentSpec<Available> AVAILABLE = chat("wheel-available", Available.class);
-    static final DocumentSpec<DocumentSpec.None> BROKEN_PRIZE =
-            DocumentSpec.game("smp", "wheel-broken-prize", "Wheel", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<Won> WON = chat("wheel-won", Won.class).titled("Prize won");
+    static final DocumentSpec<NoSpin> NONE = chat("wheel-none", NoSpin.class).titled("No spins left");
+    static final DocumentSpec<Available> AVAILABLE =
+            chat("wheel-available", Available.class).titled("Spins available");
+    static final DocumentSpec<DocumentSpec.None> BROKEN_PRIZE = DocumentSpec.game(
+                    "smp", "wheel-broken-prize", "Wheel", DocumentSpec.Shape.CHAT)
+            .titled("Unknown prize");
 
     private static <V extends Record> DocumentSpec<V> chat(final String name, final Class<V> values) {
         return DocumentSpec.game("smp", name, "Wheel", DocumentSpec.Shape.CHAT, values);

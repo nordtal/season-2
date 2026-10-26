@@ -56,12 +56,15 @@ public final class ObjectiveEngine implements Contributions {
 
     record Reached(MilestoneContext milestone) {}
 
-    static final DocumentSpec<Completed> OBJECTIVE_COMPLETED =
-            DocumentSpec.game("smp", "objective-completed", "Objectives", DocumentSpec.Shape.CHAT, Completed.class);
-    static final DocumentSpec<Reached> MILESTONE_COMPLETED =
-            DocumentSpec.game("smp", "milestone-completed", "Milestones", DocumentSpec.Shape.CHAT, Reached.class);
-    static final DocumentSpec<Reached> MILESTONE_CEREMONY =
-            DocumentSpec.game("smp", "milestone-ceremony", "Milestones", DocumentSpec.Shape.TITLE, Reached.class);
+    static final DocumentSpec<Completed> OBJECTIVE_COMPLETED = DocumentSpec.game(
+                    "smp", "objective-completed", "Objectives", DocumentSpec.Shape.CHAT, Completed.class)
+            .titled("Objective finished");
+    static final DocumentSpec<Reached> MILESTONE_COMPLETED = DocumentSpec.game(
+                    "smp", "milestone-completed", "Milestones", DocumentSpec.Shape.CHAT, Reached.class)
+            .titled("Milestone finished in chat");
+    static final DocumentSpec<Reached> MILESTONE_CEREMONY = DocumentSpec.game(
+                    "smp", "milestone-ceremony", "Milestones", DocumentSpec.Shape.TITLE, Reached.class)
+            .titled("Milestone finished title");
 
     private final Plugin plugin;
     private final Jdbi jdbi;

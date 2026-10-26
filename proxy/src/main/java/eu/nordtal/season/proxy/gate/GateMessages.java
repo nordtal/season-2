@@ -27,27 +27,41 @@ public final class GateMessages {
 
     record Minutes(@Example("5") long minutes) {}
 
-    static final DocumentSpec<Code> NOT_LINKED = screen("not-linked", Code.class);
+    static final DocumentSpec<Code> NOT_LINKED =
+            screen("not-linked", Code.class).titled("Account not linked, with the code");
     /** Under the screen in every language, in English. */
-    static final DocumentSpec<Invite> NOT_LINKED_INVITE = screen("not-linked-invite", Invite.class);
+    static final DocumentSpec<Invite> NOT_LINKED_INVITE =
+            screen("not-linked-invite", Invite.class).titled("Discord invitation for an unlinked account");
 
-    static final DocumentSpec<DocumentSpec.None> UNLINKED = screen("unlinked", DocumentSpec.None.class);
-    static final DocumentSpec<DocumentSpec.None> RESTARTING = screen("restarting", DocumentSpec.None.class);
-    static final DocumentSpec<Invite> NOT_MEMBER = screen("not-member", Invite.class);
-    static final DocumentSpec<Invite> NO_ACCESS = screen("no-access", Invite.class);
-    static final DocumentSpec<DocumentSpec.None> MAINTENANCE = screen("maintenance", DocumentSpec.None.class);
-    static final DocumentSpec<DocumentSpec.None> NO_SERVER = screen("no-server", DocumentSpec.None.class);
-    static final DocumentSpec<DocumentSpec.None> TROUBLE = screen("trouble", DocumentSpec.None.class);
-    static final DocumentSpec<Full> FULL = screen("full", Full.class);
-    static final DocumentSpec<Invite> PRE_LAUNCH_BUY = screen("pre-launch-buy", Invite.class);
-    static final DocumentSpec<DocumentSpec.None> PRE_LAUNCH_READY = screen("pre-launch-ready", DocumentSpec.None.class);
-    static final DocumentSpec<DocumentSpec.None> EXPIRED = screen("expired", DocumentSpec.None.class);
+    static final DocumentSpec<DocumentSpec.None> UNLINKED =
+            screen("unlinked", DocumentSpec.None.class).titled("Account no longer linked");
+    static final DocumentSpec<DocumentSpec.None> RESTARTING =
+            screen("restarting", DocumentSpec.None.class).titled("Network restarting");
+    static final DocumentSpec<Invite> NOT_MEMBER =
+            screen("not-member", Invite.class).titled("Not on the Discord server");
+    static final DocumentSpec<Invite> NO_ACCESS =
+            screen("no-access", Invite.class).titled("No access");
+    static final DocumentSpec<DocumentSpec.None> MAINTENANCE =
+            screen("maintenance", DocumentSpec.None.class).titled("Closed for maintenance");
+    static final DocumentSpec<DocumentSpec.None> NO_SERVER =
+            screen("no-server", DocumentSpec.None.class).titled("No server for the phase");
+    static final DocumentSpec<DocumentSpec.None> TROUBLE =
+            screen("trouble", DocumentSpec.None.class).titled("Access check unavailable");
+    static final DocumentSpec<Full> FULL = screen("full", Full.class).titled("Network full");
+    static final DocumentSpec<Invite> PRE_LAUNCH_BUY =
+            screen("pre-launch-buy", Invite.class).titled("Before launch, access not paid");
+    static final DocumentSpec<DocumentSpec.None> PRE_LAUNCH_READY =
+            screen("pre-launch-ready", DocumentSpec.None.class).titled("Before launch, all set");
+    static final DocumentSpec<DocumentSpec.None> EXPIRED =
+            screen("expired", DocumentSpec.None.class).titled("Access ended");
     /** The chat line of a player whom a lost backend sends to the waiting room. */
-    static final DocumentSpec<DocumentSpec.None> CONNECTION_LOST =
-            DocumentSpec.game("proxy", "connection-lost", "Login", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> CONNECTION_LOST = DocumentSpec.game(
+                    "proxy", "connection-lost", "Login", DocumentSpec.Shape.CHAT)
+            .titled("Connection to the server lost");
 
-    static final DocumentSpec<Minutes> EXPIRY_WARNING =
-            DocumentSpec.game("proxy", "expiry-warning", "Login", DocumentSpec.Shape.CHAT, Minutes.class);
+    static final DocumentSpec<Minutes> EXPIRY_WARNING = DocumentSpec.game(
+                    "proxy", "expiry-warning", "Login", DocumentSpec.Shape.CHAT, Minutes.class)
+            .titled("Access ends in minutes");
 
     private final MessageRenderer renderer;
     private final GateSpec config;

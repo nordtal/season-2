@@ -60,24 +60,32 @@ public final class SmpAdmin {
             @Example("2026-10-31T18:00:00Z") Instant since) {}
 
     public static final DocumentSpec<DocumentSpec.None> PLAYER_OFFLINE =
-            admin("player-offline", DocumentSpec.None.class);
+            admin("player-offline", DocumentSpec.None.class).titled("Player not online");
     public static final DocumentSpec<DocumentSpec.None> NAME_TAGS_REDRAWN =
-            admin("name-tags-redrawn", DocumentSpec.None.class);
-    static final DocumentSpec<Objective> OBJECTIVE_COMPLETED = admin("objective-completed", Objective.class);
-    static final DocumentSpec<Milestone> MILESTONE_UNLOCKED = admin("milestone-unlocked", Milestone.class);
-    static final DocumentSpec<AuraSet> AURA_SET = admin("aura-set", AuraSet.class);
-    static final DocumentSpec<SpinsSet> SPINS_SET = admin("spins-set", SpinsSet.class);
+            admin("name-tags-redrawn", DocumentSpec.None.class).titled("Name tags redrawn");
+    static final DocumentSpec<Objective> OBJECTIVE_COMPLETED =
+            admin("objective-completed", Objective.class).titled("Objective closed by hand");
+    static final DocumentSpec<Milestone> MILESTONE_UNLOCKED =
+            admin("milestone-unlocked", Milestone.class).titled("Milestone unlocked by hand");
+    static final DocumentSpec<AuraSet> AURA_SET =
+            admin("aura-set", AuraSet.class).titled("Aura set");
+    static final DocumentSpec<SpinsSet> SPINS_SET =
+            admin("spins-set", SpinsSet.class).titled("Extra spins set");
 
-    static final DocumentSpec<Who> UNLINKED = access("unlinked", Who.class);
-    static final DocumentSpec<Linked> LINKED = access("linked", Linked.class);
-    static final DocumentSpec<Until> ACTIVE = access("active", Until.class);
-    static final DocumentSpec<Since> EXPIRED = access("expired", Since.class);
-    static final DocumentSpec<DocumentSpec.None> NEVER = access("never", DocumentSpec.None.class);
-    static final DocumentSpec<Payment> PAYMENT = access("payment", Payment.class);
+    static final DocumentSpec<Who> UNLINKED = access("unlinked", Who.class).titled("No linked Discord account");
+    static final DocumentSpec<Linked> LINKED = access("linked", Linked.class).titled("Linked Discord account");
+    static final DocumentSpec<Until> ACTIVE = access("active", Until.class).titled("Access active");
+    static final DocumentSpec<Since> EXPIRED = access("expired", Since.class).titled("Access expired");
+    static final DocumentSpec<DocumentSpec.None> NEVER =
+            access("never", DocumentSpec.None.class).titled("Access never bought");
+    static final DocumentSpec<Payment> PAYMENT =
+            access("payment", Payment.class).titled("Open purchase with a payment link");
     /** A request without a bunq tab belongs to a player who chose a number of days only. */
-    static final DocumentSpec<PaymentUnstarted> PAYMENT_UNSTARTED = access("payment-unstarted", PaymentUnstarted.class);
+    static final DocumentSpec<PaymentUnstarted> PAYMENT_UNSTARTED =
+            access("payment-unstarted", PaymentUnstarted.class).titled("Open purchase without a payment link");
 
-    static final DocumentSpec<DocumentSpec.None> NO_PAYMENT = access("no-payment", DocumentSpec.None.class);
+    static final DocumentSpec<DocumentSpec.None> NO_PAYMENT =
+            access("no-payment", DocumentSpec.None.class).titled("No open purchase");
 
     public interface Track {
 

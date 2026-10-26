@@ -14,6 +14,7 @@ afterEach(() => {
 const declaration: DocumentDeclaration = {
   namespace: "discord",
   name: "greeting",
+  title: "Greeting",
   area: "Greeting",
   shape: "MESSAGE",
   values: {},

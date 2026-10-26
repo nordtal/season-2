@@ -43,24 +43,28 @@ public final class RegisterFlow extends ListenerAdapter {
 
     /** The modal that the Register button opens. It asks for the team name. */
     static final DocumentSpec<DocumentSpec.None> NAME = DocumentSpec.modal(
-            StoredDocuments.NAMESPACE, "register-name", "Register", DocumentSpec.None.class, Slot.input("name"));
+                    StoredDocuments.NAMESPACE, "register-name", "Register", DocumentSpec.None.class, Slot.input("name"))
+            .titled("Team name form");
 
     /** The answer to a successful registration, with the button that invites a partner. */
     static final DocumentSpec<Registered> REGISTERED = DocumentSpec.message(
-            StoredDocuments.NAMESPACE, "register-success", "Register", Registered.class, Slot.button("invite"));
+                    StoredDocuments.NAMESPACE, "register-success", "Register", Registered.class, Slot.button("invite"))
+            .titled("Team registered");
 
     /** The question whom to invite, with a select of the guild's members. */
-    static final DocumentSpec<DocumentSpec.None> PICKER =
-            DocumentSpec.message(StoredDocuments.NAMESPACE, "invite-picker", "Register", Slot.select("partner"));
+    static final DocumentSpec<DocumentSpec.None> PICKER = DocumentSpec.message(
+                    StoredDocuments.NAMESPACE, "invite-picker", "Register", Slot.select("partner"))
+            .titled("Partner choice");
 
     /** The invitation that the partner receives, with an accept and a decline button. */
     static final DocumentSpec<Invitation> INVITATION = DocumentSpec.message(
-            StoredDocuments.NAMESPACE,
-            "invite-dm",
-            "Register",
-            Invitation.class,
-            Slot.button("accept"),
-            Slot.button("decline"));
+                    StoredDocuments.NAMESPACE,
+                    "invite-dm",
+                    "Register",
+                    Invitation.class,
+                    Slot.button("accept"),
+                    Slot.button("decline"))
+            .titled("Invitation");
 
     private final JDA jda;
     private final Teams teams;

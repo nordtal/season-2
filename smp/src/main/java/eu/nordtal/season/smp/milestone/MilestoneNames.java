@@ -22,8 +22,9 @@ public final class MilestoneNames {
 
     record Name(Named milestone) {}
 
-    static final DocumentSpec<Name> NAME =
-            DocumentSpec.game("smp", "milestone-name", "Milestones", DocumentSpec.Shape.BOSS_BAR, Name.class);
+    static final DocumentSpec<Name> NAME = DocumentSpec.game(
+                    "smp", "milestone-name", "Milestones", DocumentSpec.Shape.BOSS_BAR, Name.class)
+            .titled("Milestone names");
 
     private MilestoneNames() {}
 

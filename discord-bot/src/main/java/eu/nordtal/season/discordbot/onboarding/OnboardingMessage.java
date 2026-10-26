@@ -26,15 +26,17 @@ final class OnboardingMessage {
 
     /** The welcome in the default language with a banner and a select for the language. */
     static final DocumentSpec<DocumentSpec.None> WELCOME = DocumentSpec.message(
-            StoredDocuments.NAMESPACE, "onboarding-welcome", "Onboarding", Slot.select("language"));
+                    StoredDocuments.NAMESPACE, "onboarding-welcome", "Onboarding", Slot.select("language"))
+            .titled("Welcome and language choice");
 
     /** The change message with one box and one button per language. The button opens the dialog in that language. */
     static final DocumentSpec<DocumentSpec.None> CHANGE = DocumentSpec.message(
-            StoredDocuments.NAMESPACE,
-            "onboarding-change",
-            "Onboarding",
-            Slot.languages("each"),
-            Slot.button("change"));
+                    StoredDocuments.NAMESPACE,
+                    "onboarding-change",
+                    "Onboarding",
+                    Slot.languages("each"),
+                    Slot.button("change"))
+            .titled("Change language and region");
 
     private final GuildLanguages languages;
     private final DocumentRenderer renderer;

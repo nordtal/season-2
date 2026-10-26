@@ -49,7 +49,7 @@ class DocumentsApiIntegrationTest {
     private static final byte[] PNG = {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 13};
 
     private static final String DECLARATIONS = """
-            [{"namespace":"smp","name":"welcome","area":"Join","shape":"MESSAGE",
+            [{"namespace":"smp","name":"welcome","title":"Welcome","area":"Join","shape":"MESSAGE",
               "values":{"player":{"kind":"text","example":"Alex"}},
               "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}},
                 {"id":"rows","type":"LIST","required":false,"values":{"left":{"kind":"duration","example":"PT1M"}}}]}]""";
@@ -411,7 +411,7 @@ class DocumentsApiIntegrationTest {
     void aMenuIsDrawnByTheGamesRendererWithItsExamples() throws Exception {
         final JsonObject draft = new JsonObject();
         draft.add("declaration", Json.tree("""
-                {"namespace":"smp","name":"wheel","area":"Menus","shape":"MENU",
+                {"namespace":"smp","name":"wheel","title":"Wheel","area":"Menus","shape":"MENU",
                   "values":{"spins":{"kind":"text","example":"3"}},
                   "slots":[{"id":"hub","type":"ITEM","required":true,"values":{"target":{"kind":"item","example":"item.minecraft.diamond"}}},
                     {"id":"left","type":"LABEL","required":true,"values":{}}]}"""));
@@ -439,7 +439,7 @@ class DocumentsApiIntegrationTest {
     void aGameTextIsDrawnByTheGamesRendererLineByLine() throws Exception {
         final JsonObject draft = new JsonObject();
         draft.add("declaration", Json.tree("""
-                {"namespace":"smp","name":"tab-footer","area":"Tab list","shape":"TAB_LIST",
+                {"namespace":"smp","name":"tab-footer","title":"Tab footer","area":"Tab list","shape":"TAB_LIST",
                   "values":{"online":{"kind":"text","example":"3"}},"slots":[]}"""));
         draft.add("document", Json.tree("""
                 {"parts":[{"type":"TEXT","lines":[
@@ -490,7 +490,7 @@ class DocumentsApiIntegrationTest {
     void aGameDraftIsPreviewedWhereItsShapeIsShown() throws Exception {
         final JsonObject draft = new JsonObject();
         draft.add("declaration", Json.tree("""
-                {"namespace":"smp","name":"tab-footer","area":"Tab list","shape":"TAB_LIST",
+                {"namespace":"smp","name":"tab-footer","title":"Tab footer","area":"Tab list","shape":"TAB_LIST",
                   "values":{"online":{"kind":"text","example":"3"}},"slots":[]}"""));
         draft.add("document", Json.tree("""
                 {"parts":[{"type":"TEXT","lines":[{"text":{"en":"{online} here"}}]}]}"""));

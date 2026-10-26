@@ -17,10 +17,12 @@ import org.slf4j.Logger;
 /** Refuses every login, admins included, when the configuration of the proxy cannot be read. */
 public final class MisconfiguredGate {
 
-    static final DocumentSpec<DocumentSpec.None> SCREEN =
-            DocumentSpec.game("proxy", "misconfigured", "Login", DocumentSpec.Shape.KICK_SCREEN);
-    static final DocumentSpec<DocumentSpec.None> SERVER_LIST =
-            DocumentSpec.game("proxy", "server-list-misconfigured", "Server list", DocumentSpec.Shape.SERVER_LIST);
+    static final DocumentSpec<DocumentSpec.None> SCREEN = DocumentSpec.game(
+                    "proxy", "misconfigured", "Login", DocumentSpec.Shape.KICK_SCREEN)
+            .titled("Network misconfigured");
+    static final DocumentSpec<DocumentSpec.None> SERVER_LIST = DocumentSpec.game(
+                    "proxy", "server-list-misconfigured", "Server list", DocumentSpec.Shape.SERVER_LIST)
+            .titled("Server list description, misconfigured");
 
     private final Logger logger;
     private final Component screen;

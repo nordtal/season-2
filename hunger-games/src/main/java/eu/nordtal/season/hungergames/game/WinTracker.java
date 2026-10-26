@@ -26,8 +26,9 @@ import org.slf4j.LoggerFactory;
  */
 public final class WinTracker {
 
-    static final DocumentSpec<DocumentSpec.None> SAME_TEAM_FINAL_TWO =
-            DocumentSpec.game("hunger-games", "win-same-team-final-two", "Game", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> SAME_TEAM_FINAL_TWO = DocumentSpec.game(
+                    "hunger-games", "win-same-team-final-two", "Game", DocumentSpec.Shape.CHAT)
+            .titled("Last two on one team");
 
     private static final Logger LOGGER = LoggerFactory.getLogger(WinTracker.class);
 

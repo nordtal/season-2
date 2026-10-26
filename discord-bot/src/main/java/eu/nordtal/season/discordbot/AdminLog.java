@@ -72,17 +72,19 @@ public final class AdminLog {
             @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
             MessageRef line) {}
 
-    static final DocumentSpec<Journal> JOURNAL =
-            DocumentSpec.message(StoredDocuments.NAMESPACE, "admin-journal", AREA, Journal.class);
+    static final DocumentSpec<Journal> JOURNAL = DocumentSpec.message(
+                    StoredDocuments.NAMESPACE, "admin-journal", AREA, Journal.class)
+            .titled("Journal entry");
 
     static final DocumentSpec<Card> ALERT = DocumentSpec.message(
-            StoredDocuments.NAMESPACE,
-            "admin-alert",
-            AREA,
-            Card.class,
-            Slot.list("mentions", Pinged.class),
-            Slot.list("lines", Detail.class),
-            Slot.button("open").optional());
+                    StoredDocuments.NAMESPACE,
+                    "admin-alert",
+                    AREA,
+                    Card.class,
+                    Slot.list("mentions", Pinged.class),
+                    Slot.list("lines", Detail.class),
+                    Slot.button("open").optional())
+            .titled("Alert");
 
     private static final Map<JournalAction, Mark> MARKS = Map.of(
             JournalAction.GRANT_ACCESS, Mark.GRANTED,

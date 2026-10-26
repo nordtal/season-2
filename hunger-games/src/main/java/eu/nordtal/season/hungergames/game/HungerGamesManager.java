@@ -47,9 +47,12 @@ public final class HungerGamesManager {
 
     record Demoted(TeamContext team) {}
 
-    static final DocumentSpec<Seconds> COUNTDOWN_LINE = start("start-countdown", Seconds.class);
-    static final DocumentSpec<Seconds> RELEASED = start("start-released", Seconds.class);
-    static final DocumentSpec<Demoted> DEMOTED = start("team-demoted", Demoted.class);
+    static final DocumentSpec<Seconds> COUNTDOWN_LINE =
+            start("start-countdown", Seconds.class).titled("Start countdown");
+    static final DocumentSpec<Seconds> RELEASED =
+            start("start-released", Seconds.class).titled("Start");
+    static final DocumentSpec<Demoted> DEMOTED =
+            start("team-demoted", Demoted.class).titled("Partner missing at the start");
 
     private static <V extends Record> DocumentSpec<V> start(final String name, final Class<V> values) {
         return DocumentSpec.game("hunger-games", name, "Start", DocumentSpec.Shape.CHAT, values);

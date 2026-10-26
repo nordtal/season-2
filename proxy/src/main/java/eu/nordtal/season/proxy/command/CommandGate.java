@@ -26,8 +26,9 @@ import org.slf4j.Logger;
  */
 public final class CommandGate {
 
-    static final DocumentSpec<DocumentSpec.None> UNKNOWN =
-            DocumentSpec.game("proxy", "command-unknown", "Commands", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> UNKNOWN = DocumentSpec.game(
+                    "proxy", "command-unknown", "Commands", DocumentSpec.Shape.CHAT)
+            .titled("Unknown command on the network");
 
     /** Plays the sound of a refusal. */
     @FunctionalInterface

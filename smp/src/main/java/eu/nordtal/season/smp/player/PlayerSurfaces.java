@@ -23,7 +23,8 @@ import org.bukkit.plugin.Plugin;
  */
 public final class PlayerSurfaces {
 
-    static final DocumentSpec<TabList.Counted> TAB_FOOTER = TabList.countedFooter("smp");
+    static final DocumentSpec<TabList.Counted> TAB_FOOTER =
+            TabList.countedFooter("smp").titled("SMP tab list footer");
 
     private final Plugin plugin;
     private final Identities identities;

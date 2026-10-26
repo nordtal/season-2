@@ -30,8 +30,9 @@ public final class Lobby {
             @Example("12") long ready, @Example("16") long total) {}
 
     /** The rules, the number of ready teams and the ready button. */
-    static final DocumentSpec<Broadcast> BROADCAST =
-            DocumentSpec.game("hunger-games", "lobby-broadcast", "Lobby", DocumentSpec.Shape.CHAT, Broadcast.class);
+    static final DocumentSpec<Broadcast> BROADCAST = DocumentSpec.game(
+                    "hunger-games", "lobby-broadcast", "Lobby", DocumentSpec.Shape.CHAT, Broadcast.class)
+            .titled("Rules and readiness");
 
     private final Plugin plugin;
     private final GameDao dao;

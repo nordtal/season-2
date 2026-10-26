@@ -3,16 +3,24 @@ package eu.nordtal.season.messages.document;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Declares a document once in the module whose code fills it: its name, its values and its slots.
  * The document itself is the file {@code documents/<namespace>/<name>.json} in the module's resources.
  *
+ * @param title what an admin reads as its name, unique in its area; {@link #titled} gives it
  * @param area the group an admin finds it under on the Translations page
  * @param values the record whose components are the values its texts may name
  */
 public record DocumentSpec<V extends Record>(
-        String namespace, String name, String area, Shape shape, Class<V> values, List<Slot> slots) {
+        String namespace,
+        String name,
+        @Nullable String title,
+        String area,
+        Shape shape,
+        Class<V> values,
+        List<Slot> slots) {
 
     private static final Pattern NAME = Pattern.compile("[a-z][a-z0-9]*(-[a-z0-9]+)*");
 
@@ -73,7 +81,7 @@ public record DocumentSpec<V extends Record>(
 
     public static <V extends Record> DocumentSpec<V> message(
             final String namespace, final String name, final String area, final Class<V> values, final Slot... slots) {
-        return new DocumentSpec<>(namespace, name, area, Shape.MESSAGE, values, List.of(slots));
+        return new DocumentSpec<>(namespace, name, null, area, Shape.MESSAGE, values, List.of(slots));
     }
 
     public static DocumentSpec<None> message(
@@ -83,22 +91,22 @@ public record DocumentSpec<V extends Record>(
 
     public static <V extends Record> DocumentSpec<V> modal(
             final String namespace, final String name, final String area, final Class<V> values, final Slot... fields) {
-        return new DocumentSpec<>(namespace, name, area, Shape.MODAL, values, List.of(fields));
+        return new DocumentSpec<>(namespace, name, null, area, Shape.MODAL, values, List.of(fields));
     }
 
     public static <V extends Record> DocumentSpec<V> plain(
             final String namespace, final String name, final String area, final Class<V> values) {
-        return new DocumentSpec<>(namespace, name, area, Shape.PLAIN, values, List.of());
+        return new DocumentSpec<>(namespace, name, null, area, Shape.PLAIN, values, List.of());
     }
 
     public static <V extends Record> DocumentSpec<V> channelName(
             final String namespace, final String name, final String area, final Class<V> values) {
-        return new DocumentSpec<>(namespace, name, area, Shape.CHANNEL_NAME, values, List.of());
+        return new DocumentSpec<>(namespace, name, null, area, Shape.CHANNEL_NAME, values, List.of());
     }
 
     public static <V extends Record> DocumentSpec<V> menu(
             final String namespace, final String name, final String area, final Class<V> values, final Slot... slots) {
-        return new DocumentSpec<>(namespace, name, area, Shape.MENU, values, List.of(slots));
+        return new DocumentSpec<>(namespace, name, null, area, Shape.MENU, values, List.of(slots));
     }
 
     /** Declares a game text of {@code shape} that holds only text blocks of lines. */
@@ -107,12 +115,17 @@ public record DocumentSpec<V extends Record>(
         if (!shape.game() || shape == Shape.MENU) {
             throw new IllegalArgumentException(shape + " is no game text");
         }
-        return new DocumentSpec<>(namespace, name, area, shape, values, List.of());
+        return new DocumentSpec<>(namespace, name, null, area, shape, values, List.of());
     }
 
     public static DocumentSpec<None> game(
             final String namespace, final String name, final String area, final Shape shape) {
         return game(namespace, name, area, shape, None.class);
+    }
+
+    /** Returns this declaration with the name an admin reads, a short noun phrase such as "Access paid". */
+    public DocumentSpec<V> titled(final String title) {
+        return new DocumentSpec<>(namespace, name, title, area, shape, values, slots);
     }
 
     /** Returns this document filled with {@code values}, as the code sends it. */
@@ -129,6 +142,13 @@ public record DocumentSpec<V extends Record>(
     }
 
     public DocumentDeclaration declaration() {
-        return new DocumentDeclaration(namespace, name, area, shape, Value.of(values), slots);
+        return new DocumentDeclaration(
+                namespace,
+                name,
+                Objects.requireNonNull(title, () -> id() + " has no name"),
+                area,
+                shape,
+                Value.of(values),
+                slots);
     }
 }

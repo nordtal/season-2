@@ -95,7 +95,9 @@ class PreviewsTest {
         return new DocumentPreview(
                 "en",
                 new Documents.Packaged(
-                        DocumentSpec.game("test", name, "Test", shape).declaration(),
+                        DocumentSpec.game("test", name, "Test", shape)
+                                .titled(name)
+                                .declaration(),
                         Document.decode("{\"parts\": [" + parts + "]}")));
     }
 
@@ -204,7 +206,8 @@ class PreviewsTest {
 
     @Test
     void aDraftedMenuOpensOnTheMainThread() {
-        final DocumentSpec<DocumentSpec.None> menu = DocumentSpec.menu("test", "m", "Test", DocumentSpec.None.class);
+        final DocumentSpec<DocumentSpec.None> menu =
+                DocumentSpec.menu("test", "m", "Test", DocumentSpec.None.class).titled("M");
         previews.show(
                 ALEX, new DocumentPreview("en", new Documents.Packaged(menu.declaration(), Document.decode("""
                                 {"parts": [{"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Menu"}}]}]}"""))));

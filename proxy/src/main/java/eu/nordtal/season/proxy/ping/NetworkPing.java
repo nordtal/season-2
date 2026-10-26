@@ -27,8 +27,9 @@ public final class NetworkPing {
             @Example("5") long hours,
             @Example("40") long minutes) {}
 
-    static final DocumentSpec<ServerList> SERVER_LIST =
-            DocumentSpec.game("proxy", "server-list", "Server list", DocumentSpec.Shape.SERVER_LIST, ServerList.class);
+    static final DocumentSpec<ServerList> SERVER_LIST = DocumentSpec.game(
+                    "proxy", "server-list", "Server list", DocumentSpec.Shape.SERVER_LIST, ServerList.class)
+            .titled("Server list description");
 
     private final ProxyServer proxy;
     private final PlayersSpec players;

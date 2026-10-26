@@ -36,15 +36,16 @@ public final class HandInGui extends Menu {
     record Wanted(@Example("item.minecraft.diamond") GameContent item) {}
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
-            "smp",
-            "hand-in",
-            "Menus",
-            Window.class,
-            Slot.item("sample"),
-            Slot.item("confirm"),
-            Slot.list("wanted", Wanted.class),
-            Slot.label("still-needed"),
-            Slot.label("confirm-button"));
+                    "smp",
+                    "hand-in",
+                    "Menus",
+                    Window.class,
+                    Slot.item("sample"),
+                    Slot.item("confirm"),
+                    Slot.list("wanted", Wanted.class),
+                    Slot.label("still-needed"),
+                    Slot.label("confirm-button"))
+            .titled("Hand in");
 
     private static final int DEPOSIT_SLOTS = HandInPanel.DEPOSIT_SLOTS;
 

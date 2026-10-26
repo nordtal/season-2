@@ -69,6 +69,7 @@ class StoredDocumentsTest {
         assertThrows(
                 IllegalStateException.class,
                 () -> StoredDocumentsStandIn.none()
-                        .applied(DocumentSpec.message(StoredDocuments.NAMESPACE, "nowhere", "Nowhere")));
+                        .applied(DocumentSpec.message(StoredDocuments.NAMESPACE, "nowhere", "Nowhere")
+                                .titled("Nowhere")));
     }
 }

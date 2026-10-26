@@ -42,8 +42,9 @@ public final class StatusName {
             @Example("12") long teams,
             @Example("31") long players) {}
 
-    static final DocumentSpec<Status> STATUS =
-            DocumentSpec.channelName(StoredDocuments.NAMESPACE, "status", "Status channel", Status.class);
+    static final DocumentSpec<Status> STATUS = DocumentSpec.channelName(
+                    StoredDocuments.NAMESPACE, "status", "Status channel", Status.class)
+            .titled("Status channel name");
 
     private StatusName() {}
 

@@ -4,6 +4,7 @@
     "declaration": {
       "namespace": "test",
       "name": "prices",
+      "title": "Prices",
       "area": "Contribution",
       "shape": "MESSAGE",
       "values": {
@@ -201,6 +202,7 @@
     "declaration": {
       "namespace": "test",
       "name": "link",
+      "title": "Link",
       "area": "Link",
       "shape": "MESSAGE",
       "values": {
@@ -385,6 +387,7 @@
     "declaration": {
       "namespace": "test",
       "name": "welcome",
+      "title": "Welcome",
       "area": "Welcome",
       "shape": "MESSAGE",
       "values": {},
@@ -483,6 +486,7 @@
     "declaration": {
       "namespace": "test",
       "name": "left-out",
+      "title": "Left out",
       "area": "Contribution",
       "shape": "MESSAGE",
       "values": {},

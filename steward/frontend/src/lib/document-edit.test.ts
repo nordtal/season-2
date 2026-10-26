@@ -16,6 +16,7 @@ import {
 const declaration: DocumentDeclaration = {
   namespace: "discord",
   name: "rules",
+  title: "Rules",
   area: "Rules",
   shape: "MESSAGE",
   values: {},

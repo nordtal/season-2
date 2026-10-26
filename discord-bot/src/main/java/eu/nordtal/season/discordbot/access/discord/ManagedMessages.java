@@ -24,15 +24,17 @@ public final class ManagedMessages {
     record Tier(@Example("30") long days, @Example("500") Money price) {}
 
     static final DocumentSpec<Contribution> CONTRIBUTION = DocumentSpec.message(
-            StoredDocuments.NAMESPACE,
-            "contribution",
-            "Contribution",
-            Contribution.class,
-            Slot.list("tiers", Tier.class),
-            Slot.button("buy"));
+                    StoredDocuments.NAMESPACE,
+                    "contribution",
+                    "Contribution",
+                    Contribution.class,
+                    Slot.list("tiers", Tier.class),
+                    Slot.button("buy"))
+            .titled("Prices and buy button");
 
-    static final DocumentSpec<DocumentSpec.None> LINK =
-            DocumentSpec.message(StoredDocuments.NAMESPACE, "link", "Link", Slot.button("link"));
+    static final DocumentSpec<DocumentSpec.None> LINK = DocumentSpec.message(
+                    StoredDocuments.NAMESPACE, "link", "Link", Slot.button("link"))
+            .titled("Link instructions and button");
 
     private final GuildLanguages languages;
     private final Tiers tiers;

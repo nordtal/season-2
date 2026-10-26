@@ -21,13 +21,14 @@ class DocumentCheckTest {
     record Tier(@Example("30") long days, @Example("300") Money price) {}
 
     static final DocumentSpec<Summary> SUMMARY = DocumentSpec.message(
-            "test",
-            "summary",
-            "Purchase",
-            Summary.class,
-            Slot.button("confirm"),
-            Slot.list("tiers", Tier.class),
-            Slot.button("extra").optional());
+                    "test",
+                    "summary",
+                    "Purchase",
+                    Summary.class,
+                    Slot.button("confirm"),
+                    Slot.list("tiers", Tier.class),
+                    Slot.button("extra").optional())
+            .titled("Summary");
 
     static final String SOUND = """
             {"parts": [
@@ -47,14 +48,15 @@ class DocumentCheckTest {
     record Wanted(@Example("Diamond") String item) {}
 
     static final DocumentSpec<Wheel> MENU = DocumentSpec.menu(
-            "test",
-            "wheel",
-            "Menus",
-            Wheel.class,
-            Slot.item("hub"),
-            Slot.item("target", Target.class),
-            Slot.list("wanted", Wanted.class),
-            Slot.label("left"));
+                    "test",
+                    "wheel",
+                    "Menus",
+                    Wheel.class,
+                    Slot.item("hub"),
+                    Slot.item("target", Target.class),
+                    Slot.list("wanted", Wanted.class),
+                    Slot.label("left"))
+            .titled("Wheel");
 
     static final String MENU_SOUND = """
             {"parts": [
@@ -240,7 +242,8 @@ class DocumentCheckTest {
 
     record Code() {}
 
-    static final DocumentSpec<Code> CODE = DocumentSpec.modal("test", "code", "Link", Code.class, Slot.input("code"));
+    static final DocumentSpec<Code> CODE = DocumentSpec.modal("test", "code", "Link", Code.class, Slot.input("code"))
+            .titled("Code");
 
     @Test
     void aModalHoldsItsTitleAndOneFieldPerRow() {
@@ -257,7 +260,8 @@ class DocumentCheckTest {
 
     @Test
     void aSectionHoldsOneToThreeTextBlocksAndOneAccessory() {
-        final DocumentSpec<DocumentSpec.None> spec = DocumentSpec.message("test", "section", "Link");
+        final DocumentSpec<DocumentSpec.None> spec =
+                DocumentSpec.message("test", "section", "Link").titled("Section");
         assertEquals(
                 List.of(
                         "a section holds 0 text blocks, Discord draws 1 to 3",

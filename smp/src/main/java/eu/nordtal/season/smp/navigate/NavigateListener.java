@@ -22,8 +22,9 @@ public final class NavigateListener implements Listener {
 
     record Arrived(@Example("Home") String target) {}
 
-    static final DocumentSpec<Arrived> ARRIVED =
-            DocumentSpec.game("smp", "navigate-arrived", "Navigate", DocumentSpec.Shape.CHAT, Arrived.class);
+    static final DocumentSpec<Arrived> ARRIVED = DocumentSpec.game(
+                    "smp", "navigate-arrived", "Navigate", DocumentSpec.Shape.CHAT, Arrived.class)
+            .titled("Target reached");
 
     private final Plugin plugin;
     private final PlaceDao dao;

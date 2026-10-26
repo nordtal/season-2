@@ -42,7 +42,8 @@ public final class LinkFlow extends ListenerAdapter {
     private static final int CODE_MAX_LENGTH = 16;
 
     static final DocumentSpec<DocumentSpec.None> CODE = DocumentSpec.modal(
-            StoredDocuments.NAMESPACE, "link-code", "Link", DocumentSpec.None.class, Slot.input("code"));
+                    StoredDocuments.NAMESPACE, "link-code", "Link", DocumentSpec.None.class, Slot.input("code"))
+            .titled("Code form");
 
     private final AccessDirectory access;
     private final AccessRoles roles;

@@ -16,7 +16,7 @@ import type {
 } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
-import { documentId, documentMatches, documentName, documentOf, languagesOf, type PageCard } from "@/lib/documents"
+import { documentId, documentMatches, documentOf, languagesOf, type PageCard } from "@/lib/documents"
 import {
   currentOf,
   ENGLISH,
@@ -334,7 +334,7 @@ function FallenBack() {
 }
 
 function cardName(card: PageCard): string {
-  return card.kind === "document" ? documentName(card.view.declaration) : messageName(card.text.entry)
+  return card.kind === "document" ? card.view.declaration.title : messageName(card.text.entry)
 }
 
 /** An open document's draft, which the page keeps while another document is open. */

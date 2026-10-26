@@ -22,8 +22,9 @@ import org.jspecify.annotations.Nullable;
 /** The spawn NPC, a {@link Mannequin} that a player clicks to open the objective menu. */
 public final class SpawnNpc {
 
-    static final DocumentSpec<DocumentSpec.None> NAME =
-            DocumentSpec.game("smp", "npc-name", "Spawn NPC", DocumentSpec.Shape.HOLOGRAM);
+    static final DocumentSpec<DocumentSpec.None> NAME = DocumentSpec.game(
+                    "smp", "npc-name", "Spawn NPC", DocumentSpec.Shape.HOLOGRAM)
+            .titled("Spawn NPC name");
 
     private final Plugin plugin;
     private final NpcSpec config;

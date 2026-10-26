@@ -45,13 +45,14 @@ public final class SystemLines implements Listener {
             @Example("advancements.story.mine_diamond.title")
             GameContent advancement) {}
 
-    static final DocumentSpec<Said> CHAT_LINE = line("chat-line", Said.class);
-    static final DocumentSpec<Who> JOIN = line("join", Who.class);
-    static final DocumentSpec<Who> LEAVE = line("leave", Who.class);
+    static final DocumentSpec<Said> CHAT_LINE = line("chat-line", Said.class).titled("Chat line");
+    static final DocumentSpec<Who> JOIN = line("join", Who.class).titled("Player joined");
+    static final DocumentSpec<Who> LEAVE = line("leave", Who.class).titled("Player left");
     /** Also the hunger games kill feed. */
-    static final DocumentSpec<Died> DEATH = line("death", Died.class);
+    static final DocumentSpec<Died> DEATH = line("death", Died.class).titled("Death");
 
-    static final DocumentSpec<Earned> ADVANCEMENT = line("advancement", Earned.class);
+    static final DocumentSpec<Earned> ADVANCEMENT =
+            line("advancement", Earned.class).titled("Advancement earned");
 
     private static <V extends Record> DocumentSpec<V> line(final String name, final Class<V> values) {
         return DocumentSpec.game("paper-common", name, "Chat", DocumentSpec.Shape.CHAT, values);

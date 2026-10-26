@@ -44,8 +44,9 @@ public final class NavigateCommand {
 
     private static final int MAX_POI_NAME = 32;
 
-    static final DocumentSpec<DocumentSpec.None> NOTHING_TO_CANCEL =
-            DocumentSpec.game("smp", "navigate-nothing-to-cancel", "Navigate", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> NOTHING_TO_CANCEL = DocumentSpec.game(
+                    "smp", "navigate-nothing-to-cancel", "Navigate", DocumentSpec.Shape.CHAT)
+            .titled("Navigation already off");
 
     record Named(@Example("Home") String name) {}
 
@@ -54,16 +55,21 @@ public final class NavigateCommand {
     /** The plain help line of a subcommand, which the command help's line takes in. */
     record Described(Sub sub) {}
 
-    static final DocumentSpec<Named> ADDED = poi("poi-added", Named.class);
-    static final DocumentSpec<Named> REMOVED = poi("poi-removed", Named.class);
-    static final DocumentSpec<Named> DUPLICATE = poi("poi-duplicate", Named.class);
-    static final DocumentSpec<Named> NOT_FOUND = poi("poi-not-found", Named.class);
+    static final DocumentSpec<Named> ADDED = poi("poi-added", Named.class).titled("Point of interest added");
+    static final DocumentSpec<Named> REMOVED = poi("poi-removed", Named.class).titled("Point of interest removed");
+    static final DocumentSpec<Named> DUPLICATE =
+            poi("poi-duplicate", Named.class).titled("Name taken");
+    static final DocumentSpec<Named> NOT_FOUND =
+            poi("poi-not-found", Named.class).titled("Point of interest not found");
     /** Points of interest are public to see and to use; removing is the one asymmetry. */
-    static final DocumentSpec<DocumentSpec.None> NOT_YOURS =
-            DocumentSpec.game("smp", "poi-not-yours", "Points of interest", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> NOT_YOURS = DocumentSpec.game(
+                    "smp", "poi-not-yours", "Points of interest", DocumentSpec.Shape.CHAT)
+            .titled("Point of interest of another player");
 
-    static final DocumentSpec<MaxLength> BAD_NAME = poi("poi-bad-name", MaxLength.class);
-    static final DocumentSpec<Described> DESCRIBE = poi("poi-describe", Described.class);
+    static final DocumentSpec<MaxLength> BAD_NAME =
+            poi("poi-bad-name", MaxLength.class).titled("Name too long");
+    static final DocumentSpec<Described> DESCRIBE =
+            poi("poi-describe", Described.class).titled("Command descriptions");
 
     private static <V extends Record> DocumentSpec<V> poi(final String name, final Class<V> values) {
         return DocumentSpec.game("smp", name, "Points of interest", DocumentSpec.Shape.CHAT, values);

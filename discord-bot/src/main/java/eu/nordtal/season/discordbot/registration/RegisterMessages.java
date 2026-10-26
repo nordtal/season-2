@@ -17,7 +17,8 @@ import org.jdbi.v3.core.Jdbi;
 public final class RegisterMessages {
 
     static final DocumentSpec<DocumentSpec.None> REGISTER = DocumentSpec.message(
-            StoredDocuments.NAMESPACE, "hunger-games-register", "Register", Slot.button("register"));
+                    StoredDocuments.NAMESPACE, "hunger-games-register", "Register", Slot.button("register"))
+            .titled("Registration rules and button");
 
     private final GuildLanguages languages;
     private final DocumentRenderer renderer;

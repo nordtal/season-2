@@ -345,7 +345,7 @@ class MessageBundlesTest {
     }
 
     private static final String DECLARATIONS = """
-            [{"namespace": "smp", "name": "welcome", "area": "Join", "shape": "MESSAGE", "values": {}, "slots": []}]
+            [{"namespace": "smp", "name": "welcome", "title": "Welcome", "area": "Join", "shape": "MESSAGE", "values": {}, "slots": []}]
             """;
 
     private static final String WELCOME = """

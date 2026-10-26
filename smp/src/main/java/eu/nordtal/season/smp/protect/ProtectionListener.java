@@ -39,8 +39,9 @@ import org.bukkit.event.player.PlayerInteractEvent;
 public final class ProtectionListener implements Listener {
 
     /** On the action bar rather than in chat: it fires on a misclick as often as on an attempt. */
-    static final DocumentSpec<DocumentSpec.None> DENIED =
-            DocumentSpec.game("smp", "protect-denied", "Spawn", DocumentSpec.Shape.ACTION_BAR);
+    static final DocumentSpec<DocumentSpec.None> DENIED = DocumentSpec.game(
+                    "smp", "protect-denied", "Spawn", DocumentSpec.Shape.ACTION_BAR)
+            .titled("Spawn protected");
 
     private final Supplier<Boxes> regions;
     private final Identities identities;

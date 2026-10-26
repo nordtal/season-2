@@ -54,16 +54,21 @@ public final class Duels implements Arenas {
     /** The beat at zero seconds is the start of the fight. */
     record Countdown(@Example("5") long seconds) {}
 
-    static final DocumentSpec<DocumentSpec.None> WAITING =
-            DocumentSpec.game("smp", "duel-waiting", "Duels", DocumentSpec.Shape.CHAT);
-    static final DocumentSpec<DocumentSpec.None> QUEUED =
-            DocumentSpec.game("smp", "duel-queued", "Duels", DocumentSpec.Shape.CHAT);
-    static final DocumentSpec<Countdown> COUNTDOWN_LINE =
-            DocumentSpec.game("smp", "duel-countdown", "Duels", DocumentSpec.Shape.CHAT, Countdown.class);
-    static final DocumentSpec<Result> RESULT =
-            DocumentSpec.game("smp", "duel-result", "Duels", DocumentSpec.Shape.CHAT, Result.class);
-    static final DocumentSpec<Result> RESULT_TITLE =
-            DocumentSpec.game("smp", "duel-result-title", "Duels", DocumentSpec.Shape.TITLE, Result.class);
+    static final DocumentSpec<DocumentSpec.None> WAITING = DocumentSpec.game(
+                    "smp", "duel-waiting", "Duels", DocumentSpec.Shape.CHAT)
+            .titled("Waiting for an opponent");
+    static final DocumentSpec<DocumentSpec.None> QUEUED = DocumentSpec.game(
+                    "smp", "duel-queued", "Duels", DocumentSpec.Shape.CHAT)
+            .titled("Duel queued");
+    static final DocumentSpec<Countdown> COUNTDOWN_LINE = DocumentSpec.game(
+                    "smp", "duel-countdown", "Duels", DocumentSpec.Shape.CHAT, Countdown.class)
+            .titled("Duel countdown");
+    static final DocumentSpec<Result> RESULT = DocumentSpec.game(
+                    "smp", "duel-result", "Duels", DocumentSpec.Shape.CHAT, Result.class)
+            .titled("Duel result");
+    static final DocumentSpec<Result> RESULT_TITLE = DocumentSpec.game(
+                    "smp", "duel-result-title", "Duels", DocumentSpec.Shape.TITLE, Result.class)
+            .titled("Duel result title");
 
     private static final int COUNTDOWN_SECONDS = 3;
 

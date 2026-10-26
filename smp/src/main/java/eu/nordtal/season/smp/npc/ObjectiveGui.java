@@ -67,19 +67,20 @@ public final class ObjectiveGui extends Menu {
             @Example("62.5") double percent) {}
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
-            "smp",
-            "objectives",
-            "Menus",
-            Window.class,
-            Slot.item("heading"),
-            Slot.item("objective", Card.class),
-            Slot.list("wanted", HandInGui.Wanted.class),
-            Slot.item("share"),
-            Slot.list("shares", Share.class),
-            Slot.label("share-line"),
-            Slot.label("share-none"),
-            Slot.item("previous-page"),
-            Slot.item("next-page"));
+                    "smp",
+                    "objectives",
+                    "Menus",
+                    Window.class,
+                    Slot.item("heading"),
+                    Slot.item("objective", Card.class),
+                    Slot.list("wanted", HandInGui.Wanted.class),
+                    Slot.item("share"),
+                    Slot.list("shares", Share.class),
+                    Slot.label("share-line"),
+                    Slot.label("share-none"),
+                    Slot.item("previous-page"),
+                    Slot.item("next-page"))
+            .titled("Current objective");
 
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;

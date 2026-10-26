@@ -31,7 +31,8 @@ import org.bukkit.plugin.Plugin;
 /** The event handlers that hide, mute and protect the players in the waiting room. */
 public final class WaitingRoomRules implements Listener {
 
-    static final DocumentSpec<DocumentSpec.None> TAB_FOOTER = TabList.footer("limbo");
+    static final DocumentSpec<DocumentSpec.None> TAB_FOOTER =
+            TabList.footer("limbo").titled("Waiting room tab list footer");
 
     private final Plugin plugin;
     private final WaitingWorld world;

@@ -29,6 +29,7 @@ const texts = listing(
 const contribution: DocumentView = view(
   {
     name: "contribution",
+    title: "Contribution",
     values: { donated: { kind: "flag", example: "false" }, reason: { kind: "message", example: "admin/run.failed" } },
     slots: [
       { id: "tiers", type: "LIST", required: true, values: { price: { kind: "money", example: "100" } } },
@@ -67,6 +68,7 @@ const contribution: DocumentView = view(
 const modal: DocumentView = view(
   {
     name: "link-code",
+    title: "Code form",
     area: "Link",
     shape: "MODAL",
     slots: [{ id: "code", type: "INPUT", required: true, values: {} }],
@@ -82,7 +84,7 @@ const modal: DocumentView = view(
 /** A server's own tab list footer. */
 function footer(service: string): DocumentView {
   return view(
-    { namespace: service, name: "tab-footer", area: "Tab list", shape: "TAB_LIST" },
+    { namespace: service, name: "tab-footer", title: "Tab footer", area: "Tab list", shape: "TAB_LIST" },
     { parts: [] },
     {
       game: true,
@@ -175,7 +177,7 @@ describe("the list of documents", () => {
 
     await open(/^Discord/)
     await open("Link")
-    const card = await screen.findByRole("article", { name: "Link code" })
+    const card = await screen.findByRole("article", { name: "Code form" })
     await waitFor(() => expect(card.textContent).toMatch(/Link.*Code.*six digits/))
   })
 
@@ -287,7 +289,7 @@ describe("an open document", { timeout: 15_000 }, () => {
   })
 
   it("switches the language of the open document alone; every other card stays in English", async () => {
-    const donation = view({ name: "donation" }, contribution.packaged)
+    const donation = view({ name: "donation", title: "Donation" }, contribution.packaged)
     vi.stubGlobal(
       "fetch",
       backend(texts, undefined, { documents: documents([contribution, donation]), render: rendered }),
@@ -424,6 +426,7 @@ describe("an open document", { timeout: 15_000 }, () => {
         {
           namespace: "smp",
           name: "duel-result-title",
+          title: "Duel result title",
           area: "Duels",
           shape: "TITLE",
           values: { aura: { kind: "number", example: "3" } },
@@ -454,7 +457,14 @@ describe("an open document", { timeout: 15_000 }, () => {
 
   it("lines every card up with its branch's name, and stacked, with the tree's edge, open or closed", async () => {
     const title = view(
-      { namespace: "smp", name: "duel-result-title", area: "Duels", shape: "TITLE", values: {} },
+      {
+        namespace: "smp",
+        name: "duel-result-title",
+        title: "Duel result title",
+        area: "Duels",
+        shape: "TITLE",
+        values: {},
+      },
       { parts: [{ type: "TEXT", lines: [{ text: { en: "<good>Won</good>" } }] }] },
       { game: true, services: ["smp"] },
     )
@@ -482,6 +492,7 @@ describe("an open document", { timeout: 15_000 }, () => {
       {
         namespace: "smp",
         name: "duel-result-title",
+        title: "Duel result title",
         area: "Duels",
         shape: "TITLE",
         values: { aura: { kind: "number", example: "3" } },
@@ -510,6 +521,7 @@ describe("an open document", { timeout: 15_000 }, () => {
       {
         namespace: "smp",
         name: "grave",
+        title: "Grave",
         area: "Graves",
         shape: "MENU",
         values: { loot: { kind: "number", example: "3" } },

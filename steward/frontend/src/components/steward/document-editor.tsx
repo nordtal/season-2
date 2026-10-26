@@ -27,7 +27,6 @@ import {
   withLine,
   type PartPath,
 } from "@/lib/document-edit"
-import { documentName } from "@/lib/documents"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { useDocumentDrawing, useDocuments, useGameAction, useSaveDocument } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
@@ -117,7 +116,7 @@ export function DocumentEditor({
     onPart: (path, change) => onDraft({ parts: changePart(draft.parts, path, change) }),
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
   }
-  const name = documentName(view.declaration)
+  const name = view.declaration.title
   // A modal and a channel's name are no direct message; a game text goes to the admin's player.
   const sendable = view.game || view.declaration.shape === "MESSAGE" || view.declaration.shape === "PLAIN"
   const sendLabel = view.game ? t("steward.message-editor.show-in-game") : t("steward.message-editor.send-in-discord")

@@ -10,10 +10,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** What a document's file must fit, as the build writes it into {@code declarations.json}. */
+/**
+ * What a document's file must fit, as the build writes it into {@code declarations.json}.
+ *
+ * @param title what an admin reads as its name
+ */
 public record DocumentDeclaration(
         String namespace,
         String name,
+        String title,
         String area,
         DocumentSpec.Shape shape,
         Map<String, Value> values,
@@ -40,6 +45,7 @@ public record DocumentDeclaration(
         return new DocumentDeclaration(
                 namespace,
                 name,
+                title,
                 area,
                 shape,
                 Value.withExampleValues(values),

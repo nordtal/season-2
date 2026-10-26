@@ -23,10 +23,10 @@ public final class InfoTexts {
     record Invite(@Example("https://discord.gg/nordtal") String invite) {}
 
     /** The text of {@code /discord}. */
-    static final DocumentSpec<Invite> DISCORD = text("info-discord");
+    static final DocumentSpec<Invite> DISCORD = text("info-discord").titled("Discord link");
 
     /** The text of {@code /rules}. */
-    static final DocumentSpec<Invite> RULES = text("info-rules");
+    static final DocumentSpec<Invite> RULES = text("info-rules").titled("Network rules");
 
     private final MessageRenderer renderer;
     private final String invite;

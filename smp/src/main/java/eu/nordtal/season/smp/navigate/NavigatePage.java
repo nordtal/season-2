@@ -15,8 +15,9 @@ public final class NavigatePage {
     record Named(NavigationTarget.Kind kind) {}
 
     /** The names of the built-in kinds. They show in the menu and on the HUD, so they are plain. */
-    static final DocumentSpec<Named> NAME =
-            DocumentSpec.game("smp", "navigate-target", "Navigate", DocumentSpec.Shape.BOSS_BAR, Named.class);
+    static final DocumentSpec<Named> NAME = DocumentSpec.game(
+                    "smp", "navigate-target", "Navigate", DocumentSpec.Shape.BOSS_BAR, Named.class)
+            .titled("Fixed target names");
 
     private NavigatePage() {}
 

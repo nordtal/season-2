@@ -1,6 +1,5 @@
 import type { Document, DocumentDeclaration, DocumentPart, DocumentView, MessageText } from "@/lib/api"
 import { ENGLISH, type Language } from "@/lib/message-text"
-import { sentenceOf } from "@/lib/words"
 
 /** One card of the Translations page: a Discord document, or a text of a bundle. */
 export type PageCard = { kind: "document"; view: DocumentView } | { kind: "text"; text: MessageText }
@@ -15,10 +14,6 @@ export function documentOf(view: DocumentView): Document {
 
 export function documentId(declaration: DocumentDeclaration): string {
   return `${declaration.namespace}/${declaration.name}`
-}
-
-export function documentName(declaration: DocumentDeclaration): string {
-  return sentenceOf(declaration.name.split("-")) || declaration.name
 }
 
 /** Returns every text the document shows, each as its versions in every language. */
@@ -46,7 +41,7 @@ export function documentMatches(view: DocumentView, query: string): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
   return [
-    documentName(view.declaration),
+    view.declaration.title,
     view.declaration.name,
     view.declaration.area,
     ...textsOf(documentOf(view)).flatMap((text) => Object.values(text).flat()),

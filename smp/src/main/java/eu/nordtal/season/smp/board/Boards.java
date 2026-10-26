@@ -64,13 +64,20 @@ public final class Boards {
             PlayerContext player,
             @Example("4200") long aura) {}
 
-    static final DocumentSpec<DocumentSpec.None> OBJECTIVE_TITLE = board("board-objective-title");
-    static final DocumentSpec<DocumentSpec.None> OBJECTIVE_FINISHED = board("board-objective-finished");
-    static final DocumentSpec<Milestone> OBJECTIVE_MILESTONE = board("board-objective-milestone", Milestone.class);
-    static final DocumentSpec<Row> OBJECTIVE_ROW = board("board-objective-row", Row.class);
-    static final DocumentSpec<DocumentSpec.None> AURA_TITLE = board("board-aura-title");
-    static final DocumentSpec<DocumentSpec.None> AURA_EMPTY = board("board-aura-empty");
-    static final DocumentSpec<AuraLine> AURA_ROW = board("board-aura-row", AuraLine.class);
+    static final DocumentSpec<DocumentSpec.None> OBJECTIVE_TITLE =
+            board("board-objective-title").titled("Objective board title");
+    static final DocumentSpec<DocumentSpec.None> OBJECTIVE_FINISHED =
+            board("board-objective-finished").titled("Objective board, every milestone finished");
+    static final DocumentSpec<Milestone> OBJECTIVE_MILESTONE =
+            board("board-objective-milestone", Milestone.class).titled("Objective board milestone");
+    static final DocumentSpec<Row> OBJECTIVE_ROW =
+            board("board-objective-row", Row.class).titled("Objective board row");
+    static final DocumentSpec<DocumentSpec.None> AURA_TITLE =
+            board("board-aura-title").titled("Aura board title");
+    static final DocumentSpec<DocumentSpec.None> AURA_EMPTY =
+            board("board-aura-empty").titled("Aura board, nobody yet");
+    static final DocumentSpec<AuraLine> AURA_ROW =
+            board("board-aura-row", AuraLine.class).titled("Aura board row");
 
     private static DocumentSpec<DocumentSpec.None> board(final String name) {
         return DocumentSpec.game("smp", name, "Boards", DocumentSpec.Shape.HOLOGRAM);

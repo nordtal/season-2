@@ -31,25 +31,28 @@ public final class Replies {
             @Example(" \uDBB8\uDC04") String admin,
             @Example("See you at spawn") String message) {}
 
-    public static final DocumentSpec<DocumentSpec.None> NOT_FROM_CONSOLE =
-            reply("command-not-from-console", "Commands", DocumentSpec.None.class);
+    public static final DocumentSpec<DocumentSpec.None> NOT_FROM_CONSOLE = reply(
+                    "command-not-from-console", "Commands", DocumentSpec.None.class)
+            .titled("Command not for the console");
     public static final DocumentSpec<DocumentSpec.None> PLAYER_OFFLINE =
-            reply("command-player-offline", "Commands", DocumentSpec.None.class);
+            reply("command-player-offline", "Commands", DocumentSpec.None.class).titled("Player not online");
     /** The usage of a command typed without its arguments, and what it does. */
-    public static final DocumentSpec<Help> HELP = reply("command-help", "Commands", Help.class);
+    public static final DocumentSpec<Help> HELP =
+            reply("command-help", "Commands", Help.class).titled("Private message command usage");
 
     /** The sender's copy of a private message. */
-    public static final DocumentSpec<PrivateLine> SENT = reply("msg-sent", "Private messages", PrivateLine.class);
+    public static final DocumentSpec<PrivateLine> SENT =
+            reply("msg-sent", "Private messages", PrivateLine.class).titled("Message sent");
     /** The recipient's copy of a private message. */
     public static final DocumentSpec<PrivateLine> RECEIVED =
-            reply("msg-received", "Private messages", PrivateLine.class);
+            reply("msg-received", "Private messages", PrivateLine.class).titled("Message received");
 
     public static final DocumentSpec<DocumentSpec.None> SELF =
-            reply("msg-self", "Private messages", DocumentSpec.None.class);
+            reply("msg-self", "Private messages", DocumentSpec.None.class).titled("Message to oneself");
     public static final DocumentSpec<DocumentSpec.None> NO_PARTNER =
-            reply("msg-no-partner", "Private messages", DocumentSpec.None.class);
+            reply("msg-no-partner", "Private messages", DocumentSpec.None.class).titled("Nobody to answer");
     public static final DocumentSpec<DocumentSpec.None> FAILED =
-            reply("msg-failed", "Private messages", DocumentSpec.None.class);
+            reply("msg-failed", "Private messages", DocumentSpec.None.class).titled("Message not delivered");
 
     private Replies() {}
 

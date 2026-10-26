@@ -38,26 +38,29 @@ public final class NavigateGui extends Menu {
     record Distance(@Example("350") long blocks) {}
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
-            "smp",
-            "navigate",
-            "Menus",
-            Window.class,
-            Slot.item("target", Target.class),
-            Slot.label("distance", Distance.class),
-            Slot.label("other-world"),
-            Slot.item("stop"),
-            Slot.label("stop-button"),
-            Slot.item("previous-page"),
-            Slot.label("page"),
-            Slot.item("next-page"));
+                    "smp",
+                    "navigate",
+                    "Menus",
+                    Window.class,
+                    Slot.item("target", Target.class),
+                    Slot.label("distance", Distance.class),
+                    Slot.label("other-world"),
+                    Slot.item("stop"),
+                    Slot.label("stop-button"),
+                    Slot.item("previous-page"),
+                    Slot.label("page"),
+                    Slot.item("next-page"))
+            .titled("Navigate");
 
     record Started(@Example("Home") String target) {}
 
-    static final DocumentSpec<Started> STARTED =
-            DocumentSpec.game("smp", "navigate-started", "Navigate", DocumentSpec.Shape.CHAT, Started.class);
+    static final DocumentSpec<Started> STARTED = DocumentSpec.game(
+                    "smp", "navigate-started", "Navigate", DocumentSpec.Shape.CHAT, Started.class)
+            .titled("Navigation started");
 
-    public static final DocumentSpec<DocumentSpec.None> STOPPED =
-            DocumentSpec.game("smp", "navigate-stopped", "Navigate", DocumentSpec.Shape.CHAT);
+    public static final DocumentSpec<DocumentSpec.None> STOPPED = DocumentSpec.game(
+                    "smp", "navigate-stopped", "Navigate", DocumentSpec.Shape.CHAT)
+            .titled("Navigation stopped");
 
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;

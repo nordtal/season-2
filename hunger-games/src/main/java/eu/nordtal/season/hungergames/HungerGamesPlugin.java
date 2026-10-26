@@ -70,13 +70,16 @@ public final class HungerGamesPlugin extends NordtalPlugin {
 
     record Readiness(TeamContext team, boolean ready) {}
 
-    static final DocumentSpec<Count> STARTED = reply("admin-started", "Admin", Count.class);
+    static final DocumentSpec<Count> STARTED =
+            reply("admin-started", "Admin", Count.class).titled("Hunger Games started");
     static final DocumentSpec<DocumentSpec.None> READY_HEADER =
-            reply("admin-ready-header", "Admin", DocumentSpec.None.class);
-    static final DocumentSpec<Readiness> READY_LINE = reply("admin-ready-line", "Admin", Readiness.class);
-    static final DocumentSpec<DocumentSpec.None> READY_SET = reply("lobby-ready-set", "Lobby", DocumentSpec.None.class);
+            reply("admin-ready-header", "Admin", DocumentSpec.None.class).titled("Hunger Games team readiness heading");
+    static final DocumentSpec<Readiness> READY_LINE =
+            reply("admin-ready-line", "Admin", Readiness.class).titled("Hunger Games team readiness line");
+    static final DocumentSpec<DocumentSpec.None> READY_SET =
+            reply("lobby-ready-set", "Lobby", DocumentSpec.None.class).titled("Player ready");
     static final DocumentSpec<DocumentSpec.None> NOT_REGISTERED =
-            reply("lobby-not-registered", "Lobby", DocumentSpec.None.class);
+            reply("lobby-not-registered", "Lobby", DocumentSpec.None.class).titled("Player not registered");
 
     private static <V extends Record> DocumentSpec<V> reply(
             final String name, final String area, final Class<V> values) {

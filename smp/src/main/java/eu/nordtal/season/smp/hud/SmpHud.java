@@ -35,11 +35,14 @@ public final class SmpHud {
 
     record Distance(@Example("350") long blocks) {}
 
-    static final DocumentSpec<World> WORLD = line("hud-world", World.class);
-    static final DocumentSpec<Progress> PROGRESS = line("hud-progress", Progress.class);
-    static final DocumentSpec<Distance> DISTANCE = line("hud-distance", Distance.class);
-    static final DocumentSpec<DocumentSpec.None> OTHER_WORLD =
-            DocumentSpec.game("smp", "hud-other-world", "HUD", DocumentSpec.Shape.BOSS_BAR);
+    static final DocumentSpec<World> WORLD = line("hud-world", World.class).titled("World in the HUD");
+    static final DocumentSpec<Progress> PROGRESS =
+            line("hud-progress", Progress.class).titled("Progress in the HUD");
+    static final DocumentSpec<Distance> DISTANCE =
+            line("hud-distance", Distance.class).titled("Distance in the HUD");
+    static final DocumentSpec<DocumentSpec.None> OTHER_WORLD = DocumentSpec.game(
+                    "smp", "hud-other-world", "HUD", DocumentSpec.Shape.BOSS_BAR)
+            .titled("Target in another world in the HUD");
 
     private static <V extends Record> DocumentSpec<V> line(final String name, final Class<V> values) {
         return DocumentSpec.game("smp", name, "HUD", DocumentSpec.Shape.BOSS_BAR, values);

@@ -33,8 +33,9 @@ public final class GraveListener implements Listener {
 
     record Cost(@Example("50") long aura) {}
 
-    static final DocumentSpec<Cost> DEATH_COST =
-            DocumentSpec.game("smp", "aura-death", "Aura", DocumentSpec.Shape.CHAT, Cost.class);
+    static final DocumentSpec<Cost> DEATH_COST = DocumentSpec.game(
+                    "smp", "aura-death", "Aura", DocumentSpec.Shape.CHAT, Cost.class)
+            .titled("Aura lost by a death");
 
     private final Plugin plugin;
     private final AuraDao aura;

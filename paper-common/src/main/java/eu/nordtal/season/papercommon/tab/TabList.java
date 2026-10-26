@@ -22,8 +22,9 @@ public final class TabList {
     public record Counted(
             @Example("12") long online, @Example("100") long max) {}
 
-    public static final DocumentSpec<DocumentSpec.None> HEADER =
-            DocumentSpec.game("paper-common", "tab-header", "Tab list", DocumentSpec.Shape.TAB_LIST);
+    public static final DocumentSpec<DocumentSpec.None> HEADER = DocumentSpec.game(
+                    "paper-common", "tab-header", "Tab list", DocumentSpec.Shape.TAB_LIST)
+            .titled("Tab list header");
 
     private final MessageRenderer renderer;
 

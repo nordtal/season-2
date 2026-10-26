@@ -35,8 +35,9 @@ import org.slf4j.LoggerFactory;
  */
 public final class LootRefill {
 
-    static final DocumentSpec<DocumentSpec.None> REFILL =
-            DocumentSpec.game("hunger-games", "loot-refill", "Game", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> REFILL = DocumentSpec.game(
+                    "hunger-games", "loot-refill", "Game", DocumentSpec.Shape.CHAT)
+            .titled("Loot restocked");
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LootRefill.class);
 

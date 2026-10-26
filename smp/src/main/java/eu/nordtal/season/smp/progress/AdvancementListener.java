@@ -32,8 +32,9 @@ public final class AdvancementListener implements Listener {
 
     record Award(@Example("50") int aura, @Example("1") int spins) {}
 
-    static final DocumentSpec<Award> AWARDED =
-            DocumentSpec.game("smp", "aura-advancement", "Aura", DocumentSpec.Shape.CHAT, Award.class);
+    static final DocumentSpec<Award> AWARDED = DocumentSpec.game(
+                    "smp", "aura-advancement", "Aura", DocumentSpec.Shape.CHAT, Award.class)
+            .titled("Aura for an advancement");
 
     private final Plugin plugin;
     private final Jdbi jdbi;

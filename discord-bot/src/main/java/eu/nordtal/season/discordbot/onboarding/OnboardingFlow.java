@@ -45,17 +45,19 @@ import org.jspecify.annotations.Nullable;
 public final class OnboardingFlow extends ListenerAdapter {
 
     /** The answer to a language choice. It asks for the region in the chosen language. */
-    static final DocumentSpec<DocumentSpec.None> REGION =
-            DocumentSpec.message(StoredDocuments.NAMESPACE, "onboarding-region", "Onboarding", Slot.select("regions"));
+    static final DocumentSpec<DocumentSpec.None> REGION = DocumentSpec.message(
+                    StoredDocuments.NAMESPACE, "onboarding-region", "Onboarding", Slot.select("regions"))
+            .titled("Region choice");
 
     /** The dialog of the change message. It asks for the language and the region. */
     static final DocumentSpec<DocumentSpec.None> CHOICE = DocumentSpec.modal(
-            StoredDocuments.NAMESPACE,
-            "onboarding-choice",
-            "Onboarding",
-            DocumentSpec.None.class,
-            Slot.input("language"),
-            Slot.input("region"));
+                    StoredDocuments.NAMESPACE,
+                    "onboarding-choice",
+                    "Onboarding",
+                    DocumentSpec.None.class,
+                    Slot.input("language"),
+                    Slot.input("region"))
+            .titled("Language and region form");
 
     private final Onboarding onboarding;
     private final GuildLanguages languages;

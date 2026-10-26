@@ -25,8 +25,9 @@ import org.slf4j.Logger;
 public final class Presence implements Listener {
 
     /** English only by necessity: without the identity there is no language to read. */
-    static final DocumentSpec<DocumentSpec.None> DATABASE_UNREACHABLE =
-            DocumentSpec.game("paper-common", "database-unreachable", "Login", DocumentSpec.Shape.KICK_SCREEN);
+    static final DocumentSpec<DocumentSpec.None> DATABASE_UNREACHABLE = DocumentSpec.game(
+                    "paper-common", "database-unreachable", "Login", DocumentSpec.Shape.KICK_SCREEN)
+            .titled("Progress cannot be loaded");
 
     private final Plugin plugin;
     private final Identities identities;

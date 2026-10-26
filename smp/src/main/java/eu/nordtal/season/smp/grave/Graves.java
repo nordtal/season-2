@@ -57,10 +57,12 @@ public final class Graves {
 
     record Experience(@Example("30") int experience) {}
 
-    static final DocumentSpec<Left> HOLOGRAM =
-            DocumentSpec.game("smp", "grave-hologram", "Graves", DocumentSpec.Shape.HOLOGRAM, Left.class);
-    static final DocumentSpec<Experience> EXPERIENCE =
-            DocumentSpec.game("smp", "grave-experience", "Graves", DocumentSpec.Shape.CHAT, Experience.class);
+    static final DocumentSpec<Left> HOLOGRAM = DocumentSpec.game(
+                    "smp", "grave-hologram", "Graves", DocumentSpec.Shape.HOLOGRAM, Left.class)
+            .titled("Time left on a grave");
+    static final DocumentSpec<Experience> EXPERIENCE = DocumentSpec.game(
+                    "smp", "grave-experience", "Graves", DocumentSpec.Shape.CHAT, Experience.class)
+            .titled("Experience from a grave");
 
     private final Plugin plugin;
     private final GraveDao dao;

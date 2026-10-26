@@ -241,7 +241,7 @@ class InboxIntegrationTest {
                 DiscordId.of("1"),
                 new DocumentPreview(
                         "de", new Documents.Packaged(Documents.decode("""
-                                        [{"namespace":"bot","name":"welcome","area":"Join","shape":"MESSAGE",
+                                        [{"namespace":"bot","name":"welcome","title":"Welcome","area":"Join","shape":"MESSAGE",
                                           "values":{"player":{"kind":"text","example":"Alex"}},
                                           "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}}]}]""").getFirst(), Document.decode("""
                                         {"parts":[

@@ -48,8 +48,9 @@ public final class StatusChannels {
             @Example("smp") SeasonPhase phase,
             @Example("pre-event") SeasonPhase previous) {}
 
-    static final DocumentSpec<Phase> ANNOUNCE =
-            DocumentSpec.plain(StoredDocuments.NAMESPACE, "announce-phase", "Announcements", Phase.class);
+    static final DocumentSpec<Phase> ANNOUNCE = DocumentSpec.plain(
+                    StoredDocuments.NAMESPACE, "announce-phase", "Announcements", Phase.class)
+            .titled("Phase change");
 
     private final JDA jda;
     private final GuildLanguages languages;

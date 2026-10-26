@@ -37,10 +37,10 @@ public final class GameHud {
     record Border(
             @Example("PT5M") Duration time, @Example("150") long distance, boolean shrinking) {}
 
-    static final DocumentSpec<Alive> ALIVE = line("hud-alive", Alive.class);
-    static final DocumentSpec<Dead> DEAD = line("hud-dead", Dead.class);
-    static final DocumentSpec<Loot> LOOT = line("hud-loot", Loot.class);
-    static final DocumentSpec<Border> BORDER = line("hud-border", Border.class);
+    static final DocumentSpec<Alive> ALIVE = line("hud-alive", Alive.class).titled("Players alive in the HUD");
+    static final DocumentSpec<Dead> DEAD = line("hud-dead", Dead.class).titled("Players dead in the HUD");
+    static final DocumentSpec<Loot> LOOT = line("hud-loot", Loot.class).titled("Next refill in the HUD");
+    static final DocumentSpec<Border> BORDER = line("hud-border", Border.class).titled("Border in the HUD");
 
     private static <V extends Record> DocumentSpec<V> line(final String name, final Class<V> values) {
         return DocumentSpec.game("hunger-games", name, "Game", DocumentSpec.Shape.BOSS_BAR, values);

@@ -31,10 +31,12 @@ public final class BorderController {
     record Shrink(
             @Example("100") long target, @Example("60") long seconds) {}
 
-    static final DocumentSpec<Shrink> SHRINK_STARTED =
-            DocumentSpec.game("hunger-games", "border-shrink-started", "Game", DocumentSpec.Shape.CHAT, Shrink.class);
-    static final DocumentSpec<DocumentSpec.None> PASSIVE_SHRINK_STARTED =
-            DocumentSpec.game("hunger-games", "border-passive-shrink-started", "Game", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<Shrink> SHRINK_STARTED = DocumentSpec.game(
+                    "hunger-games", "border-shrink-started", "Game", DocumentSpec.Shape.CHAT, Shrink.class)
+            .titled("Border shrinks");
+    static final DocumentSpec<DocumentSpec.None> PASSIVE_SHRINK_STARTED = DocumentSpec.game(
+                    "hunger-games", "border-passive-shrink-started", "Game", DocumentSpec.Shape.CHAT)
+            .titled("Border shrinks after a quiet time");
 
     private final Plugin plugin;
     private final World world;

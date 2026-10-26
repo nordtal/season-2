@@ -15,7 +15,10 @@ class DocumentMergeTest {
 
     private static Documents.Packaged packaged(final Slot... slots) {
         return new Documents.Packaged(
-                DocumentSpec.message("test", "merge", "Purchase", slots).declaration(), Document.decode(PACKAGED));
+                DocumentSpec.message("test", "merge", "Purchase", slots)
+                        .titled("Merge")
+                        .declaration(),
+                Document.decode(PACKAGED));
     }
 
     @Test
@@ -77,6 +80,7 @@ class DocumentMergeTest {
         final Documents.Packaged packaged = new Documents.Packaged(
                 DocumentSpec.menu(
                                 "test", "wheel", "Menus", DocumentSpec.None.class, Slot.item("hub"), Slot.label("left"))
+                        .titled("Wheel")
                         .declaration(),
                 menu);
         final Document written = Document.decode("""

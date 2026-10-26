@@ -29,8 +29,9 @@ public final class PortalGate implements Listener {
     /** {@code world} is the one that is still closed. */
     record Locked(WorldRole world) {}
 
-    static final DocumentSpec<Locked> LOCKED =
-            DocumentSpec.game("smp", "portal-locked", "Portals", DocumentSpec.Shape.CHAT, Locked.class);
+    static final DocumentSpec<Locked> LOCKED = DocumentSpec.game(
+                    "smp", "portal-locked", "Portals", DocumentSpec.Shape.CHAT, Locked.class)
+            .titled("Portal locked");
 
     private static final int REFUSAL_COOLDOWN_TICKS = 100;
 

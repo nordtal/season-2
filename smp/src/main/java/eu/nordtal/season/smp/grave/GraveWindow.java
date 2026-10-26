@@ -28,15 +28,16 @@ final class GraveWindow extends Menu {
             @Example("355") int z) {}
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
-            "smp",
-            "grave",
-            "Menus",
-            Window.class,
-            Slot.item("owner", Owner.class),
-            Slot.item("experience"),
-            Slot.label("experience-line"),
-            Slot.item("take-all"),
-            Slot.label("take-all-button"));
+                    "smp",
+                    "grave",
+                    "Menus",
+                    Window.class,
+                    Slot.item("owner", Owner.class),
+                    Slot.item("experience"),
+                    Slot.label("experience-line"),
+                    Slot.item("take-all"),
+                    Slot.label("take-all-button"))
+            .titled("Grave");
 
     private final Graves graves;
     private final UUID graveId;

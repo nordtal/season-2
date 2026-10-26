@@ -135,16 +135,26 @@ public final class Documents {
     /**
      * Checks each document against its declaration and writes {@code <output>/documents/<namespace>/declarations.json}.
      *
-     * @throws IllegalStateException if a document is missing, declared twice or refused by {@link DocumentCheck}
+     * @throws IllegalStateException if a document is missing, declared twice, has no name or another's in its area,
+     *     or is refused by {@link DocumentCheck}
      */
     public static void write(final Path output, final List<DocumentSpec<?>> specs, final ClassLoader loader)
             throws IOException {
         final List<String> problems = new ArrayList<>();
         final Set<String> seen = new HashSet<>();
+        final Set<List<String>> titles = new HashSet<>();
         final Map<String, List<DocumentDeclaration>> byNamespace = new TreeMap<>();
         for (final DocumentSpec<?> spec : specs) {
             if (!seen.add(spec.id())) {
                 problems.add(spec.id() + ": declared more than once");
+            }
+            final String title = spec.title();
+            if (title == null || title.isBlank()) {
+                problems.add(spec.id() + ": has no name");
+                continue;
+            }
+            if (!titles.add(List.of(spec.area(), title))) {
+                problems.add(spec.id() + ": " + spec.area() + " already has a document named " + title);
             }
             final DocumentDeclaration declaration = spec.declaration();
             byNamespace

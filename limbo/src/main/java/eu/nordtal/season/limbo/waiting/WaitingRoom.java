@@ -33,14 +33,18 @@ public final class WaitingRoom {
     /** How far the running update is; {@code counted} is false when the proxy sent no number. */
     record Progress(boolean counted, @Example("75") long percent) {}
 
-    static final DocumentSpec<DocumentSpec.None> PACK = screen("resource-pack");
-    static final DocumentSpec<DocumentSpec.None> BACKEND = screen("server-not-up");
-    static final DocumentSpec<Progress> UPDATE =
-            DocumentSpec.game("limbo", "update", "Waiting room", DocumentSpec.Shape.TITLE, Progress.class);
-    static final DocumentSpec<DocumentSpec.None> HELD = screen("server-stopped");
-    static final DocumentSpec<DocumentSpec.None> QUEUE = screen("next-in-line");
-    static final DocumentSpec<DocumentSpec.None> MAINTENANCE = screen("maintenance");
-    static final DocumentSpec<DocumentSpec.None> UNKNOWN = screen("unknown-reason");
+    static final DocumentSpec<DocumentSpec.None> PACK = screen("resource-pack").titled("Resource pack loading");
+    static final DocumentSpec<DocumentSpec.None> BACKEND =
+            screen("server-not-up").titled("Server not up yet");
+    static final DocumentSpec<Progress> UPDATE = DocumentSpec.game(
+                    "limbo", "update", "Waiting room", DocumentSpec.Shape.TITLE, Progress.class)
+            .titled("Update running");
+    static final DocumentSpec<DocumentSpec.None> HELD = screen("server-stopped").titled("Server stopped");
+    static final DocumentSpec<DocumentSpec.None> QUEUE = screen("next-in-line").titled("Next in line");
+    static final DocumentSpec<DocumentSpec.None> MAINTENANCE =
+            screen("maintenance").titled("Maintenance");
+    static final DocumentSpec<DocumentSpec.None> UNKNOWN =
+            screen("unknown-reason").titled("Waiting without a reason");
 
     private final Plugin plugin;
     private final LimboSpec config;

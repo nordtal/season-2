@@ -32,8 +32,9 @@ public final class LaunchCountdown {
             @Example("40") long minutes) {}
 
     /** The line under a login screen before the opening. */
-    public static final DocumentSpec<Countdown> LINE =
-            DocumentSpec.game("proxy", "launch-countdown", "Login", DocumentSpec.Shape.KICK_SCREEN, Countdown.class);
+    public static final DocumentSpec<Countdown> LINE = DocumentSpec.game(
+                    "proxy", "launch-countdown", "Login", DocumentSpec.Shape.KICK_SCREEN, Countdown.class)
+            .titled("Time until launch");
 
     private LaunchCountdown() {}
 

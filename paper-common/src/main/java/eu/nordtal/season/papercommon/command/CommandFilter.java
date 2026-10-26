@@ -23,8 +23,9 @@ import org.bukkit.event.player.PlayerCommandSendEvent;
  */
 public final class CommandFilter implements Listener {
 
-    static final DocumentSpec<DocumentSpec.None> UNKNOWN =
-            DocumentSpec.game("paper-common", "command-unknown", "Command", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> UNKNOWN = DocumentSpec.game(
+                    "paper-common", "command-unknown", "Command", DocumentSpec.Shape.CHAT)
+            .titled("Unknown command on a game server");
 
     private final Supplier<CommandAllowlist> allowlist;
     private final Predicate<UUID> admin;

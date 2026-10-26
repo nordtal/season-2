@@ -21,10 +21,12 @@ class DocumentsTest {
     record Greeting(
             @Example("Alex") String name, @Example("300") Money amount) {}
 
-    static final DocumentSpec<Greeting> GREETING =
-            DocumentSpec.message("test", "greeting", "Welcome", Greeting.class, Slot.button("go"));
+    static final DocumentSpec<Greeting> GREETING = DocumentSpec.message(
+                    "test", "greeting", "Welcome", Greeting.class, Slot.button("go"))
+            .titled("Greeting");
 
-    static final DocumentSpec<DocumentSpec.None> ABSENT = DocumentSpec.message("test", "absent", "Welcome");
+    static final DocumentSpec<DocumentSpec.None> ABSENT =
+            DocumentSpec.message("test", "absent", "Welcome").titled("Absent");
 
     @Test
     void aTextIsOneStringOrAListOfVersionsInEachLanguage() {
@@ -61,6 +63,7 @@ class DocumentsTest {
                 Documents.decode(Files.readString(output.resolve(Documents.declarations("test"))));
         assertEquals(List.of(GREETING.declaration()), written);
         assertEquals("money", written.getFirst().values().get("amount").kind());
+        assertEquals("Greeting", written.getFirst().title());
     }
 
     @Test
@@ -73,6 +76,25 @@ class DocumentsTest {
         assertTrue(
                 refused.getMessage().contains("test/absent: documents/test/absent.json is missing"),
                 refused.getMessage());
+    }
+
+    @Test
+    void theBuildRefusesADocumentWithoutANameOrWithTheNameOfAnotherInItsArea(@TempDir final Path output) {
+        final IllegalStateException refused = assertThrows(
+                IllegalStateException.class,
+                () -> Documents.write(
+                        output,
+                        List.of(
+                                GREETING,
+                                DocumentSpec.message("test", "greeting-again", "Welcome")
+                                        .titled("Greeting"),
+                                DocumentSpec.message("test", "untitled", "Welcome")),
+                        getClass().getClassLoader()));
+
+        assertTrue(
+                refused.getMessage().contains("test/greeting-again: Welcome already has a document named Greeting"),
+                refused.getMessage());
+        assertTrue(refused.getMessage().contains("test/untitled: has no name"), refused.getMessage());
     }
 
     @Test

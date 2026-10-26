@@ -2,7 +2,6 @@ import { PuzzlePieceIcon } from "@phosphor-icons/react"
 import { useId, useRef, useState } from "react"
 
 import type { SharedPartView, DocumentPart } from "@/lib/api"
-import { documentName } from "@/lib/documents"
 import type { Language } from "@/lib/message-text"
 import { useSharedPartChanges, useSaveSharedPart } from "@/lib/queries"
 import { t } from "@/lib/texts"
@@ -209,7 +208,7 @@ export function SharedPartDialog({
                         key={`${change.declaration.namespace}/${change.declaration.name}`}
                         className="flex min-w-0 flex-col gap-2"
                       >
-                        <h4 className="truncate text-sm font-medium">{documentName(change.declaration)}</h4>
+                        <h4 className="truncate text-sm font-medium">{change.declaration.title}</h4>
                         {change.problems.map((problem, index) => (
                           <p key={index} className="text-xs text-destructive">
                             {problem}

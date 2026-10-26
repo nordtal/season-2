@@ -10,11 +10,15 @@ import net.kyori.adventure.text.Component;
 /** Builds the screens of the pack station in the language of the player. */
 public final class PackMessages {
 
-    static final DocumentSpec<DocumentSpec.None> PROMPT = screen("pack-prompt");
-    static final DocumentSpec<DocumentSpec.None> DECLINED = screen("pack-declined");
-    static final DocumentSpec<DocumentSpec.None> FAILED_DOWNLOAD = screen("pack-failed-download");
-    static final DocumentSpec<DocumentSpec.None> INVALID_URL = screen("pack-invalid-url");
-    static final DocumentSpec<DocumentSpec.None> TIMEOUT = screen("pack-timeout");
+    static final DocumentSpec<DocumentSpec.None> PROMPT = screen("pack-prompt").titled("Resource pack request");
+    static final DocumentSpec<DocumentSpec.None> DECLINED =
+            screen("pack-declined").titled("Resource pack declined");
+    static final DocumentSpec<DocumentSpec.None> FAILED_DOWNLOAD =
+            screen("pack-failed-download").titled("Resource pack download failed");
+    static final DocumentSpec<DocumentSpec.None> INVALID_URL =
+            screen("pack-invalid-url").titled("Resource pack unavailable");
+    static final DocumentSpec<DocumentSpec.None> TIMEOUT =
+            screen("pack-timeout").titled("Resource pack request unanswered");
 
     private final MessageRenderer renderer;
 

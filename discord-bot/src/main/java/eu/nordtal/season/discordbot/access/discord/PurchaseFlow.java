@@ -67,19 +67,22 @@ public final class PurchaseFlow extends ListenerAdapter {
             @Example("2026-10-24T18:00:00Z") Instant until) {}
 
     static final DocumentSpec<DocumentSpec.None> CHOOSE = DocumentSpec.message(
-            StoredDocuments.NAMESPACE, "purchase-choose", "Purchase", Slot.select("days", Option.class));
+                    StoredDocuments.NAMESPACE, "purchase-choose", "Purchase", Slot.select("days", Option.class))
+            .titled("Period choice");
 
     static final DocumentSpec<Summary> SUMMARY = DocumentSpec.message(
-            StoredDocuments.NAMESPACE,
-            "purchase-summary",
-            "Purchase",
-            Summary.class,
-            Slot.button("confirm"),
-            Slot.button("change"),
-            Slot.button("donation"));
+                    StoredDocuments.NAMESPACE,
+                    "purchase-summary",
+                    "Purchase",
+                    Summary.class,
+                    Slot.button("confirm"),
+                    Slot.button("change"),
+                    Slot.button("donation"))
+            .titled("Purchase summary");
 
-    static final DocumentSpec<Link> LINK =
-            DocumentSpec.message(StoredDocuments.NAMESPACE, "purchase-link", "Purchase", Link.class);
+    static final DocumentSpec<Link> LINK = DocumentSpec.message(
+                    StoredDocuments.NAMESPACE, "purchase-link", "Purchase", Link.class)
+            .titled("Payment link");
 
     private final Tiers tiers;
     private final Purchases purchases;

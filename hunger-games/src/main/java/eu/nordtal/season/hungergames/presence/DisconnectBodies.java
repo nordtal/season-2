@@ -28,7 +28,8 @@ import org.slf4j.LoggerFactory;
 /** Spawns a stand for a player who quits during a game and returns the equipment when the player joins again. */
 public final class DisconnectBodies implements Listener {
 
-    static final DocumentSpec<TabList.Counted> TAB_FOOTER = TabList.countedFooter("hunger-games");
+    static final DocumentSpec<TabList.Counted> TAB_FOOTER =
+            TabList.countedFooter("hunger-games").titled("Hunger Games tab list footer");
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DisconnectBodies.class);
 

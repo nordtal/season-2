@@ -34,16 +34,20 @@ public final class NpcListener implements Listener {
 
     record Accepted(@Example("16") long amount) {}
 
-    static final DocumentSpec<DocumentSpec.None> NO_OBJECTIVE =
-            DocumentSpec.game("smp", "objectives-none", "Spawn NPC", DocumentSpec.Shape.CHAT);
-    static final DocumentSpec<Accepted> ACCEPTED =
-            DocumentSpec.game("smp", "hand-in-accepted", "Spawn NPC", DocumentSpec.Shape.CHAT, Accepted.class);
+    static final DocumentSpec<DocumentSpec.None> NO_OBJECTIVE = DocumentSpec.game(
+                    "smp", "objectives-none", "Spawn NPC", DocumentSpec.Shape.CHAT)
+            .titled("No current objective");
+    static final DocumentSpec<Accepted> ACCEPTED = DocumentSpec.game(
+                    "smp", "hand-in-accepted", "Spawn NPC", DocumentSpec.Shape.CHAT, Accepted.class)
+            .titled("Items handed in");
     /** Closing the window without confirming gives everything back, which is why nothing was taken here. */
-    static final DocumentSpec<DocumentSpec.None> NOTHING_WANTED =
-            DocumentSpec.game("smp", "hand-in-nothing-wanted", "Spawn NPC", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> NOTHING_WANTED = DocumentSpec.game(
+                    "smp", "hand-in-nothing-wanted", "Spawn NPC", DocumentSpec.Shape.CHAT)
+            .titled("Items not wanted");
 
-    static final DocumentSpec<DocumentSpec.None> NOTHING_CREDITED =
-            DocumentSpec.game("smp", "hand-in-nothing-credited", "Spawn NPC", DocumentSpec.Shape.CHAT);
+    static final DocumentSpec<DocumentSpec.None> NOTHING_CREDITED = DocumentSpec.game(
+                    "smp", "hand-in-nothing-credited", "Spawn NPC", DocumentSpec.Shape.CHAT)
+            .titled("Objective already finished");
 
     private final Plugin plugin;
     private final SpawnNpc npc;

@@ -94,13 +94,14 @@ public final class UpdateFeed {
             MessageRef what) {}
 
     static final DocumentSpec<Run> RUN = DocumentSpec.message(
-            StoredDocuments.NAMESPACE,
-            "admin-run",
-            "Admin channel",
-            Run.class,
-            Slot.list("services", Service.class),
-            Slot.list("why", Failure.class),
-            Slot.button("open").optional());
+                    StoredDocuments.NAMESPACE,
+                    "admin-run",
+                    "Admin channel",
+                    Run.class,
+                    Slot.list("services", Service.class),
+                    Slot.list("why", Failure.class),
+                    Slot.button("open").optional())
+            .titled("Update run");
 
     private record Drawn(String messageId, @Nullable RunRecord showing) {}
 

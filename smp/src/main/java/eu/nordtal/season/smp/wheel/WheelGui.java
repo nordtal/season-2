@@ -40,16 +40,17 @@ public final class WheelGui extends Menu {
     }
 
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
-            "smp",
-            "wheel",
-            "Menus",
-            Window.class,
-            Slot.item("hub"),
-            Slot.item("again", Again.class),
-            Slot.label("spins-left"),
-            Slot.label("rule-top"),
-            Slot.label("rule-bottom"),
-            Slot.label("again-button"));
+                    "smp",
+                    "wheel",
+                    "Menus",
+                    Window.class,
+                    Slot.item("hub"),
+                    Slot.item("again", Again.class),
+                    Slot.label("spins-left"),
+                    Slot.label("rule-top"),
+                    Slot.label("rule-bottom"),
+                    Slot.label("again-button"))
+            .titled("Wheel of Fortune");
 
     private final Inventory inventory;
     private final WheelStrip strip;

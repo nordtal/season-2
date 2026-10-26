@@ -56,10 +56,14 @@ public final class Homecoming {
 
     record Seconds(@Example("10") long seconds) {}
 
-    static final DocumentSpec<Named> MOVED_OUT = chat("return-moved-out", Named.class);
-    static final DocumentSpec<Named> WAITING_ROOM = chat("return-waiting-room", Named.class);
-    static final DocumentSpec<Seconds> COUNTDOWN = chat("return-countdown", Seconds.class);
-    static final DocumentSpec<DocumentSpec.None> NOW = chat("return-now", DocumentSpec.None.class);
+    static final DocumentSpec<Named> MOVED_OUT =
+            chat("return-moved-out", Named.class).titled("Moved to the waiting room");
+    static final DocumentSpec<Named> WAITING_ROOM =
+            chat("return-waiting-room", Named.class).titled("Server back, leaving the waiting room");
+    static final DocumentSpec<Seconds> COUNTDOWN =
+            chat("return-countdown", Seconds.class).titled("Return countdown");
+    static final DocumentSpec<DocumentSpec.None> NOW =
+            chat("return-now", DocumentSpec.None.class).titled("Return now");
 
     /** The seconds that the standby proxy announces the return before it happens. */
     public static final Duration NOTICE = Duration.ofSeconds(10);

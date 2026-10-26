@@ -966,6 +966,7 @@ export type SharedPartView = {
 export type DocumentDeclaration = {
   namespace: string
   name: string
+  title: string
   area: string
   shape: DocumentShape
   values: Record<string, DocumentValue>

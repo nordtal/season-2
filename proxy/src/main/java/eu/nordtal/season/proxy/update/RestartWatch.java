@@ -50,17 +50,23 @@ public final class RestartWatch {
 
     record Tick(@Example("10") long seconds) {}
 
-    static final DocumentSpec<Counted> COUNTDOWN = chat("restart-countdown", Counted.class);
-    static final DocumentSpec<Now> NOW = chat("restart-now", Now.class);
+    static final DocumentSpec<Counted> COUNTDOWN =
+            chat("restart-countdown", Counted.class).titled("Restart countdown");
+    static final DocumentSpec<Now> NOW = chat("restart-now", Now.class).titled("Restart now");
     /** What happens to the player, after the countdown's or the now's line. */
-    static final DocumentSpec<Fated> FATE = chat("restart-fate", Fated.class);
+    static final DocumentSpec<Fated> FATE =
+            chat("restart-fate", Fated.class).titled("What a restart means for the player");
 
-    static final DocumentSpec<Occasioned> CANCELLED = chat("restart-cancelled", Occasioned.class);
-    static final DocumentSpec<Occasioned> FAILED = chat("restart-failed", Occasioned.class);
-    static final DocumentSpec<DocumentSpec.None> VOICE = chat("restart-voice", DocumentSpec.None.class);
+    static final DocumentSpec<Occasioned> CANCELLED =
+            chat("restart-cancelled", Occasioned.class).titled("Restart cancelled");
+    static final DocumentSpec<Occasioned> FAILED =
+            chat("restart-failed", Occasioned.class).titled("Restart failed");
+    static final DocumentSpec<DocumentSpec.None> VOICE =
+            chat("restart-voice", DocumentSpec.None.class).titled("Voice chat restarts");
     /** The seconds left as the subtitle, the title empty. */
-    static final DocumentSpec<Tick> TICK =
-            DocumentSpec.game("proxy", "restart-tick", "Restart", DocumentSpec.Shape.TITLE, Tick.class);
+    static final DocumentSpec<Tick> TICK = DocumentSpec.game(
+                    "proxy", "restart-tick", "Restart", DocumentSpec.Shape.TITLE, Tick.class)
+            .titled("Restart countdown title");
 
     /** The display times of the tick subtitle. */
     private static final Title.Times TIMES =

@@ -35,6 +35,7 @@ class GameDocumentTest {
                             Slot.item("target", Target.class),
                             Slot.list("wanted", Wanted.class),
                             Slot.label("left"))
+                    .titled("Wheel")
                     .declaration(),
             Document.decode("""
                     {"parts": [
@@ -49,8 +50,9 @@ class GameDocumentTest {
 
     record Online(@Example("12") long online, boolean full) {}
 
-    private static final DocumentSpec<Online> FOOTER =
-            DocumentSpec.game("test", "footer", "Tab list", DocumentSpec.Shape.TAB_LIST, Online.class);
+    private static final DocumentSpec<Online> FOOTER = DocumentSpec.game(
+                    "test", "footer", "Tab list", DocumentSpec.Shape.TAB_LIST, Online.class)
+            .titled("Footer");
 
     private static final Documents.Packaged FOOTER_TEXT =
             new Documents.Packaged(FOOTER.declaration(), Document.decode("""
@@ -113,8 +115,9 @@ class GameDocumentTest {
 
     @Test
     void aTitlesFirstShownLineIsTheTitleAndTheLinesAfterItAreTheSubtitle() {
-        final DocumentSpec<Online> title =
-                DocumentSpec.game("test", "title", "Titles", DocumentSpec.Shape.TITLE, Online.class);
+        final DocumentSpec<Online> title = DocumentSpec.game(
+                        "test", "title", "Titles", DocumentSpec.Shape.TITLE, Online.class)
+                .titled("Title");
         final MessageRenderer reading =
                 RENDER.reading(spec -> new Documents.Packaged(title.declaration(), Document.decode("""
                 {"parts": [{"type": "TEXT", "lines": [
@@ -137,8 +140,9 @@ class GameDocumentTest {
 
     @Test
     void aBossBarIsItsShownLinesAsPlainTextOnOneLine() {
-        final DocumentSpec<Refill> bar =
-                DocumentSpec.game("test", "bar", "HUD", DocumentSpec.Shape.BOSS_BAR, Refill.class);
+        final DocumentSpec<Refill> bar = DocumentSpec.game(
+                        "test", "bar", "HUD", DocumentSpec.Shape.BOSS_BAR, Refill.class)
+                .titled("Bar");
         final MessageRenderer reading =
                 RENDER.reading(spec -> new Documents.Packaged(bar.declaration(), Document.decode("""
                 {"parts": [{"type": "TEXT", "lines": [

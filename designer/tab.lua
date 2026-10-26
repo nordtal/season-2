@@ -9,8 +9,10 @@
 
 local tab = {}
 
--- The width of the properties panel, in points
-local panelWidth = 150
+-- The widths of the tree and the properties panel, in points. The
+-- editor takes the rest; a longer node of the tree scrolls.
+local treeWidth = 150
+local panelWidth = 120
 
 -- A number of the model as text: JSON gives every number as a float
 local function shown(value)
@@ -128,7 +130,7 @@ function tab.open(context)
   local function build(sprite)
     dlg = api.Dialog{ title=tr("tab.title"), tab=true, closable=false }
     local function addTree()
-      dlg:tree{ id="tree", nodes=nodes or {}, hexpand=false,
+      dlg:tree{ id="tree", nodes=nodes or {}, width=treeWidth, hexpand=false,
                 onchange=function(ev) ctl.select(ev.node) end }
     end
     local own = dlg
@@ -222,7 +224,7 @@ function tab.open(context)
       setStatus(nil)
       showProperties()
     else
-      setStatus(tr("status.save_failed") .. "\n" .. tostring(err))
+      setStatus(tr("status.save_failed") .. " " .. tostring(err))
     end
   end
 
@@ -250,7 +252,8 @@ function tab.open(context)
         end
         err = { tostring(built) }
       end
-      setStatus(tr("status.failed") .. "\n" .. table.concat(err, "\n"))
+      -- The status label draws one line
+      setStatus(tr("status.failed") .. " " .. table.concat(err, " "))
     end)
     describing = this
     return this

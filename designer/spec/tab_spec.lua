@@ -172,6 +172,17 @@ describe("the Nordtal tab", function()
     assert.same({ "tree", "samerow", "editor", "samerow", "canvas" }, kinds(t.dialogs[1]))
   end)
 
+  it("gives the tree and the panel a width of their own, so the editor takes the spare room", function()
+    local t = setUp()
+    local widths = {}
+    for _, w in ipairs(t.dialogs[1].widgets) do
+      if w.kind == "tree" or w.kind == "canvas" or w.kind == "editor" then
+        table.insert(widths, { w.kind, w.args.width, w.args.hexpand })
+      end
+    end
+    assert.same({ { "tree", 150, false }, { "editor" }, { "canvas", 120, false } }, widths)
+  end)
+
   it("puts the tree right of the editor when the setting says so", function()
     local t = setUp({ treeSide="right" })
     assert.same({ "canvas", "samerow", "editor", "samerow", "tree" }, kinds(t.dialogs[1]))
@@ -219,11 +230,13 @@ describe("the Nordtal tab", function()
     assert.is_false(dlg.handlers.status.visible)
   end)
 
+  -- A label draws one line, so the reason follows the text on it
   it("shows why the pack could not be read", function()
     local t = setUp()
     t.started[1].args.onstderr("FAILURE: Build failed")
+    t.started[1].args.onstderr("glyphs.json > nordtal:gui: overlaps")
     t.started[1].args.onexit(1)
-    assert.equal("status.failed\nFAILURE: Build failed", t.dialogs[1].handlers.status.text)
+    assert.equal("status.failed FAILURE: Build failed glyphs.json > nordtal:gui: overlaps", t.dialogs[1].handlers.status.text)
   end)
 
   it("opens a clicked texture in the embedded editor and shows its properties", function()
@@ -289,7 +302,7 @@ describe("the Nordtal tab", function()
       { kind="sheet", title="Row text", texture={ id="nordtal:a.png", png="src/a.png", aseprite="art/a.aseprite" },
         cells={ { row=0, column=0, code="ZZ" } } } } } }, items={}, overrides={} }))
     local dlg = loaded(t)
-    assert.equal("status.failed\nnordtal:gui > Row text: ZZ is no code point", dlg.handlers.status.text)
+    assert.equal("status.failed nordtal:gui > Row text: ZZ is no code point", dlg.handlers.status.text)
   end)
 
   it("stops reading the pack when it closes and leaves the closed dialog alone", function()

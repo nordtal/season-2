@@ -1,7 +1,7 @@
 -- Opens a texture of the pack as a sprite and saves it as its
 -- .aseprite source under resource-pack/art/ and its PNG. api holds
--- sprites, open, isFile, filePath, makeAllDirectories, Image and
--- Sprite.
+-- sprites, open, isFile, filePath, makeAllDirectories, Image,
+-- Rectangle and Sprite.
 
 local textures = {}
 
@@ -19,7 +19,7 @@ local function animation(png, frames, source, api)
   for i, f in ipairs(frames) do
     local frame = i == 1 and sprite.frames[1] or sprite:newEmptyFrame()
     frame.duration = f.duration / 1000
-    sprite:newCel(sprite.layers[1], i, api.Image(whole, { x=f.x, y=f.y, width=f.width, height=f.height }), { x=0, y=0 })
+    sprite:newCel(sprite.layers[1], i, api.Image(whole, api.Rectangle(f.x, f.y, f.width, f.height)), { x=0, y=0 })
   end
   png:close()
   sprite.filename = source

@@ -194,7 +194,7 @@ abstract class EditPackSources : VanillaClientTask() {
                     }
 
                     "import" -> {
-                        ItemFiles(pack, ::jar).use { it.import(File(text("model")), text("id")) }
+                        ItemFiles(pack, ::jar).use { it.import(File(text("model")), text("id"), text("item"), options["at"] ?: "") }
                     }
 
                     else -> {

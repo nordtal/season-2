@@ -188,8 +188,18 @@ class ItemDefinitionsTest {
         assertEquals(listOf("pack", written.absolutePath), listOf(override["source"], override["file"]))
     }
 
+    /** Imports [source] as the model [id] into the model of the item `nordtal:lamp`, which draws an apple before. */
+    private fun imported(
+        source: File,
+        id: String = "nordtal:item/lamp",
+        at: String = "model",
+    ): List<File> {
+        if (!pack.resolve("src/assets/nordtal/items/lamp.json").isFile) files().use { it.write("nordtal:lamp", model(apple)) }
+        return files().use { it.import(source, id, "nordtal:lamp", at) }
+    }
+
     @Test
-    fun aBlockbenchModelIsImportedWithItsTexturesUnderTheChosenNamespace() {
+    fun aBlockbenchModelIsImportedWithItsTexturesUnderTheChosenNamespaceAndDrawnByTheItem() {
         val export = directory.resolve("export").apply { mkdirs() }
         export.resolve("lamp.json").writeText(
             """{ "credit": "Made with Blockbench", "texture_size": [32, 32],
@@ -199,15 +209,16 @@ class ItemDefinitionsTest {
         export.resolve("lamp.png").writeText("png")
         export.resolve("lamp.png.mcmeta").writeText("""{ "animation": {} }""")
 
-        val written = files().use { it.import(export.resolve("lamp.json"), "nordtal:item/lamp") }
+        val written = imported(export.resolve("lamp.json"))
 
         val model = pack.resolve("src/assets/nordtal/models/item/lamp.json")
         val png = pack.resolve("src/assets/nordtal/textures/item/lamp.png")
-        assertEquals(listOf(model, png, File(png.path + ".mcmeta")), written)
+        val item = pack.resolve("src/assets/nordtal/items/lamp.json")
+        assertEquals(listOf(model, png, File(png.path + ".mcmeta"), item), written)
         val textures = (OxfmtJson.read(model) as Map<*, *>)["textures"]
         assertEquals(mapOf("0" to "nordtal:item/lamp", "1" to "block/stone", "particle" to "nordtal:item/lamp"), textures)
         assertEquals("png", png.readText())
-        files().use { it.write("nordtal:lamp", model("""{ "type": "model", "model": "nordtal:item/lamp" }""")) }
+        assertEquals(OxfmtJson.read(model("""{ "type": "minecraft:model", "model": "nordtal:item/lamp" }""")), OxfmtJson.read(item))
     }
 
     @Test
@@ -215,16 +226,28 @@ class ItemDefinitionsTest {
         val export = directory.resolve("export").apply { mkdirs() }
         export.resolve("lamp.json").writeText("""{ "textures": { "0": "glow" } }""")
 
-        val missing = assertThrows<IllegalArgumentException> { files().use { it.import(export.resolve("lamp.json"), "nordtal:item/lamp") } }
+        val missing = assertThrows<IllegalArgumentException> { imported(export.resolve("lamp.json")) }
         export.resolve("glow.png").writeText("png")
-        files().use { it.import(export.resolve("lamp.json"), "nordtal:item/lamp") }
-        val existing = assertThrows<IllegalStateException> { files().use { it.import(export.resolve("lamp.json"), "nordtal:item/lamp") } }
+        imported(export.resolve("lamp.json"))
+        val existing = assertThrows<FieldRefusal> { imported(export.resolve("lamp.json")) }
 
         assertEquals(
             "Texture 0 of lamp.json is glow, which is neither beside it as glow.png nor in the pack or the client jar.",
             missing.message,
         )
-        assertEquals("src/assets/nordtal/models/item/lamp.json exists already.", existing.message)
+        assertEquals(listOf("id", "src/assets/nordtal/models/item/lamp.json exists already."), listOf(existing.field, existing.message))
+    }
+
+    @Test
+    fun anImportWhoseItemRefusesTheModelWritesNoFileAndCanBeRepeated() {
+        val export = directory.resolve("export").apply { mkdirs() }
+        export.resolve("lamp.json").writeText("""{ "textures": { "0": "lamp" } }""")
+        export.resolve("lamp.png").writeText("png")
+
+        assertThrows<IllegalArgumentException> { imported(export.resolve("lamp.json"), at = "model/cases/0") }
+        val written = imported(export.resolve("lamp.json"))
+
+        assertEquals(pack.resolve("src/assets/nordtal/models/item/lamp.json"), written[0])
     }
 
     @Test
@@ -232,10 +255,10 @@ class ItemDefinitionsTest {
         val export = directory.resolve("export").apply { mkdirs() }
         export.resolve("lamp.json").writeText("""{ "textures": { "0": "lamp" } }""")
         export.resolve("lamp.png").writeText("png")
-        pack.resolve("src/assets/nordtal").mkdirs()
+        files().use { it.write("nordtal:lamp", model(apple)) }
         pack.resolve("src/assets/nordtal/textures").writeText("a file where the folder belongs")
 
-        val refusal = assertThrows<IllegalStateException> { files().use { it.import(export.resolve("lamp.json"), "nordtal:item/lamp") } }
+        val refusal = assertThrows<IllegalStateException> { imported(export.resolve("lamp.json")) }
 
         assertTrue("so nothing was written" in refusal.message!!, refusal.message)
         assertTrue(!pack.resolve("src/assets/nordtal/models").exists())
@@ -247,10 +270,72 @@ class ItemDefinitionsTest {
         export.resolve("lamp.json").writeText("""{ "textures": { "0": "Lantern" } }""")
         export.resolve("Lantern.png").writeText("png")
 
-        val written = files().use { it.import(export.resolve("lamp.json"), "nordtal:item/lamp") }
+        val written = imported(export.resolve("lamp.json"))
 
         assertEquals(pack.resolve("src/assets/nordtal/textures/item/lantern.png"), written[1])
         assertEquals(mapOf("0" to "nordtal:item/lantern"), (OxfmtJson.read(written[0]) as Map<*, *>)["textures"])
+    }
+
+    /** A copy of the Blockbench project `blockbench/lamp.bbmodel` of the test resources, changed by [change]. */
+    private fun project(change: (MutableMap<String, Any?>) -> Unit = {}): File {
+        val text = javaClass.getResource("/blockbench/lamp.bbmodel")!!.readText()
+        @Suppress("UNCHECKED_CAST")
+        val json = JsonSlurper().parseText(text) as MutableMap<String, Any?>
+        change(json)
+        return directory.resolve("lamp.bbmodel").apply { writeText(JsonOutput.toJson(json)) }
+    }
+
+    @Test
+    fun aBlockbenchProjectIsImportedAsTheModelAndTexturesThatBlockbenchExports() {
+        val written = imported(project())
+
+        val model = OxfmtJson.read(written[0])
+        val expected =
+            OxfmtJson.read(
+                """{
+                  "textures": { "0": "nordtal:item/lamp_base", "glow": "nordtal:item/lamp_glow", "particle": "nordtal:item/lamp_glow" },
+                  "elements": [
+                    { "from": [4, 0, 4], "to": [12, 2, 12], "shade": false, "light_emission": 7, "faces": {
+                      "north": { "uv": [0, 0, 8, 2], "texture": "#0" },
+                      "east": { "uv": [0, 2, 8, 4], "rotation": 180, "texture": "#0" },
+                      "west": { "uv": [0, 2, 8, 4], "texture": "#0" },
+                      "up": { "uv": [0, 0, 16, 16], "texture": "#glow", "tintindex": 0 },
+                      "down": { "uv": [8, 8, 16, 16], "rotation": 90, "texture": "#0", "cullface": "down" } } },
+                    { "from": [5, 2, 5], "to": [11, 9, 11], "rotation": { "angle": 22.5, "axis": "y", "origin": [8, 8, 8], "rescale": true },
+                      "faces": { "north": { "uv": [0, 0, 12, 14], "texture": "#glow" } } },
+                    { "from": [7, 9, 7], "to": [9, 11, 9], "rotation": { "x": 30, "y": 45, "z": 0, "origin": [8, 10, 8] },
+                      "faces": { "up": { "uv": [0, 0, 4, 4], "texture": "#glow" } } }
+                  ],
+                  "display": {
+                    "gui": { "rotation": [30, 225, 0], "translation": [0, 1, 0], "scale": [0.625, 0.625, 0.625] },
+                    "head": { "translation": [0, 14, 0] }
+                  }
+                }""",
+            )
+        assertEquals(expected, model)
+        val glow = pack.resolve("src/assets/nordtal/textures/item/lamp_glow.png")
+        assertEquals(
+            listOf(pack.resolve("src/assets/nordtal/textures/item/lamp_base.png"), glow, File(glow.path + ".mcmeta")),
+            written.subList(1, 4),
+        )
+        assertEquals(listOf(16, 32), ImageIO.read(glow).let { listOf(it.width, it.height) })
+        assertEquals(
+            mapOf("animation" to mapOf("frametime" to 3, "interpolate" to true, "frames" to listOf(1, 0))),
+            OxfmtJson.read(File(glow.path + ".mcmeta")),
+        )
+    }
+
+    @Test
+    fun aBlockbenchProjectOfAnotherFormatOrWithAMeshIsRefused() {
+        val format = assertThrows<IllegalArgumentException> { imported(project { (it["meta"] as MutableMap<String, Any?>)["model_format"] = "bedrock" }) }
+        val mesh =
+            assertThrows<IllegalArgumentException> {
+                imported(project { (it["elements"] as MutableList<Any?>) += mapOf("name" to "blob", "type" to "mesh", "vertices" to emptyMap<String, Any>()) })
+            }
+
+        assertEquals("lamp.bbmodel is a Blockbench project of the format bedrock. Only Java Block/Item models can be imported.", format.message)
+        assertEquals("Element blob of lamp.bbmodel is a mesh. A Java Block/Item model holds only cubes.", mesh.message)
+        assertTrue(!pack.resolve("src/assets/nordtal/models/item/lamp.json").exists())
     }
 
     @Test
@@ -566,23 +651,6 @@ class ItemDefinitionsTest {
 
         assertEquals(pack.resolve("src/assets/minecraft/items/apple.json"), written)
         assertEquals(OxfmtJson.read(model("""{ "type": "minecraft:empty" }""")), OxfmtJson.read(written))
-    }
-
-    @Test
-    fun aBlockbenchProjectIsRefusedWithHowToExportIt() {
-        val project =
-            directory
-                .resolve(
-                    "lamp.bbmodel",
-                ).apply { writeText("""{ "meta": { "model_format": "java_block" }, "textures": [] }""") }
-
-        val refusal = assertThrows<IllegalArgumentException> { files().use { it.import(project, "nordtal:item/lamp") } }
-
-        assertEquals(
-            "lamp.bbmodel is a Blockbench project. Export it in Blockbench with File > Export > Export Block/Item Model and import the .json.",
-            refusal.message,
-        )
-        assertTrue(!pack.resolve("src/assets/nordtal/models/item/lamp.json").exists())
     }
 
     @Test

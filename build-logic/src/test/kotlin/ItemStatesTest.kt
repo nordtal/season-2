@@ -149,7 +149,10 @@ class ItemStatesTest {
             "minecraft:paper[item_model=\"nordtal:lamp\",charged_projectiles=[{id:\"minecraft:arrow\"}]]",
             present("minecraft:charged_projectiles").first().second,
         )
-        assertEquals(listOf("!minecraft:custom_name" to "minecraft:paper[item_model=\"nordtal:lamp\",!custom_name]"), present("minecraft:custom_name"))
+        assertEquals(
+            listOf("!minecraft:custom_name" to "minecraft:paper[item_model=\"nordtal:lamp\",!custom_name]"),
+            present("minecraft:custom_name"),
+        )
     }
 
     @Test

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.util.Properties
 
 class MinecraftInstanceChooserTest {
     @TempDir
@@ -65,7 +66,9 @@ class MinecraftInstanceChooserTest {
         assertNull(MinecraftInstanceChooser.save(store, started.resolve("resourcepacks"), started.resolve("resourcepacks")))
         assertEquals(
             started.absolutePath,
-            java.util.Properties().apply { store.reader().use { load(it) } }.getProperty("instance"),
+            Properties()
+                .apply { store.reader().use { load(it) } }
+                .getProperty("instance"),
         )
     }
 

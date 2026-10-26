@@ -1039,6 +1039,23 @@ describe("the Nordtal tab", function()
       { browser.handlers.choices.nodes[1].id, browser.handlers.choices.nodes[2].id })
   end)
 
+  it("shows why the client jar could not be read in each browser", function()
+    local t = setUp()
+    local w = wizard(t)
+    w.values.kind = "new.kind_override"
+    w.handlers.kind.onchange()
+    t.started[2].args.onstderr("* What went wrong:")
+    t.started[2].args.onstderr("> no client jar")
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(1)
+    assert.same({ "combobox kind", "label no client jar", "button create", "button cancel" }, layout(t.dialogs[#t.dialogs]))
+    local browser = t.dialogs[#t.dialogs]
+    browser.values.kind = "new.kind_vanilla_item"
+    browser.handlers.kind.onchange()
+    assert.is_nil(t.started[3])
+    assert.same({ "combobox kind", "label no client jar", "button create", "button cancel" }, layout(t.dialogs[#t.dialogs]))
+  end)
+
   it("reads the client jar once for the textures and the items", function()
     local t = setUp()
     t.world.vanilla = dkjson.encode({ version="26.2", textures={}, items={} })

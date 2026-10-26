@@ -229,9 +229,9 @@ end
 function wizard.open(context)
   local api, tr, model = context.api, context.tr, context.model
   local kind, values, refusal = "glyph", {}, nil
-  -- The listing of the client jar, whether it is being read, and the
-  -- id chosen in the browser of each kind
-  local listing, reading, chosen = nil, false, {}
+  -- The listing of the client jar, whether it is being read, why it
+  -- could not be read, and the id chosen in the browser of each kind
+  local listing, reading, unread, chosen = nil, false, nil, {}
   local dlg
   -- Set once the designer closed the wizard, so no late run or
   -- listing opens it again
@@ -290,6 +290,10 @@ function wizard.open(context)
   end
 
   local function browse()
+    if unread then
+      reason(unread)
+      return
+    end
     if not listing then
       dlg:label{ text=tr("new.reading") }
       dlg:newrow()
@@ -388,12 +392,12 @@ function wizard.open(context)
       dlg.bounds = api.Rectangle(x, y, size.width, size.height)
     end
     -- The listing may come at once, and then builds the dialog again
-    if browsers[kind] and not listing and not reading then
+    if browsers[kind] and not listing and not reading and not unread then
       reading = true
       context.listing(function(read, problem)
         reading = false
-        listing = read or {}
-        if problem then refusal = { lines=problem } end
+        listing = read
+        unread = not read and (problem or {}) or nil
         if not closed then build() end
       end)
     end

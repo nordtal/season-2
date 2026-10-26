@@ -209,8 +209,8 @@ of indent, and removes a file left empty.
 
 ## Item definitions
 
-Three tasks read and write item definitions under `assets/<namespace>/items/`, for Nordtal items and
-overrides of vanilla items, and import a model that Blockbench exported as Java model JSON. Each
+Four tasks read, write and edit item definitions under `assets/<namespace>/items/`, for Nordtal items
+and overrides of vanilla items, and import a Blockbench model into one of them. Each
 reads the client jar of the season's Minecraft version, which _Vanilla overrides_ describes, for what the pack
 does not hold, and opens it only then. Paths are absolute. A written file has four spaces of indent
 and one member per line, like the pack's other files.
@@ -218,19 +218,39 @@ and one member per line, like the pack's other files.
 ```bash
 ./gradlew -q :resource-pack:readItem -Pitem=minecraft:compass
 ./gradlew -q :resource-pack:writeItem -Pitem=nordtal:lamp -Pdefinition=/tmp/lamp.json
-./gradlew -q :resource-pack:importBlockbench -Pmodel=/tmp/export/lamp.json -Pid=nordtal:item/lamp
+./gradlew -q :resource-pack:editItem -Pitem=nordtal:lamp -Pat=model -Padd=cases '-Pfields={"when":"gui"}'
+./gradlew -q :resource-pack:importBlockbench -Pmodel=/tmp/lamp.bbmodel -Pid=nordtal:item/lamp -Pitem=nordtal:lamp -Pat=model
 ```
 
-| task               | options              | prints                                                              |
-| ------------------ | -------------------- | ------------------------------------------------------------------- |
-| `readItem`         | `item`               | one line of JSON: the definition, where it comes from, its problems |
-| `writeItem`        | `item`, `definition` | the absolute path of the definition it wrote                        |
-| `importBlockbench` | `model`, `id`        | the absolute path of the model and of each texture it copied        |
+| task               | options                                 | prints                                                                                    |
+| ------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `readItem`         | `item`                                  | one line of JSON: the definition, where it comes from, its problems, `types` and `models` |
+| `writeItem`        | `item`, `definition`                    | the absolute path of the definition it wrote                                              |
+| `editItem`         | `item`, `at`, `fields`, `add`, `remove` | the absolute path of the definition it wrote                                              |
+| `importBlockbench` | `model`, `id`, `item`, `at`             | the absolute path of the model, of each texture and of the definition it wrote            |
 
 The line of `readItem` holds `item`, `source` (`pack`, or `vanilla` for a definition only the jar
 has), `file` (the path in the pack, or null), `definition`, `problems` (a list of strings, empty when
 the definition passes) and `types`, every model type, property, tint source and special model that
-the rules below know, for an editor to offer.
+the rules below know, with the fields of each, for an editor to offer. A field is `name`, `kind` and
+`required`. Its kind is a value (`id`, `text`, `number`, `boolean`, `json`), a nested object
+(`model`, `special`, `property`) or a list (`models`, `cases`, `entries`, `tints`). `types.kinds` maps
+each value kind to the JSON type it holds, each list kind to the kind of its elements and each typed
+kind to its table of types. `models` lists each model that the definition draws with its textures and
+their parents' textures. A texture whose PNG the pack holds has the fields of an override in the pack
+model (`texture`, `mcmeta`, `animation`, `frames`), any other only its `id`. A texture is a draft
+when it differs from the last commit.
+
+`editItem` changes the object at `at`, a path of keys and list indices such as `model/cases/0`.
+`fields` is a JSON object whose members it sets, and a member that is null is removed. With `add`, it
+appends a new object with those fields to the list of that name instead, or sets it as the model of
+that name, such as `fallback`, which must be absent. `-Premove=true` removes the object at `at`. A new
+type or property drops every field that it does not allow or gives another kind. A model, a list or a
+property that the object requires and lacks starts as `minecraft:empty`, an empty list or the first
+property of its type. A value of another kind is refused with `refused` and the field's name. When a
+required value is still missing, such as `block_state_property` after a new property, it prints
+`needs`, the field and its kind on a line for each, and fails. The result is checked and written like
+`writeItem`'s, and a vanilla item that the pack lacks is read from the jar and written as an override.
 
 - The rules follow the codecs of the client jar: every model type (`empty`, `model`, `composite`,
   `condition`, `select`, `range_dispatch`, `special` and `bundle/selected_item`), each property of
@@ -242,11 +262,18 @@ the rules below know, for an editor to offer.
   atlas generates, such as a paletted permutation of an armor trim.
 - `checkPack` holds every definition in the pack to the same rules and references, without the jar:
   a reference into `minecraft` passes there, and `writeItem` is what checks it against the jar.
-- An import writes the model at `id` under `models/`. Each texture whose PNG lies beside the export
-  is copied, with its `.mcmeta`, into the folder of the model under `textures/` under its name in
-  lower case, and its reference is rewritten to the namespace of `id`. A reference that the pack or
-  the jar resolves, such as `block/stone`, stays. A file that exists is refused, and the model and
-  its textures are written all or none.
+- An import reads a `.bbmodel` project of the format Java Block/Item, with its textures embedded,
+  and converts it as Blockbench's export would: cubes with their rotation, faces, textures and
+  `display`. An element that is not exported is left out, and its light is kept within 0 to 15. A
+  mesh, an element outside -16 to 32, a face without UV and a texture whose name no texture path can
+  hold are refused, as are two textures that would be the same file. It also reads a model that
+  Blockbench exported as JSON, whose textures lie beside it as PNG files.
+- An import writes the model at `id` under `models/` and sets the object at `at` of `item` to a
+  `minecraft:model` that draws it. Each texture goes, with its `.mcmeta`, into the folder of the model
+  under `textures/` under its name in lower case, and its reference is rewritten to the namespace of
+  `id`. A reference that the pack or the jar resolves, such as `block/stone`, stays. A file that the
+  pack or the jar holds already is refused, so an import never hides a vanilla model or texture. The
+  model, its textures and the definition are written all or none.
 - Every item definition of the client jar passes these rules and is written back unchanged, keys in
   their order, which a test checks against the jar. Without the jar in the cache and without the
   network, that test is skipped.

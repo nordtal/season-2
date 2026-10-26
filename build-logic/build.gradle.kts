@@ -29,6 +29,10 @@ tasks.test {
     inputs.file(resourcePack.file("glyphs.json")).withPropertyName("allocation").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(resourcePack.dir("src")).withPropertyName("packSource").withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("nordtal.resourcePack", resourcePack.asFile.absolutePath)
+    // The Designer's specs read the item types from this file, which a test holds to the types readItem prints.
+    val itemTypes = layout.projectDirectory.file("../designer/spec/item-types.json")
+    inputs.file(itemTypes).withPropertyName("itemTypes").withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("nordtal.itemTypes", itemTypes.asFile.absolutePath)
     // The round trip of every vanilla item definition reads the season's client jar from Fabric Loom's cache, where Loom
     // keeps the one it downloads for :bridge-mod and the pack's tasks read.
     systemProperty("nordtal.paperVersion", libs.versions.paper.get())

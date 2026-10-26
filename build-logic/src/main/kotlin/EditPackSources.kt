@@ -14,12 +14,12 @@ import java.io.File
 /**
  * Reads or makes one change of [kind] to the pack's sources through [NewTextures], [GlyphEdits], [TextureMeta] or [ItemFiles], with the
  * [options] that `resource-pack/README.md` lists per kind. It prints what it changed, and fails with the reason when it
- * refuses. A refusal that concerns one option, a [FieldRefusal], first prints `refused` and the option's name on a line of
- * its own. Only the item kinds read the client jar.
+ * refuses. A [FieldRefusal] first prints `refused` and the option's name, a [FieldsNeeded] `needs`, a field and its kind
+ * per line. Only the item kinds read the client jar.
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class EditPackSources : VanillaClientTask() {
-    /** `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`, `readItem`, `writeItem` or `import`. */
+    /** `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`, `readItem`, `writeItem`, `editItem` or `import`. */
     @get:Input
     abstract val kind: Property<String>
 
@@ -66,6 +66,10 @@ abstract class EditPackSources : VanillaClientTask() {
                 "scaling",
                 "border",
                 "stretchInner",
+                "at",
+                "fields",
+                "add",
+                "remove",
             )
     }
 
@@ -174,15 +178,23 @@ abstract class EditPackSources : VanillaClientTask() {
                     }
 
                     "readItem" -> {
-                        return logger.quiet(JsonOutput.toJson(ItemFiles(pack, ::jar).use { it.describe(text("item")) }))
+                        return logger.quiet(JsonOutput.toJson(ItemFiles(pack, ::jar).use { it.describe(text("item"), changedFiles(pack)) }))
                     }
 
                     "writeItem" -> {
                         listOf(ItemFiles(pack, ::jar).use { it.write(text("item"), File(text("definition")).readText()) })
                     }
 
+                    "editItem" -> {
+                        listOf(
+                            ItemFiles(pack, ::jar).use {
+                                it.edit(text("item"), options["at"] ?: "", options["fields"], options["add"], options["remove"] == "true")
+                            },
+                        )
+                    }
+
                     "import" -> {
-                        ItemFiles(pack, ::jar).use { it.import(File(text("model")), text("id")) }
+                        ItemFiles(pack, ::jar).use { it.import(File(text("model")), text("id"), text("item"), options["at"] ?: "") }
                     }
 
                     else -> {
@@ -192,6 +204,9 @@ abstract class EditPackSources : VanillaClientTask() {
             } catch (e: FieldRefusal) {
                 logger.quiet("refused ${e.field}")
                 throw GradleException(e.message ?: "The change is refused.", e)
+            } catch (e: FieldsNeeded) {
+                e.fields.forEach { (name, kind) -> logger.quiet("needs $name $kind") }
+                throw GradleException(e.message.orEmpty(), e)
             } catch (e: IllegalArgumentException) {
                 throw GradleException(e.message ?: "The change is refused.", e)
             } catch (e: IllegalStateException) {

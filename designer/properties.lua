@@ -212,10 +212,16 @@ function properties.jobs(info, field, data, tr)
   return nil
 end
 
+-- Whether the texture of info keeps its frames in one column with an
+-- animation: an override's or one that an item definition's model draws
+function properties.animated(info)
+  return info.kind == "override" or info.kind == "texture"
+end
+
 -- The task that follows a save of the texture of info, whose sprite
 -- now is { width, height, durations } with a duration in milliseconds
 -- per frame: a glyph whose pixel height changed scales its display
--- height when coupled, and an override writes its animation. An
+-- height when coupled, and an animated texture writes its animation. An
 -- animation the model could not split into frames stays as it is.
 -- nil when nothing follows.
 function properties.saved(info, sprite, coupled)
@@ -223,7 +229,7 @@ function properties.saved(info, sprite, coupled)
   if info.kind == "glyph" and properties.label(info) and t.height and sprite.height ~= int(t.height) then
     return { "resizeGlyph", { glyph=properties.label(info), from=int(t.height), coupled=coupled ~= false } }
   end
-  if info.kind == "override" and (#sprite.durations > 1 or (e.animation and e.frames)) then
+  if properties.animated(info) and (#sprite.durations > 1 or (e.animation and e.frames)) then
     local frames = {}
     for _, ms in ipairs(sprite.durations) do table.insert(frames, shown(int(ms))) end
     return { "animateTexture", { texture=t.id, frames=table.concat(frames, ",") } }

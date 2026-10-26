@@ -1,0 +1,707 @@
+{
+  "item": [
+    {
+      "name": "model",
+      "kind": "model",
+      "required": true
+    },
+    {
+      "name": "hand_animation_on_swap",
+      "kind": "boolean",
+      "required": false
+    },
+    {
+      "name": "oversized_in_gui",
+      "kind": "boolean",
+      "required": false
+    },
+    {
+      "name": "swap_animation_scale",
+      "kind": "number",
+      "required": false
+    }
+  ],
+  "case": [
+    {
+      "name": "when",
+      "kind": "json",
+      "required": true
+    },
+    {
+      "name": "model",
+      "kind": "model",
+      "required": true
+    }
+  ],
+  "entry": [
+    {
+      "name": "threshold",
+      "kind": "number",
+      "required": true
+    },
+    {
+      "name": "model",
+      "kind": "model",
+      "required": true
+    }
+  ],
+  "models": [
+    {
+      "type": "minecraft:empty",
+      "fields": []
+    },
+    {
+      "type": "minecraft:model",
+      "fields": [
+        {
+          "name": "model",
+          "kind": "id",
+          "required": true
+        },
+        {
+          "name": "tints",
+          "kind": "tints",
+          "required": false
+        },
+        {
+          "name": "transformation",
+          "kind": "json",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:range_dispatch",
+      "properties": "range_dispatch",
+      "fields": [
+        {
+          "name": "property",
+          "kind": "property",
+          "required": true
+        },
+        {
+          "name": "entries",
+          "kind": "entries",
+          "required": true
+        },
+        {
+          "name": "scale",
+          "kind": "number",
+          "required": false
+        },
+        {
+          "name": "fallback",
+          "kind": "model",
+          "required": false
+        },
+        {
+          "name": "transformation",
+          "kind": "json",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:special",
+      "fields": [
+        {
+          "name": "model",
+          "kind": "special",
+          "required": true
+        },
+        {
+          "name": "base",
+          "kind": "id",
+          "required": true
+        },
+        {
+          "name": "transformation",
+          "kind": "json",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:composite",
+      "fields": [
+        {
+          "name": "models",
+          "kind": "models",
+          "required": true
+        },
+        {
+          "name": "transformation",
+          "kind": "json",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:bundle/selected_item",
+      "fields": []
+    },
+    {
+      "type": "minecraft:select",
+      "properties": "select",
+      "fields": [
+        {
+          "name": "property",
+          "kind": "property",
+          "required": true
+        },
+        {
+          "name": "cases",
+          "kind": "cases",
+          "required": true
+        },
+        {
+          "name": "fallback",
+          "kind": "model",
+          "required": false
+        },
+        {
+          "name": "transformation",
+          "kind": "json",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:condition",
+      "properties": "condition",
+      "fields": [
+        {
+          "name": "property",
+          "kind": "property",
+          "required": true
+        },
+        {
+          "name": "on_true",
+          "kind": "model",
+          "required": true
+        },
+        {
+          "name": "on_false",
+          "kind": "model",
+          "required": true
+        },
+        {
+          "name": "transformation",
+          "kind": "json",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "select": [
+    {
+      "type": "minecraft:custom_model_data",
+      "fields": [
+        {
+          "name": "index",
+          "kind": "number",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:main_hand",
+      "fields": []
+    },
+    {
+      "type": "minecraft:charge_type",
+      "fields": []
+    },
+    {
+      "type": "minecraft:trim_material",
+      "fields": []
+    },
+    {
+      "type": "minecraft:block_state",
+      "fields": [
+        {
+          "name": "block_state_property",
+          "kind": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:display_context",
+      "fields": []
+    },
+    {
+      "type": "minecraft:local_time",
+      "fields": [
+        {
+          "name": "pattern",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "locale",
+          "kind": "text",
+          "required": false
+        },
+        {
+          "name": "time_zone",
+          "kind": "text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:context_entity_type",
+      "fields": []
+    },
+    {
+      "type": "minecraft:context_dimension",
+      "fields": []
+    },
+    {
+      "type": "minecraft:component",
+      "fields": [
+        {
+          "name": "component",
+          "kind": "text",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "condition": [
+    {
+      "type": "minecraft:custom_model_data",
+      "fields": [
+        {
+          "name": "index",
+          "kind": "number",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:using_item",
+      "fields": []
+    },
+    {
+      "type": "minecraft:broken",
+      "fields": []
+    },
+    {
+      "type": "minecraft:damaged",
+      "fields": []
+    },
+    {
+      "type": "minecraft:fishing_rod/cast",
+      "fields": []
+    },
+    {
+      "type": "minecraft:has_component",
+      "fields": [
+        {
+          "name": "component",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "ignore_default",
+          "kind": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:bundle/has_selected_item",
+      "fields": []
+    },
+    {
+      "type": "minecraft:selected",
+      "fields": []
+    },
+    {
+      "type": "minecraft:carried",
+      "fields": []
+    },
+    {
+      "type": "minecraft:extended_view",
+      "fields": []
+    },
+    {
+      "type": "minecraft:keybind_down",
+      "fields": [
+        {
+          "name": "keybind",
+          "kind": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:view_entity",
+      "fields": []
+    },
+    {
+      "type": "minecraft:component",
+      "fields": [
+        {
+          "name": "predicate",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "value",
+          "kind": "json",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "range_dispatch": [
+    {
+      "type": "minecraft:custom_model_data",
+      "fields": [
+        {
+          "name": "index",
+          "kind": "number",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:bundle/fullness",
+      "fields": []
+    },
+    {
+      "type": "minecraft:damage",
+      "fields": [
+        {
+          "name": "normalize",
+          "kind": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:cooldown",
+      "fields": []
+    },
+    {
+      "type": "minecraft:time",
+      "fields": [
+        {
+          "name": "wobble",
+          "kind": "boolean",
+          "required": false
+        },
+        {
+          "name": "source",
+          "kind": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:compass",
+      "fields": [
+        {
+          "name": "wobble",
+          "kind": "boolean",
+          "required": false
+        },
+        {
+          "name": "target",
+          "kind": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:crossbow/pull",
+      "fields": []
+    },
+    {
+      "type": "minecraft:use_cycle",
+      "fields": [
+        {
+          "name": "period",
+          "kind": "number",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:use_duration",
+      "fields": [
+        {
+          "name": "remaining",
+          "kind": "boolean",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:count",
+      "fields": [
+        {
+          "name": "normalize",
+          "kind": "boolean",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "tints": [
+    {
+      "type": "minecraft:custom_model_data",
+      "fields": [
+        {
+          "name": "index",
+          "kind": "number",
+          "required": false
+        },
+        {
+          "name": "default",
+          "kind": "json",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:constant",
+      "fields": [
+        {
+          "name": "value",
+          "kind": "json",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:dye",
+      "fields": [
+        {
+          "name": "default",
+          "kind": "json",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:grass",
+      "fields": [
+        {
+          "name": "temperature",
+          "kind": "number",
+          "required": true
+        },
+        {
+          "name": "downfall",
+          "kind": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:firework",
+      "fields": [
+        {
+          "name": "default",
+          "kind": "json",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:potion",
+      "fields": [
+        {
+          "name": "default",
+          "kind": "json",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:map_color",
+      "fields": [
+        {
+          "name": "default",
+          "kind": "json",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:team",
+      "fields": [
+        {
+          "name": "default",
+          "kind": "json",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "special": [
+    {
+      "type": "minecraft:bell",
+      "fields": []
+    },
+    {
+      "type": "minecraft:banner",
+      "fields": [
+        {
+          "name": "color",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "attachment",
+          "kind": "text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:book",
+      "fields": [
+        {
+          "name": "open_angle",
+          "kind": "number",
+          "required": true
+        },
+        {
+          "name": "page1",
+          "kind": "number",
+          "required": true
+        },
+        {
+          "name": "page2",
+          "kind": "number",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:conduit",
+      "fields": []
+    },
+    {
+      "type": "minecraft:chest",
+      "fields": [
+        {
+          "name": "texture",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "openness",
+          "kind": "number",
+          "required": false
+        },
+        {
+          "name": "chest_type",
+          "kind": "text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:copper_golem_statue",
+      "fields": [
+        {
+          "name": "texture",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "pose",
+          "kind": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "type": "minecraft:head",
+      "fields": [
+        {
+          "name": "kind",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "texture",
+          "kind": "text",
+          "required": false
+        },
+        {
+          "name": "animation",
+          "kind": "number",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:player_head",
+      "fields": []
+    },
+    {
+      "type": "minecraft:shulker_box",
+      "fields": [
+        {
+          "name": "texture",
+          "kind": "text",
+          "required": true
+        },
+        {
+          "name": "openness",
+          "kind": "number",
+          "required": false
+        }
+      ]
+    },
+    {
+      "type": "minecraft:shield",
+      "fields": []
+    },
+    {
+      "type": "minecraft:trident",
+      "fields": []
+    },
+    {
+      "type": "minecraft:decorated_pot",
+      "fields": []
+    },
+    {
+      "type": "minecraft:end_cube",
+      "fields": [
+        {
+          "name": "effect",
+          "kind": "text",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "kinds": {
+    "values": {
+      "id": "string",
+      "text": "string",
+      "number": "number",
+      "boolean": "boolean",
+      "json": "any"
+    },
+    "lists": {
+      "models": "model",
+      "cases": "case",
+      "entries": "entry",
+      "tints": "tint"
+    },
+    "tables": {
+      "model": "models",
+      "tint": "tints",
+      "special": "special"
+    }
+  }
+}

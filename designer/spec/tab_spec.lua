@@ -44,7 +44,7 @@ local function fakeDialogs()
       end
     end
     for _, kind in ipairs({ "tree", "editor", "label", "separator", "canvas", "entry", "number", "combobox", "check",
-                            "button" }) do
+                            "button", "file" }) do
       dlg[kind] = add(kind)
     end
     function dlg:samerow() table.insert(self.widgets, { kind="samerow" }) return self end
@@ -60,6 +60,7 @@ local function fakeDialogs()
       return self
     end
     function dlg:close() self.closed = true end
+    function dlg:modifyNode(t) self.nodesModified = self.nodesModified or {} table.insert(self.nodesModified, t) end
     function dlg:modify(t)
       table.insert(self.modified, t)
       if t.id and self.handlers[t.id] then
@@ -150,7 +151,8 @@ local function setUp(preferences, modelText)
   local ctl = tab.open{
     api=api,
     modules={ pack=require("pack"), tree=require("tree"), textures=require("textures"),
-               panel=require("panel"), properties=require("properties"), wizard=require("wizard") },
+               panel=require("panel"), properties=require("properties"), items=require("items"),
+               wizard=require("wizard") },
     bootstrap={ clone=clone, env={ JAVA_HOME="/jdk" } },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
@@ -203,6 +205,40 @@ local function loaded(t)
   return t.dialogs[#t.dialogs]
 end
 
+-- The types that readItem prints, which a test of build-logic checks
+-- against the task
+local itemTypes = (function()
+  local file = assert(io.open("spec/item-types.json"))
+  local types = dkjson.decode(file:read("a"))
+  file:close()
+  return types
+end)()
+
+-- A pack with one item, and the line readItem prints for it
+local lampModel = dkjson.encode({ fonts={}, overrides={}, items={ { category="nordtal", entries={
+  { id="nordtal:lamp", model="minecraft:select", file="src/assets/nordtal/items/lamp.json" } } } } })
+
+local lampRead = dkjson.encode({
+  item="nordtal:lamp", source="pack", file="/c/resource-pack/src/assets/nordtal/items/lamp.json", problems={},
+  definition={ model={ type="minecraft:select", property="minecraft:display_context",
+    cases={ { when="gui", model={ type="minecraft:model", model="nordtal:item/star" } } } } },
+  types=itemTypes,
+  models={ { model="nordtal:item/star", textures={ { key="layer0", texture={ id="nordtal:badges/star.png",
+    png="src/assets/nordtal/textures/badges/star.png", aseprite="art/assets/nordtal/textures/badges/star.aseprite",
+    width=7, height=7 } } } } },
+})
+
+-- Selects the lamp and answers its readItem
+local function lamp(t)
+  local dlg = loaded(t)
+  dlg.handlers.tree.onchange({ node="item/nordtal:lamp" })
+  local p = t.started[#t.started]
+  p.args.onstdout(lampRead)
+  p.isRunning = false
+  p.args.onexit(0)
+  return dlg
+end
+
 describe("the Nordtal tab", function()
   it("opens as a tab that cannot be closed", function()
     local t = setUp()
@@ -248,6 +284,14 @@ describe("the Nordtal tab", function()
     assert.equal("glyph/minecraft:default/F0000", second.data.tree)
     assert.equal(1, second.shown)
     assert.equal(2, t.world.fitted)
+  end)
+
+  it("empties the editor when the selected node has no texture", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    dlg.handlers.tree.onchange({ node="glyphs" })
+    assert.is_nil(dlg.data.editor)
   end)
 
   it("leaves out what an entry does not have", function()
@@ -862,5 +906,143 @@ describe("the Nordtal tab", function()
     t.dialogs[#t.dialogs].handlers.kind.onchange()
     assert.equal(":resource-pack:describePack", run(t.started[4]))
     assert.is_nil(t.started[5])
+  end)
+
+  it("reads a selected item's definition and shows its cases below the item's node", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    assert.equal(":resource-pack:readItem -Pitem=nordtal:lamp", run(t.started[2]))
+    local changed = dlg.nodesModified[#dlg.nodesModified]
+    assert.equal("item/nordtal:lamp", changed.node)
+    assert.equal("item/nordtal:lamp#model/cases/0", changed.children[1].id)
+    local shown = table.concat(texts(dlg), "\n")
+    assert.is_truthy(shown:find("items.type\n  select\nproperty\n  display_context", 1, true))
+  end)
+
+  it("keeps a definition's nodes when the tree moves to the other side", function()
+    local t = setUp(nil, lampModel)
+    lamp(t)
+    t.ctl.setSide("right")
+    local lampNode = t.dialogs[#t.dialogs].handlers.tree.nodes[2].children[1].children[1]
+    assert.equal("item/nordtal:lamp#model/cases/0", lampNode.children[1].id)
+  end)
+
+  it("drops a definition that was read for an item no longer selected", function()
+    local twoItems = dkjson.encode({ fonts={}, overrides={}, items={ { category="nordtal", entries={
+      { id="nordtal:lamp", model="minecraft:select", file="src/assets/nordtal/items/lamp.json" },
+      { id="nordtal:bell", model="minecraft:select", file="src/assets/nordtal/items/bell.json" } } } } })
+    local t = setUp(nil, twoItems)
+    local dlg = lamp(t)
+    local before = #dlg.nodesModified
+    dlg.handlers.tree.onchange({ node="item/nordtal:bell" })
+    local bell = t.started[#t.started]
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp" })
+    bell.args.onstdout((lampRead:gsub("nordtal:lamp", "nordtal:bell")))
+    bell.isRunning = false
+    bell.args.onexit(0)
+    assert.equal(before, #dlg.nodesModified)
+  end)
+
+  it("opens the texture of a case's model in the editor", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    assert.equal(star, t.open[1].filename)
+    assert.equal(t.open[1], dlg.data.editor)
+    assert.is_truthy(table.concat(texts(dlg), "\n"):find("#layer0\n  nordtal:badges/star.png", 1, true))
+  end)
+
+  it("writes a field of a case, reads the definition and the pack again and keeps the case selected", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    t.dialogs.answer = function(d) d.data = { ok=true, value="\"ground\"" } end
+    click(dlg, "\"gui\"")
+    local edit = t.started[#t.started]
+    assert.equal(':resource-pack:editItem -Pat=model/cases/0 -Pfields={"when":"ground"} -Pitem=nordtal:lamp', run(edit))
+    edit.isRunning = false
+    edit.args.onexit(0)
+    local read = t.started[#t.started]
+    assert.equal(":resource-pack:readItem -Pitem=nordtal:lamp", run(read))
+    read.args.onstdout(lampRead)
+    read.isRunning = false
+    read.args.onexit(0)
+    assert.equal("item/nordtal:lamp#model/cases/0", dlg.data.tree)
+    local describe = t.started[#t.started]
+    assert.equal(":resource-pack:describePack", run(describe))
+    describe.args.onexit(0)
+    assert.equal("item/nordtal:lamp#model/cases/0", dlg.handlers.tree.nodes[2].children[1].children[1].children[1].id)
+    assert.is_truthy(table.concat(texts(dlg), "\n"):find("when", 1, true))
+  end)
+
+  it("shows why an edit of a definition was refused", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    t.dialogs.answer = function(d) d.data = { ok=true, value="nordtal:item/none" } end
+    click(dlg, "nordtal:item/star")
+    local edit = t.started[#t.started]
+    for _, line in ipairs({ "* What went wrong:", "> The item nordtal:lamp breaks 1 rule(s):",
+                            "      model is in neither the pack nor the client jar", "* Try:" }) do
+      edit.args.onstderr(line)
+    end
+    edit.args.onexit(1)
+    assert.is_truthy(table.concat(texts(dlg), "\n"):find("properties.refused\n  The item nordtal:lamp breaks 1 rule(s):",
+      1, true))
+  end)
+
+  it("asks for the fields that a refused edit still needs and runs it again with them", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    local asked = {}
+    t.dialogs.answer = function(d)
+      local id = d.widgets[1].args.id
+      table.insert(asked, id)
+      d.data = id == "type" and { ok=true, type="minecraft:special" } or { ok=true, ["need:base"]="minecraft:item/bell" }
+    end
+    click(dlg, "model")
+    local edit = t.started[#t.started]
+    assert.equal(':resource-pack:editItem -Pat=model/cases/0/model -Pfields={"type":"minecraft:special"} -Pitem=nordtal:lamp',
+      run(edit))
+    edit.args.onstdout("needs base id")
+    for _, line in ipairs({ "* What went wrong:", "> Set base.", "* Try:" }) do edit.args.onstderr(line) end
+    edit.isRunning = false
+    edit.args.onexit(1)
+    assert.same({ "type", "need:base" }, asked)
+    local again = t.started[#t.started]
+    assert.equal(':resource-pack:editItem -Pat=model/cases/0/model -Pfields={"type":"minecraft:special","base":"minecraft:item/bell"} -Pitem=nordtal:lamp',
+      run(again))
+    again.isRunning = false
+    again.args.onexit(0)
+    assert.equal(":resource-pack:readItem -Pitem=nordtal:lamp", run(t.started[#t.started]))
+  end)
+
+  it("writes every frame of a definition's texture and its animation on its save", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    local sprite = t.open[1]
+    sprite.frames = { { duration=0.1 }, { duration=0.25 } }
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(":resource-pack:animateTexture -Pframes=100,250 -Ptexture=nordtal:badges/star.png",
+      run(t.started[#t.started]))
+  end)
+
+  it("imports a Blockbench model into a case in one run and then shows it there", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    local form
+    t.dialogs.answer = function(d) form = d d.data = { ok=true, file="/tmp/lamp.bbmodel", id="nordtal:item/lamp" } end
+    click(dlg, "items.import")
+    assert.equal("file", form.widgets[1].kind)
+    local import = t.started[#t.started]
+    assert.equal(":resource-pack:importBlockbench -Pat=model/cases/0/model -Pid=nordtal:item/lamp -Pitem=nordtal:lamp -Pmodel=/tmp/lamp.bbmodel",
+      run(import))
+    import.isRunning = false
+    import.args.onexit(0)
+    assert.equal(":resource-pack:readItem -Pitem=nordtal:lamp", run(t.started[#t.started]))
   end)
 end)

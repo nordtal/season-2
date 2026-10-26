@@ -150,8 +150,11 @@ class EditPackSourcesTest {
         assertEquals(listOf("width", "title", "title"), listOf(number, missing, refused).map { (it.cause as FieldRefusal).field })
     }
 
-    @Test
-    fun aRefusalPrintsItsFieldAndAChangeTheFilesItWrote() {
+    /** A Gradle run in the repository with the task `edit` of [kind] and its [options]. */
+    private fun runner(
+        kind: String,
+        vararg options: String,
+    ): GradleRunner {
         val classes =
             System
                 .getProperty("java.class.path")
@@ -162,22 +165,49 @@ class EditPackSourcesTest {
         repository.resolve("build.gradle").writeText(
             """
             buildscript { dependencies { classpath files($classes) } }
-            tasks.register('item', eu.nordtal.season.build.EditPackSources) {
-                kind = 'item'
+            tasks.register('edit', eu.nordtal.season.build.EditPackSources) {
+                kind = '$kind'
                 version = '26.2'
-                options = providers.gradlePropertiesPrefixedBy('').map { it.subMap(['item']) }
+                options = providers.gradlePropertiesPrefixedBy('').map { it.subMap([${options.joinToString { "'$it'" }}]) }
                 pack = layout.projectDirectory.dir('resource-pack')
                 repository = layout.projectDirectory
             }
             """.trimIndent(),
         )
-        val runner = GradleRunner.create().withProjectDir(repository)
+        return GradleRunner.create().withProjectDir(repository)
+    }
 
-        val written = runner.withArguments("item", "-q", "-Pitem=nordtal:wand").build().output
-        val refused = runner.withArguments("item", "-q", "-Pitem=nordtal:Wand").buildAndFail().output
+    @Test
+    fun aRefusalPrintsItsFieldAndAChangeTheFilesItWrote() {
+        val runner = runner("item", "item")
+
+        val written = runner.withArguments("edit", "-q", "-Pitem=nordtal:wand").build().output
+        val refused = runner.withArguments("edit", "-q", "-Pitem=nordtal:Wand").buildAndFail().output
 
         assertTrue(pack.resolve("src/assets/nordtal/items/wand.json").absolutePath in written, written)
         assertTrue("refused path\n" in refused, refused)
         assertTrue("The path of nordtal:Wand may hold only" in refused, refused)
+    }
+
+    @Test
+    fun anEditThatLacksARequiredValuePrintsEachFieldAndItsKind() {
+        pack
+            .resolve(
+                "src/assets/nordtal/items/wand.json",
+            ).apply { parentFile.mkdirs() }
+            .writeText("""{ "model": { "type": "minecraft:empty" } }""")
+
+        val output =
+            runner("editItem", "item", "at", "fields")
+                .withArguments(
+                    "edit",
+                    "-q",
+                    "-Pitem=nordtal:wand",
+                    "-Pat=model",
+                    """-Pfields={"type":"minecraft:select","property":"minecraft:block_state"}""",
+                ).buildAndFail()
+                .output
+
+        assertTrue("needs block_state_property text\n" in output, output)
     }
 }

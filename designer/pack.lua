@@ -60,6 +60,17 @@ function pack.run(bootstrap, api, task, options, done)
   return process
 end
 
+-- The fields { name, kind } that a refused editItem printed on its
+-- lines "needs <name> <kind>" to its stdout out
+function pack.needs(out)
+  local list = {}
+  for _, line in ipairs(out) do
+    local name, kind = line:match("^needs (%S+) (%S+)$")
+    if name then table.insert(list, { name=name, kind=kind }) end
+  end
+  return list
+end
+
 -- The reason of a failed task: the lines under "What went wrong" in
 -- Gradle's report without the task's name, each place a refusal lists
 -- on a line of its own. Without the report, every line that is not
@@ -85,6 +96,15 @@ function pack.refusal(lines)
   return reason
 end
 
+-- The JSON object in text as plain tables, or nil and the reason
+-- that decode gave, or nil when text holds no object
+local function object(api, text)
+  local decoded, value = pcall(api.decode, text)
+  value = decoded and plain(value) or value
+  if decoded and type(value) == "table" then return value end
+  return nil, not decoded and tostring(value) or nil
+end
+
 -- Runs task in the clone and calls done(value) with what it wrote to
 -- file under resource-pack/build, or done(nil, lines) with the
 -- reason. api holds Process, windows, join, read and decode. Returns
@@ -96,10 +116,9 @@ local function written(bootstrap, api, task, name, done)
       return
     end
     local file = api.join(bootstrap.clone, "resource-pack", "build", name)
-    local decoded, value = pcall(api.decode, api.read(file) or "")
-    value = decoded and plain(value) or value
-    if not decoded or type(value) ~= "table" then
-      done(nil, { decoded and file or tostring(value) })
+    local value, reason = object(api, api.read(file) or "")
+    if not value then
+      done(nil, { reason or file })
       return
     end
     done(value)
@@ -119,6 +138,25 @@ end
 function pack.vanilla(bootstrap, api, done)
   local process, problem = written(bootstrap, api, "listVanillaTextures", "vanilla-textures.json", function(listing, err)
     done(listing and (listing.textures or {}), err)
+  end)
+  return process, problem
+end
+
+-- Runs readItem for the item id and calls done(read) with the line
+-- of JSON it printed last, or done(nil, lines) with the reason. api
+-- holds Process, windows, join and decode.
+function pack.item(bootstrap, api, id, done)
+  local process, problem = pack.run(bootstrap, api, "readItem", { item=id }, function(ok, err, out)
+    if not ok then
+      done(nil, err)
+      return
+    end
+    local value, reason = object(api, out[#out] or "")
+    if not value then
+      done(nil, { reason or tostring(out[#out]) })
+      return
+    end
+    done(value)
   end)
   return process, problem
 end

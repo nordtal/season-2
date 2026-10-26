@@ -113,7 +113,7 @@ object PackModel {
         }
 
     /** A texture by its id, such as `nordtal:badges/star.png`: its PNG, its `.aseprite` source under `art/` and its size. */
-    private fun texture(
+    internal fun texture(
         id: String,
         root: File,
         drafts: Set<String>,
@@ -130,6 +130,25 @@ object PackModel {
                 (png.relativeTo(root).invariantSeparatorsPath in drafts || aseprite.relativeTo(root).invariantSeparatorsPath in drafts),
             "width" to image?.width,
             "height" to image?.height,
+        )
+    }
+
+    /** The `.mcmeta` beside [png], its `animation` and the `frames` that the animation plays of [texture]. */
+    internal fun animation(
+        png: File,
+        root: File,
+        texture: Map<String, Any?>,
+    ): Map<String, Any?> {
+        val mcmeta = File(png.path + ".mcmeta").takeIf { it.isFile }
+        val animation = (mcmeta?.let { json(it) } as? Map<*, *>)?.get("animation") as? Map<*, *>
+        return linkedMapOf(
+            "mcmeta" to mcmeta?.relativeTo(root)?.invariantSeparatorsPath,
+            "animation" to animation,
+            "frames" to
+                animation?.let {
+                    val width = texture["width"] as Int? ?: return@let null
+                    TextureMeta.frames(width, texture["height"] as Int, it)
+                },
         )
     }
 
@@ -187,22 +206,13 @@ object PackModel {
                     "category" to category,
                     "entries" to
                         pngs.map { png ->
-                            val mcmeta = File(png.path + ".mcmeta").takeIf { it.isFile }
-                            val meta = mcmeta?.let { json(it) as? Map<*, *> }
+                            val meta = File(png.path + ".mcmeta").takeIf { it.isFile }?.let { json(it) as? Map<*, *> }
                             val texture = texture("minecraft:" + png.relativeTo(textures).invariantSeparatorsPath, root, drafts)
-                            val animation = meta?.get("animation") as? Map<*, *>
-                            linkedMapOf(
-                                "texture" to texture,
-                                "mcmeta" to mcmeta?.relativeTo(root)?.invariantSeparatorsPath,
-                                "animation" to animation,
-                                "frames" to
-                                    animation?.let {
-                                        val width = texture["width"] as Int? ?: return@let null
-                                        TextureMeta.frames(width, texture["height"] as Int, it)
-                                    },
-                                "scaling" to (meta?.get("gui") as? Map<*, *>)?.get("scaling"),
-                                "guiSprite" to png.relativeTo(textures).invariantSeparatorsPath.startsWith("gui/sprites/"),
-                            )
+                            linkedMapOf<String, Any?>("texture" to texture) + animation(png, root, texture) +
+                                linkedMapOf(
+                                    "scaling" to (meta?.get("gui") as? Map<*, *>)?.get("scaling"),
+                                    "guiSprite" to png.relativeTo(textures).invariantSeparatorsPath.startsWith("gui/sprites/"),
+                                )
                         },
                 )
             }

@@ -114,6 +114,38 @@ describe("pack", function()
     assert.is_nil(got[2])
   end)
 
+  it("reads an item definition from the last line that readItem printed", function()
+    local started, got, err = {}, nil, nil
+    pack.item({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, {}), "nordtal:lamp", function(read, e) got, err = read, e end)
+    assert.equal(":resource-pack:readItem -Pitem=nordtal:lamp", table.concat(started[1].args.cmd, " ", 5))
+    started[1].args.onstdout("Reading the client jar")
+    started[1].args.onstdout('{"item":"nordtal:lamp","definition":{"model":{"type":"minecraft:empty"}},"problems":[]}')
+    started[1].args.onexit(0)
+    assert.same({ item="nordtal:lamp", definition={ model={ type="minecraft:empty" } }, problems={} }, got)
+    assert.is_nil(err)
+
+    pack.item({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, {}), "nordtal:none", function(read, e) got, err = read, e end)
+    started[2].args.onstderr("> Unknown item nordtal:none")
+    started[2].args.onexit(1)
+    assert.is_nil(got)
+    assert.same({ "> Unknown item nordtal:none" }, err)
+  end)
+
+  it("reports a line readItem printed that holds no object", function()
+    local started, got, err = {}, nil, nil
+    pack.item({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, {}), "nordtal:lamp", function(read, e) got, err = read, e end)
+    started[1].args.onstdout("42")
+    started[1].args.onexit(0)
+    assert.is_nil(got)
+    assert.same({ "42" }, err)
+  end)
+
+  it("reads the fields that a refused editItem still needs, with their kinds", function()
+    assert.same({ { name="base", kind="id" }, { name="when", kind="json" } },
+      pack.needs({ "needs base id", "/c/x.json", "needs when json", "refused id" }))
+    assert.same({}, pack.needs({ "refused id" }))
+  end)
+
   it("reports a model it cannot read", function()
     local started, got = {}, nil
     local files = { ["/c/resource-pack/build/pack-model.json"]="{" }

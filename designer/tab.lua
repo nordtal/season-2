@@ -5,7 +5,7 @@
 -- tab.open{ api, modules, bootstrap, preferences, tr } builds the tab
 -- and reads the pack. api holds the Aseprite functions that pack and
 -- textures name, plus Dialog, Rectangle, screen, alert and activeSprite.
--- modules holds pack, tree, textures, panel, properties and wizard. preferences.treeSide is
+-- modules holds pack, tree, textures, panel, properties, items and wizard. preferences.treeSide is
 -- "left" or "right", and preferences.coupled is false once the
 -- designer decoupled pixel size and display height.
 --
@@ -13,6 +13,11 @@
 -- OK runs the task that writes it. The tasks run one at a time, and
 -- after them the tab reads the pack again. ctl.create() opens the
 -- wizard for a new texture, which opens in the editor once created.
+--
+-- A selected item reads its definition, whose models, cases, entries
+-- and tints the tree then shows below the item's node. The panel edits
+-- the node selected there, and the first texture of its model that the
+-- pack holds opens in the editor.
 
 local tab = {}
 
@@ -38,6 +43,10 @@ function tab.open(context)
   local queue, running = {}, nil
   -- The reason why the last task for the selected entry was refused
   local refused
+  -- The definition of the item last selected, as readItem printed it
+  local definition
+  -- Opens a texture in the editor, defined below
+  local open
   -- Where the panel last drew its fields, its margin, how far the
   -- wheel scrolled it and the height of a line
   local drawn
@@ -60,6 +69,12 @@ function tab.open(context)
       table.insert(list, { text=i == 1 and tr("properties.refused") or nil, value=line })
     end
     local info = index and selected and index[selected]
+    if info and definition and (info.kind == "definition" or info.kind == "item" and info.entry.id == definition.item) then
+      for _, row in ipairs(modules.items.rows(definition, info.at or "", info.part or "item", tr)) do
+        table.insert(list, row)
+      end
+      return list
+    end
     for _, row in ipairs(properties.rows(info, tr, { coupled=preferences.coupled })) do
       if row.key == "coupled" then
         table.insert(list, { text=tr("properties.coupled"), value=row.value, field=row.field, kind="switch" })
@@ -131,6 +146,28 @@ function tab.open(context)
     end)
   end
 
+  -- The nodes of the definition read last, below its item's node, and
+  -- their entries in the index. nil when the item has no node.
+  local function attach()
+    local id = definition and "item/" .. definition.item
+    if not (index and index[id]) then
+      return nil
+    end
+    local children, nested = modules.items.nodes(definition, tr)
+    for key, info in pairs(nested) do index[key] = info end
+    return children, id
+  end
+
+  -- The node of id among nodes
+  local function findNode(list, id)
+    for _, node in ipairs(list or {}) do
+      if node.id == id then return node end
+      local found = findNode(node.children, id)
+      if found then return found end
+    end
+    return nil
+  end
+
   -- Reads the pack again and shows its nodes
   local function describe(done)
     local process, problem = modules.pack.describe(context.bootstrap, api, function(read, err)
@@ -141,6 +178,11 @@ function tab.open(context)
         local ok, built, builtIndex = pcall(modules.tree.build, read, tr)
         if ok then
           nodes, index, model = built, builtIndex, read
+          local children, id = attach()
+          if children then
+            local node = findNode(nodes, id)
+            node.children, node.expanded = children, true
+          end
           lists = { statuses=read.statuses, scalings=read.scalings }
           dlg:modify{ id="tree", nodes=nodes }
           if selected and not index[selected] then
@@ -206,20 +248,28 @@ function tab.open(context)
   -- Runs job, a { task, options }, then after() once it succeeded and
   -- finally() in any case, and reads the pack again. A refusal shows
   -- its reason in the panel while its entry stays selected, and in the
-  -- status line too when shown is true.
-  local function write(job, after, finally, shown)
+  -- status line too when shown is true. A refusal that names fields
+  -- the task needs calls needed(fields) instead.
+  local function write(job, after, finally, shown, needed)
     local id = selected
     refused = nil
     setStatus(tr("status.writing"))
-    enqueue(task(job), function(ok, err)
+    enqueue(task(job), function(ok, err, out)
       if ok then
         if after then after() end
         if finally then finally() end
         ctl.reload()
+        return
+      end
+      for i = #queue, 1, -1 do
+        if queue[i] == describe then table.remove(queue, i) end
+      end
+      local needs = needed and modules.pack.needs(out or {}) or {}
+      if #needs > 0 then
+        setStatus(nil)
+        if finally then finally() end
+        needed(needs)
       else
-        for i = #queue, 1, -1 do
-          if queue[i] == describe then table.remove(queue, i) end
-        end
         local reason = modules.pack.refusal(err)
         setStatus(shown and tr("status.refused") .. " " .. table.concat(reason, " ") or nil)
         if selected == id then
@@ -233,14 +283,48 @@ function tab.open(context)
     end)
   end
 
+  -- Reads the definition of the item id and shows its nodes below the
+  -- item's, then calls after() once it was read
+  local function readDefinition(id, after)
+    enqueue(function(finish)
+      local process, problem = modules.pack.item(context.bootstrap, api, id, finish)
+      return process, problem
+    end, function(read, err)
+      -- A read for an item that is no longer selected is dropped
+      local node = "item/" .. id
+      if selected ~= node and (selected or ""):sub(1, #node + 1) ~= node .. "#" then return end
+      if not read then
+        refused = modules.pack.refusal(err)
+        showProperties()
+        return
+      end
+      local function show(item, children)
+        local shown = findNode(nodes, item)
+        if shown then shown.children, shown.expanded = children, true end
+        dlg:modifyNode{ id="tree", node=item, children=children or {}, expanded=children and true or nil }
+      end
+      local old = definition and definition.item ~= id and index and index["item/" .. definition.item]
+      if old then
+        show("item/" .. definition.item, nil)
+      end
+      definition = read
+      local children, item = attach()
+      if children then
+        show(item, children)
+      end
+      showProperties()
+      if after then after() end
+    end, function() end)
+  end
+
   -- Runs the task that a save of the sprite of record implies: a
   -- glyph's display height for a new pixel height, an override's
   -- animation. The model takes the new size and animation only once
   -- the task succeeded. A save while the task waits or runs is taken
   -- up after it, so no task runs twice on the same model.
   local function follow(sprite, record)
-    local info = index and index[record.id]
-    if not info then
+    local info = record.info or index and index[record.id]
+    if not (info and info.texture) then
       return
     end
     if record.writing then
@@ -259,7 +343,7 @@ function tab.open(context)
     record.writing = true
     write(job, function()
       info.texture.width, info.texture.height = width, height
-      if info.kind == "override" then
+      if properties.animated(info) then
         info.entry.animation = #durations > 1 or nil
         info.entry.frames = nil
       end
@@ -275,10 +359,10 @@ function tab.open(context)
   -- Saves a sprite the tab opened as its source and its PNG, and runs
   -- what follows from it
   local function save(sprite, record)
-    local info = index and index[record.id]
+    local info = record.info or index and index[record.id]
     local texture = info and info.texture or record.texture
-    local override = info and info.kind == "override"
-    local ok, err = pcall(modules.textures.save, sprite, texture, record.paths, api, override)
+    local column = info and properties.animated(info)
+    local ok, err = pcall(modules.textures.save, sprite, texture, record.paths, api, column)
     if not ok then
       setStatus(tr("status.save_failed") .. " " .. tostring(err))
       return
@@ -305,6 +389,48 @@ function tab.open(context)
     return data.ok and data or nil
   end
 
+  -- The texture entry e of a definition's model as the info that a
+  -- save of it follows up
+  local function definitionTexture(e)
+    return { kind="texture", entry=e, texture=e.texture }
+  end
+
+  -- Takes the action of a row of an item definition: opens a texture,
+  -- or asks for what the action needs and runs its task. A task that
+  -- names fields it still needs asks for them and runs again. After it
+  -- the item's definition is read again and the node stays selected
+  -- while it is there.
+  local function editDefinition(action, data)
+    if action.op == "texture" then
+      open(selected, action.entry.texture, action.entry.frames, definitionTexture(action.entry))
+      return
+    end
+    data = data or {}
+    while true do
+      local form = modules.items.form(definition, action, data, tr)
+      if not form then break end
+      local answer = ask(form)
+      if not answer then return end
+      for key, value in pairs(answer) do data[key] = value end
+    end
+    local job = modules.items.job(definition, action, data, api.decode)
+    if not job then
+      return
+    end
+    local id, item = selected, definition.item
+    write(job, function()
+      readDefinition(item, function()
+        if selected == id and index[id] then
+          dlg.data = { tree=id }
+          ctl.select(id)
+        end
+      end)
+    end, nil, nil, function(needs)
+      modules.items.needs(data, needs)
+      editDefinition(action, data)
+    end)
+  end
+
   -- Edits field of the selected entry
   function ctl.edit(field)
     local info = index and selected and index[selected]
@@ -313,6 +439,10 @@ function tab.open(context)
     end
     if running or #queue > 0 then
       setStatus(tr("status.busy"))
+      return
+    end
+    if type(field) == "table" then
+      editDefinition(field)
       return
     end
     if field == "coupled" then
@@ -415,22 +545,14 @@ function tab.open(context)
     dlg:show()
   end
 
-  -- Shows the entry of a node and opens its texture in the editor
-  function ctl.select(id)
-    selected = id
-    refused = nil
-    scroll = 0
-    setStatus(nil)
-    showProperties()
-    local info = index and index[id]
-    if not (info and info.texture) then
-      return
-    end
-    local paths, outside = modules.pack.paths(clone, info.texture, api.join)
+  -- Opens texture in the editor for the node id. frames are the
+  -- durations of an animated texture's frames, and info is what a save
+  -- of it follows up when the node's own info is not.
+  function open(id, texture, frames, info)
+    local paths, outside = modules.pack.paths(clone, texture, api.join)
     local sprite, missing
     if paths then
-      local frames = info.kind == "override" and info.entry.frames or nil
-      sprite, missing = modules.textures.open(info.texture, paths, api, frames)
+      sprite, missing = modules.textures.open(texture, paths, api, frames)
     end
     if not sprite then
       -- The editor shows no texture of another entry than the selected one
@@ -438,11 +560,36 @@ function tab.open(context)
       setStatus(paths and tr("status.missing", missing) or tr("status.outside", outside))
       return
     end
-    local record = { id=id, texture=info.texture, paths=paths }
+    local record = { id=id, texture=texture, paths=paths, info=info }
     opened[paths.png], opened[paths.aseprite] = record, record
     dlg:modify{ id="editor", sprite=sprite }
     -- A texture of a few pixels fills the editor
     api.fitScreen()
+  end
+
+  -- Shows the entry of a node and opens its texture in the editor. An
+  -- item reads its definition, and a node of it opens the first
+  -- texture of its model that the pack holds.
+  function ctl.select(id)
+    selected = id
+    refused = nil
+    scroll = 0
+    setStatus(nil)
+    showProperties()
+    local info = index and index[id]
+    if info and info.kind == "item" then
+      readDefinition(info.entry.id)
+    end
+    local texture, followed = info and info.texture, info
+    if info and info.kind == "definition" then
+      local e = modules.items.textures(definition, info.at, info.part)[1]
+      texture, followed = e and e.texture, e and definitionTexture(e)
+    end
+    if texture then
+      open(id, texture, properties.animated(followed) and followed.entry.frames or nil, followed ~= info and followed or nil)
+    else
+      dlg:modify{ id="editor", sprite=false }
+    end
   end
 
   -- Opens the wizard for a new texture. Its tasks run in the queue,

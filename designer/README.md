@@ -37,6 +37,21 @@ is refused, and the model keeps the old size until such a task succeeds. A save 
 waits runs after it. An override with an animation and no source yet opens with one frame per frame
 it plays.
 
+A click on an item runs `readItem`, and the tree shows the models of its definition below it: each
+case, entry, tint and model that the definition nests, such as the fallback of a `select`. The panel
+edits the item's own fields and the type, the property and the fields of the node's model, as the
+task's `types` name them, with a button to add each case, entry, tint or optional model and one to
+remove a node that its parent does not require. OK runs `editItem` for that one change, and the tab
+reads the definition and the pack again. When `editItem` names required fields that the change
+still lacks, a form asks for them and the change runs again with them. A field of the kind `json`
+takes a text that is no JSON as a string. The panel lists the textures of a `minecraft:model`, and
+the first one that the pack holds opens in the editor. Its save writes every frame and the
+animation, as for an override. A texture that only the client jar holds shows its id. On a node that
+draws one model or nothing, **Import Model...** runs `importBlockbench` for a Blockbench project of
+the format Java Block/Item or for a model that Blockbench exported as JSON. The task writes the model
+and its textures and makes the node draw it in one run. The model ID it proposes lies in the
+namespace `nordtal`. An item that the pack overrides from the client jar is edited the same way.
+
 **File > New Texture...** opens a dialog that asks for the kind first: glyph, glyph block, sheet, item
 or vanilla override. It then shows the options of the kind's task in `resource-pack/README.md`, with
 font and block to choose and namespace and path for the id. Create runs the task, which checks every

@@ -342,6 +342,58 @@ class PublishTest {
     }
 
     @Test
+    fun aCommentKeepsItsUnderscoresAndQuotesAndIsNeverCutInsideACharacter() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", 0xFFFFFFFF.toInt())
+        publish(clone).publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+        val long = "a".repeat(278) + "😀b"
+        clone.prComments.writeText(
+            """
+            [{ "user": { "login": "o" }, "body": "Use snake_case > camelCase.", "html_url": "https://github.com/c/1" },
+             { "user": { "login": "o" }, "body": "$long", "html_url": "https://github.com/c/2" }]
+            """.trimIndent(),
+        )
+
+        publish(clone).sync()
+
+        assertEquals(
+            listOf("Use snake_case > camelCase.", "a".repeat(278) + "…"),
+            Drafts
+                .reviews(clone.pack)
+                .single()
+                .comments
+                .map { it.body },
+        )
+    }
+
+    @Test
+    fun aPullRequestThatGitHubDoesNotAnswerForLeavesTheOthersToTheSync() {
+        val clone = DraftClone(root, "star@FE000")
+        Drafts.writeReviews(
+            clone.pack,
+            listOf(41, 42).map { Drafts.Review(it, "https://github.com/nordtal/season-2/pull/$it", "designer/$it", emptyList(), "x") },
+        )
+        clone.prViewFails.writeText("41\n")
+        clone.prState.writeText("MERGED\n")
+        clone.commitOnMain("feat: the star is red") { clone.png("star", 0xFFFF0000.toInt(), it) }
+
+        assertEquals(listOf("moved", "unanswered 41", "merged 42"), publish(clone).sync())
+
+        assertEquals(clone.git(clone.clone, "rev-parse", "origin/main"), clone.git(clone.clone, "rev-parse", "HEAD"))
+        assertEquals(listOf(41), Drafts.reviews(clone.pack).map { it.number })
+    }
+
+    @Test
+    fun aFetchThatFailsSaysThatOriginCouldNotBeFetched() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.git(clone.clone, "remote", "set-url", "origin", root.resolve("gone.git").absolutePath)
+
+        val failure = assertThrows<GradleException> { publish(clone).sync() }
+
+        assertTrue(failure.message!!.startsWith("origin could not be fetched:"), failure.message)
+    }
+
+    @Test
     fun aSyncSaysWhenMainMoved() {
         val clone = DraftClone(root, "star@FE000")
         clone.commitOnMain("feat: the star is red") { clone.png("star", 0xFFFF0000.toInt(), it) }

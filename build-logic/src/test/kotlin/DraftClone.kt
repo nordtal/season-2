@@ -27,6 +27,9 @@ class DraftClone(
     /** What the stub prints for the line comments of a pull request, a JSON list. */
     val prComments: File = root.resolve("pr-comments")
 
+    /** The number of the pull request whose `gh pr view` fails, while this file exists. */
+    val prViewFails: File = root.resolve("pr-view-fails")
+
     /** While this file exists, the stub's `gh pr create` fails. */
     val prCreateFails: File = root.resolve("pr-create-fails")
 
@@ -51,7 +54,8 @@ class DraftClone(
               "api user") echo '{"login":"drawer","id":7,"name":"Dee Drawer","email":null}' ;;
               "pr create") [ -e '${prCreateFails.absolutePath}' ] && { echo "GraphQL: refused" >&2; exit 1; }
                 echo "Creating pull request"; echo "https://github.com/nordtal/season-2/pull/42" ;;
-              "pr view") printf '{"state":"%s",%s}' "${'$'}(cat '${prState.absolutePath}')" "${'$'}(cat '${prView.absolutePath}')" ;;
+              "pr view") [ "${'$'}3" = "${'$'}(cat '${prViewFails.absolutePath}' 2>/dev/null)" ] && { echo "HTTP 502" >&2; exit 1; }
+                printf '{"state":"%s",%s}' "${'$'}(cat '${prState.absolutePath}')" "${'$'}(cat '${prView.absolutePath}')" ;;
               "api repos/{owner}/{repo}/pulls/"*) cat '${prComments.absolutePath}' ;;
               *) echo "stub gh: ${'$'}*" >&2; exit 1 ;;
             esac

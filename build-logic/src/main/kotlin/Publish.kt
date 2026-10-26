@@ -61,6 +61,7 @@ class Publish(
         val number = url.substringAfterLast('/').toInt()
         val heldIds = (review?.drafts.orEmpty() + ids).distinct()
         Drafts.writeReviews(pack, reviews.filter { it.number != number } + Drafts.Review(number, url, branch, heldIds, commit))
+        Drafts.forget(pack, ids.toSet())
         return url
     }
 
@@ -84,23 +85,33 @@ class Publish(
     /**
      * Fetches main and asks GitHub for the state, review and checks of every pull request a publish opened, after it puts
      * back a pull that stopped halfway. A merge pulls `main`; a close turns the pull request's changes back into drafts.
-     * Returns a line per change: `merged 42`, `closed 42`, `reviewed 42`, `moved` for main and `restored` after a put back.
+     * Returns a line per change: `merged 42`, `closed 42`, `reviewed 42`, `unanswered 42` where GitHub did not answer,
+     * `moved` for main and `restored` after a put back.
      */
     fun sync(): List<String> {
         val ended = mutableListOf<String>()
         if (resume()) ended += "restored"
         val before = runCatching { git(repository, listOf("rev-parse", "-q", "--verify", "origin/main")) }.getOrNull()
-        git(repository, listOf("fetch", "-q", "origin"))
+        try {
+            git(repository, listOf("fetch", "-q", "origin"))
+        } catch (failure: GradleException) {
+            throw GradleException("origin could not be fetched: ${failure.message}", failure)
+        }
         if (git(repository, listOf("rev-parse", "origin/main")) != before) ended += "moved"
         val reviews = Drafts.reviews(pack)
         val merged = mutableListOf<Drafts.Review>()
         val open =
             reviews.mapNotNull { review ->
-                val pr = view(review.number)
-                when (pr["state"]) {
+                val answer =
+                    runCatching {
+                        val pr = view(review.number)
+                        pr["state"] to if (pr["state"] == "MERGED" || pr["state"] == "CLOSED") review else reviewed(review, pr)
+                    }.getOrNull()
+                when (answer?.first) {
+                    null -> review.also { ended += "unanswered ${review.number}" }
                     "MERGED" -> null.also { ended += "merged ${review.number}" }.also { merged += review }
                     "CLOSED" -> null.also { ended += "closed ${review.number}" }
-                    else -> reviewed(review, pr).also { if (it != review) ended += "reviewed ${review.number}" }
+                    else -> answer.second.also { if (it != review) ended += "reviewed ${review.number}" }
                 }
             }
         if (merged.isNotEmpty()) pull(merged)
@@ -160,10 +171,12 @@ class Publish(
         val text =
             body
                 .replace(Regex("(?s)<!--.*?-->|<details>.*?</details>"), " ")
-                .replace(Regex("<[^>]+>|[*_`#>]"), "")
+                .replace(Regex("<[^>]+>|[*`#]"), "")
                 .replace(Regex("\\s+"), " ")
                 .trim()
-        return if (text.length <= COMMENT) text else text.take(COMMENT - 1).trimEnd() + "…"
+        if (text.length <= COMMENT) return text
+        val end = if (text[COMMENT - 2].isHighSurrogate()) COMMENT - 2 else COMMENT - 1
+        return text.take(end).trimEnd() + "…"
     }
 
     /** A stash entry: [ref] such as `stash@{0}` for pop and drop, [commit] for its content. */
@@ -178,7 +191,6 @@ class Publish(
      * A draft in conflict with main keeps its base, so the conflict stays. A pull that fails leaves the clone as it was.
      */
     private fun pull(merged: List<Drafts.Review>) {
-        git(repository, listOf("fetch", "-q", "origin"))
         val taken = merged.flatMap { it.drafts }.toSet() - Drafts.ids(pack)
         val prefix = pack.relativeTo(repository).invariantSeparatorsPath
         val skipped = Drafts.files(pack, taken).map { "$prefix/$it" }.toSet()

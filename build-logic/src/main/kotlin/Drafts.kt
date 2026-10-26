@@ -114,6 +114,7 @@ object Drafts {
         val reviews = reviews(pack)
         val main = commit(pack, MAIN)
         val bases = bases(pack)
+        val meeting by lazy { mergeBase(pack) }
         val trees = mutableMapOf<String, Map<String, String>>()
         val roots = mutableMapOf<String, Map<*, *>?>()
         return ids.mapNotNull { (id, files) ->
@@ -123,7 +124,7 @@ object Drafts {
             if (main != null && same(pack, main, id, files, workParts)) return@mapNotNull null
             val conflict =
                 main?.let { m ->
-                    val base = bases[id] ?: mergeBase(pack) ?: return@let null
+                    val base = bases[id] ?: meeting ?: return@let null
                     if (base == m) return@let null
 
                     fun tree(ref: String) = trees.getOrPut(ref) { blobs(pack, ref) }
@@ -164,7 +165,7 @@ object Drafts {
 
     /**
      * Restores the files and entries of the draft [id] in [pack] to the last commit, or to its pull request when one
-     * holds it, and returns the files it wrote or deleted.
+     * holds it, forgets its base and returns the files it wrote or deleted.
      */
     fun discard(
         pack: File,
@@ -174,8 +175,14 @@ object Drafts {
         val ref = draft.review?.let { number -> "origin/${reviews(pack).last { it.number == number }.branch}" } ?: "HEAD"
         val files = restore(pack, ref, draft.files)
         val source = glyphs(pack, ref)
-        if (id !in changedIds(source, OxfmtJson.read(pack.resolve(GLYPHS)) as Map<*, *>)) return files
-        return files + NewTextures.edit(pack, null, 0, 0) { apply(it, source, setOf(id)) }
+        val edited =
+            if (id in changedIds(source, OxfmtJson.read(pack.resolve(GLYPHS)) as Map<*, *>)) {
+                NewTextures.edit(pack, null, 0, 0) { apply(it, source, setOf(id)) }
+            } else {
+                emptyList()
+            }
+        forget(pack, setOf(id))
+        return files + edited
     }
 
     /** Writes [files] of [pack] as [ref] holds them, or deletes those it lacks, and returns them. */
@@ -194,7 +201,7 @@ object Drafts {
     /**
      * Ends the conflict of the draft [id] with main: [keep] `clone` or `main` chooses the version of every file of it,
      * [fields] the version of each field that both changed. Main's version is the draft's new base, and the files it
-     * wrote are returned.
+     * wrote are returned. With `main`, the clone's version of each file first goes under `build/conflict/yours/`.
      */
     fun resolve(
         pack: File,
@@ -211,21 +218,34 @@ object Drafts {
         if (open.isNotEmpty()) throw FieldRefusal("fields", "Choose clone or main in -Pfields for ${open.joinToString()}.")
         val main = commit(pack, MAIN)!!
         val base = bases(pack)[id] ?: mergeBase(pack)
-        val written = if (keep == "main") restore(pack, main, draft.files) else emptyList()
         val work = OxfmtJson.read(pack.resolve(GLYPHS)) as Map<*, *>
         val merge = merge(base?.let { glyphs(pack, it) }, work, glyphs(pack, main), id, keep, fields)
         val edited = NewTextures.edit(pack, null, 0, 0) { write(it, merge, id) }
+        val written = if (keep == "main") keepYours(pack, draft.files) + restore(pack, main, draft.files) else emptyList()
         writeBases(pack, bases(pack) + (id to main))
-        return written + edited
+        return edited + written
     }
 
-    /** Writes main's version of each file of the conflict of the draft [id] under `build/conflict/` and returns them. */
+    /** Copies each of [files] that [pack] holds to `build/conflict/yours/` and returns the copies. */
+    private fun keepYours(
+        pack: File,
+        files: List<String>,
+    ): List<File> {
+        files.forEach { pack.resolve("build/conflict/yours/$it").delete() }
+        return files.filter { pack.resolve(it).isFile }.map { pack.resolve(it).copyTo(pack.resolve("build/conflict/yours/$it")) }
+    }
+
+    /**
+     * Writes main's version of each file of the conflict of the draft [id] under `build/conflict/`, after it removes what an
+     * earlier read left there of the draft's files, and returns them.
+     */
     fun readConflict(
         pack: File,
         id: String,
     ): List<File> {
         val draft = list(pack).firstOrNull { it.id == id } ?: throw IllegalArgumentException("$id is no draft.")
         val conflict = draft.conflict ?: throw IllegalArgumentException("${draft.label} has no conflict with main.")
+        draft.files.forEach { pack.resolve("build/conflict/$it").delete() }
         val tree = blobs(pack, MAIN)
         return (conflict.files - GLYPHS).filter { it in tree }.map { path ->
             pack.resolve("build/conflict/$path").also {
@@ -271,6 +291,12 @@ object Drafts {
         if (!file.isFile) return emptyMap()
         return (JsonSlurper().parse(file) as Map<*, *>).entries.associate { (id, commit) -> id.toString() to commit.toString() }
     }
+
+    /** Forgets the bases of the drafts [ids], so each takes main's changes from where the clone meets main again. */
+    internal fun forget(
+        pack: File,
+        ids: Set<String>,
+    ) = writeBases(pack, bases(pack) - ids)
 
     internal fun writeBases(
         pack: File,
@@ -612,7 +638,7 @@ object Drafts {
                     add(
                         glyphId(id, glyph),
                         glyph["name"] ?: glyph["constant"] ?: glyph["code"],
-                        "glyph $id $code",
+                        "glyph $id",
                         Entry("glyph", code, font, block, glyph, JsonOutput.toJson(listOf(id, block["range"], glyph))),
                     )
                 }

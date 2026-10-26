@@ -218,16 +218,18 @@ entry that one side deleted and the other changed makes `glyphs.json` a file of 
 | `readConflict`    | `draft`                                | the absolute path of main's version of each file of the conflict                      |
 | `resolveConflict` | `draft`; `keep`, `fields`              | the absolute path of each file it wrote or deleted                                    |
 | `publishDrafts`   | `drafts` (a comma list), `title`; `gh` | the address of the pull request                                                       |
-| `syncReviews`     | `gh`                                   | `merged`, `closed` or `reviewed` and the number per pull request, `moved`, `restored` |
+| `syncReviews`     | `gh`                                   | `merged`, `closed`, `reviewed` or `unanswered` and the number per pull request, `moved`, `restored` |
 
 - `discardDraft` restores the draft's files and entries to the last commit, or to its pull request
-  when one holds it.
+  when one holds it, and forgets the draft's base. So does a publish for each draft it publishes.
 - `readConflict` writes main's version of each file of the conflict under `build/conflict/`, at the
-  file's path in the pack.
+  file's path in the pack, after it removed what an earlier read left there.
 - `resolveConflict` ends a conflict. `keep` is `clone` or `main`, the version of every file of the
   draft, and it is required when files conflict. `fields` is a JSON object that names `clone` or
   `main` for each conflicting field. The entry takes the merged fields, and `origin/main` becomes the
-  draft's base, in `nordtal-designer/bases.json` of the clone's git directory.
+  draft's base, in `nordtal-designer/bases.json` of the clone's git directory. With `main`, the
+  clone's version of each file goes to `build/conflict/yours/` first. A glyph of a texture is the
+  same glyph when main moved its code point, so the code point is one of its fields.
 - `publishDrafts` fetches `origin`, gives new glyphs their final code points as `assignCodePoints`
   does against `origin/main`, and copies only the chosen drafts into a work tree of `origin/main`. A
   chosen draft with a conflict is refused. Each entry keeps the fields that only main changed.
@@ -240,9 +242,11 @@ entry that one side deleted and the other changed makes `glyphs.json` a file of 
   branch again. A failed publish leaves the code points it moved in the clone. A draft that a pull
   request holds already gets a further commit on that pull request's branch. Drafts of two pull
   requests are refused together.
-- `syncReviews` fetches `origin` and prints `moved` when `origin/main` moved. It asks `gh` for the
+- `syncReviews` fetches `origin` and prints `moved` when `origin/main` moved. A failed fetch fails the
+  sync and says that `origin` could not be fetched. It asks `gh` for the
   state, the review decision, the checks and the reviews of every pull request that `publishDrafts`
-  opened, and for its line comments, and prints `reviewed` when one of them changed. After a merge
+  opened, and for its line comments, and prints `reviewed` when one of them changed, or `unanswered`
+  when `gh` failed for it, which keeps the pull request for the next sync. After a merge
   it fast-forwards the clone to `origin/main` and puts every other change back on top: a file takes
   the clone's version, and `glyphs.json` merges the clone's entries with main's field by field. A
   draft with a conflict keeps its base, so the conflict stays. A change of the

@@ -127,18 +127,98 @@ class ConflictsTest {
     }
 
     @Test
-    fun aResolveThatTheGlyphRulesRefuseKeepsTheConflict() {
+    fun aResolveThatTheGlyphRulesRefuseKeepsTheConflictAndEveryFile() {
         val clone = DraftClone(root, "star@FE000")
+        clone.png("star", white)
         clone.editBadge(clone.pack, "FE000", "about", "Ours.")
-        clone.commitOnMain("docs: the star is described") {
+        clone.commitOnMain("docs: the star is red and described") {
+            clone.png("star", red, it)
             clone.editBadge(it, "FE000", "about", "Theirs.")
             clone.editBadge(it, "FE000", "status", "lost")
         }
         fetch(clone)
+        val before = blob(clone, clone.pngFile("star"))
 
-        assertThrows<IllegalStateException> { Drafts.resolve(clone.pack, star, null, mapOf("about" to "clone")) }
+        assertThrows<IllegalStateException> { Drafts.resolve(clone.pack, star, "main", mapOf("about" to "clone")) }
 
         assertEquals(listOf("about"), draft(clone).conflict?.fields?.map { it.name })
+        assertEquals(before, blob(clone, clone.pngFile("star")))
+        assertFalse(clone.pack.resolve("build/conflict/yours").exists())
+    }
+
+    @Test
+    fun aResolveThatKeepsMainKeepsTheClonesVersionInTheBuild() {
+        val clone = starOnBothSides()
+        val mine = blob(clone, clone.pngFile("star"))
+
+        val written = Drafts.resolve(clone.pack, star, "main", emptyMap())
+
+        val yours = clone.pack.resolve("build/conflict/yours/$starPng")
+        assertTrue(yours in written)
+        assertEquals(mine, blob(clone, yours))
+    }
+
+    @Test
+    fun aDiscardedDraftThatIsDrawnAgainIsAConflictAgain() {
+        val clone = starOnBothSides()
+        Drafts.resolve(clone.pack, star, "clone", emptyMap())
+
+        Drafts.discard(clone.pack, star)
+        clone.png("star", green)
+
+        assertEquals(Drafts.Conflict(listOf(starPng), emptyList()), draft(clone).conflict)
+    }
+
+    @Test
+    fun aPublishForgetsTheBaseOfItsDrafts() {
+        val clone = starOnBothSides()
+        Drafts.resolve(clone.pack, star, "clone", emptyMap())
+
+        publish(clone).publish(listOf(star), "feat(resource-pack): the star is white")
+
+        assertEquals(clone.git(clone.clone, "merge-base", "HEAD", "origin/main").trim(), Drafts.base(clone.pack, star))
+    }
+
+    /** The glyphs of the star in the clone's `glyphs.json`. */
+    private fun stars(clone: DraftClone) =
+        NewTextures
+            .fonts(OxfmtJson.read(clone.pack.resolve("glyphs.json")) as Map<*, *>)
+            .flatMap { it["blocks"] as List<*> }
+            .flatMap { (it as Map<*, *>)["glyphs"] as List<*> }
+            .map { it as Map<*, *> }
+            .filter { it["texture"] == star }
+
+    @Test
+    fun aCodePointThatMainMovedIsAFieldOfTheGlyphInAResolve() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.editBadge(clone.pack, "FE000", "about", "Ours.")
+        clone.commitOnMain("docs: the star moves and is described") {
+            clone.editBadge(it, "FE000", "about", "Theirs.")
+            clone.editBadge(it, "FE000", "code", "FE005")
+        }
+        fetch(clone)
+
+        assertEquals(Drafts.Conflict(emptyList(), listOf(Drafts.Field("about", "\"Ours.\"", "\"Theirs.\""))), draft(clone).conflict)
+        Drafts.resolve(clone.pack, star, null, mapOf("about" to "clone"))
+
+        assertEquals(listOf("FE005" to "Ours."), stars(clone).map { it["code"] to it["about"] })
+    }
+
+    @Test
+    fun aCodePointThatMainMovedIsAFieldOfTheGlyphInAPull() {
+        val clone = DraftClone(root, "star@FE000", "moon@FE001")
+        clone.png("moon", white)
+        publish(clone).publish(listOf("nordtal:badges/moon.png"), "feat(resource-pack): the moon is white")
+        clone.commitOnMain("feat: the moon is white and the star moves") {
+            clone.png("moon", white, it)
+            clone.editBadge(it, "FE000", "code", "FE005")
+        }
+        clone.editBadge(clone.pack, "FE000", "about", "Ours.")
+        clone.prState.writeText("MERGED\n")
+
+        publish(clone).sync()
+
+        assertEquals(listOf("FE005" to "Ours."), stars(clone).map { it["code"] to it["about"] })
     }
 
     @Test
@@ -215,6 +295,21 @@ class ConflictsTest {
         task.pack.set(clone.pack)
         task.repository.set(clone.clone)
         return task
+    }
+
+    @Test
+    fun theConflictReadRemovesWhatAnEarlierReadLeftOfTheDraft() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.png("star", white)
+        clone.commitOnMain("feat: the star goes") { clone.pngFile("star", it).delete() }
+        fetch(clone)
+        val stale = clone.pack.resolve("build/conflict/$starPng")
+        stale.parentFile.mkdirs()
+        stale.writeText("an earlier read")
+
+        assertEquals(emptyList<File>(), Drafts.readConflict(clone.pack, star))
+
+        assertFalse(stale.exists())
     }
 
     @Test

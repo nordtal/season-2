@@ -9,20 +9,26 @@ local minecraft = {}
 -- The most characters a command typed into the chat may have
 minecraft.LIMIT = 256
 
--- The length of text as Minecraft counts it, in UTF-16 units
-function minecraft.length(text)
-  local n = 0
-  for _, code in utf8.codes(text) do n = n + (code > 0xFFFF and 2 or 1) end
-  return n
+-- text with each character beyond ASCII as an SNBT escape. A command
+-- is then plain ASCII: its text is what is copied, and its length in
+-- bytes is the length the chat counts.
+local function ascii(text)
+  return (text:gsub(utf8.charpattern, function(char)
+    local code = utf8.codepoint(char)
+    if code < 0x80 then
+      return char
+    end
+    return code > 0xFFFF and string.format("\\U%08X", code) or string.format("\\u%04X", code)
+  end))
 end
 
--- The commands that show request; the JSON of a text component is
--- valid SNBT, so encode writes both. A bare string is written as an
--- object, since Aseprite's json.encode writes tables only.
+-- The commands that show request. Minecraft reads a text component
+-- as SNBT, which accepts its JSON and the escapes of ascii. A bare
+-- string is written as an object, since json.encode writes tables only.
 function minecraft.commands(request, encode)
   local op = request.op
   local component = type(request.text) == "string" and { text=request.text } or request.text
-  local text = component ~= nil and encode(component) or nil
+  local text = component ~= nil and ascii(encode(component)) or nil
   if op == "chat" then
     return { "/tellraw @s " .. text }
   elseif op == "actionbar" or op == "title" then
@@ -102,15 +108,16 @@ function minecraft.rows(view, tr, encode)
     if fabric then
       table.insert(list, { text=preview.label, field={ minecraft="preview", requests=preview.requests }, kind="button" })
     else
-      table.insert(list, { value=preview.label })
+      -- The label is the key of the first command, so it sits close to its box
+      local label = preview.label
       for _, request in ipairs(preview.requests) do
         for _, command in ipairs(minecraft.commands(request, encode)) do
-          local length = minecraft.length(command)
-          if length > minecraft.LIMIT then
-            table.insert(list, { value=tr("minecraft.too_long", length) })
+          if #command > minecraft.LIMIT then
+            table.insert(list, { text=label, value=tr("minecraft.too_long", #command) })
           else
-            table.insert(list, { value=command, field={ minecraft="copy", text=command } })
+            table.insert(list, { text=label, value=command, field={ minecraft="copy", text=command } })
           end
+          label = nil
         end
       end
     end

@@ -11,15 +11,8 @@ local star = { text="\u{F0000}", font="nordtal:badges" }
 local function glyph(code) return { kind="glyph", entry={ code=code or "F0000" }, font={ font="minecraft:default" } } end
 
 describe("minecraft", function()
-  it("counts the length of a command as Minecraft does, a character beyond the BMP as two", function()
-    assert.equal(1, minecraft.length("a"))
-    assert.equal(1, minecraft.length("é"))
-    assert.equal(2, minecraft.length("\u{F0000}"))
-    assert.equal(256, minecraft.LIMIT)
-  end)
-
   it("writes each preview as the vanilla commands that show the same", function()
-    local json = encode(star)
+    local json = '{"font":"nordtal:badges","text":"\\U000F0000"}'
     assert.same({ "/tellraw @s " .. json }, minecraft.commands({ op="chat", text=star }, encode))
     assert.same({ "/title @s actionbar " .. json }, minecraft.commands({ op="actionbar", text=star }, encode))
     assert.same({ "/title @s title " .. json }, minecraft.commands({ op="title", text=star }, encode))
@@ -32,7 +25,12 @@ describe("minecraft", function()
 
   it("writes a text that is a bare string as an object, which Aseprite's json.encode writes", function()
     local function tables(value) return type(value) == "table" and encode(value) or nil end
-    assert.same({ '/tellraw @s {"text":"\u{F0000}"}' }, minecraft.commands({ op="chat", text="\u{F0000}" }, tables))
+    assert.same({ '/tellraw @s {"text":"a"}' }, minecraft.commands({ op="chat", text="a" }, tables))
+  end)
+
+  it("writes each character beyond ASCII as an SNBT escape, so the command shown is the one copied", function()
+    assert.same({ '/tellraw @s {"text":"\\U000F0000\\u00E9a"}' },
+      minecraft.commands({ op="chat", text={ text="\u{F0000}éa" } }, encode))
   end)
 
   it("asks for a glyph's previews to be rendered first, then shows it alone and in each place that draws it", function()
@@ -70,22 +68,27 @@ describe("minecraft", function()
     assert.same({}, (minecraft.previews(nil, nil, nil, tr)))
   end)
 
-  it("offers each preview as commands to copy without Fabric, and one too long for the chat without a copy", function()
+  it("offers each preview as commands to copy without Fabric under its label, one too long without a copy", function()
     local long = { text=string.rep("x", 300) }
     local rows = minecraft.rows({ liveSync=true, previews={
       { label="chat", requests={ { op="chat", text=star } } },
       { label="long", requests={ { op="chat", text=long } } },
+      { label="boss", requests={ { op="bossbar", text={ text="b" } } } },
     } }, tr, encode)
-    local command = "/tellraw @s " .. encode(star)
+    local command = '/tellraw @s {"font":"nordtal:badges","text":"\\U000F0000"}'
     assert.same({
       { text="minecraft.instance", value="minecraft.no_instance", field={ minecraft="choose" } },
       { text="minecraft.live_sync", value=true, field={ minecraft="live" }, kind="switch" },
       { text="minecraft.install_pack", field={ minecraft="pack" }, kind="button" },
       { text="minecraft.previews", value="minecraft.copy" },
-      { value="chat" },
-      { value=command, field={ minecraft="copy", text=command } },
-      { value="long" },
-      { value="minecraft.too_long " .. minecraft.length("/tellraw @s " .. encode(long)) },
+      { text="chat", value=command, field={ minecraft="copy", text=command } },
+      { text="long", value="minecraft.too_long " .. #("/tellraw @s " .. encode(long)) },
+      { text="boss", value="/bossbar remove nordtal:preview",
+        field={ minecraft="copy", text="/bossbar remove nordtal:preview" } },
+      { value='/bossbar add nordtal:preview {"text":"b"}',
+        field={ minecraft="copy", text='/bossbar add nordtal:preview {"text":"b"}' } },
+      { value="/bossbar set nordtal:preview players @s",
+        field={ minecraft="copy", text="/bossbar set nordtal:preview players @s" } },
     }, rows)
   end)
 

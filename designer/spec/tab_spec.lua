@@ -1544,7 +1544,7 @@ describe("the Minecraft section of the Nordtal tab", function()
   it("offers the commands of each preview to copy without Fabric", function()
     local t, dlg = connected(plain)
     rendered(t, dlg)
-    local command = "/tellraw @s " .. dkjson.encode({ text="\u{F0000}" })
+    local command = '/tellraw @s {"text":"\\U000F0000"}'
     click(dlg, command)
     assert.same({ "clipboard", command }, t.log[#t.log])
     assert.equal("minecraft.copied", dlg.handlers.status.text)

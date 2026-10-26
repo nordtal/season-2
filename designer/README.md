@@ -103,7 +103,8 @@ first, with **Show Previews**, and then offers itself alone in each place the br
 and the menu, HUD line or board that its font draws. An item offers a give of each of its `states`, an
 override under `block` or `item` the block or item of its name. With Fabric, a click sends the
 preview to the bridge mod. Without Fabric, each preview is a list of vanilla commands, and a click
-copies one. A command longer than the chat's 256 characters is shown with its length and is not
+copies one. A command writes each character beyond ASCII as an SNBT escape, `\U000F0000` for
+U+F0000, so the text shown is the text copied. A command longer than the chat's 256 characters is shown with its length and is not
 copied.
 
 The interface strings are Aseprite string files in `strings/`, in English and German. The plugin

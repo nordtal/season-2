@@ -46,10 +46,10 @@ public final class AdminLog {
     record Journal(
             @Example(Mark.PREVIEW) String mark,
 
-            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            @Takes({"admin/*", "database/*"}) @Example("admin/journal.action")
             MessageRef title,
 
-            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            @Takes({"admin/*", "database/*"}) @Example("admin/journal.admin-root")
             MessageRef line,
 
             @Takes({"admin/journal.actor", "admin/journal.person"})

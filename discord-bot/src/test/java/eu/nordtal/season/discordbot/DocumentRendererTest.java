@@ -96,6 +96,16 @@ class DocumentRendererTest {
     }
 
     @Test
+    void aJournalEntrysExamplesTellOneEvent() {
+        final String drawn = StoredDocumentsStandIn.renderer()
+                .preview(packaged("admin-journal"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+
+        assertTrue(drawn.contains("First admin"), drawn);
+        assertTrue(drawn.contains("Signed in as the first admin."), drawn);
+        assertFalse(drawn.contains("no build yet"), drawn);
+    }
+
+    @Test
     void aPreviewDrawsEachMessageOfAListExampleAsTheTextItsKeyNames() {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);

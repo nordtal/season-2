@@ -66,7 +66,13 @@ object Drafts {
             Draft(
                 id,
                 workParts[id]?.label ?: headParts[id]?.label ?: label(id),
-                if (!before) "added" else if (!after) "deleted" else "changed",
+                if (!before) {
+                    "added"
+                } else if (!after) {
+                    "deleted"
+                } else {
+                    "changed"
+                },
                 files,
                 review?.number,
             )
@@ -103,10 +109,12 @@ object Drafts {
         drafts: List<Draft>,
     ) {
         AtomicFiles.write(
-            drafts.flatMap { it.files }.associate { path ->
-                val file = pack.resolve(path)
-                target.resolve(path) to if (file.exists()) file.readBytes() else null
-            }.filter { (file, bytes) -> bytes != null || file.exists() },
+            drafts
+                .flatMap { it.files }
+                .associate { path ->
+                    val file = pack.resolve(path)
+                    target.resolve(path) to if (file.exists()) file.readBytes() else null
+                }.filter { (file, bytes) -> bytes != null || file.exists() },
         )
         val work = pack.resolve(GLYPHS).takeIf { it.isFile }?.let { OxfmtJson.read(it) as Map<*, *> }
         val ids = changedIds(glyphs(target, "HEAD"), work).intersect(drafts.map { it.id }.toSet())
@@ -134,7 +142,12 @@ object Drafts {
         val file = reviewsFile(pack)
         if (!file.isFile) return emptyList()
         return (JsonSlurper().parse(file) as List<*>).map { it as Map<*, *> }.map {
-            Review((it["number"] as Number).toInt(), it["url"] as String, it["branch"] as String, (it["drafts"] as List<*>).map(Any?::toString))
+            Review(
+                (it["number"] as Number).toInt(),
+                it["url"] as String,
+                it["branch"] as String,
+                (it["drafts"] as List<*>).map(Any?::toString),
+            )
         }
     }
 
@@ -144,11 +157,26 @@ object Drafts {
     ) {
         val file = reviewsFile(pack)
         file.parentFile.mkdirs()
-        file.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(reviews.map { linkedMapOf("number" to it.number, "url" to it.url, "branch" to it.branch, "drafts" to it.drafts) })) + "\n")
+        file.writeText(
+            JsonOutput.prettyPrint(
+                JsonOutput.toJson(
+                    reviews.map {
+                        linkedMapOf(
+                            "number" to it.number,
+                            "url" to it.url,
+                            "branch" to it.branch,
+                            "drafts" to it.drafts,
+                        )
+                    },
+                ),
+            ) +
+                "\n",
+        )
     }
 
     /** The record of the pull requests, in the clone's git directory, so no commit ever holds it. */
-    private fun reviewsFile(pack: File): File = File(git(pack, listOf("rev-parse", "--git-path", REVIEWS)).trim()).let { if (it.isAbsolute) it else pack.resolve(it) }
+    private fun reviewsFile(pack: File): File =
+        File(git(pack, listOf("rev-parse", "--git-path", REVIEWS)).trim()).let { if (it.isAbsolute) it else pack.resolve(it) }
 
     /**
      * Moves the entries of [ids] from [source] into [target], two versions of `glyphs.json`: each entry of an id leaves
@@ -179,7 +207,12 @@ object Drafts {
             from: Map<*, *>,
         ): OxfmtJson.Object {
             val blocks = font["blocks"] as MutableList<Any?>
-            return blocks.firstOrNull { blockId(font["font"] as String, it as Map<*, *>) == blockId(font["font"] as String, from) } as OxfmtJson.Object?
+            return blocks.firstOrNull {
+                blockId(
+                    font["font"] as String,
+                    it as Map<*, *>,
+                ) == blockId(font["font"] as String, from)
+            } as OxfmtJson.Object?
                 ?: copy(from, "glyphs").also { place(blocks, it) }
         }
         for (font in source?.let(NewTextures::fonts).orEmpty()) {
@@ -264,8 +297,12 @@ object Drafts {
         pack: File,
         path: String,
     ): String {
-        Regex("""src/assets/([^/]+)/textures/(.+\.png)(\.mcmeta)?""").matchEntire(path)?.let { return "${it.groupValues[1]}:${it.groupValues[2]}" }
-        Regex("""art/assets/([^/]+)/textures/(.+)\.aseprite""").matchEntire(path)?.let { return "${it.groupValues[1]}:${it.groupValues[2]}.png" }
+        Regex(
+            """src/assets/([^/]+)/textures/(.+\.png)(\.mcmeta)?""",
+        ).matchEntire(path)?.let { return "${it.groupValues[1]}:${it.groupValues[2]}" }
+        Regex(
+            """art/assets/([^/]+)/textures/(.+)\.aseprite""",
+        ).matchEntire(path)?.let { return "${it.groupValues[1]}:${it.groupValues[2]}.png" }
         val file = pack.resolve(path).takeIf { it.isFile } ?: return path
         val json = runCatching { JsonSlurper().parse(file) as? Map<*, *> }.getOrNull() ?: return path
         Regex("""src/assets/([^/]+)/models/.+\.json""").matchEntire(path)?.let {

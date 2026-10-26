@@ -51,11 +51,33 @@ class Publish(
         }
         val url =
             review?.url
-                ?: run(gh, repository, listOf("pr", "create", "--base", "main", "--head", branch, "--title", title, "--body", drafts.joinToString("\n") { "- ${it.label}" }))
-                    .lines()
+                ?: run(
+                    gh,
+                    repository,
+                    listOf(
+                        "pr",
+                        "create",
+                        "--base",
+                        "main",
+                        "--head",
+                        branch,
+                        "--title",
+                        title,
+                        "--body",
+                        drafts
+                            .joinToString(
+                                "\n",
+                            ) {
+                                "- ${it.label}"
+                            },
+                    ),
+                ).lines()
                     .last { it.startsWith("https://") }
         val number = url.substringAfterLast('/').toInt()
-        Drafts.writeReviews(pack, reviews.filter { it.number != number } + Drafts.Review(number, url, branch, (review?.drafts.orEmpty() + ids).distinct()))
+        Drafts.writeReviews(
+            pack,
+            reviews.filter { it.number != number } + Drafts.Review(number, url, branch, (review?.drafts.orEmpty() + ids).distinct()),
+        )
         return url
     }
 
@@ -67,13 +89,14 @@ class Publish(
     fun sync(): List<String> {
         val reviews = Drafts.reviews(pack)
         val ended = mutableListOf<String>()
-        val open = reviews.filter { review ->
-            when (run(gh, repository, listOf("pr", "view", review.number.toString(), "--json", "state", "--jq", ".state")).trim()) {
-                "MERGED" -> false.also { ended += "merged ${review.number}" }
-                "CLOSED" -> false.also { ended += "closed ${review.number}" }
-                else -> true
+        val open =
+            reviews.filter { review ->
+                when (run(gh, repository, listOf("pr", "view", review.number.toString(), "--json", "state", "--jq", ".state")).trim()) {
+                    "MERGED" -> false.also { ended += "merged ${review.number}" }
+                    "CLOSED" -> false.also { ended += "closed ${review.number}" }
+                    else -> true
+                }
             }
-        }
         if (ended.any { it.startsWith("merged") }) pull()
         if (open.size != reviews.size) Drafts.writeReviews(pack, open)
         return ended
@@ -121,7 +144,13 @@ class Publish(
 
     /** `designer/` and the description of [title] in lowercase words, with a number where origin has that branch already. */
     private fun branchFor(title: String): String {
-        val slug = title.substringAfter(": ").lowercase().replace(Regex("[^a-z0-9]+"), "-").take(50).trim('-')
+        val slug =
+            title
+                .substringAfter(": ")
+                .lowercase()
+                .replace(Regex("[^a-z0-9]+"), "-")
+                .take(50)
+                .trim('-')
         if (slug.isEmpty()) throw GradleException("\"$title\" has no description to name a branch by.")
         return generateSequence(1) { it + 1 }
             .map { if (it == 1) "designer/$slug" else "designer/$slug-$it" }

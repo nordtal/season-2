@@ -238,10 +238,18 @@ class PackModelTest {
         clone.png("star", 0xFFFFFFFF.toInt())
         clone.writeGlyphs("star@FE000", "moon@FE001=HALF_MOON", "sun@FE002")
         clone.pack.resolve("glyphs.json").apply { writeText(readText().replace("\"Badges\"", "\"Sky\"")) }
-        clone.pack.resolve("src/assets/minecraft/lang/en_us.json").apply { parentFile.mkdirs() }.writeText("{}")
+        clone.pack
+            .resolve("src/assets/minecraft/lang/en_us.json")
+            .apply { parentFile.mkdirs() }
+            .writeText("{}")
 
         val model =
-            PackModel.of(GlyphAllocation.read(clone.pack.resolve("glyphs.json")), clone.pack, Drafts.list(clone.pack), Drafts.reviews(clone.pack))
+            PackModel.of(
+                GlyphAllocation.read(clone.pack.resolve("glyphs.json")),
+                clone.pack,
+                Drafts.list(clone.pack),
+                Drafts.reviews(clone.pack),
+            )
         val font = only(model.list("fonts"))
         val block = only(font.list("blocks"))
 

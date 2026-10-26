@@ -66,14 +66,22 @@ class PublishTest {
     @Test
     fun aRenamedBlockKeepsItsRangeAndIsPublishedUnderItsNewTitle() {
         val clone = DraftClone(root, "star@FE000")
-        clone.pack.resolve("glyphs.json").writeText(OxfmtJson.format(OxfmtJson.read(clone.glyphs("star@FE000").replace("\"Badges\"", "\"Stars\""))))
+        clone.pack
+            .resolve(
+                "glyphs.json",
+            ).writeText(OxfmtJson.format(OxfmtJson.read(clone.glyphs("star@FE000").replace("\"Badges\"", "\"Stars\""))))
 
         assertEquals(listOf("block minecraft:default FE000-FE00F" to null), ids(clone))
         publish(clone).publish(listOf("block minecraft:default FE000-FE00F"), "feat(resource-pack): the badges are stars")
 
         val published = clone.onOrigin("designer/the-badges-are-stars", "resource-pack/glyphs.json")
         assertTrue(published.contains("\"range\": \"FE000-FE00F\",\n          \"title\": \"Stars\""), published)
-        assertTrue(clone.pack.resolve("glyphs.json").readText().contains("\"range\": \"FE000-FE00F\""))
+        assertTrue(
+            clone.pack
+                .resolve("glyphs.json")
+                .readText()
+                .contains("\"range\": \"FE000-FE00F\""),
+        )
         assertEquals(emptyList<Pair<String, Int?>>(), ids(clone))
     }
 
@@ -89,7 +97,10 @@ class PublishTest {
         publish(clone).publish(listOf("nordtal:badges/comet.png"), "feat(resource-pack): a comet joins the badges")
 
         val codes = { text: String -> Regex(""""code": "(\w+)"""").findAll(text).map { it.groupValues[1] }.toList() }
-        assertEquals(listOf("FE000", "FE001", "FE002"), codes(clone.onOrigin("designer/a-comet-joins-the-badges", "resource-pack/glyphs.json")))
+        assertEquals(
+            listOf("FE000", "FE001", "FE002"),
+            codes(clone.onOrigin("designer/a-comet-joins-the-badges", "resource-pack/glyphs.json")),
+        )
         assertEquals(listOf("FE000", "FE002"), codes(clone.pack.resolve("glyphs.json").readText()))
     }
 
@@ -104,7 +115,14 @@ class PublishTest {
         assertEquals("main\n", clone.git(clone.origin, "branch", "--format=%(refname:short)"))
         assertFalse(clone.ghLog.exists() && clone.ghLog.readText().contains("pr create"))
         assertEquals(listOf("nordtal:badges/star.png" to null), ids(clone))
-        assertEquals("", clone.git(clone.clone, "worktree", "list", "--porcelain").lines().drop(4).joinToString(""))
+        assertEquals(
+            "",
+            clone
+                .git(clone.clone, "worktree", "list", "--porcelain")
+                .lines()
+                .drop(4)
+                .joinToString(""),
+        )
     }
 
     @Test

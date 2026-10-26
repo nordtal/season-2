@@ -34,16 +34,27 @@ class DraftsTest {
     @Test
     fun theSourceAndTheMetadataOfATextureBelongToItsDraftAndAnotherFileIsADraftOfItsOwn() {
         val clone = DraftClone(root, "star@FE000")
-        clone.pack.resolve("art/assets/nordtal/textures/badges/star.aseprite").apply { parentFile.mkdirs() }.writeText("art")
+        clone.pack
+            .resolve("art/assets/nordtal/textures/badges/star.aseprite")
+            .apply { parentFile.mkdirs() }
+            .writeText("art")
         clone.pack.resolve("src/assets/nordtal/textures/badges/star.png.mcmeta").writeText("{}")
-        clone.pack.resolve("src/assets/minecraft/lang/en_us.json").apply { parentFile.mkdirs() }.writeText("{}")
+        clone.pack
+            .resolve("src/assets/minecraft/lang/en_us.json")
+            .apply { parentFile.mkdirs() }
+            .writeText("{}")
 
         assertEquals(
             listOf(
-                listOf("nordtal:badges/star.png", "star", "changed", listOf(
-                    "art/assets/nordtal/textures/badges/star.aseprite",
-                    "src/assets/nordtal/textures/badges/star.png.mcmeta",
-                )),
+                listOf(
+                    "nordtal:badges/star.png",
+                    "star",
+                    "changed",
+                    listOf(
+                        "art/assets/nordtal/textures/badges/star.aseprite",
+                        "src/assets/nordtal/textures/badges/star.png.mcmeta",
+                    ),
+                ),
                 listOf("src/assets/minecraft/lang/en_us.json", "en_us.json", "added", listOf("src/assets/minecraft/lang/en_us.json")),
             ),
             drafts(clone),

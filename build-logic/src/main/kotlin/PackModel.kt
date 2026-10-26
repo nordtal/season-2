@@ -26,7 +26,16 @@ object PackModel {
             "overrides" to overrides(assets, root, drafts),
             "statuses" to GlyphAllocation.STATUSES.toList(),
             "scalings" to TextureMeta.SCALINGS,
-            "drafts" to listed.map { linkedMapOf("id" to it.id, "label" to it.label, "state" to it.state, "files" to it.files, "review" to it.review) },
+            "drafts" to
+                listed.map {
+                    linkedMapOf(
+                        "id" to it.id,
+                        "label" to it.label,
+                        "state" to it.state,
+                        "files" to it.files,
+                        "review" to it.review,
+                    )
+                },
             "reviews" to reviews.map { linkedMapOf("number" to it.number, "url" to it.url) },
         )
     }

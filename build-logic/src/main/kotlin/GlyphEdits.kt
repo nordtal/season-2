@@ -194,8 +194,14 @@ object GlyphEdits {
                     ?: mapOf("font" to id, "numbering" to font["numbering"], "blocks" to emptyList<Any>())
             val blocks = font["blocks"] as MutableList<Any?>
             val committed =
-                head?.let(::fonts).orEmpty().firstOrNull { it["font"] == id }?.let { it["blocks"] as List<*> }.orEmpty()
-                    .mapNotNull { (it as Map<*, *>)["range"] }.toSet()
+                head
+                    ?.let(::fonts)
+                    .orEmpty()
+                    .firstOrNull { it["font"] == id }
+                    ?.let { it["blocks"] as List<*> }
+                    .orEmpty()
+                    .mapNotNull { (it as Map<*, *>)["range"] }
+                    .toSet()
             for (block in blocks.toList().map { it as MutableMap<String, Any?> }) {
                 val glyphs = (block["glyphs"] as MutableList<*>?)?.map { it as MutableMap<String, Any?> } ?: continue
                 val mainBlock =

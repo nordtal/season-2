@@ -70,7 +70,7 @@ function minecraft.previews(info, rendered, definition, tr)
     if rendered.board then add(tr("minecraft.board"), { op="chat", text=rendered.board }) end
   elseif (kind == "item" and definition and info.entry.id == definition.item or kind == "definition" and definition) then
     for _, state in ipairs(definition.states or {}) do
-      add(tr("minecraft.give", state.label ~= "" and state.label or tr("minecraft.plain")), { op="give", item=state.give })
+      add(state.label ~= "" and tr("minecraft.give", state.label) or tr("minecraft.give_plain"), { op="give", item=state.give })
     end
   elseif kind == "override" then
     if info.entry.block then add(tr("minecraft.place", info.entry.block), { op="block", block=info.entry.block }) end

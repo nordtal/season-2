@@ -5,9 +5,10 @@
 -- textures, and a vanilla item in one of its item definitions that
 -- the pack does not override yet.
 --
--- wizard.open{ api, tr, model, run, listing, created } shows it. api
--- holds Dialog, Rectangle and screen, which gives the window's width
--- and height. run(job, done) runs a { task, options }
+-- wizard.open{ api, tr, model, wrap, run, listing, created } shows it.
+-- api holds Dialog, Rectangle and screen, which gives the window's
+-- width and height. wrap(text, width) gives the lines of text of at
+-- most width characters. run(job, done) runs a { task, options }
 -- and calls done(ok, reason, out) with the lines of the refusal and
 -- what the task printed. listing(done) calls done(listing) with the
 -- textures and items of the client jar, or done(nil, reason).
@@ -52,8 +53,12 @@ local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyp
 -- How many ids of the client jar the browser shows at once
 local limit = 300
 
--- The characters a line of a refusal holds at most
+-- The characters a line of a refusal or of the browser's hint holds
+-- at most
 local lineWidth = 48
+
+-- How many lines the browser's hint shows; the last one holds the rest
+local hintLines = 3
 
 -- The fonts of the model, by id
 function wizard.fonts(model)
@@ -208,6 +213,14 @@ function wizard.matches(ids, query, most)
   return nodes, count
 end
 
+-- Whether the nodes of the browser hold id
+function wizard.holds(nodes, id)
+  for _, node in ipairs(nodes) do
+    if node.id == id or wizard.holds(node.children or {}, id) then return true end
+  end
+  return false
+end
+
 -- text in lines of at most width characters, broken at spaces, or of
 -- the width a refusal takes when width is nil. A word longer than
 -- width takes a line of its own.
@@ -304,25 +317,44 @@ function wizard.open(context)
     local function counted(n)
       return n > limit and tr(browser.more, limit, n) or tr(browser.count, n)
     end
+    -- The hint below the list names the chosen id in lines of a fixed
+    -- width. It adds its labels to the dialog with add, or else changes them.
+    local function hint(add)
+      local lines = context.wrap(chosen[kind] and tr(browser.chosen, chosen[kind]) or tr(browser.none), lineWidth)
+      for i = 1, hintLines do
+        local line = i == hintLines and lines[i] and table.concat(lines, " ", i) or lines[i]
+        local label = { id="chosen" .. i, text=line or "", visible=line ~= nil }
+        if add then
+          dlg:label(label)
+          dlg:newrow()
+        else
+          dlg:modify(label)
+        end
+      end
+    end
     local nodes, count = wizard.matches(ids, values.search or "", limit)
     dlg:entry{ id="search", label=tr("new.search"), text=values.search or "", onchange=function()
       values.search = dlg.data.search
       local found, n = wizard.matches(ids, values.search, limit)
       dlg:modify{ id="choices", nodes=found }
       dlg:modify{ id="count", text=counted(n) }
+      -- Create creates only an id that the list shows
+      if chosen[kind] and not wizard.holds(found, chosen[kind]) then
+        chosen[kind] = nil
+        hint()
+      end
     end }
     dlg:newrow()
     dlg:tree{ id="choices", nodes=nodes, width=240, height=160, onchange=function(ev)
       if wizard.isChoice(ev.node) then
         chosen[kind] = ev.node
-        dlg:modify{ id="chosen", text=tr(browser.chosen, ev.node) }
+        hint()
       end
     end }
     dlg:newrow()
     dlg:label{ id="count", text=counted(count) }
     dlg:newrow()
-    dlg:label{ id="chosen", text=chosen[kind] and tr(browser.chosen, chosen[kind]) or tr(browser.none) }
-    dlg:newrow()
+    hint(true)
   end
 
   local function fields()

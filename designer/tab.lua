@@ -1131,6 +1131,7 @@ function tab.open(context)
       api=api,
       tr=tr,
       model=model or {},
+      wrap=function(text, width) return modules.panel.wrap(text, width, utf8.len) end,
       run=function(job, done)
         setStatus(tr("status.writing"))
         enqueue(task(job), function(ok, err, out)

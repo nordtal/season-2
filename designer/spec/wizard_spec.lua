@@ -1,4 +1,57 @@
 local wizard = require("wizard")
+local panel = require("panel")
+
+local function tr(id, ...) return table.concat({ id, ... }, " ") end
+
+-- A Dialog that records its widgets, its data and each change, so a
+-- spec can call the handlers as Aseprite would
+local function fakeDialog(dialogs)
+  return function()
+    local d = { widgets={}, byId={}, data={} }
+    for _, kind in ipairs({ "combobox", "entry", "tree", "label", "button", "separator", "newrow" }) do
+      d[kind] = function(self, t)
+        t = t or {}
+        table.insert(self.widgets, { kind=kind, args=t })
+        if t.id then
+          self.byId[t.id] = t
+          if kind == "entry" then self.data[t.id] = t.text end
+          if kind == "combobox" then self.data[t.id] = t.option end
+        end
+        return self
+      end
+    end
+    function d:modify(t)
+      for k, v in pairs(t) do self.byId[t.id][k] = v end
+    end
+    function d:show() end
+    function d:close() end
+    -- The texts of the labels that show, in their order
+    function d:labels()
+      local out = {}
+      for _, w in ipairs(self.widgets) do
+        local t = self.byId[w.args.id] or w.args
+        if w.kind == "label" and t.visible ~= false then table.insert(out, t.text) end
+      end
+      return out
+    end
+    table.insert(dialogs, d)
+    return d
+  end
+end
+
+-- Opens the wizard on the browser of vanilla items with listing and
+-- gives the dialog it shows and the jobs it ran
+local function browse(listing)
+  local dialogs, jobs = {}, {}
+  wizard.open{ api={ Dialog=fakeDialog(dialogs) }, tr=tr, model={},
+               wrap=function(text, width) return panel.wrap(text, width, utf8.len) end,
+               run=function(job) table.insert(jobs, job) end,
+               listing=function(done) done(listing) end, created=function() end }
+  local d = dialogs[#dialogs]
+  d.data.kind = "new.kind_vanilla_item"
+  d.byId.kind.onchange()
+  return function() return dialogs[#dialogs] end, jobs
+end
 
 local model = {
   fonts={
@@ -145,5 +198,37 @@ describe("the new-texture wizard", function()
   it("breaks a reason into lines of at most width characters, at spaces", function()
     assert.same({ "The path of", "nordtal:X.png may", "hold only a-z." }, wizard.wrap("The path of nordtal:X.png may hold only a-z.", 17))
     assert.same({ "averyveryverylongword", "x" }, wizard.wrap("averyveryverylongword x", 10))
+  end)
+
+  it("forgets the chosen item once a search hides it, so Create asks for one", function()
+    local dialog, jobs = browse({ items={ "minecraft:apple", "minecraft:compass" } })
+    dialog().byId.choices.onchange({ node="minecraft:compass" })
+    dialog().data.search = "apple"
+    dialog().byId.search.onchange()
+    assert.is_true(table.concat(dialog():labels(), " "):find("new.chosen_none_item", 1, true) ~= nil)
+    dialog().byId.create.onclick()
+    assert.same({}, jobs)
+    assert.is_true(table.concat(dialog():labels(), " "):find("new.required_item", 1, true) ~= nil)
+  end)
+
+  it("keeps the chosen item while a search shows it", function()
+    local dialog, jobs = browse({ items={ "minecraft:apple", "minecraft:compass" } })
+    dialog().byId.choices.onchange({ node="minecraft:compass" })
+    dialog().data.search = "comp"
+    dialog().byId.search.onchange()
+    dialog().byId.create.onclick()
+    assert.same({ { "editItem", { item="minecraft:compass" } } }, jobs)
+  end)
+
+  it("wraps the line about the chosen item, so a long id does not widen the dialog", function()
+    local id = "minecraft:a_very_long_item_id_that_holds_more_characters_than_a_line"
+    local dialog = browse({ items={ id } })
+    dialog().byId.choices.onchange({ node=id })
+    local text = {}
+    for _, line in ipairs(dialog():labels()) do
+      assert.is_true(utf8.len(line) <= 48, line)
+      table.insert(text, line)
+    end
+    assert.is_true(table.concat(text):find(id, 1, true) ~= nil)
   end)
 end)

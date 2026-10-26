@@ -876,7 +876,7 @@ describe("the Nordtal tab", function()
     local out = {}
     for _, w in ipairs(d.widgets) do
       if w.kind == "label" then
-        table.insert(out, "label " .. tostring(w.args.text))
+        if w.args.visible ~= false then table.insert(out, "label " .. tostring(w.args.text)) end
       elseif w.kind ~= "newrow" and w.kind ~= "separator" then
         table.insert(out, w.kind .. " " .. tostring(w.args.id))
       end
@@ -1104,7 +1104,7 @@ describe("the Nordtal tab", function()
 
     browser = t.dialogs[#t.dialogs]
     browser.handlers.choices.onchange({ node="minecraft:compass" })
-    assert.equal("new.chosen_item minecraft:compass", browser.handlers.chosen.text)
+    assert.equal("new.chosen_item minecraft:compass", browser.handlers.chosen1.text)
     browser.handlers.create.onclick()
     assert.equal(":resource-pack:editItem -Pitem=minecraft:compass", run(t.started[3]))
     local file = "src/assets/minecraft/items/compass.json"

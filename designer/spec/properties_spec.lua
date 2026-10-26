@@ -75,11 +75,12 @@ describe("the properties of an entry", function()
 
   it("edits the size, shows the frames and edits the scaling of a GUI sprite", function()
     local info = override({ guiSprite=true, mcmeta="src/button.png.mcmeta",
-                            frames={ { duration=100 }, { duration=100 } },
+                            frames={ { x=0, y=0, width=200, height=10, duration=100 },
+                                     { x=0, y=10, width=200, height=10, duration=100 } },
                             scaling={ type="nine_slice", width=200, height=20, border=3 } })
     assert.same({
       "mcmeta=src/button.png.mcmeta", "animation=properties.frames 2", "scaling=nine_slice*",
-      "texture=minecraft:gui/sprites/widget/button.png", "size=properties.pixels 200 20*",
+      "texture=minecraft:gui/sprites/widget/button.png", "size=properties.pixels 200 10*",
       "source=properties.no_source",
     }, shown(info, true))
   end)
@@ -134,6 +135,19 @@ describe("an edit of a property", function()
     assert.same({ resize={ width=9, height=9, lossy=true } }, properties.jobs(glyph(), "size", { width=9, height=9 }))
     assert.same({ resize={ width=14, height=6, lossy=true } }, properties.jobs(glyph(), "size", { width=14, height=6 }))
     assert.is_nil(properties.jobs(glyph(), "size", { width=7, height=7 }))
+  end)
+
+  it("asks for and compares the size of one frame of an animated texture, not the size of its PNG", function()
+    -- A PNG 32 by 64 that holds four frames 32 by 16 in a column
+    local frames = {}
+    for i = 0, 3 do table.insert(frames, { x=0, y=i * 16, width=32, height=16, duration=50 }) end
+    local info = override({ animation={ frametime=1 }, frames=frames })
+    info.texture.width, info.texture.height = 32, 64
+    local form = properties.form(info, "size", tr, lists)
+    assert.same({ "32", "16" }, { form.widgets[1].text, form.widgets[2].text })
+    assert.same({ resize={ width=64, height=32 } }, properties.jobs(info, "size", { width=64, height=32 }))
+    assert.same({ resize={ width=48, height=16, lossy=true } }, properties.jobs(info, "size", { width=48, height=16 }))
+    assert.is_nil(properties.jobs(info, "size", { width=32, height=16 }))
   end)
 
   it("deletes a glyph by its name", function()

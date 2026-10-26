@@ -25,6 +25,16 @@ function properties.label(info)
   return (e.name or nil) or (e.constant or nil)
 end
 
+-- The size { width, height } of the sprite of info: one frame of an
+-- animated texture whose model splits its PNG into frames, else the
+-- PNG's. After a save, the tab removes the frames from the model and
+-- writes the sprite's size into its texture until the pack is read
+-- again.
+local function size(info)
+  local frame = properties.animated(info) and info.entry.frames and info.entry.frames[1]
+  return frame or info.texture
+end
+
 -- The rows of an entry as { key, value, field } in display order. A
 -- row with a field can be edited, and field names the edit. The
 -- coupled row is the switch, its value true or false. context holds
@@ -42,9 +52,10 @@ function properties.rows(info, tr, context)
 
   local e, kind, t = info.entry, info.kind, info.texture
   local editable = (kind == "glyph" or kind == "cell") and properties.label(info) ~= nil
-  local function size(field)
-    if t and t.width then
-      add("size", tr("properties.pixels", shown(t.width), shown(t.height)), field)
+  local function pixels(field)
+    local s = t and size(info)
+    if s and s.width then
+      add("size", tr("properties.pixels", shown(s.width), shown(s.height)), field)
     end
   end
   local function files()
@@ -78,7 +89,7 @@ function properties.rows(info, tr, context)
     add("height", e.height, editable and glyph and "height")
     add("ascent", e.ascent, editable and glyph and "ascent")
     if glyph then
-      size(editable and "size")
+      pixels(editable and "size")
       if editable then
         table.insert(list, { key="coupled", value=context.coupled ~= false, field="coupled" })
       end
@@ -107,7 +118,7 @@ function properties.rows(info, tr, context)
   if t then
     add("texture", t.id)
     if kind ~= "glyph" then
-      size(kind == "override" and "size" or nil)
+      pixels(kind == "override" and "size" or nil)
     end
     files()
   end
@@ -140,8 +151,9 @@ function properties.form(info, field, tr, lists)
   elseif field == "height" or field == "ascent" then
     return { title=title, widgets={ number("value", title, e[field]) } }
   elseif field == "size" then
+    local s = size(info)
     return { title=title, widgets={
-      number("width", tr("properties.width"), t.width), number("height", tr("properties.pixel_height"), t.height) } }
+      number("width", tr("properties.width"), s.width), number("height", tr("properties.pixel_height"), s.height) } }
   elseif field == "scaling" then
     local s = type(e.scaling) == "table" and e.scaling or {}
     local border = s.border
@@ -192,7 +204,8 @@ function properties.jobs(info, field, data, tr)
     return { "deleteGlyph", { glyph=glyph } }
   elseif field == "size" then
     local width, height = int(data.width), int(data.height)
-    local oldWidth, oldHeight = int(t.width), int(t.height)
+    local old = size(info)
+    local oldWidth, oldHeight = int(old.width), int(old.height)
     if width == oldWidth and height == oldHeight then return nil end
     local whole = width % oldWidth == 0 and height % oldHeight == 0 and width >= oldWidth and height >= oldHeight
     return { resize={ width=width, height=height, lossy=not whole or nil } }

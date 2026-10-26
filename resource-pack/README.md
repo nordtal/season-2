@@ -336,12 +336,12 @@ them, except `ß`, and maps unknown characters to `?`, because a missing-glyph b
 | `minecraft/lang/de_de.json`                                    | sets the same three keys in German                                           |
 
 A vanilla override starts as a copy from the client jar of the season's Minecraft version, the version
-of `paper` in the catalog. The jar is downloaded once from Mojang's version manifest, checked against
-the SHA-1 it names and cached under `~/.gradle/caches/nordtal/vanilla-client`. It is never part of the
-pack. Each task prints the absolute path of its result, one file per line.
+of `paper` in the catalog. It is the jar that Fabric Loom downloads for `:bridge-mod` once, checks
+against the SHA-1 of Mojang's version manifest and keeps in `~/.gradle/caches/fabric-loom`, which
+`:bridge-mod` hands to these tasks. It is never part of the pack. Each task prints the absolute path
+of its result, one file per line.
 
 ```bash
-./gradlew -q :resource-pack:downloadVanillaClient   # the path of client.jar
 ./gradlew -q :resource-pack:listVanillaTextures     # build/vanilla-textures.json: id, width, height, mcmeta
 ./gradlew -q :resource-pack:copyVanillaTexture -Ptexture=minecraft:block/stone.png
 ```

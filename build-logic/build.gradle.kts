@@ -29,9 +29,10 @@ tasks.test {
     inputs.file(resourcePack.file("glyphs.json")).withPropertyName("allocation").withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(resourcePack.dir("src")).withPropertyName("packSource").withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("nordtal.resourcePack", resourcePack.asFile.absolutePath)
-    // The round trip of every vanilla item definition reads the season's client jar from the cache that the pack's tasks share.
+    // The round trip of every vanilla item definition reads the season's client jar from Fabric Loom's cache, where Loom
+    // keeps the one it downloads for :bridge-mod and the pack's tasks read.
     systemProperty("nordtal.paperVersion", libs.versions.paper.get())
-    systemProperty("nordtal.vanillaClientCache", File(gradle.gradleUserHomeDir, "caches/nordtal/vanilla-client").absolutePath)
+    systemProperty("nordtal.loomCache", File(gradle.gradleUserHomeDir, "caches/fabric-loom").absolutePath)
 }
 
 fun Provider<PluginDependency>.marker(): Provider<String> =

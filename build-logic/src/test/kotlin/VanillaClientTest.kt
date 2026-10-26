@@ -1,21 +1,14 @@
 package eu.nordtal.season.build
 
-import com.sun.net.httpserver.HttpServer
 import org.gradle.testkit.runner.GradleRunner
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.awt.image.BufferedImage
 import java.io.ByteArrayOutputStream
 import java.io.File
-import java.net.InetSocketAddress
-import java.net.URI
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import javax.imageio.ImageIO
@@ -24,9 +17,6 @@ class VanillaClientTest {
     @TempDir
     lateinit var directory: File
 
-    private lateinit var server: HttpServer
-    private val requests = mutableListOf<String>()
-    private val responses = mutableMapOf<String, ByteArray>()
     private val jar =
         zip(
             "assets/minecraft/textures/block/stone.png" to png(16, 16),
@@ -35,57 +25,6 @@ class VanillaClientTest {
             "assets/minecraft/models/block/stone.json" to "{}".toByteArray(),
             "net/minecraft/Main.class" to ByteArray(4),
         )
-
-    @BeforeEach
-    fun start() {
-        server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/") { exchange ->
-            val path = exchange.requestURI.path
-            requests += path
-            val body = responses[path]
-            exchange.sendResponseHeaders(if (body == null) 404 else 200, body?.size?.toLong() ?: -1)
-            body?.let { exchange.responseBody.write(it) }
-            exchange.close()
-        }
-        server.start()
-    }
-
-    @AfterEach
-    fun stop() = server.stop(0)
-
-    @Test
-    fun theJarIsDownloadedOnceAndCheckedAgainstTheManifest() {
-        serve("26.2", jar, sha1(jar))
-        val cache = directory.resolve("cache")
-
-        val first = VanillaClient.jar("26.2", manifest(), cache)
-        val second = VanillaClient.jar("26.2", manifest(), cache)
-
-        assertArrayEquals(jar, first.readBytes())
-        assertEquals(first, second)
-        assertEquals(listOf("/manifest.json", "/26.2.json", "/client.jar"), requests)
-    }
-
-    @Test
-    fun aJarWhoseSha1DiffersFromTheManifestIsRefusedAndNotKept() {
-        serve("26.2", jar, sha1("another jar".toByteArray()))
-        val cache = directory.resolve("cache")
-
-        val refusal = assertThrows(IllegalStateException::class.java) { VanillaClient.jar("26.2", manifest(), cache) }
-
-        assertTrue("SHA-1" in refusal.message!!, refusal.message)
-        assertFalse(cache.walkTopDown().any { it.name == "client.jar" })
-    }
-
-    @Test
-    fun aVersionTheManifestDoesNotListIsRefused() {
-        serve("26.2", jar, sha1(jar))
-
-        val refusal =
-            assertThrows(IllegalStateException::class.java) { VanillaClient.jar("26.9", manifest(), directory.resolve("cache")) }
-
-        assertTrue("26.9" in refusal.message!!, refusal.message)
-    }
 
     @Test
     fun theTexturesAreListedWithTheirPixelsAndAnimation() {
@@ -127,8 +66,7 @@ class VanillaClientTest {
     }
 
     @Test
-    fun theListingPrintsItsPathOnARunThatIsUpToDate() {
-        serve("26.2", jar, sha1(jar))
+    fun theListingReadsTheClientJarItIsGivenAndPrintsItsPathOnARunThatIsUpToDate() {
         // The build-logic classes, which the build below loads as its own.
         val classes =
             System
@@ -138,13 +76,13 @@ class VanillaClientTest {
                 .joinToString(", ") { "'" + it.replace("\\", "/") + "'" }
         val project = directory.resolve("project").apply { mkdirs() }
         project.resolve("settings.gradle").writeText("")
+        project.resolve("client.jar").writeBytes(jar)
         project.resolve("build.gradle").writeText(
             """
             buildscript { dependencies { classpath files($classes) } }
             tasks.register('list', eu.nordtal.season.build.ListVanillaTextures) {
                 version = '26.2'
-                manifest = '${manifest()}'
-                cache = file('cache')
+                client.from('client.jar')
                 listing = layout.buildDirectory.file('listing.json')
             }
             """.trimIndent(),
@@ -155,25 +93,8 @@ class VanillaClientTest {
         val second = runner.build().output
 
         assertTrue(project.resolve("build/listing.json").absolutePath in second, second)
+        assertTrue("minecraft:block/water_still.png" in project.resolve("build/listing.json").readText())
     }
-
-    private fun serve(
-        version: String,
-        client: ByteArray,
-        sha1: String,
-    ) {
-        val base = "http://127.0.0.1:${server.address.port}"
-        val versionJson =
-            """{"id": "$version", "downloads": {"client": {"sha1": "$sha1", "size": ${client.size}, "url": "$base/client.jar"}}}"""
-                .toByteArray()
-        responses["/manifest.json"] =
-            """{"latest": {}, "versions": [{"id": "$version", "url": "$base/$version.json", "sha1": "${sha1(versionJson)}"}]}"""
-                .toByteArray()
-        responses["/$version.json"] = versionJson
-        responses["/client.jar"] = client
-    }
-
-    private fun manifest() = URI("http://127.0.0.1:${server.address.port}/manifest.json")
 
     private fun png(
         width: Int,

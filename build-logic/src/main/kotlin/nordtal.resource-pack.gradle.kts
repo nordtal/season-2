@@ -8,7 +8,6 @@ import eu.nordtal.season.build.CheckPack
 import eu.nordtal.season.build.CheckSourcesTracked
 import eu.nordtal.season.build.CopyVanillaTexture
 import eu.nordtal.season.build.DescribePack
-import eu.nordtal.season.build.DownloadVanillaClient
 import eu.nordtal.season.build.EditPackSources
 import eu.nordtal.season.build.GenerateGlyphs
 import eu.nordtal.season.build.InstallPack
@@ -16,7 +15,6 @@ import eu.nordtal.season.build.ListVanillaTextures
 import eu.nordtal.season.build.MinecraftInstanceChooser
 import eu.nordtal.season.build.MinecraftVersion
 import eu.nordtal.season.build.Sha1File
-import eu.nordtal.season.build.VanillaClient
 import eu.nordtal.season.build.VanillaClientTask
 import org.gradle.accessors.dm.LibrariesForLibs
 
@@ -210,15 +208,16 @@ tasks.register<InstallPack>("installPack") {
     packName.set("nordtal-dev")
 }
 
-// The client jar of the season's Minecraft version, the source of a vanilla override. It is cached outside the clone.
+// The client jar of the season's Minecraft version, the source of a vanilla override: the one that Fabric Loom
+// downloads for :bridge-mod and checks against Mojang's version manifest.
 val minecraftVersion = MinecraftVersion.of(the<LibrariesForLibs>().versions.paper.get())
+val vanillaClientJar = configurations.dependencyScope("vanillaClient")
+val vanillaClientFiles = configurations.resolvable("vanillaClientFiles") { extendsFrom(vanillaClientJar.get()) }
+dependencies { "vanillaClient"(project(":bridge-mod", "vanillaClient")) }
 val vanillaClient: VanillaClientTask.() -> Unit = {
     version.set(minecraftVersion)
-    manifest.set(VanillaClient.MANIFEST)
-    cache.set(File(gradle.gradleUserHomeDir, "caches/nordtal/vanilla-client"))
+    client.from(vanillaClientFiles)
 }
-
-tasks.register<DownloadVanillaClient>("downloadVanillaClient") { vanillaClient() }
 
 tasks.register<ListVanillaTextures>("listVanillaTextures") {
     vanillaClient()

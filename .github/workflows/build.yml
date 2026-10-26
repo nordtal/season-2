@@ -37,6 +37,21 @@ jobs:
             sh .githooks/commit-msg "$RUNNER_TEMP/message"
           done
 
+      # The Lua version of Nordtal Designer's Aseprite.
+      - uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13.0.0
+        with:
+          luaVersion: "5.4.6"
+
+      - uses: leafo/gh-actions-luarocks@35d062def313a7699a0d513e996bcf4352f05389 # v6.1.0
+        with:
+          luaRocksVersion: "3.11.1"
+
+      - name: Lua tests of the designer plugin
+        working-directory: designer
+        run: |
+          luarocks install busted 2.2.0-1
+          busted
+
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin

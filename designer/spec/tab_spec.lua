@@ -297,6 +297,30 @@ describe("the Nordtal tab", function()
     assert.equal("status.outside /Library/out.png", dlg.handlers.status.text)
   end)
 
+  it("clears the reason of the last entry when another one is selected", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/out.png" })
+    dlg.handlers.tree.onchange({ node="glyphs" })
+    assert.is_false(dlg.handlers.status.visible)
+  end)
+
+  it("empties the editor when the clicked texture cannot be opened", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/out.png" })
+    assert.is_nil(dlg.data.editor)
+  end)
+
+  it("keeps showing that it reads the pack when the sprite leaves the editor", function()
+    local t = setUp()
+    local dlg = t.dialogs[1]
+    dlg.handlers.editor.onchange()
+    assert.equal("status.loading", dlg.handlers.status.text)
+    assert.is_not_false(dlg.handlers.status.visible)
+  end)
+
   it("shows why the pack's nodes could not be built", function()
     local t = setUp(nil, dkjson.encode({ fonts={ { font="nordtal:gui", blocks={
       { kind="sheet", title="Row text", texture={ id="nordtal:a.png", png="src/a.png", aseprite="art/a.aseprite" },

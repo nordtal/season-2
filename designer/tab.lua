@@ -164,24 +164,25 @@ function tab.open(context)
   -- Shows the entry of a node and opens its texture in the editor
   function ctl.select(id)
     selected = id
+    setStatus(nil)
     showProperties()
     local info = index and index[id]
     if not (info and info.texture) then
       return
     end
     local paths, outside = modules.pack.paths(clone, info.texture, api.join)
-    if not paths then
-      setStatus(tr("status.outside", outside))
-      return
+    local sprite, missing
+    if paths then
+      sprite, missing = modules.textures.open(info.texture, paths, api)
     end
-    local sprite, missing = modules.textures.open(info.texture, paths, api)
     if not sprite then
-      setStatus(tr("status.missing", missing))
+      -- The editor shows no texture of another entry than the selected one
+      dlg:modify{ id="editor", sprite=false }
+      setStatus(paths and tr("status.missing", missing) or tr("status.outside", outside))
       return
     end
     local record = { texture=info.texture, paths=paths }
     opened[paths.png], opened[paths.aseprite] = record, record
-    setStatus(nil)
     dlg:modify{ id="editor", sprite=sprite }
     -- A texture of a few pixels fills the editor
     api.fitScreen()
@@ -192,7 +193,6 @@ function tab.open(context)
   function ctl.clear()
     selected = nil
     dlg.data = { tree="" }
-    setStatus(nil)
     showProperties()
   end
 

@@ -11,7 +11,9 @@ import javax.imageio.ImageIO
 object TextureMeta {
     /** The milliseconds of one game tick, the unit of `frametime` and `time`. */
     private const val TICK = 50
-    private val SCALINGS = listOf("stretch", "tile", "nine_slice")
+
+    /** The scaling types of a GUI sprite. */
+    val SCALINGS = listOf("stretch", "tile", "nine_slice")
 
     /**
      * Writes the `animation` of [texture], whose PNG is a column of one frame per entry of [frames], each its duration in
@@ -70,13 +72,13 @@ object TextureMeta {
         }
         if (type == "nine_slice") {
             require(border != null && border.size == 4 && border.all { it >= 0 }) { "A nine_slice border is four numbers of at least 0." }
-            val image = ImageIO.read(png) ?: throw IllegalArgumentException("${relative(pack, png)} is no PNG that can be read.")
+            // Minecraft refuses a nine_slice whose borders leave no middle in the size it declares
             val (left, top, right, bottom) = border
-            require(left + right <= image.width) {
-                "The left and right border of $left and $right pixels are wider than the sprite of ${image.width} pixels."
+            require(left + right < width!!) {
+                "The left and right border of $left and $right pixels leave no middle in the width of $width pixels."
             }
-            require(top + bottom <= image.height) {
-                "The top and bottom border of $top and $bottom pixels are higher than the sprite of ${image.height} pixels."
+            require(top + bottom < height!!) {
+                "The top and bottom border of $top and $bottom pixels leave no middle in the height of $height pixels."
             }
         }
         return change(pack, png) { meta ->

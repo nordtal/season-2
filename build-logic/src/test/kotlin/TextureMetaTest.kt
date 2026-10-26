@@ -160,18 +160,33 @@ class TextureMetaTest {
     }
 
     @Test
-    fun aNineSliceRefusesAMissingSizeAndABorderWiderThanTheSprite() {
+    fun aNineSliceRefusesAMissingSizeAndAnUnknownType() {
         png(buttonPng, 20, 20)
 
         val size =
             assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "nine_slice", null, 20, listOf(3, 3, 3, 3), false) }
-        val border =
-            assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "nine_slice", 40, 40, listOf(12, 0, 10, 0), false) }
         val type = assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "slice", 40, 40, null, null) }
 
         assertEquals("A nine_slice scaling needs a width and a height of at least 1 pixel.", size.message)
-        assertEquals("The left and right border of 12 and 10 pixels are wider than the sprite of 20 pixels.", border.message)
         assertEquals("The scaling is stretch, tile or nine_slice, not slice.", type.message)
+    }
+
+    @Test
+    fun aNineSliceKeepsAMiddleOfAtLeastOnePixelInTheSizeItDeclaresAsMinecraftDoes() {
+        png(buttonPng, 20, 20)
+
+        TextureMeta.scale(pack, button, "nine_slice", 40, 30, listOf(20, 14, 19, 15), false)
+        val wide =
+            assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "nine_slice", 40, 30, listOf(20, 0, 20, 0), false) }
+        val high =
+            assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "nine_slice", 40, 30, listOf(0, 15, 0, 15), false) }
+
+        assertEquals(
+            mapOf("left" to 20, "top" to 14, "right" to 19, "bottom" to 15),
+            ((OxfmtJson.read(buttonMeta) as Map<*, *>)["gui"] as Map<*, *>).let { (it["scaling"] as Map<*, *>)["border"] },
+        )
+        assertEquals("The left and right border of 20 and 20 pixels leave no middle in the width of 40 pixels.", wide.message)
+        assertEquals("The top and bottom border of 15 and 15 pixels leave no middle in the height of 30 pixels.", high.message)
     }
 
     @Test

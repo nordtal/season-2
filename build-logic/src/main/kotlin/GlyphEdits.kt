@@ -240,23 +240,31 @@ object GlyphEdits {
 
     private fun code(glyph: Map<*, *>) = (glyph["code"] as String).toInt(16)
 
-    /** The places in the repository's files, tracked or not yet, that use [found]: `Glyphs.CONSTANT` in Java or Kotlin, or `<glyph:name>`. */
+    /**
+     * The places in the repository's files, tracked or not yet, that use [found]: `Glyphs.CONSTANT` in Java or Kotlin, the bare
+     * `CONSTANT` in a file that imports it or every glyph statically, or `<glyph:name>`. A tag that code builds at runtime is
+     * not found.
+     */
     private fun refuseUsed(
         repository: File,
         found: Found,
     ) {
-        val constant = (found.glyph["constant"] as String?)?.let { Regex("""\bGlyphs\.${Regex.escape(it)}\b""") }
+        val name = found.glyph["constant"] as String?
+        val constant = name?.let { Regex("""\bGlyphs\.${Regex.escape(it)}\b""") }
+        val imported = name?.let { Regex("""^\s*import\s+(static\s+)?[\w.]*\bGlyphs\.(${Regex.escape(it)}\b|\*)""", RegexOption.MULTILINE) }
+        val bare = name?.let { Regex("""\b${Regex.escape(it)}\b""") }
         val tag = (found.glyph["name"] as String?)?.let { "<glyph:$it>" }
         val places =
             trackedFiles(repository, emptyList(), untracked = true).flatMap { path ->
                 val code = path.endsWith(".java") || path.endsWith(".kt")
                 val text = if (code || tag != null) readText(repository.resolve(path)) else null
+                val uses = if (code && text != null && imported?.containsMatchIn(text) == true) bare else constant
                 text
                     .orEmpty()
                     .lineSequence()
                     .withIndex()
                     .filter { (_, line) ->
-                        (code && constant?.containsMatchIn(line) == true) || (tag != null && tag in line)
+                        (code && uses?.containsMatchIn(line) == true) || (tag != null && tag in line)
                     }.map { "$path:${it.index + 1}" }
                     .toList()
             }

@@ -20,6 +20,7 @@ object PackModel {
             "items" to items(assets, root),
             "overrides" to overrides(assets, root),
             "statuses" to GlyphAllocation.STATUSES.toList(),
+            "scalings" to TextureMeta.SCALINGS,
         )
     }
 

@@ -160,9 +160,10 @@ fails with the reason when it refuses.
 - An edit sets each option it is given. An empty `status` or `about` removes it, and a `height` or
   `ascent` equal to the block's leaves the glyph without its own. A cell takes its `height` and `ascent`
   from its sheet and refuses both.
-- A rename and a delete refuse while a file that git tracks or would add uses the glyph, as
-  `Glyphs.CONSTANT` in Java or Kotlin or as a `<glyph:name>` tag, and the refusal lists each place as
-  `path:line`.
+- A rename and a delete refuse while a file that git tracks or would add uses the glyph, and the
+  refusal lists each place as `path:line`. A use is `Glyphs.CONSTANT` in Java or Kotlin, the bare
+  `CONSTANT` in a file that imports it or `Glyphs.*`, or a `<glyph:name>` tag. A tag that code builds
+  at runtime is not found.
 - A delete removes the entry, and its PNG under `src/` and its `.aseprite` under `art/` when no other
   glyph, sheet or item model draws them, all or nothing. A cell of a sheet loses only its entry, and
   only the last cell can go, since a sheet's cells are the columns of its texture.
@@ -197,8 +198,8 @@ of indent, and removes a file left empty.
   not square sets `height`. `interpolate` stays, and one frame removes the animation.
 - `scaling` is `stretch`, `tile` or `nine_slice`, and only a texture under `textures/gui/sprites/` takes
   one. `stretch` removes `gui.scaling`. `tile` and `nine_slice` need `width` and `height`, and
-  `nine_slice` a `border` of one number for every side or four for left, top, right and bottom, which
-  fit the PNG.
+  `nine_slice` a `border` of one number for every side or four for left, top, right and bottom. As in
+  Minecraft, left and right together stay below `width`, and top and bottom below `height`.
 
 ## Item definitions
 

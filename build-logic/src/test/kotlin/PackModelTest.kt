@@ -153,6 +153,13 @@ class PackModelTest {
     }
 
     @Test
+    fun theModelListsTheScalingsAGuiSpriteCanHave() {
+        allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
+
+        assertEquals(listOf("stretch", "tile", "nine_slice"), model()["scalings"])
+    }
+
+    @Test
     fun itemsAreGroupedByNamespaceAndLanguageFilesAreLeftOut() {
         allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
         file("src/assets/nordtal/items/blank.json").writeText("""{"model": {"type": "minecraft:empty"}}""")

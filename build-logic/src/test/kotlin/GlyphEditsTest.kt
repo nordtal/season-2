@@ -340,6 +340,25 @@ class GlyphEditsTest {
     }
 
     @Test
+    fun aStaticImportOfTheConstantOrOfEveryGlyphCountsEachBareUseOfIt() {
+        use(
+            "smp/src/main/java/Badge.java",
+            "import static eu.nordtal.season.common.Glyphs.BADGE_STAR;\n\nclass Badge {\n    String star = BADGE_STAR;\n}\n",
+        )
+        use("smp/src/main/kotlin/Star.kt", "import eu.nordtal.season.common.Glyphs.*\n\nval star = BADGE_STAR\nval moon = BADGE_MOON\n")
+
+        val refusal = assertThrows<IllegalStateException> { GlyphEdits.delete(pack, repository, "star") }
+
+        assertEquals(
+            "star is still used in 3 places:\n" +
+                "    smp/src/main/java/Badge.java:1\n" +
+                "    smp/src/main/java/Badge.java:4\n" +
+                "    smp/src/main/kotlin/Star.kt:3",
+            refusal.message,
+        )
+    }
+
+    @Test
     fun aUseInAFileThatGitDoesNotTrackYetRefusesTheRename() {
         repository
             .resolve("smp/src/main/java/Draft.java")

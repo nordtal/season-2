@@ -90,8 +90,9 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-alert"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("no build yet"), drawn);
-        assertFalse(drawn.contains("admin/run.no-build"), drawn);
+        assertTrue(drawn.contains("smp is not running"), drawn);
+        assertTrue(drawn.contains("smp restarted 3 times since it was started."), drawn);
+        assertFalse(drawn.contains("admin/alert."), drawn);
     }
 
     @Test
@@ -99,8 +100,10 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("no build yet"), drawn);
-        assertFalse(drawn.contains("admin/run.no-build"), drawn);
+        assertTrue(drawn.contains("**smp** *Runtime* 1.21.4 → 1.21.5"), drawn);
+        assertTrue(drawn.contains("**smp** exit code 2"), drawn);
+        assertFalse(drawn.contains("no build yet"), drawn);
+        assertFalse(drawn.contains("admin/"), drawn);
     }
 
     @Test

@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.data;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
@@ -35,7 +36,7 @@ class ExampleValuesTest {
 
     @BeforeEach
     void emptyTables() {
-        sql("TRUNCATE account_link, discord_user, registration, hg_game, smp_milestone, setting_override CASCADE");
+        sql("TRUNCATE account_link, discord_user, registration, hg_game, setting_override CASCADE");
     }
 
     @Test
@@ -46,7 +47,9 @@ class ExampleValuesTest {
         assertEquals(Map.of("name", "@Ada"), examples.get("discord-member"));
         assertEquals(Map.of("name", "Nordlichter"), examples.get("team"));
         assertEquals(Map.of("name", "smp"), examples.get("service"));
-        assertEquals(Map.of("name", "frontier"), examples.get("milestone"));
+        assertFalse(
+                examples.containsKey("milestone"),
+                "a milestone shows its declared example, which names it as players read it");
         assertEquals(Map.of("number", "2", "name", "Season 2"), examples.get("season"));
     }
 
@@ -80,14 +83,12 @@ class ExampleValuesTest {
     }
 
     @Test
-    void realTeamAndActiveMilestone() {
-        sql("INSERT INTO smp_milestone (key, state) VALUES ('foothold', 'UNLOCKED'), ('nether', 'ACTIVE')");
+    void realTeam() {
         final RoundSeed seed = new RoundSeed(owner);
         seed.team(seed.round("OPEN"), "Eisbären");
 
         final Map<String, Map<String, String>> examples = new ExampleValues(dataSource).of(DiscordId.of("1"), "Ada");
         assertEquals(Map.of("name", "Eisbären"), examples.get("team"));
-        assertEquals(Map.of("name", "nether"), examples.get("milestone"));
     }
 
     private static void sql(final String statement) {

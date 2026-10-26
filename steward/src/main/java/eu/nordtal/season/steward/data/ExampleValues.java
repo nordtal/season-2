@@ -54,13 +54,6 @@ public final class ExampleValues {
                     "team",
                     named(first(connection, "SELECT name FROM team ORDER BY created DESC LIMIT 1")
                             .orElse("Nordlichter")));
-            answer.put(
-                    "milestone",
-                    named(first(
-                                    connection,
-                                    "SELECT key FROM smp_milestone ORDER BY state = 'ACTIVE' DESC, unlocked DESC NULLS LAST"
-                                            + " LIMIT 1")
-                            .orElse("frontier")));
         } catch (final SQLException failure) {
             throw new IllegalStateException("could not read the example values", failure);
         }

@@ -83,14 +83,14 @@ public final class UpdateFeed {
             @Example("smp") String service,
             @Takes("admin/run.step-kind") MessageRef state,
 
-            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.moved")
             List<MessageRef> changes) {}
 
     record Failure(
             boolean named,
             @Example("smp") String service,
 
-            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.exit-code")
             MessageRef what) {}
 
     static final DocumentSpec<Run> RUN = DocumentSpec.message(

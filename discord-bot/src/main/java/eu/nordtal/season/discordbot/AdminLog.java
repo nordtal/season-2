@@ -63,13 +63,13 @@ public final class AdminLog {
     record Card(
             @Example(Mark.PREVIEW) String mark,
 
-            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            @Takes({"admin/*", "database/*"}) @Example("admin/alert.not-running")
             MessageRef title) {}
 
     record Pinged(@Example("Kim") Mention admin) {}
 
     record Detail(
-            @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build")
+            @Takes({"admin/*", "database/*"}) @Example("admin/alert.restarted-by-docker")
             MessageRef line) {}
 
     static final DocumentSpec<Journal> JOURNAL = DocumentSpec.message(

@@ -20,21 +20,37 @@ import kotlin.system.exitProcess
 object MinecraftInstanceChooser {
     private const val TITLE = "Choose your Minecraft instance folder"
 
+    /** The folders that Prism and MultiMC run the game in, below the folder of `mmc-pack.json`. */
+    private val GAME_FOLDERS = listOf("minecraft", ".minecraft")
+
     @JvmStatic
     fun main(args: Array<String>) {
         val store = File(args[0])
         val given = args.getOrNull(1)?.takeIf { it.isNotBlank() }?.let(::File)
         val picked = (given ?: ask(start(store)) ?: finish(0, "Nothing was chosen, so nothing changed.")).absoluteFile
-        if (!picked.isDirectory) finish(1, "$picked is not a folder.")
+        save(store, picked, given)?.let { finish(1, it) }
+        finish(0, "Minecraft instance: ${instance(picked) ?: picked}\nNext, run 'pack: 2. install into Minecraft'.")
+    }
+
+    /**
+     * Saves the instance of [picked] to [store] and returns null, or returns why it saved nothing. Without a [given]
+     * answer, it asks whether a folder that no file marks is an instance.
+     */
+    internal fun save(
+        store: File,
+        picked: File,
+        given: File?,
+    ): String? {
+        if (!picked.isDirectory) return "$picked is not a folder."
         val instance =
             instance(picked)
                 ?: picked.takeIf { given == null && confirm(it) }
-                ?: finish(1, "$picked holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.")
-        instance.mkdirs()
+                ?: return "$picked holds no file of Minecraft or of a launcher, so it is not a Minecraft instance."
+        if (!instance.isDirectory && !instance.mkdirs()) return "$instance cannot be created, so nothing changed."
         Properties().apply { setProperty("instance", instance.absolutePath) }.also { properties ->
             store.writer().use { properties.store(it, "The Minecraft instance the resource pack is installed into") }
         }
-        finish(0, "Minecraft instance: $instance\nNext, run 'pack: 2. install into Minecraft'.")
+        return null
     }
 
     private fun ask(start: File): File? {
@@ -88,14 +104,17 @@ object MinecraftInstanceChooser {
             return if (dotted.isDirectory && !folder.resolve("minecraft").exists()) dotted else folder.resolve("minecraft")
         }
         if (looksLikeInstance(folder)) return folder
-        return listOf("minecraft", ".minecraft").map(folder::resolve).firstOrNull(::looksLikeInstance)
+        return GAME_FOLDERS.map(folder::resolve).firstOrNull(::looksLikeInstance)
     }
 
-    /** Whether a file of the game or of a launcher marks [folder], which then may never have run. */
+    /**
+     * Whether a file of the game or of a launcher marks [folder], which then may never have run. The `mmc-pack.json` of
+     * Prism and MultiMC marks only the `minecraft/` or `.minecraft/` beside it.
+     */
     private fun looksLikeInstance(folder: File): Boolean =
         folder.resolve("options.txt").isFile ||
             listOf("resourcepacks", "versions", ".fabric").any { folder.resolve(it).isDirectory } ||
-            folder.parentFile?.resolve("mmc-pack.json")?.isFile == true
+            (folder.name in GAME_FOLDERS && folder.parentFile?.resolve("mmc-pack.json")?.isFile == true)
 
     private fun start(store: File): File {
         val previous = runCatching { Properties().apply { store.reader().use { load(it) } }.getProperty("instance") }.getOrNull()

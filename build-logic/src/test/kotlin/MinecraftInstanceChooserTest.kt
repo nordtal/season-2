@@ -1,10 +1,12 @@
 package eu.nordtal.season.build
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.util.Properties
 
 class MinecraftInstanceChooserTest {
     @TempDir
@@ -33,6 +35,41 @@ class MinecraftInstanceChooserTest {
 
         val dotted = folder("dotted", ".minecraft").apply { resolve("mmc-pack.json").writeText("{}") }
         assertEquals(dotted.resolve(".minecraft"), MinecraftInstanceChooser.instance(dotted))
+        assertEquals(dotted.resolve(".minecraft"), MinecraftInstanceChooser.instance(dotted.resolve(".minecraft")))
+    }
+
+    @Test
+    fun anotherFolderOfAPrismInstanceIsNoInstance() {
+        val prism = folder("prism", "patches").apply { resolve("mmc-pack.json").writeText("{}") }
+        assertNull(MinecraftInstanceChooser.instance(prism.resolve("patches")))
+    }
+
+    @Test
+    fun aGameFolderThatCannotBeCreatedFailsTheChoiceAndSavesNothing() {
+        val prism =
+            folder("blocked").apply {
+                resolve("mmc-pack.json").writeText("{}")
+                resolve("minecraft").writeText("")
+            }
+        val store = root.resolve("minecraft-instance.properties")
+        assertEquals(
+            "${prism.resolve("minecraft")} cannot be created, so nothing changed.",
+            MinecraftInstanceChooser.save(store, prism, prism)?.trim(),
+        )
+        assertFalse(store.exists())
+    }
+
+    @Test
+    fun aChosenInstanceIsSaved() {
+        val started = folder("started", "resourcepacks")
+        val store = root.resolve("minecraft-instance.properties")
+        assertNull(MinecraftInstanceChooser.save(store, started.resolve("resourcepacks"), started.resolve("resourcepacks")))
+        assertEquals(
+            started.absolutePath,
+            Properties()
+                .apply { store.reader().use { load(it) } }
+                .getProperty("instance"),
+        )
     }
 
     @Test

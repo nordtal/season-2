@@ -113,8 +113,10 @@ function panel.layout(rows, width, measure, lineHeight, textHeight)
       end
     else
       if row.text then
-        text(row.text, 0, y, true)
-        y = y + lineHeight
+        for _, line in ipairs(panel.wrap(row.text, width, measure)) do
+          text(line, 0, y, true)
+          y = y + lineHeight
+        end
       end
       top = y
       local lines = panel.wrap(row.value, width - (row.field and 2 * inset or 0), measure)

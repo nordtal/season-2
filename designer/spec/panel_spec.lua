@@ -22,6 +22,11 @@ describe("the properties panel", function()
       texts(layout({ { text="Code", value="F0000" }, { text="Name", value="star" } }, 20)))
   end)
 
+  it("wraps a key to the panel's width and puts its value below its last line", function()
+    assert.same({ { "Give minecraft:", 0, 0, true }, { "lodestone_tracker", 0, 2, true }, { "/give", 0, 4, false } },
+      texts(layout({ { text="Give minecraft:lodestone_tracker", value="/give" } }, 20)))
+  end)
+
   it("draws a value without a key below the row before", function()
     assert.same({ { "Refused", 0, 0, true }, { "admin", 0, 2, false }, { "a.java:1", 0, 5, false } },
       texts(layout({ { text="Refused", value="admin" }, { value="a.java:1" } }, 20)))

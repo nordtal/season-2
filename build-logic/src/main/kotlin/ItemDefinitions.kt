@@ -150,9 +150,6 @@ object ItemDefinitions {
     private class Fields(
         val all: List<Field>,
     ) {
-        val required = all.filter { it.required }.map { it.name }.toSet()
-        val optional = all.filterNot { it.required }.map { it.name }.toSet()
-
         fun described() = all.map { mapOf("name" to it.name, "kind" to it.kind, "required" to it.required) }
     }
 
@@ -169,7 +166,7 @@ object ItemDefinitions {
     fun problems(definition: Any?): List<String> {
         val problems = mutableListOf<String>()
         val root = definition as? Map<*, *> ?: return listOf("an item definition is a JSON object")
-        shape(root, DEFINITION, emptySet(), "item", problems)
+        shape(root, DEFINITION.all, "item", problems)
         model(root["model"], "model", problems)
         return problems
     }
@@ -204,9 +201,8 @@ object ItemDefinitions {
     ) {
         val model = node as? Map<*, *> ?: return run { problems += "$where is a model object" }
         val type = type(model) ?: return run { problems += "$where has no known 'type': ${model["type"]}" }
-        val property = PROPERTIES[type]
-        val extra = property?.let { propertyFields(model, it, "$where > property", problems) } ?: emptySet()
-        shape(model, MODELS.getValue(type), extra, where, problems)
+        val property = PROPERTIES[type]?.let { propertyFields(model, it, "$where > property", problems) }.orEmpty()
+        shape(model, MODELS.getValue(type).all + property, where, problems)
         when (type) {
             "model" -> {
                 (model["tints"] as? List<*>)?.forEachIndexed { index, tint -> typed(tint, TINTS, "$where > tints[$index]", problems) }
@@ -251,7 +247,7 @@ object ItemDefinitions {
         problems: MutableList<String>,
     ) {
         val entry = node as? Map<*, *> ?: return run { problems += "$where is an object" }
-        shape(entry, fields, emptySet(), where, problems)
+        shape(entry, fields.all, where, problems)
         if ("model" in entry) model(entry["model"], "$where > model", problems)
     }
 
@@ -266,12 +262,12 @@ object ItemDefinitions {
         table: Map<String, Fields>,
         where: String,
         problems: MutableList<String>,
-    ): Set<String> {
+    ): List<Field> {
         val fields =
-            id(model["property"])?.let { table[it] }
-                ?: return emptySet<String>().also { problems += "$where is unknown: ${model["property"]}" }
-        fields.required.filterNot { it in model }.forEach { problems += "$where needs '$it'" }
-        return fields.required + fields.optional
+            id(model["property"])?.let { table[it] }?.all
+                ?: return emptyList<Field>().also { problems += "$where is unknown: ${model["property"]}" }
+        fields.filter { it.required && it.name !in model }.forEach { problems += "$where needs '${it.name}'" }
+        return fields.map { Field(it.name, it.kind, false) }
     }
 
     /**
@@ -425,6 +421,9 @@ object ItemDefinitions {
                 !key.startsWith("_") && (key !in allowed || (key in before && key !in fields && before[key] != allowed[key]))
             }
         }
+        for (field in fieldsOf(kind, node).all.filter { it.name in fields && fields[it.name] != null }) {
+            misfit(field, node[field.name])?.let { throw FieldRefusal(field.name, it) }
+        }
         for (field in fieldsOf(kind, node).all.filter { it.required && it.name !in node }) {
             when (field.kind) {
                 "model" -> node[field.name] = empty()
@@ -442,23 +441,32 @@ object ItemDefinitions {
     ) {
         val entry = node as? Map<*, *> ?: return run { problems += "$where is an object" }
         val fields = id(entry["type"])?.let { table[it] } ?: return run { problems += "$where has no known 'type': ${entry["type"]}" }
-        shape(entry, fields, setOf("type"), where, problems)
+        shape(entry, fields.all, where, problems)
     }
 
     private fun shape(
         node: Map<*, *>,
-        fields: Fields,
-        extra: Set<String>,
+        fields: List<Field>,
         where: String,
         problems: MutableList<String>,
     ) {
-        fields.required.filterNot { it in node }.forEach { problems += "$where needs '$it'" }
-        val known = fields.required + fields.optional + extra + "type"
+        fields.filter { it.required && it.name !in node }.forEach { problems += "$where needs '${it.name}'" }
+        fields.filter { it.name in node }.forEach { field -> misfit(field, node[field.name])?.let { problems += "$where > $it" } }
+        val known = fields.map { it.name }.toSet() + "type"
         node.keys
             .map { it as String }
             .filterNot { it in known || it.startsWith("_") }
             .forEach { problems += "$where has no field '$it'" }
     }
+
+    /** The class of a value of each kind that holds one. A `json` value may be any. */
+    private val VALUES = mapOf("id" to String::class, "text" to String::class, "number" to Number::class, "boolean" to Boolean::class)
+
+    /** Why [value] cannot be the value of [field], or null when it can. */
+    private fun misfit(
+        field: Field,
+        value: Any?,
+    ): String? = VALUES[field.kind]?.takeUnless { it.isInstance(value) }?.let { "${field.name} is no ${field.kind}: $value" }
 
     private fun type(model: Map<*, *>): String? = id(model["type"])?.takeIf { it in MODELS }
 

@@ -99,6 +99,40 @@ class ItemDefinitionsTest {
     }
 
     @Test
+    fun aValueOfAnotherKindIsNamedWithItsPlace() {
+        val definition =
+            OxfmtJson.read(
+                model(
+                    """{ "type": "minecraft:range_dispatch", "property": "minecraft:damage", "normalize": "yes",
+                         "entries": [{ "threshold": "1,5", "model": { "type": "minecraft:model", "model": 7 } }] }""",
+                ),
+            )
+
+        assertEquals(
+            listOf(
+                "model > normalize is no boolean: yes",
+                "model > entries[0] > threshold is no number: 1,5",
+                "model > entries[0] > model > model is no id: 7",
+            ),
+            ItemDefinitions.problems(definition),
+        )
+    }
+
+    @Test
+    fun anEditRefusesAValueOfAnotherKindByItsField() {
+        files().use {
+            it.write(
+                "nordtal:example",
+                model("""{ "type": "minecraft:range_dispatch", "property": "minecraft:damage", "entries": [{ "threshold": 1, "model": $apple }] }"""),
+            )
+        }
+
+        val refusal = assertThrows<FieldRefusal> { edited("model/entries/0", """{ "threshold": "1,5" }""") }
+
+        assertEquals(listOf("threshold", "threshold is no number: 1,5"), listOf(refusal.field, refusal.message))
+    }
+
+    @Test
     fun aCommentKeyIsAllowed() {
         assertEquals(
             emptyList<String>(),

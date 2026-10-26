@@ -12,18 +12,28 @@ import java.io.File
 internal fun git(
     root: File,
     arguments: List<String>,
+): String = run("git", root, arguments)
+
+/**
+ * Runs [program] with [arguments] in [root] and returns what it prints, as [git] does. The failure names the program by
+ * its file name.
+ *
+ * @throws java.io.IOException when the program cannot be started
+ */
+internal fun run(
+    program: String,
+    root: File,
+    arguments: List<String>,
 ): String {
-    val errors = File.createTempFile("git", ".err")
+    val errors = File.createTempFile("run", ".err")
     try {
-        val process = ProcessBuilder(listOf("git") + arguments).directory(root).redirectError(errors).start()
+        val process = ProcessBuilder(listOf(program) + arguments).directory(root).redirectError(errors).start()
         process.outputStream.close()
         val output = process.inputStream.bufferedReader().use { it.readText() }
         val exit = process.waitFor()
-        if (exit !=
-            0
-        ) {
+        if (exit != 0) {
             throw GradleException(
-                "`git ${arguments.joinToString(" ")}` failed with exit code $exit in $root:\n${errors.readText().trim()}",
+                "`${File(program).name} ${arguments.joinToString(" ")}` failed with exit code $exit in $root:\n${errors.readText().trim()}",
             )
         }
         return output

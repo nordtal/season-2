@@ -78,14 +78,16 @@ it is relative to this directory, and every code point is capital hex without `U
 
 ```
 statuses      the statuses a glyph or block can have
-fonts[]       font, rows, constant, about, blocks[]
-  blocks[]    kind "block": title, range, status, about, glyphs[]
-              kind "sheet": title, range, status, about, height, ascent, texture, cells[]
+fonts[]       font, rows, constant, about, draft, blocks[]
+  blocks[]    kind "block": title, range, status, about, draft, glyphs[]
+              kind "sheet": title, range, status, about, draft, height, ascent, texture, cells[]
   glyphs[]    code, constant, name, list, status, effectiveStatus, height, ascent, about, texture
   cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite
 texture       id, png, aseprite, asepriteExists, draft, width, height
+drafts[]      id, label, state, files, review
+reviews[]     number, url
 ```
 
 The `status` of a glyph or cell is its own value, null when it inherits the block's, and
@@ -96,8 +98,9 @@ identifier.
 `gui.scaling` objects of the `.png.mcmeta`, or null. `frames` lists the frames the animation plays, each as
 `x`, `y`, `width`, `height` in the PNG and `duration` in milliseconds, or is null when the animation's frames do
 not divide the PNG. `guiSprite` is true for a texture under `textures/gui/sprites/`. Language files are not listed.
-`draft` is true while the PNG or the `.aseprite` source differs from the last commit: changed, new
-or deleted. `describePack` therefore reads git on every run.
+`draft` is true for a texture, block or font that is one of `drafts`, which the next section
+describes. `reviews` lists the pull requests that `publishDrafts` opened. `describePack` reads git on
+every run.
 
 ## New textures
 
@@ -177,10 +180,49 @@ fails with the reason when it refuses.
   `height` and `ascent` scale by the new height over `from`; decoupled, both stay, so the glyph shows
   more detail at the same size. A cell takes its size from its sheet and is refused.
 - `assignCodePoints` reads `glyphs.json` at the ref `main` without fetching it, so the publish fetches
-  first. A block is main's when range and title match. A glyph that main lacks keeps a code point that
+  first. A block is main's when range and title match, or when the clone's last commit has a block of
+  that range too, so a renamed block keeps its range. A glyph that main lacks keeps a code point that
   main has not taken, and otherwise moves behind the last glyph of its block on both sides. A cell of a
   sheet is its code point, so a renamed cell keeps its place. A new block that overlaps a block of main
   moves to the first free run with its glyphs.
+
+## Drafts and publishing
+
+A draft is one change of the clone that is in no pull request yet. A texture's draft holds its PNG,
+its `.png.mcmeta`, its `.aseprite` source, the item models and definitions that draw it, and its
+entries in `glyphs.json`. The fields of a font or a block in `glyphs.json` are a draft of their own,
+and so is every other changed file. A draft's `id` is its texture's id, `font <font>`,
+`block <font> <range or title>` or the file's path. Its `state` is `added`, `changed` or `deleted`, and
+`review` is the number of the pull request that holds an older version of it. A draft that equals
+its version in a pull request is not listed.
+
+```bash
+./gradlew -q :resource-pack:discardDraft -Pdraft=nordtal:badges/star.png
+./gradlew -q :resource-pack:publishDrafts -Pdrafts=nordtal:badges/star.png -Ptitle='feat(resource-pack): the star is white' -Pgh=gh
+./gradlew -q :resource-pack:syncReviews -Pgh=gh
+```
+
+| task            | options                                | prints                                                                      |
+| --------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| `discardDraft`  | `draft`                                | the absolute path of each file it wrote or deleted                          |
+| `publishDrafts` | `drafts` (a comma list), `title`; `gh` | the address of the pull request                                             |
+| `syncReviews`   | `gh`                                   | one line `merged <number>` or `closed <number>` per pull request that ended |
+
+- `discardDraft` restores the draft's files and entries to the last commit, or to its pull request
+  when one holds it.
+- `publishDrafts` runs `check` first. It fetches `origin`, gives new glyphs their final code points
+  as `assignCodePoints` does against `origin/main`, and commits only the chosen drafts with the
+  message `title` on a branch of `origin/main`. The branch is `designer/` and the title's description
+  in lowercase words. The commit runs `.githooks/commit-msg`, carries the name and address of the
+  account that `gh` is signed in to, and is pushed to `origin`. `gh pr create` opens the pull request
+  against `main`, with one line per draft as its body. A draft that a pull request holds already gets
+  a further commit on that pull request's branch. Drafts of two pull requests are refused together.
+- `syncReviews` asks `gh` for the state of every pull request that `publishDrafts` opened. After a
+  merge it fast-forwards the clone to `origin/main` and puts every other change back on top: a file
+  takes the clone's version, and `glyphs.json` takes the clone's entries onto main's. A pull request
+  closed without a merge turns its drafts back into drafts of the clone.
+- The record of the open pull requests lies in the clone's git directory, as
+  `nordtal-designer/reviews.json`, so no commit holds it.
 
 ## Texture metadata
 
@@ -239,7 +281,7 @@ each value kind to the JSON type it holds, each list kind to the kind of its ele
 kind to its table of types. `models` lists each model that the definition draws with its textures and
 their parents' textures. A texture whose PNG the pack holds has the fields of an override in the pack
 model (`texture`, `mcmeta`, `animation`, `frames`), any other only its `id`. A texture is a draft
-when it differs from the last commit.
+when its id is one of the pack model's `drafts`.
 
 `editItem` changes the object at `at`, a path of keys and list indices such as `model/cases/0`.
 `fields` is a JSON object whose members it sets, and a member that is null is removed. With `add`, it

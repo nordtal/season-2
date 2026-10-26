@@ -9,6 +9,12 @@ local forkApi = 5
 
 local ctl, listener
 
+local function write(path, text)
+  local file = assert(io.open(path, "wb"))
+  file:write(text)
+  file:close()
+end
+
 local function read(path)
   local file = io.open(path, "rb")
   if not file then
@@ -50,6 +56,8 @@ function init(plugin)
       windows=app.os.windows,
       join=join,
       read=read,
+      write=write,
+      getenv=os.getenv,
       decode=json.decode,
       sprites=function() return app.sprites end,
       activeSprite=function() return app.sprite end,
@@ -67,6 +75,7 @@ function init(plugin)
       properties=plugin.require("properties"),
       items=plugin.require("items"),
       wizard=plugin.require("wizard"),
+      drafts=plugin.require("drafts"),
     },
     bootstrap=plugin.bootstrap,
     preferences=plugin.preferences,
@@ -79,6 +88,13 @@ function init(plugin)
     title=tr("command.new_texture"),
     group="file_new",
     onclick=function() ctl.create() end,
+  }
+
+  plugin:newCommand{
+    id="NordtalPublish",
+    title=tr("command.publish"),
+    group="file_save",
+    onclick=function() ctl.publish() end,
   }
 
   plugin:newCommand{

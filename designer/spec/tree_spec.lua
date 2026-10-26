@@ -116,6 +116,18 @@ describe("tree", function()
     assert.is_nil(nodes[2].children[1].children[1].icon)
   end)
 
+  it("marks a block or a font whose own fields are a draft", function()
+    model.fonts[1].draft = true
+    model.fonts[1].blocks[1].draft = true
+    local nodes = tree.build(model, tr)
+    model.fonts[1].draft, model.fonts[1].blocks[1].draft = nil, nil
+    local font = nodes[1].children[1]
+    assert.equal("tab_modified_icon_normal", font.icon)
+    assert.equal("tab_modified_icon_normal", font.children[1].icon)
+    assert.is_nil(font.children[1].children[1].icon)
+    assert.is_nil(nodes[1].children[2].icon)
+  end)
+
   it("names a cell whose code is no code point", function()
     local bad = { fonts={ { font="nordtal:gui", blocks={
       { kind="sheet", title="Row text", texture=texture("a.png"), cells={ { row=0, column=0, code="ZZ" } } },

@@ -58,8 +58,18 @@ font and block to choose and namespace and path for the id. Create runs the task
 value. A refusal shows below the field it names, and the dialog stays open with what was typed. Once
 the task succeeded, the tab reads the pack again and opens the new texture in the editor. A vanilla
 override is chosen from the textures of the client jar, which `listVanillaTextures` lists once per
-session, with a search for the words of its id. The tree marks a texture that differs from the last
-commit, a draft, with the icon of a modified tab.
+session, with a search for the words of its id.
+
+The tree marks each draft of the pack model with the icon of a modified tab: a texture with its
+entries, or the fields of a block or a font. The panel of a draft has **Discard Changes**, which
+runs `discardDraft` once confirmed. **File > Publish...** lists every draft with a check, and a title
+that names the drafts chosen until it is edited. **Discard Chosen...** discards the chosen drafts
+once confirmed. **Publish** writes the title to `resource-pack/build/publish-message.txt` and runs
+`.githooks/commit-msg` on it through `git hook run` with the bootstrap's git. A refusal of the hook
+shows in the dialog, which stays open. An accepted title runs `publishDrafts` with the bootstrap's
+gh, and the status line shows the address of the pull request. Every task runs with the folder of
+the bootstrap's git first on `PATH`. A pack with pull requests runs `syncReviews` after the tab's
+first read and every five minutes, and the tab reads the pack again after a merge or a close.
 
 The interface strings are Aseprite string files in `strings/`, in English and German. The plugin
 reads the one of Aseprite's language setting, and English for each key it lacks.

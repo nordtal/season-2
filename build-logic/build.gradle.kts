@@ -33,6 +33,10 @@ tasks.test {
     val itemTypes = layout.projectDirectory.file("../designer/spec/item-types.json")
     inputs.file(itemTypes).withPropertyName("itemTypes").withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("nordtal.itemTypes", itemTypes.asFile.absolutePath)
+    // A publish commits through the repository's commit-msg hook, which the tests of Publish run on their titles.
+    val commitMsgHook = layout.projectDirectory.file("../.githooks/commit-msg")
+    inputs.file(commitMsgHook).withPropertyName("commitMsgHook").withPathSensitivity(PathSensitivity.RELATIVE)
+    systemProperty("nordtal.commitMsgHook", commitMsgHook.asFile.absolutePath)
     // The round trip of every vanilla item definition reads the season's client jar from Fabric Loom's cache, where Loom
     // keeps the one it downloads for :bridge-mod and the pack's tasks read.
     systemProperty("nordtal.paperVersion", libs.versions.paper.get())

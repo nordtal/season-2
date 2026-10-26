@@ -12,14 +12,17 @@ import org.gradle.work.DisableCachingByDefault
 import java.io.File
 
 /**
- * Reads or makes one change of [kind] to the pack's sources through [NewTextures], [GlyphEdits], [TextureMeta] or [ItemFiles], with the
- * [options] that `resource-pack/README.md` lists per kind. It prints what it changed, and fails with the reason when it
- * refuses. A [FieldRefusal] first prints `refused` and the option's name, a [FieldsNeeded] `needs`, a field and its kind
+ * Reads or makes one change of [kind] to the pack's sources through [NewTextures], [GlyphEdits], [TextureMeta], [ItemFiles],
+ * [Drafts] or [Publish], with the [options] that `resource-pack/README.md` lists per kind. It prints what it changed, and
+ * fails with the reason when it refuses. A [FieldRefusal] first prints `refused` and the option's name, a [FieldsNeeded] `needs`, a field and its kind
  * per line. Only the item kinds read the client jar.
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class EditPackSources : VanillaClientTask() {
-    /** `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`, `readItem`, `writeItem`, `editItem` or `import`. */
+    /**
+     * `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`,
+     * `readItem`, `writeItem`, `editItem`, `import`, `discard`, `publish` or `sync`.
+     */
     @get:Input
     abstract val kind: Property<String>
 
@@ -70,6 +73,9 @@ abstract class EditPackSources : VanillaClientTask() {
                 "fields",
                 "add",
                 "remove",
+                "draft",
+                "drafts",
+                "gh",
             )
     }
 
@@ -178,7 +184,7 @@ abstract class EditPackSources : VanillaClientTask() {
                     }
 
                     "readItem" -> {
-                        return logger.quiet(JsonOutput.toJson(ItemFiles(pack, ::jar).use { it.describe(text("item"), changedFiles(pack)) }))
+                        return logger.quiet(JsonOutput.toJson(ItemFiles(pack, ::jar).use { it.describe(text("item"), Drafts.ids(pack)) }))
                     }
 
                     "writeItem" -> {
@@ -195,6 +201,19 @@ abstract class EditPackSources : VanillaClientTask() {
 
                     "import" -> {
                         ItemFiles(pack, ::jar).use { it.import(File(text("model")), text("id"), text("item"), options["at"] ?: "") }
+                    }
+
+                    "discard" -> {
+                        Drafts.discard(pack, text("draft"))
+                    }
+
+                    "publish" -> {
+                        val url = Publish(repository, pack, options["gh"] ?: "gh").publish(text("drafts").split(','), text("title"))
+                        return logger.quiet(url)
+                    }
+
+                    "sync" -> {
+                        return Publish(repository, pack, options["gh"] ?: "gh").sync().forEach { logger.quiet(it) }
                     }
 
                     else -> {

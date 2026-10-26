@@ -60,7 +60,7 @@ abstract class DescribePack : DefaultTask() {
         val file = model.get().asFile
         file.parentFile.mkdirs()
         file.writeText(
-            JsonOutput.prettyPrint(JsonOutput.toJson(PackModel.of(glyphs, root.get().asFile, changedFiles(root.get().asFile)))) + "\n",
+            JsonOutput.prettyPrint(JsonOutput.toJson(PackModel.of(glyphs, root.get().asFile, Drafts.list(root.get().asFile), Drafts.reviews(root.get().asFile)))) + "\n",
         )
         logger.lifecycle("Wrote the pack model to $file")
     }

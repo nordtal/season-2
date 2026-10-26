@@ -4,8 +4,9 @@
 --
 -- tab.open{ api, modules, bootstrap, preferences, tr } builds the tab
 -- and reads the pack. api holds the Aseprite functions that pack and
--- textures name, plus Dialog, Rectangle, screen, alert and activeSprite.
--- modules holds pack, tree, textures, panel, properties, items and wizard. preferences.treeSide is
+-- textures name, plus Dialog, Rectangle, screen, alert, activeSprite
+-- and write. modules holds pack, tree, textures, panel, properties,
+-- items, wizard and drafts. preferences.treeSide is
 -- "left" or "right", and preferences.coupled is false once the
 -- designer decoupled pixel size and display height.
 --
@@ -18,6 +19,11 @@
 -- and tints the tree then shows below the item's node. The panel edits
 -- the node selected there, and the first texture of its model that the
 -- pack holds opens in the editor.
+--
+-- ctl.publish() asks which drafts to publish or discard. A publish
+-- runs the commit hook on its title first, and a pack with pull
+-- requests asks GitHub for their state after the first read and
+-- every five minutes.
 
 local tab = {}
 
@@ -52,6 +58,11 @@ function tab.open(context)
   local drawn
   local pad = 4
   local scroll, lineHeight = 0, 0
+  -- Whether the pull requests were asked for since the tab opened, the
+  -- timer that asks again and whether such a run waits
+  local synced, every, syncing
+  -- Asks GitHub for the pull requests, defined below
+  local sync
 
   local function setStatus(text)
     status = { text=text or "", visible=text ~= nil }
@@ -83,6 +94,9 @@ function tab.open(context)
       else
         table.insert(list, { text=tr("properties." .. row.key), value=row.value, field=row.field })
       end
+    end
+    if modules.drafts.id(info) then
+      table.insert(list, { text=tr("properties.discard"), field="discard", kind="button" })
     end
     return list
   end
@@ -190,6 +204,10 @@ function tab.open(context)
           end
           setStatus(nil)
           showProperties()
+          if not synced then
+            synced = true
+            sync()
+          end
           done()
           return
         end
@@ -431,6 +449,117 @@ function tab.open(context)
     end)
   end
 
+  -- Shows text in the status line once the pack was read again
+  local function reloadThen(text)
+    ctl.reload()
+    table.insert(queue, function(done)
+      setStatus(text)
+      done()
+    end)
+    pump()
+  end
+
+  -- Runs discardDraft for each of ids. The selected entry's sprite
+  -- closes once its draft is discarded.
+  local function discard(ids)
+    local shown = index and selected and modules.drafts.id(index[selected])
+    for _, id in ipairs(ids) do
+      local sprite = dlg.data.editor
+      write({ "discardDraft", { draft=id } }, function()
+        if id ~= shown then return end
+        if selected and index[selected] and modules.drafts.id(index[selected]) == id then
+          dlg:modify{ id="editor", sprite=false }
+          ctl.clear()
+        end
+        if sprite then sprite:close() end
+      end, nil, true)
+    end
+  end
+
+  -- The draft of the model with id
+  local function draftOf(id)
+    for _, draft in ipairs(model and model.drafts or {}) do
+      if draft.id == id then return draft end
+    end
+    return nil
+  end
+
+  -- Runs .githooks/commit-msg on title through git, as a commit would,
+  -- and returns true, or false and the lines of its refusal
+  local function checkTitle(title)
+    local file = api.join(clone, "resource-pack", "build", "publish-message.txt")
+    api.makeAllDirectories(api.filePath(file))
+    api.write(file, title .. "\n")
+    local err = {}
+    local process = api.Process{ cmd={ context.bootstrap.git or "git", "hook", "run", "commit-msg", "--", file },
+                                 cwd=clone, env=context.bootstrap.env,
+                                 onstderr=function(line) table.insert(err, line) end }
+    local started, problem = pcall(process.start, process)
+    if not started then
+      return false, { tostring(problem) }
+    end
+    local code = process:wait()
+    return code == 0, err
+  end
+
+  -- Asks which drafts to publish or discard and runs the tasks for the
+  -- answer. publishDrafts runs the pack's check before it sends
+  -- anything.
+  function ctl.publish()
+    if running or #queue > 0 then
+      setStatus(tr("status.busy"))
+      return
+    end
+    local list = model and model.drafts or {}
+    if #list == 0 then
+      api.alert{ title=tr("publish.title"), text=tr("publish.no_drafts") }
+      return
+    end
+    local answer = modules.drafts.ask{ Dialog=api.Dialog, tr=tr, list=list, check=checkTitle, confirm=function(text)
+      return api.alert{ title=tr("publish.discard"), text=text, buttons={ tr("properties.discard"), tr("edit.cancel") } } == 1
+    end }
+    if not answer then
+      return
+    end
+    if answer.discard then
+      discard(answer.discard)
+      return
+    end
+    setStatus(tr("status.publishing"))
+    enqueue(task({ "publishDrafts", { drafts=table.concat(answer.publish, ","), title=answer.title, gh=context.bootstrap.gh } }),
+      function(ok, err, out)
+        if ok then
+          reloadThen(tr("status.published", out[#out] or ""))
+        else
+          setStatus(tr("status.refused") .. " " .. table.concat(modules.pack.refusal(err), " "))
+        end
+      end, function() end)
+  end
+
+  -- Runs syncReviews while the pack has pull requests. After a merge
+  -- or a close the tab reads the pack again and says which one ended.
+  function sync()
+    if syncing or not (model and model.reviews and #model.reviews > 0) then
+      return
+    end
+    syncing = true
+    enqueue(task({ "syncReviews", { gh=context.bootstrap.gh } }), function(ok, err, out)
+      syncing = nil
+      if not ok then
+        setStatus(tr("status.sync_failed") .. " " .. table.concat(modules.pack.refusal(err), " "))
+        return
+      end
+      local ended = {}
+      for _, line in ipairs(out) do
+        local state, number = line:match("^(%a+) (%d+)$")
+        if state then table.insert(ended, tr("status." .. state, number)) end
+      end
+      if #ended > 0 then
+        reloadThen(table.concat(ended, " "))
+      end
+    end, function() syncing = nil end)
+  end
+
   -- Edits field of the selected entry
   function ctl.edit(field)
     local info = index and selected and index[selected]
@@ -448,6 +577,16 @@ function tab.open(context)
     if field == "coupled" then
       preferences.coupled = preferences.coupled == false
       showProperties()
+      return
+    end
+    if field == "discard" then
+      local id = modules.drafts.id(info)
+      local draft = draftOf(id)
+      local yes = api.alert{ title=tr("properties.discard"), text=tr("properties.discard_confirm", draft and draft.label or id),
+                             buttons={ tr("properties.discard"), tr("edit.cancel") } }
+      if yes == 1 then
+        discard({ id })
+      end
       return
     end
     if field == "delete" then
@@ -677,6 +816,7 @@ function tab.open(context)
 
   function ctl.close()
     closed = true
+    every:stop()
     queue = {}
     local process = running and running.process
     if process and process.isRunning then
@@ -688,6 +828,8 @@ function tab.open(context)
 
   build(nil)
   ctl.reload()
+  every = api.Timer{ interval=300, ontick=sync }
+  every:start()
   return ctl
 end
 

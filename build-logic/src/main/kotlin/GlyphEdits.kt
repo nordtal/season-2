@@ -164,23 +164,27 @@ object GlyphEdits {
      * Gives each glyph that [main], the text of `glyphs.json` on main, lacks a code point that main has not taken.
      *
      * A glyph keeps a code point that is still free, a new block that overlaps a block of main moves to a free run with
-     * its glyphs, and a glyph whose code point main took moves behind the last glyph of its block. Returns each move as
-     * `font old new constant`, and writes nothing when nothing moves.
+     * its glyphs, and a glyph whose code point main took moves behind the last glyph of its block. A block is main's when
+     * main has it with the same range and title, or with the same range that the clone's last commit gave it too: a block
+     * renamed in the clone keeps its range. Returns each move as `font old new constant`, and writes nothing when nothing
+     * moves.
      */
     fun assignCodePoints(
         pack: File,
         main: String,
     ): List<String> {
         val mainRoot = OxfmtJson.read(main) as Map<*, *>
-        if (moves(OxfmtJson.read(pack.resolve("glyphs.json")) as Map<*, *>, mainRoot).isEmpty()) return emptyList()
+        val head = Drafts.glyphs(pack, "HEAD")
+        if (moves(OxfmtJson.read(pack.resolve("glyphs.json")) as Map<*, *>, mainRoot, head).isEmpty()) return emptyList()
         var moves = emptyList<String>()
-        NewTextures.edit(pack, null, 0, 0) { root -> moves = moves(root, mainRoot) }
+        NewTextures.edit(pack, null, 0, 0) { root -> moves = moves(root, mainRoot, head) }
         return moves
     }
 
     private fun moves(
         root: Map<*, *>,
         main: Map<*, *>,
+        head: Map<*, *>?,
     ): List<String> {
         val moves = mutableListOf<String>()
         for (font in fonts(root)) {
@@ -189,12 +193,15 @@ object GlyphEdits {
                 fonts(main).firstOrNull { it["font"] == id }
                     ?: mapOf("font" to id, "numbering" to font["numbering"], "blocks" to emptyList<Any>())
             val blocks = font["blocks"] as MutableList<Any?>
+            val committed =
+                head?.let(::fonts).orEmpty().firstOrNull { it["font"] == id }?.let { it["blocks"] as List<*> }.orEmpty()
+                    .mapNotNull { (it as Map<*, *>)["range"] }.toSet()
             for (block in blocks.toList().map { it as MutableMap<String, Any?> }) {
                 val glyphs = (block["glyphs"] as MutableList<*>?)?.map { it as MutableMap<String, Any?> } ?: continue
                 val mainBlock =
                     (mainFont["blocks"] as List<*>).map { it as Map<*, *> }.firstOrNull {
                         it["range"] == block["range"] &&
-                            it["title"] == block["title"]
+                            (it["title"] == block["title"] || block["range"] in committed)
                     }
 
                 fun move(

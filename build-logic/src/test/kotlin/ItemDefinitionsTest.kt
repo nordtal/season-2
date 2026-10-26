@@ -530,7 +530,7 @@ class ItemDefinitionsTest {
     }
 
     @Test
-    fun aTextureOfAnItemIsADraftWhenItsPngIsAChangedFile() {
+    fun aTextureOfAnItemIsADraftWhenItsIdIsADraft() {
         pack.resolve("src/assets/nordtal/models/item/wand.json").apply { parentFile.mkdirs() }.writeText(
             """{ "parent": "minecraft:item/generated", "textures": { "layer0": "nordtal:item/wand" } }""",
         )
@@ -538,7 +538,7 @@ class ItemDefinitionsTest {
         ImageIO.write(BufferedImage(2, 3, BufferedImage.TYPE_INT_ARGB), "png", png)
         files().use { it.write("nordtal:wand", model("""{ "type": "minecraft:model", "model": "nordtal:item/wand" }""")) }
 
-        val models = files().use { it.describe("nordtal:wand", setOf("src/assets/nordtal/textures/item/wand.png")) }["models"]
+        val models = files().use { it.describe("nordtal:wand", setOf("nordtal:item/wand.png")) }["models"]
 
         assertEquals(
             true,

@@ -6,9 +6,10 @@
 -- and reads the pack. api holds the Aseprite functions that pack and
 -- textures name, plus Dialog, Rectangle, screen, alert, activeSprite
 -- and write. modules holds pack, tree, textures, panel, properties,
--- items, wizard, drafts and conflicts. preferences.treeSide is
--- "left" or "right", and preferences.coupled is false once the
--- designer decoupled pixel size and display height.
+-- items, wizard, drafts, conflicts and minecraft. preferences.treeSide
+-- is "left" or "right", preferences.coupled is false once the
+-- designer decoupled pixel size and display height, and
+-- preferences.liveSync is false once live sync was switched off.
 --
 -- A click on a value of the panel asks for a new one in a form, and
 -- OK runs the task that writes it. The tasks run one at a time, and
@@ -19,6 +20,12 @@
 -- and tints the tree then shows below the item's node. The panel edits
 -- the node selected there, and the first texture of its model that the
 -- pack holds opens in the editor.
+--
+-- Below the entry the panel shows the Minecraft instance the pack is
+-- installed into, which describeInstance reads after the pack. With
+-- live sync on, every save installs the pack there, and a client with
+-- the bridge mod reloads it. The previews of the entry go to that
+-- client, or without Fabric are commands to copy.
 --
 -- ctl.publish() asks which drafts to publish or discard. A publish
 -- runs the commit hook on its title first, and a pack with drafts or
@@ -68,6 +75,13 @@ function tab.open(context)
   local reopen
   -- What the status says once the pack was read again, in place of nothing
   local notice
+  -- The Minecraft instance as describeInstance printed it, the
+  -- connection to its bridge mod with the port and token it was made
+  -- for, and whether an installPack waits in the queue
+  local instance, bridge, bridgeFor, installing
+  -- What renderGlyphPreviews wrote since the pack was read, by font
+  -- and code
+  local rendered = {}
 
   local function setStatus(text)
     status = { text=text or "", visible=text ~= nil }
@@ -79,7 +93,7 @@ function tab.open(context)
   end
 
   -- The rows of the selected entry as the panel lays them out
-  local function rows()
+  local function entryRows()
     local list = {}
     for i, line in ipairs(refused or {}) do
       table.insert(list, { text=i == 1 and tr("properties.refused") or nil, value=line })
@@ -106,6 +120,26 @@ function tab.open(context)
     return list
   end
 
+  -- The font and code that renderGlyphPreviews takes for info, or nil
+  local function glyphKey(info)
+    return info and info.font and info.entry and info.entry.code and info.font.font .. "/" .. info.entry.code or nil
+  end
+
+  -- The rows of the selected entry and below them the Minecraft section
+  local function rows()
+    local list = entryRows()
+    if #list == 0 then
+      list = { { value=tr("properties.none") } }
+    end
+    local info = index and selected and index[selected]
+    local key = glyphKey(info)
+    local previews, render = modules.minecraft.previews(info, key and rendered[key], definition, tr)
+    local section = modules.minecraft.rows({ instance=instance, liveSync=preferences.liveSync ~= false,
+      bridge=bridge and bridge.state, previews=previews, render=render }, tr, api.encode)
+    table.move(section, 1, #section, #list + 1, list)
+    return list
+  end
+
   -- Draws the properties of the selected entry on the theme's face:
   -- keys in the color of its section labels and values below them, a
   -- value that a click edits in a sunken box
@@ -118,9 +152,6 @@ function tab.open(context)
     lineHeight = gc:measureText("Ag").height + 2
     local width = gc.width - 2 * pad
     local list = rows()
-    if #list == 0 then
-      list = { { value=tr("properties.none") } }
-    end
     drawn = modules.panel.layout(list, width, measure, lineHeight)
     scroll = math.max(0, math.min(scroll, drawn.height + 2 * pad - gc.height))
     for _, op in ipairs(drawn.ops) do
@@ -197,6 +228,7 @@ function tab.open(context)
         local ok, built, builtIndex = pcall(modules.tree.build, read, tr, modules.drafts.marks(read))
         if ok then
           nodes, index, model = built, builtIndex, read
+          rendered = {}
           local children, id = attach()
           if children then
             local node = findNode(nodes, id)
@@ -219,6 +251,7 @@ function tab.open(context)
           showProperties()
           if not synced then
             synced = true
+            ctl.readInstance()
             sync()
           end
           done()
@@ -358,6 +391,144 @@ function tab.open(context)
     end, function() end)
   end
 
+  -- Shows what describeInstance printed, and connects to the bridge
+  -- mod of an instance with Fabric whose settings it read
+  local function showInstance(read)
+    instance = read
+    local wanted = read.instance and read.fabric and read.bridge and read.port and read.token
+      and read.port .. " " .. read.token or nil
+    if wanted ~= bridgeFor then
+      if bridge then bridge.close() end
+      bridge, bridgeFor = nil, wanted
+      if wanted then
+        bridge = modules.minecraft.bridge{ WebSocket=api.WebSocket, types=api.messages, encode=api.encode,
+          decode=api.decode, port=read.port, token=read.token, changed=showProperties }
+      end
+    end
+    showProperties()
+  end
+
+  -- Reads the chosen Minecraft instance
+  function ctl.readInstance()
+    enqueue(function(finish)
+      local process, problem = modules.pack.printed(context.bootstrap, api, "describeInstance", {}, finish)
+      return process, problem
+    end, function(read, err)
+      if read then
+        showInstance(read)
+      else
+        setStatus(tr("minecraft.failed") .. " " .. table.concat(modules.pack.refusal(err), " "))
+      end
+    end, function() end)
+  end
+
+  -- Runs job, a { task, options }, for the instance with status in the
+  -- status line, and after() once it succeeded
+  local function instanceTask(job, status, after)
+    setStatus(status)
+    enqueue(task(job), function(ok, err, out)
+      if not ok then
+        setStatus(tr("status.refused") .. " " .. table.concat(modules.pack.refusal(err), " "))
+        return
+      end
+      setStatus(nil)
+      after(out)
+    end, function() end)
+  end
+
+  -- Installs the pack into the instance and reloads it in a connected
+  -- client. A save while an install waits adds none.
+  local function installPack()
+    if installing then
+      return
+    end
+    installing = true
+    enqueue(function(finish)
+      installing = nil
+      setStatus(tr("minecraft.installing"))
+      local process, problem = task({ "installPack", {} })(finish)
+      return process, problem
+    end, function(ok, err)
+      if not ok then
+        setStatus(tr("status.refused") .. " " .. table.concat(modules.pack.refusal(err), " "))
+      elseif bridge and bridge.state == "connected" then
+        bridge.send({ op="reload" }, function(reloaded, problem)
+          setStatus(reloaded and tr("minecraft.installed") or tr("minecraft.not_reloaded") .. " " .. tostring(problem or ""))
+        end)
+      else
+        setStatus(tr("minecraft.installed_f3t"))
+      end
+    end, function() installing = nil end)
+  end
+
+  -- Sends the requests of a preview to the connected client
+  local function preview(requests)
+    if not (bridge and bridge.state == "connected") then
+      setStatus(tr("minecraft.not_connected"))
+      return
+    end
+    for _, request in ipairs(requests) do
+      bridge.send(request, function(ok, problem)
+        setStatus(ok and tr("minecraft.shown") or tr("minecraft.not_shown") .. " " .. tostring(problem or ""))
+      end)
+    end
+  end
+
+  -- Renders the previews of the selected glyph
+  local function render()
+    local info = index and selected and index[selected]
+    local key = glyphKey(info)
+    if not key then
+      return
+    end
+    setStatus(tr("minecraft.rendering"))
+    enqueue(function(finish)
+      local process, problem = modules.pack.file(context.bootstrap, api, ":pack-rendering:renderGlyphPreviews",
+        { font=info.font.font, code=info.entry.code }, finish)
+      return process, problem
+    end, function(read, err)
+      if not read then
+        setStatus(tr("status.refused") .. " " .. table.concat(modules.pack.refusal(err), " "))
+        return
+      end
+      setStatus(nil)
+      rendered[key] = read
+      showProperties()
+    end, function() end)
+  end
+
+  -- Takes the action of a row of the Minecraft section
+  local function minecraftAction(field)
+    local action = field.minecraft
+    if action == "live" then
+      preferences.liveSync = preferences.liveSync == false
+      showProperties()
+    elseif action == "copy" then
+      api.setClipboard(field.text)
+      setStatus(tr("minecraft.copied"))
+    elseif action == "preview" then
+      preview(field.requests)
+    elseif action == "render" then
+      render()
+    elseif action == "pack" then
+      installPack()
+    elseif action == "bridge" then
+      instanceTask({ "installBridgeMod", { gh=context.bootstrap.gh } }, tr("minecraft.installing_bridge"), function()
+        ctl.readInstance()
+        table.insert(queue, function(done)
+          setStatus(tr("minecraft.bridge_installed"))
+          done()
+        end)
+        pump()
+      end)
+    elseif action == "choose" then
+      local folder = api.chooseFolder{ title=tr("minecraft.choose"), path=instance and instance.instance or nil }
+      if folder then
+        instanceTask({ "chooseMinecraftInstance", { minecraftInstance=folder } }, tr("minecraft.checking"), ctl.readInstance)
+      end
+    end
+  end
+
   -- Runs the task that a save of the sprite of record implies: a
   -- glyph's display height for a new pixel height, an override's
   -- animation. The model takes the new size and animation only once
@@ -410,6 +581,9 @@ function tab.open(context)
     end
     setStatus(nil)
     follow(sprite, record)
+    if preferences.liveSync ~= false and instance and instance.instance then
+      installPack()
+    end
     showProperties()
   end
 
@@ -623,8 +797,13 @@ function tab.open(context)
     end, function() syncing = nil end)
   end
 
-  -- Edits field of the selected entry
+  -- Edits field of the selected entry, or takes an action of the
+  -- Minecraft section, which needs no entry and queues its tasks
   function ctl.edit(field)
+    if type(field) == "table" and field.minecraft then
+      minecraftAction(field)
+      return
+    end
     local info = index and selected and index[selected]
     if not info then
       return
@@ -893,6 +1072,7 @@ function tab.open(context)
       process:stop()
     end
     running = nil
+    if bridge then bridge.close() end
     dlg:close()
   end
 

@@ -22,7 +22,8 @@ local function plain(value)
   return copy
 end
 
--- Runs the task :resource-pack:<task> in the clone with options as
+-- Runs the task :resource-pack:<task>, or a task given by its full
+-- path such as :pack-rendering:<task>, in the clone with options as
 -- -P properties, sorted by name, and calls done(true, {}, out) or
 -- done(false, lines, out) with what it printed to stderr. out holds
 -- the lines it printed to stdout, such as the files it wrote. The Gradle
@@ -38,7 +39,7 @@ function pack.run(bootstrap, api, task, options, done)
   end
   local cmd = { api.join(home, "bin", api.windows and "java.exe" or "java"),
                 "-jar", api.join(clone, "gradle", "wrapper", "gradle-wrapper.jar"),
-                "-q", ":resource-pack:" .. task }
+                "-q", task:sub(1, 1) == ":" and task or ":resource-pack:" .. task }
   local keys = {}
   for key in pairs(options or {}) do table.insert(keys, key) end
   table.sort(keys)
@@ -82,8 +83,8 @@ end
 
 -- The reason of a failed task: the lines under "What went wrong" in
 -- Gradle's report without the task's name, each place a refusal lists
--- on a line of its own. Without the report, every line that is not
--- empty.
+-- on a line of its own. A program that a task ran printed its reason
+-- before the report. Without the report, every line that is not empty.
 function pack.refusal(lines)
   local reason, inside = {}, false
   for _, line in ipairs(lines) do
@@ -96,13 +97,16 @@ function pack.refusal(lines)
       if text then table.insert(reason, text) end
     end
   end
-  if #reason > 0 then
+  local program = #reason == 1 and reason[1]:match("^Process '.*' finished with non%-zero exit value")
+  if #reason > 0 and not program then
     return reason
   end
+  local printed = {}
   for _, line in ipairs(lines) do
-    if line:match("%S") then table.insert(reason, line) end
+    if program and line:match("^FAILURE:") then break end
+    if line:match("%S") then table.insert(printed, line) end
   end
-  return reason
+  return #printed > 0 and printed or reason
 end
 
 -- The JSON object in text as plain tables, or nil and the reason
@@ -151,11 +155,11 @@ function pack.vanilla(bootstrap, api, done)
   return process, problem
 end
 
--- Runs readItem for the item id and calls done(read) with the line
--- of JSON it printed last, or done(nil, lines) with the reason. api
--- holds Process, windows, join and decode.
-function pack.item(bootstrap, api, id, done)
-  local process, problem = pack.run(bootstrap, api, "readItem", { item=id }, function(ok, err, out)
+-- Runs task with options and calls done(value) with the JSON object
+-- it printed last, or done(nil, lines) with the reason. api holds
+-- Process, windows, join and decode.
+function pack.printed(bootstrap, api, task, options, done)
+  local process, problem = pack.run(bootstrap, api, task, options, function(ok, err, out)
     if not ok then
       done(nil, err)
       return
@@ -167,6 +171,32 @@ function pack.item(bootstrap, api, id, done)
     end
     done(value)
   end)
+  return process, problem
+end
+
+-- Runs task with options and calls done(value) with the JSON object
+-- in the file whose path it printed last, or done(nil, lines). api
+-- holds Process, windows, join, read and decode.
+function pack.file(bootstrap, api, task, options, done)
+  local process, problem = pack.run(bootstrap, api, task, options, function(ok, err, out)
+    if not ok then
+      done(nil, err)
+      return
+    end
+    local value, reason = object(api, api.read(out[#out] or "") or "")
+    if not value then
+      done(nil, { reason or tostring(out[#out]) })
+      return
+    end
+    done(value)
+  end)
+  return process, problem
+end
+
+-- Runs readItem for the item id and calls done(read) or done(nil,
+-- lines), as pack.printed does
+function pack.item(bootstrap, api, id, done)
+  local process, problem = pack.printed(bootstrap, api, "readItem", { item=id }, done)
   return process, problem
 end
 

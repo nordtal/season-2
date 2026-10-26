@@ -93,10 +93,24 @@ end
 
 local function setUp(preferences, modelText)
   local Dialog, dialogs = fakeDialogs()
-  local started, log, open, timers = {}, {}, {}, {}
+  local started, log, open, timers, sockets, instanceRuns = {}, {}, {}, {}, {}, {}
   local world = { active=nil }
   local api = {
     Dialog=Dialog,
+    WebSocket=function(args)
+      local socket = { args=args, sent={} }
+      function socket:connect() self.connected = true end
+      function socket:sendText(text) table.insert(self.sent, (dkjson.decode(text))) end
+      function socket:close() self.closed = true end
+      table.insert(sockets, socket)
+      return socket
+    end,
+    messages={ OPEN=1, TEXT=2, CLOSE=3, ERROR=4 },
+    chooseFolder=function(t)
+      table.insert(log, { "chooseFolder", t.title, t.path })
+      return world.folder
+    end,
+    setClipboard=function(text) table.insert(log, { "clipboard", text }) end,
     Timer=function(args)
       local timer = { args=args }
       function timer:start() self.running = true table.insert(timers, self) end
@@ -107,6 +121,13 @@ local function setUp(preferences, modelText)
       local p = { args=args, isRunning=false }
       function p:start()
         if world.failStart then error(world.failStart) end
+        -- describeInstance answers at once with world.instance
+        if args.cmd[5] == ":resource-pack:describeInstance" then
+          table.insert(instanceRuns, self)
+          args.onstdout(world.instance or '{"instance":null}')
+          args.onexit(0)
+          return
+        end
         self.isRunning = true
         table.insert(started, self)
       end
@@ -134,6 +155,7 @@ local function setUp(preferences, modelText)
     read=function(path)
       if path == "/c/resource-pack/build/pack-model.json" then return modelText or model end
       if path == "/c/resource-pack/build/vanilla-textures.json" then return world.vanilla end
+      return (world.reads or {})[path]
     end,
     -- Aseprite's json.decode gives every number as a float
     decode=function(text) return floats(dkjson.decode(text)) end,
@@ -165,12 +187,14 @@ local function setUp(preferences, modelText)
     api=api,
     modules={ pack=require("pack"), tree=require("tree"), textures=require("textures"),
                panel=require("panel"), properties=require("properties"), items=require("items"),
-               wizard=require("wizard"), drafts=require("drafts"), conflicts=require("conflicts") },
+               wizard=require("wizard"), drafts=require("drafts"), conflicts=require("conflicts"),
+               minecraft=require("minecraft") },
     bootstrap={ clone=clone, env={ JAVA_HOME="/jdk" }, git="/usr/bin/git", gh="/gh" },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
   }
-  return { ctl=ctl, dialogs=dialogs, started=started, log=log, open=open, world=world, timers=timers }
+  return { ctl=ctl, dialogs=dialogs, started=started, log=log, open=open, world=world, timers=timers, sockets=sockets,
+           instanceRuns=instanceRuns }
 end
 
 local function kinds(dlg)
@@ -339,7 +363,7 @@ describe("the Nordtal tab", function()
   it("asks for an entry while none is selected", function()
     local t = setUp()
     local dlg = loaded(t)
-    assert.same({ "fill face", "  properties.none" }, texts(dlg))
+    assert.same({ "fill face", "  properties.none", "minecraft.instance" }, { table.unpack((texts(dlg)), 1, 3) })
   end)
 
   it("shows that it reads the pack, then the pack's nodes", function()
@@ -467,7 +491,7 @@ describe("the Nordtal tab", function()
     dlg.data.editor = nil
     dlg.handlers.editor.onchange()
     assert.equal("", dlg.data.tree)
-    assert.same({ "fill face", "  properties.none" }, texts(dlg))
+    assert.same({ "fill face", "  properties.none", "minecraft.instance" }, { table.unpack((texts(dlg)), 1, 3) })
     -- A click on the same entry opens it again
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     assert.equal(t.open[1], dlg.data.editor)
@@ -665,8 +689,8 @@ describe("the Nordtal tab", function()
     dlg.handlers.properties.onwheel({ deltaY=1000 })
     _, at = texts(dlg, 20)
     assert.is_true(at["properties.font"].y < 0)
-    -- The button is 9 high with its text 3 below its top, and ends at the margin
-    assert.equal(20 - 4 - 9 + 3, at["properties.delete"].y)
+    -- The last row, the button of the previews, is 9 high with its text 3 below its top, and ends at the margin
+    assert.equal(20 - 4 - 9 + 3, at["minecraft.render"].y)
     click(dlg, "properties.delete", 20)
     assert.same({ "alert", "properties.delete_confirm star" }, t.log[#t.log])
     dlg.handlers.properties.onwheel({ deltaY=-1000 })
@@ -1372,5 +1396,172 @@ describe("the Nordtal tab", function()
     t.started[5].isRunning = false
     t.started[5].args.onexit(0)
     assert.equal("status.yours /c/resource-pack/build/conflict/yours", dlg.handlers.status.text)
+  end)
+end)
+
+describe("the Minecraft section of the Nordtal tab", function()
+  local fabric = '{"instance":"/mc/fabric","fabric":true,"bridge":"nordtal-bridge-0.63.0.jar","port":29415,'
+    .. '"token":"0123456789abcdef0123456789abcdef"}'
+  local plain = '{"instance":"/mc/plain","fabric":false,"bridge":null,"port":null,"token":null}'
+  local previews = "/c/pack-rendering/build/glyph-previews.json"
+
+  -- Opens the tab on world.instance and connects its bridge
+  local function connected(instance)
+    local t = setUp()
+    t.world.instance = instance or fabric
+    local dlg = loaded(t)
+    local socket = t.sockets[1]
+    if socket then
+      socket.args.onreceive(1, "", "")
+      socket.args.onreceive(2, '{"ok":true}', "")
+    end
+    return t, dlg, socket
+  end
+
+  -- Ends the run that started last, with the lines it printed
+  local function finish(t, code, ...)
+    local p = t.started[#t.started]
+    for _, line in ipairs({ ... }) do
+      if code == 0 then p.args.onstdout(line) else p.args.onstderr(line) end
+    end
+    p.isRunning = false
+    p.args.onexit(code)
+    return p
+  end
+
+  -- Selects the star and renders its previews
+  local function rendered(t, dlg)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.world.reads = { [previews]=dkjson.encode({ font="minecraft:default", code="F0000", glyph={ text="\u{F0000}" },
+                                                 menu={ text="menu" }, hud=dkjson.null, board={ text="board" } }) }
+    click(dlg, "minecraft.render")
+    assert.equal(":pack-rendering:renderGlyphPreviews -Pcode=F0000 -Pfont=minecraft:default", run(t.started[#t.started]))
+    finish(t, 0, previews)
+  end
+
+  it("reads the chosen instance once the pack is read and shows it below the entry, with live sync on", function()
+    local t = setUp()
+    t.world.instance = plain
+    local dlg = loaded(t)
+    assert.equal(1, #t.instanceRuns)
+    local lines = texts(dlg)
+    assert.same({ "fill face", "  properties.none", "minecraft.instance", "  /mc/plain", "  minecraft.live_sync" },
+      { table.unpack(lines, 1, 5) })
+    assert.is_truthy(table.concat(lines, "\n"):find("minecraft.bridge\n  minecraft.no_fabric", 1, true))
+    assert.equal(0, #t.sockets)
+  end)
+
+  it("chooses an instance in the system's folder chooser, checks it with the chooser task and reads it again", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    t.world.folder = "/mc/fabric"
+    click(dlg, "minecraft.no_instance")
+    assert.same({ "chooseFolder", "minecraft.choose" }, t.log[#t.log])
+    assert.equal(":resource-pack:chooseMinecraftInstance -PminecraftInstance=/mc/fabric", run(t.started[#t.started]))
+    t.world.instance = fabric
+    finish(t, 0)
+    assert.equal(2, #t.instanceRuns)
+    assert.equal("ws://127.0.0.1:29415", t.sockets[1].args.url)
+    assert.is_truthy(table.concat(texts(dlg), "\n"):find("minecraft.instance\n  /mc/fabric", 1, true))
+
+    -- A folder the chooser refuses shows its reason
+    t.world.folder = "/mc/empty"
+    click(dlg, "/mc/fabric")
+    finish(t, 1, "/mc/empty has neither options.txt nor a resourcepacks folder, so it is not a Minecraft instance.", "",
+      "FAILURE: Build failed with an exception.", "", "* What went wrong:", "Execution failed for task 'x'.",
+      "> Process 'command '/jdk/bin/java'' finished with non-zero exit value 1", "", "* Try:")
+    assert.equal("status.refused /mc/empty has neither options.txt nor a resourcepacks folder, so it is not a Minecraft instance.",
+      dlg.handlers.status.text)
+    assert.equal(2, #t.instanceRuns)
+  end)
+
+  it("installs the pack on each save while live sync is on and reloads it in the connected client", function()
+    local t, dlg, socket = connected()
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.world.active = t.open[1]
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(":resource-pack:installPack", run(t.started[#t.started]))
+    local count = #t.started
+    finish(t, 0)
+    assert.same({ op="reload", id=1 }, socket.sent[2])
+    socket.args.onreceive(2, '{"id":1,"ok":true}', "")
+    assert.equal("minecraft.installed", dlg.handlers.status.text)
+
+    click(dlg, "minecraft.live_sync")
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(count, #t.started)
+  end)
+
+  it("keeps live sync off once switched off, and installs the pack on a click", function()
+    local preferences = { liveSync=false }
+    local t = setUp(preferences)
+    t.world.instance = plain
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.world.active = t.open[1]
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(1, #t.started)
+    click(dlg, "minecraft.live_sync")
+    assert.is_true(preferences.liveSync)
+    click(dlg, "minecraft.install_pack")
+    assert.equal(":resource-pack:installPack", run(t.started[2]))
+    finish(t, 0)
+    assert.equal("minecraft.installed_f3t", dlg.handlers.status.text)
+  end)
+
+  it("installs the bridge mod with the bundled gh and reads the instance again", function()
+    local t = setUp()
+    t.world.instance = '{"instance":"/mc/fabric","fabric":true}'
+    local dlg = loaded(t)
+    assert.is_truthy(table.concat(texts(dlg), "\n"):find("minecraft.bridge\n  minecraft.bridge_none", 1, true))
+    click(dlg, "minecraft.install_bridge")
+    assert.equal(":resource-pack:installBridgeMod -Pgh=/gh", run(t.started[#t.started]))
+    t.world.instance = fabric
+    finish(t, 0, "/mc/fabric/mods/nordtal-bridge-0.63.0.jar")
+    assert.equal(2, #t.instanceRuns)
+    assert.equal(1, #t.sockets)
+    assert.equal("minecraft.bridge_installed", dlg.handlers.status.text)
+    assert.is_truthy(table.concat(texts(dlg), "\n"):find("minecraft.bridge\n  minecraft.bridge_connecting", 1, true))
+  end)
+
+  it("renders a glyph's previews and shows one in the client", function()
+    local t, dlg, socket = connected()
+    rendered(t, dlg)
+    local shown = table.concat(texts(dlg), "\n")
+    assert.is_truthy(shown:find("minecraft.previews\n  minecraft.send\n  minecraft.chat", 1, true))
+    assert.is_truthy(shown:find("  minecraft.board", 1, true))
+    assert.is_falsy(shown:find("minecraft.render", 1, true))
+    click(dlg, "minecraft.menu")
+    assert.same({ op="chest", text={ text="menu" }, rows=3, id=1 }, socket.sent[2])
+    socket.args.onreceive(2, '{"id":1,"ok":false,"error":"no world"}', "")
+    assert.equal("minecraft.not_shown no world", dlg.handlers.status.text)
+    -- A click while the client is gone says so
+    socket.args.onreceive(3, "", "")
+    click(dlg, "minecraft.chat")
+    assert.equal("minecraft.not_connected", dlg.handlers.status.text)
+  end)
+
+  it("offers the commands of each preview to copy without Fabric", function()
+    local t, dlg = connected(plain)
+    rendered(t, dlg)
+    local command = "/tellraw @s " .. dkjson.encode({ text="\u{F0000}" })
+    click(dlg, command)
+    assert.same({ "clipboard", command }, t.log[#t.log])
+    assert.equal("minecraft.copied", dlg.handlers.status.text)
+  end)
+
+  it("gives each state of the selected item", function()
+    local t = setUp(nil, lampModel)
+    t.world.instance = fabric
+    local dlg = loaded(t)
+    local socket = t.sockets[1]
+    socket.args.onreceive(1, "", "")
+    socket.args.onreceive(2, '{"ok":true}', "")
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp" })
+    local read = dkjson.decode(lampRead)
+    read.states = { { label="", give='minecraft:paper[item_model="nordtal:lamp"]' } }
+    finish(t, 0, dkjson.encode(read))
+    click(dlg, "minecraft.give minecraft.plain")
+    assert.same({ op="give", item='minecraft:paper[item_model="nordtal:lamp"]', id=1 }, socket.sent[2])
   end)
 end)

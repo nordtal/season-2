@@ -4,7 +4,7 @@ describe("the plugin's sources", function()
   it("make no tail call", function()
     local calls = {}
     for _, file in ipairs({ "init.lua", "language.lua", "pack.lua", "panel.lua", "properties.lua", "tab.lua",
-                            "textures.lua", "tree.lua", "wizard.lua", "drafts.lua" }) do
+                            "textures.lua", "tree.lua", "wizard.lua", "drafts.lua", "minecraft.lua" }) do
       local n = 0
       for line in io.lines(file) do
         n = n + 1

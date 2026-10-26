@@ -84,15 +84,17 @@ local tones = { connected="good", connecting="wait", unreachable="wait", refused
 
 -- The items of the Minecraft bar for view: { instance, liveSync,
 -- bridge }. instance is what describeInstance printed, nil before its
--- first read, and bridge the state of the connection. A field is a
--- table whose minecraft names the action.
+-- first read, and bridge the state of the connection. The instance
+-- box shows the folder name and has the whole path as its tip. A field
+-- is a table whose minecraft names the action.
 function minecraft.bar(view, tr)
   if not view.instance then
     return {}
   end
   local chosen = view.instance.instance
   local list = {
-    { kind="box", text=chosen or tr("minecraft.no_instance"), field={ minecraft="choose" }, shrink="start" },
+    { kind="box", text=chosen and chosen:match("([^/\\]+)[/\\]*$") or chosen or tr("minecraft.no_instance"), tip=chosen,
+      field={ minecraft="choose" }, shrink="start", least=4 },
     { kind="switch", text=tr("minecraft.live_sync"), value=view.liveSync == true, field={ minecraft="live" },
       tip=tr("minecraft.live_sync_tip") },
   }
@@ -111,7 +113,7 @@ function minecraft.bar(view, tr)
     table.insert(list, { kind="text", text=tr("minecraft.state_problem"), color="bad", tip=view.instance.problem })
     return list
   end
-  -- A jar without a connection belongs to a client that has not run it yet
+  -- A jar without a connection reads as unreachable
   local state = view.bridge or (jar and "unreachable" or "none")
   local item = { kind="text", text=tr("minecraft.state_" .. state), color=tones[state], tip=tr("minecraft.bridge_" .. state) }
   if state == "refused" then

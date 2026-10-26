@@ -126,6 +126,12 @@ local function setUp(preferences, modelText)
         -- describeInstance answers at once with world.instance
         if args.cmd[5] == ":resource-pack:describeInstance" then
           table.insert(instanceRuns, self)
+          -- With world.hold the read runs until the test ends it
+          if world.hold then
+            self.isRunning = true
+            table.insert(started, self)
+            return
+          end
           args.onstdout(world.instance or '{"instance":null}')
           args.onexit(0)
           return
@@ -210,17 +216,20 @@ end
 -- Paints the canvas id on a fake context 1000 wide and returns the
 -- lines it draws, as "key", "  value", "<status> text" or "<tone> text"
 -- for a colour of the tab's own, and where it drew each text
-local function paint(dlg, id, height)
+local function paint(dlg, id, height, width)
   local out, at, color = {}, {}, nil
-  local theme = { color={ text="text", separator_label="key", face="face", status_bar_text="status" } }
-  local gc = { width=1000, height=height or 1000, theme=theme }
+  -- The theme's text and face are colours that the tab mixes, each with a name to mark it by
+  local theme = { color={ text={ name="text", red=0, green=0, blue=0 }, separator_label="key",
+                          face={ name="face", red=255, green=255, blue=255 }, status_bar_text="status" } }
+  local function name() return type(color) == "table" and (color.name or "tone") or tostring(color) end
+  local gc = { width=width or 1000, height=height or 1000, theme=theme }
   setmetatable(gc, { __newindex=function(t, k, v) if k == "color" then color = v else rawset(t, k, v) end end })
   function gc:measureText(text) return { width=utf8.len(text), height=1 } end
-  function gc:fillRect() table.insert(out, "fill " .. color) end
+  function gc:fillRect() table.insert(out, "fill " .. name()) end
   function gc:fillText(text, x, y)
-    local mark = color == "key" and "" or color == "text" and "  " or "<" .. (type(color) == "table" and "tone" or tostring(color)) .. "> "
+    local mark = name() == "key" and "" or name() == "text" and "  " or "<" .. name() .. "> "
     table.insert(out, mark .. text)
-    at[text] = at[text] or { x=x, y=y }
+    at[text] = at[text] or { x=x, y=y, color=color }
   end
   function gc:drawThemeRect(part) if id == "bar" then table.insert(out, part) end end
   function gc:drawThemeImage(part) table.insert(out, part) end
@@ -233,9 +242,9 @@ local function texts(dlg, height)
   return paint(dlg, "properties", height)
 end
 
--- The lines the Minecraft bar draws
-local function bar(dlg)
-  return paint(dlg, "bar")
+-- The lines the Minecraft bar draws on a canvas width wide
+local function bar(dlg, width)
+  return paint(dlg, "bar", nil, width)
 end
 
 -- The status in the bar, or nil while there is none
@@ -1479,8 +1488,11 @@ describe("the Minecraft bar of the Nordtal tab", function()
     t.world.instance = plain
     local dlg = loaded(t)
     assert.equal(1, #t.instanceRuns)
-    assert.same({ "fill face", "sunken_normal", "  /mc/plain", "check_selected", "  minecraft.live_sync", "button_normal",
-                  "  minecraft.install_pack", "<tone> minecraft.state_no_fabric" }, (bar(dlg)))
+    local lines, at = bar(dlg)
+    assert.same({ "fill face", "sunken_normal", "  plain", "check_selected", "  minecraft.live_sync", "button_normal",
+                  "  minecraft.install_pack", "<tone> minecraft.state_no_fabric" }, lines)
+    -- The grey of No Fabric is two thirds of the theme's text and one third of its face, which reads on both themes
+    assert.same({ r=85, g=85, b=85 }, at["minecraft.state_no_fabric"].color)
     assert.equal(0, #t.sockets)
   end)
 
@@ -1521,11 +1533,11 @@ describe("the Minecraft bar of the Nordtal tab", function()
     finish(t, 0)
     assert.equal(2, #t.instanceRuns)
     assert.equal("ws://127.0.0.1:29415", t.sockets[1].args.url)
-    assert.is_truthy(table.concat(bar(dlg), "\n"):find("  /mc/fabric", 1, true))
+    assert.is_truthy(table.concat(bar(dlg), "\n"):find("  fabric", 1, true))
 
     -- A folder the chooser refuses shows its reason
     t.world.folder = "/mc/empty"
-    click(dlg, "/mc/fabric")
+    click(dlg, "fabric")
     finish(t, 1, "/mc/empty holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.", "",
       "FAILURE: Build failed with an exception.", "", "* What went wrong:", "Execution failed for task 'x'.",
       "> Process 'command '/jdk/bin/java'' finished with non-zero exit value 1", "", "* Try:")
@@ -1616,6 +1628,102 @@ describe("the Minecraft bar of the Nordtal tab", function()
     assert.equal(3, #t.sockets)
     t.sockets[3].args.onreceive(1, "", "")
     assert.same({ op="hello", token="fedcba9876543210fedcba9876543210" }, t.sockets[3].sent[1])
+  end)
+
+  -- Opens the tab on an instance whose bridge refused the token
+  local function refusedBridge()
+    local t = setUp()
+    t.world.instance = fabric
+    local dlg = loaded(t)
+    t.sockets[1].args.onreceive(1, "", "")
+    t.sockets[1].args.onreceive(2, '{"ok":false,"error":"wrong token"}', "")
+    return t, dlg
+  end
+
+  it("says Checking and Connecting while a click on Refused reads the instance, ignores more clicks and shows Refused when the read fails", function()
+    local t, dlg = refusedBridge()
+    t.world.hold = true
+    local painted = dlg.repainted or 0
+    click(dlg, "minecraft.state_refused")
+    assert.is_true(dlg.repainted > painted)
+    assert.equal("minecraft.checking", status(dlg))
+    local shown = table.concat(bar(dlg), "\n")
+    assert.is_truthy(shown:find("<tone> minecraft.state_connecting", 1, true))
+    assert.is_falsy(shown:find("minecraft.state_refused", 1, true))
+    assert.equal(2, #t.instanceRuns)
+    click(dlg, "minecraft.state_connecting")
+    t.ctl.edit({ minecraft="retry" })
+    assert.equal(2, #t.instanceRuns)
+
+    finish(t, 1, "The instance cannot be read.")
+    shown = table.concat(bar(dlg), "\n")
+    assert.is_truthy(shown:find("button_normal\n<tone> minecraft.state_refused", 1, true))
+    assert.is_truthy(status(dlg):find("^minecraft.failed"))
+    assert.equal(1, #t.sockets)
+    -- A read of the same token afterwards still does not connect again
+    t.world.hold = false
+    t.ctl.readInstance()
+    assert.equal(1, #t.sockets)
+  end)
+
+  it("connects again once the read that a click on Refused started succeeded, and clears the status", function()
+    local t, dlg = refusedBridge()
+    t.world.hold = true
+    click(dlg, "minecraft.state_refused")
+    finish(t, 0, fabric)
+    assert.equal(2, #t.sockets)
+    assert.is_nil(status(dlg))
+    assert.is_truthy(table.concat(bar(dlg), "\n"):find("<tone> minecraft.state_connecting", 1, true))
+  end)
+
+  it("shows the tip of an item again once the pointer moved over the properties panel and back", function()
+    local t, dlg = connected()
+    local _, at = bar(dlg)
+    local word = at["minecraft.state_connected"]
+    dlg.handlers.bar.onmousemove({ x=word.x, y=word.y })
+    local count = #t.log
+    dlg.handlers.properties.onmousemove({ x=10, y=10 })
+    dlg.handlers.bar.onmousemove({ x=word.x, y=word.y })
+    assert.equal(count + 1, #t.log)
+    assert.same({ "tip", "minecraft.bridge_connected" }, t.log[#t.log])
+  end)
+
+  it("draws the status after a divider, and shows a status that the bar cuts as a tip once", function()
+    local t, dlg = connected()
+    click(dlg, "minecraft.install_pack")
+    local timers = #t.timers
+    local lines = bar(dlg, 150)
+    assert.same({ "fill tone", "<status> minecraft.in..." }, { lines[#lines - 1], lines[#lines] })
+    -- The tip shows after the paint, with one tick of a timer
+    assert.equal(timers + 1, #t.timers)
+    t.timers[#t.timers].args.ontick()
+    assert.same({ "tip", "minecraft.installing" }, t.log[#t.log])
+    bar(dlg, 150)
+    assert.equal(timers + 1, #t.timers)
+    -- A status the bar shows whole has no tip
+    finish(t, 0)
+    t.sockets[1].args.onreceive(2, '{"id":1,"ok":true}', "")
+    local count, before = #t.log, #t.timers
+    bar(dlg)
+    for i = before + 1, #t.timers do t.timers[i].args.ontick() end
+    assert.equal(count, #t.log)
+  end)
+
+  it("builds the tab again once when a paint measures the bar higher than its canvas, with the measured height", function()
+    local t = setUp()
+    local first = t.dialogs[1]
+    assert.equal(32, first.widgets[1].args.height)
+    local timers = #t.timers
+    paint(first, "bar", 10)
+    assert.equal(timers + 1, #t.timers)
+    t.timers[#t.timers].args.ontick()
+    assert.equal(2, #t.dialogs)
+    assert.is_true(first.closed)
+    -- The fake's bar is 15 high, and the canvas adds a margin of 4 above and below it
+    assert.equal(23, t.dialogs[2].widgets[1].args.height)
+    paint(t.dialogs[2], "bar", 10)
+    assert.equal(timers + 1, #t.timers)
+    assert.equal(2, #t.dialogs)
   end)
 
   it("draws a bridge that refused the token as a button", function()

@@ -108,15 +108,15 @@ describe("minecraft", function()
 
     it("asks for an instance and offers live sync while none is chosen", function()
       assert.same({
-        { kind="box", text="minecraft.no_instance", field={ minecraft="choose" }, shrink="start" },
+        { kind="box", text="minecraft.no_instance", field={ minecraft="choose" }, shrink="start", least=4 },
         { kind="switch", text="minecraft.live_sync", value=true, field={ minecraft="live" }, tip="minecraft.live_sync_tip" },
       }, minecraft.bar({ instance={}, liveSync=true }, tr))
     end)
 
     it("installs the pack and the bridge mod into an instance with Fabric and shows the bridge's state as a coloured word", function()
-      local items = minecraft.bar({ instance={ instance="/i", fabric=true }, liveSync=false, bridge="connected" }, tr)
+      local items = minecraft.bar({ instance={ instance="/mc/i", fabric=true }, liveSync=false, bridge="connected" }, tr)
       assert.same({
-        { kind="box", text="/i", field={ minecraft="choose" }, shrink="start" },
+        { kind="box", text="i", tip="/mc/i", field={ minecraft="choose" }, shrink="start", least=4 },
         { kind="switch", text="minecraft.live_sync", value=false, field={ minecraft="live" }, tip="minecraft.live_sync_tip" },
         { kind="button", text="minecraft.install_pack", field={ minecraft="pack" } },
         { kind="button", text="minecraft.install_bridge", field={ minecraft="bridge" } },
@@ -126,7 +126,7 @@ describe("minecraft", function()
         minecraft.bar({ instance={ instance="/i", fabric=true } }, tr)[5])
     end)
 
-    it("offers an update of the bridge mod once its jar is there, and waits for a client that never ran it", function()
+    it("offers an update of the bridge mod once its jar is there, and reads a jar without a connection as unreachable", function()
       local items = minecraft.bar({ instance={ instance="/i", fabric=true, bridge="nordtal-bridge-0.63.0.jar" } }, tr)
       assert.same({ kind="button", text="minecraft.update_bridge", field={ minecraft="bridge" } }, items[4])
       assert.same({ kind="text", text="minecraft.state_unreachable", color="wait", tip="minecraft.bridge_unreachable" },
@@ -143,6 +143,13 @@ describe("minecraft", function()
     it("shows the problem describeInstance found with the bridge mod as the tip of its state", function()
       local items = minecraft.bar({ instance={ instance="/i", fabric=true, problem="Two jars." } }, tr)
       assert.same({ kind="text", text="minecraft.state_problem", color="bad", tip="Two jars." }, items[5])
+    end)
+
+    it("shows the folder name of the instance and its whole path as the tip, on Windows too", function()
+      assert.same({ "fabric", "/Users/me/mc/fabric/" },
+        { minecraft.bar({ instance={ instance="/Users/me/mc/fabric/" } }, tr)[1].text,
+          minecraft.bar({ instance={ instance="/Users/me/mc/fabric/" } }, tr)[1].tip })
+      assert.equal("fabric", minecraft.bar({ instance={ instance="C:\\mc\\fabric" } }, tr)[1].text)
     end)
 
     it("says that an instance without Fabric has no bridge", function()

@@ -88,6 +88,20 @@ describe("the properties panel", function()
       panel.wrap('/tellraw @s {"text":"\\U000F0000"}', 14, measure))
   end)
 
+  it("keeps a run of punctuation marks together and ends the word after the last one", function()
+    assert.same({ "wird", "geprüft..." }, panel.wrap("wird geprüft...", 13, measure))
+  end)
+
+  it("ends no word at an underscore or at a full stop between two letters or digits", function()
+    assert.same({ "at", "0.63.0" }, panel.wrap("at 0.63.0", 6, measure))
+    assert.same({ "give", "custom_name" }, panel.wrap("give custom_name", 12, measure))
+    assert.same({ "nordtal-bridge-", "0.63.0.jar" }, panel.wrap("nordtal-bridge-0.63.0.jar", 17, measure))
+  end)
+
+  it("keeps an umlaut and an SNBT escape whole", function()
+    assert.same({ "Größe:", '"\\U000FE011"' }, panel.wrap('Größe:"\\U000FE011"', 12, measure))
+  end)
+
   it("cuts a word wider than the panel", function()
     assert.same({ "BOARD_", "CORNER" }, panel.wrap("BOARD_CORNER", 6, measure))
   end)
@@ -132,15 +146,31 @@ describe("the properties panel", function()
       local drawn = bar({ { kind="box", text="/Users/me/mc/fabric", field="choose", shrink="start" },
                           { kind="text", text="The change was refused", shrink="end" } }, 40)
       assert.same({ op="box", x=0, y=0, width=22, height=13 }, drawn.ops[1])
-      assert.same({ op="text", text=".../fabric", x=6, y=6 }, drawn.ops[2])
-      assert.same({ op="text", text="The chang...", x=28, y=6 }, drawn.ops[3])
+      assert.same({ op="text", text=".../fabric", x=6, y=6, cut=true }, drawn.ops[2])
+      assert.same({ op="text", text="The chang...", x=28, y=6, cut=true }, drawn.ops[3])
       assert.equal("/Users/me/mc/fabric", panel.hit(drawn, 1, 1, "tip"))
       assert.equal("The change was refused", panel.hit(drawn, 30, 6, "tip"))
     end)
 
-    it("leaves out a text that has no room at all", function()
-      local drawn = bar({ { kind="button", text="Install" }, { kind="text", text="refused", shrink="end" } }, 22)
-      assert.equal(2, #drawn.ops)
+    it("keeps each item that may shrink at its least characters and marks a text that the bar's end cuts", function()
+      local drawn = bar({ { kind="box", text="/Users/me/mc/fabric", field="choose", shrink="start", least=4 },
+                          { kind="button", text="Install", field="pack" },
+                          { kind="text", text="The change was refused", shrink="end", least=6 } }, 30)
+      assert.same({ op="box", x=0, y=0, width=19, height=13 }, drawn.ops[1])
+      assert.same({ op="text", text="...bric", x=6, y=6, cut=true }, drawn.ops[2])
+      assert.same({ op="text", text="The ch...", x=50, y=6, cut=true }, drawn.ops[5])
+      assert.equal("choose", panel.hit(drawn, 1, 1))
+      assert.equal("The change was refused", panel.hit(drawn, 51, 6, "tip"))
+      -- A text that fits whole but runs past the end of the bar is cut too
+      drawn = bar({ { kind="button", text="Install" }, { kind="text", text="ok", shrink="end", least=6 } }, 20)
+      assert.same({ op="text", text="ok", x=25, y=6, cut=true }, drawn.ops[3])
+      assert.equal("ok", panel.hit(drawn, 25, 6, "tip"))
+    end)
+
+    it("draws a divider with a gap on each side before an item that asks for one", function()
+      local drawn = bar({ { kind="text", text="ok", color="good" }, { kind="text", text="Saved", divider=true } })
+      assert.same({ op="divider", x=8, y=3, height=7 }, drawn.ops[2])
+      assert.same({ op="text", text="Saved", x=15, y=6 }, drawn.ops[3])
     end)
 
     it("shows the tip of an item that has one", function()

@@ -116,7 +116,7 @@ object PackModel {
     internal fun texture(
         id: String,
         root: File,
-        drafts: Set<String> = emptySet(),
+        drafts: Set<String>,
     ): Map<String, Any?> {
         val png = GlyphAdvances.texture(root.resolve("src/assets"), id)
         val aseprite = root.resolve("art").resolve(png.relativeTo(root.resolve("src")).path.removeSuffix(".png") + ".aseprite")

@@ -75,7 +75,7 @@ class ItemDefinitionsTest {
         val written = files().use { it.write("nordtal:example", text) }
 
         assertEquals(OxfmtJson.read(text), OxfmtJson.read(written))
-        assertEquals(emptyList<String>(), files().use { it.describe("nordtal:example")["problems"] })
+        assertEquals(emptyList<String>(), files().use { it.describe("nordtal:example", emptySet())["problems"] })
     }
 
     @Test
@@ -176,9 +176,9 @@ class ItemDefinitionsTest {
             zip.write("{}".toByteArray())
         }
 
-        val vanilla = files().use { it.describe("minecraft:apple") }
+        val vanilla = files().use { it.describe("minecraft:apple", emptySet()) }
         val written = files().use { it.write("minecraft:apple", model("""{ "type": "minecraft:empty" }""")) }
-        val override = files().use { it.describe("apple") }
+        val override = files().use { it.describe("apple", emptySet()) }
 
         assertEquals(
             listOf("vanilla", null, OxfmtJson.read(model(apple))),
@@ -323,6 +323,20 @@ class ItemDefinitionsTest {
     }
 
     @Test
+    fun aTextureOfAnItemIsADraftWhenItsPngIsAChangedFile() {
+        pack.resolve("src/assets/nordtal/models/item/wand.json").apply { parentFile.mkdirs() }.writeText(
+            """{ "parent": "minecraft:item/generated", "textures": { "layer0": "nordtal:item/wand" } }""",
+        )
+        val png = pack.resolve("src/assets/nordtal/textures/item/wand.png").apply { parentFile.mkdirs() }
+        ImageIO.write(BufferedImage(2, 3, BufferedImage.TYPE_INT_ARGB), "png", png)
+        files().use { it.write("nordtal:wand", model("""{ "type": "minecraft:model", "model": "nordtal:item/wand" }""")) }
+
+        val models = files().use { it.describe("nordtal:wand", setOf("src/assets/nordtal/textures/item/wand.png")) }["models"]
+
+        assertEquals(true, (((models as List<*>).single() as Map<*, *>)["textures"] as List<*>).single().let { it as Map<*, *> }["texture"].let { it as Map<*, *> }["draft"])
+    }
+
+    @Test
     fun anItemIsDescribedWithTheTexturesOfEachModelItDraws() {
         pack.resolve("src/assets/nordtal/models/item/wand.json").apply { parentFile.mkdirs() }.writeText(
             """{ "parent": "minecraft:item/generated", "textures": { "layer0": "nordtal:item/wand", "particle": "#layer0" } }""",
@@ -336,7 +350,7 @@ class ItemDefinitionsTest {
             )
         }
 
-        val models = files().use { it.describe("nordtal:wand") }["models"]
+        val models = files().use { it.describe("nordtal:wand", emptySet()) }["models"]
 
         assertEquals(
             listOf(

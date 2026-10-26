@@ -64,9 +64,12 @@ class ItemFiles(
 
     /**
      * The definition of the item [id] as one map: `item`, `source` (`pack` or `vanilla`), `file` (the absolute path in
-     * the pack, or null), `definition`, `problems`, `types` (the tables of [ItemDefinitions.types]) and `models`.
+     * the pack, or null), `definition`, `problems`, `types` (the tables of [ItemDefinitions.types]) and `models`. [drafts] are the changed files, as [PackModel.texture] takes them.
      */
-    fun describe(id: String): Map<String, Any?> {
+    fun describe(
+        id: String,
+        drafts: Set<String>,
+    ): Map<String, Any?> {
         val path = Identifier.resource(id, "items", ".json")
         val file = assets.resolve(path).takeIf { it.isFile }
         val bytes = read(path) ?: throw IllegalArgumentException("The item $id is in neither the pack nor the client jar.")
@@ -78,7 +81,7 @@ class ItemFiles(
             "definition" to definition,
             "problems" to ItemDefinitions.problems(definition) + ItemDefinitions.missing(definition, ::read, ::sprite),
             "types" to ItemDefinitions.types,
-            "models" to ItemDefinitions.models(definition).map { linkedMapOf("model" to it, "textures" to textures(it)) },
+            "models" to ItemDefinitions.models(definition).map { linkedMapOf("model" to it, "textures" to textures(it, drafts)) },
         )
     }
 
@@ -86,11 +89,14 @@ class ItemFiles(
      * The textures of [model] and of its parents, each `{ key, texture }`, the child's for a key that both name. A texture
      * whose PNG the pack holds is described as [PackModel] describes one, any other by its id alone.
      */
-    private fun textures(model: String): List<Map<String, Any?>> =
+    private fun textures(
+        model: String,
+        drafts: Set<String>,
+    ): List<Map<String, Any?>> =
         ItemDefinitions.textures(model, ::read, mutableListOf()).distinctBy { it.key }.map { (_, key, texture) ->
             val png = runCatching { Identifier.resource(texture, "textures", ".png") }.getOrNull()?.let { assets.resolve(it) }
             val id = "${full(texture)}.png"
-            linkedMapOf("key" to key, "texture" to if (png?.isFile == true) PackModel.texture(id, pack) else mapOf("id" to id))
+            linkedMapOf("key" to key, "texture" to if (png?.isFile == true) PackModel.texture(id, pack, drafts) else mapOf("id" to id))
         }
 
     /** Writes [definition], the text of an item definition, as the item [id] in the pack, after every rule passed. */

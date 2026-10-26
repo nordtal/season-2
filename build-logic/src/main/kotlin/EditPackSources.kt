@@ -178,7 +178,7 @@ abstract class EditPackSources : VanillaClientTask() {
                     }
 
                     "readItem" -> {
-                        return logger.quiet(JsonOutput.toJson(ItemFiles(pack, ::jar).use { it.describe(text("item")) }))
+                        return logger.quiet(JsonOutput.toJson(ItemFiles(pack, ::jar).use { it.describe(text("item"), changedFiles(pack)) }))
                     }
 
                     "writeItem" -> {

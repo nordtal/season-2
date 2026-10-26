@@ -26,7 +26,7 @@ token=<at least 16 characters>
 ```
 
 Without the file the mod stays off and logs that once. The port is read when the client starts, and
-the token again for every connection, so the app can change the token while the client runs.
+the token again for every connection.
 
 ## Protocol
 

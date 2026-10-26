@@ -991,7 +991,7 @@ describe("the Nordtal tab", function()
 
     browser = t.dialogs[#t.dialogs]
     browser.handlers.choices.onchange({ node="minecraft:compass" })
-    assert.equal("new.chosen minecraft:compass", browser.handlers.chosen.text)
+    assert.equal("new.chosen_item minecraft:compass", browser.handlers.chosen.text)
     browser.handlers.create.onclick()
     assert.equal(":resource-pack:editItem -Pitem=minecraft:compass", run(t.started[3]))
     local file = "src/assets/minecraft/items/compass.json"

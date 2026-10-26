@@ -20,10 +20,10 @@ wizard.kinds = { "glyph", "block", "sheet", "item", "vanilla_item", "override" }
 -- The kinds chosen in a browser of the client jar: the option of the
 -- task that names the choice and the strings of the browser
 local browsers = {
-  override={ option="texture", count="new.count", more="new.count_more", none="new.chosen_none",
-             required="new.required_texture" },
-  vanilla_item={ option="item", count="new.count_items", more="new.count_items_more", none="new.chosen_none_item",
-                 required="new.required_item" },
+  override={ option="texture", count="new.count", more="new.count_more", chosen="new.chosen",
+             none="new.chosen_none", required="new.required_texture" },
+  vanilla_item={ option="item", count="new.count_items", more="new.count_items_more", chosen="new.chosen_item",
+                 none="new.chosen_none_item", required="new.required_item" },
 }
 
 -- The fields of each kind but those of a browser, in the order the dialog
@@ -315,13 +315,13 @@ function wizard.open(context)
     dlg:tree{ id="choices", nodes=nodes, width=240, height=160, onchange=function(ev)
       if wizard.isChoice(ev.node) then
         chosen[kind] = ev.node
-        dlg:modify{ id="chosen", text=tr("new.chosen", ev.node) }
+        dlg:modify{ id="chosen", text=tr(browser.chosen, ev.node) }
       end
     end }
     dlg:newrow()
     dlg:label{ id="count", text=counted(count) }
     dlg:newrow()
-    dlg:label{ id="chosen", text=chosen[kind] and tr("new.chosen", chosen[kind]) or tr(browser.none) }
+    dlg:label{ id="chosen", text=chosen[kind] and tr(browser.chosen, chosen[kind]) or tr(browser.none) }
     dlg:newrow()
   end
 

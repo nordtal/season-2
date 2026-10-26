@@ -46,7 +46,13 @@ class TextureMetaTest {
         TextureMeta.animate(pack, lava, listOf(500, 20, 175))
 
         assertEquals(
-            mapOf("animation" to mapOf("frames" to listOf(mapOf("index" to 0, "time" to 10), mapOf("index" to 1, "time" to 1), mapOf("index" to 2, "time" to 4)))),
+            mapOf(
+                "animation" to
+                    mapOf(
+                        "frames" to
+                            listOf(mapOf("index" to 0, "time" to 10), mapOf("index" to 1, "time" to 1), mapOf("index" to 2, "time" to 4)),
+                    ),
+            ),
             OxfmtJson.read(lavaMeta),
         )
     }
@@ -157,8 +163,10 @@ class TextureMetaTest {
     fun aNineSliceRefusesAMissingSizeAndABorderWiderThanTheSprite() {
         png(buttonPng, 20, 20)
 
-        val size = assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "nine_slice", null, 20, listOf(3, 3, 3, 3), false) }
-        val border = assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "nine_slice", 40, 40, listOf(12, 0, 10, 0), false) }
+        val size =
+            assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "nine_slice", null, 20, listOf(3, 3, 3, 3), false) }
+        val border =
+            assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "nine_slice", 40, 40, listOf(12, 0, 10, 0), false) }
         val type = assertThrows<IllegalArgumentException> { TextureMeta.scale(pack, button, "slice", 40, 40, null, null) }
 
         assertEquals("A nine_slice scaling needs a width and a height of at least 1 pixel.", size.message)

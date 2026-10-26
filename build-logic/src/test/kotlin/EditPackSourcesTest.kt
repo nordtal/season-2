@@ -124,7 +124,8 @@ class EditPackSourcesTest {
             "border" to "2,2,2,1",
             "stretchInner" to "true",
         ).create()
-        val error = assertThrows<GradleException> { task("animate", "texture" to "minecraft:gui/sprites/slot.png", "frames" to "100,x").create() }
+        val error =
+            assertThrows<GradleException> { task("animate", "texture" to "minecraft:gui/sprites/slot.png", "frames" to "100,x").create() }
 
         val meta = OxfmtJson.read(File(png.path + ".mcmeta")) as Map<*, *>
         assertEquals(listOf(mapOf("index" to 0, "time" to 2), mapOf("index" to 1, "time" to 3)), (meta["animation"] as Map<*, *>)["frames"])

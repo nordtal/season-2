@@ -64,7 +64,9 @@ object TextureMeta {
             "$texture is no GUI sprite, which lies under textures/gui/sprites/."
         }
         if (type != "stretch") {
-            require(width != null && height != null && width > 0 && height > 0) { "A $type scaling needs a width and a height of at least 1 pixel." }
+            require(
+                width != null && height != null && width > 0 && height > 0,
+            ) { "A $type scaling needs a width and a height of at least 1 pixel." }
         }
         if (type == "nine_slice") {
             require(border != null && border.size == 4 && border.all { it >= 0 }) { "A nine_slice border is four numbers of at least 0." }
@@ -78,7 +80,9 @@ object TextureMeta {
             }
         }
         return change(pack, png) { meta ->
-            val gui = (meta["gui"] as? Map<*, *>)?.let { OxfmtJson.Object().apply { it.forEach { (k, v) -> this[k as String] = v } } } ?: OxfmtJson.Object()
+            val gui =
+                (meta["gui"] as? Map<*, *>)?.let { OxfmtJson.Object().apply { it.forEach { (k, v) -> this[k as String] = v } } }
+                    ?: OxfmtJson.Object()
             gui.remove("scaling")
             if (type != "stretch") {
                 val scaling = OxfmtJson.Object()

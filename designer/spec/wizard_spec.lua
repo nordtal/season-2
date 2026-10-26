@@ -60,6 +60,11 @@ describe("the new-texture wizard", function()
     assert.is_true(wizard.absent({ "refused title" }, { "createGlyphBlock", { font="nordtal:hud" } }))
     assert.is_false(wizard.absent({ "refused title" }, { "createGlyphBlock", { title="A b" } }))
     assert.is_false(wizard.absent({ "/c/x.png" }, { "createGlyphBlock", {} }))
+    -- The id is one option, so a refusal of its namespace or path is the task's
+    local job = wizard.job("glyph", { namespace="Nordtal", path="badges/sun" })
+    assert.is_false(wizard.absent({ "refused namespace" }, job))
+    assert.is_false(wizard.absent({ "refused path" }, job))
+    assert.is_true(wizard.absent({ "refused path" }, wizard.job("glyph", { namespace="nordtal", path="" })))
   end)
 
   it("finds the node of what it created", function()

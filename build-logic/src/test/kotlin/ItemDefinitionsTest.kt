@@ -245,7 +245,8 @@ class ItemDefinitionsTest {
     @Test
     fun everyItemDefinitionOfTheClientJarPassesAndIsWrittenBackUnchanged() {
         val version = MinecraftVersion.of(System.getProperty("nordtal.paperVersion"))
-        // Loom keeps the jar it downloaded for :bridge-mod there. Before Loom ran once, the round trip is skipped, not failed.
+        // Loom keeps the jar it downloaded for :bridge-mod there. Before Loom ran once, or after Loom moves that file, the round
+        // trip is skipped, not failed.
         val client = File(System.getProperty("nordtal.loomCache"), "$version/minecraft-client.jar")
         Assumptions.assumeTrue(client.isFile, "Fabric Loom has not downloaded the client jar of $version yet: $client")
         val items =

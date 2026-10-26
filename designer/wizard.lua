@@ -107,7 +107,11 @@ end
 function wizard.absent(out, job)
   for _, line in ipairs(out or {}) do
     local option = line:match("^refused (%S+)$")
-    if option then return job[2][option] == nil end
+    if option then
+      -- The id's namespace and path are one option, passed whenever the path is filled
+      if option == "namespace" or option == "path" then return job[2].texture == nil and job[2].item == nil end
+      return job[2][option] == nil
+    end
   end
   return false
 end

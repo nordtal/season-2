@@ -131,11 +131,32 @@ class PackModelTest {
         assertEquals("src/assets/minecraft/textures/block/water_still.png.mcmeta", water["mcmeta"])
         assertEquals(mapOf("frametime" to 2), water["animation"])
         assertEquals(null, water["scaling"])
+        assertEquals(false, water["guiSprite"])
+        assertEquals(
+            (0 until 4).map { mapOf("x" to 0, "y" to 16 * it, "width" to 16, "height" to 16, "duration" to 100) },
+            water["frames"],
+        )
         val bar = only(overrides[1].list("entries"))
         assertEquals(null, bar["mcmeta"])
         assertEquals(182, bar.map("texture")["width"])
+        assertEquals(true, bar["guiSprite"])
+        assertEquals(null, bar["frames"])
         val button = only(overrides[2].list("entries"))
         assertEquals("nine_slice", button.map("scaling")["type"])
+    }
+
+    @Test
+    fun theModelListsTheStatusesAGlyphCanHave() {
+        allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
+
+        assertEquals(listOf("keep", "final candidate", "placeholder"), model()["statuses"])
+    }
+
+    @Test
+    fun theModelListsTheScalingsAGuiSpriteCanHave() {
+        allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
+
+        assertEquals(listOf("stretch", "tile", "nine_slice"), model()["scalings"])
     }
 
     @Test

@@ -26,7 +26,7 @@ function tree.build(model, tr)
     if not code or code > 0x10FFFF then
       error(font.font .. " > " .. tostring(block.title) .. ": " .. tostring(cell.code) .. " is no code point", 0)
     end
-    return utf8.char(code)
+    return (utf8.char(code))
   end
 
   local fonts = {}

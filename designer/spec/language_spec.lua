@@ -68,13 +68,17 @@ describe("the string files of the designer", function()
   it("hold every id the plugin translates", function()
     local en = language.parse(read("strings/en.ini"))
     local missing = {}
-    for _, file in ipairs({ "init.lua", "tab.lua", "tree.lua" }) do
+    for _, file in ipairs({ "init.lua", "tab.lua", "tree.lua", "properties.lua" }) do
       for id in read(file):gmatch('tr%("([%w_]+%.[%w_]+)"') do
         if not en[id] then table.insert(missing, file .. ": " .. id) end
       end
     end
-    for key in read("tab.lua"):gmatch('add%("([%w_]+)"') do
-      if not en["properties." .. key] then table.insert(missing, "tab.lua: properties." .. key) end
+    for key in read("properties.lua"):gmatch('add%("([%w_]+)"') do
+      if not en["properties." .. key] then table.insert(missing, "properties.lua: properties." .. key) end
+    end
+    -- The sides of a border, whose ids properties.lua puts together
+    for _, side in ipairs({ "left", "top", "right", "bottom" }) do
+      if not en["properties.border_" .. side] then table.insert(missing, "properties.lua: properties.border_" .. side) end
     end
     assert.same({}, missing)
   end)

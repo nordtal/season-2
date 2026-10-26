@@ -7,7 +7,7 @@ import java.io.File
 import javax.imageio.ImageIO
 
 /**
- * Renames, resizes and deletes a glyph of the pack at [pack], found by its name or its constant, and gives provisional
+ * Renames, edits, resizes and deletes a glyph of the pack at [pack], found by its name or its constant, and gives provisional
  * code points their final ones. Every change goes through [NewTextures.edit], so `glyphs.json` keeps its layout and rules.
  */
 object GlyphEdits {
@@ -87,6 +87,47 @@ object GlyphEdits {
             .toSet()
 
     /**
+     * Sets the [status], display [height], [ascent] and [about] of [glyph] that are not null. An empty status or about
+     * removes it, and a height or ascent equal to the block's leaves the glyph without its own.
+     */
+    fun edit(
+        pack: File,
+        glyph: String,
+        status: String? = null,
+        height: Int? = null,
+        ascent: Int? = null,
+        about: String? = null,
+    ): List<File> =
+        NewTextures.edit(pack, null, 0, 0) { root ->
+            val target = find(root, glyph)
+            require((height == null && ascent == null) || target.block["texture"] == null) {
+                "${target.label} is a cell of the sheet ${target.block["title"]}, which sets the display height and ascent of every cell."
+            }
+            for ((key, value) in listOf("height" to height, "ascent" to ascent)) {
+                if (value == null) continue
+                if (value == target.block[key]) target.glyph.remove(key) else target.glyph[key] = value
+            }
+            for ((key, value) in listOf("status" to status, "about" to about)) {
+                if (value == null) continue
+                if (value.isEmpty()) target.glyph.remove(key) else target.glyph[key] = value
+            }
+            order(target.glyph)
+        }
+
+    /** Puts the keys of [glyph] in the order that `glyphs.json` writes them. */
+    private fun order(glyph: OxfmtJson.Object) {
+        val entries =
+            glyph.entries
+                .sortedBy {
+                    KEYS.indexOf(it.key).takeIf { index ->
+                        index >= 0
+                    } ?: KEYS.size
+                }.map { it.toPair() }
+        glyph.clear()
+        glyph.putAll(entries)
+    }
+
+    /**
      * Scales the height and ascent of [glyph] by its PNG's pixel height over the pixel height [from] it had, when [coupled].
      *
      * Decoupled, both stay, so the glyph shows more detail at the same size, and nothing is written.
@@ -115,15 +156,7 @@ object GlyphEdits {
                 val scaled = Math.round((target.glyph[key] ?: target.block[key]) as Int * to / from.toDouble()).toInt()
                 if (scaled == target.block[key]) target.glyph.remove(key) else target.glyph[key] = scaled
             }
-            val entries =
-                target.glyph.entries
-                    .sortedBy {
-                        KEYS.indexOf(it.key).takeIf { index ->
-                            index >= 0
-                        } ?: KEYS.size
-                    }.map { it.toPair() }
-            target.glyph.clear()
-            target.glyph.putAll(entries)
+            order(target.glyph)
         }
     }
 
@@ -207,23 +240,31 @@ object GlyphEdits {
 
     private fun code(glyph: Map<*, *>) = (glyph["code"] as String).toInt(16)
 
-    /** The places in the repository's files, tracked or not yet, that use [found]: `Glyphs.CONSTANT` in Java or Kotlin, or `<glyph:name>`. */
+    /**
+     * The places in the repository's files, tracked or not yet, that use [found]: `Glyphs.CONSTANT` in Java or Kotlin, the bare
+     * `CONSTANT` in a file that imports it or every glyph statically, or `<glyph:name>`. A tag that code builds at runtime is
+     * not found.
+     */
     private fun refuseUsed(
         repository: File,
         found: Found,
     ) {
-        val constant = (found.glyph["constant"] as String?)?.let { Regex("""\bGlyphs\.${Regex.escape(it)}\b""") }
+        val name = found.glyph["constant"] as String?
+        val constant = name?.let { Regex("""\bGlyphs\.${Regex.escape(it)}\b""") }
+        val imported = name?.let { Regex("""^\s*import\s+(static\s+)?[\w.]*\bGlyphs\.(${Regex.escape(it)}\b|\*)""", RegexOption.MULTILINE) }
+        val bare = name?.let { Regex("""\b${Regex.escape(it)}\b""") }
         val tag = (found.glyph["name"] as String?)?.let { "<glyph:$it>" }
         val places =
             trackedFiles(repository, emptyList(), untracked = true).flatMap { path ->
                 val code = path.endsWith(".java") || path.endsWith(".kt")
                 val text = if (code || tag != null) readText(repository.resolve(path)) else null
+                val uses = if (code && text != null && imported?.containsMatchIn(text) == true) bare else constant
                 text
                     .orEmpty()
                     .lineSequence()
                     .withIndex()
                     .filter { (_, line) ->
-                        (code && constant?.containsMatchIn(line) == true) || (tag != null && tag in line)
+                        (code && uses?.containsMatchIn(line) == true) || (tag != null && tag in line)
                     }.map { "$path:${it.index + 1}" }
                     .toList()
             }

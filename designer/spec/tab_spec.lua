@@ -914,6 +914,22 @@ describe("the Nordtal tab", function()
     assert.is_truthy(shown:find("items.type\n  select\nproperty\n  display_context", 1, true))
   end)
 
+  it("drops a definition that was read for an item no longer selected", function()
+    local twoItems = dkjson.encode({ fonts={}, overrides={}, items={ { category="nordtal", entries={
+      { id="nordtal:lamp", model="minecraft:select", file="src/assets/nordtal/items/lamp.json" },
+      { id="nordtal:bell", model="minecraft:select", file="src/assets/nordtal/items/bell.json" } } } } })
+    local t = setUp(nil, twoItems)
+    local dlg = lamp(t)
+    local before = #dlg.nodesModified
+    dlg.handlers.tree.onchange({ node="item/nordtal:bell" })
+    local bell = t.started[#t.started]
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp" })
+    bell.args.onstdout((lampRead:gsub("nordtal:lamp", "nordtal:bell")))
+    bell.isRunning = false
+    bell.args.onexit(0)
+    assert.equal(before, #dlg.nodesModified)
+  end)
+
   it("opens the texture of a case's model in the editor", function()
     local t = setUp(nil, lampModel)
     local dlg = lamp(t)

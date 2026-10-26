@@ -23,7 +23,8 @@ local types = {
   },
   select={ { type="minecraft:display_context", fields={} },
            { type="minecraft:block_state", fields={ f("block_state_property", "text", true) } } },
-  condition={ { type="minecraft:using_item", fields={} } },
+  condition={ { type="minecraft:using_item", fields={} },
+               { type="minecraft:component", fields={ f("predicate", "text", true), f("value", "json", true) } } },
   range_dispatch={ { type="minecraft:damage", fields={ f("normalize", "boolean") } } },
   tints={ { type="minecraft:constant", fields={ f("value", "json", true) } },
           { type="minecraft:dye", fields={ f("default", "json", true) } } },
@@ -194,10 +195,24 @@ describe("the item definition editor", function()
     local property = field(items.rows(r, "", "item", tr), "property")
     assert.same({ "minecraft:display_context", "minecraft:block_state" }, items.form(r, property, {}, tr).widgets[1].options)
     assert.same({ { kind="entry", id="block_state_property", label="block_state_property", text="" } },
-      items.form(r, property, { value="minecraft:block_state" }, tr).widgets)
+      items.form(r, property, { property="minecraft:block_state" }, tr).widgets)
     assert.same({ { "editItem", { item="nordtal:lamp", at="model",
       fields="{\"property\":\"minecraft:block_state\",\"block_state_property\":\"lit\"}" } } },
-      items.jobs(r, property, { value="minecraft:block_state", block_state_property="lit" }))
+      items.jobs(r, property, { property="minecraft:block_state", block_state_property="lit" }))
+  end)
+
+  it("asks for a property's field named value apart from the property", function()
+    local r = read()
+    local property = field(items.rows(r, "model/fallback", "model", tr), "property")
+    assert.equal("property", items.form(r, property, {}, tr).widgets[1].id)
+    assert.same({ "predicate", "value" }, (function()
+      local ids = {}
+      for _, w in ipairs(items.form(r, property, { property="minecraft:component" }, tr).widgets) do table.insert(ids, w.id) end
+      return ids
+    end)())
+    assert.same({ { "editItem", { item="nordtal:lamp", at="model/fallback",
+      fields="{\"property\":\"minecraft:component\",\"predicate\":\"minecraft:damage\",\"value\":{\"a\":1}}" } } },
+      items.jobs(r, property, { property="minecraft:component", predicate="minecraft:damage", value="{\"a\":1}" }))
   end)
 
   it("adds a case with its condition, a tint with its type and fields, and a fallback at once", function()

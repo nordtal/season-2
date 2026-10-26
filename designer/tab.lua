@@ -282,6 +282,9 @@ function tab.open(context)
       local process, problem = modules.pack.item(context.bootstrap, api, id, finish)
       return process, problem
     end, function(read, err)
+      -- A read for an item that is no longer selected is dropped
+      local node = "item/" .. id
+      if selected ~= node and (selected or ""):sub(1, #node + 1) ~= node .. "#" then return end
       if not read then
         refused = modules.pack.refusal(err)
         showProperties()

@@ -324,19 +324,21 @@ end
 function items.form(read, action, data, tr)
   local object = action.at and find(read.definition, action.at)
   if action.op == "set" then
+    -- A property's choice is kept apart from a field named value
+    if action.kind == "property" and data.property == nil then
+      local owner = entry(read.types.models, object.type)
+      local options = {}
+      for _, t in ipairs(read.types[owner.properties] or {}) do table.insert(options, t.type) end
+      return { title=action.name, widgets={
+        { kind="combobox", id="property", label=action.name, options=options, option=object.property } } }
+    end
+    if action.kind == "property" then
+      if data.property == object.property then return nil end
+      return missing(read, action.part, object, { property=data.property }, data, action.name, tr)
+    end
     if data.value == nil then
       local field = { name=action.name, kind=action.kind }
-      if action.kind == "property" then
-        local owner = entry(read.types.models, object.type)
-        local options = {}
-        for _, t in ipairs(read.types[owner.properties] or {}) do table.insert(options, t.type) end
-        return { title=action.name, widgets={
-          { kind="combobox", id="value", label=action.name, options=options, option=object.property } } }
-      end
       return { title=action.name, widgets={ widget(read, "value", field, object[action.name], tr) } }
-    end
-    if action.kind == "property" and data.value ~= object.property then
-      return missing(read, action.part, object, { property=data.value }, data, action.name, tr)
     end
     return nil
   elseif action.op == "type" then
@@ -406,7 +408,7 @@ function items.jobs(read, action, data)
     return { { "editItem", options } }
   end
   if action.op == "set" then
-    local given = data.value
+    local given = action.kind == "property" and data.property or data.value
     if action.kind == "property" then
       if given == object.property then return nil end
       local list = { { "property", encode(given) } }

@@ -132,6 +132,10 @@ A vanilla override is created with `copyVanillaTexture`, under _Vanilla override
   ends in `.png`.
 - A task refuses a file that exists, and writes nothing until `glyphs.json` passes every rule below.
   It writes `glyphs.json` in the layout that oxfmt checks, with every untouched line as it was.
+- A refusal first prints `refused` and the field it concerns on a line of its own, so the app shows it
+  at that field: an option such as `font`, `block` or `width`, or `namespace` or `path` of the id.
+  A rule of `glyphs.json` that the result breaks is `name` or `constant` for a glyph, `title` for a
+  block and `constants` for a sheet.
 
 ## Changing glyphs
 

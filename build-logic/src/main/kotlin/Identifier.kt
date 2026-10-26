@@ -12,29 +12,32 @@ object Identifier {
     private val SEGMENT = Regex("""[a-z0-9_.-]+""")
 
     /** Why [id] is no identifier with an explicit namespace, or null when it is one. */
-    fun problem(id: String): String? {
+    fun problem(id: String): String? = refusal(id)?.second
+
+    /** The part of [id] that is wrong, `namespace` or `path`, and why, or null when [id] is an identifier. */
+    private fun refusal(id: String): Pair<String, String>? {
         val namespace = id.substringBefore(':', "")
         val path = id.substringAfter(':', "")
         val segments = path.split('/')
         return when {
             id.count { it == ':' } != 1 -> {
-                "$id is not namespace:path, with exactly one colon"
+                "path" to "$id is not namespace:path, with exactly one colon"
             }
 
             !NAMESPACE.matches(namespace) -> {
-                "the namespace of $id may hold only a-z, 0-9, _, - and ."
+                "namespace" to "the namespace of $id may hold only a-z, 0-9, _, - and ."
             }
 
             namespace.endsWith('.') -> {
-                "the namespace of $id ends in ., which Windows drops from a folder name"
+                "namespace" to "the namespace of $id ends in ., which Windows drops from a folder name"
             }
 
             segments.any { !SEGMENT.matches(it) } -> {
-                "the path of $id may hold only a-z, 0-9, _, -, . and /"
+                "path" to "the path of $id may hold only a-z, 0-9, _, -, . and /"
             }
 
             segments.any { it.endsWith('.') } -> {
-                "a name in the path of $id ends in ., which Windows drops from a file name"
+                "path" to "a name in the path of $id ends in ., which Windows drops from a file name"
             }
 
             else -> {
@@ -46,16 +49,16 @@ object Identifier {
     /**
      * Returns [id] split into namespace and path.
      *
-     * @throws IllegalArgumentException if [id] is no identifier, or does not end in [suffix]
+     * @throws FieldRefusal naming the wrong part if [id] is no identifier, or does not end in [suffix]
      */
     fun parse(
         id: String,
         suffix: String = "",
     ): Pair<String, String> {
-        problem(id)?.let { throw IllegalArgumentException("${it.replaceFirstChar(Char::uppercase)}.") }
-        require(
-            id.endsWith(suffix) && id.substringAfterLast('/').substringAfter(':') != suffix,
-        ) { "$id does not end in a name and $suffix." }
+        refusal(id)?.let { (part, reason) -> throw FieldRefusal(part, "${reason.replaceFirstChar(Char::uppercase)}.") }
+        if (!id.endsWith(suffix) || id.substringAfterLast('/').substringAfter(':') == suffix) {
+            throw FieldRefusal("path", "$id does not end in a name and $suffix.")
+        }
         return id.substringBefore(':') to id.substringAfter(':')
     }
 

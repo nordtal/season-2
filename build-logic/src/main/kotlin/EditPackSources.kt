@@ -14,7 +14,8 @@ import java.io.File
 /**
  * Reads or makes one change of [kind] to the pack's sources through [NewTextures], [GlyphEdits], [TextureMeta] or [ItemFiles], with the
  * [options] that `resource-pack/README.md` lists per kind. It prints what it changed, and fails with the reason when it
- * refuses. Only the item kinds read the client jar.
+ * refuses. A refusal that concerns one option, a [FieldRefusal], first prints `refused` and the option's name on a line of
+ * its own. Only the item kinds read the client jar.
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class EditPackSources : VanillaClientTask() {
@@ -72,13 +73,13 @@ abstract class EditPackSources : VanillaClientTask() {
     fun create() {
         val options = options.get()
 
-        fun text(key: String) = options[key] ?: throw GradleException("Set -P$key.")
+        fun text(key: String) = options[key] ?: throw FieldRefusal(key, "Set -P$key.")
 
-        fun number(key: String) = options[key]?.let { it.toIntOrNull() ?: throw GradleException("-P$key=$it is not a whole number.") }
+        fun number(key: String) = options[key]?.let { it.toIntOrNull() ?: throw FieldRefusal(key, "-P$key=$it is not a whole number.") }
 
         fun numbers(key: String) =
             options[key]?.let { text ->
-                text.split(',').map { it.trim().toIntOrNull() ?: throw GradleException("-P$key=$text is not a list of whole numbers.") }
+                text.split(',').map { it.trim().toIntOrNull() ?: throw FieldRefusal(key, "-P$key=$text is not a list of whole numbers.") }
             }
 
         val pack = pack.get().asFile
@@ -139,7 +140,7 @@ abstract class EditPackSources : VanillaClientTask() {
                     }
 
                     "animate" -> {
-                        TextureMeta.animate(pack, text("texture"), numbers("frames") ?: throw GradleException("Set -Pframes."))
+                        TextureMeta.animate(pack, text("texture"), numbers("frames") ?: throw FieldRefusal("frames", "Set -Pframes."))
                     }
 
                     "scaling" -> {
@@ -188,6 +189,9 @@ abstract class EditPackSources : VanillaClientTask() {
                         throw GradleException("$kind is no kind of change.")
                     }
                 }
+            } catch (e: FieldRefusal) {
+                logger.quiet("refused ${e.field}")
+                throw GradleException(e.message ?: "The change is refused.", e)
             } catch (e: IllegalArgumentException) {
                 throw GradleException(e.message ?: "The change is refused.", e)
             } catch (e: IllegalStateException) {

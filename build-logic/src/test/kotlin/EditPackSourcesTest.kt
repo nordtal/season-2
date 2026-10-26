@@ -2,6 +2,7 @@ package eu.nordtal.season.build
 
 import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
+import org.gradle.testkit.runner.GradleRunner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -134,5 +135,49 @@ class EditPackSourcesTest {
             ((meta["gui"] as Map<*, *>)["scaling"] as Map<*, *>)["border"],
         )
         assertEquals("-Pframes=100,x is not a list of whole numbers.", error.message)
+    }
+
+    @Test
+    fun aRefusedOptionNamesItsField() {
+        pack.mkdirs()
+        pack.resolve("glyphs.json").writeText(badges("FE000"))
+
+        val number = assertThrows<GradleException> { task("item", "item" to "nordtal:wand", "width" to "wide").create() }
+        val missing = assertThrows<GradleException> { task("block", "font" to "minecraft:default").create() }
+        val refused = assertThrows<GradleException> { task("block", "font" to "minecraft:default", "title" to "Badges").create() }
+
+        assertEquals("-Pwidth=wide is not a whole number.", number.message)
+        assertEquals(listOf("width", "title", "title"), listOf(number, missing, refused).map { (it.cause as FieldRefusal).field })
+    }
+
+    @Test
+    fun aRefusalPrintsItsFieldAndAChangeTheFilesItWrote() {
+        val classes =
+            System
+                .getProperty("java.class.path")
+                .split(File.pathSeparator)
+                .filter { "build-logic" in it && "/build/" in it }
+                .joinToString(", ") { "'" + it.replace("\\", "/") + "'" }
+        repository.resolve("settings.gradle").writeText("")
+        repository.resolve("build.gradle").writeText(
+            """
+            buildscript { dependencies { classpath files($classes) } }
+            tasks.register('item', eu.nordtal.season.build.EditPackSources) {
+                kind = 'item'
+                version = '26.2'
+                options = providers.gradlePropertiesPrefixedBy('').map { it.subMap(['item']) }
+                pack = layout.projectDirectory.dir('resource-pack')
+                repository = layout.projectDirectory
+            }
+            """.trimIndent(),
+        )
+        val runner = GradleRunner.create().withProjectDir(repository)
+
+        val written = runner.withArguments("item", "-q", "-Pitem=nordtal:wand").build().output
+        val refused = runner.withArguments("item", "-q", "-Pitem=nordtal:Wand").buildAndFail().output
+
+        assertTrue(pack.resolve("src/assets/nordtal/items/wand.json").absolutePath in written, written)
+        assertTrue("refused path\n" in refused, refused)
+        assertTrue("The path of nordtal:Wand may hold only" in refused, refused)
     }
 }

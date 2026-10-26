@@ -3,7 +3,6 @@ package eu.nordtal.season.build
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
-import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.file.RegularFileProperty
@@ -15,7 +14,6 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.work.DisableCachingByDefault
 import java.io.File
-import java.util.Properties
 import javax.inject.Inject
 
 /**
@@ -46,7 +44,7 @@ abstract class InstallPack : DefaultTask() {
 
     @TaskAction
     fun install() {
-        val instance = instance()
+        val instance = MinecraftInstance.chosen(instanceFile.get().asFile)
         val target = instance.resolve("resourcepacks").resolve(packName.get())
         files.sync {
             from(pack)
@@ -55,17 +53,6 @@ abstract class InstallPack : DefaultTask() {
         logger.lifecycle("Installed the pack into $target")
         logger.lifecycle(enable(instance))
         logger.lifecycle("In Minecraft, press F3+T to load the new version.")
-    }
-
-    private fun instance(): File {
-        val store = instanceFile.get().asFile
-        val chosen =
-            store
-                .takeIf { it.isFile }
-                ?.let { file -> Properties().apply { file.reader().use { load(it) } }.getProperty("instance") }
-                ?: throw GradleException("No Minecraft instance is chosen yet. Run 'pack: 1. choose Minecraft instance' first.")
-        return File(chosen).takeIf { it.isDirectory }
-            ?: throw GradleException("$chosen does not exist any more. Run 'pack: 1. choose Minecraft instance' again.")
     }
 
     private fun enable(instance: File): String {

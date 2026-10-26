@@ -8,6 +8,7 @@ import eu.nordtal.season.build.CheckPack
 import eu.nordtal.season.build.CheckSourcesTracked
 import eu.nordtal.season.build.CopyVanillaTexture
 import eu.nordtal.season.build.DescribePack
+import eu.nordtal.season.build.EditMinecraftInstance
 import eu.nordtal.season.build.EditPackSources
 import eu.nordtal.season.build.GenerateGlyphs
 import eu.nordtal.season.build.InstallPack
@@ -206,6 +207,18 @@ tasks.register<InstallPack>("installPack") {
     pack.set(assembledPack)
     instanceFile.set(minecraftInstance)
     packName.set("nordtal-dev")
+}
+
+// Nordtal Designer reads the chosen instance with describeInstance and installs the bridge mod with installBridgeMod -Pgh=<path>.
+mapOf("describeInstance" to "describe", "installBridgeMod" to "bridge").forEach { (name, kind) ->
+    tasks.register<EditMinecraftInstance>(name) {
+        description =
+            if (kind == "describe") "Prints the chosen Minecraft instance as JSON." else "Installs the bridge mod of the newest release."
+        this.kind.set(kind)
+        instanceFile.set(minecraftInstance)
+        repository.set(rootProject.layout.projectDirectory)
+        gh.set(providers.gradleProperty("gh"))
+    }
 }
 
 // The client jar of the season's Minecraft version, the source of a vanilla override: the one that Fabric Loom

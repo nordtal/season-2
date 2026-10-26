@@ -82,6 +82,7 @@ class ItemFiles(
             "problems" to ItemDefinitions.problems(definition) + ItemDefinitions.missing(definition, ::read, ::sprite),
             "types" to ItemDefinitions.types,
             "models" to ItemDefinitions.models(definition).map { linkedMapOf("model" to it, "textures" to textures(it, drafts)) },
+            "states" to ItemStates.of(full(id), definition),
         )
     }
 

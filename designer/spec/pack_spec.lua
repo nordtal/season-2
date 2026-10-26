@@ -263,6 +263,35 @@ describe("pack", function()
     }))
   end)
 
+  it("takes the reason of a failed program out of what it printed before Gradle's report", function()
+    assert.same({ "/x holds no file of Minecraft or of a launcher, so it is not a Minecraft instance." }, pack.refusal({
+      "/x holds no file of Minecraft or of a launcher, so it is not a Minecraft instance.",
+      "",
+      "FAILURE: Build failed with an exception.",
+      "",
+      "* What went wrong:",
+      "Execution failed for task ':resource-pack:chooseMinecraftInstance' (registered by plugin 'nordtal.resource-pack').",
+      "> Process 'command '/jdk/bin/java'' finished with non-zero exit value 1",
+      "",
+      "* Try:",
+    }))
+  end)
+
+  it("runs a task of another module by its full path", function()
+    local started = {}
+    pack.run({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, {}), ":pack-rendering:renderGlyphPreviews",
+      { code="FE000", font="nordtal:gui" }, function() end)
+    assert.equal(":pack-rendering:renderGlyphPreviews -Pcode=FE000 -Pfont=nordtal:gui", table.concat(started[1].args.cmd, " ", 5))
+  end)
+
+  it("reads the JSON object a task printed last", function()
+    local started, got = {}, nil
+    pack.printed({ clone="/c", env={ JAVA_HOME="/jdk" } }, api(started, {}), "describeInstance", {}, function(read) got = read end)
+    started[1].args.onstdout('{"instance":"/i","fabric":true}')
+    started[1].args.onexit(0)
+    assert.same({ instance="/i", fabric=true }, got)
+  end)
+
   it("gives every line of a failure without Gradle's report", function()
     assert.same({ "error: no java" }, pack.refusal({ "", "error: no java" }))
   end)

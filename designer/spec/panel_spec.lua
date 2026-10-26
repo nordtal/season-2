@@ -4,9 +4,9 @@ local panel = require("panel")
 local function measure(text) return utf8.len(text) end
 
 describe("the properties panel", function()
-  -- Each line is 2 units high and a row follows the one before after 1
+  -- Each line is 2 units high with a text 1 high, and a row follows the one before after 1
   local function layout(rows, width)
-    return panel.layout(rows, width, measure, 2)
+    return panel.layout(rows, width, measure, 2, 1)
   end
 
   local function texts(drawn)
@@ -29,11 +29,34 @@ describe("the properties panel", function()
 
   it("draws a value that can be edited in a box that a click on it hits", function()
     local drawn = layout({ { text="Name", value="star", field="name" } }, 20)
-    assert.same({ { "Name", 0, 0, true }, { "star", 3, 5, false } }, texts(drawn))
-    assert.same({ op="box", x=0, y=2, width=20, height=8 }, drawn.ops[2])
+    assert.same({ { "Name", 0, 0, true }, { "star", 6, 8, false } }, texts(drawn))
+    assert.same({ op="box", x=0, y=2, width=20, height=13 }, drawn.ops[2])
     assert.equal("name", panel.hit(drawn, 5, 4))
     assert.is_nil(panel.hit(drawn, 5, 1))
-    assert.equal(10, drawn.height)
+    assert.equal(15, drawn.height)
+  end)
+
+  it("keeps the text of a box inside the box's edge with a gap on all four sides", function()
+    local drawn = layout({ { value="a long value", field="v" } }, 20)
+    assert.same({ { "a long", 6, 6, false }, { "value", 6, 8, false } }, texts(drawn))
+    assert.same({ op="box", x=0, y=0, width=20, height=15 }, drawn.ops[1])
+  end)
+
+  it("centres the text of a box and of a button, the same gap above and below", function()
+    local function gaps(drawn)
+      local frame, first, last = drawn.ops[1], nil, nil
+      for _, d in ipairs(drawn.ops) do
+        if d.op == "text" then first, last = first or d, d end
+      end
+      return first.y - frame.y, frame.y + frame.height - (last.y + 1)
+    end
+    local above, below = gaps(layout({ { value="star", field="name" } }, 20))
+    assert.equal(above, below)
+    above, below = gaps(layout({ { value="a long value", field="v" } }, 20))
+    assert.equal(above, below)
+    -- The bottom edge of a button is 2 thicker than its top edge
+    above, below = gaps(layout({ { text="Delete", field="delete", kind="button" } }, 20))
+    assert.equal(above + 2, below)
   end)
 
   it("draws a switch as a check box beside its text", function()
@@ -45,9 +68,9 @@ describe("the properties panel", function()
 
   it("draws a button as wide as the panel with its text in the middle", function()
     local drawn = layout({ { text="Delete", field="delete", kind="button" } }, 20)
-    assert.same({ op="button", x=0, y=0, width=20, height=8 }, drawn.ops[1])
-    assert.same({ { "Delete", 7, 3, false } }, texts(drawn))
-    assert.equal("delete", panel.hit(drawn, 19, 5))
+    assert.same({ op="button", x=0, y=0, width=20, height=15 }, drawn.ops[1])
+    assert.same({ { "Delete", 7, 6, false } }, texts(drawn))
+    assert.equal("delete", panel.hit(drawn, 19, 14))
   end)
 
   it("wraps a value at spaces", function()

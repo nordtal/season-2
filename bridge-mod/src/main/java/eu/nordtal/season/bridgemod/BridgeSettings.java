@@ -10,7 +10,7 @@ import java.util.Properties;
 
 /**
  * The port and the token the Nordtal Designer writes into an instance's config folder.
- * The token is read again for every connection, so the app can change it while the client runs.
+ * The token is read again for every connection.
  */
 record BridgeSettings(int port, String token) {
 

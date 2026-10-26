@@ -18,13 +18,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Renders one glyph in the menu panel, the HUD line and the board with the plugins' own code, as text-component JSON.
- * A place that the glyph's font never reaches is null. The README of this module documents the file.
+ * Renders a glyph alone and in the menu panel, the HUD line and the board as text-component JSON.
+ * It uses the plugins' own code. A place that the glyph's font never reaches is null. The README of this module
+ * documents the file.
  */
 public final class GlyphPreviews {
 
@@ -72,6 +75,7 @@ public final class GlyphPreviews {
             default -> throw new IllegalArgumentException("no menu, HUD line or board draws the font " + font);
         }
         final JsonObject previews = new JsonObject();
+        previews.add("glyph", json(alone(font, glyph, layout.row())));
         previews.add("menu", json(menu));
         previews.add("hud", json(hud));
         previews.add("board", json(board));
@@ -120,6 +124,18 @@ public final class GlyphPreviews {
                                 .toJson(out) + "\n",
                 StandardCharsets.UTF_8);
         System.out.println(file.toAbsolutePath());
+    }
+
+    /**
+     * The glyph alone in its font, a row glyph in the font of {@code row}.
+     * It has no shadow, except in the default font.
+     */
+    private static Component alone(final String font, final String glyph, final int row) {
+        if (font.equals(FONT_DEFAULT)) {
+            return Component.text(glyph);
+        }
+        final String key = font.equals(FONT_GUI_ROW) ? Glyphs.FONT_GUI_ROWS.get(row) : font;
+        return Component.text(glyph).font(Key.key(key)).shadowColor(ShadowColor.none());
     }
 
     private static String chestPanel(final Layout layout) {

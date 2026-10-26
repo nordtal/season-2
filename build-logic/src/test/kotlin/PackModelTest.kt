@@ -89,6 +89,27 @@ class PackModelTest {
 
         assertEquals("placeholder", block["status"])
         assertEquals(listOf(null, "keep"), block.list("glyphs").map { it["status"] })
+        assertEquals(listOf("placeholder", "keep"), block.list("glyphs").map { it["effectiveStatus"] })
+    }
+
+    @Test
+    fun aCellNamesTheStatusItShowsAndTheHeightAndAscentOfItsBlock() {
+        allocation(
+            """
+            {"fonts": [{"font": "nordtal:bossbar", "blocks": [
+              {"range": "FE110-FE11F", "title": "Icons", "texture": "nordtal:icons.png", "height": 8, "ascent": -9,
+               "status": "keep", "glyphs": [{"code": "FE110", "constant": "SPAWN"}, {"code": "FE111", "constant": "DEATH", "status": "placeholder"}]},
+              {"title": "Text", "texture": "nordtal:text.png", "height": 5, "ascent": -10, "chars": ["A"]}]}]}
+            """,
+        )
+
+        val (icons, text) = only(fonts()).list("blocks")
+
+        assertEquals(
+            listOf(listOf(null, "keep", 8, -9), listOf("placeholder", "placeholder", 8, -9)),
+            icons.list("cells").map { listOf(it["status"], it["effectiveStatus"], it["height"], it["ascent"]) },
+        )
+        assertEquals(listOf(5, -10), only(text.list("cells")).let { listOf(it["height"], it["ascent"]) })
     }
 
     @Test
@@ -141,6 +162,20 @@ class PackModelTest {
         assertEquals("nordtal:item/wand.png", stick["id"])
         assertEquals(listOf(16, 32), listOf(stick["width"], stick["height"]))
         assertTrue(model.list("overrides").isEmpty())
+    }
+
+    @Test
+    fun anItemTextureThatIsNoIdentifierIsLeftOut() {
+        allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
+        for ((name, layer) in listOf("up" to "nordtal:../../../../Library/foo", "absolute" to "/tmp/foo")) {
+            file("src/assets/nordtal/items/$name.json")
+                .writeText("""{"model": {"type": "minecraft:model", "model": "nordtal:item/$name"}}""")
+            file("src/assets/nordtal/models/item/$name.json").writeText("""{"textures": {"layer0": "$layer"}}""")
+        }
+
+        val entries = model().list("items").flatMap { it.list("entries") }
+
+        assertEquals(listOf("nordtal:absolute" to null, "nordtal:up" to null), entries.map { it["id"] to it["texture"] })
     }
 
     @Test

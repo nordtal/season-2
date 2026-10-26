@@ -47,18 +47,24 @@ object PackModel {
                 "about" to block.about,
             )
         if (block.texture == null) {
-            entry["glyphs"] = block.glyphs.map { glyph(it, root) }
+            entry["glyphs"] = block.glyphs.map { glyph(it, block, root) }
             return entry
         }
         entry["height"] = block.height
         entry["ascent"] = block.ascent
         entry["texture"] = texture(block.texture, root)
-        entry["cells"] = block.chars?.let { chars(it) } ?: block.glyphs.mapIndexed { column, glyph -> cell(0, column, glyph) }
+        entry["cells"] =
+            (block.chars?.let { chars(it) } ?: block.glyphs.mapIndexed { column, glyph -> cell(0, column, glyph, block) })
+                .onEach {
+                    it["height"] = block.height
+                    it["ascent"] = block.ascent
+                }
         return entry
     }
 
     private fun glyph(
         glyph: GlyphAllocation.Glyph,
+        block: GlyphAllocation.Block,
         root: File,
     ): Map<String, Any?> =
         linkedMapOf(
@@ -67,6 +73,7 @@ object PackModel {
             "name" to glyph.name,
             "list" to glyph.list,
             "status" to glyph.status,
+            "effectiveStatus" to (glyph.status ?: block.status),
             "height" to glyph.height,
             "ascent" to glyph.ascent,
             "about" to glyph.about,
@@ -77,7 +84,8 @@ object PackModel {
         row: Int,
         column: Int,
         glyph: GlyphAllocation.Glyph,
-    ): Map<String, Any?> =
+        block: GlyphAllocation.Block,
+    ): MutableMap<String, Any?> =
         linkedMapOf(
             "row" to row,
             "column" to column,
@@ -85,11 +93,12 @@ object PackModel {
             "constant" to glyph.constant,
             "list" to glyph.list,
             "status" to glyph.status,
+            "effectiveStatus" to (glyph.status ?: block.status),
             "about" to glyph.about,
         )
 
     /** The cells of a sheet of ordinary characters. `\u0000` is no cell. */
-    private fun chars(rows: List<String>): List<Map<String, Any?>> =
+    private fun chars(rows: List<String>): List<MutableMap<String, Any?>> =
         rows.flatMapIndexed { row, text ->
             text.codePoints().toArray().withIndex().filter { it.value != 0 }.map { (column, codePoint) ->
                 linkedMapOf<String, Any?>("row" to row, "column" to column, "code" to "%X".format(codePoint))
@@ -136,7 +145,8 @@ object PackModel {
 
     /**
      * The texture that a `minecraft:model` item draws: `layer0` of its model in the pack, or the model's first texture.
-     * It is null for any other item type, a model outside the pack, or a model without a texture.
+     * It is null for any other item type, a model outside the pack, a model without a texture, or a texture that is no
+     * identifier, so that no path of the model leads out of the pack.
      */
     private fun itemTexture(
         model: Map<*, *>?,
@@ -147,8 +157,8 @@ object PackModel {
         val file = assets.resolve(runCatching { Identifier.resource(reference, "models", ".json") }.getOrNull() ?: return null)
         val textures = (file.takeIf { it.isFile }?.let { json(it) } as? Map<*, *>)?.get("textures") as? Map<*, *>
         val id = (textures?.get("layer0") ?: textures?.values?.firstOrNull()) as? String ?: return null
-        if (id.startsWith("#")) return null
-        return (if (':' in id) id else "minecraft:$id") + ".png"
+        val texture = (if (':' in id) id else "minecraft:$id") + ".png"
+        return texture.takeIf { Identifier.problem(it) == null }
     }
 
     /** The textures under `assets/minecraft/textures`, one category per folder. */

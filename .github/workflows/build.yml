@@ -58,3 +58,26 @@ jobs:
             docker build -f deploy/jvm/Dockerfile --build-arg "MODULE=$module" -t "nordtal/$module:ci" .
           done
           docker build -t nordtal/minecraft:ci deploy/minecraft
+
+  # Lua and LuaRocks install into the checkout, so the designer's tests keep them out of the build job's sources.
+  designer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The Lua of Nordtal Designer's Aseprite, which bundles 5.4.6
+      - uses: leafo/gh-actions-lua@32909a2dea0a48c433aec79e7fcd31b4cd55800f # v13.1.0
+        with:
+          luaVersion: "5.4.6"
+
+      # LuaRocks is the action's own version, which Dependabot moves with the action
+      - uses: leafo/gh-actions-luarocks@1c4a92caecc8f6850f673cbadfd57b3e555417ce # v6.1.1
+
+      # Dependabot does not know LuaRocks, so each run installs the current busted and dkjson
+      - name: Lua tests of the designer plugin
+        working-directory: designer
+        run: |
+          luarocks install busted
+          luarocks install dkjson
+          busted

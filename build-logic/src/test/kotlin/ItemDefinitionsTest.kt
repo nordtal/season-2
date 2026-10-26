@@ -1,6 +1,7 @@
 package eu.nordtal.season.build
 
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions
@@ -396,6 +397,13 @@ class ItemDefinitionsTest {
     ): Any? {
         val file = files().use { it.edit("nordtal:example", at, fields, add, remove) }
         return (OxfmtJson.read(file) as Map<*, *>)["model"]
+    }
+
+    @Test
+    fun theDesignerSpecsReadTheTypesThatReadItemPrints() {
+        val fixture = File(System.getProperty("nordtal.itemTypes"))
+
+        assertEquals(JsonSlurper().parseText(JsonOutput.toJson(ItemDefinitions.types)), JsonSlurper().parse(fixture))
     }
 
     @Test

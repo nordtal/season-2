@@ -27,9 +27,9 @@ end
 
 -- The size { width, height } of the sprite of info: one frame of an
 -- animated texture whose model splits its PNG into frames, else the
--- PNG's. After a save, the tab removes the frames from the model and
--- writes the sprite's size into its texture until the pack is read
--- again.
+-- PNG's. The tab writes the sprite's size into the texture and removes
+-- the frames from the model after a save. A read of the pack replaces
+-- both.
 local function size(info)
   local frame = properties.animated(info) and info.entry.frames and info.entry.frames[1]
   return frame or info.texture

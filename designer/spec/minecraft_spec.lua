@@ -187,13 +187,24 @@ describe("minecraft", function()
       assert.equal("refused", bridge.state)
     end)
 
+    it("keeps connecting when the hello cannot be sent", function()
+      local bridge, socket = connect()
+      function socket:sendText() error("not connected") end
+      socket.args.onreceive(types.OPEN, "", "")
+      assert.equal("connecting", bridge.state)
+    end)
+
     it("reads the replies that Aseprite's json.decode gives as userdata", function()
       -- A file handle is the userdata at hand, with the reply's members as its fields
-      local function decode(text)
+      -- as the tab decodes them, through the pack's plain copy
+      local function userdata(text)
+        local members = dkjson.decode(text)
         local reply = io.tmpfile()
-        debug.setmetatable(reply, { __index=dkjson.decode(text) })
+        debug.setmetatable(reply, { __index=members, __len=function() return #members end,
+                                    __pairs=function() return next, members, nil end })
         return reply
       end
+      local function decode(text) return require("pack").object({ decode=userdata }, text) end
       local bridge, socket, sent = connect(decode)
       socket.args.onreceive(types.OPEN, "", "")
       socket.args.onreceive(types.TEXT, '{"ok":true}', "")

@@ -1557,6 +1557,19 @@ describe("the Minecraft section of the Nordtal tab", function()
     assert.same({ op="hello", token="fedcba9876543210fedcba9876543210" }, t.sockets[3].sent[1])
   end)
 
+  it("drops a refused bridge on a click once its mod is gone", function()
+    local t = setUp()
+    t.world.instance = fabric
+    local dlg = loaded(t)
+    t.sockets[1].args.onreceive(1, "", "")
+    t.sockets[1].args.onreceive(2, '{"ok":false,"error":"wrong token"}', "")
+    t.world.instance = '{"instance":"/mc/fabric","fabric":true,"bridge":null,"port":null,"token":null}'
+    click(dlg, "minecraft.bridge_refused")
+    local shown = table.concat(texts(dlg), "\n")
+    assert.is_falsy(shown:find("minecraft.bridge_refused", 1, true))
+    assert.is_truthy(shown:find("minecraft.bridge_none", 1, true))
+  end)
+
   it("renders a glyph's previews and shows one in the client", function()
     local t, dlg, socket = connected()
     rendered(t, dlg)

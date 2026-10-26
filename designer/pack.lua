@@ -111,7 +111,7 @@ end
 
 -- The JSON object in text as plain tables, or nil and the reason
 -- that decode gave, or nil when text holds no object
-local function object(api, text)
+function pack.object(api, text)
   local decoded, value = pcall(api.decode, text)
   value = decoded and plain(value) or value
   if decoded and type(value) == "table" then return value end
@@ -129,7 +129,7 @@ local function written(bootstrap, api, task, name, done)
       return
     end
     local file = api.join(bootstrap.clone, "resource-pack", "build", name)
-    local value, reason = object(api, api.read(file) or "")
+    local value, reason = pack.object(api, api.read(file) or "")
     if not value then
       done(nil, { reason or file })
       return
@@ -164,7 +164,7 @@ function pack.printed(bootstrap, api, task, options, done)
       done(nil, err)
       return
     end
-    local value, reason = object(api, out[#out] or "")
+    local value, reason = pack.object(api, out[#out] or "")
     if not value then
       done(nil, { reason or tostring(out[#out]) })
       return
@@ -183,7 +183,7 @@ function pack.file(bootstrap, api, task, options, done)
       done(nil, err)
       return
     end
-    local value, reason = object(api, api.read(out[#out] or "") or "")
+    local value, reason = pack.object(api, api.read(out[#out] or "") or "")
     if not value then
       done(nil, { reason or tostring(out[#out]) })
       return

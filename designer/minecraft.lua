@@ -135,7 +135,8 @@ end
 -- "unreachable" or "refused", and changed() is called on each change.
 -- The socket connects again by itself after a close. A refusal
 -- closes it for good, and a new bridge() connects again. args holds
--- WebSocket, types (WebSocketMessageType), encode, decode, port,
+-- WebSocket, types (WebSocketMessageType), encode, decode (text to a
+-- plain table, or nil), port,
 -- token and changed.
 function minecraft.bridge(args)
   local bridge = { state="connecting" }
@@ -152,11 +153,11 @@ function minecraft.bridge(args)
     onreceive=function(kind, data, err)
       if kind == args.types.OPEN then
         set("connecting")
-        socket:sendText(args.encode({ op="hello", token=args.token }))
+        -- A client gone since the open raises here; its close follows
+        pcall(socket.sendText, socket, args.encode({ op="hello", token=args.token }))
       elseif kind == args.types.TEXT then
-        -- Aseprite's json.decode gives an object as a userdata
-        local ok, reply = pcall(args.decode, data)
-        if not ok or (type(reply) ~= "table" and type(reply) ~= "userdata") then
+        local reply = args.decode(data)
+        if not reply then
           return
         end
         if reply.id == nil then

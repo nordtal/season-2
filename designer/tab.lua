@@ -403,7 +403,7 @@ function tab.open(context)
       bridge, bridgeFor = nil, wanted
       if wanted then
         bridge = modules.minecraft.bridge{ WebSocket=api.WebSocket, types=api.messages, encode=api.encode,
-          decode=api.decode, port=read.port, token=read.token,
+          decode=function(text) return modules.pack.object(api, text) end, port=read.port, token=read.token,
           changed=function() showProperties() redraw() end }
       end
     end
@@ -513,7 +513,8 @@ function tab.open(context)
     elseif action == "render" then
       render()
     elseif action == "retry" then
-      bridgeFor = nil
+      if bridge then bridge.close() end
+      bridge, bridgeFor = nil, nil
       ctl.readInstance()
     elseif action == "pack" then
       installPack()

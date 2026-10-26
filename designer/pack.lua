@@ -81,6 +81,23 @@ function pack.needs(out)
   return list
 end
 
+-- The notices that animateTexture printed to its stdout out, each
+-- { key } of a line "dropped width", "dropped frames" or "changed
+-- frames", and { key="unplayed", frame } of a line "unplayed <index>"
+-- with the frame as Aseprite counts it, from 1
+function pack.notices(out)
+  local list = {}
+  for _, line in ipairs(out) do
+    local index = line:match("^unplayed (%d+)$")
+    if index then
+      table.insert(list, { key="unplayed", frame=tonumber(index) + 1 })
+    elseif line:match("^dropped %a+$") or line:match("^changed %a+$") then
+      table.insert(list, { key=line:gsub(" ", "_") })
+    end
+  end
+  return list
+end
+
 -- The reason of a failed task: the lines under "What went wrong" in
 -- Gradle's report without the task's name, each place a refusal lists
 -- on a line of its own. A program that a task ran printed its reason
@@ -145,13 +162,11 @@ function pack.describe(bootstrap, api, done)
   return process, problem
 end
 
--- Runs listVanillaTextures and calls done(textures) with the textures
--- of the client jar, each { id, width, height, mcmeta }, or done(nil,
--- lines)
+-- Runs listVanillaAssets and calls done(listing) with the textures
+-- of the client jar, each { id, width, height, mcmeta }, and the ids
+-- of its items, or done(nil, lines)
 function pack.vanilla(bootstrap, api, done)
-  local process, problem = written(bootstrap, api, "listVanillaTextures", "vanilla-textures.json", function(listing, err)
-    done(listing and (listing.textures or {}), err)
-  end)
+  local process, problem = written(bootstrap, api, "listVanillaAssets", "vanilla-assets.json", done)
   return process, problem
 end
 

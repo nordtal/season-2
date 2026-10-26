@@ -36,7 +36,8 @@ state. A save of a vanilla override writes all its frames as a column of the PNG
 `animateTexture` with their durations. The status line shows the reason when a task that a save ran
 is refused, and the model keeps the old size until such a task succeeds. A save while its task still
 waits runs after it. An override with an animation and no source yet opens with one frame per frame
-it plays.
+of its PNG. A save passes the frame count the sprite was opened with as `from`, and the status line
+shows each notice that `animateTexture` printed.
 
 A click on an item runs `readItem`, and the tree shows the models of its definition below it: each
 case, entry, tint and model that the definition nests, such as the fallback of a `select`. The panel
@@ -53,13 +54,15 @@ the format Java Block/Item or for a model that Blockbench exported as JSON. The 
 and its textures and makes the node draw it in one run. The model ID it proposes lies in the
 namespace `nordtal`. An item that the pack overrides from the client jar is edited the same way.
 
-**File > New Texture...** opens a dialog that asks for the kind first: glyph, glyph block, sheet, item
-or vanilla override. It then shows the options of the kind's task in `resource-pack/README.md`, with
-font and block to choose and namespace and path for the id. Create runs the task, which checks every
+**File > New Texture...** opens a dialog that asks for the kind first: glyph, glyph block, sheet, item,
+vanilla item or vanilla override. It then shows the options of the kind's task in
+`resource-pack/README.md`, with font and block to choose and namespace and path for the id. Create runs the task, which checks every
 value. A refusal shows below the field it names, and the dialog stays open with what was typed. Once
 the task succeeded, the tab reads the pack again and opens the new texture in the editor. A vanilla
-override is chosen from the textures of the client jar, which `listVanillaTextures` lists once per
-session, with a search for the words of its id.
+override is chosen from the textures of the client jar, which `listVanillaAssets` lists once per
+session together with its items, with a search for the words of its id. A vanilla item is chosen the
+same way from the items that the pack does not override yet. Create runs `editItem` without a change,
+which writes the item's definition from the client jar into the pack, and the item editor opens it.
 
 The tree marks each draft of the pack model with the icon of a modified tab: a texture with its
 entries, or the fields of a block or a font. A node with drafts inside it shows their count in

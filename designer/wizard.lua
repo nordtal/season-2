@@ -2,21 +2,31 @@
 -- then for the options of the kind's task, which checks them. A
 -- refusal shows below the field it names, and the dialog stays open.
 -- A vanilla override is chosen in a browser of the client jar's
--- textures.
+-- textures, and a vanilla item in one of its item definitions that
+-- the pack does not override yet.
 --
 -- wizard.open{ api, tr, model, run, listing, created } shows it. api
 -- holds Dialog, Rectangle and screen, which gives the window's width
 -- and height. run(job, done) runs a { task, options }
 -- and calls done(ok, reason, out) with the lines of the refusal and
--- what the task printed. listing(done) calls done(textures) with the
--- textures of the client jar, or done(nil, reason). created(job) is
--- called once the task succeeded.
+-- what the task printed. listing(done) calls done(listing) with the
+-- textures and items of the client jar, or done(nil, reason).
+-- created(job) is called once the task succeeded.
 
 local wizard = {}
 
-wizard.kinds = { "glyph", "block", "sheet", "item", "override" }
+wizard.kinds = { "glyph", "block", "sheet", "item", "vanilla_item", "override" }
 
--- The fields of each kind but the override, in the order the dialog
+-- The kinds chosen in a browser of the client jar: the option of the
+-- task that names the choice and the strings of the browser
+local browsers = {
+  override={ option="texture", count="new.count", more="new.count_more", chosen="new.chosen",
+             none="new.chosen_none", required="new.required_texture" },
+  vanilla_item={ option="item", count="new.count_items", more="new.count_items_more", chosen="new.chosen_item",
+                 none="new.chosen_none_item", required="new.required_item" },
+}
+
+-- The fields of each kind but those of a browser, in the order the dialog
 -- shows them. Each is an option of the kind's task, except namespace
 -- and path, which form the id.
 wizard.fields = {
@@ -34,10 +44,12 @@ local defaults = {
   item={ namespace="nordtal", width="16", height="16" },
 }
 
+-- editItem without a change writes a vanilla item's definition into
+-- the pack as the jar has it
 local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyphSheet", item="createItem",
-                override="copyVanillaTexture" }
+                vanilla_item="editItem", override="copyVanillaTexture" }
 
--- How many textures of the client jar the browser shows at once
+-- How many ids of the client jar the browser shows at once
 local limit = 300
 
 -- The characters a line of a refusal holds at most
@@ -72,8 +84,9 @@ end
 -- asks for it. The id is left out while its path is empty.
 function wizard.job(kind, values)
   local options = {}
-  if kind == "override" then
-    options.texture = values.texture
+  local browser = browsers[kind]
+  if browser then
+    options[browser.option] = values[browser.option]
     return { tasks[kind], options }
   end
   local namespace, path = trim(values.namespace), trim(values.path)
@@ -122,7 +135,7 @@ function wizard.target(index, job)
   for id, info in pairs(index or {}) do
     if task == "createGlyphBlock" then
       if info.kind == "block" and info.entry.title == options.title and info.font.font == options.font then return id end
-    elseif task == "createItem" then
+    elseif options.item then
       if info.kind == "item" and info.entry.id == options.item then return id end
     elseif info.kind ~= "cell" and info.kind ~= "item" and info.texture and info.texture.id == options.texture then
       return id
@@ -130,19 +143,39 @@ function wizard.target(index, job)
   end
 end
 
--- Whether a node of the browser is a texture rather than a folder
-function wizard.isTexture(id)
+-- Whether a node of the browser is a texture or an item rather than
+-- a folder
+function wizard.isChoice(id)
   return id:sub(1, 7) ~= "folder/"
 end
 
--- The nodes of the textures whose id holds every word of query,
--- grouped by folder and at most limit of them, and how many match
-function wizard.matches(textures, query, most)
+-- The ids that the browser of kind offers from the listing of the
+-- client jar: every texture, or every item that the model's pack does
+-- not hold
+function wizard.choices(kind, listing, model)
+  local out = {}
+  if kind == "override" then
+    for _, texture in ipairs(listing.textures or {}) do table.insert(out, texture.id) end
+    return out
+  end
+  local held = {}
+  for _, category in ipairs(model.items or {}) do
+    for _, item in ipairs(category.entries or {}) do held[item.id] = true end
+  end
+  for _, id in ipairs(listing.items or {}) do
+    if not held[id] then table.insert(out, id) end
+  end
+  return out
+end
+
+-- The nodes of the ids that hold every word of query, grouped by
+-- folder with an id outside a folder after them, at most limit of
+-- them, and how many match
+function wizard.matches(ids, query, most)
   local words = {}
   for word in query:lower():gmatch("%S+") do table.insert(words, word) end
-  local folders, order, count, shown = {}, {}, 0, 0
-  local sorted = {}
-  for _, texture in ipairs(textures) do table.insert(sorted, texture.id) end
+  local folders, order, loose, count, shown = {}, {}, {}, 0, 0
+  local sorted = table.move(ids, 1, #ids, 1, {})
   table.sort(sorted)
   for _, id in ipairs(sorted) do
     local matched = true
@@ -153,19 +186,25 @@ function wizard.matches(textures, query, most)
       count = count + 1
       if shown < most then
         shown = shown + 1
-        local folder, name = id:match("^[^:]+:(.*)/([^/]+)%.png$")
-        folder, name = folder or "", name or id
-        if not folders[folder] then
-          folders[folder] = { id="folder/" .. folder, text=folder, children={}, expanded=#words > 0 or nil }
-          table.insert(order, folder)
+        local path = id:match("^[^:]+:(.*)$") or id
+        local folder, name = path:match("^(.*)/([^/]+)$")
+        name = (name or path):gsub("%.png$", "")
+        if not folder then
+          table.insert(loose, { id=id, text=name })
+        else
+          if not folders[folder] then
+            folders[folder] = { id="folder/" .. folder, text=folder, children={}, expanded=#words > 0 or nil }
+            table.insert(order, folder)
+          end
+          table.insert(folders[folder].children, { id=id, text=name })
         end
-        table.insert(folders[folder].children, { id=id, text=name })
       end
     end
   end
   table.sort(order)
   local nodes = {}
   for _, folder in ipairs(order) do table.insert(nodes, folders[folder]) end
+  table.move(loose, 1, #loose, #nodes + 1, nodes)
   return nodes, count
 end
 
@@ -190,7 +229,9 @@ end
 function wizard.open(context)
   local api, tr, model = context.api, context.tr, context.model
   local kind, values, refusal = "glyph", {}, nil
-  local textures, reading, chosen
+  -- The listing of the client jar, whether it is being read, why it
+  -- could not be read, and the id chosen in the browser of each kind
+  local listing, reading, unread, chosen = nil, false, nil, {}
   local dlg
   -- Set once the designer closed the wizard, so no late run or
   -- listing opens it again
@@ -222,13 +263,14 @@ function wizard.open(context)
 
   local function create()
     keep()
-    if kind == "override" then
-      if not chosen then
-        refusal = { lines={ tr("new.required_texture") } }
+    local browser = browsers[kind]
+    if browser then
+      if not chosen[kind] then
+        refusal = { lines={ tr(browser.required) } }
         build()
         return
       end
-      values.texture = chosen
+      values[browser.option] = chosen[kind]
     end
     local job = wizard.job(kind, values)
     dlg:modify{ id="create", enabled=false }
@@ -240,37 +282,46 @@ function wizard.open(context)
       end
       -- An empty field is asked for in the form's words, not in the task's
       if wizard.absent(out, job) then
-        lines = { tr(kind == "override" and "new.required_texture" or "new.required") }
+        lines = { tr(browser and browser.required or "new.required") }
       end
       refusal = { field=wizard.refused(out), lines=lines }
       if not closed then build() end
     end)
   end
 
-  local function browser()
-    if not textures then
+  local function browse()
+    if unread then
+      reason(unread)
+      return
+    end
+    if not listing then
       dlg:label{ text=tr("new.reading") }
       dlg:newrow()
       return
     end
-    local nodes, count = wizard.matches(textures, values.search or "", limit)
+    local browser = browsers[kind]
+    local ids = wizard.choices(kind, listing, model)
+    local function counted(n)
+      return n > limit and tr(browser.more, limit, n) or tr(browser.count, n)
+    end
+    local nodes, count = wizard.matches(ids, values.search or "", limit)
     dlg:entry{ id="search", label=tr("new.search"), text=values.search or "", onchange=function()
       values.search = dlg.data.search
-      local found, n = wizard.matches(textures, values.search, limit)
-      dlg:modify{ id="textures", nodes=found }
-      dlg:modify{ id="count", text=n > limit and tr("new.count_more", limit, n) or tr("new.count", n) }
+      local found, n = wizard.matches(ids, values.search, limit)
+      dlg:modify{ id="choices", nodes=found }
+      dlg:modify{ id="count", text=counted(n) }
     end }
     dlg:newrow()
-    dlg:tree{ id="textures", nodes=nodes, width=240, height=160, onchange=function(ev)
-      if wizard.isTexture(ev.node) then
-        chosen = ev.node
-        dlg:modify{ id="chosen", text=tr("new.chosen", chosen) }
+    dlg:tree{ id="choices", nodes=nodes, width=240, height=160, onchange=function(ev)
+      if wizard.isChoice(ev.node) then
+        chosen[kind] = ev.node
+        dlg:modify{ id="chosen", text=tr(browser.chosen, ev.node) }
       end
     end }
     dlg:newrow()
-    dlg:label{ id="count", text=count > limit and tr("new.count_more", limit, count) or tr("new.count", count) }
+    dlg:label{ id="count", text=counted(count) }
     dlg:newrow()
-    dlg:label{ id="chosen", text=chosen and tr("new.chosen", chosen) or tr("new.chosen_none") }
+    dlg:label{ id="chosen", text=chosen[kind] and tr(browser.chosen, chosen[kind]) or tr(browser.none) }
     dlg:newrow()
   end
 
@@ -322,7 +373,7 @@ function wizard.open(context)
     end }
     dlg:newrow()
     local own = {}
-    if kind == "override" then browser() else own = fields() end
+    if browsers[kind] then browse() else own = fields() end
     if refusal and not own[refusal.field] then reason(refusal.lines) end
     dlg:separator()
     dlg:button{ id="create", text=tr("new.create"), focus=true, onclick=create }
@@ -341,12 +392,12 @@ function wizard.open(context)
       dlg.bounds = api.Rectangle(x, y, size.width, size.height)
     end
     -- The listing may come at once, and then builds the dialog again
-    if kind == "override" and not textures and not reading then
+    if browsers[kind] and not listing and not reading and not unread then
       reading = true
-      context.listing(function(list, problem)
+      context.listing(function(read, problem)
         reading = false
-        textures = list or {}
-        if problem then refusal = { lines=problem } end
+        listing = read
+        unread = not read and (problem or {}) or nil
         if not closed then build() end
       end)
     end

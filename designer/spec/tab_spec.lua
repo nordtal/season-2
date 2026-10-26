@@ -22,6 +22,17 @@ local model = dkjson.encode({
   } } },
 })
 
+-- The model with an animation of two frames in the order 1, 0 on the
+-- slot override, whose source exists
+local function animatedModel()
+  local m = dkjson.decode(model)
+  local slot = m.overrides[1].entries[1]
+  slot.texture.asepriteExists, slot.texture.height = true, 48
+  slot.animation = { frametime=2, frames={ 1, 0 } }
+  slot.frames = { { x=0, y=0, width=24, height=24, duration=100 }, { x=0, y=24, width=24, height=24, duration=100 } }
+  return dkjson.encode(m)
+end
+
 -- A Dialog that records the widgets it was given and every modify
 local function fakeDialogs()
   local dialogs = {}
@@ -161,8 +172,8 @@ local function setUp(preferences, modelText)
       return (select(1, ...):sub(1, 1) == "/" and "/" or "") .. table.concat(names, "/")
     end,
     read=function(path)
-      if path == "/c/resource-pack/build/pack-model.json" then return modelText or model end
-      if path == "/c/resource-pack/build/vanilla-textures.json" then return world.vanilla end
+      if path == "/c/resource-pack/build/pack-model.json" then return world.model or modelText or model end
+      if path == "/c/resource-pack/build/vanilla-assets.json" then return world.vanilla end
       return (world.reads or {})[path]
     end,
     -- Aseprite's json.decode gives every number as a float
@@ -699,7 +710,7 @@ describe("the Nordtal tab", function()
     t.started[2].isRunning = false
     t.started[2].args.onexit(0)
     assert.equal(3, #t.started)
-    assert.equal(":resource-pack:animateTexture -Pframes=100,200 -Ptexture=minecraft:gui/sprites/container/slot.png",
+    assert.equal(":resource-pack:animateTexture -Pframes=100,200 -Pfrom=2 -Ptexture=minecraft:gui/sprites/container/slot.png",
       run(t.started[3]))
     t.started[3].isRunning = false
     t.started[3].args.onexit(0)
@@ -785,6 +796,69 @@ describe("the Nordtal tab", function()
       run(t.started[2]))
   end)
 
+  it("passes the frame count the sprite was opened with, and after a save the count it saved", function()
+    local t = setUp(nil, animatedModel())
+    t.world.files = { ["/c/resource-pack/art/slot.aseprite"]=true }
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local sprite = t.open[1]
+    sprite.frames = { { duration=0.1 }, { duration=0.1 }, { duration=0.25 } }
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(":resource-pack:animateTexture -Pframes=100,100,250 -Pfrom=2 "
+      .. "-Ptexture=minecraft:gui/sprites/container/slot.png", run(t.started[2]))
+    sprite.frames = { { duration=0.1 }, { duration=0.1 } }
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    assert.equal(":resource-pack:animateTexture -Pframes=100,100 -Pfrom=3 "
+      .. "-Ptexture=minecraft:gui/sprites/container/slot.png", run(t.started[3]))
+  end)
+
+  it("shows every notice of the animation of a save on the status line, the unplayed frames in one", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local sprite = t.open[1]
+    sprite.frames = { { duration=0.1 }, { duration=0.25 } }
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    t.started[2].args.onstdout("dropped width")
+    t.started[2].args.onstdout("/c/resource-pack/src/assets/minecraft/textures/gui/sprites/container/slot.png.mcmeta")
+    t.started[2].args.onstdout("unplayed 1")
+    t.started[2].args.onstdout("unplayed 3")
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(0)
+    assert.equal("status.dropped_width status.unplayed_many 2, 4", dlg.handlers.status.text)
+  end)
+
+  it("drops the notice of a save when the next task is refused before the pack was read again", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    local slot = t.open[1]
+    slot.frames = { { duration=0.1 }, { duration=0.25 } }
+    t.world.active = slot
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local glyph = t.open[2]
+    glyph.height = 14
+    t.world.active = glyph
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    t.started[2].args.onstdout("dropped width")
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(0)
+    assert.equal(":resource-pack:resizeGlyph -Pcoupled=true -Pfrom=7 -Pglyph=star", run(t.started[3]))
+    t.started[3].isRunning = false
+    t.started[3].args.onexit(1)
+    t.ctl.reload()
+    t.started[4].isRunning = false
+    t.started[4].args.onexit(0)
+    assert.equal("", dlg.handlers.status.text)
+  end)
+
   it("runs one task at a time", function()
     local t = setUp()
     local dlg = loaded(t)
@@ -823,7 +897,8 @@ describe("the Nordtal tab", function()
     assert.same({ "combobox kind", "combobox font", "combobox block", "entry namespace", "entry path", "entry name",
                   "entry constant", "entry width", "entry height", "entry ascent", "button create", "button cancel" },
       layout(w))
-    assert.same({ "new.kind_glyph", "new.kind_block", "new.kind_sheet", "new.kind_item", "new.kind_override" },
+    assert.same({ "new.kind_glyph", "new.kind_block", "new.kind_sheet", "new.kind_item", "new.kind_vanilla_item",
+                  "new.kind_override" },
       w.handlers.kind.options)
     assert.same({ "minecraft:default" }, w.handlers.font.options)
     assert.same({ "Player badges" }, w.handlers.block.options)
@@ -983,16 +1058,16 @@ describe("the Nordtal tab", function()
     local w = wizard(t)
     w.values.kind = "new.kind_override"
     w.handlers.kind.onchange()
-    assert.equal(":resource-pack:listVanillaTextures", run(t.started[2]))
+    assert.equal(":resource-pack:listVanillaAssets", run(t.started[2]))
     assert.same({ "combobox kind", "label new.reading", "button create", "button cancel" }, layout(t.dialogs[#t.dialogs]))
     t.started[2].args.onexit(0)
     local browser = t.dialogs[#t.dialogs]
-    assert.same({ "combobox kind", "entry search", "tree textures", "label new.count 2", "label new.chosen_none",
+    assert.same({ "combobox kind", "entry search", "tree choices", "label new.count 2", "label new.chosen_none",
                   "button create", "button cancel" }, layout(browser))
     browser.values.search = "sto"
     browser.handlers.search.onchange()
-    assert.same("minecraft:block/stone.png", browser.handlers.textures.nodes[1].children[1].id)
-    browser.handlers.textures.onchange({ node="minecraft:block/stone.png" })
+    assert.same("minecraft:block/stone.png", browser.handlers.choices.nodes[1].children[1].id)
+    browser.handlers.choices.onchange({ node="minecraft:block/stone.png" })
     browser.handlers.create.onclick()
     assert.equal(":resource-pack:copyVanillaTexture -Ptexture=minecraft:block/stone.png", run(t.started[3]))
     t.started[3].args.onexit(0)
@@ -1001,6 +1076,112 @@ describe("the Nordtal tab", function()
     t.dialogs[#t.dialogs].handlers.kind.onchange()
     assert.equal(":resource-pack:describePack", run(t.started[4]))
     assert.is_nil(t.started[5])
+  end)
+
+  it("offers the client jar's items that the pack does not override and starts the chosen one as an override", function()
+    local t = setUp()
+    local tabDialog = t.dialogs[1]
+    t.world.model = dkjson.encode({ fonts={}, overrides={}, items={
+      { category="minecraft", entries={ { id="minecraft:apple" } } } } })
+    loaded(t)
+    t.world.vanilla = dkjson.encode({ version="26.2", textures={ { id="minecraft:block/stone.png" } },
+                                      items={ "minecraft:apple", "minecraft:compass", "minecraft:stone" } })
+    t.ctl.create()
+    local w = t.dialogs[#t.dialogs]
+    w.values.kind = "new.kind_vanilla_item"
+    w.handlers.kind.onchange()
+    assert.equal(":resource-pack:listVanillaAssets", run(t.started[2]))
+    t.started[2].args.onexit(0)
+    local browser = t.dialogs[#t.dialogs]
+    assert.same({ "combobox kind", "entry search", "tree choices", "label new.count_items 2", "label new.chosen_none_item",
+                  "button create", "button cancel" }, layout(browser))
+    assert.same({ "minecraft:compass", "minecraft:stone" },
+      { browser.handlers.choices.nodes[1].id, browser.handlers.choices.nodes[2].id })
+    browser.handlers.create.onclick()
+    assert.is_nil(t.started[3])
+    local shown = layout(t.dialogs[#t.dialogs])
+    assert.equal("label new.required_item", shown[#shown - 2])
+
+    browser = t.dialogs[#t.dialogs]
+    browser.handlers.choices.onchange({ node="minecraft:compass" })
+    assert.equal("new.chosen_item minecraft:compass", browser.handlers.chosen.text)
+    browser.handlers.create.onclick()
+    assert.equal(":resource-pack:editItem -Pitem=minecraft:compass", run(t.started[3]))
+    local file = "src/assets/minecraft/items/compass.json"
+    t.world.model = dkjson.encode({ fonts={}, overrides={}, reviews={}, items={
+      { category="minecraft", entries={ { id="minecraft:apple" },
+        { id="minecraft:compass", model="minecraft:select", file=file, draft=file } } } },
+      drafts={ { id=file, label="compass.json", state="added", files={ file } } } })
+    t.started[3].args.onexit(0)
+    assert.is_true(browser.closed)
+    assert.equal(":resource-pack:describePack", run(t.started[4]))
+    t.started[4].isRunning = false
+    t.started[4].args.onexit(0)
+    assert.equal("item/minecraft:compass", tabDialog.data.tree)
+    local read = t.started[#t.started]
+    assert.equal(":resource-pack:readItem -Pitem=minecraft:compass", run(read))
+    read.args.onstdout(dkjson.encode({ item="minecraft:compass", source="pack", file="/c/resource-pack/" .. file,
+      problems={}, definition={ model={ type="minecraft:select", property="minecraft:context_dimension", cases={} } },
+      types=itemTypes, models={} }))
+    read.isRunning = false
+    read.args.onexit(0)
+    local items = tabDialog.handlers.tree.nodes[2]
+    assert.same({ "items", "minecraft:compass", "tab_modified_icon_normal" },
+      { items.id, items.children[1].children[2].text, items.children[1].children[2].icon })
+
+    t.world.confirm = 1
+    click(tabDialog, "properties.discard")
+    local discard = t.started[#t.started]
+    assert.equal(":resource-pack:discardDraft -Pdraft=" .. file, run(discard))
+    t.world.model = dkjson.encode({ fonts={}, overrides={}, items={
+      { category="minecraft", entries={ { id="minecraft:apple" } } } } })
+    discard.isRunning = false
+    discard.args.onexit(0)
+    local reread = t.started[#t.started]
+    assert.equal(":resource-pack:describePack", run(reread))
+    reread.isRunning = false
+    reread.args.onexit(0)
+    local count = #t.started
+    t.ctl.create()
+    w = t.dialogs[#t.dialogs]
+    w.values.kind = "new.kind_vanilla_item"
+    w.handlers.kind.onchange()
+    assert.equal(count, #t.started)
+    browser = t.dialogs[#t.dialogs]
+    assert.same({ "minecraft:compass", "minecraft:stone" },
+      { browser.handlers.choices.nodes[1].id, browser.handlers.choices.nodes[2].id })
+  end)
+
+  it("shows why the client jar could not be read in each browser", function()
+    local t = setUp()
+    local w = wizard(t)
+    w.values.kind = "new.kind_override"
+    w.handlers.kind.onchange()
+    t.started[2].args.onstderr("* What went wrong:")
+    t.started[2].args.onstderr("> no client jar")
+    t.started[2].isRunning = false
+    t.started[2].args.onexit(1)
+    assert.same({ "combobox kind", "label no client jar", "button create", "button cancel" }, layout(t.dialogs[#t.dialogs]))
+    local browser = t.dialogs[#t.dialogs]
+    browser.values.kind = "new.kind_vanilla_item"
+    browser.handlers.kind.onchange()
+    assert.is_nil(t.started[3])
+    assert.same({ "combobox kind", "label no client jar", "button create", "button cancel" }, layout(t.dialogs[#t.dialogs]))
+  end)
+
+  it("reads the client jar once for the textures and the items", function()
+    local t = setUp()
+    t.world.vanilla = dkjson.encode({ version="26.2", textures={}, items={} })
+    local w = wizard(t)
+    w.values.kind = "new.kind_override"
+    w.handlers.kind.onchange()
+    t.started[2].args.onexit(0)
+    local browser = t.dialogs[#t.dialogs]
+    browser.values.kind = "new.kind_vanilla_item"
+    browser.handlers.kind.onchange()
+    assert.is_nil(t.started[3])
+    assert.same({ "combobox kind", "entry search", "tree choices", "label new.count_items 0", "label new.chosen_none_item",
+                  "button create", "button cancel" }, layout(t.dialogs[#t.dialogs]))
   end)
 
   it("reads a selected item's definition and shows its cases below the item's node", function()

@@ -33,17 +33,17 @@ abstract class VanillaClientTask : DefaultTask() {
 }
 
 /**
- * Writes every texture of the client jar to [listing] as JSON: `version` and `textures`, a list of `id`, `width`,
- * `height` and `mcmeta`, sorted by id. An id reads `minecraft:block/stone.png`, the path under `textures/`.
- * It prints the path of [listing] on every run.
+ * Writes every texture and item definition of the client jar to [listing] as JSON: `version`, `textures`, a list of
+ * `id`, `width`, `height` and `mcmeta` sorted by id, and `items`, the sorted ids. A texture's id reads
+ * `minecraft:block/stone.png`, the path under `textures/`. It prints the path of [listing] on every run.
  */
 @DisableCachingByDefault(because = "Reads a jar from a cache outside the build")
-abstract class ListVanillaTextures : VanillaClientTask() {
+abstract class ListVanillaAssets : VanillaClientTask() {
     @get:OutputFile
     abstract val listing: RegularFileProperty
 
     init {
-        description = "Lists the textures of the client jar with their sizes."
+        description = "Lists the textures of the client jar with their sizes, and its item definitions."
         // The path on stdout is what a caller reads, so the task runs every time.
         outputs.upToDateWhen { false }
     }
@@ -51,8 +51,8 @@ abstract class ListVanillaTextures : VanillaClientTask() {
     @TaskAction
     fun list() {
         val file = listing.get().asFile
-        val textures = mapOf("version" to version.get(), "textures" to VanillaClient.textures(jar()))
-        file.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(textures)) + "\n")
+        val assets = mapOf("version" to version.get()) + VanillaClient.assets(jar())
+        file.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(assets)) + "\n")
         logger.quiet(file.absolutePath)
     }
 }
@@ -60,7 +60,7 @@ abstract class ListVanillaTextures : VanillaClientTask() {
 /** Copies [texture] and its `.mcmeta` from the client jar to the override path under [assets], and prints each file written. */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class CopyVanillaTexture : VanillaClientTask() {
-    /** An id that [ListVanillaTextures] lists, such as `minecraft:block/stone.png`. */
+    /** An id that [ListVanillaAssets] lists, such as `minecraft:block/stone.png`. */
     @get:Input
     abstract val texture: Property<String>
 

@@ -276,6 +276,27 @@ class PackModelTest {
     }
 
     @Test
+    fun anItemWithoutATextureIsMarkedAsTheDraftOfItsFile() {
+        val clone = DraftClone(pack, "star@FE000")
+        clone.pack
+            .resolve("src/assets/minecraft/items/compass.json")
+            .apply { parentFile.mkdirs() }
+            .writeText("""{"model": {"type": "minecraft:select", "property": "minecraft:context_dimension", "cases": []}}""")
+
+        val model =
+            PackModel.of(
+                GlyphAllocation.read(clone.pack.resolve("glyphs.json")),
+                clone.pack,
+                Drafts.list(clone.pack),
+                Drafts.reviews(clone.pack),
+            )
+
+        val compass = only(only(model.list("items")).list("entries"))
+        assertEquals("src/assets/minecraft/items/compass.json", compass["draft"])
+        assertEquals(listOf("src/assets/minecraft/items/compass.json"), model.list("drafts").map { it["id"] })
+    }
+
+    @Test
     fun theModelMarksEachChangeInReviewAndListsEachConflictAndEachReview() {
         val clone = DraftClone(pack, "star@FE000", "moon@FE001")
         clone.png("star", 0xFFFFFFFF.toInt())

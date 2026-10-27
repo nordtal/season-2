@@ -405,8 +405,10 @@
     "steward.shell.run-when": {"status":"text","requested":"instant"},
     "steward.shell.service-note": {"name":"text"},
     "steward.shell.version": {"version":"text"},
+    "steward.texts.block-filter": {"filter":"choice"},
     "steward.texts.group": {"group":"choice"},
-    "steward.texts.untranslated-count": {"count":"number"}
+    "steward.texts.untranslated-count": {"count":"number"},
+    "steward.texts.uses-count": {"count":"number"}
   },
   "texts": {
     "alert.age": [[{"v":"subject"},": the newest is ",{"c":"hours","plural":true,"cases":{"one":[{"pound":"hours"}," hour"],"other":[{"pound":"hours"}," hours"]}}," old. The limit is ",{"c":"limit","plural":true,"cases":{"one":[{"pound":"limit"}," hour"],"other":[{"pound":"limit"}," hours"]}},"."]],
@@ -1453,6 +1455,9 @@
     "steward.texts.all-services": [["All services"]],
     "steward.texts.areas": [["Areas"]],
     "steward.texts.back": [["Back"]],
+    "steward.texts.block-filter": [[{"c":"filter","plural":false,"cases":{"all":["All"],"shared":["Shared by several"],"one":["Used by one"],"other":[{"v":"filter"}]}}]],
+    "steward.texts.block-filter-label": [["Which building blocks"]],
+    "steward.texts.blocks-used": [["Building blocks it uses"]],
     "steward.texts.group": [[{"c":"group","plural":false,"cases":{"game":["In game"],"discord":["Discord"],"steward":["Steward and admin"],"values":["Building blocks"],"other":[{"v":"group"}]}}]],
     "steward.texts.none": [["No texts."]],
     "steward.texts.search": [["Search the texts"]],
@@ -1460,6 +1465,8 @@
     "steward.texts.shown-in": [["Shown in"]],
     "steward.texts.untranslated": [["Not translated"]],
     "steward.texts.untranslated-count": [[{"c":"count","plural":true,"cases":{"other":[{"pound":"count"}," not translated"]}}]],
+    "steward.texts.used-in": [["Used in"]],
+    "steward.texts.uses-count": [[{"c":"count","plural":true,"cases":{"=0":["Not used"],"one":["Used once"],"other":["Used ",{"pound":"count"}," times"]}}]],
     "steward.updates.available": [["Available"]],
     "steward.updates.change": [["Change"]],
     "steward.updates.check-again": [["Check again"]],

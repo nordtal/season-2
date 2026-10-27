@@ -2038,6 +2038,11 @@ export type TextArgs = {
   "steward.texts.all-services": Record<string, never>
   "steward.texts.areas": Record<string, never>
   "steward.texts.back": Record<string, never>
+  "steward.texts.block-filter": {
+    filter: Arg["choice"]
+  }
+  "steward.texts.block-filter-label": Record<string, never>
+  "steward.texts.blocks-used": Record<string, never>
   "steward.texts.group": {
     group: Arg["choice"]
   }
@@ -2047,6 +2052,10 @@ export type TextArgs = {
   "steward.texts.shown-in": Record<string, never>
   "steward.texts.untranslated": Record<string, never>
   "steward.texts.untranslated-count": {
+    count: Arg["number"]
+  }
+  "steward.texts.used-in": Record<string, never>
+  "steward.texts.uses-count": {
     count: Arg["number"]
   }
   "steward.updates.available": Record<string, never>

@@ -39,6 +39,28 @@ public interface TranslationsPage {
     @Name("Not translated count")
     MessageRef untranslatedCount(@Arg("count") @Example("4") int count);
 
+    @Name("Uses count")
+    MessageRef usesCount(@Arg("count") @Example("2") int count);
+
+    @Name("Used in")
+    MessageRef usedIn();
+
+    @Name("Blocks a text uses")
+    MessageRef blocksUsed();
+
+    @Name("Block filter")
+    MessageRef blockFilter(@Arg("filter") BlockFilter filter);
+
+    @Name("Block filter label")
+    MessageRef blockFilterLabel();
+
+    /** Which building blocks the list shows, by how many texts and documents use each. */
+    enum BlockFilter {
+        ALL,
+        SHARED,
+        ONE
+    }
+
     /** The place where a text appears, or the building blocks. */
     enum Group {
         GAME,

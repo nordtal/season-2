@@ -140,6 +140,9 @@ forwards the asker.
   open item. On a phone the open item is a page of its own, with a back arrow.
 - The language toggle picks the language of the whole page. The bar under the open item discards or
   saves that item alone.
+- `GET /api/messages` answers in `uses` each building block with the texts and documents that name it
+  themselves. A block's row counts them, the open block links each one, and the open text or document
+  links the blocks it names. The building blocks filter to those shared by several or used by one.
 
 - A service shows a text its jar ships where it draws one of the text's places (`TextServices`): the bot
   in Discord, Steward on its page, every other service in the game. A building block stays with every

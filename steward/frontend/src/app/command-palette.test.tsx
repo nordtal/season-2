@@ -166,6 +166,7 @@ function oneBundle(entries: MessageEntry[]) {
     languages: [],
     colours: {},
     places: {},
+    uses: {},
   }
   vi.mocked(useMessageTexts).mockReturnValue(queryResult(texts))
 }

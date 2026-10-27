@@ -438,6 +438,7 @@ export type MessageTexts = {
   languages: string[]
   colours: Record<string, Record<string, string>>
   places: Record<string, MessageSurface>
+  uses: Record<string, BlockUses>
 }
 
 export type MessageSaveResult = {
@@ -944,6 +945,11 @@ export type MessageText = {
 }
 
 export type MessageSurface = "GAME" | "DISCORD" | "STEWARD"
+
+export type BlockUses = {
+  texts: string[]
+  documents: string[]
+}
 
 export type Warning = {
   bundle: string

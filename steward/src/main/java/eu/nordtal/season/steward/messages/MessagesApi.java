@@ -18,6 +18,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.Tone;
+import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.Filling;
@@ -514,12 +515,22 @@ public final class MessagesApi {
      * @param languages the network's languages, the default first
      * @param colours   each tone's colour by tag, for each service that shows a text
      * @param places    every place a text can be shown with its surface
+     * @param uses      each building block with the texts and documents that name it themselves
      */
     public record Texts(
             List<Text> texts,
             List<String> languages,
             Map<String, Map<String, String>> colours,
-            Map<String, Display.Surface> places) {}
+            Map<String, Display.Surface> places,
+            Map<String, BlockUses> uses) {}
+
+    /**
+     * What names one building block itself.
+     *
+     * @param texts     each text as {@code <bundle>/<key>}
+     * @param documents each document's id
+     */
+    public record BlockUses(List<String> texts, List<String> documents) {}
 
     /**
      * One key of one bundle.
@@ -606,7 +617,54 @@ public final class MessagesApi {
         for (final Display place : Display.values()) {
             places.put(place.name(), place.surface());
         }
-        return new Texts(texts, languages(settings), colours, places);
+        return new Texts(texts, languages(settings), colours, places, uses(union));
+    }
+
+    /** Returns each building block with the texts and documents that name it themselves, as {@code Texts.uses}. */
+    private Map<String, BlockUses> uses(final List<Found> union) {
+        final Map<String, Set<String>> texts = new TreeMap<>();
+        final Map<String, Set<String>> named = new TreeMap<>();
+        for (final Found found : union) {
+            final MessageEntry entry = found.entry();
+            if (Messages.BLOCKS.contains(entry.bundle())) {
+                texts.putIfAbsent(entry.key(), new TreeSet<>());
+                named.putIfAbsent(entry.key(), new TreeSet<>());
+            }
+        }
+        for (final Found found : union) {
+            final MessageEntry entry = found.entry();
+            final boolean markup =
+                    entry.described() && OverrideCheck.declaration(entry).markup();
+            final Set<String> languages = new TreeSet<>(entry.overrides().keySet());
+            languages.addAll(entry.texts().keySet());
+            for (final String language : languages) {
+                for (final String version : entry.overrides().getOrDefault(language, entry.packaged(language))) {
+                    try {
+                        for (final String block :
+                                MessageText.parse(version, markup).blocks()) {
+                            final Set<String> uses = texts.get(block);
+                            if (uses != null) {
+                                uses.add(entry.bundle() + "/" + entry.key());
+                            }
+                        }
+                    } catch (final MessageSyntaxException unreadable) {
+                        // The check reports it.
+                    }
+                }
+            }
+        }
+        for (final DocumentsApi.DocumentView view : documents.documents().documents()) {
+            final Document document = Objects.requireNonNullElse(view.written(), view.packaged());
+            for (final String block : DocumentsApi.blocksOf(document)) {
+                final Set<String> uses = named.get(block);
+                if (uses != null) {
+                    uses.add(view.declaration().id());
+                }
+            }
+        }
+        final Map<String, BlockUses> uses = new TreeMap<>();
+        texts.forEach((key, users) -> uses.put(key, new BlockUses(List.copyOf(users), List.copyOf(named.get(key)))));
+        return uses;
     }
 
     /** Returns the network's languages, the default first, and the defaults when the settings cannot be read. */

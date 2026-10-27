@@ -579,6 +579,33 @@ class MessagesApiIntegrationTest {
         assertEquals(1, store.overrides(Set.of("terms")).size(), "a block that still fits is saved");
     }
 
+    @Test
+    void theListingNamesEveryTextAndDocumentThatUsesABuildingBlock() throws Exception {
+        PluginJars.smp(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/terms/en.properties",
+                        "terms.access=access\nterms.network=network\nterms.whole=whole {@terms.network}\n",
+                        "messages/smp/en.properties",
+                        "welcome=Your {@terms.access} starts\n",
+                        "messages/smp/de.properties",
+                        "welcome=Dein {@terms.access} beginnt\n",
+                        "documents/smp/declarations.json",
+                        """
+                        [{"namespace":"smp","name":"notice","area":"Join","shape":"MESSAGE","values":{},"slots":[]}]""",
+                        "documents/smp/notice.json",
+                        """
+                        {"parts":[{"type":"TEXT","lines":[{"text":{"en":"{@terms.access} ends"}}]}]}"""));
+
+        final JsonObject uses =
+                GSON.fromJson(get("/api/messages"), JsonObject.class).getAsJsonObject("uses");
+
+        assertEquals(GSON.fromJson("""
+                        {"terms.access":{"texts":["smp/welcome"],"documents":["smp/notice"]},
+                         "terms.network":{"texts":["terms/terms.whole"],"documents":[]},
+                         "terms.whole":{"texts":[],"documents":[]}}""", JsonObject.class), uses);
+    }
+
     /** Returns the text of each error of a drawing. */
     private static List<String> errors(final JsonObject drawing) {
         final List<String> errors = new java.util.ArrayList<>();

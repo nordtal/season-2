@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import net.kyori.adventure.text.Component;
@@ -282,20 +283,24 @@ public final class DocumentsApi {
 
     /** Returns whether a text of {@code document} names one of the building blocks {@code keys} itself. */
     private static boolean names(final Document document, final Set<String> keys) {
+        return blocksOf(document).stream().anyMatch(keys::contains);
+    }
+
+    /** Returns every building block that a text of {@code document} names itself, in any language. */
+    static Set<String> blocksOf(final Document document) {
+        final Set<String> blocks = new TreeSet<>();
         for (final Text text : document.texts()) {
             for (final List<String> versions : text.languages().values()) {
                 for (final String version : versions) {
                     try {
-                        if (MessageText.parse(version, false).blocks().stream().anyMatch(keys::contains)) {
-                            return true;
-                        }
+                        blocks.addAll(MessageText.parse(version, false).blocks());
                     } catch (final MessageSyntaxException unreadable) {
                         // The check reports it.
                     }
                 }
             }
         }
-        return false;
+        return blocks;
     }
 
     /**

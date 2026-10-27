@@ -82,7 +82,7 @@ export function text(over: Partial<MessageEntry> & { key: string }, around: Part
 }
 
 export function listing(texts: MessageText[], over: Partial<MessageTexts> = {}): MessageTexts {
-  return { texts, languages: [], colours: {}, places: PLACES, ...over }
+  return { texts, languages: [], colours: {}, places: PLACES, uses: {}, ...over }
 }
 
 /**
@@ -211,9 +211,9 @@ export function draw(node: ReactNode) {
 }
 
 /** The page as its route draws it, with its search parameters kept in state instead of the URL. */
-export function Page({ service: first }: { service?: string }) {
+export function Page({ service: first, state: link = {} }: { service?: string; state?: TranslationsState }) {
   const [service, setService] = useState(first)
-  const [state, setState] = useState<TranslationsState>({})
+  const [state, setState] = useState<TranslationsState>(link)
   return (
     <Translations
       service={service}

@@ -2,14 +2,15 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { ArrowLeftIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
-import type { Document, DocumentList, MessageTexts } from "@/lib/api"
+import type { BlockUses, Document, DocumentList, MessageTexts } from "@/lib/api"
 import { QueryState } from "@/components/steward/query-state"
 import { setDraftValue } from "@/lib/drafts"
 import { documentId, documentOf, type PageCard } from "@/lib/documents"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { useTranslationSearch } from "@/lib/queries"
 import { plainText } from "@/lib/rich-text"
-import { t } from "@/lib/texts"
+import { choice, t } from "@/lib/texts"
+import { isBuildingBlock } from "@/lib/text-places"
 import {
   type Area,
   areasOf,
@@ -27,12 +28,32 @@ import { DraftDot, type Highlight, PinnedRow, type Target, useWide } from "@/com
 import { FallenBack, Pills, TEXTS_FILE, type TextsModel, useTextsModel } from "@/components/steward/texts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 /** Where the page stands: the area listed and the document or text open, each by its id. */
 export type TranslationsState = { area?: string; document?: string; text?: string }
 
 /** An item with the area and section it is listed in. */
 type Placed = Item & { area: Area; section: Section }
+
+/** Which building blocks the list shows, by how many texts and documents use each. */
+const BLOCK_FILTERS = ["ALL", "SHARED", "ONE"] as const
+type BlockFilter = (typeof BLOCK_FILTERS)[number]
+
+const NO_USES: BlockUses = { texts: [], documents: [] }
+
+/** Returns the building block's key that an item is, or undefined for any other item. */
+function blockKey(item: Item): string | undefined {
+  return item.card.kind === "text" && isBuildingBlock(item.card.text.entry) ? item.card.text.entry.key : undefined
+}
+
+function totalOf(uses: BlockUses): number {
+  return uses.texts.length + uses.documents.length
+}
+
+function kept(filter: BlockFilter, count: number): boolean {
+  return filter === "ALL" || (filter === "SHARED" ? count > 1 : count === 1)
+}
 
 /**
  * Every document and text, listed area by area and then section by section. One item opens at a time: on a phone in place
@@ -59,6 +80,7 @@ export function TranslationsView({
   const [language, setLanguage] = useState<Language>(ENGLISH)
   const [query, setQuery] = useState("")
   const [highlight, setHighlight] = useState<Highlight | null>(null)
+  const [blockFilter, setBlockFilter] = useState<BlockFilter>("ALL")
   const areas = useMemo(() => areasOf(model.nodes), [model.nodes])
   const placed = useMemo(
     () =>
@@ -116,6 +138,15 @@ export function TranslationsView({
     onOpen: (item) => onState(openState(item)),
     changed: (item) => (item.card.kind === "text" ? model.draftIds.has(item.id) : model.drafts[item.id] !== undefined),
     missing: (item) => untranslated(item.card, language, model.languagesOf),
+    uses: (item) => {
+      const key = blockKey(item)
+      return key === undefined ? undefined : (texts.uses[key] ?? NO_USES)
+    },
+    blocksOf: (item) =>
+      Object.entries(texts.uses)
+        .filter(([, uses]) => (item.card.kind === "text" ? uses.texts : uses.documents).includes(item.id))
+        .map(([key]) => placed.find((each) => blockKey(each) === key) ?? key),
+    find: (id) => placed.find((item) => item.id === id) ?? id,
   }
   // One toggle at a time: beside the filter from a laptop's width, else in the open item's header.
   const wide = useWide()
@@ -156,7 +187,18 @@ export function TranslationsView({
                 <h2 className="min-w-0 flex-1 truncate text-base font-semibold">{area.label}</h2>
                 <Count count={area.count} />
               </div>
-              {area.sections.map((section) => (
+              {area.id === "VALUES" ? (
+                <Tabs value={blockFilter} onValueChange={(next: BlockFilter) => setBlockFilter(next)}>
+                  <TabsList aria-label={t("steward.texts.block-filter-label")}>
+                    {BLOCK_FILTERS.map((filter) => (
+                      <TabsTrigger key={filter} value={filter} className="px-2.5 text-xs">
+                        {t("steward.texts.block-filter", { filter: choice(filter) })}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              ) : null}
+              {sectionsShown(area, blockFilter, page).map((section) => (
                 <section key={section.id} aria-label={section.label || area.label} className="flex flex-col gap-2">
                   {section.label === "" ? null : (
                     <h3 className="flex items-center gap-2 px-1 text-sm font-medium">
@@ -194,6 +236,15 @@ export function TranslationsView({
                 <Marks page={page} item={open} />
               </div>
             </div>
+            <Links
+              label={t("steward.texts.used-in")}
+              links={(() => {
+                const uses = page.uses(open)
+                return uses ? [...uses.texts, ...uses.documents].map(page.find) : []
+              })()}
+              onOpen={page.onOpen}
+            />
+            <Links label={t("steward.texts.blocks-used")} links={page.blocksOf(open)} onOpen={page.onOpen} />
             <ItemEditor
               key={open.id}
               page={page}
@@ -215,6 +266,54 @@ type Page = {
   onOpen: (item: Placed) => void
   changed: (item: Item) => boolean
   missing: (item: Item) => boolean
+  /** A building block's uses, or undefined for any other item. */
+  uses: (item: Item) => BlockUses | undefined
+  /** The building blocks an item names itself, each as its item, or as its key where the list holds none. */
+  blocksOf: (item: Item) => (Placed | string)[]
+  /** The item listed under `id`, or `id` where the list holds none. */
+  find: (id: string) => Placed | string
+}
+
+/** Returns an area's sections, in the Building blocks those the filter keeps, without the sections it empties. */
+function sectionsShown(area: Area, filter: BlockFilter, page: Page): Section[] {
+  if (area.id !== "VALUES" || filter === "ALL") return area.sections
+  return area.sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => kept(filter, totalOf(page.uses(item) ?? NO_USES))),
+    }))
+    .filter((section) => section.items.length > 0)
+}
+
+/** A row of links to other items, each opening its item; an id the list does not hold is shown as written. */
+function Links({
+  label,
+  links,
+  onOpen,
+}: {
+  label: string
+  links: (Placed | string)[]
+  onOpen: (item: Placed) => void
+}) {
+  if (links.length === 0) return null
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <ul aria-label={label} className="flex min-w-0 flex-wrap gap-1">
+        {links.map((link) => (
+          <li key={typeof link === "string" ? link : link.id} className="min-w-0">
+            {typeof link === "string" ? (
+              <span className="text-xs text-muted-foreground">{link}</span>
+            ) : (
+              <Button type="button" variant="outline" size="xs" onClick={() => onOpen(link)} className="max-w-full">
+                <span className="truncate">{link.name}</span>
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
 }
 
 function openState(item: Placed): TranslationsState {
@@ -300,9 +399,19 @@ function ItemRow({ page, item, trail = item.trail }: { page: Page; item: Placed;
           <span className="truncate text-xs text-muted-foreground">{lineOf(page.model, item.card, page.language)}</span>
         </span>
         {page.missing(item) ? <Untranslated /> : null}
+        <UseCount uses={page.uses(item)} />
         <CaretRightIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
       </button>
     </li>
+  )
+}
+
+function UseCount({ uses }: { uses: BlockUses | undefined }) {
+  if (!uses) return null
+  return (
+    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+      {t("steward.texts.uses-count", { count: totalOf(uses) })}
+    </span>
   )
 }
 
@@ -367,7 +476,9 @@ function Marks({ page, item }: { page: Page; item: Placed }) {
   return (
     <>
       {card.kind === "text" ? (
-        <Pills entry={card.text.entry} places={page.model.shared.places} />
+        isBuildingBlock(card.text.entry) ? null : (
+          <Pills entry={card.text.entry} places={page.model.shared.places} />
+        )
       ) : (
         <>
           <DocumentMarks view={card.view} />

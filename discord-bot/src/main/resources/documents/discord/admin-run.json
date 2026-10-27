@@ -59,10 +59,16 @@
               "style": "HEADING"
             },
             {
-              "list": "why",
               "text": {
-                "en": "{named, select, true {**{service}** {what}} other {{what}}}"
-              }
+                "en": "**{service}** {what}"
+              },
+              "list": "why"
+            },
+            {
+              "text": {
+                "en": "{what}"
+              },
+              "list": "reasons"
             }
           ]
         }

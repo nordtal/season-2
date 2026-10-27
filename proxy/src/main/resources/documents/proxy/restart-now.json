@@ -6,29 +6,29 @@
         {
           "when": "occasion=update",
           "text": {
-            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> is being updated now.</warn>",
-            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> wird jetzt aktualisiert.</warn>"
+            "en": "<warn><emphasis>{@values.service}</emphasis> is being updated now.</warn>",
+            "de": "<warn><emphasis>{@values.service}</emphasis> wird jetzt aktualisiert.</warn>"
           }
         },
         {
           "when": "occasion=recreate",
           "text": {
-            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> is restarting now.</warn>",
-            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> startet jetzt neu.</warn>"
+            "en": "<warn><emphasis>{@values.service}</emphasis> is restarting now.</warn>",
+            "de": "<warn><emphasis>{@values.service}</emphasis> startet jetzt neu.</warn>"
           }
         },
         {
           "when": "occasion=backup",
           "text": {
-            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> is being backed up now.</warn>",
-            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> wird jetzt gesichert.</warn>"
+            "en": "<warn><emphasis>{@values.service}</emphasis> is being backed up now.</warn>",
+            "de": "<warn><emphasis>{@values.service}</emphasis> wird jetzt gesichert.</warn>"
           }
         },
         {
           "when": "occasion=down",
           "text": {
-            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> is going down now.</warn>",
-            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> geht jetzt offline.</warn>"
+            "en": "<warn><emphasis>{@values.service}</emphasis> is going down now.</warn>",
+            "de": "<warn><emphasis>{@values.service}</emphasis> geht jetzt offline.</warn>"
           }
         },
         {

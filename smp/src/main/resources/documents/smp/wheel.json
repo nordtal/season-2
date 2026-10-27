@@ -36,8 +36,8 @@
       "lines": [
         {
           "text": {
-            "en": "{spins, plural, one {# spin left} other {# spins left}}",
-            "de": "Noch {spins, plural, one {# Spin} other {# Spins}}"
+            "en": "{spins} {@terms.spin, n=spins} left",
+            "de": "Noch {spins} {@terms.spin, n=spins}"
           }
         }
       ]

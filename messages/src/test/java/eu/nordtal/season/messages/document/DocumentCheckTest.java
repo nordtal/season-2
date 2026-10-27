@@ -140,6 +140,21 @@ class DocumentCheckTest {
                         .toList());
     }
 
+    /** A case between words is a building block, and one between sentences is a line of its own with when. */
+    @Test
+    void aDocumentsTextHoldsNoCase() {
+        assertEquals(
+                List.of("a text block in English holds the case of days, which a building block or a line with"
+                        + " when holds instead"),
+                errors(SUMMARY, SOUND.replace("**{days} days**", "**{days, plural, one {# day} other {# days}}**")));
+        assertEquals(
+                List.of("the label left in German holds the case of spins, which a building block or a line with"
+                        + " when holds instead"),
+                errors(
+                        MENU,
+                        MENU_SOUND.replace("{spins} übrig", "{spins, plural, one {# Spin} other {# Spins}} übrig")));
+    }
+
     @Test
     void aDocumentThatFitsItsDeclarationHasNoProblem() {
         assertEquals(List.of(), errors(SUMMARY, SOUND));

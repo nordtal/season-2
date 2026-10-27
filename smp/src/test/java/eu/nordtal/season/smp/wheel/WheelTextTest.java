@@ -39,12 +39,12 @@ class WheelTextTest {
     }
 
     @Test
-    void theSpinsLeftReadAsTheyDidAsSeparateLines() {
+    void theSpinsLeftNameTheirCountThroughTheTerm() {
         assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(0))).endsWith("Come back tomorrow."));
-        assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(1))).endsWith("One earned spin is still waiting."));
-        assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(4))).endsWith("4 earned spins are still waiting."));
+        assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(1))).endsWith("Still waiting: 1 extra spin."));
+        assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(4))).endsWith("Still waiting: 4 extra spins."));
         assertEquals("You have no spins right now.", plain(Wheel.AVAILABLE.with(new Wheel.Available(0))));
-        assertEquals("You have one spin.", plain(Wheel.AVAILABLE.with(new Wheel.Available(1))));
+        assertEquals("You have 1 spin.", plain(Wheel.AVAILABLE.with(new Wheel.Available(1))));
         assertEquals("You have 5 spins.", plain(Wheel.AVAILABLE.with(new Wheel.Available(5))));
     }
 

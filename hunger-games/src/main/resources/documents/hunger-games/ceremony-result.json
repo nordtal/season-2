@@ -12,7 +12,7 @@
         {
           "when": "outcome=tie-broken",
           "text": {
-            "en": "<warn>The last two survivors died at the same moment.</warn> <muted><emphasis>{winner.name}</emphasis> wins with more kills (<emphasis>{winnerKills}</emphasis> {winnerKills, plural, one {kill} other {kills}} to <emphasis>{loserKills}</emphasis>).</muted>",
+            "en": "<warn>The last two survivors died at the same moment.</warn> <muted><emphasis>{winner.name}</emphasis> wins with more kills (<emphasis>{winnerKills}</emphasis> {@terms.kill, n=winnerKills} to <emphasis>{loserKills}</emphasis>).</muted>",
             "de": "<warn>Die letzten beiden Überlebenden sind im selben Moment gestorben.</warn> <muted><emphasis>{winner.name}</emphasis> gewinnt mit mehr Kills (<emphasis>{winnerKills}</emphasis> zu <emphasis>{loserKills}</emphasis>).</muted>"
           }
         },

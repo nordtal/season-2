@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>Your access ends in <emphasis>{minutes}</emphasis> {minutes, plural, one {minute} other {minutes}}.</warn> <muted>Buy more in the contribution channel on Discord.</muted>",
-            "de": "<warn>Dein Zugang endet in <emphasis>{minutes}</emphasis> {minutes, plural, one {Minute} other {Minuten}}.</warn> <muted>Kauf im Beitragskanal auf Discord mehr.</muted>"
+            "en": "<warn>Your access ends in <emphasis>{@values.duration.minutes, n=minutes}</emphasis>.</warn> <muted>Buy more in the contribution channel on Discord.</muted>",
+            "de": "<warn>Dein Zugang endet in <emphasis>{@values.duration.minutes, n=minutes}</emphasis>.</warn> <muted>Kauf im Beitragskanal auf Discord mehr.</muted>"
           }
         }
       ]

@@ -6,36 +6,36 @@
         {
           "when": "occasion=update",
           "text": {
-            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> is being updated in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
-            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> wird in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} aktualisiert.</warn>"
+            "en": "<warn><emphasis>{@values.service}</emphasis> is being updated in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</warn>",
+            "de": "<warn><emphasis>{@values.service}</emphasis> wird in <emphasis>{@values.duration.seconds, n=seconds}</emphasis> aktualisiert.</warn>"
           }
         },
         {
           "when": "occasion=recreate",
           "text": {
-            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> restarts in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
-            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> startet in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} neu.</warn>"
+            "en": "<warn><emphasis>{@values.service}</emphasis> restarts in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</warn>",
+            "de": "<warn><emphasis>{@values.service}</emphasis> startet in <emphasis>{@values.duration.seconds, n=seconds}</emphasis> neu.</warn>"
           }
         },
         {
           "when": "occasion=backup",
           "text": {
-            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> is being backed up in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
-            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> wird in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} gesichert.</warn>"
+            "en": "<warn><emphasis>{@values.service}</emphasis> is being backed up in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</warn>",
+            "de": "<warn><emphasis>{@values.service}</emphasis> wird in <emphasis>{@values.duration.seconds, n=seconds}</emphasis> gesichert.</warn>"
           }
         },
         {
           "when": "occasion=down",
           "text": {
-            "en": "<warn><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> goes down for maintenance in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
-            "de": "<warn><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> geht in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} für eine Wartung offline.</warn>"
+            "en": "<warn><emphasis>{@values.service}</emphasis> goes down for maintenance in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</warn>",
+            "de": "<warn><emphasis>{@values.service}</emphasis> geht in <emphasis>{@values.duration.seconds, n=seconds}</emphasis> für eine Wartung offline.</warn>"
           }
         },
         {
           "when": "occasion=maintenance",
           "text": {
-            "en": "<warn>Nordtal goes down for maintenance in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn>",
-            "de": "<warn>Nordtal geht in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}} für eine Wartung offline.</warn>"
+            "en": "<warn>Nordtal goes down for maintenance in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</warn>",
+            "de": "<warn>Nordtal geht in <emphasis>{@values.duration.seconds, n=seconds}</emphasis> für eine Wartung offline.</warn>"
           }
         }
       ]

@@ -7,6 +7,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.messages.value.Service;
 import eu.nordtal.season.proxy.PhaseServers;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.time.Duration;
@@ -26,30 +27,6 @@ import org.slf4j.Logger;
  * The waiting room sends a chat message. The standby proxy sends a chat message and a countdown subtitle.
  */
 public final class Homecoming {
-
-    /** The service a text names: the network, one of the season's services, or another by its compose name. */
-    public enum Service {
-        NETWORK,
-        SMP,
-        LIMBO,
-        HUNGER_GAMES,
-        PROXY,
-        OTHER;
-
-        /** @param service the compose service, {@code null} for the whole network */
-        static Service of(final @Nullable String service) {
-            if (service == null) {
-                return NETWORK;
-            }
-            return switch (service) {
-                case "smp" -> SMP;
-                case "limbo" -> LIMBO;
-                case "hunger-games" -> HUNGER_GAMES;
-                case "proxy" -> PROXY;
-                default -> OTHER;
-            };
-        }
-    }
 
     /** @param service the compose service, which the text names when {@code what} is {@code OTHER} */
     record Named(Service what, @Example("steward") String service) {}

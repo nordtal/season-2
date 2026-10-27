@@ -7,7 +7,7 @@
           "when": "countdown=days",
           "text": {
             "en": "<muted>The network opens in <emphasis>{@values.duration.days, n=days} {@values.duration.hours, n=hours}</emphasis>.</muted>",
-            "de": "<muted>Das Netzwerk öffnet in <emphasis>{days, plural, one {# Tag} other {# Tagen}} {@values.duration.hours, n=hours}</emphasis>.</muted>"
+            "de": "<muted>Das Netzwerk öffnet in <emphasis>{@values.duration.days, n=days, case=dative} {@values.duration.hours, n=hours}</emphasis>.</muted>"
           }
         },
         {

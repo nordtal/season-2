@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "{blocks, plural, one {# block} other {# blocks}}",
-            "de": "{blocks, plural, one {# Block} other {# Blöcke}}"
+            "en": "{blocks} {@terms.block, n=blocks}",
+            "de": "{blocks} {@terms.block, n=blocks}"
           }
         }
       ]

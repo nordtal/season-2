@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Occasion;
+import eu.nordtal.season.messages.value.Service;
 import eu.nordtal.season.proxy.ProxyRenderer;
 import java.util.Locale;
 import java.util.Set;
@@ -70,7 +72,7 @@ class RunShapeTest {
         // With limbo in the run and no standby, every kind is the same run to its players.
         for (final UpdateKind kind : UpdateKind.values()) {
             final RunShape shape = RunShape.of(kind, Set.of("smp", "limbo"), false, false);
-            assertEquals(RunShape.Occasion.MAINTENANCE, shape.occasion(), kind.name());
+            assertEquals(Occasion.MAINTENANCE, shape.occasion(), kind.name());
             assertEquals(RunShape.Fate.DISCONNECT, shape.fateFor("smp"), kind.name());
             assertEquals(
                     RunShape.Fate.NOTHING,
@@ -81,13 +83,13 @@ class RunShapeTest {
 
     @Test
     void everyKindHasItsOwnWord() {
-        assertEquals(RunShape.Occasion.DOWN, occasionOf(UpdateKind.DOWN));
-        assertEquals(RunShape.Occasion.RECREATE, occasionOf(UpdateKind.RESTART));
-        assertEquals(RunShape.Occasion.BACKUP, occasionOf(UpdateKind.BACKUP));
-        assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.UPDATE));
+        assertEquals(Occasion.DOWN, occasionOf(UpdateKind.DOWN));
+        assertEquals(Occasion.RECREATE, occasionOf(UpdateKind.RESTART));
+        assertEquals(Occasion.BACKUP, occasionOf(UpdateKind.BACKUP));
+        assertEquals(Occasion.UPDATE, occasionOf(UpdateKind.UPDATE));
 
         // START reaches no player but is named anyway.
-        assertEquals(RunShape.Occasion.UPDATE, occasionOf(UpdateKind.START));
+        assertEquals(Occasion.UPDATE, occasionOf(UpdateKind.START));
     }
 
     @Test
@@ -120,7 +122,7 @@ class RunShapeTest {
     @Test
     void everyOccasionHasItsThreeLines() {
         for (final Locale locale : LOCALES) {
-            for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
+            for (final Occasion occasion : Occasion.values()) {
                 final String countdown = plain(locale, RestartWatch.countdown(occasion, "smp", 17));
                 assertTrue(
                         countdown.contains("17"),
@@ -161,15 +163,15 @@ class RunShapeTest {
 
     @Test
     void theServicesAreNamed() {
-        assertEquals(Homecoming.Service.NETWORK, Homecoming.Service.of(null));
+        assertEquals(Service.NETWORK, Service.of(null));
         for (final String service : SERVICES) {
-            assertNotEquals(Homecoming.Service.OTHER, Homecoming.Service.of(service), "no name for " + service);
+            assertNotEquals(Service.OTHER, Service.of(service), "no name for " + service);
         }
     }
 
     // helpers
 
-    private static RunShape.Occasion occasionOf(final UpdateKind kind) {
+    private static Occasion occasionOf(final UpdateKind kind) {
         return RunShape.of(kind, Set.of("smp"), true, false).occasion();
     }
 

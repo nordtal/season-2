@@ -1,6 +1,7 @@
 package eu.nordtal.season.proxy.update;
 
 import eu.nordtal.season.database.update.UpdateKind;
+import eu.nordtal.season.messages.value.Occasion;
 import eu.nordtal.season.proxy.online.OnlineCounts;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -16,25 +17,6 @@ import org.jspecify.annotations.Nullable;
  */
 public record RunShape(
         Occasion occasion, Set<String> moving, boolean proxyMoves, boolean waitingRoom, boolean standbyProxy) {
-
-    /** The name of a run for the players. */
-    public enum Occasion {
-
-        /** {@link UpdateKind#DOWN}. */
-        DOWN,
-
-        /** {@link UpdateKind#RESTART}. */
-        RECREATE,
-
-        /** {@link UpdateKind#BACKUP}. */
-        BACKUP,
-
-        /** {@link UpdateKind#UPDATE}. */
-        UPDATE,
-
-        /** No waiting room runs during the run, so the players are disconnected. It replaces every other kind. */
-        MAINTENANCE
-    }
 
     /** What happens to a player, ordered from the least to the most disruptive. */
     public enum Fate {

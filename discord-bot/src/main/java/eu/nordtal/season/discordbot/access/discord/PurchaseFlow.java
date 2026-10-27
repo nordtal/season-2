@@ -77,7 +77,8 @@ public final class PurchaseFlow extends ListenerAdapter {
                     Summary.class,
                     Slot.button("confirm"),
                     Slot.button("change"),
-                    Slot.button("donation"))
+                    Slot.button("donate").optional(),
+                    Slot.button("withdraw").optional())
             .titled("Purchase summary");
 
     static final DocumentSpec<Link> LINK = DocumentSpec.message(
@@ -337,9 +338,14 @@ public final class PurchaseFlow extends ListenerAdapter {
                         request.donationRequested(),
                         Money.euroCents(tiers.donationCents())),
                 Map.of(
-                        "confirm", new DocumentRenderer.FilledButton(Ids.CONFIRM, ButtonStyle.SUCCESS),
-                        "change", new DocumentRenderer.FilledButton(Ids.CHANGE, ButtonStyle.SECONDARY),
-                        "donation", new DocumentRenderer.FilledButton(Ids.DONATION, ButtonStyle.SECONDARY)),
+                        "confirm",
+                        new DocumentRenderer.FilledButton(Ids.CONFIRM, ButtonStyle.SUCCESS),
+                        "change",
+                        new DocumentRenderer.FilledButton(Ids.CHANGE, ButtonStyle.SECONDARY),
+                        request.donationRequested() ? "withdraw" : "donate",
+                        new DocumentRenderer.FilledButton(Ids.DONATION, ButtonStyle.SECONDARY),
+                        request.donationRequested() ? "donate" : "withdraw",
+                        new DocumentRenderer.FilledNothing()),
                 locale);
     }
 

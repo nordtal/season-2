@@ -485,7 +485,7 @@ public final class DocumentCheck {
                 Typography.problems(version)
                         .forEach(rule ->
                                 problems.add(new Problem(mode == MessageCheck.Mode.PACKAGED, where + ": " + rule, at)));
-                names(version, markup);
+                names(version, markup, where);
             }
         });
     }
@@ -495,24 +495,30 @@ public final class DocumentCheck {
         return Locales.parse(tag).getDisplayLanguage(Locale.ENGLISH);
     }
 
-    private void names(final String version, final boolean markup) {
+    private void names(final String version, final boolean markup, final String where) {
         try {
-            nodes(MessageText.parse(version, markup).nodes());
+            nodes(MessageText.parse(version, markup).nodes(), where);
         } catch (final MessageSyntaxException ignored) {
             // The message check reports it.
         }
     }
 
-    private void nodes(final List<Node> nodes) {
+    /** A case between words is a building block, and one between sentences a line of its own with {@code when}. */
+    private void nodes(final List<Node> nodes, final String where) {
         for (final Node node : nodes) {
             switch (node) {
                 case Node.Value value -> used.add(value.name());
                 case Node.Pound pound -> used.add(pound.name());
                 case Node.Choice choice -> {
                     used.add(choice.name());
-                    choice.cases().values().forEach(this::nodes);
+                    problems.add(new Problem(
+                            mode == MessageCheck.Mode.PACKAGED,
+                            where + " holds the case of " + choice.name()
+                                    + ", which a building block or a line with when holds instead",
+                            at));
+                    choice.cases().values().forEach(cases -> nodes(cases, where));
                 }
-                case Node.Tag tag -> tag.args().forEach(arg -> nodes(arg.parts()));
+                case Node.Tag tag -> tag.args().forEach(arg -> nodes(arg.parts(), where));
                 case Node.Block block -> {
                     used.addAll(block.with().values());
                     final Declaration declared = Messages.blocks().get(block.key());

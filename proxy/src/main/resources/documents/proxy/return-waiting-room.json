@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good><emphasis>{what, select, network {The whole network} smp {The SMP} limbo {The waiting room} hunger-games {Hunger Games} proxy {The network} other {{service}}}</emphasis> is back.</good> <muted>You join it now.</muted>",
-            "de": "<good><emphasis>{what, select, network {Das gesamte Netzwerk} smp {Die SMP} limbo {Der Warteraum} hunger-games {Hunger Games} proxy {Das Netzwerk} other {{service}}}</emphasis> ist wieder da.</good> <muted>Du kommst jetzt zurück.</muted>"
+            "en": "<good><emphasis>{@values.service}</emphasis> is back.</good> <muted>You join it now.</muted>",
+            "de": "<good><emphasis>{@values.service}</emphasis> ist wieder da.</good> <muted>Du kommst jetzt zurück.</muted>"
           }
         }
       ]

@@ -24,8 +24,8 @@
         },
         {
           "text": {
-            "en": "<muted>{done} of {total, plural, one {# objective} other {# objectives}} finished.</muted>",
-            "de": "<muted>{done} von {total, plural, one {# Ziel} other {# Zielen}} geschafft.</muted>"
+            "en": "<muted>{done} of {total} {@terms.objective, n=total} finished.</muted>",
+            "de": "<muted>{done} von {total} {@terms.objective, n=total, case=dative} geschafft.</muted>"
           }
         }
       ]
@@ -57,8 +57,8 @@
         {
           "when": "shared",
           "text": {
-            "en": "<faint>Your share: {percent} %. Finished now, it gives you {gives} of {pool, plural, one {# extra spin} other {# extra spins}}.</faint>",
-            "de": "<faint>Dein Anteil: {percent} %. Wäre es jetzt fertig, bekämst du {gives} von {pool, plural, one {# Extra-Spin} other {# Extra-Spins}}.</faint>"
+            "en": "<faint>Your share: {percent} %. Finished now, it gives you {gives} of {pool} {@terms.extra-spin, n=pool}.</faint>",
+            "de": "<faint>Dein Anteil: {percent} %. Wäre es jetzt fertig, bekämst du {gives} von {pool} {@terms.extra-spin, n=pool}.</faint>"
           }
         },
         {
@@ -118,8 +118,8 @@
         {
           "when": "contributed",
           "text": {
-            "en": "<muted>If these objectives finished now, you would get <emphasis>{spins}</emphasis> of their <emphasis>{budget, plural, one {# extra wheel spin} other {# extra wheel spins}}</emphasis>.</muted>",
-            "de": "<muted>Wären diese Ziele jetzt fertig, bekämst du <emphasis>{spins}</emphasis> von ihren <emphasis>{budget, plural, one {# Extra-Spin} other {# Extra-Spins}}</emphasis>.</muted>"
+            "en": "<muted>If these objectives finished now, you would get <emphasis>{spins}</emphasis> of their <emphasis>{budget} {@terms.extra-spin, n=budget}</emphasis>.</muted>",
+            "de": "<muted>Wären diese Ziele jetzt fertig, bekämst du <emphasis>{spins}</emphasis> von ihren <emphasis>{budget} {@terms.extra-spin, n=budget}</emphasis>.</muted>"
           }
         }
       ]
@@ -130,8 +130,8 @@
       "lines": [
         {
           "text": {
-            "en": "{spins} of {budget, plural, one {# extra spin} other {# extra spins}}",
-            "de": "{spins} von {budget, plural, one {# Extra-Spin} other {# Extra-Spins}}"
+            "en": "{spins} of {budget} {@terms.extra-spin, n=budget}",
+            "de": "{spins} von {budget} {@terms.extra-spin, n=budget}"
           }
         }
       ]

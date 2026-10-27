@@ -92,9 +92,13 @@ public final class UpdateFeed {
             List<MessageRef> changes) {}
 
     record Failure(
-            boolean named,
             @Example("smp") String service,
 
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.exit-code")
+            MessageRef what) {}
+
+    /** A failure of the run as a whole, which names no service. */
+    record Reason(
             @Takes({"admin/*", "database/*"}) @Example("admin/run.exit-code")
             MessageRef what) {}
 
@@ -105,6 +109,7 @@ public final class UpdateFeed {
                     Run.class,
                     Slot.list("services", Service.class),
                     Slot.list("why", Failure.class),
+                    Slot.list("reasons", Reason.class),
                     Slot.button("open").optional())
             .titled("Update run");
 
@@ -359,6 +364,7 @@ public final class UpdateFeed {
         final RunStage stage = stageOf(request);
         final Map<String, List<RunStep.Row>> byService = new LinkedHashMap<>();
         final List<Failure> why = new ArrayList<>();
+        final List<Reason> reasons = new ArrayList<>();
         for (final RunStep.Row step : record.steps()) {
             if (step.service() != null) {
                 byService
@@ -367,11 +373,12 @@ public final class UpdateFeed {
             }
             // The card is edited once the run settles, and only a failed run says why.
             if (stage == RunStage.FAILED && step.outcome() == RunStep.Outcome.FAILED && step.reason() != null) {
-                final String service = step.service();
-                why.add(new Failure(
-                        service != null,
-                        service == null ? "" : service,
-                        TEXTS.run().reason(step.reason())));
+                final MessageRef what = TEXTS.run().reason(step.reason());
+                if (step.service() == null) {
+                    reasons.add(new Reason(what));
+                } else {
+                    why.add(new Failure(step.service(), what));
+                }
             }
         }
         final Instant requested = request.requested();
@@ -392,6 +399,8 @@ public final class UpdateFeed {
                                 .toList()),
                         "why",
                         DocumentRenderer.FilledList.of(why),
+                        "reasons",
+                        DocumentRenderer.FilledList.of(reasons),
                         "open",
                         page == null ? new DocumentRenderer.FilledNothing() : DocumentRenderer.FilledButton.link(page)),
                 Locales.DEFAULT);

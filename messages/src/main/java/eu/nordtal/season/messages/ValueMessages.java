@@ -1,5 +1,6 @@
 package eu.nordtal.season.messages;
 
+import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Display;
@@ -11,6 +12,8 @@ import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Case;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Mention;
+import eu.nordtal.season.messages.value.Occasion;
+import eu.nordtal.season.messages.value.Service;
 
 /**
  * The words that show values in every process.
@@ -144,6 +147,16 @@ public interface ValueMessages {
         @Name("Who did it: a person as a mention, anyone else as the word for their kind")
         MessageRef actor(
                 @Arg("kind") @Example("steward") Actor.Kind kind, @Arg("person") @Example("Alex") Mention person);
+
+        @Name("The service a text names, at the start of a sentence")
+        MessageRef service(
+                @Arg("what") @Example("smp") Service what, @Arg("service") @Example("steward") String service);
+
+        @Name("The name of an update run, at the start of a sentence")
+        MessageRef occasion(@Arg("occasion") @Example("update") Occasion occasion);
+
+        @Name("The season's phase")
+        MessageRef phase(@Arg("phase") @Example("smp") SeasonPhase phase);
 
         @Name("Choice")
         interface Choice {

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>The game starts in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</warn> <muted>Stay where you are.</muted>",
-            "de": "<warn>Das Spiel startet in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}}.</warn> <muted>Bleib, wo du bist.</muted>"
+            "en": "<warn>The game starts in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</warn> <muted>Stay where you are.</muted>",
+            "de": "<warn>Das Spiel startet in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</warn> <muted>Bleib, wo du bist.</muted>"
           }
         }
       ]

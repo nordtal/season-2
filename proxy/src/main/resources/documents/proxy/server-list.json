@@ -8,19 +8,58 @@
             "en": "<brand><bold>nordtal.eu</bold></brand>",
             "de": "<brand><bold>nordtal.eu</bold></brand>"
           }
-        },
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "lines": [
         {
-          "when": "phase=pre-launch",
+          "when": "countdown=days",
           "text": {
-            "en": "<muted>{season.name} opens in <emphasis>{countdown, select, days {{@values.duration.days, n=days} {@values.duration.hours, n=hours}} hours {{@values.duration.hours, n=hours} {@values.duration.minutes, n=minutes}} minutes {{@values.duration.minutes, n=minutes}} imminent {any moment now} other {not announced yet}}</emphasis></muted>",
-            "de": "<muted>{season.name} öffnet in <emphasis>{countdown, select, days {{days, plural, one {# Tag} other {# Tagen}} {@values.duration.hours, n=hours}} hours {{@values.duration.hours, n=hours} {@values.duration.minutes, n=minutes}} minutes {{@values.duration.minutes, n=minutes}} imminent {jedem Moment} other {noch nicht angekündigt}}</emphasis></muted>"
+            "en": "<muted>{season.name} opens in <emphasis>{@values.duration.days, n=days} {@values.duration.hours, n=hours}</emphasis></muted>",
+            "de": "<muted>{season.name} öffnet in <emphasis>{@values.duration.days, n=days, case=dative} {@values.duration.hours, n=hours}</emphasis></muted>"
           }
         },
         {
+          "when": "countdown=hours",
+          "text": {
+            "en": "<muted>{season.name} opens in <emphasis>{@values.duration.hours, n=hours} {@values.duration.minutes, n=minutes}</emphasis></muted>",
+            "de": "<muted>{season.name} öffnet in <emphasis>{@values.duration.hours, n=hours} {@values.duration.minutes, n=minutes}</emphasis></muted>"
+          }
+        },
+        {
+          "when": "countdown=minutes",
+          "text": {
+            "en": "<muted>{season.name} opens in <emphasis>{@values.duration.minutes, n=minutes}</emphasis></muted>",
+            "de": "<muted>{season.name} öffnet in <emphasis>{@values.duration.minutes, n=minutes}</emphasis></muted>"
+          }
+        },
+        {
+          "when": "countdown=imminent",
+          "text": {
+            "en": "<muted>{season.name} opens in <emphasis>any moment now</emphasis></muted>",
+            "de": "<muted>{season.name} öffnet in <emphasis>jedem Moment</emphasis></muted>"
+          }
+        },
+        {
+          "when": "countdown=unknown",
+          "text": {
+            "en": "<muted>{season.name} opens in <emphasis>not announced yet</emphasis></muted>",
+            "de": "<muted>{season.name} öffnet in <emphasis>noch nicht angekündigt</emphasis></muted>"
+          }
+        }
+      ],
+      "when": "phase=pre-launch"
+    },
+    {
+      "type": "TEXT",
+      "lines": [
+        {
           "when": "phase=pre-event",
           "text": {
-            "en": "<muted>Hunger Games: <emphasis>{list.hgParticipants}</emphasis> {list.hgParticipants, plural, one {player} other {players}} in <emphasis>{list.hgTeams}</emphasis> {list.hgTeams, plural, one {team} other {teams}}</muted>",
-            "de": "<muted>Hunger Games: <emphasis>{list.hgParticipants}</emphasis> Spieler in <emphasis>{list.hgTeams}</emphasis> {list.hgTeams, plural, one {Team} other {Teams}}</muted>"
+            "en": "<muted>Hunger Games: <emphasis>{list.hgParticipants}</emphasis> {@terms.player, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>",
+            "de": "<muted>Hunger Games: <emphasis>{list.hgParticipants}</emphasis> Spieler in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>"
           }
         },
         {
@@ -33,8 +72,8 @@
         {
           "when": "phase=smp",
           "text": {
-            "en": "<muted>{season.name} is running. <emphasis>{list.smpMilestonesDone}</emphasis> of <emphasis>{list.smpMilestones}</emphasis> {list.smpMilestones, plural, one {milestone} other {milestones}} done.</muted>",
-            "de": "<muted>{season.name} läuft. <emphasis>{list.smpMilestonesDone}</emphasis> von <emphasis>{list.smpMilestones}</emphasis> {list.smpMilestones, plural, one {Meilenstein} other {Meilensteinen}} geschafft.</muted>"
+            "en": "<muted>{season.name} is running. <emphasis>{list.smpMilestonesDone}</emphasis> of <emphasis>{list.smpMilestones}</emphasis> {@terms.milestone, n=list.smpMilestones} done.</muted>",
+            "de": "<muted>{season.name} läuft. <emphasis>{list.smpMilestonesDone}</emphasis> von <emphasis>{list.smpMilestones}</emphasis> {@terms.milestone, n=list.smpMilestones, case=dative} geschafft.</muted>"
           }
         },
         {

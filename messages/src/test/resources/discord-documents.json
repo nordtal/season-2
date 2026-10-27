@@ -262,7 +262,7 @@
               "lines": [
                 {
                   "text": {
-                    "en": "{amount, plural, one {# player} other {# players}}"
+                    "en": "{amount} {@terms.player, n=amount}"
                   }
                 }
               ]

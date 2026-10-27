@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>The border is shrinking.</warn> <muted>It reaches <emphasis>{target}</emphasis> blocks in <emphasis>{seconds}</emphasis> {seconds, plural, one {second} other {seconds}}.</muted>",
-            "de": "<warn>Die Grenze schrumpft.</warn> <muted>Sie erreicht <emphasis>{target}</emphasis> Blöcke in <emphasis>{seconds}</emphasis> {seconds, plural, one {Sekunde} other {Sekunden}}.</muted>"
+            "en": "<warn>The border is shrinking.</warn> <muted>It reaches <emphasis>{target}</emphasis> blocks in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</muted>",
+            "de": "<warn>Die Grenze schrumpft.</warn> <muted>Sie erreicht <emphasis>{target}</emphasis> Blöcke in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</muted>"
           }
         }
       ]

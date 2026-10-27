@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.value.Occasion;
+import eu.nordtal.season.messages.value.Service;
 import java.time.Duration;
 import java.util.Locale;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -22,9 +24,8 @@ class RestartLinesRenderTest {
     @Test
     void aCountdownLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
-            for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
-                assertRendered(
-                        locale, RestartWatch.countdown(occasion, "smp", 10), occasion != RunShape.Occasion.MAINTENANCE);
+            for (final Occasion occasion : Occasion.values()) {
+                assertRendered(locale, RestartWatch.countdown(occasion, "smp", 10), occasion != Occasion.MAINTENANCE);
             }
         }
     }
@@ -32,30 +33,29 @@ class RestartLinesRenderTest {
     @Test
     void aNowLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
-            for (final RunShape.Occasion occasion : RunShape.Occasion.values()) {
-                assertRendered(locale, RestartWatch.now(occasion, "smp"), occasion != RunShape.Occasion.MAINTENANCE);
+            for (final Occasion occasion : Occasion.values()) {
+                assertRendered(locale, RestartWatch.now(occasion, "smp"), occasion != Occasion.MAINTENANCE);
             }
         }
     }
 
     @Test
     void theWholeNetworkIsNamedWhenSeveralServicesStop() {
-        final String text = plain(Locale.ENGLISH, RestartWatch.now(RunShape.Occasion.UPDATE, null));
+        final String text = plain(Locale.ENGLISH, RestartWatch.now(Occasion.UPDATE, null));
         assertTrue(text.contains("The whole network"), text);
     }
 
     @Test
     void theWaitingRoomLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
-            assertRendered(
-                    locale, Homecoming.WAITING_ROOM.with(new Homecoming.Named(Homecoming.Service.SMP, "smp")), true);
+            assertRendered(locale, Homecoming.WAITING_ROOM.with(new Homecoming.Named(Service.SMP, "smp")), true);
         }
     }
 
     @Test
     void theCalledOffAndFailedLinesNameTheOccasionAndLeaveNoBrace() {
         for (final Locale locale : LOCALES) {
-            final RestartWatch.Occasioned update = new RestartWatch.Occasioned(RunShape.Occasion.UPDATE);
+            final RestartWatch.Occasioned update = new RestartWatch.Occasioned(Occasion.UPDATE);
             assertRendered(locale, RestartWatch.CANCELLED.with(update), false);
             assertRendered(locale, RestartWatch.FAILED.with(update), false);
         }
@@ -64,7 +64,7 @@ class RestartLinesRenderTest {
     @Test
     void aServiceWithNoLineOfItsOwnIsNamedByItsComposeName() {
         for (final Locale locale : LOCALES) {
-            final String text = plain(locale, RestartWatch.now(RunShape.Occasion.RECREATE, "steward"));
+            final String text = plain(locale, RestartWatch.now(Occasion.RECREATE, "steward"));
             assertTrue(text.contains("steward"), locale + ": " + text);
         }
     }

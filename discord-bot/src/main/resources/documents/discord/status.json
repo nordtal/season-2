@@ -47,8 +47,8 @@
       "lines": [
         {
           "text": {
-            "en": "{teams, plural, one {# team} other {# teams}} registered",
-            "de": "{teams, plural, one {# Team} other {# Teams}} angemeldet"
+            "en": "{teams} {@terms.team, n=teams} registered",
+            "de": "{teams} {@terms.team, n=teams} angemeldet"
           }
         }
       ]
@@ -59,8 +59,8 @@
       "lines": [
         {
           "text": {
-            "en": "{teams, plural, one {# team} other {# teams}} left, {players} alive",
-            "de": "{teams, plural, one {# Team} other {# Teams}} übrig, {players} am Leben"
+            "en": "{teams} {@terms.team, n=teams} left, {players} alive",
+            "de": "{teams} {@terms.team, n=teams} übrig, {players} am Leben"
           }
         }
       ]
@@ -71,8 +71,8 @@
       "lines": [
         {
           "text": {
-            "en": "{players, plural, one {# player} other {# players}}",
-            "de": "{players} Spieler"
+            "en": "{players} {@terms.player, n=players}",
+            "de": "{players} {@terms.player, n=players}"
           }
         }
       ]

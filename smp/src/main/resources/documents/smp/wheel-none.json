@@ -4,9 +4,17 @@
       "type": "TEXT",
       "lines": [
         {
+          "when": "!extras",
           "text": {
-            "en": "<bad>No spins left today.</bad> <muted>{extras, plural, =0 {Come back tomorrow.} one {One earned spin is still waiting.} other {<emphasis>#</emphasis> earned spins are still waiting.}}</muted>",
-            "de": "<bad>Heute keine Spins mehr.</bad> <muted>{extras, plural, =0 {Komm morgen wieder.} one {Ein verdienter Spin wartet noch.} other {<emphasis>#</emphasis> verdiente Spins warten noch.}}</muted>"
+            "en": "<bad>No spins left today.</bad> <muted>Come back tomorrow.</muted>",
+            "de": "<bad>Heute keine Spins mehr.</bad> <muted>Komm morgen wieder.</muted>"
+          }
+        },
+        {
+          "when": "extras",
+          "text": {
+            "en": "<bad>No spins left today.</bad> <muted>Still waiting: <emphasis>{extras}</emphasis> {@terms.extra-spin, n=extras}.</muted>",
+            "de": "<bad>Heute keine Spins mehr.</bad> <muted>Es warten noch: <emphasis>{extras}</emphasis> {@terms.extra-spin, n=extras}.</muted>"
           }
         }
       ]

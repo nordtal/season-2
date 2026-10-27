@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted><emphasis>{player.name}</emphasis>: <emphasis>{kills}</emphasis> {kills, plural, one {kill} other {kills}}</muted>",
-            "de": "<muted><emphasis>{player.name}</emphasis>: <emphasis>{kills}</emphasis> {kills, plural, one {Kill} other {Kills}}</muted>"
+            "en": "<muted><emphasis>{player.name}</emphasis>: <emphasis>{kills}</emphasis> {@terms.kill, n=kills}</muted>",
+            "de": "<muted><emphasis>{player.name}</emphasis>: <emphasis>{kills}</emphasis> {@terms.kill, n=kills}</muted>"
           }
         }
       ]

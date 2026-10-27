@@ -42,10 +42,17 @@
           }
         },
         {
-          "slot": "donation",
+          "slot": "withdraw",
           "label": {
-            "en": "{donating, select, true {Remove the donation} other {Add a {amount} donation}}",
-            "de": "{donating, select, true {Spende entfernen} other {{amount} spenden}}"
+            "en": "Remove the donation",
+            "de": "Spende entfernen"
+          }
+        },
+        {
+          "slot": "donate",
+          "label": {
+            "en": "Add a {amount} donation",
+            "de": "{amount} spenden"
           }
         }
       ]

@@ -17,8 +17,8 @@
         },
         {
           "text": {
-            "en": "<muted>The Hunger Games start when all teams are ready. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {total, plural, one {team} other {teams}} ready.</muted> <click:run_command:'/hg ready'><good>[I have read the rules and I am ready]</good></click>",
-            "de": "<muted>Die Hunger Games starten, sobald alle Teams bereit sind. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {total, plural, one {Team} other {Teams}} bereit.</muted> <click:run_command:'/hg ready'><good>[Ich habe die Regeln gelesen und bin bereit]</good></click>"
+            "en": "<muted>The Hunger Games start when all teams are ready. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} ready.</muted> <click:run_command:'/hg ready'><good>[I have read the rules and I am ready]</good></click>",
+            "de": "<muted>Die Hunger Games starten, sobald alle Teams bereit sind. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} bereit.</muted> <click:run_command:'/hg ready'><good>[Ich habe die Regeln gelesen und bin bereit]</good></click>"
           }
         }
       ]

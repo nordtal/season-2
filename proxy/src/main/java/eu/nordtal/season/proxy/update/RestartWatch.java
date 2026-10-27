@@ -13,6 +13,8 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.messages.value.Occasion;
+import eu.nordtal.season.messages.value.Service;
 import eu.nordtal.season.proxy.PhaseServers;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.time.Clock;
@@ -34,19 +36,19 @@ public final class RestartWatch {
 
     /** @param service the compose service, which the text names when {@code what} is {@code OTHER} */
     record Counted(
-            RunShape.Occasion occasion,
-            Homecoming.Service what,
+            Occasion occasion,
+            Service what,
             @Example("steward") String service,
             @Example("30") long seconds) {}
 
     record Now(
-            RunShape.Occasion occasion,
-            Homecoming.Service what,
+            Occasion occasion,
+            Service what,
             @Example("steward") String service) {}
 
     record Fated(RunShape.Fate fate) {}
 
-    record Occasioned(RunShape.Occasion occasion) {}
+    record Occasioned(Occasion occasion) {}
 
     record Tick(@Example("10") long seconds) {}
 
@@ -308,13 +310,13 @@ public final class RestartWatch {
     }
 
     /** @param only the only service of the run, {@code null} for several */
-    static Sent<Counted> countdown(final RunShape.Occasion occasion, final @Nullable String only, final long seconds) {
-        return COUNTDOWN.with(new Counted(occasion, Homecoming.Service.of(only), service(only), seconds));
+    static Sent<Counted> countdown(final Occasion occasion, final @Nullable String only, final long seconds) {
+        return COUNTDOWN.with(new Counted(occasion, Service.of(only), service(only), seconds));
     }
 
     /** @param only the only service of the run, {@code null} for several */
-    static Sent<Now> now(final RunShape.Occasion occasion, final @Nullable String only) {
-        return NOW.with(new Now(occasion, Homecoming.Service.of(only), service(only)));
+    static Sent<Now> now(final Occasion occasion, final @Nullable String only) {
+        return NOW.with(new Now(occasion, Service.of(only), service(only)));
     }
 
     private static String service(final @Nullable String only) {

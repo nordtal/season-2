@@ -42,22 +42,60 @@ jobs:
           distribution: temurin
           java-version: "25"
 
+      # Only main writes the cache. Without the key, which a fork's pull request does not get, the configuration cache is not kept.
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       # `build` stages the build/image of every image through `assemble`. The integration tests use the Docker daemon of ubuntu-latest.
       # SettingsPageEndToEndTest drives the runner's Chrome; without NORDTAL_CHROMIUM it skips.
+      # The frontend job runs viteTest, the longest task, beside this one.
       - name: Build and test
-        run: ./gradlew build
+        run: ./gradlew build -x :steward:viteTest
         env:
           NORDTAL_CHROMIUM: /usr/bin/google-chrome
 
-      # Catches a broken Dockerfile on every push.
+      # A pull request builds the images only when it changes what they copy or how it is staged; main always does.
+      - name: Find whether the images need a build
+        id: images
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ] && git diff --quiet "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" -- \
+            deploy .dockerignore compose.yml build-logic gradle discord-bot steward steward-agent steward-bunq; then
+            echo "nothing the images copy changed"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Catches a broken Dockerfile before it reaches main.
       - name: Build the images without pushing
+        if: steps.images.outputs.build == 'true'
         run: |
           for module in discord-bot steward steward-agent steward-bunq; do
             docker build -f deploy/jvm/Dockerfile --build-arg "MODULE=$module" -t "nordtal/$module:ci" .
           done
           docker build -t nordtal/minecraft:ci deploy/minecraft
+
+  # Steward's vitest suite in two halves, each on a runner of its own, beside the build job.
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        shard: ["1/2", "2/2"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: Steward frontend tests ${{ matrix.shard }}
+        run: ./gradlew :steward:viteTest -PvitestShard=${{ matrix.shard }}
 
   # Lua and LuaRocks install into the checkout, so the designer's tests keep them out of the build job's sources.
   designer:

@@ -50,6 +50,12 @@ export function addPart(parts: readonly DocumentPart[], path: PartPath, added: D
   return changePart(parts, path, (part) => ({ ...part, parts: [...(part.parts ?? []), added] }))
 }
 
+/** Returns where the last part inside the part at `path` sits, the last at the top for an empty path. */
+export function lastPath(parts: readonly DocumentPart[], path: PartPath): PartPath {
+  const inside = path.reduce<readonly DocumentPart[]>((list, at) => list[at]?.parts ?? [], parts)
+  return [...path, inside.length - 1]
+}
+
 /** Returns every slot id the part places, its inner parts included. */
 export function slotsOf(part: DocumentPart): string[] {
   return [
@@ -72,19 +78,23 @@ export function unplacedSlots(declaration: DocumentDeclaration, parts: readonly 
   return declaration.slots.filter((slot) => !placed.has(slot.id))
 }
 
-function inEnglish(english: string): DocumentText {
-  return { [ENGLISH]: english }
+/** A new text with `words` in English and in each of `languages`, so the check finds no language missing. */
+export function newText(languages: readonly string[], words = ""): DocumentText {
+  return Object.fromEntries([ENGLISH, ...languages].map((language) => [language, words]))
 }
 
-/** A new part of `type`, as the editor adds it before the admin fills it. */
-export function newPart(type: Exclude<DocumentPartType, "LANGUAGES" | "ITEM" | "LABEL">): DocumentPart {
+/** A new part of `type` with its texts in `languages`, as the editor adds it before the admin fills it. */
+export function newPart(
+  type: Exclude<DocumentPartType, "LANGUAGES" | "ITEM" | "LABEL">,
+  languages: readonly string[],
+): DocumentPart {
   switch (type) {
     case "CONTAINER":
-      return { type, parts: [newPart("TEXT")] }
+      return { type, parts: [newPart("TEXT", languages)] }
     case "TEXT":
-      return { type, lines: [{ text: inEnglish("") }] }
+      return { type, lines: [{ text: newText(languages) }] }
     case "SECTION":
-      return { type, parts: [newPart("TEXT")], thumbnail: "" }
+      return { type, parts: [newPart("TEXT", languages)], thumbnail: "" }
     case "SEPARATOR":
       return { type }
     case "GALLERY":
@@ -92,7 +102,7 @@ export function newPart(type: Exclude<DocumentPartType, "LANGUAGES" | "ITEM" | "
     case "FILE":
       return { type, media: [""] }
     case "ROW":
-      return { type, items: [newLink()] }
+      return { type, items: [newLink(languages)] }
     default: {
       const exhaustive: never = type
       throw new Error(`unreachable part type: ${String(exhaustive)}`)
@@ -100,35 +110,35 @@ export function newPart(type: Exclude<DocumentPartType, "LANGUAGES" | "ITEM" | "
   }
 }
 
-export function newLink(): DocumentItem {
-  return { link: "https://", label: inEnglish("") }
+export function newLink(languages: readonly string[]): DocumentItem {
+  return { link: "https://", label: newText(languages) }
 }
 
 /** The part that places a slot the code fills, labelled with the slot's id until the admin writes its words. */
-export function slotPart(slot: DocumentSlot): DocumentPart {
+export function slotPart(slot: DocumentSlot, languages: readonly string[]): DocumentPart {
   switch (slot.type) {
     case "BUTTON":
-      return { type: "ROW", items: [{ slot: slot.id, label: inEnglish(slot.id) }] }
+      return { type: "ROW", items: [{ slot: slot.id, label: newText(languages, slot.id) }] }
     case "SELECT":
       return {
         type: "ROW",
         items: [
           {
             slot: slot.id,
-            placeholder: inEnglish(slot.id),
-            ...(slot.values && Object.keys(slot.values).length > 0 ? { option: inEnglish("") } : {}),
+            placeholder: newText(languages, slot.id),
+            ...(slot.values && Object.keys(slot.values).length > 0 ? { option: newText(languages) } : {}),
           },
         ],
       }
     case "INPUT":
-      return { type: "ROW", items: [{ slot: slot.id, label: inEnglish(slot.id) }] }
+      return { type: "ROW", items: [{ slot: slot.id, label: newText(languages, slot.id) }] }
     case "LIST":
-      return { type: "TEXT", lines: [{ list: slot.id, text: inEnglish("") }] }
+      return { type: "TEXT", lines: [{ list: slot.id, text: newText(languages) }] }
     case "LANGUAGES":
-      return { type: "LANGUAGES", slot: slot.id, parts: [newPart("TEXT")] }
+      return { type: "LANGUAGES", slot: slot.id, parts: [newPart("TEXT", languages)] }
     case "ITEM":
     case "LABEL":
-      return { type: slot.type, slot: slot.id, lines: [{ text: inEnglish(slot.id) }] }
+      return { type: slot.type, slot: slot.id, lines: [{ text: newText(languages, slot.id) }] }
     default: {
       const exhaustive: never = slot.type
       throw new Error(`unreachable slot type: ${String(exhaustive)}`)

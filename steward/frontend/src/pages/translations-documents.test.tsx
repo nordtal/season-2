@@ -662,8 +662,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Shared part rule-links" }))
 
     expect(await within(editor).findByText("Shared part rule-links")).toBeTruthy()
-    const folded = within(editor).getByRole("button", { name: /^Buttons\s*Rules$/ })
-    fireEvent.click(folded)
+    // An added part starts open.
     expect(within(editor).getByText(/Every document that names rule-links draws it here/)).toBeTruthy()
 
     fireEvent.pointerDown(within(editor).getAllByRole("button", { name: "Shared part" }).at(-1)!, { button: 0 })

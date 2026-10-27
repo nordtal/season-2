@@ -6,6 +6,8 @@ import {
   holdsRequired,
   insertValue,
   movePart,
+  newLink,
+  newPart,
   readWhen,
   slotPart,
   unplacedSlots,
@@ -48,7 +50,20 @@ describe("document edits", () => {
     expect(holdsRequired(declaration, ["accept"])).toBe(true)
     expect(holdsRequired(declaration, ["rules"])).toBe(false)
     expect(unplacedSlots(declaration, parts).map((slot) => slot.id)).toEqual(["rules"])
-    expect(slotPart(declaration.slots[1])).toEqual({ type: "TEXT", lines: [{ list: "rules", text: { en: "" } }] })
+    expect(slotPart(declaration.slots[1], ["en"])).toEqual({
+      type: "TEXT",
+      lines: [{ list: "rules", text: { en: "" } }],
+    })
+  })
+
+  it("writes a new part's texts in every language the document has", () => {
+    expect(newPart("TEXT", ["en", "de"])).toEqual({ type: "TEXT", lines: [{ text: { en: "", de: "" } }] })
+    expect(newPart("SECTION", ["en", "de"]).parts).toEqual([{ type: "TEXT", lines: [{ text: { en: "", de: "" } }] }])
+    expect(newLink(["en", "de"]).label).toEqual({ en: "", de: "" })
+    expect(slotPart(declaration.slots[0], ["en", "de"])).toEqual({
+      type: "ROW",
+      items: [{ slot: "accept", label: { en: "accept", de: "accept" } }],
+    })
   })
 
   it("reads and writes each condition the way the bot does", () => {

@@ -1,8 +1,7 @@
 import { CaretRightIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import type {
-  SharedPartView,
   Document,
   DocumentItem,
   DocumentLine,
@@ -17,9 +16,11 @@ import {
   addPart,
   changePart,
   holdsRequired,
+  lastPath,
   movePart,
   newLink,
   newPart,
+  newText,
   slotPart,
   slotsOf,
   unplacedSlots,
@@ -28,6 +29,7 @@ import {
   withLine,
   type PartPath,
 } from "@/lib/document-edit"
+import { languagesOf } from "@/lib/documents"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { useDocumentDrawing, useDocuments, useGameAction, useSaveDocument } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
@@ -106,6 +108,7 @@ export function DocumentEditor({
   const problems = drawing.data?.problems ?? []
   const refused = problems.some((problem) => problem.error)
   const sharedParts = useDocuments().data?.sharedParts ?? []
+  const [added, setAdded] = useState<PartPath>()
   const context: Context = {
     view,
     language,
@@ -113,6 +116,13 @@ export function DocumentEditor({
     problems,
     onPart: (path, change) => onDraft({ parts: changePart(draft.parts, path, change) }),
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
+    languages: languagesOf(draft),
+    onAdd: (path, part) => {
+      const parts = addPart(draft.parts, path, part)
+      setAdded(lastPath(parts, path))
+      onDraft({ parts })
+    },
+    added,
   }
   const name = view.declaration.title
   // A modal and a channel's name are no direct message; a game text goes to the admin's player.
@@ -140,12 +150,7 @@ export function DocumentEditor({
       {/* A problem in no part, or in a part the draft no longer has. */}
       <ProblemList problems={problems.filter((problem) => draft.parts[problem.part[0] ?? -1] === undefined)} />
       <Parts parts={draft.parts} path={[]} context={context} />
-      <AddPart
-        view={view}
-        parts={draft.parts}
-        sharedParts={sharedParts}
-        onAdd={(part) => onDraft({ parts: addPart(draft.parts, [], part) })}
-      />
+      <AddPart parts={draft.parts} path={[]} context={context} />
       <DocumentVersions view={view} disabled={save.isPending} onRestore={submit} />
       {save.error ? <Failure error={save.error} write /> : null}
       {send.error ? <Failure error={send.error} write /> : null}
@@ -255,7 +260,7 @@ function Parts({ parts, path, context }: { parts: DocumentPart[]; path: PartPath
 
 /**
  * One part folded to a line: on its left the buttons that move it and lock or remove it, then its kind and its first
- * words in the language picked. A click opens what it holds; only the document's first part starts open.
+ * words in the language picked. A click opens what it holds. The document's first part and an added one start open.
  */
 function PartEditor({
   part,
@@ -271,7 +276,13 @@ function PartEditor({
   const { view, onPart } = context
   const set = (change: (part: DocumentPart) => DocumentPart | undefined) => onPart(path, change)
   const at = path[path.length - 1]
-  const [open, setOpen] = useState(path.length === 1 && at === 0)
+  // The part added last and every part it holds mount together, and all of them start open.
+  const [added] = useState(context.added?.every((index, level) => path[level] === index) ?? false)
+  const [open, setOpen] = useState(added || (path.length === 1 && at === 0))
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (added && path.length === context.added?.length) box.current?.scrollIntoView?.({ block: "nearest" })
+  }, [added, path.length, context.added?.length])
   // A separator holds nothing to open.
   const empty = part.type === "SEPARATOR"
   const saved = context.sharedParts.find((each) => each.name === part.shared)?.part
@@ -280,9 +291,10 @@ function PartEditor({
   const words =
     first && drawLine(first.source, view.game ? "MINIMESSAGE" : "DISCORD_MARKDOWN", argsOf(view.named), first.language)
   return (
-    <div className={cn("min-w-0 rounded-md border", open && !empty && "bg-muted/40")}>
-      <div className="flex min-w-0 items-center justify-between gap-1 p-1 max-md:flex-wrap md:justify-start">
-        <span className="contents shrink-0 items-center md:flex">
+    <div ref={box} className={cn("min-w-0 rounded-md border", open && !empty && "bg-muted/40")}>
+      {/* The row is one line on every width. Only a shared part's badge wraps, onto a line of its own on a phone. */}
+      <div className="flex min-w-0 items-center gap-1 p-1 max-md:flex-wrap">
+        <span className="flex shrink-0 items-center">
           <Move first={at === 0} last={last} onMove={(by) => context.onMove(path, by)} />
           {holdsRequired(view.declaration, slotsOf(part)) ? (
             <Required />
@@ -297,7 +309,7 @@ function PartEditor({
           aria-expanded={empty ? undefined : open}
           disabled={empty}
           onClick={() => setOpen(!open)}
-          className="flex min-w-0 items-center gap-1.5 rounded-sm p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-1"
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {empty ? null : (
             <CaretRightIcon
@@ -384,20 +396,13 @@ export function PartBody({
   context: Context
   set: (change: (part: DocumentPart) => DocumentPart | undefined) => void
 }) {
-  const { view } = context
   switch (part.type) {
     case "CONTAINER":
       return (
         <>
           <AccentField accent={part.accent} onAccent={(accent) => set((it) => ({ ...it, accent }))} />
           <Parts parts={part.parts ?? []} path={path} context={context} />
-          <AddPart
-            view={view}
-            parts={part.parts ?? []}
-            sharedParts={context.sharedParts}
-            inside
-            onAdd={(added) => set((it) => ({ ...it, parts: [...(it.parts ?? []), added] }))}
-          />
+          <AddPart parts={part.parts ?? []} path={path} context={context} />
         </>
       )
     case "LANGUAGES":
@@ -413,7 +418,7 @@ export function PartBody({
           {(part.parts?.length ?? 0) < 3 ? (
             <AddButton
               label={t("steward.document-editor.add-text")}
-              onPress={() => set((it) => ({ ...it, parts: [...(it.parts ?? []), newPart("TEXT")] }))}
+              onPress={() => context.onAdd(path, newPart("TEXT", context.languages))}
             />
           ) : null}
           <SectionBeside part={part} context={context} set={set} />
@@ -439,7 +444,7 @@ export function PartBody({
           {(part.items ?? []).every((item) => isButton(context, item)) && (part.items?.length ?? 0) < 5 ? (
             <AddButton
               label={t("steward.document-editor.add-link")}
-              onPress={() => set((it) => ({ ...it, items: [...(it.items ?? []), newLink()] }))}
+              onPress={() => set((it) => ({ ...it, items: [...(it.items ?? []), newLink(context.languages)] }))}
             />
           ) : null}
         </>
@@ -486,7 +491,7 @@ function TextBlock({
       {part.type === "LABEL" ? null : (
         <AddButton
           label={t("steward.document-editor.add-line")}
-          onPress={() => set((it) => ({ ...it, lines: [...(it.lines ?? []), { text: { [ENGLISH]: "" } }] }))}
+          onPress={() => set((it) => ({ ...it, lines: [...(it.lines ?? []), { text: newText(context.languages) }] }))}
         />
       )}
     </>
@@ -642,7 +647,7 @@ function SectionBeside({
         onValueChange={(next) =>
           set((it) =>
             next === "BUTTON"
-              ? { ...it, button: newLink(), thumbnail: undefined }
+              ? { ...it, button: newLink(context.languages), thumbnail: undefined }
               : { ...it, button: undefined, thumbnail: "" },
           )
         }
@@ -676,19 +681,10 @@ function SectionBeside({
 }
 
 /** The menu that adds a part, a shared part drawn in its place, or a slot the code fills that no part places yet. */
-function AddPart({
-  view,
-  parts,
-  sharedParts,
-  inside,
-  onAdd,
-}: {
-  view: DocumentView
-  parts: DocumentPart[]
-  sharedParts: readonly SharedPartView[]
-  inside?: boolean
-  onAdd: (part: DocumentPart) => void
-}) {
+function AddPart({ parts, path, context }: { parts: DocumentPart[]; path: PartPath; context: Context }) {
+  const { view, sharedParts, languages } = context
+  const inside = path.length > 0
+  const onAdd = (part: DocumentPart) => context.onAdd(path, part)
   const slots = inside ? [] : unplacedSlots(view.declaration, [])
   const missing = unplacedSlots(view.declaration, parts).filter((slot) => slots.some((each) => each.id === slot.id))
   // A menu holds its title, then only the items and labels the code places; any other game text holds text blocks.
@@ -711,7 +707,7 @@ function AddPart({
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-auto">
         {kinds.map((type) => (
-          <DropdownMenuItem key={type} onSelect={() => onAdd(newPart(type))}>
+          <DropdownMenuItem key={type} onSelect={() => onAdd(newPart(type, languages))}>
             {t("steward.document-editor.part", { part: choice(type) })}
           </DropdownMenuItem>
         ))}
@@ -722,7 +718,11 @@ function AddPart({
           </DropdownMenuItem>
         ))}
         {missing.map((slot) => (
-          <DropdownMenuItem key={slot.id} onSelect={() => onAdd(slotPart(slot))} className="font-mono text-xs">
+          <DropdownMenuItem
+            key={slot.id}
+            onSelect={() => onAdd(slotPart(slot, languages))}
+            className="font-mono text-xs"
+          >
             {t("steward.document-editor.slot", { slot: slot.id })}
           </DropdownMenuItem>
         ))}

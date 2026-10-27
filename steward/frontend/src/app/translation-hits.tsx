@@ -6,7 +6,7 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import { argsOf } from "@/components/steward/document-fields"
 import { fillOf, useWords, valuesOf } from "@/components/steward/message-editor/examples"
 import { Badge } from "@/components/ui/badge"
-import type { MessageArg, MessageExamples, TranslationHit } from "@/lib/api"
+import type { DocumentDeclaration, MessageArg, MessageExamples, TranslationHit } from "@/lib/api"
 import { documentId } from "@/lib/documents"
 import {
   useDocuments,
@@ -19,11 +19,17 @@ import { branchesOf, formatOf, parse, plainText, type Format } from "@/lib/rich-
 import { setPendingTextJump } from "@/lib/settings-search"
 import { DOCUMENT_LEAF, leafPaths, messageName, textId, textsTree } from "@/lib/settings-tree"
 import { t, type Words } from "@/lib/texts"
+import { hitItemId } from "@/lib/translation-items"
 
 const MAX_HITS = 30
 
 /** One row: what the hit opens, the leaf it is on the Translations page and what it is shown by. */
 type Row = { hit: TranslationHit; leaf: string; name: string; format: Format; args: MessageArg[]; bundle?: string }
+
+/** Every value a document's text can name: its own and its slots'. */
+function argsOfDeclaration({ values, slots }: DocumentDeclaration): MessageArg[] {
+  return argsOf(Object.assign({}, values, ...slots.map((slot) => slot.values)))
+}
 
 /** Returns `source` as its examples draw it, with every plural and select as the case its example picks. */
 export function renderedText(
@@ -41,7 +47,7 @@ export function renderedText(
 }
 
 /**
- * The texts and documents the server's search finds, in its order, each under its path on the Translations page with
+ * The texts, documents and shared parts the server's search finds, in its order, each under its path on the Translations page with
  * the language it was found in. A hit opens the page on it in that language.
  */
 export function TranslationHits({ search, open, onDone }: { search: string; open: boolean; onDone: () => void }) {
@@ -55,7 +61,16 @@ export function TranslationHits({ search, open, onDone }: { search: string; open
   const words = useWords()
 
   const paths = React.useMemo(
-    () => leafPaths(textsTree(texts?.texts ?? [], texts?.places ?? {}, documents?.documents ?? [])),
+    () =>
+      leafPaths(
+        textsTree(
+          texts?.texts ?? [],
+          texts?.places ?? {},
+          documents?.documents ?? [],
+          undefined,
+          documents?.sharedParts,
+        ),
+      ),
     [texts, documents],
   )
   const rows = React.useMemo(() => {
@@ -68,10 +83,24 @@ export function TranslationHits({ search, open, onDone }: { search: string; open
         const format = formatOf(entry.format)
         return [{ hit, leaf: hit.id, name: messageName(entry), format, args: entry.args, bundle: entry.bundle }]
       }
+      if (hit.kind === "SHARED_PART") {
+        const shared = documents?.sharedParts.find((part) => part.name === hit.id)
+        if (!shared) return []
+        // The part's placeholders are the values of the documents that name it, so the first one's fill them.
+        const named = views.get(shared.documents[0] ?? "")?.declaration
+        return [
+          {
+            hit,
+            leaf: hitItemId(hit),
+            name: shared.name,
+            format: "MINIMESSAGE",
+            args: named ? argsOfDeclaration(named) : [],
+          },
+        ]
+      }
       const view = views.get(hit.id)
       if (!view) return []
-      const { values, slots } = view.declaration
-      const args = argsOf(Object.assign({}, values, ...slots.map((slot) => slot.values)))
+      const args = argsOfDeclaration(view.declaration)
       return [{ hit, leaf: `${DOCUMENT_LEAF}${hit.id}`, name: view.declaration.title, format: "MINIMESSAGE", args }]
     })
   }, [typed, hits, texts, documents])

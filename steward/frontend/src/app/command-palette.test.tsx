@@ -603,6 +603,22 @@ describe("CommandPalette - finding a translation", () => {
     expect(takePendingTextJump()).toEqual({ id: "document:discord/payment-link", language: "de" })
   })
 
+  it("finds a shared part and opens it under Building blocks", async () => {
+    oneBundle([])
+    vi.mocked(useDocuments).mockReturnValue(
+      queryResult({
+        ...DOCUMENTS,
+        sharedParts: [{ name: "rule-links", part: { type: "TEXT", lines: [] }, documents: [] }],
+      }),
+    )
+    found([{ kind: "SHARED_PART", id: "rule-links", language: "de", field: "TEXT", exact: true, text: "Regeln" }])
+
+    await search("regeln")
+    fireEvent.click(await screen.findByText("rule-links"))
+
+    expect(takePendingTextJump()).toEqual({ id: "shared-part/rule-links", language: "de" })
+  })
+
   it("asks nothing before anything is typed", async () => {
     oneBundle([grave])
     found([])

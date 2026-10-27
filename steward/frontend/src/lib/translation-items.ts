@@ -1,4 +1,4 @@
-import type { Document } from "@/lib/api"
+import type { Document, TranslationHit } from "@/lib/api"
 import { versionsOf } from "@/lib/document-edit"
 import { documentId, documentOf, languagesOf, sharedPartId, textsOf, type PageCard } from "@/lib/documents"
 import { ENGLISH, overrideOf, packagedOf, type Language } from "@/lib/message-text"
@@ -18,6 +18,11 @@ export type Area = { id: TextGroup; label: string; sections: Section[]; count: n
 export function cardId(card: PageCard): string {
   if (card.kind === "shared") return sharedPartId(card.shared.name)
   return card.kind === "document" ? documentId(card.view.declaration) : textId(card.text.entry)
+}
+
+/** Returns the id of the item a search hit opens: the server names a shared part by its name alone. */
+export function hitItemId(hit: TranslationHit): string {
+  return hit.kind === "SHARED_PART" ? sharedPartId(hit.id) : hit.id
 }
 
 export function itemName(card: PageCard): string {

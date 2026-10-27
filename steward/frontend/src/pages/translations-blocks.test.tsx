@@ -142,6 +142,18 @@ describe("a shared part", () => {
     expect(JSON.stringify(saved[0][1])).toContain("Read the house rules")
   })
 
+  it("is a hit of the search, and opens from there", async () => {
+    drawPage({
+      search: () => [{ kind: "SHARED_PART", id: "rule-links", language: "en", field: "TEXT", exact: true, text: "x" }],
+    })
+    fireEvent.change(await screen.findByRole("searchbox", { name: "Search the texts" }), {
+      target: { value: "rules" },
+    })
+
+    fireEvent.click(await screen.findByRole("button", { name: "rule-links" }))
+    expect(await screen.findByRole("article", { name: "rule-links" })).toBeDefined()
+  })
+
   it("opens from the badge of a document that names it", async () => {
     drawPage()
     const document = await openItem("Notice", /^Discord/)

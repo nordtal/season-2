@@ -3,6 +3,9 @@ package eu.nordtal.season.steward.messages;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.messages.document.Line;
+import eu.nordtal.season.messages.document.Part;
+import eu.nordtal.season.messages.document.Text;
 import eu.nordtal.season.steward.messages.TranslationSearch.Candidate;
 import eu.nordtal.season.steward.messages.TranslationSearch.Field;
 import eu.nordtal.season.steward.messages.TranslationSearch.Hit;
@@ -114,5 +117,35 @@ class TranslationSearchTest {
     void everyWordHasToBeFound() {
         assertEquals(List.of(), TranslationSearch.find("payment days", ALL, LANGUAGES));
         assertEquals(List.of(), TranslationSearch.find("  ", ALL, LANGUAGES));
+    }
+
+    @Test
+    void aSharedPartIsAHitOfItsOwnByItsNameAndItsWordsInEveryLanguage() {
+        final DocumentsApi.SharedPartView rules = new DocumentsApi.SharedPartView(
+                "rule-links",
+                Part.text(List.of(new Line(
+                        new Text(Map.of("en", List.of("Read the rules"), "de", List.of("Lies die Regeln"))),
+                        null,
+                        null,
+                        null))),
+                List.of("discord/notice"));
+        final List<Candidate> candidates =
+                TranslationSearch.candidatesOf(new DocumentsApi.DocumentList(List.of(), LANGUAGES, List.of(rules)));
+
+        final List<Hit> byWords = TranslationSearch.find("Regeln", candidates, LANGUAGES);
+        assertEquals(List.of("rule-links"), ids(byWords));
+        assertEquals(Kind.SHARED_PART, byWords.getFirst().kind());
+        assertEquals("de", byWords.getFirst().language());
+        assertEquals(
+                Field.NAME,
+                TranslationSearch.find("rule links", candidates, LANGUAGES)
+                        .getFirst()
+                        .field());
+        // A document that names the part stands above it, as an area does above a text.
+        assertEquals(
+                Field.PARENT,
+                TranslationSearch.find("notice", candidates, LANGUAGES)
+                        .getFirst()
+                        .field());
     }
 }

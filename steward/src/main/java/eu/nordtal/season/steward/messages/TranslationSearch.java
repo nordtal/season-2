@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Finds every text and document by its name, its key, the areas above it and its text in every language.
+ * Finds every text, document and shared part by its name, its key, the areas above it and its text in every language.
  *
  * It tolerates typos and searches what the two lists answer, in memory. A building block is a text of its own.
  */
@@ -42,7 +42,8 @@ public final class TranslationSearch {
 
     public enum Kind {
         TEXT,
-        DOCUMENT
+        DOCUMENT,
+        SHARED_PART
     }
 
     /** Where a word was found, the strongest first. */
@@ -56,8 +57,8 @@ public final class TranslationSearch {
     /**
      * One translation as the search reads it.
      *
-     * @param id      {@code bundle/key} of a text, {@code namespace/name} of a document
-     * @param parents the names of the areas above it, outermost first
+     * @param id      {@code bundle/key} of a text, {@code namespace/name} of a document, the name of a shared part
+     * @param parents the names of the areas above it, outermost first; for a shared part, the documents that name it
      * @param texts   its versions by language
      */
     record Candidate(
@@ -78,14 +79,36 @@ public final class TranslationSearch {
         final DocumentsApi.DocumentList listed = documents.documents();
         final List<Candidate> candidates = new ArrayList<>();
         messages.current().forEach(text -> candidates.add(candidateOf(text.entry())));
-        listed.documents()
-                .forEach(view -> candidates.add(candidateOf(
-                        view.declaration().id(),
-                        view.declaration().title(),
-                        view.declaration().name(),
-                        view.declaration().area(),
-                        Objects.requireNonNullElse(view.written(), view.packaged()))));
+        candidates.addAll(candidatesOf(listed));
         ctx.json(find(Objects.requireNonNullElse(ctx.queryParam("query"), ""), candidates, listed.languages()));
+    }
+
+    /** Every document and every shared part of {@code listed}. */
+    static List<Candidate> candidatesOf(final DocumentsApi.DocumentList listed) {
+        final List<Candidate> candidates = new ArrayList<>();
+        final Map<String, String> titles = new LinkedHashMap<>();
+        for (final DocumentsApi.DocumentView view : listed.documents()) {
+            titles.put(view.declaration().id(), view.declaration().title());
+            candidates.add(candidateOf(
+                    Kind.DOCUMENT,
+                    view.declaration().id(),
+                    view.declaration().title(),
+                    view.declaration().name(),
+                    List.of(view.declaration().area()),
+                    Objects.requireNonNullElse(view.written(), view.packaged())));
+        }
+        for (final DocumentsApi.SharedPartView shared : listed.sharedParts()) {
+            candidates.add(candidateOf(
+                    Kind.SHARED_PART,
+                    shared.name(),
+                    shared.name(),
+                    shared.name(),
+                    shared.documents().stream()
+                            .map(id -> titles.getOrDefault(id, id))
+                            .toList(),
+                    new Document(List.of(shared.part()))));
+        }
+        return candidates;
     }
 
     private static Candidate candidateOf(final MessageEntry entry) {
@@ -104,14 +127,19 @@ public final class TranslationSearch {
     }
 
     private static Candidate candidateOf(
-            final String id, final String title, final String name, final String area, final Document document) {
+            final Kind kind,
+            final String id,
+            final String title,
+            final String name,
+            final List<String> parents,
+            final Document document) {
         final Map<String, List<String>> texts = new LinkedHashMap<>();
         for (final Text text : document.texts()) {
             text.languages()
                     .forEach((language, versions) -> texts.computeIfAbsent(language, ignored -> new ArrayList<>())
                             .addAll(versions));
         }
-        return new Candidate(Kind.DOCUMENT, id, title, name, List.of(area), texts);
+        return new Candidate(kind, id, title, name, parents, texts);
     }
 
     /** Returns the candidates every word of {@code query} finds, each once in its best language, the best first. */

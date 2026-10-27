@@ -1004,7 +1004,7 @@ export type DocumentProblem = {
   part: number[]
 }
 
-export type TranslationKind = "TEXT" | "DOCUMENT"
+export type TranslationKind = "TEXT" | "DOCUMENT" | "SHARED_PART"
 
 export type TranslationField = "NAME" | "KEY" | "PARENT" | "TEXT"
 

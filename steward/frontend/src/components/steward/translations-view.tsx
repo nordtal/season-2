@@ -15,6 +15,7 @@ import {
   type Area,
   areasOf,
   documentWords,
+  hitItemId,
   type Item,
   readable,
   type Section,
@@ -176,7 +177,7 @@ export function TranslationsView({
           ) : query.trim() !== "" ? (
             <QueryState query={searched} rows={4}>
               {(hits) => {
-                const ids = new Set(hits.map((hit) => hit.id))
+                const ids = new Set(hits.map(hitItemId))
                 return <Found page={page} areas={areas} found={placed.filter((item) => ids.has(item.id))} />
               }}
             </QueryState>

@@ -737,3 +737,14 @@ describe("a jump from the command palette", () => {
     expect(screen.getByRole("tab", { name: "DE" }).getAttribute("aria-selected")).toBe("true")
   })
 })
+
+describe("a link", () => {
+  it("to a document opens it, with the area it is listed in", async () => {
+    vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([contribution]) }))
+    draw(<Page state={{ document: "discord/contribution" }} />)
+
+    expect(await screen.findByRole("article", { name: "Contribution" })).toBeDefined()
+    const rows = screen.getAllByRole("button", { name: "Contribution" })
+    expect(rows.some((row) => row.getAttribute("aria-current") === "true")).toBe(true)
+  })
+})

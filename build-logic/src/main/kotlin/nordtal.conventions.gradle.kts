@@ -62,7 +62,7 @@ tasks.withType<JavaCompile>().configureEach {
         enabled = conventionsEnforced
         disableWarningsInGeneratedCode = true
         excludedPaths = ".*/generated/.*"
-        // CONVENTIONS.md allows a doc comment with tags only when the name and the tags say everything.
+        // The code rules of the agent-kit allow a doc comment with tags only when the name and the tags say everything.
         disable("MissingSummary")
         check("NullAway", if (name == "compileJava") CheckSeverity.ERROR else CheckSeverity.OFF)
         option("NullAway:AnnotatedPackages", "eu.nordtal")

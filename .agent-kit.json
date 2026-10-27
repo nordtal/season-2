@@ -1,0 +1,18 @@
+{
+  "path": ["steward/build/nodejs/*/bin", "steward/frontend/node_modules/.bin"],
+  "files": [
+    {
+      "match": ["steward/frontend/*.ts", "steward/frontend/*.tsx"],
+      "format": "oxfmt --no-error-on-unmatched-pattern {file}",
+      "lint": "cd steward/frontend && oxlint --type-aware --deny-warnings {file}"
+    },
+    {
+      "match": ["*.ts", "*.tsx", "*.js", "*.mjs", "*.json", "*.jsonc", "*.md", "*.yml", "*.yaml", "*.css"],
+      "format": "oxfmt --no-error-on-unmatched-pattern {file}"
+    },
+    {
+      "match": ["*.java"],
+      "format": "{kit}/scripts/palantir-java-format --palantir --skip-reflowing-long-strings --replace {file}"
+    }
+  ]
+}

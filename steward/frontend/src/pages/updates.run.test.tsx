@@ -23,15 +23,7 @@ const STEPS = [
     step: "INSTALL",
     service: "proxy",
     outcome: "DONE",
-    lines: [
-      {
-        key: "run.change",
-        args: {
-          artefact: text("proxy"),
-          change: { kind: "message", value: { key: "run.moved", args: { from: text("0.9.3"), to: text("0.9.4") } } },
-        },
-      },
-    ],
+    lines: [{ key: "run.moved", args: { artefact: text("proxy"), from: text("0.9.3"), to: text("0.9.4") } }],
     changes: [{ artefact: "proxy", from: "0.9.3", to: "0.9.4" }],
     saved: [],
     pruned: [],

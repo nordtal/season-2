@@ -30,7 +30,7 @@
           "lines": [
             {
               "text": {
-                "en": "**By** {by}"
+                "en": "**By** {@values.actor, kind=by}"
               }
             },
             {

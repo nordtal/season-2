@@ -328,9 +328,6 @@ export type TextArgs = {
   "journal.action": {
     action: Arg["choice"]
   }
-  "journal.actor": {
-    kind: Arg["choice"]
-  }
   "journal.add-authenticator": Record<string, never>
   "journal.add-plugin": {
     service: Arg["text"]
@@ -379,9 +376,6 @@ export type TextArgs = {
   }
   "journal.link": Record<string, never>
   "journal.link-codes-exhausted": Record<string, never>
-  "journal.person": {
-    person: Arg["mention"]
-  }
   "journal.register-key": {
     label: Arg["text"]
   }
@@ -557,14 +551,11 @@ export type TextArgs = {
   "run.cache-freed": {
     freed: Arg["message"]
   }
-  "run.change": {
-    artefact: Arg["text"]
-    change: Arg["message"]
-  }
   "run.exit-code": {
     code: Arg["number"]
   }
   "run.image": {
+    artefact: Arg["text"]
     image: Arg["choice"]
   }
   "run.images-removed": {
@@ -575,10 +566,10 @@ export type TextArgs = {
     kind: Arg["choice"]
   }
   "run.moved": {
+    artefact: Arg["text"]
     from: Arg["text"]
     to: Arg["text"]
   }
-  "run.no-build": Record<string, never>
   "run.offsite": {
     snapshot: Arg["text"]
     added: Arg["message"]
@@ -610,7 +601,8 @@ export type TextArgs = {
     stage: Arg["choice"]
   }
   "run.version": {
-    to: Arg["text"]
+    artefact: Arg["text"]
+    version: Arg["text"]
   }
   "steward.announcements.ask": Record<string, never>
   "steward.announcements.compose": Record<string, never>

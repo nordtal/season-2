@@ -102,7 +102,6 @@ class DocumentRendererTest {
 
         assertTrue(drawn.contains("First admin"), drawn);
         assertTrue(drawn.contains("Signed in as the first admin."), drawn);
-        assertFalse(drawn.contains("no build yet"), drawn);
     }
 
     @Test
@@ -110,9 +109,8 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("**smp** *Runtime* 1.21.4 → 1.21.5"), drawn);
+        assertTrue(drawn.contains("**smp** *Runtime* paper 1.21.4 → 1.21.5"), drawn);
         assertTrue(drawn.contains("**smp** exit code 2"), drawn);
-        assertFalse(drawn.contains("no build yet"), drawn);
         assertFalse(drawn.contains("admin/"), drawn);
     }
 

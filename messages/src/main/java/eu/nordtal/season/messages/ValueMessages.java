@@ -1,5 +1,6 @@
 package eu.nordtal.season.messages;
 
+import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.Key;
@@ -8,11 +9,12 @@ import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.messages.value.Mention;
 
 /**
  * The words that show values in every process.
- * They are the replacement word of each kind, the units of a duration, the last joint of a list
- * and yes and no. {@code Words} reads them by key. The build checks them. An admin can change them.
+ * The replacement word of each kind, the units of a duration, the joints of a list, yes and no, and who did
+ * something. {@code Words} reads them by key. The build checks them, and an admin can change them.
  */
 @MessageSpec(value = "values", format = TextFormat.PLAIN)
 @Shown({
@@ -137,6 +139,10 @@ public interface ValueMessages {
         }
 
         Choice choice();
+
+        @Name("Who did it: a person as a mention, anyone else as the word for their kind")
+        MessageRef actor(
+                @Arg("kind") @Example("steward") Actor.Kind kind, @Arg("person") @Example("Alex") Mention person);
 
         @Name("Choice")
         interface Choice {

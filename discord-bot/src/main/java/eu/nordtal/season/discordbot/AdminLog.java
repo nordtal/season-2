@@ -40,6 +40,8 @@ public final class AdminLog {
     private static final String AREA = "Admin channel";
 
     /**
+     * @param by the kind of who did it
+     * @param person the member who did it when a person did, else {@code null}
      * @param concerns the member the entry is about, or {@code null}
      * @param minecraft the Minecraft account the entry is about, or {@code null}
      */
@@ -52,11 +54,11 @@ public final class AdminLog {
             @Takes({"admin/*", "database/*"}) @Example("admin/journal.admin-root")
             MessageRef line,
 
-            @Takes({"admin/journal.actor", "admin/journal.person"})
-            MessageRef by,
+            @Example("steward") Actor.Kind by,
 
-            @Takes({"admin/journal.actor", "admin/journal.person"}) @Nullable
-            MessageRef concerns,
+            @Nullable @Example("Alex") Mention person,
+
+            @Nullable @Example("Kim") Mention concerns,
 
             @Nullable @Example("Red_Fox") String minecraft) {}
 
@@ -264,8 +266,9 @@ public final class AdminLog {
                         MARKS.getOrDefault(action, Mark.NOTED).symbol(),
                         TEXTS.journal().action(action),
                         line,
-                        TEXTS.journal().who(actor),
-                        subject == null ? null : TEXTS.journal().who(Actor.person(subject)),
+                        actor.kind(),
+                        actor.person() == null ? null : Mention.of(actor.person()),
+                        subject == null ? null : Mention.of(subject),
                         account == null ? null : account.toString()),
                 Map.of(),
                 Locales.DEFAULT);

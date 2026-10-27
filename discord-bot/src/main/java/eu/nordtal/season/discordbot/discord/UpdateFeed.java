@@ -2,6 +2,8 @@ package eu.nordtal.season.discordbot.discord;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
+import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.database.update.RunLines;
 import eu.nordtal.season.database.update.RunRecord;
@@ -19,6 +21,7 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.spec.Takes;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.messages.value.Mention;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -66,15 +69,17 @@ public final class UpdateFeed {
     }
 
     /**
-     * @param by who asked, or {@code null} where the card does not name it
+     * @param by the kind of who asked, or {@code null} where the card does not name it
+     * @param person the member who asked when a person did, else {@code null}
      * @param took how long a finished run took, or {@code null}
      */
     record Run(
             @Example(Mark.PREVIEW) String mark,
             @Takes("admin/run.title") MessageRef title,
 
-            @Takes({"admin/journal.actor", "admin/journal.person"}) @Nullable
-            MessageRef by,
+            @Example("steward") Actor.@Nullable Kind by,
+
+            @Nullable @Example("Alex") Mention person,
 
             @Nullable @Example("PT4M30S") Duration took) {}
 
@@ -371,12 +376,14 @@ public final class UpdateFeed {
         }
         final Instant requested = request.requested();
         final Instant finished = request.finished();
+        final DiscordId asker = request.actor().person();
         return documents.render(
                 RUN,
                 new Run(
                         glance(stage).symbol(),
                         TEXTS.run().title(request.kind(), stage),
-                        context ? TEXTS.journal().who(request.actor()) : null,
+                        context ? request.actor().kind() : null,
+                        context && asker != null ? Mention.of(asker) : null,
                         finished != null && requested != null ? Duration.between(requested, finished) : null),
                 Map.of(
                         "services",

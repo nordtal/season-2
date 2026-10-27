@@ -74,16 +74,16 @@ public final class RunLines {
     /** Returns a change as its versions, else as what happened to its image, else as its name alone. */
     public static MessageRef change(final RunStep.Change change) {
         if (change.from() != null && change.to() != null) {
-            return TEXTS.run().change(change.artefact(), TEXTS.run().moved(shown(change.from()), change.to()));
+            return TEXTS.run().moved(change.artefact(), shown(change.from()), change.to());
         }
         if (change.to() != null) {
-            return TEXTS.run().change(change.artefact(), TEXTS.run().version(change.to()));
+            return TEXTS.run().version(change.artefact(), change.to());
         }
         if (change.from() != null) {
-            return TEXTS.run().change(change.artefact(), TEXTS.run().version(change.from()));
+            return TEXTS.run().version(change.artefact(), change.from());
         }
         return change.image() != null
-                ? TEXTS.run().change(change.artefact(), TEXTS.run().image(change.image()))
+                ? TEXTS.run().image(change.artefact(), change.image())
                 : TEXTS.run().artefact(change.artefact());
     }
 

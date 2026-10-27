@@ -1,8 +1,6 @@
 package eu.nordtal.season.database;
 
 import eu.nordtal.season.common.SeasonPhase;
-import eu.nordtal.season.common.id.Actor;
-import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
@@ -22,7 +20,6 @@ import eu.nordtal.season.messages.spec.MessageSpec;
 import eu.nordtal.season.messages.spec.MessageSpecs;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
-import eu.nordtal.season.messages.spec.Takes;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Mention;
@@ -58,20 +55,6 @@ public interface AdminTexts {
         @Name("Action")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef action(@Arg("action") JournalAction action);
-
-        @Name("Who did it, when nobody pressed anything")
-        @Shown(Display.DISCORD_TEXT)
-        MessageRef actor(@Arg("kind") @Example("steward") Actor.Kind kind);
-
-        @Name("Who did it, a person")
-        @Shown(Display.DISCORD_TEXT)
-        MessageRef person(@Arg("person") @Example("Alex") Mention person);
-
-        /** Who did it: a person as a mention, anyone else as the word for their kind. */
-        default MessageRef who(final Actor actor) {
-            final DiscordId person = actor.person();
-            return person == null ? actor(actor.kind()) : person(Mention.of(person));
-        }
 
         @Name("First admin")
         MessageRef adminRoot();
@@ -301,9 +284,9 @@ public interface AdminTexts {
         @Shown(Display.STEWARD)
         MessageRef exitCode(@Arg("code") @Example("2") long code);
 
-        @Name("What happens to a container's image")
-        @Shown(Display.STEWARD)
-        MessageRef image(@Arg("image") RunStep.Image image);
+        @Name("An artefact and what happens to its container's image")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef image(@Arg("artefact") @Example("paper") String artefact, @Arg("image") RunStep.Image image);
 
         @Name("An artefact no version names")
         @Shown(Display.STEWARD)
@@ -350,23 +333,17 @@ public interface AdminTexts {
         MessageRef archivePruned(
                 @Arg("file") @Example("nordtal-20261020-0400.dump") String file, @Arg("rule") RunStep.PruneRule rule);
 
-        @Name("An artefact with no build for this Minecraft version")
-        @Shown(Display.DISCORD_TEXT)
-        MessageRef noBuild();
-
-        @Name("What changed of a service")
-        @Shown(Display.DISCORD_TEXT)
-        MessageRef change(
+        @Name("An artefact whose version was replaced by another")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef moved(
                 @Arg("artefact") @Example("paper") String artefact,
-                @Arg("change") @Takes({"admin/*", "database/*"}) @Example("admin/run.no-build") MessageRef change);
+                @Arg("from") @Example("1.21.4") String from,
+                @Arg("to") @Example("1.21.5") String to);
 
-        @Name("A version replaced by another")
-        @Shown(Display.DISCORD_TEXT)
-        MessageRef moved(@Arg("from") @Example("1.21.4") String from, @Arg("to") @Example("1.21.5") String to);
-
-        @Name("A version")
-        @Shown(Display.DISCORD_TEXT)
-        MessageRef version(@Arg("to") @Example("1.21.5") String to);
+        @Name("An artefact and its one version")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef version(
+                @Arg("artefact") @Example("paper") String artefact, @Arg("version") @Example("1.21.5") String version);
     }
 
     /** An alert: its title and the lines below it. */
@@ -396,14 +373,14 @@ public interface AdminTexts {
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef step(
                 @Arg("kind") @Example("Room check") MessageRef kind,
-                @Arg("why") @Example("admin/run.no-build") MessageRef why);
+                @Arg("why") @Example("admin/run.exit-code") MessageRef why);
 
         @Name("A step of a failed run on one service that failed or warned")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef stepOn(
                 @Arg("kind") @Example("Room check") MessageRef kind,
                 @Arg("service") @Example("smp") String service,
-                @Arg("why") @Example("admin/run.no-build") MessageRef why);
+                @Arg("why") @Example("admin/run.exit-code") MessageRef why);
 
         @Name("No services")
         MessageRef noServices();

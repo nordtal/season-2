@@ -16,11 +16,16 @@ import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentMatch;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.LinkFlow;
+import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.messages.MessageOverride;
+import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -138,6 +143,28 @@ class AdminLogTest {
                 **By** Steward
                 **Concerns** <@400000000000000002>
                 **Minecraft** `00000000-0000-0000-0000-000000000001`""", card.text());
+    }
+
+    @Test
+    void anOverrideOfTheActorBlockReachesTheJournalCard() {
+        final Messages messages =
+                Messages.load(AdminLogTest.class.getClassLoader(), DocumentRenderer.BUNDLES, Locale.ENGLISH);
+        final String packaged = PackagedTexts.hash(messages.packaged(Messages.VALUES, "values.actor", Locale.ENGLISH));
+        messages.override(List.of(new MessageOverride(
+                Messages.VALUES,
+                "values.actor",
+                "en",
+                0,
+                "{kind, select, person {{person}} steward {the crew} other {{kind}}}",
+                packaged)));
+        final DocumentRenderer renderer =
+                new DocumentRenderer(DiscordRenderer.of(messages), StoredDocumentsStandIn.none());
+
+        final DocumentRenderer.Drawn card = AdminLog.card(
+                renderer,
+                AuditLine.of(JournalAction.REGISTER_KEY, Actor.STEWARD, new JournalDetail.KeyRegistered("key")));
+
+        assertTrue(card.text().contains("**By** the crew"), card.text());
     }
 
     @Test

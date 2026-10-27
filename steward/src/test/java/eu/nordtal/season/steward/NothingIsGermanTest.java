@@ -54,6 +54,7 @@ class NothingIsGermanTest {
             "NothingIsGermanTest.java",
             "MessageBundlesTest.java",
             "MessagesApiIntegrationTest.java",
+            "PluginNamesIntegrationTest.java",
             "TranslationSearchTest.java");
 
     private static final Pattern WORD = Pattern.compile("[A-Za-zÄÖÜäöüß]{3,}");

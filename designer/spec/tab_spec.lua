@@ -301,9 +301,9 @@ describe("the Nordtal tab", function()
     assert.equal(1, dlg.shown)
   end)
 
-  it("puts the Minecraft bar above the editor, and the tree above the properties in the side panel", function()
+  it("puts the Minecraft bar above the editor, and the tree above a splitter and the properties in the side panel", function()
     local t = setUp()
-    assert.same({ "canvas", "editor", "panel", "tree", "canvas" }, kinds(t.dialogs[1]))
+    assert.same({ "canvas", "editor", "panel", "tree", "splitter", "canvas" }, kinds(t.dialogs[1]))
     assert.equal("bar", t.dialogs[1].widgets[1].args.id)
     assert.equal("properties", t.dialogs[1].widgets[#t.dialogs[1].widgets].args.id)
     -- A canvas grows with the window unless told otherwise, and the bar keeps one line
@@ -323,7 +323,7 @@ describe("the Nordtal tab", function()
 
   it("docks the side panel on the right when the setting says so", function()
     local t = setUp({ treeSide="right" })
-    assert.same({ "canvas", "editor", "panel", "tree", "canvas" }, kinds(t.dialogs[1]))
+    assert.same({ "canvas", "editor", "panel", "tree", "splitter", "canvas" }, kinds(t.dialogs[1]))
     assert.equal("right", t.dialogs[1].handlers.nordtal_pack.side)
   end)
 

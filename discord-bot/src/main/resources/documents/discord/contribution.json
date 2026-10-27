@@ -29,8 +29,8 @@
             {
               "list": "tiers",
               "text": {
-                "en": "**{price}** {days, plural, one {# day} other {# days}}",
-                "de": "**{price}** {days, plural, one {# Tag} other {# Tage}}"
+                "en": "**{price}** {@values.duration.days, n=days}",
+                "de": "**{price}** {@values.duration.days, n=days}"
               }
             }
           ]

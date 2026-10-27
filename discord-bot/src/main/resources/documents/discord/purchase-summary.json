@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "**{days, plural, one {# day} other {# days}} of access** for {price}.",
-            "de": "**{days, plural, one {# Tag} other {# Tage}} Zugang** für {price}."
+            "en": "**{@values.duration.days, n=days} of access** for {price}.",
+            "de": "**{@values.duration.days, n=days} Zugang** für {price}."
           }
         },
         {

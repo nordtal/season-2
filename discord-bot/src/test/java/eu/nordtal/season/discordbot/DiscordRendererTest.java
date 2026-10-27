@@ -2,15 +2,21 @@ package eu.nordtal.season.discordbot;
 
 import static eu.nordtal.season.database.DatabaseMessages.MESSAGES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.messages.MessageOverride;
+import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.context.TeamContext;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
@@ -52,6 +58,28 @@ class DiscordRendererTest {
 
         assertEquals("<@123> donated €3.00. Thank you!", text(Locale.ENGLISH, Replies.PUBLIC_DONATION, donated));
         assertEquals("<@123> hat 3,00 € gespendet. Danke!", text(Locale.GERMAN, Replies.PUBLIC_DONATION, donated));
+    }
+
+    @Test
+    void anOverrideOfTheDaysBlockReachesTheAdminsGrant() {
+        final Messages messages =
+                Messages.load(DiscordRendererTest.class.getClassLoader(), DocumentRenderer.BUNDLES, Locale.ENGLISH);
+        final String days = "values.duration.days";
+        messages.override(List.of(new MessageOverride(
+                Messages.VALUES,
+                days,
+                "en",
+                0,
+                "{n, plural, one {# whole day} other {# whole days}}",
+                PackagedTexts.hash(messages.packaged(Messages.VALUES, days, Locale.ENGLISH)))));
+        final DocumentRenderer renderer =
+                new DocumentRenderer(DiscordRenderer.of(messages), StoredDocumentsStandIn.none());
+
+        final String text = renderer.reply(
+                        Locale.ENGLISH, new Sent<>(Replies.DM_GRANTED_ADMIN, new Replies.Given(30, AT)))
+                .text();
+
+        assertTrue(text.contains("30 whole days"), text);
     }
 
     private static <V extends Record> String text(

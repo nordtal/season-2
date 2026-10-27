@@ -21,8 +21,8 @@
             "de": "Wie lange willst du Zugang?"
           },
           "option": {
-            "en": "{days, plural, one {# day} other {# days}}: {price}",
-            "de": "{days, plural, one {# Tag} other {# Tage}}: {price}"
+            "en": "{@values.duration.days, n=days}: {price}",
+            "de": "{@values.duration.days, n=days}: {price}"
           }
         }
       ]

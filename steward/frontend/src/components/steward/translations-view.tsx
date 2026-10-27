@@ -24,6 +24,7 @@ import { ComponentCount, DocumentEditor, DocumentMarks } from "@/components/stew
 import { LanguageToggle } from "@/components/steward/document-fields"
 import { SearchField } from "@/components/steward/filter-bar"
 import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
+import { OpenBlock } from "@/components/steward/message-editor/preview"
 import { DraftDot, type Highlight, PinnedRow, type Target, useWide } from "@/components/steward/settings-view"
 import { FallenBack, Pills, TEXTS_FILE, type TextsModel, useTextsModel } from "@/components/steward/texts"
 import { Badge } from "@/components/ui/badge"
@@ -142,11 +143,11 @@ export function TranslationsView({
       const key = blockKey(item)
       return key === undefined ? undefined : (texts.uses[key] ?? NO_USES)
     },
-    blocksOf: (item) =>
-      Object.entries(texts.uses)
-        .filter(([, uses]) => (item.card.kind === "text" ? uses.texts : uses.documents).includes(item.id))
-        .map(([key]) => placed.find((each) => blockKey(each) === key) ?? key),
     find: (id) => placed.find((item) => item.id === id) ?? id,
+  }
+  const openBlock = (key: string) => {
+    const block = placed.find((item) => blockKey(item) === key)
+    return block && (() => page.onOpen(block))
   }
   // One toggle at a time: beside the filter from a laptop's width, else in the open item's header.
   const wide = useWide()
@@ -244,13 +245,14 @@ export function TranslationsView({
               })()}
               onOpen={page.onOpen}
             />
-            <Links label={t("steward.texts.blocks-used")} links={page.blocksOf(open)} onOpen={page.onOpen} />
-            <ItemEditor
-              key={open.id}
-              page={page}
-              item={open}
-              highlight={highlight?.id === open.id ? highlight : null}
-            />
+            <OpenBlock value={openBlock}>
+              <ItemEditor
+                key={open.id}
+                page={page}
+                item={open}
+                highlight={highlight?.id === open.id ? highlight : null}
+              />
+            </OpenBlock>
           </article>
         ) : null}
       </div>
@@ -268,8 +270,6 @@ type Page = {
   missing: (item: Item) => boolean
   /** A building block's uses, or undefined for any other item. */
   uses: (item: Item) => BlockUses | undefined
-  /** The building blocks an item names itself, each as its item, or as its key where the list holds none. */
-  blocksOf: (item: Item) => (Placed | string)[]
   /** The item listed under `id`, or `id` where the list holds none. */
   find: (id: string) => Placed | string
 }

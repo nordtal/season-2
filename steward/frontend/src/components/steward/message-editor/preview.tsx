@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { createContext, use, useEffect, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 import { CaretDownIcon } from "@phosphor-icons/react"
 import { StewardMark } from "@/app/steward-mark"
@@ -8,6 +8,7 @@ import { cn } from "cn"
 import type { GlyphInfo, MessageSurface } from "@/lib/api"
 import { colourOf, gradientAt, plainText, shadowOf } from "@/lib/rich-text"
 import type { Run, Style } from "@/lib/rich-text"
+import { t } from "@/lib/texts"
 import type { Fill } from "@/components/steward/message-editor/examples"
 
 export type Tones = Record<string, string>
@@ -148,6 +149,26 @@ function visible(run: Run, fill: Fill): string {
   return run.kind === "text" ? run.text : run.kind === "placeholder" ? fill(run.name, run.s) : ""
 }
 
+/** Returns the action that opens a building block by its key, or undefined where the page holds no such block. */
+export const OpenBlock = createContext<(key: string) => (() => void) | undefined>(() => undefined)
+
+/** A building block's words, which open the block on a click where the page can open it. */
+export function BlockLink({ block, children }: { block: string | undefined; children: ReactNode }) {
+  const opener = use(OpenBlock)
+  const open = block === undefined ? undefined : opener(block)
+  if (!open) return children
+  return (
+    <button
+      type="button"
+      onClick={open}
+      title={t("steward.texts.open-block")}
+      className="cursor-pointer underline decoration-dotted underline-offset-2"
+    >
+      {children}
+    </button>
+  )
+}
+
 function McRun({
   run,
   fill,
@@ -169,26 +190,31 @@ function McRun({
   if (run.kind === "glyph") return <Glyph name={run.name} glyphs={glyphs} scale={scale} />
   const text = visible(run, fill)
   const decoration = decorationStyle(style)
+  const block = run.kind === "text" ? run.block : undefined
   if (style.gradient && gradient) {
     const colours = style.gradient
     return (
-      <span style={decoration}>
-        {Array.from(text).map((char, at) => {
-          const colour = gradientAt(colours, gradient.total <= 1 ? 0 : (gradient.start + at) / (gradient.total - 1))
-          return (
-            <span key={at} style={{ color: colour, textShadow: shadow ? shadowCss(colour, scale) : undefined }}>
-              {style.obfuscated ? <Obfuscated text={char} /> : char}
-            </span>
-          )
-        })}
-      </span>
+      <BlockLink block={block}>
+        <span style={decoration}>
+          {Array.from(text).map((char, at) => {
+            const colour = gradientAt(colours, gradient.total <= 1 ? 0 : (gradient.start + at) / (gradient.total - 1))
+            return (
+              <span key={at} style={{ color: colour, textShadow: shadow ? shadowCss(colour, scale) : undefined }}>
+                {style.obfuscated ? <Obfuscated text={char} /> : char}
+              </span>
+            )
+          })}
+        </span>
+      </BlockLink>
     )
   }
   const colour = colourOf(style, tones, base)
   return (
-    <span style={{ ...decoration, color: colour, textShadow: shadow ? shadowCss(colour, scale) : undefined }}>
-      {style.obfuscated ? <Obfuscated text={text} /> : text}
-    </span>
+    <BlockLink block={block}>
+      <span style={{ ...decoration, color: colour, textShadow: shadow ? shadowCss(colour, scale) : undefined }}>
+        {style.obfuscated ? <Obfuscated text={text} /> : text}
+      </span>
+    </BlockLink>
   )
 }
 
@@ -506,6 +532,13 @@ export function DiscordRuns({ runs, fill }: { runs: Run[]; fill: Fill }) {
             {value}
           </span>
         )
+        if (run.kind === "text" && run.block) {
+          node = (
+            <BlockLink key={index} block={run.block}>
+              {node}
+            </BlockLink>
+          )
+        }
         if (style.click?.action === "open_url") {
           node = (
             <span key={index} style={{ color: "#00a8fc" }} className="hover:underline">
@@ -669,7 +702,19 @@ function PagePreview({
   frame: "page" | "toast" | "push"
   className?: string
 }) {
-  const text = <span className="break-words whitespace-pre-wrap">{plainText(runs, fill)}</span>
+  const text = (
+    <span className="break-words whitespace-pre-wrap">
+      {runs.map((run, index) =>
+        run.kind === "text" && run.block ? (
+          <BlockLink key={index} block={run.block}>
+            {run.text}
+          </BlockLink>
+        ) : (
+          plainText([run], fill)
+        ),
+      )}
+    </span>
+  )
   if (frame === "page") {
     return (
       <div className={cn("w-full rounded-md border bg-card p-3 text-sm text-card-foreground", className)}>{text}</div>

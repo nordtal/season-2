@@ -34,7 +34,7 @@ import {
   ValueStyleMenu,
 } from "@/components/steward/message-editor/parts"
 import { BreakButton, NumberButton, Toolbar } from "@/components/steward/message-editor/tools"
-import { Glyph, MINECRAFT_FONT, type Tones } from "@/components/steward/message-editor/preview"
+import { BlockLink, Glyph, MINECRAFT_FONT, type Tones } from "@/components/steward/message-editor/preview"
 
 export type VisualEditorProps = {
   runs: Run[]
@@ -489,7 +489,7 @@ function RunView({
           className={chip ? undefined : "rounded-sm bg-muted px-1 font-mono text-[0.7em] text-muted-foreground"}
           style={chip ? { ...textStyle(run.style, format, tones), ...marks } : { textShadow: "none" }}
         >
-          {chip ?? run.source}
+          {chip ?? <BlockLink block={BLOCK_REFERENCE.exec(run.source)?.[1]}>{run.source}</BlockLink>}
         </span>
       )
     }
@@ -499,6 +499,9 @@ function RunView({
     }
   }
 }
+
+/** The key a building block reference names. */
+const BLOCK_REFERENCE = /^\{@([^\s,}]+)/
 
 /** None of the three is visible in the game until used. */
 function marksOf(style: Style, format: Format): CSSProperties {

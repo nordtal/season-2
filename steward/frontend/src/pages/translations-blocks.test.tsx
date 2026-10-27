@@ -85,19 +85,29 @@ describe("a building block", () => {
   })
 })
 
-describe("a text", () => {
-  it("links each building block it uses, which opens the block", async () => {
+describe("a building block reference", () => {
+  it("opens its block from the block's words in the preview", async () => {
     drawPage()
     await openItem("Welcome")
 
-    const blocks = screen.getByRole("list", { name: "Building blocks it uses" })
-    expect(
-      within(blocks)
-        .getAllByRole("button")
-        .map((use) => use.textContent),
-    ).toEqual(["Access", "Network"])
-    fireEvent.click(within(blocks).getByRole("button", { name: "Access" }))
+    expect(screen.queryByRole("list", { name: "Building blocks it uses" })).toBeNull()
+    fireEvent.click(within(screen.getByRole("figure", { name: "Chat" })).getByRole("button", { name: "Nordtal" }))
+    expect(await screen.findByRole("article", { name: "Network" })).toBeDefined()
+  })
+
+  it("opens its block from its chip in the editor", async () => {
+    drawPage()
+    await openItem("Welcome")
+
+    fireEvent.click(screen.getByRole("button", { name: "{@terms.access}" }))
     expect(await screen.findByRole("article", { name: "Access" })).toBeDefined()
+  })
+
+  it("to a block the list does not hold opens nothing", async () => {
+    drawPage()
+    await openItem("Greeting")
+
+    expect(within(screen.getByRole("figure", { name: "Chat" })).queryByRole("button", { name: "something" })).toBeNull()
   })
 })
 

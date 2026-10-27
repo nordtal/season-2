@@ -2057,11 +2057,11 @@ export type TextArgs = {
     filter: Arg["choice"]
   }
   "steward.texts.block-filter-label": Record<string, never>
-  "steward.texts.blocks-used": Record<string, never>
   "steward.texts.group": {
     group: Arg["choice"]
   }
   "steward.texts.none": Record<string, never>
+  "steward.texts.open-block": Record<string, never>
   "steward.texts.search": Record<string, never>
   "steward.texts.service": Record<string, never>
   "steward.texts.shown-in": Record<string, never>

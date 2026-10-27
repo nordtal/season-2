@@ -45,8 +45,8 @@ public interface TranslationsPage {
     @Name("Used in")
     MessageRef usedIn();
 
-    @Name("Blocks a text uses")
-    MessageRef blocksUsed();
+    @Name("Open a block")
+    MessageRef openBlock();
 
     @Name("Block filter")
     MessageRef blockFilter(@Arg("filter") BlockFilter filter);

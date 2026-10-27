@@ -402,6 +402,7 @@
     "steward.message-editor.copy-to-clipboard": ["translations"],
     "steward.message-editor.default-style": ["translations"],
     "steward.message-editor.empty": ["translations"],
+    "steward.message-editor.exact-number": ["translations"],
     "steward.message-editor.fallen-back": ["translations"],
     "steward.message-editor.glyph": ["translations"],
     "steward.message-editor.gradient": ["translations"],

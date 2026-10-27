@@ -1271,6 +1271,7 @@ export type TextArgs = {
   "steward.message-editor.copy-to-clipboard": Record<string, never>
   "steward.message-editor.default-style": Record<string, never>
   "steward.message-editor.empty": Record<string, never>
+  "steward.message-editor.exact-number": Record<string, never>
   "steward.message-editor.fallen-back": Record<string, never>
   "steward.message-editor.glyph": Record<string, never>
   "steward.message-editor.gradient": Record<string, never>

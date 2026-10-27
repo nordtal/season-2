@@ -635,26 +635,36 @@ const days = () =>
   )
 
 describe("a plural as its cases", () => {
-  it("gives each case a field of its own, its number drawn as a chip", async () => {
+  it("opens one case at a time, each tab named with the numbers it stands for", async () => {
     days()
     draw(<Page />)
     await openItem("Days")
 
     const cases = await screen.findByRole("region", { name: "By the number n" })
+    expect(
+      within(cases)
+        .getAllByRole("tab")
+        .map((tab) => tab.textContent),
+    ).toEqual(["one1", "other0, 2, 3"])
     expect(within(cases).getByRole("textbox", { name: "Days one" }).textContent).toBe("# day")
-    expect(within(cases).getByRole("textbox", { name: "Days other" }).textContent).toBe("# days")
+    expect(within(cases).queryByRole("textbox", { name: "Days other" })).toBeNull()
+
+    fireEvent.mouseDown(within(cases).getByRole("tab", { name: /^other/ }))
+    expect((await within(cases).findByRole("textbox", { name: "Days other" })).textContent).toBe("# days")
   })
 
-  it("adds a case before other and removes one, and the source shows the syntax they make", async () => {
+  it("adds an exact number before other and removes the open case, and the source shows the syntax they make", async () => {
     days()
     draw(<Page />)
     await openItem("Days")
 
     const cases = await screen.findByRole("region", { name: "By the number n" })
-    fireEvent.change(within(cases).getByRole("textbox", { name: "New case" }), { target: { value: "=0" } })
+    fireEvent.click(within(cases).getByRole("button", { name: "Remove this case" }))
     fireEvent.click(within(cases).getByRole("button", { name: "Add a case" }))
-    fireEvent.click(within(cases).getByRole("button", { name: "Remove this case one" }))
+    fireEvent.change(await screen.findByRole("textbox", { name: "Exact number" }), { target: { value: "0" } })
+    fireEvent.submit(screen.getByRole("textbox", { name: "Exact number" }))
 
+    expect(await within(cases).findByRole("textbox", { name: "Days =0" })).toBeTruthy()
     expect((await source("Days")).value).toBe("{n, plural, =0 {# days} other {# days}}")
   })
 

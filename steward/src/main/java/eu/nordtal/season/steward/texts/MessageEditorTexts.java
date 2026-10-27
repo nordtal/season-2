@@ -39,6 +39,9 @@ public interface MessageEditorTexts {
     @Name("New case")
     MessageRef newCase();
 
+    @Name("A plural's exact number")
+    MessageRef exactNumber();
+
     @Name("Remove case")
     MessageRef removeCase();
 

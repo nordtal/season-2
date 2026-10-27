@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  */
 public enum Kind {
 
-    /** Words as written, never markup. */
+    /** Words as written, never markup, unless the style {@code markdown} keeps an admin's markdown in Discord. */
     TEXT("text"),
 
     /** A number, grouped as the reader's language groups it unless the style is {@code plain}. */
@@ -93,6 +93,7 @@ public enum Kind {
     /** Returns the styles a text may ask for. Every kind also renders without one. */
     public Set<String> styles() {
         return switch (this) {
+            case TEXT -> Set.of("markdown");
             case NUMBER, DISPLAY_NAME -> Set.of("plain");
             case DURATION -> Set.of("long", "short", "clock", "minutes");
             case INSTANT -> Set.of("datetime", "date", "time", "relative");

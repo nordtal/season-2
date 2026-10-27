@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{milestone.name} is complete. The Nether is open.",
+            "de": "{milestone.name} ist geschafft. Der Nether steht offen."
+          }
+        }
+      ]
+    }
+  ]
+}

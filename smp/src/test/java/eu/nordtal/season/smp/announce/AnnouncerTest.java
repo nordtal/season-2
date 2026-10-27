@@ -8,7 +8,6 @@ import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.Request;
-import eu.nordtal.season.messages.Messages;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -20,8 +19,6 @@ import org.junit.jupiter.api.Test;
 class AnnouncerTest {
 
     private static final List<Locale> LOADED = List.of(Locale.ENGLISH, Locale.GERMAN);
-    private static final Messages BUNDLE =
-            Messages.load(AnnouncerTest.class.getClassLoader(), "messages/database", Locale.GERMAN);
 
     @Test
     void oneRequestCarriesEveryLanguage() {
@@ -46,17 +43,15 @@ class AnnouncerTest {
         final BotRequest.Announce announcement =
                 (BotRequest.Announce) sent.getFirst().payload();
         assertEquals("departure", announcement.milestone());
-        final Map<String, String> rendered = new HashMap<>();
+        assertEquals(BotRequest.Announce.Message.MILESTONE_BORDER, announcement.message());
+        final Map<String, String> names = new HashMap<>();
         for (final BotRequest.Announce.Line line : announcement.lines()) {
-            rendered.put(
-                    line.language(), BUNDLE.format(Locale.forLanguageTag(line.language()), announcement.text(line)));
+            names.put(line.language(), line.milestoneName());
         }
         assertEquals(
-                Map.of(
-                        "en", "Departure is complete. The border grows.",
-                        "de", "Aufbruch ist geschafft. Die Grenze wächst."),
-                rendered,
-                "each language's text, the milestone named in that language, as the bot renders it");
+                Map.of("en", "Departure", "de", "Aufbruch"),
+                names,
+                "each language's line names the milestone in that language, which the bot's document draws");
         assertTrue(sent.getFirst().expires() != null, "a request nobody claims within the hour is dropped");
     }
 

@@ -58,9 +58,9 @@ class BotInboxTest {
 
     private final BotInbox subject = new BotInbox(
             effects,
-            (tag, message) -> {
-                carriedOut.add("announce " + tag + " " + message.key());
-                return !tag.equals("fr");
+            (announcement, line) -> {
+                carriedOut.add("announce " + line.language() + " " + announcement.message());
+                return !line.language().equals("fr");
             },
             alert -> {
                 carriedOut.add("alert " + alert.entry() + " " + alert.mention());
@@ -145,7 +145,7 @@ class BotInboxTest {
     @Test
     void aPreviewIsSentToTheAdminAndRefusedWhereDiscordDeliversNothing() {
         final MessagePreview preview = new MessagePreview(
-                DatabaseMessages.MESSAGES.announcement().words("Hallo").key(),
+                DatabaseMessages.MESSAGES.season().smpRunning().key(),
                 "de",
                 "**{text}**",
                 Display.DISCORD_MESSAGE,
@@ -172,7 +172,7 @@ class BotInboxTest {
 
         final Object answer = done(BotRequest.Announce.words(words));
 
-        assertEquals(List.of("announce de announcement.words", "announce fr announcement.words"), carriedOut);
+        assertEquals(List.of("announce de WORDS", "announce fr WORDS"), carriedOut);
         assertEquals(
                 new BotRequest.Announce.Answer(List.of(
                         new BotRequest.Announce.Posted("de", true), new BotRequest.Announce.Posted("fr", false))),
@@ -187,9 +187,7 @@ class BotInboxTest {
 
         done(BotRequest.Announce.milestone(BotRequest.Announce.Message.MILESTONE_BORDER, "border.1", names));
 
-        assertEquals(
-                List.of("announce de announcement.milestone.border", "announce en announcement.milestone.border"),
-                carriedOut);
+        assertEquals(List.of("announce de MILESTONE_BORDER", "announce en MILESTONE_BORDER"), carriedOut);
     }
 
     @Test

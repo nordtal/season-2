@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{milestone.name} is complete. The End is open.",
+            "de": "{milestone.name} ist geschafft. Das Ende steht offen."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -156,7 +156,7 @@ class MessagesApiIntegrationTest {
         assertEquals(
                 "[\"clock\",\"long\",\"minutes\",\"short\"]",
                 kinds.get("duration").toString());
-        assertEquals("[]", kinds.get("text").toString());
+        assertEquals("[\"markdown\"]", kinds.get("text").toString());
     }
 
     @Test

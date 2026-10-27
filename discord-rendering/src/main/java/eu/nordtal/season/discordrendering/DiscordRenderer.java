@@ -109,7 +109,10 @@ public final class DiscordRenderer {
         return (mention.role() ? "<@&" : "<@") + mention.member().value() + ">";
     }
 
-    /** Escapes the text in markdown, but a link stays as it is, because a backslash would end up in it. */
+    /**
+     * Escapes the text in markdown, but leaves a link and a text in the style {@code markdown}.
+     * A backslash would end up in a link, and the style marks an admin's words.
+     */
     private static String text(
             final Kind kind,
             final Object value,
@@ -117,7 +120,7 @@ public final class DiscordRenderer {
             final Messages.Prepared prepared,
             final boolean markdown) {
         final String shown = ValueText.of(kind, value, style, prepared.language(), prepared.zone(), prepared.words());
-        return markdown && !(kind == Kind.TEXT && link(shown)) ? escape(shown) : shown;
+        return markdown && !(kind == Kind.TEXT && (link(shown) || "markdown".equals(style))) ? escape(shown) : shown;
     }
 
     private String nested(final MessageRef message, final Messages.Prepared outer) {

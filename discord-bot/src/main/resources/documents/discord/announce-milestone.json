@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{milestone.name} is complete.",
+            "de": "{milestone.name} ist geschafft."
+          }
+        }
+      ]
+    }
+  ]
+}

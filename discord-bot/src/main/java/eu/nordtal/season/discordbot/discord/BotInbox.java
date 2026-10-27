@@ -6,7 +6,6 @@ import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.Outcome;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.ServerRefusal;
-import eu.nordtal.season.messages.MessageRef;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
@@ -21,15 +20,15 @@ import java.util.function.Predicate;
 public final class BotInbox implements Inbox.Handler<BotRequest> {
 
     private final AccessChanges effects;
-    private final BiPredicate<String, MessageRef> announce;
+    private final BiPredicate<BotRequest.Announce, BotRequest.Announce.Line> announce;
     private final Predicate<BotRequest.PostAlert> alert;
     private final Consumer<BotRequest.PaymentBooked> paid;
     private final Predicate<BotRequest.PreviewMessage> preview;
     private final Predicate<BotRequest.PreviewDocument> document;
 
     /**
-     * @param announce renders a message in one language, posts it to that language's announcement channel and
-     *     returns whether it was posted
+     * @param announce renders one line of an announcement, posts it to that line language's announcement channel
+     *     and returns whether it was posted
      * @param alert posts an alert to the admin channel and returns whether it was posted
      * @param paid sends the payer a message about the booked payment
      * @param preview sends an admin the previewed text as a direct message and returns whether Discord delivered it
@@ -37,7 +36,7 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
      */
     public BotInbox(
             final AccessChanges effects,
-            final BiPredicate<String, MessageRef> announce,
+            final BiPredicate<BotRequest.Announce, BotRequest.Announce.Line> announce,
             final Predicate<BotRequest.PostAlert> alert,
             final Consumer<BotRequest.PaymentBooked> paid,
             final Predicate<BotRequest.PreviewMessage> preview,
@@ -81,8 +80,7 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
     /** Posts the text of every language and answers per language whether it was posted. */
     private BotRequest.Announce.Answer post(final BotRequest.Announce announcement) {
         return new BotRequest.Announce.Answer(announcement.lines().stream()
-                .map(line -> new BotRequest.Announce.Posted(
-                        line.language(), announce.test(line.language(), announcement.text(line))))
+                .map(line -> new BotRequest.Announce.Posted(line.language(), announce.test(announcement, line)))
                 .toList());
     }
 }

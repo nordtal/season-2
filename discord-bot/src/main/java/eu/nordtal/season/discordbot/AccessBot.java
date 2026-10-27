@@ -211,8 +211,11 @@ public class AccessBot implements AutoCloseable {
                 wiring.purchaseFlow(),
                 openInbox(new BotInbox(
                         wiring.inboxEffects(),
-                        (tag, message) -> wiring.announcements()
-                                .post(tag, locale -> core.messages().format(locale, message)),
+                        (announcement, line) -> wiring.announcements()
+                                .post(
+                                        line.language(),
+                                        eu.nordtal.season.discordbot.announce.Announcements.text(
+                                                core.renderer(), announcement, line)),
                         alert -> wiring.admin()
                                 .postAlert(alert, wiring.adminRole().id(), updateFeed::failedCard),
                         payment -> wiring.bookings().tell(booked.told(payment)),

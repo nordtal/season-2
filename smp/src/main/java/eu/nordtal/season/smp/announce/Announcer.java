@@ -43,7 +43,7 @@ public final class Announcer {
     /**
      * Sends the announcement of a milestone with its name in each language. The bot renders the text when it posts.
      *
-     * @param message the text of the {@code announcement} section that names the milestone
+     * @param message the bot's document that names the milestone
      * @param name returns the milestone's name in a language
      */
     public void announce(

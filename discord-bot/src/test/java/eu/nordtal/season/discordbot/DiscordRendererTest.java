@@ -1,17 +1,16 @@
 package eu.nordtal.season.discordbot;
 
-import static eu.nordtal.season.database.DatabaseMessages.MESSAGES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.database.AdminTexts;
 import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.MessageOverride;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
-import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.context.TeamContext;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Money;
@@ -35,13 +34,13 @@ class DiscordRendererTest {
     @Test
     void aTextBeingTriedIsWrittenAsTheKeysTextsAreWithItsValuesEscaped() {
         assertEquals(
-                "**Red\\_Fox\\*\\*** ist geschafft.",
+                "**Red\\_Fox\\*\\*** heißt jetzt so.",
                 DOCUMENTS
                         .messages()
                         .format(
                                 Locale.GERMAN,
-                                MESSAGES.announcement().milestone(new MilestoneContext("Red_Fox**")),
-                                "**{milestone.name}** ist geschafft."));
+                                AdminTexts.TEXTS.journal().renameKey("Red_Fox**"),
+                                "**{label}** heißt jetzt so."));
     }
 
     @Test

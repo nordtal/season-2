@@ -4,18 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.database.DatabaseMessages;
+import eu.nordtal.season.database.inbox.BotRequest;
+import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
-import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
-import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.Messages;
-import eu.nordtal.season.messages.context.MilestoneContext;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -24,9 +20,7 @@ import org.slf4j.helpers.MessageFormatter;
 
 class AnnouncementsTest {
 
-    private static final DiscordRenderer BUNDLES = DiscordRenderer.of(
-            Messages.load(AnnouncementsTest.class.getClassLoader(), DocumentRenderer.BUNDLES, Locale.GERMAN));
-    private static final DatabaseMessages.Announcements ANNOUNCEMENT = DatabaseMessages.MESSAGES.announcement();
+    private static final DocumentRenderer DOCUMENTS = StoredDocumentsStandIn.renderer();
 
     private static final Map<String, String> GUILD = Map.of("111", "announcements", "222", "ankuendigungen");
 
@@ -73,8 +67,8 @@ class AnnouncementsTest {
 
     @Test
     void everyPostedLineIsLoggedAtInfoWithItsLanguageAndChannel() {
-        assertTrue(post("en", ANNOUNCEMENT.milestoneSection().border(new MilestoneContext("Frontier"))));
-        assertTrue(post("de", ANNOUNCEMENT.milestoneSection().border(new MilestoneContext("Grenzland"))));
+        assertTrue(post("en", milestone(BotRequest.Announce.Message.MILESTONE_BORDER, "en", "Frontier")));
+        assertTrue(post("de", milestone(BotRequest.Announce.Message.MILESTONE_BORDER, "de", "Grenzland")));
 
         assertEquals(
                 List.of(
@@ -92,20 +86,39 @@ class AnnouncementsTest {
 
     @Test
     void anAdminsWordsKeepTheirMarkdownAndANameDoesNot() {
-        assertTrue(post("en", ANNOUNCEMENT.words("The **End** opens at 8_pm.")));
-        assertTrue(post("en", ANNOUNCEMENT.milestone(new MilestoneContext("Far_Side"))));
+        assertTrue(post("en", BotRequest.Announce.words(Map.of("en", "The **End** opens at 8_pm."))));
+        assertTrue(post("en", milestone(BotRequest.Announce.Message.MILESTONE, "en", "Far_Side")));
 
         assertEquals(List.of("111: The **End** opens at 8_pm.", "111: Far\\_Side is complete."), sent);
     }
 
     @Test
     void aLanguageWithoutAChannelIsNotPosted() {
-        assertFalse(post("fr", ANNOUNCEMENT.words("Bonjour")), "nothing is posted where nobody reads");
+        assertFalse(
+                post("fr", BotRequest.Announce.words(Map.of("fr", "Bonjour"))), "nothing is posted where nobody reads");
         assertEquals(List.of(), sent);
     }
 
-    /** Posts a text as the bot posts what Steward asks for. */
-    private boolean post(final String languageTag, final MessageRef message) {
-        return subject.post(languageTag, locale -> BUNDLES.format(locale, message));
+    @Test
+    void eachMilestoneIsPostedFromItsOwnDocument() {
+        for (final BotRequest.Announce.Message message :
+                List.of(BotRequest.Announce.Message.MILESTONE_NETHER, BotRequest.Announce.Message.MILESTONE_END)) {
+            assertTrue(post("en", milestone(message, "en", "Deep")));
+        }
+
+        assertEquals(
+                List.of("111: Deep is complete. The Nether is open.", "111: Deep is complete. The End is open."), sent);
+    }
+
+    private static BotRequest.Announce milestone(
+            final BotRequest.Announce.Message message, final String language, final String name) {
+        return BotRequest.Announce.milestone(message, "a.milestone", Map.of(language, name));
+    }
+
+    /** Posts the one line of an announcement as the bot posts what Steward or the game asks for. */
+    private boolean post(final String languageTag, final BotRequest.Announce announcement) {
+        return subject.post(
+                languageTag,
+                Announcements.text(DOCUMENTS, announcement, announcement.lines().getFirst()));
     }
 }

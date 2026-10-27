@@ -1,10 +1,7 @@
 package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.common.id.DiscordId;
-import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.notify.Channel;
-import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.spec.Display;
 import java.time.Instant;
@@ -147,23 +144,7 @@ public sealed interface BotRequest {
             return new Announce(message, Objects.requireNonNull(milestone, "milestone"), lines);
         }
 
-        /** Returns the message of one line, from the {@code announcement} section of the database bundle. */
-        public MessageRef text(final Line line) {
-            final DatabaseMessages.Announcements announcement = DatabaseMessages.MESSAGES.announcement();
-            return switch (message) {
-                case WORDS -> announcement.words(Objects.requireNonNull(line.words(), "words"));
-                case MILESTONE -> announcement.milestone(named(line));
-                case MILESTONE_BORDER -> announcement.milestoneSection().border(named(line));
-                case MILESTONE_NETHER -> announcement.milestoneSection().nether(named(line));
-                case MILESTONE_END -> announcement.milestoneSection().end(named(line));
-            };
-        }
-
-        private static MilestoneContext named(final Line line) {
-            return new MilestoneContext(Objects.requireNonNull(line.milestoneName(), "milestoneName"));
-        }
-
-        /** The text of the {@code announcement} section that a request posts. */
+        /** The bot's document that a request posts, one per message. */
         public enum Message {
             WORDS,
             MILESTONE,

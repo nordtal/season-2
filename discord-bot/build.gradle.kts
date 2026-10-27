@@ -66,4 +66,5 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.discordbot.discord.UpdateFeed")
     documentClasses.add("eu.nordtal.season.discordbot.status.StatusName")
     documentClasses.add("eu.nordtal.season.discordbot.status.StatusChannels")
+    documentClasses.add("eu.nordtal.season.discordbot.announce.Announcements")
 }

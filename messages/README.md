@@ -27,7 +27,7 @@ only MessageFormat syntax a text may use. The kinds are a closed set:
 
 | kind       | styles (the first is the default)                                                               |
 | ---------- | ----------------------------------------------------------------------------------------------- |
-| `text`     |                                                                                                 |
+| `text`     | as written, `markdown` keeps an admin's markdown in a Discord text                              |
 | `number`   | grouped, `plain`, at most two fraction digits                                                   |
 | `duration` | `long` (its two largest units), `short` (`2h 5m`), `clock` (`2:05:00`), `minutes` (`1d 6h 30m`) |
 | `instant`  | `datetime`, `date`, `time`, `relative`, in the reader's zone                                    |

@@ -306,7 +306,7 @@ export function SharedPartEditor({
     problems: [],
     onPart: (path, change) => onDraft(changePart([draft], path, change)[0] ?? draft),
     onMove: (path, by) => onDraft(movePart([draft], path, by)[0] ?? draft),
-    languages: languagesOf({ parts: [draft] }),
+    languages: languagesOf({ parts: [draft] }, list.sharedParts),
     onAdd: (path, part) => {
       const parts = addPart([draft], path, part)
       setAdded(lastPath(parts, path))

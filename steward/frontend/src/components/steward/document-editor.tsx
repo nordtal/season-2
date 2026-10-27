@@ -116,7 +116,7 @@ export function DocumentEditor({
     problems,
     onPart: (path, change) => onDraft({ parts: changePart(draft.parts, path, change) }),
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
-    languages: languagesOf(draft),
+    languages: languagesOf(draft, sharedParts),
     onAdd: (path, part) => {
       const parts = addPart(draft.parts, path, part)
       setAdded(lastPath(parts, path))

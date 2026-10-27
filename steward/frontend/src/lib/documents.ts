@@ -24,24 +24,30 @@ export function documentId(declaration: DocumentDeclaration): string {
   return `${declaration.namespace}/${declaration.name}`
 }
 
-/** Returns every text the document shows, each as its versions in every language. */
-export function textsOf(document: Document): DocumentText[] {
-  return document.parts.flatMap(textsOfPart)
+/**
+ * Returns every text the document shows, each as its versions in every language. A part that names one of `sharedParts`
+ * shows that part's texts, as the bot draws it. A shared part that names itself again is read once.
+ */
+export function textsOf(document: Document, sharedParts: readonly SharedPartView[] = []): DocumentText[] {
+  return document.parts.flatMap((part) => textsOfPart(part, sharedParts, []))
 }
 
-function textsOfPart(part: DocumentPart): DocumentText[] {
+function textsOfPart(part: DocumentPart, sharedParts: readonly SharedPartView[], through: string[]): DocumentText[] {
+  const name = part.shared
+  const saved = name && !through.includes(name) ? sharedParts.find((each) => each.name === name)?.part : undefined
+  if (name && saved) return textsOfPart(saved, sharedParts, [...through, name])
   return [
     ...(part.lines ?? []).map((line) => line.text),
     ...[part.button, ...(part.items ?? [])].flatMap((item) =>
       item ? [item.label, item.placeholder, item.option].filter((text) => text !== undefined) : [],
     ),
-    ...(part.parts ?? []).flatMap(textsOfPart),
+    ...(part.parts ?? []).flatMap((inner) => textsOfPart(inner, sharedParts, through)),
   ]
 }
 
-/** Returns the languages the document's texts are written in, English first. */
-export function languagesOf(document: Document): Language[] {
-  const found = new Set(textsOf(document).flatMap((text) => Object.keys(text)))
+/** Returns the languages the document's texts are written in, English first, the texts of `sharedParts` it names included. */
+export function languagesOf(document: Document, sharedParts: readonly SharedPartView[] = []): Language[] {
+  const found = new Set(textsOf(document, sharedParts).flatMap((text) => Object.keys(text)))
   return [ENGLISH, ...[...found].filter((language) => language !== ENGLISH).toSorted()]
 }
 

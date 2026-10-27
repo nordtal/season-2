@@ -1,88 +1,23 @@
 # Conventions
 
-These rules hold for every contributor, human or agent; the last section lists what is specific to
-this repository. Every rule marked _(checked)_ fails `./gradlew check`, and warnings count as failures.
+These rules hold for every contributor, human or agent, on top of the text and code rules of the
+agent-kit; the last section lists what is specific to this repository. Every rule marked _(checked)_ fails `./gradlew check`, and warnings count as failures.
 
 ## Wording
 
-Every text written for this project is short, plain technical prose: Markdown, comments, doc
-comments, commit messages, pull requests, Plane work items and every text a player, a Discord
-member or an admin reads (message bundles, Discord messages, Steward's interface). A rewrite first cuts, then
-rewords what is left.
+The text rules of the agent-kit hold for every text written for this project, including every text a
+player, a Discord member or an admin reads: message bundles, Discord messages and Steward's interface.
+This repository adds the rules for those texts:
 
-### Cut
-
-A line stays only if its reader needs it at that place. Everything else goes.
-
-- **What the code says:** a README or comment does not list fields, endpoints, steps or options
-  that a name, a signature or the code next to it already shows. A README keeps what the module is
-  for, what it requires and refuses, and how to run it.
-- **Reasons and history:** no "because" or "once" sentence and no account of how something came to
-  be, unless a reader without it makes a mistake.
-- **Explanations in player texts:** a player text says what happens and what the player does next,
-  never why.
-- **Jokes and remarks:** a line that carries no fact goes.
-
-### Reword
-
-Every sentence that stays passes each of these tests:
-
-- **Subject:** it names its subject by its one name: a component, class, file, setting, table or
-  command as the code names it, a game term as the `terms` bundle names it. A player text names
-  game terms only, never a component.
-- **Fact:** its verb states what that subject does, holds, reads, writes, requires or refuses. A
-  rewrite never states more than the code does: a fact it cannot check against the code stays as it
-  was.
-- **Literal words:** every word carries its technical meaning. A component is described by its
-  function (`steward-agent` holds the Docker socket), never by an image of it (a door, a gate, a
-  heart). Code names keep their names; a rename is a code change of its own.
-- **Short:** the shortest common word that is exact, one statement per sentence, no filler
-  ("please", "currently", "in order to"). German and English follow the same tests, and German
-  addresses the player as _du_.
-- **Full sentence:** subject, verb and object are written out. A table cell, a diagram label, a
-  heading, a commit title, a button and a title in an interface may be a noun phrase. An
-  instruction is an imperative sentence (`Run it on a host with Docker.`).
-- **Label:** a bold label is the subject's name followed by a colon (`**Bank key:**`), and the
-  sentence after it carries the whole fact. A heading has no colon.
-
-Where a place limits a text (a server-list line, a boss bar, a button), the limit wins over the
-full sentence. A value spliced into another text (`{countdown}`) is written to read correctly in
-every text that uses it.
-
-### Phrasing
-
-Rewording is not optional: every sentence that stays is written anew, and one that only lost words
-still fails. Each pattern below shows a sentence that fails and one that passes.
-
-- **Lists are sentences.** A list item is a full sentence that names its subject. A bold lead-in is
-  allowed only as a label, the name of the thing the sentence is about.
-  - Fails: `**Recreating itself.** A one-shot renews steward-agent.`
-  - Passes: `steward-agent never recreates itself. A one-shot container recreates it.`
-- **The subject comes first.** A sentence opens with what it is about, not with a condition or a
-  pronoun whose noun is in another sentence.
-  - Fails: `Until migrate has applied its newest migration, it writes no run rows.`
-  - Passes: `The one-shot writes no run rows before migrate has finished.`
-- **Plain verbs.** A verb says what happens: start, stop, create, delete, read, write, copy, move,
-  wait, send, refuse. A verb that paints a picture (carries, settles, renews, hands back, goes to,
-  evacuates) is replaced, unless it is a name in the code.
-  - Fails: `An update to a newer release goes to a one-shot.`
-  - Passes: `A one-shot container of the new release runs an update to that release.`
-- **No private words.** A word the reader cannot know (one-shot, slot, payload, settle) is either a
-  name in the code, set in code type, or explained in plain words where it first appears.
-- **One fact per sentence.** No semicolons and no chain of "and" between two facts.
-- **Comments in a command block are sentences too.**
-  - Fails: `# pull, up, wait, exit with the code`
-  - Passes: `# Pull every image, start the stack and wait until it is healthy.`
-- **A heading names a topic.** "Rules", "Notes" and "Details" name none.
-- **German is written, not translated.** A German text says the meaning as a German player would
-  say it, in German word order, without the English sentence behind it.
+- **A player text names game terms only**, never a component, and says what happens and what the
+  player does next, never why.
+- **German addresses the player as _du_** and is written, not translated.
   - Fails: `Verbinde dich erneut, um es noch einmal zu versuchen.`
   - Passes: `Verbinde dich neu.`
   - Fails: `Du wirst jetzt hinübergeschickt.`
   - Passes: `Du kommst jetzt zurück.`
-
-Before a rewrite is done, each sentence is read on its own: if a reader would ask "who?", "what
-is that?" or "what does that mean here?", it is written again.
+- **A limited place wins over the full sentence**: a server-list line, a boss bar, a button. A value
+  spliced into another text (`{countdown}`) reads correctly in every text that uses it.
 
 ### Game terms
 
@@ -93,38 +28,22 @@ writes a word `TermMessages.SYNONYMS` lists for a term.
 
 ## Comments
 
-A comment says what the code cannot. It describes the code as it is now.
+The code rules of the agent-kit hold. `check` enforces these in every file type: Java, Kotlin and
+Groovy build scripts, TypeScript, YAML, shell and SQL.
 
-- **A doc comment opens with one line**: one sentence stating what the element does or is, for
-  types as for members. _(checked)_ A short paragraph may follow for the contract the signature
-  cannot state: side effects, threading, ordering, units, failure cases. Never history.
-- **A doc comment in main code has at most four lines before its tags**, its `/**` line
-  included. _(checked)_
-- **No dash as punctuation**: no em or en dash in any file, and no hyphen with a space on each
-  side in a comment or in Markdown prose. Use a comma, a colon, parentheses or a new sentence. A
-  hyphen inside a word or at the start of a list item is fine. _(checked)_
-- **No sentence the signature already says.** If the name together with `@param`, `@return` and
-  `@throws` explains the element, the doc comment has tags only, or does not exist.
-- **Present tense only.** No history, no dates, no `used to`, `until`, `since` or `no longer`.
-  _(dates checked, and the history words of Markdown)_ Why a change was made belongs in its commit message.
-- **No recorded reasoning** unless a later change to that code would go wrong without it. Then it
-  is that one line.
-- **Inline `//` only for a non-obvious why**: a workaround, an ordering constraint, a vendor quirk.
-  One line, never what the next line does. _(one line checked)_
-- **No banner comments** (`// ---- section`). _(checked)_
-- **No TODO, FIXME or XXX.** Open work is an issue in the tracker, not a comment. _(checked)_
-- **No issue-tracker IDs anywhere in the repository**: not in code, comments, docs or commit
-  messages. Write the reason instead. _(checked in files)_
-- Doc comments use `/** */`, not `///`. No block HTML (`<p>`, `<h2>`, lists) inside them.
+- **A doc comment opens with one line**, one sentence stating what the element does or is, for types
+  as for members. _(checked)_
+- **A doc comment in main code has at most four lines before its tags**, its `/**` line included.
   _(checked)_
-- These rules apply to every file type: Java, Kotlin and Groovy build scripts, TypeScript, YAML,
-  shell and SQL.
-
-A README states the present state and gives an overview of what sits where. It holds no history, no
-rejected alternatives and no dates; the history of a decision is its tracker item and its commit.
-Diagrams and snippets are preferred over prose, and reasoning stays as the one line next to what it
-constrains. The present-tense rule also holds for every tracked Markdown file: a date, `used to`,
-`formerly`, `previously`, `originally` or `before V21` fails `check`. _(checked)_
+- **Doc comments use `/** */`**, not `///`, and hold no block HTML (`<p>`, `<h2>`, lists). _(checked)_
+- **An inline `//` comment is one line.** _(checked)_
+- **No banner comments** (`// ---- section`) **and no TODO, FIXME or XXX.** _(checked)_
+- **No issue-tracker ID** in any file. _(checked)_
+- **No dash as punctuation**: no em or en dash in any file, and no hyphen with a space on each side in
+  a comment or in Markdown prose. A hyphen inside a word or at the start of a list item is fine.
+  _(checked)_
+- **No date in a comment, and no history word in Markdown**: `used to`, `formerly`, `previously`,
+  `originally` or `before V21` fails. _(checked)_
 
 ## Formatting
 

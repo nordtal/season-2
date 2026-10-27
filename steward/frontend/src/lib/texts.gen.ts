@@ -2064,6 +2064,8 @@ export type TextArgs = {
     group: Arg["choice"]
   }
   "steward.texts.none": Record<string, never>
+  "steward.texts.none-open": Record<string, never>
+  "steward.texts.none-open-note": Record<string, never>
   "steward.texts.open-block": Record<string, never>
   "steward.texts.search": Record<string, never>
   "steward.texts.service": Record<string, never>

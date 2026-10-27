@@ -27,6 +27,12 @@ public interface TranslationsPage {
     @Name("No texts")
     MessageRef none();
 
+    @Name("No item open")
+    MessageRef noneOpen();
+
+    @Name("No item open note")
+    MessageRef noneOpenNote();
+
     @Name("Areas")
     MessageRef areas();
 

@@ -3,7 +3,7 @@ import { ArrowLeftIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
 import type { BlockUses, Document, DocumentList, DocumentPart, MessageTexts } from "@/lib/api"
-import { QueryState } from "@/components/steward/query-state"
+import { Empty, QueryState } from "@/components/steward/query-state"
 import { setDraftValue } from "@/lib/drafts"
 import { documentId, documentOf, sharedPartId, type PageCard } from "@/lib/documents"
 import { ENGLISH, type Language } from "@/lib/message-text"
@@ -264,7 +264,11 @@ export function TranslationsView({
               />
             </OpenBlock>
           </article>
-        ) : null}
+        ) : (
+          <div className="max-lg:hidden">
+            <Empty title={t("steward.texts.none-open")} note={t("steward.texts.none-open-note")} />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -420,8 +424,8 @@ function ItemRow({ page, item, trail = item.trail }: { page: Page; item: Placed;
         className="flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring aria-[current=true]:bg-muted pointer-coarse:min-h-12"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-medium">{item.name}</span>
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="min-w-0 text-sm font-medium wrap-break-word">{item.name}</span>
             {item.card.kind === "document" ? <DocumentMarks view={item.card.view} /> : null}
             {page.changed(item) ? <DraftDot /> : null}
             {page.model.shared.fallenBack.has(item.id) ? <FallenBack /> : null}

@@ -1493,6 +1493,8 @@
     "steward.texts.block-filter-label": [["Which building blocks"]],
     "steward.texts.group": [[{"c":"group","plural":false,"cases":{"game":["In game"],"discord":["Discord"],"steward":["Steward and admin"],"values":["Building blocks"],"other":[{"v":"group"}]}}]],
     "steward.texts.none": [["No texts."]],
+    "steward.texts.none-open": [["No item open"]],
+    "steward.texts.none-open-note": [["Open a text, a document or a building block in the list to see and edit it."]],
     "steward.texts.open-block": [["Open this building block"]],
     "steward.texts.search": [["Search the texts"]],
     "steward.texts.service": [["Service"]],

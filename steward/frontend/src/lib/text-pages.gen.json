@@ -872,6 +872,8 @@
     "steward.texts.block-filter-label": ["translations"],
     "steward.texts.group": ["every"],
     "steward.texts.none": ["translations"],
+    "steward.texts.none-open": ["translations"],
+    "steward.texts.none-open-note": ["translations"],
     "steward.texts.open-block": ["translations"],
     "steward.texts.search": ["translations"],
     "steward.texts.service": ["translations"],

@@ -38,7 +38,7 @@ if [ "$(printf '%s\n' "$message" | wc -l | tr -d ' ')" -ne 1 ]; then
 fi
 
 types='feat|fix|refactor|perf|test|docs|build|ci|chore|style'
-if ! printf '%s\n' "$subject" | grep -Eq "^($types)(\([a-z0-9-]+\))?!?: [^[:space:]]"; then
-    echo "commit-msg: \"$subject\" is not type(scope): outcome with a type from $types." >&2
+if ! printf '%s\n' "$subject" | grep -Eq "^($types)(\([a-z0-9-]+\))?!?: [a-z0-9].*[^.]\$"; then
+    echo "commit-msg: \"$subject\" is not type(scope): outcome with a type from $types, a lowercase start and no trailing period." >&2
     exit 1
 fi

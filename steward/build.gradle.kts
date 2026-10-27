@@ -138,6 +138,8 @@ val viteTest =
         dependsOn(tasks.named("npmInstall"))
         mustRunAfter(viteBuild)
         npmCommand.set(listOf("run", "test"))
+        // -PvitestShard=1/2 runs one half of the suite, so CI spreads it over parallel jobs.
+        args.set(providers.gradleProperty("vitestShard").map { listOf("--", "--shard=$it") }.orElse(listOf()))
 
         // No declared output, so it runs on every `check`: a cached verdict could report a pass nobody ran.
     }

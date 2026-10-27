@@ -127,7 +127,7 @@ class PublishTest {
 
         val refusal = assertThrows<GradleException> { publish(clone).publish(listOf("nordtal:badges/star.png"), "white star") }
 
-        assertTrue("is not type(scope): description" in refusal.message!!, refusal.message)
+        assertTrue("is not type(scope): outcome" in refusal.message!!, refusal.message)
         assertEquals("main\n", clone.git(clone.origin, "branch", "--format=%(refname:short)"))
         assertFalse(clone.ghLog.exists() && clone.ghLog.readText().contains("pr create"))
         assertEquals(listOf("nordtal:badges/star.png" to null), ids(clone))

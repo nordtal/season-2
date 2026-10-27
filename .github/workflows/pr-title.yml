@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # The check reads the body together with the title for model and vendor names, which no commit hook sees.
+      # The title is the squash commit. The body is checked for model and vendor names, which no commit hook sees.
       # The body of a Dependabot pull request quotes the release notes of the bumped packages, so only its title is checked.
       - name: Title and body follow CONVENTIONS.md
         env:
@@ -23,6 +23,8 @@ jobs:
           BODY: ${{ github.event.pull_request.body }}
           ACTOR: ${{ github.actor }}
         run: |
-          [ "$ACTOR" = "dependabot[bot]" ] && BODY=""
-          printf '%s\n\n%s\n' "$TITLE" "$BODY" > "$RUNNER_TEMP/message"
-          sh .githooks/commit-msg "$RUNNER_TEMP/message"
+          printf '%s\n' "$TITLE" > "$RUNNER_TEMP/title"
+          sh .githooks/commit-msg "$RUNNER_TEMP/title"
+          [ "$ACTOR" = "dependabot[bot]" ] && exit 0
+          printf '%s\n' "$BODY" > "$RUNNER_TEMP/body"
+          sh .githooks/commit-msg "$RUNNER_TEMP/body" --names-only

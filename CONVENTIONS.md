@@ -171,8 +171,7 @@ constrains. The present-tense rule also holds for every tracked Markdown file: a
 
 ## Commits
 
-[Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
-`type(scope): description`, type in lowercase, no issue ID.
+A commit message is one line, `type(scope): description`, with no body and no issue ID.
 Types: `feat`, `fix`, `refactor`, `perf`, `test`, `docs`, `build`, `ci`, `chore`, `style`. A
 breaking change carries `!` after the type. _(checked by a `commit-msg` hook and in CI)_
 No message, pull request title or body names a model or its vendor.

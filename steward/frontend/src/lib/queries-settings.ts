@@ -33,6 +33,7 @@ import {
 } from "@/lib/api"
 import { live } from "@/lib/live"
 import { SECOND, keys } from "@/lib/query-keys"
+import { useDebounced } from "@/lib/use-debounced"
 
 export function useConfigs(enabled = true) {
   return useQuery({
@@ -153,9 +154,12 @@ export function useMessageTexts(enabled = true) {
   })
 }
 
+/** How long the typing pauses before the server is asked, so a word costs one search and not one per letter. */
+const SEARCH_PAUSE_MS = 250
+
 /** Every text and document the server finds for `query`, the best first. While the next answer is read, the last stays. */
 export function useTranslationSearch(query: string, enabled = true) {
-  const trimmed = query.trim()
+  const trimmed = useDebounced(query.trim(), SEARCH_PAUSE_MS)
   return useQuery({
     queryKey: keys.translationSearch(trimmed),
     queryFn: () => api<TranslationHit[]>(`/api/translation-search?query=${encodeURIComponent(trimmed)}`),

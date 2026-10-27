@@ -7,6 +7,7 @@ import { ApiError, currentCsrf, rememberCsrf, type ConfigDocument } from "@/lib/
 import { RECONCILE, announce } from "@/lib/live"
 import { useCommandRun, useMe, useSaveConfig } from "@/lib/queries"
 import { useSetAura } from "@/lib/queries-access"
+import { useTranslationSearch } from "@/lib/queries-settings"
 import { keys } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
 
@@ -288,5 +289,19 @@ describe("useMe - the token every write in the interface needs", () => {
     await waitFor(() => expect(stateOf(queryClient, keys.me).data).toBeDefined())
 
     expect(currentCsrf()).toBeNull()
+  })
+})
+
+describe("useTranslationSearch - the server is asked once the typing pauses", () => {
+  it("asks once for the whole word, not once per letter", async () => {
+    fetched.mockImplementation(async () => answer(200, []))
+    const { rerender } = renderHook(({ query }) => useTranslationSearch(query), {
+      wrapper: wrap(client()),
+      initialProps: { query: "" },
+    })
+    for (const query of ["r", "re", "res", "restart"]) rerender({ query })
+
+    await waitFor(() => expect(fetched).toHaveBeenCalled())
+    expect(fetched.mock.calls.map(([url]) => url)).toEqual(["/api/translation-search?query=restart"])
   })
 })

@@ -50,6 +50,12 @@ export type Context = {
   /** Returns the draft with the part at `path` changed, or removed when `change` returns nothing. */
   onPart: (path: PartPath, change: (part: DocumentPart) => DocumentPart | undefined) => void
   onMove: (path: PartPath, by: -1 | 1) => void
+  /** The languages the document's texts are written in, which every new text is written in too. */
+  languages: readonly string[]
+  /** Appends `part` inside the part at `path`, or at the top for an empty path. */
+  onAdd: (path: PartPath, part: DocumentPart) => void
+  /** Where the part added last sits, which starts open with every part it holds. */
+  added: PartPath | undefined
 }
 
 /** An image's address, `attachment://` for a packaged one, with an upload that replaces it by a stored one. */

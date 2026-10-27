@@ -2,10 +2,10 @@ import { PuzzlePieceIcon } from "@phosphor-icons/react"
 import { use, useId, useState } from "react"
 
 import type { SharedPartView, DocumentPart } from "@/lib/api"
-import { documentId, sharedPartId } from "@/lib/documents"
+import { documentId, languagesOf, sharedPartId } from "@/lib/documents"
 import type { Language } from "@/lib/message-text"
 import { useDocuments, useSharedPartChanges, useSaveSharedPart } from "@/lib/queries"
-import { changePart, movePart } from "@/lib/document-edit"
+import { addPart, changePart, lastPath, movePart, type PartPath } from "@/lib/document-edit"
 import { choice, t } from "@/lib/texts"
 import { toast } from "sonner"
 import { Failure, QueryState } from "@/components/steward/query-state"
@@ -289,6 +289,7 @@ export function SharedPartEditor({
 }) {
   const list = useDocuments().data
   const [saving, setSaving] = useState(false)
+  const [added, setAdded] = useState<PartPath>()
   const naming = (list?.documents ?? []).filter((view) => shared.documents.includes(documentId(view.declaration)))
   // shortcut: a part no document names borrows the first document's shape, which only decides game or Discord text.
   const base = naming[0] ?? list?.documents[0]
@@ -305,6 +306,13 @@ export function SharedPartEditor({
     problems: [],
     onPart: (path, change) => onDraft(changePart([draft], path, change)[0] ?? draft),
     onMove: (path, by) => onDraft(movePart([draft], path, by)[0] ?? draft),
+    languages: languagesOf({ parts: [draft] }, list.sharedParts),
+    onAdd: (path, part) => {
+      const parts = addPart([draft], path, part)
+      setAdded(lastPath(parts, path))
+      onDraft(parts[0] ?? draft)
+    },
+    added,
   }
   return (
     <section aria-label={shared.name} className="flex min-w-0 flex-col gap-3">

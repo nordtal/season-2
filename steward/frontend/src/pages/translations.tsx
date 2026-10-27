@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 
-import type { MessageTexts } from "@/lib/api"
+import type { DocumentList, MessageTexts } from "@/lib/api"
 import { useDocuments, useMessageTexts } from "@/lib/queries"
 import { onPendingTextJump, takePendingTextJump } from "@/lib/settings-search"
 import { serviceTitle } from "@/lib/words"
@@ -93,7 +93,7 @@ export function Translations({
       title={t("steward.shell.page", { page: "translations" })}
       actions={
         <>
-          <ServiceFilter texts={texts.data} service={service} onService={onService} />
+          <ServiceFilter texts={texts.data} documents={documents.data} service={service} onService={onService} />
           <div className={`flex ${CONTROL_WIDTH}`}>
             <SearchField value={query} onValueChange={setQuery} label={t("steward.texts.search")} />
           </div>
@@ -123,16 +123,21 @@ export function Translations({
 
 function ServiceFilter({
   texts,
+  documents,
   service,
   onService,
 }: {
   texts: MessageTexts | undefined
+  documents: DocumentList | undefined
   service: string | undefined
   onService: (service: string | undefined) => void
 }) {
   const services = useMemo(
-    () => [...new Set((texts?.texts ?? []).flatMap((text) => text.services))].toSorted(),
-    [texts],
+    () =>
+      [
+        ...new Set([...(texts?.texts ?? []), ...(documents?.documents ?? [])].flatMap((shown) => shown.services)),
+      ].toSorted(),
+    [texts, documents],
   )
   return (
     <Select

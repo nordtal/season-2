@@ -7,7 +7,19 @@ import { setPendingTextJump } from "@/lib/settings-search"
 import type { MessageFallback } from "@/lib/api"
 import { asButton, asTextArea } from "@/lib/test-elements"
 import { changesOf, words } from "@/lib/query-fixtures"
-import { PLACES, backend, draw, listing, open, openKey, Page, source, text } from "@/pages/translations.fixtures"
+import {
+  PLACES,
+  backend,
+  documents,
+  draw,
+  listing,
+  open,
+  openKey,
+  Page,
+  source,
+  text,
+  view,
+} from "@/pages/translations.fixtures"
 
 vi.mock("sonner", () => ({
   toast: {
@@ -115,6 +127,18 @@ describe("the service filter", () => {
 
     expect(await screen.findByRole("button", { name: "Granted" })).toBeTruthy()
     expect(screen.queryByRole("button", { name: /^In game/ })).toBeNull()
+  })
+
+  it("offers every service whose texts or documents the page lists", async () => {
+    const card = view({ name: "steward-card", title: "Steward card" }, { parts: [] }, { services: ["steward"] })
+    vi.stubGlobal("fetch", backend(fixture, undefined, { documents: documents([card]) }))
+    draw(<Page />)
+    await screen.findByRole("button", { name: /^In game/ })
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Service" }), { key: "Enter" })
+
+    const offered = (await screen.findAllByRole("option")).map((option) => option.textContent)
+    expect(offered).toEqual(["All services", "Discord Bot", "SMP", "Steward"])
   })
 
   it("draws a tone in the colour the filtered service's settings give it", async () => {

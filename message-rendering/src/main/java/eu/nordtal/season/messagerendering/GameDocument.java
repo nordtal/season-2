@@ -220,6 +220,9 @@ public final class GameDocument {
             return List.of();
         }
         final Map<String, Object> all = all(own);
+        if (!Condition.holds(part.when(), all)) {
+            return List.of();
+        }
         return part.allLines().stream()
                 .filter(line -> Condition.holds(line.when(), all))
                 .toList();

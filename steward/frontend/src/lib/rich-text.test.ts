@@ -8,6 +8,7 @@ import {
   commonStyle,
   gradientAt,
   insert,
+  longestLength,
   parse,
   remove,
   serialize,
@@ -186,6 +187,24 @@ describe("a plural or a choice as its cases", () => {
       "a",
       [pound, { kind: "text", text: " of a", style: {} }],
     ])
+  })
+})
+
+const twelve = (name: string) => (name === "n" ? "12" : `{${name}}`)
+
+describe("the length of a text with cases", () => {
+  it("counts the longest case, its # as the number it stands for", () => {
+    expect(longestLength(read("{n, plural, one {# day} other {# days}}", "PLAIN"), "PLAIN", TONES, twelve)).toBe(7)
+    expect(longestLength(read("In {n, plural, one {# day} other {# days}}!", "PLAIN"), "PLAIN", TONES, twelve)).toBe(11)
+  })
+
+  it("counts the longest case of a choice inside a case", () => {
+    const source = "{n, plural, other {{s, select, a {# of a} other {x}}}}"
+    expect(longestLength(read(source, "PLAIN"), "PLAIN", TONES, twelve)).toBe(7)
+  })
+
+  it("counts a text without cases as it reads", () => {
+    expect(longestLength(read("<good>Hi</good> {n}"), "MINIMESSAGE", TONES, twelve)).toBe(5)
   })
 })
 

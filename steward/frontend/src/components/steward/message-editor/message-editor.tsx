@@ -8,7 +8,7 @@ import type { MessageEntry, MessageFallback, MessagePreviewTarget } from "@/lib/
 import { previewPlacesOf, type Places } from "@/lib/text-places"
 import { ENGLISH, isLanguage, overrideOf, packagedOf, type Language } from "@/lib/message-text"
 import { useGameAction, useGlyphs, useMessageCheck, useMessageExamples, useMessageSyntax } from "@/lib/queries"
-import { branchesOf, formatOf, parse, plainText } from "@/lib/rich-text"
+import { branchesOf, formatOf, longestLength, parse } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
 import type { GlyphInfo } from "@/lib/api"
 import { choice, message, t } from "@/lib/texts"
@@ -126,7 +126,7 @@ export function MessageEditor({
   }
   const empty = (tab: Language) => packagedOf(entry, tab).length === 0 && !overridden(tab)
   const fallback = fallbacks.find((candidate) => candidate.language === language)
-  const length = runs ? plainText(runs, fill).length : text.length
+  const length = runs ? longestLength(runs, format, toneTags, fill) : text.length
   const label = entry.name ?? entry.key
 
   function pickLanguage(next: string) {

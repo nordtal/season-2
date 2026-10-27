@@ -700,6 +700,23 @@ export function plainText(runs: Run[], fill: (name: string, style?: string) => s
     .join("")
 }
 
+/** Returns the length of `runs` as drawn, each plural and choice counted as its longest case. */
+export function longestLength(
+  runs: Run[],
+  format: Format,
+  tones: readonly string[],
+  fill: (name: string, style?: string) => string,
+  outer: string | null = null,
+): number {
+  return runs.reduce((sum, run) => {
+    if (run.kind === "raw" && run.source === "#" && outer !== null) return sum + fill(outer).length
+    const choice = choiceOf(run, format, tones, outer)
+    if (choice === null) return sum + plainText([run], fill).length
+    const inner = choice.plural ? choice.name : outer
+    return sum + Math.max(0, ...choice.cases.map(([, cased]) => longestLength(cased, format, tones, fill, inner)))
+  }, 0)
+}
+
 export function hexOf(colour: string): string {
   return HEX.test(colour) ? colour : (NAMED_COLOURS[colour.toLowerCase()] ?? "#FFFFFF")
 }

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import type {
   Document,
   DocumentList,
+  MessageArg,
   MessageChanges,
   MessageEntry,
   MessageFallback,
@@ -22,7 +23,7 @@ import {
   type Language,
 } from "@/lib/message-text"
 import { useMessageExamples, useMessageFallbacks, useMessageSyntax, useSaveMessageTexts } from "@/lib/queries"
-import { branchesOf, formatOf, parse, type Run } from "@/lib/rich-text"
+import { branchesOf, type Format, formatOf, parse, type Run } from "@/lib/rich-text"
 import { textId, textsTree } from "@/lib/settings-tree"
 import { pagesOf, pillsOf, type Places } from "@/lib/text-places"
 import { Failure } from "@/components/steward/query-state"
@@ -37,10 +38,13 @@ export const TEXTS_FILE = "texts"
 const DOCUMENTS_FILE = "documents"
 
 /** One text as a preview draws it: its runs with the cases its examples pick, or its source when it cannot be read. */
-type DrawnText = { runs: Run[] | null; text: string; fill: Fill }
+export type DrawnText = { runs: Run[] | null; text: string; fill: Fill }
 
 /** Draws the text `id`, a `bundle/key`, in `language`. */
 type DrawText = (id: string, language: Language) => DrawnText | null
+
+/** Draws a source text in `format` that names `args`, in `language`; a document's text names no bundle. */
+type DrawSource = (text: string, format: Format, args: MessageArg[], language: Language, bundle?: string) => DrawnText
 
 /**
  * The network has no palette of its own. This is one object, so the editor's memo of its tones holds.
@@ -133,16 +137,19 @@ export function useTextsModel(texts: MessageTexts, documents: DocumentList | und
 
   const draftIds = useMemo(() => new Set(Object.keys(draft)), [draft])
 
+  const drawSource: DrawSource = (text, format, args, language, bundle) => {
+    const tags = Object.keys(tones)
+    const shownIn = words(language, bundle)
+    const fill = fillOf(args, examples.data, shownIn)
+    const runs = parse(text, format, tags)
+    return { runs: runs && branchesOf(runs, format, tags, valuesOf(args, examples.data), shownIn), text, fill }
+  }
+
   const draw: DrawText = (id, language) => {
     const entry = byId.get(id)?.entry
     if (!entry) return null
     const text = currentOf(entry, draft[id], language) || currentOf(entry, draft[id], ENGLISH)
-    const format = formatOf(entry.format)
-    const tags = Object.keys(tones)
-    const shownIn = words(language, entry.bundle)
-    const fill = fillOf(entry.args, examples.data, shownIn)
-    const runs = parse(text, format, tags)
-    return { runs: runs && branchesOf(runs, format, tags, valuesOf(entry.args, examples.data), shownIn), text, fill }
+    return drawSource(text, formatOf(entry.format), entry.args, language, entry.bundle)
   }
 
   function set(id: string, language: Language, value: string[] | null | undefined) {
@@ -208,6 +215,7 @@ export function useTextsModel(texts: MessageTexts, documents: DocumentList | und
   const shared: Shared = {
     places: texts.places,
     draw,
+    drawSource,
     tones,
     languages: documents?.languages ?? [],
     draftIds,
@@ -256,6 +264,7 @@ export type TextsModel = ReturnType<typeof useTextsModel>
 export type Shared = {
   places: Places
   draw: DrawText
+  drawSource: DrawSource
   tones: Record<string, string>
   languages: string[]
   draftIds: Set<string>

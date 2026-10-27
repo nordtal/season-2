@@ -2,7 +2,18 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { resetDrafts } from "@/lib/drafts"
-import { PLACES, backend, draw, listing, openItem, Page, source, text } from "@/pages/translations.fixtures"
+import {
+  PLACES,
+  backend,
+  documents,
+  draw,
+  listing,
+  openItem,
+  Page,
+  source,
+  text,
+  view,
+} from "@/pages/translations.fixtures"
 
 afterEach(() => {
   cleanup()
@@ -245,5 +256,33 @@ describe("the previews", () => {
         values: { what: "restart.what.network" },
       },
     ])
+  })
+
+  it("draws a row's first words as a preview does, with each value's example and its picked case", async () => {
+    const milestone = view(
+      {
+        name: "milestone",
+        title: "Milestone",
+        values: { "milestone.name": { kind: "text", example: "The Nether" }, days: { kind: "number", example: "2" } },
+      },
+      {
+        parts: [
+          {
+            type: "TEXT",
+            lines: [
+              { text: { en: "**{milestone.name}** is complete, {days, plural, one {# day} other {# days}} early." } },
+            ],
+          },
+        ],
+      },
+      { named: { "milestone.name": { kind: "text", example: "The Nether" }, days: { kind: "number", example: "2" } } },
+    )
+    vi.stubGlobal("fetch", backend(listing([]), undefined, { documents: documents([milestone]) }))
+    draw(<Page />)
+
+    await openItem("Milestone", /^Discord/)
+    const row = (await screen.findAllByRole("button", { name: "Milestone" }))[0]
+    await waitFor(() => expect(row.textContent).toContain("The Nether is complete, 2 days early."))
+    expect(row.textContent).not.toContain("{")
   })
 })

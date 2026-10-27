@@ -87,10 +87,12 @@ export function untranslated(card: PageCard, language: Language, languagesOfBund
   return packagedOf(entry, language).length === 0 && overrideOf(entry, language) === undefined
 }
 
-/** Returns a document's first written words in `language` beyond a lone value, for a one-line row. */
+/** Returns the source of a document's first text in `language` with words beyond a lone value, for a one-line row. */
 export function documentWords(document: Document, language: Language): string {
-  const written = textsOf(document).flatMap((text) => versionsOf(text, language).slice(0, 1).map(readable))
-  return written.find((words) => /[\p{L}\p{N}]/u.test(words.replaceAll(/\{[^}]*\}/g, ""))) ?? written[0] ?? ""
+  const written = textsOf(document).flatMap((text) => versionsOf(text, language).slice(0, 1))
+  return (
+    written.find((source) => /[\p{L}\p{N}]/u.test(readable(source).replaceAll(/\{[^}]*\}/g, ""))) ?? written[0] ?? ""
+  )
 }
 
 /** Returns a source text for one line: each choice as its value's name, without marks of emphasis or breaks. */

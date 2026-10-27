@@ -36,7 +36,7 @@ class ClientActionsTest {
 
     @Test
     void giveTakesAStackAndRefusesACountAboveTheStackSize() {
-        final HolderLookup.Provider registries = VanillaRegistries.createLookup();
+        final HolderLookup.Provider registries = VanillaRegistries.createWorldLookup();
         BuiltInRegistries.DATA_COMPONENT_INITIALIZERS.build(registries).forEach(PendingComponents::apply);
         assertEquals(
                 16, ClientActions.stack(registries, "minecraft:ender_pearl", 16).getCount());

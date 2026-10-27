@@ -63,7 +63,7 @@ public final class AdminLog {
             @Nullable @Example("Red_Fox") String minecraft) {}
 
     record Card(
-            @Example(Mark.PREVIEW) String mark,
+            @Example(Mark.FAILURE) String mark,
 
             @Takes({"admin/*", "database/*"}) @Example("admin/alert.not-running")
             MessageRef title) {}

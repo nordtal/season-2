@@ -84,6 +84,7 @@ public record Slot(String id, Type type, boolean required, Map<String, Value> va
         return new Slot(id, Type.LABEL, true, Value.of(entry), List.of());
     }
 
+    /** Returns this slot as one a document may leave out. A preview draws an optional data list without items. */
     public Slot optional() {
         return new Slot(id, type, false, values, at);
     }

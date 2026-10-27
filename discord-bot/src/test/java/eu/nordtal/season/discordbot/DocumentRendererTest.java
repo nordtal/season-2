@@ -90,7 +90,7 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-alert"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("smp is not running"), drawn);
+        assertTrue(drawn.contains("🛑 smp is not running"), drawn);
         assertTrue(drawn.contains("smp restarted 3 times since it was started."), drawn);
         assertFalse(drawn.contains("admin/alert."), drawn);
     }
@@ -109,9 +109,20 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("**smp** *Runtime* paper 1.21.4 → 1.21.5"), drawn);
-        assertTrue(drawn.contains("**smp** exit code 2"), drawn);
+        assertTrue(drawn.contains("🛑 **smp** *Verify* paper 1.21.4 → 1.21.5"), drawn);
+        assertTrue(drawn.contains("**smp** not healthy in time"), drawn);
         assertFalse(drawn.contains("admin/"), drawn);
+    }
+
+    /** A real run fails either for a service or as a whole, so the preview leaves the whole run's reasons out. */
+    @Test
+    void aRunsExamplesTellOneFailedUpdate() {
+        final String drawn = StoredDocumentsStandIn.renderer()
+                .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+
+        assertTrue(drawn.contains("🛑 The update failed"), drawn);
+        assertEquals(1, drawn.split("not healthy in time", -1).length - 1, drawn);
+        assertFalse(drawn.contains("✅"), drawn);
     }
 
     @Test

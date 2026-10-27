@@ -3,7 +3,7 @@ package eu.nordtal.season.discordbot;
 public enum Mark {
     DONE(Mark.PREVIEW),
 
-    FAILED("🛑"),
+    FAILED(Mark.FAILURE),
 
     WARNING("⚠️"),
 
@@ -40,6 +40,9 @@ public enum Mark {
     private static final int REGIONAL_A = 0x1F1E6;
 
     public static final String PREVIEW = "✅";
+
+    /** The symbol of {@link #FAILED}, for a declaration's example. */
+    public static final String FAILURE = "🛑";
 
     private final String symbol;
 

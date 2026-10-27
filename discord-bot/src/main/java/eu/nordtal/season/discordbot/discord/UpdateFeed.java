@@ -74,7 +74,7 @@ public final class UpdateFeed {
      * @param took how long a finished run took, or {@code null}
      */
     record Run(
-            @Example(Mark.PREVIEW) String mark,
+            @Example(Mark.FAILURE) String mark,
             @Takes("admin/run.title") MessageRef title,
 
             @Example("steward") Actor.@Nullable Kind by,
@@ -84,7 +84,7 @@ public final class UpdateFeed {
             @Nullable @Example("PT4M30S") Duration took) {}
 
     record Service(
-            @Example(Mark.PREVIEW) String mark,
+            @Example(Mark.FAILURE) String mark,
             @Example("smp") String service,
             @Takes("admin/run.step-kind") MessageRef state,
 
@@ -94,12 +94,12 @@ public final class UpdateFeed {
     record Failure(
             @Example("smp") String service,
 
-            @Takes({"admin/*", "database/*"}) @Example("admin/run.exit-code")
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.reason")
             MessageRef what) {}
 
     /** A failure of the run as a whole, which names no service. */
     record Reason(
-            @Takes({"admin/*", "database/*"}) @Example("admin/run.exit-code")
+            @Takes({"admin/*", "database/*"}) @Example("admin/run.reason")
             MessageRef what) {}
 
     static final DocumentSpec<Run> RUN = DocumentSpec.message(
@@ -109,7 +109,7 @@ public final class UpdateFeed {
                     Run.class,
                     Slot.list("services", Service.class),
                     Slot.list("why", Failure.class),
-                    Slot.list("reasons", Reason.class),
+                    Slot.list("reasons", Reason.class).optional(),
                     Slot.button("open").optional())
             .titled("Update run");
 

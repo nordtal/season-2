@@ -35,7 +35,10 @@ final class ExampleSlots {
                                 slot.lined() ? null : slot.id(),
                                 Value.examples(slot.values(), messages),
                                 null)));
-            case LIST -> new DocumentRenderer.FilledList(List.of(Value.examples(slot.values(), messages)));
+            // An optional list is filled in place of another, so a real message never shows both.
+            case LIST ->
+                new DocumentRenderer.FilledList(
+                        slot.required() ? List.of(Value.examples(slot.values(), messages)) : List.of());
             case LANGUAGES -> new DocumentRenderer.FilledLanguages(languages);
             case INPUT ->
                 new DocumentRenderer.FilledInput(placeholder -> TextInput.create(slot.id(), TextInputStyle.SHORT)

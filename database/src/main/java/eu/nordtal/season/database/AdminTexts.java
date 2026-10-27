@@ -266,7 +266,7 @@ public interface AdminTexts {
         /** A run named in words: the title of its card and of its failed alert, and its row in the feed. */
         @Name("A run's kind and stage, as a title")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT, Display.PUSH})
-        MessageRef title(@Arg("kind") UpdateKind kind, @Arg("stage") RunStage stage);
+        MessageRef title(@Arg("kind") UpdateKind kind, @Arg("stage") @Example("failed") RunStage stage);
 
         @Name("How a step went")
         @Shown(Display.STEWARD)
@@ -274,11 +274,11 @@ public interface AdminTexts {
 
         @Name("What a step does")
         @Shown(Display.STEWARD)
-        MessageRef stepKind(@Arg("kind") RunStep.Kind kind);
+        MessageRef stepKind(@Arg("kind") @Example("verify") RunStep.Kind kind);
 
         @Name("Why a step did not go as asked")
         @Shown(Display.STEWARD)
-        MessageRef reason(@Arg("reason") RunStep.Reason reason);
+        MessageRef reason(@Arg("reason") @Example("not-healthy") RunStep.Reason reason);
 
         @Name("The exit code of a tool that failed")
         @Shown(Display.STEWARD)

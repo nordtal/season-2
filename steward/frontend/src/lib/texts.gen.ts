@@ -794,7 +794,18 @@ export type TextArgs = {
   "steward.answer.settings-refused": {
     refusal: Arg["text"]
   }
+  "steward.answer.shared-part-loop": {
+    name: Arg["text"]
+  }
   "steward.answer.shared-part-name": {
+    name: Arg["text"]
+  }
+  "steward.answer.shared-part-named": {
+    name: Arg["text"]
+    document: Arg["text"]
+  }
+  "steward.answer.shared-part-unknown": {
+    document: Arg["text"]
     name: Arg["text"]
   }
   "steward.answer.sign-in-elsewhere": Record<string, never>
@@ -930,7 +941,7 @@ export type TextArgs = {
   "steward.document-editor.shared-part": {
     name: Arg["text"]
   }
-  "steward.document-editor.shared-part-differs": {
+  "steward.document-editor.shared-part-drawn": {
     name: Arg["text"]
   }
   "steward.document-editor.shared-part-exists": {
@@ -949,9 +960,6 @@ export type TextArgs = {
   }
   "steward.document-editor.style": {
     style: Arg["choice"]
-  }
-  "steward.document-editor.update-shared-part": {
-    name: Arg["text"]
   }
   "steward.document-editor.upload": Record<string, never>
   "steward.document-editor.version": {

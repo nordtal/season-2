@@ -1,7 +1,10 @@
 package eu.nordtal.season.messages.document;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -15,7 +18,8 @@ import org.jspecify.annotations.Nullable;
  *     address
  * @param items a row's buttons, or its one select or field
  * @param slot the slot of a block per language, a menu's item or a menu's label
- * @param shared the name of the shared part this part is a copy of, else {@code null}
+ * @param shared the name of the shared part drawn in this part's place, else {@code null}; such a part holds nothing
+ *     but its type and its condition
  */
 public record Part(
         Type type,
@@ -84,47 +88,48 @@ public record Part(
     }
 
     /**
-     * Returns this part with every copy of shared part {@code name} replaced by {@code saved}.
-     * Where {@code saved} is {@code null}, each copy stays as it is, unmarked.
+     * Returns this part with each shared part it names drawn in its place, under the condition of that place.
+     * A name that {@code shared} lacks, or one reached again through {@code through}, draws nothing.
      */
-    public Part withSharedPart(final String name, final @Nullable Part saved) {
-        if (name.equals(shared)) {
-            return (saved == null ? this : saved).marked(saved == null ? null : name);
+    List<Part> resolved(final Map<String, Part> shared, final Set<String> through) {
+        if (this.shared != null) {
+            final Part saved = shared.get(this.shared);
+            if (saved == null || through.contains(this.shared)) {
+                return List.of();
+            }
+            final Set<String> deeper = new HashSet<>(through);
+            deeper.add(this.shared);
+            return new Part(
+                            saved.type,
+                            when == null ? saved.when : when,
+                            saved.accent,
+                            saved.parts,
+                            saved.lines,
+                            saved.button,
+                            saved.thumbnail,
+                            saved.media,
+                            saved.items,
+                            saved.slot,
+                            null)
+                    .resolved(shared, deeper);
         }
-        return parts == null
-                ? this
-                : new Part(
-                        type,
-                        when,
-                        accent,
-                        parts.stream()
-                                .map(part -> part.withSharedPart(name, saved))
-                                .toList(),
-                        lines,
-                        button,
-                        thumbnail,
-                        media,
-                        items,
-                        slot,
-                        shared);
-    }
-
-    /** Returns this part as a copy of shared part {@code name}, or of none; it holds no other shared part. */
-    public Part marked(final @Nullable String name) {
-        return new Part(
+        if (parts == null) {
+            return List.of(this);
+        }
+        return List.of(new Part(
                 type,
                 when,
                 accent,
-                parts == null
-                        ? null
-                        : parts.stream().map(part -> part.marked(null)).toList(),
+                parts.stream()
+                        .flatMap(part -> part.resolved(shared, through).stream())
+                        .toList(),
                 lines,
                 button,
                 thumbnail,
                 media,
                 items,
                 slot,
-                name);
+                null));
     }
 
     void collect(final List<Part> into) {

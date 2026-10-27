@@ -51,16 +51,7 @@ final class JdbiDocumentStore implements DocumentStore {
 
     // Writes an admin's document and keeps it as a version.
     private static void write(final Handle handle, final StoredDocument document, final Actor actor) {
-        for (final String address : uploads(document.document()).toList()) {
-            final long id = Image.idOf(address).orElseThrow();
-            if (handle.createQuery("SELECT count(*) FROM layout_image WHERE id = :id")
-                            .bind("id", id)
-                            .mapTo(Integer.class)
-                            .one()
-                    == 0) {
-                throw new IllegalArgumentException("no image is stored as " + address);
-            }
-        }
+        requireStored(handle, document.document());
         handle.createUpdate("""
                         INSERT INTO document_override (namespace, name, document, replaced, actor_kind, actor_id, changed)
                         VALUES (:namespace, :name, CAST(:document AS jsonb), :replaced, :kind, :id, now())
@@ -87,14 +78,14 @@ final class JdbiDocumentStore implements DocumentStore {
     }
 
     @Override
-    public void changeSharedPart(
-            final String name, final @Nullable Part part, final List<StoredDocument> rewritten, final Actor actor) {
+    public void changeSharedPart(final String name, final @Nullable Part part, final Actor actor) {
         jdbi.useTransaction(handle -> {
             if (part == null) {
                 handle.createUpdate("DELETE FROM shared_part WHERE name = :name")
                         .bind("name", name)
                         .execute();
             } else {
+                requireStored(handle, new Document(List.of(part)));
                 handle.createUpdate("""
                                 INSERT INTO shared_part (name, part, actor_kind, actor_id, changed)
                                 VALUES (:name, CAST(:part AS jsonb), :kind, :id, now())
@@ -106,11 +97,7 @@ final class JdbiDocumentStore implements DocumentStore {
                         .bind("id", actor.id())
                         .execute();
             }
-            rewritten.forEach(document -> write(handle, document, actor));
-            rewritten.stream()
-                    .map(StoredDocument::namespace)
-                    .distinct()
-                    .forEach(namespace -> signal(handle, namespace));
+            signal(handle, "shared-parts");
         });
     }
 
@@ -170,6 +157,19 @@ final class JdbiDocumentStore implements DocumentStore {
             keep(handle, namespace, name, null, actor);
             signal(handle, namespace);
         });
+    }
+
+    private static void requireStored(final Handle handle, final Document document) {
+        for (final String address : uploads(document).toList()) {
+            final long id = Image.idOf(address).orElseThrow();
+            if (handle.createQuery("SELECT count(*) FROM layout_image WHERE id = :id")
+                            .bind("id", id)
+                            .mapTo(Integer.class)
+                            .one()
+                    == 0) {
+                throw new IllegalArgumentException("no image is stored as " + address);
+            }
+        }
     }
 
     // Sends the signal in the transaction that wrote the row.

@@ -189,7 +189,7 @@ public final class MessagesApi {
         final List<Locale> languages = documents.languages();
         final DocumentsApi.Renderer before = documents.renderer(languages);
         final List<MessageOverride> rows = rows(blocks, entries, before.blocks());
-        final DocumentsApi.Renderer after = DocumentsApi.renderer(languages, rows);
+        final DocumentsApi.Renderer after = DocumentsApi.renderer(languages, rows, before.shared());
         final Set<String> keys = naming(changed, List.of(before, after));
         final List<BlockText> texts = new ArrayList<>();
         for (final Found found : layered(union)) {

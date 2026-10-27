@@ -350,6 +350,17 @@ public interface StewardTexts {
             @Name("Shared part name refused")
             MessageRef sharedPartName(@Arg("name") @Example("Footer") String name);
 
+            @Name("Shared part not saved")
+            MessageRef sharedPartUnknown(
+                    @Arg("document") @Example("rules") String document, @Arg("name") @Example("footer") String name);
+
+            @Name("Shared part still named")
+            MessageRef sharedPartNamed(
+                    @Arg("name") @Example("footer") String name, @Arg("document") @Example("rules") String document);
+
+            @Name("Shared part draws itself")
+            MessageRef sharedPartLoop(@Arg("name") @Example("footer") String name);
+
             @Name("Draft not sent")
             MessageRef draftRefused(
                     @Arg("document") @Example("rules") String document,

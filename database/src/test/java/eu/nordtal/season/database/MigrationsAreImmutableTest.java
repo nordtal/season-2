@@ -264,6 +264,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V93__a_document_preview_is_a_row_with_its_draft.sql",
                 "578d542a1a88bf15c99e738334f69e19f1bc2ae19a1cb4b84b6892cfa06e1ddc");
+        FROZEN.put(
+                "V94__a_shared_part_is_drawn_where_a_document_names_it.sql",
+                "449f7edb26be039ee6e3d29b708ec4e2650cb704327e8706c3da6e1742e8a1f3");
     }
 
     @Test

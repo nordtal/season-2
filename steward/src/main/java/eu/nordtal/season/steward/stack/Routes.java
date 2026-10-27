@@ -139,16 +139,14 @@ public final class Routes {
         config.routes.get("/api/document-images/{id}", api.documents::image, Gate.KEY_HELD);
         config.routes.put(
                 "/api/shared-parts/{name}",
-                ctx -> api.documents
-                        .saveSharedPart(ctx, caller.actor(ctx))
-                        .forEach(id -> Journaling.line(ctx, new JournalDetail.MessagesSaved(id))),
+                ctx -> Journaling.line(
+                        ctx, new JournalDetail.MessagesSaved(api.documents.saveSharedPart(ctx, caller.actor(ctx)))),
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_MESSAGES));
         config.routes.delete(
                 "/api/shared-parts/{name}",
-                ctx -> api.documents
-                        .removeSharedPart(ctx, caller.actor(ctx))
-                        .forEach(id -> Journaling.line(ctx, new JournalDetail.MessagesSaved(id))),
+                ctx -> Journaling.line(
+                        ctx, new JournalDetail.MessagesSaved(api.documents.removeSharedPart(ctx, caller.actor(ctx)))),
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_MESSAGES));
         // Draws a shared part's change for the admin alone and changes nothing.

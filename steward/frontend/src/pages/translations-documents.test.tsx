@@ -606,7 +606,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     expect(saved).toEqual([])
   })
 
-  it("saves a shared part that no document refuses and marks the part as its copy", async () => {
+  it("saves a shared part that no document refuses and makes the part name it", async () => {
     const saved: [string, DocumentPart | null][] = []
     vi.stubGlobal(
       "fetch",
@@ -627,14 +627,14 @@ describe("an open document", { timeout: 15_000 }, () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Save as a shared part" }))
     const dialog = await screen.findByRole("dialog", { name: "Save as a shared part" })
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "buttons" } })
-    expect(await within(dialog).findByText("No saved document holds a copy of this shared part.")).toBeTruthy()
+    expect(await within(dialog).findByText("No saved document names this shared part.")).toBeTruthy()
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }))
 
     await waitFor(() => expect(saved).toEqual([["buttons", contribution.packaged.parts[1]]]))
     expect(await within(editor).findByText("Shared part buttons")).toBeTruthy()
   })
 
-  it("inserts a copy of a shared part from the menu that adds a part", async () => {
+  it("inserts a part that names a shared part from the menu that adds a part, and detaches it as a copy", async () => {
     const links: DocumentPart = { type: "ROW", items: [{ link: "https://nordtal.eu/rules", label: { en: "Rules" } }] }
     vi.stubGlobal(
       "fetch",
@@ -653,7 +653,14 @@ describe("an open document", { timeout: 15_000 }, () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Shared part rule-links" }))
 
     expect(await within(editor).findByText("Shared part rule-links")).toBeTruthy()
-    expect(within(editor).getByRole("button", { name: /^Buttons\s*Rules$/ })).toBeTruthy()
+    const folded = within(editor).getByRole("button", { name: /^Buttons\s*Rules$/ })
+    fireEvent.click(folded)
+    expect(within(editor).getByText(/Every document that names rule-links draws it here/)).toBeTruthy()
+
+    fireEvent.pointerDown(within(editor).getAllByRole("button", { name: "Shared part" }).at(-1)!, { button: 0 })
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Detach from the shared part" }))
+    await waitFor(() => expect(within(editor).queryByText("Shared part rule-links")).toBeNull())
+    expect(within(editor).queryByText(/Every document that names rule-links/)).toBeNull()
   })
 
   it("shows the packaged and the saved version side by side when a release changed the packaged one", async () => {

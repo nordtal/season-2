@@ -3,6 +3,7 @@ package eu.nordtal.season.messages.document;
 import eu.nordtal.season.common.json.Json;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
@@ -55,21 +56,25 @@ public record Document(List<Part> parts) {
         return languages;
     }
 
-    /** Returns the names of the shared parts the document holds a copy of. */
-    public Set<String> sharedParts() {
+    /** Returns the name of every shared part the document names, itself or through another of {@code shared}. */
+    public Set<String> sharedParts(final Map<String, Part> shared) {
         final Set<String> names = new TreeSet<>();
-        allParts().forEach(part -> {
-            if (part.shared() != null) {
-                names.add(part.shared());
+        final List<Part> parts = allParts();
+        for (int at = 0; at < parts.size(); at++) {
+            final @Nullable String name = parts.get(at).shared();
+            final @Nullable Part saved = name == null ? null : shared.get(name);
+            if (name != null && names.add(name) && saved != null) {
+                saved.collect(parts);
             }
-        });
+        }
         return names;
     }
 
-    /** Returns the document with every copy of shared part {@code name} replaced; see {@link Part#withSharedPart}. */
-    public Document withSharedPart(final String name, final @Nullable Part saved) {
-        return new Document(
-                parts.stream().map(part -> part.withSharedPart(name, saved)).toList());
+    /** Returns the document with each shared part of {@code shared} it names drawn in its place. */
+    public Document resolved(final Map<String, Part> shared) {
+        return new Document(parts.stream()
+                .flatMap(part -> part.resolved(shared, Set.of()).stream())
+                .toList());
     }
 
     public static Document decode(final String json) {

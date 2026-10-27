@@ -3,6 +3,7 @@ package eu.nordtal.season.messages.document;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -11,33 +12,47 @@ class SharedPartTest {
     private static final String WRITTEN = """
             {"parts": [
               {"type": "TEXT", "lines": [{"text": {"en": "Hello"}}]},
-              {"type": "CONTAINER", "parts": [
-                {"type": "TEXT", "shared": "rules", "lines": [{"text": {"en": "Be kind"}}]}]},
-              {"type": "TEXT", "shared": "footer", "lines": [{"text": {"en": "Bye"}}]}]}
+              {"type": "CONTAINER", "parts": [{"type": "TEXT", "shared": "rules", "when": "member"}]},
+              {"type": "CONTAINER", "shared": "footer"}]}
             """;
 
-    @Test
-    void everyCopyOfASharedPartIsReplacedWhereverItIsNested() {
-        final Part saved = Document.decode("""
-                {"parts": [{"type": "TEXT", "lines": [{"text": {"en": "Be kind, always"}}]}]}""").parts().getFirst();
+    private static final Map<String, Part> SHARED = Map.of(
+            "rules", part("""
+                    {"type": "TEXT", "lines": [{"text": {"en": "Be kind"}}]}"""),
+            "footer", part("""
+                    {"type": "CONTAINER", "parts": [{"type": "TEXT", "shared": "rules"}]}"""));
 
-        assertEquals(
-                Document.decode(WRITTEN.replace("Be kind", "Be kind, always")),
-                Document.decode(WRITTEN).withSharedPart("rules", saved));
+    @Test
+    void aSharedPartIsDrawnWhereADocumentNamesItWithTheConditionOfThePlaceThatNamesIt() {
+        assertEquals(Document.decode("""
+                        {"parts": [
+                          {"type": "TEXT", "lines": [{"text": {"en": "Hello"}}]},
+                          {"type": "CONTAINER", "parts": [
+                            {"type": "TEXT", "when": "member", "lines": [{"text": {"en": "Be kind"}}]}]},
+                          {"type": "CONTAINER", "parts": [{"type": "TEXT", "lines": [{"text": {"en": "Be kind"}}]}]}]}
+                        """), Document.decode(WRITTEN).resolved(SHARED));
     }
 
     @Test
-    void aRemovedSharedPartLeavesItsCopiesUnmarked() {
+    void aDocumentReachesEverySharedPartItNamesItselfOrThroughAnother() {
         assertEquals(
-                Document.decode(WRITTEN.replace("\"shared\": \"rules\", ", "")),
-                Document.decode(WRITTEN).withSharedPart("rules", null));
+                Set.of("footer", "rules"),
+                Document.decode(WRITTEN).sharedParts(Map.of("footer", SHARED.get("footer"))));
+        assertEquals(Set.of("footer"), new Document(List.of(part("""
+                {"type": "CONTAINER", "shared": "footer"}"""))).sharedParts(Map.of()));
     }
 
     @Test
-    void aSharedPartHoldsNoOtherSharedPart() {
-        final Part container = Document.decode(WRITTEN).parts().get(1).marked("rules-box");
+    void aNameNoSharedPartHoldsAndANameThatReachesItselfDrawNothing() {
+        final Map<String, Part> loop = Map.of("footer", part("""
+                {"type": "CONTAINER", "parts": [{"type": "TEXT", "shared": "footer"}]}"""));
 
-        assertEquals(Set.of("rules-box"), new Document(List.of(container)).sharedParts());
-        assertEquals(Set.of("footer", "rules"), Document.decode(WRITTEN).sharedParts());
+        assertEquals(Document.decode("""
+                        {"parts": [{"type": "TEXT", "lines": [{"text": {"en": "Hello"}}]}, {"type": "CONTAINER", "parts": []},
+                          {"type": "CONTAINER", "parts": []}]}"""), Document.decode(WRITTEN).resolved(loop));
+    }
+
+    private static Part part(final String json) {
+        return Document.decode("{\"parts\": [" + json + "]}").parts().getFirst();
     }
 }

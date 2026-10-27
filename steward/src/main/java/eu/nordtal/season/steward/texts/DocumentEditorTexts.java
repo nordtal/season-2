@@ -124,20 +124,17 @@ public interface DocumentEditorTexts {
     @Name("Shared part mark")
     MessageRef sharedPart(@Arg("name") @Example("footer") String name);
 
-    @Name("Copy differs from its shared part")
-    MessageRef sharedPartDiffers(@Arg("name") @Example("footer") String name);
-
     @Name("Shared part menu")
     MessageRef sharedPartMenu();
 
     @Name("Save as a shared part")
     MessageRef saveSharedPart();
 
-    @Name("Update a shared part")
-    MessageRef updateSharedPart(@Arg("name") @Example("footer") String name);
-
     @Name("Detach from a shared part")
     MessageRef detachSharedPart();
+
+    @Name("Shared part drawn in place")
+    MessageRef sharedPartDrawn(@Arg("name") @Example("footer") String name);
 
     @Name("Insert a shared part")
     MessageRef insertSharedPart(@Arg("name") @Example("footer") String name);

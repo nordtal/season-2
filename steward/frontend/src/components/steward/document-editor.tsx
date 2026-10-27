@@ -272,7 +272,8 @@ function PartEditor({
   const [open, setOpen] = useState(path.length === 1 && at === 0)
   // A separator holds nothing to open.
   const empty = part.type === "SEPARATOR"
-  const words = firstWords(part, context.language)
+  const saved = context.sharedParts.find((each) => each.name === part.shared)?.part
+  const words = firstWords(saved ?? part, context.language)
   return (
     <div className={cn("min-w-0 rounded-md border", open && !empty && "bg-muted/40")}>
       <div className="flex min-w-0 items-center justify-between gap-1 p-1 md:justify-start">
@@ -324,7 +325,13 @@ function PartEditor({
       {open && (!empty || Object.keys(view.named).length > 0) ? (
         <div className="flex min-w-0 flex-col gap-2 border-t p-2">
           <WhenField view={view} of="PART" when={part.when} onWhen={(when) => set((it) => ({ ...it, when }))} />
-          {empty ? null : <PartBody part={part} path={path} context={context} set={set} />}
+          {empty ? null : part.shared ? (
+            <p className="text-xs text-muted-foreground">
+              {t("steward.document-editor.shared-part-drawn", { name: part.shared })}
+            </p>
+          ) : (
+            <PartBody part={part} path={path} context={context} set={set} />
+          )}
         </div>
       ) : null}
     </div>
@@ -661,7 +668,7 @@ function SectionBeside({
   )
 }
 
-/** The menu that adds a part, a copy of a shared part, or a slot the code fills that no part places yet. */
+/** The menu that adds a part, a shared part drawn in its place, or a slot the code fills that no part places yet. */
 function AddPart({
   view,
   parts,
@@ -703,7 +710,7 @@ function AddPart({
         ))}
         {insertable.length > 0 ? <DropdownMenuSeparator /> : null}
         {insertable.map((shared) => (
-          <DropdownMenuItem key={shared.name} onSelect={() => onAdd({ ...shared.part, shared: shared.name })}>
+          <DropdownMenuItem key={shared.name} onSelect={() => onAdd({ type: shared.part.type, shared: shared.name })}>
             {t("steward.document-editor.insert-shared-part", { name: shared.name })}
           </DropdownMenuItem>
         ))}

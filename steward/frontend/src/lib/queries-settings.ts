@@ -213,7 +213,7 @@ export function useSaveDocument() {
   })
 }
 
-/** Each admin's document that holds the shared part, before and after `part` replaces every copy. */
+/** Each admin's document that names the shared part, drawn before and after `part` is saved as it. */
 export function useSharedPartChanges(name: string, part: DocumentPart, enabled: boolean) {
   const body = JSON.stringify(part)
   return useQuery({
@@ -225,8 +225,8 @@ export function useSharedPartChanges(name: string, part: DocumentPart, enabled: 
 }
 
 /**
- * Saves `part` as the shared part, or with `null` removes it, and rewrites every document that holds it. The answer
- * replaces the list, and each rewritten document has a new version.
+ * Saves `part` as the shared part, which every document that names it draws from then on, or with `null` removes it.
+ * The answer replaces the list.
  */
 export function useSaveSharedPart() {
   const client = useQueryClient()
@@ -238,7 +238,6 @@ export function useSaveSharedPart() {
       ),
     onSuccess: (list) => {
       client.setQueryData(keys.documents, list)
-      void client.invalidateQueries({ queryKey: ["document-versions"] })
       void client.invalidateQueries({ queryKey: ["shared-part-changes"] })
     },
   })

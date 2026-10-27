@@ -43,7 +43,7 @@ export type Context = {
   view: DocumentView
   /** The one language edited and previewed. */
   language: Language
-  /** The shared parts saved, to insert and to compare a copy with. */
+  /** The shared parts saved, to insert and to show in the place that names one. */
   sharedParts: readonly SharedPartView[]
   /** What the check found in the draft, each at the part it is in. */
   problems: readonly DocumentProblem[]

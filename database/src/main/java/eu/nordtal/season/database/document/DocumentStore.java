@@ -8,9 +8,11 @@ import eu.nordtal.season.messages.document.Part;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
@@ -25,13 +27,24 @@ public interface DocumentStore {
         return new JdbiDocumentStore(dataSource);
     }
 
-    /** Passes the documents of {@code namespaces} to {@code apply} on connect and on every change. */
+    /** Passes the {@link #applied} documents of {@code namespaces} to {@code apply} on connect and on every change. */
     default void follow(
             final Collection<String> namespaces, final SignalHub hub, final Consumer<List<StoredDocument>> apply) {
-        hub.watch(Channel.MESSAGES, "the admins' documents", null, () -> documents(namespaces), apply);
+        hub.watch(Channel.MESSAGES, "the admins' documents", null, () -> applied(namespaces), apply);
     }
 
+    /** Returns the documents of {@code namespaces} as they are saved, each shared part they name by its name. */
     List<StoredDocument> documents(Collection<String> namespaces);
+
+    /** Returns the documents of {@code namespaces} as a service draws them: each shared part they name in its place. */
+    default List<StoredDocument> applied(final Collection<String> namespaces) {
+        final Map<String, Part> shared =
+                sharedParts().stream().collect(Collectors.toMap(SharedPart::name, SharedPart::part));
+        return documents(namespaces).stream()
+                .map(stored -> new StoredDocument(
+                        stored.namespace(), stored.name(), stored.document().resolved(shared), stored.replaced()))
+                .toList();
+    }
 
     /**
      * Replaces an admin's document, keeps it as a version, and signals its namespace.
@@ -47,12 +60,12 @@ public interface DocumentStore {
     List<SharedPart> sharedParts();
 
     /**
-     * Replaces a shared part, or removes it where {@code part} is {@code null}, with the documents that hold it.
-     * Each document is written and kept as a version in the same transaction, and each namespace written is signalled.
+     * Replaces a shared part, or removes it where {@code part} is {@code null}, and signals {@link Channel#MESSAGES}.
+     * Every document that names it draws the new part from then on.
      *
-     * @throws IllegalArgumentException if a document shows an {@code upload://} image that is not stored
+     * @throws IllegalArgumentException if the part shows an {@code upload://} image that is not stored
      */
-    void changeSharedPart(String name, @Nullable Part part, List<StoredDocument> rewritten, Actor actor);
+    void changeSharedPart(String name, @Nullable Part part, Actor actor);
 
     /** Returns every version of a document, the newest first. */
     List<Version> versions(String namespace, String name);
@@ -70,7 +83,7 @@ public interface DocumentStore {
         }
     }
 
-    /** A part an admin saved for reuse; a document holds a copy marked with its name. */
+    /** A part an admin saved for reuse, which a document names to draw it in that place. */
     record SharedPart(String name, Part part) {}
 
     /**

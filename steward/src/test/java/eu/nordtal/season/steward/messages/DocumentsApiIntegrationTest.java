@@ -21,6 +21,7 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentMerge;
 import eu.nordtal.season.messages.document.Documents;
+import eu.nordtal.season.messages.document.Part;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.steward.ErrorHandlers;
 import eu.nordtal.season.steward.texts.WebTexts;
@@ -261,28 +262,36 @@ class DocumentsApiIntegrationTest {
     }
 
     @Test
-    void aSharedPartChangeShowsAndThenRewritesEveryDocumentThatHoldsACopy() throws Exception {
-        final String marked = WELCOME.replace("{\"type\":\"TEXT\",", "{\"type\":\"TEXT\",\"shared\":\"greeting\",");
-        send("PUT", "/api/documents/smp/welcome", marked.getBytes(UTF_8), 200);
-        final byte[] greeting = """
-                {"type":"TEXT","lines":[{"text":{"en":"Hi {player}","de":"hi-de {player}"}}]}""".getBytes(UTF_8);
+    void aDocumentNamesASharedPartAndAChangeOfThePartReachesItWithoutRewritingIt() throws Exception {
+        send("PUT", "/api/shared-parts/greeting", """
+                {"type":"TEXT","lines":[{"text":{"en":"Hi {player}","de":"hi-de {player}"}}]}""".getBytes(UTF_8), 200);
+        final String naming = WELCOME.replace(
+                "{\"type\":\"TEXT\",\"lines\":[{\"text\":{\"en\":\"Welcome {player}\",\"de\":\"welcome-de {player}\"},\"style\":\"TITLE\"}]}",
+                "{\"type\":\"TEXT\",\"shared\":\"greeting\"}");
+        send("PUT", "/api/documents/smp/welcome", naming.getBytes(UTF_8), 200);
+        final byte[] hello = """
+                {"type":"TEXT","lines":[{"text":{"en":"Hello {player}","de":"hello-de {player}"}}]}""".getBytes(UTF_8);
 
         final JsonObject change = GSON.fromJson(
-                        send("POST", "/api/shared-parts/greeting/changes", greeting, 200),
-                        com.google.gson.JsonArray.class)
+                        send("POST", "/api/shared-parts/greeting/changes", hello, 200), com.google.gson.JsonArray.class)
                 .get(0)
                 .getAsJsonObject();
         assertEquals(
-                Document.decode(marked), Document.decode(change.get("before").toString()));
-        final Document after = Document.decode(marked.replace(
-                "{\"text\":{\"en\":\"Welcome {player}\",\"de\":\"welcome-de {player}\"},\"style\":\"TITLE\"}",
-                "{\"text\":{\"en\":\"Hi {player}\",\"de\":\"hi-de {player}\"}}"));
-        assertEquals(after, Document.decode(change.get("after").toString()));
+                Document.decode(WELCOME.replace(
+                        "Welcome {player}\",\"de\":\"welcome-de {player}\"},\"style\":\"TITLE\"",
+                        "Hi {player}\",\"de\":\"hi-de {player}\"}")),
+                Document.decode(change.get("before").toString()));
+        assertEquals(
+                Document.decode(WELCOME.replace(
+                        "Welcome {player}\",\"de\":\"welcome-de {player}\"},\"style\":\"TITLE\"",
+                        "Hello {player}\",\"de\":\"hello-de {player}\"}")),
+                Document.decode(change.get("after").toString()));
         assertEquals(List.of(), List.of(GSON.fromJson(change.get("problems"), String[].class)));
 
-        final JsonObject list =
-                GSON.fromJson(send("PUT", "/api/shared-parts/greeting", greeting, 200), JsonObject.class);
-        assertEquals(after, store.documents(List.of("smp")).getFirst().document());
+        final JsonObject list = GSON.fromJson(send("PUT", "/api/shared-parts/greeting", hello, 200), JsonObject.class);
+        assertEquals(
+                Document.decode(naming),
+                store.documents(List.of("smp")).getFirst().document());
         assertEquals(
                 "smp/welcome",
                 list.getAsJsonArray("sharedParts")
@@ -292,26 +301,29 @@ class DocumentsApiIntegrationTest {
                         .get(0)
                         .getAsString());
 
-        send("DELETE", "/api/shared-parts/greeting", new byte[0], 200);
-        assertEquals(
-                Document.decode(after.json().replace(",\"shared\":\"greeting\"", "")),
-                store.documents(List.of("smp")).getFirst().document());
-        assertEquals(List.of(), store.sharedParts());
+        final String refused = send("DELETE", "/api/shared-parts/greeting", new byte[0], 400);
+        assertTrue(refused.contains("smp/welcome names the shared part greeting"), refused);
+        assertEquals(1, store.sharedParts().size());
     }
 
     @Test
-    void aSharedPartChangeTheCheckRefusesInOneDocumentWritesNothing() throws Exception {
-        final String marked = WELCOME.replace("{\"type\":\"ROW\",", "{\"type\":\"ROW\",\"shared\":\"buttons\",");
-        send("PUT", "/api/documents/smp/welcome", marked.getBytes(UTF_8), 200);
+    void aSharedPartThatBreaksADocumentOrDrawsItselfAndADocumentNamingAnUnsavedOneAreRefused() throws Exception {
+        final String row =
+                "{\"type\":\"ROW\",\"items\":[{\"slot\":\"join\",\"label\":{\"en\":\"Join\",\"de\":\"join-de\"}}]}";
+        final String naming = WELCOME.replace(row, "{\"type\":\"ROW\",\"shared\":\"buttons\"}");
+        final String unsaved = send("PUT", "/api/documents/smp/welcome", naming.getBytes(UTF_8), 400);
+        assertTrue(unsaved.contains("names the shared part buttons, which is not saved"), unsaved);
+        send("PUT", "/api/shared-parts/buttons", row.getBytes(UTF_8), 200);
+        send("PUT", "/api/documents/smp/welcome", naming.getBytes(UTF_8), 200);
 
         final String refused = send("PUT", "/api/shared-parts/buttons", """
                 {"type":"SEPARATOR"}""".getBytes(UTF_8), 400);
-
         assertTrue(refused.contains("it does not place the button join"), refused);
-        assertEquals(
-                Document.decode(marked),
-                store.documents(List.of("smp")).getFirst().document());
-        assertEquals(List.of(), store.sharedParts());
+        final String loop = send("PUT", "/api/shared-parts/buttons", """
+                {"type":"CONTAINER","parts":[{"type":"ROW","shared":"buttons"}]}""".getBytes(UTF_8), 400);
+        assertTrue(loop.contains("buttons would draw itself"), loop);
+
+        assertEquals(Part.Type.ROW, store.sharedParts().getFirst().part().type());
         send("PUT", "/api/shared-parts/Not-A-Name", "{\"type\":\"SEPARATOR\"}".getBytes(UTF_8), 400);
     }
 

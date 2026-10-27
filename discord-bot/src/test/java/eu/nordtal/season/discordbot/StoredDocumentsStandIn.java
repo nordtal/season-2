@@ -60,15 +60,11 @@ public final class StoredDocumentsStandIn {
 
             @Override
             public List<SharedPart> sharedParts() {
-                throw new UnsupportedOperationException("the stand-in keeps no shared parts");
+                return List.of();
             }
 
             @Override
-            public void changeSharedPart(
-                    final String name,
-                    final @Nullable Part part,
-                    final List<StoredDocument> rewritten,
-                    final Actor actor) {
+            public void changeSharedPart(final String name, final @Nullable Part part, final Actor actor) {
                 throw new UnsupportedOperationException("the stand-in is read only");
             }
 

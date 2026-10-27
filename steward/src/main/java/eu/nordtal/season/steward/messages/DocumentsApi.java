@@ -12,11 +12,9 @@ import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
-import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageOverride;
 import eu.nordtal.season.messages.Messages;
-import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentCheck;
 import eu.nordtal.season.messages.document.DocumentDeclaration;
@@ -38,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -48,9 +47,6 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TranslatableComponent;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -110,14 +106,14 @@ public final class DocumentsApi {
     /**
      * A part an admin saved for reuse.
      *
-     * @param documents every admin's document that holds a copy of it, as {@code namespace/name}
+     * @param documents every admin's document that names it, directly or through another, as {@code namespace/name}
      */
     public record SharedPartView(String name, Part part, List<String> documents) {}
 
     /**
-     * An admin's document that a change of a shared part rewrites.
+     * An admin's document that names a shared part, as it draws before and after a change of the part.
      *
-     * @param problems what a save of {@code after} would be refused for
+     * @param problems the check's errors of {@code after} that {@code before} lacks, which refuse the change
      */
     public record SharedPartChange(
             DocumentDeclaration declaration, boolean game, Document before, Document after, List<String> problems) {}
@@ -225,9 +221,10 @@ public final class DocumentsApi {
     /** Draws a document in {@code language} with {@code renderer}, and refuses one the renderer cannot draw. */
     private static DocumentDrawing draw(
             final DocumentDeclaration declaration,
-            final Document document,
+            final Document written,
             final String language,
             final Renderer renderer) {
+        final Document document = written.resolved(renderer.shared());
         final @Nullable String drawn;
         final @Nullable MenuDrawing menu;
         final @Nullable List<String> game;
@@ -240,8 +237,8 @@ public final class DocumentsApi {
             final Locale locale = Locales.parse(language);
             final DocumentSpec.Shape shape = declaration.shape();
             drawn = shape.game() ? null : renderer.documents().preview(packaged, renderer.languages(), locale);
-            menu = shape == DocumentSpec.Shape.MENU ? menu(renderer.game(), packaged, locale) : null;
-            game = shape.game() && menu == null ? text(renderer.game(), packaged, locale) : null;
+            menu = shape == DocumentSpec.Shape.MENU ? GameDrawing.menu(renderer.game(), packaged, locale) : null;
+            game = shape.game() && menu == null ? GameDrawing.text(renderer.game(), packaged, locale) : null;
         } catch (final RuntimeException undrawable) {
             throw new RequestRefused(
                     422, ANSWER.draftUndrawable(declaration.id(), String.valueOf(undrawable.getMessage())));
@@ -266,7 +263,7 @@ public final class DocumentsApi {
         final List<BlockChange> changes = new ArrayList<>();
         for (final DocumentView view : documents().documents()) {
             final Document document = Objects.requireNonNullElse(view.written(), view.packaged());
-            if (!names(document, keys)) {
+            if (!names(document.resolved(before.shared()), keys) && !names(document.resolved(after.shared()), keys)) {
                 continue;
             }
             for (final String language : document.languages()) {
@@ -309,8 +306,10 @@ public final class DocumentsApi {
      * draft that no message holds, one a save would refuse and one the renderer cannot draw.
      */
     public DocumentPreview preview(final Context ctx) {
-        final DocumentDraft draft = draftOf(ctx);
-        final DocumentDeclaration declaration = draft.declaration();
+        final DocumentDraft drafted = draftOf(ctx);
+        final DocumentDeclaration declaration = drafted.declaration();
+        final DocumentDraft draft = new DocumentDraft(
+                declaration, resolved(declaration, drafted.document(), renderer(languages())), drafted.language());
         final DocumentSpec.Shape shape = declaration.shape();
         if (!shape.game() && shape != DocumentSpec.Shape.MESSAGE && shape != DocumentSpec.Shape.PLAIN) {
             throw new RequestRefused(400, ANSWER.draftNotMessage(declaration.id()));
@@ -331,9 +330,9 @@ public final class DocumentsApi {
         final Locale language = Locales.parse(draft.language());
         try {
             if (shape == DocumentSpec.Shape.MENU) {
-                menu(renderer(languages).game(), packaged, language);
+                GameDrawing.menu(renderer(languages).game(), packaged, language);
             } else if (shape.game()) {
-                text(renderer(languages).game(), packaged, language);
+                GameDrawing.text(renderer(languages).game(), packaged, language);
             } else {
                 renderer(languages).documents().preview(packaged, languages, language);
             }
@@ -362,55 +361,6 @@ public final class DocumentsApi {
         return draft;
     }
 
-    /** Draws a menu with the game's renderer, every value, entry and data list item at its declared example. */
-    private static MenuDrawing menu(
-            final MessageRenderer renderer, final Documents.Packaged packaged, final Locale language) {
-        final GameDocument document = GameDocument.example(renderer, packaged, Viewer.of(language));
-        final List<MenuPart> parts = new ArrayList<>();
-        for (final Part part : packaged.document().parts()) {
-            final String slot = part.slot();
-            if (slot == null) {
-                continue;
-            }
-            if (part.type() == Part.Type.ITEM) {
-                final GameDocument.Drawn drawn = document.exampleItem(slot);
-                final List<String> lines = new ArrayList<>();
-                lines.add(markup(drawn.name()));
-                drawn.lore().forEach(line -> lines.add(markup(line)));
-                parts.add(new MenuPart(slot, part.type(), lines));
-            } else if (part.type() == Part.Type.LABEL) {
-                parts.add(new MenuPart(slot, part.type(), List.of(document.exampleLabel(slot))));
-            }
-        }
-        return new MenuDrawing(markup(document.title()), parts);
-    }
-
-    /** Draws a game text's lines with the game's renderer, every value at its declared example. */
-    private static List<String> text(
-            final MessageRenderer renderer, final Documents.Packaged packaged, final Locale language) {
-        return GameDocument.example(renderer, packaged, Viewer.of(language)).lines().stream()
-                .map(DocumentsApi::markup)
-                .toList();
-    }
-
-    /**
-     * Returns the component in MiniMessage, with each glyph tag as written.
-     * Steward has no glyph table, so the renderer leaves the tag as text, and the browser draws the glyph by its name.
-     */
-    private static String markup(final Component component) {
-        return MiniMessage.miniMessage().serialize(named(component)).replace("\\<glyph:", "<glyph:");
-    }
-
-    /** Puts each translated name's English fallback in its place: a browser has no client to translate it. */
-    private static Component named(final Component component) {
-        final Component named = component instanceof final TranslatableComponent translated
-                ? Component.text(Objects.requireNonNullElse(translated.fallback(), translated.key()))
-                        .style(translated.style())
-                        .children(translated.children())
-                : component;
-        return named.children(named.children().stream().map(DocumentsApi::named).toList());
-    }
-
     /**
      * {@code PUT /api/documents/{namespace}/{name}} stores the document in the body over the packaged one.
      * A document the check refuses is a 400 that writes nothing. The bot edits its managed messages at once.
@@ -429,10 +379,11 @@ public final class DocumentsApi {
         if (document == null) {
             throw new RequestRefused(400, ANSWER.empty());
         }
+        final Renderer renderer = renderer(languages());
+        final Document drawn = resolved(declaration, document, renderer);
         final List<String> problems;
         try {
-            problems = DocumentCheck.errors(
-                    declaration, document, MessageCheck.Mode.OVERRIDE, renderer(languages())::blocks);
+            problems = DocumentCheck.errors(declaration, drawn, MessageCheck.Mode.OVERRIDE, renderer::blocks);
         } catch (final RuntimeException unreadable) {
             throw new RequestRefused(
                     400, ANSWER.documentRefused(declaration.id(), String.valueOf(unreadable.getMessage())));
@@ -488,98 +439,113 @@ public final class DocumentsApi {
     }
 
     /**
-     * {@code POST /api/shared-parts/{name}/changes} answers each document that holds the shared part.
-     * Each one is answered before and after the part in the body replaces every copy. It changes nothing.
+     * {@code POST /api/shared-parts/{name}/changes} answers each admin's document that names the shared part.
+     * It draws each before and after the part in the body is saved, and changes nothing.
      */
     public void sharedPartChanges(final Context ctx) {
-        ctx.json(changes(sharedPartName(ctx), partOf(ctx)).stream()
-                .map(Rewrite::change)
-                .toList());
+        ctx.json(changes(sharedPartName(ctx), partOf(ctx)));
     }
 
     /**
      * {@code PUT /api/shared-parts/{name}} stores the part in the body as the shared part.
-     * It replaces every copy in the same transaction, and writes nothing if the check refuses one changed document.
+     * It writes nothing where the check refuses one document that names it.
      *
-     * @return the shared part's {@code shared-parts/name} and every document it rewrote
+     * @return the shared part's {@code shared-parts/name}
      */
-    public List<String> saveSharedPart(final Context ctx, final Actor actor) {
+    public String saveSharedPart(final Context ctx, final Actor actor) {
         final String name = sharedPartName(ctx);
-        final Part part = partOf(ctx).marked(null);
-        final List<Rewrite> changes = changes(name, part);
-        for (final Rewrite each : changes) {
-            if (!each.change().problems().isEmpty()) {
+        final Part part = partOf(ctx);
+        for (final SharedPartChange each : changes(name, part)) {
+            if (!each.problems().isEmpty()) {
                 throw new RequestRefused(
                         400,
                         ANSWER.documentRefused(
-                                each.change().declaration().id(),
-                                each.change().problems().getFirst()));
+                                each.declaration().id(), each.problems().getFirst()));
             }
         }
-        return writeSharedPart(ctx, name, part, changes, actor);
+        return writeSharedPart(ctx, name, part, actor);
     }
 
     /**
-     * {@code DELETE /api/shared-parts/{name}} removes the shared part; each copy stays as a plain part.
+     * {@code DELETE /api/shared-parts/{name}} removes the shared part, and refuses while a document names it.
      *
-     * @return the shared part's {@code shared-parts/name} and every document it rewrote
+     * @return the shared part's {@code shared-parts/name}
      */
-    public List<String> removeSharedPart(final Context ctx, final Actor actor) {
+    public String removeSharedPart(final Context ctx, final Actor actor) {
         final String name = sharedPartName(ctx);
-        return writeSharedPart(ctx, name, null, changes(name, null), actor);
+        final List<SharedPartChange> naming = changes(name, null);
+        if (!naming.isEmpty()) {
+            throw new RequestRefused(
+                    400,
+                    ANSWER.sharedPartNamed(name, naming.getFirst().declaration().id()));
+        }
+        return writeSharedPart(ctx, name, null, actor);
     }
 
-    private List<String> writeSharedPart(
-            final Context ctx,
-            final String name,
-            final @Nullable Part part,
-            final List<Rewrite> changes,
-            final Actor actor) {
+    private String writeSharedPart(final Context ctx, final String name, final @Nullable Part part, final Actor actor) {
         try {
-            store.changeSharedPart(
-                    name,
-                    part,
-                    changes.stream()
-                            .map(each -> new DocumentStore.StoredDocument(
-                                    each.change().declaration().namespace(),
-                                    each.change().declaration().name(),
-                                    each.change().after(),
-                                    each.hash()))
-                            .toList(),
-                    actor);
+            store.changeSharedPart(name, part, actor);
         } catch (final IllegalArgumentException missing) {
             throw new RequestRefused(
                     400, ANSWER.documentRefused(SHARED_PARTS + name, String.valueOf(missing.getMessage())));
         }
         ctx.json(documents());
-        final List<String> written = new ArrayList<>();
-        written.add(SHARED_PARTS + name);
-        changes.forEach(each -> written.add(each.change().declaration().id()));
-        return written;
+        return SHARED_PARTS + name;
     }
 
-    /** A document a shared part's change rewrites, with the hash of the packaged one it is written over. */
-    private record Rewrite(SharedPartChange change, String hash) {}
-
-    private List<Rewrite> changes(final String name, final @Nullable Part part) {
-        final List<Rewrite> changes = new ArrayList<>();
+    /** Returns each admin's document that names {@code name} before and after it becomes {@code part}, or a loop. */
+    private List<SharedPartChange> changes(final String name, final @Nullable Part part) {
         final Renderer drawing = renderer(languages());
+        final Map<String, Part> changed = new HashMap<>(drawing.shared());
+        if (part == null) {
+            changed.remove(name);
+        } else {
+            changed.put(name, part);
+            if (new Document(List.of(part)).sharedParts(changed).contains(name)) {
+                throw new RequestRefused(400, ANSWER.sharedPartLoop(name));
+            }
+        }
+        final List<SharedPartChange> changes = new ArrayList<>();
         for (final DocumentView view : documents().documents()) {
-            final Document before = view.written();
-            if (before == null || !before.sharedParts().contains(name)) {
+            final Document written = view.written();
+            if (written == null
+                    || !(written.sharedParts(drawing.shared()).contains(name)
+                            || written.sharedParts(changed).contains(name))) {
                 continue;
             }
-            final Document after = before.withSharedPart(name, part);
-            List<String> problems;
-            try {
-                problems = DocumentCheck.errors(view.declaration(), after, MessageCheck.Mode.OVERRIDE, drawing::blocks);
-            } catch (final RuntimeException unreadable) {
-                problems = List.of(String.valueOf(unreadable.getMessage()));
-            }
-            changes.add(new Rewrite(
-                    new SharedPartChange(view.declaration(), view.game(), before, after, problems), view.hash()));
+            final Document before = written.resolved(drawing.shared());
+            final Document after = written.resolved(changed);
+            final List<String> had = errors(view.declaration(), before, drawing);
+            changes.add(new SharedPartChange(
+                    view.declaration(),
+                    view.game(),
+                    before,
+                    after,
+                    errors(view.declaration(), after, drawing).stream()
+                            .filter(error -> !had.contains(error))
+                            .toList()));
         }
         return changes;
+    }
+
+    private static List<String> errors(
+            final DocumentDeclaration declaration, final Document document, final Renderer renderer) {
+        try {
+            return DocumentCheck.errors(declaration, document, MessageCheck.Mode.OVERRIDE, renderer::blocks);
+        } catch (final RuntimeException unreadable) {
+            return List.of(String.valueOf(unreadable.getMessage()));
+        }
+    }
+
+    /** Returns {@code document} with each shared part it names in its place, and refuses a name no part is saved as. */
+    private static Document resolved(
+            final DocumentDeclaration declaration, final Document document, final Renderer renderer) {
+        for (final String name : document.sharedParts(renderer.shared())) {
+            if (!renderer.shared().containsKey(name)) {
+                throw new RequestRefused(400, ANSWER.sharedPartUnknown(declaration.id(), name));
+            }
+        }
+        return document.resolved(renderer.shared());
     }
 
     private static String sharedPartName(final Context ctx) {
@@ -588,6 +554,12 @@ public final class DocumentsApi {
             throw new RequestRefused(400, ANSWER.sharedPartName(name));
         }
         return name;
+    }
+
+    /** Returns every saved shared part by name. */
+    private Map<String, Part> sharedParts() {
+        return store.sharedParts().stream()
+                .collect(Collectors.toMap(DocumentStore.SharedPart::name, DocumentStore.SharedPart::part));
     }
 
     private static Part partOf(final Context ctx) {
@@ -671,23 +643,29 @@ public final class DocumentsApi {
      */
     Renderer renderer(final List<Locale> languages) {
         final List<MessageOverride> blocks = overrides.overrides(Messages.BLOCKS);
+        final Map<String, Part> shared = sharedParts();
         final Renderer last = renderer;
-        if (last != null && last.languages().equals(languages) && last.blocks().equals(blocks)) {
+        if (last != null
+                && last.languages().equals(languages)
+                && last.blocks().equals(blocks)
+                && last.shared().equals(shared)) {
             return last;
         }
-        final Renderer made = renderer(languages, blocks);
+        final Renderer made = renderer(languages, blocks, shared);
         renderer = made;
         return made;
     }
 
-    /** Returns renderers of drafts in {@code languages} with {@code blocks}, the admins' texts of the block bundles. */
-    static Renderer renderer(final List<Locale> languages, final List<MessageOverride> blocks) {
+    /** Returns renderers of drafts in {@code languages} with the admins' block texts and the shared parts by name. */
+    static Renderer renderer(
+            final List<Locale> languages, final List<MessageOverride> blocks, final Map<String, Part> shared) {
         final Messages messages = Messages.load(
                 DocumentsApi.class.getClassLoader(), DocumentRenderer.BUNDLES, languages.toArray(Locale[]::new));
         messages.override(blocks);
         return new Renderer(
                 languages,
                 List.copyOf(blocks),
+                Map.copyOf(shared),
                 messages,
                 new DocumentRenderer(DiscordRenderer.of(messages)),
                 MessageRenderer.of(messages));
@@ -695,11 +673,13 @@ public final class DocumentsApi {
 
     /**
      * @param blocks the admins' texts of the block bundles that {@code messages} holds
+     * @param shared the shared parts by name, which a document draws where it names them
      * @param game   the game's renderer, which draws a menu
      */
     record Renderer(
             List<Locale> languages,
             List<MessageOverride> blocks,
+            Map<String, Part> shared,
             Messages messages,
             DocumentRenderer documents,
             MessageRenderer game) {
@@ -765,13 +745,14 @@ public final class DocumentsApi {
                     admin != null && !admin.replaced().equals(own.hash()),
                     merged.adaptations()));
         });
+        final Map<String, Part> byName = sharedParts();
         final List<SharedPartView> sharedParts = store.sharedParts().stream()
                 .map(shared -> new SharedPartView(
                         shared.name(),
                         shared.part(),
                         views.stream()
                                 .filter(view -> Objects.requireNonNullElse(view.written(), NONE)
-                                        .sharedParts()
+                                        .sharedParts(byName)
                                         .contains(shared.name()))
                                 .map(view -> view.declaration().id())
                                 .toList()))

@@ -71,24 +71,31 @@ class DocumentStoreIntegrationTest {
     }
 
     @Test
-    void aSharedPartAndEveryDocumentThatHoldsItAreWrittenTogetherAndARefusedDocumentWritesNeither() {
+    void aServiceReadsEachDocumentWithTheSharedPartItNamesDrawnInPlaceAndASharedPartShowsOnlyStoredImages() {
         final TestDatabase database = TestDatabase.fresh();
         final DocumentStore store = DocumentStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        final DocumentStore bot = DocumentStore.using(database.dataSourceAs(DatabaseRole.DISCORD_BOT));
         final long image = store.upload("image/png", new byte[] {1}, ADMIN);
         final Part part = written(image, "Hi").document().parts().getFirst();
-        store.changeSharedPart("header", part, List.of(written(image, "Hi")), ADMIN);
+        store.changeSharedPart("header", part, ADMIN);
+        store.change(
+                new DocumentStore.StoredDocument(
+                        "discord",
+                        "contribution",
+                        Document.decode("{\"parts\": [{\"type\": \"CONTAINER\", \"shared\": \"header\"}]}"),
+                        HASH),
+                ADMIN);
 
+        assertEquals(
+                List.of(new DocumentStore.StoredDocument("discord", "contribution", new Document(List.of(part)), HASH)),
+                bot.applied(Set.of("discord")));
         assertThrows(
                 IllegalArgumentException.class,
                 () -> store.changeSharedPart(
-                        "header",
-                        written(image, "Other").document().parts().getFirst(),
-                        List.of(written(image + 1, "Hi")),
-                        ADMIN));
-        assertEquals(List.of(new DocumentStore.SharedPart("header", part)), store.sharedParts());
-        assertEquals(1, store.versions("discord", "contribution").size());
+                        "header", written(image + 1, "Other").document().parts().getFirst(), ADMIN));
+        assertEquals(List.of(new DocumentStore.SharedPart("header", part)), bot.sharedParts());
 
-        store.changeSharedPart("header", null, List.of(), ADMIN);
+        store.changeSharedPart("header", null, ADMIN);
         assertEquals(List.of(), store.sharedParts());
     }
 

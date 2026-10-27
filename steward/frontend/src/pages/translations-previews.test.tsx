@@ -311,4 +311,36 @@ describe("the previews", () => {
     const folded = /^Text block\s*The Nether is complete, 2 days early\.$/
     await waitFor(() => expect(within(editor).getByRole("button", { name: folded })).toBeTruthy())
   })
+
+  it("draws a value that names another message as that message's words, filled with its own examples", async () => {
+    const headline = text({
+      key: "run.headline",
+      bundle: "admin",
+      texts: { en: ["{stage, select, failed {The update failed} other {{stage}}}"] },
+      args: [{ name: "stage", kind: "choice", example: "failed", global: false, action: false }],
+    })
+    const title = {
+      kind: "message",
+      example: "admin/run.headline",
+      takes: ["admin/run.headline"],
+      exampleValue: { kind: "message", value: { key: "run.headline", args: {} } },
+    }
+    const run = view(
+      { name: "update-run", title: "Update run", values: { title } },
+      {
+        parts: [
+          { type: "TEXT", lines: [{ text: { en: "Update run" }, style: "TITLE" }] },
+          { type: "TEXT", lines: [{ text: { en: "{title}" } }] },
+        ],
+      },
+      { named: { title } },
+    )
+    vi.stubGlobal("fetch", backend(listing([headline]), undefined, { documents: documents([run]) }))
+    draw(<Page />)
+
+    await openItem("Update run", /^Discord/)
+    const editor = await screen.findByRole("region", { name: "Update run" })
+    const folded = /^Text block\s*The update failed$/
+    await waitFor(() => expect(within(editor).getByRole("button", { name: folded })).toBeTruthy())
+  })
 })

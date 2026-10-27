@@ -41,11 +41,13 @@ export function useWords(): (language: Language, bundle?: string) => Words | und
     const key = `${bundle ?? ""}/${language}`
     let words = known.get(key)
     if (words === undefined) {
-      words = wordsOf(
-        data.texts.map((text) => text.entry),
-        language,
-        bundle,
-      )
+      const entries = data.texts.map((text) => text.entry)
+      // A nested message is filled with its own examples, as the server's preview does; its own bundle's key wins.
+      const examples: Record<string, Record<string, unknown>> = {}
+      for (const entry of entries.toSorted((a, b) => Number(a.bundle === bundle) - Number(b.bundle === bundle))) {
+        examples[entry.key] = valuesOf(entry.args, undefined)
+      }
+      words = { ...wordsOf(entries, language, bundle), examples }
       known.set(key, words)
     }
     return words

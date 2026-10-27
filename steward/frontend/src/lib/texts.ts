@@ -16,8 +16,11 @@ export type TextNode =
 
 export type Texts = Record<string, TextNode[][]>
 
-/** What a value is written in: a locale's formats and the `values.*` words of its language. */
-export type Words = { locale: string; texts: Texts }
+/**
+ * What a value is written in: a locale's formats and the `values.*` words of its language, and each message's own
+ * examples by key, which fill a nested message where it names no value itself.
+ */
+export type Words = { locale: string; texts: Texts; examples?: Record<string, Record<string, unknown>> }
 
 export type Typed =
   | { kind: "text"; value: string }
@@ -387,7 +390,7 @@ function shown(value: Typed, style: string | undefined, words?: Words): string {
     case "glyph":
       return ""
     case "message":
-      return plain(runs(value.value.key, value.value.args ?? {}, words?.texts))
+      return plain(runs(value.value.key, { ...words?.examples?.[value.value.key], ...value.value.args }, words?.texts))
     default:
       return typeof value.value === "boolean" ? word(value.value ? "choice.yes" : "choice.no", {}, words) : value.value
   }

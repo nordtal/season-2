@@ -10,7 +10,7 @@ tracker='NT[0-9]+-[0-9]+'
 message=$(sed '/^# -* >8 -*$/,$d' "$1" | grep -v '^#' | sed '/^[[:space:]]*$/d')
 subject=$(printf '%s\n' "$message" | head -n 1)
 
-if printf '%s\n' "$message" | grep -Eiq '\b(claude|anthropic|opus|sonnet|haiku|fable)\b|generated with|^co-authored-by:.*(\[bot\]|\bbot\b)|^claude-session:'; then
+if printf '%s\n' "$message" | grep -Eiq '\b(claude|anthropic|opus|sonnet|haiku|fable|openai|chatgpt|copilot)\b|generated with|^co-authored-by:.*(\[bot\]|\bbot\b)|^claude-session:'; then
     echo "commit-msg: the message names a model or its vendor, a generated-with line, a bot co-author or a session; remove it." >&2
     exit 1
 fi

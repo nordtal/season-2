@@ -163,15 +163,17 @@ public final class MessagesApi {
                         400,
                         ANSWER.blockRefused(
                                 text.bundle() + "/" + text.key(),
-                                text.language(),
-                                MessageCheck.english(text.breaks().getFirst())));
+                                "its text in "
+                                        + Locales.parse(text.language()).getDisplayLanguage(Locale.ENGLISH)
+                                        + ": "
+                                        + MessageCheck.english(text.breaks().getFirst())));
             }
         }
         for (final DocumentsApi.BlockChange document : affected.documents()) {
             final List<String> breaks = document.breaks();
             if (!breaks.isEmpty()) {
                 throw new RequestRefused(
-                        400, ANSWER.blockRefused(document.declaration().id(), document.language(), breaks.getFirst()));
+                        400, ANSWER.blockRefused(document.declaration().id(), breaks.getFirst()));
             }
         }
     }

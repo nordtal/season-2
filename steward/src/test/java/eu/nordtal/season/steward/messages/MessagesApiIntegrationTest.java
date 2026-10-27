@@ -580,6 +580,27 @@ class MessagesApiIntegrationTest {
     }
 
     @Test
+    void aBuildingBlocksRefusalNamesOnlyTheLanguageThatBreaks() throws Exception {
+        final String text = "x".repeat(DOCUMENT_TEXT - " access".length()) + " {@terms.access}";
+        PluginJars.smp(
+                configs.resolve("smp/smp-0.9.1.jar"),
+                java.util.Map.of(
+                        "messages/terms/en.properties", "terms.access=access\n",
+                        "documents/smp/declarations.json", """
+                        [{"namespace":"smp","name":"notice","area":"Join","shape":"MESSAGE","values":{},"slots":[]}]""",
+                        "documents/smp/notice.json", """
+                        {"parts":[{"type":"TEXT","lines":[{"text":{"en":"%s","de":"kurz"}}]}]}""".formatted(text)));
+
+        final HttpResponse<String> refused = send(
+                "PUT",
+                "/api/messages",
+                "{\"changes\":{\"terms\":{\"terms.access\":{\"en\":[\"access to the whole network\"]}}}}");
+
+        assertEquals(400, refused.statusCode(), refused.body());
+        assertTrue(refused.body().contains("smp/notice would break: a text block in English"), refused.body());
+    }
+
+    @Test
     void theListingNamesEveryTextAndDocumentThatUsesABuildingBlock() throws Exception {
         PluginJars.smp(
                 configs.resolve("smp/smp-0.9.1.jar"),

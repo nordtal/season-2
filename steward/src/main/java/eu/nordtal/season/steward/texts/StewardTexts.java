@@ -321,8 +321,9 @@ public interface StewardTexts {
             @Name("Building block refused")
             MessageRef blockRefused(
                     @Arg("output") @Example("bot/rules") String output,
-                    @Arg("language") @Example("de") String language,
-                    @Arg("problem") @Example("its text blocks in de show 4055 characters, Discord takes 4000")
+                    @Arg("problem")
+                            @Example("a text block in German: with its examples the text has 4,055 characters, and its"
+                                    + " place fits 4,000")
                             String problem);
 
             @Name("Preview refused")

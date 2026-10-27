@@ -1,5 +1,8 @@
 package eu.nordtal.season.packrendering.menu;
 
+import java.util.List;
+import java.util.stream.IntStream;
+
 /** The pixel position of a chest slot in the window. A cell's origin is its top-left shadow pixel. */
 public final class SlotGeometry {
 
@@ -30,6 +33,11 @@ public final class SlotGeometry {
             throw new IllegalArgumentException("no slot at column " + column + ", row " + row);
         }
         return row * COLUMNS + column;
+    }
+
+    /** Returns every slot of {@code count} whole rows from row {@code first}, row by row. */
+    public static List<Integer> rows(final int first, final int count) {
+        return IntStream.range(slot(0, first), slot(0, first + count)).boxed().toList();
     }
 
     public static int column(final int slot) {

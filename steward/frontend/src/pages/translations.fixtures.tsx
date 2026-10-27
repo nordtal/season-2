@@ -100,6 +100,7 @@ export function view(
       title: over.name,
       area: "Contribution",
       shape: "MESSAGE",
+      rows: 0,
       values: {},
       slots: [],
       ...over,

@@ -32,7 +32,8 @@ class GameDocumentTest {
                             "wheel",
                             "Menus",
                             Wheel.class,
-                            Slot.item("target", Target.class),
+                            1,
+                            Slot.item("target", Target.class).at(List.of(0)),
                             Slot.list("wanted", Wanted.class),
                             Slot.label("left"))
                     .titled("Wheel")

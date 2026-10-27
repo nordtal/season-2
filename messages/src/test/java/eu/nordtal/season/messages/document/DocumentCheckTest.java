@@ -55,8 +55,9 @@ class DocumentCheckTest {
                     "wheel",
                     "Menus",
                     Wheel.class,
-                    Slot.item("hub"),
-                    Slot.item("target", Target.class),
+                    2,
+                    Slot.item("hub").at(List.of(4)),
+                    Slot.item("target", Target.class).at(List.of(9, 10, 11)),
                     Slot.list("wanted", Wanted.class),
                     Slot.label("left"))
             .titled("Wheel");

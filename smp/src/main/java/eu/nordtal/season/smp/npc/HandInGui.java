@@ -40,8 +40,9 @@ public final class HandInGui extends Menu {
                     "hand-in",
                     "Menus",
                     Window.class,
-                    Slot.item("sample"),
-                    Slot.item("confirm"),
+                    HandInPanel.ROWS,
+                    Slot.item("sample").at(List.of(HandInPanel.SAMPLE_SLOT)),
+                    Slot.item("confirm").at(HandInPanel.CONFIRM_SLOTS),
                     Slot.list("wanted", Wanted.class),
                     Slot.label("still-needed"),
                     Slot.label("confirm-button"))

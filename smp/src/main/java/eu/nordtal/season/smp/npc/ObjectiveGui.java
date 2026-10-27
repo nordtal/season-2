@@ -24,6 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.stream.IntStream;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -71,15 +72,20 @@ public final class ObjectiveGui extends Menu {
                     "objectives",
                     "Menus",
                     Window.class,
-                    Slot.item("heading"),
-                    Slot.item("objective", Card.class),
+                    ObjectivePanel.ROWS,
+                    Slot.item("heading").at(SlotGeometry.rows(ObjectivePanel.HEADING_ROW, 1)),
+                    Slot.item("objective", Card.class)
+                            .at(IntStream.range(0, ObjectivePanel.CARDS_PER_PAGE)
+                                    .boxed()
+                                    .flatMap(card -> ObjectivePanel.slotsOf(card).stream())
+                                    .toList()),
                     Slot.list("wanted", HandInGui.Wanted.class),
-                    Slot.item("share"),
+                    Slot.item("share").at(SlotGeometry.rows(ObjectivePanel.SHARE_ROW, 1)),
                     Slot.list("shares", Share.class),
                     Slot.label("share-line"),
                     Slot.label("share-none"),
-                    Slot.item("previous-page"),
-                    Slot.item("next-page"))
+                    Slot.item("previous-page").at(List.of(ObjectivePanel.PREV_SLOT)),
+                    Slot.item("next-page").at(List.of(ObjectivePanel.NEXT_SLOT)))
             .titled("Current objective");
 
     private final MessageRenderer renderer;
@@ -241,9 +247,7 @@ public final class ObjectiveGui extends Menu {
 
     private void fill() {
         final ItemStack heading = BlankItem.of(document.item("heading"));
-        for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
-            inventory.setItem(SlotGeometry.slot(column, ObjectivePanel.HEADING_ROW), heading);
-        }
+        SlotGeometry.rows(ObjectivePanel.HEADING_ROW, 1).forEach(slot -> inventory.setItem(slot, heading));
 
         for (final Entry entry : entries) {
             final ItemStack item = cardItem(entry);
@@ -257,9 +261,7 @@ public final class ObjectiveGui extends Menu {
                     .ifPresent(definition -> shares.add(new Share(name(definition), line.percent())));
         }
         final ItemStack shareItem = BlankItem.of(document.item("share", null, Map.of("shares", shares)));
-        for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
-            inventory.setItem(SlotGeometry.slot(column, ObjectivePanel.SHARE_ROW), shareItem);
-        }
+        SlotGeometry.rows(ObjectivePanel.SHARE_ROW, 1).forEach(slot -> inventory.setItem(slot, shareItem));
 
         // The page buttons are set last to overwrite the share plate slots.
         if (page > 0) {

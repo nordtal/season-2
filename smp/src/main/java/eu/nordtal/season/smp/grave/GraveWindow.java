@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
@@ -27,15 +28,19 @@ final class GraveWindow extends Menu {
             @Example("64") int y,
             @Example("355") int z) {}
 
+    /** The content rows of the grave the declaration lays out as its example. */
+    private static final int EXAMPLE_ROWS = 2;
+
     static final DocumentSpec<Window> DOCUMENT = DocumentSpec.menu(
                     "smp",
                     "grave",
                     "Menus",
                     Window.class,
-                    Slot.item("owner", Owner.class),
-                    Slot.item("experience"),
+                    GravePanel.rows(EXAMPLE_ROWS),
+                    Slot.item("owner", Owner.class).at(List.of(GravePanel.headSlot(EXAMPLE_ROWS))),
+                    Slot.item("experience").at(GravePanel.experienceSlots(EXAMPLE_ROWS)),
                     Slot.label("experience-line"),
-                    Slot.item("take-all"),
+                    Slot.item("take-all").at(GravePanel.takeAllSlots(EXAMPLE_ROWS)),
                     Slot.label("take-all-button"))
             .titled("Grave");
 

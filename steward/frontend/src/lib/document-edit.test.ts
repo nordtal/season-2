@@ -19,10 +19,11 @@ const declaration: DocumentDeclaration = {
   title: "Rules",
   area: "Rules",
   shape: "MESSAGE",
+  rows: 0,
   values: {},
   slots: [
-    { id: "accept", type: "BUTTON", required: true, values: {} },
-    { id: "rules", type: "LIST", required: false, values: {} },
+    { id: "accept", type: "BUTTON", required: true, values: {}, at: [] },
+    { id: "rules", type: "LIST", required: false, values: {}, at: [] },
   ],
 }
 

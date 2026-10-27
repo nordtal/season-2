@@ -201,8 +201,8 @@ class PreviewsTest {
 
     @Test
     void aDraftedMenuOpensOnTheMainThread() {
-        final DocumentSpec<DocumentSpec.None> menu =
-                DocumentSpec.menu("test", "m", "Test", DocumentSpec.None.class).titled("M");
+        final DocumentSpec<DocumentSpec.None> menu = DocumentSpec.menu("test", "m", "Test", DocumentSpec.None.class, 1)
+                .titled("M");
         previews.show(ALEX, "en", new Documents.Packaged(menu.declaration(), Document.decode("""
                                 {"parts": [{"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Menu"}}]}]}""")));
 

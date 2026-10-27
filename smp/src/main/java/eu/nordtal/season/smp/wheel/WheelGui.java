@@ -44,8 +44,9 @@ public final class WheelGui extends Menu {
                     "wheel",
                     "Menus",
                     Window.class,
-                    Slot.item("hub"),
-                    Slot.item("again", Again.class),
+                    WheelPanel.ROWS,
+                    Slot.item("hub").at(WheelPanel.HUB_ITEM_SLOTS),
+                    Slot.item("again", Again.class).at(WheelPanel.AGAIN_SLOTS),
                     Slot.label("spins-left"),
                     Slot.label("rule-top"),
                     Slot.label("rule-bottom"),
@@ -94,8 +95,7 @@ public final class WheelGui extends Menu {
                         document.label("again-button")));
 
         final ItemStack hub = BlankItem.of(document.item("hub"));
-        inventory.setItem(WheelPanel.HUB_SLOT, hub);
-        WheelPanel.INFO_SLOTS.forEach(slot -> inventory.setItem(slot, hub));
+        WheelPanel.HUB_ITEM_SLOTS.forEach(slot -> inventory.setItem(slot, hub));
 
         setAgain(State.WAITING);
         draw(0);

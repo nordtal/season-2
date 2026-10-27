@@ -6,6 +6,7 @@ import eu.nordtal.season.packrendering.menu.MenuTitle;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import eu.nordtal.season.papercommon.menu.MenuPalette;
 import java.util.List;
+import java.util.stream.Stream;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 
@@ -53,6 +54,10 @@ public final class WheelPanel {
             SlotGeometry.slot(8, AGAIN_ROW));
 
     public static final List<Integer> INFO_SLOTS = infoSlots();
+
+    /** The slots that hold the hub's item: the hub and every info slot. */
+    public static final List<Integer> HUB_ITEM_SLOTS =
+            Stream.concat(Stream.of(HUB_SLOT), INFO_SLOTS.stream()).toList();
 
     private WheelPanel() {}
 

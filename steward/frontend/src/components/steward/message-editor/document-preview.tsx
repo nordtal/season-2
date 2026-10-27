@@ -1,6 +1,6 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 
 import type { Document, DocumentDeclaration, MenuDrawing } from "@/lib/api"
 import { useDocumentDrawing, useGlyphs, useMessageSyntax } from "@/lib/queries"
@@ -49,7 +49,11 @@ export function DocumentPreview({
     return (
       <QueryState query={drawing}>
         {(drawn) =>
-          drawn?.menu ? <MenuPreview menu={drawn.menu} className={className} /> : <Skeleton className="h-32 w-full" />
+          drawn?.menu ? (
+            <MenuPreview declaration={declaration} menu={drawn.menu} className={className} />
+          ) : (
+            <Skeleton className="h-32 w-full" />
+          )
         }
       </QueryState>
     )
@@ -86,14 +90,56 @@ export function DocumentPreview({
 
 const unfilled = (name: string) => `{${name}}`
 
+/** A chest row's slots, as `SlotGeometry.COLUMNS` counts them. */
+const COLUMNS = 9
+
+/** A run of slots along one chest row that hold the same item. */
+export type MenuCell = { slot: string; row: number; column: number; columns: number }
+
 /**
- * A menu's title on the window's grey, then each item as its tooltip and each label as the window paints it, under the
- * slot the code places it in.
+ * Returns each run of slots that hold one item, row by row. An item declared later takes a slot from an earlier one, as
+ * the game sets the later item last.
  */
-function MenuPreview({ menu, className }: { menu: MenuDrawing; className?: string }) {
+export function menuCells(declaration: DocumentDeclaration): MenuCell[] {
+  const holder = new Map<number, string>()
+  for (const slot of declaration.slots) {
+    if (slot.type === "ITEM") slot.at.forEach((at) => holder.set(at, slot.id))
+  }
+  const cells: MenuCell[] = []
+  for (let at = 0; at < declaration.rows * COLUMNS; at++) {
+    const slot = holder.get(at)
+    const row = Math.floor(at / COLUMNS)
+    const column = at % COLUMNS
+    const last = cells.at(-1)
+    if (slot === undefined) continue
+    if (last && last.slot === slot && last.row === row && last.column + last.columns === column) last.columns++
+    else cells.push({ slot, row, column, columns: 1 })
+  }
+  return cells
+}
+
+/**
+ * A menu as the game opens it: its title on the window's grey, its rows of slots with each item over the slots the code
+ * places it in, the tooltip of the item under the pointer, and each label as the window paints it.
+ */
+function MenuPreview({
+  declaration,
+  menu,
+  className,
+}: {
+  declaration: DocumentDeclaration
+  menu: MenuDrawing
+  className?: string
+}) {
   const tones = useMessageSyntax().data?.tones ?? {}
   const glyphs = useGlyphs().data ?? []
   const runs = (source: string) => parse(source, "MINIMESSAGE", Object.keys(tones)) ?? textRuns(source, false)
+  const items = new Map(menu.parts.filter((part) => part.type === "ITEM").map((part) => [part.slot, part.lines]))
+  const labels = menu.parts.filter((part) => part.type === "LABEL")
+  const cells = menuCells(declaration)
+  const [pointed, setPointed] = useState<string>()
+  const shown = pointed ?? cells[0]?.slot
+  const tooltip = shown === undefined ? undefined : items.get(shown)
   return (
     <div
       className={cn("flex min-w-0 flex-col gap-3 overflow-x-auto rounded-md p-3", className)}
@@ -109,31 +155,75 @@ function MenuPreview({ menu, className }: { menu: MenuDrawing; className?: strin
           shadow={false}
         />
       </div>
-      <ul className="flex flex-wrap items-start gap-3">
-        {menu.parts.map((part, index) => (
-          <li key={index} className="flex max-w-full flex-col gap-1">
-            <span className="font-mono text-[11px] text-[#404040]">{part.slot}</span>
-            {part.type === "ITEM" ? (
-              <McTooltip>
-                {part.lines.map((line, at) => (
-                  <MinecraftText
-                    key={at}
-                    runs={runs(line)}
-                    fill={unfilled}
-                    glyphs={glyphs}
-                    tones={tones}
-                    wrap={SCREEN_WRAP}
-                  />
-                ))}
-              </McTooltip>
-            ) : (
-              <span className="self-start rounded-[2px] bg-[#8B8B8B] px-2 py-1 font-mono text-xs text-white">
-                {part.lines[0] ?? ""}
-              </span>
-            )}
-          </li>
+      <div className="grid w-full max-w-[324px] grid-cols-9" onPointerLeave={() => setPointed(undefined)}>
+        {Array.from({ length: declaration.rows * COLUMNS }, (_, at) => (
+          <span
+            key={at}
+            className="aspect-square"
+            style={{
+              gridRow: Math.floor(at / COLUMNS) + 1,
+              gridColumn: (at % COLUMNS) + 1,
+              background: "#8B8B8B",
+              boxShadow: "inset 2px 2px 0 #373737, inset -2px -2px 0 #FFFFFF",
+            }}
+          />
         ))}
-      </ul>
+        {cells.map((cell) => (
+          <button
+            key={`${cell.row}-${cell.column}`}
+            type="button"
+            aria-label={cell.slot}
+            aria-pressed={cell.slot === shown}
+            className="m-[2px] flex min-w-0 items-center overflow-hidden px-[2px]"
+            style={{
+              gridRow: cell.row + 1,
+              gridColumn: `${cell.column + 1} / span ${cell.columns}`,
+              background: cell.slot === shown ? "#100010F0" : "#100010A0",
+              boxShadow: cell.slot === shown ? "inset 0 0 0 2px #5000FF" : undefined,
+            }}
+            onPointerEnter={() => setPointed(cell.slot)}
+            onFocus={() => setPointed(cell.slot)}
+            onClick={() => setPointed(cell.slot)}
+          >
+            <MinecraftText
+              runs={runs(items.get(cell.slot)?.[0] ?? cell.slot)}
+              fill={unfilled}
+              glyphs={glyphs}
+              tones={tones}
+              scale={1}
+            />
+          </button>
+        ))}
+      </div>
+      {shown !== undefined && tooltip !== undefined ? (
+        <div className="flex max-w-full flex-col gap-1">
+          <span className="font-mono text-[11px] text-[#404040]">{shown}</span>
+          <McTooltip className="self-start">
+            {tooltip.map((line, at) => (
+              <MinecraftText
+                key={at}
+                runs={runs(line)}
+                fill={unfilled}
+                glyphs={glyphs}
+                tones={tones}
+                wrap={SCREEN_WRAP}
+              />
+            ))}
+          </McTooltip>
+        </div>
+      ) : null}
+      {labels.length > 0 ? (
+        <ul className="flex flex-wrap items-start gap-3">
+          {labels.map((label, index) => (
+            <li key={index} className="flex max-w-full flex-col gap-1">
+              <span className="font-mono text-[11px] text-[#404040]">{label.slot}</span>
+              <span className="self-start rounded-[2px] bg-[#8B8B8B] px-2 py-1 font-mono text-xs text-white">
+                {label.lines[0] ?? ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }

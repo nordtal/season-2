@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 import java.io.IOException;
@@ -95,6 +96,25 @@ class DocumentsTest {
                 refused.getMessage().contains("test/greeting-again: Welcome already has a document named Greeting"),
                 refused.getMessage());
         assertTrue(refused.getMessage().contains("test/untitled: has no name"), refused.getMessage());
+    }
+
+    @Test
+    void aMenusDeclarationCarriesItsRowsAndTheSlotsOfEachItem() {
+        final DocumentDeclaration written = Documents.decode(Json.encode(List.of(DocumentCheckTest.MENU.declaration())))
+                .getFirst();
+
+        assertEquals(2, written.rows());
+        assertEquals(List.of(9, 10, 11), written.requireSlot("target").at());
+        assertEquals(List.of(), written.requireSlot("left").at());
+    }
+
+    @Test
+    void aMenuRefusesAnItemWithoutASlot() {
+        final IllegalArgumentException refused = assertThrows(
+                IllegalArgumentException.class,
+                () -> DocumentSpec.menu("test", "bare", "Menus", DocumentSpec.None.class, 1, Slot.item("hub")));
+
+        assertEquals("test/bare places its item hub in no slot", refused.getMessage());
     }
 
     @Test

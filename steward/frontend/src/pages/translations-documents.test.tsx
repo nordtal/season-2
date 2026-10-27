@@ -33,8 +33,8 @@ const contribution: DocumentView = view(
     title: "Contribution",
     values: { donated: { kind: "flag", example: "false" }, reason: { kind: "message", example: "admin/run.failed" } },
     slots: [
-      { id: "tiers", type: "LIST", required: true, values: { price: { kind: "money", example: "100" } } },
-      { id: "buy", type: "BUTTON", required: true, values: {} },
+      { id: "tiers", type: "LIST", required: true, values: { price: { kind: "money", example: "100" } }, at: [] },
+      { id: "buy", type: "BUTTON", required: true, values: {}, at: [] },
     ],
   },
   {
@@ -72,7 +72,7 @@ const modal: DocumentView = view(
     title: "Code form",
     area: "Link",
     shape: "MODAL",
-    slots: [{ id: "code", type: "INPUT", required: true, values: {} }],
+    slots: [{ id: "code", type: "INPUT", required: true, values: {}, at: [] }],
   },
   {
     parts: [
@@ -520,8 +520,17 @@ describe("an open document", { timeout: 15_000 }, () => {
         title: "Grave",
         area: "Graves",
         shape: "MENU",
+        rows: 3,
         values: { loot: { kind: "number", example: "3" } },
-        slots: [{ id: "owner", type: "ITEM", required: true, values: { known: { kind: "boolean", example: "true" } } }],
+        slots: [
+          {
+            id: "owner",
+            type: "ITEM",
+            required: true,
+            values: { known: { kind: "boolean", example: "true" } },
+            at: [18],
+          },
+        ],
       },
       { parts: [{ type: "ITEM", slot: "owner", lines: [{ text: { en: "Owner" }, when: "known" }] }] },
       { game: true, services: ["smp"], named: { loot: { kind: "number", example: "3" } } },

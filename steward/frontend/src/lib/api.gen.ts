@@ -984,6 +984,7 @@ export type DocumentDeclaration = {
   title: string
   area: string
   shape: DocumentShape
+  rows: number
   values: Record<string, DocumentValue>
   slots: DocumentSlot[]
 }
@@ -1263,6 +1264,7 @@ export type DocumentSlot = {
   type: DocumentSlotType
   required: boolean
   values: Record<string, DocumentValue>
+  at: number[]
 }
 
 export type MenuPart = {

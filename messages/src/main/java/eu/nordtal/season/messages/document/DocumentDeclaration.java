@@ -14,6 +14,7 @@ import java.util.Set;
  * What a document's file must fit, as the build writes it into {@code declarations.json}.
  *
  * @param title what an admin reads as its name
+ * @param rows a menu's chest rows, 0 for every other shape
  */
 public record DocumentDeclaration(
         String namespace,
@@ -21,6 +22,7 @@ public record DocumentDeclaration(
         String title,
         String area,
         DocumentSpec.Shape shape,
+        int rows,
         Map<String, Value> values,
         List<Slot> slots) {
 
@@ -48,10 +50,15 @@ public record DocumentDeclaration(
                 title,
                 area,
                 shape,
+                rows,
                 Value.withExampleValues(values),
                 slots.stream()
                         .map(slot -> new Slot(
-                                slot.id(), slot.type(), slot.required(), Value.withExampleValues(slot.values())))
+                                slot.id(),
+                                slot.type(),
+                                slot.required(),
+                                Value.withExampleValues(slot.values()),
+                                slot.at()))
                         .toList());
     }
 

@@ -4,7 +4,7 @@ import type { ReactNode } from "react"
 import { afterEach, expect, it, vi } from "vitest"
 
 import type { Document, DocumentDeclaration, DocumentDraft } from "@/lib/api"
-import { DocumentPreview, galleryCells } from "@/components/steward/message-editor/document-preview"
+import { DocumentPreview, galleryCells, menuCells } from "@/components/steward/message-editor/document-preview"
 
 afterEach(() => {
   cleanup()
@@ -17,6 +17,7 @@ const declaration: DocumentDeclaration = {
   title: "Greeting",
   area: "Greeting",
   shape: "MESSAGE",
+  rows: 0,
   values: {},
   slots: [],
 }
@@ -107,4 +108,27 @@ it("lays a gallery of two to ten images out in whole rows, the rows of three und
   ])
   expect(galleryCells(7)[0]).toContain("col-span-6")
   expect(galleryCells(9).every((cell) => cell.startsWith("col-span-2"))).toBe(true)
+})
+
+/** A menu item of the test menu. */
+const item = (id: string, at: number[]) => ({ id, type: "ITEM" as const, required: true, values: {}, at })
+
+it("lays a menu's items out as runs of slots along each row, a later item over an earlier one", () => {
+  const menu: DocumentDeclaration = {
+    ...declaration,
+    shape: "MENU",
+    rows: 2,
+    slots: [
+      item("share", [9, 10, 11, 12, 13, 14, 15, 16, 17]),
+      item("card", [0, 1, 9]),
+      item("next", [17]),
+      { id: "left", type: "LABEL", required: true, values: {}, at: [] },
+    ],
+  }
+  expect(menuCells(menu)).toEqual([
+    { slot: "card", row: 0, column: 0, columns: 2 },
+    { slot: "card", row: 1, column: 0, columns: 1 },
+    { slot: "share", row: 1, column: 1, columns: 7 },
+    { slot: "next", row: 1, column: 8, columns: 1 },
+  ])
 })

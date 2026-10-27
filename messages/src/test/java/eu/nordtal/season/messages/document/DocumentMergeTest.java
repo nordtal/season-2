@@ -79,7 +79,13 @@ class DocumentMergeTest {
                 """);
         final Documents.Packaged packaged = new Documents.Packaged(
                 DocumentSpec.menu(
-                                "test", "wheel", "Menus", DocumentSpec.None.class, Slot.item("hub"), Slot.label("left"))
+                                "test",
+                                "wheel",
+                                "Menus",
+                                DocumentSpec.None.class,
+                                1,
+                                Slot.item("hub").at(List.of(4)),
+                                Slot.label("left"))
                         .titled("Wheel")
                         .declaration(),
                 menu);

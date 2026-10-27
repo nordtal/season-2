@@ -42,14 +42,15 @@ public final class NavigateGui extends Menu {
                     "navigate",
                     "Menus",
                     Window.class,
-                    Slot.item("target", Target.class),
+                    NavigatePanel.ROWS,
+                    Slot.item("target", Target.class).at(SlotGeometry.rows(0, NavigatePanel.ENTRIES_PER_PAGE)),
                     Slot.label("distance", Distance.class),
                     Slot.label("other-world"),
-                    Slot.item("stop"),
+                    Slot.item("stop").at(NavigatePanel.STOP_SLOTS),
                     Slot.label("stop-button"),
-                    Slot.item("previous-page"),
+                    Slot.item("previous-page").at(List.of(NavigatePanel.PREV_SLOT)),
                     Slot.label("page"),
-                    Slot.item("next-page"))
+                    Slot.item("next-page").at(List.of(NavigatePanel.NEXT_SLOT)))
             .titled("Navigate");
 
     record Started(@Example("Home") String target) {}
@@ -159,9 +160,7 @@ public final class NavigateGui extends Menu {
         for (int row = 0; row < shown.size(); row++) {
             final NavigationTarget target = shown.get(row);
             final ItemStack item = entryItem(target);
-            for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
-                inventory.setItem(SlotGeometry.slot(column, row), item);
-            }
+            SlotGeometry.rows(row, 1).forEach(slot -> inventory.setItem(slot, item));
         }
 
         final ItemStack stop = BlankItem.of(document.item("stop"));

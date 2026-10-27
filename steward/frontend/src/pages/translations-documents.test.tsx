@@ -738,4 +738,15 @@ describe("a jump from the command palette", () => {
       expect(screen.getByRole("textbox", { name: "Welcome" }).textContent).toBe("Welcome to the server"),
     )
   })
+
+  it("opens a document in the language of the hit", async () => {
+    serve()
+    draw(<Page />)
+    await screen.findByRole("button", { name: /^Discord/ })
+
+    setPendingTextJump({ id: "document:discord/contribution", language: "de" })
+
+    const editor = await screen.findByRole("region", { name: "Contribution" })
+    expect(within(editor).getByRole("tab", { name: "DE" }).getAttribute("aria-selected")).toBe("true")
+  })
 })

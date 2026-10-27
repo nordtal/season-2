@@ -728,7 +728,8 @@ public final class DocumentsApi {
         return shipped;
     }
 
-    private DocumentList documents() {
+    /** Returns every document as {@code list} answers them. */
+    DocumentList documents() {
         final Map<String, Shipped> shipped = shipped();
         final Map<String, DocumentStore.StoredDocument> written = new LinkedHashMap<>();
         store.documents(shipped.values().stream()

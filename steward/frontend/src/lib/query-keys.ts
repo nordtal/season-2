@@ -40,6 +40,7 @@ export const keys = {
   guildChannels: ["guild-channels"] as const,
   messageTexts: ["message-texts"] as const,
   documents: ["documents"] as const,
+  translationSearch: (query: string) => ["translation-search", query] as const,
   documentVersions: (id: string) => ["document-versions", id] as const,
   sharedPartChanges: (name: string, part: string) => ["shared-part-changes", name, part] as const,
   /** A draft as the bot draws it, by the draft itself, so an answer never stands for another draft. */

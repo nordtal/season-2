@@ -508,6 +508,15 @@ export type MessageProblem = {
   text: MessageRef
 }
 
+export type TranslationHit = {
+  kind: TranslationKind
+  id: string
+  language: string
+  field: TranslationField
+  exact: boolean
+  text: string
+}
+
 export type PluginAdded = {
   service: string
   artifact: string
@@ -986,6 +995,10 @@ export type DocumentProblem = {
   error: boolean
   text: string
 }
+
+export type TranslationKind = "TEXT" | "DOCUMENT"
+
+export type TranslationField = "NAME" | "KEY" | "PARENT" | "TEXT"
 
 export type NetworkBox = {
   name: string

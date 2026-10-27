@@ -228,6 +228,9 @@ export function textId(entry: MessageEntry): string {
   return `${entry.bundle}/${entry.key}`
 }
 
+/** What a document's leaf id on the Translations page starts with; a text's is its `bundle/key`. */
+export const DOCUMENT_LEAF = "document:"
+
 /**
  * Returns the Translations page as a tree: a branch per group, then a document's area (a menu's under the game) or a text's topic. Bundles that share a topic share its branch, and a leaf's `ids` are the texts it shows.
  */
@@ -258,7 +261,7 @@ export function textsTree(
     const top = (label: string) =>
       builder.branch(page === undefined ? `${group}:@${label}` : `${group}:page:${page}`, label, root).id
     if (card.kind === "document") {
-      const id = `document:${documentId(card.view.declaration)}`
+      const id = `${DOCUMENT_LEAF}${documentId(card.view.declaration)}`
       builder.add(top(card.view.declaration.area), { kind: "leaf", id, ids: [id], value: card, wide: true })
       continue
     }
@@ -290,13 +293,13 @@ export function messageName(entry: MessageEntry): string {
   return entry.name ?? humanise(entry.key.slice(entry.key.lastIndexOf(".") + 1))
 }
 
-export function messageLeafMatches(entry: MessageEntry, query: string): boolean {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
-  return [messageName(entry), entry.key, ...Object.values(entry.texts).flat(), ...Object.values(entry.overrides).flat()]
-    .join("\n")
-    .toLowerCase()
-    .includes(needle)
+/** Returns the names of the branches above each leaf, outermost first, by the leaf's id. */
+export function leafPaths<L>(nodes: TreeNode<L>[], above: string[] = [], into = new Map<string, string[]>()) {
+  for (const node of nodes) {
+    if (node.kind === "leaf") into.set(node.id, above)
+    else leafPaths(node.children, [...above, ...node.labels], into)
+  }
+  return into
 }
 
 /** Returns how many keys a tree draws, which decides whether it starts open. */

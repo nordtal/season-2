@@ -44,6 +44,7 @@ import eu.nordtal.season.steward.game.GameDataRoutes;
 import eu.nordtal.season.steward.game.Inventories;
 import eu.nordtal.season.steward.messages.DocumentsApi;
 import eu.nordtal.season.steward.messages.MessagesApi;
+import eu.nordtal.season.steward.messages.TranslationSearch;
 import eu.nordtal.season.steward.metric.Metrics;
 import eu.nordtal.season.steward.season.SeasonRoutes;
 import eu.nordtal.season.steward.settings.Reloading;
@@ -126,6 +127,7 @@ public final class StewardWire {
             DocumentsApi.DocumentVersion.class,
             DocumentsApi.SharedPartChange.class,
             MessageCheck.Problem.class,
+            TranslationSearch.Hit.class,
             AgentWire.PluginAdded.class,
             Routes.ConsoleSent.class,
             StackApi.NetworkMap.class);
@@ -191,6 +193,9 @@ public final class StewardWire {
             Map.entry(Display.Surface.class, "MessageSurface"),
             Map.entry(MessagesApi.Syntax.class, "MessageSyntax"),
             Map.entry(MessageCheck.Problem.class, "MessageProblem"),
+            Map.entry(TranslationSearch.Hit.class, "TranslationHit"),
+            Map.entry(TranslationSearch.Kind.class, "TranslationKind"),
+            Map.entry(TranslationSearch.Field.class, "TranslationField"),
             Map.entry(Part.class, "DocumentPart"),
             Map.entry(Part.Type.class, "DocumentPartType"),
             Map.entry(Line.class, "DocumentLine"),

@@ -16,6 +16,10 @@ const FLAT_BARS = /<Loading\b/
 /** Files that read from `@/lib/queries` and draw no waiting shape, each with its reason. */
 const NO_WAITING_SHAPE = new Map<string, string>([
   [
+    "app/translation-hits.tsx",
+    "Its rows are the command palette's, which says it is still reading while the search is pending.",
+  ],
+  [
     "app/app-sidebar.tsx",
     "Every label but the services' comes from navigation.ts. The service rows wait for /api/topology as" +
       " skeleton rows of their own shape, and HealthDot in components/steward/status.tsx draws its own.",

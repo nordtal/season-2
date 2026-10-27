@@ -24,6 +24,7 @@ import type {
   MessageText,
   MessageTexts,
   SharedPartChange,
+  TranslationHit,
 } from "@/lib/api"
 import { asTextArea } from "@/lib/test-elements"
 import { APPLIED } from "@/lib/query-fixtures"
@@ -141,6 +142,8 @@ export type Around = {
   preview?: (body: unknown) => string
   /** What became of each request, by name. */
   commands?: Record<string, CommandRun>
+  /** Answers the server's translation search, which finds nothing unless a test says otherwise. */
+  search?: (query: string) => TranslationHit[]
 }
 
 /** `/api/messages` answers `first`, then what the last save left; its PUT, if the test expects one, what `put` makes of the body. */
@@ -176,6 +179,9 @@ export function backend(first: MessageTexts, put?: (body: unknown) => Partial<Me
     if (url.startsWith("/api/shared-parts/") && (init?.method === "PUT" || init?.method === "DELETE")) {
       if (!around.saveSharedPart) throw new Error("the page saved a shared part, which this test did not expect")
       return json(around.saveSharedPart(url.split("/")[3], init.method === "PUT" ? JSON.parse(init.body ?? "") : null))
+    }
+    if (url.startsWith("/api/translation-search?")) {
+      return json(around.search?.(new URL(url, "http://steward").searchParams.get("query") ?? "") ?? [])
     }
     if (url === "/api/message-syntax") return json({ tones: { good: "#8ba888" }, kinds: { duration: ["short"] } })
     if (url === "/api/message-examples") return json({})

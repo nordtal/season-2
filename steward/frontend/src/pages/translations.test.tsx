@@ -48,16 +48,30 @@ describe("the groups", () => {
     expect(screen.queryByRole("button", { name: "Welcome" })).toBeNull()
   })
 
-  it("finds a text by its words in every group at once", async () => {
-    vi.stubGlobal("fetch", backend(fixture))
+  it("lists what the server's search finds, in every group at once", async () => {
+    const asked: string[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend(fixture, undefined, {
+        search: (query) => {
+          asked.push(query)
+          return [
+            { kind: "TEXT", id: "steward/page.title", language: "en", field: "TEXT", exact: false, text: "x" },
+            { kind: "TEXT", id: "values/values.yes", language: "en", field: "NAME", exact: false, text: "x" },
+          ]
+        },
+      }),
+    )
     draw(<Page />)
 
     fireEvent.change(await screen.findByRole("searchbox", { name: "Search the texts" }), {
-      target: { value: "title" },
+      target: { value: "titel" },
     })
 
     expect(await screen.findByRole("button", { name: "Page title" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Yes" })).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Granted" })).toBeNull()
+    expect(asked).toContain("titel")
   })
 
   it("puts the search in the title row, after the service filter", async () => {

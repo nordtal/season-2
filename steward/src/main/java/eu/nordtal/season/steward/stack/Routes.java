@@ -29,6 +29,7 @@ public final class Routes {
         serviceRoutes(api, config, caller);
         consoleRoute(api, config, caller);
         messageRoutes(api, config, caller);
+        documentRoutes(api, config, caller);
         settingRoutes(api, config, caller);
         hostRoutes(api, config, caller);
         pluginRoutes(api, config, caller);
@@ -93,7 +94,7 @@ public final class Routes {
                 Journaled.as(JournalAction.SAVE_SETTINGS));
     }
 
-    /** Registers the routes for message bundles and Discord documents. */
+    /** Registers the routes for message bundles and the search over every translation. */
     private static void messageRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/messages", api.messages::list, Gate.KEY_HELD);
         config.routes.get("/api/message-fallbacks", api.messages::fallbacks, Gate.KEY_HELD);
@@ -111,6 +112,11 @@ public final class Routes {
                 },
                 Gate.KEY_HELD,
                 Journaled.as(JournalAction.SAVE_MESSAGES));
+        config.routes.get("/api/translation-search", api.translationSearch::serve, Gate.KEY_HELD);
+    }
+
+    /** Registers the routes for Discord documents and their shared parts. */
+    private static void documentRoutes(final StackApi api, final JavalinConfig config, final Caller caller) {
         config.routes.get("/api/documents", api.documents::list, Gate.KEY_HELD);
         config.routes.put(
                 "/api/documents/{namespace}/{name}",

@@ -21,6 +21,7 @@ import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
 import eu.nordtal.season.steward.messages.DocumentsApi;
 import eu.nordtal.season.steward.messages.MessagesApi;
+import eu.nordtal.season.steward.messages.TranslationSearch;
 import eu.nordtal.season.steward.settings.ServerTrial;
 import eu.nordtal.season.steward.settings.SettingsApi;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -111,6 +112,7 @@ public final class StackApi implements AutoCloseable {
 
     final MessagesApi messages;
     final DocumentsApi documents;
+    final TranslationSearch translationSearch;
     private final DiskUsage disk;
     /** The console line count per service, capped at {@code LOG_CAPACITY_MAX}. */
     private final Map<String, Refreshed<Integer>> logCapacity = new ConcurrentHashMap<>();
@@ -155,6 +157,7 @@ public final class StackApi implements AutoCloseable {
         this.nightly = nightly;
         this.documents = new DocumentsApi(agent, documentStore, settings, messageOverrides);
         this.messages = new MessagesApi(agent, messageOverrides, settings, documents);
+        this.translationSearch = new TranslationSearch(messages, documents);
         this.disk = new DiskUsage(agent, scheduler, clock::instant);
         this.logFollows = new LogFollows(agent, scheduler);
         this.serviceRows = new ServiceRows(agent, updates, online);

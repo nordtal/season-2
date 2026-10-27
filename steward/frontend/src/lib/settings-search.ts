@@ -1,5 +1,5 @@
-import type { ConfigDocument, ConfigEntry, ConfigLocation, MessageEntry, MessageText } from "@/lib/api"
-import { languagesOf, overrideOf, packagedOf, shownOf, type Language } from "@/lib/message-text"
+import type { ConfigDocument, ConfigEntry, ConfigLocation } from "@/lib/api"
+import type { Language } from "@/lib/message-text"
 
 /**
  * Settings search for one service's files and for the command palette. Both paths go through these functions, so the rule that a secret is never searched lives in one place.
@@ -36,17 +36,6 @@ export type ConfigSettingsHit = {
   entry: ConfigEntry
 }
 
-/**
- * One hit among the texts. A match on the key or in both bodies yields one hit per language, because each is its own place.
- */
-export type MessageSettingsHit = {
-  kind: "message"
-  text: MessageText
-  language: Language
-}
-
-export type SettingsHit = ConfigSettingsHit | MessageSettingsHit
-
 export function searchAcross(
   files: Array<{ location: ConfigLocation; document: ConfigDocument | undefined }>,
   query: string,
@@ -60,40 +49,6 @@ export function searchAcross(
     }
   }
   return hits
-}
-
-/**
- * Returns what one language of one entry is found by, lower-cased: the key, the packaged text and the override. An English query never finds a bundle by its German line.
- */
-export function messageEntryHaystack(entry: MessageEntry, language: Language): string {
-  return [entry.key, ...packagedOf(entry, language), ...(overrideOf(entry, language) ?? [])].join("\n").toLowerCase()
-}
-
-export function matchesMessageQuery(entry: MessageEntry, language: Language, query: string): boolean {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return false
-  return messageEntryHaystack(entry, language).includes(needle)
-}
-
-export function searchMessagesAcross(texts: MessageText[], query: string): MessageSettingsHit[] {
-  if (!query.trim()) return []
-  const hits: MessageSettingsHit[] = []
-  for (const text of texts) {
-    // Only a language that the key has a text in, so a match on the key alone yields one row per language it has.
-    for (const language of languagesOf([text.entry])) {
-      if (shownOf(text.entry, language).length === 0) continue
-      if (matchesMessageQuery(text.entry, language, query)) hits.push({ kind: "message", text, language })
-    }
-  }
-  return hits
-}
-
-export function searchSettingsAndMessages(
-  configs: Array<{ location: ConfigLocation; document: ConfigDocument | undefined }>,
-  texts: MessageText[],
-  query: string,
-): SettingsHit[] {
-  return [...searchAcross(configs, query), ...searchMessagesAcross(texts, query)]
 }
 
 /**
@@ -135,12 +90,10 @@ export function rankValue(value: string, query: string): number {
   return atWordStart(context, inContext) ? 0.4 : 0.3
 }
 
-export function hitValue(hit: SettingsHit): string {
-  return hit.kind === "config" ? entryHaystack(hit.entry) : messageEntryHaystack(hit.text.entry, hit.language)
-}
-
-export function rankHits<T extends SettingsHit>(hits: T[], query: string): T[] {
-  return [...hits].toSorted((a, b) => rankValue(hitValue(b), query) - rankValue(hitValue(a), query))
+export function rankHits(hits: ConfigSettingsHit[], query: string): ConfigSettingsHit[] {
+  return [...hits].toSorted(
+    (a, b) => rankValue(entryHaystack(b.entry), query) - rankValue(entryHaystack(a.entry), query),
+  )
 }
 
 export type PendingJump = { file: string; path: string }

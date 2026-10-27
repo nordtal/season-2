@@ -864,7 +864,7 @@
     "steward.shell.unknown": ["every"],
     "steward.shell.version": ["every"],
     "steward.texts.all-services": ["translations"],
-    "steward.texts.group": ["translations"],
+    "steward.texts.group": ["every"],
     "steward.texts.none": ["translations"],
     "steward.texts.search": ["translations"],
     "steward.texts.service": ["translations"],

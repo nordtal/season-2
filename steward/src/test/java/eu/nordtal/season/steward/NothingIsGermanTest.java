@@ -49,9 +49,12 @@ class NothingIsGermanTest {
     private static final String BUNDLE = "discord-bot/src/main/resources/documents/discord";
     private static final String RULES = "steward/language-rules.json";
 
-    /** The files whose subject is German, exempted by exact file name, because Steward edits the bot's bundles. */
-    private static final Set<String> ABOUT_GERMAN =
-            Set.of("NothingIsGermanTest.java", "MessageBundlesTest.java", "MessagesApiIntegrationTest.java");
+    /** The files whose subject is German, exempted by exact file name: Steward edits and searches the bot's bundles. */
+    private static final Set<String> ABOUT_GERMAN = Set.of(
+            "NothingIsGermanTest.java",
+            "MessageBundlesTest.java",
+            "MessagesApiIntegrationTest.java",
+            "TranslationSearchTest.java");
 
     private static final Pattern WORD = Pattern.compile("[A-Za-zÄÖÜäöüß]{3,}");
 

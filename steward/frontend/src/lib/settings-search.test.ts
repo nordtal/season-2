@@ -1,17 +1,13 @@
 import { describe, expect, it } from "vitest"
 
-import type { ConfigEntry, ConfigLocation, MessageEntry, MessageText, ConfigDocument } from "@/lib/api"
+import type { ConfigEntry, ConfigLocation, ConfigDocument } from "@/lib/api"
 import {
   entryHaystack,
   rankValue,
   searchValue,
-  matchesMessageQuery,
   matchesQuery,
-  messageEntryHaystack,
   onPendingTextJump,
   searchAcross,
-  searchMessagesAcross,
-  searchSettingsAndMessages,
   setPendingJump,
   setPendingTextJump,
   takePendingJump,
@@ -173,161 +169,6 @@ describe("pending jump", () => {
     setPendingJump("discord-bot", { file: "discord-bot/steward.yml", path: "b" })
     expect(takePendingJump("discord-bot")?.path).toBe("b")
     expect(takePendingJump("steward")?.path).toBe("a")
-  })
-})
-
-function messageEntry(over: Partial<MessageEntry> & { key: string }): MessageEntry {
-  return {
-    bundle: "smp",
-    inBundle: true,
-    texts: {},
-    overrides: {},
-    args: [],
-    section: [],
-    shown: [],
-    limit: 0,
-    ...over,
-  }
-}
-
-function text(message: MessageEntry): MessageText {
-  return { entry: message, path: "smp/smp", services: ["smp"], previews: {} }
-}
-
-describe("messageEntryHaystack / matchesMessageQuery", () => {
-  it("matches the English default", () => {
-    const e = messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })
-    expect(matchesMessageQuery(e, "en", "decayed")).toBe(true)
-  })
-
-  it("matches the German translation, and only for the German language", () => {
-    /**
-     * A synthetic marker rather than German prose, because `language.test.ts` scans fixtures too.
-     */
-    const e = messageEntry({
-      texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
-      key: "grave.decay.announce",
-    })
-    expect(matchesMessageQuery(e, "de", "de-marker")).toBe(true)
-    expect(matchesMessageQuery(e, "en", "de-marker")).toBe(false)
-  })
-
-  it("matches an operator's override, not only the packaged text", () => {
-    const e = messageEntry({
-      texts: { en: ["Your grave has decayed."] },
-      overrides: { en: ["The grave is being cleared."] },
-      key: "grave.decay.announce",
-    })
-    expect(matchesMessageQuery(e, "en", "cleared")).toBe(true)
-  })
-
-  it("matches the key, in both languages - the key has no language of its own", () => {
-    const e = messageEntry({ texts: { en: ["x"], de: ["y"] }, key: "grave.decay.announce" })
-    expect(matchesMessageQuery(e, "en", "grave.decay")).toBe(true)
-    expect(matchesMessageQuery(e, "de", "grave.decay")).toBe(true)
-  })
-
-  it("is case-insensitive", () => {
-    const e = messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })
-    expect(matchesMessageQuery(e, "en", "DECAYED")).toBe(true)
-  })
-
-  it("finds nothing for an empty query", () => {
-    const e = messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })
-    expect(matchesMessageQuery(e, "en", "   ")).toBe(false)
-  })
-
-  it("does not leak the other language's text into this one's haystack", () => {
-    const e = messageEntry({ texts: { en: ["wipe"], de: ["de-only-marker"] }, key: "grave.decay.announce" })
-    expect(messageEntryHaystack(e, "en")).not.toContain("de-only-marker")
-    expect(messageEntryHaystack(e, "de")).not.toContain("wipe")
-  })
-})
-
-describe("searchMessagesAcross", () => {
-  it("finds a key by its English default and its German translation as two separate hits", () => {
-    const texts = [
-      text(
-        messageEntry({
-          texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
-          key: "grave.decay.announce",
-        }),
-      ),
-    ]
-    /** One hit per language, because each opens a different tab. */
-    const hits = searchMessagesAcross(texts, "grave.decay")
-    expect(hits.map((hit) => hit.language).toSorted()).toEqual(["de", "en"])
-  })
-
-  it("returns nothing for an empty query", () => {
-    expect(searchMessagesAcross([text(messageEntry({ texts: { en: ["b"] }, key: "a" }))], "")).toEqual([])
-  })
-
-  it('tags every hit with kind: "message", so a caller can tell it apart from a config hit', () => {
-    const [hit] = searchMessagesAcross([text(messageEntry({ texts: { en: ["wipe"] }, key: "a" }))], "wipe")
-    expect(hit.kind).toBe("message")
-  })
-})
-
-function configLocation(over: Partial<ConfigLocation> & { path: string; name: string }): ConfigLocation {
-  return { service: "smp", label: "", live: true, readable: true, writable: true, ...over }
-}
-
-function configEntry(over: Partial<ConfigEntry> & { path: string; key: string }): ConfigEntry {
-  return {
-    label: over.key,
-    explanation: "",
-    noExplanationNeeded: false,
-    filled: true,
-    value: "",
-    items: [],
-    kind: "SCALAR",
-    type: "STRING",
-    editable: true,
-    secret: false,
-    environmentOverridden: false,
-    ...over,
-  }
-}
-
-function configDocument(loc: ConfigLocation, entries: ConfigEntry[]): ConfigDocument {
-  return { ...loc, revision: "r1", entries }
-}
-
-describe("searchSettingsAndMessages - one list, from two suppliers", () => {
-  it("finds a text that lives only in a bundle - not in any config file of the same service", () => {
-    const loc = configLocation({ path: "smp/steward.yml", name: "steward" })
-    const configDoc = configDocument(loc, [
-      configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
-    ])
-    const texts = [text(messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" }))]
-
-    expect(searchAcross([{ location: loc, document: configDoc }], "decayed")).toEqual([])
-
-    const hits = searchSettingsAndMessages([{ location: loc, document: configDoc }], texts, "decayed")
-    expect(hits).toHaveLength(1)
-    expect(hits[0]).toMatchObject({ kind: "message", text: { entry: { key: "grave.decay.announce" } } })
-  })
-
-  it("still finds a config hit when the query matches only a config file", () => {
-    const loc = configLocation({ path: "smp/steward.yml", name: "steward" })
-    const configDoc = configDocument(loc, [
-      configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
-    ])
-    const hits = searchSettingsAndMessages([{ location: loc, document: configDoc }], [], "grave decay enabled")
-    expect(hits).toHaveLength(1)
-    expect(hits[0].kind).toBe("config")
-  })
-
-  it("finds both a config hit and a message hit for one query, in one list", () => {
-    const loc = configLocation({ path: "smp/steward.yml", name: "steward" })
-    const configDoc = configDocument(loc, [
-      configEntry({ path: "grave.decay.enabled", key: "enabled", label: "Grave decay enabled" }),
-    ])
-    const texts = [text(messageEntry({ texts: { en: ["Grave decay announcement"] }, key: "grave.decay.announce" }))]
-
-    const hits = searchSettingsAndMessages([{ location: loc, document: configDoc }], texts, "grave decay")
-    expect(hits.map((hit) => hit.kind).toSorted()).toEqual(["config", "message"])
   })
 })
 

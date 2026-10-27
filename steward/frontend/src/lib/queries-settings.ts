@@ -24,6 +24,7 @@ import {
   type MessageSyntax,
   type MessageFallback,
   type MessageProblem,
+  type TranslationHit,
   type PluginDescriptor,
   type PluginFiles,
   type PluginFileSaved,
@@ -149,6 +150,17 @@ export function useMessageTexts(enabled = true) {
     queryKey: keys.messageTexts,
     queryFn: () => api<MessageTexts>("/api/messages"),
     enabled,
+  })
+}
+
+/** Every text and document the server finds for `query`, the best first. While the next answer is read, the last stays. */
+export function useTranslationSearch(query: string, enabled = true) {
+  const trimmed = query.trim()
+  return useQuery({
+    queryKey: keys.translationSearch(trimmed),
+    queryFn: () => api<TranslationHit[]>(`/api/translation-search?query=${encodeURIComponent(trimmed)}`),
+    enabled: enabled && trimmed.length > 0,
+    placeholderData: keepPreviousData,
   })
 }
 

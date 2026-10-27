@@ -6,13 +6,18 @@ import { GERMAN_BACKUP_SYNONYM } from "@/app/run-search-terms"
 import {
   useConfigDocuments,
   useConfigs,
+  useDocuments,
+  useMessageExamples,
+  useMessageSyntax,
   useMessageTexts,
   usePluginFilesOf,
   useRuns,
   useServices,
   useTopology,
+  useTranslationSearch,
 } from "@/lib/queries"
 import { NETWORK_MAP, queryResult } from "@/lib/query-fixtures"
+import { documents, view } from "@/pages/translations.fixtures"
 import { takePendingJump, takePendingTextJump } from "@/lib/settings-search"
 import type {
   ConfigEntry,
@@ -23,6 +28,7 @@ import type {
   PluginFile,
   Run,
   ServiceTable,
+  TranslationHit,
 } from "@/lib/api"
 
 const navigateSpy = vi.fn<(options: Record<string, unknown>) => void>()
@@ -36,6 +42,10 @@ vi.mock("@/lib/queries", () => ({
   useTopology: vi.fn<typeof useTopology>(),
   useServices: vi.fn<typeof useServices>(),
   usePluginFilesOf: vi.fn<typeof usePluginFilesOf>(),
+  useTranslationSearch: vi.fn<typeof useTranslationSearch>(),
+  useDocuments: vi.fn<typeof useDocuments>(),
+  useMessageSyntax: vi.fn<typeof useMessageSyntax>(),
+  useMessageExamples: vi.fn<typeof useMessageExamples>(),
 }))
 
 beforeEach(() => {
@@ -46,6 +56,10 @@ beforeEach(() => {
   vi.mocked(useTopology).mockReturnValue(queryResult(NETWORK_MAP))
   vi.mocked(useServices).mockReturnValue(queryResult(services([])))
   vi.mocked(usePluginFilesOf).mockReturnValue([])
+  vi.mocked(useTranslationSearch).mockReturnValue(queryResult([]))
+  vi.mocked(useDocuments).mockReturnValue(queryResult({ documents: [], languages: ["en", "de"], sharedParts: [] }))
+  vi.mocked(useMessageSyntax).mockReturnValue(queryResult({ tones: {}, kinds: {} }))
+  vi.mocked(useMessageExamples).mockReturnValue(queryResult({}))
 })
 
 afterEach(() => {
@@ -59,6 +73,8 @@ afterEach(() => {
   vi.mocked(useTopology).mockReset()
   vi.mocked(useServices).mockReset()
   vi.mocked(usePluginFilesOf).mockReset()
+  vi.mocked(useTranslationSearch).mockReset()
+  vi.mocked(useDocuments).mockReset()
 })
 
 const searchInput = () => screen.queryByPlaceholderText("Search pages, runs, settings…")
@@ -483,93 +499,103 @@ describe("CommandPalette - finding a plugin's file", () => {
   })
 })
 
-describe("CommandPalette - finding a text", () => {
-  it("finds a bundle key that no config file mentions", async () => {
-    oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
+const DOCUMENTS = documents([view({ name: "payment-link", title: "Payment link", area: "Shop" }, { parts: [] })], {
+  languages: ["en", "de"],
+})
 
-    await search("decayed")
+function found(hits: TranslationHit[]) {
+  vi.mocked(useTranslationSearch).mockReturnValue(queryResult(hits))
+}
 
-    expect(screen.queryByText("Announce")).not.toBeNull()
-    expect(screen.queryByText(/Your grave has decayed\./)).not.toBeNull()
+const textHit = (over: Partial<TranslationHit> = {}): TranslationHit => ({
+  kind: "TEXT",
+  id: "smp/grave.decay.announce",
+  language: "en",
+  field: "TEXT",
+  exact: false,
+  text: "Your grave decays in {minutes, plural, one {# minute} other {# minutes}}.",
+  ...over,
+})
+
+describe("CommandPalette - finding a translation", () => {
+  const grave = messageEntry({
+    texts: { en: ["Your grave decays in {minutes, plural, one {# minute} other {# minutes}}."], de: ["de-marker"] },
+    key: "grave.decay.announce",
+    section: ["Graves"],
+    args: [{ name: "minutes", kind: "number", global: false, example: "5", action: false }],
   })
 
-  it("finds a key by its German translation, not only its English default", async () => {
-    /**
-     * The fixture is a synthetic marker, because `language.test.ts` also scans fixtures for German prose.
-     */
-    oneBundle([
-      messageEntry({
-        texts: { en: ["Your grave has decayed."], de: ["packaged-de-marker"] },
-        key: "grave.decay.announce",
-      }),
+  it("lists what the server found in a group of its own, with its path, language and rendered text", async () => {
+    oneBundle([grave, messageEntry({ key: "dm.granted", bundle: "admin", format: "DISCORD_MARKDOWN" })])
+    found([textHit()])
+
+    await search("decyas")
+
+    expect(vi.mocked(useTranslationSearch)).toHaveBeenLastCalledWith("decyas", true)
+    const group = screen.getByRole("group", { name: "Translations" })
+    expect(group.textContent).toContain("Announce")
+    expect(group.textContent).toContain("In game › Graves › Decay")
+    expect(group.textContent).toContain("EN")
+    expect(group.textContent).toContain("Your grave decays in 5 minutes.")
+    expect(group.textContent).not.toContain("plural")
+    expect(screen.queryByText("Nothing found.")).toBeNull()
+  })
+
+  it("keeps the server's order and every hit, even one that no word of the query spells", async () => {
+    oneBundle([grave, messageEntry({ key: "grave.robbed", texts: { en: ["Robbed"] } })])
+    found([textHit({ id: "smp/grave.robbed", text: "Robbed" }), textHit()])
+
+    await search("zzz")
+
+    const rows = Array.from(screen.getByRole("group", { name: "Translations" }).querySelectorAll("[cmdk-item]"))
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Robbed"),
+      expect.stringContaining("Announce"),
+    ])
+  })
+
+  it("opens a text in the language it was found in", async () => {
+    oneBundle([grave])
+    found([textHit({ language: "de", text: "de-marker" })])
+
+    await search("marker")
+    fireEvent.click(await screen.findByText("Announce"))
+
+    expect(navigateSpy).toHaveBeenCalledWith({ to: "/translations", search: {} })
+    expect(takePendingTextJump()).toEqual({ id: "smp/grave.decay.announce", language: "de" })
+    expect(takePendingJump("smp")).toBeUndefined()
+  })
+
+  it("finds a document by its title and opens it in the language of the hit", async () => {
+    oneBundle([])
+    vi.mocked(useDocuments).mockReturnValue(queryResult(DOCUMENTS))
+    found([
+      {
+        kind: "DOCUMENT",
+        id: "discord/payment-link",
+        language: "de",
+        field: "NAME",
+        exact: true,
+        text: "de-marker {amount}",
+      },
     ])
 
-    await search("de-marker")
+    await search("payment link")
+    fireEvent.click(await screen.findByText("Payment link"))
 
-    expect(screen.queryByText(/packaged-de-marker/)).not.toBeNull()
+    expect(takePendingTextJump()).toEqual({ id: "document:discord/payment-link", language: "de" })
   })
 
-  it("finds a key by the key itself", async () => {
-    oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
-
-    await search("grave.decay")
-
-    expect(screen.queryByText("Announce")).not.toBeNull()
-    expect(screen.queryByText(/grave\.decay/)).toBeNull()
-  })
-
-  it("shows nothing before anything is typed, same as a config hit", async () => {
-    oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
+  it("asks nothing before anything is typed", async () => {
+    oneBundle([grave])
+    found([])
 
     render(<CommandPalette />)
     ctrlK(document.body)
     await waitFor(() => expect(searchInput()).not.toBeNull())
 
-    expect(screen.queryByText("grave.decay.announce")).toBeNull()
-  })
-
-  it("selecting a text hit opens the Translations page and hands it a jump, not the configuration form", async () => {
-    oneBundle([messageEntry({ texts: { en: ["Your grave has decayed."] }, key: "grave.decay.announce" })])
-
-    await search("decayed")
-    fireEvent.click(await screen.findByText("Announce"))
-
-    expect(navigateSpy).toHaveBeenCalledWith({ to: "/translations", search: {} })
-    expect(takePendingTextJump()).toEqual({ id: "smp/grave.decay.announce", language: "en" })
-    expect(takePendingJump("smp")).toBeUndefined()
-  })
-
-  it("finds a config hit and a text hit together, in one list", async () => {
-    const configLoc: ConfigLocation = {
-      service: "smp",
-      name: "steward",
-      path: "smp/steward.yml",
-      label: "",
-      live: true,
-      readable: true,
-      writable: true,
-    }
-    const gravEntry: ConfigEntry = {
-      path: "grave.decay.enabled",
-      key: "enabled",
-      label: "Grave decay enabled",
-      explanation: "",
-      noExplanationNeeded: false,
-      filled: true,
-      kind: "SCALAR",
-      type: "BOOLEAN",
-      editable: true,
-      secret: false,
-      environmentOverridden: false,
-    }
-    vi.mocked(useConfigs).mockReturnValue(queryResult([configLoc]))
-    vi.mocked(useConfigDocuments).mockReturnValue([queryResult({ ...configLoc, revision: "r1", entries: [gravEntry] })])
-    oneBundle([messageEntry({ texts: { en: ["Grave decay announcement"] }, key: "grave.decay.announce" })])
-
-    await search("grave decay")
-
-    expect(screen.queryByText("Grave decay enabled")).not.toBeNull()
-    expect(screen.queryByText("Announce")).not.toBeNull()
+    expect(vi.mocked(useTranslationSearch)).toHaveBeenLastCalledWith("", true)
+    expect(screen.queryByRole("group", { name: "Translations" })).toBeNull()
   })
 })
 

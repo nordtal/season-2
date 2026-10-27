@@ -16,7 +16,7 @@ import type {
 } from "@/lib/api"
 import { announceSave } from "@/lib/announce-save"
 import { clearDraft, setDraftValue, useDraft } from "@/lib/drafts"
-import { documentId, documentMatches, documentOf, languagesOf, type PageCard } from "@/lib/documents"
+import { documentId, documentOf, languagesOf, type PageCard } from "@/lib/documents"
 import {
   currentOf,
   ENGLISH,
@@ -32,9 +32,10 @@ import {
   useMessageFallbacks,
   useMessageSyntax,
   useSaveMessageTexts,
+  useTranslationSearch,
 } from "@/lib/queries"
 import { branchesOf, formatOf, parse, type Run } from "@/lib/rich-text"
-import { messageLeafMatches, messageName, textId, textsTree } from "@/lib/settings-tree"
+import { DOCUMENT_LEAF, messageName, textId, textsTree } from "@/lib/settings-tree"
 import { isAnswer, pagesOf, pillsOf, previewPlacesOf, type Places } from "@/lib/text-places"
 import { Failure } from "@/components/steward/query-state"
 import { SaveDraft } from "@/components/steward/group-draft"
@@ -123,6 +124,11 @@ export function TextsForm({
   const [warnings, setWarnings] = useState<Warning[]>([])
   const [highlight, setHighlight] = useState<Highlight | null>(null)
   const { drafts, setDraft } = useDocumentDrafts()
+  const searched = useTranslationSearch(search.query).data
+  const foundIds = useMemo(
+    () => new Set((searched ?? []).map((hit) => (hit.kind === "DOCUMENT" ? `${DOCUMENT_LEAF}${hit.id}` : hit.id))),
+    [searched],
+  )
   const views = useMemo(() => documents?.documents ?? [], [documents])
   const listed = useMemo(
     () => (service === undefined ? texts.texts : texts.texts.filter((text) => text.services.includes(service))),
@@ -155,12 +161,13 @@ export function TextsForm({
   const draftIds = useMemo(() => new Set(Object.keys(draft)), [draft])
   const count = Object.values(draft).reduce((sum, changed) => sum + Object.keys(changed).length, 0)
 
-  /** A jump from the command palette opens its text. */
+  /** A jump from the command palette opens its text or document. */
   const landed = useRef<number | null>(null)
   useEffect(() => {
     if (!target || landed.current === target.seq) return
     landed.current = target.seq
-    onOpen({ text: target.id })
+    const document = target.id.startsWith(DOCUMENT_LEAF) ? target.id.slice(DOCUMENT_LEAF.length) : undefined
+    onOpen(document === undefined ? { text: target.id } : { document })
     setHighlight({ id: target.id, seq: target.seq, language: target.language })
   }, [target, onOpen])
 
@@ -279,8 +286,10 @@ export function TextsForm({
       file={TEXTS_FILE}
       nodes={nodes}
       draftIds={draftIds}
-      matches={(card, query) =>
-        card.kind === "document" ? documentMatches(card.view, query) : messageLeafMatches(card.text.entry, query)
+      matches={(card) =>
+        foundIds.has(
+          card.kind === "document" ? `${DOCUMENT_LEAF}${documentId(card.view.declaration)}` : textId(card.text.entry),
+        )
       }
       target={target}
       search={search}
@@ -308,6 +317,7 @@ export function TextsForm({
                   : { editor: openText(card.text), onClose: () => onOpen({}) }
             }
             onOpen={() => onOpen(card.kind === "document" ? { document: id } : { text: id })}
+            opensIn={highlight?.id === leaf.id ? highlight.language : undefined}
             {...shared}
           />
         )
@@ -360,11 +370,14 @@ function Card({
   card,
   editing,
   onOpen,
+  opensIn,
   ...shared
 }: Shared & {
   card: PageCard
   editing?: EditingDocument | EditingText
   onOpen: () => void
+  /** The language a jump from the command palette opens the document in. */
+  opensIn?: Language
 }) {
   const name = cardName(card)
   const id = card.kind === "text" ? textId(card.text.entry) : undefined
@@ -373,7 +386,7 @@ function Card({
       ? `text-${transitionName(textId(card.text.entry))}`
       : `document-${transitionName(documentId(card.view.declaration))}`
   // The language one open document is edited and previewed in; every other card shows English.
-  const [language, setLanguage] = useState<Language>(ENGLISH)
+  const [language, setLanguage] = useState<Language>(opensIn ?? ENGLISH)
   const [previewsIn, setPreviewsIn] = useState<HTMLElement | null>(null)
   const draft =
     card.kind === "document" ? (editing && "draft" in editing && editing.draft) || documentOf(card.view) : undefined

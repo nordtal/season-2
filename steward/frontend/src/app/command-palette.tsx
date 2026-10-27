@@ -15,24 +15,22 @@ import {
 } from "@/components/ui/command"
 import { useNavigation } from "@/app/navigation"
 import { RUN_KIND_SEARCH_TERMS } from "@/app/run-search-terms"
-import type { ConfigLocation, MessageText, PluginFile, Run, Service } from "@/lib/api"
+import type { ConfigLocation, PluginFile, Run, Service } from "@/lib/api"
 import { runPath } from "@/lib/run-path"
 import { dateTime } from "@/lib/format"
-import { useConfigDocuments, useConfigs, useMessageTexts, usePluginFilesOf, useRuns, useServices } from "@/lib/queries"
-import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import {
-  entryHaystack,
-  messageEntryHaystack,
-  rankHits,
-  rankValue,
-  searchSettingsAndMessages,
-  searchValue,
-  setPendingJump,
-  setPendingTextJump,
-} from "@/lib/settings-search"
+  useConfigDocuments,
+  useConfigs,
+  usePluginFilesOf,
+  useRuns,
+  useServices,
+  useTranslationSearch,
+} from "@/lib/queries"
+import { Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { entryHaystack, rankHits, rankValue, searchAcross, searchValue, setPendingJump } from "@/lib/settings-search"
+import { TranslationHits } from "@/app/translation-hits"
 import { NETWORK } from "@/components/steward/settings"
-import { messageName, pluginFileId, pluginLabel, textId } from "@/lib/settings-tree"
-import { shownOf } from "@/lib/message-text"
+import { pluginFileId, pluginLabel } from "@/lib/settings-tree"
 import { runKind, runStatus } from "@/components/steward/status"
 import { t } from "@/lib/texts"
 
@@ -41,7 +39,6 @@ const WAITING_HITS = [0, 1, 2, 3]
 const MAX_SETTINGS_HITS = 30
 
 const NO_CONFIGS: ConfigLocation[] = []
-const NO_TEXTS: MessageText[] = []
 const NO_SERVICES: Service[] = []
 
 /** A plugin file is found by its plugin's name and its path, and by its service after them. */
@@ -65,7 +62,7 @@ function runSearchValue(run: Run): string {
 }
 
 /**
- * The search dialog on Ctrl+K and ⌘K. It fetches runs, configs and texts only while it is open.
+ * The search dialog on Ctrl+K and ⌘K. It fetches runs, configs and translations only while it is open.
  */
 export function CommandPalette() {
   const [open, setOpen] = React.useState(false)
@@ -81,9 +78,6 @@ export function CommandPalette() {
   const paths = React.useMemo(() => locations.map((location) => location.path), [locations])
   const documents = useConfigDocuments(paths, open && search.trim().length > 0)
 
-  const textsQuery = useMessageTexts(open && search.trim().length > 0)
-  const texts = textsQuery.data?.texts ?? NO_TEXTS
-
   const services = useServices(open && search.trim().length > 0).data?.services ?? NO_SERVICES
   const withPlugins = React.useMemo(
     () => services.filter((service) => service.hasPlugins).map((service) => service.service),
@@ -91,16 +85,20 @@ export function CommandPalette() {
   )
   const pluginFiles = usePluginFilesOf(withPlugins, open && search.trim().length > 0)
 
+  const translations = useTranslationSearch(search, open)
+
   const reading =
     open &&
     search.trim().length > 0 &&
-    (documents.some((query) => query.isPending) || textsQuery.isPending || pluginFiles.some((query) => query.isPending))
+    (documents.some((query) => query.isPending) ||
+      translations.isPending ||
+      pluginFiles.some((query) => query.isPending))
 
   const settingsHits = React.useMemo(() => {
     if (!search.trim()) return []
     const configPairs = locations.map((location, index) => ({ location, document: documents[index]?.data }))
-    return rankHits(searchSettingsAndMessages(configPairs, texts, search), search)
-  }, [locations, documents, texts, search])
+    return rankHits(searchAcross(configPairs, search), search)
+  }, [locations, documents, search])
 
   const pluginHits = React.useMemo(
     () =>
@@ -156,7 +154,10 @@ export function CommandPalette() {
         placeholder={t("steward.shell.search-placeholder")}
       />
       <CommandList className="max-h-[22rem]">
-        <CommandEmpty>{reading ? t("steward.shell.still-reading") : t("steward.shell.nothing-found")}</CommandEmpty>
+        {/* cmdk counts only the rows its own filter keeps, so the server's hits would show next to "nothing found". */}
+        {translations.data?.length ? null : (
+          <CommandEmpty>{reading ? t("steward.shell.still-reading") : t("steward.shell.nothing-found")}</CommandEmpty>
+        )}
         {groups.map((group, index) => (
           <React.Fragment key={group.id}>
             {index > 0 ? <CommandSeparator /> : null}
@@ -232,7 +233,7 @@ export function CommandPalette() {
         {settingsHits.length > 0 || pluginHits.length > 0 ? (
           <>
             <CommandSeparator />
-            {/* Settings hits, plugin files and text hits share one group. */}
+            {/* Settings hits and plugin files share one group. */}
             <CommandGroup heading={t("steward.shell.settings")}>
               {pluginHits.slice(0, MAX_SETTINGS_HITS).map((file) => (
                 <CommandItem
@@ -255,55 +256,35 @@ export function CommandPalette() {
                 </CommandItem>
               ))}
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
-                if (hit.kind === "config") {
-                  const service = hit.location.service || "steward"
-                  return (
-                    <CommandItem
-                      key={`setting-${hit.location.path}-${hit.entry.path}`}
-                      value={`setting-${hit.location.path}-${hit.entry.path}`}
-                      keywords={[entryHaystack(hit.entry)]}
-                      onSelect={() => {
-                        setOpen(false)
-                        setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
-                        void (service === NETWORK
-                          ? navigate({ to: "/season", search: { file: hit.location.path } })
-                          : navigate({
-                              to: "/services/$name",
-                              params: { name: service },
-                              search: { tab: "settings", file: hit.location.path },
-                            }))
-                      }}
-                      className="min-h-control gap-2.5"
-                    >
-                      <TERM_ICON.settings aria-hidden className="text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
-                      <HitDetail where={service} text={hit.entry.value} />
-                    </CommandItem>
-                  )
-                }
-                const entry = hit.text.entry
-                const id = textId(entry)
+                const service = hit.location.service || "steward"
                 return (
                   <CommandItem
-                    key={`message-${id}-${hit.language}`}
-                    value={`message-${id}-${hit.language}`}
-                    keywords={[messageEntryHaystack(entry, hit.language)]}
+                    key={`setting-${hit.location.path}-${hit.entry.path}`}
+                    value={`setting-${hit.location.path}-${hit.entry.path}`}
+                    keywords={[entryHaystack(hit.entry)]}
                     onSelect={() => {
                       setOpen(false)
-                      setPendingTextJump({ id, language: hit.language })
-                      void navigate({ to: "/translations", search: {} })
+                      setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
+                      void (service === NETWORK
+                        ? navigate({ to: "/season", search: { file: hit.location.path } })
+                        : navigate({
+                            to: "/services/$name",
+                            params: { name: service },
+                            search: { tab: "settings", file: hit.location.path },
+                          }))
                     }}
                     className="min-h-control gap-2.5"
                   >
-                    <TERM_ICON.translations aria-hidden className="text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate">{messageName(entry)}</span>
-                    <HitDetail where={entry.bundle} text={shownOf(entry, hit.language)[0]} />
+                    <TERM_ICON.settings aria-hidden className="text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
+                    <HitDetail where={service} text={hit.entry.value} />
                   </CommandItem>
                 )
               })}
             </CommandGroup>
           </>
         ) : null}
+        <TranslationHits search={search} open={open} onDone={() => setOpen(false)} />
       </CommandList>
     </CommandDialog>
   )

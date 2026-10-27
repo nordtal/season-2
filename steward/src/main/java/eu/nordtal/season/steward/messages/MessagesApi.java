@@ -84,6 +84,11 @@ public final class MessagesApi {
         ctx.json(texts(layered(union())));
     }
 
+    /** Returns every text of every bundle as {@code list} answers them. */
+    List<Text> current() {
+        return texts(layered(union())).texts();
+    }
+
     /**
      * {@code PUT /api/messages} writes the override of each named language as rows, and a {@code null} resets one.
      * A validator error is a 400 that writes nothing.

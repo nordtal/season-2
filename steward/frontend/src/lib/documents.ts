@@ -37,20 +37,6 @@ export function languagesOf(document: Document): Language[] {
   return [ENGLISH, ...[...found].filter((language) => language !== ENGLISH).toSorted()]
 }
 
-export function documentMatches(view: DocumentView, query: string): boolean {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
-  return [
-    view.declaration.title,
-    view.declaration.name,
-    view.declaration.area,
-    ...textsOf(documentOf(view)).flatMap((text) => Object.values(text).flat()),
-  ]
-    .join("\n")
-    .toLowerCase()
-    .includes(needle)
-}
-
 /** The service a document's order follows: the first of its services in the filter's order. */
 function firstService(view: DocumentView): string {
   return view.services.toSorted()[0] ?? ""

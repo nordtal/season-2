@@ -276,7 +276,7 @@ function PartEditor({
   const words = firstWords(saved ?? part, context.language)
   return (
     <div className={cn("min-w-0 rounded-md border", open && !empty && "bg-muted/40")}>
-      <div className="flex min-w-0 items-center justify-between gap-1 p-1 md:justify-start">
+      <div className="flex min-w-0 items-center justify-between gap-1 p-1 max-md:flex-wrap md:justify-start">
         <span className="contents shrink-0 items-center md:flex">
           <Move first={at === 0} last={last} onMove={(by) => context.onMove(path, by)} />
           {holdsRequired(view.declaration, slotsOf(part)) ? (

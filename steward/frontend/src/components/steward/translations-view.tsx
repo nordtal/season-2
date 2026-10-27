@@ -195,7 +195,7 @@ export function TranslationsView({
                 <Tabs value={blockFilter} onValueChange={(next: BlockFilter) => setBlockFilter(next)}>
                   <TabsList aria-label={t("steward.texts.block-filter-label")}>
                     {BLOCK_FILTERS.map((filter) => (
-                      <TabsTrigger key={filter} value={filter} className="px-2.5 text-xs">
+                      <TabsTrigger key={filter} value={filter} className="flex-none px-2.5 text-xs">
                         {t("steward.texts.block-filter", { filter: choice(filter) })}
                       </TabsTrigger>
                     ))}

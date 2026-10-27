@@ -49,26 +49,33 @@ export function SharedPartMenu({
   const badge = part.shared ? (
     <>
       <PuzzlePieceIcon aria-hidden />
-      <span className="truncate">{t("steward.document-editor.shared-part", { name: part.shared })}</span>
+      {/* The icon says shared part, so the badge shows the name alone. */}
+      <span className="sr-only">{t("steward.document-editor.shared-part", { name: part.shared })}</span>
+      <span aria-hidden className="truncate">
+        {part.shared}
+      </span>
     </>
   ) : null
   return (
     <>
       {part.shared ? (
-        <Badge
-          asChild={openShared !== undefined}
-          variant="outline"
-          className="min-w-0 shrink"
-          title={t("steward.document-editor.shared-part", { name: part.shared })}
-        >
-          {openShared ? (
-            <button type="button" onClick={openShared} className="cursor-pointer hover:bg-muted">
-              {badge}
-            </button>
-          ) : (
-            badge
-          )}
-        </Badge>
+        // On a phone the header is full, so the badge takes a line of its own under it.
+        <span className="flex min-w-0 max-md:order-last max-md:basis-full max-md:px-1 max-md:pb-1">
+          <Badge
+            asChild={openShared !== undefined}
+            variant="outline"
+            className="min-w-0 shrink"
+            title={t("steward.document-editor.shared-part", { name: part.shared })}
+          >
+            {openShared ? (
+              <button type="button" onClick={openShared} className="cursor-pointer hover:bg-muted">
+                {badge}
+              </button>
+            ) : (
+              badge
+            )}
+          </Badge>
+        </span>
       ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

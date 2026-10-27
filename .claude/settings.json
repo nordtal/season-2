@@ -1,0 +1,19 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "enabledPlugins": {
+    "agent-kit@agent-kit": true
+  },
+  "extraKnownMarketplaces": {
+    "agent-kit": {
+      "source": {
+        "source": "github",
+        "repo": "tillhfm/agent-kit"
+      },
+      "autoUpdate": true
+    }
+  }
+}

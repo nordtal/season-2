@@ -13,10 +13,12 @@ import eu.nordtal.season.messages.PackagedTexts;
 import eu.nordtal.season.messages.context.DiscordMemberContext;
 import eu.nordtal.season.messages.context.TeamContext;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class DiscordRendererTest {
@@ -41,6 +43,21 @@ class DiscordRendererTest {
                                 Locale.GERMAN,
                                 AdminTexts.TEXTS.journal().renameKey("Red_Fox**"),
                                 "**{label}** heißt jetzt so."));
+    }
+
+    @Test
+    void aValueInACodeSpanIsWrittenWithoutBackslashes() {
+        assertEquals(
+                "**Minecraft** `Red_Fox*ˋ`, not **Red\\_Fox**",
+                DOCUMENTS
+                        .messages()
+                        .format(
+                                Locale.ENGLISH,
+                                "**Minecraft** `{name}`, not **{other}**",
+                                Map.of("name", "Red_Fox*`", "other", "Red_Fox"),
+                                Map.of(),
+                                TextFormat.DISCORD_MARKDOWN,
+                                "test"));
     }
 
     @Test

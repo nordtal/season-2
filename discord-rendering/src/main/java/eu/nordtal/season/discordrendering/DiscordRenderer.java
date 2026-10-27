@@ -67,11 +67,20 @@ public final class DiscordRenderer {
     private String render(final Messages.Prepared prepared) {
         final boolean markdown = prepared.format() == TextFormat.DISCORD_MARKDOWN;
         final StringBuilder out = new StringBuilder();
+        boolean code = false;
         for (final Piece piece : prepared.pieces()) {
             switch (piece) {
-                case Piece.Text text -> out.append(text.text());
+                case Piece.Text text -> {
+                    out.append(text.text());
+                    code ^= text.text().chars().filter(c -> c == '`').count() % 2 == 1;
+                }
+                // Discord shows a backslash inside a code span as written, and a backtick would end the span.
                 case Piece.Filled filled ->
-                    out.append(value(filled.kind(), filled.value(), filled.style(), prepared, markdown));
+                    out.append(
+                            markdown && code
+                                    ? value(filled.kind(), filled.value(), filled.style(), prepared, false)
+                                            .replace('`', 'ˋ')
+                                    : value(filled.kind(), filled.value(), filled.style(), prepared, markdown));
                 case Piece.Markup markup -> {
                     if (Tags.isLineBreak(markup.tag().name())) {
                         out.append('\n');

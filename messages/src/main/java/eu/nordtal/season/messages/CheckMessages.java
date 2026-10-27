@@ -182,6 +182,13 @@ public interface CheckMessages {
                     @Arg("name") @Example("n") String name,
                     @Arg("kind") @Example("number") String kind,
                     @Arg("given") @Example("text") String given);
+
+            @Name("A case the choice lacks")
+            MessageRef noCase(
+                    @Arg("block") @Example("values.duration.days") String block,
+                    @Arg("name") @Example("case") String name,
+                    @Arg("constant") @Example("vocative") String constant,
+                    @Arg("cases") @Example("nominative,dative") List<String> cases);
         }
 
         Tag tag();

@@ -113,7 +113,9 @@ public final class MessageSpecCheck {
         for (final Node node : nodes) {
             if (node instanceof final Node.Choice choice) {
                 final String example = examples.get(choice.name());
+                // A block's case shows its nominative as the case other, as a text that binds none does.
                 final boolean picked = example == null
+                        || choice.name().equals(Node.Block.CASE)
                         || "true".equals(example)
                         || "false".equals(example)
                         || (!"other".equals(example) && choice.cases().containsKey(example));

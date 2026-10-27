@@ -2,6 +2,7 @@ package eu.nordtal.season.steward;
 
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.messages.MessageJson;
+import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.spec.MessageSchema;
 import eu.nordtal.season.steward.texts.WebTexts;
 import java.io.IOException;
@@ -73,6 +74,15 @@ public final class TextTypes {
                 kinds.put(entry.key(), declared);
             }
         }
+        // The building blocks too, so a block bound to a constant knows which of its values are choices.
+        Messages.blocks().forEach((key, block) -> {
+            final Map<String, String> declared = new TreeMap<>();
+            block.roles()
+                    .forEach(name -> declared.put(name, block.values().get(name).token()));
+            if (!declared.isEmpty()) {
+                kinds.put(key, declared);
+            }
+        });
         final Map<String, Object> texts = new TreeMap<>(MessageJson.texts(WebTexts.load(sources()), Locale.ENGLISH));
         return "{\n  \"kinds\": " + lines(kinds) + ",\n  \"texts\": " + lines(texts) + "\n}\n";
     }

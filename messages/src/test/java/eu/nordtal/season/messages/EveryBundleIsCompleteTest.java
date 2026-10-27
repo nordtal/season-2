@@ -190,12 +190,19 @@ class EveryBundleIsCompleteTest {
             switch (node) {
                 case Node.Value value -> into.add(value.name());
                 case Node.Choice choice -> {
-                    into.add(choice.name());
+                    // Only a language with cases chooses on the case a block is shown in.
+                    if (!choice.name().equals(Node.Block.CASE)) {
+                        into.add(choice.name());
+                    }
                     choice.cases().values().forEach(inner -> collect(inner, into));
                 }
                 case Node.Block block -> {
                     into.add("@" + block.key());
-                    into.addAll(block.with().values());
+                    block.with().forEach((name, outer) -> {
+                        if (!name.equals(Node.Block.CASE)) {
+                            into.add(outer);
+                        }
+                    });
                 }
                 default -> {
                     // Literals, the # of a plural and tags name nothing.

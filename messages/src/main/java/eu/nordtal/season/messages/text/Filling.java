@@ -114,6 +114,14 @@ public final class Filling {
         final Map<String, Object> inner = new HashMap<>(values);
         reference.with().forEach((name, outer) -> {
             inner.keySet().removeIf(shown -> shown.equals(name) || shown.startsWith(name + "."));
+            if (Node.Block.number(outer)) {
+                inner.put(name, new BigDecimal(outer));
+                return;
+            }
+            if (block.values().get(name) == Kind.CHOICE && !holds(outer)) {
+                inner.put(name, outer);
+                return;
+            }
             values.forEach((shown, value) -> {
                 if (shown.equals(outer)) {
                     inner.put(name, value);
@@ -126,6 +134,12 @@ public final class Filling {
         around.add(key);
         new Filling(inner, block.values(), missing, blocks, around)
                 .add(block.text().nodes(), into);
+    }
+
+    /** Returns whether this text has a value {@code name}, or a context of that name with attributes. */
+    private boolean holds(final String name) {
+        return java.util.stream.Stream.concat(values.keySet().stream(), declared.keySet().stream())
+                .anyMatch(held -> held.equals(name) || held.startsWith(name + "."));
     }
 
     /** A value of no kind shows the replacement word, as a missing value does, and never its {@code toString}. */
@@ -145,7 +159,9 @@ public final class Filling {
     private List<Node> chosen(final Node.Choice choice) {
         final Object value = values.get(choice.name());
         if (value == null) {
-            missing.accept(choice.name());
+            if (!choice.name().equals(Node.Block.CASE)) {
+                missing.accept(choice.name());
+            }
             return other(choice);
         }
         if (!choice.plural()) {

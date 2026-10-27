@@ -43,14 +43,23 @@ public sealed interface Node {
     /**
      * A building block, {@code {@key}} or {@code {@key, value=outer}}, drawn where it stands.
      *
-     * @param with each value of the block to the value of the text it shows. A value of the block
-     *     that it leaves out shows the text's value of the same name.
+     * @param with each value of the block to the value of the text it shows, or to a constant: a
+     *     number, or a word of a choice the text has no value of. A value of the block that it
+     *     leaves out shows the text's value of the same name.
      */
     record Block(String key, Map<String, String> with) implements Node {
+
+        /** The choice a block takes its grammatical case from. A text that binds none takes the case {@code other}. */
+        public static final String CASE = "case";
 
         public Block {
             Objects.requireNonNull(key, "key");
             with = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(with));
+        }
+
+        /** Returns whether a binding names a constant number rather than a value. */
+        public static boolean number(final String outer) {
+            return !outer.isEmpty() && Character.isDigit(outer.charAt(0));
         }
     }
 

@@ -171,5 +171,17 @@
     "args": { "days": { "kind": "number", "value": 2 } },
     "plain": "2 days left"
   },
+  {
+    "text": "{@values.duration.days, n=1} left",
+    "nodes": [{ "b": "values.duration.days", "with": { "n": "1" } }, " left"],
+    "args": {},
+    "plain": "1 day left"
+  },
+  {
+    "text": "in {@values.duration.days, n=days, case=dative}",
+    "nodes": ["in ", { "b": "values.duration.days", "with": { "n": "days", "case": "dative" } }],
+    "args": { "days": { "kind": "number", "value": 3 } },
+    "plain": "in 3 days"
+  },
   { "text": "{@nothing.here} left", "nodes": [{ "b": "nothing.here" }, " left"], "args": {}, "plain": "something left" }
 ]

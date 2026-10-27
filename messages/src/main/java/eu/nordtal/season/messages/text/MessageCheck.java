@@ -5,6 +5,7 @@ import eu.nordtal.season.messages.CheckMessages;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.TermMessages;
+import eu.nordtal.season.messages.value.Case;
 import eu.nordtal.season.messages.value.Kind;
 import eu.nordtal.season.messages.value.Words;
 import java.time.ZoneOffset;
@@ -207,16 +208,69 @@ public final class MessageCheck {
         }
         for (final String role : block.roles()) {
             final String outer = reference.with().getOrDefault(role, role);
+            final Kind wanted = block.values().get(role);
+            if (Node.Block.number(outer) || (wanted == Kind.CHOICE && !offers(declaration, outer))) {
+                constant(key, role, wanted, outer, reference.with().containsKey(role));
+                continue;
+            }
             if (!offers(declaration, outer)) {
                 error(SAYS.block()
                         .unbound(key, role, sorted(declaration.values().keySet())));
                 continue;
             }
             used.add(outer);
-            final Kind wanted = block.values().get(role);
             final Kind given = declaration.values().get(outer);
             if (wanted != null && given != null && wanted != given) {
                 error(SAYS.block().otherKind(key, role, wanted.token(), given.token()));
+            }
+        }
+    }
+
+    /** A constant fits a number as a number, and a choice as one of its cases.
+     * {@code case} takes a grammatical case, or {@code other} unbound; another choice a case of the English text.
+     */
+    private void constant(
+            final String key,
+            final String role,
+            final @Nullable Kind wanted,
+            final String constant,
+            final boolean bound) {
+        if (wanted == Kind.NUMBER && Node.Block.number(constant)) {
+            return;
+        }
+        if (wanted != Kind.CHOICE) {
+            error(SAYS.block()
+                    .otherKind(key, role, wanted == null ? Kind.TEXT.token() : wanted.token(), Kind.NUMBER.token()));
+            return;
+        }
+        if (role.equals(Node.Block.CASE) && !bound) {
+            return;
+        }
+        final List<String> cases = role.equals(Node.Block.CASE) ? Kind.choices(Case.class) : cases(key, role);
+        if (!cases.contains(constant)) {
+            error(SAYS.block().noCase(key, role, constant, cases));
+        }
+    }
+
+    /** Returns the cases that the English text of block {@code key} names for its choice {@code role}. */
+    private static List<String> cases(final String key, final String role) {
+        final Filling.Block block = Packaged.BLOCKS.block(key);
+        final List<String> cases = new ArrayList<>();
+        if (block != null) {
+            collect(block.text().nodes(), role, cases);
+        }
+        return cases;
+    }
+
+    private static void collect(final List<Node> nodes, final String role, final List<String> into) {
+        for (final Node node : nodes) {
+            if (node instanceof final Node.Choice choice) {
+                if (!choice.plural() && choice.name().equals(role)) {
+                    choice.cases().keySet().stream()
+                            .filter(name -> !"other".equals(name) && !into.contains(name))
+                            .forEach(into::add);
+                }
+                choice.cases().values().forEach(branch -> collect(branch, role, into));
             }
         }
     }
@@ -341,6 +395,9 @@ public final class MessageCheck {
 
     private void roles() {
         for (final String role : declaration.roles()) {
+            if (role.equals(Node.Block.CASE)) {
+                continue; // a language without cases never names the case its block is shown in
+            }
             final boolean usedAtAll =
                     used.contains(role) || used.stream().anyMatch(name -> name.startsWith(role + "."));
             if (!usedAtAll) {

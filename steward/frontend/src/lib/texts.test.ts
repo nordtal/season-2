@@ -81,6 +81,27 @@ describe("the web target", () => {
     expect(message({ key: "vector" })).toBe("a something")
   })
 
+  it("takes the case a text binds a building block to, and the case other where it binds none", () => {
+    const days: TextNode = {
+      c: "case",
+      plural: false,
+      cases: { dative: [{ pound: "n" }, " days (dative)"], other: [{ pound: "n" }, " days"] },
+    }
+    const args = { days: { kind: "number", value: 3 } } as const
+    replaceTexts({
+      ...PACKAGED,
+      "values.duration.days": [[days]],
+      vector: [["in ", { b: "values.duration.days", with: { n: "days", case: "dative" } }]],
+    })
+    expect(message({ key: "vector", args })).toBe("in 3 days (dative)")
+    replaceTexts({
+      ...PACKAGED,
+      "values.duration.days": [[days]],
+      vector: [["for ", { b: "values.duration.days", with: { n: "days" } }]],
+    })
+    expect(message({ key: "vector", args })).toBe("for 3 days")
+  })
+
   it("chooses on an enum constant as Java names it", () => {
     expect(choice("REMOVE_PLUGIN")).toBe("remove-plugin")
     expect(t("run.kind", { kind: choice("REMOVE_PLUGIN") })).toBe("Remove plugin")

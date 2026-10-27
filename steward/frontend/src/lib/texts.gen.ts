@@ -147,6 +147,12 @@ export type TextArgs = {
   "alert.words": {
     text: Arg["text"]
   }
+  "check.block.no-case": {
+    block: Arg["text"]
+    name: Arg["text"]
+    constant: Arg["text"]
+    cases: Arg["list"]
+  }
   "check.block.no-value": {
     block: Arg["text"]
     name: Arg["text"]

@@ -180,7 +180,7 @@ class Reader {
       if (!value || this.peek() !== "=") throw new UnreadableText(this.at)
       this.at++
       this.space()
-      const outer = this.name()
+      const outer = DIGIT.test(this.peek()) ? this.number() : this.name()
       if (!outer) throw new UnreadableText(this.at)
       if (Object.hasOwn(bound, value)) throw new UnreadableText(binding)
       bound[value] = outer
@@ -319,6 +319,14 @@ class Reader {
     const name = text.slice(start, this.at)
     if (name.endsWith(".") || name.includes("..")) throw new UnreadableText(start)
     return name
+  }
+
+  /** Reads a constant number a block's value is bound to, such as `1` or `0.5`. */
+  private number(): string {
+    const found = /^\d+(?:\.\d+)?/.exec(this.text.slice(this.at))
+    const number = found ? found[0] : ""
+    this.at += number.length
+    return number
   }
 
   private word(): string {

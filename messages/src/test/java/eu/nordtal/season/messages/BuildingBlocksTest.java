@@ -37,6 +37,18 @@ class BuildingBlocksTest {
     }
 
     @Test
+    void aBlockBoundToANumberShowsThatNumber() {
+        assertEquals("1 day left", drawn(load(), Locale.ENGLISH, "{@" + DAYS + ", n=1} left", 2));
+        assertEquals("noch 1 Tag", drawn(load(), Locale.GERMAN, "noch {@" + DAYS + ", n=1}", 2));
+    }
+
+    @Test
+    void aBlockTakesTheCaseItIsBoundTo() {
+        assertEquals("in 3 Tagen", drawn(load(), Locale.GERMAN, "in {@" + DAYS + ", n=days, case=dative}", 3));
+        assertEquals("in 3 days", drawn(load(), Locale.ENGLISH, "in {@" + DAYS + ", n=days, case=dative}", 3));
+    }
+
+    @Test
     void anUnboundValueOfTheBlockShowsTheTextValueOfTheSameName() {
         final Messages messages = load();
         final Messages.Prepared prepared = messages.prepare(

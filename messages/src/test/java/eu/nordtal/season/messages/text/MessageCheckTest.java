@@ -225,7 +225,7 @@ class MessageCheckTest {
 
     @Test
     void aBindingTheBlockDoesNotDeclareIsRefused() {
-        refused(packaged("{winner.name} {@values.duration.days, count=n}"), "offers n, not count");
+        refused(packaged("{winner.name} {@values.duration.days, count=n}"), "offers case and n, not count");
     }
 
     @Test
@@ -236,6 +236,18 @@ class MessageCheckTest {
     @Test
     void aValueOfAnotherKindIsRefused() {
         refused(packaged("{winner.name} {n} {@values.duration.days, n=reason}"), "as a number, and it is given a text");
+    }
+
+    @Test
+    void aBlockBoundToAConstantPasses() {
+        assertEquals(List.of(), packaged("{winner.name} {n} {@values.duration.days, n=1}"));
+        assertEquals(List.of(), packaged("{winner.name} {@values.duration.days, case=dative}"));
+    }
+
+    @Test
+    void aConstantThatIsNoCaseOfTheValueIsRefused() {
+        refused(packaged("{winner.name} {@values.duration.days, case=vocative}"), "has no vocative for case");
+        refused(packaged("{winner.name} {@values.duration.days, case=2}"), "has no 2 for case");
     }
 
     @Test

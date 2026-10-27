@@ -185,19 +185,22 @@ function fill(
     } else if ("c" in node) {
       fill(chosen(node, args[node.c]), args, declared, out, texts, open)
     } else if ("b" in node) {
-      block(node, args, out, texts, open)
+      block(node, args, declared, out, texts, open)
     } else if (LINE_BREAKS.has(node.tag)) {
       out.push({ text: "\n" })
     }
   }
 }
 
+const DIGIT_FIRST = /^\d/
+
 /**
- * Fills a building block with the values around it, as Java's `Filling` does. A bound value takes the outer one and its `outer.*` attributes. A cycle or a key that is no text shows the missing word.
+ * Fills a building block with the values around it, as Java's `Filling` does. A bound value takes the outer one and its `outer.*` attributes, a number is a constant, and so is a word bound to a choice the text has no value of. A cycle or a key that is no text shows the missing word.
  */
 function block(
   node: { b: string; with?: Record<string, string> },
   args: Record<string, unknown>,
+  declared: Record<string, Kind>,
   out: Run[],
   texts: Texts,
   open: Set<string>,
@@ -207,15 +210,26 @@ function block(
     out.push({ text: missing("text", { locale: LOCALE, texts }), kind: "text", name: `@${node.b}` })
     return
   }
+  const kinds = PACKAGED.kinds[node.b] ?? {}
+  const holds = (outer: string) =>
+    [...Object.keys(args), ...Object.keys(declared)].some((held) => held === outer || held.startsWith(`${outer}.`))
   const inner: Record<string, unknown> = { ...args }
   for (const [name, outer] of Object.entries(node.with ?? {})) {
     for (const held of Object.keys(inner)) if (held === name || held.startsWith(`${name}.`)) delete inner[held]
+    if (DIGIT_FIRST.test(outer)) {
+      inner[name] = { kind: "number", value: Number(outer) }
+      continue
+    }
+    if (kinds[name] === "choice" && !holds(outer)) {
+      inner[name] = { kind: "choice", value: outer }
+      continue
+    }
     for (const [given, value] of Object.entries(args)) {
       if (given === outer) inner[name] = value
       else if (given.startsWith(`${outer}.`)) inner[name + given.slice(outer.length)] = value
     }
   }
-  fill(variants[0], inner, PACKAGED.kinds[node.b] ?? {}, out, texts, new Set([...open, node.b]))
+  fill(variants[0], inner, kinds, out, texts, new Set([...open, node.b]))
 }
 
 function filled(

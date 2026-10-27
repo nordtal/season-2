@@ -8,6 +8,7 @@ import eu.nordtal.season.messages.spec.MessageSpec;
 import eu.nordtal.season.messages.spec.Name;
 import eu.nordtal.season.messages.spec.Shown;
 import eu.nordtal.season.messages.spec.TextFormat;
+import eu.nordtal.season.messages.value.Case;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Mention;
 
@@ -95,7 +96,7 @@ public interface ValueMessages {
         interface Duration {
 
             @Name("Days")
-            MessageRef days(@Arg("n") @Example("2") long n);
+            MessageRef days(@Arg("n") @Example("2") long n, @Arg("case") @Example("nominative") Case grammaticalCase);
 
             @Name("Hours")
             MessageRef hours(@Arg("n") @Example("2") long n);

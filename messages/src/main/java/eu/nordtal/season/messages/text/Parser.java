@@ -125,7 +125,7 @@ final class Parser {
         return new Node.Value(name, second, style);
     }
 
-    /** Reads {@code {@key}} or {@code {@key, value=outer, ...}} after its brace. */
+    /** Reads {@code {@key}} or {@code {@key, value=outer, value=constant, ...}} after its brace. */
     private Node.Block block(final int start) {
         at++;
         final String key = name();
@@ -145,7 +145,7 @@ final class Parser {
             }
             at++;
             space();
-            final String outer = name();
+            final String outer = Character.isDigit(peek()) ? number() : name();
             if (outer.isEmpty()) {
                 throw fail(SAYS.bindingIncomplete(key, at + 1), at);
             }
@@ -309,6 +309,21 @@ final class Parser {
             throw fail(SAYS.attributeMissing(name, start + 1), start);
         }
         return name;
+    }
+
+    /** Reads a constant number a block's value is bound to, such as {@code 1} or {@code 0.5}. */
+    private String number() {
+        final int start = at;
+        while (at < text.length() && Character.isDigit(text.charAt(at))) {
+            at++;
+        }
+        if (at + 1 < text.length() && text.charAt(at) == '.' && Character.isDigit(text.charAt(at + 1))) {
+            at++;
+            while (at < text.length() && Character.isDigit(text.charAt(at))) {
+                at++;
+            }
+        }
+        return text.substring(start, at);
     }
 
     private String word() {

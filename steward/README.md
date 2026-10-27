@@ -135,6 +135,12 @@ forwards the asker.
 
 `/translations` edits every text of every bundle, Steward's own included, from `GET /api/messages`.
 
+- The page lists its areas (Discord, in game, Steward and admin, building blocks), then an area's sections, then
+  their texts and documents (`lib/translation-items.ts`). From 1024 pixels wide the list stays left of the
+  open item. On a phone the open item is a page of its own, with a back arrow.
+- The language toggle picks the language of the whole page. The bar under the open item discards or
+  saves that item alone.
+
 - A service shows a text its jar ships where it draws one of the text's places (`TextServices`): the bot
   in Discord, Steward on its page, every other service in the game. A building block stays with every
   service that ships it.
@@ -162,7 +168,7 @@ forwards the asker.
 declaration, the services that ship it, its hash and the admin's document. The admin's document is
 carried over to the jar's declaration, and `adapted` lists what that changed. The answer also holds the
 network's languages, and each document says whether a release changed the packaged document after the
-admin saved. The Translations page shows each document as a preview and opens its editor in its card.
+admin saved. The Translations page shows an open document as its preview with its editor below.
 A game text's lines are edited in the key editor's field (`message-editor/rich-field.tsx`), with the
 game's tones, glyphs and values; it adds only text blocks and offers no Discord line style.
 `PUT /api/documents/{namespace}/{name}` saves the admin's document against the packaged hash and

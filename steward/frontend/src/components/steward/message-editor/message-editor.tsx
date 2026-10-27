@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { ArrowCounterClockwiseIcon, EraserIcon, MinusIcon, PaperPlaneTiltIcon, PlusIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
@@ -6,7 +6,7 @@ import { useDebounced } from "@/lib/use-debounced"
 
 import type { MessageEntry, MessageFallback, MessagePreviewTarget } from "@/lib/api"
 import { previewPlacesOf, type Places } from "@/lib/text-places"
-import { ENGLISH, isLanguage, overrideOf, packagedOf, type Language } from "@/lib/message-text"
+import { overrideOf, packagedOf, type Language } from "@/lib/message-text"
 import { useGameAction, useGlyphs, useMessageCheck, useMessageExamples, useMessageSyntax } from "@/lib/queries"
 import { branchesOf, formatOf, longestLength, parse } from "@/lib/rich-text"
 import type { Format, Run } from "@/lib/rich-text"
@@ -22,7 +22,7 @@ import { exampleOf, fillOf, sentOf, type Fill, useWords } from "@/components/ste
 import { Preview, type Tones } from "@/components/steward/message-editor/preview"
 import { Failure } from "@/components/steward/query-state"
 import { RichField } from "@/components/steward/message-editor/rich-field"
-import { LIT, UNSEEN, useLanding, type Highlight } from "@/components/steward/settings-view"
+import { LIT, useLanding, type Highlight } from "@/components/steward/settings-view"
 
 /**
  * One key's draft: per language its new variants, `null` for "back to the jar", and absent for no change.
@@ -35,7 +35,6 @@ export type MessageEditorProps = {
   entry: MessageEntry
   path: string
   service?: string
-  languages: Language[]
   colours: Record<string, string>
   places: Places
   draft: MessageDraft | undefined
@@ -46,9 +45,8 @@ export type MessageEditorProps = {
   onTakeOver: (language: Language, texts: string[]) => void
   takingOver: boolean
   previews?: Record<string, MessagePreviewTarget>
-  /** The language shown, held by the caller; without it the editor holds its own. */
-  language?: Language
-  onLanguage?: (language: Language) => void
+  /** The language shown and edited, which the page holds. */
+  language: Language
   /** Where the text is drawn in each of its places, each with a button that sends it: the card's preview column. */
   previewsIn: HTMLElement | null
 }
@@ -60,7 +58,6 @@ export function MessageEditor({
   entry,
   path,
   service,
-  languages,
   colours,
   places,
   draft,
@@ -70,14 +67,16 @@ export function MessageEditor({
   onTakeOver,
   takingOver,
   previews,
-  language: held,
-  onLanguage,
+  language,
   previewsIn,
 }: MessageEditorProps) {
-  const [own, setOwn] = useState<Language>(ENGLISH)
-  const language = held ?? own
-  const setLanguage = onLanguage ?? setOwn
   const [variant, setVariant] = useState(0)
+  // Another language starts on its first variant.
+  const [variantOf, setVariantOf] = useState(language)
+  if (variantOf !== language) {
+    setVariantOf(language)
+    setVariant(0)
+  }
   const ref = useLanding(highlight)
   const syntax = useMessageSyntax()
   const glyphs = useGlyphs()
@@ -93,13 +92,6 @@ export function MessageEditor({
   // A nested message shows as its words here. The server renders the key itself, so the preview sends the key.
   const fill = fillOf(entry.args, examples.data, words(language, entry.bundle))
   const sent = sentOf(entry.args, examples.data)
-
-  const seenSeq = useRef<number | undefined | typeof UNSEEN>(UNSEEN)
-  if (seenSeq.current !== highlight?.seq) {
-    seenSeq.current = highlight?.seq
-    // A caller that holds the language sets it for the jump itself.
-    if (highlight?.language && held === undefined) setOwn(highlight.language)
-  }
 
   const typed = draft?.[language]
   const packaged = packagedOf(entry, language)
@@ -120,20 +112,9 @@ export function MessageEditor({
   const problems = typed === undefined ? [] : (check.data ?? [])
   const shownAt = previewPlacesOf(entry)
 
-  const overridden = (tab: Language) => {
-    const drafted = draft?.[tab]
-    return drafted === null ? false : drafted !== undefined ? true : overrideOf(entry, tab) !== undefined
-  }
-  const empty = (tab: Language) => packagedOf(entry, tab).length === 0 && !overridden(tab)
   const fallback = fallbacks.find((candidate) => candidate.language === language)
   const length = runs ? longestLength(runs, format, toneTags, fill) : text.length
   const label = entry.name ?? entry.key
-
-  function pickLanguage(next: string) {
-    if (!isLanguage(next)) return
-    setLanguage(next)
-    setVariant(0)
-  }
 
   const common = { format, args: entry.args, fill, tones, label }
 
@@ -164,18 +145,6 @@ export function MessageEditor({
         invalid={problems.some((problem) => problem.error)}
         start={
           <>
-            <Tabs value={language} onValueChange={pickLanguage}>
-              <TabsList className="group-data-horizontal/tabs:h-7 p-0.5">
-                {languages.map((tab) => (
-                  <TabsTrigger key={tab} value={tab} className={cn("gap-1 px-1.5 text-xs", empty(tab) && "opacity-50")}>
-                    {tab.toUpperCase()}
-                    {overridden(tab) ? (
-                      <span aria-label={t("steward.settings.overridden")} className="size-1 rounded-full bg-primary" />
-                    ) : null}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
             {variants.length > 1 ? (
               <Tabs value={String(at)} onValueChange={(next) => setVariant(Number(next))}>
                 <TabsList

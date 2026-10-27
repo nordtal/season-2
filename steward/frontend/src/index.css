@@ -207,29 +207,6 @@
     }
   }
 }
-
-/*
- * A translation's card grows from its top left corner when it opens: its new look keeps its own size, so its name and
- * its preview stay put while the box uncovers the editor beside and under them.
- */
-::view-transition-group(.translation-card) {
-  overflow: clip;
-  border-radius: var(--radius-lg);
-}
-
-/* Only the new look is drawn, so the growing box uncovers the editor instead of fading the card through its background. */
-::view-transition-old(.translation-card) {
-  display: none;
-}
-
-::view-transition-new(.translation-card) {
-  width: 100%;
-  height: 100%;
-  object-fit: none;
-  object-position: left top;
-  animation: none;
-}
-
 /* The rest of the page does not change, so it is swapped at once instead of fading through the background. */
 ::view-transition-old(root),
 ::view-transition-new(root) {

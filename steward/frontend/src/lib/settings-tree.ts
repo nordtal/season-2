@@ -74,6 +74,11 @@ class Builder<L> {
     while (nodes.length === 1 && nodes[0].kind === "branch") nodes = nodes[0].children
     return nodes
   }
+
+  /** Returns the tree with every root kept as it is, each folded below as `build` folds it. */
+  buildGroups(): TreeNode<L>[] {
+    return this.root.map((node) => (node.kind === "branch" ? { ...node, children: node.children.map(fold) } : node))
+  }
 }
 
 function fold<L>(node: TreeNode<L>): TreeNode<L> {
@@ -232,7 +237,7 @@ export function textId(entry: MessageEntry): string {
 export const DOCUMENT_LEAF = "document:"
 
 /**
- * Returns the Translations page as a tree: a branch per group, then a document's area (a menu's under the game) or a text's topic. Bundles that share a topic share its branch, and a leaf's `ids` are the texts it shows.
+ * Returns the Translations page as a tree: a branch per group, kept even when it is the only one, then a document's area (a menu's under the game) or a text's topic. Bundles that share a topic share its branch, and a leaf's `ids` are the texts it shows.
  */
 export function textsTree(
   texts: MessageText[],
@@ -278,7 +283,7 @@ export function textsTree(
     const id = textId(entry)
     builder.add(parent, { kind: "leaf", id, ids: [id], value: card, wide: true })
   }
-  return builder.build()
+  return builder.buildGroups()
 }
 
 /** Steward's pages in their order, then every text that is on none. */

@@ -885,7 +885,6 @@ export type TextArgs = {
     part: Arg["choice"]
   }
   "steward.document-editor.changed": Record<string, never>
-  "steward.document-editor.close": Record<string, never>
   "steward.document-editor.code": Record<string, never>
   "steward.document-editor.components": {
     count: Arg["number"]
@@ -1953,7 +1952,6 @@ export type TextArgs = {
   "steward.settings.not-readable": Record<string, never>
   "steward.settings.not-saved": Record<string, never>
   "steward.settings.not-set": Record<string, never>
-  "steward.settings.overridden": Record<string, never>
   "steward.settings.pick-colour": Record<string, never>
   "steward.settings.plugin-files": Record<string, never>
   "steward.settings.preview": {
@@ -2038,6 +2036,8 @@ export type TextArgs = {
     version: Arg["text"]
   }
   "steward.texts.all-services": Record<string, never>
+  "steward.texts.areas": Record<string, never>
+  "steward.texts.back": Record<string, never>
   "steward.texts.group": {
     group: Arg["choice"]
   }
@@ -2045,6 +2045,10 @@ export type TextArgs = {
   "steward.texts.search": Record<string, never>
   "steward.texts.service": Record<string, never>
   "steward.texts.shown-in": Record<string, never>
+  "steward.texts.untranslated": Record<string, never>
+  "steward.texts.untranslated-count": {
+    count: Arg["number"]
+  }
   "steward.updates.available": Record<string, never>
   "steward.updates.change": Record<string, never>
   "steward.updates.check-again": Record<string, never>

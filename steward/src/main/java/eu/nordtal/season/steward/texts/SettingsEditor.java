@@ -87,9 +87,6 @@ public interface SettingsEditor {
     @Name("Reset to packaged")
     MessageRef resetToPackaged();
 
-    @Name("Overridden")
-    MessageRef overridden();
-
     @Name("Refused")
     MessageRef refused(@Arg("problem") @Example("view-distance must be between 2 and 32") String problem);
 

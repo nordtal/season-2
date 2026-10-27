@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen } from "@testing-library/react"
-import { vi } from "vitest"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { expect, vi } from "vitest"
 
 import { Translations } from "@/pages/translations"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import type { Opened } from "@/components/steward/texts"
+import type { TranslationsState } from "@/components/steward/translations-view"
 import type {
   CommandRun,
   Document,
@@ -213,17 +213,35 @@ export function draw(node: ReactNode) {
 /** The page as its route draws it, with its search parameters kept in state instead of the URL. */
 export function Page({ service: first }: { service?: string }) {
   const [service, setService] = useState(first)
-  const [opened, setOpened] = useState<Opened>({})
-  return <Translations service={service} onService={setService} opened={opened} onOpen={setOpened} />
+  const [state, setState] = useState<TranslationsState>({})
+  return (
+    <Translations
+      service={service}
+      onService={setService}
+      state={state}
+      onState={(next) => setState((kept) => ({ ...kept, ...next }))}
+    />
+  )
 }
 
 export async function open(label: string | RegExp) {
   fireEvent.click(await screen.findByRole("button", { name: label }))
 }
 
-/** Opens the card `name` names. */
-export async function openKey(name: string) {
-  fireEvent.click(await screen.findByRole("button", { name }))
+function shown(label: string | RegExp): HTMLElement | undefined {
+  return screen.queryAllByRole("button", { name: label })[0]
+}
+
+/** Opens the item `name` names from wherever the list stands, through `area`, and hands back the open item. */
+export async function openItem(name: string, area: RegExp = /^In game/): Promise<HTMLElement> {
+  await waitFor(() => expect(shown(name) ?? shown(area) ?? shown("Areas")).toBeDefined())
+  if (!shown(name)) {
+    const areas = shown("Areas")
+    if (areas) fireEvent.click(areas)
+    fireEvent.click(await screen.findByRole("button", { name: area }))
+  }
+  fireEvent.click((await screen.findAllByRole("button", { name }))[0])
+  return screen.findByRole("article", { name })
 }
 
 /** Switches the open key to its source, B, and hands back the field `label` names. */

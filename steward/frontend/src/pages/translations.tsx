@@ -1,24 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 
 import type { DocumentList, MessageTexts } from "@/lib/api"
+import { DOCUMENT_LEAF } from "@/lib/settings-tree"
 import { useDocuments, useMessageTexts } from "@/lib/queries"
 import { onPendingTextJump, takePendingTextJump } from "@/lib/settings-search"
 import { serviceTitle } from "@/lib/words"
 import { t } from "@/lib/texts"
-import { SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { QueryState } from "@/components/steward/query-state"
 import type { Target } from "@/components/steward/settings-view"
-import { type Opened, TEXTS_FILE, TextsForm } from "@/components/steward/texts"
+import { TEXTS_FILE } from "@/components/steward/texts"
+import { TranslationsView, type TranslationsState } from "@/components/steward/translations-view"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export type TranslationsSearch = { service?: string } & Opened
+export type TranslationsSearch = { service?: string } & TranslationsState
 
-/** Keeps the service filter and the open document or text, each only when it is a word. */
+/** Keeps the service filter, the area listed and the open document or text, each only when it is a word. */
 export function translationsSearch(search: Record<string, unknown>): TranslationsSearch {
   return Object.fromEntries(
-    (["service", "document", "text"] as const).flatMap((name) => {
+    (["service", "area", "document", "text"] as const).flatMap((name) => {
       const value = search[name]
       return typeof value === "string" && value !== "" ? [[name, value]] : []
     }),
@@ -28,50 +29,45 @@ export function translationsSearch(search: Record<string, unknown>): Translation
 /** The first choice of the filter. A service is named in lowercase, so none is called this. */
 const EVERY_SERVICE = "ALL"
 
-/** The service filter and the search share a width, and halve the row on a phone. */
-const CONTROL_WIDTH = "flex-1 basis-0 sm:w-52 sm:flex-none sm:basis-auto"
-
 /** A counter and not state, because the number only has to differ from the last one. */
 let jumps = 0
 
 export function TranslationsPage() {
   const search = useSearch({ from: "/translations" })
   const navigate = useNavigate({ from: "/translations" })
-  const { service, ...opened } = search
-  const onOpen = useCallback(
-    // The card that opens or closes grows or shrinks between its two looks instead of jumping.
-    (next: Opened) => void navigate({ search: (kept) => ({ service: kept.service, ...next }), viewTransition: true }),
+  const { service, ...state } = search
+  const onState = useCallback(
+    (next: TranslationsState) => void navigate({ search: (kept) => ({ ...kept, ...next }) }),
     [navigate],
   )
   return (
     <Translations
       service={service}
       onService={(next) => void navigate({ search: (kept) => ({ ...kept, service: next }), replace: true })}
-      opened={opened}
-      onOpen={onOpen}
+      state={state}
+      onState={onState}
     />
   )
 }
 
 /**
- * Every Discord document and every text of every bundle, grouped by where they appear and then by area. A text that the command palette found opens in the language it was found in.
+ * Every Discord document and every text of every bundle, listed by area and section. A text or document that the
+ * command palette found opens in the language it was found in.
  */
 export function Translations({
   service,
   onService,
-  opened,
-  onOpen,
+  state,
+  onState,
 }: {
   service: string | undefined
   onService: (service: string | undefined) => void
-  opened: Opened
-  onOpen: (opened: Opened) => void
+  state: TranslationsState
+  onState: (next: TranslationsState) => void
 }) {
   const texts = useMessageTexts()
   const documents = useDocuments()
   const [target, setTarget] = useState<Target | null>(null)
-  const [query, setQuery] = useState("")
-  const header = useRef<HTMLElement>(null)
 
   /**
    * A jump from the command palette. Each gets a new number, so the same hit twice lands twice.
@@ -80,40 +76,28 @@ export function Translations({
     const land = () => {
       const jump = takePendingTextJump()
       if (!jump) return
-      setQuery("")
-      setTarget({ file: TEXTS_FILE, id: jump.id, language: jump.language, seq: ++jumps })
+      const id = jump.id.startsWith(DOCUMENT_LEAF) ? jump.id.slice(DOCUMENT_LEAF.length) : jump.id
+      setTarget({ file: TEXTS_FILE, id, language: jump.language, seq: ++jumps })
     }
     land()
     return onPendingTextJump(land)
   }, [])
 
-  const title = (
-    <PageHeader
-      ref={header}
-      title={t("steward.shell.page", { page: "translations" })}
-      actions={
-        <>
-          <ServiceFilter texts={texts.data} documents={documents.data} service={service} onService={onService} />
-          <div className={`flex ${CONTROL_WIDTH}`}>
-            <SearchField value={query} onValueChange={setQuery} label={t("steward.texts.search")} />
-          </div>
-        </>
-      }
-    />
-  )
   return (
     <div className="flex flex-col gap-6">
-      {title}
+      <PageHeader title={t("steward.shell.page", { page: "translations" })} />
       <QueryState query={texts} rows={8}>
         {(read) => (
-          <TextsForm
+          <TranslationsView
             texts={read}
             documents={documents.data}
             service={service}
+            serviceFilter={
+              <ServiceFilter texts={read} documents={documents.data} service={service} onService={onService} />
+            }
+            state={state}
+            onState={onState}
             target={target}
-            search={{ query, onQuery: setQuery, at: header }}
-            opened={opened}
-            onOpen={onOpen}
           />
         )}
       </QueryState>
@@ -144,8 +128,7 @@ function ServiceFilter({
       value={service ?? EVERY_SERVICE}
       onValueChange={(value) => onService(value === EVERY_SERVICE ? undefined : value)}
     >
-      {/* Only the filter shrinks below its content, so on a phone the search keeps its minimum width. */}
-      <SelectTrigger aria-label={t("steward.texts.service")} className={`min-w-0 ${CONTROL_WIDTH}`}>
+      <SelectTrigger aria-label={t("steward.texts.service")} className="min-w-0 flex-1">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

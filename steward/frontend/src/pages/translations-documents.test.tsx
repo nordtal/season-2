@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { Document, DocumentDraft, DocumentPart, DocumentView } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
 import { setPendingTextJump } from "@/lib/settings-search"
-import { backend, documents, draw, listing, open, Page, text, view } from "@/pages/translations.fixtures"
+import { backend, documents, draw, listing, open, openItem, Page, text, view } from "@/pages/translations.fixtures"
 
 afterEach(() => {
   cleanup()
@@ -132,14 +132,12 @@ describe("the list of documents", () => {
     serve()
     draw(<Page />)
 
-    await open(/^Discord/)
-    await open("Contribution")
-    const card = await screen.findByRole("article", { name: "Contribution" })
+    const card = await openItem("Contribution", /^Discord/)
     await waitFor(() => expect(card.textContent).toMatch(/Access.*Prices.*€1\.00 for 30 days/))
     expect(card.textContent).toContain("Buy access")
     expect(card.textContent).toContain("Site")
     expect(card.textContent).not.toContain("**")
-    expect(within(card).getByText("Access").closest("div")?.className).toContain("text-xl")
+    expect(within(card).getAllByText("Access")[0].closest("div")?.className).toContain("text-xl")
   })
 
   it("sends the draft with its declaration, whose examples fill it", async () => {
@@ -150,8 +148,7 @@ describe("the list of documents", () => {
     })
     draw(<Page />)
 
-    await open(/^Discord/)
-    await open("Contribution")
+    await openItem("Contribution", /^Discord/)
     await waitFor(() => expect(asked).not.toEqual([]))
     expect(asked.find((draft) => draft.declaration.name === "contribution")).toMatchObject({
       declaration: { slots: [{ id: "tiers" }, { id: "buy" }] },
@@ -164,9 +161,7 @@ describe("the list of documents", () => {
     serve()
     draw(<Page />)
 
-    await open(/^Discord/)
-    await open("Contribution")
-    const card = await screen.findByRole("article", { name: "Contribution" })
+    const card = await openItem("Contribution", /^Discord/)
     await waitFor(() => expect(card.textContent).toContain("@member"))
     expect(card.textContent).toMatch(/Ends (December 31, 2025|January 1, 2026) for/)
   })
@@ -175,9 +170,7 @@ describe("the list of documents", () => {
     serve()
     draw(<Page />)
 
-    await open(/^Discord/)
-    await open("Link")
-    const card = await screen.findByRole("article", { name: "Code form" })
+    const card = await openItem("Code form", /^Discord/)
     await waitFor(() => expect(card.textContent).toMatch(/Link.*Code.*six digits/))
   })
 
@@ -186,31 +179,22 @@ describe("the list of documents", () => {
     draw(<Page />)
 
     await open(/^In game/)
-    await open("Tab list")
-    const cards = await screen.findAllByRole("article", { name: "Tab footer" })
-    expect(cards.map((card) => within(card).getByRole("heading").parentElement?.textContent)).toEqual([
-      "Tab footerHunger Games",
-      "Tab footerSMP",
-    ])
+    const rows = within(await screen.findByRole("region", { name: "Tab list" })).getAllByRole("button")
+    expect(rows.map((row) => row.textContent)).toEqual(["Tab footerHunger Games", "Tab footerSMP"])
   })
 
-  it("lists a text of a bundle as a card of its own", async () => {
+  it("lists a text of a bundle as an item of its own, with its words", async () => {
     serve()
     draw(<Page />)
 
     await open(/^In game/)
-    const card = await screen.findByRole("article", { name: "Welcome" })
-    expect(within(card).getByRole("button", { name: "Welcome" }).textContent).toContain("Welcome to the server")
+    expect((await screen.findByRole("button", { name: "Welcome" })).textContent).toContain("Welcome to the server")
   })
 })
 
-/** Opens the contribution's editor in its card. */
+/** Opens the contribution and hands back its editor. */
 async function openContribution(): Promise<HTMLElement> {
-  await open(/^Discord/)
-  await open("Contribution")
-  within(await screen.findByRole("article", { name: "Contribution" }))
-    .getByRole("button", { name: "Contribution" })
-    .click()
+  await openItem("Contribution", /^Discord/)
   return screen.findByRole("region", { name: "Contribution" })
 }
 
@@ -226,13 +210,12 @@ function unfold(editor: HTMLElement): HTMLElement {
 
 // Fifteen seconds, because an open editor draws every part with its pickers, which takes close to five on CI.
 describe("an open document", { timeout: 15_000 }, () => {
-  it("opens its editor in its card, with the component count and a lock on what the code requires", async () => {
+  it("opens its editor beside the list, with the component count and a lock on what the code requires", async () => {
     serve()
     draw(<Page />)
 
     const editor = await openContribution()
     const card = screen.getByRole("article", { name: "Contribution" })
-    expect(card.hasAttribute("data-open")).toBe(true)
     expect(await within(card).findByText("7 of 40 components")).toBeTruthy()
     // Each part folds to a line naming its kind and first words; only the first one starts open.
     expect(within(editor).getByRole("button", { name: "Embed" }).getAttribute("aria-expanded")).toBe("true")
@@ -245,11 +228,11 @@ describe("an open document", { timeout: 15_000 }, () => {
     expect(within(editor).getAllByLabelText("Required by the code").length).toBeGreaterThan(0)
     expect(within(editor).getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(true)
 
-    fireEvent.click(within(card).getByRole("button", { name: "Close" }))
+    fireEvent.click(within(card).getByRole("button", { name: "Back" }))
     await waitFor(() => expect(screen.queryByRole("region", { name: "Contribution" })).toBeNull())
   })
 
-  it("edits and previews one language at a time, picked with the language toggle", async () => {
+  it("edits and previews one language at a time, picked with the page's language toggle", async () => {
     serve()
     draw(<Page />)
 
@@ -261,20 +244,20 @@ describe("an open document", { timeout: 15_000 }, () => {
         .queryAllByText(shown)
         .filter((each) => !editor.contains(each))
     unfold(editor)
-    expect(within(editor).queryByRole("combobox", { name: "Language" })).toBeNull()
+    expect(within(editor).queryByRole("tablist", { name: "Language" })).toBeNull()
 
-    fireEvent.mouseDown(within(editor).getByRole("tab", { name: "DE" }))
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "DE" }))
     expect(await within(editor).findByDisplayValue("access-de")).toBeTruthy()
     expect(within(editor).queryByDisplayValue("Access")).toBeNull()
     await waitFor(() => expect(previewed("access-de")).toHaveLength(1))
     expect(previewed("Access")).toHaveLength(0)
 
-    fireEvent.mouseDown(within(editor).getByRole("tab", { name: "EN" }))
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "EN" }))
     await waitFor(() => expect(previewed("Access")).toHaveLength(1))
     expect(previewed("access-de")).toHaveLength(0)
   })
 
-  it("opens in its card: the name stays above, the preview keeps its place and the editor follows it", async () => {
+  it("draws its name above, then its preview, then its editor", async () => {
     serve()
     draw(<Page />)
 
@@ -287,26 +270,24 @@ describe("an open document", { timeout: 15_000 }, () => {
     expect(editor.contains(name)).toBe(false)
     expect(name.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(preview.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-
-    fireEvent.click(within(card).getByRole("button", { name: "Close" }))
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Contribution" })).toBeNull())
   })
 
-  it("switches the language of the open document alone; every other card stays in English", async () => {
-    const donation = view({ name: "donation", title: "Donation" }, contribution.packaged)
+  it("lists every document in the page's language, and marks one that lacks it", async () => {
+    const english = view({ name: "donation", title: "Donation" }, { parts: [contribution.packaged.parts[0]] })
+    const donation = { ...english, packaged: { parts: [{ type: "TEXT" as const, lines: [{ text: { en: "Give" } }] }] } }
     vi.stubGlobal(
       "fetch",
       backend(texts, undefined, { documents: documents([contribution, donation]), render: rendered }),
     )
     draw(<Page />)
 
-    const editor = await openContribution()
-    fireEvent.mouseDown(within(editor).getByRole("tab", { name: "DE" }))
-    const card = screen.getByRole("article", { name: "Contribution" })
-    await waitFor(() => expect(within(card).getAllByText("access-de").length).toBeGreaterThan(0))
-    const other = screen.getByRole("article", { name: "Donation" })
-    expect(await within(other).findByText("Access")).toBeTruthy()
-    expect(within(other).queryByText("access-de")).toBeNull()
+    await openItem("Contribution", /^Discord/)
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "DE" }))
+    const row = await screen.findByRole("button", { name: "Contribution" })
+    await waitFor(() => expect(row.textContent).toContain("access-de"))
+    const other = screen.getByRole("button", { name: "Donation" })
+    expect(other.textContent).toContain("Give")
+    expect(within(other).getByText("Not translated")).toBeTruthy()
   })
 
   it("saves the edited document at once and marks it changed in the list", async () => {
@@ -332,6 +313,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     expect(saved[0][0]).toBe("discord/contribution")
     expect(JSON.stringify(saved[0][1])).toContain('"en":"Support"')
     expect(await within(screen.getByRole("article", { name: "Contribution" })).findByText("Changed")).toBeTruthy()
+    expect(within(screen.getByRole("button", { name: "Contribution" })).getByText("Changed")).toBeTruthy()
   })
 
   it("sends the draft as it stands to the admin as a direct message", async () => {
@@ -469,11 +451,7 @@ describe("an open document", { timeout: 15_000 }, () => {
       vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([title]), render: () => ({}) }))
       draw(<Page />)
 
-      await open(/^In game/)
-      await open("Duels")
-      within(await screen.findByRole("article", { name: "Duel result title" }))
-        .getByRole("button", { name: "Duel result title" })
-        .click()
+      await openItem("Duel result title")
       const editor = await screen.findByRole("region", { name: "Duel result title" })
       // The field draws the text as it looks, not its markup, and offers the game's glyphs; Discord's line styles are gone.
       expect(within(editor).queryByDisplayValue("<good>Won</good>")).toBeNull()
@@ -487,7 +465,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     },
   )
 
-  it("lines every card up with its branch's name, and stacked, with the tree's edge, open or closed", async () => {
+  it("draws each part of the open document in a box of its own", async () => {
     const title = view(
       {
         namespace: "smp",
@@ -503,18 +481,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([title]), render: () => ({}) }))
     draw(<Page />)
 
-    await open(/^In game/)
-    await open("Duels")
-    const card = await screen.findByRole("article", { name: "Duel result title" })
-    // jsdom has no layout: two branches deep, the list's indent is two branch steps and the step to the branch's name.
-    const leaves = card.parentElement!.parentElement!
-    expect(leaves.className).toMatch(/\bpl-4\b/)
-    expect(leaves.style.getPropertyValue("--list-indent")).toBe("3rem")
-    expect(card.className).toMatch(/max-lg:-ml-\(--list-indent\)/)
-    within(card).getByRole("button", { name: "Duel result title" }).click()
-    await screen.findByRole("region", { name: "Duel result title" })
-    const opened = screen.getByRole("article", { name: "Duel result title" })
-    expect(opened.className).toMatch(/max-lg:-ml-\(--list-indent\)/)
+    const opened = await openItem("Duel result title")
     const part = within(opened).getByRole("button", { expanded: true, name: /Text/ }).closest("div.rounded-md")
     expect(part?.className).toMatch(/\bborder\b/)
   })
@@ -535,11 +502,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([title]), render: () => ({}) }))
     draw(<Page />)
 
-    await open(/^In game/)
-    await open("Duels")
-    within(await screen.findByRole("article", { name: "Duel result title" }))
-      .getByRole("button", { name: "Duel result title" })
-      .click()
+    await openItem("Duel result title")
     const editor = await screen.findByRole("region", { name: "Duel result title" })
     expect(within(editor).getByText("Part shown when")).toBeTruthy()
     expect(within(editor).getByText("Line shown when")).toBeTruthy()
@@ -565,11 +528,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([grave]), render: () => ({}) }))
     draw(<Page />)
 
-    await open(/^In game/)
-    await open("Graves")
-    within(await screen.findByRole("article", { name: "Grave" }))
-      .getByRole("button", { name: "Grave" })
-      .click()
+    await openItem("Grave")
     const editor = await screen.findByRole("region", { name: "Grave" })
     if (!within(editor).queryByText("Line shown when")) {
       fireEvent.click(within(editor).getByRole("button", { expanded: false, name: /Item/ }))
@@ -597,11 +556,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     )
     draw(<Page />)
 
-    await open(/^In game/)
-    await open("Tab list")
-    within(await screen.findByRole("article", { name: "Tab footer" }))
-      .getByRole("button", { name: "Tab footer" })
-      .click()
+    await openItem("Tab footer")
     const editor = await screen.findByRole("region", { name: "Tab footer" })
     expect(within(editor).queryByRole("button", { name: "Send it to me in Discord" })).toBeNull()
     const show = within(editor).getByRole("button", { name: "Show it to my player in game" })
@@ -778,7 +733,7 @@ describe("a jump from the command palette", () => {
 
     setPendingTextJump({ id: "document:discord/contribution", language: "de" })
 
-    const editor = await screen.findByRole("region", { name: "Contribution" })
-    expect(within(editor).getByRole("tab", { name: "DE" }).getAttribute("aria-selected")).toBe("true")
+    await screen.findByRole("region", { name: "Contribution" })
+    expect(screen.getByRole("tab", { name: "DE" }).getAttribute("aria-selected")).toBe("true")
   })
 })

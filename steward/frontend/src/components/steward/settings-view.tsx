@@ -6,7 +6,6 @@ import { cn } from "cn"
 
 import type { ConfigLocation } from "@/lib/api"
 import { setOpened, useOpened } from "@/lib/drafts"
-import type { CSSVars } from "@/lib/utils"
 import { type Language } from "@/lib/message-text"
 import {
   ancestorsOf,
@@ -53,8 +52,6 @@ export function DraftDot() {
 
 export type Highlight = { id: string; seq: number; language?: Language }
 
-export type OutsideSearch = { query: string; onQuery: (query: string) => void; at: RefObject<HTMLElement | null> }
-
 export function TreeView<L>({
   file,
   nodes,
@@ -65,12 +62,7 @@ export function TreeView<L>({
   renderLeaf,
   save,
   above,
-  collapsed,
-  list,
-  cards,
-  search: outside,
   searchLabel = t("steward.settings.search-file"),
-  empty = t("steward.settings.empty-file"),
 }: {
   file: string
   nodes: TreeNode<L>[]
@@ -81,28 +73,18 @@ export function TreeView<L>({
   renderLeaf: (leaf: TreeLeaf<L>, highlight: Highlight | null) => ReactNode
   save: ReactNode
   above?: ReactNode
-  collapsed?: boolean
-  list?: boolean
-  /** Leaves are cards, one to a row. */
-  cards?: boolean
-  /** The page clears it for a jump. */
-  search?: OutsideSearch
   searchLabel?: string
-  empty?: string
 }) {
-  const [ownQuery, setOwnQuery] = useState("")
-  const query = outside?.query ?? ownQuery
-  const setQuery = outside?.onQuery ?? setOwnQuery
+  const [query, setQuery] = useState("")
   const [highlight, setHighlight] = useState<Highlight | null>(null)
   const opened = useOpened(file)
-  const ownSearch = useRef<HTMLDivElement>(null)
-  const search = outside?.at ?? ownSearch
+  const search = useRef<HTMLDivElement>(null)
   const [appliedSeq, setAppliedSeq] = useState(-1)
   /**
    * The branches that the last jump opens. They are kept as state, because the render that finds them is redone before it commits.
    */
   const [jumpChain, setJumpChain] = useState<string[] | null>(null)
-  const closedByDefault = useMemo(() => collapsed === true || leafCount(nodes) > 12, [nodes, collapsed])
+  const closedByDefault = useMemo(() => leafCount(nodes) > 12, [nodes])
 
   const shown = useMemo(
     () => (query.trim() ? filterTree(nodes, (leaf) => matches(leaf.value, query)) : nodes),
@@ -118,7 +100,7 @@ export function TreeView<L>({
   if (chainForTarget && target) {
     setAppliedSeq(target.seq)
     setJumpChain(chainForTarget)
-    if (!outside) setOwnQuery("")
+    setQuery("")
     setHighlight({ id: target.id, seq: target.seq, language: target.language })
   }
 
@@ -140,15 +122,15 @@ export function TreeView<L>({
 
   return (
     <div className="flex flex-col gap-3">
-      {outside ? null : (
-        <FilterBar ref={ownSearch}>
-          <SearchField value={query} onValueChange={setQuery} label={searchLabel} />
-        </FilterBar>
-      )}
+      <FilterBar ref={search}>
+        <SearchField value={query} onValueChange={setQuery} label={searchLabel} />
+      </FilterBar>
       {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
       {above}
       {shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{query.trim() ? t("steward.settings.no-match") : empty}</p>
+        <p className="text-sm text-muted-foreground">
+          {query.trim() ? t("steward.settings.no-match") : t("steward.settings.empty-file")}
+        </p>
       ) : (
         <NodeList
           nodes={shown}
@@ -157,8 +139,6 @@ export function TreeView<L>({
           draftIds={draftIds}
           highlight={highlight}
           renderLeaf={renderLeaf}
-          list={list}
-          cards={cards}
         />
       )}
       <PinnedRow>
@@ -230,7 +210,6 @@ export function NodeList<L>({
   renderLeaf,
   branchIcon,
   list,
-  cards,
   depth = 0,
 }: {
   nodes: TreeNode<L>[]
@@ -242,7 +221,6 @@ export function NodeList<L>({
   /** Drawn before the name, for a list whose branches are things of their own; the caret then follows the name. */
   branchIcon?: (branch: TreeBranch<L>) => ReactNode
   list?: boolean
-  cards?: boolean
   /** How many branches this list sits under. */
   depth?: number
 }) {
@@ -265,19 +243,13 @@ export function NodeList<L>({
             <div
               key={`leaves-${group[0].id}`}
               className={cn(
-                cards
-                  ? "flex flex-col gap-3 py-2"
-                  : list
-                    ? "flex flex-col"
-                    : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
-                // Under a branch, a leaf's text and a card's edge start at the branch's name. The first level starts at the search field. A list's caret follows the name, so only the branch's indent applies.
-                depth > 0 && !list && (cards ? "pl-4" : "pl-8"),
+                list ? "flex flex-col" : "grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-x-6 gap-y-4 py-2",
+                // Under a branch, a leaf's text starts at the branch's name. The first level starts at the search field. A list's caret follows the name, so only the branch's indent applies.
+                depth > 0 && !list && "pl-8",
               )}
-              // The list's whole indent, each branch's pl-4 and the cards' own, which a stacked card steps back out of to take the page's width.
-              style={cards ? listIndent(depth) : undefined}
             >
               {group.map((leaf) => (
-                <div key={leaf.id} className={cn("min-w-0", !list && !cards && leaf.wide && "col-span-full")}>
+                <div key={leaf.id} className={cn("min-w-0", !list && leaf.wide && "col-span-full")}>
                   {renderLeaf(leaf, highlight && leaf.ids.includes(highlight.id) ? highlight : null)}
                 </div>
               ))}
@@ -333,7 +305,6 @@ export function NodeList<L>({
                   renderLeaf={renderLeaf}
                   branchIcon={branchIcon}
                   list={list}
-                  cards={cards}
                   depth={depth + 1}
                 />
               </div>
@@ -343,10 +314,6 @@ export function NodeList<L>({
       })}
     </div>
   )
-}
-
-function listIndent(depth: number): CSSVars {
-  return { "--list-indent": depth > 0 ? `${depth + 1}rem` : "0rem" }
 }
 
 export function useLanding(highlight: Highlight | null) {
@@ -360,6 +327,3 @@ export function useLanding(highlight: Highlight | null) {
 }
 
 export const LIT = "bg-accent ring-2 ring-primary ring-offset-4 ring-offset-background"
-
-/** A sequence number that no highlight has, so the first render always counts as new. */
-export const UNSEEN = Symbol("unseen")

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { resetDrafts } from "@/lib/drafts"
-import { PLACES, backend, draw, listing, open, openKey, Page, source, text } from "@/pages/translations.fixtures"
+import { PLACES, backend, draw, listing, openItem, Page, source, text } from "@/pages/translations.fixtures"
 
 afterEach(() => {
   cleanup()
@@ -51,13 +51,11 @@ describe("the previews", () => {
     const bodies: unknown[] = []
     threePlaces(bodies)
     draw(<Page />)
-    await open(/^In game/)
-    await open(/^Steward and admin/)
-    await openKey("Page")
+    await openItem("Page", /^Steward and admin/)
     expect(screen.getAllByRole("figure").map((figure) => figure.getAttribute("aria-label"))).toEqual(["Steward"])
     expect(screen.queryByRole("button", { name: /in game|in Discord/ })).toBeNull()
 
-    await openKey("Welcome")
+    await openItem("Welcome")
     expect(screen.getAllByRole("figure").map((figure) => figure.getAttribute("aria-label"))).toEqual([
       "Chat",
       "Discord message",
@@ -99,7 +97,7 @@ describe("the previews", () => {
       ),
     )
     draw(<Page />)
-    await openKey("Moin")
+    await openItem("Moin", /^Discord/)
 
     const avatars = (await screen.findAllByRole("figure")).map((figure) => {
       const avatar = figure.querySelector("img")
@@ -118,8 +116,7 @@ describe("the previews", () => {
     const bodies: unknown[] = []
     threePlaces(bodies)
     draw(<Page service="smp" />)
-    await open(/^In game/)
-    await openKey("Welcome")
+    await openItem("Welcome")
 
     fireEvent.click(
       within(await screen.findByRole("figure", { name: "Chat" })).getByRole("button", {
@@ -163,10 +160,10 @@ describe("the previews", () => {
       ),
     )
     draw(<Page />)
-    await openKey("Service state")
+    await openItem("Service state", /^Steward/)
     expect(within(await screen.findByRole("figure", { name: "Steward" })).getByText("Stopped")).toBeTruthy()
 
-    await openKey("Online")
+    await openItem("Online", /^Steward/)
     expect(screen.getByRole("figure", { name: "Steward" }).textContent).toBe("Steward1 player online")
   })
 
@@ -183,7 +180,7 @@ describe("the previews", () => {
       ),
     )
     draw(<Page />)
-    await openKey("Yes")
+    await openItem("Yes", /^Building blocks/)
 
     await screen.findByRole("textbox", { name: "Yes" })
     expect(screen.getAllByRole("figure")).toHaveLength(1)
@@ -230,9 +227,9 @@ describe("the previews", () => {
       ),
     )
     draw(<Page />)
-    await openKey("Restart notice")
+    const item = await openItem("Restart notice")
 
-    expect(await screen.findByText("The network")).toBeTruthy()
+    expect(await within(item).findByText("The network")).toBeTruthy()
     expect(screen.queryByText("restart.what.network")).toBeNull()
     const show = screen.getByRole("button", { name: "Show it to my player in game" })
     fireEvent.click(show)

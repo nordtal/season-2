@@ -46,7 +46,6 @@ import {
   ImageField,
   Images,
   Labelled,
-  LanguageToggle,
   Move,
   Required,
   TextField,
@@ -89,18 +88,13 @@ export function DocumentEditor({
   view,
   draft,
   onDraft,
-  languages,
   language,
-  onLanguage,
 }: {
   view: DocumentView
   draft: Document
   onDraft: (draft: Document | undefined) => void
-  /** The network's languages, the default first. */
-  languages: string[]
-  /** The language edited and previewed. */
+  /** The language edited and previewed, which the page holds. */
   language: Language
-  onLanguage: (language: Language) => void
 }) {
   const save = useSaveDocument()
   // The same debounced draft the preview draws, so both share one drawing.
@@ -153,10 +147,9 @@ export function DocumentEditor({
       <DocumentVersions view={view} disabled={save.isPending} onRestore={submit} />
       {save.error ? <Failure error={save.error} write /> : null}
       {send.error ? <Failure error={send.error} write /> : null}
-      {/* The language and the save stay in reach while a long document scrolls. */}
+      {/* The send and the save stay in reach while a long document scrolls. */}
       <PinnedRow>
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-center gap-1 rounded-md border bg-card/95 p-1 backdrop-blur md:gap-2 md:p-2">
-          <LanguageToggle languages={languages} language={language} onLanguage={onLanguage} />
           {sendable ? (
             <Button
               type="button"

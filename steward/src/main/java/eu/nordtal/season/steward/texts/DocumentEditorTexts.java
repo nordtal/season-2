@@ -112,9 +112,6 @@ public interface DocumentEditorTexts {
     @Name("Saved")
     MessageRef saved(@Arg("document") @Example("rules") String document);
 
-    @Name("Close")
-    MessageRef close();
-
     @Name("Versions")
     MessageRef versions();
 

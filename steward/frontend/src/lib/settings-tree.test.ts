@@ -152,13 +152,16 @@ describe("the texts as a tree", () => {
       PLACES,
     )
     expect(shape(tree)).toEqual([
-      "[Discord > Direct message]",
-      "  admin/dm.granted",
-      "[In game > Smp > Graves]",
-      "  smp/smp.grave.decay",
-      "  smp/smp.grave.limit",
-      "[Steward and admin > Page]",
-      "  steward/page.title",
+      "[Discord]",
+      "  [Direct message]",
+      "    admin/dm.granted",
+      "[In game]",
+      "  [Smp > Graves]",
+      "    smp/smp.grave.decay",
+      "    smp/smp.grave.limit",
+      "[Steward and admin]",
+      "  [Page]",
+      "    steward/page.title",
     ])
   })
 
@@ -172,12 +175,13 @@ describe("the texts as a tree", () => {
       PLACES,
     )
     expect(shape(tree)).toEqual([
-      "[Every page > Shell]",
-      "  steward/steward.shell.pages",
-      "[Journal > Journal page]",
-      "  steward/steward.journal.no-entry",
-      "[Several pages > Forms]",
-      "  steward/steward.form.weekday",
+      "[Steward and admin]",
+      "  [Every page > Shell]",
+      "    steward/steward.shell.pages",
+      "  [Journal > Journal page]",
+      "    steward/steward.journal.no-entry",
+      "  [Several pages > Forms]",
+      "    steward/steward.form.weekday",
     ])
   })
 
@@ -191,12 +195,13 @@ describe("the texts as a tree", () => {
       PLACES,
     )
     expect(shape(tree)).toEqual([
-      "[Every page > Shell]",
-      "  steward/steward.shell.pages",
-      "[Journal > Journal page]",
-      "  steward/steward.journal.no-entry",
-      "[Journal]",
-      "  admin/journal.console",
+      "[Steward and admin]",
+      "  [Every page > Shell]",
+      "    steward/steward.shell.pages",
+      "  [Journal > Journal page]",
+      "    steward/steward.journal.no-entry",
+      "  [Journal]",
+      "    admin/journal.console",
     ])
   })
 
@@ -208,7 +213,13 @@ describe("the texts as a tree", () => {
       ],
       PLACES,
     )
-    expect(shape(tree)).toEqual(["[Discord]", "  smp/welcome", "[Building blocks > Values]", "  values/values.yes"])
+    expect(shape(tree)).toEqual([
+      "[Discord]",
+      "  smp/welcome",
+      "[Building blocks]",
+      "  [Values]",
+      "    values/values.yes",
+    ])
   })
 
   it("lists two bundles' texts of one key apart, under the topic they share", () => {
@@ -223,9 +234,10 @@ describe("the texts as a tree", () => {
     expect(shape(tree)).toEqual([
       "[Discord]",
       "  smp/welcome",
-      "[In game > Command]",
-      "  proxy/command.unknown",
-      "  paper-common/command.unknown",
+      "[In game]",
+      "  [Command]",
+      "    proxy/command.unknown",
+      "    paper-common/command.unknown",
     ])
   })
 
@@ -234,7 +246,7 @@ describe("the texts as a tree", () => {
       [text({ key: "dm.granted", section: [null] }), text({ key: "other", shown: ["STEWARD"] })],
       PLACES,
     )
-    expect(shape(tree)).toEqual(["[In game > Dm]", "  smp/dm.granted", "[Steward and admin]", "  smp/other"])
+    expect(shape(tree)).toEqual(["[In game]", "  [Dm]", "    smp/dm.granted", "[Steward and admin]", "  smp/other"])
   })
 
   it("lists a Discord document as one leaf under its area, beside the texts of that topic", () => {
@@ -248,13 +260,14 @@ describe("the texts as a tree", () => {
     )
 
     expect(shape(tree)).toEqual([
-      "[Discord > Contribution]",
-      "  document:discord/contribution",
-      "  admin/contribution.thanks",
+      "[Discord]",
+      "  [Contribution]",
+      "    document:discord/contribution",
+      "    admin/contribution.thanks",
       "[In game]",
       "  smp/welcome",
     ])
-    expect(ancestorsOf(tree, "document:discord/contribution")).toEqual(["DISCORD:@Contribution"])
+    expect(ancestorsOf(tree, "document:discord/contribution")).toEqual(["DISCORD", "DISCORD:@Contribution"])
   })
 
   it("lists a menu and a game text under the game", () => {
@@ -305,13 +318,14 @@ describe("the texts as a tree", () => {
     ])
 
     expect(shape(tree)).toEqual([
-      "[Menus]",
-      "  document:smp/wheel",
-      "[Tab list]",
-      "  document:paper-common/tab-header",
-      "  document:hunger-games/tab-footer",
-      "  document:limbo/tab-footer",
-      "  document:smp/tab-footer",
+      "[In game]",
+      "  [Menus]",
+      "    document:smp/wheel",
+      "  [Tab list]",
+      "    document:paper-common/tab-header",
+      "    document:hunger-games/tab-footer",
+      "    document:limbo/tab-footer",
+      "    document:smp/tab-footer",
     ])
   })
 
@@ -338,12 +352,17 @@ describe("walking a tree", () => {
   })
 
   it("names the branches to open for a key, outermost first", () => {
-    expect(ancestorsOf(tree, "smp/a.b.two")).toEqual(["GAME:@A", "GAME:a.b"])
-    expect(ancestorsOf(tree, "smp/d")).toEqual([])
+    expect(ancestorsOf(tree, "smp/a.b.two")).toEqual(["GAME", "GAME:@A", "GAME:a.b"])
+    expect(ancestorsOf(tree, "smp/d")).toEqual(["GAME"])
     expect(ancestorsOf(tree, "missing")).toBeNull()
   })
 
   it("keeps only the branches that still hold a match", () => {
-    expect(shape(filterTree(tree, (leaf) => leaf.id.endsWith("three")))).toEqual(["[A]", "  [C]", "    smp/a.c.three"])
+    expect(shape(filterTree(tree, (leaf) => leaf.id.endsWith("three")))).toEqual([
+      "[In game]",
+      "  [A]",
+      "    [C]",
+      "      smp/a.c.three",
+    ])
   })
 })

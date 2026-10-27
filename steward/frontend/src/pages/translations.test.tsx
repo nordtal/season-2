@@ -14,7 +14,7 @@ import {
   draw,
   listing,
   open,
-  openKey,
+  openItem,
   Page,
   source,
   text,
@@ -45,19 +45,23 @@ describe("the groups", () => {
     text({ key: "values.yes", bundle: "values", name: "Yes", shown: ["CHAT", "DISCORD_MESSAGE"] }),
   ])
 
-  it("lists every text under where it appears, the values apart, each group closed", async () => {
+  it("lists the areas where texts appear, the values apart, and an opened area's texts alone", async () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Page />)
 
-    for (const group of ["In game", "Discord", "Steward and admin", "Building blocks"]) {
-      const branch = await screen.findByRole("button", { name: new RegExp(`^${group}`) })
-      expect(branch.getAttribute("aria-expanded")).toBe("false")
-    }
+    const areas = await screen.findByRole("list", { name: "Areas" })
+    expect(
+      within(areas)
+        .getAllByRole("button")
+        .map((area) => area.textContent),
+    ).toEqual(["Discord1", "In game1", "Steward and admin1", "Building blocks1"])
     expect(screen.queryByRole("button", { name: "Welcome" })).toBeNull()
 
     await open(/^Discord/)
     screen.getByRole("button", { name: "Granted" })
     expect(screen.queryByRole("button", { name: "Welcome" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Areas" }))
+    await screen.findByRole("list", { name: "Areas" })
   })
 
   it("lists what the server's search finds, in every group at once", async () => {
@@ -86,15 +90,16 @@ describe("the groups", () => {
     expect(asked).toContain("titel")
   })
 
-  it("puts the search in the title row, after the service filter", async () => {
-    vi.stubGlobal("fetch", backend(fixture))
+  it("puts the search over the list, above the service filter and the language", async () => {
+    vi.stubGlobal("fetch", backend(listing(fixture.texts, { languages: ["en", "de"] })))
     draw(<Page />)
 
     const search = await screen.findByRole("searchbox", { name: "Search the texts" })
-    const row = screen.getByRole("heading", { level: 1 }).closest("header")!
-    const filter = within(row).getByRole("combobox", { name: "Service" })
-    expect(row.contains(search)).toBe(true)
-    expect(filter.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const filter = screen.getByRole("combobox", { name: "Service" })
+    const language = screen.getByRole("tablist", { name: "Language" })
+    expect(screen.getByRole("heading", { level: 1 }).closest("header")!.contains(search)).toBe(false)
+    expect(search.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(filter.compareDocumentPosition(language) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it("says so when no jar ships a text", async () => {
@@ -125,7 +130,10 @@ describe("the service filter", () => {
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Service" }), { key: "Enter" })
     fireEvent.click(await screen.findByRole("option", { name: "Discord Bot" }))
 
+    await open(/^Discord/)
     expect(await screen.findByRole("button", { name: "Granted" })).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Areas" }))
+    await screen.findByRole("list", { name: "Areas" })
     expect(screen.queryByRole("button", { name: /^In game/ })).toBeNull()
   })
 
@@ -145,10 +153,10 @@ describe("the service filter", () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Page service="smp" />)
 
-    const row = await screen.findByRole("button", { name: "Welcome" })
+    const item = await openItem("Welcome")
     await waitFor(() =>
       expect(
-        within(row)
+        within(item)
           .getAllByText("Welcome")
           .map((span) => span.style.color),
       ).toContain("rgb(18, 52, 86)"),
@@ -158,12 +166,11 @@ describe("the service filter", () => {
   it("draws it in the network's colour without a filter", async () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Page />)
-    await open(/^In game/)
 
-    const row = await screen.findByRole("button", { name: "Welcome" })
+    const item = await openItem("Welcome")
     await waitFor(() =>
       expect(
-        within(row)
+        within(item)
           .getAllByText("Welcome")
           .map((span) => span.style.color),
       ).toContain("rgb(139, 168, 136)"),
@@ -185,25 +192,27 @@ describe("the pills", () => {
     )
     draw(<Page />)
 
-    const first = await screen.findByRole("article", { name: "First" })
+    const first = await openItem("First")
     expect(within(first).getByLabelText("Shown in").textContent).toBe("MenuDiscord messageSteward")
-    const second = screen.getByRole("article", { name: "Second" })
+    const second = await openItem("Second")
     expect(within(second).getByLabelText("Shown in").textContent).toBe("In gameNotification")
   })
 
-  it("sit on a card's name line, above its preview", async () => {
+  it("sit under the open text's name, beside its trail and above its preview", async () => {
     twoKeys()
     draw(<Page />)
 
-    const row = await screen.findByRole("article", { name: "First" })
-    const line = within(row).getByLabelText("Shown in").parentElement!
-    expect(line.textContent).toContain("First")
+    const item = await openItem("First")
+    const line = within(item).getByLabelText("Shown in").parentElement!
+    expect(line.textContent).toContain("In game")
     expect(line.textContent).not.toContain("Hello")
+    const name = within(item).getByRole("heading", { level: 2, name: "First" })
+    expect(name.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })
 
 describe("the languages", () => {
-  it("keeps a bundle that ships English only to English, and offers the network's to every other", async () => {
+  it("offers the network's languages, and keeps a bundle that ships English only to English", async () => {
     vi.stubGlobal(
       "fetch",
       backend(
@@ -218,13 +227,13 @@ describe("the languages", () => {
     )
     draw(<Page />)
 
-    await openKey("Page title")
-    await screen.findByRole("tab", { name: /EN/ })
-    expect(screen.queryByRole("tab", { name: /DE/ })).toBeNull()
+    await openItem("Page title")
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["EN", "DE", "NL"])
+    fireEvent.mouseDown(screen.getByRole("tab", { name: /DE/ }))
+    expect((await screen.findByRole("textbox", { name: "Page title" })).textContent).toBe("Page")
 
-    await openKey("Welcome")
-    expect(await screen.findByRole("tab", { name: /NL/ })).toBeTruthy()
-    screen.getByRole("tab", { name: /DE/ })
+    await openItem("Welcome")
+    expect((await screen.findByRole("textbox", { name: "Welcome" })).textContent).toBe("packaged-de-text")
   })
 })
 
@@ -240,7 +249,7 @@ describe("the en/de toggle", () => {
   it("shows English packaged text by default", async () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Page />)
-    await openKey("Welcome")
+    await openItem("Welcome")
 
     expect((await screen.findByRole("textbox", { name: "welcome" })).textContent).toBe("Welcome")
   })
@@ -248,7 +257,7 @@ describe("the en/de toggle", () => {
   it("switches to the override once German is selected, rather than the packaged text", async () => {
     vi.stubGlobal("fetch", backend(fixture))
     draw(<Page />)
-    await openKey("Welcome")
+    await openItem("Welcome")
     await source("welcome")
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: /DE/ }))
@@ -277,7 +286,7 @@ describe("saving", () => {
       })),
     )
     draw(<Page />)
-    await openKey("Greeting")
+    await openItem("Greeting")
     fireEvent.change(await source("greeting"), { target: { value: "Hello there" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
@@ -299,7 +308,7 @@ describe("saving", () => {
       })),
     )
     draw(<Page />)
-    await openKey("Welcome")
+    await openItem("Welcome")
     fireEvent.change(await source("welcome"), { target: { value: "Howdy" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
@@ -315,7 +324,7 @@ describe("saving", () => {
       }),
     )
     draw(<Page />)
-    await openKey("Welcome")
+    await openItem("Welcome")
     expect((await source("welcome")).value).toBe("Howdy")
 
     fireEvent.click(screen.getByRole("button", { name: /Reset/ }))
@@ -325,13 +334,13 @@ describe("saving", () => {
     /**
      * The reset draft shows the packaged "Welcome" too, so only the saved draft's Save button going proves the round trip.
      */
-    await waitFor(() => expect(screen.queryByRole("button", { name: /^Save/ })).toBeNull())
+    await waitFor(() => expect(asButton(screen.getByRole("button", { name: /^Save/ })).disabled).toBe(true))
     expect(await screen.findByDisplayValue("Welcome")).toBeTruthy()
     expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull()
     expect(screen.queryByText("overridden")).toBeNull()
   })
 
-  it("sends the changes of two bundles' texts, in both languages, in one call", async () => {
+  it("saves the open text alone and keeps the draft of the other", async () => {
     const bodies: unknown[] = []
     vi.stubGlobal(
       "fetch",
@@ -348,20 +357,21 @@ describe("saving", () => {
     )
     draw(<Page />)
 
-    await openKey("First")
+    await openItem("First")
     fireEvent.change(await source("First"), { target: { value: "ONE" } })
-    await openKey("Second")
+    await openItem("Second")
     fireEvent.mouseDown(await screen.findByRole("tab", { name: /DE/ }))
     fireEvent.change(await source("Second"), { target: { value: "ZWEI" } })
-    fireEvent.click(screen.getByRole("button", { name: "Save 2" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
 
     await waitFor(() => expect(bodies).toHaveLength(1))
-    expect(bodies[0]).toEqual({ changes: { smp: { a: { en: ["ONE"] } }, "paper-common": { a: { de: ["ZWEI"] } } } })
+    expect(bodies[0]).toEqual({ changes: { "paper-common": { a: { de: ["ZWEI"] } } } })
+    expect(within(screen.getByRole("button", { name: "First" })).getByLabelText("Changed")).toBeTruthy()
   })
 })
 
-describe("the tree of a group", () => {
-  it("names its topics after the spec and shows no keys", async () => {
+describe("the sections of an area", () => {
+  it("are named after the spec's topics, with the branches below in each text's trail and no keys", async () => {
     vi.stubGlobal(
       "fetch",
       backend(
@@ -378,12 +388,11 @@ describe("the tree of a group", () => {
     )
     draw(<Page />)
 
-    const branch = await screen.findByRole("button", { name: /Graves.*Decay/ })
-    expect(branch.getAttribute("aria-expanded")).toBe("false")
-    expect(screen.queryByText("Decay warning")).toBeNull()
-
-    fireEvent.click(branch)
-    screen.getByText("Decay warning")
+    await open(/^In game/)
+    const graves = await screen.findByRole("region", { name: "Graves" })
+    const row = within(graves).getByRole("button", { name: "Decay warning" })
+    expect(row.textContent).toContain("Decay")
+    expect(screen.getByRole("region", { name: "In game" }).textContent).toContain("Welcome")
     expect(screen.queryByText("grave.decay.warning")).toBeNull()
   })
 })
@@ -406,10 +415,11 @@ function twoKeys() {
 }
 
 describe("one text open at a time", () => {
-  it("draws each text as its name and its preview, with no field until it is opened", async () => {
+  it("lists each text as its name and its words, with no field until it is opened", async () => {
     twoKeys()
     draw(<Page />)
 
+    await open(/^In game/)
     const row = await screen.findByRole("button", { name: "First" })
     expect(row.textContent).toContain("Hello")
     expect(row.textContent).toContain("player")
@@ -417,51 +427,53 @@ describe("one text open at a time", () => {
     expect(screen.queryByRole("textbox")).toBeNull()
   })
 
-  it("opens a text in its card, under its name and beside its preview, and closes it there", async () => {
+  it("opens a text under its name beside the list, and goes back to its area's list", async () => {
     twoKeys()
     draw(<Page />)
 
-    await openKey("First")
-    const card = screen.getByRole("article", { name: "First" })
-    expect(card.hasAttribute("data-open")).toBe(true)
-    expect(within(card).getByRole("textbox", { name: "First" })).toBeTruthy()
-    expect(screen.queryByRole("heading", { level: 1, name: "First" })).toBeNull()
-    screen.getByRole("article", { name: "Second" })
+    const item = await openItem("First")
+    within(item).getByRole("heading", { level: 2, name: "First" })
+    expect(within(item).getByRole("textbox", { name: "First" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "First" }).getAttribute("aria-current")).toBe("true")
+    screen.getByRole("button", { name: "Second" })
 
-    fireEvent.click(within(card).getByRole("button", { name: "Close" }))
-    await waitFor(() => expect(screen.queryByRole("textbox", { name: "First" })).toBeNull())
+    fireEvent.click(within(item).getByRole("button", { name: "Back" }))
+    await waitFor(() => expect(screen.queryByRole("article")).toBeNull())
+    screen.getByRole("button", { name: "First" })
   })
 
   it("keeps the draft of a text when another is opened", async () => {
     twoKeys()
     draw(<Page />)
 
-    await openKey("First")
+    await openItem("First")
     const first = await source("First")
     expect(first.value).toBe("<gray>Hello <white>{player}</white></gray>")
     fireEvent.change(first, { target: { value: "Hi {player}" } })
-    await openKey("Second")
+    await openItem("Second")
 
     expect((await screen.findByRole("textbox", { name: "Second" })).textContent).toBe("two")
     expect(screen.queryByRole("textbox", { name: "First" })).toBeNull()
-    screen.getByRole("button", { name: "Save 1" })
+    expect(within(screen.getByRole("button", { name: "First" })).getByLabelText("Changed")).toBeTruthy()
+    expect(asButton(screen.getByRole("button", { name: "Save" })).disabled).toBe(true)
   })
 
-  it("drops the drafts of every text with Discard, and the open one shows its stored text again", async () => {
+  it("drops the open text's draft alone with Discard, which shows its stored text again", async () => {
     twoKeys()
     draw(<Page />)
 
-    await openKey("First")
+    await openItem("First")
     fireEvent.change(await source("First"), { target: { value: "Hi {player}" } })
-    await openKey("Second")
+    await openItem("Second")
     fireEvent.change(await source("Second"), { target: { value: "zwei" } })
-    screen.getByRole("button", { name: "Save 2" })
 
     fireEvent.click(screen.getByRole("button", { name: "Discard" }))
 
     expect(asTextArea(screen.getByRole("textbox", { name: "Second" })).value).toBe("two")
-    expect((await screen.findByRole("button", { name: "First" })).textContent).toContain("Hello")
-    expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
+    expect(asButton(screen.getByRole("button", { name: "Save" })).disabled).toBe(true)
+    const first = screen.getByRole("button", { name: "First" })
+    expect(first.textContent).toContain("Hi")
+    expect(within(first).getByLabelText("Changed")).toBeTruthy()
   })
 })
 
@@ -497,18 +509,18 @@ describe("placeholders", () => {
       }),
     )
     draw(<Page />)
-    await openKey("Greeting")
+    await openItem("Greeting")
 
     fireEvent.change(await source("Greeting"), { target: { value: "Hello {palyer}" } })
 
     await screen.findByText("this message offers player, not {palyer}")
-    expect(asButton(screen.getByRole("button", { name: "Save 1" })).disabled).toBe(false)
+    expect(asButton(screen.getByRole("button", { name: "Save" })).disabled).toBe(false)
   })
 
   it("inserts a declared placeholder from the menu where the caret is", async () => {
     vi.stubGlobal("fetch", backend(greeting))
     draw(<Page />)
-    await openKey("Greeting")
+    await openItem("Greeting")
     const field = await source("Greeting")
     field.setSelectionRange(0, 0)
 
@@ -545,7 +557,7 @@ describe("a fallen-back override", () => {
       ),
     )
     draw(<Page />)
-    await openKey("Welcome")
+    await openItem("Welcome")
 
     await screen.findByText("Fallen back")
     expect(screen.getAllByRole("definition").map((definition) => definition.textContent)).toEqual([
@@ -564,7 +576,7 @@ describe("the two views", () => {
   it("opens a text it cannot read as it is written, and offers no view of it as it looks", async () => {
     vi.stubGlobal("fetch", backend(listing([text({ texts: { en: ["Hello {name"] }, key: "broken", name: "Broken" })])))
     draw(<Page />)
-    await openKey("Broken")
+    await openItem("Broken")
 
     expect(asTextArea(await screen.findByRole("textbox", { name: "Broken" })).value).toBe("Hello {name")
     expect(asButton(screen.getByRole("button", { name: "As it looks" })).disabled).toBe(true)
@@ -599,7 +611,7 @@ describe("the editor's look", () => {
   it("is not dimmed by a tool that waits for a selection", async () => {
     vi.stubGlobal("fetch", backend(listing([text({ texts: { en: ["Hello"] }, key: "a", name: "First" })])))
     draw(<Page />)
-    await openKey("First")
+    await openItem("First")
 
     const group = (await screen.findByRole("textbox", { name: "First" })).closest("[data-slot=input-group]")!
     expect(group.querySelector("button:disabled")).not.toBeNull()
@@ -626,7 +638,7 @@ describe("a plural as its cases", () => {
   it("gives each case a field of its own, its number drawn as a chip", async () => {
     days()
     draw(<Page />)
-    await openKey("Days")
+    await openItem("Days")
 
     const cases = await screen.findByRole("region", { name: "By the number n" })
     expect(within(cases).getByRole("textbox", { name: "Days one" }).textContent).toBe("# day")
@@ -636,7 +648,7 @@ describe("a plural as its cases", () => {
   it("adds a case before other and removes one, and the source shows the syntax they make", async () => {
     days()
     draw(<Page />)
-    await openKey("Days")
+    await openItem("Days")
 
     const cases = await screen.findByRole("region", { name: "By the number n" })
     fireEvent.change(within(cases).getByRole("textbox", { name: "New case" }), { target: { value: "=0" } })
@@ -665,7 +677,7 @@ describe("a plural as its cases", () => {
       ),
     )
     draw(<Page service="smp" />)
-    await openKey("Days")
+    await openItem("Days")
 
     const one = await screen.findByRole("textbox", { name: "Days one" })
     expect(within(one).getByText("day").style.color).toBe("rgb(18, 52, 86)")

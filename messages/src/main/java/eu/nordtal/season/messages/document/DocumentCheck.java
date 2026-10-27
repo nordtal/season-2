@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -51,8 +52,16 @@ public final class DocumentCheck {
             Pattern.compile("(attachment://[A-Za-z0-9_.-]+|upload://[1-9][0-9]*|https://\\S+)");
     private static final Pattern LINK = Pattern.compile("https://\\S+");
 
-    /** @param error whether the problem refuses the document instead of warning about it */
-    public record Problem(boolean error, String text) {}
+    /**
+     * @param error whether the problem refuses the document instead of warning about it
+     * @param part the index of the part the problem is in at each level of the document, empty for the whole document
+     */
+    public record Problem(boolean error, String text, List<Integer> part) {
+
+        public Problem {
+            part = List.copyOf(part);
+        }
+    }
 
     private final DocumentDeclaration declaration;
     private final MessageCheck.Mode mode;
@@ -61,6 +70,7 @@ public final class DocumentCheck {
     private final List<Problem> problems = new ArrayList<>();
     private final Map<String, Integer> placed = new LinkedHashMap<>();
     private final Set<String> used = new HashSet<>();
+    private final List<Integer> at = new ArrayList<>();
 
     private DocumentCheck(
             final DocumentDeclaration declaration,
@@ -122,7 +132,7 @@ public final class DocumentCheck {
     }
 
     private void error(final String text) {
-        problems.add(new Problem(true, text));
+        problems.add(new Problem(true, text, at));
     }
 
     private void shape(final Document document) {
@@ -181,7 +191,9 @@ public final class DocumentCheck {
     }
 
     private void parts(final List<Part> parts, final boolean inContainer, final boolean inLanguages) {
-        for (final Part part : parts) {
+        for (int index = 0; index < parts.size(); index++) {
+            final Part part = parts.get(index);
+            at.add(index);
             condition(part.when(), Map.of());
             part.allMedia().stream()
                     .filter(address -> !MEDIA.matcher(address).matches())
@@ -228,6 +240,7 @@ public final class DocumentCheck {
                     part.inner(),
                     inContainer || part.type() == Part.Type.CONTAINER,
                     inLanguages || part.type() == Part.Type.LANGUAGES);
+            at.removeLast();
         }
     }
 
@@ -453,7 +466,7 @@ public final class DocumentCheck {
         }
         for (final String language : languages) {
             if (!language.equals(Locales.DEFAULT_TAG) && !text.languages().containsKey(language)) {
-                error(place + " has no text in " + language + ", which the document's other texts have");
+                error(place + " has no text in " + nameOf(language) + ", which the document's other texts have");
             }
         }
         final Declaration rules = declaration.text(item, limit, oneLine, markup);
@@ -462,19 +475,24 @@ public final class DocumentCheck {
                 error(place + " is in " + language + ", which is no language tag");
             }
             if (versions.isEmpty()) {
-                error(place + " has no version in " + language);
+                error(place + " has no version in " + nameOf(language));
             }
             for (final String version : versions) {
-                final String where = place + " in " + language + " (" + version + ")";
+                final String where = place + " in " + nameOf(language);
                 MessageCheck.check(version, rules, mode, blocks.apply(language))
                         .forEach(problem -> problems.add(
-                                new Problem(problem.error(), where + ": " + MessageCheck.english(problem.text()))));
+                                new Problem(problem.error(), where + ": " + MessageCheck.english(problem.text()), at)));
                 Typography.problems(version)
                         .forEach(rule ->
-                                problems.add(new Problem(mode == MessageCheck.Mode.PACKAGED, where + ": " + rule)));
+                                problems.add(new Problem(mode == MessageCheck.Mode.PACKAGED, where + ": " + rule, at)));
                 names(version, markup);
             }
         });
+    }
+
+    /** Returns the English name of the language {@code tag}, such as German for {@code de}. */
+    private static String nameOf(final String tag) {
+        return Locales.parse(tag).getDisplayLanguage(Locale.ENGLISH);
     }
 
     private void names(final String version, final boolean markup) {
@@ -519,7 +537,9 @@ public final class DocumentCheck {
         for (final String role : roles) {
             if (!used.contains(role) && used.stream().noneMatch(name -> name.startsWith(role + "."))) {
                 problems.add(new Problem(
-                        mode == MessageCheck.Mode.PACKAGED, "it declares {" + role + "}, which no text names"));
+                        mode == MessageCheck.Mode.PACKAGED,
+                        "it declares {" + role + "}, which no text names",
+                        List.of()));
             }
         }
     }
@@ -550,7 +570,7 @@ public final class DocumentCheck {
         for (final String language : languages) {
             final int length = measure.characters(document.parts(), language);
             if (length > limit) {
-                error(what + " in " + language + " show " + length + " characters, Discord takes " + limit);
+                error(what + " in " + nameOf(language) + " show " + length + " characters, Discord takes " + limit);
             }
         }
     }

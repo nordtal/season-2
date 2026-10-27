@@ -12,12 +12,11 @@ public final class Typography {
     private static final Pattern DOUBLE_SPACE = Pattern.compile("\\s{2,}");
     private static final Pattern DASH = Pattern.compile("[\\u2013\\u2014]");
 
-    public static final String SEPARATOR = "a spaced hyphen or a pipe is a text symbol standing for a separator: use a"
-            + " comma, a colon, a new sentence, two lines or two pills";
+    public static final String SEPARATOR =
+            "a hyphen between spaces or a pipe stands for a separator: use a comma, a colon, a new sentence or a new line";
     public static final String ALIGNED =
-            "two spaces in a row is a layout the font does not promise: separate with one space or two lines";
-    public static final String DASHED = "a decoded en or em dash is the dash the conventions forbid, written as an"
-            + " escape: use a hyphen for a range";
+            "two spaces in a row do not line up in every font: use one space or a new line";
+    public static final String DASHED = "an en dash or an em dash is not used in a text: use a hyphen for a range";
 
     private Typography() {}
 

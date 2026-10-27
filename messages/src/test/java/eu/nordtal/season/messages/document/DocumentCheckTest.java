@@ -113,7 +113,7 @@ class DocumentCheckTest {
     @Test
     void anEntryValueIsNamedOnlyInsideItsItem() {
         assertTrue(errors(MENU, MENU_SOUND.replace("{spins} übrig", "{target} übrig")).stream()
-                .anyMatch(error -> error.startsWith("the label left in de")));
+                .anyMatch(error -> error.startsWith("the label left in German")));
     }
 
     private static List<String> errors(final DocumentSpec<?> spec, final String json) {
@@ -130,9 +130,9 @@ class DocumentCheckTest {
                 : null;
         assertEquals(
                 List.of(
-                        "a text block in en (With {@terms.access}): with its examples the text has 4,005 characters,"
+                        "a text block in English: with its examples the text has 4,005 characters,"
                                 + " and its place fits 4,000",
-                        "its text blocks in en show 4055 characters, Discord takes 4000"),
+                        "its text blocks in English show 4055 characters, Discord takes 4000"),
                 DocumentCheck.check(SUMMARY.declaration(), document, MessageCheck.Mode.OVERRIDE, language -> grown)
                         .stream()
                         .filter(DocumentCheck.Problem::error)
@@ -209,21 +209,43 @@ class DocumentCheckTest {
                         {"de": "Mit Spende {nowhere}"}"""));
         assertEquals(2, errors.size(), errors.toString());
         assertEquals("a text block has no English text, which every other language falls back to", errors.getFirst());
-        assertTrue(errors.get(1).startsWith("a text block in de (Mit Spende {nowhere}): "), errors.get(1));
+        assertTrue(errors.get(1).startsWith("a text block in German: "), errors.get(1));
     }
 
     @Test
     void everyTextCarriesEachLanguageOfTheDocument() {
         assertEquals(
-                List.of("a button's label has no text in de, which the document's other texts have"),
+                List.of("a button's label has no text in German, which the document's other texts have"),
                 errors(SUMMARY, SOUND.replace("\"Pay\", \"de\": \"Bezahlen\"", "\"Pay\"")));
     }
 
     @Test
     void aTextKeepsTheTypography() {
         assertEquals(
-                List.of("a button's label in en (Pay - now): " + eu.nordtal.season.messages.text.Typography.SEPARATOR),
+                List.of("a button's label in English: " + eu.nordtal.season.messages.text.Typography.SEPARATOR),
                 errors(SUMMARY, SOUND.replace("\"Pay\"", "\"Pay - now\"")));
+    }
+
+    @Test
+    void aProblemNamesThePartItIsInAndAProblemOfTheWholeDocumentNone() {
+        final List<DocumentCheck.Problem> problems = DocumentCheck.check(
+                SUMMARY.declaration(),
+                Document.decode(SOUND.replace("\"With a donation\"", "\"With - a donation\"")
+                        .replace("\"Pay\"", "\"Pay - now\"")),
+                MessageCheck.Mode.PACKAGED);
+        assertEquals(
+                List.of(List.of(0, 0), List.of(1)),
+                problems.stream().map(DocumentCheck.Problem::part).toList(),
+                problems.toString());
+        assertEquals(
+                List.of(List.of()),
+                DocumentCheck.check(
+                                SUMMARY.declaration(),
+                                Document.decode(SOUND.replace("\"when\": \"donating\", ", "")),
+                                MessageCheck.Mode.PACKAGED)
+                        .stream()
+                        .map(DocumentCheck.Problem::part)
+                        .toList());
     }
 
     @Test
@@ -238,7 +260,7 @@ class DocumentCheckTest {
         final List<String> errors = errors(
                 SUMMARY, SOUND.replace("\"Pay\"", "\"" + "Pay ".repeat(21).strip() + "\""));
         assertEquals(1, errors.size(), errors.toString());
-        assertTrue(errors.getFirst().startsWith("a button's label in en"), errors.getFirst());
+        assertTrue(errors.getFirst().startsWith("a button's label in English"), errors.getFirst());
     }
 
     @Test
@@ -260,7 +282,8 @@ class DocumentCheckTest {
                 SOUND.replace("\"With a donation\"", "\"" + longest + "\"")
                         .replace("\"Mit Spende\"", "\"" + longest + "\""));
         assertTrue(
-                errors.stream().anyMatch(error -> error.startsWith("its text blocks in de show ")), errors.toString());
+                errors.stream().anyMatch(error -> error.startsWith("its text blocks in German show ")),
+                errors.toString());
     }
 
     record Code() {}

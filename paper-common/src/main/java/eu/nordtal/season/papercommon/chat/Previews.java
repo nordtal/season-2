@@ -3,7 +3,6 @@ package eu.nordtal.season.papercommon.chat;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.common.time.Scheduler;
-import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.messagerendering.GameDocument;
@@ -86,14 +85,14 @@ public final class Previews {
         return Answer.done(Sent.of(Replies.PREVIEW_SHOWN));
     }
 
-    /** Shows a drafted game document, every value at its example. */
-    public Answer show(final PlayerId player, final DocumentPreview preview) {
+    /** Shows a drafted game document in {@code language}, every value at its example. */
+    public Answer show(final PlayerId player, final String language, final Documents.Packaged drafted) {
         final Player reader = online.apply(player.value());
         if (reader == null) {
             return Answer.refused(ServerRefusal.NOT_HERE.with());
         }
-        final Viewer viewer = Viewer.of(Locales.parse(preview.language()));
-        show(reader, GameDocument.example(renderer, preview.document(), viewer), preview.document());
+        final Viewer viewer = Viewer.of(Locales.parse(language));
+        show(reader, GameDocument.example(renderer, drafted, viewer), drafted);
         return Answer.done(Sent.of(Replies.PREVIEW_SHOWN));
     }
 

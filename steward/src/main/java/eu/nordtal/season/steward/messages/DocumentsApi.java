@@ -336,7 +336,12 @@ public final class DocumentsApi {
             throw new RequestRefused(
                     422, ANSWER.draftUndrawable(declaration.id(), String.valueOf(undrawable.getMessage())));
         }
-        return new DocumentPreview(draft.language(), packaged);
+        return new DocumentPreview(
+                declaration.namespace(),
+                declaration.name(),
+                draft.language(),
+                DocumentPreview.shownOf(shape),
+                draft.document());
     }
 
     private static DocumentDraft draftOf(final Context ctx) {

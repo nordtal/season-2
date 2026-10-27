@@ -5,6 +5,7 @@ import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.context.MilestoneContext;
+import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.spec.Display;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -26,7 +27,8 @@ public sealed interface BotRequest {
                     Unlink.class,
                     SetPlaytime.class,
                     Announce.class,
-                    PreviewMessage.class)
+                    PreviewMessage.class,
+                    PreviewDocument.class)
             .withOutcome();
 
     /** Adds days of access to a person, applies the role and tells them. */
@@ -240,11 +242,22 @@ public sealed interface BotRequest {
     }
 
     /** Sends an admin a drafted document, as a direct message. Refused if undelivered. */
-    record PreviewDocument(DiscordId person, DocumentPreview preview) implements BotRequest {
+    record PreviewDocument(
+            DiscordId person, String namespace, String name, String language, Display shown, Document document)
+            implements BotRequest {
 
         public PreviewDocument {
             Objects.requireNonNull(person, "person");
-            Objects.requireNonNull(preview, "preview");
+            document = new DocumentPreview(namespace, name, language, shown, document).document();
+        }
+
+        public PreviewDocument(final DiscordId person, final DocumentPreview preview) {
+            this(person, preview.namespace(), preview.name(), preview.language(), preview.shown(), preview.document());
+        }
+
+        /** Returns the drafted document. */
+        public DocumentPreview preview() {
+            return new DocumentPreview(namespace, name, language, shown, document);
         }
     }
 }

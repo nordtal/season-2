@@ -37,8 +37,13 @@ class ColumnsAreAtomicIntegrationTest {
             Set.of("bot_inbox.outcome", "bot_inbox.payload", "hunger_games_inbox.payload", "smp_inbox.payload");
 
     /** The composite columns that hold a value read and written whole, never queried by part. */
-    private static final Set<String> WHOLE =
-            Set.of("shared_part.part", "document_override.document", "document_version.document");
+    private static final Set<String> WHOLE = Set.of(
+            "shared_part.part",
+            "document_override.document",
+            "document_version.document",
+            "bot_preview_document.document",
+            "smp_preview_document.document",
+            "hunger_games_preview_document.document");
 
     @Test
     void noColumnHoldsADocumentOrAListButTheOnesListedHere() throws SQLException {

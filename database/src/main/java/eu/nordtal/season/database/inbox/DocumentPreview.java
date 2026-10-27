@@ -1,30 +1,31 @@
 package eu.nordtal.season.database.inbox;
 
+import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentSpec;
-import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
 import java.util.Objects;
 
 /**
  * A drafted document shown to the admin alone with example values. Nothing is saved.
- * The bot sends a Discord document as a direct message, and a game server shows a game one.
+ * The bot sends a Discord one as a direct message, a game server shows a game one, each with its own declaration.
  *
+ * @param namespace the namespace of the drafted document
+ * @param name the name of the drafted document in its namespace
  * @param language the language tag of the draft
- * @param document the drafted document with its declaration
+ * @param shown the place the document is shown in
+ * @param document the draft
  */
-public record DocumentPreview(String language, Documents.Packaged document) {
+public record DocumentPreview(String namespace, String name, String language, Display shown, Document document) {
 
     public DocumentPreview {
+        Objects.requireNonNull(namespace, "namespace");
+        Objects.requireNonNull(name, "name");
         Objects.requireNonNull(language, "language");
+        Objects.requireNonNull(shown, "shown");
         Objects.requireNonNull(document, "document");
         if (language.isBlank()) {
             throw new IllegalArgumentException("a preview is in one language, got none");
         }
-    }
-
-    /** Returns the place the document is shown in. */
-    public Display shown() {
-        return shownOf(document.declaration().shape());
     }
 
     /** Returns the place a document of {@code shape} is shown in. Every Discord document is a message. */

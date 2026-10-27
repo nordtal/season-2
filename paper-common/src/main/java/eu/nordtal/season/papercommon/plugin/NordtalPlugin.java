@@ -450,7 +450,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     protected final Answer preview(final PlayerId player, final DocumentPreview preview) {
-        return previews.show(player, preview);
+        return previews.show(player, preview.language(), documents.drafted(preview));
     }
 
     /** Stores a copy of the state a player here holds, so Steward shows it as it is. */

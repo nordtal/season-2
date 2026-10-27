@@ -18,7 +18,6 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.messages.RefusalReason;
 import eu.nordtal.season.messages.document.Document;
-import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -236,26 +235,44 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void aDraftedDocumentReachesTheBotWhole() throws SQLException {
-        final BotRequest.PreviewDocument preview = new BotRequest.PreviewDocument(
-                DiscordId.of("1"),
-                new DocumentPreview(
-                        "de", new Documents.Packaged(Documents.decode("""
-                                        [{"namespace":"bot","name":"welcome","title":"Welcome","area":"Join","shape":"MESSAGE",
-                                          "values":{"player":{"kind":"text","example":"Alex"}},
-                                          "slots":[{"id":"join","type":"BUTTON","required":true,"values":{}}]}]""").getFirst(), Document.decode("""
-                                        {"parts":[
-                                          {"type":"CONTAINER","accent":"#5865f2","parts":[
-                                            {"type":"TEXT","lines":[{"text":{"en":"Hi {player}","de":"Hallo {player}"}}]}]},
-                                          {"type":"GALLERY","media":["upload://7"]},
-                                          {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}}]}]}"""))));
-        final Inbox<BotRequest> bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
+    void aDraftedDocumentIsARowOfItsNameAndItsDraftOnEveryInbox() throws SQLException {
+        final PlayerId alex = PlayerId.of(UUID.fromString("00000000-0000-0000-0000-00000000000a"));
+        final DocumentPreview drafted =
+                new DocumentPreview("bot", "welcome", "de", Display.DISCORD_MESSAGE, Document.decode("""
+                {"parts":[
+                  {"type":"CONTAINER","accent":"#5865f2","parts":[
+                    {"type":"TEXT","lines":[{"text":{"en":"Hi {player}","de":"Hallo {player}"}}]}]},
+                  {"type":"GALLERY","media":["upload://7"]},
+                  {"type":"ROW","items":[{"slot":"join","label":{"en":"Join"}}]}]}"""));
         execute("DELETE FROM bot_inbox");
-        bot.submit(preview, ADMIN);
+        execute("DELETE FROM smp_inbox");
+        execute("DELETE FROM hunger_games_inbox");
+        final Inbox<BotRequest> bot = Inbox.over(database.dataSource(), BotRequest.TABLE);
+        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        final Inbox<HungerGamesRequest> games = Inbox.over(database.dataSource(), HungerGamesRequest.TABLE);
+        bot.submit(new BotRequest.PreviewDocument(SOMEONE, drafted), ADMIN);
+        smp.submit(new SmpRequest.PreviewDocument(alex, drafted), ADMIN);
+        games.submit(new HungerGamesRequest.PreviewDocument(alex, drafted), ADMIN);
 
         final Request<BotRequest> claimed = bot.claim().orElseThrow();
         assertEquals("PREVIEW_DOCUMENT", claimed.kind());
-        assertEquals(preview, claimed.payload());
+        assertEquals(drafted, ((BotRequest.PreviewDocument) claimed.payload()).preview());
+        assertEquals(
+                drafted, ((SmpRequest.PreviewDocument) smp.claim().orElseThrow().payload()).preview());
+        assertEquals(
+                drafted,
+                ((HungerGamesRequest.PreviewDocument)
+                                games.claim().orElseThrow().payload())
+                        .preview());
+        for (final String inbox : List.of("bot", "smp", "hunger_games")) {
+            assertEquals(0, count("SELECT count(*) FROM " + inbox + "_inbox WHERE payload IS NOT NULL"), inbox);
+            assertEquals(
+                    1,
+                    count("SELECT count(*) FROM " + inbox + "_preview_document WHERE namespace = 'bot'"
+                            + " AND name = 'welcome' AND language = 'de' AND shown = 'DISCORD_MESSAGE'"
+                            + " AND document -> 'parts' -> 1 ->> 'type' = 'GALLERY'"),
+                    inbox);
+        }
     }
 
     @Test

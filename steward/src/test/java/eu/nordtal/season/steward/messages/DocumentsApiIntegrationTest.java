@@ -473,7 +473,7 @@ class DocumentsApiIntegrationTest {
     }
 
     @Test
-    void aDraftIsPreviewedAsTheWholeDocumentWithoutAKey() throws Exception {
+    void aDraftIsPreviewedAsItsDocumentsNameAndTheWholeDraft() throws Exception {
         final JsonObject draft = new JsonObject();
         draft.add("declaration", GSON.toJsonTree(Documents.decode(DECLARATIONS).getFirst()));
         draft.add("document", Json.tree(WELCOME.replace("Welcome {player}", "Hello {player}")));
@@ -483,10 +483,11 @@ class DocumentsApiIntegrationTest {
 
         assertEquals(
                 new DocumentPreview(
+                        "smp",
+                        "welcome",
                         "de",
-                        new Documents.Packaged(
-                                Documents.decode(DECLARATIONS).getFirst(),
-                                Document.decode(WELCOME.replace("Welcome {player}", "Hello {player}")))),
+                        Display.DISCORD_MESSAGE,
+                        Document.decode(WELCOME.replace("Welcome {player}", "Hello {player}"))),
                 previewed);
     }
 
@@ -503,7 +504,7 @@ class DocumentsApiIntegrationTest {
         send("POST", "/api/document-preview", draft.toString().getBytes(UTF_8), 200);
 
         assertEquals(Display.TAB_LIST, previewed.shown());
-        assertEquals("tab-footer", previewed.document().declaration().name());
+        assertEquals("tab-footer", previewed.name());
     }
 
     @Test

@@ -4,6 +4,7 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Mode;
 import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.spec.Display;
 import java.util.List;
 import java.util.Objects;
@@ -18,7 +19,12 @@ public sealed interface HungerGamesRequest
                 HungerGamesRequest.RemoveStack {
 
     InboxTable<HungerGamesRequest> TABLE = InboxTable.of("hunger_games_inbox", Channel.SERVER, HungerGamesRequest.class)
-            .withRows(StartGame.class, StoreModeState.class, RemoveStack.class, PreviewMessage.class);
+            .withRows(
+                    StartGame.class,
+                    StoreModeState.class,
+                    RemoveStack.class,
+                    PreviewMessage.class,
+                    PreviewDocument.class);
 
     /**
      * Starts the registered game.
@@ -61,11 +67,22 @@ public sealed interface HungerGamesRequest
     }
 
     /** Shows a drafted document to the admin's player. Refused while the player is not on the server. */
-    record PreviewDocument(PlayerId player, DocumentPreview preview) implements HungerGamesRequest {
+    record PreviewDocument(
+            PlayerId player, String namespace, String name, String language, Display shown, Document document)
+            implements HungerGamesRequest {
 
         public PreviewDocument {
             Objects.requireNonNull(player, "player");
-            Objects.requireNonNull(preview, "preview");
+            document = new DocumentPreview(namespace, name, language, shown, document).document();
+        }
+
+        public PreviewDocument(final PlayerId player, final DocumentPreview preview) {
+            this(player, preview.namespace(), preview.name(), preview.language(), preview.shown(), preview.document());
+        }
+
+        /** Returns the drafted document. */
+        public DocumentPreview preview() {
+            return new DocumentPreview(namespace, name, language, shown, document);
         }
     }
 

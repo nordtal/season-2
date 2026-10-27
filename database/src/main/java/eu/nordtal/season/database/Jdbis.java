@@ -2,6 +2,7 @@ package eu.nordtal.season.database;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.messages.document.Document;
 import java.sql.Types;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -10,7 +11,7 @@ import org.jdbi.v3.core.spi.JdbiPlugin;
 import org.jdbi.v3.postgres.PostgresPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-/** Sets up a Jdbi with SQL objects, the PostgreSQL types and the two id types as columns. */
+/** Sets up a Jdbi with SQL objects, the PostgreSQL types, the two id types and a document as columns. */
 public final class Jdbis {
 
     private Jdbis() {}
@@ -22,7 +23,7 @@ public final class Jdbis {
                 .installPlugin(ids());
     }
 
-    /** Returns the plugin that binds a {@link DiscordId} as text and a {@link PlayerId} as a UUID. */
+    /** Returns the plugin that binds a {@link DiscordId} as text, a {@link PlayerId} as a UUID, a document as jsonb. */
     public static JdbiPlugin ids() {
         return new JdbiPlugin() {
             @Override
@@ -40,6 +41,18 @@ public final class Jdbis {
                                     final PlayerId value, final org.jdbi.v3.core.config.ConfigRegistry config) {
                                 return (position, statement, context) -> statement.setObject(position, value.value());
                             }
+                        })
+                        .registerArgument(new org.jdbi.v3.core.argument.AbstractArgumentFactory<Document>(Types.OTHER) {
+                            @Override
+                            protected org.jdbi.v3.core.argument.Argument build(
+                                    final Document value, final org.jdbi.v3.core.config.ConfigRegistry config) {
+                                return (position, statement, context) ->
+                                        statement.setObject(position, value.json(), Types.OTHER);
+                            }
+                        })
+                        .registerColumnMapper(Document.class, (results, column, context) -> {
+                            final String json = results.getString(column);
+                            return json == null ? null : Document.decode(json);
                         })
                         .registerColumnMapper(DiscordId.class, (results, column, context) -> {
                             final String text = results.getString(column);

@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.time.Scheduler;
-import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.messagerendering.MessageRenderer;
@@ -91,14 +90,10 @@ class PreviewsTest {
             service -> service.equals("proxy") ? PROXY : ToneColours.DEFAULTS,
             main);
 
-    private static DocumentPreview drafted(final DocumentSpec.Shape shape, final String name, final String parts) {
-        return new DocumentPreview(
-                "en",
-                new Documents.Packaged(
-                        DocumentSpec.game("test", name, "Test", shape)
-                                .titled(name)
-                                .declaration(),
-                        Document.decode("{\"parts\": [" + parts + "]}")));
+    private static Documents.Packaged drafted(final DocumentSpec.Shape shape, final String name, final String parts) {
+        return new Documents.Packaged(
+                DocumentSpec.game("test", name, "Test", shape).titled(name).declaration(),
+                Document.decode("{\"parts\": [" + parts + "]}"));
     }
 
     private static final String TWO_LINES = """
@@ -162,7 +157,8 @@ class PreviewsTest {
 
     @Test
     void aDraftedTitleShowsItsFirstLineAsTitleAndTheRestAsSubtitle() {
-        assertInstanceOf(Answer.Done.class, previews.show(ALEX, drafted(DocumentSpec.Shape.TITLE, "t", TWO_LINES)));
+        assertInstanceOf(
+                Answer.Done.class, previews.show(ALEX, "en", drafted(DocumentSpec.Shape.TITLE, "t", TWO_LINES)));
 
         final Title title = (Title) calls.getFirst()[1];
         assertEquals("Drafted", plain(title.title()));
@@ -173,10 +169,9 @@ class PreviewsTest {
     void aDraftedTabListHeaderStandsOverTheFooterThePlayerSeesNow() {
         previews.show(
                 ALEX,
-                new DocumentPreview(
-                        "en",
-                        new Documents.Packaged(
-                                TabList.HEADER.declaration(), Document.decode("{\"parts\": [" + TWO_LINES + "]}"))));
+                "en",
+                new Documents.Packaged(
+                        TabList.HEADER.declaration(), Document.decode("{\"parts\": [" + TWO_LINES + "]}")));
 
         assertEquals("sendPlayerListHeaderAndFooter", calls.getFirst()[0]);
         final Object[] both = headerAndFooter.getFirst();
@@ -186,7 +181,7 @@ class PreviewsTest {
 
     @Test
     void aDraftedBossBarIsTheHudsLineForAWhile() {
-        previews.show(ALEX, drafted(DocumentSpec.Shape.BOSS_BAR, "b", """
+        previews.show(ALEX, "en", drafted(DocumentSpec.Shape.BOSS_BAR, "b", """
                 {"type": "TEXT", "lines": [{"text": {"en": "Drafted"}}, {"text": {"en": "and below"}}]}"""));
 
         assertEquals(List.of(Pill.of("Drafted and below")), previews.bossBar(alex, Locale.ENGLISH));
@@ -198,7 +193,7 @@ class PreviewsTest {
 
     @Test
     void aDraftedKickScreenArrivesAsChatLines() {
-        previews.show(ALEX, drafted(DocumentSpec.Shape.KICK_SCREEN, "k", TWO_LINES));
+        previews.show(ALEX, "en", drafted(DocumentSpec.Shape.KICK_SCREEN, "k", TWO_LINES));
 
         assertEquals("sendMessage", calls.getFirst()[0]);
         assertEquals("Drafted\nand below", plain(calls.getFirst()[1]));
@@ -208,9 +203,8 @@ class PreviewsTest {
     void aDraftedMenuOpensOnTheMainThread() {
         final DocumentSpec<DocumentSpec.None> menu =
                 DocumentSpec.menu("test", "m", "Test", DocumentSpec.None.class).titled("M");
-        previews.show(
-                ALEX, new DocumentPreview("en", new Documents.Packaged(menu.declaration(), Document.decode("""
-                                {"parts": [{"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Menu"}}]}]}"""))));
+        previews.show(ALEX, "en", new Documents.Packaged(menu.declaration(), Document.decode("""
+                                {"parts": [{"type": "TEXT", "lines": [{"style": "TITLE", "text": {"en": "Menu"}}]}]}""")));
 
         assertTrue(calls.isEmpty());
         assertEquals(1, onMain.size());

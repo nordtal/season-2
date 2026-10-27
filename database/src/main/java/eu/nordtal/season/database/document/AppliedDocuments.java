@@ -1,5 +1,6 @@
 package eu.nordtal.season.database.document;
 
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentMerge;
@@ -51,12 +52,26 @@ public final class AppliedDocuments implements Documents.Source {
 
     @Override
     public Documents.Packaged applied(final DocumentSpec<?> spec) {
-        final Documents.Packaged own =
-                packaged.getOrDefault(spec.namespace(), Map.of()).get(spec.name());
-        if (own == null) {
-            throw new IllegalStateException("the jar packages no document " + spec.id());
-        }
+        final Documents.Packaged own = own(spec.namespace(), spec.name());
         final Document document = written.get(spec.id());
         return document == null ? own : new Documents.Packaged(own.declaration(), document);
+    }
+
+    /**
+     * Returns an admin's draft with the declaration this jar packages for its document.
+     *
+     * @throws IllegalStateException if the jar packages no such document
+     */
+    public Documents.Packaged drafted(final DocumentPreview preview) {
+        return new Documents.Packaged(own(preview.namespace(), preview.name()).declaration(), preview.document());
+    }
+
+    private Documents.Packaged own(final String namespace, final String name) {
+        final Documents.Packaged own =
+                packaged.getOrDefault(namespace, Map.of()).get(name);
+        if (own == null) {
+            throw new IllegalStateException("the jar packages no document " + namespace + "/" + name);
+        }
+        return own;
     }
 }

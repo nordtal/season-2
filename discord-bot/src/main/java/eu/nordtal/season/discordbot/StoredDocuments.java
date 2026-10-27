@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot;
 
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.database.document.DocumentStore;
+import eu.nordtal.season.database.inbox.DocumentPreview;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
@@ -40,6 +41,13 @@ public final class StoredDocuments implements DocumentRenderer.Source {
     @Override
     public Documents.Packaged applied(final DocumentSpec<?> spec) {
         return documents.applied(spec);
+    }
+
+    /**
+     * @throws IllegalStateException if the jar packages no such document
+     */
+    public Documents.Packaged drafted(final DocumentPreview preview) {
+        return documents.drafted(preview);
     }
 
     /**

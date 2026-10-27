@@ -245,7 +245,10 @@ public class AccessBot implements AutoCloseable {
     private static MessageCreateData previewed(final CoreServices core, final BotRequest.PreviewDocument previewed) {
         final DocumentPreview preview = previewed.preview();
         return core.renderer()
-                .message(preview.document(), List.of(core.languages().locales()), Locales.parse(preview.language()));
+                .message(
+                        core.documents().drafted(preview),
+                        List.of(core.languages().locales()),
+                        Locales.parse(preview.language()));
     }
 
     private CoreServices loadCoreServices(

@@ -166,10 +166,7 @@ public final class StewardPreview {
             final StandInDiscord discord = push(started, new StandInDiscord());
             furnish(agent);
             furnishWhatIsNeverListed(agent.volumes.resolve("smp/plugins"));
-            final Path jars = options.jars();
-            if (jars != null) {
-                copyJars(jars, agent.configs);
-            }
+            copyJars(options.jars(), agent.configs);
             final Steward.Configs configs = java.util.Objects.requireNonNull(
                     Steward.configsOf(asSteward(postgres), database), "the stored settings were refused");
             final Data data = new Data(database, Clock.systemUTC());
@@ -436,15 +433,29 @@ public final class StewardPreview {
         return services;
     }
 
-    /** Copies every {@code <service>/<jar>} of {@code jars} to where the stand-in agent reads that service's jars. */
-    private static void copyJars(final Path jars, final Path configs) throws IOException {
-        try (Stream<Path> listed = Files.walk(jars, 2)) {
-            for (final Path jar :
-                    listed.filter(path -> path.toString().endsWith(".jar")).toList()) {
-                final Path into = configs.resolve(jars.relativize(jar));
-                Files.createDirectories(into.getParent());
-                Files.copy(jar, into);
+    /**
+     * Copies each {@code <service>/<jar>} of {@code jars} to where the stand-in agent reads that service's jars.
+     * The running Steward's jar goes there too unless {@code jars} holds one; live, the agent reads it from the image.
+     */
+    private static void copyJars(final @org.jspecify.annotations.Nullable Path jars, final Path configs)
+            throws IOException {
+        if (jars != null) {
+            try (Stream<Path> listed = Files.walk(jars, 2)) {
+                for (final Path jar :
+                        listed.filter(path -> path.toString().endsWith(".jar")).toList()) {
+                    final Path into = configs.resolve(jars.relativize(jar));
+                    Files.createDirectories(into.getParent());
+                    Files.copy(jar, into);
+                }
             }
+        }
+        final String own = System.getProperty("steward.preview.jar");
+        final Path steward = configs.resolve("steward");
+        if (own != null && !Files.isDirectory(steward)) {
+            Files.createDirectories(steward);
+            // The agent reads bundles only from a jar named <service>-<version>.jar, as --jars holds them.
+            final Path jar = Path.of(own);
+            Files.copy(jar, steward.resolve(jar.getFileName().toString().replace("-thin.jar", ".jar")));
         }
     }
 

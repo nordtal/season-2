@@ -259,6 +259,10 @@ tasks.register<JavaExec>("preview") {
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("eu.nordtal.season.steward.StewardPreview")
     workingDir = projectDir
+    // Steward's own jar carries its texts, as the image's does for the live agent.
+    val ownJar = tasks.named<Jar>("jar").flatMap { it.archiveFile }
+    inputs.file(ownJar)
+    jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("-Dsteward.preview.jar=${ownJar.get().asFile}") })
 }
 
 tasks.named<JavaExec>("run") {

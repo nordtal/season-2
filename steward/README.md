@@ -223,9 +223,9 @@ applies at the next reading.
 
 `preview` signs in as an invented admin whose key counts as just held. `--args="--dump FILE"` first
 restores a `pg_dump`. Preview writes the session cookie to `build/preview/state.json` as Playwright's
-`storageState`. The stand-in agent has no bundle of its own, so the Translations page lists nothing until
-`--jars DIR` supplies real jars, one directory per service (`DIR/smp/smp-<version>.jar`,
-`DIR/discord-bot/discord-bot-<version>.jar`).
+`storageState`. The stand-in agent reads Steward's own jar, so the Translations page lists Steward's texts;
+the other services' texts appear once `--jars DIR` supplies their jars, one directory per service
+(`DIR/smp/smp-<version>.jar`, `DIR/discord-bot/discord-bot-<version>.jar`).
 
 `SettingsPageEndToEndTest` starts the same preview and drives smp's settings tab in Chromium with
 `frontend/e2e/settings-plugins.ts`, run by the private Node with `playwright-core`. It needs a Chromium

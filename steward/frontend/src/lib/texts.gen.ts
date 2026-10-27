@@ -935,6 +935,9 @@ export type TextArgs = {
   "steward.document-editor.restore": Record<string, never>
   "steward.document-editor.save": Record<string, never>
   "steward.document-editor.save-shared-part": Record<string, never>
+  "steward.document-editor.save-shared-part-named": {
+    name: Arg["text"]
+  }
   "steward.document-editor.saved": {
     document: Arg["text"]
   }
@@ -2064,6 +2067,7 @@ export type TextArgs = {
   "steward.texts.open-block": Record<string, never>
   "steward.texts.search": Record<string, never>
   "steward.texts.service": Record<string, never>
+  "steward.texts.shared-parts": Record<string, never>
   "steward.texts.shown-in": Record<string, never>
   "steward.texts.untranslated": Record<string, never>
   "steward.texts.untranslated-count": {

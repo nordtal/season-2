@@ -130,6 +130,9 @@ public interface DocumentEditorTexts {
     @Name("Save as a shared part")
     MessageRef saveSharedPart();
 
+    @Name("Save a named shared part")
+    MessageRef saveSharedPartNamed(@Arg("name") @Example("footer") String name);
+
     @Name("Detach from a shared part")
     MessageRef detachSharedPart();
 

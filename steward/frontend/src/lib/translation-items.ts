@@ -1,6 +1,6 @@
 import type { Document } from "@/lib/api"
 import { versionsOf } from "@/lib/document-edit"
-import { documentId, documentOf, languagesOf, textsOf, type PageCard } from "@/lib/documents"
+import { documentId, documentOf, languagesOf, sharedPartId, textsOf, type PageCard } from "@/lib/documents"
 import { ENGLISH, overrideOf, packagedOf, type Language } from "@/lib/message-text"
 import { messageName, textId, type TreeNode } from "@/lib/settings-tree"
 import { TEXT_GROUPS, type TextGroup } from "@/lib/text-places"
@@ -16,10 +16,12 @@ export type Area = { id: TextGroup; label: string; sections: Section[]; count: n
 
 /** Returns the id an item is opened by: a document's `discord/<name>` or a text's `bundle/key`. */
 export function cardId(card: PageCard): string {
+  if (card.kind === "shared") return sharedPartId(card.shared.name)
   return card.kind === "document" ? documentId(card.view.declaration) : textId(card.text.entry)
 }
 
 export function itemName(card: PageCard): string {
+  if (card.kind === "shared") return card.shared.name
   return card.kind === "document" ? card.view.declaration.title : messageName(card.text.entry)
 }
 
@@ -74,6 +76,7 @@ export function areasOf(nodes: TreeNode<PageCard>[]): Area[] {
 export function untranslated(card: PageCard, language: Language, languagesOfBundle: (bundle: string) => Language[]) {
   if (language === ENGLISH) return false
   if (card.kind === "document") return !languagesOf(documentOf(card.view)).includes(language)
+  if (card.kind === "shared") return !languagesOf({ parts: [card.shared.part] }).includes(language)
   const entry = card.text.entry
   if (!languagesOfBundle(entry.bundle).includes(language)) return false
   return packagedOf(entry, language).length === 0 && overrideOf(entry, language) === undefined

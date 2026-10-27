@@ -104,7 +104,10 @@ export function useTextsModel(texts: MessageTexts, documents: DocumentList | und
     () => (service === undefined ? texts.texts : texts.texts.filter((text) => text.services.includes(service))),
     [texts.texts, service],
   )
-  const nodes = useMemo(() => textsTree(listed, texts.places, views, service), [listed, texts.places, views, service])
+  const nodes = useMemo(
+    () => textsTree(listed, texts.places, views, service, documents?.sharedParts),
+    [listed, texts.places, views, service, documents],
+  )
   const byId = useMemo(() => new Map(texts.texts.map((text) => [textId(text.entry), text])), [texts.texts])
   const languages = useMemo(
     () =>

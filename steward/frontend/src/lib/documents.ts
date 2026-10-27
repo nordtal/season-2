@@ -1,8 +1,11 @@
-import type { Document, DocumentDeclaration, DocumentPart, DocumentView, MessageText } from "@/lib/api"
+import type { Document, DocumentDeclaration, DocumentPart, DocumentView, MessageText, SharedPartView } from "@/lib/api"
 import { ENGLISH, type Language } from "@/lib/message-text"
 
-/** One card of the Translations page: a Discord document, or a text of a bundle. */
-export type PageCard = { kind: "document"; view: DocumentView } | { kind: "text"; text: MessageText }
+/** One card of the Translations page: a document, a text of a bundle, or a shared part. */
+export type PageCard =
+  | { kind: "document"; view: DocumentView }
+  | { kind: "text"; text: MessageText }
+  | { kind: "shared"; shared: SharedPartView }
 
 /** A text of a document: one source per language, or the versions of which one shows at random. */
 export type DocumentText = Record<string, string | string[]>
@@ -10,6 +13,11 @@ export type DocumentText = Record<string, string | string[]>
 /** Returns the document as the bot draws it: the admin's, else the packaged one. */
 export function documentOf(view: DocumentView): Document {
   return view.written ?? view.packaged
+}
+
+/** The id a shared part is opened by, apart from every document's and text's. */
+export function sharedPartId(name: string): string {
+  return `shared-part/${name}`
 }
 
 export function documentId(declaration: DocumentDeclaration): string {
@@ -46,7 +54,11 @@ function firstService(view: DocumentView): string {
  * Returns the documents of `service`, or all of them, then each of `texts` as a card of its own. Within an area a
  * document several servers share comes first, then each server's own in the order of the service filter.
  */
-export function pageCards(texts: readonly MessageText[], views: readonly DocumentView[], service?: string): PageCard[] {
+export function pageCards(
+  texts: readonly MessageText[],
+  views: readonly DocumentView[],
+  service?: string,
+): Exclude<PageCard, { kind: "shared" }>[] {
   const shown = views.filter((view) => service === undefined || view.services.includes(service))
   const areas = [...new Set(shown.map((view) => view.declaration.area))]
   return [
@@ -57,7 +69,7 @@ export function pageCards(texts: readonly MessageText[], views: readonly Documen
           Number(b.services.length > 1) - Number(a.services.length > 1) ||
           firstService(a).localeCompare(firstService(b)),
       )
-      .map((view): PageCard => ({ kind: "document", view })),
-    ...texts.map((text): PageCard => ({ kind: "text", text })),
+      .map((view) => ({ kind: "document" as const, view })),
+    ...texts.map((text) => ({ kind: "text" as const, text })),
   ]
 }

@@ -1,8 +1,19 @@
-import { cleanup, fireEvent, screen, within } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
+import type { DocumentPart } from "@/lib/api"
 import { resetDrafts } from "@/lib/drafts"
-import { backend, documents, draw, listing, openItem, Page, text, view } from "@/pages/translations.fixtures"
+import {
+  type Around,
+  backend,
+  documents,
+  draw,
+  listing,
+  openItem,
+  Page,
+  text,
+  view,
+} from "@/pages/translations.fixtures"
 
 afterEach(() => {
   cleanup()
@@ -37,11 +48,22 @@ const fixture = listing(
 
 const notice = view(
   { name: "notice", title: "Notice" },
-  { parts: [{ type: "TEXT", lines: [{ text: { en: "Buy {@terms.access}" } }] }] },
+  {
+    parts: [
+      { type: "TEXT", lines: [{ text: { en: "Buy {@terms.access}" } }] },
+      { type: "TEXT", shared: "rule-links" },
+    ],
+  },
 )
 
-function drawPage() {
-  vi.stubGlobal("fetch", backend(fixture, undefined, { documents: documents([notice]) }))
+const rules: DocumentPart = { type: "TEXT", lines: [{ text: { en: "Read the rules" } }] }
+const shared = [{ name: "rule-links", part: rules, documents: ["discord/notice"] }]
+
+function drawPage(around: Around = {}) {
+  vi.stubGlobal(
+    "fetch",
+    backend(fixture, undefined, { documents: documents([notice], { sharedParts: shared }), ...around }),
+  )
   draw(<Page />)
 }
 
@@ -82,6 +104,50 @@ describe("a building block", () => {
     expect(rows()).toEqual(["Network"])
     fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }))
     expect(rows()).toEqual(["Access", "Network", "Spare"])
+  })
+})
+
+describe("a shared part", () => {
+  it("is listed under Building blocks with the documents that name it, and opens one on a click", async () => {
+    drawPage()
+    const part = await openItem("rule-links", /^Building blocks/)
+
+    expect(within(screen.getByRole("button", { name: "rule-links" })).getByText("Used once")).toBeDefined()
+    const uses = within(part).getByRole("list", { name: "Used in" })
+    fireEvent.click(within(uses).getByRole("button", { name: "Notice" }))
+    expect(await screen.findByRole("article", { name: "Notice" })).toBeDefined()
+  })
+
+  it("is edited on its own and saved after showing each document it changes", async () => {
+    const saved: [string, DocumentPart | null][] = []
+    drawPage({
+      sharedPartChanges: () => [
+        { declaration: notice.declaration, game: false, before: notice.packaged, after: notice.packaged, problems: [] },
+      ],
+      saveSharedPart: (name, part) => {
+        saved.push([name, part])
+        return documents([notice], { sharedParts: [{ ...shared[0], part: part ?? rules }] })
+      },
+    })
+    const part = await openItem("rule-links", /^Building blocks/)
+
+    fireEvent.change(within(part).getByDisplayValue("Read the rules"), { target: { value: "Read the house rules" } })
+    fireEvent.click(within(part).getByRole("button", { name: "Save" }))
+    const dialog = await screen.findByRole("dialog", { name: "Save the shared part rule-links" })
+    expect(await within(dialog).findByText("Notice")).toBeDefined()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }))
+
+    await waitFor(() => expect(saved).toHaveLength(1))
+    expect(saved[0][0]).toBe("rule-links")
+    expect(JSON.stringify(saved[0][1])).toContain("Read the house rules")
+  })
+
+  it("opens from the badge of a document that names it", async () => {
+    drawPage()
+    const document = await openItem("Notice", /^Discord/)
+
+    fireEvent.click(within(document).getByRole("button", { name: "Shared part rule-links" }))
+    expect(await screen.findByRole("article", { name: "rule-links" })).toBeDefined()
   })
 })
 

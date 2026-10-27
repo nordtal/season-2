@@ -1,5 +1,5 @@
-import type { ConfigEntry, DocumentView, MessageEntry, MessageText, PluginFile } from "@/lib/api"
-import { documentId, pageCards, type PageCard } from "@/lib/documents"
+import type { ConfigEntry, DocumentView, MessageEntry, MessageText, PluginFile, SharedPartView } from "@/lib/api"
+import { documentId, pageCards, sharedPartId, type PageCard } from "@/lib/documents"
 import { entryHaystack } from "@/lib/settings-search"
 import { groupOf, PAGE_GROUPS, pageGroupOf, TEXT_GROUPS, type Places } from "@/lib/text-places"
 import { choice, t } from "@/lib/texts"
@@ -244,6 +244,7 @@ export function textsTree(
   places: Places,
   views: readonly DocumentView[] = [],
   service?: string,
+  sharedParts: readonly SharedPartView[] = [],
 ): TreeNode<PageCard>[] {
   const builder = new Builder<PageCard>()
   const grouped = pageCards(texts, views, service)
@@ -282,6 +283,19 @@ export function textsTree(
     }
     const id = textId(entry)
     builder.add(parent, { kind: "leaf", id, ids: [id], value: card, wide: true })
+  }
+  // A shared part is a building block of whole parts, listed while a document of the service names it.
+  const listed = new Set(
+    views
+      .filter((view) => service === undefined || view.services.includes(service))
+      .map((view) => documentId(view.declaration)),
+  )
+  for (const shared of sharedParts) {
+    if (service !== undefined && !shared.documents.some((id) => listed.has(id))) continue
+    const root = builder.branch("VALUES", t("steward.texts.group", { group: choice("VALUES") }), null).id
+    const top = builder.branch("VALUES:shared-parts", t("steward.texts.shared-parts"), root).id
+    const id = sharedPartId(shared.name)
+    builder.add(top, { kind: "leaf", id, ids: [id], value: { kind: "shared", shared }, wide: true })
   }
   return builder.buildGroups()
 }

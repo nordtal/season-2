@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { ArrowLeftIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { cn } from "cn"
 
-import type { BlockUses, Document, DocumentList, MessageTexts } from "@/lib/api"
+import type { BlockUses, Document, DocumentList, DocumentPart, MessageTexts } from "@/lib/api"
 import { QueryState } from "@/components/steward/query-state"
 import { setDraftValue } from "@/lib/drafts"
-import { documentId, documentOf, type PageCard } from "@/lib/documents"
+import { documentId, documentOf, sharedPartId, type PageCard } from "@/lib/documents"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { useTranslationSearch } from "@/lib/queries"
 import { plainText } from "@/lib/rich-text"
@@ -21,6 +21,7 @@ import {
   untranslated,
 } from "@/lib/translation-items"
 import { ComponentCount, DocumentEditor, DocumentMarks } from "@/components/steward/document-editor"
+import { SharedPartEditor } from "@/components/steward/shared-parts"
 import { LanguageToggle } from "@/components/steward/document-fields"
 import { SearchField } from "@/components/steward/filter-bar"
 import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
@@ -140,13 +141,14 @@ export function TranslationsView({
     changed: (item) => (item.card.kind === "text" ? model.draftIds.has(item.id) : model.drafts[item.id] !== undefined),
     missing: (item) => untranslated(item.card, language, model.languagesOf),
     uses: (item) => {
+      if (item.card.kind === "shared") return { texts: [], documents: item.card.shared.documents }
       const key = blockKey(item)
       return key === undefined ? undefined : (texts.uses[key] ?? NO_USES)
     },
     find: (id) => placed.find((item) => item.id === id) ?? id,
   }
   const openBlock = (key: string) => {
-    const block = placed.find((item) => blockKey(item) === key)
+    const block = placed.find((item) => blockKey(item) === key || item.id === key)
     return block && (() => page.onOpen(block))
   }
   // One toggle at a time: beside the filter from a laptop's width, else in the open item's header.
@@ -317,9 +319,14 @@ function Links({
 }
 
 function openState(item: Placed): TranslationsState {
-  return item.card.kind === "document"
+  return item.card.kind !== "text"
     ? { area: item.area.id, document: item.id, text: undefined }
     : { area: item.area.id, document: undefined, text: item.id }
+}
+
+/** A shared part's draft, or the part saved. */
+function sharedPartFor(model: TextsModel, card: PageCard & { kind: "shared" }): DocumentPart {
+  return model.drafts[sharedPartId(card.shared.name)]?.parts[0] ?? card.shared.part
 }
 
 /** A document's draft, or its saved document. */
@@ -329,8 +336,8 @@ function documentFor(model: TextsModel, card: PageCard & { kind: "document" }): 
 
 /** An item's first words in `language`, else in English, as the reader sees them. */
 function lineOf(model: TextsModel, card: PageCard, language: Language): string {
-  if (card.kind === "document") {
-    const document = documentFor(model, card)
+  if (card.kind !== "text") {
+    const document = card.kind === "document" ? documentFor(model, card) : { parts: [sharedPartFor(model, card)] }
     return documentWords(document, language) || documentWords(document, ENGLISH)
   }
   const drawn = model.shared.draw(`${card.text.entry.bundle}/${card.text.entry.key}`, language)
@@ -482,7 +489,7 @@ function Marks({ page, item }: { page: Page; item: Placed }) {
   const card = item.card
   return (
     <>
-      {card.kind === "text" ? (
+      {card.kind === "shared" ? null : card.kind === "text" ? (
         isBuildingBlock(card.text.entry) ? null : (
           <Pills entry={card.text.entry} places={page.model.shared.places} />
         )
@@ -512,6 +519,21 @@ function ItemEditor({ page, item, highlight }: { page: Page; item: Placed; highl
   const { model, language } = page
   const [previewsIn, setPreviewsIn] = useState<HTMLElement | null>(null)
   const card = item.card
+  if (card.kind === "shared") {
+    return (
+      <SharedPartEditor
+        shared={card.shared}
+        draft={sharedPartFor(model, card)}
+        language={language}
+        onDraft={(next) =>
+          model.setDocumentDraft(
+            item.id,
+            next && JSON.stringify(next) !== JSON.stringify(card.shared.part) ? { parts: [next] } : undefined,
+          )
+        }
+      />
+    )
+  }
   if (card.kind === "document") {
     const draft = documentFor(model, card)
     return (

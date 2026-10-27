@@ -48,6 +48,9 @@ public interface TranslationsPage {
     @Name("Open a block")
     MessageRef openBlock();
 
+    @Name("Shared parts")
+    MessageRef sharedParts();
+
     @Name("Block filter")
     MessageRef blockFilter(@Arg("filter") BlockFilter filter);
 

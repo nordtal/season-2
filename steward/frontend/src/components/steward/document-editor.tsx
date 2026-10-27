@@ -366,7 +366,7 @@ function firstWords(part: DocumentPart, language: Language): string | undefined 
   return undefined
 }
 
-function PartBody({
+export function PartBody({
   part,
   path,
   context,

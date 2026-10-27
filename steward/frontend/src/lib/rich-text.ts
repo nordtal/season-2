@@ -1,5 +1,5 @@
 import { argumentText, readText, writeText } from "@/lib/message-tree"
-import { chosen, type TextNode } from "@/lib/texts"
+import { blockText, chosen, type TextNode, type Words } from "@/lib/texts"
 
 /**
  * A message as the translation editor edits it: runs, each with its whole style, read from the tree of the one parser. Only {@link parse} and {@link serialize} know how a style is spelled.
@@ -40,7 +40,8 @@ export function inside(around: Style, style: Style): Style {
  * One piece of the text. A plural, a select or a tag that no editor offers (`<rainbow>`, `<lang:…>`) is kept as its source and moves as one character.
  */
 export type Run =
-  | { kind: "text"; text: string; style: Style }
+  /** `block` names the building block whose words a preview drew in its place. */
+  | { kind: "text"; text: string; style: Style; block?: string }
   | { kind: "placeholder"; name: string; k?: string; s?: string; style: Style }
   | { kind: "glyph"; name: string; style: Style }
   | { kind: "break"; style: Style }
@@ -492,7 +493,7 @@ export function normalize(runs: Run[]): Run[] {
     const style = cleanStyle(run.style)
     if (run.kind === "text" && run.text === "") continue
     const last = out.at(-1)
-    if (run.kind === "text" && last?.kind === "text" && same(last.style, style)) {
+    if (run.kind === "text" && last?.kind === "text" && last.block === run.block && same(last.style, style)) {
       out[out.length - 1] = { ...last, text: last.text + run.text }
     } else out.push({ ...run, style })
   }
@@ -591,24 +592,29 @@ function setShared(result: Style, key: keyof Style, first: Style, rest: Style[])
 }
 
 /**
- * Returns the runs as a preview draws them: each plural and select as the case its value's `example` picks, with `#` as the number.
+ * Returns the runs as a preview draws them: each plural and select as the case its value's example in `values` picks, with
+ * `#` as the number, and each building block as its words in `words`, which a preview without them leaves out.
  */
 export function branchesOf(
   runs: Run[],
   format: Format,
   tones: readonly string[],
-  example: (name: string) => unknown,
+  values: Record<string, unknown>,
+  words?: Words,
 ): Run[] {
   const markup = format === "MINIMESSAGE"
   return normalize(
     runs.flatMap((run) => {
       const nodes = run.kind === "raw" ? readText(run.source, markup) : null
       const node = nodes?.length === 1 ? nodes[0] : undefined
+      if (node !== undefined && typeof node !== "string" && "b" in node && words) {
+        return [{ kind: "text", text: blockText(node, values, words), style: run.style, block: node.b }]
+      }
       if (node === undefined || typeof node === "string" || !("c" in node)) return [run]
-      const picked = chosen(node, example(node.c))
+      const picked = chosen(node, values[node.c] ?? node.c)
       const inner = parse(writeText(node.plural ? numbered(picked, node.c) : picked, markup), format, tones)
       if (inner === null) return [run]
-      return branchesOf(inner, format, tones, example).map((part) => ({
+      return branchesOf(inner, format, tones, values, words).map((part) => ({
         ...part,
         style: within(run.style, part.style),
       }))

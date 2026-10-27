@@ -13,6 +13,11 @@ export function exampleOf(name: string, args: MessageArg[], examples: MessageExa
   return liveOf(arg, name, examples) ?? arg?.exampleValue ?? arg?.example ?? name
 }
 
+/** Returns each value's example by its name. */
+export function valuesOf(args: MessageArg[], examples: MessageExamples | undefined): Record<string, unknown> {
+  return Object.fromEntries(args.map((arg) => [arg.name, exampleOf(arg.name, args, examples)]))
+}
+
 /** Draws each value's example as the game and the bot render its kind, in `words` where they are known. */
 export function fillOf(args: MessageArg[], examples: MessageExamples | undefined, words?: Words): Fill {
   return (name, style) => valueText(exampleOf(name, args, examples), style, words)

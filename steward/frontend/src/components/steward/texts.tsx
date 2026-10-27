@@ -29,7 +29,7 @@ import { Failure } from "@/components/steward/query-state"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Badge } from "@/components/ui/badge"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
-import { exampleOf, fillOf, useWords, type Fill } from "@/components/steward/message-editor/examples"
+import { fillOf, useWords, valuesOf, type Fill } from "@/components/steward/message-editor/examples"
 import type { Highlight } from "@/components/steward/settings-view"
 import { choice, message, t } from "@/lib/texts"
 
@@ -136,10 +136,10 @@ export function useTextsModel(texts: MessageTexts, documents: DocumentList | und
     const text = currentOf(entry, draft[id], language) || currentOf(entry, draft[id], ENGLISH)
     const format = formatOf(entry.format)
     const tags = Object.keys(tones)
-    const fill = fillOf(entry.args, examples.data, words(language, entry.bundle))
+    const shownIn = words(language, entry.bundle)
+    const fill = fillOf(entry.args, examples.data, shownIn)
     const runs = parse(text, format, tags)
-    const example = (name: string) => exampleOf(name, entry.args, examples.data)
-    return { runs: runs && branchesOf(runs, format, tags, example), text, fill }
+    return { runs: runs && branchesOf(runs, format, tags, valuesOf(entry.args, examples.data), shownIn), text, fill }
   }
 
   function set(id: string, language: Language, value: string[] | null | undefined) {

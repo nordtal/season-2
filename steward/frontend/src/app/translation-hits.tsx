@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { CommandGroup, CommandItem, CommandSeparator } from "@/components/ui/command"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { argsOf } from "@/components/steward/document-fields"
-import { exampleOf, fillOf, useWords } from "@/components/steward/message-editor/examples"
+import { fillOf, useWords, valuesOf } from "@/components/steward/message-editor/examples"
 import { Badge } from "@/components/ui/badge"
 import type { MessageArg, MessageExamples, TranslationHit } from "@/lib/api"
 import { documentId } from "@/lib/documents"
@@ -18,7 +18,7 @@ import {
 import { branchesOf, formatOf, parse, plainText, type Format } from "@/lib/rich-text"
 import { setPendingTextJump } from "@/lib/settings-search"
 import { DOCUMENT_LEAF, leafPaths, messageName, textId, textsTree } from "@/lib/settings-tree"
-import { t } from "@/lib/texts"
+import { t, type Words } from "@/lib/texts"
 
 const MAX_HITS = 30
 
@@ -33,13 +33,11 @@ export function renderedText(
   args: MessageArg[],
   examples: MessageExamples | undefined,
   fill: (name: string, style?: string) => string,
+  words?: Words,
 ): string {
   const runs = parse(source, format, tones)
   if (!runs) return source
-  return plainText(
-    branchesOf(runs, format, tones, (name) => exampleOf(name, args, examples)),
-    fill,
-  )
+  return plainText(branchesOf(runs, format, tones, valuesOf(args, examples), words), fill)
 }
 
 /**
@@ -84,8 +82,9 @@ export function TranslationHits({ search, open, onDone }: { search: string; open
       <CommandSeparator />
       <CommandGroup heading={t("steward.shell.page", { page: "translations" })}>
         {rows.map(({ hit, leaf, name, format, args, bundle }) => {
-          const fill = fillOf(args, examples, words(hit.language, bundle))
-          const text = renderedText(hit.text, format, tones, args, examples, fill).replace(/\s+/g, " ").trim()
+          const shownIn = words(hit.language, bundle)
+          const fill = fillOf(args, examples, shownIn)
+          const text = renderedText(hit.text, format, tones, args, examples, fill, shownIn).replace(/\s+/g, " ").trim()
           return (
             <CommandItem
               key={leaf}

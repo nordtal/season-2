@@ -19,6 +19,12 @@ const fixture = listing(
     block("terms.network", "Network", "Nordtal"),
     block("terms.spare", "Spare", "spare"),
     text({ key: "welcome", name: "Welcome", texts: { en: ["Welcome to {@terms.network}, {@terms.access}"] } }),
+    text({
+      key: "greeting",
+      name: "Greeting",
+      texts: { en: ["Hi on {@terms.network}, {@terms.gone}"] },
+      shown: ["CHAT", "DISCORD_MESSAGE", "STEWARD"],
+    }),
   ],
   {
     uses: {
@@ -92,5 +98,16 @@ describe("a text", () => {
     ).toEqual(["Access", "Network"])
     fireEvent.click(within(blocks).getByRole("button", { name: "Access" }))
     expect(await screen.findByRole("article", { name: "Access" })).toBeDefined()
+  })
+})
+
+describe("a preview", () => {
+  it("draws a building block's words in every place, and a block it cannot find as missing", async () => {
+    drawPage()
+    await openItem("Greeting")
+
+    for (const place of ["Chat", "Discord message", "Steward"]) {
+      expect(screen.getByRole("figure", { name: place }).textContent).toContain("Hi on Nordtal, something")
+    }
   })
 })

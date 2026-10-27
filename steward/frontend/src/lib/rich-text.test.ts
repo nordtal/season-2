@@ -84,7 +84,7 @@ describe("a Minecraft text", () => {
 })
 
 function drawn(text: string, examples: Record<string, unknown>, format: Format = "MINIMESSAGE"): Run[] {
-  return branchesOf(read(text, format), format, TONES, (name) => examples[name] ?? name)
+  return branchesOf(read(text, format), format, TONES, examples)
 }
 
 describe("a plural or a choice as a preview draws it", () => {

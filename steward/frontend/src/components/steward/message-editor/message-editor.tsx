@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { InputGroupButton } from "@/components/ui/input-group"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RequestIcon } from "@/components/steward/game-actions"
-import { exampleOf, fillOf, sentOf, type Fill, useWords } from "@/components/steward/message-editor/examples"
+import { fillOf, sentOf, type Fill, useWords, valuesOf } from "@/components/steward/message-editor/examples"
 import { Preview, type Tones } from "@/components/steward/message-editor/preview"
 import { Failure } from "@/components/steward/query-state"
 import { RichField } from "@/components/steward/message-editor/rich-field"
@@ -105,7 +105,9 @@ export function MessageEditor({
 
   const runs = useMemo(() => parse(text, format, toneTags), [text, format, toneTags])
   const drawn =
-    runs === null ? null : branchesOf(runs, format, toneTags, (name) => exampleOf(name, entry.args, examples.data))
+    runs === null
+      ? null
+      : branchesOf(runs, format, toneTags, valuesOf(entry.args, examples.data), words(language, entry.bundle))
 
   const checked = useDebounced(typed === undefined ? null : text, CHECK_DELAY)
   const check = useMessageCheck(path, entry.key, checked)

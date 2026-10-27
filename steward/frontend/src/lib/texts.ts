@@ -232,6 +232,17 @@ function block(
   fill(variants[0], inner, kinds, out, texts, new Set([...open, node.b]))
 }
 
+/** Returns a building block's words with the values around it, or the missing word for a block that is no text. */
+export function blockText(
+  node: { b: string; with?: Record<string, string> },
+  args: Record<string, unknown>,
+  words: Words,
+): string {
+  const out: Run[] = []
+  block(node, args, {}, out, words.texts, new Set())
+  return plain(out)
+}
+
 function filled(
   name: string,
   written: string | undefined,

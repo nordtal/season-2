@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>The Hunger Games start.</good> <muted>Teleported to the spawn towers: <emphasis>{count}</emphasis> {@terms.participant, n=count}.</muted>",
-            "de": "<good>Die Hunger Games starten.</good> <muted>Zu den Spawn-Türmen teleportiert: <emphasis>{count}</emphasis> {@terms.participant, n=count}.</muted>"
+            "en": "<good>The {@terms.hunger-games} start.</good> <muted>Teleported to the spawn towers: <emphasis>{count}</emphasis> {@terms.participant, n=count}.</muted>",
+            "de": "<good>Die {@terms.hunger-games} starten.</good> <muted>Zu den Spawn-Türmen teleportiert: <emphasis>{count}</emphasis> {@terms.participant, n=count}.</muted>"
           }
         }
       ]

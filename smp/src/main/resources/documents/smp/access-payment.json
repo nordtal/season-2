@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<neutral>Open purchase {reference}: {@values.duration.days, n=days}, {amount}, started {since}. The payment link exists. The player has not paid.</neutral>",
-            "de": "<neutral>Offener Kauf {reference}: {@values.duration.days, n=days}, {amount}, begonnen am {since}. Der Zahlungslink existiert. Der Spieler hat nicht bezahlt.</neutral>"
+            "en": "<neutral>Open purchase {reference}: {@values.duration.days, n=days}, {amount}, started {since}. The payment link exists. The {@terms.player, n=1} has not paid.</neutral>",
+            "de": "<neutral>Offener Kauf {reference}: {@values.duration.days, n=days}, {amount}, begonnen am {since}. Der Zahlungslink existiert. Der {@terms.player, n=1} hat nicht bezahlt.</neutral>"
           }
         }
       ]

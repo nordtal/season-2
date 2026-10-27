@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "Your team already has a partner.",
-            "de": "Dein Team hat schon einen Partner."
+            "en": "Your {@terms.team, n=1} already has a partner.",
+            "de": "Dein {@terms.team, n=1} hat schon einen Partner."
           }
         }
       ]

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<accent><emphasis>{@values.service}</emphasis> restarts.</accent> <muted>You wait in the waiting room and return on your own.</muted>",
-            "de": "<accent><emphasis>{@values.service}</emphasis> startet neu.</accent> <muted>Du wartest im Warteraum und kommst von selbst zurück.</muted>"
+            "en": "<accent><emphasis>{@values.service}</emphasis> restarts.</accent> <muted>You wait in the {@terms.waiting-room} and return on your own.</muted>",
+            "de": "<accent><emphasis>{@values.service}</emphasis> startet neu.</accent> <muted>Du wartest im {@terms.waiting-room} und kommst von selbst zurück.</muted>"
           }
         }
       ]

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>Manage your access, language and Hunger Games registration in the Nordtal Discord.</muted>",
-            "de": "<muted>Im Nordtal-Discord verwaltest du Zugang, Sprache und Hunger-Games-Anmeldung.</muted>"
+            "en": "<muted>Manage your {@terms.access}, language and {@terms.hunger-games} registration in the Nordtal Discord.</muted>",
+            "de": "<muted>Im Nordtal-Discord verwaltest du {@terms.access}, Sprache und Hunger-Games-Anmeldung.</muted>"
           }
         },
         {

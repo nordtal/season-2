@@ -5,7 +5,7 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>The access check is not available.</bad> <muted>Try again in a few minutes.</muted>",
+            "en": "<bad>The {@terms.access} check is not available.</bad> <muted>Try again in a few minutes.</muted>",
             "de": "<bad>Die Zugangsprüfung ist nicht erreichbar.</bad> <muted>Versuch es in ein paar Minuten noch einmal.</muted>"
           }
         }

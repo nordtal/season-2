@@ -87,7 +87,7 @@ public interface TermMessages {
 
         @Name("Network")
         @Describe("All Nordtal servers behind the proxy.")
-        MessageRef network();
+        MessageRef network(@Arg("case") @Example("nominative") Case grammaticalCase);
 
         @Name("Objective")
         @Describe("A task on the SMP that the players finish together.")
@@ -99,7 +99,7 @@ public interface TermMessages {
 
         @Name("Period")
         @Describe("A span of days of access bought at once.")
-        MessageRef period();
+        MessageRef period(@Arg("n") @Example("2") long n);
 
         @Name("Phase")
         @Describe("The season's current stage, which decides which server is open.")

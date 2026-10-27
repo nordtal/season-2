@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "You paid {paid} for **{@values.duration.days, n=days}**. Your access lasts until **{until}**.",
-            "de": "Du hast {paid} für **{@values.duration.days, n=days}** gezahlt. Dein Zugang gilt bis **{until}**."
+            "en": "You paid {paid} for **{@values.duration.days, n=days}**. Your {@terms.access} lasts until **{until}**.",
+            "de": "Du hast {paid} für **{@values.duration.days, n=days}** gezahlt. Dein {@terms.access} gilt bis **{until}**."
           }
         }
       ]

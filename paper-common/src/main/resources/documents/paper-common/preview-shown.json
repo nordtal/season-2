@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>Your player sees it in game.</good>",
-            "de": "<good>Dein Spieler sieht es im Spiel.</good>"
+            "en": "<good>Your {@terms.player, n=1} sees it in game.</good>",
+            "de": "<good>Dein {@terms.player, n=1} sieht es im Spiel.</good>"
           }
         }
       ]

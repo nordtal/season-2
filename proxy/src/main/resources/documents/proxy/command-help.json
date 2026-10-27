@@ -12,8 +12,8 @@
         {
           "when": "command=msg",
           "text": {
-            "en": "<muted>This command sends a private message to a player on the network.</muted>",
-            "de": "<muted>Dieser Befehl schickt einem Spieler im Netzwerk eine private Nachricht.</muted>"
+            "en": "<muted>This command sends a private message to a {@terms.player, n=1} on the {@terms.network}.</muted>",
+            "de": "<muted>Dieser Befehl schickt einem {@terms.player, n=1} im {@terms.network} eine private Nachricht.</muted>"
           }
         },
         {
@@ -26,8 +26,8 @@
         {
           "when": "command=r",
           "text": {
-            "en": "<muted>This command answers the player who wrote to you last or whom you wrote to last.</muted>",
-            "de": "<muted>Dieser Befehl antwortet dem Spieler, der dir zuletzt geschrieben hat oder dem du zuletzt geschrieben hast.</muted>"
+            "en": "<muted>This command answers the {@terms.player, n=1} who wrote to you last or whom you wrote to last.</muted>",
+            "de": "<muted>Dieser Befehl antwortet dem {@terms.player, n=1}, der dir zuletzt geschrieben hat oder dem du zuletzt geschrieben hast.</muted>"
           }
         }
       ]

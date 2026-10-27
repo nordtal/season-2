@@ -6,15 +6,15 @@
         {
           "when": "world=nether",
           "text": {
-            "en": "<bad>The Nether is not open yet.</bad> <muted>A milestone opens it. The objective board at the spawn shows what is left.</muted>",
-            "de": "<bad>Der Nether ist noch nicht offen.</bad> <muted>Ein Meilenstein schaltet ihn frei. Die Zieltafel am Spawn zeigt, was noch fehlt.</muted>"
+            "en": "<bad>The Nether is not open yet.</bad> <muted>A {@terms.milestone, n=1} opens it. The {@terms.objective, n=1} board at the spawn shows what is left.</muted>",
+            "de": "<bad>Der Nether ist noch nicht offen.</bad> <muted>Ein {@terms.milestone, n=1} schaltet ihn frei. Die Zieltafel am Spawn zeigt, was noch fehlt.</muted>"
           }
         },
         {
           "when": "world=end",
           "text": {
-            "en": "<bad>The End is not open yet.</bad> <muted>A milestone opens it. The objective board at the spawn shows what is left.</muted>",
-            "de": "<bad>Das End ist noch nicht offen.</bad> <muted>Ein Meilenstein schaltet es frei. Die Zieltafel am Spawn zeigt, was noch fehlt.</muted>"
+            "en": "<bad>The End is not open yet.</bad> <muted>A {@terms.milestone, n=1} opens it. The {@terms.objective, n=1} board at the spawn shows what is left.</muted>",
+            "de": "<bad>Das End ist noch nicht offen.</bad> <muted>Ein {@terms.milestone, n=1} schaltet es frei. Die Zieltafel am Spawn zeigt, was noch fehlt.</muted>"
           }
         }
       ]

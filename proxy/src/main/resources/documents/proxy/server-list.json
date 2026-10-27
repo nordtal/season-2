@@ -58,15 +58,15 @@
         {
           "when": "phase=pre-event",
           "text": {
-            "en": "<muted>Hunger Games: <emphasis>{list.hgParticipants}</emphasis> {@terms.player, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>",
-            "de": "<muted>Hunger Games: <emphasis>{list.hgParticipants}</emphasis> Spieler in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>"
+            "en": "<muted>{@terms.hunger-games}: <emphasis>{list.hgParticipants}</emphasis> {@terms.player, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>",
+            "de": "<muted>{@terms.hunger-games}: <emphasis>{list.hgParticipants}</emphasis> {@terms.player, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>"
           }
         },
         {
           "when": "phase=start-event",
           "text": {
-            "en": "<muted>Hunger Games: <emphasis>{list.hgAlive}</emphasis> of <emphasis>{list.hgParticipants}</emphasis> still alive</muted>",
-            "de": "<muted>Hunger Games: <emphasis>{list.hgAlive}</emphasis> von <emphasis>{list.hgParticipants}</emphasis> leben noch</muted>"
+            "en": "<muted>{@terms.hunger-games}: <emphasis>{list.hgAlive}</emphasis> of <emphasis>{list.hgParticipants}</emphasis> still alive</muted>",
+            "de": "<muted>{@terms.hunger-games}: <emphasis>{list.hgAlive}</emphasis> von <emphasis>{list.hgParticipants}</emphasis> leben noch</muted>"
           }
         },
         {
@@ -79,8 +79,8 @@
         {
           "when": "phase=maintenance",
           "text": {
-            "en": "<muted>The network is down for maintenance.</muted>",
-            "de": "<muted>Das Netzwerk ist wegen Wartung offline.</muted>"
+            "en": "<muted>The {@terms.network} is down for maintenance.</muted>",
+            "de": "<muted>Das {@terms.network} ist wegen Wartung offline.</muted>"
           }
         }
       ]

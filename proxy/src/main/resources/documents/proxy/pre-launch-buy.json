@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<brand>Nordtal</brand> <warn>has not opened yet.</warn> <muted>Buy your first period in the contribution channel on Discord. You get access to the SMP when the event ends.</muted>",
-            "de": "<brand>Nordtal</brand> <warn>hat noch nicht eröffnet.</warn> <muted>Kauf deinen ersten Zeitraum im Beitragskanal auf Discord. Du bekommst Zugang zur SMP, wenn das Event endet.</muted>"
+            "en": "<brand>Nordtal</brand> <warn>has not opened yet.</warn> <muted>Buy your first {@terms.period, n=1} in the {@terms.contribution-channel} on Discord. You get {@terms.access} to the {@terms.smp} when the event ends.</muted>",
+            "de": "<brand>Nordtal</brand> <warn>hat noch nicht eröffnet.</warn> <muted>Kauf deinen ersten {@terms.period, n=1} im {@terms.contribution-channel} auf Discord. Du bekommst {@terms.access} zur {@terms.smp}, wenn das Event endet.</muted>"
           }
         },
         {

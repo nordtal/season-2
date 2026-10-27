@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "<good>Access runs until {until}.</good>",
-            "de": "<good>Zugang läuft bis {until}.</good>"
+            "de": "<good>{@terms.access} läuft bis {until}.</good>"
           }
         }
       ]

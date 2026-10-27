@@ -5,7 +5,7 @@
       "lines": [
         {
           "text": {
-            "en": "The network phase is now **{@values.phase}** (it was **{@values.phase, phase=previous}**).",
+            "en": "The {@terms.network} {@terms.phase} is now **{@values.phase}** (it was **{@values.phase, phase=previous}**).",
             "de": "Die Netzwerkphase ist jetzt **{@values.phase}** (vorher **{@values.phase, phase=previous}**)."
           }
         }

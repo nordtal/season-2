@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>{player.name} has no linked Discord account. The login should have refused this player.</bad>",
-            "de": "<bad>{player.name} hat kein verknüpftes Discord-Konto. Der Login hätte diesen Spieler abweisen müssen.</bad>"
+            "en": "<bad>{player.name} has no linked Discord account. The login should have refused this {@terms.player, n=1}.</bad>",
+            "de": "<bad>{player.name} hat kein verknüpftes Discord-Konto. Der Login hätte diesen {@terms.player, n=1} abweisen müssen.</bad>"
           }
         }
       ]

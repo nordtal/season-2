@@ -19,13 +19,13 @@
         {
           "text": {
             "en": "<emphasis>Spins left: {spins}</emphasis>",
-            "de": "<emphasis>Spins übrig: {spins}</emphasis>"
+            "de": "<emphasis>{@terms.spin, n=2} übrig: {spins}</emphasis>"
           }
         },
         {
           "text": {
-            "en": "<muted>A bigger contribution to an objective gives more spins.</muted>",
-            "de": "<muted>Ein größerer Beitrag zu einem Ziel gibt mehr Spins.</muted>"
+            "en": "<muted>A bigger contribution to an {@terms.objective, n=1} gives more {@terms.spin, n=2}.</muted>",
+            "de": "<muted>Ein größerer Beitrag zu einem {@terms.objective, n=1} gibt mehr {@terms.spin, n=2}.</muted>"
           }
         }
       ]
@@ -60,8 +60,8 @@
       "lines": [
         {
           "text": {
-            "en": "more spins",
-            "de": "mehr Spins"
+            "en": "more {@terms.spin, n=2}",
+            "de": "mehr {@terms.spin, n=2}"
           }
         }
       ]
@@ -81,7 +81,7 @@
           "when": "state=waiting",
           "text": {
             "en": "<faint>Wait for this one to finish.</faint>",
-            "de": "<faint>Warte, bis der Spin endet.</faint>"
+            "de": "<faint>Warte, bis der {@terms.spin, n=1} endet.</faint>"
           }
         },
         {
@@ -94,8 +94,8 @@
         {
           "when": "state=ready",
           "text": {
-            "en": "<muted>Costs one spin.</muted>",
-            "de": "<muted>Kostet einen Spin.</muted>"
+            "en": "<muted>Costs one {@terms.spin, n=1}.</muted>",
+            "de": "<muted>Kostet einen {@terms.spin, n=1}.</muted>"
           }
         },
         {
@@ -108,8 +108,8 @@
         {
           "when": "state=none",
           "text": {
-            "en": "<faint>That was your last spin. You get one free spin every day.</faint>",
-            "de": "<faint>Das war dein letzter Spin. Du bekommst jeden Tag einen Spin gratis.</faint>"
+            "en": "<faint>That was your last {@terms.spin, n=1}. You get one free {@terms.spin, n=1} every day.</faint>",
+            "de": "<faint>Das war dein letzter {@terms.spin, n=1}. Du bekommst jeden Tag einen {@terms.spin, n=1} gratis.</faint>"
           }
         }
       ]

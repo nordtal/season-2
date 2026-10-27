@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>This objective needs none of these items.</bad> <muted>Nothing was taken.</muted>",
-            "de": "<bad>Dieses Ziel braucht keins dieser Items.</bad> <muted>Es wurde nichts genommen.</muted>"
+            "en": "<bad>This {@terms.objective, n=1} needs none of these items.</bad> <muted>Nothing was taken.</muted>",
+            "de": "<bad>Dieses {@terms.objective, n=1} braucht keins dieser Items.</bad> <muted>Es wurde nichts genommen.</muted>"
           }
         }
       ]

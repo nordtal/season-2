@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>Go!</good> <muted>Friendly fire is on. Other players cannot hurt you for <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</muted>",
-            "de": "<good>Los!</good> <muted>Friendly Fire ist an. Andere Spieler können dich <emphasis>{@values.duration.seconds, n=seconds}</emphasis> lang nicht verletzen.</muted>"
+            "en": "<good>Go!</good> <muted>Friendly fire is on. Other {@terms.player, n=2} cannot hurt you for <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</muted>",
+            "de": "<good>Los!</good> <muted>Friendly Fire ist an. Andere {@terms.player, n=2} können dich <emphasis>{@values.duration.seconds, n=seconds}</emphasis> lang nicht verletzen.</muted>"
           }
         }
       ]

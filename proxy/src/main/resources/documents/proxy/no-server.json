@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>The server for the current phase is not available.</bad> <muted>An admin has to fix this. Try again later.</muted>",
-            "de": "<bad>Der Server für die aktuelle Phase ist nicht verfügbar.</bad> <muted>Ein Admin muss das beheben. Versuch es später noch einmal.</muted>"
+            "en": "<bad>The server for the current {@terms.phase} is not available.</bad> <muted>An admin has to fix this. Try again later.</muted>",
+            "de": "<bad>Der Server für die aktuelle {@terms.phase} ist nicht verfügbar.</bad> <muted>Ein Admin muss das beheben. Versuch es später noch einmal.</muted>"
           }
         }
       ]

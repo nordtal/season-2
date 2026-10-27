@@ -5,15 +5,15 @@
       "lines": [
         {
           "text": {
-            "en": "Your access has ended. Buy a new period in {channel} to join again.",
-            "de": "Dein Zugang ist abgelaufen. Kauf in {channel} einen neuen Zeitraum, um wieder zu spielen."
+            "en": "Your {@terms.access} has ended. Buy a new {@terms.period, n=1} in {channel} to join again.",
+            "de": "Dein {@terms.access} ist abgelaufen. Kauf in {channel} einen neuen {@terms.period, n=1}, um wieder zu spielen."
           },
           "when": "channel"
         },
         {
           "text": {
-            "en": "Your access has ended. Buy a new period in the contribution channel to join again.",
-            "de": "Dein Zugang ist abgelaufen. Kauf in dem Beitragskanal einen neuen Zeitraum, um wieder zu spielen."
+            "en": "Your {@terms.access} has ended. Buy a new {@terms.period, n=1} in the {@terms.contribution-channel} to join again.",
+            "de": "Dein {@terms.access} ist abgelaufen. Kauf in dem {@terms.contribution-channel} einen neuen {@terms.period, n=1}, um wieder zu spielen."
           },
           "when": "!channel"
         }

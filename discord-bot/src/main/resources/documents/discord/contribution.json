@@ -10,7 +10,7 @@
             {
               "text": {
                 "en": "Access",
-                "de": "Zugang"
+                "de": "{@terms.access}"
               },
               "style": "TITLE"
             }
@@ -65,8 +65,8 @@
             },
             {
               "text": {
-                "en": "*adds to your current access, nothing is lost*",
-                "de": "*wird an deinen Zugang angehängt, nichts geht verloren*"
+                "en": "*adds to your current {@terms.access}, nothing is lost*",
+                "de": "*wird an deinen {@terms.access} angehängt, nichts geht verloren*"
               }
             }
           ]
@@ -83,8 +83,8 @@
         {
           "slot": "buy",
           "label": {
-            "en": "Buy access",
-            "de": "Zugang kaufen"
+            "en": "Buy {@terms.access}",
+            "de": "{@terms.access} kaufen"
           }
         }
       ]

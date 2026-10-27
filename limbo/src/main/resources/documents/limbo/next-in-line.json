@@ -11,8 +11,8 @@
         },
         {
           "text": {
-            "en": "<muted>The server lets in one player at a time.</muted>",
-            "de": "<muted>Der Server lässt einen Spieler nach dem anderen herein.</muted>"
+            "en": "<muted>The server lets in one {@terms.player, n=1} at a time.</muted>",
+            "de": "<muted>Der Server lässt einen {@terms.player, n=1} nach dem anderen herein.</muted>"
           }
         }
       ]

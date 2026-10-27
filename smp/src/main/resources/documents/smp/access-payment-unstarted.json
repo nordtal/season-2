@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<neutral>Open purchase {reference}: {@values.duration.days, n=days}, started {since}. No payment link was created. The player stopped before asking for one.</neutral>",
-            "de": "<neutral>Offener Kauf {reference}: {@values.duration.days, n=days}, begonnen am {since}. Es wurde kein Zahlungslink erstellt. Der Spieler hat abgebrochen, bevor er einen angefordert hat.</neutral>"
+            "en": "<neutral>Open purchase {reference}: {@values.duration.days, n=days}, started {since}. No payment link was created. The {@terms.player, n=1} stopped before asking for one.</neutral>",
+            "de": "<neutral>Offener Kauf {reference}: {@values.duration.days, n=days}, begonnen am {since}. Es wurde kein Zahlungslink erstellt. Der {@terms.player, n=1} hat abgebrochen, bevor er einen angefordert hat.</neutral>"
           }
         }
       ]

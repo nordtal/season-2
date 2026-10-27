@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "Team **{team.name}** invites you to the Hunger Games start event.",
-            "de": "Team **{team.name}** lädt dich zum Start-Event der Hunger Games ein."
+            "en": "Team **{team.name}** invites you to the {@terms.hunger-games} start event.",
+            "de": "{@terms.team, n=1} **{team.name}** lädt dich zum Start-Event der {@terms.hunger-games} ein."
           }
         }
       ]

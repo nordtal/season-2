@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "Team **{name}** is registered. You can invite a partner below or play alone.",
-            "de": "Team **{name}** ist registriert. Du kannst unten einen Partner einladen oder allein spielen."
+            "de": "{@terms.team, n=1} **{name}** ist registriert. Du kannst unten einen Partner einladen oder allein spielen."
           }
         }
       ]

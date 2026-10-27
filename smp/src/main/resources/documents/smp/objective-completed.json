@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<accent><glyph:announce></accent> <muted>The objective <emphasis>\"{objective}\"</emphasis> is finished. Everybody who helped has been paid.</muted>",
-            "de": "<accent><glyph:announce></accent> <muted>Das Ziel <emphasis>\"{objective}\"</emphasis> ist geschafft. Alle, die geholfen haben, sind bezahlt.</muted>"
+            "en": "<accent><glyph:announce></accent> <muted>The {@terms.objective, n=1} <emphasis>\"{objective}\"</emphasis> is finished. Everybody who helped has been paid.</muted>",
+            "de": "<accent><glyph:announce></accent> <muted>Das {@terms.objective, n=1} <emphasis>\"{objective}\"</emphasis> ist geschafft. Alle, die geholfen haben, sind bezahlt.</muted>"
           }
         }
       ]

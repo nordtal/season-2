@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>Objective {key} of milestone {milestone.name} is closed by hand. It pays out what was collected, not the whole budget.</good>",
-            "de": "<good>Ziel {key} von Meilenstein {milestone.name} ist von Hand abgeschlossen. Es zahlt aus, was gesammelt wurde, nicht das ganze Budget.</good>"
+            "en": "<good>Objective {key} of {@terms.milestone, n=1} {milestone.name} is closed by hand. It pays out what was collected, not the whole budget.</good>",
+            "de": "<good>{@terms.objective, n=1} {key} von {@terms.milestone, n=1} {milestone.name} ist von Hand abgeschlossen. Es zahlt aus, was gesammelt wurde, nicht das ganze Budget.</good>"
           }
         }
       ]

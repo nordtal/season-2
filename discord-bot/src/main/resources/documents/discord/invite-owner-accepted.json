@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "{player.name} accepted your invitation. Team **{team.name}** is complete.",
-            "de": "{player.name} hat deine Einladung angenommen. Team **{team.name}** ist komplett."
+            "de": "{player.name} hat deine Einladung angenommen. {@terms.team, n=1} **{team.name}** ist komplett."
           }
         }
       ]

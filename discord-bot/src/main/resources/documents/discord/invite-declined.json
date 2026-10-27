@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "You declined the invitation to team **{team.name}**.",
-            "de": "Du hast die Einladung von Team **{team.name}** abgelehnt."
+            "en": "You declined the invitation to {@terms.team, n=1} **{team.name}**.",
+            "de": "Du hast die Einladung von {@terms.team, n=1} **{team.name}** abgelehnt."
           }
         }
       ]

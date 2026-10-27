@@ -6,8 +6,8 @@
         {
           "when": "!spins",
           "text": {
-            "en": "<good>No extra spins are left.</good>",
-            "de": "<good>Es ist kein Extra-Spin übrig.</good>"
+            "en": "<good>No {@terms.extra-spin, n=2} are left.</good>",
+            "de": "<good>Es ist kein {@terms.extra-spin, n=1} übrig.</good>"
           }
         },
         {

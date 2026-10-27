@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<brand><bold>Hunger Games rules</bold></brand>",
-            "de": "<brand><bold>Regeln der Hunger Games</bold></brand>"
+            "en": "<brand><bold>{@terms.hunger-games} rules</bold></brand>",
+            "de": "<brand><bold>Regeln der {@terms.hunger-games}</bold></brand>"
           }
         },
         {
@@ -17,8 +17,8 @@
         },
         {
           "text": {
-            "en": "<muted>The Hunger Games start when all teams are ready. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} ready.</muted> <click:run_command:'/hg ready'><good>[I have read the rules and I am ready]</good></click>",
-            "de": "<muted>Die Hunger Games starten, sobald alle Teams bereit sind. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} bereit.</muted> <click:run_command:'/hg ready'><good>[Ich habe die Regeln gelesen und bin bereit]</good></click>"
+            "en": "<muted>The {@terms.hunger-games} start when all {@terms.team, n=2} are ready. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} ready.</muted> <click:run_command:'/hg ready'><good>[I have read the rules and I am ready]</good></click>",
+            "de": "<muted>Die {@terms.hunger-games} starten, sobald alle {@terms.team, n=2} bereit sind. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} bereit.</muted> <click:run_command:'/hg ready'><good>[Ich habe die Regeln gelesen und bin bereit]</good></click>"
           }
         }
       ]

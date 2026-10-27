@@ -9,8 +9,8 @@
           "lines": [
             {
               "text": {
-                "en": "Hunger Games",
-                "de": "Hunger Games"
+                "en": "{@terms.hunger-games}",
+                "de": "{@terms.hunger-games}"
               },
               "style": "TITLE"
             }
@@ -22,14 +22,14 @@
             {
               "text": {
                 "en": "Team",
-                "de": "Team"
+                "de": "{@terms.team, n=1}"
               },
               "style": "HEADING"
             },
             {
               "text": {
-                "en": "1-2 players",
-                "de": "1-2 Spieler"
+                "en": "1-2 {@terms.player, n=2}",
+                "de": "1-2 {@terms.player, n=2}"
               }
             }
           ]

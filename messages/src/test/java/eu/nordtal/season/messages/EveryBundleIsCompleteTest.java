@@ -196,14 +196,13 @@ class EveryBundleIsCompleteTest {
                     }
                     choice.cases().values().forEach(inner -> collect(inner, into));
                 }
-                case Node.Block block -> {
-                    into.add("@" + block.key());
+                case Node.Block block ->
+                    // A language may name a term where another writes around it; only the values it binds count.
                     block.with().forEach((name, outer) -> {
-                        if (!name.equals(Node.Block.CASE)) {
+                        if (!name.equals(Node.Block.CASE) && !Node.Block.number(outer)) {
                             into.add(outer);
                         }
                     });
-                }
                 default -> {
                     // Literals, the # of a plural and tags name nothing.
                 }

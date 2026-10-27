@@ -68,6 +68,36 @@ class BuildingBlocksTest {
     }
 
     @Test
+    void anOverrideOfATermReachesTheTextValuesThatNameIt() {
+        final Messages messages = load();
+        final String term = "terms.smp";
+        messages.override(List.of(new MessageOverride(
+                Messages.TERMS,
+                term,
+                "en",
+                0,
+                "survival world",
+                PackagedTexts.hash(messages.packaged(Messages.TERMS, term, Locale.ENGLISH)))));
+        final Messages.Prepared prepared = messages.prepare(
+                Viewer.of(Locale.ENGLISH),
+                "{@values.service}",
+                Map.of("what", "smp", "service", "smp"),
+                Map.of(),
+                TextFormat.PLAIN,
+                "test");
+
+        assertEquals(
+                "The survival world",
+                PlainText.of(prepared.pieces(), prepared.language(), prepared.zone(), prepared.words()));
+    }
+
+    @Test
+    void aTermTakesTheGermanGenitive() {
+        assertEquals("des Netzwerks", drawn(load(), Locale.GERMAN, "des {@terms.network, case=genitive}", 2));
+        assertEquals("des Meilensteins", drawn(load(), Locale.GERMAN, "des {@terms.milestone, n=1, case=genitive}", 2));
+    }
+
+    @Test
     void aKeyThatIsNoBlockShowsTheReplacementWordOfAText() {
         assertEquals("something left", drawn(load(), Locale.ENGLISH, "{@greeting} left", 2));
     }

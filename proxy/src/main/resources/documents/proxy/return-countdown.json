@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>The network is back.</good> <muted>You reconnect in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</muted>",
-            "de": "<good>Das Netzwerk ist wieder da.</good> <muted>Du verbindest dich in <emphasis>{@values.duration.seconds, n=seconds}</emphasis> neu.</muted>"
+            "en": "<good>The {@terms.network} is back.</good> <muted>You reconnect in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</muted>",
+            "de": "<good>Das {@terms.network} ist wieder da.</good> <muted>Du verbindest dich in <emphasis>{@values.duration.seconds, n=seconds}</emphasis> neu.</muted>"
           }
         }
       ]

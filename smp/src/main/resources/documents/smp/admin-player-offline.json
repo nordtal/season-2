@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>That player is not online.</bad>",
-            "de": "<bad>Dieser Spieler ist nicht online.</bad>"
+            "en": "<bad>That {@terms.player, n=1} is not online.</bad>",
+            "de": "<bad>Dieser {@terms.player, n=1} ist nicht online.</bad>"
           }
         }
       ]

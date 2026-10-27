@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "Register your team",
-            "de": "Team registrieren"
+            "en": "Register your {@terms.team, n=1}",
+            "de": "{@terms.team, n=1} registrieren"
           },
           "style": "TITLE"
         }

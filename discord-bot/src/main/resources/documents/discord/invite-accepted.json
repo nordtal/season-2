@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "You joined team **{team.name}**.",
-            "de": "Du bist jetzt in Team **{team.name}**."
+            "en": "You joined {@terms.team, n=1} **{team.name}**.",
+            "de": "Du bist jetzt in {@terms.team, n=1} **{team.name}**."
           }
         }
       ]

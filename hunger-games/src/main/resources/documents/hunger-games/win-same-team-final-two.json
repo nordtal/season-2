@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>The last two survivors are on the same team.</warn> <muted>Friendly fire is on. You fight each other now.</muted>",
-            "de": "<warn>Die letzten beiden Überlebenden sind im selben Team.</warn> <muted>Friendly Fire ist an. Ihr kämpft jetzt gegeneinander.</muted>"
+            "en": "<warn>The last two survivors are on the same {@terms.team, n=1}.</warn> <muted>Friendly fire is on. You fight each other now.</muted>",
+            "de": "<warn>Die letzten beiden Überlebenden sind im selben {@terms.team, n=1}.</warn> <muted>Friendly Fire ist an. Ihr kämpft jetzt gegeneinander.</muted>"
           }
         }
       ]

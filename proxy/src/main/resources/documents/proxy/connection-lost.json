@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>The connection to the server was lost.</bad> <muted>You are in the waiting room. You join the server again when it answers.</muted>",
-            "de": "<bad>Die Verbindung zum Server ist abgebrochen.</bad> <muted>Du bist im Warteraum. Sobald der Server antwortet, kommst du zurück.</muted>"
+            "en": "<bad>The connection to the server was lost.</bad> <muted>You are in the {@terms.waiting-room}. You join the server again when it answers.</muted>",
+            "de": "<bad>Die Verbindung zum Server ist abgebrochen.</bad> <muted>Du bist im {@terms.waiting-room}. Sobald der Server antwortet, kommst du zurück.</muted>"
           }
         }
       ]

@@ -6,15 +6,15 @@
         {
           "when": "!extras",
           "text": {
-            "en": "<bad>No spins left today.</bad> <muted>Come back tomorrow.</muted>",
-            "de": "<bad>Heute keine Spins mehr.</bad> <muted>Komm morgen wieder.</muted>"
+            "en": "<bad>No {@terms.spin, n=2} left today.</bad> <muted>Come back tomorrow.</muted>",
+            "de": "<bad>Heute keine {@terms.spin, n=2} mehr.</bad> <muted>Komm morgen wieder.</muted>"
           }
         },
         {
           "when": "extras",
           "text": {
-            "en": "<bad>No spins left today.</bad> <muted>Still waiting: <emphasis>{extras}</emphasis> {@terms.extra-spin, n=extras}.</muted>",
-            "de": "<bad>Heute keine Spins mehr.</bad> <muted>Es warten noch: <emphasis>{extras}</emphasis> {@terms.extra-spin, n=extras}.</muted>"
+            "en": "<bad>No {@terms.spin, n=2} left today.</bad> <muted>Still waiting: <emphasis>{extras}</emphasis> {@terms.extra-spin, n=extras}.</muted>",
+            "de": "<bad>Heute keine {@terms.spin, n=2} mehr.</bad> <muted>Es warten noch: <emphasis>{extras}</emphasis> {@terms.extra-spin, n=extras}.</muted>"
           }
         }
       ]

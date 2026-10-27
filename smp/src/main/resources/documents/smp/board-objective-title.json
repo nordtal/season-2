@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<accent>Current objective</accent>",
-            "de": "<accent>Aktuelles Ziel</accent>"
+            "en": "<accent>Current {@terms.objective, n=1}</accent>",
+            "de": "<accent>Aktuelles {@terms.objective, n=1}</accent>"
           }
         }
       ]

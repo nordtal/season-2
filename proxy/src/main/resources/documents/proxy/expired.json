@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>Your access has ended.</bad> <muted>Buy a new period in the contribution channel on Discord.</muted>",
-            "de": "<bad>Dein Zugang ist abgelaufen.</bad> <muted>Kauf im Beitragskanal auf Discord einen neuen Zeitraum.</muted>"
+            "en": "<bad>Your {@terms.access} has ended.</bad> <muted>Buy a new {@terms.period, n=1} in the {@terms.contribution-channel} on Discord.</muted>",
+            "de": "<bad>Dein {@terms.access} ist abgelaufen.</bad> <muted>Kauf im {@terms.contribution-channel} auf Discord einen neuen {@terms.period, n=1}.</muted>"
           }
         }
       ]

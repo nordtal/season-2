@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "<good>Milestone {key} is unlocked. Everybody who qualified is paid.</good>",
-            "de": "<good>Meilenstein {key} ist freigeschaltet. Alle, die dafür in Frage kamen, sind ausgezahlt.</good>"
+            "de": "<good>{@terms.milestone, n=1} {key} ist freigeschaltet. Alle, die dafür in Frage kamen, sind ausgezahlt.</good>"
           }
         }
       ]

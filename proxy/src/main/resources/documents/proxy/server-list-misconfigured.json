@@ -11,8 +11,8 @@
         },
         {
           "text": {
-            "en": "<bad>The network is misconfigured. Nobody can join.</bad>",
-            "de": "<bad>Das Netzwerk ist falsch konfiguriert. Niemand kann beitreten.</bad>"
+            "en": "<bad>The {@terms.network} is misconfigured. Nobody can join.</bad>",
+            "de": "<bad>Das {@terms.network} ist falsch konfiguriert. Niemand kann beitreten.</bad>"
           }
         }
       ]

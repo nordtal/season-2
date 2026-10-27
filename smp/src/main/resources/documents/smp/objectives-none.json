@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>There is no current objective.</muted>",
-            "de": "<muted>Es gibt gerade kein Ziel.</muted>"
+            "en": "<muted>There is no current {@terms.objective, n=1}.</muted>",
+            "de": "<muted>Es gibt gerade kein {@terms.objective, n=1}.</muted>"
           }
         }
       ]

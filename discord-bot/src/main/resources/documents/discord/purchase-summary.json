@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "**{@values.duration.days, n=days} of access** for {price}.",
-            "de": "**{@values.duration.days, n=days} Zugang** für {price}."
+            "en": "**{@values.duration.days, n=days} of {@terms.access}** for {price}.",
+            "de": "**{@values.duration.days, n=days} {@terms.access}** für {price}."
           }
         },
         {

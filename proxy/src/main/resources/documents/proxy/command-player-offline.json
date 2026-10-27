@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>No player with that name is online on this server.</warn>",
-            "de": "<warn>Auf diesem Server ist kein Spieler mit diesem Namen online.</warn>"
+            "en": "<warn>No {@terms.player, n=1} with that name is online on this server.</warn>",
+            "de": "<warn>Auf diesem Server ist kein {@terms.player, n=1} mit diesem Namen online.</warn>"
           }
         }
       ]

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>An admin switches the phase to <emphasis>SMP</emphasis> next.</muted>",
-            "de": "<muted>Ein Admin schaltet als Nächstes die Phase auf <emphasis>SMP</emphasis>.</muted>"
+            "en": "<muted>An admin switches the {@terms.phase} to <emphasis>{@terms.smp}</emphasis> next.</muted>",
+            "de": "<muted>Ein Admin schaltet als Nächstes die {@terms.phase} auf <emphasis>{@terms.smp}</emphasis>.</muted>"
           }
         }
       ]

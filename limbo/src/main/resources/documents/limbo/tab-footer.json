@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<newline><faint>You will be connected to the network</faint>",
-            "de": "<newline><faint>Du wirst mit dem Netzwerk verbunden</faint>"
+            "en": "<newline><faint>You will be connected to the {@terms.network}</faint>",
+            "de": "<newline><faint>Du wirst mit dem {@terms.network} verbunden</faint>"
           }
         }
       ]

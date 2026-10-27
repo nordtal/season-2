@@ -6,8 +6,8 @@
         {
           "style": "TITLE",
           "text": {
-            "en": "Current objective",
-            "de": "Aktuelles Ziel"
+            "en": "Current {@terms.objective, n=1}",
+            "de": "Aktuelles {@terms.objective, n=1}"
           }
         }
       ]
@@ -118,8 +118,8 @@
         {
           "when": "contributed",
           "text": {
-            "en": "<muted>If these objectives finished now, you would get <emphasis>{spins}</emphasis> of their <emphasis>{budget} {@terms.extra-spin, n=budget}</emphasis>.</muted>",
-            "de": "<muted>Wären diese Ziele jetzt fertig, bekämst du <emphasis>{spins}</emphasis> von ihren <emphasis>{budget} {@terms.extra-spin, n=budget}</emphasis>.</muted>"
+            "en": "<muted>If these {@terms.objective, n=2} finished now, you would get <emphasis>{spins}</emphasis> of their <emphasis>{budget} {@terms.extra-spin, n=budget}</emphasis>.</muted>",
+            "de": "<muted>Wären diese {@terms.objective, n=2} jetzt fertig, bekämst du <emphasis>{spins}</emphasis> von ihren <emphasis>{budget} {@terms.extra-spin, n=budget}</emphasis>.</muted>"
           }
         }
       ]
@@ -154,8 +154,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>Previous objectives</muted>",
-            "de": "<muted>Vorherige Ziele</muted>"
+            "en": "<muted>Previous {@terms.objective, n=2}</muted>",
+            "de": "<muted>Vorherige {@terms.objective, n=2}</muted>"
           }
         }
       ]
@@ -166,8 +166,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>More objectives</muted>",
-            "de": "<muted>Weitere Ziele</muted>"
+            "en": "<muted>More {@terms.objective, n=2}</muted>",
+            "de": "<muted>Weitere {@terms.objective, n=2}</muted>"
           }
         }
       ]

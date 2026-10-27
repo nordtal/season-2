@@ -5,29 +5,29 @@
       "lines": [
         {
           "text": {
-            "en": "<accent><bold>Hunger Games evaluation</bold></accent>",
+            "en": "<accent><bold>{@terms.hunger-games} evaluation</bold></accent>",
             "de": "<accent><bold>Hunger-Games-Auswertung</bold></accent>"
           }
         },
         {
           "when": "outcome=tie-broken",
           "text": {
-            "en": "<warn>The last two survivors died at the same moment.</warn> <muted><emphasis>{winner.name}</emphasis> wins with more kills (<emphasis>{winnerKills}</emphasis> {@terms.kill, n=winnerKills} to <emphasis>{loserKills}</emphasis>).</muted>",
-            "de": "<warn>Die letzten beiden Überlebenden sind im selben Moment gestorben.</warn> <muted><emphasis>{winner.name}</emphasis> gewinnt mit mehr Kills (<emphasis>{winnerKills}</emphasis> zu <emphasis>{loserKills}</emphasis>).</muted>"
+            "en": "<warn>The last two survivors died at the same moment.</warn> <muted><emphasis>{winner.name}</emphasis> wins with more {@terms.kill, n=2} (<emphasis>{winnerKills}</emphasis> {@terms.kill, n=winnerKills} to <emphasis>{loserKills}</emphasis>).</muted>",
+            "de": "<warn>Die letzten beiden Überlebenden sind im selben Moment gestorben.</warn> <muted><emphasis>{winner.name}</emphasis> gewinnt mit mehr {@terms.kill, n=2} (<emphasis>{winnerKills}</emphasis> zu <emphasis>{loserKills}</emphasis>).</muted>"
           }
         },
         {
           "when": "outcome=won",
           "text": {
-            "en": "<accent><glyph:announce></accent> <accent><bold><emphasis>{winner.name}</emphasis> has won the Hunger Games!</bold></accent>",
-            "de": "<accent><glyph:announce></accent> <accent><bold><emphasis>{winner.name}</emphasis> hat die Hunger Games gewonnen!</bold></accent>"
+            "en": "<accent><glyph:announce></accent> <accent><bold><emphasis>{winner.name}</emphasis> has won the {@terms.hunger-games}!</bold></accent>",
+            "de": "<accent><glyph:announce></accent> <accent><bold><emphasis>{winner.name}</emphasis> hat die {@terms.hunger-games} gewonnen!</bold></accent>"
           }
         },
         {
           "when": "outcome=tie",
           "text": {
-            "en": "<bad>The last two survivors died at the same moment with equal kills (<emphasis>{winnerKills}</emphasis> each).</bad> <muted>There is no winner this time.</muted>",
-            "de": "<bad>Die letzten beiden Überlebenden sind im selben Moment mit gleich vielen Kills (<emphasis>{winnerKills}</emphasis> je) gestorben.</bad> <muted>Diesmal gewinnt niemand.</muted>"
+            "en": "<bad>The last two survivors died at the same moment with equal {@terms.kill, n=2} (<emphasis>{winnerKills}</emphasis> each).</bad> <muted>There is no winner this time.</muted>",
+            "de": "<bad>Die letzten beiden Überlebenden sind im selben Moment mit gleich vielen {@terms.kill, n=2} (<emphasis>{winnerKills}</emphasis> je) gestorben.</bad> <muted>Diesmal gewinnt niemand.</muted>"
           }
         },
         {

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "How long do you want access?",
-            "de": "Wie lange willst du Zugang?"
+            "en": "How long do you want {@terms.access}?",
+            "de": "Wie lange willst du {@terms.access}?"
           }
         }
       ]
@@ -17,8 +17,8 @@
         {
           "slot": "days",
           "placeholder": {
-            "en": "How long do you want access?",
-            "de": "Wie lange willst du Zugang?"
+            "en": "How long do you want {@terms.access}?",
+            "de": "Wie lange willst du {@terms.access}?"
           },
           "option": {
             "en": "{@values.duration.days, n=days}: {price}",

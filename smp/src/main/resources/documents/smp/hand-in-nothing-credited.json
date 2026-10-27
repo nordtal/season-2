@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>The objective is already finished.</bad> <muted>You got your items back.</muted>",
-            "de": "<bad>Das Ziel ist schon geschafft.</bad> <muted>Du hast deine Items zurück.</muted>"
+            "en": "<bad>The {@terms.objective, n=1} is already finished.</bad> <muted>You got your items back.</muted>",
+            "de": "<bad>Das {@terms.objective, n=1} ist schon geschafft.</bad> <muted>Du hast deine Items zurück.</muted>"
           }
         }
       ]

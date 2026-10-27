@@ -1,7 +1,7 @@
 # Every external version used anywhere in this build lives here.
 [versions]
 # Paper dropped the -R0.1-SNAPSHOT suffix with the 26.x version scheme.
-paper = "26.2.build.121-stable"
+paper = "26.3.build.227-stable"
 # Tracks the build Fill ships in the 4.0.0 family the proxy follows.
 velocity = "4.3.0"
 # :display-tags compiles against these; the servers install PacketEvents, the other two are optional.

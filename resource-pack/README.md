@@ -22,7 +22,7 @@ pack holds only the PNG, and `checkPack` refuses a source whose PNG is missing.
 ## Editing the art
 
 The steps run from the Run menu of IntelliJ, folder **resource pack**, on any operating system, with
-Minecraft 26.2.
+Minecraft 26.3.
 
 1. Run **pack: 1. choose Minecraft instance** once and pick the folder of the instance. A folder that
    never ran is taken when its launcher marked it: `versions` or `.fabric` in it, or `mmc-pack.json`

@@ -4,7 +4,7 @@ main: eu.nordtal.season.smp.SmpPlugin
 description: The season 2 SMP - Nordtal, the Nether and the End.
 author: nordtal
 website: https://nordtal.eu
-api-version: "26.2"
+api-version: "26.3"
 
 # The name tags need PacketEvents. A server without it fails at start. TAB is used when present.
 dependencies:

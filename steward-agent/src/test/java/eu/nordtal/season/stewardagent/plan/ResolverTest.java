@@ -65,7 +65,8 @@ class ResolverTest {
                 .serving("loaders=%5B%22velocity%22%5D", "modrinth-voicechat-velocity.json")
                 // Modrinth answers an empty array for CoreProtect on this platform.
                 .serving("/project/Lu3KuzdV/version", "modrinth-coreprotect-none.json")
-                .serving("/projects/paper/versions/26.2/builds", "fill-paper-26.2.json")
+                // The fixture is 26.2's; only the route follows the version.
+                .serving("/projects/paper/versions/" + Platform.MINECRAFT + "/builds", "fill-paper-26.2.json")
                 // Two calls for the proxy: the project list names Velocity's major, then its build list is read.
                 .serving("/projects/velocity", "fill-velocity-project.json")
                 .serving("/projects/velocity/versions/4.3.0/builds", "fill-velocity-4.3.0.json")
@@ -586,9 +587,12 @@ class ResolverTest {
         installCurrentEverything();
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
         http.failing(
-                "/projects/paper/versions/26.2/builds",
+                "/projects/paper/versions/" + Platform.MINECRAFT + "/builds",
                 new HttpFailure(
-                        URI.create("https://fill.papermc.io/v3/projects/paper/versions/26.2/builds"), 503, "down"));
+                        URI.create(
+                                "https://fill.papermc.io/v3/projects/paper/versions/" + Platform.MINECRAFT + "/builds"),
+                        503,
+                        "down"));
 
         final Work work = Work.of(resolve());
 

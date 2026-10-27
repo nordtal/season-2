@@ -7,7 +7,7 @@ package eu.nordtal.season.common;
 public final class Platform {
 
     /** The Minecraft version of the whole network. */
-    public static final String MINECRAFT = "26.2";
+    public static final String MINECRAFT = "26.3";
 
     /** Fill's key for the Velocity major version of the proxy. */
     public static final String VELOCITY_FAMILY = "4.0.0";
@@ -16,10 +16,10 @@ public final class Platform {
     public static final String VELOCITY_API = "4.3.0";
 
     /** The resource pack format that {@link #MINECRAFT} reads. {@code resource-pack/src/pack.mcmeta} must cover it. */
-    public static final int PACK_FORMAT = 88;
+    public static final int PACK_FORMAT = 97;
 
     /** The {@code api-version} of the three Paper plugins. */
-    public static final String API_VERSION = "26.2";
+    public static final String API_VERSION = "26.3";
 
     private Platform() {}
 }

@@ -8,8 +8,8 @@
 -- dialogs.bounds(dialog) gives where a shown dialog is. A dialog with
 -- the argument tab is a tab and gets no answer.
 
-local kinds = { "button", "canvas", "check", "combobox", "editor", "entry", "file", "label", "number", "radio",
-                "separator", "tree" }
+local kinds = { "button", "canvas", "check", "combobox", "editor", "entry", "file", "label", "number", "panel",
+                "radio", "separator", "tree" }
 
 -- The value that a widget of kind starts with in the dialog's data
 local starts = {
@@ -19,6 +19,11 @@ local starts = {
   entry=function(t) return t.text end,
   radio=function(t) return t.selected or false end,
 }
+
+-- Like luaL_checkoption in the fork, a side other than left or right raises
+local function checkSide(side)
+  assert(side == nil or side == "left" or side == "right", "the side panel's side is \"left\" or \"right\"")
+end
 
 return function(answer)
   local dialogs, shown = {}, {}
@@ -36,6 +41,15 @@ return function(answer)
     for _, kind in ipairs(kinds) do
       d[kind] = function(self, t)
         t = t or {}
+        if kind == "panel" then
+          assert(args and args.tab, "Dialog:panel{} needs a Dialog{ tab=true }")
+          assert(not self.panelArgs, "a Dialog has one side panel at most")
+          checkSide(t.side)
+          self.panelArgs = t
+        end
+        if t.id and self.panelArgs and self.kinds[t.id] and (kind == "panel" or self.kinds[t.id] == "panel") then
+          error("the id \"" .. t.id .. "\" is taken by the side panel or a widget")
+        end
         table.insert(self.widgets, { kind=kind, args=t })
         if t.id then
           self.handlers[t.id], self.kinds[t.id] = t, kind
@@ -56,6 +70,7 @@ return function(answer)
       table.insert(self.modified, t)
       local widget = t.id and self.handlers[t.id]
       if not widget then return end
+      if self.kinds[t.id] == "panel" then checkSide(t.side) end
       for k, v in pairs(t) do widget[k] = v end
       if t.sprite ~= nil then self.values[t.id] = t.sprite or nil end
       if t.text and self.kinds[t.id] == "entry" then self.values[t.id] = t.text end

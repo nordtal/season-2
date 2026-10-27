@@ -34,6 +34,7 @@ import type { Highlight } from "@/components/steward/settings-view"
 import { choice, message, t } from "@/lib/texts"
 
 export const TEXTS_FILE = "texts"
+const DOCUMENTS_FILE = "documents"
 
 /** One text as a preview draws it: its runs with the cases its examples pick, or its source when it cannot be read. */
 type DrawnText = { runs: Run[] | null; text: string; fill: Fill }
@@ -63,6 +64,14 @@ function isMessageDraftRecord(value: unknown): value is Record<string, MessageDr
   return typeof value === "object" && value !== null && Object.values(value).every(isMessageDraft)
 }
 
+function isDocumentDraftRecord(value: unknown): value is Record<string, Document> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.values(value).every((document) => typeof document === "object" && document !== null)
+  )
+}
+
 function changesOf(draft: Record<string, MessageDraft>, byId: Map<string, MessageText>): MessageChanges["changes"] {
   const changes: MessageChanges["changes"] = {}
   for (const [id, changed] of Object.entries(draft)) {
@@ -89,7 +98,7 @@ export function useTextsModel(texts: MessageTexts, documents: DocumentList | und
   const examples = useMessageExamples()
   const words = useWords()
   const [warnings, setWarnings] = useState<Warning[]>([])
-  const { drafts, setDraft: setDocumentDraft } = useDocumentDrafts()
+  const drafts = useDraft<Document>(DOCUMENTS_FILE, isDocumentDraftRecord)
   const views = useMemo(() => documents?.documents ?? [], [documents])
   const listed = useMemo(
     () => (service === undefined ? texts.texts : texts.texts.filter((text) => text.services.includes(service))),
@@ -229,7 +238,7 @@ export function useTextsModel(texts: MessageTexts, documents: DocumentList | und
     nodes,
     draftIds,
     drafts,
-    setDocumentDraft,
+    setDocumentDraft: (id: string, next: Document | undefined) => setDraftValue(DOCUMENTS_FILE, id, next),
     languagesOf: (bundle: string) => languages.get(bundle) ?? [ENGLISH],
     submit,
     save,
@@ -279,19 +288,4 @@ export function Pills({ entry, places }: { entry: MessageEntry; places: Places }
       ))}
     </span>
   )
-}
-
-/** Keeps the draft of each opened document while the page lives. */
-function useDocumentDrafts() {
-  const [drafts, setDrafts] = useState<Record<string, Document>>({})
-  return {
-    drafts,
-    setDraft: (id: string, draft: Document | undefined) =>
-      setDrafts((all) => {
-        const next = { ...all }
-        if (draft) next[id] = draft
-        else delete next[id]
-        return next
-      }),
-  }
 }

@@ -756,3 +756,24 @@ describe("a link", () => {
     expect(scrolled).toContain(current)
   })
 })
+
+describe("a document's draft", { timeout: 15_000 }, () => {
+  it("outlives the page and is marked on its row, and leaving the site asks first", async () => {
+    serve()
+    const first = draw(<Page />)
+    fireEvent.change(unfold(await openContribution()), { target: { value: "Support" } })
+    first.unmount()
+
+    draw(<Page state={{ area: "DISCORD" }} />)
+    const row = (await screen.findAllByRole("button", { name: "Contribution" }))[0]
+    expect(within(row).getByLabelText("Changed")).toBeDefined()
+    fireEvent.click(row)
+    const editor = await screen.findByRole("region", { name: "Contribution" })
+    fireEvent.click(within(editor).getByRole("button", { name: /^Text block\s*Support$/ }))
+    expect(within(editor).getByDisplayValue("Support")).toBeDefined()
+
+    const leaving = new Event("beforeunload", { cancelable: true })
+    window.dispatchEvent(leaving)
+    expect(leaving.defaultPrevented).toBe(true)
+  })
+})

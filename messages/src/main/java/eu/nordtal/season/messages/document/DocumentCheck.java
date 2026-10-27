@@ -512,7 +512,7 @@ public final class DocumentCheck {
                 case Node.Choice choice -> {
                     used.add(choice.name());
                     problems.add(new Problem(
-                            mode == MessageCheck.Mode.PACKAGED,
+                            true,
                             where + " holds the case of " + choice.name()
                                     + ", which a building block or a line with when holds instead",
                             at));

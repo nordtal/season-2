@@ -156,6 +156,19 @@ class DocumentCheckTest {
                         MENU_SOUND.replace("{spins} übrig", "{spins, plural, one {# Spin} other {# Spins}} übrig")));
     }
 
+    /** An admin's override is refused for a case as a packaged document is. */
+    @Test
+    void anOverridesTextHoldsNoCaseEither() {
+        assertEquals(
+                List.of("a text block in English holds the case of days, which a building block or a line with"
+                        + " when holds instead"),
+                DocumentCheck.errors(
+                        SUMMARY.declaration(),
+                        Document.decode(
+                                SOUND.replace("**{days} days**", "**{days, plural, one {# day} other {# days}}**")),
+                        MessageCheck.Mode.OVERRIDE));
+    }
+
     @Test
     void aDocumentThatFitsItsDeclarationHasNoProblem() {
         assertEquals(List.of(), errors(SUMMARY, SOUND));

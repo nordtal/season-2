@@ -68,7 +68,7 @@ public final class TranslationSearch {
      *
      * @param language the language it was found in, the network's first where no text of one was
      * @param field    the weakest field a word of the query was found in
-     * @param exact    whether every word was found as typed
+     * @param exact    whether every word was found as typed at the start of a word
      * @param text     the version that was found, or the first in {@code language}, as written
      */
     public record Hit(Kind kind, String id, String language, Field field, boolean exact, String text) {}
@@ -181,12 +181,20 @@ public final class TranslationSearch {
     private static final Comparator<Match> BEST_MATCH =
             Comparator.comparing((Match match) -> !match.exact()).thenComparing(Match::field);
 
-    /** Returns how {@code word} is found in {@code field}: inside it as typed, or as the start of one of its words. */
+    /**
+     * Returns how {@code word} is found in {@code field}, or {@code null}.
+     *
+     * Exact at the start of a word; approximate inside a word, such as a compound's end, or with typos at a start.
+     */
     private static @Nullable Match match(
             final String word, final String field, final Field where, final @Nullable String version) {
         final List<String> words = wordsOf(field);
-        if (String.join(" ", words).contains(word)) {
+        final String joined = " " + String.join(" ", words);
+        if (joined.contains(" " + word)) {
             return new Match(true, where, version);
+        }
+        if (joined.contains(word)) {
+            return new Match(false, where, version);
         }
         final int typos = word.length() >= TWO_TYPOS ? 2 : word.length() >= ONE_TYPO ? 1 : 0;
         if (typos == 0) {

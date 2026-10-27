@@ -142,8 +142,10 @@ export function CommandPalette() {
       title={t("steward.shell.search")}
       description={t("steward.shell.jump")}
       label={t("steward.shell.search-label")}
-      // Ranks a name above a mention. The text is in `keywords`, because `value` is the row's identity.
-      filter={(value, query, keywords) => rankValue(keywords?.join("\n") ?? value, query)}
+      // Ranks a name above a mention, and keeps the server's translation hits, already ranked, below the rest.
+      filter={(value, query, keywords) =>
+        value.startsWith("translation-") ? 0.2 : rankValue(keywords?.join("\n") ?? value, query)
+      }
       // Applies to the dialog only. On a phone the sheet is full width at the bottom edge.
       className="sm:top-[20%] sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:translate-y-0"
     >
@@ -154,10 +156,7 @@ export function CommandPalette() {
         placeholder={t("steward.shell.search-placeholder")}
       />
       <CommandList className="max-h-[22rem]">
-        {/* cmdk counts only the rows its own filter keeps, so the server's hits would show next to "nothing found". */}
-        {translations.data?.length ? null : (
-          <CommandEmpty>{reading ? t("steward.shell.still-reading") : t("steward.shell.nothing-found")}</CommandEmpty>
-        )}
+        <CommandEmpty>{reading ? t("steward.shell.still-reading") : t("steward.shell.nothing-found")}</CommandEmpty>
         {groups.map((group, index) => (
           <React.Fragment key={group.id}>
             {index > 0 ? <CommandSeparator /> : null}

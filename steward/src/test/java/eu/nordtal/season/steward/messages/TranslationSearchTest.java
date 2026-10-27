@@ -88,6 +88,19 @@ class TranslationSearchTest {
     }
 
     @Test
+    void aWordFoundAtTheStartOfAWordRanksAboveOneFoundInsideAWord() {
+        final Candidate stage =
+                new Candidate(Kind.TEXT, "steward/run.stage", "A run's stage", "run.stage", List.of(), Map.of());
+
+        assertEquals(
+                List.of("values/duration.days", "steward/run.stage"),
+                ids(TranslationSearch.find("Tage", List.of(stage, DAYS), LANGUAGES)));
+        final Candidate compound =
+                new Candidate(Kind.TEXT, "discord/link", "Zahlungslink", "zahlungslink", List.of(), Map.of());
+        assertEquals(List.of("discord/link"), ids(TranslationSearch.find("link", List.of(compound), LANGUAGES)));
+    }
+
+    @Test
     void aKeyAndAParentFindTheTranslation() {
         assertEquals(
                 Field.KEY,

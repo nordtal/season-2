@@ -82,16 +82,14 @@ export function TranslationHits({ search, open, onDone }: { search: string; open
   return (
     <>
       <CommandSeparator />
-      <CommandGroup heading={t("steward.shell.page", { page: "translations" })} forceMount>
+      <CommandGroup heading={t("steward.shell.page", { page: "translations" })}>
         {rows.map(({ hit, leaf, name, format, args, bundle }) => {
           const fill = fillOf(args, examples, words(hit.language, bundle))
           const text = renderedText(hit.text, format, tones, args, examples, fill).replace(/\s+/g, " ").trim()
           return (
-            // The server ranked and filtered these, so cmdk's own filter keeps every row.
             <CommandItem
               key={leaf}
               value={`translation-${leaf}`}
-              forceMount
               onSelect={() => {
                 onDone()
                 setPendingTextJump({ id: leaf, language: hit.language })

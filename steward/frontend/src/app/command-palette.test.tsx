@@ -554,6 +554,22 @@ describe("CommandPalette - finding a translation", () => {
     ])
   })
 
+  it("selects the first hit when the server's answer comes after the typing, so Enter opens it", async () => {
+    oneBundle([grave])
+    const palette = render(<CommandPalette />)
+    ctrlK(document.body)
+    const input = await waitFor(() => nonNull(searchInput(), "the search input"))
+    fireEvent.change(input, { target: { value: "zzz" } })
+    found([textHit({ language: "de", text: "de-marker" })])
+    palette.rerender(<CommandPalette />)
+
+    const first = screen.getByRole("group", { name: "Translations" }).querySelector("[cmdk-item]")
+    await waitFor(() => expect(first?.getAttribute("aria-selected")).toBe("true"))
+    fireEvent.keyDown(input, { key: "Enter" })
+
+    expect(takePendingTextJump()).toEqual({ id: "smp/grave.decay.announce", language: "de" })
+  })
+
   it("opens a text in the language it was found in", async () => {
     oneBundle([grave])
     found([textHit({ language: "de", text: "de-marker" })])

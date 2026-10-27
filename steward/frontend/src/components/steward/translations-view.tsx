@@ -8,7 +8,6 @@ import { setDraftValue } from "@/lib/drafts"
 import { documentId, documentOf, sharedPartId, type PageCard } from "@/lib/documents"
 import { ENGLISH, type Language } from "@/lib/message-text"
 import { useTranslationSearch } from "@/lib/queries"
-import { plainText } from "@/lib/rich-text"
 import { choice, t } from "@/lib/texts"
 import { isBuildingBlock } from "@/lib/text-places"
 import {
@@ -17,7 +16,6 @@ import {
   documentWords,
   hitItemId,
   type Item,
-  readable,
   type Section,
   untranslated,
 } from "@/lib/translation-items"
@@ -28,14 +26,7 @@ import { SearchField } from "@/components/steward/filter-bar"
 import { DocumentPreview } from "@/components/steward/message-editor/document-preview"
 import { OpenBlock } from "@/components/steward/message-editor/preview"
 import { DraftDot, type Highlight, PinnedRow, type Target, useWide } from "@/components/steward/settings-view"
-import {
-  type DrawnText,
-  FallenBack,
-  Pills,
-  TEXTS_FILE,
-  type TextsModel,
-  useTextsModel,
-} from "@/components/steward/texts"
+import { FallenBack, Pills, TEXTS_FILE, type TextsModel, useTextsModel } from "@/components/steward/texts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -349,8 +340,7 @@ function documentFor(model: TextsModel, card: PageCard & { kind: "document" }): 
 /** An item's first words in `language`, else in English, as a preview draws them. */
 function lineOf(model: TextsModel, card: PageCard, language: Language): string {
   if (card.kind === "text") {
-    const drawn = model.shared.draw(`${card.text.entry.bundle}/${card.text.entry.key}`, language)
-    return drawn ? oneLine(drawn) : ""
+    return model.shared.draw(`${card.text.entry.bundle}/${card.text.entry.key}`, language) ?? ""
   }
   const document = card.kind === "document" ? documentFor(model, card) : { parts: [sharedPartFor(model, card)] }
   const own = documentWords(document, language)
@@ -359,11 +349,7 @@ function lineOf(model: TextsModel, card: PageCard, language: Language): string {
   if (!source) return ""
   const game = card.kind === "document" && card.view.game
   const args = card.kind === "document" ? argsOf(card.view.named) : []
-  return oneLine(model.shared.drawSource(source, game ? "MINIMESSAGE" : "DISCORD_MARKDOWN", args, shownIn))
-}
-
-function oneLine(drawn: DrawnText): string {
-  return drawn.runs ? plainText(drawn.runs, drawn.fill).replaceAll(/\s+/g, " ").trim() : readable(drawn.text)
+  return model.shared.drawLine(source, game ? "MINIMESSAGE" : "DISCORD_MARKDOWN", args, shownIn)
 }
 
 function Trail({ labels }: { labels: string[] }) {

@@ -3,7 +3,6 @@ import { useMemo, useState } from "react"
 import type {
   Document,
   DocumentList,
-  MessageArg,
   MessageChanges,
   MessageEntry,
   MessageFallback,
@@ -22,29 +21,23 @@ import {
   shownOf,
   type Language,
 } from "@/lib/message-text"
-import { useMessageExamples, useMessageFallbacks, useMessageSyntax, useSaveMessageTexts } from "@/lib/queries"
-import { branchesOf, type Format, formatOf, parse, type Run } from "@/lib/rich-text"
+import { useMessageFallbacks, useMessageSyntax, useSaveMessageTexts } from "@/lib/queries"
+import { formatOf } from "@/lib/rich-text"
 import { textId, textsTree } from "@/lib/settings-tree"
 import { pagesOf, pillsOf, type Places } from "@/lib/text-places"
 import { Failure } from "@/components/steward/query-state"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Badge } from "@/components/ui/badge"
 import { MessageEditor, type MessageDraft } from "@/components/steward/message-editor/message-editor"
-import { fillOf, useWords, valuesOf, type Fill } from "@/components/steward/message-editor/examples"
+import { useDrawLine, type DrawLine } from "@/components/steward/message-editor/examples"
 import type { Highlight } from "@/components/steward/settings-view"
 import { choice, message, t } from "@/lib/texts"
 
 export const TEXTS_FILE = "texts"
 const DOCUMENTS_FILE = "documents"
 
-/** One text as a preview draws it: its runs with the cases its examples pick, or its source when it cannot be read. */
-export type DrawnText = { runs: Run[] | null; text: string; fill: Fill }
-
-/** Draws the text `id`, a `bundle/key`, in `language`. */
-type DrawText = (id: string, language: Language) => DrawnText | null
-
-/** Draws a source text in `format` that names `args`, in `language`; a document's text names no bundle. */
-type DrawSource = (text: string, format: Format, args: MessageArg[], language: Language, bundle?: string) => DrawnText
+/** Draws the text `id`, a `bundle/key`, in `language` on one line. */
+type DrawText = (id: string, language: Language) => string | null
 
 /**
  * The network has no palette of its own. This is one object, so the editor's memo of its tones holds.
@@ -99,8 +92,6 @@ export function useTextsModel(texts: MessageTexts, documents: DocumentList | und
   const takeOver = useSaveMessageTexts()
   const fallbacks = useMessageFallbacks()
   const syntax = useMessageSyntax()
-  const examples = useMessageExamples()
-  const words = useWords()
   const [warnings, setWarnings] = useState<Warning[]>([])
   const drafts = useDraft<Document>(DOCUMENTS_FILE, isDocumentDraftRecord)
   const views = useMemo(() => documents?.documents ?? [], [documents])
@@ -137,19 +128,13 @@ export function useTextsModel(texts: MessageTexts, documents: DocumentList | und
 
   const draftIds = useMemo(() => new Set(Object.keys(draft)), [draft])
 
-  const drawSource: DrawSource = (text, format, args, language, bundle) => {
-    const tags = Object.keys(tones)
-    const shownIn = words(language, bundle)
-    const fill = fillOf(args, examples.data, shownIn)
-    const runs = parse(text, format, tags)
-    return { runs: runs && branchesOf(runs, format, tags, valuesOf(args, examples.data), shownIn), text, fill }
-  }
+  const drawLine = useDrawLine(tones)
 
   const draw: DrawText = (id, language) => {
     const entry = byId.get(id)?.entry
     if (!entry) return null
     const text = currentOf(entry, draft[id], language) || currentOf(entry, draft[id], ENGLISH)
-    return drawSource(text, formatOf(entry.format), entry.args, language, entry.bundle)
+    return drawLine(text, formatOf(entry.format), entry.args, language, entry.bundle)
   }
 
   function set(id: string, language: Language, value: string[] | null | undefined) {
@@ -215,7 +200,7 @@ export function useTextsModel(texts: MessageTexts, documents: DocumentList | und
   const shared: Shared = {
     places: texts.places,
     draw,
-    drawSource,
+    drawLine,
     tones,
     languages: documents?.languages ?? [],
     draftIds,
@@ -264,7 +249,7 @@ export type TextsModel = ReturnType<typeof useTextsModel>
 export type Shared = {
   places: Places
   draw: DrawText
-  drawSource: DrawSource
+  drawLine: DrawLine
   tones: Record<string, string>
   languages: string[]
   draftIds: Set<string>

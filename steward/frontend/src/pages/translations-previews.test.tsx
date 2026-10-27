@@ -285,4 +285,30 @@ describe("the previews", () => {
     await waitFor(() => expect(row.textContent).toContain("The Nether is complete, 2 days early."))
     expect(row.textContent).not.toContain("{")
   })
+
+  it("folds a document's part to its first words as a preview draws them", async () => {
+    const values = { "milestone.name": { kind: "text", example: "The Nether" }, days: { kind: "number", example: "2" } }
+    const milestone = view(
+      { name: "milestone", title: "Milestone", values },
+      {
+        parts: [
+          { type: "TEXT", lines: [{ text: { en: "Milestone" }, style: "TITLE" }] },
+          {
+            type: "TEXT",
+            lines: [
+              { text: { en: "**{milestone.name}** is complete, {days, plural, one {# day} other {# days}} early." } },
+            ],
+          },
+        ],
+      },
+      { named: values },
+    )
+    vi.stubGlobal("fetch", backend(listing([]), undefined, { documents: documents([milestone]) }))
+    draw(<Page />)
+
+    await openItem("Milestone", /^Discord/)
+    const editor = await screen.findByRole("region", { name: "Milestone" })
+    const folded = /^Text block\s*The Nether is complete, 2 days early\.$/
+    await waitFor(() => expect(within(editor).getByRole("button", { name: folded })).toBeTruthy())
+  })
 })

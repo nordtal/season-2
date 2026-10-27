@@ -4,21 +4,15 @@ import { useNavigate } from "@tanstack/react-router"
 import { CommandGroup, CommandItem, CommandSeparator } from "@/components/ui/command"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { argsOf } from "@/components/steward/document-fields"
-import { fillOf, useWords, valuesOf } from "@/components/steward/message-editor/examples"
+import { useDrawLine } from "@/components/steward/message-editor/examples"
 import { Badge } from "@/components/ui/badge"
-import type { DocumentDeclaration, MessageArg, MessageExamples, TranslationHit } from "@/lib/api"
+import type { DocumentDeclaration, MessageArg, TranslationHit } from "@/lib/api"
 import { documentId } from "@/lib/documents"
-import {
-  useDocuments,
-  useMessageExamples,
-  useMessageSyntax,
-  useMessageTexts,
-  useTranslationSearch,
-} from "@/lib/queries"
-import { branchesOf, formatOf, parse, plainText, type Format } from "@/lib/rich-text"
+import { useDocuments, useMessageTexts, useTranslationSearch } from "@/lib/queries"
+import { formatOf, type Format } from "@/lib/rich-text"
 import { setPendingTextJump } from "@/lib/settings-search"
 import { DOCUMENT_LEAF, leafPaths, messageName, textId, textsTree } from "@/lib/settings-tree"
-import { t, type Words } from "@/lib/texts"
+import { t } from "@/lib/texts"
 import { hitItemId } from "@/lib/translation-items"
 
 const MAX_HITS = 30
@@ -31,21 +25,6 @@ function argsOfDeclaration({ values, slots }: DocumentDeclaration): MessageArg[]
   return argsOf(Object.assign({}, values, ...slots.map((slot) => slot.values)))
 }
 
-/** Returns `source` as its examples draw it, with every plural and select as the case its example picks. */
-export function renderedText(
-  source: string,
-  format: Format,
-  tones: readonly string[],
-  args: MessageArg[],
-  examples: MessageExamples | undefined,
-  fill: (name: string, style?: string) => string,
-  words?: Words,
-): string {
-  const runs = parse(source, format, tones)
-  if (!runs) return source
-  return plainText(branchesOf(runs, format, tones, valuesOf(args, examples), words), fill)
-}
-
 /**
  * The texts, documents and shared parts the server's search finds, in its order, each under its path on the Translations page with
  * the language it was found in. A hit opens the page on it in that language.
@@ -56,9 +35,7 @@ export function TranslationHits({ search, open, onDone }: { search: string; open
   const hits = useTranslationSearch(search, open).data
   const texts = useMessageTexts(typed).data
   const documents = useDocuments(typed).data
-  const tones = Object.keys(useMessageSyntax().data?.tones ?? {})
-  const examples = useMessageExamples().data
-  const words = useWords()
+  const drawLine = useDrawLine()
 
   const paths = React.useMemo(
     () =>
@@ -111,9 +88,7 @@ export function TranslationHits({ search, open, onDone }: { search: string; open
       <CommandSeparator />
       <CommandGroup heading={t("steward.shell.page", { page: "translations" })}>
         {rows.map(({ hit, leaf, name, format, args, bundle }) => {
-          const shownIn = words(hit.language, bundle)
-          const fill = fillOf(args, examples, shownIn)
-          const text = renderedText(hit.text, format, tones, args, examples, fill, shownIn).replace(/\s+/g, " ").trim()
+          const text = drawLine(hit.text, format, args, hit.language, bundle)
           return (
             <CommandItem
               key={leaf}

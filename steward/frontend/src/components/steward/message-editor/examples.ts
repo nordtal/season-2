@@ -1,7 +1,9 @@
 import type { MessageArg, MessageExamples, MessageTexts } from "@/lib/api"
 import { type Language, wordsOf } from "@/lib/message-text"
-import { useMessageTexts } from "@/lib/queries"
+import { useMessageExamples, useMessageSyntax, useMessageTexts } from "@/lib/queries"
+import { branchesOf, type Format, parse, plainText } from "@/lib/rich-text"
 import { valueText, type Words } from "@/lib/texts"
+import { readable } from "@/lib/translation-items"
 
 export type Fill = (name: string, style?: string) => string
 
@@ -47,6 +49,34 @@ export function useWords(): (language: Language, bundle?: string) => Words | und
       known.set(key, words)
     }
     return words
+  }
+}
+
+/** Draws a source text in `format` that names `args` on one line, in `language`; a document's text names no bundle. */
+export type DrawLine = (
+  source: string,
+  format: Format,
+  args: MessageArg[],
+  language: Language,
+  bundle?: string,
+) => string
+
+/**
+ * Returns how a row, a folded part or a search hit shows a source text: as its preview draws it, with each value's example,
+ * each choice as the case its example picks and no marks, on one line. `tones` are the tags it reads, the syntax's by default.
+ */
+export function useDrawLine(tones?: Record<string, string>): DrawLine {
+  const examples = useMessageExamples().data
+  const syntax = useMessageSyntax().data
+  const words = useWords()
+  const tags = Object.keys(tones ?? syntax?.tones ?? {})
+  return (source, format, args, language, bundle) => {
+    const shownIn = words(language, bundle)
+    const runs = parse(source, format, tags)
+    const drawn = runs
+      ? plainText(branchesOf(runs, format, tags, valuesOf(args, examples), shownIn), fillOf(args, examples, shownIn))
+      : readable(source)
+    return drawn.replaceAll(/\s+/g, " ").trim()
   }
 }
 

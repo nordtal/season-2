@@ -41,6 +41,7 @@ import { Failure } from "@/components/steward/query-state"
 import {
   AccentField,
   AddButton,
+  argsOf,
   CodeMark,
   IconButton,
   ImageField,
@@ -55,6 +56,7 @@ import {
 import { SharedPartMenu } from "@/components/steward/shared-parts"
 import { DocumentVersions } from "@/components/steward/document-versions"
 import { DocumentPreview, PAUSE_MS } from "@/components/steward/message-editor/document-preview"
+import { useDrawLine } from "@/components/steward/message-editor/examples"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -273,7 +275,10 @@ function PartEditor({
   // A separator holds nothing to open.
   const empty = part.type === "SEPARATOR"
   const saved = context.sharedParts.find((each) => each.name === part.shared)?.part
-  const words = firstWords(saved ?? part, context.language)
+  const drawLine = useDrawLine()
+  const first = firstWords(saved ?? part, context.language)
+  const words =
+    first && drawLine(first.source, view.game ? "MINIMESSAGE" : "DISCORD_MARKDOWN", argsOf(view.named), first.language)
   return (
     <div className={cn("min-w-0 rounded-md border", open && !empty && "bg-muted/40")}>
       <div className="flex min-w-0 items-center justify-between gap-1 p-1 max-md:flex-wrap md:justify-start">
@@ -352,12 +357,14 @@ function ProblemList({ problems, className }: { problems: readonly DocumentProbl
   )
 }
 
-/** The first written words of a part in `language`, or in English where it has none, for its folded line. */
-function firstWords(part: DocumentPart, language: Language): string | undefined {
+/** The source of a part's first written words in `language`, or in English where it has none, for its folded line. */
+function firstWords(part: DocumentPart, language: Language): { source: string; language: Language } | undefined {
   const texts = [...(part.lines ?? []).map((line) => line.text), ...(part.items ?? []).map((item) => item.label)]
   for (const text of texts) {
-    const words = versionsOf(text, language)[0] || versionsOf(text, ENGLISH)[0]
-    if (words) return words
+    const own = versionsOf(text, language)[0]
+    if (own) return { source: own, language }
+    const english = versionsOf(text, ENGLISH)[0]
+    if (english) return { source: english, language: ENGLISH }
   }
   for (const inner of part.parts ?? []) {
     const words = firstWords(inner, language)

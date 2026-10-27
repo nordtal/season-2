@@ -379,12 +379,19 @@ function ItemList({ children }: { children: ReactNode }) {
 
 /** One item in a list: its name, the branches above it, its first words in the page's language and its marks. */
 function ItemRow({ page, item, trail = item.trail }: { page: Page; item: Placed; trail?: string[] }) {
+  const current = page.open?.id === item.id
+  const row = useRef<HTMLButtonElement>(null)
+  // A link or a jump opens an item far down the list, so its row comes into view; a click on a visible row moves nothing.
+  useEffect(() => {
+    if (current) row.current?.scrollIntoView({ block: "nearest" })
+  }, [current])
   return (
     <li>
       <button
+        ref={row}
         type="button"
         aria-label={item.name}
-        aria-current={page.open?.id === item.id || undefined}
+        aria-current={current || undefined}
         onClick={() => page.onOpen(item)}
         className="flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring aria-[current=true]:bg-muted pointer-coarse:min-h-12"
       >

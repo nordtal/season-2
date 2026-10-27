@@ -9,6 +9,7 @@ import { backend, documents, draw, listing, open, openItem, Page, text, view } f
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   resetDrafts()
 })
 
@@ -739,12 +740,19 @@ describe("a jump from the command palette", () => {
 })
 
 describe("a link", () => {
-  it("to a document opens it, with the area it is listed in", async () => {
+  it("to a document opens it, with the area it is listed in, and scrolls its row into view", async () => {
+    const scrolled: Element[] = []
+    vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(function (this: Element) {
+      scrolled.push(this)
+    })
     vi.stubGlobal("fetch", backend(texts, undefined, { documents: documents([contribution]) }))
     draw(<Page state={{ document: "discord/contribution" }} />)
 
     expect(await screen.findByRole("article", { name: "Contribution" })).toBeDefined()
-    const rows = screen.getAllByRole("button", { name: "Contribution" })
-    expect(rows.some((row) => row.getAttribute("aria-current") === "true")).toBe(true)
+    const current = screen
+      .getAllByRole("button", { name: "Contribution" })
+      .find((row) => row.getAttribute("aria-current") === "true")
+    expect(current).toBeDefined()
+    expect(scrolled).toContain(current)
   })
 })

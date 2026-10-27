@@ -9,6 +9,7 @@ import type {
   DocumentLineStyle,
   DocumentPart,
   DocumentPartType,
+  DocumentProblem,
   DocumentValue,
   DocumentView,
 } from "@/lib/api"
@@ -113,6 +114,7 @@ export function DocumentEditor({
     view,
     language,
     sharedParts,
+    problems,
     onPart: (path, change) => onDraft({ parts: changePart(draft.parts, path, change) }),
     onMove: (path, by) => onDraft({ parts: movePart(draft.parts, path, by) }),
   }
@@ -139,15 +141,8 @@ export function DocumentEditor({
   return (
     <section aria-label={name} className="flex min-w-0 flex-col gap-3">
       {view.outdated ? <Outdated view={view} language={language} /> : null}
-      {problems.length > 0 ? (
-        <ul className="flex flex-col gap-1 text-xs">
-          {problems.map((problem, index) => (
-            <li key={index} className={problem.error ? "text-destructive" : "text-warning"}>
-              {problem.text}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {/* A problem in no part, or in a part the draft no longer has. */}
+      <ProblemList problems={problems.filter((problem) => draft.parts[problem.part[0] ?? -1] === undefined)} />
       <Parts parts={draft.parts} path={[]} context={context} />
       <AddPart
         view={view}
@@ -324,6 +319,15 @@ function PartEditor({
         </button>
         <SharedPartMenu part={part} context={context} set={set} />
       </div>
+      <ProblemList
+        problems={context.problems.filter(
+          (problem) =>
+            path.every((index, level) => problem.part[level] === index) &&
+            // Folded, a part shows the problems of what it holds too; open, each inner part shows its own.
+            (!open || part.parts?.[problem.part[path.length] ?? -1] === undefined),
+        )}
+        className="px-2 pb-1"
+      />
       {open && (!empty || Object.keys(view.named).length > 0) ? (
         <div className="flex min-w-0 flex-col gap-2 border-t p-2">
           <WhenField view={view} of="PART" when={part.when} onWhen={(when) => set((it) => ({ ...it, when }))} />
@@ -331,6 +335,20 @@ function PartEditor({
         </div>
       ) : null}
     </div>
+  )
+}
+
+/** The check's problems, an error in red and a warning in amber. */
+function ProblemList({ problems, className }: { problems: readonly DocumentProblem[]; className?: string }) {
+  if (problems.length === 0) return null
+  return (
+    <ul className={cn("flex flex-col gap-1 text-xs", className)}>
+      {problems.map((problem, index) => (
+        <li key={index} className={problem.error ? "text-destructive" : "text-warning"}>
+          {problem.text}
+        </li>
+      ))}
+    </ul>
   )
 }
 

@@ -994,6 +994,7 @@ export type MenuDrawing = {
 export type DocumentProblem = {
   error: boolean
   text: string
+  part: number[]
 }
 
 export type TranslationKind = "TEXT" | "DOCUMENT"

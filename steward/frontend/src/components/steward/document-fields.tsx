@@ -9,7 +9,7 @@ import {
 } from "@phosphor-icons/react"
 import { useId, useMemo, useRef, type ReactNode } from "react"
 
-import type { SharedPartView, DocumentPart, DocumentValue, DocumentView, MessageArg } from "@/lib/api"
+import type { SharedPartView, DocumentPart, DocumentProblem, DocumentValue, DocumentView, MessageArg } from "@/lib/api"
 import {
   insertValue,
   readWhen,
@@ -45,6 +45,8 @@ export type Context = {
   language: Language
   /** The shared parts saved, to insert and to compare a copy with. */
   sharedParts: readonly SharedPartView[]
+  /** What the check found in the draft, each at the part it is in. */
+  problems: readonly DocumentProblem[]
   /** Returns the draft with the part at `path` changed, or removed when `change` returns nothing. */
   onPart: (path: PartPath, change: (part: DocumentPart) => DocumentPart | undefined) => void
   onMove: (path: PartPath, by: -1 | 1) => void

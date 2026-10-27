@@ -214,6 +214,10 @@ async function openContribution(): Promise<HTMLElement> {
   return screen.findByRole("region", { name: "Contribution" })
 }
 
+/** Whether `second` stands after `first` in the page. */
+const after = (first: Node, second: Node) =>
+  Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING)
+
 /** Opens the folded text block that holds the title and returns the title's field. */
 function unfold(editor: HTMLElement): HTMLElement {
   fireEvent.click(within(editor).getByRole("button", { name: /^Text block\s*Access$/ }))
@@ -365,7 +369,7 @@ describe("an open document", { timeout: 15_000 }, () => {
         render: rendered,
         problems: (draft) =>
           JSON.stringify(draft.document).includes("Support")
-            ? [{ error: true, text: "it draws 41 components, Discord draws 40" }]
+            ? [{ error: true, text: "it draws 41 components, Discord draws 40", part: [] }]
             : [],
       }),
     )
@@ -376,6 +380,34 @@ describe("an open document", { timeout: 15_000 }, () => {
 
     expect(await within(editor).findByText("it draws 41 components, Discord draws 40")).toBeTruthy()
     expect(within(editor).getByRole<HTMLButtonElement>("button", { name: "Save" }).disabled).toBe(true)
+  })
+
+  it("names a problem at the part it is in, and a folded part shows the problems inside it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(texts, undefined, {
+        documents: documents([contribution, modal]),
+        render: rendered,
+        problems: () => [
+          { error: false, text: "the title warns", part: [0, 0] },
+          { error: false, text: "the prices warn", part: [0, 1] },
+          { error: false, text: "the row warns", part: [1] },
+        ],
+      }),
+    )
+    draw(<Page />)
+
+    const editor = await openContribution()
+    const title = unfold(editor)
+    const titleWarning = await within(editor).findByText("the title warns")
+    const titlePart = within(editor).getByRole("button", { name: /^Text block\s*$/ })
+    expect(after(titlePart, titleWarning) && after(titleWarning, title)).toBe(true)
+    const prices = within(editor).getByRole("button", { name: /^Text block\s*Prices$/ })
+    const pricesWarning = within(editor).getByText("the prices warn")
+    expect(after(prices, pricesWarning)).toBe(true)
+    const row = within(editor).getByRole("button", { name: /^Buttons/ })
+    const rowWarning = within(editor).getByText("the row warns")
+    expect(after(pricesWarning, row) && after(row, rowWarning)).toBe(true)
   })
 
   it("lists every save and restores an older one or the packaged one in one click", async () => {

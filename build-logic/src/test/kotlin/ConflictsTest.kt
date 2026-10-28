@@ -127,6 +127,31 @@ class ConflictsTest {
     }
 
     @Test
+    fun aTextThatBothSidesChangedIsAConflictThatAResolveSettlesPerLanguage() {
+        val clone = DraftClone(root, "star@FE000")
+        val lang = "src/assets/nordtal/lang/en_us.json"
+        val texts = clone.pack.resolve(lang).apply { parentFile.mkdirs() }
+        texts.writeText("{ \"menu.title\": \"Pause\", \"menu.quit\": \"Quit\" }\n")
+        clone.commitAll("feat: texts")
+        clone.git(clone.clone, "push", "-q", "origin", "main")
+        texts.writeText("{ \"menu.title\": \"Ours\", \"menu.quit\": \"Quit\" }\n")
+        clone.commitOnMain("feat: their texts") {
+            it.resolve(lang).writeText("{ \"menu.title\": \"Theirs\", \"menu.quit\": \"Leave\" }\n")
+        }
+        fetch(clone)
+
+        assertEquals(
+            Drafts.Conflict(emptyList(), listOf(Drafts.Field("en_us menu.title", "\"Ours\"", "\"Theirs\""))),
+            draft(clone, "text menu.title").conflict,
+        )
+
+        Drafts.resolve(clone.pack, "text menu.title", null, mapOf("en_us menu.title" to "main"))
+
+        assertEquals(mapOf("menu.title" to "Theirs", "menu.quit" to "Quit"), Texts.work(clone.pack).getValue(lang))
+        assertEquals(emptyList<String>(), Drafts.list(clone.pack).map { it.id })
+    }
+
+    @Test
     fun aResolveThatTheGlyphRulesRefuseKeepsTheConflictAndEveryFile() {
         val clone = DraftClone(root, "star@FE000")
         clone.png("star", white)

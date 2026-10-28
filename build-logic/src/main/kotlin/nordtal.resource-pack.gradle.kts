@@ -262,6 +262,7 @@ val sourceEdits =
         "writeItem" to "writeItem",
         "editItem" to "editItem",
         "importBlockbench" to "import",
+        "editText" to "text",
         "discardDraft" to "discard",
         "resolveConflict" to "resolve",
         "readConflict" to "conflict",

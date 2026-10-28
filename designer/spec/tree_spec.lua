@@ -35,6 +35,12 @@ local model = {
                   png="src/assets/minecraft/textures/gui/sprites/boss_bar/white_background.png" } },
     } },
   },
+  languages = { "de_de", "en_us" },
+  texts = {
+    { key="item.nordtal.wand", values={ en_us="Wand" }, owner="src/assets/nordtal/items/wand.json" },
+    { key="menu.title", values={ de_de="Pause", en_us="Pause" }, draft="text menu.title" },
+  },
+  drafts = { { id="text menu.title", label="menu.title", state="changed", files={}, keys={ "menu.title" } } },
 }
 
 local function texts(nodes)
@@ -48,7 +54,7 @@ local function texts(nodes)
 end
 
 describe("tree", function()
-  it("lists glyphs by font, block and glyph, a sheet as one entry with cells, then items and overrides by category", function()
+  it("lists glyphs by font, block and glyph, a sheet as one entry with cells, items and overrides by category, then texts", function()
     local nodes = tree.build(model, tr, drafts.marks(model))
     assert.same({
       { "<tree.glyphs>", {
@@ -57,7 +63,16 @@ describe("tree", function()
       } },
       { "<tree.items>", { { "nordtal", { { "nordtal:wand" }, { "nordtal:lamp" } } } } },
       { "<tree.overrides>", { { "gui/sprites/boss_bar", { { "white_background" } } } } },
+      { "<tree.texts>", { { "item.nordtal.wand" }, { "menu.title" } } },
     }, texts(nodes))
+  end)
+
+  it("marks a text that is a draft and counts it on the texts root", function()
+    local nodes = tree.build(model, tr, drafts.marks(model))
+    local root = nodes[4]
+    assert.equal("(1)", root.badge)
+    assert.is_nil(root.children[1].icon)
+    assert.equal(tree.draftIcon, root.children[2].icon)
   end)
 
   it("gives every node an id of its own", function()

@@ -38,6 +38,7 @@ export const keys = {
   agent: ["agent"] as const,
   config: (file: string) => ["config", file] as const,
   guildChannels: ["guild-channels"] as const,
+  openAnnouncement: ["open-announcement"] as const,
   messageTexts: ["message-texts"] as const,
   documents: ["documents"] as const,
   translationSearch: (query: string) => ["translation-search", query] as const,

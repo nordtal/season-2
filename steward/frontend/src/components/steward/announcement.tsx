@@ -11,7 +11,7 @@ import {
 } from "@/lib/announcement-targets"
 import { t } from "@/lib/texts"
 import { languageName } from "@/lib/language-names"
-import { useConfig, useGuildChannels, useSendAnnouncement } from "@/lib/queries"
+import { useConfig, useGuildChannels, useOpenAnnouncement, useSendAnnouncement } from "@/lib/queries"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { RequestIcon } from "@/components/steward/game-actions"
 import { Failure } from "@/components/steward/query-state"
@@ -34,6 +34,18 @@ export function AnnouncementForm() {
   const [posted, setPosted] = useState<Record<string, string>>({})
   /** Whether the last send failed, so the pills name which languages went out. */
   const [failed, setFailed] = useState(false)
+  /** A send that failed for some languages before a reload comes back with its texts, so a retry still sends only the others. */
+  const open = useOpenAnnouncement()
+  const [resumed, setResumed] = useState(false)
+  if (!resumed && open.isSuccess && open.isFetchedAfterMount) {
+    setResumed(true)
+    const lines = open.data.lines
+    if (lines.length > 0 && Object.values(texts).every((value) => value.trim() === "")) {
+      setTexts(Object.fromEntries(lines.map((line) => [line.language, line.text])))
+      setPosted(Object.fromEntries(lines.filter((line) => line.posted).map((line) => [line.language, line.text])))
+      setFailed(true)
+    }
+  }
 
   const text = (tag: string) => texts[tag] ?? ""
   const send = useSendAnnouncement((tag, sent) => setPosted((current) => ({ ...current, [tag]: sent })))

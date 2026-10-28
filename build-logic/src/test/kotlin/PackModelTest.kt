@@ -164,7 +164,7 @@ class PackModelTest {
     }
 
     @Test
-    fun itemsAreGroupedByNamespaceAndLanguageFilesAreLeftOut() {
+    fun itemsAreGroupedByNamespaceAndTextsAreListedByKeyWithTheirAsset() {
         allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
         file("src/assets/nordtal/items/blank.json").writeText("""{"model": {"type": "minecraft:empty"}}""")
         file("src/assets/minecraft/items/stick.json")
@@ -172,7 +172,8 @@ class PackModelTest {
         file("src/assets/nordtal/models/item/wand.json")
             .writeText("""{"parent": "minecraft:item/handheld", "textures": {"layer0": "nordtal:item/wand"}}""")
         png("src/assets/nordtal/textures/item/wand.png", 16, 32)
-        file("src/assets/minecraft/lang/en_us.json").writeText("{}")
+        file("src/assets/minecraft/lang/en_us.json").writeText("""{ "item.nordtal.blank": "Blank", "menu.title": "Pause" }""")
+        file("src/assets/minecraft/lang/de_de.json").writeText("""{ "menu.title": "Pause!" }""")
 
         val model = model()
         val items = model.list("items")
@@ -187,6 +188,14 @@ class PackModelTest {
         assertEquals("nordtal:item/wand.png", stick["id"])
         assertEquals(listOf(16, 32), listOf(stick["width"], stick["height"]))
         assertTrue(model.list("overrides").isEmpty())
+        assertEquals(listOf("de_de", "en_us"), model["languages"])
+        assertEquals(
+            listOf(
+                listOf("item.nordtal.blank", mapOf("en_us" to "Blank"), "src/assets/nordtal/items/blank.json"),
+                listOf("menu.title", mapOf("de_de" to "Pause!", "en_us" to "Pause"), null),
+            ),
+            model.list("texts").map { listOf(it["key"], it["values"], it["owner"]) },
+        )
     }
 
     @Test
@@ -245,7 +254,7 @@ class PackModelTest {
         clone.pack
             .resolve("src/assets/minecraft/lang/en_us.json")
             .apply { parentFile.mkdirs() }
-            .writeText("{}")
+            .writeText("""{ "menu.title": "Pause" }""")
 
         val model =
             PackModel.of(
@@ -268,9 +277,22 @@ class PackModelTest {
                 listOf("block minecraft:default FE000-FE00F", "Sky", "changed", null),
                 listOf("nordtal:badges/moon.png", "moon", "changed", null),
                 listOf("nordtal:badges/star.png", "star", "changed", null),
-                listOf("src/assets/minecraft/lang/en_us.json", "en_us.json", "added", null),
+                listOf("text menu.title", "menu.title", "added", null),
             ),
             model.list("drafts").map { listOf(it["id"], it["label"], it["state"], it["review"]) },
+        )
+        assertEquals(listOf("menu.title"), model.list("drafts").last()["keys"])
+        assertEquals(
+            listOf(
+                mapOf(
+                    "key" to "menu.title",
+                    "values" to mapOf("en_us" to "Pause"),
+                    "owner" to null,
+                    "draft" to "text menu.title",
+                    "review" to null,
+                ),
+            ),
+            model["texts"],
         )
         assertEquals(emptyList<Any>(), model["reviews"])
     }

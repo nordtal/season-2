@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -33,6 +34,9 @@ public final class Announcements {
             StewardTexts.TEXTS.steward().answer();
     private static final StewardTexts.Steward.Said SAID =
             StewardTexts.TEXTS.steward().said();
+
+    /** How many of the newest announcements {@link #open} reads back through a chain of retries. */
+    private static final int CHAIN = 10;
 
     /** The longest message that Discord accepts. */
     public static final int MAX_LENGTH = 2000;
@@ -49,6 +53,53 @@ public final class Announcements {
 
     /** The answer to {@code POST /api/announcements}: the line id of each language by tag. */
     public record AnnouncementsAsked(Map<String, String> ids) {}
+
+    /** The answer to {@code GET /api/announcements/open}: the languages of an announcement not fully out. */
+    public record OpenAnnouncement(List<OpenLine> lines) {}
+
+    /** @param posted whether the bot posted {@code text} in that language */
+    public record OpenLine(String language, String text, boolean posted) {}
+
+    /** {@code GET /api/announcements/open} answers the newest announcement's languages, if it is not fully out. */
+    public void open(final Context ctx) {
+        ctx.json(new OpenAnnouncement(open(data.bot().recent(BotRequest.Announce.class, CHAIN))));
+    }
+
+    /**
+     * Returns the newest announcement's lines when some were not posted, so a retry after a reload sends only those.
+     * Older requests a retry repeated fill in the rest: each that failed somewhere and holds every newer language.
+     */
+    static List<OpenLine> open(final List<Request<BotRequest>> newestFirst) {
+        final Map<String, OpenLine> lines = new LinkedHashMap<>();
+        for (final Request<BotRequest> row : newestFirst) {
+            if (!(row.payload() instanceof BotRequest.Announce announce)
+                    || announce.message() != BotRequest.Announce.Message.WORDS) {
+                continue;
+            }
+            if (row.status() == InboxStatus.PENDING || row.status() == InboxStatus.RUNNING) {
+                if (lines.isEmpty()) {
+                    return List.of();
+                }
+                break;
+            }
+            final List<String> languages = announce.lines().stream()
+                    .map(BotRequest.Announce.Line::language)
+                    .toList();
+            final boolean someFailed = languages.stream().anyMatch(tag -> status(row, tag) != InboxStatus.DONE);
+            if (!someFailed || !languages.containsAll(lines.keySet())) {
+                break;
+            }
+            for (final BotRequest.Announce.Line line : announce.lines()) {
+                lines.putIfAbsent(
+                        line.language(),
+                        new OpenLine(
+                                line.language(),
+                                Objects.requireNonNull(line.words(), "words"),
+                                status(row, line.language()) == InboxStatus.DONE));
+            }
+        }
+        return List.copyOf(lines.values());
+    }
 
     /**
      * {@code POST /api/announcements} with {@code {texts: {<tag>: <text>, ...}}} writes one request.

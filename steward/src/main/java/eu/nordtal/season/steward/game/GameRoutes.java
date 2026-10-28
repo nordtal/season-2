@@ -31,6 +31,7 @@ public final class GameRoutes {
         inventories.register(cfg);
         cfg.routes.get("/api/hunger-games/round", games::round, Gate.KEY_HELD);
         cfg.routes.post("/api/hunger-games/start", games::startRound, Gate.KEY_HELD, Unjournaled.IN_THE_CHANGE);
+        cfg.routes.get("/api/announcements/open", announcements::open, Gate.KEY_HELD);
         cfg.routes.post("/api/announcements", announcements::send, Gate.KEY_FRESH, Unjournaled.IN_THE_CHANGE);
         cfg.routes.get("/api/game-data", gameData::read, Gate.KEY_HELD);
         cfg.routes.get("/api/game-data/{version}/icons.png", gameData::icons, Gate.KEY_HELD);

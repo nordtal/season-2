@@ -94,7 +94,9 @@ fonts[]       font, rows, constant, about, draft, review, blocks[]
 items[]       category (the namespace), entries[]: id, file, draft, review, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite, block, item
 texture       id, png, aseprite, asepriteExists, draft, review, width, height
-drafts[]      id, label, state, files, review, conflict: files, fields[]: name, clone, main
+languages     the languages of the pack's language files, such as en_us
+texts[]       key, values (language to text), owner, draft, review
+drafts[]      id, label, state, files, keys, review, conflict: files, fields[]: name, clone, main
 reviews[]     number, url, decision, checks, comments[]: author, body, path, url
 ```
 
@@ -107,7 +109,13 @@ identifier.
 PNG's name for an override under `block` or `item`, or null. `frames` lists each frame of the PNG once, as `x`, `y`,
 `width`, `height` in the PNG and `duration` in milliseconds, the time of the first entry of the animation's `frames`
 that plays it. It is null when the animation's frames do not divide the PNG. `guiSprite` is true for a texture under
-`textures/gui/sprites/`. Language files are not listed.
+`textures/gui/sprites/`.
+`texts` lists every key of the language files under `src/assets/` once. Its `owner` is the id that
+`drafts` gives the item or block the key names, or null for a text of its own. A key names the item
+or block of the longest `item.<namespace>.<path>` or `block.<namespace>.<path>` that equals it or is
+followed by a dot in it, where the pack holds that asset. A text's `draft` is the draft that holds
+its key, and its `review` that of its owner. `keys` of a draft are the keys of the language files
+that it holds.
 `draft` is the id of the draft that a texture, block, font or item is, as `drafts` names it, which the
 next section describes, or null where it is none. An item without a texture is the draft of its file.
 The file of an item with a texture is part of its texture's draft. `review` is the number of the pull request that holds the texture, block,
@@ -199,13 +207,34 @@ fails with the reason when it refuses.
   sheet is its code point, so a renamed cell keeps its place. A new block that overlaps a block of main
   moves to the first free run with its glyphs.
 
+## Texts
+
+`editText` writes one key of the language files under `src/assets/`. A file keeps its other keys,
+and a file that ends up empty is deleted only when the last commit lacks it too.
+
+```bash
+./gradlew -q :resource-pack:editText -Pkey=menu.title -Planguage=de_de -Pvalue=Pause
+./gradlew -q :resource-pack:editText -Pkey=menu.title -Pdelete=true
+```
+
+| task       | options                                     | prints                                  |
+| ---------- | ------------------------------------------- | --------------------------------------- |
+| `editText` | `key`; `language`, `value`, `delete` (true) | the absolute path of each file it wrote |
+
+- A key is words of letters, digits, `_` and `-` with dots between them. An edit sets the key in the
+  file of `language` that holds it, or in `src/assets/minecraft/lang/<language>.json` when none does.
+  An empty `value` sets the key to an empty text.
+- `-Pdelete=true` removes the key from every language file, and refuses a key that none holds.
+
 ## Drafts and publishing
 
 A draft is one change of the clone that is in no pull request yet. A texture's draft holds its PNG,
 its `.png.mcmeta`, its `.aseprite` source, the item models and definitions that draw it, and its
 entries in `glyphs.json`. The fields of a font or a block in `glyphs.json` are a draft of their own,
-and so is every other changed file. A draft's `id` is its texture's id, `font <font>`, `block <font>
-<range or title>` or the file's path. Its `state` is `added`, `changed` or `deleted`, and `review`
+and so is every other changed file. A text of a language file is part of its owner's draft, and a
+text of its own is a draft of its own, so a draft holds keys rather than whole language files. A
+draft's `id` is its texture's id, `font <font>`, `block <font> <range or title>`, `text <key>` or the
+file's path. Its `state` is `added`, `changed` or `deleted`, and `review`
 is the number of the pull request that holds an older version of it. A draft that equals its version
 in a pull request or on `origin/main` is not listed.
 

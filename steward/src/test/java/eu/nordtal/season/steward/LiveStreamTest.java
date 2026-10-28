@@ -47,7 +47,9 @@ class LiveStreamTest extends WebTestSupport {
 
     @AfterAll
     static void close() {
-        hub.close();
+        if (hub != null) {
+            hub.close();
+        }
     }
 
     @Test

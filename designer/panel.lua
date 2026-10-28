@@ -170,6 +170,19 @@ function panel.layout(rows, width, measure, lineHeight, textHeight)
   return { ops=ops, hits=hits, height=y }
 end
 
+-- The scroll bar size wide of a view height high that shows content
+-- height high from scroll on: { thumb, height } with the top of its
+-- thumb and the thumb's height, or nil when the content fits. The
+-- thumb is never shorter than twice the bar's width.
+function panel.scrollbar(content, height, scroll, size)
+  if content <= height then
+    return nil
+  end
+  local thumb = math.min(height, math.max(2 * size, height * height // content))
+  local top = (height - thumb) * math.max(0, math.min(scroll, content - height)) // (content - height)
+  return { thumb=top, height=thumb }
+end
+
 -- The field of a layout that a click at x, y hits, or with what="tip"
 -- the tip of what lies there, or nil
 function panel.hit(layout, x, y, what)

@@ -180,7 +180,8 @@ local function paint(dlg, id, height, width)
   local out, at, color = {}, {}, nil
   -- The theme's text and face are colours that the tab mixes, each with a name to mark it by
   local theme = { color={ text={ name="text", red=0, green=0, blue=0 }, separator_label="key",
-                          face={ name="face", red=255, green=255, blue=255 }, status_bar_text="status" } }
+                          face={ name="face", red=255, green=255, blue=255 }, status_bar_text="status" },
+                  dimension={ mini_scrollbar_size=6 } }
   local function name() return type(color) == "table" and (color.name or "tone") or tostring(color) end
   local gc = { width=width or 1000, height=height or 1000, theme=theme }
   setmetatable(gc, { __newindex=function(t, k, v) if k == "color" then color = v else rawset(t, k, v) end end })
@@ -191,7 +192,10 @@ local function paint(dlg, id, height, width)
     table.insert(out, mark .. text)
     at[text] = at[text] or { x=x, y=y, color=color }
   end
-  function gc:drawThemeRect(part) if id == "bar" then table.insert(out, part) end end
+  function gc:drawThemeRect(part, rect)
+    if id == "bar" then table.insert(out, part) end
+    if part:match("^mini_scrollbar") then at[part] = rect end
+  end
   function gc:drawThemeImage(part) table.insert(out, part) end
   dlg.handlers[id].onpaint({ context=gc })
   return out, at
@@ -727,6 +731,24 @@ describe("the Nordtal tab", function()
     local out
     out, at = texts(dlg, 20)
     assert.equal(4, at[out[2]].y)
+  end)
+
+  it("shows a scroll bar along the right edge of a panel taller than its canvas, and none once it fits", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local _, at = texts(dlg, 20)
+    assert.same({ x=994, y=0, width=6, height=20 }, at.mini_scrollbar_bg)
+    local top = at.mini_scrollbar_thumb
+    assert.same({ 994, 0, 6 }, { top.x, top.y, top.width })
+    assert.is_true(top.height >= 12 and top.height < 20)
+    -- At the last row the thumb ends at the bar's end
+    dlg.handlers.properties.onwheel({ deltaY=1000 })
+    _, at = texts(dlg, 20)
+    assert.equal(20, at.mini_scrollbar_thumb.y + at.mini_scrollbar_thumb.height)
+    _, at = texts(dlg, 1000)
+    assert.is_nil(at.mini_scrollbar_bg)
+    assert.is_nil(at.mini_scrollbar_thumb)
   end)
 
   it("deletes a glyph once the designer confirms it, and empties the editor", function()

@@ -20,8 +20,9 @@ the entry again. Each save of that sprite writes its `.aseprite` source under `r
 and its PNG: the first frame for a glyph or an item, every frame for a vanilla override. **View >
 Nordtal Tree on the Right** docks the side panel right of the tools.
 
-The properties panel shows each value it edits in a sunken box. The mouse wheel scrolls the properties panel. A
-click on a box asks for the new value in a form. OK runs the resource pack's task that writes it:
+The properties panel shows each value it edits in a sunken box. The mouse wheel scrolls the properties
+panel, and a panel taller than its room shows a scroll bar along its right edge. A click on a box asks
+for the new value in a form. OK runs the resource pack's task that writes it:
 `renameGlyph` for a name, `editGlyph` for status, display height, ascent and about, `scaleTexture`
 for the scaling of a GUI sprite and `deleteGlyph` for the button below. The tasks run one at a time,
 and a click while one runs says that a change is being written. The tab reads the pack again after

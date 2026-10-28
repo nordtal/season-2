@@ -2,7 +2,8 @@
 
 The Nordtal plugin of Nordtal Designer, the Aseprite build of `nordtal/aseprite`. The app's
 bootstrap loads `init.lua` from the clone of this repository. The plugin requires version 7 of the
-fork's Lua API (`app.forkApiVersion`) and shows an alert to update the app on an older one.
+fork's Lua API (`app.forkApiVersion`), and on an older one an alert asks to run the install line
+of `nordtal/aseprite` again.
 
 The Nordtal tab holds the embedded editor below the Minecraft bar. The bar ends in the status line.
 The tab's side panel holds the tree of the resource pack above the properties panel of the selected

@@ -16,7 +16,7 @@ object Drafts {
     private const val MAIN = "origin/main"
 
     /**
-     * One draft. [id] is its texture's id, `font <font>`, `block <font> <range>`, `text <key>` or a file's path. [state]
+     * One draft. [id] is its texture's id, `font <font>`, `block <font> <range>`, `text <key>` or a file path. [state]
      * is `added`, `changed` or `deleted`, [files] its files except the language files, whose changed [keys] it holds.
      * [review] is the pull request that holds an older version of it, and [conflict] what main changed too.
      */

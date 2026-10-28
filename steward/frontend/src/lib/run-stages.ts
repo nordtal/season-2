@@ -53,7 +53,7 @@ const STAGE_OF = new Map<string, StageKey>(STAGES.flatMap(([key, kinds]) => kind
 /** Returns the stages that hold a step, in rail order, each with its steps in the order the run began them. */
 export function stagesOf(steps: RailStep[]): Stage[] {
   return STAGES.flatMap(([key]) => {
-    // A step kind the rail does not know yet shows under the stage before it rather than not at all.
+    // A step kind the rail does not know yet shows under the first stage rather than not at all.
     const held = steps.filter((step) => (STAGE_OF.get(step.step) ?? "RESOLVE") === key)
     return held.length > 0 ? [{ key, verdict: verdictOf(held), steps: held }] : []
   })
@@ -84,8 +84,9 @@ const NAMED = 3
 export function pillsOf(stage: Stage): Pill[] {
   const facts = FACTS[stage.key](stage.steps)
   const reasons = reasonsOf(stage.steps)
-  if (facts.length === 0 && reasons.length === 0 && stage.verdict === "done") {
-    return [{ text: t("steward.updates.nothing") }]
+  if (facts.length === 0 && reasons.length === 0) {
+    if (stage.verdict === "done") return [{ text: t("steward.updates.nothing") }]
+    if (stage.verdict === "skipped") return [{ text: t("run.outcome", { outcome: "skipped" }), tone: "idle" }]
   }
   return [...facts, ...reasons]
 }
@@ -192,10 +193,19 @@ function isRelease(change: RunChange): boolean {
   return change.artefact === "release" && change.to !== undefined
 }
 
+/** A change as its versions, as the server's RunLines.change words it. */
 function changeText(change: RunChange): string {
-  return change.from && change.from !== change.to
-    ? t("run.moved", { artefact: change.artefact, from: change.from, to: change.to ?? "" })
-    : t("run.version", { artefact: change.artefact, version: change.to ?? change.from ?? "" })
+  if (change.from && change.to)
+    return t("run.moved", { artefact: change.artefact, from: shown(change.from), to: change.to })
+  return t("run.version", { artefact: change.artefact, version: change.to ?? change.from ?? "" })
+}
+
+/** A fingerprint, as the resource pack reports its SHA-1. */
+const FINGERPRINT = /^[0-9a-f]{32,64}$/i
+
+/** Returns a version as it is, and a fingerprint by its first eight characters. */
+function shown(version: string): string {
+  return FINGERPRINT.test(version) ? version.slice(0, 8) : version
 }
 
 function secondsOf(step: RailStep): number | null {

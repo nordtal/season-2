@@ -1,6 +1,7 @@
 import { QuestionIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
+import { cn } from "cn"
 
 import { PersonIdentity } from "@/components/steward/identity"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -131,7 +132,7 @@ export function Entity({ id, kind, system, interactive, face, className }: Entit
 export function Actor({ kind, id, className }: { kind: ActorKind; id: string; className?: string }) {
   if (kind === "PERSON" && id) return <Entity id={id} kind="discord" className={className} />
   // Someone at the host's terminal, whom no record names.
-  if (kind === "HOST") return <span className={"text-sm " + (className ?? "")}>{t("steward.identity.host")}</span>
+  if (kind === "HOST") return <span className={cn("text-sm", className)}>{t("steward.identity.host")}</span>
   if (kind === "BOT") return <Entity id="discord-bot" kind="service" className={className} />
   return <Entity system className={className} />
 }

@@ -127,7 +127,7 @@ object Drafts {
         val meeting by lazy { mergeBase(pack) }
         val trees = mutableMapOf<String, Map<String, String>>()
         val roots = mutableMapOf<String, Map<*, *>?>()
-        val texts = mutableMapOf<String, Texts.Files>()
+        val texts = mutableMapOf<String, TextFiles>()
 
         fun textsAt(ref: String) = texts.getOrPut(ref) { Texts.at(pack, ref) }
         return ids.mapNotNull { (id, files) ->
@@ -243,9 +243,17 @@ object Drafts {
         val work = OxfmtJson.read(pack.resolve(GLYPHS)) as Map<*, *>
         val merge = merge(base?.let { glyphs(pack, it) }, work, glyphs(pack, main), id, keep, fields)
         val edited = NewTextures.edit(pack, null, 0, 0) { write(it, merge, id) }
+        val keys = draft.keys.toSet()
+        val texts =
+            if (keys.isEmpty()) {
+                emptyList()
+            } else {
+                val merged = Texts.merge(base?.let { Texts.at(pack, it) }.orEmpty(), Texts.work(pack), Texts.at(pack, main), keys, fields)
+                Texts.put(pack, merged.first, keys)
+            }
         val written = if (keep == "main") keepYours(pack, draft.files) + restore(pack, main, draft.files) else emptyList()
         writeBases(pack, bases(pack) + (id to main))
-        return edited + written
+        return edited + texts + written
     }
 
     /** Copies each of [files] that [pack] holds to `build/conflict/yours/` and returns the copies. */
@@ -337,8 +345,8 @@ object Drafts {
     }
 
     /**
-     * Writes the files and entries of [drafts] as [pack] holds them into [target], the pack of another work tree. With
-     * [merge], each entry keeps the fields that only [target] changed since the draft's base.
+     * Writes the files, entries and texts of [drafts] as [pack] holds them into [target], the pack of another work tree.
+     * With [merge], each entry and text keeps what only [target] changed since the draft's base.
      */
     internal fun copy(
         pack: File,
@@ -354,6 +362,16 @@ object Drafts {
                     target.resolve(path) to if (file.exists()) file.readBytes() else null
                 }.filter { (file, bytes) -> bytes != null || file.exists() },
         )
+        val texts = Texts.work(pack)
+        for (draft in drafts.filter { it.keys.isNotEmpty() }) {
+            val keys = draft.keys.toSet()
+            if (!merge) {
+                Texts.put(target, texts, keys)
+                continue
+            }
+            val main = Texts.at(target, "HEAD")
+            Texts.put(target, Texts.merge(base(pack, draft.id)?.let { Texts.at(pack, it) } ?: main, texts, main, keys).first, keys)
+        }
         val work = pack.resolve(GLYPHS).takeIf { it.isFile }?.let { OxfmtJson.read(it) as Map<*, *> }
         val main = glyphs(target, "HEAD")
         val ids = changedIds(main, work).intersect(drafts.map { it.id }.toSet())
@@ -695,7 +713,7 @@ object Drafts {
     ) = glyph["texture"] as String? ?: "$font ${glyph["code"]}"
 
     /** The id of the draft that the changed file [path] belongs to: its texture's, or its own path. */
-    private fun idOf(
+    internal fun idOf(
         pack: File,
         path: String,
     ): String {

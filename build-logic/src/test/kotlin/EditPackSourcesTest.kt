@@ -150,6 +150,21 @@ class EditPackSourcesTest {
         assertEquals(listOf("width", "title", "title"), listOf(number, missing, refused).map { (it.cause as FieldRefusal).field })
     }
 
+    @Test
+    fun aTextKeepsItsFileAndANewOneGoesIntoTheLanguageFileOfMinecraft() {
+        val nordtal = pack.resolve("src/assets/nordtal/lang/en_us.json").apply { parentFile.mkdirs() }
+        nordtal.writeText("""{ "menu.title": "Pause", "menu.quit": "Quit" }""")
+
+        task("text", "key" to "menu.title", "language" to "en_us", "value" to "Paused").create()
+        task("text", "key" to "menu.title", "language" to "de_de", "value" to "Pausiert").create()
+        task("text", "key" to "menu.quit", "delete" to "true").create()
+        val refused = assertThrows<GradleException> { task("text", "key" to "menu title", "language" to "en_us", "value" to "x").create() }
+
+        assertEquals(mapOf("menu.title" to "Paused"), Texts.work(pack).getValue("src/assets/nordtal/lang/en_us.json"))
+        assertEquals(mapOf("menu.title" to "Pausiert"), Texts.work(pack).getValue("src/assets/minecraft/lang/de_de.json"))
+        assertEquals("key", (refused.cause as FieldRefusal).field)
+    }
+
     /** A Gradle run in the repository with the task `edit` of [kind] and its [options]. */
     private fun runner(
         kind: String,

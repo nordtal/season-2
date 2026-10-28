@@ -2,6 +2,9 @@ package eu.nordtal.season.build
 
 import java.io.File
 
+/** Each language file's keys and values, by the file's path relative to the pack. */
+typealias TextFiles = Map<String, Map<String, String>>
+
 /**
  * The texts of the pack: the keys of its language files under `src/assets/<namespace>/lang/`. A key belongs to an
  * asset of the pack when it is that asset's translation key or starts with it and a dot: `item.<namespace>.<path>` for
@@ -17,9 +20,6 @@ object Texts {
     /** The folder whose language file [edit] writes a text into that no file of its language holds yet. */
     const val NEW_FILES = "src/assets/minecraft/lang"
 
-    /** Each language file's keys and values, by the file's path relative to the pack. */
-    typealias Files = Map<String, Map<String, String>>
-
     /** Whether [path], relative to the pack, is a language file. */
     fun isText(path: String): Boolean = FILE.matches(path)
 
@@ -27,7 +27,7 @@ object Texts {
     fun language(path: String): String = FILE.matchEntire(path)!!.groupValues[2]
 
     /** The language files of [pack] as they are. */
-    fun work(pack: File): Files =
+    fun work(pack: File): TextFiles =
         pack
             .resolve("src/assets")
             .walkTopDown()
@@ -41,7 +41,7 @@ object Texts {
     fun at(
         pack: File,
         ref: String,
-    ): Files {
+    ): TextFiles {
         val paths =
             runCatching { git(pack, listOf("ls-tree", "-r", "-z", "--name-only", ref, "--", "src/assets")) }
                 .getOrElse { return emptyMap() }
@@ -58,8 +58,8 @@ object Texts {
 
     /** The keys whose value in some language file differs between [before] and [after]. */
     fun changedKeys(
-        before: Files,
-        after: Files,
+        before: TextFiles,
+        after: TextFiles,
     ): Set<String> =
         (before.keys + after.keys)
             .flatMap { path ->
@@ -99,8 +99,8 @@ object Texts {
 
     /** Whether each of [keys] has the same value in each language file of [a] and [b]. */
     fun same(
-        a: Files,
-        b: Files,
+        a: TextFiles,
+        b: TextFiles,
         keys: Set<String>,
     ): Boolean = (a.keys + b.keys).all { path -> keys.all { a[path]?.get(it) == b[path]?.get(it) } }
 
@@ -110,7 +110,7 @@ object Texts {
      */
     fun put(
         pack: File,
-        source: Files,
+        source: TextFiles,
         keys: Set<String>,
     ): List<File> {
         val paths = (work(pack).keys + source.keys).toSortedSet()
@@ -137,12 +137,12 @@ object Texts {
      * the side [fields] names, else the clone's. Returns the merged files and those fields.
      */
     fun merge(
-        base: Files,
-        clone: Files,
-        main: Files,
+        base: TextFiles,
+        clone: TextFiles,
+        main: TextFiles,
         keys: Set<String>,
         fields: Map<String, String> = emptyMap(),
-    ): Pair<Files, List<Drafts.Field>> {
+    ): Pair<TextFiles, List<Drafts.Field>> {
         val both = mutableListOf<Drafts.Field>()
         val merged =
             (base.keys + clone.keys + main.keys).toSortedSet().associateWith { path ->

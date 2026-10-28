@@ -26,6 +26,8 @@ object PackModel {
             "overrides" to overrides(assets, root, drafts),
             "statuses" to GlyphAllocation.STATUSES.toList(),
             "scalings" to TextureMeta.SCALINGS,
+            "languages" to Texts.work(root).keys.map(Texts::language).toSortedSet().toList(),
+            "texts" to texts(root, listed, drafts),
             "drafts" to
                 listed.map {
                     linkedMapOf(
@@ -33,6 +35,7 @@ object PackModel {
                         "label" to it.label,
                         "state" to it.state,
                         "files" to it.files,
+                        "keys" to it.keys,
                         "review" to it.review,
                         "conflict" to
                             it.conflict?.let { conflict ->
@@ -69,6 +72,33 @@ object PackModel {
                     )
                 },
         )
+    }
+
+    /**
+     * Each key of the language files with its value in each language, and the id of the asset it belongs to or null. A
+     * text is marked with the draft that it is part of, which is its asset's or its own.
+     */
+    private fun texts(
+        root: File,
+        listed: List<Drafts.Draft>,
+        drafts: Marks,
+    ): List<Map<String, Any?>> {
+        val values = sortedMapOf<String, MutableMap<String, String>>()
+        for ((path, texts) in Texts.work(root)) {
+            texts.forEach { (key, value) -> values.getOrPut(key) { sortedMapOf() }[Texts.language(path)] = value }
+        }
+        val owner = Texts.owner(root)
+        val draftOf = listed.flatMap { draft -> draft.keys.map { it to draft.id } }.toMap()
+        return values.map { (key, languages) ->
+            val id = owner(key)
+            linkedMapOf(
+                "key" to key,
+                "values" to languages,
+                "owner" to id.takeIf { Texts.ownKey(it) == null },
+                "draft" to draftOf[key],
+                "review" to drafts.reviews[id],
+            )
+        }
     }
 
     /** The ids of the [drafts], and of each change in review with the number of its pull request. */

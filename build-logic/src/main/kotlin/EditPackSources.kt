@@ -21,7 +21,7 @@ import java.io.File
 abstract class EditPackSources : VanillaClientTask() {
     /**
      * `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`,
-     * `readItem`, `writeItem`, `editItem`, `import`, `discard`, `resolve`, `conflict`, `publish` or `sync`.
+     * `readItem`, `writeItem`, `editItem`, `import`, `text`, `discard`, `resolve`, `conflict`, `publish` or `sync`.
      */
     @get:Input
     abstract val kind: Property<String>
@@ -77,6 +77,10 @@ abstract class EditPackSources : VanillaClientTask() {
                 "drafts",
                 "keep",
                 "gh",
+                "key",
+                "language",
+                "value",
+                "delete",
             )
     }
 
@@ -210,6 +214,10 @@ abstract class EditPackSources : VanillaClientTask() {
 
                     "import" -> {
                         ItemFiles(pack, ::jar).use { it.import(File(text("model")), text("id"), text("item"), options["at"] ?: "") }
+                    }
+
+                    "text" -> {
+                        Texts.edit(pack, text("key"), options["language"], options["value"], options["delete"] == "true")
                     }
 
                     "discard" -> {

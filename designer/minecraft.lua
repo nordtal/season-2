@@ -85,9 +85,10 @@ local tones = { connected="good", connecting="wait", unreachable="wait", refused
 -- The items of the Minecraft bar for view: { instance, liveSync,
 -- bridge }. instance is what describeInstance printed, nil before its
 -- first read, and bridge the state of the connection. The instance
--- box shows the folder name and has the whole path as its tip. Live
--- sync is disabled, neither on nor off, until an instance is chosen. A
--- field is a table whose minecraft names the action.
+-- box shows the folder name and has the whole path as its tip. The
+-- buttons follow it, then live sync, which is disabled, neither on nor
+-- off, until an instance is chosen. A field is a table whose minecraft
+-- names the action.
 function minecraft.bar(view, tr)
   if not view.instance then
     return {}
@@ -102,17 +103,19 @@ function minecraft.bar(view, tr)
                          tip=tr("minecraft.live_sync_disabled_tip") })
     return list
   end
-  table.insert(list, { kind="switch", text=tr("minecraft.live_sync"), value=view.liveSync == true,
-                       field={ minecraft="live" }, tip=tr("minecraft.live_sync_tip") })
+  local live = { kind="switch", text=tr("minecraft.live_sync"), value=view.liveSync == true,
+                 field={ minecraft="live" }, tip=tr("minecraft.live_sync_tip") }
   table.insert(list, { kind="button", text=tr("minecraft.install_pack"), short=tr("minecraft.install_pack_short"),
                        field={ minecraft="pack" } })
   if not view.instance.fabric then
+    table.insert(list, live)
     table.insert(list, { kind="text", text=tr("minecraft.state_no_fabric"), color="off", tip=tr("minecraft.no_fabric") })
     return list
   end
   local jar = view.instance.bridge
   table.insert(list, { kind="button", text=tr(jar and "minecraft.update_bridge" or "minecraft.install_bridge"),
                        short=tr("minecraft.bridge_short"), field={ minecraft="bridge" } })
+  table.insert(list, live)
   if view.instance.problem then
     table.insert(list, { kind="text", text=tr("minecraft.state_problem"), color="bad", tip=view.instance.problem })
     return list

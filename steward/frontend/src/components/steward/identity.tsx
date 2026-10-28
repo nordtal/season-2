@@ -1,7 +1,7 @@
 import { CheckIcon, CopyIcon, QuestionIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link, useRouter } from "@tanstack/react-router"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { StewardMark } from "@/app/steward-mark"
 import { Button } from "@/components/ui/button"
@@ -216,6 +216,12 @@ function PersonPageLink({ discordId }: { discordId: string }) {
 function CopyableId({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
 
+  useEffect(() => {
+    if (!copied) return undefined
+    const timeout = window.setTimeout(() => setCopied(false), 1500)
+    return () => window.clearTimeout(timeout)
+  }, [copied])
+
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -234,10 +240,7 @@ function CopyableId({ label, value }: { label: string; value: string }) {
           aria-label={t("steward.identity.copy", { what: label })}
           onClick={async () => {
             const ok = await copyToClipboard(value)
-            if (ok) {
-              setCopied(true)
-              setTimeout(() => setCopied(false), 1500)
-            }
+            if (ok) setCopied(true)
           }}
         >
           {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}

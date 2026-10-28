@@ -1,5 +1,5 @@
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -120,6 +120,23 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     fireEvent.click(screen.getByRole("button", { name: "Copy Minecraft-UUID" }))
 
     expect(writeText).toHaveBeenCalledExactlyOnceWith(MC_UUID)
+  })
+
+  it("leaves no timer running once it is gone, so nothing fires after the page", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)
+    vi.stubGlobal("navigator", { clipboard: { writeText } })
+
+    render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" />)
+    fireEvent.click(screen.getByRole("button"))
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Copy Discord-ID" })))
+    expect(writeText).toHaveBeenCalledOnce()
+
+    cleanup()
+    // The popover's focus scope restores focus on a timer of no delay; the copy's reset must not still wait.
+    vi.advanceTimersByTime(0)
+    expect(vi.getTimerCount()).toBe(0)
+    vi.useRealTimers()
   })
 
   it("leaves the id selectable when the clipboard API is unavailable, rather than failing silently", async () => {

@@ -69,8 +69,10 @@ which writes the item's definition from the client jar into the pack, and the it
 
 The tree marks each draft of the pack model with the icon of a modified tab: a texture with its
 entries, or the fields of a block or a font. A node with drafts inside it shows their count in
-brackets as its badge, such as `(2)`, so a collapsed font or block shows them too. A draft outside
-the tree, such as a language file, is listed only in the publish dialog. The properties panel of a draft has
+brackets as its badge, such as `(2)`, so a collapsed font or block shows them too. The tree's
+**Texts** lists each key of the pack's language files, and its properties show the asset that owns
+the key, one value per language that `editText` writes, and **Delete Text**. **Add Text** on
+**Texts** asks for a key, a language and a value. The properties panel of a draft has
 **Discard Changes**, which runs `discardDraft` once confirmed. **File > Publish...** lists every
 draft with a check, and a title that names the drafts chosen until it is edited. **Discard
 Chosen...** discards the chosen drafts once confirmed. **Publish** writes the title to

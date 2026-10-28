@@ -32,7 +32,7 @@ class DraftsTest {
     }
 
     @Test
-    fun theSourceAndTheMetadataOfATextureBelongToItsDraftAndAnotherFileIsADraftOfItsOwn() {
+    fun theSourceAndTheMetadataOfATextureBelongToItsDraftAndATextOfNoAssetIsADraftOfItsOwn() {
         val clone = DraftClone(root, "star@FE000")
         clone.pack
             .resolve("art/assets/nordtal/textures/badges/star.aseprite")
@@ -42,7 +42,7 @@ class DraftsTest {
         clone.pack
             .resolve("src/assets/minecraft/lang/en_us.json")
             .apply { parentFile.mkdirs() }
-            .writeText("{}")
+            .writeText("""{ "menu.title": "Pause" }""")
 
         assertEquals(
             listOf(
@@ -55,7 +55,7 @@ class DraftsTest {
                         "src/assets/nordtal/textures/badges/star.png.mcmeta",
                     ),
                 ),
-                listOf("src/assets/minecraft/lang/en_us.json", "en_us.json", "added", listOf("src/assets/minecraft/lang/en_us.json")),
+                listOf("text menu.title", "menu.title", "added", emptyList<String>()),
             ),
             drafts(clone),
         )
@@ -90,5 +90,34 @@ class DraftsTest {
 
         assertEquals(published, clone.git(clone.clone, "hash-object", "--", clone.pngFile("star").absolutePath))
         assertEquals(emptyList<String>(), Drafts.list(clone.pack).map { it.id })
+    }
+
+    @Test
+    fun aTextOfAnAssetIsPartOfItsDraftAndADiscardRestoresItAlone() {
+        val clone = DraftClone(root, "star@FE000")
+        val stone = clone.pack.resolve("src/assets/nordtal/textures/block/stone.png")
+        clone.pngFile("star").copyTo(stone.apply { parentFile.mkdirs() })
+        val texts = clone.pack.resolve("src/assets/nordtal/lang/en_us.json").apply { parentFile.mkdirs() }
+        texts.writeText("""{ "block.nordtal.stone": "Stone", "block.nordtal.stone.lore": "Grey" }""")
+        clone.commitAll("feat: stone")
+        texts.writeText("""{ "block.nordtal.stone": "Granite", "block.nordtal.stone.lore": "Grey", "menu.title": "Pause" }""")
+
+        val listed = Drafts.list(clone.pack)
+
+        assertEquals(
+            listOf(
+                listOf("nordtal:block/stone.png", "stone", "changed", emptyList<String>(), listOf("block.nordtal.stone")),
+                listOf("text menu.title", "menu.title", "added", emptyList<String>(), listOf("menu.title")),
+            ),
+            listed.map { listOf(it.id, it.label, it.state, it.files, it.keys) },
+        )
+
+        Drafts.discard(clone.pack, "nordtal:block/stone.png")
+
+        assertEquals(listOf("text menu.title"), Drafts.list(clone.pack).map { it.id })
+        assertEquals(
+            mapOf("block.nordtal.stone" to "Stone", "block.nordtal.stone.lore" to "Grey", "menu.title" to "Pause"),
+            Texts.work(clone.pack).values.single(),
+        )
     }
 }

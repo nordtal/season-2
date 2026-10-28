@@ -187,9 +187,9 @@ class Publish(
     )
 
     /**
-     * Moves the clone to `origin/main` and puts every local change back on top of it, with main's changes to its entries
-     * merged field by field. A draft of a [merged] pull request that equals what was last pushed takes main's version.
-     * A draft in conflict with main keeps its base, so the conflict stays. A pull that fails leaves the clone as it was.
+     * Moves the clone to `origin/main` and puts each local change back on top, merged with main's entries field by field
+     * and texts key by key. A draft of a [merged] pull request that equals what was last pushed takes main's version. A
+     * draft in conflict with main keeps its base, so the conflict stays. A pull that fails leaves the clone as it was.
      */
     private fun pull(merged: List<Drafts.Review>) {
         val taken = merged.flatMap { it.drafts }.toSet() - Drafts.ids(pack)
@@ -197,6 +197,9 @@ class Publish(
         val skipped = Drafts.files(pack, taken).map { "$prefix/$it" }.toSet()
         val drafts = Drafts.list(pack)
         val bases = drafts.mapNotNull { draft -> Drafts.base(pack, draft.id)?.let { draft.id to it } }.toMap()
+        val owner = Texts.owner(pack)
+
+        fun text(path: String) = path.startsWith("$prefix/") && Texts.isText(path.removePrefix("$prefix/"))
         val (name, email) = author()
         git(
             repository,
@@ -213,8 +216,8 @@ class Publish(
             val glyphs = "$prefix/glyphs.json"
             val changed = paths(listOf("diff", "--name-only", "-z", "$commit^1", commit)) - skipped
             val kept = paths(listOf("ls-tree", "-r", "-z", "--name-only", commit)).toSet()
-            val (restored, deleted) = (changed - glyphs).partition { it in kept }
-            val untracked = untracked(commit) - skipped
+            val (restored, deleted) = (changed - glyphs).filterNot(::text).partition { it in kept }
+            val untracked = (untracked(commit) - skipped).filterNot(::text)
             if (restored.isNotEmpty()) git(repository, listOf("restore", "--source=$commit", "--worktree", "--") + restored)
             if (untracked.isNotEmpty()) git(repository, listOf("restore", "--source=$commit^3", "--worktree", "--") + untracked)
             AtomicFiles.write(deleted.map { repository.resolve(it) }.filter { it.exists() }.associateWith { null })
@@ -227,6 +230,12 @@ class Publish(
                         ids.forEach { Drafts.write(root, Drafts.merge(Drafts.glyphs(pack, bases[it] ?: "$commit^1"), mine, main, it), it) }
                     }
                 }
+            }
+            // The stash keeps a new language file among its untracked files, in its third parent
+            val mine = Texts.at(pack, commit) + Texts.at(pack, "$commit^3")
+            val keys = Texts.changedKeys(Texts.at(pack, "$commit^1"), mine).filter { owner(it) !in taken }
+            for ((base, group) in keys.groupBy { bases[owner(it)] ?: "$commit^1" }) {
+                Texts.put(pack, Texts.merge(Texts.at(pack, base), mine, Texts.at(pack, "HEAD"), group.toSet()).first, group.toSet())
             }
         } catch (failure: Exception) {
             runCatching { putBack(stash) }.onFailure { failure.addSuppressed(it) }

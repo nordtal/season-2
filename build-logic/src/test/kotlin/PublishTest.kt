@@ -217,7 +217,7 @@ class PublishTest {
     }
 
     @Test
-    fun aLanguageFileIsPublishedAsADraftOfItsOwn() {
+    fun aTextOfNoAssetIsPublishedAsADraftOfItsOwn() {
         val clone = DraftClone(root, "star@FE000")
         val lang = "src/assets/nordtal/lang/en_us.json"
         clone.pack
@@ -225,9 +225,12 @@ class PublishTest {
             .apply { parentFile.mkdirs() }
             .writeText("{ \"badge.star\": \"Star\" }\n")
 
-        publish(clone).publish(listOf(lang), "feat(resource-pack): the badges have english names")
+        publish(clone).publish(listOf("text badge.star"), "feat(resource-pack): the badges have english names")
 
-        assertEquals("{ \"badge.star\": \"Star\" }\n", clone.onOrigin("designer/the-badges-have-english-names", "resource-pack/$lang"))
+        assertEquals(
+            mapOf("badge.star" to "Star"),
+            OxfmtJson.read(clone.onOrigin("designer/the-badges-have-english-names", "resource-pack/$lang")),
+        )
         assertEquals(emptyList<Pair<String, Int?>>(), ids(clone))
     }
 
@@ -441,12 +444,12 @@ class PublishTest {
         clone.png("moon", 0xFF00FF00.toInt())
         val notes = clone.pack.resolve("src/assets/nordtal/lang/en_us.json")
         notes.parentFile.mkdirs()
-        notes.writeText("{}\n")
+        notes.writeText("{ \"note\": \"Later\" }\n")
 
         assertEquals(listOf("restored"), publish(clone).sync())
 
         assertEquals(
-            listOf("nordtal:badges/moon.png", "nordtal:badges/star.png", "src/assets/nordtal/lang/en_us.json"),
+            listOf("nordtal:badges/moon.png", "nordtal:badges/star.png", "text note"),
             ids(clone).map { it.first },
         )
         assertEquals("", clone.git(clone.clone, "stash", "list"))
@@ -504,6 +507,30 @@ class PublishTest {
         assertEquals(listOf("nordtal:badges/comet.png" to null, "nordtal:badges/moon.png" to null), ids(clone))
         assertEquals("", clone.git(clone.clone, "stash", "list"))
         assertEquals(emptyList<String>(), publish(clone).sync())
+    }
+
+    @Test
+    fun aPullMergesTheTextsKeyByKeyAndKeepsTheTextsOfEveryOtherDraft() {
+        val clone = DraftClone(root, "star@FE000")
+        val lang = clone.pack.resolve("src/assets/nordtal/lang/en_us.json").apply { parentFile.mkdirs() }
+        lang.writeText("{ \"menu.title\": \"Pause\", \"menu.quit\": \"Quit\" }\n")
+        clone.commitAll("feat: texts")
+        clone.git(clone.clone, "push", "-q", "origin", "main")
+        lang.writeText("{ \"menu.title\": \"Paused\", \"menu.quit\": \"Leave\" }\n")
+        publish(clone).publish(listOf("text menu.title"), "feat(resource-pack): the pause menu is paused")
+        clone.git(clone.origin, "update-ref", "refs/heads/main", "designer/the-pause-menu-is-paused")
+        clone.commitOnMain("feat: help") { pack ->
+            pack.resolve("src/assets/nordtal/lang/en_us.json").apply {
+                writeText(readText().replace("\"Paused\"", "\"Paused\", \"menu.help\": \"Help\""))
+            }
+        }
+        clone.prState.writeText("MERGED\n")
+
+        assertEquals(listOf("moved", "merged 42"), publish(clone).sync())
+
+        assertEquals(mapOf("menu.title" to "Paused", "menu.help" to "Help", "menu.quit" to "Leave"), Texts.work(clone.pack).values.single())
+        assertEquals(listOf("text menu.quit" to null), ids(clone))
+        assertEquals("", clone.git(clone.clone, "stash", "list"))
     }
 
     @Test

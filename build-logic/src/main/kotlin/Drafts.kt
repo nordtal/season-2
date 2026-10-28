@@ -6,8 +6,8 @@ import java.io.File
 
 /**
  * The drafts of a clone's pack: changes against the last commit that no pull request holds yet. A draft is one texture
- * with its source, `.mcmeta`, model, item definition and entries in `glyphs.json`; a font's or block's fields and any
- * other file are drafts of their own.
+ * with its source, `.mcmeta`, model, item definition, entries in `glyphs.json` and the [Texts] that belong to it; a
+ * font's or block's fields, a text that belongs to no asset and any other file are drafts of their own.
  */
 object Drafts {
     private const val GLYPHS = "glyphs.json"
@@ -16,9 +16,9 @@ object Drafts {
     private const val MAIN = "origin/main"
 
     /**
-     * One draft. [id] is its texture's id, `font <font>` or `block <font> <range>` for the fields of a font or block,
-     * or the path of a file. [state] is `added`, `changed` or `deleted`, [files] are its files relative to the pack,
-     * [review] is the number of the pull request that holds an older version of it, and [conflict] what main changed too.
+     * One draft. [id] is its texture's id, `font <font>`, `block <font> <range>`, `text <key>` or a file path. [state]
+     * is `added`, `changed` or `deleted`, [files] its files except the language files, whose changed [keys] it holds.
+     * [review] is the pull request that holds an older version of it, and [conflict] what main changed too.
      */
     data class Draft(
         val id: String,
@@ -27,11 +27,12 @@ object Drafts {
         val files: List<String>,
         val review: Int?,
         val conflict: Conflict? = null,
+        val keys: List<String> = emptyList(),
     )
 
     /**
      * What the clone and main both changed of one draft since its base: the [files], with `glyphs.json` for an entry
-     * that one side deleted and the other changed, and the [fields] of its entries.
+     * that one side deleted and the other changed, and the [fields] of its entries and texts.
      */
     data class Conflict(
         val files: List<String>,
@@ -108,7 +109,15 @@ object Drafts {
         val ids = sortedMapOf<String, MutableList<String>>()
         changedIds(head, work).forEach { ids.getOrPut(it) { mutableListOf() } }
         for (path in changedFiles(pack) - GLYPHS) {
-            ids.getOrPut(idOf(pack, path)) { mutableListOf() } += path
+            if (!Texts.isText(path)) ids.getOrPut(idOf(pack, path)) { mutableListOf() } += path
+        }
+        val headTexts = Texts.at(pack, "HEAD")
+        val workTexts = Texts.work(pack)
+        val owner = Texts.owner(pack)
+        val keys = mutableMapOf<String, MutableSet<String>>()
+        for (key in Texts.changedKeys(headTexts, workTexts)) {
+            ids.getOrPut(owner(key)) { mutableListOf() }
+            keys.getOrPut(owner(key)) { sortedSetOf() } += key
         }
         val committed = git(pack, listOf("ls-tree", "-r", "-z", "--name-only", "HEAD", "--", ".")).split('\u0000').toSet()
         val reviews = reviews(pack)
@@ -117,11 +126,17 @@ object Drafts {
         val meeting by lazy { mergeBase(pack) }
         val trees = mutableMapOf<String, Map<String, String>>()
         val roots = mutableMapOf<String, Map<*, *>?>()
+        val texts = mutableMapOf<String, TextFiles>()
+
+        fun textsAt(ref: String) = texts.getOrPut(ref) { Texts.at(pack, ref) }
         return ids.mapNotNull { (id, files) ->
             files.sort()
+            val own = keys[id].orEmpty()
+
+            fun same(ref: String) = same(pack, ref, id, files, workParts) && Texts.same(textsAt(ref), workTexts, own)
             val review = reviews.lastOrNull { id in it.drafts }
-            if (review != null && same(pack, review.commit, id, files, workParts)) return@mapNotNull null
-            if (main != null && same(pack, main, id, files, workParts)) return@mapNotNull null
+            if (review != null && same(review.commit)) return@mapNotNull null
+            if (main != null && same(main)) return@mapNotNull null
             val conflict =
                 main?.let { m ->
                     val base = bases[id] ?: meeting ?: return@let null
@@ -132,14 +147,19 @@ object Drafts {
                     val changed = files.filter { tree(base)[it] != tree(m)[it] && clone[it] != tree(m)[it] }
                     val merge =
                         merge(roots.getOrPut(base) { glyphs(pack, base) }, work, roots.getOrPut(m) { glyphs(pack, m) }, id)
-                    Conflict(changed + listOfNotNull(GLYPHS.takeIf { merge.whole }), merge.fields)
+                    val fields = if (own.isEmpty()) emptyList() else Texts.merge(textsAt(base), workTexts, textsAt(m), own).second
+                    Conflict(changed + listOfNotNull(GLYPHS.takeIf { merge.whole }), merge.fields + fields)
                         .takeIf { it.files.isNotEmpty() || it.fields.isNotEmpty() }
                 }
-            val before = id in headParts || files.any { it in committed }
-            val after = id in workParts || files.any { pack.resolve(it).exists() }
+            // An asset of which only texts changed is still there
+            val texted = files.isEmpty() && id !in headParts && id !in workParts && Texts.ownKey(id) == null
+            val before = texted || id in headParts || files.any { it in committed } || own.any { key -> headTexts.values.any { key in it } }
+            val after =
+                texted || id in workParts || files.any { pack.resolve(it).exists() } ||
+                    own.any { key -> workTexts.values.any { key in it } }
             Draft(
                 id,
-                workParts[id]?.label ?: headParts[id]?.label ?: label(id),
+                workParts[id]?.label ?: headParts[id]?.label ?: Texts.ownKey(id) ?: label(id),
                 if (!before) {
                     "added"
                 } else if (!after) {
@@ -150,6 +170,7 @@ object Drafts {
                 files,
                 review?.number,
                 conflict,
+                own.toList(),
             )
         }
     }
@@ -157,15 +178,15 @@ object Drafts {
     /** The ids of the drafts of [pack], which [PackModel] marks. */
     fun ids(pack: File): Set<String> = list(pack).map { it.id }.toSet()
 
-    /** The changed files of [pack] that belong to the drafts [ids], relative to the pack. */
+    /** The changed files of [pack] that belong to the drafts [ids], relative to the pack, without the language files. */
     internal fun files(
         pack: File,
         ids: Set<String>,
-    ): List<String> = (changedFiles(pack) - GLYPHS).filter { idOf(pack, it) in ids }
+    ): List<String> = (changedFiles(pack) - GLYPHS).filter { !Texts.isText(it) && idOf(pack, it) in ids }
 
     /**
-     * Restores the files and entries of the draft [id] in [pack] to the last commit, or to its pull request when one
-     * holds it, forgets its base and returns the files it wrote or deleted.
+     * Restores the files, entries and texts of the draft [id] in [pack] to the last commit, or to its pull request when
+     * one holds it, forgets its base and returns the files it wrote or deleted.
      */
     fun discard(
         pack: File,
@@ -181,8 +202,9 @@ object Drafts {
             } else {
                 emptyList()
             }
+        val texts = if (draft.keys.isEmpty()) emptyList() else Texts.put(pack, Texts.at(pack, ref), draft.keys.toSet())
         forget(pack, setOf(id))
-        return files + edited
+        return files + edited + texts
     }
 
     /** Writes [files] of [pack] as [ref] holds them, or deletes those it lacks, and returns them. */
@@ -221,9 +243,17 @@ object Drafts {
         val work = OxfmtJson.read(pack.resolve(GLYPHS)) as Map<*, *>
         val merge = merge(base?.let { glyphs(pack, it) }, work, glyphs(pack, main), id, keep, fields)
         val edited = NewTextures.edit(pack, null, 0, 0) { write(it, merge, id) }
+        val keys = draft.keys.toSet()
+        val texts =
+            if (keys.isEmpty()) {
+                emptyList()
+            } else {
+                val merged = Texts.merge(base?.let { Texts.at(pack, it) }.orEmpty(), Texts.work(pack), Texts.at(pack, main), keys, fields)
+                Texts.put(pack, merged.first, keys)
+            }
         val written = if (keep == "main") keepYours(pack, draft.files) + restore(pack, main, draft.files) else emptyList()
         writeBases(pack, bases(pack) + (id to main))
-        return edited + written
+        return edited + texts + written
     }
 
     /** Copies each of [files] that [pack] holds to `build/conflict/yours/` and returns the copies. */
@@ -315,8 +345,8 @@ object Drafts {
     }
 
     /**
-     * Writes the files and entries of [drafts] as [pack] holds them into [target], the pack of another work tree. With
-     * [merge], each entry keeps the fields that only [target] changed since the draft's base.
+     * Writes the files, entries and texts of [drafts] as [pack] holds them into [target], the pack of another work tree.
+     * With [merge], each entry and text keeps what only [target] changed since the draft's base.
      */
     internal fun copy(
         pack: File,
@@ -332,6 +362,16 @@ object Drafts {
                     target.resolve(path) to if (file.exists()) file.readBytes() else null
                 }.filter { (file, bytes) -> bytes != null || file.exists() },
         )
+        val texts = Texts.work(pack)
+        for (draft in drafts.filter { it.keys.isNotEmpty() }) {
+            val keys = draft.keys.toSet()
+            if (!merge) {
+                Texts.put(target, texts, keys)
+                continue
+            }
+            val main = Texts.at(target, "HEAD")
+            Texts.put(target, Texts.merge(base(pack, draft.id)?.let { Texts.at(pack, it) } ?: main, texts, main, keys).first, keys)
+        }
         val work = pack.resolve(GLYPHS).takeIf { it.isFile }?.let { OxfmtJson.read(it) as Map<*, *> }
         val main = glyphs(target, "HEAD")
         val ids = changedIds(main, work).intersect(drafts.map { it.id }.toSet())
@@ -673,7 +713,7 @@ object Drafts {
     ) = glyph["texture"] as String? ?: "$font ${glyph["code"]}"
 
     /** The id of the draft that the changed file [path] belongs to: its texture's, or its own path. */
-    private fun idOf(
+    internal fun idOf(
         pack: File,
         path: String,
     ): String {

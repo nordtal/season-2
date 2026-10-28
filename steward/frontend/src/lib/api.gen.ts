@@ -638,6 +638,10 @@ export type RunStep = {
   reason?: StepReason
   lines: MessageRef[]
   changes: RunChange[]
+  players: RunMove[]
+  imagesRemoved: RunImageRemoved[]
+  cacheFreed?: number
+  offsite?: RunOffsite
   saved: RunArchive[]
   pruned: RunArchive[]
 }
@@ -1097,6 +1101,23 @@ export type RunChange = {
   from?: string
   to?: string
   image?: ChangeImage
+}
+
+export type RunMove = {
+  from: string
+  to: string
+  moved: number
+  returned: number
+}
+
+export type RunImageRemoved = {
+  image: string
+  bytes: number
+}
+
+export type RunOffsite = {
+  snapshot: string
+  bytesAdded: number
 }
 
 export type RunArchive = {

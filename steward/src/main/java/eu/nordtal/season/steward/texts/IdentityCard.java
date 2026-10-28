@@ -9,6 +9,9 @@ import eu.nordtal.season.messages.value.Example;
 @Name("Identity")
 public interface IdentityCard {
 
+    @Name("The host, as who acted")
+    MessageRef host();
+
     @Name("No Discord name")
     MessageRef noDiscordName();
 

@@ -72,6 +72,8 @@ const step = (over: Partial<RunStep>): RunStep => ({
   outcome: "DONE",
   lines: [],
   changes: [],
+  players: [],
+  imagesRemoved: [],
   saved: [],
   pruned: [],
   ...over,

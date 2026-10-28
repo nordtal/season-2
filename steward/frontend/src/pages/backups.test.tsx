@@ -115,6 +115,7 @@ function run(over: Record<string, unknown> = {}) {
     status: "FAILED",
     actorKind: "HOST",
     actorId: "",
+    scope: [],
     requested: "2026-09-17T04:45:00Z",
     scheduledFor: "2026-09-17T04:45:00Z",
     countdownEnd: "2026-09-17T04:45:00Z",
@@ -465,7 +466,7 @@ describe("BackupsPage - the runs table (items 2, 3, 4)", () => {
     vi.stubGlobal("fetch", backend({ runs: [run({ actorKind: "HOST" })] }))
     draw()
 
-    expect(await screen.findByText("host")).toBeTruthy()
+    expect(await screen.findByText("Host")).toBeTruthy()
   })
 })
 
@@ -588,7 +589,7 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(await screen.findByText("nordtal-s2_mc-smp-20250101T044500Z.tar.zst")).toBeTruthy()
   })
 
-  it("draws a running backup's stages and steps as the update run's page does", async () => {
+  it("draws a running backup's stages as the update run's page does", async () => {
     vi.stubGlobal(
       "fetch",
       backend({
@@ -605,9 +606,10 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     )
     drawDetail("41")
 
-    const current = await screen.findByText("Backing up", { selector: "[aria-current='step'] *" })
-    expect(current).toBeTruthy()
-    expect(screen.getByRole("heading", { name: "Report" })).toBeTruthy()
+    const stage = await screen.findByRole("button", { name: "Backup" })
+    expect(screen.getByRole("heading", { name: "Stages" })).toBeTruthy()
+    expect(within(stage.parentElement!).getByText("1 archive saved")).toBeTruthy()
+    fireEvent.click(stage)
     expect(screen.getByText("Save a volume")).toBeTruthy()
   })
 

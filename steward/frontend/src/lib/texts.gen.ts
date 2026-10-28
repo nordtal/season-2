@@ -1097,6 +1097,7 @@ export type TextArgs = {
     what: Arg["text"]
   }
   "steward.identity.discord-id": Record<string, never>
+  "steward.identity.host": Record<string, never>
   "steward.identity.minecraft-uuid": Record<string, never>
   "steward.identity.never-joined": Record<string, never>
   "steward.identity.never-observed": Record<string, never>
@@ -1384,8 +1385,16 @@ export type TextArgs = {
   }
   "steward.notifications.unnamed": Record<string, never>
   "steward.operations.a-run": Record<string, never>
-  "steward.operations.all-notes": Record<string, never>
+  "steward.operations.added": {
+    size: Arg["text"]
+  }
   "steward.operations.all-updates": Record<string, never>
+  "steward.operations.archives-pruned": {
+    count: Arg["number"]
+  }
+  "steward.operations.archives-saved": {
+    count: Arg["number"]
+  }
   "steward.operations.ask": {
     kind: Arg["choice"]
   }
@@ -1405,6 +1414,12 @@ export type TextArgs = {
   "steward.operations.failed": {
     count: Arg["number"]
   }
+  "steward.operations.freed": {
+    size: Arg["text"]
+  }
+  "steward.operations.images-removed": {
+    count: Arg["number"]
+  }
   "steward.operations.local-builds": {
     builds: Arg["list"]
   }
@@ -1414,18 +1429,21 @@ export type TextArgs = {
   }
   "steward.operations.no-change": Record<string, never>
   "steward.operations.no-earlier-than": Record<string, never>
-  "steward.operations.no-report": Record<string, never>
   "steward.operations.not-a-number": Record<string, never>
   "steward.operations.not-cancelled": {
     run: Arg["number"]
   }
   "steward.operations.notes": Record<string, never>
   "steward.operations.nothing-to-do": Record<string, never>
-  "steward.operations.nothing-to-do-title": Record<string, never>
   "steward.operations.nothing-written": Record<string, never>
   "steward.operations.now": Record<string, never>
-  "steward.operations.outcome": Record<string, never>
-  "steward.operations.report": Record<string, never>
+  "steward.operations.players-back": {
+    count: Arg["number"]
+  }
+  "steward.operations.players-moved": {
+    count: Arg["number"]
+    to: Arg["text"]
+  }
   "steward.operations.requested-by": Record<string, never>
   "steward.operations.run": {
     id: Arg["text"]
@@ -1438,11 +1456,21 @@ export type TextArgs = {
     ask: Arg["text"]
     services: Arg["list"]
   }
-  "steward.operations.service": Record<string, never>
+  "steward.operations.services": {
+    count: Arg["number"]
+  }
+  "steward.operations.stage": {
+    stage: Arg["choice"]
+  }
   "steward.operations.stages": Record<string, never>
+  "steward.operations.standby-down": {
+    time: Arg["text"]
+  }
+  "steward.operations.standby-up": {
+    time: Arg["text"]
+  }
   "steward.operations.started": Record<string, never>
   "steward.operations.state": Record<string, never>
-  "steward.operations.status": Record<string, never>
   "steward.operations.step": {
     stage: Arg["choice"]
   }

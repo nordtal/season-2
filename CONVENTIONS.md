@@ -205,6 +205,6 @@ run `git config core.hooksPath .githooks` once per clone.
     📝 any other action.
   - A language's flag, the country `Locales.flagCountry` names for it, drawn by `Mark.flag`.
 - **A design proposal is drawn on Nordtal's design system**, outside this repository, never as a page
-  Steward serves. The one page left under `/designs/` goes with its route once its layout is built.
+  Steward serves.
 - **A visual change is accepted on screenshots** at phone and desktop width, compared with what was
   intended, not on green tests alone.

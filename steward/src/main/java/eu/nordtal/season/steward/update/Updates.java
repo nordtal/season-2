@@ -168,9 +168,10 @@ public final class Updates {
             List<Step> steps) {}
 
     /**
-     * A step of a run, with its facts in words and the archives it saved and pruned.
+     * A step of a run, with its facts in words and as the typed values the run page's pills count.
      *
      * @param lines the facts of the step in words, the same lines the terminal prints
+     * @param cacheFreed the bytes a cleanup freed in the build cache
      */
     public record Step(
             int seq,
@@ -182,6 +183,10 @@ public final class Updates {
             RunStep.@Nullable Reason reason,
             List<MessageRef> lines,
             List<RunStep.Change> changes,
+            List<RunStep.Move> players,
+            List<RunStep.ImageRemoved> imagesRemoved,
+            @Nullable Long cacheFreed,
+            RunStep.@Nullable Offsite offsite,
             List<RunStep.Archive> saved,
             List<RunStep.Archive> pruned) {
 
@@ -196,6 +201,10 @@ public final class Updates {
                     row.reason(),
                     RunLines.of(row),
                     row.changes(),
+                    row.players(),
+                    row.imagesRemoved(),
+                    row.cacheFreed(),
+                    row.offsite(),
                     row.saved(),
                     row.pruned());
         }

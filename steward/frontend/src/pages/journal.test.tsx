@@ -82,7 +82,7 @@ describe("JournalPage - profiles, never user ids", () => {
     draw(<JournalPage />)
 
     await screen.findByText('Typed "list" into the console of smp.')
-    expect((await screen.findAllByText("host"))[0].closest("[data-entity='unknown']")).toBeTruthy()
+    expect((await screen.findAllByText("Host"))[0].closest("[data-entity='unknown']")).toBeNull()
   })
 
   it("draws Steward itself when no admin was behind the line", async () => {

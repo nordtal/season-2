@@ -12,7 +12,7 @@ import { useAvailable, useRefreshAvailable, useRuns, useSchedule } from "@/lib/q
 import { Actor } from "@/components/steward/entity"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
-import { RunSteps } from "@/components/steward/run-steps"
+import { RunRail } from "@/components/steward/run-rail"
 import { Stat } from "@/components/steward/stat"
 import { AvailableBadge, RunStatus, Tip, runKind } from "@/components/steward/status"
 import { Failure, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -230,7 +230,12 @@ function Available() {
 /** What a run would note. It has its own panel, because panels are not nested. */
 function PlanNotes() {
   const available = useAvailable()
-  return available.data ? <RunSteps steps={available.data.steps} title={t("steward.operations.notes")} /> : null
+  if (!available.data || available.data.steps.length === 0) return null
+  return (
+    <Panel title={t("steward.operations.notes")}>
+      <RunRail steps={available.data.steps} />
+    </Panel>
+  )
 }
 
 /** Returns the runs that install or restart. */

@@ -6,6 +6,7 @@ import { PersonIdentity } from "@/components/steward/identity"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import type { ActorKind, Person } from "@/lib/api"
 import { useAvatarBaseUrl, usePeople, useTopology } from "@/lib/queries"
+import { t } from "@/lib/texts"
 
 export type EntityKind = "discord" | "minecraft" | "service"
 
@@ -129,7 +130,8 @@ export function Entity({ id, kind, system, interactive, face, className }: Entit
 
 export function Actor({ kind, id, className }: { kind: ActorKind; id: string; className?: string }) {
   if (kind === "PERSON" && id) return <Entity id={id} kind="discord" className={className} />
-  if (kind === "HOST") return <Entity id="host" className={className} />
+  // Someone at the host's terminal, whom no record names.
+  if (kind === "HOST") return <span className={"text-sm " + (className ?? "")}>{t("steward.identity.host")}</span>
   if (kind === "BOT") return <Entity id="discord-bot" kind="service" className={className} />
   return <Entity system className={className} />
 }

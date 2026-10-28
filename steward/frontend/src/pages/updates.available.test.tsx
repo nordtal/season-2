@@ -153,7 +153,7 @@ describe("the available card", () => {
     expect(screen.queryByText("viaversion")).toBeNull()
   })
 
-  it("draws a plan's steps as the run page does, each with its service and its facts", async () => {
+  it("draws a plan's stages as the run page does, a warned one open with its steps' facts", async () => {
     vi.stubGlobal(
       "fetch",
       backend(
@@ -183,8 +183,10 @@ describe("the available card", () => {
 
     await screen.findByText("chunky")
     expect(screen.getByText("Notes")).toBeTruthy()
-    expect(screen.getByText("a jar no artefact claims")).toBeTruthy()
-    expect(screen.getByText("all 1")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Resolve" }).getAttribute("aria-expanded")).toBe("true")
+    // Once as the stage's pill, once as its step's line below the step and its service.
+    expect(screen.getAllByText("a jar no artefact claims")).toHaveLength(2)
+    expect(screen.getByText("limbo", { exact: false, selector: "span.text-muted-foreground" })).toBeTruthy()
   })
 
   it("says so plainly when there is nothing rather than drawing an empty table", async () => {

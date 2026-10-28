@@ -76,9 +76,6 @@ public interface OperationsPage {
     @Name("Not a run number")
     MessageRef notANumber();
 
-    @Name("Status")
-    MessageRef status();
-
     @Name("Requested by")
     MessageRef requestedBy();
 
@@ -94,23 +91,11 @@ public interface OperationsPage {
     @Name("Still running")
     MessageRef stillRunning();
 
-    @Name("Nothing to do, as a title")
-    MessageRef nothingToDoTitle();
-
     @Name("Saved nothing")
     MessageRef savedNothing();
 
     @Name("Stages")
     MessageRef stages();
-
-    @Name("Report")
-    MessageRef report();
-
-    @Name("No report")
-    MessageRef noReport();
-
-    @Name("Service")
-    MessageRef service();
 
     @Name("State")
     MessageRef state();
@@ -118,12 +103,55 @@ public interface OperationsPage {
     @Name("Notes")
     MessageRef notes();
 
-    @Name("Outcome filter")
-    MessageRef outcome();
+    @Name("A stage on the rail")
+    MessageRef stage(@Arg("stage") Stage stage);
 
-    @Name("Every note")
-    MessageRef allNotes();
+    @Name("Services, counted")
+    MessageRef services(@Arg("count") @Example("5") int count);
+
+    @Name("Players moved")
+    MessageRef playersMoved(@Arg("count") @Example("4") int count, @Arg("to") @Example("limbo") String to);
+
+    @Name("Players back")
+    MessageRef playersBack(@Arg("count") @Example("3") int count);
+
+    @Name("Standby up")
+    MessageRef standbyUp(@Arg("time") @Example("04:00") String time);
+
+    @Name("Standby down")
+    MessageRef standbyDown(@Arg("time") @Example("04:06") String time);
+
+    @Name("Archives saved")
+    MessageRef archivesSaved(@Arg("count") @Example("4") int count);
+
+    @Name("Archives pruned")
+    MessageRef archivesPruned(@Arg("count") @Example("2") int count);
+
+    @Name("Images removed")
+    MessageRef imagesRemoved(@Arg("count") @Example("3") int count);
+
+    @Name("Freed")
+    MessageRef freed(@Arg("size") @Example("1.2 GB") String size);
+
+    @Name("Added")
+    MessageRef added(@Arg("size") @Example("240 MB") String size);
 
     @Name("Under way")
     MessageRef underWay(@Arg("kind") @Example("Backup") String kind, @Arg("run") @Example("42") int run);
+
+    /** A stage on the run page's rail, which gathers the step kinds of one part of a run. */
+    enum Stage {
+        RESOLVE,
+        STANDBY,
+        COUNTDOWN,
+        PLAYERS,
+        STOP,
+        BACKUP,
+        MIGRATE,
+        INSTALL,
+        RESTORE,
+        STARTING,
+        CLEANUP,
+        OFFSITE
+    }
 }

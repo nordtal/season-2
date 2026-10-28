@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { UpdateRunPage } from "@/pages/operations"
@@ -30,7 +30,12 @@ const STEPS = [
   },
 ]
 
-function backend(steps: unknown = STEPS, stage = "DONE", kind = "UPDATE"): typeof fetch {
+function backend(
+  steps: unknown = STEPS,
+  stage = "DONE",
+  kind = "UPDATE",
+  scheduledFor = "2026-09-20T18:00:00Z",
+): typeof fetch {
   const impl: typeof fetch = async (input) => {
     const url = urlOf(input)
     if (url.startsWith("/api/updates/79")) {
@@ -40,8 +45,9 @@ function backend(steps: unknown = STEPS, stage = "DONE", kind = "UPDATE"): typeo
         status: "DONE",
         actorKind: "HOST",
         actorId: "",
+        scope: [],
         requested: "2026-09-20T18:00:00Z",
-        scheduledFor: "2026-09-20T18:01:00Z",
+        scheduledFor,
         countdownEnd: "2026-09-20T18:01:00Z",
         moving: [],
         started: "2026-09-20T18:01:00Z",
@@ -53,11 +59,6 @@ function backend(steps: unknown = STEPS, stage = "DONE", kind = "UPDATE"): typeo
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   }
   return vi.fn<typeof fetch>(impl)
-}
-
-/** Returns whether the stage trail draws a tick before the stage. */
-function ticked(stage: string): boolean {
-  return screen.getByText(stage, { selector: "span" }).querySelector("svg") !== null
 }
 
 function draw() {
@@ -92,16 +93,22 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe("a run's steps read as Steward words them", () => {
-  it("prints each step with its service and its lines", async () => {
+describe("a run's stages give their coarse facts and open to their steps", () => {
+  it("shows a stage's facts as pills and its steps' lines only once it is opened", async () => {
     vi.stubGlobal("fetch", backend())
     draw()
 
-    expect(await screen.findByText("proxy 0.9.3 → 0.9.4")).toBeTruthy()
-    expect(screen.getByText("Install")).toBeTruthy()
+    const stage = await screen.findByRole("button", { name: "Install" })
+    expect(screen.getByText("proxy 0.9.3 → 0.9.4")).toBeTruthy()
+    expect(stage.getAttribute("aria-expanded")).toBe("false")
+
+    fireEvent.click(stage)
+    expect(stage.getAttribute("aria-expanded")).toBe("true")
+    const steps = document.getElementById(stage.getAttribute("aria-controls") ?? "")!
+    expect(within(steps).getByText("proxy 0.9.3 → 0.9.4")).toBeTruthy()
   })
 
-  it("names a failed step's reason and exit code", async () => {
+  it("opens a failed stage with its reason as a pill and every fact on its own line", async () => {
     vi.stubGlobal(
       "fetch",
       backend(
@@ -125,9 +132,26 @@ describe("a run's steps read as Steward words them", () => {
     )
     draw()
 
-    expect(await screen.findByText("the tool failed")).toBeTruthy()
+    const stage = await screen.findByRole("button", { name: "Backup" })
+    expect(stage.getAttribute("aria-expanded")).toBe("true")
+    expect(screen.getAllByText("the tool failed")).toHaveLength(2)
     expect(screen.getByText("exit code 2")).toBeTruthy()
     expect(screen.getByText("Dump the database")).toBeTruthy()
+  })
+
+  it("draws a stage that did nothing like every other, with a pill that says so", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend([
+        ...STEPS,
+        { seq: 2, step: "PLAYERS_MOVED", outcome: "DONE", lines: [], changes: [], players: [], saved: [], pruned: [] },
+      ]),
+    )
+    draw()
+
+    const players = await screen.findByRole("button", { name: "Players" })
+    expect(players.className).toBe(screen.getByRole("button", { name: "Install" }).className)
+    expect(within(players.parentElement!).getByText("nothing")).toBeTruthy()
   })
 
   it("sends a backup run to its page under Backups", async () => {
@@ -137,59 +161,41 @@ describe("a run's steps read as Steward words them", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/operations/backups/79"))
   })
 
-  it("ticks only the stages a finished run of its kind writes", async () => {
-    vi.stubGlobal("fetch", backend(STEPS, "DONE", "RECREATE"))
-    draw()
-
-    await screen.findByText("Stopping", { selector: "span" })
-    expect(ticked("Planned")).toBe(true)
-    expect(ticked("Stopping")).toBe(true)
-    expect(ticked("Resolving")).toBe(false)
-    expect(ticked("Backing up")).toBe(false)
-  })
-
-  it("ticks only the stages a running run of its kind has walked", async () => {
-    vi.stubGlobal("fetch", backend([], "STOPPING", "RECREATE"))
-    draw()
-
-    await screen.findByText("Planned", { selector: "span" })
-    expect(ticked("Planned")).toBe(true)
-    expect(ticked("Resolving")).toBe(false)
-  })
-
-  it("ticks no backup on a finished update", async () => {
-    vi.stubGlobal("fetch", backend())
-    draw()
-
-    await screen.findByText("Installing", { selector: "span" })
-    expect(ticked("Installing")).toBe(true)
-    expect(ticked("Backing up")).toBe(false)
-  })
-
-  it("says there is no report yet while a run has no step", async () => {
+  it("says nothing is written yet while a run has no step", async () => {
     vi.stubGlobal("fetch", backend([], "PLANNED"))
     draw()
 
-    expect(await screen.findByText("No report yet")).toBeTruthy()
+    expect(await screen.findByText("nothing written yet")).toBeTruthy()
   })
 })
 
-describe("a run's figures wrap on a phone", () => {
-  it("draws the status and the other figures with no separator to hang at a line's end", async () => {
+describe("a run's header is compact", () => {
+  it("names the run's outcome once, and the host as a word", async () => {
     vi.stubGlobal("fetch", backend())
     draw()
 
-    const figures = (await screen.findByText("Requested by")).closest("div")?.parentElement
-    expect(figures?.textContent).toContain("Status")
-    expect(figures?.querySelector("[data-slot='separator']")).toBeNull()
+    await screen.findByText("Requested by")
+    expect(screen.getAllByText(/^done$/i)).toHaveLength(1)
+    expect(screen.getByText("Host")).toBeTruthy()
   })
 
-  it("names the run's outcome once, as its stage", async () => {
+  it("names the earliest start only when it is not the moment of asking", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw()
+    await screen.findByText("Requested by")
+    expect(screen.queryByText("No earlier than")).toBeNull()
+    cleanup()
+
+    vi.stubGlobal("fetch", backend(STEPS, "DONE", "UPDATE", "2026-09-20T20:00:00Z"))
+    draw()
+    expect(await screen.findByText("No earlier than")).toBeTruthy()
+  })
+
+  it("draws its figures with no separator to hang at a line's end", async () => {
     vi.stubGlobal("fetch", backend())
     draw()
 
-    await screen.findByText("proxy 0.9.3 → 0.9.4")
-    const status = screen.getByText("Status").parentElement!
-    expect(within(status).getAllByText(/^done$/i)).toHaveLength(1)
+    const figures = (await screen.findByText("Requested by")).closest("dl")
+    expect(figures?.querySelector("[data-slot='separator']")).toBeNull()
   })
 })

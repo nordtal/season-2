@@ -1,6 +1,5 @@
 import type { ReactNode } from "react"
-import { ArrowRightIcon, CheckIcon, ShieldWarningIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { ArrowRightIcon, ShieldWarningIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link, Navigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
@@ -14,9 +13,8 @@ import { choice, span, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
-import { Stat } from "@/components/steward/stat"
 import { Actor } from "@/components/steward/entity"
-import { RunSteps } from "@/components/steward/run-steps"
+import { RunRail } from "@/components/steward/run-rail"
 import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Alert, AlertTitle } from "@/components/ui/alert"
@@ -26,18 +24,6 @@ import { Button } from "@/components/ui/button"
 /**
  * The vocabulary of a run, shared by Updates, Backups and a service's page. A run is a row in Steward's inbox and never a call to a container.
  */
-
-/** The stages in `RunStage` order, without the four endings. */
-const TRAIL = [
-  "RESOLVING",
-  "PLANNED",
-  "COUNTDOWN",
-  "STOPPING",
-  "BACKING_UP",
-  "INSTALLING",
-  "STARTING",
-  "VERIFYING",
-] as const
 
 function stageLabel(stage: string): string {
   return t("steward.operations.step", { stage: choice(stage) })
@@ -309,50 +295,7 @@ function RunDetail({ run, children }: { run?: Run; children?: ReactNode }) {
 
   return (
     <>
-      <div className="flex flex-wrap items-start gap-x-8 gap-y-4">
-        <div className="flex flex-col gap-2">
-          <span className="font-heading text-xs font-medium text-muted-foreground">
-            {t("steward.operations.status")}
-          </span>
-          <div className="flex items-center gap-2">
-            {stage ? (
-              <StageBadge stage={stage} />
-            ) : run ? (
-              <RunStatus status={run.status} />
-            ) : (
-              <Skeleton className="h-5 w-20 rounded-full" />
-            )}
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {run ? runKind(run.kind) : <SkeletonText className="text-xs" width="medium" />}
-          </span>
-        </div>
-
-        <Stat
-          label={t("steward.operations.requested-by")}
-          value={run ? <Actor kind={run.actorKind} id={run.actorId} /> : undefined}
-          hint={run ? dateTime(run.requested) : undefined}
-        />
-        {/* Steward does not pick the row up before this. */}
-        <Stat label={t("steward.operations.no-earlier-than")} value={run ? dateTime(run.scheduledFor) : undefined} />
-        <Stat
-          label={t("steward.operations.started")}
-          value={run ? dateTime(run.started) : undefined}
-          hint={run ? relative(run.started) : undefined}
-        />
-        <Stat
-          label={t("steward.operations.duration")}
-          value={run ? span(runSeconds(run)) : undefined}
-          hint={!run ? undefined : finished ? dateTime(run.finished) : t("steward.operations.still-running")}
-        />
-      </div>
-
-      {stage === "NOTHING_TO_DO" ? (
-        <Alert role="status">
-          <TERM_ICON.nothingToDo aria-hidden />
-          <AlertTitle>{t("steward.operations.nothing-to-do-title")}</AlertTitle>
-        </Alert>
-      ) : null}
+      <RunHeader run={run} finished={finished} />
 
       {run?.kind === "BACKUP" && finished && savedCount(run) === 0 ? (
         <Alert variant="destructive">
@@ -361,89 +304,84 @@ function RunDetail({ run, children }: { run?: Run; children?: ReactNode }) {
         </Alert>
       ) : null}
 
-      {stage && run ? (
-        <Panel title={t("steward.operations.stages")}>
-          <StageTrail stage={stage} kind={run.kind} />
-        </Panel>
-      ) : null}
+      <Panel title={t("steward.operations.stages")}>
+        {!run ? (
+          <Loading rows={4} />
+        ) : run.steps.length === 0 ? (
+          <Empty title={t("steward.operations.nothing-written")} />
+        ) : (
+          <RunRail steps={run.steps} />
+        )}
+      </Panel>
 
       {children}
-
-      {!run ? (
-        <Panel title={t("steward.operations.report")}>
-          {/* The size of the Report card, so the page does not jump when it loads. */}
-          <Loading rows={4} />
-        </Panel>
-      ) : run.steps.length === 0 ? (
-        <Panel title={t("steward.operations.report")}>
-          <Empty title={t("steward.operations.no-report")} />
-        </Panel>
-      ) : (
-        <RunSteps steps={run.steps} title={t("steward.operations.report")} />
-      )}
     </>
   )
 }
 
-/**
- * The stages that a run of each kind walks, because a run keeps only the last one. A run that did not end DONE gets no ticks.
- */
-const WALKED: Record<string, ReadonlySet<string>> = {
-  UPDATE: new Set(["RESOLVING", "PLANNED", "COUNTDOWN", "STOPPING", "INSTALLING", "STARTING", "VERIFYING"]),
-  BACKUP: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "BACKING_UP", "STARTING", "VERIFYING"]),
-  RESTART: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
-  // A DOWN ends at STOPPING.
-  DOWN: new Set(["PLANNED", "COUNTDOWN", "STOPPING"]),
-  START: new Set(["PLANNED", "STARTING", "VERIFYING"]),
-  RECREATE: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
-  DEPLOY: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
-  REMOVE_PLUGIN: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
-  // A volume restore also writes BACKING_UP, a database restore does not.
-  RESTORE: new Set(["PLANNED", "COUNTDOWN", "STOPPING", "STARTING", "VERIFYING"]),
-  // Written once it is done, on a start with no server running yet: it resolves and installs.
-  INSTALL: new Set(["RESOLVING", "INSTALLING"]),
+const KIND_ICON: Partial<Record<string, typeof TERM_ICON.recreate>> = {
+  ...ASKS,
+  RECREATE: TERM_ICON.recreate,
+  RESTORE: TERM_ICON.restore,
+  INSTALL: TERM_ICON.update,
 }
 
-function StageTrail({ stage, kind }: { stage: string; kind: string }) {
-  const trail: readonly string[] = TRAIL
-  const reached = trail.indexOf(stage)
-  const ending = ENDINGS.has(stage)
-  const walked = WALKED[kind]
+/** The run in one glance: its kind, its outcome and what it was for, then who asked, when it ran and how long. */
+function RunHeader({ run, finished }: { run?: Run; finished: boolean }) {
+  if (!run) {
+    return (
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-6 w-40" />
+        <SkeletonText width="long" />
+      </div>
+    )
+  }
+  const Icon = KIND_ICON[run.kind]
+  const requested = parseInstant(run.requested)
+  const scheduled = parseInstant(run.scheduledFor)
+  // Steward does not pick the row up before this, which is worth a line only when someone asked for later.
+  const later = requested && scheduled && Math.abs(scheduled.getTime() - requested.getTime()) >= 1000
 
   return (
-    <ol className="flex flex-wrap items-center gap-x-2 gap-y-3">
-      {TRAIL.map((step, index) => {
-        /**
-         * A running run has walked what its kind walks before its stage. A finished one has walked what its kind walks, if it is DONE.
-         */
-        const past = ending
-          ? stage === "DONE" && (walked?.has(step) ?? false)
-          : reached >= 0 && index < reached && (walked?.has(step) ?? true)
-        const now = index === reached
-        return (
-          <li key={step} aria-current={now ? "step" : undefined} className="flex items-center gap-2">
-            {now ? (
-              <Badge>{stageLabel(step)}</Badge>
-            ) : (
-              <span
-                className={cn("flex items-center gap-1.5 text-xs", past ? "text-foreground" : "text-muted-foreground")}
-              >
-                {past ? <CheckIcon className="size-3 shrink-0" aria-hidden /> : null}
-                {stageLabel(step)}
-              </span>
-            )}
-            {index < TRAIL.length - 1 ? (
-              <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-            ) : null}
-          </li>
-        )
-      })}
-      {ending ? (
-        <li className="flex items-center gap-2">
-          <ArrowRightIcon className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-          <StageBadge stage={stage} />
-        </li>
-      ) : null}
-    </ol>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {Icon ? <Icon aria-hidden className="size-5 shrink-0 text-muted-foreground" /> : null}
+        <span className="font-heading text-base font-medium">{runKind(run.kind)}</span>
+        {run.stage ? <StageBadge stage={run.stage} /> : <RunStatus status={run.status} />}
+        {run.scope.map((service) => (
+          <Badge key={service} variant="outline" className="font-normal">
+            <TERM_ICON.service aria-hidden className="size-3 text-muted-foreground" />
+            {service}
+          </Badge>
+        ))}
+      </div>
+      <dl className="flex flex-wrap gap-x-8 gap-y-3">
+        <Fact label={t("steward.operations.requested-by")} hint={dateTime(run.requested)}>
+          <Actor kind={run.actorKind} id={run.actorId} />
+        </Fact>
+        {later ? <Fact label={t("steward.operations.no-earlier-than")}>{dateTime(run.scheduledFor)}</Fact> : null}
+        <Fact label={t("steward.operations.started")} hint={run.started ? relative(run.started) : undefined}>
+          {dateTime(run.started)}
+        </Fact>
+        <Fact
+          label={t("steward.operations.duration")}
+          hint={finished ? dateTime(run.finished) : run.started ? t("steward.operations.still-running") : undefined}
+        >
+          {span(runSeconds(run))}
+        </Fact>
+      </dl>
+    </div>
+  )
+}
+
+function Fact({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className="font-heading text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="flex min-w-0 flex-col text-sm tnum">
+        {children}
+        {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
+      </dd>
+    </div>
   )
 }

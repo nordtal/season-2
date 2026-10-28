@@ -131,7 +131,8 @@ describe("Actor - who asked for a run", () => {
 
     expect(await screen.findByText("Ally")).toBeTruthy()
     expect(screen.getByText("Steward")).toBeTruthy()
-    expect(screen.getByText("host").closest("[data-entity='unknown']")).toBeTruthy()
+    // Someone at the host's terminal is a word, not an unknown identifier with a question mark.
+    expect(screen.getByText("Host").closest("[data-entity='unknown']")).toBeNull()
   })
 })
 

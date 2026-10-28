@@ -101,10 +101,17 @@ function tree.build(model, tr, mark)
       { kind="category", entry=category }, entries))
   end
 
+  -- A text carries the languages of the pack, so its panel shows each
+  local texts = {}
+  for _, text in ipairs(model.texts or {}) do
+    table.insert(texts, node("text/" .. text.key, text.key, { kind="text", entry=text, languages=model.languages }))
+  end
+
   local nodes = {
     node("glyphs", tr("tree.glyphs"), { kind="root" }, fonts),
     node("items", tr("tree.items"), { kind="root" }, items),
     node("overrides", tr("tree.overrides"), { kind="root" }, overrides),
+    node("texts", tr("tree.texts"), { kind="texts", languages=model.languages }, texts),
   }
   for _, root in ipairs(nodes) do
     root.expanded = true

@@ -140,10 +140,10 @@ function tab.open(context)
     for _, row in ipairs(properties.rows(info, tr, { coupled=preferences.coupled })) do
       if row.key == "coupled" then
         table.insert(list, { text=tr("properties.coupled"), value=row.value, field=row.field, kind="switch" })
-      elseif row.key == "delete" then
+      elseif row.key == "delete" or row.button then
         table.insert(list, { text=row.value, field=row.field, kind="button" })
       else
-        table.insert(list, { text=tr("properties." .. row.key), value=row.value, field=row.field })
+        table.insert(list, { text=row.label or tr("properties." .. row.key), value=row.value, field=row.field })
       end
     end
     for _, row in ipairs(modules.drafts.rows(model, info, tr)) do

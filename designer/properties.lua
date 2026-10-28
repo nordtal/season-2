@@ -35,10 +35,28 @@ local function size(info)
   return frame or info.texture
 end
 
+-- The languages of a text or of the texts root: the pack's, then any
+-- other that the text holds
+local function languages(info)
+  local list, seen = {}, {}
+  for _, language in ipairs(info.languages or {}) do
+    table.insert(list, language)
+    seen[language] = true
+  end
+  local others = {}
+  for language in pairs(info.entry and info.entry.values or {}) do
+    if not seen[language] then table.insert(others, language) end
+  end
+  table.sort(others)
+  table.move(others, 1, #others, #list + 1, list)
+  return list
+end
+
 -- The rows of an entry as { key, value, field } in display order. A
 -- row with a field can be edited, and field names the edit. The
--- coupled row is the switch, its value true or false. context holds
--- coupled.
+-- coupled row is the switch, its value true or false. A row with a
+-- label shows it in place of its key's text, and a row with button is
+-- a button. context holds coupled.
 function properties.rows(info, tr, context)
   local list = {}
   local function add(key, value, field)
@@ -103,6 +121,17 @@ function properties.rows(info, tr, context)
     add("item", e.id)
     add("model", e.model)
     add("file", e.file)
+  elseif kind == "texts" then
+    table.insert(list, { key="add_text", value=tr("properties.add_text"), field="addText", button=true })
+  elseif kind == "text" then
+    add("key", e.key)
+    add("owner", e.owner or tr("properties.no_owner"))
+    for _, language in ipairs(languages(info)) do
+      local value = e.values[language]
+      table.insert(list, { key="text", label=language, field="text:" .. language,
+                           value=value == nil and tr("properties.no_text") or shown(value) })
+    end
+    table.insert(list, { key="delete_text", value=tr("properties.delete_text"), field="deleteText", button=true })
   elseif kind == "override" then
     add("mcmeta", e.mcmeta)
     if e.frames then
@@ -142,6 +171,22 @@ end
 -- the statuses and scalings of the pack model.
 function properties.form(info, field, tr, lists)
   local e, t = info.entry, info.texture
+  local language = field:match("^text:(.+)$")
+  if language then
+    local title = tr("properties.text_in", e.key, language)
+    return { title=title, widgets={ { kind="entry", id="value", label=language, text=e.values[language] or "" } } }
+  elseif field == "addText" then
+    local title = tr("properties.add_text")
+    local options = languages(info)
+    return { title=title, widgets={
+      { kind="entry", id="key", label=tr("properties.key"), text="" },
+      #options > 0 and { kind="combobox", id="language", label=tr("properties.language"), options=options, option=options[1] }
+        or { kind="entry", id="language", label=tr("properties.language"), text="en_us" },
+      { kind="entry", id="value", label=tr("properties.value"), text="" } } }
+  elseif field == "deleteText" then
+    local title = tr("properties.delete_text")
+    return { title=title, widgets={ { kind="label", id="confirm", text=tr("properties.delete_text_confirm", e.key) } } }
+  end
   local title = tr("properties." .. field)
   if field == "status" then
     local options = { fromBlock(info, tr) }
@@ -185,8 +230,18 @@ end
 -- neighbour drops or doubles rows and columns.
 function properties.jobs(info, field, data, tr, old)
   local e, t = info.entry, info.texture
-  local glyph = properties.label(info)
   local value = data.value
+  local language = field:match("^text:(.+)$")
+  if language then
+    if value == e.values[language] then return nil end
+    return { "editText", { key=e.key, language=language, value=value } }
+  elseif field == "addText" then
+    if (data.key or "") == "" then return nil end
+    return { "editText", { key=data.key, language=data.language, value=data.value or "" } }
+  elseif field == "deleteText" then
+    return { "editText", { key=e.key, delete=true } }
+  end
+  local glyph = properties.label(info)
   if field == "name" or field == "constant" then
     if value == e[field] or value == "" then return nil end
     return { "renameGlyph", { glyph=glyph, to=value } }

@@ -210,3 +210,51 @@ describe("a save of a texture", function()
       properties.saved(info, { width=16, height=16, durations={ 100, 250 } }, true))
   end)
 end)
+
+describe("a text", function()
+  local function text(fields)
+    local entry = { key="menu.title", values={ en_us="Pause" } }
+    for k, v in pairs(fields or {}) do entry[k] = v end
+    return { kind="text", entry=entry, languages={ "de_de", "en_us" } }
+  end
+
+  local function rows(info)
+    local out = {}
+    for _, row in ipairs(properties.rows(info, tr, {})) do
+      table.insert(out, (row.label or row.key) .. "=" .. tostring(row.value) .. (row.field and "*" or ""))
+    end
+    return out
+  end
+
+  it("shows its key, its asset and its value in each language of the pack, and a button to delete it", function()
+    assert.same({
+      "key=menu.title", "owner=properties.no_owner", "de_de=properties.no_text*", "en_us=Pause*", "delete_text=properties.delete_text*",
+    }, rows(text()))
+    assert.equal("owner=nordtal:block/lamp.png", rows(text({ owner="nordtal:block/lamp.png" }))[2])
+    assert.equal("fr_fr=Pause*", rows(text({ values={ fr_fr="Pause" } }))[5])
+  end)
+
+  it("writes the value of one language, and nothing when it stays", function()
+    local form = properties.form(text(), "text:en_us", tr, lists)
+    assert.equal("Pause", form.widgets[1].text)
+    assert.same({ "editText", { key="menu.title", language="de_de", value="Pause!" } },
+      properties.jobs(text(), "text:de_de", { value="Pause!" }, tr))
+    assert.is_nil(properties.jobs(text(), "text:en_us", { value="Pause" }, tr))
+  end)
+
+  it("deletes the key from every language", function()
+    assert.equal("label", properties.form(text(), "deleteText", tr, lists).widgets[1].kind)
+    assert.same({ "editText", { key="menu.title", delete=true } }, properties.jobs(text(), "deleteText", {}, tr))
+  end)
+
+  it("is added on the texts root with a key, a language of the pack and a value", function()
+    local root = { kind="texts", languages={ "de_de", "en_us" } }
+    assert.same({ "add_text=properties.add_text*" }, rows(root))
+    local form = properties.form(root, "addText", tr, lists)
+    assert.same({ "key", "language", "value" }, { form.widgets[1].id, form.widgets[2].id, form.widgets[3].id })
+    assert.same({ "de_de", "en_us" }, form.widgets[2].options)
+    assert.same({ "editText", { key="menu.help", language="en_us", value="Help" } },
+      properties.jobs(root, "addText", { key="menu.help", language="en_us", value="Help" }, tr))
+    assert.is_nil(properties.jobs(root, "addText", { key="", language="en_us", value="" }, tr))
+  end)
+end)

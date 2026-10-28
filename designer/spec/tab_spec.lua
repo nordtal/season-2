@@ -541,6 +541,18 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:describePack", run(t.started[3]))
   end)
 
+  it("writes the value of a text in one language with its task", function()
+    local m = dkjson.decode(model)
+    m.languages = { "en_us" }
+    m.texts = { { key="menu.title", values={ en_us="Pause" } } }
+    local t = setUp(nil, dkjson.encode(m))
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="text/menu.title" })
+    t.dialogs.answer = function(d) d.data = { ok=true, value="Paused" } end
+    click(dlg, "Pause")
+    assert.equal(":resource-pack:editText -Pkey=menu.title -Planguage=en_us -Pvalue=Paused", run(t.started[2]))
+  end)
+
   it("draws what a refused run changed at once, with one tick of a timer", function()
     local t = setUp()
     local dlg = loaded(t)

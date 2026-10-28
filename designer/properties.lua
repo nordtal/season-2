@@ -233,7 +233,7 @@ function properties.jobs(info, field, data, tr, old)
   local value = data.value
   local language = field:match("^text:(.+)$")
   if language then
-    if value == e.values[language] then return nil end
+    if value == (e.values[language] or "") then return nil end
     return { "editText", { key=e.key, language=language, value=value } }
   elseif field == "addText" then
     if (data.key or "") == "" then return nil end

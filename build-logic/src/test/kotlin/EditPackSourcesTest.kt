@@ -4,6 +4,7 @@ import org.gradle.api.GradleException
 import org.gradle.testfixtures.ProjectBuilder
 import org.gradle.testkit.runner.GradleRunner
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -158,11 +159,14 @@ class EditPackSourcesTest {
         task("text", "key" to "menu.title", "language" to "en_us", "value" to "Paused").create()
         task("text", "key" to "menu.title", "language" to "de_de", "value" to "Pausiert").create()
         task("text", "key" to "menu.quit", "delete" to "true").create()
+        task("text", "key" to "menu.help", "language" to "fr_fr", "value" to "Aide").create()
+        task("text", "key" to "menu.help", "delete" to "true").create()
         val refused = assertThrows<GradleException> { task("text", "key" to "menu title", "language" to "en_us", "value" to "x").create() }
 
         assertEquals(mapOf("menu.title" to "Paused"), Texts.work(pack).getValue("src/assets/nordtal/lang/en_us.json"))
         assertEquals(mapOf("menu.title" to "Pausiert"), Texts.work(pack).getValue("src/assets/minecraft/lang/de_de.json"))
         assertEquals("key", (refused.cause as FieldRefusal).field)
+        assertFalse(pack.resolve("src/assets/minecraft/lang/fr_fr.json").exists())
     }
 
     /** A Gradle run in the repository with the task `edit` of [kind] and its [options]. */

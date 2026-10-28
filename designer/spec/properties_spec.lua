@@ -234,12 +234,13 @@ describe("a text", function()
     assert.equal("fr_fr=Pause*", rows(text({ values={ fr_fr="Pause" } }))[5])
   end)
 
-  it("writes the value of one language, and nothing when it stays", function()
+  it("writes the value of one language, and nothing when it stays or stays unset", function()
     local form = properties.form(text(), "text:en_us", tr, lists)
     assert.equal("Pause", form.widgets[1].text)
     assert.same({ "editText", { key="menu.title", language="de_de", value="Pause!" } },
       properties.jobs(text(), "text:de_de", { value="Pause!" }, tr))
     assert.is_nil(properties.jobs(text(), "text:en_us", { value="Pause" }, tr))
+    assert.is_nil(properties.jobs(text(), "text:de_de", { value="" }, tr))
   end)
 
   it("deletes the key from every language", function()

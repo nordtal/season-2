@@ -187,10 +187,9 @@ class Publish(
     )
 
     /**
-     * Moves the clone to `origin/main` and puts every local change back on top of it, with main's changes to its entries
-     * merged field by field and to its texts key by key. A draft of a [merged] pull request that equals what was last
-     * pushed takes main's version. A draft in conflict with main keeps its base, so the conflict stays. A pull that fails
-     * leaves the clone as it was.
+     * Moves the clone to `origin/main` and puts every local change back on top, merged with main's entries field by field
+     * and texts key by key. A draft of a [merged] pull request that equals what was last pushed takes main's version. A
+     * draft in conflict with main keeps its base, so the conflict stays. A pull that fails leaves the clone as it was.
      */
     private fun pull(merged: List<Drafts.Review>) {
         val taken = merged.flatMap { it.drafts }.toSet() - Drafts.ids(pack)

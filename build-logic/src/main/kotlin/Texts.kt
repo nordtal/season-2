@@ -6,10 +6,9 @@ import java.io.File
 typealias TextFiles = Map<String, Map<String, String>>
 
 /**
- * The texts of the pack: the keys of its language files under `src/assets/<namespace>/lang/`. A key belongs to an
- * asset of the pack when it is that asset's translation key or starts with it and a dot: `item.<namespace>.<path>` for
- * an item definition, `block.<namespace>.<path>` for a texture under `textures/block/`, with each `/` of the path as
- * `.`. Such a key is part of its asset's draft. Any other key is the draft `text <key>` of its own.
+ * The keys of the language files under `src/assets/<namespace>/lang/`. A key is part of the draft of the asset whose
+ * translation key it is or starts with and a dot: `item.<ns>.<path>` for an item definition, `block.<ns>.<path>` for a
+ * texture under `textures/block/`, each `/` as `.`. Any other key is the draft `text <key>` of its own.
  */
 object Texts {
     private val FILE = Regex("""src/assets/([^/]+)/lang/([^/]+)\.json""")
@@ -185,7 +184,9 @@ object Texts {
         val work = work(pack)
         if (delete) {
             if (work.values.none { key in it }) throw FieldRefusal("key", "No language file holds $key.")
-            return put(pack, work.mapValues { (_, values) -> values - key }, setOf(key))
+            val committed = at(pack, "HEAD").keys
+            val left = work.mapValues { (_, values) -> values - key }
+            return put(pack, left.filter { (path, values) -> values.isNotEmpty() || path in committed }, setOf(key))
         }
         if (language == null || !Regex("""[a-z]{2,3}_[a-z]{2,3}""").matches(language)) {
             throw FieldRefusal("language", "Set -Planguage to a language such as en_us.")

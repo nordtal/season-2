@@ -103,9 +103,15 @@ class PluginFilesForwardTest {
 
     @AfterEach
     void stop() throws IOException {
-        server.stop();
-        api.close();
-        agent.close();
+        if (server != null) {
+            server.stop();
+        }
+        if (api != null) {
+            api.close();
+        }
+        if (agent != null) {
+            agent.close();
+        }
     }
 
     private AuditDirectory recording() {

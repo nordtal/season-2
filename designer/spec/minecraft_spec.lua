@@ -155,7 +155,9 @@ describe("minecraft", function()
 
     it("says that an instance without Fabric has no bridge", function()
       local items = minecraft.bar({ instance={ instance="/i", fabric=false } }, tr)
-      assert.same({ "box", "button", "switch", "text" }, { items[1].kind, items[2].kind, items[3].kind, items[4].kind })
+      local kinds = {}
+      for _, item in ipairs(items) do table.insert(kinds, item.kind) end
+      assert.same({ "box", "button", "switch", "text" }, kinds)
       assert.same({ kind="text", text="minecraft.state_no_fabric", color="off", tip="minecraft.no_fabric" }, items[4])
     end)
   end)

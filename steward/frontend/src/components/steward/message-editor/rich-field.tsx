@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { CodeIcon, EyeIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { MessageArg } from "@/lib/api"
 import { useGlyphs } from "@/lib/queries"

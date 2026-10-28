@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 /** It never gets a border or shadow. A section that needs one is a `Card`. */
 export function Panel({ title, children, className }: { title: string; children: ReactNode; className?: string }) {

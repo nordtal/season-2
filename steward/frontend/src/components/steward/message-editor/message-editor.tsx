@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { ArrowCounterClockwiseIcon, EraserIcon, MinusIcon, PaperPlaneTiltIcon, PlusIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { useDebounced } from "@/lib/use-debounced"
 
 import type { MessageEntry, MessageFallback, MessagePreviewTarget } from "@/lib/api"

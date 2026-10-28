@@ -147,7 +147,7 @@ export function CommandPalette() {
         value.startsWith("translation-") ? 0.2 : rankValue(keywords?.join("\n") ?? value, query)
       }
       // Applies to the dialog only. On a phone the sheet is full width at the bottom edge.
-      className="sm:top-[20%] sm:w-[calc(100%-2rem)] sm:max-w-2xl sm:translate-y-0"
+      className="sm:top-1/5 sm:w-[calc(100%-(--spacing(8)))] sm:max-w-2xl sm:translate-y-0"
     >
       <CommandInput
         autoFocus
@@ -155,7 +155,7 @@ export function CommandPalette() {
         onValueChange={setSearch}
         placeholder={t("steward.shell.search-placeholder")}
       />
-      <CommandList className="max-h-[22rem]">
+      <CommandList className="max-h-88">
         <CommandEmpty>{reading ? t("steward.shell.still-reading") : t("steward.shell.nothing-found")}</CommandEmpty>
         {groups.map((group, index) => (
           <React.Fragment key={group.id}>
@@ -293,7 +293,7 @@ function HitDetail({ where, text }: { where: string; text: string | null | undef
   const flat = (text ?? "").replace(/\s+/g, " ").trim()
   const short = flat.length > 40 ? `${flat.slice(0, 39)}…` : flat
   return (
-    <CommandShortcut className="max-w-[45%] truncate text-xs tracking-normal text-muted-foreground max-sm:hidden">
+    <CommandShortcut className="max-w-9/20 truncate text-xs tracking-normal text-muted-foreground max-sm:hidden">
       {where}
       {short ? ` ${short}` : null}
     </CommandShortcut>

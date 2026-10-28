@@ -166,7 +166,7 @@ export function OnlineCluster({ online }: { online: Online }) {
             ) : null}
             {rest > 0 ? (
               <span
-                className="absolute bottom-0 right-0 flex size-6 translate-x-1.5 translate-y-1 items-center justify-center rounded-md bg-secondary text-[0.625rem] font-medium tabular-nums text-foreground ring-2 ring-background"
+                className="absolute bottom-0 right-0 flex size-6 translate-x-1.5 translate-y-1 items-center justify-center rounded-md bg-secondary text-badge font-medium tabular-nums text-foreground ring-2 ring-background"
                 role="img"
                 aria-label={t("steward.network.more", { count: rest })}
               >

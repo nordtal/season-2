@@ -61,7 +61,7 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                 </Link>
 
                 {players === undefined ? null : (
-                  <span className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground">
+                  <span className="flex shrink-0 items-center gap-1 text-caption text-muted-foreground">
                     <TERM_ICON.people className="size-3" aria-hidden />
                     <span className="sr-only">{t("steward.network.players")}</span>
                     <span className="tnum">{players}</span>
@@ -74,7 +74,7 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                   localBuild={service?.localBuild}
                 />
                 {service ? (
-                  <span className="w-16 shrink-0 truncate text-right text-[0.6875rem] text-muted-foreground tnum">
+                  <span className="w-16 shrink-0 truncate text-right text-caption text-muted-foreground tnum">
                     {imageTag(service.image)}
                   </span>
                 ) : (
@@ -82,7 +82,7 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                 )}
 
                 {/* Two buttons wide at the pointer's target size, because `RecreateButton` skips `steward-agent`. */}
-                <div className="flex w-[3.125rem] shrink-0 justify-end pointer-coarse:w-[calc(2*var(--control-min-height)+0.125rem)]">
+                <div className="flex w-12.5 shrink-0 justify-end pointer-coarse:w-[calc(2*var(--control-min-height)+(--spacing(0.5)))]">
                   <NodeToolbar id={id} />
                 </div>
               </div>

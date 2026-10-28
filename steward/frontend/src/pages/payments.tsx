@@ -129,7 +129,7 @@ export function PaymentsTable({
             waiting: (
               <div className="flex items-center gap-2">
                 <Skeleton className="size-6 shrink-0 rounded-full" />
-                <SkeletonText width="long" className="max-w-[6rem]" />
+                <SkeletonText width="long" className="max-w-24" />
               </div>
             ),
             render: (payment) => <Entity id={payment.discordId} kind="discord" />,

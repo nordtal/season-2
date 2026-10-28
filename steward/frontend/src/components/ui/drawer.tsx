@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 /**
@@ -67,7 +67,7 @@ function DrawerContent({
            *
            * A sheet with a search takes that whole height, so its field sits high and never moves under the keyboard, where iOS would pan the page to show it. `--sheet-gutter` is the side padding that a sheet's own rows read.
            */
-          "fixed inset-x-0 bottom-(--keyboard-inset,0px) z-50 flex [--sheet-height:min(90svh,calc(var(--visible-height,100svh)-env(safe-area-inset-top)-0.5rem))] max-h-(--sheet-height) has-[input[type=search]]:h-(--sheet-height) flex-col gap-4 rounded-t-xl bg-popover px-(--sheet-gutter) pt-4 [--sheet-gutter:1.5rem] pb-[max(1rem,env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
+          "fixed inset-x-0 bottom-(--keyboard-inset,0px) z-50 flex [--sheet-height:min(90svh,calc(var(--visible-height,100svh)-env(safe-area-inset-top)-0.5rem))] max-h-(--sheet-height) has-[input[type=search]]:h-(--sheet-height) flex-col gap-4 rounded-t-xl bg-popover px-(--sheet-gutter) pt-4 [--sheet-gutter:1.5rem] pb-[max(--spacing(4),env(safe-area-inset-bottom))] text-sm text-popover-foreground ring-1 ring-foreground/10 outline-none",
           className,
         )}
         {...props}
@@ -89,7 +89,7 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="drawer-footer"
       className={cn(
-        "-mx-(--sheet-gutter) -mb-4 mt-auto flex flex-col-reverse gap-2 border-t bg-muted/50 px-(--sheet-gutter) pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+        "-mx-(--sheet-gutter) -mb-4 mt-auto flex flex-col-reverse gap-2 border-t bg-muted/50 px-(--sheet-gutter) pt-4 pb-[max(--spacing(4),env(safe-area-inset-bottom))]",
         className,
       )}
       {...props}

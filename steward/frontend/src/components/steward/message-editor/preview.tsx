@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react"
 import { CaretDownIcon } from "@phosphor-icons/react"
 import { StewardMark } from "@/app/steward-mark"
 import { TERM_ICON } from "@/components/steward/term-icons"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { GlyphInfo, MessageSurface } from "@/lib/api"
 import { colourOf, gradientAt, plainText, shadowOf } from "@/lib/rich-text"

@@ -1,7 +1,7 @@
 import { CheckIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { ConfigDocument, ConfigEntry, SmpMilestone, SmpObjective, SmpTrack } from "@/lib/api"
 import { date } from "@/lib/format"

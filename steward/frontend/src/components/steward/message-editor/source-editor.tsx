@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react"
 import type { CSSProperties, ReactNode } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { GlyphInfo, MessageArg } from "@/lib/api"
 import { argumentText, marksOf, type Mark } from "@/lib/message-tree"
@@ -26,7 +26,7 @@ export type SourceEditorProps = {
   trailing?: ReactNode
 }
 
-const MONO = "font-mono text-[13px] leading-6 max-md:text-base"
+const MONO = "font-mono text-sm leading-6 max-md:text-base"
 
 /**
  * The browser keeps caret, selection, undo and the phone keyboard. The colours are drawn underneath, from the marks that the one parser leaves where it read syntax, and from where it stopped reading.

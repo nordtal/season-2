@@ -129,7 +129,7 @@ function Awards({
                     <span className="max-w-full truncate font-mono text-xs text-muted-foreground">{id}</span>
                   </span>
                   {choice?.description ? (
-                    <span className="ml-auto hidden max-w-[45%] truncate text-xs text-muted-foreground @2xl:block">
+                    <span className="ml-auto hidden max-w-9/20 truncate text-xs text-muted-foreground @2xl:block">
                       {choice.description}
                     </span>
                   ) : null}

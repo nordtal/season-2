@@ -35,7 +35,7 @@ import { useDocumentDrawing, useDocuments, useGameAction, useSaveDocument } from
 import { choice, t } from "@/lib/texts"
 import { useDebounced } from "@/lib/use-debounced"
 import { serviceTitle } from "@/lib/words"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { RequestIcon } from "@/components/steward/game-actions"
 import { PinnedRow } from "@/components/steward/settings-view"
@@ -739,7 +739,7 @@ export function DocumentMarks({ view }: { view: DocumentView }) {
       {view.game ? (
         <span className="flex flex-wrap gap-1">
           {view.services.map((service) => (
-            <Badge key={service} variant="outline" className="h-4 px-1.5 text-[0.625rem] text-muted-foreground">
+            <Badge key={service} variant="outline" className="h-4 px-1.5 text-badge text-muted-foreground">
               {serviceTitle(service)}
             </Badge>
           ))}

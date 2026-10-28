@@ -29,7 +29,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
       {groups.map((group) => (
         <div key={group.id} className="flex flex-col">
           {group.label ? (
-            <div className="flex h-7 items-center pl-[calc((var(--control-min-height)-1rem)/2)] text-xs text-muted-foreground">
+            <div className="flex h-7 items-center pl-[calc((var(--control-min-height)-(--spacing(4)))/2)] text-xs text-muted-foreground">
               {group.label}
             </div>
           ) : null}
@@ -55,7 +55,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
                     params={entry.params}
                     onClick={onFollow}
                     aria-current={isActive ? "page" : undefined}
-                    className={`flex min-h-control items-center rounded-lg pr-3 text-sm transition-colors duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${rowState(isActive)}`}
+                    className={`flex min-h-control items-center rounded-lg pr-3 text-sm transition-colors duration-150 ease-out focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${rowState(isActive)}`}
                   >
                     <span className="flex size-control shrink-0 items-center justify-center">
                       <entry.icon className="size-4" aria-hidden />

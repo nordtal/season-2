@@ -85,14 +85,14 @@ export function UserMenu({
           <button
             type="button"
             aria-label={me?.name ? t("steward.shell.account-of", { name: me.name }) : t("steward.shell.account")}
-            className={`flex size-control shrink-0 items-center justify-center rounded-full transition-colors duration-150 ease-out focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${plain ? "hover:opacity-80" : "border border-border bg-card hover:border-input focus-visible:border-ring"}`}
+            className={`flex size-control shrink-0 items-center justify-center rounded-full transition-colors duration-150 ease-out focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${plain ? "hover:opacity-80" : "border border-border bg-card hover:border-input focus-visible:border-ring"}`}
           >
             <UserAvatar me={me} url={me?.discordAvatarUrl} className="size-8" />
           </button>
         </PopoverTrigger>
 
         {/* At most the phone's width, so a long key name is truncated and its buttons stay in view. */}
-        <PopoverContent align={align} className="flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-3">
+        <PopoverContent align={align} className="flex w-80 flex-col gap-3">
           <div className="flex items-center gap-2">
             <UserAvatar me={me} url={me?.discordAvatarUrl} className="size-8" />
             <div className="flex min-w-0 flex-col">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { ArrowLeftIcon, CaretRightIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { BlockUses, Document, DocumentList, DocumentPart, MessageTexts } from "@/lib/api"
 import { Empty, QueryState } from "@/components/steward/query-state"
@@ -159,7 +159,7 @@ export function TranslationsView({
       <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
         <div
           className={cn(
-            "flex min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--content-top,0px)+1rem)] lg:max-h-[calc(100dvh-var(--content-top,0px)-var(--content-bottom,0px)-2rem)] lg:overflow-y-auto lg:p-0.5",
+            "flex min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--content-top,0px)+(--spacing(4)))] lg:max-h-[calc(100dvh-var(--content-top,0px)-var(--content-bottom,0px)-(--spacing(8)))] lg:overflow-y-auto lg:p-0.5",
             open && "max-lg:hidden",
           )}
         >

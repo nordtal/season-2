@@ -10,7 +10,7 @@ import { t } from "@/lib/texts"
 export const PhoneBarSlot = createContext<HTMLElement | null>(null)
 
 export const CONTROL =
-  "flex size-control shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary/60 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+  "flex size-control shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-150 ease-out hover:bg-secondary/60 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
 
 export const MOTION = "duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:duration-0"
 
@@ -37,7 +37,7 @@ export function NavToggle({
       {glyph === "panel" ? (
         <SidebarIcon className="size-4" aria-hidden />
       ) : (
-        <span className="relative size-[1.125rem]" aria-hidden>
+        <span className="relative size-4.5" aria-hidden>
           <ListIcon
             className={`absolute inset-0 size-full transition-[opacity,rotate] ${MOTION} ${shown ? "rotate-90 opacity-0" : "opacity-100"}`}
           />
@@ -56,7 +56,7 @@ export function Brand({ onFollow, version }: { onFollow?: () => void; version: b
     <Link
       to="/"
       onClick={onFollow}
-      className="flex h-control min-w-0 shrink-0 items-center gap-2 rounded-md pr-2 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="flex h-control min-w-0 shrink-0 items-center gap-2 rounded-md pr-2 text-sm font-semibold tracking-tight transition-colors duration-150 ease-out hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       <BrandFace version={version} />
     </Link>
@@ -76,7 +76,7 @@ export function BrandFace({ version }: { version: boolean }) {
             aria-hidden={!version}
             className={`grid transition-[grid-template-rows,opacity] ${MOTION} ${version ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
           >
-            <span className="min-h-0 overflow-hidden text-[0.6875rem] leading-3 font-normal tracking-normal text-muted-foreground tabular-nums">
+            <span className="min-h-0 overflow-hidden text-caption leading-3 font-normal tracking-normal text-muted-foreground tabular-nums">
               {t("steward.shell.version", { version: release })}
             </span>
           </span>
@@ -100,7 +100,7 @@ export function Trail({ crumbs }: { crumbs: Crumb[] }) {
             <Link
               to={crumb.href}
               aria-current={last ? "page" : undefined}
-              className={`truncate whitespace-nowrap rounded-sm transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
+              className={`truncate whitespace-nowrap rounded-sm transition-colors duration-150 ease-out hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
                 last ? "min-w-0 shrink text-foreground" : "min-w-0 shrink-[999]"
               }`}
             >

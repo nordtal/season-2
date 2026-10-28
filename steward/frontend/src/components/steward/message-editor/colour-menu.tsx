@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { PaletteIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import { NAMED_COLOURS, gradientAt, hexOf } from "@/lib/rich-text"
 import type { Style } from "@/lib/rich-text"
@@ -75,7 +75,7 @@ export function ColourMenu({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-3"
+        className="flex w-72 flex-col gap-3"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <Tabs

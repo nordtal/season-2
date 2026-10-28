@@ -185,7 +185,7 @@ function SlotGrid({
             >
               <GameIcon icons={icons} item={stack.item} size={24} />
               {stack.amount > 1 ? (
-                <span className="absolute right-0.5 bottom-0 text-[10px] leading-none font-semibold tnum">
+                <span className="absolute right-0.5 bottom-0 text-badge leading-none font-semibold tnum">
                   {stack.amount}
                 </span>
               ) : null}

@@ -1,4 +1,4 @@
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { ImageState, LocalBuild, Service } from "@/lib/api"
 import { choice, t } from "@/lib/texts"

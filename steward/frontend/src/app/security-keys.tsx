@@ -97,8 +97,8 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
             <li key={index} className="flex items-center gap-2 py-1">
               <Skeleton className="size-4 shrink-0 rounded-sm" />
               <div className="flex min-w-0 flex-1 flex-col">
-                <SkeletonText width="long" className="max-w-[10rem] text-sm" />
-                <SkeletonText width="medium" className="max-w-[8rem] text-xs" />
+                <SkeletonText width="long" className="max-w-40 text-sm" />
+                <SkeletonText width="medium" className="max-w-32 text-xs" />
               </div>
             </li>
           ))}

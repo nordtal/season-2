@@ -1,6 +1,6 @@
 import { ArrowDownIcon, ArrowUpIcon } from "@phosphor-icons/react"
 import type { CSSProperties, ReactNode } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import { SkeletonText } from "@/components/steward/query-state"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -156,7 +156,7 @@ function SortButton({
     <button
       type="button"
       onClick={onClick}
-      className="group/sort -mx-1 inline-flex items-center gap-1 rounded-sm px-1 outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      className="group/sort -mx-1 inline-flex items-center gap-1 rounded-sm px-1 outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
     >
       {head}
       <icons.Arrow

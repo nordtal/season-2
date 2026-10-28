@@ -1,7 +1,7 @@
 import { ArrowSquareOutIcon, QuestionIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { ImageState, LocalBuild, Service } from "@/lib/api"
 import { bytes, percent } from "@/lib/format"
@@ -143,7 +143,7 @@ export function ServiceNode({
         )}
 
         {ingress && players !== undefined ? (
-          <span className="flex shrink-0 items-center gap-1 text-[0.6875rem] text-muted-foreground">
+          <span className="flex shrink-0 items-center gap-1 text-caption text-muted-foreground">
             <TERM_ICON.people className="size-3" aria-hidden />
             <span className="sr-only">{t("steward.network.players")}</span>
             <span className="tnum">{players}</span>
@@ -169,10 +169,7 @@ export function ServiceNode({
       {ingress ? null : (
         <Tooltip>
           <TooltipTrigger asChild>
-            <div
-              tabIndex={0}
-              className="flex min-w-0 items-center gap-1 rounded-sm text-[0.6875rem] text-muted-foreground"
-            >
+            <div tabIndex={0} className="flex min-w-0 items-center gap-1 rounded-sm text-caption text-muted-foreground">
               <DriftMark drift={service?.drift ?? "UNKNOWN"} image={service?.image} localBuild={service?.localBuild} />
               {service ? (
                 <span className="min-w-0 flex-1 truncate tnum">{imageTag(service.image)}</span>

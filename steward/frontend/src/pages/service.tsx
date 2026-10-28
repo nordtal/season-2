@@ -1,7 +1,7 @@
 import { DotsThreeIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useState } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 
 import { bytes, dateTime, percent, relative, NO_VALUE } from "@/lib/format"
@@ -191,9 +191,9 @@ function ServiceActions({
   if (service === undefined) {
     return (
       <div className="flex items-center gap-2" aria-hidden>
-        <Skeleton data-testid="action-skeleton" className="h-7 w-7 sm:w-[4.5rem]" />
-        <Skeleton data-testid="action-skeleton" className="h-7 w-[6.25rem] max-sm:hidden" />
-        {recreatable ? <Skeleton data-testid="action-skeleton" className="h-7 w-[5.5rem] max-sm:hidden" /> : null}
+        <Skeleton data-testid="action-skeleton" className="h-7 w-7 sm:w-18" />
+        <Skeleton data-testid="action-skeleton" className="h-7 w-25 max-sm:hidden" />
+        {recreatable ? <Skeleton data-testid="action-skeleton" className="h-7 w-22 max-sm:hidden" /> : null}
         <Skeleton data-testid="action-skeleton" className="size-7 sm:hidden" />
       </div>
     )
@@ -321,7 +321,7 @@ export function ServiceHead({
               NO_VALUE
             )
           ) : (
-            <SkeletonText width="short" className="h-[1lh]" />
+            <SkeletonText width="short" className="h-lh" />
           )}
         </span>
         <StateBadges service={service} />

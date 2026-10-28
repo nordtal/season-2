@@ -34,6 +34,8 @@
 
   --secondary: #1e1e1c;
   --secondary-foreground: #fffcf6;
+  /* A secondary button under the pointer: the secondary tone, lifted toward the foreground. */
+  --secondary-hover: color-mix(in oklch, var(--secondary), var(--foreground) 5%);
   --muted: #1a1a19;
   --muted-foreground: #a8a49c;
   --accent: #232320;
@@ -112,6 +114,7 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-hover: var(--secondary-hover);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
@@ -148,6 +151,7 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-inherit: inherit;
 }
 
 /*
@@ -160,6 +164,18 @@
    * The width of a table's own box from which its rows fit. In a narrower box every row is a card.
    */
   --container-rows: 60rem;
+  /* The widest the page's content grows. */
+  --container-page: 110rem;
+
+  /* The height of a list that scrolls inside a page, a dialog or a drawer. */
+  --spacing-list: 60svh;
+
+  /* A small label: the line under the brand, a console line on a phone, the details of a network node. */
+  --text-caption: 0.6875rem;
+  /* The label of a small badge, or a count drawn over an icon. */
+  --text-badge: 0.625rem;
+  /* A chip inside running text, sized to that text. */
+  --text-inline: 0.75em;
 
   --animate-shimmer: shimmer 1.8s ease-in-out infinite;
 

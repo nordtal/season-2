@@ -1,12 +1,12 @@
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 /**
  * The widths that a line of absent text may have. They are fixed per position, because a random width flickers and cannot be tested.
  */
 const WIDTHS = {
-  short: "w-[45%]",
-  medium: "w-[60%]",
-  long: "w-[85%]",
+  short: "w-9/20",
+  medium: "w-3/5",
+  long: "w-17/20",
   full: "w-full",
 } as const
 
@@ -23,7 +23,7 @@ function Skeleton({ className, width, ...props }: React.ComponentProps<"div"> & 
   )
 }
 
-/** It is `h-[1lh]` tall, so it has the height of the line it replaces. */
+/** It is `h-lh` tall, so it has the height of the line it replaces. */
 function SkeletonText({
   width = "medium",
   className,
@@ -33,10 +33,10 @@ function SkeletonText({
     <span
       data-slot="skeleton-text"
       aria-hidden
-      className={cn("flex h-[1lh] items-center", WIDTHS[width], className)}
+      className={cn("flex h-lh items-center", WIDTHS[width], className)}
       {...props}
     >
-      <Skeleton className="h-[0.7lh] w-full" />
+      <Skeleton className="h-7/10 w-full" />
     </span>
   )
 }

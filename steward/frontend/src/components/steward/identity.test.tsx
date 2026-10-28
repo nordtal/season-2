@@ -14,6 +14,7 @@ const MC_UUID = "11111111-2222-3333-4444-555555555555"
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })
 
 describe("PersonIdentity - closed, the id is never drawn", () => {
@@ -122,7 +123,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     expect(writeText).toHaveBeenCalledExactlyOnceWith(MC_UUID)
   })
 
-  it("leaves no timer running once it is gone, so nothing fires after the page", async () => {
+  it("leaves no timer running once it is gone, so nothing fires once the page is gone", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)
     vi.stubGlobal("navigator", { clipboard: { writeText } })
@@ -136,7 +137,6 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     // The popover's focus scope restores focus on a timer of no delay; the copy's reset must not still wait.
     vi.advanceTimersByTime(0)
     expect(vi.getTimerCount()).toBe(0)
-    vi.useRealTimers()
   })
 
   it("leaves the id selectable when the clipboard API is unavailable, rather than failing silently", async () => {

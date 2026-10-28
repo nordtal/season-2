@@ -20,8 +20,9 @@ the entry again. Each save of that sprite writes its `.aseprite` source under `r
 and its PNG: the first frame for a glyph or an item, every frame for a vanilla override. **View >
 Nordtal Tree on the Right** docks the side panel right of the tools.
 
-The properties panel shows each value it edits in a sunken box. The mouse wheel scrolls the properties panel. A
-click on a box asks for the new value in a form. OK runs the resource pack's task that writes it:
+The properties panel shows each value it edits in a sunken box. The mouse wheel scrolls the properties
+panel, and a panel taller than its room shows a scroll bar along its right edge. A click on a box asks
+for the new value in a form. OK runs the resource pack's task that writes it:
 `renameGlyph` for a name, `editGlyph` for status, display height, ascent and about, `scaleTexture`
 for the scaling of a GUI sprite and `deleteGlyph` for the button below. The tasks run one at a time,
 and a click while one runs says that a change is being written. The tab reads the pack again after
@@ -100,9 +101,10 @@ The Minecraft bar along the top of the tab installs the pack into a Minecraft in
 launcher. The bar shows only the status until `describeInstance` has answered once. The instance box
 shows the folder name of the instance, and its tip shows the whole path. A click on it opens a
 folder dialog and runs `chooseMinecraftInstance`, and the tab then reads the instance with
-`describeInstance`. **Install Pack** appears once an instance is chosen and runs `installPack`. With
-**Live sync**, which is on at first, each save of a texture runs it too. After an install, the bridge
-mod reloads the pack, or the status line asks for F3+T. **Install Bridge Mod** appears for an
+`describeInstance`. **Install Pack** appears once an instance is chosen and runs `installPack`.
+**Live sync** is disabled, neither on nor off, until an instance is chosen. Then it is on until the
+designer switches it off, and each save of a texture runs `installPack` too. After an install, the
+bridge mod reloads the pack, or the status line asks for F3+T. **Install Bridge Mod** appears for an
 instance with Fabric and runs `installBridgeMod` with the bootstrap's gh. It reads **Update Bridge
 Mod** once a jar of the bridge mod is in the instance. The tab connects to the bridge mod with the
 port and token of the instance. The state of the bridge mod is one coloured word. A refused token

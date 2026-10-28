@@ -170,6 +170,19 @@ function panel.layout(rows, width, measure, lineHeight, textHeight)
   return { ops=ops, hits=hits, height=y }
 end
 
+-- The scroll bar size wide of a view height high that shows content
+-- height high from scroll on: { thumb, height } with the top of its
+-- thumb and the thumb's height, or nil when the content fits. The
+-- thumb is never shorter than twice the bar's width.
+function panel.scrollbar(content, height, scroll, size)
+  if content <= height then
+    return nil
+  end
+  local thumb = math.min(height, math.max(2 * size, height * height // content))
+  local top = (height - thumb) * math.max(0, math.min(scroll, content - height)) // (content - height)
+  return { thumb=top, height=thumb }
+end
+
 -- The field of a layout that a click at x, y hits, or with what="tip"
 -- the tip of what lies there, or nil
 function panel.hit(layout, x, y, what)
@@ -205,7 +218,8 @@ local function shorten(text, width, measure, from, least)
 end
 
 -- What to draw for a bar of items on one line and where a click hits one: { ops, hits, height }. An item is
--- { kind, text, short, value, field, tip, color, shrink, least, divider }: kind is "box", "switch", "button" or "text".
+-- { kind, text, short, value, field, tip, color, shrink, least, divider, disabled }: kind is "box", "switch", "button"
+-- or "text". A disabled switch draws its check and its text in the theme's disabled colour, neither on nor off.
 -- An item with shrink ("start" or "end") gives up room when the line is too short: each first down to a quarter
 -- of the width, then from the last one on down to least characters, 1 unless given. Its text then loses its
 -- start or end. Items that do not fit at their least characters show their short text. The items then shorten
@@ -274,11 +288,11 @@ function panel.bar(items, width, measure, lineHeight, textHeight)
       tx = x + inset
     elseif item.kind == "switch" then
       table.insert(ops, { op="check", x=x, y=inset + (textHeight - lineHeight) // 2, size=lineHeight,
-                          checked=item.value == true })
+                          checked=item.value == true, disabled=item.disabled })
       tx = x + lineHeight + gap
     end
     local cut = s.text ~= item.text or x + w > width or nil
-    table.insert(ops, { op="text", text=s.text, x=tx, y=inset, color=item.color, cut=cut })
+    table.insert(ops, { op="text", text=s.text, x=tx, y=inset, color=item.disabled and "disabled" or item.color, cut=cut })
     local tip = item.tip or (cut and item.text or nil)
     if item.field ~= nil or tip then
       table.insert(hits, { field=item.field, tip=tip, x=x, y=0, width=w, height=height })

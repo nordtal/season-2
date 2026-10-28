@@ -1,7 +1,7 @@
 # Design
 
 How Steward looks, for people and agents. Every value lives once, as a token in `src/index.css` on top of
-Tailwind's default theme, and the brand blue lives in the generated `src/brand.gen.css`. This file names
+Tailwind's default theme. The brand blue is a token in the generated `src/brand.gen.css`. This file names
 the tokens and never repeats a value.
 
 `src/design-tokens.test.ts` fails `:steward:viteTest` on a class with a bracketed value that names no token,
@@ -14,13 +14,12 @@ classes only: a declaration in a stylesheet and the rules of Surfaces are checke
 - **Foundation**: dark only, on warm greys. `primary` is the brand blue and the one accent.
 - **Depth**: tone and a hairline. A raised surface is a lighter tone with a hairline ring. A floating
   surface adds a shadow.
+- **Steward is designed for the phone first.** The desktop layout follows from the narrow one. Where the
+  two disagree, the phone wins. _(touch sizes and grids checked in `fits-on-a-phone.test.ts`)_
 - **Steward shows data, not explanatory text.** A sentence stays only when it keeps a state honest
   ("Some of the readings could not be fetched") or reports an error. A confirmation keeps the one sentence
   that names what is lost. Every other sentence moves into the doc comment where its meaning matters.
 - A tooltip carries only what its badge or button does not show, such as a date, a name or who set it.
-- A settings field carries an `@Explain` only when a change can break something and its name does not say
-  what the change does. That sentence says what the change does in practice. Steward shows it between the
-  field's name and its input. Every other field carries `@NoExplanationNeeded`.
 
 ## Spacing
 
@@ -33,8 +32,6 @@ every 4px up to 24px, every 8px up to 48px, then 64, 80, 96 and 128px. `SPACING_
 - One component keeps to few steps: one for its padding, one between its parts.
 - A size (width, height, an inset) is any multiple of `--spacing`. A size that recurs, or that is
   not a multiple, becomes a token.
-- **Steward is designed for the phone first.** The desktop layout follows from the narrow one. Where the
-  two disagree, the phone wins. _(checked in `fits-on-a-phone.test.ts`)_
 - `row`, `cell` and `control` are the height of a table row, the padding of a cell and the least height
   of a control. A coarse pointer raises `row` and `control`.
 - `max-w-page` is the widest the page's content grows. `rows` is the width of a table's own box from
@@ -48,7 +45,7 @@ it:
 
 | Level    | What                                                          | Tokens                                                                          |
 | -------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| page     | the ground everything stands on, and the sidebar              | `background`, `foreground`, and `sidebar` with `sidebar-border`                 |
+| page     | the background of every page, and the sidebar              | `background`, `foreground`, and `sidebar` with `sidebar-border`                 |
 | raised   | a card, a table row on a phone, the console, an input, a pill | `card`, `card-foreground`, `secondary`, `secondary-foreground`, `muted` as tint |
 | floating | a popover, a menu, a tooltip, a dialog, a drawer, a toast     | `popover`, `popover-foreground`                                                 |
 
@@ -56,6 +53,7 @@ it:
 - A level above sets itself apart by the depth that Direction names.
 - A border is one hairline in the border token. A divider is the same line.
 - A nested surface's radius is the outer radius less the space between them, never more.
+- `rounded-inherit` gives a scrolling viewport its box's radius.
 - A modal surface has a backdrop in `overlay`. A surface that does not block the page has none.
 - Every control shows focus as the same ring, in the ring token.
 - A colour comes from a token. A token with an opacity (`bg-muted/50`) still counts as the token.
@@ -70,7 +68,7 @@ it:
   preview, and a colour a person picks. _(checked in `only-theme-colours.test.ts` and
   `design-tokens.test.ts`)_
 - `primary` is the brand blue. It marks an action and nothing else. `ring` is the same blue, because
-  focus promises an action.
+  only an action takes focus.
 - Status has three colours: `success`, `warning` and `destructive`. A status badge also shows a word,
   so colour is never the only signal.
 - `muted-foreground` is secondary text: a label, a date, a detail.

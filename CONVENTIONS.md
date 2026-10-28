@@ -169,6 +169,9 @@ run `git config core.hooksPath .githooks` once per clone.
 
 - **`steward/frontend/DESIGN.md` is Steward's design**: its scale, surfaces, colours, type and components.
   A class for spacing, a size, a colour, a radius or type names one of its tokens, never a value. _(checked)_
+- **A settings field carries an `@Explain`** only when a change can break something and its name does not
+  say what the change does. That sentence says what the change does in practice. Steward shows it between
+  the field's name and its input. Every other field carries `@NoExplanationNeeded`.
 - **No text symbol as a separator**, such as the middle dot, a pipe or a spaced hyphen: one value, two
   values set apart as two lines or two pills, or the second as an icon. A bundle or a document holds no pipe,
   spaced hyphen, dash (escaped or not), double space or banner comment. _(the middle dot in Steward and

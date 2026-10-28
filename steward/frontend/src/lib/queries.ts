@@ -15,6 +15,7 @@ import {
   type KeyRenamed,
   type KeyRemoved,
   type AnnouncementsAsked,
+  type OpenAnnouncement,
   type ConsoleSent,
   type ConsoleTree,
   type PluginAdded,
@@ -355,6 +356,16 @@ export function useGameAction() {
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ["journal"] })
     },
+  })
+}
+
+/** The newest announcement that did not go out in every language, read once when the form opens. */
+export function useOpenAnnouncement() {
+  return useQuery({
+    queryKey: keys.openAnnouncement,
+    queryFn: () => api<OpenAnnouncement>("/api/announcements/open"),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   })
 }
 

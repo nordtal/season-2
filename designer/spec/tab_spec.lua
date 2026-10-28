@@ -180,7 +180,8 @@ local function paint(dlg, id, height, width)
   local out, at, color = {}, {}, nil
   -- The theme's text and face are colours that the tab mixes, each with a name to mark it by
   local theme = { color={ text={ name="text", red=0, green=0, blue=0 }, separator_label="key",
-                          face={ name="face", red=255, green=255, blue=255 }, status_bar_text="status" },
+                          face={ name="face", red=255, green=255, blue=255 }, status_bar_text="status",
+                          disabled={ name="disabled" } },
                   dimension={ mini_scrollbar_size=6 } }
   local function name() return type(color) == "table" and (color.name or "tone") or tostring(color) end
   local gc = { width=width or 1000, height=height or 1000, theme=theme }
@@ -1706,7 +1707,7 @@ describe("the Minecraft bar of the Nordtal tab", function()
   it("asks for an instance when none is chosen, and when the instance could not be read", function()
     local t = setUp()
     local dlg = loaded(t)
-    assert.same({ "fill face", "sunken_normal", "  minecraft.no_instance", "check_selected", "  minecraft.live_sync" },
+    assert.same({ "fill face", "sunken_normal", "  minecraft.no_instance", "check_disabled", "<disabled> minecraft.live_sync" },
       (bar(dlg)))
     t = setUp()
     t.world.instance = "no JSON"
@@ -1768,6 +1769,23 @@ describe("the Minecraft bar of the Nordtal tab", function()
     click(dlg, "minecraft.live_sync")
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
     assert.equal(count, #t.started)
+  end)
+
+  it("disables live sync until an instance is chosen, and keeps its setting for the instance chosen then", function()
+    local preferences = { liveSync=false }
+    local t = setUp(preferences)
+    local dlg = loaded(t)
+    click(dlg, "minecraft.live_sync")
+    assert.is_false(preferences.liveSync)
+    local _, at = bar(dlg)
+    dlg.handlers.bar.onmousemove({ x=at["minecraft.live_sync"].x, y=at["minecraft.live_sync"].y })
+    assert.same({ "tip", "minecraft.live_sync_disabled_tip" }, t.log[#t.log])
+    t.world.instance = plain
+    t.ctl.readInstance()
+    local lines = bar(dlg)
+    assert.same({ "check_normal", "  minecraft.live_sync" }, { lines[4], lines[5] })
+    click(dlg, "minecraft.live_sync")
+    assert.is_true(preferences.liveSync)
   end)
 
   it("keeps live sync off once switched off, and installs the pack on a click", function()

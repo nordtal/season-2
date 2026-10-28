@@ -106,10 +106,10 @@ describe("minecraft", function()
       assert.same({}, minecraft.bar({ liveSync=true }, tr))
     end)
 
-    it("asks for an instance and offers live sync while none is chosen", function()
+    it("asks for an instance and disables live sync, neither on nor off, while none is chosen", function()
       assert.same({
         { kind="box", text="minecraft.no_instance", field={ minecraft="choose" }, shrink="start", least=4 },
-        { kind="switch", text="minecraft.live_sync", value=true, field={ minecraft="live" }, tip="minecraft.live_sync_tip" },
+        { kind="switch", text="minecraft.live_sync", disabled=true, tip="minecraft.live_sync_disabled_tip" },
       }, minecraft.bar({ instance={}, liveSync=true }, tr))
     end)
 

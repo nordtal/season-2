@@ -101,9 +101,10 @@ The Minecraft bar along the top of the tab installs the pack into a Minecraft in
 launcher. The bar shows only the status until `describeInstance` has answered once. The instance box
 shows the folder name of the instance, and its tip shows the whole path. A click on it opens a
 folder dialog and runs `chooseMinecraftInstance`, and the tab then reads the instance with
-`describeInstance`. **Install Pack** appears once an instance is chosen and runs `installPack`. With
-**Live sync**, which is on at first, each save of a texture runs it too. After an install, the bridge
-mod reloads the pack, or the status line asks for F3+T. **Install Bridge Mod** appears for an
+`describeInstance`. **Install Pack** appears once an instance is chosen and runs `installPack`.
+**Live sync** is disabled, neither on nor off, until an instance is chosen. Then it is on until the
+designer switches it off, and each save of a texture runs `installPack` too. After an install, the
+bridge mod reloads the pack, or the status line asks for F3+T. **Install Bridge Mod** appears for an
 instance with Fabric and runs `installBridgeMod` with the bootstrap's gh. It reads **Update Bridge
 Mod** once a jar of the bridge mod is in the instance. The tab connects to the bridge mod with the
 port and token of the instance. The state of the bridge mod is one coloured word. A refused token

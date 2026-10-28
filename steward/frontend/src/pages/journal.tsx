@@ -217,10 +217,9 @@ function TermBadge({ term }: { term: JournalTerm }) {
         return [TERM_ICON.update, runStatus(value)]
       case "GAUGE":
         return [TERM_ICON.alert, term.word]
+      // The word as typed, since it also matches the names it starts: one action's label would hide that.
       case "ACTION":
-        return term.values.length === 1
-          ? [actionIcon(value), actionLabel(value)]
-          : [TERM_ICON.journal, t("steward.journal.quoted", { word: term.word })]
+        return [TERM_ICON.journal, t("steward.journal.quoted", { word: term.word })]
       default:
         return [undefined, t("steward.journal.quoted", { word: term.word })]
     }

@@ -26,7 +26,13 @@ object PackModel {
             "overrides" to overrides(assets, root, drafts),
             "statuses" to GlyphAllocation.STATUSES.toList(),
             "scalings" to TextureMeta.SCALINGS,
-            "languages" to Texts.work(root).keys.map(Texts::language).toSortedSet().toList(),
+            "languages" to
+                Texts
+                    .work(root)
+                    .keys
+                    .map(Texts::language)
+                    .toSortedSet()
+                    .toList(),
             "texts" to texts(root, listed, drafts),
             "drafts" to
                 listed.map {

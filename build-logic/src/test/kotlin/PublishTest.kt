@@ -520,7 +520,9 @@ class PublishTest {
         publish(clone).publish(listOf("text menu.title"), "feat(resource-pack): the pause menu is paused")
         clone.git(clone.origin, "update-ref", "refs/heads/main", "designer/the-pause-menu-is-paused")
         clone.commitOnMain("feat: help") { pack ->
-            pack.resolve("src/assets/nordtal/lang/en_us.json").apply { writeText(readText().replace("\"Paused\"", "\"Paused\", \"menu.help\": \"Help\"")) }
+            pack.resolve("src/assets/nordtal/lang/en_us.json").apply {
+                writeText(readText().replace("\"Paused\"", "\"Paused\", \"menu.help\": \"Help\""))
+            }
         }
         clone.prState.writeText("MERGED\n")
 

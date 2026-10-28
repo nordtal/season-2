@@ -121,7 +121,11 @@ object Texts {
             val wanted = source[path].orEmpty()
             for (key in keys) {
                 val value = wanted[key]
-                if (value == null) root.remove(key) else if (root[key] != value) root[key] = value
+                if (value == null) {
+                    root.remove(key)
+                } else if (root[key] != value) {
+                    root[key] = value
+                }
             }
             if (root.toMap() == before) continue
             contents[file] = if (root.isEmpty() && path !in source) null else OxfmtJson.format(root).toByteArray()
@@ -150,8 +154,14 @@ object Texts {
                 for (key in keys) {
                     val kept =
                         when {
-                            c[key] == m[key] || m[key] == b[key] -> c[key]
-                            c[key] == b[key] -> m[key]
+                            c[key] == m[key] || m[key] == b[key] -> {
+                                c[key]
+                            }
+
+                            c[key] == b[key] -> {
+                                m[key]
+                            }
+
                             else -> {
                                 val name = "${language(path)} $key"
                                 both += Drafts.Field(name, c[key]?.let(::quoted), m[key]?.let(::quoted))

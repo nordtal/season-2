@@ -283,7 +283,15 @@ class PackModelTest {
         )
         assertEquals(listOf("menu.title"), model.list("drafts").last()["keys"])
         assertEquals(
-            listOf(mapOf("key" to "menu.title", "values" to mapOf("en_us" to "Pause"), "owner" to null, "draft" to "text menu.title", "review" to null)),
+            listOf(
+                mapOf(
+                    "key" to "menu.title",
+                    "values" to mapOf("en_us" to "Pause"),
+                    "owner" to null,
+                    "draft" to "text menu.title",
+                    "review" to null,
+                ),
+            ),
             model["texts"],
         )
         assertEquals(emptyList<Any>(), model["reviews"])

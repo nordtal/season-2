@@ -155,7 +155,8 @@ object Drafts {
             val texted = files.isEmpty() && id !in headParts && id !in workParts && Texts.ownKey(id) == null
             val before = texted || id in headParts || files.any { it in committed } || own.any { key -> headTexts.values.any { key in it } }
             val after =
-                texted || id in workParts || files.any { pack.resolve(it).exists() } || own.any { key -> workTexts.values.any { key in it } }
+                texted || id in workParts || files.any { pack.resolve(it).exists() } ||
+                    own.any { key -> workTexts.values.any { key in it } }
             Draft(
                 id,
                 workParts[id]?.label ?: headParts[id]?.label ?: Texts.ownKey(id) ?: label(id),

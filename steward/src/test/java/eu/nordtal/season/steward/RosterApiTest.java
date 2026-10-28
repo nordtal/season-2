@@ -441,6 +441,25 @@ class RosterApiTest extends WebTestSupport {
         assertEquals(
                 "steward.said.not-announced",
                 de.getAsJsonObject("result").get("key").getAsString());
+
+        assertOnlyGermanIsOpen();
+    }
+
+    /** A reload reads back which languages went out, so a retry posts only German. */
+    private static void assertOnlyGermanIsOpen() throws Exception {
+        final HttpResponse<String> open = get("/api/announcements/open");
+        assertEquals(200, open.statusCode(), open.body());
+        final java.util.Map<String, JsonObject> lines = new java.util.HashMap<>();
+        GSON.fromJson(open.body(), JsonObject.class)
+                .getAsJsonArray("lines")
+                .forEach(line ->
+                        lines.put(line.getAsJsonObject().get("language").getAsString(), line.getAsJsonObject()));
+        assertEquals(java.util.Set.of("en", "de"), lines.keySet(), open.body());
+        assertEquals("The end opens tonight.", lines.get("en").get("text").getAsString());
+        assertTrue(lines.get("en").get("posted").getAsBoolean(), open.body());
+        assertEquals(
+                "The second language, tonight.", lines.get("de").get("text").getAsString());
+        assertFalse(lines.get("de").get("posted").getAsBoolean(), open.body());
     }
 
     private static void assertRow(

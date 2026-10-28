@@ -66,7 +66,12 @@ function accessFile({ en = "111", de = "", overridden = false } = {}): ConfigDoc
   }
 }
 
-function backend(file: unknown = accessFile(), runs: Record<string, Record<string, unknown>> = {}) {
+function backend(
+  file: unknown = accessFile(),
+  runs: Record<string, Record<string, unknown>> = {},
+  /** null answers the read of the open announcement with a server error. */
+  open: { language: string; text: string; posted: boolean }[] | null = [],
+) {
   const sent: unknown[] = []
   vi.stubGlobal(
     "fetch",
@@ -76,6 +81,7 @@ function backend(file: unknown = accessFile(), runs: Record<string, Record<strin
         sent.push(body)
         return json(202, { ids: Object.fromEntries(Object.keys(body.texts).map((tag) => [tag, `announce:2:${tag}`])) })
       }
+      if (url === "/api/announcements/open") return open ? json(200, { lines: open }) : json(500, {})
       if (url === "/api/setting-groups/discord-bot/access") return json(200, file)
       if (url === "/api/discord/channels") {
         return json(200, { available: true, entries: [{ id: "111", name: "announcements", type: 0 }] })
@@ -192,6 +198,60 @@ describe("AnnouncementForm", () => {
     expect(screen.getByText("Posted in English")).toBeTruthy()
     expect(screen.getByText("Not posted in Deutsch")).toBeTruthy()
     expect(screen.getByRole("alert").textContent).toContain("Not posted. No German channel.")
+  })
+
+  it("after a reload, brings back an announcement that failed for some languages and sends only those", async () => {
+    const sent = backend(accessFile(), {}, [
+      { language: "en", text: "Tonight.", posted: true },
+      { language: "de", text: "Heute Abend.", posted: false },
+    ])
+    draw(<AnnouncementForm />)
+
+    await waitFor(() => expect(asTextArea(screen.getByLabelText("English")).value).toBe("Tonight."))
+    expect(asTextArea(screen.getByLabelText("Deutsch")).value).toBe("Heute Abend.")
+    expect(screen.getByText("Posted in English")).toBeTruthy()
+    expect(screen.getByText("Not posted in Deutsch")).toBeTruthy()
+
+    fireEvent.click(send())
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }))
+    await waitFor(() => expect(sent).toEqual([{ texts: { de: "Heute Abend." } }]))
+  })
+
+  it("asks the server again each time the form opens, so a retry that went out is not offered again", async () => {
+    backend(accessFile(), {}, [
+      { language: "en", text: "Tonight.", posted: true },
+      { language: "de", text: "Heute Abend.", posted: false },
+    ])
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    })
+    const tree = (
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AnnouncementForm />
+        </TooltipProvider>
+      </QueryClientProvider>
+    )
+    const first = render(tree)
+    await waitFor(() => expect(asTextArea(screen.getByLabelText("Deutsch")).value).toBe("Heute Abend."))
+    first.unmount()
+
+    backend(accessFile(), {}, [
+      { language: "en", text: "Later.", posted: true },
+      { language: "de", text: "The second language, later.", posted: false },
+    ])
+    const second = render(tree)
+    await waitFor(() => expect(asTextArea(screen.getByLabelText("Deutsch")).value).toBe("The second language, later."))
+    expect(asTextArea(screen.getByLabelText("English")).value).toBe("Later.")
+    second.unmount()
+
+    // A read that fails restores nothing, rather than the answer cached from before.
+    backend(accessFile(), {}, null)
+    render(tree)
+    await waitFor(() => expect(queryClient.getQueryState(["open-announcement"])?.status).toBe("error"))
+    expect(asTextArea(screen.getByLabelText("Deutsch")).value).toBe("")
+    expect(screen.queryByText("Not posted in Deutsch")).toBeNull()
   })
 
   it("names the channel each language lands in, and says when one has none", async () => {

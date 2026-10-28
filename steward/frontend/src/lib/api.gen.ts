@@ -154,6 +154,10 @@ export type AnnouncementsAsked = {
   ids: Record<string, string>
 }
 
+export type OpenAnnouncement = {
+  lines: OpenLine[]
+}
+
 export type Settled = {
   outcome: SettleOutcome
   days?: number
@@ -670,6 +674,12 @@ export type StateMode = "SURVIVAL" | "CREATIVE"
 export type StateContainer = "INVENTORY" | "ENDER_CHEST"
 
 export type InboxStatus = "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" | "EXPIRED" | "CANCELLED"
+
+export type OpenLine = {
+  language: string
+  text: string
+  posted: boolean
+}
 
 export type SettleOutcome = "BOOKED" | "NOT_OPEN" | "UNKNOWN"
 

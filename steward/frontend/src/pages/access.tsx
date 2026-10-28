@@ -73,7 +73,7 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
       waiting: (
         <div className="flex items-center gap-2">
           <Skeleton className="size-8 shrink-0 rounded-full" />
-          <SkeletonText width="full" className="max-w-[13rem]" />
+          <SkeletonText width="full" className="max-w-52" />
         </div>
       ),
       render: (person) => (
@@ -100,7 +100,7 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
       head: t("steward.people.access"),
       sortKey: "access",
       phone: { line: 2, side: "start" },
-      waiting: <Skeleton className="h-5 w-[15rem] max-w-full rounded-full" />,
+      waiting: <Skeleton className="h-5 w-60 max-w-full rounded-full" />,
       render: (person) => (
         <Value person={person} dialog="access">
           <AccessBadge person={person} now={now} tip={false} />
@@ -112,7 +112,7 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
       head: t("steward.people.playtime"),
       sortKey: "playtime",
       phone: { line: 3, side: "wide" },
-      waiting: <SkeletonText width="medium" className="min-w-[3rem]" />,
+      waiting: <SkeletonText width="medium" className="min-w-12" />,
       render: (person) => (
         <div className="flex flex-wrap items-center gap-1.5">
           <Figure person={person} term="playtime">
@@ -133,7 +133,7 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
       head: t("steward.people.aura"),
       sortKey: "aura",
       phone: null,
-      waiting: <SkeletonText width="short" className="min-w-[2rem]" />,
+      waiting: <SkeletonText width="short" className="min-w-8" />,
       render: (person) => (
         <Figure person={person} term="aura">
           {count(person.aura)}
@@ -144,7 +144,7 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
       head: t("steward.people.spins"),
       sortKey: "spins",
       phone: null,
-      waiting: <SkeletonText width="short" className="min-w-[2rem]" />,
+      waiting: <SkeletonText width="short" className="min-w-8" />,
       render: (person) => (
         <Figure person={person} term="spins">
           {count(person.spins)}
@@ -188,7 +188,7 @@ function Value({
         onClick={() => setOpen(true)}
         className={
           "inline-flex min-h-0 max-w-full items-center rounded-full outline-none tap-target hover:opacity-80 " +
-          "focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
+          "focus-visible:ring-3 focus-visible:ring-ring/50 " +
           (className ?? "")
         }
       >

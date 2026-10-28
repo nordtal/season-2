@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import { bytes, count, percent, relative, NO_VALUE } from "@/lib/format"
 import type { Alert } from "@/lib/api"

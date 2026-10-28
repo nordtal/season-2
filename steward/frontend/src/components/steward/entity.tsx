@@ -1,7 +1,7 @@
 import { QuestionIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import { PersonIdentity } from "@/components/steward/identity"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"

@@ -1,7 +1,7 @@
 import { CheckIcon, FunnelSimpleIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
 import { useState, type ReactNode, type Ref } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import { t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
@@ -54,7 +54,7 @@ export function SearchField({
   }
   // A basis of 0, so the row wraps on the field's minimum width and not on a wider wish.
   const field = (
-    <InputGroup className={cn(!onSubmit && "min-w-[11rem] flex-1 basis-0")}>
+    <InputGroup className={cn(!onSubmit && "min-w-44 flex-1 basis-0")}>
       <InputGroupAddon>
         <MagnifyingGlassIcon aria-hidden />
       </InputGroupAddon>
@@ -83,7 +83,7 @@ export function SearchField({
   return (
     <form
       role="search"
-      className="flex min-w-[11rem] flex-1 basis-0"
+      className="flex min-w-44 flex-1 basis-0"
       onSubmit={(event) => {
         event.preventDefault()
         onSubmit(value.trim())

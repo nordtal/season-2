@@ -58,7 +58,7 @@ export function ServiceConsole({
   return (
     <section
       aria-label={t("steward.service-page.console")}
-      className="relative flex h-[65svh] flex-col overflow-hidden rounded-xl border border-border bg-card font-mono text-[0.6875rem] leading-5 text-card-foreground sm:text-xs lg:h-[36rem]"
+      className="relative flex h-list flex-col overflow-hidden rounded-xl border border-border bg-card font-mono text-caption leading-5 text-card-foreground sm:text-xs lg:h-144"
     >
       <div data-slot="console-controls" className="flex shrink-0 flex-col border-b border-border lg:flex-row">
         <div
@@ -312,7 +312,7 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
               >
                 <span className="text-muted-foreground tabular-nums select-none">{line.time}</span>
                 {/* A phone wraps the line and shows the whole source; a desktop's column truncates it to the title. */}
-                <span className="text-muted-foreground sm:max-w-[14ch] sm:truncate" title={line.source || undefined}>
+                <span className="text-muted-foreground sm:max-w-25 sm:truncate" title={line.source || undefined}>
                   {line.source}
                 </span>
                 <span

@@ -56,7 +56,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
         className={`absolute inset-y-0 left-0 z-40 flex w-(--col) flex-col border-r border-sidebar-border bg-sidebar transition-transform ${MOTION} ${shown ? "translate-x-0" : "-translate-x-full"}`}
       >
         <ScrollArea className="min-h-0 flex-1">
-          <div className="pt-[calc(var(--island-top)+5px+var(--control-min-height)+1rem)] pr-3 pb-[max(1rem,env(safe-area-inset-bottom))] pl-[calc(var(--gutter)+5px)]">
+          <div className="pt-[calc(var(--island-top)+(--spacing(1))+1px+var(--control-min-height)+(--spacing(4)))] pr-3 pb-[max(--spacing(4),env(safe-area-inset-bottom))] pl-[calc(var(--gutter)+(--spacing(1))+1px)]">
             <NavList marker="text" />
           </div>
         </ScrollArea>
@@ -75,7 +75,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
             inert={shown}
             data-trail
             className={`flex min-w-0 overflow-hidden transition-[max-width,opacity] ${MOTION} ${
-              shown ? "max-w-0 opacity-0" : "max-w-[32rem] pr-2 opacity-100"
+              shown ? "max-w-0 opacity-0" : "max-w-lg pr-2 opacity-100"
             }`}
           >
             <Trail crumbs={crumbs} />
@@ -98,7 +98,7 @@ function DesktopFrame({ me, nav }: { me: Me; nav: Nav }) {
         }
       >
         <Content
-          className={`pt-[calc(var(--content-top)+1.5rem)] transition-[padding-top] ${MOTION} [--content-bottom:max(1.5rem,env(safe-area-inset-bottom))]`}
+          className={`pt-[calc(var(--content-top)+(--spacing(6)))] transition-[padding-top] ${MOTION} [--content-bottom:max(1.5rem,env(safe-area-inset-bottom))]`}
         />
       </div>
     </>
@@ -117,7 +117,7 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
         className={`absolute inset-0 z-30 bg-overlay/50 transition-opacity ${MOTION} ${shown ? "opacity-100" : "pointer-events-none opacity-0"}`}
       />
 
-      <div className="absolute inset-x-(--gutter) bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex flex-col overflow-hidden rounded-2xl border border-border bg-card/95 shadow-lg backdrop-blur">
+      <div className="absolute inset-x-(--gutter) bottom-[max(--spacing(3),env(safe-area-inset-bottom))] z-40 flex flex-col overflow-hidden rounded-2xl border border-border bg-card/95 shadow-lg backdrop-blur">
         <div
           className={`grid transition-[grid-template-rows] ${MOTION} ${shown ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
           aria-hidden={!shown}
@@ -149,7 +149,7 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <PhoneBarSlot value={slot}>
-          <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+1.5rem)] [--page-gutter:1.5rem] [--content-bottom:calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.75rem)]" />
+          <Content className="pt-[calc(env(safe-area-inset-top)+var(--blur-clearance)+(--spacing(6)))] [--page-gutter:1.5rem] [--content-bottom:calc(max(0.75rem,env(safe-area-inset-bottom))+var(--control-min-height)+2.75rem)]" />
         </PhoneBarSlot>
       </div>
     </>
@@ -162,7 +162,7 @@ function PhoneFrame({ me, nav }: { me: Me; nav: Nav }) {
 function Content({ className }: { className: string }) {
   return (
     <ScrollArea className="min-h-0 flex-1">
-      <main className={`mx-auto w-full max-w-[110rem] px-(--page-gutter) pb-(--content-bottom) ${className}`}>
+      <main className={`mx-auto w-full max-w-page px-(--page-gutter) pb-(--content-bottom) ${className}`}>
         <Outlet />
       </main>
     </ScrollArea>

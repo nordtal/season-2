@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 import { ChatTextIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { GlyphInfo, MessageArg } from "@/lib/api"
 import {
@@ -474,7 +474,7 @@ function RunView({
     case "break":
       return (
         <span data-run={index} contentEditable={false}>
-          <span aria-hidden className="text-[0.7em] opacity-40 select-none">
+          <span aria-hidden className="text-inline opacity-40 select-none">
             {"↵"}
           </span>
           <br />
@@ -486,7 +486,7 @@ function RunView({
         <span
           data-run={index}
           contentEditable={false}
-          className={chip ? undefined : "rounded-sm bg-muted px-1 font-mono text-[0.7em] text-muted-foreground"}
+          className={chip ? undefined : "rounded-sm bg-muted px-1 font-mono text-inline text-muted-foreground"}
           style={chip ? { ...textStyle(run.style, format, tones), ...marks } : { textShadow: "none" }}
         >
           {chip ?? <BlockLink block={BLOCK_REFERENCE.exec(run.source)?.[1]}>{run.source}</BlockLink>}
@@ -604,7 +604,7 @@ function HoverMenu({
           <ChatTextIcon aria-hidden />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-[min(22rem,calc(100vw-2rem))] flex-col gap-2">
+      <PopoverContent align="start" className="flex w-88 flex-col gap-2">
         <VisualEditor
           runs={draft}
           onChange={setDraft}

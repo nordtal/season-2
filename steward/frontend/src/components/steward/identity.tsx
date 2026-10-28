@@ -144,7 +144,7 @@ export function PersonIdentity(props: PersonIdentityProps) {
              * `max-w-full` caps the box so that `truncate` works. `min-w-0` only lets it shrink.
              */
             "inline-flex min-w-0 max-w-full items-center gap-2 rounded-full text-left outline-none tap-target " +
-            "hover:opacity-80 focus-visible:ring-[3px] focus-visible:ring-ring/50 " +
+            "hover:opacity-80 focus-visible:ring-3 focus-visible:ring-ring/50 " +
             (props.className ?? "")
           }
         >

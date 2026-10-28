@@ -347,7 +347,7 @@ export function ObjectiveSheet({
             <ResponsiveDialogTitle>{name}</ResponsiveDialogTitle>
           </ResponsiveDialogHeader>
           {objective ? (
-            <div className="-mx-1 max-h-[65svh] overflow-y-auto px-1 sm:max-h-[70vh]">
+            <div className="-mx-1 max-h-list overflow-y-auto px-1">
               <Fields
                 id={id}
                 fields={schema.objective}

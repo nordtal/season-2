@@ -2,7 +2,7 @@ import { ArrowUpIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { Fragment, use, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import type { ReactNode, RefObject } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { ConfigLocation } from "@/lib/api"
 import { setOpened, useOpened } from "@/lib/drafts"

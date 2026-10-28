@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import {
   ResponsiveDialog,
@@ -28,7 +28,7 @@ function Command({ className, ...props }: React.ComponentProps<typeof CommandPri
 /**
  * In a sheet the field and the rows start on `--sheet-gutter`, less the command's own two 4px insets.
  */
-const SHEET_INSET = "data-[slot=drawer-content]:px-[calc(var(--sheet-gutter)-0.5rem)]"
+const SHEET_INSET = "data-[slot=drawer-content]:px-[calc(var(--sheet-gutter)-(--spacing(2)))]"
 
 /**
  * `label` names the input through cmdk's hidden label and defaults to `title`.
@@ -161,7 +161,7 @@ function CommandShortcut({ className, ...props }: React.ComponentProps<"span">) 
         /**
          * The note is capped, so a long note cannot squeeze the label out, and hidden below 640px, where it would truncate both.
          */
-        "ml-auto hidden max-w-[45%] truncate text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground sm:block",
+        "ml-auto hidden max-w-9/20 truncate text-xs tracking-widest text-muted-foreground group-data-selected/command-item:text-foreground sm:block",
         className,
       )}
       {...props}

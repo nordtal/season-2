@@ -1,7 +1,7 @@
 import { ArrowLeftIcon, CaretRightIcon, FolderIcon, GearSixIcon, LockIcon } from "@phosphor-icons/react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import { ApiError, type ConfigLocation, type PluginDescriptor, type PluginFile } from "@/lib/api"
 import { setOpened, useDirtyFiles, useOpened } from "@/lib/drafts"
@@ -110,7 +110,7 @@ export function ServiceSettings({
       <nav
         aria-label={t("steward.settings.files")}
         className={cn(
-          "flex flex-col gap-0.5 lg:sticky lg:top-[calc(var(--content-top,0px)+1rem)]",
+          "flex flex-col gap-0.5 lg:sticky lg:top-[calc(var(--content-top,0px)+(--spacing(4)))]",
           file !== undefined && "max-lg:hidden",
         )}
       >

@@ -16,7 +16,7 @@ import {
   TextTSlashIcon,
   TextUnderlineIcon,
 } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { GlyphInfo, MessageArg } from "@/lib/api"
 import { capabilities } from "@/lib/rich-text"
@@ -57,7 +57,7 @@ export function PlaceholderChip({
   return (
     <span
       className={cn(
-        "mx-px inline-flex items-center rounded-full border px-1.5 align-baseline font-mono text-[0.75em] leading-[1.5] whitespace-nowrap",
+        "mx-px inline-flex items-center rounded-full border px-1.5 align-baseline font-mono text-inline leading-normal whitespace-nowrap",
         global ? "border-border bg-muted text-muted-foreground" : "border-primary/50 bg-primary/20 text-mark",
         className,
       )}
@@ -107,7 +107,7 @@ export function PlaceholderMenu({
           <BracketsCurlyIcon aria-hidden />
         </MenuTrigger>
       </PopoverTrigger>
-      <PopoverContent align="start" className="max-h-80 w-[min(20rem,calc(100vw-2rem))] overflow-y-auto p-1">
+      <PopoverContent align="start" className="max-h-80 w-80 overflow-y-auto p-1">
         {groups.map((group) =>
           group.role === null ? (
             row(group.args[0], group.args[0].name, false)
@@ -140,7 +140,7 @@ export function GlyphMenu({
           <SmileyIcon aria-hidden />
         </MenuTrigger>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[min(20rem,calc(100vw-2rem))] p-1">
+      <PopoverContent align="start" className="w-80 p-1">
         <div className="grid max-h-72 grid-cols-4 gap-1 overflow-y-auto">
           {glyphs.map((glyph) => (
             <button
@@ -155,7 +155,7 @@ export function GlyphMenu({
               className="flex min-w-0 flex-col items-center gap-1 rounded-md p-1.5 hover:bg-accent"
             >
               <GlyphTile glyph={glyph} />
-              <span className="w-full truncate text-center text-[11px] text-muted-foreground">{glyph.name}</span>
+              <span className="w-full truncate text-center text-caption text-muted-foreground">{glyph.name}</span>
             </button>
           ))}
         </div>
@@ -274,7 +274,7 @@ export function ClickMenu({
           <CursorClickIcon aria-hidden />
         </MenuTrigger>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-2">
+      <PopoverContent align="start" className="flex w-80 flex-col gap-2">
         <Select
           value={draft.action}
           onValueChange={(action) => {
@@ -342,7 +342,7 @@ export function LinkMenu({
           <LinkIcon aria-hidden />
         </MenuTrigger>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-2">
+      <PopoverContent align="start" className="flex w-80 flex-col gap-2">
         <ValueField
           value={url}
           onChange={setUrl}
@@ -380,7 +380,7 @@ export function ActionMenu({
           <LightningIcon aria-hidden />
         </MenuTrigger>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-[min(16rem,calc(100vw-2rem))] flex-col gap-1 p-1">
+      <PopoverContent align="start" className="flex w-64 flex-col gap-1 p-1">
         {actions.map((candidate) => (
           <button
             key={candidate.name}
@@ -443,7 +443,7 @@ export function ValueStyleMenu({
           <TextAaIcon aria-hidden />
         </MenuTrigger>
       </PopoverTrigger>
-      <PopoverContent align="start" className="flex w-[min(14rem,calc(100vw-2rem))] flex-col gap-1 p-1">
+      <PopoverContent align="start" className="flex w-56 flex-col gap-1 p-1">
         {[undefined, ...styles].map((style) => (
           <button
             key={style ?? ""}

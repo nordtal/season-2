@@ -1,5 +1,5 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import { type ReactNode, useState } from "react"
 
 import type { Document, DocumentDeclaration, MenuDrawing } from "@/lib/api"

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { CaretDownIcon, CheckIcon, CircleIcon, CircleNotchIcon, MinusIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import {
   pillsOf,

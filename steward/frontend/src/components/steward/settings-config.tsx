@@ -1,9 +1,8 @@
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
 import { useMemo } from "react"
 import type { ReactNode } from "react"
-import { cn } from "cn"
+import { cn, type CSSVars } from "@/lib/utils"
 
-import type { CSSVars } from "@/lib/utils"
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 import { useConfig, useSaveConfig } from "@/lib/queries"
 import { configLeafMatches, configTree, type ConfigLeafValue } from "@/lib/settings-tree"

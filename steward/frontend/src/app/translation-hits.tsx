@@ -104,7 +104,7 @@ export function TranslationHits({ search, open, onDone }: { search: string; open
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="min-w-0 truncate">{name}</span>
-                  <Badge variant="outline" className="h-4 shrink-0 px-1.5 text-[0.625rem] text-muted-foreground">
+                  <Badge variant="outline" className="h-4 shrink-0 px-1.5 text-badge text-muted-foreground">
                     {hit.language.toUpperCase()}
                   </Badge>
                 </span>

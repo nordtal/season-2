@@ -419,8 +419,8 @@ function Devices({ state }: { state: NotificationActions }) {
           {WAITING_DEVICES.map((index) => (
             <li key={index} className="flex items-center gap-2 py-1">
               <div className="flex min-w-0 flex-1 flex-col">
-                <SkeletonText width="long" className="max-w-[12rem] text-sm" />
-                <SkeletonText width="medium" className="max-w-[9rem] text-xs" />
+                <SkeletonText width="long" className="max-w-48 text-sm" />
+                <SkeletonText width="medium" className="max-w-36 text-xs" />
               </div>
               <Skeleton className="size-8 shrink-0 rounded-md" />
               <Skeleton className="size-8 shrink-0 rounded-md" />
@@ -486,7 +486,7 @@ function DeviceRow({
             <PaperPlaneTiltIcon aria-hidden />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-60 max-w-[calc(100vw-2rem)] p-1">
+        <PopoverContent align="end" className="w-60 p-1">
           <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("steward.notifications.test-notifications")}</p>
           <ul className="flex flex-col">
             {TYPES.map((type) => (

@@ -2,7 +2,7 @@ import { useState } from "react"
 import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { CheckIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import type { Icon } from "@phosphor-icons/react"
 

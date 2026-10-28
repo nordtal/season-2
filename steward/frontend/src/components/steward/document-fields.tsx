@@ -386,7 +386,7 @@ export function AccentField({
 export function CodeMark({ slot }: { slot: string }) {
   return (
     <Tip content={t("steward.document-editor.code")} className="shrink-0">
-      <Badge variant="outline" className="font-mono text-[0.625rem]">
+      <Badge variant="outline" className="font-mono text-badge">
         {slot}
       </Badge>
     </Tip>

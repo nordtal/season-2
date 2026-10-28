@@ -87,7 +87,7 @@ export function Mark({
     const Generic = GENERIC[registry] ?? TERM_ICON.item
     return (
       <span aria-hidden className="flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
-        <Generic className="size-[70%] text-muted-foreground" />
+        <Generic className="size-7/10 text-muted-foreground" />
       </span>
     )
   }
@@ -464,7 +464,7 @@ function Options({
         role="listbox"
         aria-label={label}
         aria-multiselectable={multi}
-        className="-mx-1 max-h-[55svh] min-h-0 flex-1 overflow-y-auto sm:max-h-96 in-data-[slot=drawer-content]:max-h-none"
+        className="-mx-1 max-h-list min-h-0 flex-1 overflow-y-auto sm:max-h-96 in-data-[slot=drawer-content]:max-h-none"
       >
         {clearable ? (
           <button
@@ -511,7 +511,7 @@ function Options({
               ) : null}
               {/* A world is its own name, so the id would only repeat it. */}
               {choice.id === choice.name ? null : (
-                <span className="max-w-[45%] min-w-0 truncate font-mono text-xs text-muted-foreground max-sm:max-w-[40%]">
+                <span className="max-w-9/20 min-w-0 truncate font-mono text-xs text-muted-foreground max-sm:max-w-2/5">
                   {choice.id}
                 </span>
               )}

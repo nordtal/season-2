@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import { colourOf, formatOf, parse } from "@/lib/rich-text"
 import { useGlyphs, useMessageSyntax } from "@/lib/queries"
@@ -29,7 +29,7 @@ export function MessagePreview({
         switch (run.kind) {
           case "placeholder":
             return (
-              <span key={index} className="mx-px rounded-sm bg-muted px-1 font-mono text-[0.9em] text-muted-foreground">
+              <span key={index} className="mx-px rounded-sm bg-muted px-1 font-mono text-inline text-muted-foreground">
                 {run.name}
               </span>
             )

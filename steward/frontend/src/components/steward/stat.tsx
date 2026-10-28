@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
@@ -33,7 +33,7 @@ export function Stat({
           valueClassName,
         )}
       >
-        {value === undefined ? <SkeletonText width="short" className="h-[1lh]" /> : value}
+        {value === undefined ? <SkeletonText width="short" className="h-lh" /> : value}
       </span>
       {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
     </div>

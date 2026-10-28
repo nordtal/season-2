@@ -279,7 +279,7 @@ export function Pills({ entry, places }: { entry: MessageEntry; places: Places }
   return (
     <span aria-label={t("steward.texts.shown-in")} className="flex flex-wrap gap-1">
       {labels.map((label) => (
-        <Badge key={label} variant="outline" className="h-4 px-1.5 text-[0.625rem] text-muted-foreground">
+        <Badge key={label} variant="outline" className="h-4 px-1.5 text-badge text-muted-foreground">
           {label}
         </Badge>
       ))}

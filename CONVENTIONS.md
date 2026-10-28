@@ -167,15 +167,8 @@ run `git config core.hooksPath .githooks` once per clone.
 
 ### Design
 
-- **Steward is designed for the phone first.** The desktop layout follows from the narrow one, and
-  where the two disagree the phone wins.
-- **Steward shows data, not explanatory text.** A sentence stays only when it keeps a state honest
-  ("Some of the readings could not be fetched") or reports an error; a confirmation keeps the one
-  sentence that names what is lost. Everything else goes, into the doc comment where its meaning matters.
-  That holds for a tooltip, which carries only what its badge or button does not show (a date, a name, who
-  set it). A settings field carries an `@Explain` only when changing it can break something and its name does
-  not already say what a change does; the sentence says what the change does in practice, and Steward shows
-  it between the field's name and its input. Every other field carries `@NoExplanationNeeded`.
+- **`steward/frontend/DESIGN.md` is Steward's design**: its scale, surfaces, colours, type and components.
+  A class for spacing, a size, a colour, a radius or type names one of its tokens, never a value. _(checked)_
 - **No text symbol as a separator**, such as the middle dot, a pipe or a spaced hyphen: one value, two
   values set apart as two lines or two pills, or the second as an icon. A bundle or a document holds no pipe,
   spaced hyphen, dash (escaped or not), double space or banner comment. _(the middle dot in Steward and
@@ -184,12 +177,6 @@ run `git config core.hooksPath .githooks` once per clone.
   level) is drawn with the icon `steward/frontend/src/components/steward/term-icons.tsx` gives it, wherever it
   appears: page, pill, form field, table, tooltip, navigation and palette. That icon means nothing else, and a field
   whose value is a term shows it beside its label. _(checked)_
-- **Only the theme's colours.** Steward names a colour only in `steward/frontend/src/index.css` (and the
-  generated `brand.gen.css`); everything else uses its variables, and a colour no variable fits becomes a new one
-  there. Content keeps its own colours: Minecraft's chat colours, the game's and Discord's surfaces in a preview and a
-  colour a person picks, each exempt by file in `only-theme-colours.test.ts`. _(checked)_
-- **Bordered elements are not nested.** Cards lie flat on the background, side by side; an inner card
-  becomes a heading.
 - **The name is Nordtal** in prose, in every language, and `nordtal.eu` where it is the address; never a
   lower-case nordtal in a text. _(checked in the bundles and documents)_
 - **One blue, the brand's**, defined once as `Tone.BRAND` and read by the game's `<brand>` tone, the bot's

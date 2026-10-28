@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { ArrowElbowDownLeftIcon, HashStraightIcon } from "@phosphor-icons/react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 import { t } from "@/lib/texts"
 import { Button } from "@/components/ui/button"

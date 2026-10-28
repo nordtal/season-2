@@ -173,7 +173,8 @@ function tab.open(context)
 
   -- Draws the properties of the selected entry on the theme's face:
   -- keys in the color of its section labels and values below them, a
-  -- value that a click edits in a sunken box
+  -- value that a click edits in a sunken box. A panel taller than its
+  -- canvas narrows for a scroll bar along its right edge.
   local function paintProperties(ev)
     local gc = ev.context
     local color = gc.theme.color
@@ -185,7 +186,16 @@ function tab.open(context)
     local width = gc.width - 2 * pad
     local list = rows()
     drawn = modules.panel.layout(list, width, measure, lineHeight, textHeight)
+    if drawn.height + 2 * pad > gc.height then
+      drawn = modules.panel.layout(list, width - modules.panel.scrollbarSize, measure, lineHeight, textHeight)
+    end
     scroll = math.max(0, math.min(scroll, drawn.height + 2 * pad - gc.height))
+    local bar = modules.panel.scrollbar(drawn.height + 2 * pad, gc.height, scroll)
+    if bar then
+      local x, size = gc.width - modules.panel.scrollbarSize, modules.panel.scrollbarSize
+      gc:drawThemeRect("mini_scrollbar_bg", { x=x, y=0, width=size, height=gc.height })
+      gc:drawThemeRect("mini_scrollbar_thumb", { x=x, y=bar.thumb, width=size, height=bar.height })
+    end
     for _, op in ipairs(drawn.ops) do
       local x, y = op.x + pad, op.y + pad - scroll
       if op.op == "text" then

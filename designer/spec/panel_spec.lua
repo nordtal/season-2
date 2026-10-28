@@ -134,20 +134,21 @@ describe("the properties panel", function()
 
   describe("scroll bar", function()
     it("shows none while the content fits", function()
-      assert.is_nil(panel.scrollbar(100, 100, 0))
-      assert.is_nil(panel.scrollbar(40, 100, 0))
+      assert.is_nil(panel.scrollbar(100, 100, 0, 6))
+      assert.is_nil(panel.scrollbar(40, 100, 0, 6))
     end)
 
     it("gives the thumb the share of the content that shows, at the place that shows", function()
-      assert.same({ thumb=0, height=50 }, panel.scrollbar(200, 100, 0))
-      assert.same({ thumb=25, height=50 }, panel.scrollbar(200, 100, 50))
-      assert.same({ thumb=50, height=50 }, panel.scrollbar(200, 100, 100))
+      assert.same({ thumb=0, height=50 }, panel.scrollbar(200, 100, 0, 6))
+      assert.same({ thumb=25, height=50 }, panel.scrollbar(200, 100, 50, 6))
+      assert.same({ thumb=50, height=50 }, panel.scrollbar(200, 100, 100, 6))
       -- A scroll past the end keeps the thumb at the end
-      assert.same({ thumb=50, height=50 }, panel.scrollbar(200, 100, 500))
+      assert.same({ thumb=50, height=50 }, panel.scrollbar(200, 100, 500, 6))
     end)
 
     it("keeps the thumb at least twice as long as the bar is wide", function()
-      assert.same({ thumb=88, height=12 }, panel.scrollbar(10000, 100, 10000))
+      assert.same({ thumb=88, height=12 }, panel.scrollbar(10000, 100, 10000, 6))
+      assert.same({ thumb=84, height=16 }, panel.scrollbar(10000, 100, 10000, 8))
     end)
   end)
 

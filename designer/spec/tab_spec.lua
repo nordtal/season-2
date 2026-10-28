@@ -180,7 +180,8 @@ local function paint(dlg, id, height, width)
   local out, at, color = {}, {}, nil
   -- The theme's text and face are colours that the tab mixes, each with a name to mark it by
   local theme = { color={ text={ name="text", red=0, green=0, blue=0 }, separator_label="key",
-                          face={ name="face", red=255, green=255, blue=255 }, status_bar_text="status" } }
+                          face={ name="face", red=255, green=255, blue=255 }, status_bar_text="status" },
+                  dimension={ mini_scrollbar_size=6 } }
   local function name() return type(color) == "table" and (color.name or "tone") or tostring(color) end
   local gc = { width=width or 1000, height=height or 1000, theme=theme }
   setmetatable(gc, { __newindex=function(t, k, v) if k == "color" then color = v else rawset(t, k, v) end end })

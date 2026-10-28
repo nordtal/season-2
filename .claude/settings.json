@@ -5,7 +5,8 @@
     "sessionUrl": false
   },
   "enabledPlugins": {
-    "agent-kit@agent-kit": true
+    "agent-kit@agent-kit": true,
+    "frontend-design@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "agent-kit": {

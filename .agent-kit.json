@@ -1,4 +1,5 @@
 {
+  "tracker": "plane",
   "path": ["steward/build/nodejs/*/bin", "steward/frontend/node_modules/.bin"],
   "files": [
     {

@@ -49,11 +49,11 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       # npmInstall is not cacheable, so `npm ci` takes its packages from npm's own cache instead of the registry.
+      # No restore-keys in this job: it saves, and an older cache would carry every replaced package along.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
           key: npm-${{ hashFiles('steward/frontend/package-lock.json') }}
-          restore-keys: npm-
 
       # `build` stages the build/image of every image through `assemble`. The integration tests use the Docker daemon of ubuntu-latest.
       # SettingsPageEndToEndTest drives the runner's Chrome; without NORDTAL_CHROMIUM it skips.

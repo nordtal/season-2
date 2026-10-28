@@ -359,12 +359,16 @@ export function useGameAction() {
   })
 }
 
-/** The newest announcement that did not go out in every language, read once when the form opens. */
+/**
+ * The newest announcement that did not go out in every language, read once each time the form opens.
+ * It is asked again on every mount, so a send in between never comes back as still open.
+ */
 export function useOpenAnnouncement() {
   return useQuery({
     queryKey: keys.openAnnouncement,
     queryFn: () => api<OpenAnnouncement>("/api/announcements/open"),
     staleTime: Infinity,
+    refetchOnMount: "always",
     refetchOnWindowFocus: false,
   })
 }

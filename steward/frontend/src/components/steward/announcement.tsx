@@ -37,7 +37,7 @@ export function AnnouncementForm() {
   /** A send that failed for some languages before a reload comes back with its texts, so a retry still sends only the others. */
   const open = useOpenAnnouncement()
   const [resumed, setResumed] = useState(false)
-  if (!resumed && open.data) {
+  if (!resumed && open.isSuccess && open.isFetchedAfterMount) {
     setResumed(true)
     const lines = open.data.lines
     if (lines.length > 0 && Object.values(texts).every((value) => value.trim() === "")) {

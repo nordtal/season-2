@@ -45,7 +45,7 @@ it:
 
 | Level    | What                                                          | Tokens                                                                          |
 | -------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| page     | the background of every page, and the sidebar              | `background`, `foreground`, and `sidebar` with `sidebar-border`                 |
+| page     | the background of every page, and the sidebar                 | `background`, `foreground`, and `sidebar` with `sidebar-border`                 |
 | raised   | a card, a table row on a phone, the console, an input, a pill | `card`, `card-foreground`, `secondary`, `secondary-foreground`, `muted` as tint |
 | floating | a popover, a menu, a tooltip, a dialog, a drawer, a toast     | `popover`, `popover-foreground`                                                 |
 

@@ -272,6 +272,7 @@ describe("JournalPage - one search field", () => {
         const terms = [
           { kind: "PAYMENT", word: "nt-abcdef", values: ["NT-ABCDEF"] },
           { kind: "DAYS", word: "30d", values: ["30"] },
+          { kind: "ACTION", word: "grant", values: ["GRANT_ACCESS"] },
         ]
         return new Response(JSON.stringify({ items: [], terms }), {
           status: 200,
@@ -283,12 +284,14 @@ describe("JournalPage - one search field", () => {
     draw(<JournalPage />)
 
     const field = await screen.findByRole<HTMLInputElement>("searchbox", { name: "Search the journal" })
-    fireEvent.change(field, { target: { value: " nt-abcdef 30d " } })
+    fireEvent.change(field, { target: { value: " nt-abcdef 30d grant " } })
     expect(asked.some((url) => url.includes("q="))).toBe(false)
     fireEvent.submit(field)
-    await waitFor(() => expect(asked).toContain("/api/journal?limit=50&q=nt-abcdef+30d"))
+    await waitFor(() => expect(asked).toContain("/api/journal?limit=50&q=nt-abcdef+30d+grant"))
     expect(await screen.findByText("NT-ABCDEF")).toBeTruthy()
     expect(screen.getByText("30 days or more")).toBeTruthy()
+    // A word that names one action also matches names, so the badge says the word, not the action.
+    expect(screen.getByText("“grant”")).toBeTruthy()
   })
 
   it("asks for the next page after the last one's cursor", async () => {

@@ -1697,8 +1697,8 @@ describe("the Minecraft bar of the Nordtal tab", function()
     local dlg = loaded(t)
     assert.equal(1, #t.instanceRuns)
     local lines, at = bar(dlg)
-    assert.same({ "fill face", "sunken_normal", "  plain", "check_selected", "  minecraft.live_sync", "button_normal",
-                  "  minecraft.install_pack", "<tone> minecraft.state_no_fabric" }, lines)
+    assert.same({ "fill face", "sunken_normal", "  plain", "button_normal", "  minecraft.install_pack", "button_normal",
+                  "check_selected", "  minecraft.live_sync", "<tone> minecraft.state_no_fabric" }, lines)
     -- The grey of No Fabric is two thirds of the theme's text and one third of its face, which reads on both themes
     assert.same({ r=85, g=85, b=85 }, at["minecraft.state_no_fabric"].color)
     assert.equal(0, #t.sockets)
@@ -1707,7 +1707,8 @@ describe("the Minecraft bar of the Nordtal tab", function()
   it("asks for an instance when none is chosen, and when the instance could not be read", function()
     local t = setUp()
     local dlg = loaded(t)
-    assert.same({ "fill face", "sunken_normal", "  minecraft.no_instance", "check_disabled", "<disabled> minecraft.live_sync" },
+    assert.same({ "fill face", "sunken_normal", "  minecraft.no_instance", "button_normal", "check_disabled",
+                  "<disabled> minecraft.live_sync" },
       (bar(dlg)))
     t = setUp()
     t.world.instance = "no JSON"
@@ -1783,7 +1784,7 @@ describe("the Minecraft bar of the Nordtal tab", function()
     t.world.instance = plain
     t.ctl.readInstance()
     local lines = bar(dlg)
-    assert.same({ "check_normal", "  minecraft.live_sync" }, { lines[4], lines[5] })
+    assert.same({ "button_normal", "check_normal", "  minecraft.live_sync" }, { lines[6], lines[7], lines[8] })
     click(dlg, "minecraft.live_sync")
     assert.is_true(preferences.liveSync)
   end)
@@ -1917,13 +1918,13 @@ describe("the Minecraft bar of the Nordtal tab", function()
     local t, dlg = connected()
     click(dlg, "minecraft.install_pack")
     local timers = #t.timers
-    local lines = bar(dlg, 200)
+    local lines = bar(dlg, 212)
     assert.same({ "fill tone", "<status> minecraft.insta..." }, { lines[#lines - 1], lines[#lines] })
     -- The tip shows after the paint, with one tick of a timer
     assert.equal(timers + 1, #t.timers)
     t.timers[#t.timers].args.ontick()
     assert.same({ "tip", "minecraft.installing" }, t.log[#t.log])
-    bar(dlg, 200)
+    bar(dlg, 212)
     assert.equal(timers + 1, #t.timers)
     -- A status the bar shows whole has no tip
     finish(t, 0)

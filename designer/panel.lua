@@ -219,7 +219,8 @@ end
 
 -- What to draw for a bar of items on one line and where a click hits one: { ops, hits, height }. An item is
 -- { kind, text, short, value, field, tip, color, shrink, least, divider, disabled }: kind is "box", "switch", "button"
--- or "text". A disabled switch draws its check and its text in the theme's disabled colour, neither on nor off.
+-- or "text". Every box, button and switch is as high as the bar, a switch a button with its check inside. A disabled
+-- switch draws its check and its text in the theme's disabled colour, neither on nor off.
 -- An item with shrink ("start" or "end") gives up room when the line is too short: each first down to a quarter
 -- of the width, then from the last one on down to least characters, 1 unless given. Its text then loses its
 -- start or end. Items that do not fit at their least characters show their short text. The items then shorten
@@ -247,7 +248,7 @@ function panel.bar(items, width, measure, lineHeight, textHeight)
     sized = {}
     for _, item in ipairs(items) do
       local frame = (item.kind == "box" or item.kind == "button") and 2 * inset
-        or item.kind == "switch" and lineHeight + gap or 0
+        or item.kind == "switch" and 2 * inset + lineHeight + gap or 0
       local text = useShort and item.short or item.text
       table.insert(sized, { item=item, text=text, whole=text, frame=frame, inner=measure(text),
                             lead=item.divider and inset + 1 or 0 })
@@ -281,15 +282,16 @@ function panel.bar(items, width, measure, lineHeight, textHeight)
     local w = s.frame + s.inner
     local tx = x
     if item.kind == "box" then
-      table.insert(ops, { op="box", x=x, y=0, width=w, height=textHeight + 2 * inset })
+      table.insert(ops, { op="box", x=x, y=0, width=w, height=height })
       tx = x + inset
     elseif item.kind == "button" then
       table.insert(ops, { op="button", x=x, y=0, width=w, height=height })
       tx = x + inset
     elseif item.kind == "switch" then
-      table.insert(ops, { op="check", x=x, y=inset + (textHeight - lineHeight) // 2, size=lineHeight,
+      table.insert(ops, { op="button", x=x, y=0, width=w, height=height })
+      table.insert(ops, { op="check", x=x + inset, y=inset + (textHeight - lineHeight) // 2, size=lineHeight,
                           checked=item.value == true, disabled=item.disabled })
-      tx = x + lineHeight + gap
+      tx = x + inset + lineHeight + gap
     end
     local cut = s.text ~= item.text or x + w > width or nil
     table.insert(ops, { op="text", text=s.text, x=tx, y=inset, color=item.disabled and "disabled" or item.color, cut=cut })

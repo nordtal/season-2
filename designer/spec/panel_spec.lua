@@ -158,23 +158,24 @@ describe("the properties panel", function()
       return panel.bar(items, width or 100, measure, 2, 1)
     end
 
-    it("puts its items on one line, each beside the one before with a gap, and their texts on one baseline", function()
+    it("puts its items on one line, each beside the one before with a gap, all as high as the bar, and their texts on one baseline", function()
       local drawn = bar({ { kind="box", text="/mc", field="choose" }, { kind="switch", text="Sync", value=true, field="live" },
                           { kind="button", text="Install", field="pack" }, { kind="text", text="ok", color="good" } })
       assert.same({
-        { op="box", x=0, y=0, width=15, height=13 },
+        { op="box", x=0, y=0, width=15, height=15 },
         { op="text", text="/mc", x=6, y=6 },
-        { op="check", x=21, y=5, size=2, checked=true },
-        { op="text", text="Sync", x=26, y=6 },
-        { op="button", x=36, y=0, width=19, height=15 },
-        { op="text", text="Install", x=42, y=6 },
-        { op="text", text="ok", x=61, y=6, color="good" },
+        { op="button", x=21, y=0, width=21, height=15 },
+        { op="check", x=27, y=5, size=2, checked=true },
+        { op="text", text="Sync", x=32, y=6 },
+        { op="button", x=48, y=0, width=19, height=15 },
+        { op="text", text="Install", x=54, y=6 },
+        { op="text", text="ok", x=73, y=6, color="good" },
       }, drawn.ops)
       assert.equal(15, drawn.height)
       assert.equal("choose", panel.hit(drawn, 1, 1))
-      assert.equal("live", panel.hit(drawn, 29, 6))
-      assert.equal("pack", panel.hit(drawn, 54, 14))
-      assert.is_nil(panel.hit(drawn, 62, 6))
+      assert.equal("live", panel.hit(drawn, 22, 14))
+      assert.equal("pack", panel.hit(drawn, 66, 14))
+      assert.is_nil(panel.hit(drawn, 74, 6))
     end)
 
     it("keeps the text of a box and of a button inside its edge, with the same gap above as at the sides", function()
@@ -187,7 +188,7 @@ describe("the properties panel", function()
     it("shortens the items that may shrink to a quarter of the bar each, and gives a shortened one its whole text as a tip", function()
       local drawn = bar({ { kind="box", text="/Users/me/mc/fabric", field="choose", shrink="start" },
                           { kind="text", text="The change was refused", shrink="end" } }, 40)
-      assert.same({ op="box", x=0, y=0, width=22, height=13 }, drawn.ops[1])
+      assert.same({ op="box", x=0, y=0, width=22, height=15 }, drawn.ops[1])
       assert.same({ op="text", text=".../fabric", x=6, y=6, cut=true }, drawn.ops[2])
       assert.same({ op="text", text="The chang...", x=28, y=6, cut=true }, drawn.ops[3])
       assert.equal("/Users/me/mc/fabric", panel.hit(drawn, 1, 1, "tip"))
@@ -198,7 +199,7 @@ describe("the properties panel", function()
       local drawn = bar({ { kind="box", text="/Users/me/mc/fabric", field="choose", shrink="start", least=4 },
                           { kind="button", text="Install", field="pack" },
                           { kind="text", text="The change was refused", shrink="end", least=6 } }, 30)
-      assert.same({ op="box", x=0, y=0, width=19, height=13 }, drawn.ops[1])
+      assert.same({ op="box", x=0, y=0, width=19, height=15 }, drawn.ops[1])
       assert.same({ op="text", text="...bric", x=6, y=6, cut=true }, drawn.ops[2])
       assert.same({ op="text", text="...", x=50, y=6, cut=true }, drawn.ops[5])
       assert.equal("choose", panel.hit(drawn, 1, 1))
@@ -212,32 +213,32 @@ describe("the properties panel", function()
     it("switches the buttons with a short text to it when the items do not fit at their least, and shows the long one as the tip", function()
       local function items()
         return { { kind="box", text="fabric", field="choose", shrink="start", least=4 },
-                 { kind="switch", text="Live-Sync", value=true, field="live" },
                  { kind="button", text="Pack installieren", short="Installieren", field="pack" },
                  { kind="button", text="Bridge-Mod aktualisieren", short="Bridge-Mod", field="bridge" },
+                 { kind="switch", text="Live-Sync", value=true, field="live" },
                  { kind="text", text="Nicht erreichbar", color="wait" },
                  { kind="text", text="Die Bridge-Mod des neuesten Releases wird geladen...", shrink="end", least=12, divider=true } }
       end
-      local drawn = bar(items(), 160)
-      assert.same({ op="button", x=44, y=0, width=24, height=15 }, drawn.ops[5])
-      assert.same({ op="text", text="Installieren", x=50, y=6, cut=true }, drawn.ops[6])
-      assert.same({ op="button", x=74, y=0, width=22, height=15 }, drawn.ops[7])
-      assert.same({ op="text", text="Bridge-Mod", x=80, y=6, cut=true }, drawn.ops[8])
-      assert.same({ op="text", text="Nicht erreichbar", x=102, y=6, color="wait" }, drawn.ops[9])
-      assert.same({ op="text", text="Die Bridge-Mod des neueste...", x=131, y=6, cut=true }, drawn.ops[11])
-      assert.equal("pack", panel.hit(drawn, 45, 1))
-      assert.equal("Pack installieren", panel.hit(drawn, 45, 1, "tip"))
-      assert.equal("Bridge-Mod aktualisieren", panel.hit(drawn, 75, 1, "tip"))
+      local drawn = bar(items(), 172)
+      assert.same({ op="button", x=24, y=0, width=24, height=15 }, drawn.ops[3])
+      assert.same({ op="text", text="Installieren", x=30, y=6, cut=true }, drawn.ops[4])
+      assert.same({ op="button", x=54, y=0, width=22, height=15 }, drawn.ops[5])
+      assert.same({ op="text", text="Bridge-Mod", x=60, y=6, cut=true }, drawn.ops[6])
+      assert.same({ op="text", text="Nicht erreichbar", x=114, y=6, color="wait" }, drawn.ops[10])
+      assert.same({ op="text", text="Die Bridge-Mod des neueste...", x=143, y=6, cut=true }, drawn.ops[12])
+      assert.equal("pack", panel.hit(drawn, 25, 1))
+      assert.equal("Pack installieren", panel.hit(drawn, 25, 1, "tip"))
+      assert.equal("Bridge-Mod aktualisieren", panel.hit(drawn, 55, 1, "tip"))
       -- The long texts stay while every item fits at its least
-      drawn = bar(items(), 165)
-      assert.same({ op="text", text="Pack installieren", x=50, y=6 }, drawn.ops[6])
-      assert.same({ op="text", text="Bridge-Mod aktualisieren", x=85, y=6 }, drawn.ops[8])
-      assert.same({ op="text", text="Die Bridge-M...", x=150, y=6, cut=true }, drawn.ops[11])
+      drawn = bar(items(), 177)
+      assert.same({ op="text", text="Pack installieren", x=30, y=6 }, drawn.ops[4])
+      assert.same({ op="text", text="Bridge-Mod aktualisieren", x=65, y=6 }, drawn.ops[6])
+      assert.same({ op="text", text="Die Bridge-M...", x=162, y=6, cut=true }, drawn.ops[12])
       -- The status gives up its least characters when the short labels do not free enough room
-      drawn = bar(items(), 140)
-      assert.same({ op="text", text="Bridge-Mod", x=80, y=6, cut=true }, drawn.ops[8])
-      assert.same({ op="text", text="Die Br...", x=131, y=6, cut=true }, drawn.ops[11])
-      assert.equal("Die Bridge-Mod des neuesten Releases wird geladen...", panel.hit(drawn, 135, 6, "tip"))
+      drawn = bar(items(), 152)
+      assert.same({ op="text", text="Bridge-Mod", x=60, y=6, cut=true }, drawn.ops[6])
+      assert.same({ op="text", text="Die Br...", x=143, y=6, cut=true }, drawn.ops[12])
+      assert.equal("Die Bridge-Mod des neuesten Releases wird geladen...", panel.hit(drawn, 147, 6, "tip"))
     end)
 
     it("shortens the short text of an item that has one and may shrink", function()
@@ -255,8 +256,8 @@ describe("the properties panel", function()
 
     it("draws a disabled switch with a disabled check and text, and no field to click", function()
       local drawn = bar({ { kind="switch", text="Sync", disabled=true, tip="Choose first." } })
-      assert.same({ op="check", x=0, y=5, size=2, checked=false, disabled=true }, drawn.ops[1])
-      assert.same({ op="text", text="Sync", x=5, y=6, color="disabled" }, drawn.ops[2])
+      assert.same({ op="check", x=6, y=5, size=2, checked=false, disabled=true }, drawn.ops[2])
+      assert.same({ op="text", text="Sync", x=11, y=6, color="disabled" }, drawn.ops[3])
       assert.is_nil(panel.hit(drawn, 1, 6))
       assert.equal("Choose first.", panel.hit(drawn, 1, 6, "tip"))
     end)

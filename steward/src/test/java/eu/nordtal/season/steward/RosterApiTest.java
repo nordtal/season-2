@@ -442,7 +442,11 @@ class RosterApiTest extends WebTestSupport {
                 "steward.said.not-announced",
                 de.getAsJsonObject("result").get("key").getAsString());
 
-        // A reload reads back which languages went out, so a retry posts only German.
+        assertOnlyGermanIsOpen();
+    }
+
+    /** A reload reads back which languages went out, so a retry posts only German. */
+    private static void assertOnlyGermanIsOpen() throws Exception {
         final HttpResponse<String> open = get("/api/announcements/open");
         assertEquals(200, open.statusCode(), open.body());
         final java.util.Map<String, JsonObject> lines = new java.util.HashMap<>();

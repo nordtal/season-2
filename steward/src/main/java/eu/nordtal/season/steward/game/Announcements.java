@@ -54,22 +54,20 @@ public final class Announcements {
     /** The answer to {@code POST /api/announcements}: the line id of each language by tag. */
     public record AnnouncementsAsked(Map<String, String> ids) {}
 
-    /** The answer to {@code GET /api/announcements/open}: each language of an announcement that did not fully go out. */
+    /** The answer to {@code GET /api/announcements/open}: the languages of an announcement not fully out. */
     public record OpenAnnouncement(List<OpenLine> lines) {}
 
     /** @param posted whether the bot posted {@code text} in that language */
     public record OpenLine(String language, String text, boolean posted) {}
 
-    /** {@code GET /api/announcements/open} answers the languages of the newest announcement, if it did not fully go out. */
+    /** {@code GET /api/announcements/open} answers the newest announcement's languages, if it is not fully out. */
     public void open(final Context ctx) {
         ctx.json(new OpenAnnouncement(open(data.bot().recent(BotRequest.Announce.class, CHAIN))));
     }
 
     /**
-     * Returns the lines of the newest announcement of an admin when some of its languages were not posted, so the form
-     * can retry only those also after a reload. A retry carries only the missing languages, so the older requests it
-     * retried fill in the rest: each one that failed for some language and holds every language of the one after it.
-     * It returns nothing while the newest still runs or once it went out in full.
+     * Returns the newest announcement's lines when some were not posted, so a retry after a reload sends only those.
+     * Older requests a retry repeated fill in the rest: each that failed somewhere and holds every newer language.
      */
     static List<OpenLine> open(final List<Request<BotRequest>> newestFirst) {
         final Map<String, OpenLine> lines = new LinkedHashMap<>();

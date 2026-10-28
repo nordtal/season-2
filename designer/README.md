@@ -114,11 +114,12 @@ when the read fails. The tab also connects again when `describeInstance` reads a
 token. A divider separates the status line from the state of the bridge mod. From the start, the
 bar holds the instance box, the buttons, live sync and the state of the bridge mod, and every box,
 button and switch has the same height. The bar shortens the instance box from its start and the
-status line from its end, each down to a few characters, and removes no item. When the items do not fit even then, **Install Pack** and the button of the bridge
-mod show a short label. The status line takes the freed room. When the items still do not fit, the
-status line shortens below its few characters and ends with "..." inside the bar. Moving the
-pointer onto an item shows its long text in Aseprite's tip above the status bar. A status line that
-the bar cuts shows whole in that tip when it is set.
+status line from its end, each down to a few characters, and removes no item. When the items do
+not fit even then, **Install Pack** and the button of the bridge mod show a short label. The status
+line takes the freed room. When the items still do not fit, the status line shortens below its few
+characters and ends with "..." inside the bar. Moving the pointer onto an item shows its long text
+in Aseprite's tip above the status bar. A status line that the bar cuts shows whole in that tip
+when it is set.
 
 The properties panel lists the previews of the selected entry. A glyph or a cell runs `renderGlyphPreviews`
 first, with **Show Previews**, and then offers itself alone in each place the bridge mod shows text,

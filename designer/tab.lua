@@ -257,7 +257,8 @@ function tab.open(context)
     for _, op in ipairs(barDrawn.ops) do
       local x, y = op.x + pad, op.y + barDrawn.top
       if op.op == "text" then
-        gc.color = op.color == "status" and color.status_bar_text or tones[op.color] or color.text
+        gc.color = op.color == "status" and color.status_bar_text or op.color == "disabled" and color.disabled
+          or tones[op.color] or color.text
         gc:fillText(op.text, x, y)
         if op.color == "status" and op.cut and tippedStatus ~= status then
           tippedStatus = status
@@ -276,7 +277,7 @@ function tab.open(context)
       elseif op.op == "button" then
         gc:drawThemeRect("button_normal", { x=x, y=y, width=op.width, height=op.height })
       elseif op.op == "check" then
-        gc:drawThemeImage(op.checked and "check_selected" or "check_normal", { x=x, y=y })
+        gc:drawThemeImage(op.disabled and "check_disabled" or op.checked and "check_selected" or "check_normal", { x=x, y=y })
       end
     end
   end

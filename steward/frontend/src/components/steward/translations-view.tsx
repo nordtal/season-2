@@ -159,67 +159,76 @@ export function TranslationsView({
       <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
         <div
           className={cn(
-            "flex min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--content-top,0px)+(--spacing(4)))] lg:max-h-[calc(100dvh-var(--content-top,0px)-var(--content-bottom,0px)-(--spacing(8)))] lg:overflow-y-auto lg:p-0.5",
+            "flex min-w-0 flex-col gap-3 lg:sticky lg:top-[calc(var(--content-top,0px)+(--spacing(4)))] lg:max-h-[calc(100dvh-var(--content-top,0px)-var(--content-bottom,0px)-(--spacing(8)))]",
             open && "max-lg:hidden",
           )}
         >
-          <div className="flex min-w-0">
-            <SearchField value={query} onValueChange={setQuery} label={t("steward.texts.search")} />
-          </div>
-          <div className="flex min-w-0 items-center gap-2">
-            {serviceFilter}
-            {wide || !open ? toggle : null}
-          </div>
-          {areas.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("steward.texts.none")}</p>
-          ) : query.trim() !== "" ? (
-            <QueryState query={searched} rows={4}>
-              {(hits) => {
-                const ids = new Set(hits.map(hitItemId))
-                return <Found page={page} areas={areas} found={placed.filter((item) => ids.has(item.id))} />
-              }}
-            </QueryState>
-          ) : area ? (
-            <div className="flex min-w-0 flex-col gap-4">
-              <div className="flex min-w-0 items-center gap-1">
-                <Back
-                  label={t("steward.texts.areas")}
-                  onBack={() => onState({ area: undefined, document: undefined, text: undefined })}
-                />
-                <h2 className="min-w-0 flex-1 truncate text-base font-semibold">{area.label}</h2>
-                <Count count={area.count} />
-              </div>
-              {area.id === "VALUES" ? (
-                <Tabs value={blockFilter} onValueChange={(next: BlockFilter) => setBlockFilter(next)}>
-                  <TabsList aria-label={t("steward.texts.block-filter-label")}>
-                    {BLOCK_FILTERS.map((filter) => (
-                      <TabsTrigger key={filter} value={filter} className="flex-none px-2.5 text-xs">
-                        {t("steward.texts.block-filter", { filter: choice(filter) })}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-              ) : null}
-              {sectionsShown(area, blockFilter, page).map((section) => (
-                <section key={section.id} aria-label={section.label || area.label} className="flex flex-col gap-2">
-                  {section.label === "" ? null : (
-                    <h3 className="flex items-center gap-2 px-1 text-sm font-medium">
-                      <span className="min-w-0 truncate">{section.label}</span>
-                      <Count count={section.items.length} />
-                      <UntranslatedCount count={section.items.filter(page.missing).length} />
-                    </h3>
-                  )}
-                  <ItemList>
-                    {section.items.map((item) => (
-                      <ItemRow key={item.id} page={page} item={{ ...item, area, section }} />
-                    ))}
-                  </ItemList>
-                </section>
-              ))}
+          {/* The search, the filters and the open area's header stay in view; only the list below them scrolls. */}
+          <div className="flex min-w-0 shrink-0 flex-col gap-3 lg:px-0.5 lg:pt-0.5">
+            <div className="flex min-w-0">
+              <SearchField value={query} onValueChange={setQuery} label={t("steward.texts.search")} />
             </div>
-          ) : (
-            <AreaList page={page} areas={areas} onArea={(id) => onState({ area: id })} />
-          )}
+            <div className="flex min-w-0 items-center gap-2">
+              {serviceFilter}
+              {wide || !open ? toggle : null}
+            </div>
+            {areas.length > 0 && query.trim() === "" && area ? (
+              <>
+                <div className="flex min-w-0 items-center gap-1">
+                  <Back
+                    label={t("steward.texts.areas")}
+                    onBack={() => onState({ area: undefined, document: undefined, text: undefined })}
+                  />
+                  <h2 className="min-w-0 flex-1 truncate text-base font-semibold">{area.label}</h2>
+                  <Count count={area.count} />
+                </div>
+                {area.id === "VALUES" ? (
+                  <Tabs value={blockFilter} onValueChange={(next: BlockFilter) => setBlockFilter(next)}>
+                    <TabsList aria-label={t("steward.texts.block-filter-label")}>
+                      {BLOCK_FILTERS.map((filter) => (
+                        <TabsTrigger key={filter} value={filter} className="flex-none px-2.5 text-xs">
+                          {t("steward.texts.block-filter", { filter: choice(filter) })}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+          <div className="flex min-h-0 min-w-0 flex-col lg:overflow-y-auto lg:px-0.5 lg:pb-0.5">
+            {areas.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t("steward.texts.none")}</p>
+            ) : query.trim() !== "" ? (
+              <QueryState query={searched} rows={4}>
+                {(hits) => {
+                  const ids = new Set(hits.map(hitItemId))
+                  return <Found page={page} areas={areas} found={placed.filter((item) => ids.has(item.id))} />
+                }}
+              </QueryState>
+            ) : area ? (
+              <div className="flex min-w-0 flex-col gap-4">
+                {sectionsShown(area, blockFilter, page).map((section) => (
+                  <section key={section.id} aria-label={section.label || area.label} className="flex flex-col gap-2">
+                    {section.label === "" ? null : (
+                      <h3 className="flex items-center gap-2 px-1 text-sm font-medium">
+                        <span className="min-w-0 truncate">{section.label}</span>
+                        <Count count={section.items.length} />
+                        <UntranslatedCount count={section.items.filter(page.missing).length} />
+                      </h3>
+                    )}
+                    <ItemList>
+                      {section.items.map((item) => (
+                        <ItemRow key={item.id} page={page} item={{ ...item, area, section }} />
+                      ))}
+                    </ItemList>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <AreaList page={page} areas={areas} onArea={(id) => onState({ area: id })} />
+            )}
+          </div>
         </div>
         {open ? (
           <article aria-label={open.name} className="flex min-w-0 flex-col gap-4">

@@ -245,7 +245,7 @@ function itemIcon(item: JournalItem) {
   return actionIcon(item.entry?.action ?? "")
 }
 
-/** One item: its time, what happened with its facts below, and who did it at the end. */
+/** One item: what happened with its time at the right, its facts below, and who did it at the end. */
 function JournalRow({
   item,
   edge,
@@ -268,13 +268,12 @@ function JournalRow({
       data-key={item.key}
       data-edge={edge}
       className={cn(
-        "grid grid-cols-[3.25rem_1fr] gap-x-3 border-b border-l-2 border-b-border/60 border-l-transparent py-2.5 pl-2 last:border-b-0 @xl:grid-cols-[3.5rem_1fr_auto]",
+        "flex min-w-0 flex-col gap-1 border-b border-l-2 border-b-border/60 border-l-transparent py-2.5 pl-2 last:border-b-0",
         edge && EDGE_LEFT[edge],
       )}
     >
-      <span className="pt-0.5 text-sm text-muted-foreground tnum">{stamp(item.occurred)}</span>
-      <div className="flex min-w-0 flex-col gap-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <div className="flex items-start gap-x-3">
+        <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1">
           <icons.Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
           {run ? (
             <Link {...runPath(run)} className="text-sm font-medium underline-offset-4 tap-target hover:underline">
@@ -289,30 +288,33 @@ function JournalRow({
             <span className="text-xs text-muted-foreground tnum">{lasted(item.opened, item.occurred)}</span>
           ) : null}
         </div>
-        {run && run.services.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {run.services.map((name) => (
-              <Entity key={name} id={name} kind="service" />
-            ))}
-          </div>
-        ) : null}
-        {run?.why.map((line, index) => (
-          <p key={index} className="text-sm break-words text-muted-foreground">
-            {message(line)}
-          </p>
-        ))}
-        {alert && alert.level !== "ok" ? <AlertLines alert={alert} meters={false} /> : null}
-        {entry && (concerns || entry.mcUuid || Object.keys(entry.line.args ?? {}).length > 0) ? (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {concerns ? <Entity id={concerns} kind="discord" /> : null}
-            {!concerns && entry.mcUuid ? <Entity id={entry.mcUuid} kind="minecraft" /> : null}
-            {Object.keys(entry.line.args ?? {}).length > 0 ? (
-              <span className="text-sm break-words text-muted-foreground">{message(entry.line)}</span>
-            ) : null}
-          </div>
-        ) : null}
+        <span className="shrink-0 pt-0.5 text-sm whitespace-nowrap text-muted-foreground tnum">
+          {stamp(item.occurred)}
+        </span>
       </div>
-      <div className="col-start-2 min-w-0 @xl:col-start-3 @xl:row-start-1 @xl:pt-0.5">
+      {run && run.services.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {run.services.map((name) => (
+            <Entity key={name} id={name} kind="service" />
+          ))}
+        </div>
+      ) : null}
+      {run?.why.map((line, index) => (
+        <p key={index} className="text-sm break-words text-muted-foreground">
+          {message(line)}
+        </p>
+      ))}
+      {alert && alert.level !== "ok" ? <AlertLines alert={alert} meters={false} /> : null}
+      {entry && (concerns || entry.mcUuid || Object.keys(entry.line.args ?? {}).length > 0) ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {concerns ? <Entity id={concerns} kind="discord" /> : null}
+          {!concerns && entry.mcUuid ? <Entity id={entry.mcUuid} kind="minecraft" /> : null}
+          {Object.keys(entry.line.args ?? {}).length > 0 ? (
+            <span className="text-sm break-words text-muted-foreground">{message(entry.line)}</span>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="min-w-0">
         <Actor kind={item.actor.kind} id={item.actor.person ?? ""} className="text-muted-foreground" />
       </div>
     </li>
@@ -323,15 +325,12 @@ function WaitingRows({ count }: { count: number }) {
   return (
     <ul className="flex flex-col" aria-hidden>
       {Array.from({ length: count }, (_, index) => (
-        <li
-          key={index}
-          className="grid grid-cols-[3.25rem_1fr] gap-x-3 border-b border-border/60 py-2.5 pl-2.5 last:border-b-0"
-        >
-          <SkeletonText className="w-10 text-sm" />
-          <div className="flex items-center gap-2">
+        <li key={index} className="flex items-center gap-3 border-b border-border/60 py-2.5 pl-2.5 last:border-b-0">
+          <div className="flex grow items-center gap-2">
             <Skeleton className="size-4 rounded-full" />
             <SkeletonText className="w-48 text-sm" />
           </div>
+          <SkeletonText className="w-10 text-sm" />
         </li>
       ))}
     </ul>
@@ -368,7 +367,7 @@ export function JournalStream({
   const list = items ?? []
   const edge = edges(list)
   const rows = (from: number, to: number) => (
-    <ul className="@container flex flex-col">
+    <ul className="flex flex-col">
       {list.slice(from, to).map((item, index) => (
         <JournalRow key={item.key} item={item} edge={edge[from + index]} person={person} stamp={stamp} />
       ))}

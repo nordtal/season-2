@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.feedback.SmpSounds;
+import eu.nordtal.season.smp.port.Arenas;
 import eu.nordtal.season.smp.region.Boxes;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -44,16 +45,19 @@ public final class ProtectionListener implements Listener {
             .titled("Spawn protected");
 
     private final Supplier<Boxes> regions;
+    private final Arenas arenas;
     private final Identities identities;
     private final MessageRenderer renderer;
     private final SmpSounds sounds;
 
     public ProtectionListener(
             final Supplier<Boxes> regions,
+            final Arenas arenas,
             final Identities identities,
             final MessageRenderer renderer,
             final SmpSounds sounds) {
         this.regions = regions;
+        this.arenas = arenas;
         this.identities = identities;
         this.renderer = renderer;
         this.sounds = sounds;
@@ -169,8 +173,11 @@ public final class ProtectionListener implements Listener {
                 && identities.of(player.getUniqueId()).admin();
     }
 
+    /** A duel's fighter builds in the arena, which is restored after the duel. */
     private boolean deny(final Player player, final Block block) {
-        if (!inside(Objects.requireNonNull(block.getLocation())) || builds(player)) {
+        if (!inside(Objects.requireNonNull(block.getLocation()))
+                || builds(player)
+                || arenas.buildsInArena(player, block)) {
             return false;
         }
         player.sendActionBar(

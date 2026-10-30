@@ -20,6 +20,10 @@ classes only: a declaration in a stylesheet and the rules of Surfaces are checke
   ("Some of the readings could not be fetched") or reports an error. A confirmation keeps the one sentence
   that names what is lost. Every other sentence moves into the doc comment where its meaning matters.
 - A tooltip carries only what its badge or button does not show, such as a date, a name or who set it.
+- Every tooltip is Steward's own: `Hint` puts it on the element itself, a control or a mark that takes no focus, and
+  `Tip` wraps a mark in a focusable span. The browser's `title` looks like no other part of Steward and never opens on
+  a phone; a name for a screen reader is `aria-label`.
+  _(checked in `no-native-tooltip.test.ts`)_
 
 ## Spacing
 
@@ -34,8 +38,9 @@ every 4px up to 24px, every 8px up to 48px, then 64, 80, 96 and 128px. `SPACING_
   not a multiple, becomes a token.
 - `row`, `cell` and `control` are the height of a table row, the padding of a cell and the least height
   of a control. A coarse pointer raises `row` and `control`.
-- `max-w-page` is the widest the page's content grows. `rows` is the width of a table's own box from
-  which its rows fit. A narrower box draws every row as a card.
+- `max-w-page` is the widest the page's content grows. `max-w-person` is the widest a person grows in a
+  row. `rows` is the width of a table's own box from which its rows fit. A narrower box draws every row
+  as a card.
 - `list` is the height of a list that scrolls inside a page, a dialog or a drawer.
 
 ## Surfaces
@@ -101,7 +106,7 @@ it:
 - **Dialog**: `components/ui/responsive-dialog.tsx` draws a drawer below 640px and a dialog above. Both
   are floating and modal. _(checked in `dialogs-are-responsive.test.ts`)_
 - **Popover** and **Tooltip**: floating, not modal. A popover is at most the screen's width less
-  `--spacing(8)`.
+  `--spacing(8)`. A tooltip lets the pointer through, so it never covers a target the pointer moves to.
 - **Skeleton** (`components/ui/skeleton.tsx`): the waiting state of data, the height of the line it
   replaces. Every view waits through `QueryState`. _(checked in `one-waiting-state.test.ts`)_
 - **Scroll area**: every scroll container draws the same thin scrollbar in the border colour.

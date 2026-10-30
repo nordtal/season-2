@@ -76,7 +76,8 @@ public final class AdminLog {
 
     static final DocumentSpec<Journal> JOURNAL = DocumentSpec.message(
                     StoredDocuments.NAMESPACE, "admin-journal", AREA, Journal.class)
-            .titled("Journal entry");
+            .titled("Journal entry")
+            .inEnglishOnly();
 
     static final DocumentSpec<Card> ALERT = DocumentSpec.message(
                     StoredDocuments.NAMESPACE,
@@ -86,7 +87,8 @@ public final class AdminLog {
                     Slot.list("mentions", Pinged.class),
                     Slot.list("lines", Detail.class),
                     Slot.button("open").optional())
-            .titled("Alert");
+            .titled("Alert")
+            .inEnglishOnly();
 
     private static final Map<JournalAction, Mark> MARKS = Map.of(
             JournalAction.GRANT_ACCESS, Mark.GRANTED,

@@ -61,6 +61,12 @@ public final class ComposeTopology {
     /** The services a service keeps its data in, space-separated. */
     public static final String STORES_IN = "eu.nordtal.stores-in";
 
+    /** The names a service's own secrets file must hold, space-separated; an update names each one missing. */
+    public static final String SECRETS = "eu.nordtal.secrets";
+
+    private static final java.util.regex.Pattern SECRET_NAME =
+            java.util.regex.Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
+
     private static final java.util.regex.Pattern SPACES = java.util.regex.Pattern.compile("\\s+");
 
     /** How long one reading is used; the file is baked into the image, only the environment file can change. */
@@ -136,7 +142,8 @@ public final class ComposeTopology {
                     renewal(name, text(labels, RENEW)),
                     wiring(labels),
                     // Compose's word for a process that exits by design. A missing policy stays long-running.
-                    "no".equals(text(service, "restart"))));
+                    "no".equals(text(service, "restart")),
+                    secrets(name, labels)));
             for (final JsonObject mount : mounts(service)) {
                 final String target = text(mount, "target");
                 if (target != null && target.startsWith(root) && target.length() > root.length()) {
@@ -191,6 +198,17 @@ public final class ComposeTopology {
         }
         return new AgentWire.Wiring(
                 section.strip(), "true".equals(text(labels, ENTRY)), names(labels, REACHES), names(labels, STORES_IN));
+    }
+
+    private static List<String> secrets(final String name, final JsonObject labels) {
+        final List<String> secrets = names(labels, SECRETS);
+        for (final String secret : secrets) {
+            if (!SECRET_NAME.matcher(secret).matches()) {
+                throw new IllegalStateException(
+                        name + "'s " + SECRETS + " label names '" + secret + "', which is no variable name");
+            }
+        }
+        return secrets;
     }
 
     private static List<String> names(final JsonObject labels, final String label) {

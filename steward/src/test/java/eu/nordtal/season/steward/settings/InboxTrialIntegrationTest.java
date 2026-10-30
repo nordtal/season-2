@@ -15,6 +15,7 @@ import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.inbox.SmpRequest;
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.spec.MessageSchema;
 import java.time.Duration;
@@ -44,11 +45,15 @@ class InboxTrialIntegrationTest {
     void aRefusalComesBackInWords() {
         final ServerTrial.Verdict verdict = trial(asked -> server.settle(
                         asked.id(),
-                        Outcome.refused(ServerRefusal.SETTINGS_REFUSED.with("smp", "the milestones name stone_axes"))))
+                        Outcome.refused(ServerRefusal.SETTINGS_REFUSED.with(
+                                "smp", "milestones", SettingRule.OBJECTIVE_NAMES, "stone_axes"))))
                 .ask("smp", CHANGE, Actor.STEWARD);
 
         assertEquals(ServerTrial.Verdict.Kind.REFUSED, verdict.kind());
-        assertEquals("smp would not start with this change: the milestones name stone_axes", verdict.refusal());
+        assertEquals(
+                "smp would not start with this change. In milestones, the objective stone_axes names something"
+                        + " this server does not have.",
+                verdict.refusal());
     }
 
     @Test

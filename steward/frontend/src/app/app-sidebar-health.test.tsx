@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { NavList } from "@/app/app-sidebar"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { asElement } from "@/lib/test-elements"
+import { asElement, tipOf } from "@/lib/test-elements"
 import { NETWORK_MAP } from "@/lib/query-fixtures"
 
 const nothing = () => null
@@ -88,9 +88,11 @@ describe("NavList - the health dot on a service row", () => {
     })
     draw(fetchImpl)
 
-    await waitFor(() => expect(within(row("limbo")).getByLabelText("unhealthy")).toBeTruthy())
+    await waitFor(() => expect(within(row("Limbo")).getByLabelText("unhealthy")).toBeTruthy())
+    /** The word shows on hover too, as Steward's own tooltip. */
+    expect(tipOf(within(row("Limbo")).getByLabelText("unhealthy"))).toBe("unhealthy")
 
-    expect(within(row("smp")).queryByLabelText(/./)).toBeNull()
+    expect(within(row("SMP")).queryByLabelText(/./)).toBeNull()
 
     const calls = fetchImpl.mock.calls.filter(([url]) => url === "/api/services")
     expect(calls.length).toBe(1)
@@ -102,7 +104,7 @@ describe("NavList - the health dot on a service row", () => {
     )
     draw(fetchImpl)
 
-    await waitFor(() => expect(within(row("smp")).getByLabelText(/not read/i)).toBeTruthy())
-    expect(within(row("limbo")).getByLabelText(/not read/i)).toBeTruthy()
+    await waitFor(() => expect(within(row("SMP")).getByLabelText(/not read/i)).toBeTruthy())
+    expect(within(row("Limbo")).getByLabelText(/not read/i)).toBeTruthy()
   })
 })

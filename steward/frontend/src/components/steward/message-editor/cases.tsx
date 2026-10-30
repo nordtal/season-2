@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { useMemo, useState } from "react"
 import { PlusIcon, XIcon } from "@phosphor-icons/react"
 
@@ -194,11 +195,13 @@ function AddCase({
   const field = plural ? t("steward.message-editor.exact-number") : t("steward.message-editor.new-case")
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label={label} title={label}>
-          <PlusIcon aria-hidden />
-        </Button>
-      </PopoverTrigger>
+      <Hint tip={label}>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={label}>
+            <PlusIcon aria-hidden />
+          </Button>
+        </PopoverTrigger>
+      </Hint>
       <PopoverContent align="start" collisionPadding={16} className="flex w-64 flex-col gap-1 p-2">
         {needed.map((category) => (
           <Button
@@ -230,9 +233,11 @@ function AddCase({
             spellCheck={false}
             className="h-8 min-w-0 flex-1 font-mono text-sm max-md:text-base"
           />
-          <Button type="submit" variant="ghost" size="icon-sm" aria-label={label} title={label} disabled={!valid}>
-            <PlusIcon aria-hidden />
-          </Button>
+          <Hint tip={label}>
+            <Button type="submit" variant="ghost" size="icon-sm" aria-label={label} disabled={!valid}>
+              <PlusIcon aria-hidden />
+            </Button>
+          </Hint>
         </form>
       </PopoverContent>
     </Popover>

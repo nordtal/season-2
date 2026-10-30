@@ -1,3 +1,5 @@
+import { fireEvent, screen } from "@testing-library/react"
+
 /** Narrows a Testing Library element to a subclass with `instanceof` and no cast. */
 
 function narrow<T extends Element>(element: Element | null, ctor: new (...args: never[]) => T, label: string): T {
@@ -39,4 +41,16 @@ export function datasetOf(element: Element | null): DOMStringMap {
     throw new Error(`expected an element, got ${element?.tagName ?? "nothing"}`)
   }
   return element.dataset
+}
+
+/**
+ * The text of Steward's tooltip on an element, opened by focusing it and closed again, or null without one. A disabled
+ * control takes no focus in a browser, where its tip opens on hover; the focus here stands in for that.
+ */
+export function tipOf(element: Element | null): string | null {
+  const trigger = asElement(element)
+  fireEvent.focus(trigger)
+  const tip = screen.queryByRole("tooltip")?.textContent ?? null
+  fireEvent.blur(trigger)
+  return tip
 }

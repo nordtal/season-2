@@ -25,7 +25,7 @@ export const PLAN: Arrangement = {
   ],
   groups: [
     /** The Paper servers, which only `proxy` routes to. Their frame runs from 562 to 818. */
-    { id: "paper", members: ["smp", "hunger-games", "limbo"], lane: 1, y: 690 },
+    { id: "paper", members: ["limbo", "smp", "hunger-games"], lane: 1, y: 690 },
     /**
      * What only `steward` calls. Its frame runs from 642 to 818 and ends on the Paper group's bottom line.
      */

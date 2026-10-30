@@ -26,20 +26,38 @@ describe("layoutFaults names what an arrangement forgot", () => {
 })
 
 describe("the sections, read off the labels", () => {
-  it("run from the players inwards, with what only stores data last", () => {
+  it("follow the one order of services, whatever order compose lists them in", () => {
     expect(TOPOLOGY.sections.map((section) => section.title)).toEqual([
       "Entry",
       "Paper",
-      "Steward",
       "Discord",
+      "Steward",
       "Database",
+    ])
+    expect(NAMES).toEqual([
+      "caddy",
+      "proxy",
+      "limbo",
+      "smp",
+      "hunger-games",
+      "discord-bot",
+      "steward",
+      "steward-agent",
+      "steward-bunq",
+      "postgres",
     ])
   })
 
-  it("name every served service once between them, in the order the labels list them", () => {
+  it("name every served service once between them, one the order does not know last", () => {
     expect(layoutFaults([INGRESS, ...TOPOLOGY.sections.flatMap((section) => section.members)], NAMES)).toEqual([])
-    expect(TOPOLOGY.sections[0].members).toEqual(["proxy", "caddy"])
     expect(NAMES).toHaveLength(NETWORK_MAP.services.length)
+    const grown = topologyOf({
+      services: [
+        { name: "cache", section: "Database", entry: false, reaches: [], storesIn: [] },
+        ...NETWORK_MAP.services,
+      ],
+    })
+    expect(grown.names.slice(-2)).toEqual(["postgres", "cache"])
   })
 })
 

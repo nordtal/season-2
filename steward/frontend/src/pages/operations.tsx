@@ -15,7 +15,7 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { Actor } from "@/components/steward/entity"
 import { RunRail } from "@/components/steward/run-rail"
-import { RunStatus, StatusBadge, runKind, type Tone } from "@/components/steward/status"
+import { Hint, runKind, RunStatus, StatusBadge, type Tone } from "@/components/steward/status"
 import { Empty, Loading, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Alert, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -165,18 +165,19 @@ export function AskButton({
       onOpenChange={onOpenChange}
       trigger={
         trigger ? (
-          <Button
-            type="button"
-            variant={variant}
-            size={size}
-            className={className}
-            disabled={ask.isPending || lock.locked}
-            title={lock.title}
-            aria-label={labelClassName ? (label ?? runKind(kind)) : undefined}
-          >
-            <Icon aria-hidden />
-            <span className={labelClassName}>{label ?? runKind(kind)}</span>
-          </Button>
+          <Hint tip={lock.title}>
+            <Button
+              type="button"
+              variant={variant}
+              size={size}
+              className={className}
+              disabled={ask.isPending || lock.locked}
+              aria-label={labelClassName ? (label ?? runKind(kind)) : undefined}
+            >
+              <Icon aria-hidden />
+              <span className={labelClassName}>{label ?? runKind(kind)}</span>
+            </Button>
+          </Hint>
         ) : null
       }
       title={scoped ? t("steward.operations.scoped", { ask: title, services }) : title}

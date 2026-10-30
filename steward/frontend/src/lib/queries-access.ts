@@ -7,6 +7,7 @@ import {
   type Exempted,
   type Settled,
   type Grant,
+  type InventoryOpening,
   type JournalPage,
   type Payment,
   type Person,
@@ -91,6 +92,16 @@ export function useRemoveStack(discordId: string) {
         client.invalidateQueries({ queryKey: keys.inventories(discordId) }),
         client.invalidateQueries({ queryKey: ["journal"] }),
       ]),
+  })
+}
+
+/** Opens a Survival container in the game for the admin, who edits it there. */
+export function useOpenInventory(discordId: string) {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (opening: InventoryOpening) =>
+      api<void>(`/api/people/${encodeURIComponent(discordId)}/inventories/open`, { method: "POST", body: opening }),
+    onSettled: () => client.invalidateQueries({ queryKey: ["journal"] }),
   })
 }
 

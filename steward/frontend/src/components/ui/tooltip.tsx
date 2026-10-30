@@ -2,8 +2,25 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Tooltip as TooltipPrimitive } from "radix-ui"
 
-function TooltipProvider({ delayDuration = 0, ...props }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
-  return <TooltipPrimitive.Provider data-slot="tooltip-provider" delayDuration={delayDuration} {...props} />
+/** Whether a `TooltipProvider` is above, which Radix keeps to itself. */
+const Provided = React.createContext(false)
+
+/** A tip closes as the pointer leaves its trigger, since the pointer passes through the tip itself. */
+function TooltipProvider({
+  delayDuration = 0,
+  disableHoverableContent = true,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+  return (
+    <Provided.Provider value>
+      <TooltipPrimitive.Provider
+        data-slot="tooltip-provider"
+        delayDuration={delayDuration}
+        disableHoverableContent={disableHoverableContent}
+        {...props}
+      />
+    </Provided.Provider>
+  )
 }
 
 const TapContext = React.createContext<{
@@ -35,11 +52,13 @@ function Tooltip({ onOpenChange, defaultOpen = false, ...props }: React.Componen
     },
   }
 
-  return (
+  const root = (
     <TapContext.Provider value={context}>
       <TooltipPrimitive.Root data-slot="tooltip" {...props} open={open} onOpenChange={change} />
     </TapContext.Provider>
   )
+  /** A page outside the shell's provider, such as the key setup, still gets a tip instead of Radix's error. */
+  return React.useContext(Provided) ? root : <TooltipProvider>{root}</TooltipProvider>
 }
 
 function TooltipTrigger({ onPointerDown, onClick, ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
@@ -48,7 +67,8 @@ function TooltipTrigger({ onPointerDown, onClick, ...props }: React.ComponentPro
 
   return (
     <TooltipPrimitive.Trigger
-      data-slot="tooltip-trigger"
+      /** A button under `asChild` keeps its own slot, which tables and menus style it by. */
+      {...(props.asChild ? {} : { "data-slot": "tooltip-trigger" })}
       onPointerDown={(event) => {
         onPointerDown?.(event)
         press.current = { touch: event.pointerType === "touch", wasOpen: tap?.isOpen() ?? false }
@@ -72,12 +92,13 @@ function TooltipContent({
 }: React.ComponentProps<typeof TooltipPrimitive.Content>) {
   return (
     <TooltipPrimitive.Portal>
+      {/* The pointer passes through the tip, so it never stands over what it covers, such as a picture to click. */}
       <TooltipPrimitive.Content
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
         className={cn(
-          "z-50 inline-flex w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin) items-center gap-1.5 rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-foreground/10 shadow-sm has-data-[slot=kbd]:pr-1.5 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "pointer-events-none z-50 inline-flex w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin) items-center gap-1.5 rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-foreground/10 shadow-sm has-data-[slot=kbd]:pr-1.5 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className,
         )}
         {...props}

@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { CaretRightIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import { useEffect, useRef, useState } from "react"
 
@@ -158,23 +159,24 @@ export function DocumentEditor({
       <PinnedRow>
         <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-center gap-1 rounded-md border bg-card/95 p-1 backdrop-blur md:gap-2 md:p-2">
           {sendable ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label={sendLabel}
-              title={sendLabel}
-              aria-invalid={send.isError || undefined}
-              disabled={refused || send.isPending}
-              onClick={() =>
-                send.mutate({
-                  path: "/api/document-preview",
-                  body: { declaration: view.declaration, document: draft, language },
-                })
-              }
-            >
-              <RequestIcon request={send} icon={PaperPlaneTiltIcon} />
-            </Button>
+            <Hint tip={sendLabel}>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label={sendLabel}
+                aria-invalid={send.isError || undefined}
+                disabled={refused || send.isPending}
+                onClick={() =>
+                  send.mutate({
+                    path: "/api/document-preview",
+                    body: { declaration: view.declaration, document: draft, language },
+                  })
+                }
+              >
+                <RequestIcon request={send} icon={PaperPlaneTiltIcon} />
+              </Button>
+            </Hint>
           ) : null}
           <span className="ml-auto flex items-center gap-1 md:gap-2">
             <Button
@@ -744,6 +746,13 @@ export function DocumentMarks({ view }: { view: DocumentView }) {
             </Badge>
           ))}
         </span>
+      ) : null}
+      {view.declaration.englishOnly ? (
+        <Hint tip={t("steward.document-editor.english-only-note")}>
+          <Badge variant="outline" className="shrink-0 text-muted-foreground">
+            {t("steward.document-editor.english-only")}
+          </Badge>
+        </Hint>
       ) : null}
       {view.written ? (
         <Badge variant="outline" className="shrink-0">

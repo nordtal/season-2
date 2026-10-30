@@ -12,6 +12,16 @@ afterEach(() => {
 const ALLY = "214906139328839681"
 const BOB = "300000000000000002"
 
+const storedState = (mode: string) => ({
+  server: "smp",
+  mode,
+  status: "STORED",
+  level: 7,
+  progress: 0.5,
+  saved: "2026-10-20T09:00:00Z",
+  stacks: [],
+})
+
 const ALLYS_PAYMENT = {
   id: "p1",
   reference: "AB12CD",
@@ -169,5 +179,25 @@ describe("PersonPage - one person on an address of their own", () => {
         { server: "smp", mode: "SURVIVAL", container: "ENDER_CHEST", slot: 3, item: "minecraft:oak_log", amount: 12 },
       ]),
     )
+  })
+  it("opens a Survival ender chest in the game on its own server, and a Creative one not at all", async () => {
+    const opened: unknown[] = []
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        inventories: () => ({ linked: true, states: [storedState("SURVIVAL"), storedState("CREATIVE")] }),
+        openInventory: (body) => opened.push(body),
+      }),
+    )
+    draw(<PersonPage />, `/access/${ALLY}`)
+
+    const panel = assertElement((await screen.findByText("Inventories")).closest("section"), "the inventories panel")
+    const buttons = await within(panel).findAllByRole("button", { name: "Edit in the game" })
+    expect(buttons).toHaveLength(2)
+    fireEvent.click(assertElement(buttons[1] ?? null, "the ender chest's button"))
+
+    await vi.waitFor(() => expect(opened).toEqual([{ server: "smp", container: "ENDER_CHEST" }]))
+    fireEvent.mouseDown(within(panel).getByRole("tab", { name: /Creative/ }))
+    await vi.waitFor(() => expect(within(panel).queryByRole("button", { name: "Edit in the game" })).toBeNull())
   })
 })

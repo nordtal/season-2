@@ -49,6 +49,7 @@ public enum JournalAction {
     SET_AURA,
     SET_SPINS,
     REMOVE_STACK,
+    OPEN_INVENTORY,
     SERVICE_DOWN,
     BACKUP_STALE,
     DISK_FULL,

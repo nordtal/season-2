@@ -179,6 +179,21 @@ class ComposeTopologyTest {
     }
 
     @Test
+    void theSecretsLabelNamesWhatAServicesOwnFileMustHoldAndNoLabelNamesNothing() {
+        final AgentWire.Topology read = parse("""
+                {"discord-bot": {"labels": {"eu.nordtal.secrets": " NORDTAL_BOT_TOKEN  OTHER_KEY "}}, "caddy": {}}
+                """);
+
+        assertEquals(
+                List.of("NORDTAL_BOT_TOKEN", "OTHER_KEY"),
+                read.services().get(0).secrets());
+        assertEquals(List.of(), read.services().get(1).secrets());
+        assertThrows(IllegalStateException.class, () -> parse("""
+                {"steward": {"labels": {"eu.nordtal.secrets": "GOOD $(rm)"}}}
+                """));
+    }
+
+    @Test
     void aLabelNoneOfThisUnderstandsIsRefusedRatherThanReadAsNothing() {
         assertThrows(IllegalStateException.class, () -> parse("""
                 {"smp": {"labels": {"eu.nordtal.server": "spigot"}}}

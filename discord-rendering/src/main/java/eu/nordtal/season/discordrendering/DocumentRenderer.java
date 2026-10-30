@@ -487,14 +487,14 @@ public final class DocumentRenderer {
             labels(locale);
             final List<MessageTopLevelComponent> drawn = new ArrayList<>();
             for (final Part part : document.parts()) {
-                if (empty(part)) {
+                if (empty(part, locale)) {
                     continue;
                 }
                 if (part.type() == Part.Type.LANGUAGES) {
                     for (final Locale language : languagesOf(part)) {
                         labels(language);
                         for (final Part inner : part.inner()) {
-                            if (!empty(inner)) {
+                            if (!empty(inner, language)) {
                                 topOne(inner, language, Locales.tag(language), drawn);
                             }
                         }
@@ -551,7 +551,7 @@ public final class DocumentRenderer {
             components++;
             final List<ContainerChildComponent> children = new ArrayList<>();
             for (final Part inner : part.inner()) {
-                if (!empty(inner)) {
+                if (!empty(inner, locale)) {
                     children.add(inner.type() == Part.Type.ROW ? row(inner, locale, tag) : child(inner, locale, tag));
                 }
             }
@@ -584,7 +584,7 @@ public final class DocumentRenderer {
         private Section section(final Part part, final Locale locale, final @Nullable String tag) {
             components++;
             final List<TextDisplay> texts = part.inner().stream()
-                    .filter(inner -> !empty(inner))
+                    .filter(inner -> !empty(inner, locale))
                     .limit(SECTION_TEXTS)
                     .map(inner -> text(inner, locale))
                     .toList();
@@ -630,8 +630,8 @@ public final class DocumentRenderer {
                     && declaration.slot(id).map(slot -> !slot.required()).orElse(false);
         }
 
-        /** Discord refuses a box or a section with nothing to draw. */
-        private boolean empty(final Part part) {
+        /** Discord refuses a box, a section or a text with nothing to draw in {@code locale}. */
+        private boolean empty(final Part part, final Locale locale) {
             if (!holds(part.when(), Map.of())) {
                 return true;
             }
@@ -640,13 +640,17 @@ public final class DocumentRenderer {
                 case TEXT -> {
                     final List<Line> lines = shown(part.allLines(), Map.of());
                     yield lines.isEmpty()
+                            || lines.stream()
+                                    .allMatch(line -> line.list() == null
+                                            && line.text().versions(Locales.tag(locale)).stream()
+                                                    .allMatch(String::isBlank))
                             || (lines.stream().anyMatch(line -> line.list() != null)
                                     && lines.stream()
                                             .allMatch(line -> line.list() != null
                                                     ? listed(line.list()).isEmpty()
                                                     : line.style() != null));
                 }
-                case CONTAINER, SECTION -> part.inner().stream().allMatch(this::empty);
+                case CONTAINER, SECTION -> part.inner().stream().allMatch(inner -> empty(inner, locale));
                 case LANGUAGES -> part.slot() != null && absent(part.slot());
                 default -> false;
             };

@@ -5,9 +5,10 @@ import type { DocumentList, MessageTexts } from "@/lib/api"
 import { DOCUMENT_LEAF } from "@/lib/settings-tree"
 import { useDocuments, useMessageTexts } from "@/lib/queries"
 import { onPendingTextJump, takePendingTextJump } from "@/lib/settings-search"
-import { serviceTitle } from "@/lib/words"
+import { servicePlace } from "@/lib/services"
 import { t } from "@/lib/texts"
 import { PageHeader } from "@/components/steward/page-header"
+import { ServiceName } from "@/components/steward/service-name"
 import { QueryState } from "@/components/steward/query-state"
 import type { Target } from "@/components/steward/settings-view"
 import { TEXTS_FILE } from "@/components/steward/texts"
@@ -120,7 +121,7 @@ function ServiceFilter({
     () =>
       [
         ...new Set([...(texts?.texts ?? []), ...(documents?.documents ?? [])].flatMap((shown) => shown.services)),
-      ].toSorted(),
+      ].toSorted((a, b) => servicePlace(a) - servicePlace(b) || a.localeCompare(b)),
     [texts, documents],
   )
   return (
@@ -135,7 +136,7 @@ function ServiceFilter({
         <SelectItem value={EVERY_SERVICE}>{t("steward.texts.all-services")}</SelectItem>
         {services.map((name) => (
           <SelectItem key={name} value={name}>
-            {serviceTitle(name)}
+            <ServiceName service={name} />
           </SelectItem>
         ))}
       </SelectContent>

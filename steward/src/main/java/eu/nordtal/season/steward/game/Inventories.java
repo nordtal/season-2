@@ -38,7 +38,8 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Shows a player's Survival and Creative states on every server and removes stacks from them.
+ * Shows a player's Survival and Creative states on every server, and removes stacks from them.
+ * It also opens a Survival state in the game for an admin to edit.
  * A state a server holds is that server's to change, so Steward asks it; any other Steward changes in the database.
  */
 public final class Inventories {
@@ -72,6 +73,11 @@ public final class Inventories {
                 this::remove,
                 Gate.KEY_FRESH,
                 Journaled.as(JournalAction.REMOVE_STACK));
+        cfg.routes.post(
+                "/api/people/{id}/inventories/open",
+                this::open,
+                Gate.KEY_FRESH,
+                Journaled.as(JournalAction.OPEN_INVENTORY));
     }
 
     private ModeStateStore store() {
@@ -102,6 +108,9 @@ public final class Inventories {
 
     /** The stack Steward showed, which a removal names so a changed slot is refused. */
     public record StackRemoval(String server, Mode mode, Container container, int slot, String item, int amount) {}
+
+    /** The Survival container of the player on {@code server} that an admin opens in the game. */
+    public record InventoryOpening(String server, Container container) {}
 
     /** {@code GET /api/people/{id}/inventories} asks the player's server for its copy first, then reads every state. */
     public void read(final Context ctx) {
@@ -158,6 +167,38 @@ public final class Inventories {
             }
         }
         Journaling.line(ctx, person, new JournalDetail.StackRemoved(body.item(), body.amount()));
+        ctx.status(204);
+    }
+
+    /**
+     * {@code POST /api/people/{id}/inventories/open} asks a server to open a Survival state in an editor.
+     * The editor opens for the admin's own player, who has to be on that server.
+     */
+    public void open(final Context ctx) {
+        final DiscordId person = games.person(ctx);
+        final @Nullable InventoryOpening body = ctx.bodyAsClass(InventoryOpening.class);
+        if (body == null || body.server() == null || body.container() == null) {
+            throw new BadRequestResponse("an opening names the server and the container");
+        }
+        final PlayerId player = PlayerId.of(data.access()
+                .linkedMinecraftAccount(person)
+                .orElseThrow(() -> new RequestRefused(409, ANSWER.inventoryUnlinked())));
+        final UUID admin = data.access()
+                .linkedMinecraftAccount(DiscordId.of(accounts.apply(ctx).id()))
+                .orElseThrow(() -> new RequestRefused(409, ANSWER.previewUnlinked()));
+        if (!isAsked(body.server()) || !body.server().equals(server(admin))) {
+            throw new RequestRefused(409, ANSWER.editorAway(body.server()));
+        }
+        final Request<?> answer = ask(
+                        ctx,
+                        body.server(),
+                        new SmpRequest.OpenInventory(PlayerId.of(admin), player, body.container()),
+                        new HungerGamesRequest.OpenInventory(PlayerId.of(admin), player, body.container()))
+                .orElseThrow(() -> new RequestRefused(409, ANSWER.editorSilent(body.server())));
+        answer.refusal().ifPresent(refusal -> {
+            throw refused(refusal);
+        });
+        Journaling.line(ctx, person, null);
         ctx.status(204);
     }
 

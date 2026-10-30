@@ -674,6 +674,12 @@ export type TextArgs = {
     document: Arg["text"]
     reason: Arg["text"]
   }
+  "steward.answer.editor-away": {
+    server: Arg["text"]
+  }
+  "steward.answer.editor-silent": {
+    server: Arg["text"]
+  }
   "steward.answer.empty": Record<string, never>
   "steward.answer.empty-text": {
     language: Arg["text"]
@@ -913,6 +919,8 @@ export type TextArgs = {
   "steward.document-editor.delete-shared-part": Record<string, never>
   "steward.document-editor.detach-shared-part": Record<string, never>
   "steward.document-editor.discard": Record<string, never>
+  "steward.document-editor.english-only": Record<string, never>
+  "steward.document-editor.english-only-note": Record<string, never>
   "steward.document-editor.image": Record<string, never>
   "steward.document-editor.insert-shared-part": {
     name: Arg["text"]
@@ -1018,10 +1026,19 @@ export type TextArgs = {
   "steward.game.advancement": Record<string, never>
   "steward.game.all-milestones": Record<string, never>
   "steward.game.arena": Record<string, never>
+  "steward.game.aura-awarded": {
+    total: Arg["number"]
+  }
   "steward.game.aura-of": {
     name: Arg["text"]
   }
+  "steward.game.awarded": {
+    count: Arg["number"]
+  }
   "steward.game.chance": Record<string, never>
+  "steward.game.chance-is": {
+    total: Arg["number"]
+  }
   "steward.game.complete": Record<string, never>
   "steward.game.complete-ask": {
     name: Arg["text"]
@@ -1049,12 +1066,17 @@ export type TextArgs = {
   "steward.game.move-up": {
     name: Arg["text"]
   }
+  "steward.game.no-awards": Record<string, never>
+  "steward.game.no-prizes": Record<string, never>
   "steward.game.no-round": Record<string, never>
   "steward.game.no-track": Record<string, never>
   "steward.game.no-way-back": Record<string, never>
   "steward.game.objective": Record<string, never>
   "steward.game.platform": Record<string, never>
   "steward.game.prize": Record<string, never>
+  "steward.game.prizes": {
+    count: Arg["number"]
+  }
   "steward.game.progress": {
     name: Arg["text"]
   }
@@ -1068,6 +1090,9 @@ export type TextArgs = {
   "steward.game.remove-it": Record<string, never>
   "steward.game.round": Record<string, never>
   "steward.game.running": Record<string, never>
+  "steward.game.spins-awarded": {
+    total: Arg["number"]
+  }
   "steward.game.spins-of": {
     name: Arg["text"]
   }
@@ -1580,6 +1605,11 @@ export type TextArgs = {
     becoming: Arg["duration"]
     usable: Arg["choice"]
   }
+  "steward.people.edit-in-game": Record<string, never>
+  "steward.people.editor-not-opened": Record<string, never>
+  "steward.people.editor-opened": {
+    server: Arg["text"]
+  }
   "steward.people.ender-chest": Record<string, never>
   "steward.people.exact-tip": {
     at: Arg["instant"]
@@ -1933,6 +1963,9 @@ export type TextArgs = {
   "steward.service.held-since": {
     since: Arg["instant"]
     state: Arg["text"]
+  }
+  "steward.service.name": {
+    service: Arg["choice"]
   }
   "steward.service.no-health": Record<string, never>
   "steward.service.not-read": Record<string, never>

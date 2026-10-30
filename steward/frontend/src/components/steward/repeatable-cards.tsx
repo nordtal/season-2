@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import { useMemo, useState } from "react"
 
@@ -161,25 +162,26 @@ export function RepeatableCards({
           <>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-muted-foreground">{title}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                disabled={disabled || isProtected}
-                title={isProtected ? (listExplanation ?? t("steward.settings.cannot-remove")) : undefined}
-                aria-label={
-                  isProtected
-                    ? t("steward.settings.entry-cannot-remove", {
-                        index: index + 1,
-                      })
-                    : within
-                      ? t("steward.settings.remove", { what: title })
-                      : t("steward.settings.remove-entry", { index: index + 1 })
-                }
-                onClick={() => setPendingRemoval(index)}
-              >
-                <TrashIcon aria-hidden />
-              </Button>
+              <Hint tip={isProtected ? (listExplanation ?? t("steward.settings.cannot-remove")) : undefined}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={disabled || isProtected}
+                  aria-label={
+                    isProtected
+                      ? t("steward.settings.entry-cannot-remove", {
+                          index: index + 1,
+                        })
+                      : within
+                        ? t("steward.settings.remove", { what: title })
+                        : t("steward.settings.remove-entry", { index: index + 1 })
+                  }
+                  onClick={() => setPendingRemoval(index)}
+                >
+                  <TrashIcon aria-hidden />
+                </Button>
+              </Hint>
             </div>
             {missing.length > 0 ? (
               <p className="flex items-start gap-1.5 text-sm text-warning">

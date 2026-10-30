@@ -114,6 +114,9 @@ public interface StewardTexts {
 
             @Name("Not read yet")
             MessageRef notRead();
+
+            @Name("Service name")
+            MessageRef name(@Arg("service") ServiceKnown service);
         }
 
         @Name("Artifact")
@@ -400,6 +403,12 @@ public interface StewardTexts {
             @Name("Server did not answer")
             MessageRef serverSilent(@Arg("server") @Example("smp") String server);
 
+            @Name("Admin not on the server")
+            MessageRef editorAway(@Arg("server") @Example("smp") String server);
+
+            @Name("Server opened no editor")
+            MessageRef editorSilent(@Arg("server") @Example("smp") String server);
+
             @Name("Announcement too long")
             MessageRef tooLong(
                     @Arg("language") @Example("Deutsch") String language, @Arg("most") @Example("2000") int most);
@@ -494,6 +503,24 @@ public interface StewardTexts {
         PAUSED,
         EXITED,
         DEAD
+    }
+
+    /** The compose services that go by a name of their own; any other shows its compose name. */
+    enum ServiceKnown {
+        CADDY,
+        PROXY,
+        PROXY_STANDBY,
+        LIMBO,
+        LIMBO_STANDBY,
+        SMP,
+        HUNGER_GAMES,
+        DISCORD_BOT,
+        STEWARD,
+        STEWARD_AGENT,
+        STEWARD_BUNQ,
+        POSTGRES,
+        PACK_HOST,
+        MIGRATE
     }
 
     /** The status of an artifact in the plan of the agent. */

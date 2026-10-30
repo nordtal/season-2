@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url"
 
 import { assert, describe, expect, it } from "vitest"
 
-import { TERM_ICON } from "@/components/steward/term-icons"
+import { DiscordMark } from "@/app/discord-mark"
+import { SERVICE_ICON, TERM_ICON } from "@/components/steward/term-icons"
 
 const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
@@ -61,10 +62,10 @@ describe("one icon per domain term", () => {
     )
   })
 
-  it("gives no two terms the same icon", () => {
+  it("gives no two terms the same icon, a service counted as a term of its own", () => {
     const seen = new Map<unknown, string>()
     const shared: string[] = []
-    for (const [term, icon] of Object.entries(TERM_ICON)) {
+    for (const [term, icon] of [...Object.entries(TERM_ICON), ...Object.entries(SERVICE_ICON)]) {
       const other = seen.get(icon)
       if (other) shared.push(`${other} and ${term}`)
       seen.set(icon, term)
@@ -74,7 +75,8 @@ describe("one icon per domain term", () => {
 
   /** A broken path would make the rule above pass by finding nothing. */
   it("actually reads the map and the sources", () => {
-    expect(mappedIcons().size).toBe(Object.keys(TERM_ICON).length)
+    const phosphorServices = Object.values(SERVICE_ICON).filter((icon) => icon !== DiscordMark)
+    expect(mappedIcons().size).toBe(Object.keys(TERM_ICON).length + phosphorServices.length)
     const imported = sourceFiles(source).flatMap((file) => iconsImportedBy(readFileSync(file, "utf8")))
     expect(imported).toContain("PlusIcon")
     expect(imported.length).toBeGreaterThan(100)

@@ -6,23 +6,30 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.season.database.inbox.SettingsChange;
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.papercommon.sound.SoundsSpec;
 import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.MemorySettingStore;
+import eu.nordtal.season.settings.SettingRefused;
+import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 class SmpSettingsTest {
@@ -71,19 +78,74 @@ class SmpSettingsTest {
     void everyDefaultItemIsANamespacedKey() {
         final List<String> items = new ArrayList<>();
         DefaultSmp.WHEEL_PRIZES.forEach(prize -> items.add(prize.item()));
-        DefaultSmp.DUEL_LOADOUT_SWORD.forEach(entry -> items.add(entry.item()));
-        DefaultSmp.DUEL_LOADOUT_BOW.forEach(entry -> items.add(entry.item()));
+        DefaultSmp.DUEL_KITS.forEach(kit -> {
+            items.add(kit.icon());
+            kit.loadout().forEach(entry -> items.add(entry.item()));
+        });
         assertEquals(
                 List.of(),
                 items.stream().filter(item -> !item.startsWith("minecraft:")).toList());
     }
 
     @Test
-    void aDuelLimitBelowOneIsRefused() {
+    void anEmptyKitListIsRefused() {
         final Exception refused =
-                assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("concurrent-duel-limit", 0)));
+                assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("duel-kits", List.of())));
 
-        assertTrue(refused.getMessage().contains("concurrent-duel-limit"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("duel-kits"), refused.getMessage());
+    }
+
+    @Test
+    void aSixthKitIsRefusedSinceTheWindowHasFiveRows() {
+        final List<Map<String, Object>> kits = IntStream.range(0, 6)
+                .mapToObj(index -> Map.<String, Object>of("name", "Kit " + index))
+                .toList();
+        final Exception refused =
+                assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("duel-kits", kits)));
+
+        assertTrue(refused.getMessage().contains("at most 5"), refused.getMessage());
+    }
+
+    @Test
+    void aTrialOfASixthKitNamesTheSettingAndTheRuleItBroke() {
+        final List<Map<String, Object>> kits = IntStream.range(0, 6)
+                .mapToObj(index -> Map.<String, Object>of("name", "Kit " + index))
+                .toList();
+        final SettingsException refused = assertThrows(
+                SettingsException.class,
+                () -> store.settings("smp")
+                        .trial(
+                                DUELS,
+                                new SettingsChange("duels", Map.of("duel-kits", new Gson().toJson(kits)), List.of())));
+
+        final SettingRefused named = SettingRefused.of(refused, "duels");
+        assertEquals(
+                Arrays.asList("duel-kits", SettingRule.MOST_ENTRIES, "5"),
+                Arrays.asList(named.setting(), named.rule(), named.value()),
+                "Steward words the refusal from the setting, the rule and its value");
+    }
+
+    @Test
+    void aBrokenEntryOfAListNamesItsFieldAndTheLogSentenceNamesTheEntry() {
+        final Group<AdvancementAwardsSpec> awards = Group.of("advancement-awards", AdvancementAwardsSpec.class)
+                .checkedBy(SmpSettings::checkAdvancementAwards);
+        final String entries = new Gson()
+                .toJson(List.of(Map.of("advancement", "minecraft:nether/netherite_armor", "aura", 50, "spins", 1)));
+        final SettingsException refused = assertThrows(
+                SettingsException.class,
+                () -> store.settings("smp")
+                        .trial(
+                                awards,
+                                new SettingsChange(
+                                        "advancement-awards", Map.of("advancement-awards", entries), List.of())));
+
+        final SettingRefused named = SettingRefused.of(refused, "advancement-awards");
+        assertEquals(
+                Arrays.asList("advancement-awards.aura", SettingRule.AT_MOST, "10"),
+                Arrays.asList(named.setting(), named.rule(), named.value()));
+        assertTrue(
+                String.valueOf(named.getMessage()).startsWith("'minecraft:nether/netherite_armor': "),
+                named.getMessage());
     }
 
     @Test
@@ -96,8 +158,18 @@ class SmpSettingsTest {
                 Specs.createDefault(BoardsSpec.class).boards().size(),
                 boards.boards().size());
         assertEquals(
-                Specs.createDefault(DuelsSpec.class).duelPlatforms().size(),
-                duels.duelPlatforms().size());
+                Specs.createDefault(DuelsSpec.class).duelKits().size(),
+                duels.duelKits().size());
+        assertEquals(
+                Specs.createDefault(DuelsSpec.class)
+                        .duelKits()
+                        .getFirst()
+                        .loadout()
+                        .size(),
+                duels.duelKits().getFirst().loadout().size());
+        assertEquals(
+                Specs.createDefault(DuelsSpec.class).arena().maxX(),
+                duels.arena().maxX());
         final SpawnSpec written = Specs.createDefault(SpawnSpec.class);
         assertEquals(written.spawnRegions().size(), reread.spawnRegions().size());
 

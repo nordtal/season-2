@@ -1,3 +1,5 @@
+import { t } from "@/lib/texts"
+
 /**
  * Abbreviations that stay upper case, the same list as Steward's `Labels.of` and the spec module's `SettingLabels.of`.
  */
@@ -73,22 +75,9 @@ function withoutRepeats(sentence: string): string {
     .join(" ")
 }
 
-/** The names that the services go by where a person reads them. */
-const SERVICE_TITLES: Record<string, string> = {
-  smp: "SMP",
-  "hunger-games": "Hunger Games",
-  limbo: "Limbo",
-  proxy: "Proxy",
-  "discord-bot": "Discord Bot",
-  steward: "Steward",
-  "steward-agent": "Steward Agent",
-  "steward-bunq": "Steward Bunq",
-  postgres: "Postgres",
-  caddy: "Caddy",
-}
-
+/** The name a service goes by where a person reads it, from the bundle. */
 export function serviceTitle(service: string): string {
-  return SERVICE_TITLES[service] ?? capitalCase(sentenceOf(service.split(/[-_.\s]+/)) || service)
+  return t("steward.service.name", { service })
 }
 
 export function fileTitle(path: string): string {

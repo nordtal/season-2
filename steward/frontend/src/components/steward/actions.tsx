@@ -63,6 +63,7 @@ const KIND_ICON: Record<string, Icon> = {
   UNLOCK_MILESTONE: TERM_ICON.milestone,
   START_GAME: TERM_ICON.round,
   REMOVE_STACK: TERM_ICON.item,
+  OPEN_INVENTORY: TERM_ICON.item,
   DISK_FULL: TERM_ICON.warning,
   MEMORY_FULL: TERM_ICON.warning,
   DM_NOT_DELIVERED: TERM_ICON.warning,

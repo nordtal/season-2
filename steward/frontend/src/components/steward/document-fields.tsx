@@ -36,7 +36,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { Tip } from "@/components/steward/status"
+import { Hint, Tip } from "@/components/steward/status"
 
 /** What every field of the editor reads: the document's values and the language edited. */
 export type Context = {
@@ -257,17 +257,13 @@ function Version({
       {multiline ? <Textarea rows={2} {...props} /> : <Input {...props} />}
       {names.length > 0 ? (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t("steward.message-editor.placeholder")}
-              title={t("steward.message-editor.placeholder")}
-            >
-              <BracketsCurlyIcon aria-hidden />
-            </Button>
-          </DropdownMenuTrigger>
+          <Hint tip={t("steward.message-editor.placeholder")}>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="ghost" size="icon-sm" aria-label={t("steward.message-editor.placeholder")}>
+                <BracketsCurlyIcon aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+          </Hint>
           <DropdownMenuContent align="end" className="w-auto">
             {names.map((name) => (
               <DropdownMenuItem
@@ -453,9 +449,11 @@ export function LanguageToggle({
     <Tabs value={language} onValueChange={onLanguage}>
       <TabsList aria-label={t("steward.document-editor.language")} className="group-data-horizontal/tabs:h-8 p-0.5">
         {[ENGLISH, ...languages.filter((each) => each !== ENGLISH)].map((each) => (
-          <TabsTrigger key={each} value={each} title={languageName(each)} className="px-2.5 text-xs">
-            {each.toUpperCase()}
-          </TabsTrigger>
+          <Hint key={each} tip={languageName(each)}>
+            <TabsTrigger value={each} className="px-2.5 text-xs">
+              {each.toUpperCase()}
+            </TabsTrigger>
+          </Hint>
         ))}
       </TabsList>
     </Tabs>

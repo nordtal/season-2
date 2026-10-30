@@ -1,6 +1,7 @@
 package eu.nordtal.season.database;
 
 import eu.nordtal.season.database.access.PlayerCard;
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
@@ -16,6 +17,7 @@ import eu.nordtal.season.messages.value.Glyph;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Every message of the database bundle: refusals of a write and the card of a player. */
 @MessageSpec("database")
@@ -129,10 +131,23 @@ public interface DatabaseMessages {
         @Shown(Display.STEWARD)
         MessageRef settingsRefused(
                 @Arg("service") @Example("smp") String service,
+                @Arg("setting") @Example("duel-kits") String setting,
+                @Arg("rule") @Example("most-entries") SettingRule rule,
+                @Arg("value") @Example("5") @Nullable String value);
+
+        /** A refusal of an older server, which wrote its reason as free text. */
+        @Name("Settings refused in words")
+        @Shown(Display.STEWARD)
+        MessageRef settingsRefusedInWords(
+                @Arg("service") @Example("smp") String service,
                 @Arg("detail") @Example("view-distance must be between 2 and 32") String detail);
 
         @Name("Stack changed")
         @Shown(Display.STEWARD)
         MessageRef stackChanged();
+
+        @Name("Not editable")
+        @Shown(Display.STEWARD)
+        MessageRef notEditable();
     }
 }

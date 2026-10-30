@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/responsive-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { TONES } from "@/components/steward/status"
+import { Hint, TONES } from "@/components/steward/status"
 import { t } from "@/lib/texts"
 
 /** How many rows a search draws at once. The rest wait for a narrower search. */
@@ -110,31 +110,32 @@ function Chip({
   disabled: boolean
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border py-0.5 pr-1 pl-1.5 text-sm",
-        choice ? "border-border bg-muted/40" : TONES.warn,
-      )}
-      title={value}
-    >
-      {choice ? (
-        <Mark choice={choice} icons={icons} registry={registry} size={20} />
-      ) : (
-        <TERM_ICON.warning aria-hidden className="size-4 shrink-0" />
-      )}
-      <span className={cn("truncate", !choice && "font-mono text-xs")}>{choice?.name ?? value}</span>
-      {onRemove ? (
-        <button
-          type="button"
-          disabled={disabled}
-          aria-label={t("steward.form.remove-named", { name: choice?.name ?? value })}
-          className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none"
-          onClick={onRemove}
-        >
-          <XIcon aria-hidden className="size-3.5" />
-        </button>
-      ) : null}
-    </span>
+    <Hint tip={value}>
+      <span
+        className={cn(
+          "inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-md border py-0.5 pr-1 pl-1.5 text-sm",
+          choice ? "border-border bg-muted/40" : TONES.warn,
+        )}
+      >
+        {choice ? (
+          <Mark choice={choice} icons={icons} registry={registry} size={20} />
+        ) : (
+          <TERM_ICON.warning aria-hidden className="size-4 shrink-0" />
+        )}
+        <span className={cn("truncate", !choice && "font-mono text-xs")}>{choice?.name ?? value}</span>
+        {onRemove ? (
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label={t("steward.form.remove-named", { name: choice?.name ?? value })}
+            className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:pointer-events-none"
+            onClick={onRemove}
+          >
+            <XIcon aria-hidden className="size-3.5" />
+          </button>
+        ) : null}
+      </span>
+    </Hint>
   )
 }
 
@@ -207,9 +208,11 @@ export function ReferenceMarks({
               <span className="truncate text-xs">{name}</span>
             </span>
           ) : (
-            <span key={`${value}-${index}`} title={name} className="flex shrink-0">
-              <GameIcon icons={icons} item={choice.icon} size={20} />
-            </span>
+            <Hint key={`${value}-${index}`} tip={name}>
+              <span className="flex shrink-0">
+                <GameIcon icons={icons} item={choice.icon} size={20} />
+              </span>
+            </Hint>
           )
         ) : (
           <span key={`${value}-${index}`} className="truncate text-xs">
@@ -412,7 +415,8 @@ function Options({
       <FilterBar>
         <SearchField value={query} onValueChange={setQuery} label={t("steward.settings.search-in", { what: label })} />
       </FilterBar>
-      {namespaces.length > 1 || choices.tags.length > 0 ? (
+      {/* A tag filters only where it adds a whole tag at once: a picker of one value leaves it out. */}
+      {namespaces.length > 1 || (multi && choices.tags.length > 0) ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {namespaces.length > 1
             ? [ALL, ...namespaces].map((name) => (
@@ -428,7 +432,7 @@ function Options({
                 </Button>
               ))
             : null}
-          {choices.tags.length > 0 ? (
+          {multi && choices.tags.length > 0 ? (
             <Select value={tag} onValueChange={setTag}>
               <SelectTrigger
                 size="sm"
@@ -499,18 +503,8 @@ function Options({
                   <span className="truncate text-xs text-muted-foreground">{choice.description}</span>
                 ) : null}
               </span>
-              {choice.frame && choice.frame !== "task" ? (
-                <span
-                  className={cn(
-                    "shrink-0 rounded-sm px-1 text-xs",
-                    choice.frame === "challenge" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {choice.frame}
-                </span>
-              ) : null}
-              {/* A world is its own name, so the id would only repeat it. */}
-              {choice.id === choice.name ? null : (
+              {/* A game value reads by its name and description; a world is its own name, so the id would only repeat it. */}
+              {choices.registry !== undefined || choice.id === choice.name ? null : (
                 <span className="max-w-9/20 min-w-0 truncate font-mono text-xs text-muted-foreground max-sm:max-w-2/5">
                   {choice.id}
                 </span>

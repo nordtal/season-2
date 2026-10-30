@@ -125,6 +125,55 @@ class InventoriesApiTest extends WebTestSupport {
         }
     }
 
+    @Test
+    void anEditorOpensOnlyForAnAdminOnTheServerThatHoldsTheState() throws Exception {
+        final String admin = "00000000-0000-0000-0000-0000000000b2";
+        sql("INSERT INTO discord_user (discord_id) VALUES ('" + PERSON + "')");
+        sql("INSERT INTO discord_user (discord_id) VALUES ('1') ON CONFLICT DO NOTHING");
+        try {
+            assertEquals(409, open("smp").statusCode(), "the player is not linked");
+            link();
+            state("smp", "SURVIVAL", "STORED");
+            assertEquals(409, open("smp").statusCode(), "the admin is not linked");
+            sql("INSERT INTO account_link (discord_id, mc_uuid, mc_name) VALUES ('1', '" + admin + "', 'Ada')");
+            final HttpResponse<String> away = open("smp");
+            assertEquals(409, away.statusCode(), away.body());
+            assertTrue(away.body().contains("smp"), away.body());
+            sql("INSERT INTO online_player (mc_uuid, mc_name, subject, updated) VALUES ('" + admin
+                    + "', 'Ada', 'smp', now())");
+            assertEquals(409, open("limbo").statusCode(), "limbo takes no request");
+            assertEquals(
+                    0,
+                    count("SELECT count(*) FROM journal_entry WHERE subject = '" + PERSON + "'"),
+                    "a refused opening is not journaled");
+
+            final Inbox<SmpRequest> smp = Inbox.over(WebFixture.postgres.dataSource(), SmpRequest.TABLE);
+            final CompletableFuture<HttpResponse<String>> opened = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return open("smp");
+                } catch (final Exception failed) {
+                    throw new IllegalStateException(failed);
+                }
+            });
+            assertTrue(answer(smp, SmpRequest.OpenInventory.class, Outcome.done(null)));
+            assertEquals(204, opened.get().statusCode(), opened.get().body());
+            assertEquals(
+                    1,
+                    count("SELECT count(*) FROM journal_entry WHERE subject = '" + PERSON + "'"
+                            + " AND action = 'OPEN_INVENTORY'"));
+        } finally {
+            sql("DELETE FROM online_player WHERE mc_uuid = '" + admin + "'");
+            sql("DELETE FROM smp_inbox WHERE id IN (SELECT request FROM smp_open_inventory WHERE player = '" + PLAYER
+                    + "')");
+            sql("DELETE FROM account_link WHERE discord_id = '1'");
+            forget();
+        }
+    }
+
+    private static HttpResponse<String> open(final String server) throws Exception {
+        return post(inventories() + "/open", "{\"server\": \"" + server + "\", \"container\": \"ENDER_CHEST\"}");
+    }
+
     /** Claims requests the way the server does and settles the first of {@code kind} with {@code outcome}. */
     private static boolean answer(final Inbox<SmpRequest> smp, final Class<?> kind, final Outcome outcome)
             throws Exception {

@@ -20,7 +20,7 @@ const PERSON_IDENTITY_IMPORT = /import\s*\{[^}]*\bPersonIdentity\b[^}]*\}\s*from
 
 /** It reads one line at a time, so it does not see a JSX child that wraps over several lines. */
 const JSX_CHILD = /(?:>|^\s*)\{([^{}:]*)\}/
-const TOOLTIP = /title=\{([^{}]*)\}/
+const TOOLTIP = /(?:tip|content)=\{([^{}]*)\}/
 
 function sourceFiles(directory: string): string[] {
   const found: string[] = []

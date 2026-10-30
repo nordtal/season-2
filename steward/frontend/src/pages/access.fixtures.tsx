@@ -32,6 +32,11 @@ export async function rowFor(name: string): Promise<HTMLElement> {
   return assertElement(first?.closest("tr") ?? null, `a <tr> for ${name}`)
 }
 
+/** The first cell of a row: the person, their badges and, on a phone, last seen. */
+export function badges(row: HTMLElement): HTMLElement {
+  return assertElement(row.querySelector(":scope > td:first-child"), "the person and their badges")
+}
+
 /** Opens a row's actions popover when it has one, behind a button named "Actions for …". */
 export async function openActions(name: string): Promise<HTMLElement> {
   const row = await rowFor(name)
@@ -146,6 +151,8 @@ export function backend(
     inventories?: (discordId: string) => Record<string, unknown>
     /** A stack removal, which Steward answers itself. */
     removeStack?: (url: string, body: unknown) => void
+    /** Called with the body of an opening in the game. */
+    openInventory?: (body: unknown) => void
     /** The bot's run of a request, by kind; DONE with an empty answer unless a test says otherwise. */
     answer?: (kind: string) => Record<string, unknown>
   } = {},
@@ -188,11 +195,12 @@ export function backend(
       const [, discordId, what] = own
       return json(200, (what === "payments" ? over.personPayments : over.grants)?.(discordId) ?? [])
     }
-    const inventories = /^\/api\/people\/(\d+)\/inventories(\/remove)?$/.exec(url)
+    const inventories = /^\/api\/people\/(\d+)\/inventories(\/remove|\/open)?$/.exec(url)
     if (inventories) {
-      const [, discordId, removal] = inventories
-      if (!removal) return json(200, over.inventories?.(discordId) ?? { linked: true, states: [] })
-      over.removeStack?.(url, requestBody(init))
+      const [, discordId, action] = inventories
+      if (!action) return json(200, over.inventories?.(discordId) ?? { linked: true, states: [] })
+      if (action === "/open") over.openInventory?.(requestBody(init))
+      else over.removeStack?.(url, requestBody(init))
       return new Response(null, { status: 204 })
     }
     if (url === "/api/game-data") return json(200, { datapacks: [], registries: {}, tags: {} })
@@ -219,13 +227,14 @@ export function draw(node: ReactNode, at = "/") {
     routeTree: root.addChildren([service, personPage]),
     history: createMemoryHistory({ initialEntries: [at] }),
   })
-  return render(
+  const drawn = render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
+  return { ...drawn, router }
 }
 
 /** Clicks one of a row's actions, opening its popover first when it has one. */

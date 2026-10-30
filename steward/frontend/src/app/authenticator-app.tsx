@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { ArrowSquareOutIcon, CaretDownIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
@@ -184,17 +185,18 @@ export function AuthenticatorAppRow({ state }: { state: AuthenticatorActions }) 
               ? t("steward.keys.last-used", { at: state.app.lastUsedAt })
               : t("steward.keys.registered", { at: state.app.addedAt })}
           </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("steward.keys.remove-app")}
-            title={state.onlyFactor ? t("steward.keys.only-factor") : undefined}
-            disabled={state.onlyFactor}
-            onClick={state.startRemoving}
-          >
-            <TrashIcon aria-hidden />
-          </Button>
+          <Hint tip={state.onlyFactor ? t("steward.keys.only-factor") : undefined}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("steward.keys.remove-app")}
+              disabled={state.onlyFactor}
+              onClick={state.startRemoving}
+            >
+              <TrashIcon aria-hidden />
+            </Button>
+          </Hint>
         </div>
       ) : (
         <p className="px-1 py-1 text-sm text-muted-foreground">{t("steward.keys.no-app")}</p>

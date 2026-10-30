@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import type { ReactNode } from "react"
 import { ArrowElbowDownLeftIcon, HashStraightIcon } from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
@@ -19,21 +20,22 @@ export function ToolButton({
   children: ReactNode
 }) {
   return (
-    <Button
-      type="button"
-      size="icon-sm"
-      variant={pressed ? "secondary" : "ghost"}
-      aria-label={label}
-      title={label}
-      aria-pressed={pressed}
-      disabled={disabled}
-      className="shrink-0"
-      // The selection stays where it is, because a button that took the focus would drop it.
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={onPress}
-    >
-      {children}
-    </Button>
+    <Hint tip={label}>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant={pressed ? "secondary" : "ghost"}
+        aria-label={label}
+        aria-pressed={pressed}
+        disabled={disabled}
+        className="shrink-0"
+        // The selection stays where it is, because a button that took the focus would drop it.
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onPress}
+      >
+        {children}
+      </Button>
+    </Hint>
   )
 }
 
@@ -50,19 +52,20 @@ export function MenuTrigger({
   children: ReactNode
 }) {
   return (
-    <Button
-      type="button"
-      size="icon-sm"
-      variant={pressed ? "secondary" : "ghost"}
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      className="shrink-0"
-      onMouseDown={(event) => event.preventDefault()}
-      {...props}
-    >
-      {children}
-    </Button>
+    <Hint tip={label}>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant={pressed ? "secondary" : "ghost"}
+        aria-label={label}
+        disabled={disabled}
+        className="shrink-0"
+        onMouseDown={(event) => event.preventDefault()}
+        {...props}
+      >
+        {children}
+      </Button>
+    </Hint>
   )
 }
 

@@ -91,6 +91,12 @@ public interface DocumentEditorTexts {
     @Name("Changed by an admin")
     MessageRef changed();
 
+    @Name("English only")
+    MessageRef englishOnly();
+
+    @Name("Why English only")
+    MessageRef englishOnlyNote();
+
     @Name("Release changed")
     MessageRef outdated();
 

@@ -14,9 +14,15 @@ final class DefaultSmp {
     static final List<BoardSpec> BOARDS = List.of(
             board("OBJECTIVE", "nordtal", 106 - 4, 68, 88 + 6, 0f), board("AURA", "nordtal", 106 + 4, 68, 88 + 6, 0f));
 
-    static final List<DuelPlatformSpec> DUEL_PLATFORMS = List.of(
-            platform("SWORD", "nordtal", 106 - 7, 68, 88 - 1, 106 - 5, 69, 88 + 1),
-            platform("BOW", "nordtal", 106 + 5, 68, 88 - 1, 106 + 7, 69, 88 + 1));
+    static final DuelAreaSpec DUEL_NEGOTIATION_AREA = area("nordtal", 99, 68, 87, 101, 69, 89);
+
+    static final DuelAreaSpec DUEL_ARENA = area("nordtal", 115, 67, 80, 131, 76, 96);
+
+    static final DuelPositionSpec DUEL_START_FIRST = position("nordtal", 118, 68, 88);
+
+    static final DuelPositionSpec DUEL_START_SECOND = position("nordtal", 128, 68, 88);
+
+    static final DuelPositionSpec DUEL_EXIT = position("nordtal", 103, 68, 88);
 
     static final List<SpawnRegionSpec> WHEEL_REGIONS = List.of(
             region("nordtal", 3978, 75, 2171, 3978, 75, 2171), region("nordtal", 3978, 74, 2172, 3978, 74, 2172));
@@ -68,7 +74,7 @@ final class DefaultSmp {
             item("minecraft:elytra", 1, 3),
             item("minecraft:totem_of_undying", 1, 3));
 
-    static final List<DuelLoadoutItemSpec> DUEL_LOADOUT_SWORD = List.of(
+    private static final List<DuelLoadoutItemSpec> DUEL_LOADOUT_SWORD = List.of(
             loadoutItem("minecraft:iron_sword", 1),
             loadoutItem("minecraft:shield", 1),
             loadoutItem("minecraft:iron_helmet", 1),
@@ -77,7 +83,7 @@ final class DefaultSmp {
             loadoutItem("minecraft:iron_boots", 1),
             loadoutItem("minecraft:cooked_beef", 8));
 
-    static final List<DuelLoadoutItemSpec> DUEL_LOADOUT_BOW = List.of(
+    private static final List<DuelLoadoutItemSpec> DUEL_LOADOUT_BOW = List.of(
             loadoutItem("minecraft:bow", 1),
             loadoutItem("minecraft:arrow", 64),
             loadoutItem("minecraft:iron_sword", 1),
@@ -86,6 +92,9 @@ final class DefaultSmp {
             loadoutItem("minecraft:leather_leggings", 1),
             loadoutItem("minecraft:leather_boots", 1),
             loadoutItem("minecraft:cooked_beef", 8));
+
+    static final List<DuelKitSpec> DUEL_KITS = List.of(
+            kit("Sword", "minecraft:iron_sword", DUEL_LOADOUT_SWORD), kit("Bow", "minecraft:bow", DUEL_LOADOUT_BOW));
 
     private DefaultSmp() {}
 
@@ -121,8 +130,7 @@ final class DefaultSmp {
         return Specs.createUnsafe(BoardSpec.class, values);
     }
 
-    private static DuelPlatformSpec platform(
-            final String type,
+    private static DuelAreaSpec area(
             final String world,
             final int minX,
             final int minY,
@@ -131,7 +139,6 @@ final class DefaultSmp {
             final int maxY,
             final int maxZ) {
         final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("type", type);
         values.put("world", world);
         values.put("min-x", minX);
         values.put("min-y", minY);
@@ -139,7 +146,24 @@ final class DefaultSmp {
         values.put("max-x", maxX);
         values.put("max-y", maxY);
         values.put("max-z", maxZ);
-        return Specs.createUnsafe(DuelPlatformSpec.class, values);
+        return Specs.createUnsafe(DuelAreaSpec.class, values);
+    }
+
+    private static DuelPositionSpec position(final String world, final int x, final int y, final int z) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("world", world);
+        values.put("x", x);
+        values.put("y", y);
+        values.put("z", z);
+        return Specs.createUnsafe(DuelPositionSpec.class, values);
+    }
+
+    private static DuelKitSpec kit(final String name, final String icon, final List<DuelLoadoutItemSpec> loadout) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("name", name);
+        values.put("icon", icon);
+        values.put("loadout", loadout);
+        return Specs.createUnsafe(DuelKitSpec.class, values);
     }
 
     private static FirstJoinSpawnSpec firstJoinSpawn(

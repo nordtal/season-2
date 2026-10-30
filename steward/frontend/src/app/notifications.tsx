@@ -21,7 +21,7 @@ import {
   useWebPushSubscription,
 } from "@/lib/queries"
 import { keys } from "@/lib/query-keys"
-import { Failure, Skeleton, SkeletonText } from "@/components/steward/query-state"
+import { Empty, Failure, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { ChangedCount } from "@/components/steward/group-form"
 import { announceSave } from "@/lib/announce-save"
 import { Button } from "@/components/ui/button"
@@ -122,9 +122,9 @@ export function NotificationsDialog({ state }: { state: NotificationActions }) {
           {state.supported ? (
             <ThisDevice state={state} />
           ) : (
-            <div className="flex flex-col">
+            <div className="flex flex-col gap-2">
               <span className="text-sm font-medium">{t("steward.notifications.this-device")}</span>
-              <span className="text-xs text-muted-foreground">{t("steward.notifications.no-push")}</span>
+              <Empty title={t("steward.notifications.no-push")} />
             </div>
           )}
           <Types state={state} />
@@ -428,7 +428,7 @@ function Devices({ state }: { state: NotificationActions }) {
           ))}
         </ul>
       ) : devices.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t("steward.notifications.no-device")}</p>
+        <Empty title={t("steward.notifications.no-device")} />
       ) : (
         <ul className="flex flex-col">
           {devices.map((device) => (

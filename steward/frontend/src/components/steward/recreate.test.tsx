@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { RecreateButton } from "@/components/steward/recreate"
 import { words } from "@/lib/query-fixtures"
 import type { MessageRef } from "@/lib/texts"
-import { asButton } from "@/lib/test-elements"
+import { asButton, tipOf } from "@/lib/test-elements"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
 /**
@@ -91,9 +91,8 @@ describe("RecreateButton - before anything is pressed", () => {
     draw(<RecreateButton service="smp" />)
 
     /** `toBeDisabled` needs jest-dom, which this project does not install. */
-    const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
-    await waitFor(() => expect(button.disabled).toBe(true))
-    expect(button.title).toBe("No shared secret has been set up.")
+    await waitFor(() => expect(asButton(screen.getByRole("button", { name: /Recreate/ })).disabled).toBe(true))
+    expect(tipOf(screen.getByRole("button", { name: /Recreate/ }))).toBe("No shared secret has been set up.")
   })
 
   it("is disabled when the agent is configured but its container is not answering", async () => {
@@ -104,10 +103,10 @@ describe("RecreateButton - before anything is pressed", () => {
     vi.stubGlobal("fetch", fetched)
     draw(<RecreateButton service="smp" />)
 
-    const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
-    await waitFor(() => expect(button.disabled).toBe(true))
-    expect(button.title).toBe("steward-agent is configured but does not answer.")
-    expect(button.title).not.toContain("already on this host")
+    await waitFor(() => expect(asButton(screen.getByRole("button", { name: /Recreate/ })).disabled).toBe(true))
+    const tip = tipOf(screen.getByRole("button", { name: /Recreate/ }))
+    expect(tip).toBe("steward-agent is configured but does not answer.")
+    expect(tip).not.toContain("already on this host")
   })
 
   it("asks first, names the service, and opening it asks for nothing", async () => {
@@ -134,9 +133,8 @@ describe("RecreateButton - when /api/agent itself cannot be asked", () => {
     )
     draw(<RecreateButton service="smp" />)
 
-    const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
-    await waitFor(() => expect(button.disabled).toBe(true))
-    expect(button.title).not.toBe("")
+    await waitFor(() => expect(asButton(screen.getByRole("button", { name: /Recreate/ })).disabled).toBe(true))
+    expect(tipOf(screen.getByRole("button", { name: /Recreate/ }))).toBeTruthy()
   })
 })
 
@@ -154,11 +152,12 @@ describe("RecreateButton - before /api/agent has answered at all", () => {
 
     const button = asButton(screen.getByRole("button", { name: /Recreate/ }))
     expect(button.disabled).toBe(false)
-    expect(button.title).not.toBe("")
+    expect(tipOf(button)).toBeTruthy()
 
     // Resolves the pending fetch, so no timer leaks into the next test.
     settle(json({ body: { available: true, reachable: true } }))
-    await waitFor(() => expect(button.title).toBe(""))
+    /** Polled by hand: `tipOf` changes the page, which would wake `waitFor` again on every try. */
+    await vi.waitFor(() => expect(tipOf(button)).toBeNull(), { interval: 20 })
   })
 })
 

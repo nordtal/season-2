@@ -2,6 +2,7 @@ package eu.nordtal.season.smp.duel;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.time.CountdownPlan;
+import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
@@ -12,22 +13,21 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
-import eu.nordtal.season.smp.aura.DuelType;
-import eu.nordtal.season.smp.config.BorderSpec;
+import eu.nordtal.season.smp.config.DuelAreaSpec;
+import eu.nordtal.season.smp.config.DuelKitSpec;
 import eu.nordtal.season.smp.config.DuelLoadoutItemSpec;
+import eu.nordtal.season.smp.config.DuelPositionSpec;
 import eu.nordtal.season.smp.config.DuelsSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.port.Arenas;
-import eu.nordtal.season.smp.world.WorldRole;
-import eu.nordtal.season.smp.world.Worlds;
+import eu.nordtal.season.smp.region.Box;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
@@ -35,11 +35,18 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
+/**
+ * The one duel at a time, fought in the arena at spawn with the kit both fighters agreed on in the {@link Negotiation}.
+ *
+ * The arena's blocks are copied before the fight and placed back after it, however it ends.
+ */
 public final class Duels implements Arenas {
 
     enum Outcome {
@@ -57,9 +64,6 @@ public final class Duels implements Arenas {
     static final DocumentSpec<DocumentSpec.None> WAITING = DocumentSpec.game(
                     "smp", "duel-waiting", "Duels", DocumentSpec.Shape.CHAT)
             .titled("Waiting for an opponent");
-    static final DocumentSpec<DocumentSpec.None> QUEUED = DocumentSpec.game(
-                    "smp", "duel-queued", "Duels", DocumentSpec.Shape.CHAT)
-            .titled("Duel queued");
     static final DocumentSpec<Countdown> COUNTDOWN_LINE = DocumentSpec.game(
                     "smp", "duel-countdown", "Duels", DocumentSpec.Shape.CHAT, Countdown.class)
             .titled("Duel countdown");
@@ -74,74 +78,53 @@ public final class Duels implements Arenas {
 
     private static final CountdownPlan COUNTDOWN = CountdownPlan.at().everySecondFrom(COUNTDOWN_SECONDS);
 
+    private static final Title.Times OUTCOME =
+            Title.Times.times(Duration.ofMillis(200), Duration.ofSeconds(2), Duration.ofMillis(600));
+
     private final Plugin plugin;
     private final AuraDao aura;
     private final DuelsSpec config;
-    private final BorderSpec border;
-    private final Worlds worlds;
     private final Identities identities;
     private final MessageRenderer renderer;
     private final SmpSounds sounds;
     private final WorldEffects effects;
-    private final ArenaSlots slots;
+    private final Clock clock;
+    private final ArenaCopy copy;
+    private final Negotiation negotiation;
 
-    private final Map<DuelType, UUID> waiting = new HashMap<>();
-
-    private final List<Queued> queue = new ArrayList<>();
-
-    private final Map<UUID, ActiveDuel> byPlayer = new HashMap<>();
-
-    /** A fighter in {@code settled} must step off the platform before the next duel. */
-    private final java.util.Set<UUID> settled = new java.util.HashSet<>();
+    private @Nullable ActiveDuel active;
 
     /** {@link #respawned} restores the saved state of a fighter who died in the arena. */
     private final Map<UUID, SavedState> pending = new HashMap<>();
-
-    private static final Title.Times OUTCOME = Title.Times.times(
-            java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(2), java.time.Duration.ofMillis(600));
-
-    private @Nullable Location spawn() {
-        return worlds.world(WorldRole.NORDTAL)
-                .map(world -> eu.nordtal.season.smp.world.LandingSite.safeAt(world, world.getSpawnLocation()))
-                .orElse(null);
-    }
-
-    private final Map<Integer, List<Location>> placed = new HashMap<>();
-
-    private final Clock clock;
 
     public Duels(
             final Plugin plugin,
             final AuraDao aura,
             final DuelsSpec config,
-            final BorderSpec border,
-            final Worlds worlds,
             final Identities identities,
             final MessageRenderer renderer,
+            final AppliedDocuments documents,
             final SmpSounds sounds,
             final WorldEffects effects,
             final Clock clock) {
-        this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.aura = aura;
         this.config = config;
-        this.border = border;
-        this.worlds = worlds;
         this.identities = identities;
         this.renderer = renderer;
         this.sounds = sounds;
         this.effects = effects;
-        this.slots = new ArenaSlots(config::concurrentDuelLimit, config::duelArenaBaseY, config::duelArenaSpacing);
+        this.copy = new ArenaCopy(plugin);
+        this.negotiation = new Negotiation(plugin, this, config, identities, renderer, documents, sounds, clock);
     }
-
-    private record Queued(UUID first, UUID second, DuelType type) {}
 
     /** {@code discordIds} is read at the start, because the identity cache forgets a player on quit. */
     private record ActiveDuel(
             UUID first,
             UUID second,
-            DuelType type,
-            int slot,
+            String kit,
+            Box arena,
             Map<UUID, SavedState> saved,
             Map<UUID, String> discordIds,
             long startedAt) {
@@ -149,42 +132,44 @@ public final class Duels implements Arenas {
         UUID opponentOf(final UUID player) {
             return player.equals(first) ? second : first;
         }
+
+        boolean fights(final UUID player) {
+            return player.equals(first) || player.equals(second);
+        }
     }
 
     @Override
     public boolean isInArena(final Player player) {
-        return byPlayer.containsKey(player.getUniqueId());
+        return active != null && active.fights(player.getUniqueId());
     }
 
-    public void steppedOn(final Player player, final DuelType type) {
-        if (isInArena(player) || settled.contains(player.getUniqueId())) {
-            return;
+    /** A fighter builds in the arena during the duel, because the arena is restored afterwards. */
+    @Override
+    public boolean buildsInArena(final Player player, final Block block) {
+        final ActiveDuel duel = active;
+        return duel != null
+                && duel.fights(player.getUniqueId())
+                && duel.arena().contains(block.getWorld().getName(), block.getX(), block.getY(), block.getZ());
+    }
+
+    boolean fighting() {
+        return active != null;
+    }
+
+    /** Places back a copy of the arena that a crash left behind. Main thread, once the worlds are loaded. */
+    public void restoreLeftover() {
+        copy.restore();
+    }
+
+    public void moved(final PlayerMoveEvent event) {
+        negotiation.moved(event);
+    }
+
+    public void quit(final Player player) {
+        negotiation.quit(player);
+        if (isInArena(player)) {
+            decide(player);
         }
-        final UUID other = waiting.get(type);
-        if (other != null && other.equals(player.getUniqueId())) {
-            return;
-        }
-        if (other == null) {
-            waiting.put(type, player.getUniqueId());
-            tell(player, Sent.of(WAITING), Feedback.SELECT);
-            return;
-        }
-        final Player opponent = Bukkit.getPlayer(other);
-        if (opponent == null) {
-            waiting.put(type, player.getUniqueId());
-            return;
-        }
-        waiting.remove(type);
-        // Bukkit applies the event's target after the handlers return, which undoes a teleport made in them.
-        final java.util.UUID firstId = opponent.getUniqueId();
-        final java.util.UUID secondId = player.getUniqueId();
-        PaperScheduler.of(plugin).onMain(() -> {
-            final Player first = Bukkit.getPlayer(firstId);
-            final Player second = Bukkit.getPlayer(secondId);
-            if (first != null && second != null) {
-                begin(first, second, type);
-            }
-        });
     }
 
     /** The inventory is restored one tick later, after the respawn has written its own. */
@@ -193,41 +178,45 @@ public final class Duels implements Arenas {
         if (state == null) {
             return;
         }
-        final Location where = spawn();
+        final Location where = exit();
         if (where != null) {
             event.setRespawnLocation(where);
         }
         PaperScheduler.of(plugin).onMain(() -> {
             final Player player = Bukkit.getPlayer(event.getPlayer().getUniqueId());
             if (player != null) {
-                state.restore(player, spawn());
+                state.restore(player, exit());
             }
         });
     }
 
-    public void steppedOff(final Player player) {
-        waiting.entrySet().removeIf(entry -> entry.getValue().equals(player.getUniqueId()));
-        settled.remove(player.getUniqueId());
+    static Box box(final DuelAreaSpec spec) {
+        return Box.spanning(spec.world(), spec.minX(), spec.minY(), spec.minZ(), spec.maxX(), spec.maxY(), spec.maxZ());
     }
 
-    private void begin(final Player first, final Player second, final DuelType type) {
-        final Optional<Integer> slot = slots.claim();
-        if (slot.isEmpty()) {
-            queue.add(new Queued(first.getUniqueId(), second.getUniqueId(), type));
-            tell(first, Sent.of(QUEUED));
-            tell(second, Sent.of(QUEUED));
-            return;
+    /**
+     * Called by the negotiation's countdown, never from a move event: Bukkit would undo the teleport.
+     *
+     * @return false when no duel could start, with the two players left where they stand
+     */
+    boolean begin(final Player first, final Player second, final DuelKitSpec kit) {
+        if (active != null) {
+            return false;
         }
-
-        final World world = worlds.world(WorldRole.NORDTAL).orElse(null);
-        if (world == null) {
-            slots.release(slot.get());
-            return;
+        final Box arena = box(config.arena());
+        final World world = Bukkit.getWorld(arena.world());
+        final Location startFirst = position(config.fighterStartFirst());
+        final Location startSecond = position(config.fighterStartSecond());
+        if (world == null || startFirst == null || startSecond == null) {
+            plugin.getLogger()
+                    .warning("the duel arena or a fighter start names a world that is not loaded; no duel is fought");
+            return false;
         }
-
-        final Location centre =
-                new Location(world, border.borderCentreX() + 0.5, slots.yOf(slot.get()), border.borderCentreZ() + 0.5);
-        build(slot.get(), centre);
+        if (!copy.save(world, arena)) {
+            return false;
+        }
+        face(startFirst, startSecond);
+        face(startSecond, startFirst);
 
         final Map<UUID, SavedState> saved = new HashMap<>();
         saved.put(first.getUniqueId(), SavedState.of(first));
@@ -238,31 +227,43 @@ public final class Duels implements Arenas {
         identities.discordIdOf(second.getUniqueId()).ifPresent(id -> discordIds.put(second.getUniqueId(), id.value()));
 
         final ActiveDuel duel = new ActiveDuel(
-                first.getUniqueId(), second.getUniqueId(), type, slot.get(), saved, discordIds, clock.millis());
-        byPlayer.put(first.getUniqueId(), duel);
-        byPlayer.put(second.getUniqueId(), duel);
+                first.getUniqueId(), second.getUniqueId(), kit.name(), arena, saved, discordIds, clock.millis());
+        active = duel;
 
-        final int radius = config.duelArenaRadius();
-        if (!enter(first, centre.clone().add(-radius + 1.5, 1, 0), type)
-                || !enter(second, centre.clone().add(radius - 1.5, 1, 0), type)) {
+        if (!enter(first, startFirst, kit.loadout()) || !enter(second, startSecond, kit.loadout())) {
             abort(duel);
-            return;
+            return true;
         }
         countdown(duel);
+        return true;
+    }
+
+    /** Turns {@code from} to look at {@code to}. */
+    private static void face(final Location from, final Location to) {
+        from.setDirection(to.toVector().subtract(from.toVector()).setY(0));
+        from.setPitch(0);
+    }
+
+    private static @Nullable Location position(final DuelPositionSpec spec) {
+        final World world = Bukkit.getWorld(spec.world());
+        return world == null ? null : new Location(world, spec.x() + 0.5, spec.y(), spec.z() + 0.5);
+    }
+
+    /** Beside the negotiation area; null falls back to where the fighter stood before the duel. */
+    private @Nullable Location exit() {
+        return position(config.exit());
     }
 
     /** Books no stake. */
     private void abort(final ActiveDuel duel) {
-        byPlayer.remove(duel.first());
-        byPlayer.remove(duel.second());
+        active = null;
         restore(duel, duel.first(), null);
         restore(duel, duel.second(), null);
-        teardown(duel.slot());
-        slots.release(duel.slot());
+        copy.restore();
     }
 
     /** Returns false when the player is not in the arena. */
-    private boolean enter(final Player player, final Location at, final DuelType type) {
+    private boolean enter(final Player player, final Location at, final List<DuelLoadoutItemSpec> loadout) {
         SavedState.clear(player);
         if (!player.teleport(at)) {
             plugin.getLogger()
@@ -271,16 +272,13 @@ public final class Duels implements Arenas {
             return false;
         }
         player.setGameMode(GameMode.ADVENTURE);
-        giveLoadout(player, type);
+        giveLoadout(player, loadout);
         sounds.play(player, Feedback.TRAVEL);
         effects.arenaEntered(at);
         return true;
     }
 
-    private void giveLoadout(final Player player, final DuelType type) {
-        final List<DuelLoadoutItemSpec> loadout =
-                type == DuelType.SWORD ? config.duelLoadoutSword() : config.duelLoadoutBow();
-
+    private void giveLoadout(final Player player, final List<DuelLoadoutItemSpec> loadout) {
         for (final DuelLoadoutItemSpec entry : loadout) {
             final Material material = GameKeys.material(entry.item()).orElse(null);
             if (material == null) {
@@ -323,7 +321,7 @@ public final class Duels implements Arenas {
     }
 
     private void say(final ActiveDuel duel, final CountdownPlan.Beat<Sent<Countdown>> beat) {
-        if (!duel.equals(byPlayer.get(duel.first()))) {
+        if (!duel.equals(active)) {
             return;
         }
         forBoth(duel, player -> {
@@ -334,8 +332,8 @@ public final class Duels implements Arenas {
     }
 
     public void decide(final Player loser) {
-        final ActiveDuel duel = byPlayer.get(loser.getUniqueId());
-        if (duel == null) {
+        final ActiveDuel duel = active;
+        if (duel == null || !duel.fights(loser.getUniqueId())) {
             return;
         }
         final UUID winnerId = duel.opponentOf(loser.getUniqueId());
@@ -343,15 +341,11 @@ public final class Duels implements Arenas {
     }
 
     private void finish(final ActiveDuel duel, final UUID winnerId, final UUID loserId) {
-        byPlayer.remove(duel.first());
-        byPlayer.remove(duel.second());
-        teardown(duel.slot());
-        slots.release(duel.slot());
-
+        active = null;
         restore(duel, winnerId, Feedback.BIG_SUCCESS);
         restore(duel, loserId, Feedback.LOSS);
+        copy.restore();
         book(winnerId, loserId, duel);
-        drainQueue();
     }
 
     /** A null {@code feedback} means that {@code stop()} ends the duel. */
@@ -361,13 +355,11 @@ public final class Duels implements Arenas {
         if (player == null || state == null) {
             return;
         }
-        // The restore is a teleport, which counts as a move and would start the next duel.
-        settled.add(playerId);
         if (player.isDead()) {
             pending.put(playerId, state);
             player.spigot().respawn();
         } else {
-            state.restore(player, spawn());
+            state.restore(player, exit());
         }
         final java.util.Locale locale = identities.languageOf(playerId);
         final Result result = new Result(
@@ -390,81 +382,23 @@ public final class Duels implements Arenas {
             return;
         }
         final int stake = config.duelStake();
-        final DuelType type = duel.type();
+        final String kit = duel.kit();
 
         PaperScheduler.of(plugin).execute(() -> {
-            aura.addAura(DiscordId.of(winner), stake, new AuraCause.Duel(true, type));
-            aura.addAura(DiscordId.of(loser), -stake, new AuraCause.Duel(false, type));
-        });
-    }
-
-    private void drainQueue() {
-        while (!queue.isEmpty() && !slots.isFull()) {
-            final Queued pair = queue.remove(0);
-            final Player first = Bukkit.getPlayer(pair.first());
-            final Player second = Bukkit.getPlayer(pair.second());
-            if (first != null && second != null) {
-                begin(first, second, pair.type());
-            }
-        }
-    }
-
-    private void build(final int slot, final Location centre) {
-        final int radius = config.duelArenaRadius();
-        final List<Location> blocks = new ArrayList<>();
-
-        for (int x = -radius; x <= radius; x++) {
-            for (int z = -radius; z <= radius; z++) {
-                blocks.add(place(centre, x, 0, z));
-                blocks.add(place(centre, x, 5, z));
-            }
-        }
-        for (int y = 1; y <= 4; y++) {
-            for (int i = -radius; i <= radius; i++) {
-                blocks.add(place(centre, i, y, -radius));
-                blocks.add(place(centre, i, y, radius));
-                blocks.add(place(centre, -radius, y, i));
-                blocks.add(place(centre, radius, y, i));
-            }
-        }
-        blocks.removeIf(java.util.Objects::isNull);
-        placed.put(slot, blocks);
-    }
-
-    private @Nullable Location place(final Location centre, final int dx, final int dy, final int dz) {
-        final Location at = centre.clone().add(dx, dy, dz);
-        if (!at.getBlock().getType().isAir()) {
-            return null;
-        }
-        at.getBlock().setType(Material.GLASS, false);
-        return at;
-    }
-
-    private void teardown(final int slot) {
-        final List<Location> blocks = placed.remove(slot);
-        if (blocks == null) {
-            return;
-        }
-        blocks.forEach(at -> {
-            if (at.getBlock().getType() == Material.GLASS) {
-                at.getBlock().setType(Material.AIR, false);
-            }
+            aura.addAura(DiscordId.of(winner), stake, new AuraCause.Duel(true, kit));
+            aura.addAura(DiscordId.of(loser), -stake, new AuraCause.Duel(false, kit));
         });
     }
 
     public void stop() {
-        List.copyOf(byPlayer.values()).forEach(duel -> {
-            byPlayer.remove(duel.first());
-            byPlayer.remove(duel.second());
+        negotiation.stop();
+        final ActiveDuel duel = active;
+        if (duel != null) {
+            active = null;
             restore(duel, duel.first(), null);
             restore(duel, duel.second(), null);
-            teardown(duel.slot());
-            slots.release(duel.slot());
-        });
-        placed.keySet().forEach(this::teardown);
-        placed.clear();
-        waiting.clear();
-        queue.clear();
+        }
+        copy.restore();
     }
 
     private void forBoth(final ActiveDuel duel, final java.util.function.Consumer<Player> action) {
@@ -473,17 +407,6 @@ public final class Duels implements Arenas {
             if (player != null) {
                 action.accept(player);
             }
-        }
-    }
-
-    private void tell(final Player player, final Sent<?> message) {
-        tell(player, message, null);
-    }
-
-    private void tell(final Player player, final Sent<?> message, final @Nullable Feedback feedback) {
-        player.sendMessage(renderer.format(identities.languageOf(player.getUniqueId()), message));
-        if (feedback != null) {
-            sounds.play(player, feedback);
         }
     }
 }

@@ -9,9 +9,10 @@ public sealed interface AuraCause {
 
     AuraReason reason();
 
-    record Duel(boolean won, DuelType type) implements AuraCause {
+    /** @param kit the name of the kit both fighters agreed on */
+    record Duel(boolean won, String kit) implements AuraCause {
         public Duel {
-            Objects.requireNonNull(type, "type");
+            Objects.requireNonNull(kit, "kit");
         }
 
         @Override

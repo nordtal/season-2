@@ -90,7 +90,7 @@ describe("ReferencePicker", () => {
       within(list)
         .getAllByRole("option")
         .map((option) => option.textContent),
-    ).toEqual(["Stoneminecraft:stone"])
+    ).toEqual(["Stone"])
     fireEvent.click(within(list).getByRole("option"))
 
     expect(onChange).toHaveBeenLastCalledWith(["minecraft:oak_log", "minecraft:stone"])
@@ -105,6 +105,16 @@ describe("ReferencePicker", () => {
     fireEvent.click(screen.getByRole("button", { name: "2" }))
 
     expect(onChange).toHaveBeenLastCalledWith(["minecraft:oak_log", "minecraft:spruce_log"])
+  })
+
+  it("lists a game value by its name alone, and leaves the tag filter out where it picks one value", async () => {
+    draw(ITEM, [], false)
+
+    fireEvent.click(screen.getByRole("button", { name: "none" }))
+    const list = await screen.findByRole("listbox", { name: "Items" })
+    expect(within(list).queryByText("minecraft:oak_log")).toBeNull()
+    expect(within(list).getByText("Oak Log")).toBeTruthy()
+    expect(screen.queryByRole("combobox", { name: "Tag" })).toBeNull()
   })
 
   it("picks one value, and clears it with none", async () => {

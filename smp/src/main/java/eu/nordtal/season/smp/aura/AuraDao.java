@@ -26,7 +26,7 @@ public interface AuraDao {
         bumpAura(discordId, delta);
         final UUID event = recordAuraEvent(discordId, delta, cause.reason().stored());
         switch (cause) {
-            case AuraCause.Duel duel -> recordDuel(event, duel.type());
+            case AuraCause.Duel duel -> recordDuel(event, duel.kit());
             case AuraCause.Death death -> {
                 if (death.damageType() != null) {
                     recordDeath(event, death.damageType());
@@ -69,8 +69,8 @@ public interface AuraDao {
     UUID recordAuraEvent(
             @Bind("discordId") DiscordId discordId, @Bind("delta") int delta, @Bind("reason") String reason);
 
-    @SqlUpdate("INSERT INTO smp_aura_duel (event_id, duel_type) VALUES (:event, :type)")
-    void recordDuel(@Bind("event") UUID event, @Bind("type") DuelType type);
+    @SqlUpdate("INSERT INTO smp_aura_duel (event_id, kit) VALUES (:event, :kit)")
+    void recordDuel(@Bind("event") UUID event, @Bind("kit") String kit);
 
     @SqlUpdate("INSERT INTO smp_aura_death (event_id, damage_type) VALUES (:event, :damageType)")
     void recordDeath(@Bind("event") UUID event, @Bind("damageType") String damageType);

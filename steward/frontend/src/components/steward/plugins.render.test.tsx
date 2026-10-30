@@ -1,3 +1,4 @@
+import { tipOf } from "@/lib/test-elements"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -204,9 +205,9 @@ describe("ServicePlugins", () => {
 
     const smp = (await screen.findByText("SMP")).closest("li")!
     expect(within(smp).getByText("jar 0.9.4")).toBeTruthy()
-    expect(within(smp).getByTitle("Installed by release v0.10.3").textContent).toBe("release v0.10.3")
+    expect(tipOf(within(smp).getByText("release v0.10.3"))).toBe("Installed by release v0.10.3")
     const chunky = screen.getByText("Chunky").closest("li")!
-    expect(within(chunky).queryByTitle(/Installed by release/)).toBeNull()
+    expect(within(chunky).queryByText(/^release /)).toBeNull()
   })
 
   it("says there is no build when nothing resolves for a plugin that is not installed", async () => {

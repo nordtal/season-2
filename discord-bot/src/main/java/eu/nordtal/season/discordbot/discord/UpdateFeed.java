@@ -111,7 +111,8 @@ public final class UpdateFeed {
                     Slot.list("why", Failure.class),
                     Slot.list("reasons", Reason.class).optional(),
                     Slot.button("open").optional())
-            .titled("Update run");
+            .titled("Update run")
+            .inEnglishOnly();
 
     private record Drawn(String messageId, @Nullable RunRecord showing) {}
 
@@ -371,8 +372,9 @@ public final class UpdateFeed {
                         .computeIfAbsent(step.service(), service -> new ArrayList<>())
                         .add(step);
             }
-            // The card is edited once the run settles, and only a failed run says why.
-            if (stage == RunStage.FAILED && step.outcome() == RunStep.Outcome.FAILED && step.reason() != null) {
+            // Only a failed run says why, but a missing secret is said in any run, since only the host adds it.
+            final boolean failedIt = stage == RunStage.FAILED && step.outcome() == RunStep.Outcome.FAILED;
+            if ((failedIt || step.reason() == RunStep.Reason.MISSING_SECRET) && step.reason() != null) {
                 final MessageRef what = TEXTS.run().reason(step.reason());
                 if (step.service() == null) {
                     reasons.add(new Reason(what));
@@ -411,6 +413,8 @@ public final class UpdateFeed {
         final RunStep.Row latest = steps.getLast();
         final List<MessageRef> changes = steps.reversed().stream()
                 .filter(step -> !step.changes().isEmpty())
+                // The names of missing secrets are said under why, not as what the service moves.
+                .filter(step -> step.reason() != RunStep.Reason.MISSING_SECRET)
                 .findFirst()
                 .map(step -> step.changes().stream().map(RunLines::change).toList())
                 .orElse(List.of());

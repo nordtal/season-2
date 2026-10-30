@@ -465,8 +465,8 @@ public final class ModeStates implements Listener {
     }
 
     /**
-     * Writes the slots an editor changed, all of them if each still holds what the window showed, on the main thread.
-     * A slot that changed meanwhile keeps its stack, and the admin gets theirs back.
+     * Ends an editor on the main thread: a live one stores a copy of what it moved, a stored one writes its changes.
+     * Those are written only if every slot still holds what the window showed; else the admin is evened out.
      */
     void commit(final InventoryEditor editor) {
         final List<InventoryEditor> open = editors.get(editor.player().value());
@@ -534,7 +534,7 @@ public final class ModeStates implements Listener {
             InventoryEditor.net(
                             amounts(changes, InventoryEditor.Change::before),
                             amounts(changes, InventoryEditor.Change::after))
-                    .forEach((kind, amount) -> (amount > 0 ? back : taken).add(kind.asQuantity(Math.abs(amount))));
+                    .forEach((kind, amount) -> (amount > 0 ? back : taken).addAll(stacks(kind, Math.abs(amount))));
         }
         final Player admin = plugin.getServer().getPlayer(editor.admin().value());
         if (admin == null) {
@@ -559,6 +559,16 @@ public final class ModeStates implements Listener {
         if (!refused.isEmpty()) {
             editor.kept(refused.size());
         }
+    }
+
+    /** Returns {@code amount} of a kind as stacks no larger than the kind allows. */
+    private static List<ItemStack> stacks(final ItemStack kind, final int amount) {
+        final List<ItemStack> stacks = new ArrayList<>();
+        final int max = Math.max(1, kind.getMaxStackSize());
+        for (int left = amount; left > 0; left -= max) {
+            stacks.add(kind.asQuantity(Math.min(left, max)));
+        }
+        return stacks;
     }
 
     /** Returns the stacks one side of the changes holds, each as one of its kind with its amount. */

@@ -192,7 +192,7 @@ public final class InventoryEditor extends Menu {
             // Over a stored state, nothing taken from the copy leaves the admin's inventory before the edit is written.
             return live() ? !(type.isShiftClick() || type == ClickType.DOUBLE_CLICK) : rawSlot >= 0 && !drops(type);
         }
-        return leavesFree(rawSlot);
+        return leavesFree(rawSlot) && !drops(type);
     }
 
     private static boolean drops(final ClickType type) {

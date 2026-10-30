@@ -179,7 +179,7 @@ class ModeStateStoreIntegrationTest {
     }
 
     @Test
-    void anEditInTheGameWritesOnlyTheSlotsThatStillHoldWhatItShowed() {
+    void anEditInTheGameIsWrittenOnlyIfEverySlotStillHoldsWhatItShowed() {
         final TestDatabase database = TestDatabase.fresh();
         final ModeStateStore smp = ModeStateStore.using(database.dataSourceAs(DatabaseRole.SMP));
         smp.swap("smp", PLAYER, Mode.SURVIVAL, SURVIVAL, Mode.CREATIVE);
@@ -201,6 +201,15 @@ class ModeStateStoreIntegrationTest {
                                 new SlotChange(40, changedShield, null),
                                 new SlotChange(7, stone, null))),
                 "the shield's data differs and slot 7 is empty");
+        assertEquals(
+                Set.of(),
+                smp.edit(
+                        "smp",
+                        PLAYER,
+                        Mode.SURVIVAL,
+                        Container.INVENTORY,
+                        List.of(new SlotChange(0, log, null), new SlotChange(5, null, stone))),
+                "the refused edit wrote none of its slots, so these still hold what they showed");
         assertEquals(
                 Set.of(1),
                 smp.edit("smp", PLAYER, Mode.CREATIVE, Container.INVENTORY, List.of(new SlotChange(1, null, stone))),

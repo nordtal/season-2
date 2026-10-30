@@ -1,30 +1,36 @@
 package eu.nordtal.season.papercommon.player;
 
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Stack;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import eu.nordtal.season.papercommon.menu.Menu;
+import eu.nordtal.season.papercommon.menu.MenuClick;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.IntConsumer;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A window over a copy of a player's Survival inventory or ender chest, which an admin edits.
- * On close, {@link ModeStates} writes each slot the admin changed, if the slot still holds what the window showed.
+ * A window over a player's Survival inventory or ender chest, which an admin edits.
+ * Over a player here, each click moves stacks in the live inventory on the next tick; over a stored state, the window
+ * is a copy, and on close {@link ModeStates} writes the admin's changes if every slot still holds what it showed.
  */
 public final class InventoryEditor extends Menu {
 
-    /** @param count the slots that changed while the window was open and kept their stacks */
+    /** @param count the slots that changed while the window was open, so that none of the edit was written */
     public record Kept(@Example("2") int count) {}
 
     private static final int INVENTORY_ROWS = 5;
@@ -39,7 +45,7 @@ public final class InventoryEditor extends Menu {
     /** The admin reads it after closing an editor whose slots changed meanwhile. */
     public static final DocumentSpec<Kept> KEPT = DocumentSpec.game(
                     "paper-common", "editor-kept", "Admin", DocumentSpec.Shape.CHAT, Kept.class)
-            .titled("Edit partly kept");
+            .titled("Edit not written");
 
     private final ModeStates states;
     private final PlayerId admin;
@@ -52,6 +58,9 @@ public final class InventoryEditor extends Menu {
     private final IntConsumer kept;
     private final Inventory window;
     private boolean committed;
+    // Set once a click moved a stack of the live inventory.
+    private boolean moved;
+    private Scheduler.@Nullable Task refresh;
 
     InventoryEditor(
             final ModeStates states,
@@ -173,10 +182,96 @@ public final class InventoryEditor extends Menu {
         return stack == null || stack.isEmpty() ? null : stack;
     }
 
-    /** Leaves every slot of the container and the admin's own inventory free, and the slots that show none closed. */
+    /**
+     * Leaves the admin's own inventory free, and over a stored state every slot of the container too.
+     * Over a player here, no click fills the window: each click on a slot is made in the live inventory instead.
+     */
+    @Override
+    protected boolean leavesFree(final int rawSlot, final ClickType type) {
+        if (rawSlot < 0 || rawSlot >= window.getSize()) {
+            // Over a stored state, nothing taken from the copy leaves the admin's inventory before the edit is written.
+            return live() ? !(type.isShiftClick() || type == ClickType.DOUBLE_CLICK) : rawSlot >= 0 && !drops(type);
+        }
+        return leavesFree(rawSlot);
+    }
+
+    private static boolean drops(final ClickType type) {
+        return type == ClickType.DROP || type == ClickType.CONTROL_DROP;
+    }
+
     @Override
     protected boolean leavesFree(final int rawSlot) {
-        return rawSlot < 0 || rawSlot >= window.getSize() || slotOf(container, rawSlot) >= 0;
+        return rawSlot < 0 || rawSlot >= window.getSize() || (!live() && slotOf(container, rawSlot) >= 0);
+    }
+
+    @Override
+    protected MenuClick click(final Player viewer, final int view, final ClickType type) {
+        final int slot = slotOf(container, view);
+        if (live() && slot >= 0 && (type == ClickType.LEFT || type == ClickType.RIGHT)) {
+            states.move(this, viewer, slot, type == ClickType.RIGHT);
+        }
+        return MenuClick.nothing();
+    }
+
+    /** What a click leaves: the amounts on the cursor and in the slot, or a swap of the two. */
+    record Move(int cursor, int slot, boolean swap) {}
+
+    /**
+     * Returns what a left or right click with {@code cursor} items on {@code slot} items leaves, as in a chest.
+     *
+     * @param similar whether both hold the same kind of stack
+     * @param max how many of the kind fit in the slot
+     */
+    static Move move(final boolean right, final int cursor, final int slot, final boolean similar, final int max) {
+        if (cursor == 0 && slot == 0) {
+            return new Move(0, 0, false);
+        } else if (cursor == 0) {
+            final int taken = right ? (slot + 1) / 2 : slot;
+            return new Move(taken, slot - taken, false);
+        } else if (slot == 0 || similar) {
+            final int put = Math.max(0, Math.min(right ? 1 : cursor, max - slot));
+            return new Move(cursor - put, slot + put, false);
+        }
+        return new Move(/* cursor= */ slot, /* slot= */ cursor, true);
+    }
+
+    /**
+     * Returns, by kind, how many more of it the window held at the close than it showed, leaving out the kinds even.
+     * A refused edit gives the admin what is more and takes back what is less; a move within the window evens out.
+     */
+    static <K> Map<K, Integer> net(final List<Map.Entry<K, Integer>> shown, final List<Map.Entry<K, Integer>> held) {
+        final Map<K, Integer> net = new LinkedHashMap<>();
+        held.forEach(stack -> net.merge(stack.getKey(), stack.getValue(), Integer::sum));
+        shown.forEach(stack -> net.merge(stack.getKey(), -stack.getValue(), Integer::sum));
+        net.values().removeIf(amount -> amount == 0);
+        return net;
+    }
+
+    /** Marks that a click moved a stack of the live inventory. */
+    void moved() {
+        moved = true;
+    }
+
+    boolean wasMoved() {
+        return moved;
+    }
+
+    /** Shows {@code contents} in the window where a slot holds something else. */
+    void show(final @Nullable ItemStack[] contents) {
+        for (int view = 0; view < window.getSize(); view++) {
+            final int slot = slotOf(container, view);
+            if (slot < 0 || slot >= contents.length) {
+                continue;
+            }
+            final ItemStack now = present(contents[slot]);
+            if (!Objects.equals(now, present(window.getItem(view)))) {
+                window.setItem(view, now == null ? null : now.clone());
+            }
+        }
+    }
+
+    void refreshing(final Scheduler.Task task) {
+        refresh = task;
     }
 
     @Override
@@ -189,10 +284,14 @@ public final class InventoryEditor extends Menu {
         commit();
     }
 
-    /** Hands the changes to {@link ModeStates} once, on the first close. */
+    /** Hands the editor to {@link ModeStates} once, on the first close, and stops showing the live inventory. */
     void commit() {
         if (!committed) {
             committed = true;
+            final Scheduler.Task task = refresh;
+            if (task != null) {
+                task.cancel();
+            }
             states.commit(this);
         }
     }

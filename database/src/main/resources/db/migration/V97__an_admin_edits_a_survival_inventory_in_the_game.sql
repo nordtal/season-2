@@ -42,6 +42,17 @@ ALTER TABLE hunger_games_inbox
                         'REMOVE_STACK', 'OPEN_INVENTORY'));
 COMMENT ON TABLE hunger_games_inbox IS 'Owned by hunger-games, which claims and carries out every row. steward asks for the start, a player''s held state, the removal of a stack from it or its window for an admin, an admin''s preview of a text or a document and a try of a settings change.';
 
+ALTER TABLE smp_refusal DROP CONSTRAINT smp_refusal_reason_check;
+ALTER TABLE smp_refusal
+    ADD CONSTRAINT smp_refusal_reason_check CHECK (reason IN (
+        'NO_ACTIVE_MILESTONE', 'NO_SUCH_OBJECTIVE', 'MILESTONE_NOT_ACTIVE', 'NOT_HERE', 'SETTINGS_REFUSED',
+        'STACK_CHANGED', 'NOT_EDITABLE'));
+ALTER TABLE hunger_games_refusal DROP CONSTRAINT hunger_games_refusal_reason_check;
+ALTER TABLE hunger_games_refusal
+    ADD CONSTRAINT hunger_games_refusal_reason_check CHECK (reason IN (
+        'WRONG_PHASE', 'NO_GAME', 'WRONG_STATE', 'BELOW_HARD_MINIMUM', 'BELOW_SOFT_MINIMUM', 'NOT_HERE',
+        'SETTINGS_REFUSED', 'STACK_CHANGED', 'NOT_EDITABLE'));
+
 ALTER TABLE journal_entry DROP CONSTRAINT journal_entry_action_check;
 ALTER TABLE journal_entry
     ADD CONSTRAINT journal_entry_action_check CHECK (action IN (

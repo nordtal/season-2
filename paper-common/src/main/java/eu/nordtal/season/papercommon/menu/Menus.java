@@ -9,6 +9,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
 /** The listener for every {@link Menu}: sounds on open and close, and clicks. A replacement plays neither sound. */
@@ -26,7 +27,7 @@ public final class Menus implements Listener {
             return;
         }
         final int slot = event.getRawSlot();
-        if (!menu.leavesFree(slot)) {
+        if (!menu.leavesFree(slot, event.getClick())) {
             event.setCancelled(true);
         }
         if (!(event.getWhoClicked() instanceof Player player)
@@ -34,7 +35,7 @@ public final class Menus implements Listener {
                 || slot >= event.getInventory().getSize()) {
             return;
         }
-        final MenuClick click = menu.click(player, slot);
+        final MenuClick click = menu.click(player, slot, event.getClick());
         final Feedback sound = click.sound();
         if (sound != null) {
             chime.play(player, sound);
@@ -44,6 +45,16 @@ public final class Menus implements Listener {
             next.open(player);
         } else if (click.close()) {
             player.closeInventory();
+        }
+    }
+
+    /** Refuses a drag that would spread stacks over a slot of the window that is not free. */
+    @EventHandler
+    public void onDrag(final InventoryDragEvent event) {
+        if (event.getInventory().getHolder() instanceof Menu menu
+                && event.getRawSlots().stream()
+                        .anyMatch(slot -> slot < event.getInventory().getSize() && !menu.leavesFree(slot))) {
+            event.setCancelled(true);
         }
     }
 

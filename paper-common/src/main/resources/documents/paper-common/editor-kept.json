@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>Slots that changed while you edited kept their stacks: {count, number}. Your stacks for them are back in your inventory.</warn>",
-            "de": "<warn>Plätze, die sich beim Bearbeiten geändert haben, behalten ihre Stapel: {count, number}. Deine Stapel dafür sind zurück in deinem Inventar.</warn>"
+            "en": "<warn>Slots changed while you edited, so none of your edit was written: {count, number}. What you took is taken back, and what you put in is back in your inventory.</warn>",
+            "de": "<warn>Plätze haben sich beim Bearbeiten geändert, darum wurde nichts von deiner Bearbeitung gespeichert: {count, number}. Was du herausgenommen hast, ist wieder weg, und was du hineingelegt hast, ist zurück in deinem Inventar.</warn>"
           }
         }
       ]

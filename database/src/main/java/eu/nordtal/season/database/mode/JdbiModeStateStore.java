@@ -169,23 +169,13 @@ final class JdbiModeStateStore implements ModeStateStore {
                 changes.forEach(change -> refused.add(change.slot()));
                 return Collections.unmodifiableSet(refused);
             }
+            changes.stream()
+                    .filter(change -> !holds(handle, server, player, mode, container, change))
+                    .forEach(change -> refused.add(change.slot()));
+            if (!refused.isEmpty()) {
+                return Collections.unmodifiableSet(refused);
+            }
             for (final SlotChange change : changes) {
-                final Optional<byte[]> now = handle.createQuery("""
-                                SELECT data FROM game_mode_state_item
-                                WHERE server = :server AND player_uuid = :player AND mode = :mode
-                                  AND container = :container AND slot = :slot""")
-                        .bind("server", server)
-                        .bind("player", player)
-                        .bind("mode", mode.name())
-                        .bind("container", container.name())
-                        .bind("slot", change.slot())
-                        .mapTo(byte[].class)
-                        .findOne();
-                final Stack before = change.before();
-                if (before == null ? now.isPresent() : now.isEmpty() || !Arrays.equals(now.get(), before.data())) {
-                    refused.add(change.slot());
-                    continue;
-                }
                 handle.createUpdate("""
                                 DELETE FROM game_mode_state_item
                                 WHERE server = :server AND player_uuid = :player AND mode = :mode
@@ -213,11 +203,34 @@ final class JdbiModeStateStore implements ModeStateStore {
                             .execute();
                 }
             }
-            if (refused.size() < changes.size()) {
+            if (!changes.isEmpty()) {
                 touch(handle, server, player, mode);
             }
-            return Collections.unmodifiableSet(refused);
+            return Set.of();
         });
+    }
+
+    /** Returns whether a slot still holds the stack the admin was shown before {@code change}. */
+    private static boolean holds(
+            final Handle handle,
+            final String server,
+            final PlayerId player,
+            final Mode mode,
+            final Container container,
+            final SlotChange change) {
+        final Optional<byte[]> now = handle.createQuery("""
+                        SELECT data FROM game_mode_state_item
+                        WHERE server = :server AND player_uuid = :player AND mode = :mode
+                          AND container = :container AND slot = :slot""")
+                .bind("server", server)
+                .bind("player", player)
+                .bind("mode", mode.name())
+                .bind("container", container.name())
+                .bind("slot", change.slot())
+                .mapTo(byte[].class)
+                .findOne();
+        final Stack before = change.before();
+        return before == null ? now.isEmpty() : now.isPresent() && Arrays.equals(now.get(), before.data());
     }
 
     /** Locks a state, so a server's switch or arrival waits for Steward's change, and the change for theirs. */

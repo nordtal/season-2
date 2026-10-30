@@ -497,7 +497,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 admin, player, container, MenuTitle.of(InventoryEditor.rows(container), document.title()), kept)) {
             case OPENED -> Answer.done(Sent.of(Replies.EDITOR_OPENED));
             case ADMIN_AWAY -> Answer.refused(ServerRefusal.NOT_HERE.with());
-            case NOT_HERE -> Answer.refused(ServerRefusal.STACK_CHANGED.with());
+            case NOT_EDITABLE -> Answer.refused(ServerRefusal.NOT_EDITABLE.with());
         };
     }
 

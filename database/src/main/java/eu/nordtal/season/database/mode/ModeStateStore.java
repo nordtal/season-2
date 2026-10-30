@@ -46,10 +46,10 @@ public interface ModeStateStore {
     Removal remove(String server, PlayerId player, Mode mode, Container container, int slot, String item, int amount);
 
     /**
-     * Writes an admin's changes to a container of a state the server does not hold.
-     * A slot is written only if it still holds what the admin was shown; a held or missing state refuses them all.
+     * Writes an admin's changes to a container of a state the server does not hold, all of them or none.
+     * They are written only if every slot still holds what the admin was shown, and never to a held or missing state.
      *
-     * @return the slots refused, which keep what they hold
+     * @return the slots that changed meanwhile, every slot for a held or missing state; empty once all are written
      */
     Set<Integer> edit(String server, PlayerId player, Mode mode, Container container, List<SlotChange> changes);
 

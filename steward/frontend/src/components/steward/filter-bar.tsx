@@ -210,9 +210,9 @@ export function FilterField({
   )
 }
 
-export function FilterContext({ children, title }: { children: ReactNode; title?: string }) {
+export function FilterContext({ children }: { children: ReactNode }) {
   return (
-    <Badge variant="outline" className="h-6 text-muted-foreground" title={title}>
+    <Badge variant="outline" className="h-6 text-muted-foreground">
       {children}
     </Badge>
   )

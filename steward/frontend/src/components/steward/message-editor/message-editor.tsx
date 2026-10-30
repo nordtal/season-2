@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { ArrowCounterClockwiseIcon, EraserIcon, MinusIcon, PaperPlaneTiltIcon, PlusIcon } from "@phosphor-icons/react"
@@ -161,29 +162,31 @@ export function MessageEditor({
                 </TabsList>
               </Tabs>
             ) : null}
-            <InputGroupButton
-              size="icon-xs"
-              aria-label={t("steward.message-editor.add-variant")}
-              title={t("steward.message-editor.add-variant")}
-              onClick={() => {
-                write([...(variants.length === 0 ? [""] : variants), text])
-                setVariant(Math.max(variants.length, 1))
-              }}
-            >
-              <PlusIcon aria-hidden />
-            </InputGroupButton>
-            {variants.length > 1 ? (
+            <Hint tip={t("steward.message-editor.add-variant")}>
               <InputGroupButton
                 size="icon-xs"
-                aria-label={t("steward.message-editor.remove-variant")}
-                title={t("steward.message-editor.remove-variant")}
+                aria-label={t("steward.message-editor.add-variant")}
                 onClick={() => {
-                  write(variants.toSpliced(at, 1))
-                  setVariant(Math.max(at - 1, 0))
+                  write([...(variants.length === 0 ? [""] : variants), text])
+                  setVariant(Math.max(variants.length, 1))
                 }}
               >
-                <MinusIcon aria-hidden />
+                <PlusIcon aria-hidden />
               </InputGroupButton>
+            </Hint>
+            {variants.length > 1 ? (
+              <Hint tip={t("steward.message-editor.remove-variant")}>
+                <InputGroupButton
+                  size="icon-xs"
+                  aria-label={t("steward.message-editor.remove-variant")}
+                  onClick={() => {
+                    write(variants.toSpliced(at, 1))
+                    setVariant(Math.max(at - 1, 0))
+                  }}
+                >
+                  <MinusIcon aria-hidden />
+                </InputGroupButton>
+              </Hint>
             ) : null}
           </>
         }
@@ -200,24 +203,26 @@ export function MessageEditor({
               </span>
             ) : null}
             {typed !== undefined ? (
-              <InputGroupButton
-                size="icon-xs"
-                aria-label={t("steward.settings.undo")}
-                title={t("steward.settings.undo")}
-                onClick={() => onChange(language, undefined)}
-              >
-                <ArrowCounterClockwiseIcon aria-hidden />
-              </InputGroupButton>
+              <Hint tip={t("steward.settings.undo")}>
+                <InputGroupButton
+                  size="icon-xs"
+                  aria-label={t("steward.settings.undo")}
+                  onClick={() => onChange(language, undefined)}
+                >
+                  <ArrowCounterClockwiseIcon aria-hidden />
+                </InputGroupButton>
+              </Hint>
             ) : null}
             {override !== undefined && typed !== null ? (
-              <InputGroupButton
-                size="icon-xs"
-                aria-label={t("steward.settings.reset-to-packaged")}
-                title={t("steward.settings.reset-to-packaged")}
-                onClick={() => onChange(language, null)}
-              >
-                <EraserIcon aria-hidden />
-              </InputGroupButton>
+              <Hint tip={t("steward.settings.reset-to-packaged")}>
+                <InputGroupButton
+                  size="icon-xs"
+                  aria-label={t("steward.settings.reset-to-packaged")}
+                  onClick={() => onChange(language, null)}
+                >
+                  <EraserIcon aria-hidden />
+                </InputGroupButton>
+              </Hint>
             ) : null}
           </>
         }
@@ -341,18 +346,19 @@ function PlacePreview({
         <figcaption className="flex min-h-6 items-center gap-2 text-xs text-muted-foreground">
           <span className="min-w-0 flex-1 truncate">{label}</span>
           {target ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label={sendLabel}
-              title={sendLabel}
-              aria-invalid={send.isError || undefined}
-              disabled={send.isPending || blocked}
-              onClick={send.send}
-            >
-              <RequestIcon request={send} icon={PaperPlaneTiltIcon} />
-            </Button>
+            <Hint tip={sendLabel}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={sendLabel}
+                aria-invalid={send.isError || undefined}
+                disabled={send.isPending || blocked}
+                onClick={send.send}
+              >
+                <RequestIcon request={send} icon={PaperPlaneTiltIcon} />
+              </Button>
+            </Hint>
           ) : null}
         </figcaption>
       ) : null}

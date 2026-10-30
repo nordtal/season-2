@@ -5,7 +5,8 @@ import { choice, t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import type { ReactNode } from "react"
+import { Slot } from "radix-ui"
+import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 /** Every badge also shows a word, so colour is never the only signal. */
 
@@ -57,6 +58,40 @@ export function Tip({ content, children, className }: { content: ReactNode; chil
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs p-2">{content}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * The tooltip of an element that is the trigger itself: a control, or a mark that should not take the focus. Without
+ * a tip the element stands alone. A disabled control answers no pointer and takes no focus, so a focusable `Tip`
+ * around it carries the tip, which is mostly the reason it is disabled.
+ *
+ * What an outer `asChild` trigger hands it goes on to the element, so a popover's trigger may wrap it.
+ */
+export function Hint({
+  tip,
+  children,
+  ...props
+}: { tip?: ReactNode; children: ReactElement<{ disabled?: boolean }> } & Omit<
+  ComponentProps<typeof TooltipTrigger>,
+  "asChild" | "children"
+>) {
+  const control = <Slot.Root {...props}>{children}</Slot.Root>
+  if (!tip) return control
+  if (children.props.disabled) {
+    return (
+      <Tip content={tip} className="rounded-md focus-visible:ring-3 focus-visible:ring-ring/50">
+        {control}
+      </Tip>
+    )
+  }
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild {...props}>
+        {children}
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">{tip}</TooltipContent>
     </Tooltip>
   )
 }
@@ -176,7 +211,6 @@ export function HealthDot({
       <Skeleton
         role="img"
         aria-label={t("steward.service.not-read")}
-        title={t("steward.service.not-read")}
         className={cn("size-2 shrink-0 rounded-full", className)}
       />
     )
@@ -188,14 +222,7 @@ export function HealthDot({
     state: completed(service) ? "completed" : tone === "idle" && !held(service) ? "standby" : DOT_STATE[tone],
   })
 
-  return (
-    <span
-      role="img"
-      aria-label={word}
-      title={word}
-      className={cn("size-2 shrink-0 rounded-full", DOT_TONE[tone], className)}
-    />
-  )
+  return <span role="img" aria-label={word} className={cn("size-2 shrink-0 rounded-full", DOT_TONE[tone], className)} />
 }
 
 /**

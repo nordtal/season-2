@@ -20,6 +20,9 @@ classes only: a declaration in a stylesheet and the rules of Surfaces are checke
   ("Some of the readings could not be fetched") or reports an error. A confirmation keeps the one sentence
   that names what is lost. Every other sentence moves into the doc comment where its meaning matters.
 - A tooltip carries only what its badge or button does not show, such as a date, a name or who set it.
+- Every tooltip is Steward's own: `Hint` on a control, `Tip` on a mark or a disabled control. The browser's `title`
+  looks like no other part of Steward and never opens on a phone; a name for a screen reader is `aria-label`.
+  _(checked in `no-native-tooltip.test.ts`)_
 
 ## Spacing
 

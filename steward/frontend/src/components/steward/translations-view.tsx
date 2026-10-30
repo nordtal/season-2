@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { ArrowLeftIcon, CaretRightIcon } from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
@@ -604,16 +605,17 @@ function ItemEditor({ page, item, highlight }: { page: Page; item: Placed; highl
 
 function Back({ label, onBack, className }: { label: string; onBack: () => void; className?: string }) {
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      aria-label={label}
-      title={label}
-      onClick={onBack}
-      className={cn("-ml-2", className)}
-    >
-      <ArrowLeftIcon aria-hidden />
-    </Button>
+    <Hint tip={label}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label={label}
+        onClick={onBack}
+        className={cn("-ml-2", className)}
+      >
+        <ArrowLeftIcon aria-hidden />
+      </Button>
+    </Hint>
   )
 }

@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { CheckIcon, CopyIcon, QuestionIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link, useRouter } from "@tanstack/react-router"
@@ -265,12 +266,15 @@ function DiscordAvatar({ url, name, size = "size-5" }: { url?: string; name: str
     )
   }
   return (
-    <span
-      className={`${size} inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground`}
-      title={name ? undefined : t("steward.identity.no-avatar")}
-    >
-      <TERM_ICON.person aria-hidden className="size-3.5" />
-    </span>
+    <Hint tip={name ? undefined : t("steward.identity.no-avatar")}>
+      <span
+        role={name ? undefined : "img"}
+        aria-label={name ? undefined : t("steward.identity.no-avatar")}
+        className={`${size} inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-muted-foreground`}
+      >
+        <TERM_ICON.person aria-hidden className="size-3.5" />
+      </span>
+    </Hint>
   )
 }
 
@@ -312,11 +316,14 @@ export function MinecraftHead({
     )
   }
   return (
-    <span
-      className={`${size} inline-flex shrink-0 items-center justify-center ${rounded} border border-border bg-secondary text-muted-foreground`}
-      title={t("steward.identity.no-head")}
-    >
-      <QuestionIcon aria-hidden className="size-3" />
-    </span>
+    <Hint tip={t("steward.identity.no-head")}>
+      <span
+        role="img"
+        aria-label={t("steward.identity.no-head")}
+        className={`${size} inline-flex shrink-0 items-center justify-center ${rounded} border border-border bg-secondary text-muted-foreground`}
+      >
+        <QuestionIcon aria-hidden className="size-3" />
+      </span>
+    </Hint>
   )
 }

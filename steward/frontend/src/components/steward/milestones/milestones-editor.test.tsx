@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { tipOf } from "@/lib/test-elements"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
@@ -381,10 +382,10 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     const list = screen.getByRole("list", { name: "Milestones" })
     const season = screen.getByText("Season").parentElement
     if (!season) throw new Error("the season's sums are drawn without their line")
-    expect(within(list).getByTitle("Aura budget").textContent).toBe("60")
-    expect(within(list).getByTitle("Spin budget").textContent).toBe("36")
-    expect(within(season).getByTitle("Aura budget").textContent).toBe("60")
-    expect(within(season).getByTitle("Spin budget").textContent).toBe("36")
+    expect(within(list).getByLabelText("Aura budget").parentElement?.textContent).toBe("60")
+    expect(within(list).getByLabelText("Spin budget").parentElement?.textContent).toBe("36")
+    expect(within(season).getByLabelText("Aura budget").parentElement?.textContent).toBe("60")
+    expect(within(season).getByLabelText("Spin budget").parentElement?.textContent).toBe("36")
 
     fireEvent.click(screen.getByRole("button", { name: /foothold/ }))
     fireEvent.click(await screen.findByRole("button", { name: /logs/ }))
@@ -394,8 +395,8 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     })
     fireEvent.click(within(sheet).getByRole("button", { name: "Done" }))
 
-    await waitFor(() => expect(within(season).getByTitle("Spin budget").textContent).toBe("41"))
-    expect(within(list).getByTitle("Spin budget").textContent).toBe("41")
+    await waitFor(() => expect(within(season).getByLabelText("Spin budget").parentElement?.textContent).toBe("41"))
+    expect(within(list).getByLabelText("Spin budget").parentElement?.textContent).toBe("41")
   })
 
   it("names a milestone's unlock by its plugin's text and icon, a border with its diameter in the same pill", async () => {
@@ -406,7 +407,7 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     const foothold = within(list).getByRole("listitem", { name: "foothold" })
     const deep = within(list).getByRole("listitem", { name: "deep" })
     expect(within(foothold).getByText("Border").parentElement?.textContent).toBe("Border99")
-    expect(within(foothold).queryByTitle("Border diameter")).toBeNull()
+    expect(tipOf(within(foothold).getByText("Border").parentElement)).toBeNull()
     expect(within(deep).getByText("Nether").parentElement?.textContent).toBe("Nether")
     await waitFor(() => expect(foothold.querySelector('[data-icon="minecraft:map"]')).toBeTruthy())
     expect(deep.querySelector('[data-icon="minecraft:netherrack"]')).toBeTruthy()

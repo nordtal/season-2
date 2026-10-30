@@ -27,7 +27,7 @@ import {
   ResponsiveDialogTitle,
 } from "@/components/ui/responsive-dialog"
 import { Empty, QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
-import { StatusBadge, runKind } from "@/components/steward/status"
+import { Hint, runKind, StatusBadge } from "@/components/steward/status"
 import { choice, t } from "@/lib/texts"
 
 export function ServicePlugins({ service }: { service: string }) {
@@ -226,9 +226,9 @@ function PluginRow({
             {versions.length > 0 || plugin.addedBy ? (
               <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground tnum">
                 {versions.map((piece) => (
-                  <span key={piece.text} className="truncate" title={piece.title}>
-                    {piece.text}
-                  </span>
+                  <Hint key={piece.text} tip={piece.title}>
+                    <span className="truncate">{piece.text}</span>
+                  </Hint>
                 ))}
                 {plugin.addedBy ? (
                   <Actor kind={plugin.addedBy.kind} id={plugin.addedBy.person ?? ""} className="min-w-0" />
@@ -254,7 +254,7 @@ function PluginRow({
           {status.text}
         </span>
       ) : null}
-      {plugin?.projectId ? <ModrinthLink url={plugin.pageUrl} title={plugin.name} /> : null}
+      {plugin?.projectId ? <ModrinthLink url={plugin.pageUrl} name={plugin.name} /> : null}
       {plugin?.group === "added" && plugin.removable && plugin.artifact ? (
         <RemoveButton service={service} plugin={plugin} artifact={plugin.artifact} />
       ) : null}
@@ -275,16 +275,17 @@ function RemoveButton({ service, plugin, artifact }: { service: string; plugin: 
 
   return (
     <>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        onClick={() => setOpen(true)}
-        aria-label={t("steward.service-page.remove-plugin", { name: plugin.name })}
-        title={t("steward.service-page.remove-plugin", { name: plugin.name })}
-      >
-        <TrashIcon aria-hidden />
-      </Button>
+      <Hint tip={t("steward.service-page.remove-plugin", { name: plugin.name })}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={() => setOpen(true)}
+          aria-label={t("steward.service-page.remove-plugin", { name: plugin.name })}
+        >
+          <TrashIcon aria-hidden />
+        </Button>
+      </Hint>
       <AskThenAct
         open={open}
         onOpenChange={setOpen}
@@ -385,7 +386,7 @@ function Search({ service, loader, version }: { service: string; loader?: string
                   </div>
                   {hit ? (
                     <>
-                      <ModrinthLink url={hit.pageUrl} title={hit.title} />
+                      <ModrinthLink url={hit.pageUrl} name={hit.title} />
                       <InstallButton hit={hit} install={install} />
                     </>
                   ) : null}
@@ -410,28 +411,30 @@ function InstallButton({ hit, install }: { hit: PluginHit; install: ReturnType<t
     return <StatusBadge tone="idle">{t("steward.service-page.added")}</StatusBadge>
   }
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="icon"
-      disabled={install.isPending}
-      aria-label={t("steward.service-page.install", { title: hit.title })}
-      title={t("steward.service-page.install", { title: hit.title })}
-      onClick={() =>
-        install.mutate(
-          { projectId: hit.projectId, slug: hit.slug, title: hit.title, iconUrl: hit.iconUrl },
-          {
-            onSuccess: (answer) =>
-              toast.success(t("steward.service-page.plugin-added", { title: hit.title }), {
-                description: t("steward.service-page.arrives", { file: answer.fileName }),
-              }),
-            onError: (error) => toast.error(t("steward.service-page.not-added"), { description: errorMessage(error) }),
-          },
-        )
-      }
-    >
-      <PlusIcon aria-hidden />
-    </Button>
+    <Hint tip={t("steward.service-page.install", { title: hit.title })}>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        disabled={install.isPending}
+        aria-label={t("steward.service-page.install", { title: hit.title })}
+        onClick={() =>
+          install.mutate(
+            { projectId: hit.projectId, slug: hit.slug, title: hit.title, iconUrl: hit.iconUrl },
+            {
+              onSuccess: (answer) =>
+                toast.success(t("steward.service-page.plugin-added", { title: hit.title }), {
+                  description: t("steward.service-page.arrives", { file: answer.fileName }),
+                }),
+              onError: (error) =>
+                toast.error(t("steward.service-page.not-added"), { description: errorMessage(error) }),
+            },
+          )
+        }
+      >
+        <PlusIcon aria-hidden />
+      </Button>
+    </Hint>
   )
 }
 
@@ -467,19 +470,16 @@ export function Thumbnail({
   )
 }
 
-function ModrinthLink({ url, title }: { url?: string; title: string }) {
+function ModrinthLink({ url, name }: { url?: string; name: string }) {
   if (!url) return null
+  const label = t("steward.service-page.on-modrinth", { title: name })
   return (
-    <Button asChild variant="ghost" size="icon" className="text-muted-foreground">
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer noopener"
-        aria-label={t("steward.service-page.on-modrinth", { title })}
-        title={t("steward.service-page.on-modrinth", { title })}
-      >
-        <ArrowSquareOutIcon aria-hidden />
-      </a>
-    </Button>
+    <Hint tip={label}>
+      <Button asChild variant="ghost" size="icon" className="text-muted-foreground">
+        <a href={url} target="_blank" rel="noreferrer noopener" aria-label={label}>
+          <ArrowSquareOutIcon aria-hidden />
+        </a>
+      </Button>
+    </Hint>
   )
 }

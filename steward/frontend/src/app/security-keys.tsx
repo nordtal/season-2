@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { FingerprintIcon, PencilIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
@@ -127,17 +128,18 @@ export function SecurityKeyList({ state }: { state: SecurityKeyActions }) {
               >
                 <PencilIcon aria-hidden />
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t("steward.keys.remove", { key: key.label })}
-                title={state.onlyFactor ? t("steward.keys.only-factor") : undefined}
-                disabled={state.onlyFactor}
-                onClick={() => state.startRemoving(key)}
-              >
-                <TrashIcon aria-hidden />
-              </Button>
+              <Hint tip={state.onlyFactor ? t("steward.keys.only-factor") : undefined}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("steward.keys.remove", { key: key.label })}
+                  disabled={state.onlyFactor}
+                  onClick={() => state.startRemoving(key)}
+                >
+                  <TrashIcon aria-hidden />
+                </Button>
+              </Hint>
             </li>
           ))}
         </ul>

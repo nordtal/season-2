@@ -2,8 +2,15 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { Tooltip as TooltipPrimitive } from "radix-ui"
 
+/** Whether a `TooltipProvider` is above, which Radix keeps to itself. */
+const Provided = React.createContext(false)
+
 function TooltipProvider({ delayDuration = 0, ...props }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
-  return <TooltipPrimitive.Provider data-slot="tooltip-provider" delayDuration={delayDuration} {...props} />
+  return (
+    <Provided.Provider value>
+      <TooltipPrimitive.Provider data-slot="tooltip-provider" delayDuration={delayDuration} {...props} />
+    </Provided.Provider>
+  )
 }
 
 const TapContext = React.createContext<{
@@ -35,11 +42,13 @@ function Tooltip({ onOpenChange, defaultOpen = false, ...props }: React.Componen
     },
   }
 
-  return (
+  const root = (
     <TapContext.Provider value={context}>
       <TooltipPrimitive.Root data-slot="tooltip" {...props} open={open} onOpenChange={change} />
     </TapContext.Provider>
   )
+  /** A page outside the shell's provider, such as the key setup, still gets a tip instead of Radix's error. */
+  return React.useContext(Provided) ? root : <TooltipProvider>{root}</TooltipProvider>
 }
 
 function TooltipTrigger({ onPointerDown, onClick, ...props }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
@@ -48,7 +57,8 @@ function TooltipTrigger({ onPointerDown, onClick, ...props }: React.ComponentPro
 
   return (
     <TooltipPrimitive.Trigger
-      data-slot="tooltip-trigger"
+      /** A button under `asChild` keeps its own slot, which tables and menus style it by. */
+      {...(props.asChild ? {} : { "data-slot": "tooltip-trigger" })}
       onPointerDown={(event) => {
         onPointerDown?.(event)
         press.current = { touch: event.pointerType === "touch", wasOpen: tap?.isOpen() ?? false }

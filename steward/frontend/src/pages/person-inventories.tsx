@@ -7,7 +7,7 @@ import { choice, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { GameIcon } from "@/components/steward/game-icon"
 import { QueryState } from "@/components/steward/query-state"
-import { StatusBadge, type Tone } from "@/components/steward/status"
+import { Hint, StatusBadge, type Tone } from "@/components/steward/status"
 import { ServiceName } from "@/components/steward/service-name"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -174,21 +174,21 @@ function SlotGrid({
           if (!stack) return <div key={slot} aria-hidden className="aspect-square rounded-sm bg-muted" />
           const name = t("steward.people.stack", { item: nameOf(stack.item), amount: stack.amount })
           return (
-            <button
-              key={slot}
-              type="button"
-              title={name}
-              aria-label={name}
-              onClick={() => pick(stack)}
-              className="relative flex aspect-square items-center justify-center rounded-sm border border-border bg-secondary outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <GameIcon icons={icons} item={stack.item} size={24} />
-              {stack.amount > 1 ? (
-                <span className="absolute right-0.5 bottom-0 text-badge leading-none font-semibold tnum">
-                  {stack.amount}
-                </span>
-              ) : null}
-            </button>
+            <Hint key={slot} tip={name}>
+              <button
+                type="button"
+                aria-label={name}
+                onClick={() => pick(stack)}
+                className="relative flex aspect-square items-center justify-center rounded-sm border border-border bg-secondary outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <GameIcon icons={icons} item={stack.item} size={24} />
+                {stack.amount > 1 ? (
+                  <span className="absolute right-0.5 bottom-0 text-badge leading-none font-semibold tnum">
+                    {stack.amount}
+                  </span>
+                ) : null}
+              </button>
+            </Hint>
           )
         })}
       </div>

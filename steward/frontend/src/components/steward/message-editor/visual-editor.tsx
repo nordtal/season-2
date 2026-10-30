@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 import { ChatTextIcon } from "@phosphor-icons/react"
@@ -451,18 +452,19 @@ function RunView({
     case "placeholder": {
       const arg = args.find((candidate) => candidate.name === run.name)
       return (
-        <span
-          data-run={index}
-          contentEditable={false}
-          style={{ ...textStyle(run.style, format, tones), ...marks }}
-          title={fill(run.name, run.s)}
-          onMouseDown={(event) => {
-            event.preventDefault()
-            onSelect(startOf())
-          }}
-        >
-          <PlaceholderChip name={run.s ? `${run.name} ${run.s}` : run.name} global={arg?.global} />
-        </span>
+        <Hint tip={fill(run.name, run.s)}>
+          <span
+            data-run={index}
+            contentEditable={false}
+            style={{ ...textStyle(run.style, format, tones), ...marks }}
+            onMouseDown={(event) => {
+              event.preventDefault()
+              onSelect(startOf())
+            }}
+          >
+            <PlaceholderChip name={run.s ? `${run.name} ${run.s}` : run.name} global={arg?.global} />
+          </span>
+        </Hint>
       )
     }
     case "glyph":
@@ -591,18 +593,19 @@ function HoverMenu({
       }}
     >
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          size="icon-sm"
-          variant={hover.length > 0 ? "secondary" : "ghost"}
-          aria-label={label}
-          title={label}
-          disabled={disabled}
-          className="shrink-0"
-          onMouseDown={(event) => event.preventDefault()}
-        >
-          <ChatTextIcon aria-hidden />
-        </Button>
+        <Hint tip={label}>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant={hover.length > 0 ? "secondary" : "ghost"}
+            aria-label={label}
+            disabled={disabled}
+            className="shrink-0"
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            <ChatTextIcon aria-hidden />
+          </Button>
+        </Hint>
       </PopoverTrigger>
       <PopoverContent align="start" className="flex w-88 flex-col gap-2">
         <VisualEditor

@@ -81,16 +81,16 @@ function Awards({
   return (
     <div className="@container flex flex-col gap-3">
       <FilterBar>
-        <Pill title={label}>
+        <Pill tip={label}>
           <TERM_ICON.advancement aria-label={label} className="size-3.5 shrink-0" />
           {awards.length.toLocaleString("en")}
         </Pill>
-        <Pill title={field(list, "aura")?.label}>
+        <Pill tip={field(list, "aura")?.label}>
           <TERM_ICON.aura aria-label={field(list, "aura")?.label} className="size-3.5 shrink-0" />
           {sum(awards, "aura").toLocaleString("en")}
         </Pill>
         {field(list, "spins") ? (
-          <Pill title={field(list, "spins")?.label}>
+          <Pill tip={field(list, "spins")?.label}>
             <TERM_ICON.spins aria-label={field(list, "spins")?.label} className="size-3.5 shrink-0" />
             {sum(awards, "spins").toLocaleString("en")}
           </Pill>

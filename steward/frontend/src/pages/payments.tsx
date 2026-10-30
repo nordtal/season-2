@@ -43,13 +43,7 @@ function SettleAction({ reference }: { reference: string }) {
   return (
     <AskThenAct
       trigger={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={settle.isPending}
-          title={t("steward.payments.settle")}
-        >
+        <Button type="button" variant="outline" size="sm" disabled={settle.isPending}>
           <TERM_ICON.settle aria-hidden />
           {t("steward.payments.settle")}
         </Button>

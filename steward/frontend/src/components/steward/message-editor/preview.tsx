@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { createContext, use, useEffect, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 import { CaretDownIcon } from "@phosphor-icons/react"
@@ -158,14 +159,11 @@ export function BlockLink({ block, children }: { block: string | undefined; chil
   const open = block === undefined ? undefined : opener(block)
   if (!open) return children
   return (
-    <button
-      type="button"
-      onClick={open}
-      title={t("steward.texts.open-block")}
-      className="cursor-pointer underline decoration-dotted underline-offset-2"
-    >
-      {children}
-    </button>
+    <Hint tip={t("steward.texts.open-block")}>
+      <button type="button" onClick={open} className="cursor-pointer underline decoration-dotted underline-offset-2">
+        {children}
+      </button>
+    </Hint>
   )
 }
 

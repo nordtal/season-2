@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { PuzzlePieceIcon } from "@phosphor-icons/react"
 import { use, useId, useState } from "react"
 
@@ -61,34 +62,32 @@ export function SharedPartMenu({
       {part.shared ? (
         // On a phone the header is full, so the badge takes a line of its own under it.
         <span className="flex min-w-0 max-md:order-last max-md:basis-full max-md:px-1 max-md:pb-1">
-          <Badge
-            asChild={openShared !== undefined}
-            variant="outline"
-            className="min-w-0 shrink"
-            title={t("steward.document-editor.shared-part", { name: part.shared })}
-          >
-            {openShared ? (
-              <button type="button" onClick={openShared} className="cursor-pointer hover:bg-muted">
-                {badge}
-              </button>
-            ) : (
-              badge
-            )}
-          </Badge>
+          <Hint tip={t("steward.document-editor.shared-part", { name: part.shared })}>
+            <Badge asChild={openShared !== undefined} variant="outline" className="min-w-0 shrink">
+              {openShared ? (
+                <button type="button" onClick={openShared} className="cursor-pointer hover:bg-muted">
+                  {badge}
+                </button>
+              ) : (
+                badge
+              )}
+            </Badge>
+          </Hint>
         </span>
       ) : null}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("steward.document-editor.shared-part-menu")}
-            title={t("steward.document-editor.shared-part-menu")}
-          >
-            <PuzzlePieceIcon aria-hidden />
-          </Button>
-        </DropdownMenuTrigger>
+        <Hint tip={t("steward.document-editor.shared-part-menu")}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("steward.document-editor.shared-part-menu")}
+            >
+              <PuzzlePieceIcon aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+        </Hint>
         <DropdownMenuContent className="w-auto">
           {part.shared ? (
             <DropdownMenuItem

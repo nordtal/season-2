@@ -37,6 +37,7 @@ import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.wheel.WheelListener;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -168,10 +169,9 @@ final class SmpStart {
                 plugin,
                 plugin.aura,
                 plugin.duelSettings.get(),
-                plugin.borderSettings.get(),
-                plugin.worlds,
                 plugin.identities(),
                 plugin.renderer(),
+                plugin.documents(),
                 plugin.sounds,
                 effects,
                 plugin.clock());
@@ -219,9 +219,7 @@ final class SmpStart {
                                 plugin.renderer(),
                                 plugin.sounds),
                         plugin);
-        plugin.getServer()
-                .getPluginManager()
-                .registerEvents(new DuelListener(plugin, plugin.duelSettings.get(), activities.duels()), plugin);
+        plugin.getServer().getPluginManager().registerEvents(new DuelListener(plugin, activities.duels()), plugin);
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(new WheelListener(plugin.wheelSettings.get(), activities.wheel()), plugin);
@@ -256,11 +254,17 @@ final class SmpStart {
 
     static void restoreGravesAndRegisterWorld(final SmpPlugin plugin) {
         plugin.graves.restore();
+        final Duels duels = Objects.requireNonNull(plugin.duels, "the duels start before the world");
+        duels.restoreLeftover();
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
                         new ProtectionListener(
-                                () -> plugin.spawnRegions, plugin.identities(), plugin.renderer(), plugin.sounds),
+                                () -> plugin.spawnRegions,
+                                duels,
+                                plugin.identities(),
+                                plugin.renderer(),
+                                plugin.sounds),
                         plugin);
         plugin.getServer()
                 .getPluginManager()

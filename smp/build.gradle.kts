@@ -70,6 +70,8 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.board.Boards")
     documentClasses.add("eu.nordtal.season.smp.wheel.Wheel")
     documentClasses.add("eu.nordtal.season.smp.duel.Duels")
+    documentClasses.add("eu.nordtal.season.smp.duel.Negotiation")
+    documentClasses.add("eu.nordtal.season.smp.duel.NegotiationWindow")
     documentClasses.add("eu.nordtal.season.smp.progress.ObjectiveEngine")
     documentClasses.add("eu.nordtal.season.smp.progress.AdvancementListener")
     documentClasses.add("eu.nordtal.season.smp.grave.GraveListener")

@@ -270,6 +270,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V95__a_resolve_step_names_a_missing_secret.sql",
                 "4844d28c32f826ab02f89ec2fc4e4d3794434d251f1e5e0c878be6188180a027");
+        FROZEN.put(
+                "V96__a_duel_records_the_kit_it_was_fought_with.sql",
+                "47ca5a742ecac9493725cd1a50311ce552aeb4b951b4fe7eac64889e41d307ab");
     }
 
     @Test

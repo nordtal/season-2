@@ -37,6 +37,7 @@ class SmpRulesTest {
     private static final String POLLER = "eu.nordtal.season.smp.progress.StatisticPoller";
     private static final String DUELS = "eu.nordtal.season.smp.duel.Duels";
     private static final String DUEL_LISTENER = "eu.nordtal.season.smp.duel.DuelListener";
+    private static final String NEGOTIATION = "eu.nordtal.season.smp.duel.Negotiation";
     private static final String GRAVES = "eu.nordtal.season.smp.grave.Graves";
     private static final String NPC = "eu.nordtal.season.smp.npc.SpawnNpc";
     private static final String NPC_GUARD = "eu.nordtal.season.smp.npc.NpcProtection";
@@ -193,7 +194,7 @@ class SmpRulesTest {
         classes()
                 .that(isListed(DUELS))
                 .should(callInOrder("restore", "Player#isDead", "Map#put", "Spigot#respawn", "SavedState#restore"))
-                .andShould(callOnOneLine("restore", "SavedState#restore", "Duels#spawn"))
+                .andShould(callOnOneLine("restore", "SavedState#restore", "Duels#exit"))
                 .andShould(callFrom("restore", "Player#showTitle"))
                 .andShould(callInOrder("respawned", "Map#remove", "PaperScheduler#onMain", "SavedState#restore"))
                 .because("the parked state is process memory only, and the outcome is read off the screen")
@@ -220,10 +221,12 @@ class SmpRulesTest {
     void aDuelMovesNobodyInsideTheEventThatDecidedIt() {
         handled(DUEL_LISTENER, "org.bukkit.event.entity.EntityDamageEvent");
         classes()
-                .that(isListed(DUELS))
-                .should(callInOrder("steppedOn", "PaperScheduler#onMain", "Duels#begin"))
-                .andShould(callOnceFrom("steppedOn", "Duels#begin"))
-                .because("a teleport inside a move event is undone once its handlers return")
+                .that(isListed(NEGOTIATION))
+                .should(callOnlyFrom("start", "Duels#begin"))
+                .andShould(callOnceFrom("start", "Duels#begin"))
+                .andShould(callOnlyFrom("tick", "Negotiation#start"))
+                .because("a teleport inside a move event is undone once its handlers return, and only the"
+                        + " countdown's own task starts the duel")
                 .check(classes);
         classes()
                 .that(isListed(DUEL_LISTENER))

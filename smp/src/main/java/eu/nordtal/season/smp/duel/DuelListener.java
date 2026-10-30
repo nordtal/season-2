@@ -1,11 +1,6 @@
 package eu.nordtal.season.smp.duel;
 
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import eu.nordtal.season.smp.aura.DuelType;
-import eu.nordtal.season.smp.config.DuelPlatformSpec;
-import eu.nordtal.season.smp.config.DuelsSpec;
-import eu.nordtal.season.smp.region.Box;
-import java.util.Optional;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -18,14 +13,11 @@ import org.bukkit.event.player.PlayerQuitEvent;
 /** A disconnect counts as a defeat. */
 public final class DuelListener implements Listener {
 
-    private final DuelsSpec config;
-
     private final Duels duels;
     private final org.bukkit.plugin.Plugin plugin;
 
-    public DuelListener(final org.bukkit.plugin.Plugin plugin, final DuelsSpec config, final Duels duels) {
+    public DuelListener(final org.bukkit.plugin.Plugin plugin, final Duels duels) {
         this.plugin = plugin;
-        this.config = config;
         this.duels = duels;
     }
 
@@ -44,14 +36,7 @@ public final class DuelListener implements Listener {
                 && to.getBlockZ() == from.getBlockZ()) {
             return;
         }
-
-        final Player player = event.getPlayer();
-        final Optional<DuelType> on = platformAt(to);
-        if (on.isEmpty()) {
-            duels.steppedOff(player);
-            return;
-        }
-        duels.steppedOn(player, on.get());
+        duels.moved(event);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -80,6 +65,14 @@ public final class DuelListener implements Listener {
         PaperScheduler.of(plugin).onMain(() -> duels.decide(player));
     }
 
+    /** A thrown item could leave the arena, whose restore removes only what lies inside it. */
+    @EventHandler(ignoreCancelled = true)
+    public void onDrop(final org.bukkit.event.player.PlayerDropItemEvent event) {
+        if (duels.isInArena(event.getPlayer())) {
+            event.setCancelled(true);
+        }
+    }
+
     @EventHandler
     public void onRespawn(final org.bukkit.event.player.PlayerRespawnEvent event) {
         duels.respawned(event);
@@ -87,23 +80,6 @@ public final class DuelListener implements Listener {
 
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
-        duels.steppedOff(event.getPlayer());
-        if (duels.isInArena(event.getPlayer())) {
-            duels.decide(event.getPlayer());
-        }
-    }
-
-    private Optional<DuelType> platformAt(final Location at) {
-        for (final DuelPlatformSpec spec : config.duelPlatforms()) {
-            final Box box =
-                    new Box(spec.world(), spec.minX(), spec.minY(), spec.minZ(), spec.maxX(), spec.maxY(), spec.maxZ());
-            if (box.contains(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ())) {
-                final Optional<DuelType> type = DuelType.parse(spec.type());
-                if (type.isPresent()) {
-                    return type;
-                }
-            }
-        }
-        return Optional.empty();
+        duels.quit(event.getPlayer());
     }
 }

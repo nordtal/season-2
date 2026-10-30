@@ -17,6 +17,12 @@ public abstract class Menu implements InventoryHolder {
 
     private @Nullable Inventory inventory;
 
+    /** Set once {@link #replaceWith} put another menu in this one's place. */
+    private boolean replaced;
+
+    /** Set until the open of a menu that {@link #replaceWith} showed. */
+    private boolean quiet;
+
     /** Creates this menu's window once, from the constructor of the subclass. */
     protected final Inventory frame(final int rows, final Component title) {
         if (inventory != null) {
@@ -38,6 +44,28 @@ public abstract class Menu implements InventoryHolder {
 
     public final void open(final Player player) {
         player.openInventory(getInventory());
+    }
+
+    /** Shows {@code next} in this window's place, without the close and open sounds and without {@link #closed}. */
+    public final void replaceWith(final Player player, final Menu next) {
+        replaced = true;
+        next.quiet = true;
+        next.open(player);
+        if (!player.getOpenInventory().getTopInventory().equals(next.getInventory())) {
+            replaced = false;
+            next.quiet = false;
+        }
+    }
+
+    final boolean replaced() {
+        return replaced;
+    }
+
+    /** Returns whether this open is quiet, and clears it. */
+    final boolean openedQuietly() {
+        final boolean was = quiet;
+        quiet = false;
+        return was;
     }
 
     /** Returns whether a click on a raw slot is free. Every slot is refused unless a menu says so. */

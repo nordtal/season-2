@@ -22,6 +22,13 @@ class BoxesTest {
     }
 
     @Test
+    void aBoxSpansTwoCornersInEitherOrder() {
+        final Box box = Box.spanning(WORLD, 4, 70, 0, 0, 60, 4);
+
+        assertEquals(new Box(WORLD, 0, 60, 0, 4, 70, 4), box);
+    }
+
+    @Test
     void oneBlockOutsideIsOutside() {
         final Box box = new Box(WORLD, 0, 60, 0, 4, 70, 4);
 

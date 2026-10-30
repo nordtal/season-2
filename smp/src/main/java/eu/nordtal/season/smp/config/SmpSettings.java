@@ -2,6 +2,7 @@ package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.packrendering.board.BoardFrame;
 import eu.nordtal.season.settings.Checks;
+import java.util.List;
 
 public final class SmpSettings {
 
@@ -38,12 +39,36 @@ public final class SmpSettings {
         }
     }
 
+    private static final int KIT_NAME_LIMIT = 64;
+
+    /** The negotiation window has five kit rows. */
+    private static final int KIT_LIMIT = 5;
+
     public static void checkDuels(final DuelsSpec config) {
         if (config.duelStake() < 0) {
             throw new IllegalArgumentException("duel-stake must not be negative");
         }
-        Checks.requirePositive("concurrent-duel-limit", config.concurrentDuelLimit());
-        Checks.requirePositive("duel-arena-spacing", config.duelArenaSpacing());
+        Checks.requireText("negotiation-area: world", config.negotiationArea().world());
+        Checks.requireText("arena: world", config.arena().world());
+        for (final DuelPositionSpec position :
+                List.of(config.fighterStartFirst(), config.fighterStartSecond(), config.exit())) {
+            Checks.requireText("fighter starts and exit: world", position.world());
+        }
+        if (config.duelKits().isEmpty()) {
+            throw new IllegalArgumentException("duel-kits: two players can only agree on a kit if there is one");
+        }
+        if (config.duelKits().size() > KIT_LIMIT) {
+            throw new IllegalArgumentException(
+                    "duel-kits: the negotiation window shows at most " + KIT_LIMIT + " kits");
+        }
+        for (final DuelKitSpec kit : config.duelKits()) {
+            Checks.requireText("duel-kits: name", kit.name());
+            if (kit.name().length() > KIT_NAME_LIMIT) {
+                // The aura history stores the kit by name in a column of this width.
+                throw new IllegalArgumentException(
+                        "duel-kits: the name '" + kit.name() + "' is longer than " + KIT_NAME_LIMIT + " characters");
+            }
+        }
     }
 
     public static void checkAdvancementAwards(final AdvancementAwardsSpec config) {

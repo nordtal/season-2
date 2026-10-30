@@ -79,7 +79,7 @@ class MenuLayoutsTest {
                 .map(Documents.Packaged::declaration)
                 .filter(declaration -> declaration.shape() == DocumentSpec.Shape.MENU)
                 .toList();
-        assertEquals(5, menus.size());
+        assertEquals(6, menus.size());
         for (final DocumentDeclaration menu : menus) {
             assertTrue(menu.rows() >= 1 && menu.rows() <= MenuTitle.MAX_ROWS, menu.id());
             for (final Slot slot : menu.slots()) {

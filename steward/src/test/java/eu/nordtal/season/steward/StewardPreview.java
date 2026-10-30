@@ -68,7 +68,7 @@ public final class StewardPreview {
     private static final String DUMP_OWNER = "nordtal";
 
     /**
-     * Every service of compose.yml beside the stand-in's smp, so the whole list shows.
+     * The services of compose.yml that the navigation lists, beside the stand-in's smp, so the whole list shows.
      *
      * A one-shot that ran and a standby at rest among them. Each other carries the section label that lists it in the
      * navigation, as compose.yml does.

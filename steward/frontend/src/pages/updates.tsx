@@ -191,7 +191,7 @@ function Available() {
                         <Link
                           to="/services/$name"
                           params={{ name: change.service }}
-                          className="underline-offset-4 tap-target hover:text-primary hover:underline"
+                          className="inline-flex min-w-0 underline-offset-4 tap-target hover:text-primary hover:underline"
                         >
                           <ServiceName service={change.service} />
                         </Link>

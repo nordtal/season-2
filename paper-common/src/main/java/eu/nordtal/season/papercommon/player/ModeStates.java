@@ -180,7 +180,7 @@ public final class ModeStates implements Listener {
             return;
         }
         // An admin's own editor puts their cursor back, and every editor of the player closes, before the snapshot.
-        if (player.getOpenInventory().getTopInventory().getHolder() instanceof InventoryEditor) {
+        if (showsAnEditor(player)) {
             player.closeInventory();
         }
         closeEditors(id);
@@ -217,7 +217,7 @@ public final class ModeStates implements Listener {
     public void onQuit(final PlayerQuitEvent event) {
         final Player player = event.getPlayer();
         // An admin's own editor gives its stacks back before their state is written.
-        if (player.getOpenInventory().getTopInventory().getHolder() instanceof InventoryEditor) {
+        if (showsAnEditor(player)) {
             player.closeInventory();
         }
         closeEditors(player.getUniqueId());
@@ -228,7 +228,7 @@ public final class ModeStates implements Listener {
     public void close() {
         // An admin's cursor goes back into their inventory before their state is written.
         plugin.getServer().getOnlinePlayers().stream()
-                .filter(player -> player.getOpenInventory().getTopInventory().getHolder() instanceof InventoryEditor)
+                .filter(this::showsAnEditor)
                 .forEach(Player::closeInventory);
         List.copyOf(editors.values()).forEach(open -> List.copyOf(open).forEach(InventoryEditor::commit));
         plugin.getServer().getOnlinePlayers().forEach(this::leave);
@@ -348,7 +348,7 @@ public final class ModeStates implements Listener {
             final InventoryEditor editor =
                     new InventoryEditor(this, admin, player, container, title, shown, stored, kept);
             editor.open(viewer);
-            if (viewer.getOpenInventory().getTopInventory().getHolder() != editor) {
+            if (!editor.showsTo(viewer)) {
                 return Opened.NOT_EDITABLE;
             }
             editors.computeIfAbsent(player.value(), id -> new ArrayList<>()).add(editor);
@@ -375,6 +375,11 @@ public final class ModeStates implements Listener {
         return here != null && held(here) == Mode.SURVIVAL;
     }
 
+    /** Returns whether {@code viewer} has one of the editors open here. */
+    private boolean showsAnEditor(final Player viewer) {
+        return editors.values().stream().flatMap(List::stream).anyMatch(editor -> editor.showsTo(viewer));
+    }
+
     /** Returns whether an editor of {@code player}'s stored {@code container} is open here; one at a time may be. */
     private boolean storedEditorOpen(final PlayerId player, final Container container) {
         return editors.getOrDefault(player.value(), List.of()).stream()
@@ -388,9 +393,7 @@ public final class ModeStates implements Listener {
     void move(final InventoryEditor editor, final Player admin, final int slot, final boolean right) {
         scheduler.onMain(() -> {
             final Player here = plugin.getServer().getPlayer(editor.player().value());
-            if (here == null
-                    || !Boolean.TRUE.equals(survivalHere(here.getUniqueId()))
-                    || admin.getOpenInventory().getTopInventory().getHolder() != editor) {
+            if (here == null || !Boolean.TRUE.equals(survivalHere(here.getUniqueId())) || !editor.showsTo(admin)) {
                 return;
             }
             final Inventory inventory = contents(here, editor.container());

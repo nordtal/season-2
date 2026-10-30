@@ -176,7 +176,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
             case HungerGamesRequest.PreviewDocument preview -> preview(preview.player(), preview.preview());
             case HungerGamesRequest.CheckSettings check -> checkSettings(check.change());
             case HungerGamesRequest.StoreModeState store -> storeModeState(store.player());
-            case HungerGamesRequest.OpenInventory open -> openInventory(open.admin(), open.player(), open.container());
+            case HungerGamesRequest.OpenInventory open -> openEditor(open.admin(), open.player(), open.container());
             case HungerGamesRequest.RemoveStack remove ->
                 removeStack(
                         remove.player(),

@@ -41,7 +41,6 @@ import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
-import eu.nordtal.season.packrendering.menu.MenuTitle;
 import eu.nordtal.season.papercommon.access.AdminWatch;
 import eu.nordtal.season.papercommon.access.BukkitOps;
 import eu.nordtal.season.papercommon.chat.Previews;
@@ -222,7 +221,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         listen(hud);
         // Declared first, the drafted bar stands above the lines the plugin declares in enable().
         hud.declare(previews::bossBar);
-        menus = new Menus(chime());
+        menus = new Menus(chime()::play);
         listen(menus);
 
         // ops.json survives a crash, so a join must find no admin left in it.
@@ -479,7 +478,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     }
 
     /** Opens an editor of a player's Survival inventory or ender chest for an admin on this server. */
-    protected final Answer openInventory(final PlayerId admin, final PlayerId player, final Container container) {
+    protected final Answer openEditor(final PlayerId admin, final PlayerId player, final Container container) {
         final Locale locale = identities.languageOf(admin.value());
         final GameDocument document = new GameDocument(
                 renderer,
@@ -493,8 +492,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 here.sendMessage(renderer.format(locale, InventoryEditor.KEPT.with(new InventoryEditor.Kept(count))));
             }
         };
-        return switch (modeStates.open(
-                admin, player, container, MenuTitle.of(InventoryEditor.rows(container), document.title()), kept)) {
+        return switch (modeStates.open(admin, player, container, document.title(), kept)) {
             case OPENED -> Answer.done(Sent.of(Replies.EDITOR_OPENED));
             case ADMIN_AWAY -> Answer.refused(ServerRefusal.NOT_HERE.with());
             case NOT_EDITABLE -> Answer.refused(ServerRefusal.NOT_EDITABLE.with());

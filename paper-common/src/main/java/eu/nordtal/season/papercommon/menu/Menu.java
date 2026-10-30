@@ -47,6 +47,11 @@ public abstract class Menu implements InventoryHolder {
         player.openInventory(getInventory());
     }
 
+    /** Returns whether {@code player} has this window open. */
+    public final boolean showsTo(final Player player) {
+        return inventory != null && player.getOpenInventory().getTopInventory().equals(inventory);
+    }
+
     /** Shows {@code next} in this window's place, without the close and open sounds and without {@link #closed}. */
     public final void replaceWith(final Player player, final Menu next) {
         replaced = true;

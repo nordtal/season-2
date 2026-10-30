@@ -1,7 +1,7 @@
 package eu.nordtal.season.papercommon.menu;
 
 import eu.nordtal.season.messages.feedback.Feedback;
-import eu.nordtal.season.papercommon.command.PaperUser;
+import java.util.function.BiConsumer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,9 +15,10 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 /** The listener for every {@link Menu}: sounds on open and close, and clicks. A replacement plays neither sound. */
 public final class Menus implements Listener {
 
-    private final PaperUser.Chime chime;
+    // Plays a sound to a player; a function, so that menus depend on no command.
+    private final BiConsumer<Player, Feedback> chime;
 
-    public Menus(final PaperUser.Chime chime) {
+    public Menus(final BiConsumer<Player, Feedback> chime) {
         this.chime = chime;
     }
 
@@ -38,7 +39,7 @@ public final class Menus implements Listener {
         final MenuClick click = menu.click(player, slot, event.getClick());
         final Feedback sound = click.sound();
         if (sound != null) {
-            chime.play(player, sound);
+            chime.accept(player, sound);
         }
         final Menu next = click.open();
         if (next != null) {
@@ -63,7 +64,7 @@ public final class Menus implements Listener {
         if (event.getPlayer() instanceof Player player
                 && event.getInventory().getHolder() instanceof Menu menu
                 && !menu.openedQuietly()) {
-            chime.play(player, Feedback.SURFACE_OPEN);
+            chime.accept(player, Feedback.SURFACE_OPEN);
         }
     }
 
@@ -72,7 +73,7 @@ public final class Menus implements Listener {
         if (event.getPlayer() instanceof Player player
                 && event.getInventory().getHolder() instanceof Menu menu
                 && !menu.replaced()) {
-            chime.play(player, Feedback.SURFACE_CLOSE);
+            chime.accept(player, Feedback.SURFACE_CLOSE);
             menu.closed(player);
         }
     }

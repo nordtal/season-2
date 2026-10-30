@@ -6,6 +6,7 @@ import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Stack;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.packrendering.menu.MenuTitle;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
@@ -78,7 +79,7 @@ public final class InventoryEditor extends Menu {
         this.shown = Collections.unmodifiableList(new ArrayList<>(shown));
         this.stored = stored;
         this.kept = kept;
-        this.window = frame(rows(container), title);
+        this.window = frame(rows(container), MenuTitle.of(rows(container), title));
         for (int view = 0; view < window.getSize(); view++) {
             final int slot = slotOf(container, view);
             final ItemStack stack = slot < 0 ? null : shown.get(slot);

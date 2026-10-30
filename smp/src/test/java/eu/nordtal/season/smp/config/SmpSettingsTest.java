@@ -126,6 +126,29 @@ class SmpSettingsTest {
     }
 
     @Test
+    void aBrokenEntryOfAListNamesItsFieldAndTheLogSentenceNamesTheEntry() {
+        final Group<AdvancementAwardsSpec> awards = Group.of("advancement-awards", AdvancementAwardsSpec.class)
+                .checkedBy(SmpSettings::checkAdvancementAwards);
+        final String entries = new Gson()
+                .toJson(List.of(Map.of("advancement", "minecraft:nether/netherite_armor", "aura", 50, "spins", 1)));
+        final SettingsException refused = assertThrows(
+                SettingsException.class,
+                () -> store.settings("smp")
+                        .trial(
+                                awards,
+                                new SettingsChange(
+                                        "advancement-awards", Map.of("advancement-awards", entries), List.of())));
+
+        final SettingRefused named = SettingRefused.of(refused, "advancement-awards");
+        assertEquals(
+                Arrays.asList("advancement-awards.aura", SettingRule.AT_MOST, "10"),
+                Arrays.asList(named.setting(), named.rule(), named.value()));
+        assertTrue(
+                String.valueOf(named.getMessage()).startsWith("'minecraft:nether/netherite_armor': "),
+                named.getMessage());
+    }
+
+    @Test
     void theNestedListsComeBackWithTheirValues() throws Exception {
         final BoardsSpec boards = reread(BOARDS);
         final DuelsSpec duels = reread(DUELS);

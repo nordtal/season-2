@@ -7,7 +7,7 @@ import { lockTitle, touches, useRunLock } from "@/lib/run-lock"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { runKind } from "@/components/steward/status"
+import { Hint, runKind } from "@/components/steward/status"
 import { message, t } from "@/lib/texts"
 
 /** It is a run like any other, so players are warned and moved before the container goes. */
@@ -70,18 +70,19 @@ export function RecreateButton({
           <TooltipContent>{title}</TooltipContent>
         </Tooltip>
       ) : (
-        <Button
-          variant={variant}
-          size={size}
-          className={className}
-          disabled={unavailable}
-          title={title}
-          aria-label={labelClassName ? runKind("RECREATE") : undefined}
-          onClick={() => setOpen(true)}
-        >
-          <TERM_ICON.recreate className="size-3.5" aria-hidden />
-          <span className={labelClassName}>{runKind("RECREATE")}</span>
-        </Button>
+        <Hint tip={title}>
+          <Button
+            variant={variant}
+            size={size}
+            className={className}
+            disabled={unavailable}
+            aria-label={labelClassName ? runKind("RECREATE") : undefined}
+            onClick={() => setOpen(true)}
+          >
+            <TERM_ICON.recreate className="size-3.5" aria-hidden />
+            <span className={labelClassName}>{runKind("RECREATE")}</span>
+          </Button>
+        </Hint>
       )}
       <AskThenAct
         open={open}

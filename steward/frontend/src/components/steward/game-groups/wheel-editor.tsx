@@ -110,7 +110,7 @@ function Prizes({
         {list.label}
       </Heading>
       <div className="flex flex-wrap gap-1.5">
-        <Pill title={item.label}>
+        <Pill tip={item.label}>
           <TERM_ICON.item aria-label={item.label} className="size-3.5 shrink-0" />
           {prizes.length.toLocaleString("en")}
         </Pill>

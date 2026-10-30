@@ -6,6 +6,7 @@ import {
   PaperPlaneTiltIcon,
   XIcon,
 } from "@phosphor-icons/react"
+import { Hint } from "@/components/steward/status"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -99,16 +100,17 @@ export function ServiceConsole({
             </div>
           ) : (
             <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => setFinding(true)}
-                aria-label={t("steward.service-page.find")}
-                title={t("steward.service-page.find")}
-              >
-                <ListMagnifyingGlassIcon aria-hidden />
-              </Button>
+              <Hint tip={t("steward.service-page.find")}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setFinding(true)}
+                  aria-label={t("steward.service-page.find")}
+                >
+                  <ListMagnifyingGlassIcon aria-hidden />
+                </Button>
+              </Hint>
               <div className="flex-1" />
             </>
           )}
@@ -127,17 +129,18 @@ export function ServiceConsole({
               ))}
             </SelectContent>
           </Select>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => download(name, shown)}
-            disabled={!shown.some((entry) => entry.kind === "line")}
-            aria-label={t("steward.service-page.download")}
-            title={t("steward.service-page.download")}
-          >
-            <DownloadSimpleIcon aria-hidden />
-          </Button>
+          <Hint tip={t("steward.service-page.download")}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => download(name, shown)}
+              disabled={!shown.some((entry) => entry.kind === "line")}
+              aria-label={t("steward.service-page.download")}
+            >
+              <DownloadSimpleIcon aria-hidden />
+            </Button>
+          </Hint>
         </div>
         {hasConsole ? <ConsoleLine name={name} /> : null}
       </div>
@@ -311,10 +314,10 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
                 className="col-span-full flex flex-wrap gap-x-3 pt-1 sm:grid sm:grid-cols-subgrid sm:pt-0"
               >
                 <span className="text-muted-foreground tabular-nums select-none">{line.time}</span>
-                {/* A phone wraps the line and shows the whole source; a desktop's column truncates it to the title. */}
-                <span className="text-muted-foreground sm:max-w-25 sm:truncate" title={line.source || undefined}>
-                  {line.source}
-                </span>
+                {/* A phone wraps the line and shows the whole source; a desktop's column truncates it to the tip. */}
+                <Hint tip={line.source}>
+                  <span className="text-muted-foreground sm:max-w-25 sm:truncate">{line.source}</span>
+                </Hint>
                 <span
                   className={cn(
                     "min-w-0 basis-full break-words whitespace-pre-wrap sm:basis-auto",
@@ -341,17 +344,18 @@ function LogLines({ entries }: { entries: LogEntry[] }) {
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent to-card" />
       {away ? (
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon"
-          onClick={() => box.current?.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label={t("steward.service-page.newest")}
-          title={t("steward.service-page.newest")}
-          className="absolute top-2 right-3 rounded-full shadow-sm"
-        >
-          <ArrowUpIcon aria-hidden />
-        </Button>
+        <Hint tip={t("steward.service-page.newest")}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            onClick={() => box.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            aria-label={t("steward.service-page.newest")}
+            className="absolute top-2 right-3 rounded-full shadow-sm"
+          >
+            <ArrowUpIcon aria-hidden />
+          </Button>
+        </Hint>
       ) : null}
     </div>
   )
@@ -455,16 +459,17 @@ function ConsoleLine({ name }: { name: string }) {
         autoCorrect="off"
         spellCheck={false}
       />
-      <Button
-        type="submit"
-        variant="ghost"
-        size="icon"
-        disabled={!command.trim() || send.isPending}
-        aria-label={t("steward.service-page.send")}
-        title={t("steward.service-page.send")}
-      >
-        <PaperPlaneTiltIcon aria-hidden />
-      </Button>
+      <Hint tip={t("steward.service-page.send")}>
+        <Button
+          type="submit"
+          variant="ghost"
+          size="icon"
+          disabled={!command.trim() || send.isPending}
+          aria-label={t("steward.service-page.send")}
+        >
+          <PaperPlaneTiltIcon aria-hidden />
+        </Button>
+      </Hint>
       {open && offered ? (
         <ConsoleSuggestions words={words} expected={offered.arguments} chosen={chosen} onTake={take} />
       ) : null}

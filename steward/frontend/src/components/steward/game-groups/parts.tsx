@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import type { ReactNode } from "react"
 
@@ -54,21 +55,22 @@ export function NumberInput({
           <Mark aria-hidden />
         </InputGroupAddon>
       ) : null}
-      <InputGroupInput
-        id={id}
-        aria-label={label}
-        inputMode={entry?.type === "DECIMAL" ? "decimal" : "numeric"}
-        value={value}
-        disabled={disabled}
-        readOnly={readOnly}
-        aria-invalid={problem !== null}
-        title={problem ?? (unsaved ? t("steward.settings.not-saved") : undefined)}
-        aria-description={problem ?? (unsaved ? t("steward.settings.not-saved") : undefined)}
-        className={cn("text-right font-mono tabular-nums", unsaved && "text-muted-foreground italic")}
-        onChange={(event) => {
-          if (typing === undefined || typing.test(event.target.value)) onChange?.(event.target.value)
-        }}
-      />
+      <Hint tip={problem ?? (unsaved ? t("steward.settings.not-saved") : undefined)}>
+        <InputGroupInput
+          id={id}
+          aria-label={label}
+          inputMode={entry?.type === "DECIMAL" ? "decimal" : "numeric"}
+          value={value}
+          disabled={disabled}
+          readOnly={readOnly}
+          aria-invalid={problem !== null}
+          aria-description={problem ?? (unsaved ? t("steward.settings.not-saved") : undefined)}
+          className={cn("text-right font-mono tabular-nums", unsaved && "text-muted-foreground italic")}
+          onChange={(event) => {
+            if (typing === undefined || typing.test(event.target.value)) onChange?.(event.target.value)
+          }}
+        />
+      </Hint>
     </InputGroup>
   )
 }

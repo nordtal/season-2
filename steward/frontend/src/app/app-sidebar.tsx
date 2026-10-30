@@ -61,7 +61,7 @@ export function NavList({ onFollow, marker }: { onFollow?: () => void; marker: "
                       <entry.icon className="size-4" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-                    {group.id === "services" ? <HealthDot service={service} /> : null}
+                    {group.id === "services" ? <HealthDot service={service} tip /> : null}
                   </Link>
                 </li>
               )

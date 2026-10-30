@@ -1,3 +1,4 @@
+import { Tip } from "@/components/steward/status"
 import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from "@phosphor-icons/react"
 import { type ReactNode, useState } from "react"
 
@@ -31,10 +32,9 @@ import {
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"
 
-export function Pill({ title, className, children }: { title?: string; className?: string; children: ReactNode }) {
-  return (
+export function Pill({ tip, className, children }: { tip?: string; className?: string; children: ReactNode }) {
+  const pill = (
     <span
-      title={title}
       className={cn(
         "inline-flex h-6 max-w-full min-w-0 shrink-0 items-center gap-1 rounded-full bg-muted px-2 text-xs text-foreground/80 tabular-nums",
         className,
@@ -43,6 +43,7 @@ export function Pill({ title, className, children }: { title?: string; className
       {children}
     </span>
   )
+  return tip ? <Tip content={tip}>{pill}</Tip> : pill
 }
 
 function labelOf(fields: ConfigEntry[], key: string): string {
@@ -67,7 +68,7 @@ export function BudgetMarks({
     const label = labelOf(schema.objective, key)
     const icons = { Mark: fieldIcon(key) }
     return (
-      <Pill key={key} title={titled ? label : undefined} className={className}>
+      <Pill key={key} tip={titled ? label : undefined} className={className}>
         {icons.Mark ? <icons.Mark aria-label={label} className="size-3.5 shrink-0" /> : null}
         {sums[key].toLocaleString("en")}
       </Pill>
@@ -208,13 +209,13 @@ export function MilestoneMarks({ milestone, schema }: { milestone: SectionValues
         const mark = icons.Mark ? <icons.Mark aria-label={field.label} className="size-3.5 shrink-0" /> : field.label
         if (field.type === "BOOLEAN") {
           return (
-            <Pill key={key} title={field.label}>
+            <Pill key={key} tip={field.label}>
               {mark}
             </Pill>
           )
         }
         return (
-          <Pill key={key} title={field.label}>
+          <Pill key={key} tip={field.label}>
             {mark}
             {Number(value).toLocaleString("en")}
           </Pill>

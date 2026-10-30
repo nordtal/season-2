@@ -1,3 +1,4 @@
+import { Hint } from "@/components/steward/status"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { CodeIcon, EyeIcon } from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
@@ -65,27 +66,29 @@ export function RichField({
   // The switch between as it looks and as written ends the tool row, so the bottom row exists only for `start` and `end`.
   const looks = (
     <span role="group" className="flex rounded-md bg-muted p-0.5">
-      <InputGroupButton
-        size="icon-xs"
-        variant={visual ? "secondary" : "ghost"}
-        aria-pressed={visual}
-        aria-label={t("steward.message-editor.as-it-looks")}
-        title={t("steward.message-editor.as-it-looks")}
-        disabled={!readable}
-        onClick={() => setSource(false)}
-      >
-        <EyeIcon aria-hidden />
-      </InputGroupButton>
-      <InputGroupButton
-        size="icon-xs"
-        variant={visual ? "ghost" : "secondary"}
-        aria-pressed={!visual}
-        aria-label={t("steward.message-editor.source")}
-        title={t("steward.message-editor.source")}
-        onClick={() => setSource(true)}
-      >
-        <CodeIcon aria-hidden />
-      </InputGroupButton>
+      <Hint tip={t("steward.message-editor.as-it-looks")}>
+        <InputGroupButton
+          size="icon-xs"
+          variant={visual ? "secondary" : "ghost"}
+          aria-pressed={visual}
+          aria-label={t("steward.message-editor.as-it-looks")}
+          disabled={!readable}
+          onClick={() => setSource(false)}
+        >
+          <EyeIcon aria-hidden />
+        </InputGroupButton>
+      </Hint>
+      <Hint tip={t("steward.message-editor.source")}>
+        <InputGroupButton
+          size="icon-xs"
+          variant={visual ? "ghost" : "secondary"}
+          aria-pressed={!visual}
+          aria-label={t("steward.message-editor.source")}
+          onClick={() => setSource(true)}
+        >
+          <CodeIcon aria-hidden />
+        </InputGroupButton>
+      </Hint>
     </span>
   )
   return (

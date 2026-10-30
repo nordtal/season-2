@@ -494,7 +494,7 @@ public final class DocumentCheck {
                     && text.languages().getOrDefault(Locales.DEFAULT_TAG, List.of()).stream()
                             .anyMatch(english -> !english.isBlank())) {
                 problems.add(new Problem(
-                        false, place + " is blank in " + nameOf(language) + ", so its readers see none of it", at));
+                        false, place + " is blank in " + nameOf(language) + ", though it is written in English", at));
             }
             for (final String version : versions) {
                 final String where = place + " in " + nameOf(language);

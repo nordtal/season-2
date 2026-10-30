@@ -262,7 +262,7 @@ class DocumentCheckTest {
         final List<DocumentCheck.Problem> problems =
                 DocumentCheck.check(SUMMARY.declaration(), Document.decode(blank), MessageCheck.Mode.OVERRIDE);
         assertEquals(
-                List.of("a button's label is blank in German, so its readers see none of it"),
+                List.of("a button's label is blank in German, though it is written in English"),
                 problems.stream()
                         .filter(problem -> !problem.error())
                         .map(DocumentCheck.Problem::text)

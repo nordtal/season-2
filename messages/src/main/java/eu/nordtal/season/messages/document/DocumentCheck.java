@@ -490,6 +490,12 @@ public final class DocumentCheck {
             if (versions.isEmpty()) {
                 error(place + " has no version in " + nameOf(language));
             }
+            if (versions.stream().anyMatch(String::isBlank)
+                    && text.languages().getOrDefault(Locales.DEFAULT_TAG, List.of()).stream()
+                            .anyMatch(english -> !english.isBlank())) {
+                problems.add(new Problem(
+                        false, place + " is blank in " + nameOf(language) + ", so its readers see none of it", at));
+            }
             for (final String version : versions) {
                 final String where = place + " in " + nameOf(language);
                 MessageCheck.check(version, rules, mode, blocks.apply(language))

@@ -642,7 +642,8 @@ public final class DocumentRenderer {
                     yield lines.isEmpty()
                             || lines.stream()
                                     .allMatch(line -> line.list() == null
-                                            && line(locale, line).isBlank())
+                                            && line.text().versions(Locales.tag(locale)).stream()
+                                                    .allMatch(String::isBlank))
                             || (lines.stream().anyMatch(line -> line.list() != null)
                                     && lines.stream()
                                             .allMatch(line -> line.list() != null

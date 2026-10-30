@@ -160,8 +160,9 @@ class DocumentRendererTest {
     void aPreviewLeavesOutATextBlockNotWrittenYetInItsLanguage() {
         final Documents.Packaged welcome = packaged("onboarding-welcome");
         final List<Part> parts = new ArrayList<>(welcome.document().parts());
-        parts.add(Part.text(
-                List.of(new Line(new Text(Map.of("en", List.of("Hello"), "de", List.of(""))), null, null, null))));
+        parts.add(Part.text(List.of(
+                new Line(new Text(Map.of("en", List.of("Hello"), "de", List.of(""))), null, null, null),
+                new Line(new Text(Map.of("en", List.of("Read"), "de", List.of(""))), Line.Style.HEADING, null, null))));
         final Documents.Packaged added = new Documents.Packaged(welcome.declaration(), new Document(parts));
         final List<Locale> languages = List.of(Locale.ENGLISH, Locale.GERMAN);
 
@@ -171,7 +172,7 @@ class DocumentRendererTest {
         assertAll(
                 () -> assertEquals(
                         StoredDocumentsStandIn.renderer().preview(welcome, languages, Locale.GERMAN), german),
-                () -> assertTrue(english.contains("\"Hello\""), english));
+                () -> assertTrue(english.contains("\"Hello\\n### Read\""), english));
     }
 
     @Test

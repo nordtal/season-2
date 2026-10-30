@@ -257,6 +257,20 @@ class DocumentCheckTest {
     }
 
     @Test
+    void aTextBlankInOneLanguageButWrittenInEnglishIsWarnedOfAndStillSaved() {
+        final String blank = SOUND.replace("\"de\": \"Bezahlen\"", "\"de\": \"\"");
+        final List<DocumentCheck.Problem> problems =
+                DocumentCheck.check(SUMMARY.declaration(), Document.decode(blank), MessageCheck.Mode.OVERRIDE);
+        assertEquals(
+                List.of("a button's label is blank in German, so its readers see none of it"),
+                problems.stream()
+                        .filter(problem -> !problem.error())
+                        .map(DocumentCheck.Problem::text)
+                        .toList());
+        assertEquals(List.of(), errors(SUMMARY, blank));
+    }
+
+    @Test
     void aTextKeepsTheTypography() {
         assertEquals(
                 List.of("a button's label in English: " + eu.nordtal.season.messages.text.Typography.SEPARATOR),

@@ -8,7 +8,7 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Writes what the sources answered as resolve steps, one per service with artefacts that move or a finding.
+ * Writes what the sources answered as resolve steps: per service with work or a finding, and per naming finding.
  *
  * The findings give each step its outcome and reason; a finding about no service is the run's.
  */

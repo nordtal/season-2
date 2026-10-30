@@ -412,6 +412,8 @@ public final class UpdateFeed {
         final RunStep.Row latest = steps.getLast();
         final List<MessageRef> changes = steps.reversed().stream()
                 .filter(step -> !step.changes().isEmpty())
+                // The names of missing secrets are said under why, not as what the service moves.
+                .filter(step -> step.reason() != RunStep.Reason.MISSING_SECRET)
                 .findFirst()
                 .map(step -> step.changes().stream().map(RunLines::change).toList())
                 .orElse(List.of());

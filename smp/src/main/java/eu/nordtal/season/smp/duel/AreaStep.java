@@ -14,6 +14,8 @@ enum AreaStep {
     JOIN;
 
     /**
+     * @param wasOn      the player stood on the area before the move
+     * @param on         the player stands on the area after the move
      * @param negotiates the player is one of the two on the area
      * @param left       the player closed the window and has not stepped off since
      * @param fights     the player fights the running duel

@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 class SmpSettingsTest {
@@ -90,7 +91,7 @@ class SmpSettingsTest {
 
     @Test
     void aSixthKitIsRefusedSinceTheWindowHasFiveRows() {
-        final List<Map<String, Object>> kits = java.util.stream.IntStream.range(0, 6)
+        final List<Map<String, Object>> kits = IntStream.range(0, 6)
                 .mapToObj(index -> Map.<String, Object>of("name", "Kit " + index))
                 .toList();
         final Exception refused =

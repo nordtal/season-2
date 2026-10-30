@@ -102,8 +102,7 @@ final class Negotiation {
     }
 
     Box area() {
-        final var spec = config.negotiationArea();
-        return Box.spanning(spec.world(), spec.minX(), spec.minY(), spec.minZ(), spec.maxX(), spec.maxY(), spec.maxZ());
+        return Duels.box(config.negotiationArea());
     }
 
     boolean isOn(final Location at) {

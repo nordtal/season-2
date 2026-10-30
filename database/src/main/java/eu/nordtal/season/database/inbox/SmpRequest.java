@@ -20,7 +20,8 @@ public sealed interface SmpRequest
                 SmpRequest.PreviewDocument,
                 SmpRequest.CheckSettings,
                 SmpRequest.StoreModeState,
-                SmpRequest.RemoveStack {
+                SmpRequest.RemoveStack,
+                SmpRequest.OpenInventory {
 
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
             .withRows(
@@ -30,6 +31,7 @@ public sealed interface SmpRequest
                     SetSpins.class,
                     StoreModeState.class,
                     RemoveStack.class,
+                    OpenInventory.class,
                     PreviewMessage.class,
                     PreviewDocument.class);
 
@@ -149,6 +151,19 @@ public sealed interface SmpRequest
             Objects.requireNonNull(mode, "mode");
             Objects.requireNonNull(container, "container");
             Objects.requireNonNull(item, "item");
+        }
+    }
+
+    /**
+     * Opens an editor of the player's Survival {@code container} on this server for the admin, who is on it.
+     * Refused while the admin is not on the server or the state is not here to edit.
+     */
+    record OpenInventory(PlayerId admin, PlayerId player, Container container) implements SmpRequest {
+
+        public OpenInventory {
+            Objects.requireNonNull(admin, "admin");
+            Objects.requireNonNull(player, "player");
+            Objects.requireNonNull(container, "container");
         }
     }
 }

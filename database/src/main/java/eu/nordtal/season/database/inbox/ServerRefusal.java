@@ -33,7 +33,7 @@ public enum ServerRefusal implements RefusalReason {
     /** Fewer participants than recommended, and the asker did not confirm. */
     BELOW_SOFT_MINIMUM,
 
-    /** The player of a preview is not on this server. */
+    /** The player of a preview, or the admin of an editor, is not on this server. */
     NOT_HERE,
 
     /** Discord did not deliver a preview as a direct message. */
@@ -43,12 +43,15 @@ public enum ServerRefusal implements RefusalReason {
     SETTINGS_REFUSED,
 
     /** The player holds the other mode, or the slot holds another stack than the one shown. */
-    STACK_CHANGED;
+    STACK_CHANGED,
+
+    /** This server has no Survival state of the player to edit now, or an editor of it is already open. */
+    NOT_EDITABLE;
 
     /** Returns the names of the values that {@link #with} takes, in order: the message's arguments and columns. */
     public List<String> arguments() {
         return switch (this) {
-            case NO_ACTIVE_MILESTONE, NO_GAME, NOT_HERE, NOT_DELIVERED, STACK_CHANGED -> List.of();
+            case NO_ACTIVE_MILESTONE, NO_GAME, NOT_HERE, NOT_DELIVERED, STACK_CHANGED, NOT_EDITABLE -> List.of();
             case NO_SUCH_OBJECTIVE -> List.of("key");
             case MILESTONE_NOT_ACTIVE -> List.of("key", "active");
             case WRONG_PHASE -> List.of("phase");
@@ -83,6 +86,7 @@ public enum ServerRefusal implements RefusalReason {
                     case NOT_DELIVERED -> words.notDelivered();
                     case SETTINGS_REFUSED -> words.settingsRefused(String.valueOf(args[0]), String.valueOf(args[1]));
                     case STACK_CHANGED -> words.stackChanged();
+                    case NOT_EDITABLE -> words.notEditable();
                 });
     }
 

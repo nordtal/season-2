@@ -134,5 +134,9 @@ public interface DatabaseMessages {
         @Name("Stack changed")
         @Shown(Display.STEWARD)
         MessageRef stackChanged();
+
+        @Name("Not editable")
+        @Shown(Display.STEWARD)
+        MessageRef notEditable();
     }
 }

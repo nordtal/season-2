@@ -142,6 +142,11 @@ export type StackRemoval = {
   amount: number
 }
 
+export type InventoryOpening = {
+  server: string
+  container: StateContainer
+}
+
 export type CommandRun = {
   id: string
   status: InboxStatus
@@ -744,6 +749,7 @@ export type JournalAction =
   | "SET_AURA"
   | "SET_SPINS"
   | "REMOVE_STACK"
+  | "OPEN_INVENTORY"
   | "SERVICE_DOWN"
   | "BACKUP_STALE"
   | "DISK_FULL"

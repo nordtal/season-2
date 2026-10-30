@@ -16,13 +16,15 @@ public sealed interface HungerGamesRequest
                 HungerGamesRequest.PreviewDocument,
                 HungerGamesRequest.CheckSettings,
                 HungerGamesRequest.StoreModeState,
-                HungerGamesRequest.RemoveStack {
+                HungerGamesRequest.RemoveStack,
+                HungerGamesRequest.OpenInventory {
 
     InboxTable<HungerGamesRequest> TABLE = InboxTable.of("hunger_games_inbox", Channel.SERVER, HungerGamesRequest.class)
             .withRows(
                     StartGame.class,
                     StoreModeState.class,
                     RemoveStack.class,
+                    OpenInventory.class,
                     PreviewMessage.class,
                     PreviewDocument.class);
 
@@ -114,6 +116,19 @@ public sealed interface HungerGamesRequest
             Objects.requireNonNull(mode, "mode");
             Objects.requireNonNull(container, "container");
             Objects.requireNonNull(item, "item");
+        }
+    }
+
+    /**
+     * Opens an editor of the player's Survival {@code container} on this server for the admin, who is on it.
+     * Refused while the admin is not on the server or the state is not here to edit.
+     */
+    record OpenInventory(PlayerId admin, PlayerId player, Container container) implements HungerGamesRequest {
+
+        public OpenInventory {
+            Objects.requireNonNull(admin, "admin");
+            Objects.requireNonNull(player, "player");
+            Objects.requireNonNull(container, "container");
         }
     }
 }

@@ -365,4 +365,13 @@ public interface PeoplePage {
 
     @Name("Stack removed")
     MessageRef stackRemoved(@Arg("item") @Example("Diamond") String item, @Arg("amount") @Example("16") int amount);
+
+    @Name("Edit in the game")
+    MessageRef editInGame();
+
+    @Name("Editor opened")
+    MessageRef editorOpened(@Arg("server") @Example("smp") String server);
+
+    @Name("Editor not opened")
+    MessageRef editorNotOpened();
 }

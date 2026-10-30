@@ -2,9 +2,13 @@ package eu.nordtal.season.database.mode;
 
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.Jdbis;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -124,16 +128,7 @@ final class JdbiModeStateStore implements ModeStateStore {
             final String item,
             final int amount) {
         return jdbi.inTransaction(handle -> {
-            // The lock makes a server's switch or arrival wait for the removal, and the removal for theirs.
-            final Optional<Status> status = handle.createQuery("""
-                            SELECT status FROM game_mode_state
-                            WHERE server = :server AND player_uuid = :player AND mode = :mode FOR UPDATE""")
-                    .bind("server", server)
-                    .bind("player", player)
-                    .bind("mode", mode.name())
-                    .mapTo(String.class)
-                    .findOne()
-                    .map(Status::valueOf);
+            final Optional<Status> status = lock(handle, server, player, mode);
             if (status.isEmpty()) {
                 return Removal.CHANGED;
             }
@@ -155,15 +150,111 @@ final class JdbiModeStateStore implements ModeStateStore {
             if (removed == 0) {
                 return Removal.CHANGED;
             }
-            handle.createUpdate("""
-                            UPDATE game_mode_state SET saved = now()
-                            WHERE server = :server AND player_uuid = :player AND mode = :mode""")
-                    .bind("server", server)
-                    .bind("player", player)
-                    .bind("mode", mode.name())
-                    .execute();
+            touch(handle, server, player, mode);
             return Removal.REMOVED;
         });
+    }
+
+    @Override
+    public Set<Integer> edit(
+            final String server,
+            final PlayerId player,
+            final Mode mode,
+            final Container container,
+            final List<SlotChange> changes) {
+        return jdbi.inTransaction(handle -> {
+            final Set<Integer> refused = new TreeSet<>();
+            final Optional<Status> status = lock(handle, server, player, mode);
+            if (status.isEmpty() || status.get() == Status.HELD) {
+                changes.forEach(change -> refused.add(change.slot()));
+                return Collections.unmodifiableSet(refused);
+            }
+            changes.stream()
+                    .filter(change -> !holds(handle, server, player, mode, container, change))
+                    .forEach(change -> refused.add(change.slot()));
+            if (!refused.isEmpty()) {
+                return Collections.unmodifiableSet(refused);
+            }
+            for (final SlotChange change : changes) {
+                handle.createUpdate("""
+                                DELETE FROM game_mode_state_item
+                                WHERE server = :server AND player_uuid = :player AND mode = :mode
+                                  AND container = :container AND slot = :slot""")
+                        .bind("server", server)
+                        .bind("player", player)
+                        .bind("mode", mode.name())
+                        .bind("container", container.name())
+                        .bind("slot", change.slot())
+                        .execute();
+                final Stack after = change.after();
+                if (after != null) {
+                    handle.createUpdate("""
+                                    INSERT INTO game_mode_state_item
+                                        (server, player_uuid, mode, container, slot, item, amount, data)
+                                    VALUES (:server, :player, :mode, :container, :slot, :item, :amount, :data)""")
+                            .bind("server", server)
+                            .bind("player", player)
+                            .bind("mode", mode.name())
+                            .bind("container", container.name())
+                            .bind("slot", change.slot())
+                            .bind("item", after.item())
+                            .bind("amount", after.amount())
+                            .bind("data", after.data())
+                            .execute();
+                }
+            }
+            if (!changes.isEmpty()) {
+                touch(handle, server, player, mode);
+            }
+            return Set.of();
+        });
+    }
+
+    /** Returns whether a slot still holds the stack the admin was shown before {@code change}. */
+    private static boolean holds(
+            final Handle handle,
+            final String server,
+            final PlayerId player,
+            final Mode mode,
+            final Container container,
+            final SlotChange change) {
+        final Optional<byte[]> now = handle.createQuery("""
+                        SELECT data FROM game_mode_state_item
+                        WHERE server = :server AND player_uuid = :player AND mode = :mode
+                          AND container = :container AND slot = :slot""")
+                .bind("server", server)
+                .bind("player", player)
+                .bind("mode", mode.name())
+                .bind("container", container.name())
+                .bind("slot", change.slot())
+                .mapTo(byte[].class)
+                .findOne();
+        final Stack before = change.before();
+        return before == null ? now.isEmpty() : now.isPresent() && Arrays.equals(now.get(), before.data());
+    }
+
+    /** Locks a state, so a server's switch or arrival waits for Steward's change, and the change for theirs. */
+    private static Optional<Status> lock(
+            final Handle handle, final String server, final PlayerId player, final Mode mode) {
+        return handle.createQuery("""
+                        SELECT status FROM game_mode_state
+                        WHERE server = :server AND player_uuid = :player AND mode = :mode FOR UPDATE""")
+                .bind("server", server)
+                .bind("player", player)
+                .bind("mode", mode.name())
+                .mapTo(String.class)
+                .findOne()
+                .map(Status::valueOf);
+    }
+
+    private static void touch(final Handle handle, final String server, final PlayerId player, final Mode mode) {
+        handle.createUpdate("""
+                        UPDATE game_mode_state SET saved = now()
+                        WHERE server = :server AND player_uuid = :player AND mode = :mode""")
+                .bind("server", server)
+                .bind("player", player)
+                .bind("mode", mode.name())
+                .execute();
     }
 
     private static void store(

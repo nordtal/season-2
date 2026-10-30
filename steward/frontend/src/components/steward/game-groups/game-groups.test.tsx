@@ -247,6 +247,19 @@ describe("game group editors", { timeout: 15_000 }, () => {
     expect(within(elytra).getByText("66.7%")).toBeTruthy()
   })
 
+  it("opens the dialog of an award or a prize as soon as it is added", async () => {
+    backend(WHEEL)
+    draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
+    fireEvent.click(within(await screen.findByRole("listbox")).getByRole("option", { name: /Iron Sword/ }))
+    const dialog = await screen.findByRole("dialog", { name: "Iron Sword" })
+    expect(within(dialog).getByRole("textbox", { name: "Iron Sword Weight" })).toHaveProperty("value", "1")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(screen.getByRole("button", { name: /Iron Sword/ })).toBeTruthy()
+  })
+
   it("says so when a section holds nothing", async () => {
     const empty = document("advancement-awards", [{ ...AWARDS.entries[0], sections: [] }])
     backend(empty)

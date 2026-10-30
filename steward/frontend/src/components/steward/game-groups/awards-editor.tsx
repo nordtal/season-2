@@ -88,7 +88,7 @@ function Awards({
     choice ? (
       <Mark choice={choice} icons={icons} registry={choices.registry} size={size} />
     ) : (
-      <TERM_ICON.warning aria-hidden className="size-10 shrink-0 text-warning" />
+      <TERM_ICON.warning aria-hidden className="shrink-0 text-warning" style={{ width: size, height: size }} />
     )
   const open = chosen === null ? undefined : rows[chosen]
 
@@ -96,16 +96,25 @@ function Awards({
     <div className="@container flex flex-col gap-3">
       <FilterBar>
         <Pill tip={t("steward.game.awarded", { count: awards.length })}>
-          <TERM_ICON.advancement aria-hidden className="size-3.5 shrink-0" />
+          <TERM_ICON.advancement
+            aria-label={t("steward.game.awarded", { count: awards.length })}
+            className="size-3.5 shrink-0"
+          />
           {awards.length.toLocaleString("en")}
         </Pill>
         <Pill tip={t("steward.game.aura-awarded", { total: sum(awards, "aura") })}>
-          <TERM_ICON.aura aria-hidden className="size-3.5 shrink-0" />
+          <TERM_ICON.aura
+            aria-label={t("steward.game.aura-awarded", { total: sum(awards, "aura") })}
+            className="size-3.5 shrink-0"
+          />
           {sum(awards, "aura").toLocaleString("en")}
         </Pill>
         {spins ? (
           <Pill tip={t("steward.game.spins-awarded", { total: sum(awards, "spins") })}>
-            <TERM_ICON.spins aria-hidden className="size-3.5 shrink-0" />
+            <TERM_ICON.spins
+              aria-label={t("steward.game.spins-awarded", { total: sum(awards, "spins") })}
+              className="size-3.5 shrink-0"
+            />
             {sum(awards, "spins").toLocaleString("en")}
           </Pill>
         ) : null}

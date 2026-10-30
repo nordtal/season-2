@@ -79,7 +79,7 @@ function Prizes({
         {choice ? (
           <Mark choice={choice} icons={icons} registry={choices.registry} size={size} />
         ) : (
-          <TERM_ICON.warning aria-hidden className="size-10 text-warning" />
+          <TERM_ICON.warning aria-hidden className="text-warning" style={{ width: size, height: size }} />
         )}
         <span className="absolute -right-2 -bottom-1 font-mono text-xs font-semibold tabular-nums">
           {count(prize, "amount").toLocaleString("en")}
@@ -110,7 +110,10 @@ function Prizes({
       </Heading>
       <div className="flex flex-wrap gap-1.5">
         <Pill tip={t("steward.game.prizes", { count: prizes.length })}>
-          <TERM_ICON.item aria-hidden className="size-3.5 shrink-0" />
+          <TERM_ICON.item
+            aria-label={t("steward.game.prizes", { count: prizes.length })}
+            className="size-3.5 shrink-0"
+          />
           {prizes.length.toLocaleString("en")}
         </Pill>
         <Pill>{t("steward.game.total-weight", { total })}</Pill>

@@ -512,7 +512,9 @@ public interface StewardTexts {
         STEWARD,
         STEWARD_AGENT,
         STEWARD_BUNQ,
-        POSTGRES
+        POSTGRES,
+        PACK_HOST,
+        MIGRATE
     }
 
     /** The status of an artifact in the plan of the agent. */

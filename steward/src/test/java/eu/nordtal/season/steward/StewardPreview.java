@@ -68,8 +68,10 @@ public final class StewardPreview {
     private static final String DUMP_OWNER = "nordtal";
 
     /**
-     * A one-shot that ran, a standby at rest and every other service of compose.yml beside the stand-in's smp, so their
-     * pages show. Each carries the section label that lists it in the navigation, as compose.yml does.
+     * Every service of compose.yml beside the stand-in's smp, so the whole list shows.
+     *
+     * A one-shot that ran and a standby at rest among them. Each other carries the section label that lists it in the
+     * navigation, as compose.yml does.
      */
     private static final com.google.gson.JsonObject RESTING =
             com.google.gson.JsonParser.parseString("""

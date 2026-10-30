@@ -8,7 +8,7 @@ import { AskThenAct } from "@/components/steward/ask-then-act"
 import { GameIcon } from "@/components/steward/game-icon"
 import { QueryState } from "@/components/steward/query-state"
 import { StatusBadge, type Tone } from "@/components/steward/status"
-import { TERM_ICON } from "@/components/steward/term-icons"
+import { ServiceName } from "@/components/steward/service-name"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -79,13 +79,12 @@ function Inventories({ person, answer }: { person: Person; answer: PlayerInvento
           }}
         >
           <SelectTrigger aria-label={t("steward.people.inventory-server")} className="w-40">
-            <TERM_ICON.service aria-hidden />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {servers.map((name) => (
               <SelectItem key={name} value={name}>
-                {name}
+                <ServiceName service={name} />
               </SelectItem>
             ))}
           </SelectContent>

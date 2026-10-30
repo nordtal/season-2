@@ -1411,7 +1411,7 @@
     "steward.service.exited": [["Exited with code ",{"v":"code","k":"number","s":"plain"}," at ",{"v":"at"},"."]],
     "steward.service.health": [["Healthcheck: ",{"v":"health"},"."]],
     "steward.service.held-since": [["Held down since ",{"v":"since"},". Docker reports the state \"",{"v":"state"},"\"."]],
-    "steward.service.name": [[{"c":"service","plural":false,"cases":{"caddy":["Caddy"],"proxy":["Proxy"],"proxy-standby":["Proxy standby"],"limbo":["Limbo"],"limbo-standby":["Limbo standby"],"smp":["SMP"],"hunger-games":["Hunger Games"],"discord-bot":["Discord bot"],"steward":["Steward"],"steward-agent":["Steward agent"],"steward-bunq":["Steward bunq"],"postgres":["Postgres"],"other":[{"v":"service"}]}}]],
+    "steward.service.name": [[{"c":"service","plural":false,"cases":{"caddy":["Caddy"],"proxy":["Proxy"],"proxy-standby":["Proxy standby"],"limbo":["Limbo"],"limbo-standby":["Limbo standby"],"smp":["SMP"],"hunger-games":["Hunger Games"],"discord-bot":["Discord bot"],"steward":["Steward"],"steward-agent":["Steward agent"],"steward-bunq":["Steward bunq"],"postgres":["Postgres"],"pack-host":["Pack host"],"migrate":["Migrate"],"other":[{"v":"service"}]}}]],
     "steward.service.no-health": [["Running. No healthcheck."]],
     "steward.service.not-read": [["Not read yet."]],
     "steward.service.starting": [["The healthcheck has no result yet."]],

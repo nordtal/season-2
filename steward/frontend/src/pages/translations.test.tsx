@@ -146,7 +146,7 @@ describe("the service filter", () => {
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Service" }), { key: "Enter" })
 
     const offered = (await screen.findAllByRole("option")).map((option) => option.textContent)
-    expect(offered).toEqual(["All services", "Discord bot", "SMP", "Steward"])
+    expect(offered).toEqual(["All services", "SMP", "Discord bot", "Steward"])
   })
 
   it("draws a tone in the colour the filtered service's settings give it", async () => {

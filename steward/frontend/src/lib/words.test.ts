@@ -18,9 +18,10 @@ describe("service names", () => {
     expect(serviceTitle("hunger-games")).toBe("Hunger Games")
     expect(serviceTitle("steward-agent")).toBe("Steward agent")
     expect(serviceTitle("proxy-standby")).toBe("Proxy standby")
+    expect(serviceTitle("pack-host")).toBe("Pack host")
   })
 
   it("leave a service the bundle does not know as compose names it", () => {
-    expect(serviceTitle("pack-host")).toBe("pack-host")
+    expect(serviceTitle("cache")).toBe("cache")
   })
 })

@@ -188,16 +188,25 @@ describe("chance", () => {
 })
 
 describe("game group editors", { timeout: 15_000 }, () => {
-  it("sums the awarded aura and spins as they are edited, and saves the whole list", async () => {
+  it("shows each award as a tile, edits its aura and spins in its dialog, and saves the whole list", async () => {
     const puts = backend(AWARDS)
     draw(<AwardsEditor file="smp/advancement-awards" document={AWARDS} target={null} />)
 
-    expect(await screen.findByText("Acquire Hardware")).toBeTruthy()
+    const tile = await screen.findByRole("button", { name: /Acquire Hardware/ })
+    expect(screen.queryByRole("textbox", { name: "Acquire Hardware aura" })).toBeNull()
     expect(screen.getByText("6")).toBeTruthy()
-    fireEvent.change(screen.getByRole("textbox", { name: "Acquire Hardware aura" }), { target: { value: "10" } })
+    fireEvent.click(tile)
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Acquire Hardware aura" }), {
+      target: { value: "10" },
+    })
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Acquire Hardware spins" }), {
+      target: { value: "3" },
+    })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(screen.getByText("12")).toBeTruthy()
-    fireEvent.change(screen.getByRole("textbox", { name: "Acquire Hardware spins" }), { target: { value: "3" } })
-    expect(screen.getByText("3")).toBeTruthy()
+    expect(within(tile).getByText("10")).toBeTruthy()
 
     fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
     await waitFor(() => expect(puts).toHaveLength(1))
@@ -211,21 +220,39 @@ describe("game group editors", { timeout: 15_000 }, () => {
     })
   })
 
-  it("shows each prize's chance on its tile and opens its fields right after that tile", async () => {
+  it("removes an award from its dialog after asking", async () => {
+    backend(AWARDS)
+    draw(<AwardsEditor file="smp/advancement-awards" document={AWARDS} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: /Stone Age/ }))
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Remove" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Remove it" }))
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Stone Age/ })).toBeNull())
+    expect(screen.getByRole("button", { name: /Acquire Hardware/ })).toBeTruthy()
+  })
+
+  it("shows each prize's chance on its tile and edits amount and weight in its dialog, never the item", async () => {
     backend(WHEEL)
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
     expect((await screen.findByRole("button", { name: /Oak Log/ })).textContent).toContain("99.7%")
+    expect(screen.getByRole("textbox", { name: "Min X" })).toHaveProperty("value", "3978")
     const elytra = screen.getByRole("button", { name: /Elytra/ })
     expect(within(elytra).getByText("0.30%")).toBeTruthy()
     fireEvent.click(elytra)
-    expect(elytra.getAttribute("aria-pressed")).toBe("true")
-    expect(
-      elytra.closest("li")?.nextElementSibling?.contains(screen.getByRole("textbox", { name: "Elytra Weight" })),
-    ).toBe(true)
-    fireEvent.change(screen.getByRole("textbox", { name: "Elytra Weight" }), { target: { value: "1997" } })
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).queryByRole("button", { name: /Item/ })).toBeNull()
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Elytra Weight" }), { target: { value: "1997" } })
+    expect(within(dialog).getByRole("textbox", { name: "Elytra Chance" })).toHaveProperty("value", "66.7%")
     expect(within(elytra).getByText("66.7%")).toBeTruthy()
-    expect(screen.getByRole("textbox", { name: "Min X" })).toHaveProperty("value", "3978")
+  })
+
+  it("says so when a section holds nothing", async () => {
+    const empty = document("advancement-awards", [{ ...AWARDS.entries[0], sections: [] }])
+    backend(empty)
+    draw(<AwardsEditor file="smp/advancement-awards" document={empty} target={null} />)
+
+    expect(await screen.findByText("No advancement has an award.")).toBeTruthy()
   })
 
   it("draws a card per duel type with its platform and loadout", async () => {

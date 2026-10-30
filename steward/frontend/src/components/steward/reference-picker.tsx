@@ -415,7 +415,8 @@ function Options({
       <FilterBar>
         <SearchField value={query} onValueChange={setQuery} label={t("steward.settings.search-in", { what: label })} />
       </FilterBar>
-      {namespaces.length > 1 || choices.tags.length > 0 ? (
+      {/* A tag filters only where it adds a whole tag at once: a picker of one value leaves it out. */}
+      {namespaces.length > 1 || (multi && choices.tags.length > 0) ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {namespaces.length > 1
             ? [ALL, ...namespaces].map((name) => (
@@ -431,7 +432,7 @@ function Options({
                 </Button>
               ))
             : null}
-          {choices.tags.length > 0 ? (
+          {multi && choices.tags.length > 0 ? (
             <Select value={tag} onValueChange={setTag}>
               <SelectTrigger
                 size="sm"
@@ -502,18 +503,8 @@ function Options({
                   <span className="truncate text-xs text-muted-foreground">{choice.description}</span>
                 ) : null}
               </span>
-              {choice.frame && choice.frame !== "task" ? (
-                <span
-                  className={cn(
-                    "shrink-0 rounded-sm px-1 text-xs",
-                    choice.frame === "challenge" ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {choice.frame}
-                </span>
-              ) : null}
-              {/* A world is its own name, so the id would only repeat it. */}
-              {choice.id === choice.name ? null : (
+              {/* A game value reads by its name and description; a world is its own name, so the id would only repeat it. */}
+              {choices.registry !== undefined || choice.id === choice.name ? null : (
                 <span className="max-w-9/20 min-w-0 truncate font-mono text-xs text-muted-foreground max-sm:max-w-2/5">
                   {choice.id}
                 </span>

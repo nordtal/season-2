@@ -267,6 +267,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V94__a_shared_part_is_drawn_where_a_document_names_it.sql",
                 "449f7edb26be039ee6e3d29b708ec4e2650cb704327e8706c3da6e1742e8a1f3");
+        FROZEN.put(
+                "V95__a_resolve_step_names_a_missing_secret.sql",
+                "4844d28c32f826ab02f89ec2fc4e4d3794434d251f1e5e0c878be6188180a027");
     }
 
     @Test

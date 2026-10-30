@@ -76,6 +76,31 @@ final class LocalStack implements ContainerOps {
     }
 
     @Override
+    public java.util.Optional<List<String>> missingSecrets(final String containerId, final List<String> names) {
+        // The image's own secrets.sh reads the file as the entrypoint does and prints only the names without a value.
+        final List<String> command = new ArrayList<>(List.of(
+                "sh", "-c", ". /app/secrets.sh && missing_secrets \"$SECRETS_DIRECTORY/secrets.env\" \"$@\"", "sh"));
+        command.addAll(names);
+        try {
+            final Docker.ExecResult answer = docker.exec(containerId, command);
+            if (!answer.ok()) {
+                log.warn("could not ask {} for its missing secrets: exit {}", containerId, answer.exitCode());
+                return java.util.Optional.empty();
+            }
+            // Anything but an asked name is dropped, so no other output reaches the record.
+            return java.util.Optional.of(answer.output()
+                    .lines()
+                    .map(String::strip)
+                    .filter(names::contains)
+                    .distinct()
+                    .toList());
+        } catch (final DockerException unasked) {
+            log.warn("could not ask {} for its missing secrets: {}", containerId, unasked.getMessage());
+            return java.util.Optional.empty();
+        }
+    }
+
+    @Override
     public void handOverMounts(final String service) {
         try {
             compose.handOver(List.of(service), line -> log.info("[hand-over {}] {}", service, line));

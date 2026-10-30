@@ -25,8 +25,21 @@ public record Work(Map<String, List<RunStep.Change>> services, List<Finding> fin
         findings = List.copyOf(findings);
     }
 
-    /** One thing a source found that a resolve step ends on. */
-    public record Finding(@Nullable String service, RunStep.Outcome outcome, RunStep.Reason reason) {
+    /**
+     * One thing a source found that a resolve step ends on.
+     *
+     * @param names what it is about, each written on the step by its name alone, such as a missing secret
+     */
+    public record Finding(
+            @Nullable String service, RunStep.Outcome outcome, RunStep.Reason reason, List<String> names) {
+
+        public Finding {
+            names = List.copyOf(names);
+        }
+
+        public Finding(final @Nullable String service, final RunStep.Outcome outcome, final RunStep.Reason reason) {
+            this(service, outcome, reason, List.of());
+        }
 
         /** Returns the same finding for each service. */
         public static List<Finding> each(

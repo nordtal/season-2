@@ -98,6 +98,12 @@ run has recreated the agent. `--check` fails while a line is still in the enviro
 does not see the content of these files, so a change gives the service a new
 `SECRETS_REVISION_<SERVICE>` in the environment file, and the next run recreates the service.
 
+The label `eu.nordtal.secrets` in `compose.yml` names what each service's file must hold, and
+`nordtal-test.sh` holds it to the names `nordtal.sh` requires or generates. An update from Steward's
+button runs inside `steward-agent`, so it asks each running service through `missing_secrets` of
+`jvm/secrets.sh`, which answers with names only, and its run names each one missing as a warning:
+`./nordtal.sh update` on the host adds it.
+
 **A hand-typed `docker compose`:** it needs `--env-file` and the release. Without the file, Compose
 interpolates empty strings. The release is the tag of the running `steward-agent`:
 

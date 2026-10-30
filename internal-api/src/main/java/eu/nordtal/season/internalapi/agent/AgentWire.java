@@ -198,6 +198,7 @@ public final class AgentWire {
      * @param renewal when a run recreates it ({@code eu.nordtal.renew}), or never
      * @param wiring where the network page draws it, or none if the page leaves it out
      * @param oneShot whether it runs once and exits (compose's {@code restart} is {@code no})
+     * @param secrets the names its own secrets file must hold ({@code eu.nordtal.secrets})
      */
     public record Service(
             String name,
@@ -208,7 +209,22 @@ public final class AgentWire {
             @Nullable String standbyOf,
             @Nullable Renewal renewal,
             @Nullable Wiring wiring,
-            boolean oneShot) {
+            boolean oneShot,
+            List<String> secrets) {
+
+        /** A service whose own secrets file must hold nothing. */
+        public Service(
+                final String name,
+                final @Nullable String image,
+                final boolean console,
+                final boolean stoppedForBackup,
+                final eu.nordtal.season.internalapi.agent.Topology.@Nullable Service server,
+                final @Nullable String standbyOf,
+                final @Nullable Renewal renewal,
+                final @Nullable Wiring wiring,
+                final boolean oneShot) {
+            this(name, image, console, stoppedForBackup, server, standbyOf, renewal, wiring, oneShot, List.of());
+        }
 
         /** A long-running service that the network page does not draw. */
         public Service(

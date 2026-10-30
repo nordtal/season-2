@@ -43,3 +43,24 @@ read_secrets() {
         export "$name=$value"
     done <"$file"
 }
+
+# Prints each name of $2 onwards that has no value once read_secrets has read $1, one per line. A name
+# the environment of the container sets counts as there. steward-agent asks this through docker exec,
+# so it learns which names are missing and never a value. The reading happens in a subshell.
+missing_secrets() {
+    file="$1"
+    shift
+    (
+        read_secrets "$file" 2>/dev/null
+        for name in "$@"; do
+            case "$name" in
+                '' | [0-9]* | *[!A-Za-z0-9_]*)
+                    printf '%s\n' "$name"
+                    continue
+                    ;;
+            esac
+            eval "value=\${$name:-}"
+            [ -n "$value" ] || printf '%s\n' "$name"
+        done
+    )
+}

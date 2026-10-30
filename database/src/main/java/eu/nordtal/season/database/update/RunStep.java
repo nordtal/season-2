@@ -113,7 +113,9 @@ public final class RunStep {
         LOCAL_BUILD,
         FOREIGN_NEWER,
         /** The newest Velocity is newer than the API the proxy is built against. */
-        VELOCITY_AHEAD
+        VELOCITY_AHEAD,
+        /** A service's own secrets file lacks a value, which ./nordtal.sh update adds; the step names each. */
+        MISSING_SECRET
     }
 
     /** Which image a container was recreated from. */

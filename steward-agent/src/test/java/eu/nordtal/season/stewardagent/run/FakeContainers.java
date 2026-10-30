@@ -40,6 +40,15 @@ final class FakeContainers implements ContainerOps {
     /** How each volume settles. Absent means success. */
     private final Map<String, Boolean> backupSucceeds = new LinkedHashMap<>();
 
+    /** service -> the names its own secrets file lacks. Absent means it holds every one. */
+    private final Map<String, List<String>> missingSecrets = new LinkedHashMap<>();
+
+    /** Services that cannot be asked for their secrets. */
+    private final java.util.Set<String> secretsUnasked = new java.util.LinkedHashSet<>();
+
+    /** Every secret name a run asked about, as service:name. */
+    final List<String> secretsAsked = new ArrayList<>();
+
     /** Volumes whose snapshot is refused before anything is written. */
     private final java.util.Set<String> backupRefused = new java.util.LinkedHashSet<>();
 
@@ -262,6 +271,30 @@ final class FakeContainers implements ContainerOps {
         services.put(
                 service, new ServiceRuntime(service, was.containerId(), "running", "starting", was.restarts() + 1));
         logs.put(service, List.of(exitLine, "[nordtal] starting paper 26.2 build 1"));
+    }
+
+    /** Its own secrets file holds no value for these names. */
+    FakeContainers lacksSecrets(final String service, final String... names) {
+        missingSecrets.put(service, List.of(names));
+        return this;
+    }
+
+    /** Its container cannot be asked, as an image older than the question. */
+    FakeContainers secretsUnasked(final String service) {
+        secretsUnasked.add(service);
+        return this;
+    }
+
+    @Override
+    public java.util.Optional<List<String>> missingSecrets(final String containerId, final List<String> names) {
+        final String service = service(containerId);
+        names.forEach(name -> secretsAsked.add(service + ":" + name));
+        if (secretsUnasked.contains(service)) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(missingSecrets.getOrDefault(service, List.of()).stream()
+                .filter(names::contains)
+                .toList());
     }
 
     @Override

@@ -39,6 +39,7 @@ final class Resolved {
             }
             final Steps.Step step = record.begin(RunStep.Kind.RESOLVE, service);
             moving.forEach(change -> step.change(change.artefact(), change.from(), change.to(), change.image()));
+            named(about, step);
             worst(about).on(step);
         });
         planned.findings().stream()
@@ -46,7 +47,19 @@ final class Resolved {
                 .filter(Objects::nonNull)
                 .distinct()
                 .filter(service -> !planned.services().containsKey(service))
-                .forEach(service -> worst(planned.about(service)).on(record.begin(RunStep.Kind.RESOLVE, service)));
+                .forEach(service -> {
+                    final Steps.Step step = record.begin(RunStep.Kind.RESOLVE, service);
+                    named(planned.about(service), step);
+                    worst(planned.about(service)).on(step);
+                });
+    }
+
+    /** Writes what each finding names as a line of the name alone. */
+    private static void named(final List<Work.Finding> findings, final Steps.Step step) {
+        findings.stream()
+                .flatMap(finding -> finding.names().stream())
+                .distinct()
+                .forEach(name -> step.change(name, null, null, null));
     }
 
     /** How the run's own resolve step ends, by the findings about no service. */

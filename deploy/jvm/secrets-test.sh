@@ -73,6 +73,19 @@ case_begin "a missing file is said only where the directory is mounted"
 [[ -z "$(said "$WORK/nowhere/secrets.env")" ]] || bad "a service without a mount was told about it"
 ok "said under a mount, silent without one"
 
+case_begin "the missing names are said, and never a value"
+missing="$(env -i PATH="$PATH" READER="$READER" FILE="$WORK/secrets/secrets.env" FROM_ENV=set \
+    sh -c '. "$READER"; missing_secrets "$FILE" PLAIN EMPTY ABSENT QUOTED FROM_ENV "bad name"')"
+[[ "$missing" == $'EMPTY\nABSENT\nbad name' ]] || bad "said '$missing' instead of EMPTY, ABSENT and the bad name"
+grep -qE 'value|quotes' <<<"$missing" && bad "a value reached the output"
+none="$(env -i PATH="$PATH" READER="$READER" FILE="$WORK/secrets/absent.env" \
+    sh -c '. "$READER"; missing_secrets "$FILE" PLAIN')"
+[[ "$none" == PLAIN ]] || bad "a missing file did not leave every name missing"
+leaked="$(env -i PATH="$PATH" READER="$READER" FILE="$WORK/secrets/secrets.env" \
+    sh -c '. "$READER"; missing_secrets "$FILE" PLAIN; printenv PLAIN || true')"
+[[ -z "$leaked" ]] || bad "the check left a value in the shell that asked"
+ok "empty and absent names are said, set ones and the environment's are not"
+
 case_begin "the entrypoint reads the file before it starts the JVM"
 read_line="$(grep -n '^read_secrets ' "$HERE/entrypoint.sh" | cut -d: -f1)"
 exec_line="$(grep -n '^exec java ' "$HERE/entrypoint.sh" | cut -d: -f1)"

@@ -48,32 +48,28 @@ final class Util {
     private Util() {}
 
     public static Class<?> getRawType(final Type type) {
-        if (type instanceof Class<?> clazz) {
-            return clazz;
-
-        } else if (type instanceof ParameterizedType parameterizedType) {
-            final Type rawType = parameterizedType.getRawType();
-            if (!(rawType instanceof Class)) {
-                throw new IllegalStateException("Expected a Class, found a " + rawType);
+        return switch (type) {
+            case Class<?> clazz -> clazz;
+            case ParameterizedType parameterizedType -> {
+                final Type rawType = parameterizedType.getRawType();
+                if (!(rawType instanceof Class)) {
+                    throw new IllegalStateException("Expected a Class, found a " + rawType);
+                }
+                yield (Class<?>) rawType;
             }
-            return (Class<?>) rawType;
-
-        } else if (type instanceof GenericArrayType genericArrayType) {
-            final Type componentType = genericArrayType.getGenericComponentType();
-            return Array.newInstance(getRawType(componentType), 0).getClass();
-
-        } else if (type instanceof TypeVariable) {
+            case GenericArrayType genericArrayType -> {
+                final Type componentType = genericArrayType.getGenericComponentType();
+                yield Array.newInstance(getRawType(componentType), 0).getClass();
+            }
             // A raw type that is more general than needed is harmless. A type variable can have several bounds.
-            return Object.class;
-
-        } else if (type instanceof WildcardType wildcardType) {
-            return getRawType(wildcardType.getUpperBounds()[0]);
-
-        } else {
-            final String className = type == null ? "null" : type.getClass().getName();
-            throw new IllegalArgumentException("Expected a Class, ParameterizedType or GenericArrayType, but <" + type
-                    + "> is of type " + className);
-        }
+            case TypeVariable<?> _ -> Object.class;
+            case WildcardType wildcardType -> getRawType(wildcardType.getUpperBounds()[0]);
+            case null, default -> {
+                final String className = type == null ? "null" : type.getClass().getName();
+                throw new IllegalArgumentException("Expected a Class, ParameterizedType or GenericArrayType, but <"
+                        + type + "> is of type " + className);
+            }
+        };
     }
 
     /**

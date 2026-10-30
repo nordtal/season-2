@@ -63,10 +63,10 @@ public final class HungerGamesCheck {
         }
         final Set<String> labels = new HashSet<>();
         for (final HungerGamesSpec.LootPointSpec point : points) {
-            Checks.requireText("loot-points", point.label());
+            Checks.requireText("loot-points.label", point.label());
             if (!labels.add(point.label())) {
                 throw new SettingRefused(
-                        "loot-points",
+                        "loot-points.label",
                         SettingRule.UNIQUE,
                         point.label(),
                         "loot-points: duplicate label '" + point.label() + "'");
@@ -82,17 +82,17 @@ public final class HungerGamesCheck {
         int previousDelay = -1;
         final Set<Integer> delays = new HashSet<>();
         for (final HungerGamesSpec.RefillTierSpec tier : tiers) {
-            Checks.requireNotNegative("refill-tiers", tier.delayMinutes());
+            Checks.requireNotNegative("refill-tiers.delay-minutes", tier.delayMinutes());
             if (!delays.add(tier.delayMinutes())) {
                 throw new SettingRefused(
-                        "refill-tiers",
+                        "refill-tiers.delay-minutes",
                         SettingRule.UNIQUE,
                         tier.delayMinutes(),
                         "refill-tiers: duplicate delay-minutes " + tier.delayMinutes());
             }
             if (tier.delayMinutes() < previousDelay) {
                 throw new SettingRefused(
-                        "refill-tiers",
+                        "refill-tiers.delay-minutes",
                         SettingRule.ASCENDING,
                         "refill-tiers must be ordered by ascending delay-minutes");
             }
@@ -100,14 +100,14 @@ public final class HungerGamesCheck {
 
             if (tier.items() == null || tier.items().isEmpty()) {
                 throw new SettingRefused(
-                        "refill-tiers",
+                        "refill-tiers.items",
                         SettingRule.REQUIRED,
                         "refill-tiers: tier at " + tier.delayMinutes() + " minutes has no items");
             }
             for (final String item : tier.items()) {
                 if (GameKeys.material(item).isEmpty()) {
                     throw new SettingRefused(
-                            "refill-tiers",
+                            "refill-tiers.items",
                             SettingRule.KNOWN,
                             item,
                             "refill-tiers: '" + item + "' is not a known material (tier at " + tier.delayMinutes()

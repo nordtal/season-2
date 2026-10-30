@@ -44,6 +44,16 @@ public final class Checks {
         }
     }
 
+    /** Runs the checks of one entry of a list, naming {@code entry} in the sentence of a refusal. */
+    public static void inEntry(final String entry, final Runnable checks) {
+        try {
+            checks.run();
+        } catch (final SettingRefused refused) {
+            throw new SettingRefused(
+                    refused.setting(), refused.rule(), refused.value(), "'" + entry + "': " + refused.getMessage());
+        }
+    }
+
     public static void requireSecret(final String key, final String variable, final @Nullable String value) {
         if (value == null || value.isBlank()) {
             throw new SettingRefused(

@@ -19,7 +19,8 @@ public final class SettingRefused extends IllegalArgumentException {
     private final @Nullable String value;
 
     /**
-     * @param setting the dotted path of the setting, or the group's name where no one setting is at fault
+     * @param setting the dotted path of the setting, which for an entry of a list is the list and the field, or the
+     *     group's name where no one setting is at fault
      * @param value the value the rule names: a limit, another setting or the value at fault
      */
     public SettingRefused(

@@ -2,6 +2,7 @@ package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.setting.SettingRule;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.messages.RefusalReason;
 import java.util.List;
@@ -61,7 +62,7 @@ public enum ServerRefusal implements RefusalReason {
             case WRONG_STATE -> List.of("state");
             case BELOW_HARD_MINIMUM -> List.of("minimum", "count");
             case BELOW_SOFT_MINIMUM -> List.of("count", "minimum");
-            case SETTINGS_REFUSED -> List.of("service", "setting", "rule", "value");
+            case SETTINGS_REFUSED -> List.of("service", "setting", "rule", "value", "detail");
         };
     }
 
@@ -87,19 +88,24 @@ public enum ServerRefusal implements RefusalReason {
                     case BELOW_SOFT_MINIMUM -> words.belowSoftMinimum(count(args[0]), count(args[1]));
                     case NOT_HERE -> words.notHere();
                     case NOT_DELIVERED -> words.notDelivered();
-                    case SETTINGS_REFUSED ->
-                        words.settingsRefused(
-                                String.valueOf(args[0]),
-                                // A row of free text names no setting; its service stands for all of them.
-                                String.valueOf(args[1] == null ? args[0] : args[1]),
-                                rule(args[2]),
-                                args[3] == null ? null : String.valueOf(args[3]));
+                    case SETTINGS_REFUSED -> settingsRefused(words, args);
                     case STACK_CHANGED -> words.stackChanged();
                     case NOT_EDITABLE -> words.notEditable();
                 });
     }
 
-    /** Returns the rule as the server named it or its column holds it, and {@code VALID} for a row of free text. */
+    /** Words a settings refusal from its setting and rule, or from the free text an older server wrote instead. */
+    private static MessageRef settingsRefused(
+            final DatabaseMessages.ServerRefusals words, final @Nullable Object... args) {
+        final String service = String.valueOf(args[0]);
+        if (args[1] == null) {
+            return words.settingsRefusedInWords(service, String.valueOf(args.length > 4 ? args[4] : null));
+        }
+        return words.settingsRefused(
+                service, String.valueOf(args[1]), rule(args[2]), args[3] == null ? null : String.valueOf(args[3]));
+    }
+
+    /** Returns the rule as the server named it or its column holds it, and {@code VALID} where none is named. */
     private static SettingRule rule(final @Nullable Object value) {
         if (value == null) {
             return SettingRule.VALID;

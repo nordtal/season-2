@@ -68,11 +68,11 @@ public final class SmpSettings {
                     "duel-kits: the negotiation window shows at most " + KIT_LIMIT + " kits");
         }
         for (final DuelKitSpec kit : config.duelKits()) {
-            Checks.requireText("duel-kits", kit.name());
+            Checks.requireText("duel-kits.name", kit.name());
             if (kit.name().length() > KIT_NAME_LIMIT) {
                 // The aura history stores the kit by name in a column of this width.
                 throw new SettingRefused(
-                        "duel-kits",
+                        "duel-kits.name",
                         SettingRule.LONGEST,
                         KIT_NAME_LIMIT,
                         "duel-kits: the name '" + kit.name() + "' is longer than " + KIT_NAME_LIMIT + " characters");
@@ -82,10 +82,12 @@ public final class SmpSettings {
 
     public static void checkAdvancementAwards(final AdvancementAwardsSpec config) {
         for (final AdvancementAwardSpec award : config.advancementAwards()) {
-            Checks.requireText("advancement-awards", award.advancement());
-            // The band keeps one advancement from outweighing a whole objective.
-            Checks.requireBetween("advancement-awards", award.aura(), AWARD_LEAST, AWARD_MOST);
-            Checks.requireNotNegative("advancement-awards", award.spins());
+            Checks.requireText("advancement-awards.advancement", award.advancement());
+            Checks.inEntry(award.advancement(), () -> {
+                // The band keeps one advancement from outweighing a whole objective.
+                Checks.requireBetween("advancement-awards.aura", award.aura(), AWARD_LEAST, AWARD_MOST);
+                Checks.requireNotNegative("advancement-awards.spins", award.spins());
+            });
         }
     }
 
@@ -97,24 +99,28 @@ public final class SmpSettings {
                     "wheel-prizes must not be empty; the wheel has to have something to land on");
         }
         for (final WheelPrizeSpec prize : config.wheelPrizes()) {
-            Checks.requireText("wheel-prizes", prize.item());
-            Checks.requirePositive("wheel-prizes", prize.weight());
-            Checks.requirePositive("wheel-prizes", prize.amount());
+            Checks.requireText("wheel-prizes.item", prize.item());
+            Checks.inEntry(prize.item(), () -> {
+                Checks.requirePositive("wheel-prizes.weight", prize.weight());
+                Checks.requirePositive("wheel-prizes.amount", prize.amount());
+            });
         }
     }
 
     public static void checkBoards(final BoardsSpec config) {
         for (final BoardSpec board : config.boards()) {
-            Checks.requireText("boards", board.world());
-            // The frame's shifts reach this far; a width outside would throw on the first render rather than here.
-            Checks.requireBetween("boards", board.width(), BoardFrame.MIN_WIDTH, BoardFrame.MAX_WIDTH);
+            Checks.inEntry(board.kind(), () -> {
+                Checks.requireText("boards.world", board.world());
+                // The frame's shifts reach this far; a width outside would throw on the first render rather than here.
+                Checks.requireBetween("boards.width", board.width(), BoardFrame.MIN_WIDTH, BoardFrame.MAX_WIDTH);
+            });
         }
     }
 
     public static void checkSpawn(final SpawnSpec config) {
         Checks.requireText("first-join-spawn.world", config.firstJoinSpawn().world());
         for (final SpawnRegionSpec region : config.spawnRegions()) {
-            Checks.requireText("spawn-regions", region.world());
+            Checks.requireText("spawn-regions.world", region.world());
             if (region.maxX() < region.minX() || region.maxY() < region.minY() || region.maxZ() < region.minZ()) {
                 throw new SettingRefused(
                         "spawn-regions",

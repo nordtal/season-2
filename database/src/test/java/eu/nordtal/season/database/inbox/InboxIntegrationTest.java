@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.audit.AuditLine;
@@ -445,6 +446,26 @@ class InboxIntegrationTest {
         assertEquals(notActive, smp.find(objective).orElseThrow().refusal().orElseThrow());
         assertEquals(tooManyKits, smp.find(settings).orElseThrow().refusal().orElseThrow());
         assertEquals(tooFew, games.find(start).orElseThrow().refusal().orElseThrow());
+    }
+
+    @Test
+    void aSettingsRefusalAnOlderServerWroteAsFreeTextReadsBackInItsWords() throws SQLException {
+        execute("DELETE FROM smp_inbox");
+        final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
+        final long settings = smp.submit(
+                        new SmpRequest.CheckSettings(new SettingsChange("duels", Map.of(), List.of("duel-kits"))),
+                        ADMIN)
+                .id();
+        assertTrue(smp.claim().isPresent());
+        smp.settle(
+                settings,
+                Outcome.refused(ServerRefusal.SETTINGS_REFUSED.with("smp", "duel-kits", SettingRule.VALID, null)));
+        execute("UPDATE smp_refusal SET setting = NULL, rule = NULL, detail = 'duels: duel-kits is broken'"
+                + " WHERE request = " + settings);
+
+        assertEquals(
+                DatabaseMessages.MESSAGES.server().settingsRefusedInWords("smp", "duels: duel-kits is broken"),
+                smp.find(settings).orElseThrow().refusal().orElseThrow().message());
     }
 
     @Test

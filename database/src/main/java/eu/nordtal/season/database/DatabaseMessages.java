@@ -135,6 +135,13 @@ public interface DatabaseMessages {
                 @Arg("rule") @Example("most-entries") SettingRule rule,
                 @Arg("value") @Example("5") @Nullable String value);
 
+        /** A refusal of an older server, which wrote its reason as free text. */
+        @Name("Settings refused in words")
+        @Shown(Display.STEWARD)
+        MessageRef settingsRefusedInWords(
+                @Arg("service") @Example("smp") String service,
+                @Arg("detail") @Example("view-distance must be between 2 and 32") String detail);
+
         @Name("Stack changed")
         @Shown(Display.STEWARD)
         MessageRef stackChanged();

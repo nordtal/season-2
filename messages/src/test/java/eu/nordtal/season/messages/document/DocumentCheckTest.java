@@ -249,6 +249,28 @@ class DocumentCheckTest {
     }
 
     @Test
+    void aDocumentInEnglishOnlyHoldsNoOtherLanguage() {
+        final DocumentSpec<Summary> english = SUMMARY.inEnglishOnly();
+        assertTrue(english.declaration().englishOnly());
+        assertEquals(List.of("it is written in English only, so it holds no text in German"), errors(english, SOUND));
+        assertEquals(List.of(), errors(english, SOUND.replaceAll(", \"de\": (\\[[^]]*]|\"[^\"]*\")", "")));
+    }
+
+    @Test
+    void aTextBlankInOneLanguageButWrittenInEnglishIsWarnedOfAndStillSaved() {
+        final String blank = SOUND.replace("\"de\": \"Bezahlen\"", "\"de\": \"\"");
+        final List<DocumentCheck.Problem> problems =
+                DocumentCheck.check(SUMMARY.declaration(), Document.decode(blank), MessageCheck.Mode.OVERRIDE);
+        assertEquals(
+                List.of("a button's label is blank in German, though it is written in English"),
+                problems.stream()
+                        .filter(problem -> !problem.error())
+                        .map(DocumentCheck.Problem::text)
+                        .toList());
+        assertEquals(List.of(), errors(SUMMARY, blank));
+    }
+
+    @Test
     void aTextKeepsTheTypography() {
         assertEquals(
                 List.of("a button's label in English: " + eu.nordtal.season.messages.text.Typography.SEPARATOR),

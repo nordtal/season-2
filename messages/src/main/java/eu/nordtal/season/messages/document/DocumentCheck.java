@@ -100,6 +100,7 @@ public final class DocumentCheck {
             final Function<String, Filling.Blocks> blocks) {
         final DocumentCheck check = new DocumentCheck(declaration, document, mode, blocks);
         check.shape(document);
+        check.english();
         check.parts(document.parts(), false, false);
         check.slots();
         check.limits(document);
@@ -133,6 +134,18 @@ public final class DocumentCheck {
 
     private void error(final String text) {
         problems.add(new Problem(true, text, at));
+    }
+
+    /** Refuses every language but English in a document written in English alone. */
+    private void english() {
+        if (!declaration.englishOnly()) {
+            return;
+        }
+        for (final String language : languages) {
+            if (!language.equals(Locales.DEFAULT_TAG)) {
+                error("it is written in English only, so it holds no text in " + nameOf(language));
+            }
+        }
     }
 
     private void shape(final Document document) {
@@ -476,6 +489,12 @@ public final class DocumentCheck {
             }
             if (versions.isEmpty()) {
                 error(place + " has no version in " + nameOf(language));
+            }
+            if (versions.stream().anyMatch(String::isBlank)
+                    && text.languages().getOrDefault(Locales.DEFAULT_TAG, List.of()).stream()
+                            .anyMatch(english -> !english.isBlank())) {
+                problems.add(new Problem(
+                        false, place + " is blank in " + nameOf(language) + ", though it is written in English", at));
             }
             for (final String version : versions) {
                 final String where = place + " in " + nameOf(language);

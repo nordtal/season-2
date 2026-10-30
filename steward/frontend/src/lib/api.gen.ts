@@ -1002,6 +1002,7 @@ export type DocumentDeclaration = {
   namespace: string
   name: string
   title: string
+  englishOnly: boolean
   area: string
   shape: DocumentShape
   rows: number

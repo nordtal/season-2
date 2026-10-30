@@ -20,7 +20,10 @@ import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentCheck;
 import eu.nordtal.season.messages.document.DocumentDeclaration;
 import eu.nordtal.season.messages.document.Documents;
+import eu.nordtal.season.messages.document.Line;
+import eu.nordtal.season.messages.document.Part;
 import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.document.Text;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -151,6 +154,25 @@ class DocumentRendererTest {
             };
             assertTrue(drawn.has(field), each.declaration().id() + " is drawn as " + drawn);
         }
+    }
+
+    @Test
+    void aPreviewLeavesOutATextBlockNotWrittenYetInItsLanguage() {
+        final Documents.Packaged welcome = packaged("onboarding-welcome");
+        final List<Part> parts = new ArrayList<>(welcome.document().parts());
+        parts.add(Part.text(List.of(
+                new Line(new Text(Map.of("en", List.of("Hello"), "de", List.of(""))), null, null, null),
+                new Line(new Text(Map.of("en", List.of("Read"), "de", List.of(""))), Line.Style.HEADING, null, null))));
+        final Documents.Packaged added = new Documents.Packaged(welcome.declaration(), new Document(parts));
+        final List<Locale> languages = List.of(Locale.ENGLISH, Locale.GERMAN);
+
+        final String german = StoredDocumentsStandIn.renderer().preview(added, languages, Locale.GERMAN);
+        final String english = StoredDocumentsStandIn.renderer().preview(added, languages, Locale.ENGLISH);
+
+        assertAll(
+                () -> assertEquals(
+                        StoredDocumentsStandIn.renderer().preview(welcome, languages, Locale.GERMAN), german),
+                () -> assertTrue(english.contains("\"Hello\\n### Read\""), english));
     }
 
     @Test

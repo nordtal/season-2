@@ -919,6 +919,8 @@ export type TextArgs = {
   "steward.document-editor.delete-shared-part": Record<string, never>
   "steward.document-editor.detach-shared-part": Record<string, never>
   "steward.document-editor.discard": Record<string, never>
+  "steward.document-editor.english-only": Record<string, never>
+  "steward.document-editor.english-only-note": Record<string, never>
   "steward.document-editor.image": Record<string, never>
   "steward.document-editor.insert-shared-part": {
     name: Arg["text"]

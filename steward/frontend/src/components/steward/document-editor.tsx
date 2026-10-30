@@ -747,6 +747,13 @@ export function DocumentMarks({ view }: { view: DocumentView }) {
           ))}
         </span>
       ) : null}
+      {view.declaration.englishOnly ? (
+        <Hint tip={t("steward.document-editor.english-only-note")}>
+          <Badge variant="outline" className="shrink-0 text-muted-foreground">
+            {t("steward.document-editor.english-only")}
+          </Badge>
+        </Hint>
+      ) : null}
       {view.written ? (
         <Badge variant="outline" className="shrink-0">
           {t("steward.document-editor.changed")}

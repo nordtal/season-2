@@ -98,6 +98,7 @@ export function view(
     declaration: {
       namespace: "discord",
       title: over.name,
+      englishOnly: false,
       area: "Contribution",
       shape: "MESSAGE",
       rows: 0,

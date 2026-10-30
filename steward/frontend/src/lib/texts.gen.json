@@ -802,6 +802,8 @@
     "steward.document-editor.delete-shared-part": [["Delete the shared part"]],
     "steward.document-editor.detach-shared-part": [["Detach from the shared part"]],
     "steward.document-editor.discard": [["Discard"]],
+    "steward.document-editor.english-only": [["English only"]],
+    "steward.document-editor.english-only-note": [["Only admins read it, so it is written in English alone."]],
     "steward.document-editor.image": [["Image"]],
     "steward.document-editor.insert-shared-part": [["Shared part ",{"v":"name"}]],
     "steward.document-editor.label": [["Label"]],

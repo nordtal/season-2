@@ -1,0 +1,94 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Duel",
+            "de": "Duell"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "kit",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>{kit}</emphasis>",
+            "de": "<emphasis>{kit}</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Click to fight with this kit. The duel starts once you both picked the same.</muted>",
+            "de": "<muted>Klicken, um mit diesem Kit zu kämpfen. Das Duell beginnt, sobald ihr beide dasselbe gewählt habt.</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "alone",
+      "lines": [
+        {
+          "text": {
+            "en": "Waiting for an opponent",
+            "de": "Warte auf einen Gegner"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "pick",
+      "lines": [
+        {
+          "text": {
+            "en": "Pick a kit",
+            "de": "Wähle ein Kit"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "waiting",
+      "lines": [
+        {
+          "text": {
+            "en": "Waiting for {opponent.name}",
+            "de": "Warte auf {opponent.name}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "different",
+      "lines": [
+        {
+          "text": {
+            "en": "{opponent.name} picked another kit",
+            "de": "{opponent.name} will ein anderes Kit"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "starting",
+      "lines": [
+        {
+          "text": {
+            "en": "Starting",
+            "de": "Gleich geht es los"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -7,18 +7,11 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
+/** A cuboid between two corner blocks, both inside it. Either corner may be the lower one. */
 @ConfigSpec
-public interface DuelPlatformSpec {
+public interface DuelAreaSpec {
 
     @Order(1)
-    @Name("Type")
-    @Key("type")
-    @NoExplanationNeeded
-    default String type() {
-        return "SWORD";
-    }
-
-    @Order(2)
     @Name("World")
     @Key("world")
     @Refers(Refers.To.WORLD)
@@ -27,7 +20,7 @@ public interface DuelPlatformSpec {
         return "nordtal";
     }
 
-    @Order(3)
+    @Order(2)
     @Name("Min X")
     @Key("min-x")
     @NoExplanationNeeded
@@ -35,15 +28,15 @@ public interface DuelPlatformSpec {
         return 0;
     }
 
-    @Order(4)
+    @Order(3)
     @Name("Min Y")
     @Key("min-y")
     @NoExplanationNeeded
     default int minY() {
-        return 0;
+        return 64;
     }
 
-    @Order(5)
+    @Order(4)
     @Name("Min Z")
     @Key("min-z")
     @NoExplanationNeeded
@@ -51,7 +44,7 @@ public interface DuelPlatformSpec {
         return 0;
     }
 
-    @Order(6)
+    @Order(5)
     @Name("Max X")
     @Key("max-x")
     @NoExplanationNeeded
@@ -59,15 +52,15 @@ public interface DuelPlatformSpec {
         return 0;
     }
 
-    @Order(7)
+    @Order(6)
     @Name("Max Y")
     @Key("max-y")
     @NoExplanationNeeded
     default int maxY() {
-        return 0;
+        return 64;
     }
 
-    @Order(8)
+    @Order(7)
     @Name("Max Z")
     @Key("max-z")
     @NoExplanationNeeded

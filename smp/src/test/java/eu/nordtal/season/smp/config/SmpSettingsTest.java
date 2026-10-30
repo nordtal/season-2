@@ -71,19 +71,21 @@ class SmpSettingsTest {
     void everyDefaultItemIsANamespacedKey() {
         final List<String> items = new ArrayList<>();
         DefaultSmp.WHEEL_PRIZES.forEach(prize -> items.add(prize.item()));
-        DefaultSmp.DUEL_LOADOUT_SWORD.forEach(entry -> items.add(entry.item()));
-        DefaultSmp.DUEL_LOADOUT_BOW.forEach(entry -> items.add(entry.item()));
+        DefaultSmp.DUEL_KITS.forEach(kit -> {
+            items.add(kit.icon());
+            kit.loadout().forEach(entry -> items.add(entry.item()));
+        });
         assertEquals(
                 List.of(),
                 items.stream().filter(item -> !item.startsWith("minecraft:")).toList());
     }
 
     @Test
-    void aDuelLimitBelowOneIsRefused() {
+    void anEmptyKitListIsRefused() {
         final Exception refused =
-                assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("concurrent-duel-limit", 0)));
+                assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("duel-kits", List.of())));
 
-        assertTrue(refused.getMessage().contains("concurrent-duel-limit"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("duel-kits"), refused.getMessage());
     }
 
     @Test
@@ -96,8 +98,18 @@ class SmpSettingsTest {
                 Specs.createDefault(BoardsSpec.class).boards().size(),
                 boards.boards().size());
         assertEquals(
-                Specs.createDefault(DuelsSpec.class).duelPlatforms().size(),
-                duels.duelPlatforms().size());
+                Specs.createDefault(DuelsSpec.class).duelKits().size(),
+                duels.duelKits().size());
+        assertEquals(
+                Specs.createDefault(DuelsSpec.class)
+                        .duelKits()
+                        .getFirst()
+                        .loadout()
+                        .size(),
+                duels.duelKits().getFirst().loadout().size());
+        assertEquals(
+                Specs.createDefault(DuelsSpec.class).arena().maxX(),
+                duels.arena().maxX());
         final SpawnSpec written = Specs.createDefault(SpawnSpec.class);
         assertEquals(written.spawnRegions().size(), reread.spawnRegions().size());
 

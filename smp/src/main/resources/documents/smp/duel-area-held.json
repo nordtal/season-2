@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>The negotiation area is taken.</warn> <muted>Two players are agreeing on a duel or fighting it. Wait until they are done.</muted>",
+            "de": "<warn>Die Verhandlungsfläche ist belegt.</warn> <muted>Zwei Spieler einigen sich gerade auf ein Duell oder kämpfen es aus. Warte, bis sie fertig sind.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

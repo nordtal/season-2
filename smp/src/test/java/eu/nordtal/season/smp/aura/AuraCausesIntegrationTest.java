@@ -38,12 +38,12 @@ class AuraCausesIntegrationTest {
     }
 
     @Test
-    void aDuelRecordsItsType() {
-        aura.addAura(PLAYER, 10, new AuraCause.Duel(true, DuelType.BOW));
+    void aDuelRecordsItsKit() {
+        aura.addAura(PLAYER, 10, new AuraCause.Duel(true, "Bow"));
 
         assertEquals(
-                List.of("DUEL_WIN BOW"),
-                rows("SELECT e.reason || ' ' || d.duel_type FROM smp_aura_event e"
+                List.of("DUEL_WIN Bow"),
+                rows("SELECT e.reason || ' ' || d.kit FROM smp_aura_event e"
                         + " JOIN smp_aura_duel d ON d.event_id = e.id"));
     }
 

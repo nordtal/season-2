@@ -11,7 +11,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 
-/** The listener for every {@link Menu}: sounds on open and close, and clicks. */
+/** The listener for every {@link Menu}: sounds on open and close, and clicks. A replacement plays neither sound. */
 public final class Menus implements Listener {
 
     private final PaperUser.Chime chime;
@@ -49,14 +49,18 @@ public final class Menus implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onOpen(final InventoryOpenEvent event) {
-        if (event.getPlayer() instanceof Player player && event.getInventory().getHolder() instanceof Menu) {
+        if (event.getPlayer() instanceof Player player
+                && event.getInventory().getHolder() instanceof Menu menu
+                && !menu.openedQuietly()) {
             chime.play(player, Feedback.SURFACE_OPEN);
         }
     }
 
     @EventHandler
     public void onClose(final InventoryCloseEvent event) {
-        if (event.getPlayer() instanceof Player player && event.getInventory().getHolder() instanceof Menu menu) {
+        if (event.getPlayer() instanceof Player player
+                && event.getInventory().getHolder() instanceof Menu menu
+                && !menu.replaced()) {
             chime.play(player, Feedback.SURFACE_CLOSE);
             menu.closed(player);
         }

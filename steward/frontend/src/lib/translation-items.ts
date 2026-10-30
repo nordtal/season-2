@@ -77,10 +77,12 @@ export function areasOf(nodes: TreeNode<PageCard>[]): Area[] {
   })
 }
 
-/** Returns whether an item has no text of its own in `language`, which English never lacks. */
+/** Returns whether an item has no text of its own in `language`, which English and a document in English only never lack. */
 export function untranslated(card: PageCard, language: Language, languagesOfBundle: (bundle: string) => Language[]) {
   if (language === ENGLISH) return false
-  if (card.kind === "document") return !languagesOf(documentOf(card.view)).includes(language)
+  if (card.kind === "document") {
+    return !card.view.declaration.englishOnly && !languagesOf(documentOf(card.view)).includes(language)
+  }
   if (card.kind === "shared") return !languagesOf({ parts: [card.shared.part] }).includes(language)
   const entry = card.text.entry
   if (!languagesOfBundle(entry.bundle).includes(language)) return false

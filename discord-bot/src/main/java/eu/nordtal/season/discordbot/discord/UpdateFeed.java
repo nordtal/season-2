@@ -111,7 +111,8 @@ public final class UpdateFeed {
                     Slot.list("why", Failure.class),
                     Slot.list("reasons", Reason.class).optional(),
                     Slot.button("open").optional())
-            .titled("Update run");
+            .titled("Update run")
+            .inEnglishOnly();
 
     private record Drawn(String messageId, @Nullable RunRecord showing) {}
 

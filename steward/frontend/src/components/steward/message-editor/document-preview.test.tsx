@@ -15,6 +15,7 @@ const declaration: DocumentDeclaration = {
   namespace: "discord",
   name: "greeting",
   title: "Greeting",
+  englishOnly: false,
   area: "Greeting",
   shape: "MESSAGE",
   rows: 0,

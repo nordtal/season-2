@@ -241,7 +241,8 @@ export function TranslationsView({
                   className="lg:hidden"
                 />
                 <h2 className="min-w-0 flex-1 truncate text-lg font-semibold">{open.name}</h2>
-                {wide ? null : toggle}
+                {/* A document in English only offers no other language; its marks say so. */}
+                {wide || inEnglishOnly(open) ? null : toggle}
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                 <Trail labels={[open.area.label, open.section.label, ...open.trail].filter((label) => label !== "")} />
@@ -335,6 +336,15 @@ function openState(item: Placed): TranslationsState {
   return item.card.kind !== "text"
     ? { area: item.area.id, document: item.id, text: undefined }
     : { area: item.area.id, document: undefined, text: item.id }
+}
+
+function inEnglishOnly(item: Item): boolean {
+  return item.card.kind === "document" && item.card.view.declaration.englishOnly
+}
+
+/** The language an item is edited in: the page's, except English for a document in English only. */
+function editedIn(item: Item, language: Language): Language {
+  return inEnglishOnly(item) ? ENGLISH : language
 }
 
 /** A shared part's draft, or the part saved. */
@@ -513,7 +523,11 @@ function Marks({ page, item }: { page: Page; item: Placed }) {
       ) : (
         <>
           <DocumentMarks view={card.view} />
-          <ComponentCount view={card.view} draft={documentFor(page.model, card)} language={page.language} />
+          <ComponentCount
+            view={card.view}
+            draft={documentFor(page.model, card)}
+            language={editedIn(item, page.language)}
+          />
         </>
       )}
       {card.kind === "text" && !card.text.entry.inBundle ? (
@@ -553,18 +567,14 @@ function ItemEditor({ page, item, highlight }: { page: Page; item: Placed; highl
   }
   if (card.kind === "document") {
     const draft = documentFor(model, card)
+    const shown = editedIn(item, language)
     return (
       <div className="flex min-w-0 flex-col gap-4">
-        <DocumentPreview
-          declaration={card.view.declaration}
-          game={card.view.game}
-          document={draft}
-          language={language}
-        />
+        <DocumentPreview declaration={card.view.declaration} game={card.view.game} document={draft} language={shown} />
         <DocumentEditor
           view={card.view}
           draft={draft}
-          language={language}
+          language={shown}
           onDraft={(next) =>
             model.setDocumentDraft(
               item.id,

@@ -14,12 +14,14 @@ import java.util.Set;
  * What a document's file must fit, as the build writes it into {@code declarations.json}.
  *
  * @param title what an admin reads as its name
+ * @param englishOnly whether its texts are English alone, so Steward offers no other language
  * @param rows a menu's chest rows, 0 for every other shape
  */
 public record DocumentDeclaration(
         String namespace,
         String name,
         String title,
+        boolean englishOnly,
         String area,
         DocumentSpec.Shape shape,
         int rows,
@@ -48,6 +50,7 @@ public record DocumentDeclaration(
                 namespace,
                 name,
                 title,
+                englishOnly,
                 area,
                 shape,
                 rows,

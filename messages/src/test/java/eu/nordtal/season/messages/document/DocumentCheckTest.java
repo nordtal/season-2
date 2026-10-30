@@ -249,6 +249,14 @@ class DocumentCheckTest {
     }
 
     @Test
+    void aDocumentInEnglishOnlyHoldsNoOtherLanguage() {
+        final DocumentSpec<Summary> english = SUMMARY.inEnglishOnly();
+        assertTrue(english.declaration().englishOnly());
+        assertEquals(List.of("it is written in English only, so it holds no text in German"), errors(english, SOUND));
+        assertEquals(List.of(), errors(english, SOUND.replaceAll(", \"de\": (\\[[^]]*]|\"[^\"]*\")", "")));
+    }
+
+    @Test
     void aTextKeepsTheTypography() {
         assertEquals(
                 List.of("a button's label in English: " + eu.nordtal.season.messages.text.Typography.SEPARATOR),

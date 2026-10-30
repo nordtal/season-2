@@ -161,6 +161,8 @@
     "steward.document-editor.delete-shared-part": ["translations"],
     "steward.document-editor.detach-shared-part": ["translations"],
     "steward.document-editor.discard": ["translations"],
+    "steward.document-editor.english-only": ["translations"],
+    "steward.document-editor.english-only-note": ["translations"],
     "steward.document-editor.image": ["translations"],
     "steward.document-editor.insert-shared-part": ["translations"],
     "steward.document-editor.label": ["translations"],

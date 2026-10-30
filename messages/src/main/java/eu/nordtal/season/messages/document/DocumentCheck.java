@@ -100,6 +100,7 @@ public final class DocumentCheck {
             final Function<String, Filling.Blocks> blocks) {
         final DocumentCheck check = new DocumentCheck(declaration, document, mode, blocks);
         check.shape(document);
+        check.english();
         check.parts(document.parts(), false, false);
         check.slots();
         check.limits(document);
@@ -133,6 +134,18 @@ public final class DocumentCheck {
 
     private void error(final String text) {
         problems.add(new Problem(true, text, at));
+    }
+
+    /** Refuses every language but English in a document written in English alone. */
+    private void english() {
+        if (!declaration.englishOnly()) {
+            return;
+        }
+        for (final String language : languages) {
+            if (!language.equals(Locales.DEFAULT_TAG)) {
+                error("it is written in English only, so it holds no text in " + nameOf(language));
+            }
+        }
     }
 
     private void shape(final Document document) {

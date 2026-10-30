@@ -10,6 +10,7 @@ import org.jspecify.annotations.Nullable;
  * The document itself is the file {@code documents/<namespace>/<name>.json} in the module's resources.
  *
  * @param title what an admin reads as its name, unique in its area; {@link #titled} gives it
+ * @param englishOnly whether its texts are English alone, as only admins read it; {@link #inEnglishOnly} gives it
  * @param area the group an admin finds it under on the Translations page
  * @param rows a menu's chest rows, 0 for every other shape; a menu whose layout varies declares one example
  * @param values the record whose components are the values its texts may name
@@ -18,6 +19,7 @@ public record DocumentSpec<V extends Record>(
         String namespace,
         String name,
         @Nullable String title,
+        boolean englishOnly,
         String area,
         Shape shape,
         int rows,
@@ -91,7 +93,7 @@ public record DocumentSpec<V extends Record>(
 
     public static <V extends Record> DocumentSpec<V> message(
             final String namespace, final String name, final String area, final Class<V> values, final Slot... slots) {
-        return new DocumentSpec<>(namespace, name, null, area, Shape.MESSAGE, 0, values, List.of(slots));
+        return new DocumentSpec<>(namespace, name, null, false, area, Shape.MESSAGE, 0, values, List.of(slots));
     }
 
     public static DocumentSpec<None> message(
@@ -101,17 +103,17 @@ public record DocumentSpec<V extends Record>(
 
     public static <V extends Record> DocumentSpec<V> modal(
             final String namespace, final String name, final String area, final Class<V> values, final Slot... fields) {
-        return new DocumentSpec<>(namespace, name, null, area, Shape.MODAL, 0, values, List.of(fields));
+        return new DocumentSpec<>(namespace, name, null, false, area, Shape.MODAL, 0, values, List.of(fields));
     }
 
     public static <V extends Record> DocumentSpec<V> plain(
             final String namespace, final String name, final String area, final Class<V> values) {
-        return new DocumentSpec<>(namespace, name, null, area, Shape.PLAIN, 0, values, List.of());
+        return new DocumentSpec<>(namespace, name, null, false, area, Shape.PLAIN, 0, values, List.of());
     }
 
     public static <V extends Record> DocumentSpec<V> channelName(
             final String namespace, final String name, final String area, final Class<V> values) {
-        return new DocumentSpec<>(namespace, name, null, area, Shape.CHANNEL_NAME, 0, values, List.of());
+        return new DocumentSpec<>(namespace, name, null, false, area, Shape.CHANNEL_NAME, 0, values, List.of());
     }
 
     public static <V extends Record> DocumentSpec<V> menu(
@@ -121,7 +123,7 @@ public record DocumentSpec<V extends Record>(
             final Class<V> values,
             final int rows,
             final Slot... slots) {
-        return new DocumentSpec<>(namespace, name, null, area, Shape.MENU, rows, values, List.of(slots));
+        return new DocumentSpec<>(namespace, name, null, false, area, Shape.MENU, rows, values, List.of(slots));
     }
 
     /** Declares a game text of {@code shape} that holds only text blocks of lines. */
@@ -130,7 +132,7 @@ public record DocumentSpec<V extends Record>(
         if (!shape.game() || shape == Shape.MENU) {
             throw new IllegalArgumentException(shape + " is no game text");
         }
-        return new DocumentSpec<>(namespace, name, null, area, shape, 0, values, List.of());
+        return new DocumentSpec<>(namespace, name, null, false, area, shape, 0, values, List.of());
     }
 
     public static DocumentSpec<None> game(
@@ -140,7 +142,12 @@ public record DocumentSpec<V extends Record>(
 
     /** Returns this declaration with the name an admin reads, a short noun phrase such as "Access paid". */
     public DocumentSpec<V> titled(final String title) {
-        return new DocumentSpec<>(namespace, name, title, area, shape, rows, values, slots);
+        return new DocumentSpec<>(namespace, name, title, englishOnly, area, shape, rows, values, slots);
+    }
+
+    /** Returns this declaration written in English alone, for a document only admins read, as the admin channel's. */
+    public DocumentSpec<V> inEnglishOnly() {
+        return new DocumentSpec<>(namespace, name, title, true, area, shape, rows, values, slots);
     }
 
     /** Returns this document filled with {@code values}, as the code sends it. */
@@ -161,6 +168,7 @@ public record DocumentSpec<V extends Record>(
                 namespace,
                 name,
                 Objects.requireNonNull(title, () -> id() + " has no name"),
+                englishOnly,
                 area,
                 shape,
                 rows,

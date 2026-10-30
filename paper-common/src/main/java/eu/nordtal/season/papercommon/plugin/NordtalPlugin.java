@@ -70,6 +70,7 @@ import eu.nordtal.season.settings.Environment;
 import eu.nordtal.season.settings.EnvironmentSettings;
 import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.Setting;
+import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.settings.Settings;
 import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.settings.network.LanguageAndTimeSpec;
@@ -562,25 +563,29 @@ public abstract class NordtalPlugin extends JavaPlugin {
      */
     protected final Answer checkSettings(final SettingsChange change) {
         final Group<?> group = groups.get(change.group());
-        final String refusal;
+        final SettingRefused refusal;
         try {
             refusal = group == null ? null : trial(group, change);
         } catch (final SettingsException refused) {
-            return refusedSettings(String.valueOf(refused.getMessage()));
+            return refusedSettings(SettingRefused.of(refused, change.group()));
         }
         return refusal == null ? Answer.done(Sent.of(Replies.SETTINGS_TAKEN)) : refusedSettings(refusal);
     }
 
-    private <T> @Nullable String trial(final Group<T> group, final SettingsChange change) throws SettingsException {
+    private <T> @Nullable SettingRefused trial(final Group<T> group, final SettingsChange change)
+            throws SettingsException {
         return refusesAtStart(group, settings.trial(group, change));
     }
 
-    private Answer refusedSettings(final String reason) {
-        return Answer.refused(ServerRefusal.SETTINGS_REFUSED.with(getName(), reason));
+    /** Refuses with the setting and the rule, which Steward words, and logs the check's own sentence. */
+    private Answer refusedSettings(final SettingRefused refusal) {
+        getLogger().info("a change to the settings would keep this server from starting: " + refusal.getMessage());
+        return Answer.refused(
+                ServerRefusal.SETTINGS_REFUSED.with(getName(), refusal.setting(), refusal.rule(), refusal.value()));
     }
 
     /** Returns why this server would not start with {@code value} as {@code group}, or null. Its check has passed. */
-    protected <T> @Nullable String refusesAtStart(final Group<T> group, final T value) {
+    protected <T> @Nullable SettingRefused refusesAtStart(final Group<T> group, final T value) {
         return null;
     }
 

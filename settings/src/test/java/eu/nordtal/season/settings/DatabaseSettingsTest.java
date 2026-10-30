@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.inbox.SettingsChange;
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.database.setting.SettingStore;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +90,34 @@ class DatabaseSettingsTest {
                 () -> settings.trial(EXAMPLE, new SettingsChange("example", Map.of("view-distance", "99"), List.of())));
         assertTrue(refused.getMessage().contains("view-distance is above 32"), refused.getMessage());
         assertEquals(12, settings.load(EXAMPLE).get().viewDistance(), "a trial stores nothing");
+    }
+
+    @Test
+    void aRefusedTrialNamesTheSettingAndTheRuleOrElseTheWholeGroup() {
+        final Group<ExampleSpec> bounded = Group.of("example", ExampleSpec.class)
+                .checkedBy(values -> Checks.requireBetween("view-distance", values.viewDistance(), 2, 32));
+        final SettingsChange far = new SettingsChange("example", Map.of("view-distance", "99"), List.of());
+
+        final SettingRefused named = SettingRefused.of(
+                assertThrows(
+                        SettingsException.class, () -> store.settings("smp").trial(bounded, far)),
+                "example");
+        final SettingRefused unnamed = SettingRefused.of(
+                assertThrows(
+                        SettingsException.class, () -> store.settings("smp").trial(EXAMPLE, far)),
+                "example");
+
+        assertEquals(
+                List.of("view-distance", SettingRule.AT_MOST, "32", "view-distance must be at most 32, was 99"),
+                List.of(
+                        named.setting(),
+                        named.rule(),
+                        String.valueOf(named.value()),
+                        String.valueOf(named.getMessage())));
+        assertEquals(
+                List.of("example", SettingRule.VALID, "example: view-distance is above 32"),
+                List.of(unnamed.setting(), unnamed.rule(), String.valueOf(unnamed.getMessage())),
+                "a check that names no setting refuses its group, and only the log says why");
     }
 
     @Test

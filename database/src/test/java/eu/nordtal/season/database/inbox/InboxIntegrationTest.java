@@ -14,6 +14,7 @@ import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.messages.RefusalReason;
@@ -415,9 +416,17 @@ class InboxIntegrationTest {
         assertTrue(smp.claim().isPresent());
         assertTrue(games.claim().isPresent());
 
+        final long settings = smp.submit(
+                        new SmpRequest.CheckSettings(new SettingsChange("duels", Map.of(), List.of("duel-kits"))),
+                        ADMIN)
+                .id();
+        assertTrue(smp.claim().isPresent());
         final Refusal notActive = ServerRefusal.MILESTONE_NOT_ACTIVE.with("wood", "stone");
         final Refusal tooFew = ServerRefusal.BELOW_SOFT_MINIMUM.with(3, 8);
+        final Refusal tooManyKits =
+                ServerRefusal.SETTINGS_REFUSED.with("smp", "duel-kits", SettingRule.MOST_ENTRIES, "5");
         smp.settle(objective, Outcome.refused(notActive));
+        smp.settle(settings, Outcome.refused(tooManyKits));
         games.settle(start, Outcome.refused(tooFew));
 
         assertEquals(
@@ -428,7 +437,13 @@ class InboxIntegrationTest {
                 1,
                 count("SELECT count(*) FROM hunger_games_refusal WHERE request = " + start
                         + " AND reason = 'BELOW_SOFT_MINIMUM' AND count = 3 AND minimum = 8"));
+        assertEquals(
+                1,
+                count("SELECT count(*) FROM smp_refusal WHERE request = " + settings
+                        + " AND reason = 'SETTINGS_REFUSED' AND setting = 'duel-kits' AND rule = 'MOST_ENTRIES'"
+                        + " AND value = '5' AND detail IS NULL"));
         assertEquals(notActive, smp.find(objective).orElseThrow().refusal().orElseThrow());
+        assertEquals(tooManyKits, smp.find(settings).orElseThrow().refusal().orElseThrow());
         assertEquals(tooFew, games.find(start).orElseThrow().refusal().orElseThrow());
     }
 

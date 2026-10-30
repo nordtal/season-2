@@ -1,10 +1,13 @@
 package eu.nordtal.season.database.inbox;
 
 import eu.nordtal.season.database.DatabaseMessages;
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.messages.RefusalReason;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Why a server refused a request in its inbox or the same action typed on its console. */
 public enum ServerRefusal implements RefusalReason {
@@ -39,7 +42,7 @@ public enum ServerRefusal implements RefusalReason {
     /** Discord did not deliver a preview as a direct message. */
     NOT_DELIVERED,
 
-    /** The server would not start with a change to its settings. */
+    /** The server would not start with a change to its settings: a setting broke a rule of the server's check. */
     SETTINGS_REFUSED,
 
     /** The player holds the other mode, or the slot holds another stack than the one shown. */
@@ -58,7 +61,7 @@ public enum ServerRefusal implements RefusalReason {
             case WRONG_STATE -> List.of("state");
             case BELOW_HARD_MINIMUM -> List.of("minimum", "count");
             case BELOW_SOFT_MINIMUM -> List.of("count", "minimum");
-            case SETTINGS_REFUSED -> List.of("service", "detail");
+            case SETTINGS_REFUSED -> List.of("service", "setting", "rule", "value");
         };
     }
 
@@ -68,7 +71,7 @@ public enum ServerRefusal implements RefusalReason {
     }
 
     /** Returns this refusal with its message from the database bundle. */
-    public Refusal with(final Object... args) {
+    public Refusal with(final @Nullable Object... args) {
         final DatabaseMessages.ServerRefusals words = DatabaseMessages.MESSAGES.server();
         return new Refusal(
                 this,
@@ -84,13 +87,27 @@ public enum ServerRefusal implements RefusalReason {
                     case BELOW_SOFT_MINIMUM -> words.belowSoftMinimum(count(args[0]), count(args[1]));
                     case NOT_HERE -> words.notHere();
                     case NOT_DELIVERED -> words.notDelivered();
-                    case SETTINGS_REFUSED -> words.settingsRefused(String.valueOf(args[0]), String.valueOf(args[1]));
+                    case SETTINGS_REFUSED ->
+                        words.settingsRefused(
+                                String.valueOf(args[0]),
+                                // A row of free text names no setting; its service stands for all of them.
+                                String.valueOf(args[1] == null ? args[0] : args[1]),
+                                rule(args[2]),
+                                args[3] == null ? null : String.valueOf(args[3]));
                     case STACK_CHANGED -> words.stackChanged();
                     case NOT_EDITABLE -> words.notEditable();
                 });
     }
 
-    private static long count(final Object value) {
-        return ((Number) value).longValue();
+    /** Returns the rule as the server named it or its column holds it, and {@code VALID} for a row of free text. */
+    private static SettingRule rule(final @Nullable Object value) {
+        if (value == null) {
+            return SettingRule.VALID;
+        }
+        return value instanceof final SettingRule rule ? rule : SettingRule.valueOf(String.valueOf(value));
+    }
+
+    private static long count(final @Nullable Object value) {
+        return ((Number) Objects.requireNonNull(value, "count")).longValue();
     }
 }

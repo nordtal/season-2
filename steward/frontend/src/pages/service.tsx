@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { choice, since, t } from "@/lib/texts"
+import { serviceTitle } from "@/lib/words"
 
 /** What `/services/$name` keeps in its URL. Console is the default and is never written. */
 export type ServiceSearch = { tab?: "settings" | "plugins"; file?: string }
@@ -76,7 +77,7 @@ export function ServicePage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <PageHeader title={name} actions={<ServiceActions name={name} service={service.data} />} />
+        <PageHeader title={serviceTitle(name)} actions={<ServiceActions name={name} service={service.data} />} />
         <ActiveRunLine run={run} name={name} />
         <ServiceOnlineLine name={name} />
       </div>

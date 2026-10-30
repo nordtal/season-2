@@ -1,9 +1,11 @@
-import { TERM_ICON } from "@/components/steward/term-icons"
-import type { Icon } from "@phosphor-icons/react"
+import { TERM_ICON, type Glyph } from "@/components/steward/term-icons"
 import type { LinkProps } from "@tanstack/react-router"
 
+import { serviceGlyph } from "@/components/steward/service-name"
 import { topologyOf } from "@/components/steward/network/topology"
-import { useTopology } from "@/lib/queries"
+import { useServices, useTopology } from "@/lib/queries"
+import { withRunningStandbys } from "@/lib/services"
+import { serviceTitle } from "@/lib/words"
 import { t } from "@/lib/texts"
 
 /** A route missing here is unreachable. */
@@ -12,7 +14,7 @@ export type NavEntry = {
   id: string
   label: string
   note: string
-  icon: Icon
+  icon: Glyph
   keywords?: string[]
 } & (
   | { to: "/services/$name"; params: { name: string } }
@@ -25,7 +27,7 @@ export type NavGroup = {
   entries: NavEntry[]
 }
 
-/** `services` holds the names that `/api/topology` serves, in the order of the network table. */
+/** `services` holds the names that `/api/topology` serves, in the order of the network table, and the running standbys. */
 export function navigation(services: readonly string[]): NavGroup[] {
   return [
     {
@@ -46,12 +48,12 @@ export function navigation(services: readonly string[]): NavGroup[] {
       label: t("steward.shell.page", { page: "services" }),
       entries: services.map((name) => ({
         id: `service-${name}`,
-        label: name,
+        label: serviceTitle(name),
         to: "/services/$name",
         params: { name },
-        note: t("steward.shell.service-note", { name }),
-        icon: TERM_ICON.service,
-        keywords: ["container", "log", "console", "restart"],
+        note: t("steward.shell.service-note", { name: serviceTitle(name) }),
+        icon: serviceGlyph(name),
+        keywords: [name, "container", "log", "console", "restart"],
       })),
     },
     {
@@ -127,5 +129,7 @@ export function navigation(services: readonly string[]): NavGroup[] {
 
 export function useNavigation(): NavGroup[] {
   const topology = useTopology()
-  return navigation(topology.data ? topologyOf(topology.data).names : [])
+  const rows = useServices()
+  const names = topology.data ? topologyOf(topology.data).names : []
+  return navigation(withRunningStandbys(names, rows.data?.services ?? []))
 }

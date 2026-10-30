@@ -304,7 +304,7 @@ describe("CommandPalette - finding a run", () => {
 
   it("names a service once, not again as its route's parameter", async () => {
     await search("smp")
-    expect(paletteItems()).toContain("smp")
+    expect(paletteItems()).toContain("SMP")
   })
 
   it('finds the failed backup run on "report"', async () => {
@@ -351,7 +351,7 @@ describe("CommandPalette - finding a setting", () => {
     await search("base url")
 
     expect(screen.queryByText("Base url")).not.toBeNull()
-    expect(screen.queryByText(/steward/)).not.toBeNull()
+    expect(screen.queryByText(/Steward/)).not.toBeNull()
   })
 
   it("finds a setting by its current value", async () => {

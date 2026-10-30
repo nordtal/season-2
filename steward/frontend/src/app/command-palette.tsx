@@ -33,6 +33,7 @@ import { NETWORK } from "@/components/steward/settings"
 import { pluginFileId, pluginLabel } from "@/lib/settings-tree"
 import { runKind, runStatus } from "@/components/steward/status"
 import { t } from "@/lib/texts"
+import { serviceTitle } from "@/lib/words"
 
 const WAITING_HITS = [0, 1, 2, 3]
 
@@ -179,7 +180,7 @@ export function CommandPalette() {
                     }}
                     className="min-h-control gap-2.5"
                   >
-                    <Icon aria-hidden className="text-muted-foreground" />
+                    <Icon aria-hidden className="size-4 text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{entry.label}</span>
                   </CommandItem>
                 )
@@ -251,7 +252,7 @@ export function CommandPalette() {
                 >
                   <GearSixIcon aria-hidden className="text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{pluginLabel(file)}</span>
-                  <HitDetail where={file.service} text={file.path} />
+                  <HitDetail where={serviceTitle(file.service)} text={file.path} />
                 </CommandItem>
               ))}
               {settingsHits.slice(0, MAX_SETTINGS_HITS).map((hit) => {
@@ -276,7 +277,7 @@ export function CommandPalette() {
                   >
                     <TERM_ICON.settings aria-hidden className="text-muted-foreground" />
                     <span className="min-w-0 flex-1 truncate">{hit.entry.label}</span>
-                    <HitDetail where={service} text={hit.entry.value} />
+                    <HitDetail where={serviceTitle(service)} text={hit.entry.value} />
                   </CommandItem>
                 )
               })}

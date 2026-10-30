@@ -68,15 +68,27 @@ public final class StewardPreview {
     private static final String DUMP_OWNER = "nordtal";
 
     /**
-     * A one-shot that ran, a standby at rest and Steward itself, beside the stand-in's smp, so their pages show.
-     * Steward and smp carry the section label that lists them in the navigation, as compose.yml does.
+     * A one-shot that ran, a standby at rest and every other service of compose.yml beside the stand-in's smp, so their
+     * pages show. Each carries the section label that lists it in the navigation, as compose.yml does.
      */
     private static final com.google.gson.JsonObject RESTING =
             com.google.gson.JsonParser.parseString("""
                     {"migrate": {"image": "ghcr.io/nordtal/steward-agent:latest", "restart": "no"},
+                     "caddy": {"image": "ghcr.io/nordtal/caddy:latest", "labels": {"eu.nordtal.section": "Entry"}},
+                     "proxy": {"image": "ghcr.io/nordtal/minecraft:latest", "labels": {"eu.nordtal.section": "Entry"}},
                      "proxy-standby": {"image": "ghcr.io/nordtal/minecraft:latest", "restart": "unless-stopped",
                        "labels": {"eu.nordtal.standby-of": "proxy"}},
-                     "steward": {"image": "ghcr.io/nordtal/steward:latest", "labels": {"eu.nordtal.section": "Steward"}}}
+                     "limbo": {"image": "ghcr.io/nordtal/minecraft:latest", "labels": {"eu.nordtal.section": "Paper"}},
+                     "hunger-games": {"image": "ghcr.io/nordtal/minecraft:latest",
+                       "labels": {"eu.nordtal.section": "Paper"}},
+                     "discord-bot": {"image": "ghcr.io/nordtal/discord-bot:latest",
+                       "labels": {"eu.nordtal.section": "Discord"}},
+                     "steward": {"image": "ghcr.io/nordtal/steward:latest", "labels": {"eu.nordtal.section": "Steward"}},
+                     "steward-agent": {"image": "ghcr.io/nordtal/steward-agent:latest",
+                       "labels": {"eu.nordtal.section": "Steward"}},
+                     "steward-bunq": {"image": "ghcr.io/nordtal/steward-bunq:latest",
+                       "labels": {"eu.nordtal.section": "Steward"}},
+                     "postgres": {"image": "postgres:17-alpine", "labels": {"eu.nordtal.section": "Database"}}}
                     """).getAsJsonObject();
 
     private static final String PREVIEW_TOTP_KEY = previewTotpKey();

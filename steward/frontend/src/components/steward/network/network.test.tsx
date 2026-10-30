@@ -11,6 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { datasetOf } from "@/lib/test-elements"
 import type { NetworkMap, Service } from "@/lib/api"
 import { NETWORK_MAP } from "@/lib/query-fixtures"
+import { serviceTitle } from "@/lib/words"
 
 /** The mark beside the people icon, which a screen reader hears as `players`. */
 const playersOf = (element: HTMLElement) =>
@@ -163,7 +164,7 @@ describe("the network view", () => {
     await waitFor(() => expect(within(box("smp")).getByLabelText("healthy")).toBeTruthy())
 
     for (const name of ["smp", "limbo", "proxy", "hunger-games"]) {
-      const identifier = within(box(name)).getByRole("link", { name })
+      const identifier = within(box(name)).getByRole("link", { name: serviceTitle(name) })
       const count = playersOf(box(name))
       expect(count, `${name} draws a count`).not.toBeNull()
       expect(count?.parentElement, `${name}: the count must live on the tag line, not beside the identifier`).not.toBe(
@@ -305,8 +306,8 @@ describe("the network on a phone", () => {
     expect(row("smp").textContent).toContain("1.4.0")
     expect(row("smp").textContent).not.toContain("ghcr.io")
     expect(countIn(row("smp"))).toBe("3")
-    expect(within(row("smp")).getByRole("link", { name: "smp" })).toBeTruthy()
-    expect(within(row("smp")).getByRole("link", { name: "open smp" })).toBeTruthy()
+    expect(within(row("smp")).getByRole("link", { name: "SMP" })).toBeTruthy()
+    expect(within(row("smp")).getByRole("link", { name: "open SMP" })).toBeTruthy()
 
     for (const silent of ["postgres", "caddy", "steward", "steward-agent", "steward-bunq", "discord-bot"]) {
       expect(playersOf(row(silent))).toBeNull()

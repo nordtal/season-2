@@ -107,7 +107,7 @@ describe("the frame on a desktop", () => {
     await waitFor(() => expect(screen.getByText("a page")).toBeTruthy())
     const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
     expect(island.textContent).toContain("Steward")
-    expect(island.querySelector("[data-trail]")?.textContent).toContain("smp")
+    expect(island.querySelector("[data-trail]")?.textContent).toContain("SMP")
     expect(island.querySelector("[data-trail]")?.getAttribute("aria-hidden")).not.toBe("true")
     expect(screen.getByRole("complementary", { hidden: true }).getAttribute("aria-hidden")).toBe("true")
   })
@@ -122,7 +122,7 @@ describe("the frame on a desktop", () => {
     const island = screen.getByRole("button", { name: "Navigation" }).parentElement!
     expect(island.textContent).toContain("Steward")
     expect(island.querySelector("[data-trail]")?.getAttribute("aria-hidden")).toBe("true")
-    expect((await screen.findByRole("link", { name: /smp/ })).getAttribute("aria-current")).toBe("page")
+    expect((await screen.findByRole("link", { name: /SMP/ })).getAttribute("aria-current")).toBe("page")
   })
 
   it.each([true, false])("carries search and account in the island with the navigation open: %s", async (open) => {
@@ -218,7 +218,7 @@ describe("the frame on a phone", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false")
     const dock = toggle.parentElement!
     await waitFor(() => expect(dock.textContent).toContain("Steward"))
-    expect(dock.textContent).not.toContain("smp")
+    expect(dock.textContent).not.toContain("SMP")
     expect(dock.querySelector('img[src="/icon.png"]')).toBeTruthy()
     expect(within(dock).getByRole("button", { name: "Search pages" })).toBeTruthy()
     expect(within(dock).getByRole("button", { name: /Account/ })).toBeTruthy()
@@ -232,7 +232,7 @@ describe("the frame on a phone", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Navigation" }))
     const list = await screen.findByRole("navigation", { name: "Pages" })
-    fireEvent.click(within(list).getByRole("link", { name: /limbo/ }))
+    fireEvent.click(within(list).getByRole("link", { name: /Limbo/ }))
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Navigation" }).getAttribute("aria-expanded")).toBe("false"),

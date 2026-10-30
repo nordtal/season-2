@@ -13,6 +13,8 @@ import { SkeletonText } from "@/components/ui/skeleton"
 
 import { INGRESS, imageTag, type NodeId } from "./topology"
 import { choice, since, t } from "@/lib/texts"
+import { serviceTitle } from "@/lib/words"
+import { ServiceName } from "@/components/steward/service-name"
 
 /** It has the same size in every arrangement, set by `--node-w` and `--node-h`. */
 
@@ -87,13 +89,13 @@ export function NodeToolbar({ id }: { id: Exclude<NodeId, typeof INGRESS> }) {
           <Link
             to="/services/$name"
             params={{ name: id }}
-            aria-label={t("steward.network.open", { service: id })}
+            aria-label={t("steward.network.open", { service: serviceTitle(id) })}
             className={cn(buttonVariants({ variant: "ghost", size: "icon-xs" }))}
           >
             <ArrowSquareOutIcon aria-hidden />
           </Link>
         </TooltipTrigger>
-        <TooltipContent>{t("steward.network.open", { service: id })}</TooltipContent>
+        <TooltipContent>{t("steward.network.open", { service: serviceTitle(id) })}</TooltipContent>
       </Tooltip>
 
       <RecreateButton service={id} variant="ghost" compact />
@@ -133,9 +135,9 @@ export function ServiceNode({
               <Link
                 to="/services/$name"
                 params={{ name: id }}
-                className="min-w-0 flex-1 truncate text-xs font-medium underline-offset-4 hover:text-primary hover:underline"
+                className="flex min-w-0 flex-1 text-xs font-medium underline-offset-4 hover:text-primary hover:underline"
               >
-                {id}
+                <ServiceName service={id} iconClassName="size-3.5 shrink-0 text-muted-foreground" />
               </Link>
             </TooltipTrigger>
             <TooltipContent>{service?.status ?? service?.state ?? t("steward.service.not-read")}</TooltipContent>

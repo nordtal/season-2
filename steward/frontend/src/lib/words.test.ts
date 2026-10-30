@@ -14,7 +14,13 @@ describe("file names", () => {
 describe("service names", () => {
   it("are the name each service goes by", () => {
     expect(serviceTitle("smp")).toBe("SMP")
-    expect(serviceTitle("discord-bot")).toBe("Discord Bot")
+    expect(serviceTitle("discord-bot")).toBe("Discord bot")
     expect(serviceTitle("hunger-games")).toBe("Hunger Games")
+    expect(serviceTitle("steward-agent")).toBe("Steward agent")
+    expect(serviceTitle("proxy-standby")).toBe("Proxy standby")
+  })
+
+  it("leave a service the bundle does not know as compose names it", () => {
+    expect(serviceTitle("pack-host")).toBe("pack-host")
   })
 })

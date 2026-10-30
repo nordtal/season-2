@@ -6,6 +6,7 @@ import { MinecraftHead } from "@/components/steward/identity"
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { t } from "@/lib/texts"
+import { serviceTitle } from "@/lib/words"
 
 /** An unknown count is a dash and never `0`, so `players ?? 0` must not appear here. */
 
@@ -105,7 +106,7 @@ function Where({ online, className }: { online: Online; className?: string }) {
       {online.servers.map((row) => (
         <li key={row.service} className="flex items-center gap-1">
           <span className="tabular-nums text-foreground">{count(row.players)}</span>
-          <span>{row.service}</span>
+          <span>{serviceTitle(row.service)}</span>
         </li>
       ))}
     </ul>

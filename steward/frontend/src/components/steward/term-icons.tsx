@@ -4,6 +4,7 @@ import {
   ArrowClockwiseIcon,
   ArrowsClockwiseIcon,
   ArrowsCounterClockwiseIcon,
+  BankIcon,
   BellIcon,
   BookOpenTextIcon,
   BoxArrowUpIcon,
@@ -12,12 +13,18 @@ import {
   ChartBarIcon,
   CircleDashedIcon,
   ClockIcon,
+  CompassIcon,
   CreditCardIcon,
   CrownCrossIcon,
   CrownIcon,
   CubeIcon,
+  DatabaseIcon,
+  ElevatorIcon,
+  FlagCheckeredIcon,
   FlagBannerIcon,
   FlagIcon,
+  GameControllerIcon,
+  GlobeSimpleIcon,
   HandCoinsIcon,
   HardDrivesIcon,
   HashIcon,
@@ -27,6 +34,8 @@ import {
   LinkBreakIcon,
   LinkSimpleIcon,
   MegaphoneIcon,
+  MoonIcon,
+  NetworkIcon,
   PackageIcon,
   PasswordIcon,
   PlayIcon,
@@ -34,6 +43,7 @@ import {
   PowerIcon,
   ProhibitInsetIcon,
   PulseIcon,
+  RobotIcon,
   ShieldCheckIcon,
   ShieldSlashIcon,
   SlidersHorizontalIcon,
@@ -53,6 +63,9 @@ import {
   XCircleIcon,
 } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
+import type { ComponentType } from "react"
+
+import { DiscordMark } from "@/app/discord-mark"
 
 /**
  * An icon here belongs to its term alone. `one-icon-per-term.test.ts` fails when another file imports it.
@@ -72,6 +85,7 @@ export const TERM_ICON = {
   start: PlayIcon,
   cancel: StopIcon,
   schedule: ClockIcon,
+  standby: MoonIcon,
   nothingToDo: ProhibitInsetIcon,
   backup: ArchiveIcon,
   restore: BoxArrowUpIcon,
@@ -101,7 +115,7 @@ export const TERM_ICON = {
   announcement: MegaphoneIcon,
   textChannel: HashIcon,
   voiceChannel: SpeakerHighIcon,
-  round: SwordIcon,
+  round: FlagCheckeredIcon,
   milestone: FlagBannerIcon,
   target: TargetIcon,
   borderDiameter: CircleDashedIcon,
@@ -113,6 +127,25 @@ export const TERM_ICON = {
 } as const satisfies Record<string, Icon>
 
 export type Term = keyof typeof TERM_ICON
+
+/** An icon as a list draws it: a Phosphor icon or a brand's mark. */
+export type Glyph = ComponentType<{ className?: string; "aria-hidden"?: boolean }>
+
+/**
+ * Each service's own icon, which belongs to that service alone. A service missing here is drawn with the term `service`.
+ */
+export const SERVICE_ICON: Readonly<Record<string, Glyph>> = {
+  caddy: GlobeSimpleIcon,
+  proxy: NetworkIcon,
+  limbo: ElevatorIcon,
+  smp: GameControllerIcon,
+  "hunger-games": SwordIcon,
+  "discord-bot": DiscordMark,
+  steward: CompassIcon,
+  "steward-agent": RobotIcon,
+  "steward-bunq": BankIcon,
+  postgres: DatabaseIcon,
+}
 
 const FIELD_TERM: Record<string, Term> = {
   aura: "aura",

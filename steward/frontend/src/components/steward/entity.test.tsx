@@ -101,7 +101,7 @@ describe("Entity", () => {
   it("draws a service as a link to its page", async () => {
     draw(<Entity id="smp" />)
 
-    const link = await screen.findByRole("link", { name: "smp" })
+    const link = await screen.findByRole("link", { name: "SMP" })
     expect(link.getAttribute("href")).toBe("/services/smp")
   })
 
@@ -140,7 +140,7 @@ describe("Actor - the bot noting something on its own", () => {
   it("is the bot's service, linked to its page", async () => {
     draw(<Actor kind="BOT" id="" />)
 
-    const bot = await screen.findByText("discord-bot")
+    const bot = await screen.findByText("Discord bot")
     expect(bot.closest("a")?.getAttribute("href")).toBe("/services/discord-bot")
   })
 })

@@ -65,14 +65,15 @@ function offenders(): string[] {
 
 describe("every tooltip is Steward's own", () => {
   it("sets no title on an element", () => {
+    const found = offenders()
     assert.deepEqual(
-      offenders(),
+      found,
       [],
       "A `title` shows the browser's own tooltip, which looks like no other part of Steward and never opens on a" +
         " touch screen. Put the text into a Tooltip (`Hint` on a control, `Tip` on a mark or a disabled control)," +
         " and give an icon-only control its name with `aria-label`. A component whose `title` is a heading it" +
         " draws goes into OWN_TITLE.\n\n" +
-        offenders().join("\n"),
+        found.join("\n"),
     )
   })
 

@@ -48,8 +48,7 @@ export function datasetOf(element: Element | null): DOMStringMap {
  * one. A disabled control's tip sits on the focusable span around it.
  */
 export function tipOf(element: Element | null): string | null {
-  const target = asElement(element)
-  const trigger = asElement(target.matches(":disabled") ? target.parentElement : target)
+  const trigger = asElement(element)
   fireEvent.focus(trigger)
   const tip = screen.queryByRole("tooltip")?.textContent ?? null
   fireEvent.blur(trigger)

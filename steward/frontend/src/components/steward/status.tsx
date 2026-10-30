@@ -5,7 +5,7 @@ import { choice, t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Slot } from "radix-ui"
+import { useState } from "react"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 /** Every badge also shows a word, so colour is never the only signal. */
@@ -63,35 +63,35 @@ export function Tip({ content, children, className }: { content: ReactNode; chil
 }
 
 /**
- * The tooltip of an element that is the trigger itself: a control, or a mark that should not take the focus. Without
- * a tip the element stands alone. A disabled control answers no pointer and takes no focus, so a focusable `Tip`
- * around it carries the tip, which is mostly the reason it is disabled.
+ * The tooltip of an element that is the trigger itself: a control, or a mark that should not take the focus.
+ *
+ * The tree stays the same whether the tip is there or not and whether the control is disabled, so a field whose tip
+ * comes with its first keystroke keeps its focus. A disabled control answers the pointer again, so its tip, mostly the
+ * reason it is disabled, shows on hover; it takes no focus, as before.
  *
  * What an outer `asChild` trigger hands it goes on to the element, so a popover's trigger may wrap it.
  */
 export function Hint({
   tip,
   children,
+  style,
   ...props
 }: { tip?: ReactNode; children: ReactElement<{ disabled?: boolean }> } & Omit<
   ComponentProps<typeof TooltipTrigger>,
   "asChild" | "children"
 >) {
-  const control = <Slot.Root {...props}>{children}</Slot.Root>
-  if (!tip) return control
-  if (children.props.disabled) {
-    return (
-      <Tip content={tip} className="rounded-md focus-visible:ring-3 focus-visible:ring-ring/50">
-        {control}
-      </Tip>
-    )
-  }
+  const [open, setOpen] = useState(false)
+  const shown = Boolean(tip)
   return (
-    <Tooltip>
-      <TooltipTrigger asChild {...props}>
+    <Tooltip open={shown && open} onOpenChange={setOpen}>
+      <TooltipTrigger
+        asChild
+        {...props}
+        style={shown && children.props.disabled ? { ...style, pointerEvents: "auto" } : style}
+      >
         {children}
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{tip}</TooltipContent>
+      {shown ? <TooltipContent className="max-w-xs">{tip}</TooltipContent> : null}
     </Tooltip>
   )
 }
@@ -201,19 +201,23 @@ export function HealthDot({
   service,
   className,
   quiet = true,
+  tip = false,
 }: {
   service?: ServiceHealth
   className?: string
   quiet?: boolean
+  /** Shows the state's word as a tooltip, where no tooltip around the dot names it already. */
+  tip?: boolean
 }) {
   if (!service) {
-    return (
+    const unknown = (
       <Skeleton
         role="img"
         aria-label={t("steward.service.not-read")}
         className={cn("size-2 shrink-0 rounded-full", className)}
       />
     )
+    return tip ? <Hint tip={t("steward.service.not-read")}>{unknown}</Hint> : unknown
   }
 
   const tone = serviceTone(service)
@@ -222,7 +226,10 @@ export function HealthDot({
     state: completed(service) ? "completed" : tone === "idle" && !held(service) ? "standby" : DOT_STATE[tone],
   })
 
-  return <span role="img" aria-label={word} className={cn("size-2 shrink-0 rounded-full", DOT_TONE[tone], className)} />
+  const dot = (
+    <span role="img" aria-label={word} className={cn("size-2 shrink-0 rounded-full", DOT_TONE[tone], className)} />
+  )
+  return tip ? <Hint tip={word}>{dot}</Hint> : dot
 }
 
 /**

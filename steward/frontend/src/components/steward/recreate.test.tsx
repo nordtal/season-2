@@ -156,9 +156,8 @@ describe("RecreateButton - before /api/agent has answered at all", () => {
 
     // Resolves the pending fetch, so no timer leaks into the next test.
     settle(json({ body: { available: true, reachable: true } }))
-    /** `tipOf` changes the page, which would wake `waitFor` without end, so it waits for the trigger to go first. */
-    await waitFor(() => expect(screen.getByRole("button", { name: /Recreate/ }).dataset.state).toBeUndefined())
-    expect(tipOf(screen.getByRole("button", { name: /Recreate/ }))).toBeNull()
+    /** Polled by hand: `tipOf` changes the page, which would wake `waitFor` again on every try. */
+    await vi.waitFor(() => expect(tipOf(button)).toBeNull(), { interval: 20 })
   })
 })
 

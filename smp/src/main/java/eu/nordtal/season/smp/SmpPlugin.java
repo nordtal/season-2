@@ -8,6 +8,7 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.displaytags.DisplayTags;
 import eu.nordtal.season.displaytags.config.spec.NameTagConfigurationSpec;
 import eu.nordtal.season.messagerendering.Names;
@@ -21,6 +22,7 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.papercommon.world.Distances;
 import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.Setting;
+import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.smp.announce.Announcer;
@@ -325,13 +327,25 @@ public final class SmpPlugin extends NordtalPlugin {
     }
 
     @Override
-    protected <T> @Nullable String refusesAtStart(final Group<T> group, final T value) {
+    protected <T> @Nullable SettingRefused refusesAtStart(final Group<T> group, final T value) {
         if (!(value instanceof final MilestonesSpec milestones)) {
             return null;
         }
+        final Milestones.Result result = Milestones.read(milestones);
         final List<String> problems = new ArrayList<>();
-        final String refusal = milestonesRefusal(Milestones.read(milestones), problems::add);
-        return refusal == null ? null : refusal + ": " + String.join("; ", problems);
+        final String refusal = milestonesRefusal(result, problems::add);
+        if (refusal == null) {
+            return null;
+        }
+        final String sentence = refusal + ": " + String.join("; ", problems);
+        final MilestoneTrack loadedTrack = result.track();
+        if (loadedTrack == null) {
+            return new SettingRefused(group.name(), SettingRule.TRACK, sentence);
+        }
+        final TrackValidation.Problem first =
+                TrackNames.validate(loadedTrack, TrackNames.Server.running()).getFirst();
+        final String objective = first.objectiveKey() == null ? first.milestoneKey() : first.objectiveKey();
+        return new SettingRefused(group.name(), SettingRule.OBJECTIVE_NAMES, objective, sentence);
     }
 
     /** Returns why the server does not start with this track, or null, and hands each problem to {@code problems}. */

@@ -276,6 +276,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V97__an_admin_edits_a_survival_inventory_in_the_game.sql",
                 "d2876533acb28e5a4a924c3ae31c0e93d40fd809c24c5303033dc03989ecf590");
+        FROZEN.put(
+                "V98__a_settings_refusal_names_its_setting_and_rule.sql",
+                "6073c48515b63939cf727ecae7892600515e88086fcb905789e3667cbdcaa43f");
     }
 
     @Test

@@ -24,8 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Dependabot writes a body into every commit. Its squash merge keeps only the title, which the push to main checks.
       - name: Commit messages follow CONVENTIONS.md
-        if: github.event_name == 'pull_request' || github.event.before != '0000000000000000000000000000000000000000'
+        if: >-
+          (github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]')
+          || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000')
         run: |
           if [ "${{ github.event_name }}" = pull_request ]; then
             range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"

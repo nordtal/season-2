@@ -32,6 +32,11 @@ export async function rowFor(name: string): Promise<HTMLElement> {
   return assertElement(first?.closest("tr") ?? null, `a <tr> for ${name}`)
 }
 
+/** The first cell of a row: the person, their badges and, on a phone, last seen. */
+export function badges(row: HTMLElement): HTMLElement {
+  return assertElement(row.querySelector(":scope > td:first-child"), "the person and their badges")
+}
+
 /** Opens a row's actions popover when it has one, behind a button named "Actions for …". */
 export async function openActions(name: string): Promise<HTMLElement> {
   const row = await rowFor(name)
@@ -222,13 +227,14 @@ export function draw(node: ReactNode, at = "/") {
     routeTree: root.addChildren([service, personPage]),
     history: createMemoryHistory({ initialEntries: [at] }),
   })
-  return render(
+  const drawn = render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
+  return { ...drawn, router }
 }
 
 /** Clicks one of a row's actions, opening its popover first when it has one. */

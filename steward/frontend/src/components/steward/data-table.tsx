@@ -1,5 +1,5 @@
 import { ArrowDownIcon, ArrowUpIcon } from "@phosphor-icons/react"
-import type { CSSProperties, ReactNode } from "react"
+import { useRef, type CSSProperties, type MouseEvent, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 import { SkeletonText } from "@/components/steward/query-state"
@@ -14,7 +14,10 @@ export type Placement = Slot | "action" | null
 export type Column<T> = {
   /** The heading, and the label of a `labelled` slot. Empty for an action column. */
   head: string
-  /** Takes the room the other columns leave, and wraps. Every other column is as wide as its content. */
+  /**
+   * Takes the room the other columns leave, and wraps. Beside it every other column is as wide as its content; a table
+   * without one shares its spare width out over all its columns.
+   */
   grow?: boolean
   end?: boolean
   phone: Placement | ((row: T) => Placement)
@@ -67,6 +70,8 @@ export function DataTable<T>({
   onSortChange?: (sort: Sort) => void
 }) {
   const cardLines: CSSProperties & { "--phone-lines": number } = { "--phone-lines": lines(columns) }
+  // The pointer that pressed last, as the tooltip reads it: a click itself does not say so in every browser.
+  const pressedBy = useRef("")
   return (
     <Table className="steward-table">
       <TableHeader>
@@ -122,7 +127,12 @@ export function DataTable<T>({
                 key={rowKey(row)}
                 style={cardLines}
                 className={onRowClick ? "cursor-pointer" : undefined}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onPointerDown={onRowClick ? (event) => (pressedBy.current = event.pointerType) : undefined}
+                onClick={
+                  onRowClick
+                    ? (event) => rowClicked(event, pressedBy.current === "touch") && onRowClick(row)
+                    : undefined
+                }
               >
                 {columns.map((column, columnIndex) => (
                   <TableCell
@@ -139,6 +149,28 @@ export function DataTable<T>({
       </TableBody>
     </Table>
   )
+}
+
+/** What a click opens on its own, so the row leaves the click to it. */
+const OWN_CLICK = "a, button, input, select, textarea, label, [role=menuitem], [role=option], [role=checkbox]"
+
+/** A tooltip's trigger, which a tap opens on a touch screen. */
+const TIP = "[data-state][tabindex]"
+
+/**
+ * Whether a click belongs to the row itself. A click inside a dialog or a menu the row opened reaches the row through
+ * React's tree although the dialog is elsewhere in the page, so it does not count, nor a click on a control in the row,
+ * a tap that opens a tooltip, or the end of a text selection.
+ */
+function rowClicked(event: MouseEvent<HTMLTableRowElement>, touch: boolean): boolean {
+  const target = event.target
+  const row = event.currentTarget
+  if (!(target instanceof Element) || !row.contains(target)) return false
+  if (window.getSelection()?.isCollapsed === false) return false
+  const own = target.closest(OWN_CLICK)
+  if (own !== null && row.contains(own)) return false
+  const tip = target.closest(TIP)
+  return !(touch && tip !== null && row.contains(tip))
 }
 
 /** A heading that sorts. Its arrow shows while the order is its own, or on hover. The first press sorts from the top. */

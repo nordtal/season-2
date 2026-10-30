@@ -10,6 +10,7 @@ import {
   actionsOf,
   assertElement,
   backend,
+  badges,
   clickRowAction,
   draw,
   manyMatches,
@@ -372,10 +373,6 @@ describe("AccessPage - unlink as a row action", () => {
     })
   })
 })
-
-function badges(row: HTMLElement): HTMLElement {
-  return assertElement(row.querySelector(":scope > td:first-child"), "the person and their badges")
-}
 
 function slots(row: HTMLElement): string[] {
   return [...row.querySelectorAll<HTMLElement>(":scope > td")].map((cell) =>

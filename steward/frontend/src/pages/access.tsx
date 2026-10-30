@@ -1,10 +1,10 @@
 import { TERM_ICON } from "@/components/steward/term-icons"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { useState, type ReactNode } from "react"
 
 import type { Person } from "@/lib/api"
 import { count, dateTime } from "@/lib/format"
-import { Tip } from "@/components/steward/status"
+import { Hint, Tip } from "@/components/steward/status"
 import { span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { usePeople } from "@/lib/queries"
@@ -68,7 +68,6 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
   return [
     {
       head: t("steward.people.person"),
-      grow: true,
       phone: { line: 1, side: "wide" },
       waiting: (
         <div className="flex items-center gap-2">
@@ -77,22 +76,17 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
         </div>
       ),
       render: (person) => (
-        <div className="flex min-w-0 flex-col gap-0.5 py-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <Link
-              to="/access/$id"
-              params={{ id: person.discordId }}
-              className="min-w-0 rounded-sm underline-offset-4 tap-target hover:underline"
-            >
-              <Entity id={person.discordId} kind="discord" face="both" interactive={false} />
-            </Link>
+        // One line: a long name gives way with an ellipsis, and the badges wrap only once the name would be cut below its basis.
+        <div className="flex min-w-0 max-w-person flex-wrap items-center gap-x-2 gap-y-1 py-1">
+          <PersonLink person={person} />
+          <span className="flex shrink-0 items-center gap-2 empty:hidden">
             {/* "Member" is left unsaid. LEFT and BANNED get a badge. */}
             {person.memberState !== "MEMBER" ? <MemberBadge state={person.memberState} /> : null}
             {/* "Not linked" matters only while it keeps a paying person out. */}
             {!person.minecraftUuid && person.accessActive ? <LinkBadge person={person} /> : null}
             {hasRole(person) ? <RoleBadges person={person} people={list} /> : null}
-          </div>
-          <span className="text-xs text-muted-foreground @rows:hidden">{lastSeen(person)}</span>
+          </span>
+          <span className="shrink-0 text-xs text-muted-foreground @rows:hidden">{lastSeen(person)}</span>
         </div>
       ),
     },
@@ -165,6 +159,39 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
   ]
 }
 
+/** Whether a name inside the element is cut off by its ellipsis. */
+function cutOff(element: Element): boolean {
+  return [...element.querySelectorAll(".truncate")].some((name) => name.scrollWidth > name.clientWidth)
+}
+
+/** The person as one element that opens their page. A name cut off by the width shows in full in the tip. */
+function PersonLink({ person }: { person: Person }) {
+  const [cut, setCut] = useState(false)
+  const discordName = person.discordDisplayName ?? person.discordUsername
+  return (
+    <Hint
+      tip={
+        cut ? (
+          <span className="flex flex-col">
+            {discordName ? <span>{discordName}</span> : null}
+            {person.mcName ? <span className="text-muted-foreground">{person.mcName}</span> : null}
+          </span>
+        ) : undefined
+      }
+    >
+      <Link
+        to="/access/$id"
+        params={{ id: person.discordId }}
+        onPointerEnter={(event) => setCut(cutOff(event.currentTarget))}
+        onFocus={(event) => setCut(cutOff(event.currentTarget))}
+        className="flex min-w-0 max-w-max grow basis-16 rounded-sm underline-offset-4 tap-target hover:underline"
+      >
+        <Entity id={person.discordId} kind="discord" face="both" interactive={false} />
+      </Link>
+    </Hint>
+  )
+}
+
 type ValueDialog = "access" | "playtime" | "aura" | "spins"
 
 /** A value of the row that opens its own dialog, which is rendered beside the button and never inside it. */
@@ -235,6 +262,7 @@ function Figure({
  */
 export function AccessPage() {
   const people = usePeople()
+  const navigate = useNavigate()
   const [needle, setNeedle] = useState("")
   const [onlyWithAccess, setOnlyWithAccess] = useState(false)
   const [onlyAdmins, setOnlyAdmins] = useState(false)
@@ -348,6 +376,7 @@ export function AccessPage() {
                   columns={peopleColumns(list, now)}
                   rows={paged}
                   rowKey={(person) => person.discordId}
+                  onRowClick={(person) => navigate({ to: "/access/$id", params: { id: person.discordId } })}
                   sort={sort}
                   onSortChange={(next) => {
                     setSort(next)

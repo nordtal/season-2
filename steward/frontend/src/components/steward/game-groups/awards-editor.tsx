@@ -1,17 +1,19 @@
 import { useMemo, useState } from "react"
 
 import type { ConfigDocument, ConfigEntry, ConfigReference } from "@/lib/api"
-import { choiceFor, matching, nameOfId } from "@/lib/references"
+import { type Choice, choiceFor, matching, nameOfId } from "@/lib/references"
 import { draftSections } from "@/components/steward/configuration"
 import type { CustomEditorProps } from "@/components/steward/config-editors"
 import { FilterBar, SearchField } from "@/components/steward/filter-bar"
 import { GroupEditor } from "@/components/steward/group-draft"
 import { Pill } from "@/components/steward/milestones/parts"
+import { Empty } from "@/components/steward/query-state"
 import { Mark, useChoices } from "@/components/steward/reference-picker"
 import { type SectionValues, blankSection, notSaved } from "@/components/steward/repeatable-cards"
 import { TERM_ICON } from "@/components/steward/term-icons"
-import { field, listEntry, sum, text } from "@/components/steward/game-groups/model"
-import { AddPicker, BARE, GamePicker, NumberInput, RemoveButton } from "@/components/steward/game-groups/parts"
+import { count, field, listEntry, sum, text } from "@/components/steward/game-groups/model"
+import { AddPicker, NumberInput } from "@/components/steward/game-groups/parts"
+import { EntryDialog, Labelled, Tile, Tiles } from "@/components/steward/game-groups/tiles"
 import { t } from "@/lib/texts"
 
 const KEYS = ["advancement", "aura"]
@@ -38,7 +40,7 @@ export function AwardsEditor({ file, document }: CustomEditorProps) {
   )
 }
 
-/** One row per award in stored order, with its aura and spins; the search narrows the rows by name or ID. */
+/** One tile per award in stored order, with its aura and spins; a tile opens the award's dialog, and the search narrows the tiles by name or ID. */
 function Awards({
   list,
   awards,
@@ -51,6 +53,7 @@ function Awards({
   onChange: (next: SectionValues[]) => void
 }) {
   const [query, setQuery] = useState("")
+  const [chosen, choose] = useState<number | null>(null)
   const reference = field(list, "advancement")!.refers!
   const { choices, icons } = useChoices(reference, undefined)
   const awarded = useMemo(() => awards.map((award) => text(award, "advancement")), [awards])
@@ -58,12 +61,16 @@ function Awards({
     () => ({ ...reference, except: [...(reference.except ?? []), ...awarded] }),
     [reference, awarded],
   )
+  const rows = useMemo(
+    () =>
+      awards.map((award, index) => {
+        const id = text(award, "advancement")
+        const choice = choiceFor(choices.choices, id)
+        return { award, index, id, choice, name: choice?.name ?? nameOfId(id) }
+      }),
+    [awards, choices.choices],
+  )
   const shown = useMemo(() => {
-    const rows = awards.map((award, index) => {
-      const id = text(award, "advancement")
-      const choice = choiceFor(choices.choices, id)
-      return { award, index, id, choice, name: choice?.name ?? nameOfId(id) }
-    })
     if (query.trim() === "") return rows
     const hits = new Set(
       matching(
@@ -72,26 +79,42 @@ function Awards({
       ).map((hit) => hit.id),
     )
     return rows.filter((row) => hits.has(row.id))
-  }, [awards, choices.choices, query])
+  }, [rows, query])
 
   const update = (index: number, key: string, value: string) =>
     onChange(awards.map((award, at) => (at === index ? { ...award, [key]: value } : award)))
-  const label = field(list, "advancement")!.label
+  const spins = field(list, "spins")
+  const mark = (choice: Choice | undefined, size: number) =>
+    choice ? (
+      <Mark choice={choice} icons={icons} registry={choices.registry} size={size} />
+    ) : (
+      <TERM_ICON.warning aria-hidden className="shrink-0 text-warning" style={{ width: size, height: size }} />
+    )
+  const open = chosen === null ? undefined : rows[chosen]
 
   return (
     <div className="@container flex flex-col gap-3">
       <FilterBar>
-        <Pill tip={label}>
-          <TERM_ICON.advancement aria-label={label} className="size-3.5 shrink-0" />
+        <Pill tip={t("steward.game.awarded", { count: awards.length })}>
+          <TERM_ICON.advancement
+            aria-label={t("steward.game.awarded", { count: awards.length })}
+            className="size-3.5 shrink-0"
+          />
           {awards.length.toLocaleString("en")}
         </Pill>
-        <Pill tip={field(list, "aura")?.label}>
-          <TERM_ICON.aura aria-label={field(list, "aura")?.label} className="size-3.5 shrink-0" />
+        <Pill tip={t("steward.game.aura-awarded", { total: sum(awards, "aura") })}>
+          <TERM_ICON.aura
+            aria-label={t("steward.game.aura-awarded", { total: sum(awards, "aura") })}
+            className="size-3.5 shrink-0"
+          />
           {sum(awards, "aura").toLocaleString("en")}
         </Pill>
-        {field(list, "spins") ? (
-          <Pill tip={field(list, "spins")?.label}>
-            <TERM_ICON.spins aria-label={field(list, "spins")?.label} className="size-3.5 shrink-0" />
+        {spins ? (
+          <Pill tip={t("steward.game.spins-awarded", { total: sum(awards, "spins") })}>
+            <TERM_ICON.spins
+              aria-label={t("steward.game.spins-awarded", { total: sum(awards, "spins") })}
+              className="size-3.5 shrink-0"
+            />
             {sum(awards, "spins").toLocaleString("en")}
           </Pill>
         ) : null}
@@ -105,71 +128,79 @@ function Awards({
           label={t("steward.game.advancement")}
           reference={unawarded}
           disabled={disabled}
-          onPick={(id) => onChange([...awards, { ...blankSection(list.template ?? []), advancement: id }])}
+          onPick={(id) => {
+            onChange([...awards, { ...blankSection(list.template ?? []), advancement: id }])
+            choose(awards.length)
+          }}
         />
       </FilterBar>
-      <ul className="flex flex-col divide-y rounded-lg border">
-        {shown.map(({ award, index, id, choice, name }) => (
-          <li
-            key={`${id}-${index}`}
-            className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 py-1.5 pr-1.5 pl-1 @md:flex-nowrap"
-          >
-            <GamePicker
-              id={`${list.path}-${index}`}
-              label={label}
-              reference={reference}
-              value={id}
-              disabled={disabled}
-              className={BARE}
-              face={
+      {awards.length === 0 ? (
+        <Empty title={t("steward.game.no-awards")} />
+      ) : shown.length === 0 ? (
+        <Empty title={t("steward.settings.no-match")} />
+      ) : (
+        <Tiles>
+          {shown.map(({ award, index, id, choice, name }) => (
+            <Tile
+              key={`${id}-${index}`}
+              mark={mark(choice, 40)}
+              name={name}
+              onOpen={() => choose(index)}
+              details={
                 <>
-                  {choice ? <Mark choice={choice} icons={icons} registry={choices.registry} size={28} /> : null}
-                  <span className="flex min-w-0 flex-col items-start text-left">
-                    <span className="max-w-full truncate">{name}</span>
-                    <span className="max-w-full truncate font-mono text-xs text-muted-foreground">{id}</span>
-                  </span>
-                  {choice?.description ? (
-                    <span className="ml-auto hidden max-w-9/20 truncate text-xs text-muted-foreground @2xl:block">
-                      {choice.description}
-                    </span>
-                  ) : null}
+                  <Amount term="aura" value={count(award, "aura")} />
+                  {spins ? <Amount term="spins" value={count(award, "spins")} /> : null}
                 </>
               }
-              onPick={(next) => update(index, "advancement", next)}
             />
-            {/* A narrow row puts the fields on a line of their own, under the name. */}
-            <div className="order-last flex w-full shrink-0 gap-2 pl-12 @md:order-none @md:w-auto @md:pl-0">
-              <NumberInput
-                label={t("steward.game.aura-of", { name })}
-                term="aura"
-                value={text(award, "aura")}
-                entry={field(list, "aura")}
-                unsaved={notSaved(list, index, "aura", text(award, "aura"))}
-                disabled={disabled}
-                className="w-20"
-                onChange={(value) => update(index, "aura", value)}
-              />
-              {field(list, "spins") ? (
-                <NumberInput
-                  label={t("steward.game.spins-of", { name })}
-                  term="spins"
-                  value={text(award, "spins")}
-                  entry={field(list, "spins")}
-                  unsaved={notSaved(list, index, "spins", text(award, "spins"))}
-                  disabled={disabled}
-                  className="w-20"
-                  onChange={(value) => update(index, "spins", value)}
-                />
-              ) : null}
-            </div>
-            <RemoveButton
-              name={name}
-              disabled={disabled}
-              onRemove={() => onChange(awards.filter((_, at) => at !== index))}
-            />
-          </li>
-        ))}
-      </ul>
+          ))}
+        </Tiles>
+      )}
+      {open ? (
+        <EntryDialog
+          open
+          mark={mark(open.choice, 48)}
+          name={open.name}
+          description={open.choice?.description}
+          disabled={disabled}
+          onRemove={() => onChange(awards.filter((_, at) => at !== open.index))}
+          onClose={() => choose(null)}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {(["aura", "spins"] as const).map((key) => {
+              const entry = field(list, key)
+              if (entry === undefined) return null
+              const id = `${list.path}-${open.index}-${key}`
+              return (
+                <Labelled key={key} id={id} label={entry.label}>
+                  <NumberInput
+                    id={id}
+                    label={t(key === "aura" ? "steward.game.aura-of" : "steward.game.spins-of", { name: open.name })}
+                    term={key}
+                    value={text(open.award, key)}
+                    entry={entry}
+                    unsaved={notSaved(list, open.index, key, text(open.award, key))}
+                    disabled={disabled}
+                    className="w-full"
+                    onChange={(value) => update(open.index, key, value)}
+                  />
+                </Labelled>
+              )
+            })}
+          </div>
+        </EntryDialog>
+      ) : null}
     </div>
+  )
+}
+
+/** A term's value on a tile, drawn with the term's icon. */
+function Amount({ term, value }: { term: "aura" | "spins"; value: number }) {
+  const Icon = TERM_ICON[term]
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+      {value.toLocaleString("en")}
+    </span>
   )
 }

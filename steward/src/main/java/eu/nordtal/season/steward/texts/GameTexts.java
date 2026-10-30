@@ -120,6 +120,27 @@ public interface GameTexts {
     @Name("Chance")
     MessageRef chance();
 
+    @Name("How chance is read")
+    MessageRef chanceIs(@Arg("total") @Example("1000") int total);
+
+    @Name("Prizes")
+    MessageRef prizes(@Arg("count") @Example("12") int count);
+
+    @Name("No prizes")
+    MessageRef noPrizes();
+
+    @Name("Advancements with an award")
+    MessageRef awarded(@Arg("count") @Example("192") int count);
+
+    @Name("Aura awarded")
+    MessageRef auraAwarded(@Arg("total") @Example("1400") int total);
+
+    @Name("Spins awarded")
+    MessageRef spinsAwarded(@Arg("total") @Example("40") int total);
+
+    @Name("No awards")
+    MessageRef noAwards();
+
     @Name("Aura of")
     MessageRef auraOf(@Arg("name") @Example("The Nether") String name);
 

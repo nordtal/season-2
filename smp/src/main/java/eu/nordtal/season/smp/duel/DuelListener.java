@@ -65,6 +65,14 @@ public final class DuelListener implements Listener {
         PaperScheduler.of(plugin).onMain(() -> duels.decide(player));
     }
 
+    /** A thrown item could leave the arena, whose restore removes only what lies inside it. */
+    @EventHandler(ignoreCancelled = true)
+    public void onDrop(final org.bukkit.event.player.PlayerDropItemEvent event) {
+        if (duels.isInArena(event.getPlayer())) {
+            event.setCancelled(true);
+        }
+    }
+
     @EventHandler
     public void onRespawn(final org.bukkit.event.player.PlayerRespawnEvent event) {
         duels.respawned(event);

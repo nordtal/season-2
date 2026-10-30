@@ -19,10 +19,12 @@ import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.region.Box;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
@@ -43,6 +45,10 @@ final class Negotiation {
     static final DocumentSpec<DocumentSpec.None> AREA_HELD = DocumentSpec.game(
                     "smp", "duel-area-held", "Duels", DocumentSpec.Shape.CHAT)
             .titled("Negotiation area taken");
+
+    static final DocumentSpec<DocumentSpec.None> UNAVAILABLE = DocumentSpec.game(
+                    "smp", "duel-unavailable", "Duels", DocumentSpec.Shape.CHAT)
+            .titled("Duel unavailable");
 
     /** The countdown bar has this many cells, one per step. */
     static final int STEPS = 6;
@@ -116,36 +122,37 @@ final class Negotiation {
     void moved(final PlayerMoveEvent event) {
         final Player player = event.getPlayer();
         final UUID id = player.getUniqueId();
-        final boolean wasOn = isOn(event.getFrom());
         final boolean on = isOn(event.getTo());
         if (!on) {
             left.remove(id);
-            if (negotiates(id)) {
-                leave(player, false);
-            }
-            return;
         }
-        if (negotiates(id) || left.contains(id) || duels.isInArena(player)) {
-            return;
-        }
-        if (held()) {
-            if (!wasOn) {
+        switch (AreaStep.of(
+                isOn(event.getFrom()),
+                on,
+                negotiates(id),
+                left.contains(id),
+                duels.isInArena(player),
+                held(),
+                first != null)) {
+            case NONE -> {}
+            case LEAVE -> leave(player, false);
+            case REFUSE -> {
                 event.setCancelled(true);
                 push(player);
                 if (notices.allows(id, clock.millis())) {
                     tell(player, Sent.of(AREA_HELD), Feedback.REFUSED);
                 }
             }
-            return;
+            case WAIT -> {
+                first = id;
+                tell(player, Sent.of(Duels.WAITING), Feedback.SELECT);
+            }
+            case JOIN -> {
+                second = id;
+                // Opening a window inside the move event lets Bukkit apply the move over it.
+                PaperScheduler.of(plugin).onMain(this::redraw);
+            }
         }
-        if (first == null) {
-            first = id;
-            tell(player, Sent.of(Duels.WAITING), Feedback.SELECT);
-            return;
-        }
-        second = id;
-        // Opening a window inside the move event lets Bukkit apply the move over it.
-        PaperScheduler.of(plugin).onMain(this::redraw);
     }
 
     void picked(final Player player, final int kit) {
@@ -188,7 +195,7 @@ final class Negotiation {
     /** Closes every window and forgets the players, for a server stop. */
     void stop() {
         cancelCountdown();
-        final List<UUID> players = new java.util.ArrayList<>(windows.keySet());
+        final List<UUID> players = new ArrayList<>(windows.keySet());
         first = null;
         second = null;
         picks.clear();
@@ -248,7 +255,10 @@ final class Negotiation {
         }
         one.closeInventory();
         two.closeInventory();
-        duels.begin(one, two, shownKits().get(kit));
+        if (!duels.begin(one, two, shownKits().get(kit))) {
+            tell(one, Sent.of(UNAVAILABLE), Feedback.REFUSED);
+            tell(two, Sent.of(UNAVAILABLE), Feedback.REFUSED);
+        }
     }
 
     private boolean agreed() {
@@ -320,7 +330,7 @@ final class Negotiation {
     /** Pushes a player away from the middle of the area, or backwards when standing on it. */
     private void push(final Player player) {
         final Box box = area();
-        final Location at = java.util.Objects.requireNonNull(player.getLocation());
+        final Location at = Objects.requireNonNull(player.getLocation());
         final double middleX = (box.minX() + box.maxX() + 1) / 2.0;
         final double middleZ = (box.minZ() + box.maxZ() + 1) / 2.0;
         Vector away = new Vector(at.getX() - middleX, 0, at.getZ() - middleZ);

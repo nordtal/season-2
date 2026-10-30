@@ -13,6 +13,7 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
+import eu.nordtal.season.smp.config.DuelAreaSpec;
 import eu.nordtal.season.smp.config.DuelKitSpec;
 import eu.nordtal.season.smp.config.DuelLoadoutItemSpec;
 import eu.nordtal.season.smp.config.DuelPositionSpec;
@@ -26,6 +27,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
@@ -76,8 +78,8 @@ public final class Duels implements Arenas {
 
     private static final CountdownPlan COUNTDOWN = CountdownPlan.at().everySecondFrom(COUNTDOWN_SECONDS);
 
-    private static final Title.Times OUTCOME = Title.Times.times(
-            java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(2), java.time.Duration.ofMillis(600));
+    private static final Title.Times OUTCOME =
+            Title.Times.times(Duration.ofMillis(200), Duration.ofSeconds(2), Duration.ofMillis(600));
 
     private final Plugin plugin;
     private final AuraDao aura;
@@ -105,7 +107,7 @@ public final class Duels implements Arenas {
             final SmpSounds sounds,
             final WorldEffects effects,
             final Clock clock) {
-        this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.plugin = plugin;
         this.aura = aura;
         this.config = config;
@@ -188,29 +190,30 @@ public final class Duels implements Arenas {
         });
     }
 
-    /** Called by the negotiation's countdown, never from a move event: Bukkit would undo the teleport. */
-    void begin(final Player first, final Player second, final DuelKitSpec kit) {
+    static Box box(final DuelAreaSpec spec) {
+        return Box.spanning(spec.world(), spec.minX(), spec.minY(), spec.minZ(), spec.maxX(), spec.maxY(), spec.maxZ());
+    }
+
+    /**
+     * Called by the negotiation's countdown, never from a move event: Bukkit would undo the teleport.
+     *
+     * @return false when no duel could start, with the two players left where they stand
+     */
+    boolean begin(final Player first, final Player second, final DuelKitSpec kit) {
         if (active != null) {
-            return;
+            return false;
         }
-        final Box arena = Box.spanning(
-                config.arena().world(),
-                config.arena().minX(),
-                config.arena().minY(),
-                config.arena().minZ(),
-                config.arena().maxX(),
-                config.arena().maxY(),
-                config.arena().maxZ());
+        final Box arena = box(config.arena());
         final World world = Bukkit.getWorld(arena.world());
         final Location startFirst = position(config.fighterStartFirst());
         final Location startSecond = position(config.fighterStartSecond());
         if (world == null || startFirst == null || startSecond == null) {
             plugin.getLogger()
                     .warning("the duel arena or a fighter start names a world that is not loaded; no duel is fought");
-            return;
+            return false;
         }
         if (!copy.save(world, arena)) {
-            return;
+            return false;
         }
         face(startFirst, startSecond);
         face(startSecond, startFirst);
@@ -229,9 +232,10 @@ public final class Duels implements Arenas {
 
         if (!enter(first, startFirst, kit.loadout()) || !enter(second, startSecond, kit.loadout())) {
             abort(duel);
-            return;
+            return true;
         }
         countdown(duel);
+        return true;
     }
 
     /** Turns {@code from} to look at {@code to}. */

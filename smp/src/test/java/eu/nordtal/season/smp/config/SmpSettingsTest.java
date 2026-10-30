@@ -89,6 +89,17 @@ class SmpSettingsTest {
     }
 
     @Test
+    void aSixthKitIsRefusedSinceTheWindowHasFiveRows() {
+        final List<Map<String, Object>> kits = java.util.stream.IntStream.range(0, 6)
+                .mapToObj(index -> Map.<String, Object>of("name", "Kit " + index))
+                .toList();
+        final Exception refused =
+                assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("duel-kits", kits)));
+
+        assertTrue(refused.getMessage().contains("at most 5"), refused.getMessage());
+    }
+
+    @Test
     void theNestedListsComeBackWithTheirValues() throws Exception {
         final BoardsSpec boards = reread(BOARDS);
         final DuelsSpec duels = reread(DUELS);

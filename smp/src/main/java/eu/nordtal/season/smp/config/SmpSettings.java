@@ -41,6 +41,9 @@ public final class SmpSettings {
 
     private static final int KIT_NAME_LIMIT = 64;
 
+    /** The negotiation window has five kit rows. */
+    private static final int KIT_LIMIT = 5;
+
     public static void checkDuels(final DuelsSpec config) {
         if (config.duelStake() < 0) {
             throw new IllegalArgumentException("duel-stake must not be negative");
@@ -53,6 +56,10 @@ public final class SmpSettings {
         }
         if (config.duelKits().isEmpty()) {
             throw new IllegalArgumentException("duel-kits: two players can only agree on a kit if there is one");
+        }
+        if (config.duelKits().size() > KIT_LIMIT) {
+            throw new IllegalArgumentException(
+                    "duel-kits: the negotiation window shows at most " + KIT_LIMIT + " kits");
         }
         for (final DuelKitSpec kit : config.duelKits()) {
             Checks.requireText("duel-kits: name", kit.name());

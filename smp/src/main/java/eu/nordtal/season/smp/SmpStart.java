@@ -37,6 +37,7 @@ import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.wheel.WheelListener;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -253,7 +254,7 @@ final class SmpStart {
 
     static void restoreGravesAndRegisterWorld(final SmpPlugin plugin) {
         plugin.graves.restore();
-        final Duels duels = java.util.Objects.requireNonNull(plugin.duels, "the duels start before the world");
+        final Duels duels = Objects.requireNonNull(plugin.duels, "the duels start before the world");
         duels.restoreLeftover();
         plugin.getServer()
                 .getPluginManager()

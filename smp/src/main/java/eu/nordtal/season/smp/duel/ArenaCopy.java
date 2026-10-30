@@ -41,11 +41,15 @@ final class ArenaCopy {
         this.originKey = new NamespacedKey(plugin, "arena-origin");
     }
 
-    /** Returns false when the copy could not be written; the duel is then not fought. */
+    /** Returns false when the copy could not be written, or an older one is still not placed back. */
     boolean save(final World world, final Box arena) {
         if (file.exists()) {
             // An earlier copy that was never placed back holds the arena as it was before that duel.
             restore();
+        }
+        if (file.exists()) {
+            plugin.getLogger().warning("the duel arena copy " + file + " is still not placed back; no duel is fought");
+            return false;
         }
         final Structure structure = Bukkit.getStructureManager().createStructure();
         structure.fill(

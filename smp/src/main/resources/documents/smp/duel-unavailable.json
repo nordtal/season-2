@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>The duel cannot start right now.</warn> <muted>Try again later.</muted>",
+            "de": "<warn>Das Duell kann gerade nicht beginnen.</warn> <muted>Versuch es später noch einmal.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

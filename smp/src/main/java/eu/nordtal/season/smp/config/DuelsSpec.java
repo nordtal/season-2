@@ -66,7 +66,7 @@ public interface DuelsSpec {
     @Order(38)
     @Name("Duel kits")
     @Key("duel-kits")
-    @Explain("The negotiation window lists the first five.")
+    @Explain("One to five kits: the negotiation window has a row for each.")
     default List<DuelKitSpec> duelKits() {
         return DefaultSmp.DUEL_KITS;
     }

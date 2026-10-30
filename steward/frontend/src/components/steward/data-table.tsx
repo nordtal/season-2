@@ -14,7 +14,10 @@ export type Placement = Slot | "action" | null
 export type Column<T> = {
   /** The heading, and the label of a `labelled` slot. Empty for an action column. */
   head: string
-  /** Takes the room the other columns leave, and wraps. Every other column is as wide as its content. */
+  /**
+   * Takes the room the other columns leave, and wraps. Beside it every other column is as wide as its content; a table
+   * without one shares its spare width out over all its columns.
+   */
   grow?: boolean
   end?: boolean
   phone: Placement | ((row: T) => Placement)
@@ -144,15 +147,24 @@ export function DataTable<T>({
 /** What a click opens on its own, so the row leaves the click to it. */
 const OWN_CLICK = "a, button, input, select, textarea, label, [role=menuitem], [role=option], [role=checkbox]"
 
+/** A tooltip's trigger, which a tap opens on a touch screen. */
+const TIP = "[data-state][tabindex]"
+
 /**
  * Whether a click belongs to the row itself. A click inside a dialog or a menu the row opened reaches the row through
- * React's tree although the dialog is elsewhere in the page, so it does not count, nor a click on a control in the row.
+ * React's tree although the dialog is elsewhere in the page, so it does not count, nor a click on a control in the row,
+ * a tap that opens a tooltip, or the end of a text selection.
  */
 function rowClicked(event: MouseEvent<HTMLTableRowElement>): boolean {
   const target = event.target
-  if (!(target instanceof Element) || !event.currentTarget.contains(target)) return false
+  const row = event.currentTarget
+  if (!(target instanceof Element) || !row.contains(target)) return false
+  if (window.getSelection()?.isCollapsed === false) return false
   const own = target.closest(OWN_CLICK)
-  return own === null || !event.currentTarget.contains(own)
+  if (own !== null && row.contains(own)) return false
+  const tip = target.closest(TIP)
+  const touch = "pointerType" in event.nativeEvent && event.nativeEvent.pointerType === "touch"
+  return !(touch && tip !== null && row.contains(tip))
 }
 
 /** A heading that sorts. Its arrow shows while the order is its own, or on hover. The first press sorts from the top. */

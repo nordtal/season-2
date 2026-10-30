@@ -38,8 +38,9 @@ every 4px up to 24px, every 8px up to 48px, then 64, 80, 96 and 128px. `SPACING_
   not a multiple, becomes a token.
 - `row`, `cell` and `control` are the height of a table row, the padding of a cell and the least height
   of a control. A coarse pointer raises `row` and `control`.
-- `max-w-page` is the widest the page's content grows. `max-w-person` is the widest a person grows in a row. `rows` is the width of a table's own box from
-  which its rows fit. A narrower box draws every row as a card.
+- `max-w-page` is the widest the page's content grows. `max-w-person` is the widest a person grows in a
+  row. `rows` is the width of a table's own box from which its rows fit. A narrower box draws every row
+  as a card.
 - `list` is the height of a list that scrolls inside a page, a dialog or a drawer.
 
 ## Surfaces

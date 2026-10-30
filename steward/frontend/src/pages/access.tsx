@@ -76,8 +76,8 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
         </div>
       ),
       render: (person) => (
-        // One line on a phone too: a long name gives way with an ellipsis, never the badges or last seen.
-        <div className="flex min-w-0 max-w-person items-center gap-2 py-1">
+        // One line: a long name gives way with an ellipsis, and only a line too short for a bit of the name wraps.
+        <div className="flex min-w-0 max-w-person flex-wrap items-center gap-x-2 gap-y-1 py-1">
           <PersonLink person={person} />
           <span className="flex shrink-0 items-center gap-2 empty:hidden">
             {/* "Member" is left unsaid. LEFT and BANNED get a badge. */}
@@ -184,7 +184,7 @@ function PersonLink({ person }: { person: Person }) {
         params={{ id: person.discordId }}
         onPointerEnter={(event) => setCut(cutOff(event.currentTarget))}
         onFocus={(event) => setCut(cutOff(event.currentTarget))}
-        className="flex min-w-0 rounded-sm underline-offset-4 tap-target hover:underline"
+        className="flex min-w-0 max-w-max grow basis-16 rounded-sm underline-offset-4 tap-target hover:underline"
       >
         <Entity id={person.discordId} kind="discord" face="both" interactive={false} />
       </Link>

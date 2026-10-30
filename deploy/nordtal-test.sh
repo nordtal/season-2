@@ -767,6 +767,23 @@ mounted="$(grep -o 'NORDTAL_SECRETS_DIR:?[^}]*}/[a-z-]*' "$HERE/../compose.yml" 
     || bad "compose.yml mounts secrets of $(tr '\n' ' ' <<<"$mounted")but nordtal.sh writes $(secret_services | tr '\n' ' ')"
 ok "every service nordtal.sh writes a file for mounts it, as the uid it is handed to"
 
+case_begin "the secrets compose.yml says a service must hold are the ones nordtal.sh requires or generates there"
+# steward-agent reads the label and names each missing one after an update from Steward's button.
+labelled="$(awk '
+    /^  [a-z][a-z-]*:/ { service = $1; sub(/:$/, "", service) }
+    /^      eu\.nordtal\.secrets:/ { for (i = 2; i <= NF; i++) print service, $i }' "$HERE/../compose.yml" | sort)"
+must=""
+for entry in "${SERVICE_SECRETS[@]}"; do
+    read -r name service own <<<"$entry"
+    if contains "$name" "${REQUIRED[@]}" || contains "$name" "${GENERATED[@]}"; then
+        must+="$service ${own:-$name}"$'\n'
+    fi
+done
+must="$(sort <<<"${must%$'\n'}")"
+[[ -n "$labelled" && "$labelled" == "$must" ]] \
+    || bad "compose.yml labels $(tr '\n' ' ' <<<"$labelled")but nordtal.sh requires or generates $(tr '\n' ' ' <<<"$must")"
+ok "each eu.nordtal.secrets label lists what nordtal.sh requires or generates in that service's file"
+
 case_begin "a deployment is recognised by its containers or its data directory, not only by a volume"
 mkdir -p "$WORK/installed/postgres-data" "$WORK/empty"
 : > "$WORK/installed/postgres-data/PG_VERSION"

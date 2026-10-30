@@ -1105,6 +1105,7 @@ export type StepReason =
   | "LOCAL_BUILD"
   | "FOREIGN_NEWER"
   | "VELOCITY_AHEAD"
+  | "MISSING_SECRET"
 
 export type RunChange = {
   artefact: string

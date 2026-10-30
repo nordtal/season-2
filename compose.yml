@@ -148,6 +148,8 @@ services:
       eu.nordtal.renew: run
       eu.nordtal.section: Discord
       eu.nordtal.stores-in: postgres
+      # What its own secrets file must hold; an update names each one missing.
+      eu.nordtal.secrets: NORDTAL_BOT_TOKEN
     image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/discord-bot:${NORDTAL_RELEASE:?the release every image of ours runs - steward-agent and deploy/nordtal.sh pass it}
     build:
       <<: *jvm-build
@@ -397,6 +399,7 @@ services:
       eu.nordtal.section: Steward
       eu.nordtal.reaches: steward-agent steward-bunq
       eu.nordtal.stores-in: postgres
+      eu.nordtal.secrets: NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET NORDTAL_STEWARD_WEB_WEB_PUSH_PRIVATE_KEY NORDTAL_STEWARD_WEB_TOTP_KEY
     build:
       <<: *jvm-build
       args: { MODULE: steward }

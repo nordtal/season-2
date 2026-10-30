@@ -65,8 +65,9 @@ final class Kinds {
         final UpdatePlan plan = Runs.resolve(runner.config, topology, runner.plugins, runner.settings())
                 .onlyServices(scope)
                 .withoutServices(holds);
-        final Work planned =
-                ForeignImages.withImages(Work.of(plan), images, topology, scope).without(holds);
+        final Work planned = ForeignImages.withImages(Work.of(plan), images, topology, scope)
+                .without(holds)
+                .with(MissingSecrets.of(runner.containers, topology, scope, holds));
         skipped(
                 record,
                 holds.stream()

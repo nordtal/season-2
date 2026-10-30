@@ -26,6 +26,12 @@ public interface ContainerOps {
     List<String> lastLines(String containerId, int count);
 
     /**
+     * Returns which of {@code names} a running container's own secrets file lacks, or none if it was not asked.
+     * Only names come back, never a value.
+     */
+    java.util.Optional<List<String>> missingSecrets(String containerId, List<String> names);
+
+    /**
      * Gives the user of one service ownership of everything the service mounts. A failure is logged.
      */
     void handOverMounts(String service);

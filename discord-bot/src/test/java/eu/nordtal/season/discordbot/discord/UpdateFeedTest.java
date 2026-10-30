@@ -467,6 +467,34 @@ class UpdateFeedTest {
     }
 
     @Test
+    void aMissingSecretIsSaidUnderItsServiceEvenInARunThatWentWell() {
+        final DocumentRenderer.Drawn card = card(
+                row(1L, UpdateStatus.DONE, RunStage.DONE, NOW),
+                documents,
+                step(
+                        RunStep.Kind.RESOLVE,
+                        "steward",
+                        RunStep.Outcome.WARNING,
+                        RunStep.Reason.LOCAL_BUILD,
+                        new RunStep.Change("steward", "0.64.0", "0.65.0", null)),
+                step(
+                        RunStep.Kind.RESOLVE,
+                        "steward",
+                        RunStep.Outcome.WARNING,
+                        RunStep.Reason.MISSING_SECRET,
+                        new RunStep.Change("NORDTAL_STEWARD_WEB_TOTP_KEY", null, null, null)));
+
+        assertEquals(List.of("Duration", "Services", "Why"), names(card));
+        final String shown = field(card, "Services");
+        assertTrue(shown.contains("steward 0.64.0 → 0.65.0"), "the line is what it moves: " + shown);
+        assertFalse(shown.contains("TOTP"), shown);
+        assertEquals(
+                "**steward** a secret is missing, ./nordtal.sh update on the host adds it",
+                field(card, "Why"),
+                "only the host adds it, so the card says how; the local build stays a mark");
+    }
+
+    @Test
     void aFailedRunShowsOnlyWhatFailedItEachUnderItsService() {
         final DocumentRenderer.Drawn card = card(
                 row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW),

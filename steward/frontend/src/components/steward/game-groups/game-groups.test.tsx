@@ -127,6 +127,7 @@ const GAME = {
     advancement: [
       { id: "minecraft:story/mine_stone", text: "Stone Age", frame: "task", icon: "minecraft:oak_log" },
       { id: "minecraft:story/smelt_iron", text: "Acquire Hardware", frame: "task", icon: "minecraft:elytra" },
+      { id: "minecraft:story/lava_bucket", text: "Hot Stuff", frame: "task", icon: "minecraft:oak_log" },
     ],
   },
   tags: {},
@@ -247,7 +248,20 @@ describe("game group editors", { timeout: 15_000 }, () => {
     expect(within(elytra).getByText("66.7%")).toBeTruthy()
   })
 
-  it("opens the dialog of an award or a prize as soon as it is added", async () => {
+  it("opens the dialog of an award as soon as it is added", async () => {
+    backend(AWARDS)
+    draw(<AwardsEditor file="smp/advancement-awards" document={AWARDS} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Advancement" }))
+    fireEvent.click(within(await screen.findByRole("listbox")).getByRole("option", { name: /Hot Stuff/ }))
+    const dialog = await screen.findByRole("dialog", { name: "Hot Stuff" })
+    expect(within(dialog).getByRole("textbox", { name: "Hot Stuff aura" })).toHaveProperty("value", "0")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(screen.getByRole("button", { name: /Hot Stuff/ })).toBeTruthy()
+  })
+
+  it("opens the dialog of a prize as soon as it is added", async () => {
     backend(WHEEL)
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 

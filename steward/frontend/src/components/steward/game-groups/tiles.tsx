@@ -75,7 +75,7 @@ export function EntryDialog({
   return (
     <>
       <ResponsiveDialog open={open} onOpenChange={(next) => next || onClose()}>
-        <ResponsiveDialogContent className="sm:max-w-md">
+        <ResponsiveDialogContent className="sm:max-w-md" {...(description ? {} : { "aria-describedby": undefined })}>
           <ResponsiveDialogHeader>
             <div className="flex min-w-0 items-center gap-3">
               {mark}

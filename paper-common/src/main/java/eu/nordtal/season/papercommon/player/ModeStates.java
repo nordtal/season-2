@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -23,10 +24,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import net.kyori.adventure.text.Component;
 import org.bukkit.GameMode;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -67,6 +71,8 @@ public final class ModeStates implements Listener {
     private final Executor lane;
     // The state a player takes back, read before the join and applied at it.
     private final Map<UUID, Held> arriving = new ConcurrentHashMap<>();
+    // The editors open on this server, by the player whose state they show. Changed on the main thread only.
+    private final Map<UUID, List<InventoryEditor>> editors = new ConcurrentHashMap<>();
 
     public ModeStates(
             final Plugin plugin, final ModeStateStore store, final Predicate<UUID> isAdmin, final Logger logger) {
@@ -122,6 +128,14 @@ public final class ModeStates implements Listener {
             return;
         }
         final UUID id = event.getUniqueId();
+        if (editors.containsKey(id)) {
+            // An editor's write of the stored state goes ahead of the arrival that holds it.
+            try {
+                waitFor(CompletableFuture.runAsync(() -> closeEditors(id), scheduler.mainThread()));
+            } catch (final IllegalStateException failed) {
+                logger.warn("an editor of {} stays open as they join; the arrival refuses its write", id, failed);
+            }
+        }
         try {
             CompletableFuture.supplyAsync(() -> store.arrive(plugin.getName(), PlayerId.of(id)), lane)
                     .get(WAIT_SECONDS, TimeUnit.SECONDS)
@@ -161,6 +175,7 @@ public final class ModeStates implements Listener {
         if (!pending.add(id)) {
             return;
         }
+        closeEditors(id);
         final GameMode wanted = event.getNewGameMode();
         final Snapshot leaving = Snapshot.of(player);
         final State stored = leaving.state();
@@ -191,11 +206,18 @@ public final class ModeStates implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(final PlayerQuitEvent event) {
-        leave(event.getPlayer());
+        final Player player = event.getPlayer();
+        // An admin's own editor gives its stacks back before their state is written.
+        if (player.getOpenInventory().getTopInventory().getHolder() instanceof InventoryEditor) {
+            player.closeInventory();
+        }
+        closeEditors(player.getUniqueId());
+        leave(player);
     }
 
     /** Writes the state of every player still here and waits for every write. Paper disconnects them later. */
     public void close() {
+        List.copyOf(editors.values()).forEach(open -> List.copyOf(open).forEach(InventoryEditor::commit));
         plugin.getServer().getOnlinePlayers().forEach(this::leave);
         try {
             CompletableFuture.runAsync(() -> {}, lane).get(WAIT_SECONDS * 2, TimeUnit.SECONDS);
@@ -262,6 +284,209 @@ public final class ModeStates implements Listener {
         return true;
     }
 
+    /** What became of the open of an editor. */
+    public enum Opened {
+        OPENED,
+        /** The admin is not on this server. */
+        ADMIN_AWAY,
+        /** This server has no Survival state of the player to edit now: none at all, or one in a switch. */
+        NOT_HERE
+    }
+
+    /**
+     * Opens an editor of a player's Survival {@code container} for an admin here. Called off the main thread.
+     * It shows the live inventory of a player who holds the state here, else the stored state.
+     *
+     * @param kept tells the admin how many slots changed meanwhile and kept their stacks
+     */
+    public Opened open(
+            final PlayerId admin,
+            final PlayerId player,
+            final Container container,
+            final Component title,
+            final IntConsumer kept) {
+        if (!Boolean.TRUE.equals(onMain(() -> plugin.getServer().getPlayer(admin.value()) != null))) {
+            return Opened.ADMIN_AWAY;
+        }
+        final Boolean live = onMain(() -> survivalHere(plugin.getServer().getPlayer(player.value())));
+        if (live == null) {
+            return Opened.NOT_HERE;
+        }
+        final List<@Nullable Stack> stored =
+                live ? null : waitFor(CompletableFuture.supplyAsync(() -> stored(player, container), lane));
+        if (!live && stored == null) {
+            return Opened.NOT_HERE;
+        }
+        final Opened opened = onMain(() -> {
+            final Player viewer = plugin.getServer().getPlayer(admin.value());
+            final Player here = plugin.getServer().getPlayer(player.value());
+            if (viewer == null) {
+                return Opened.ADMIN_AWAY;
+            }
+            final Boolean now = survivalHere(here);
+            if (now == null || now.booleanValue() != live.booleanValue()) {
+                return Opened.NOT_HERE;
+            }
+            final List<@Nullable ItemStack> shown = here != null && live
+                    ? Snapshot.copy(contents(here, container).getContents())
+                    : stacks(Objects.requireNonNull(stored, "stored"));
+            final InventoryEditor editor =
+                    new InventoryEditor(this, admin, player, container, title, shown, stored, kept);
+            editors.computeIfAbsent(player.value(), id -> new ArrayList<>()).add(editor);
+            editor.open(viewer);
+            return Opened.OPENED;
+        });
+        return opened == null ? Opened.NOT_HERE : opened;
+    }
+
+    /**
+     * Returns whether a player here holds Survival's state, or null while a switch waits.
+     * False means the stored state is the one to edit.
+     */
+    private @Nullable Boolean survivalHere(final @Nullable Player here) {
+        if (here == null) {
+            return false;
+        }
+        if (pending.contains(here.getUniqueId())) {
+            return null;
+        }
+        return held(here) == Mode.SURVIVAL;
+    }
+
+    /** Returns the stored Survival stacks of {@code container} by slot, or null when this server holds the state. */
+    private @Nullable List<@Nullable Stack> stored(final PlayerId player, final Container container) {
+        final Optional<ModeStateStore.Stored> state = store.states(player).stream()
+                .filter(row -> row.server().equals(plugin.getName()) && row.mode() == Mode.SURVIVAL)
+                .findFirst();
+        if (state.isEmpty() || state.get().status() == ModeStateStore.Status.HELD) {
+            return null;
+        }
+        final List<@Nullable Stack> stacks = new ArrayList<>();
+        final int size = container == Container.INVENTORY ? INVENTORY_SLOTS : ENDER_CHEST_SLOTS;
+        for (int slot = 0; slot < size; slot++) {
+            stacks.add(null);
+        }
+        state.get().state().stacks().stream()
+                .filter(stack -> stack.container() == container && stack.slot() < size)
+                .forEach(stack -> stacks.set(stack.slot(), stack));
+        return stacks;
+    }
+
+    private static List<@Nullable ItemStack> stacks(final List<@Nullable Stack> stored) {
+        return stored.stream()
+                .map(stack -> stack == null ? null : ItemStack.deserializeBytes(stack.data()))
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+    }
+
+    private static Inventory contents(final Player player, final Container container) {
+        return container == Container.INVENTORY ? player.getInventory() : player.getEnderChest();
+    }
+
+    /** Closes every editor of {@code player}'s state, so its changes are written before the state moves. */
+    private void closeEditors(final UUID player) {
+        final List<InventoryEditor> open = editors.get(player);
+        if (open == null) {
+            return;
+        }
+        for (final InventoryEditor editor : List.copyOf(open)) {
+            for (final HumanEntity viewer : List.copyOf(editor.getInventory().getViewers())) {
+                viewer.closeInventory();
+            }
+            editor.commit();
+        }
+    }
+
+    /**
+     * Writes the slots an editor changed, each only if it still holds what the window showed, on the main thread.
+     * A slot that changed meanwhile keeps its stack, and the admin gets theirs back.
+     */
+    void commit(final InventoryEditor editor) {
+        final List<InventoryEditor> open = editors.get(editor.player().value());
+        if (open != null && open.remove(editor) && open.isEmpty()) {
+            editors.remove(editor.player().value());
+        }
+        final List<InventoryEditor.Change> changes = editor.changes();
+        if (changes.isEmpty()) {
+            settle(editor, changes, Set.of());
+        } else if (editor.live()) {
+            settle(editor, changes, commitLive(editor, changes));
+        } else {
+            final List<ModeStateStore.SlotChange> writes = changes.stream()
+                    .map(change -> new ModeStateStore.SlotChange(
+                            change.slot(),
+                            editor.storedAt(change.slot()),
+                            Snapshot.stack(editor.container(), change.slot(), change.after())))
+                    .toList();
+            lane.execute(() -> {
+                Set<Integer> refused;
+                try {
+                    refused = store.edit(plugin.getName(), editor.player(), Mode.SURVIVAL, editor.container(), writes);
+                } catch (final RuntimeException failed) {
+                    logger.warn("the edit of {}'s stored state was not written", editor.player(), failed);
+                    refused = Set.copyOf(
+                            changes.stream().map(InventoryEditor.Change::slot).toList());
+                }
+                final Set<Integer> kept = refused;
+                if (plugin.isEnabled()) {
+                    scheduler.onMain(() -> settle(editor, changes, kept));
+                } else {
+                    settle(editor, changes, kept);
+                }
+            });
+        }
+    }
+
+    /** Sets each changed slot of the live inventory that still holds what the window showed, and returns the rest. */
+    private Set<Integer> commitLive(final InventoryEditor editor, final List<InventoryEditor.Change> changes) {
+        final Player here = plugin.getServer().getPlayer(editor.player().value());
+        if (!Boolean.TRUE.equals(survivalHere(here))) {
+            return Set.copyOf(changes.stream().map(InventoryEditor.Change::slot).toList());
+        }
+        final Inventory inventory = contents(Objects.requireNonNull(here, "here"), editor.container());
+        final Set<Integer> refused = new HashSet<>();
+        for (final InventoryEditor.Change change : changes) {
+            if (Objects.equals(InventoryEditor.present(inventory.getItem(change.slot())), change.before())) {
+                inventory.setItem(change.slot(), change.after());
+            } else {
+                refused.add(change.slot());
+            }
+        }
+        if (refused.size() < changes.size()) {
+            final State state = Snapshot.of(here).state();
+            lane.execute(() -> {
+                try {
+                    store.copy(plugin.getName(), editor.player(), Mode.SURVIVAL, state);
+                } catch (final RuntimeException failed) {
+                    logger.warn("the copy of {}'s edited state was not written", here.getName(), failed);
+                }
+            });
+        }
+        return refused;
+    }
+
+    /** Gives the admin the stacks of the refused slots and of the slots that show none, and says how many kept. */
+    private void settle(
+            final InventoryEditor editor, final List<InventoryEditor.Change> changes, final Set<Integer> refused) {
+        final List<ItemStack> back = new ArrayList<>(editor.strays());
+        changes.stream()
+                .filter(change -> refused.contains(change.slot()) && change.after() != null)
+                .forEach(change -> back.add(Objects.requireNonNull(change.after(), "after")));
+        final Player admin = plugin.getServer().getPlayer(editor.admin().value());
+        if (admin == null) {
+            if (!back.isEmpty()) {
+                logger.warn("{} left before the stacks of an edit came back; {} are lost", editor.admin(), back);
+            }
+            return;
+        }
+        admin.getInventory()
+                .addItem(back.toArray(ItemStack[]::new))
+                .values()
+                .forEach(left -> admin.getWorld().dropItemNaturally(admin.getLocation(), left));
+        if (!refused.isEmpty()) {
+            editor.kept(refused.size());
+        }
+    }
+
     private void copy(final PlayerId player, final Held now) {
         waitFor(CompletableFuture.runAsync(() -> store.copy(plugin.getName(), player, now.mode(), now.state()), lane));
     }
@@ -317,7 +542,7 @@ public final class ModeStates implements Listener {
                     player.getExp());
         }
 
-        private static List<@Nullable ItemStack> copy(final @Nullable ItemStack[] contents) {
+        static List<@Nullable ItemStack> copy(final @Nullable ItemStack[] contents) {
             return Arrays.stream(contents)
                     .map(stack -> stack == null || stack.isEmpty() ? null : stack.clone())
                     .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
@@ -330,17 +555,23 @@ public final class ModeStates implements Listener {
             return new State(level, experience, stacks);
         }
 
-        private static void add(
-                final List<Stack> stacks, final Container container, final List<@Nullable ItemStack> contents) {
-            for (int slot = 0; slot < contents.size(); slot++) {
-                final ItemStack stack = contents.get(slot);
-                if (stack != null) {
-                    stacks.add(new Stack(
+        static @Nullable Stack stack(final Container container, final int slot, final @Nullable ItemStack stack) {
+            return stack == null
+                    ? null
+                    : new Stack(
                             container,
                             slot,
                             stack.getType().getKey().asString(),
                             stack.getAmount(),
-                            stack.serializeAsBytes()));
+                            stack.serializeAsBytes());
+        }
+
+        private static void add(
+                final List<Stack> stacks, final Container container, final List<@Nullable ItemStack> contents) {
+            for (int slot = 0; slot < contents.size(); slot++) {
+                final Stack stored = stack(container, slot, contents.get(slot));
+                if (stored != null) {
+                    stacks.add(stored);
                 }
             }
         }

@@ -13,11 +13,13 @@ import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Held;
 import eu.nordtal.season.database.mode.ModeStateStore.Mode;
 import eu.nordtal.season.database.mode.ModeStateStore.Removal;
+import eu.nordtal.season.database.mode.ModeStateStore.SlotChange;
 import eu.nordtal.season.database.mode.ModeStateStore.Stack;
 import eu.nordtal.season.database.mode.ModeStateStore.State;
 import eu.nordtal.season.database.mode.ModeStateStore.Status;
 import eu.nordtal.season.database.mode.ModeStateStore.Stored;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.jdbi.v3.core.JdbiException;
 import org.junit.jupiter.api.Test;
@@ -174,5 +176,45 @@ class ModeStateStoreIntegrationTest {
                 Removal.REMOVED,
                 steward.remove("smp", PLAYER, Mode.SURVIVAL, Container.ENDER_CHEST, 26, "minecraft:diamond", 64),
                 "a state away is the database's");
+    }
+
+    @Test
+    void anEditInTheGameWritesOnlyTheSlotsThatStillHoldWhatItShowed() {
+        final TestDatabase database = TestDatabase.fresh();
+        final ModeStateStore smp = ModeStateStore.using(database.dataSourceAs(DatabaseRole.SMP));
+        smp.swap("smp", PLAYER, Mode.SURVIVAL, SURVIVAL, Mode.CREATIVE);
+        final Stack log = SURVIVAL.stacks().get(1);
+        final Stack shield = SURVIVAL.stacks().get(2);
+        final Stack stone = new Stack(Container.INVENTORY, 5, "minecraft:stone", 3, new byte[] {9});
+        final Stack changedShield = new Stack(Container.INVENTORY, 40, "minecraft:shield", 1, new byte[] {7});
+
+        assertEquals(
+                Set.of(40, 7),
+                smp.edit(
+                        "smp",
+                        PLAYER,
+                        Mode.SURVIVAL,
+                        Container.INVENTORY,
+                        List.of(
+                                new SlotChange(0, log, null),
+                                new SlotChange(5, null, stone),
+                                new SlotChange(40, changedShield, null),
+                                new SlotChange(7, stone, null))),
+                "the shield's data differs and slot 7 is empty");
+        assertEquals(
+                Set.of(1),
+                smp.edit("smp", PLAYER, Mode.CREATIVE, Container.INVENTORY, List.of(new SlotChange(1, null, stone))),
+                "Creative is held");
+        assertEquals(
+                Set.of(0),
+                smp.edit("lobby", PLAYER, Mode.SURVIVAL, Container.INVENTORY, List.of(new SlotChange(0, null, stone))),
+                "no state on that server");
+
+        final State back = smp.swap("smp", PLAYER, Mode.CREATIVE, new State(0, 0f, List.of()), Mode.SURVIVAL)
+                .orElseThrow();
+        assertEquals(
+                List.of("minecraft:diamond", "minecraft:stone", "minecraft:shield"),
+                back.stacks().stream().map(Stack::item).toList());
+        assertArrayEquals(shield.data(), back.stacks().get(2).data(), "the shield kept its data");
     }
 }

@@ -403,6 +403,12 @@ public interface StewardTexts {
             @Name("Server did not answer")
             MessageRef serverSilent(@Arg("server") @Example("smp") String server);
 
+            @Name("Admin not on the server")
+            MessageRef editorAway(@Arg("server") @Example("smp") String server);
+
+            @Name("Server opened no editor")
+            MessageRef editorSilent(@Arg("server") @Example("smp") String server);
+
             @Name("Announcement too long")
             MessageRef tooLong(
                     @Arg("language") @Example("Deutsch") String language, @Arg("most") @Example("2000") int most);

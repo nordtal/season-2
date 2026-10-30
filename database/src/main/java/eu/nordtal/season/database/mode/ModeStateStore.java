@@ -4,7 +4,9 @@ import eu.nordtal.season.common.id.PlayerId;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Stores the Survival and Creative states of the players on each Paper server, so the two never share an item.
@@ -42,6 +44,14 @@ public interface ModeStateStore {
 
     /** Removes the stack Steward showed in a slot of a stored state. A held state is the server's to change. */
     Removal remove(String server, PlayerId player, Mode mode, Container container, int slot, String item, int amount);
+
+    /**
+     * Writes an admin's changes to a container of a state the server does not hold.
+     * A slot is written only if it still holds what the admin was shown; a held or missing state refuses them all.
+     *
+     * @return the slots refused, which keep what they hold
+     */
+    Set<Integer> edit(String server, PlayerId player, Mode mode, Container container, List<SlotChange> changes);
 
     /** Adventure shares Survival's state and Spectator changes none. */
     enum Mode {
@@ -84,6 +94,15 @@ public interface ModeStateStore {
 
     /** The state of the mode a player held on leaving. */
     record Held(Mode mode, State state) {}
+
+    /**
+     * One slot of one container an admin changed.
+     *
+     * @param before the stack the admin was shown, null for an empty slot
+     * @param after the stack the admin left, null for an empty slot
+     */
+    record SlotChange(
+            int slot, @Nullable Stack before, @Nullable Stack after) {}
 
     /** One state as Steward reads it. */
     record Stored(String server, Mode mode, Status status, State state, Instant saved) {}

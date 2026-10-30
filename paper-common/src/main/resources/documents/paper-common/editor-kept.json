@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>Slots that changed while you edited kept their stacks: {count, number}. Your stacks for them are back in your inventory.</warn>",
+            "de": "<warn>Plätze, die sich beim Bearbeiten geändert haben, behalten ihre Stapel: {count, number}. Deine Stapel dafür sind zurück in deinem Inventar.</warn>"
+          }
+        }
+      ]
+    }
+  ]
+}

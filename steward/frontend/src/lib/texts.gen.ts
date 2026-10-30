@@ -674,6 +674,12 @@ export type TextArgs = {
     document: Arg["text"]
     reason: Arg["text"]
   }
+  "steward.answer.editor-away": {
+    server: Arg["text"]
+  }
+  "steward.answer.editor-silent": {
+    server: Arg["text"]
+  }
   "steward.answer.empty": Record<string, never>
   "steward.answer.empty-text": {
     language: Arg["text"]
@@ -1596,6 +1602,11 @@ export type TextArgs = {
     counted: Arg["duration"]
     becoming: Arg["duration"]
     usable: Arg["choice"]
+  }
+  "steward.people.edit-in-game": Record<string, never>
+  "steward.people.editor-not-opened": Record<string, never>
+  "steward.people.editor-opened": {
+    server: Arg["text"]
   }
   "steward.people.ender-chest": Record<string, never>
   "steward.people.exact-tip": {

@@ -146,6 +146,8 @@ export function backend(
     inventories?: (discordId: string) => Record<string, unknown>
     /** A stack removal, which Steward answers itself. */
     removeStack?: (url: string, body: unknown) => void
+    /** Called with the body of an opening in the game. */
+    openInventory?: (body: unknown) => void
     /** The bot's run of a request, by kind; DONE with an empty answer unless a test says otherwise. */
     answer?: (kind: string) => Record<string, unknown>
   } = {},
@@ -188,11 +190,12 @@ export function backend(
       const [, discordId, what] = own
       return json(200, (what === "payments" ? over.personPayments : over.grants)?.(discordId) ?? [])
     }
-    const inventories = /^\/api\/people\/(\d+)\/inventories(\/remove)?$/.exec(url)
+    const inventories = /^\/api\/people\/(\d+)\/inventories(\/remove|\/open)?$/.exec(url)
     if (inventories) {
-      const [, discordId, removal] = inventories
-      if (!removal) return json(200, over.inventories?.(discordId) ?? { linked: true, states: [] })
-      over.removeStack?.(url, requestBody(init))
+      const [, discordId, action] = inventories
+      if (!action) return json(200, over.inventories?.(discordId) ?? { linked: true, states: [] })
+      if (action === "/open") over.openInventory?.(requestBody(init))
+      else over.removeStack?.(url, requestBody(init))
       return new Response(null, { status: 204 })
     }
     if (url === "/api/game-data") return json(200, { datapacks: [], registries: {}, tags: {} })

@@ -296,6 +296,7 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.PreviewDocument preview -> preview(preview.player(), preview.preview());
             case SmpRequest.CheckSettings check -> checkSettings(check.change());
             case SmpRequest.StoreModeState store -> storeModeState(store.player());
+            case SmpRequest.OpenInventory open -> openInventory(open.admin(), open.player(), open.container());
             case SmpRequest.RemoveStack remove ->
                 removeStack(
                         remove.player(),

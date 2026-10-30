@@ -273,6 +273,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V96__a_duel_records_the_kit_it_was_fought_with.sql",
                 "47ca5a742ecac9493725cd1a50311ce552aeb4b951b4fe7eac64889e41d307ab");
+        FROZEN.put(
+                "V97__an_admin_edits_a_survival_inventory_in_the_game.sql",
+                "0d44ca338e36ff58ebd640ad23db80966ec74f95bb5da286e9f207bd1dad8dd4");
     }
 
     @Test

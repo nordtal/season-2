@@ -33,11 +33,15 @@ import eu.nordtal.season.database.mode.ModeStateStore.Mode;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messagerendering.Names;
 import eu.nordtal.season.messagerendering.ToneColours;
 import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.packrendering.menu.MenuTitle;
 import eu.nordtal.season.papercommon.access.AdminWatch;
 import eu.nordtal.season.papercommon.access.BukkitOps;
 import eu.nordtal.season.papercommon.chat.Previews;
@@ -51,6 +55,7 @@ import eu.nordtal.season.papercommon.game.GameDataExport;
 import eu.nordtal.season.papercommon.hud.Hud;
 import eu.nordtal.season.papercommon.menu.Menus;
 import eu.nordtal.season.papercommon.player.Identities;
+import eu.nordtal.season.papercommon.player.InventoryEditor;
 import eu.nordtal.season.papercommon.player.ModeStates;
 import eu.nordtal.season.papercommon.player.Presence;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -88,6 +93,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -470,6 +476,29 @@ public abstract class NordtalPlugin extends JavaPlugin {
         return modeStates.remove(player, mode, container, slot, item, amount)
                 ? Answer.done(Sent.of(Replies.STACK_REMOVED))
                 : Answer.refused(ServerRefusal.STACK_CHANGED.with());
+    }
+
+    /** Opens an editor of a player's Survival inventory or ender chest for an admin on this server. */
+    protected final Answer openInventory(final PlayerId admin, final PlayerId player, final Container container) {
+        final Locale locale = identities.languageOf(admin.value());
+        final GameDocument document = new GameDocument(
+                renderer,
+                documents.applied(
+                        container == Container.INVENTORY ? InventoryEditor.INVENTORY : InventoryEditor.ENDER_CHEST),
+                Viewer.of(locale),
+                new DocumentSpec.None());
+        final IntConsumer kept = count -> {
+            final Player here = getServer().getPlayer(admin.value());
+            if (here != null) {
+                here.sendMessage(renderer.format(locale, InventoryEditor.KEPT.with(new InventoryEditor.Kept(count))));
+            }
+        };
+        return switch (modeStates.open(
+                admin, player, container, MenuTitle.of(InventoryEditor.rows(container), document.title()), kept)) {
+            case OPENED -> Answer.done(Sent.of(Replies.EDITOR_OPENED));
+            case ADMIN_AWAY -> Answer.refused(ServerRefusal.NOT_HERE.with());
+            case NOT_HERE -> Answer.refused(ServerRefusal.STACK_CHANGED.with());
+        };
     }
 
     protected static LiteralArgumentBuilder<CommandSourceStack> console(final String literal) {

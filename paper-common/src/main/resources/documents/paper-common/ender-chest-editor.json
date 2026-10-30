@@ -1,0 +1,16 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Ender chest",
+            "de": "Endertruhe"
+          }
+        }
+      ]
+    }
+  ]
+}

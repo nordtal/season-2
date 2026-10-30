@@ -2,13 +2,14 @@ import { useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import type { GameIcons, InventoryStack, InventoryState, Person, PlayerInventories, StateMode } from "@/lib/api"
-import { useGameData, useInventories, useRemoveStack } from "@/lib/queries"
+import { useGameData, useInventories, useOpenInventory, useRemoveStack } from "@/lib/queries"
 import { choice, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { GameIcon } from "@/components/steward/game-icon"
 import { QueryState } from "@/components/steward/query-state"
 import { Hint, StatusBadge, type Tone } from "@/components/steward/status"
 import { ServiceName } from "@/components/steward/service-name"
+import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -21,6 +22,9 @@ const ARMOUR = [39, 38, 37, 36, 40]
 const MAIN = slots(9, 36)
 const HOTBAR = slots(0, 9)
 const ENDER_CHEST = slots(0, 27)
+
+/** The servers Steward can ask to open an editor; limbo keeps no state. */
+const EDITED = new Set(["smp", "hunger-games"])
 
 const TONE: Record<InventoryState["status"], Tone> = { HELD: "ok", AWAY: "idle", STORED: "idle" }
 
@@ -54,6 +58,7 @@ function Inventories({ person, answer }: { person: Person; answer: PlayerInvento
   )
   const [picked, setPicked] = useState<InventoryStack>()
   const remove = useRemoveStack(person.discordId)
+  const opening = useOpenInventory(person.discordId)
   const nameOf = (item: string) => names.get(item) ?? item
 
   const grid = (label: string, shown: number[], container: InventoryStack["container"]) => (
@@ -66,6 +71,28 @@ function Inventories({ person, answer }: { person: Person; answer: PlayerInvento
       pick={setPicked}
     />
   )
+
+  const edit = (container: InventoryStack["container"]) =>
+    state.mode === "SURVIVAL" && EDITED.has(state.server) ? (
+      <Button
+        variant="outline"
+        size="sm"
+        className="self-start"
+        disabled={opening.isPending}
+        onClick={() =>
+          opening.mutate(
+            { server: state.server, container },
+            {
+              onSuccess: () => toast.success(t("steward.people.editor-opened", { server: state.server })),
+              onError: (failure) =>
+                toast.error(t("steward.people.editor-not-opened"), { description: failure.message }),
+            },
+          )
+        }
+      >
+        {t("steward.people.edit-in-game")}
+      </Button>
+    ) : null
 
   return (
     <div className="flex flex-col gap-4">
@@ -115,8 +142,12 @@ function Inventories({ person, answer }: { person: Person; answer: PlayerInvento
           {grid(t("steward.people.armour"), ARMOUR, "INVENTORY")}
           {grid(t("steward.people.main-inventory"), MAIN, "INVENTORY")}
           {grid(t("steward.people.hotbar"), HOTBAR, "INVENTORY")}
+          {edit("INVENTORY")}
         </div>
-        {grid(t("steward.people.ender-chest"), ENDER_CHEST, "ENDER_CHEST")}
+        <div className="flex flex-col gap-3">
+          {grid(t("steward.people.ender-chest"), ENDER_CHEST, "ENDER_CHEST")}
+          {edit("ENDER_CHEST")}
+        </div>
       </div>
 
       <AskThenAct

@@ -29,6 +29,9 @@ public final class Replies {
     /** Steward shows it, never the game. */
     public static final DocumentSpec<DocumentSpec.None> STACK_REMOVED =
             reply("stack-removed", "Admin", DocumentSpec.None.class).titled("Stack removed");
+    /** Steward shows it, never the game. */
+    public static final DocumentSpec<DocumentSpec.None> EDITOR_OPENED =
+            reply("editor-opened", "Admin", DocumentSpec.None.class).titled("Inventory editor opened");
 
     public static final DocumentSpec<Typed> HELP_HEADER =
             reply("help-header", "Command", Typed.class).titled("Subcommand list heading");

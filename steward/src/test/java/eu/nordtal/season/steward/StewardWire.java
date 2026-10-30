@@ -80,6 +80,7 @@ public final class StewardWire {
             GameActions.CommandAsked.class,
             Inventories.PlayerInventories.class,
             Inventories.StackRemoval.class,
+            Inventories.InventoryOpening.class,
             CommandApi.CommandRun.class,
             Announcements.AnnouncementsAsked.class,
             Announcements.OpenAnnouncement.class,

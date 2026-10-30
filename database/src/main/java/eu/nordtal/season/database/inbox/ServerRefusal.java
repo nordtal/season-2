@@ -33,7 +33,7 @@ public enum ServerRefusal implements RefusalReason {
     /** Fewer participants than recommended, and the asker did not confirm. */
     BELOW_SOFT_MINIMUM,
 
-    /** The player of a preview is not on this server. */
+    /** The player of a preview, or the admin of an editor, is not on this server. */
     NOT_HERE,
 
     /** Discord did not deliver a preview as a direct message. */
@@ -42,7 +42,7 @@ public enum ServerRefusal implements RefusalReason {
     /** The server would not start with a change to its settings. */
     SETTINGS_REFUSED,
 
-    /** The player holds the other mode, or the slot holds another stack than the one shown. */
+    /** The player holds the other mode, the slot holds another stack than the one shown, or the state is not here. */
     STACK_CHANGED;
 
     /** Returns the names of the values that {@link #with} takes, in order: the message's arguments and columns. */

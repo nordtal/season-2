@@ -1,5 +1,6 @@
 import type { NetworkMap } from "@/lib/api"
 import { NO_VALUE } from "@/lib/format"
+import { servicePlace } from "@/lib/services"
 
 /**
  * The boxes are the served service names plus {@link INGRESS}, which is drawn apart because it is no container.
@@ -33,22 +34,13 @@ export function topologyOf(map: NetworkMap): Topology {
     ...boxes.flatMap((box) => box.storesIn.map((to): Edge => ({ from: box.name, to, kind: "data" }))),
   ]
   const stores = new Set(boxes.flatMap((box) => box.storesIn))
-  const depth = depths(edges)
-  const order = new Map<string, number>()
-  for (const box of boxes) {
-    /**
-     * Storage ranks after everything else. A service that no traffic reaches ranks after every service that traffic reaches.
-     */
-    const rank = stores.has(box.name) ? Infinity : (depth.get(box.name) ?? boxes.length)
-    order.set(box.section, Math.min(order.get(box.section) ?? Infinity, rank))
-  }
-  const titles = [...new Set(boxes.map((box) => box.section))].toSorted(
-    (one, other) => order.get(one)! - order.get(other)!,
-  )
+  const ordered = boxes.toSorted((one, other) => servicePlace(one.name) - servicePlace(other.name))
+  /** A section stands where its first member stands in the one order of services. */
+  const titles = [...new Set(ordered.map((box) => box.section))]
   const sections = titles.map((title) => ({
     id: title.toLowerCase(),
     title,
-    members: boxes.filter((box) => box.section === title).map((box) => box.name),
+    members: ordered.filter((box) => box.section === title).map((box) => box.name),
   }))
   return {
     names: sections.flatMap((section) => section.members),
@@ -57,21 +49,6 @@ export function topologyOf(map: NetworkMap): Topology {
     storers: boxes.filter((box) => box.storesIn.length > 0).map((box) => box.name),
     sink: stores.size === 1 ? [...stores][0] : undefined,
   }
-}
-
-function depths(edges: readonly Edge[]): Map<string, number> {
-  const depth = new Map<string, number>([[INGRESS, 0]])
-  const queue: string[] = [INGRESS]
-  while (queue.length > 0) {
-    const from = queue.shift()!
-    for (const edge of edges) {
-      if (edge.kind === "traffic" && edge.from === from && !depth.has(edge.to)) {
-        depth.set(edge.to, depth.get(from)! + 1)
-        queue.push(edge.to)
-      }
-    }
-  }
-  return depth
 }
 
 export function layoutFaults(placed: readonly string[], names: readonly string[]): string[] {

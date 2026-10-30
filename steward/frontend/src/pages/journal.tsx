@@ -19,7 +19,9 @@ import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { RunStatus, StatusBadge, runKind, runStatus } from "@/components/steward/status"
-import { TERM_ICON } from "@/components/steward/term-icons"
+import { TERM_ICON, type Glyph } from "@/components/steward/term-icons"
+import { serviceGlyph } from "@/components/steward/service-name"
+import { serviceTitle } from "@/lib/words"
 import { When } from "@/components/steward/when"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -201,14 +203,14 @@ function TermBadge({ term }: { term: JournalTerm }) {
   const value = term.values[0] ?? term.word
   if (term.kind === "DISCORD") return <Entity id={value} kind="discord" />
   if (term.kind === "UUID") return <Entity id={value} kind="minecraft" />
-  const [icon, label] = ((): [Icon | undefined, string] => {
+  const [icon, label] = ((): [Glyph | undefined, string] => {
     switch (term.kind) {
       case "PAYMENT":
         return [TERM_ICON.payments, value]
       case "DAYS":
         return [TERM_ICON.seasonDates, t("steward.journal.days", { days: Number(value) })]
       case "SERVICE":
-        return [TERM_ICON.service, value]
+        return [serviceGlyph(value), serviceTitle(value)]
       case "LEVEL":
         return [TERM_ICON.alert, t("alert.level", { level: value.toLowerCase() })]
       case "RUN_KIND":

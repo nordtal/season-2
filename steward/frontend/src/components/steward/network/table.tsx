@@ -10,6 +10,7 @@ import { useNetwork } from "./data"
 import { DriftMark, NodeToolbar } from "./node"
 import { imageTag, type Section } from "./topology"
 import { t } from "@/lib/texts"
+import { ServiceName } from "@/components/steward/service-name"
 
 /**
  * The grouping replaces the edges, because a "connected to" column would be neither table nor graph.
@@ -57,7 +58,7 @@ export function NetworkTable({ sections }: { sections: readonly Section[] }) {
                   params={{ name: id }}
                   className="flex min-w-0 flex-1 items-center self-stretch text-sm font-medium underline-offset-4 pointer-coarse:min-h-control hover:text-primary hover:underline"
                 >
-                  <span className="truncate">{id}</span>
+                  <ServiceName service={id} />
                 </Link>
 
                 {players === undefined ? null : (

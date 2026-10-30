@@ -128,7 +128,7 @@ describe("the service filter", () => {
     await screen.findByRole("button", { name: /^In game/ })
 
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Service" }), { key: "Enter" })
-    fireEvent.click(await screen.findByRole("option", { name: "Discord Bot" }))
+    fireEvent.click(await screen.findByRole("option", { name: "Discord bot" }))
 
     await open(/^Discord/)
     expect(await screen.findByRole("button", { name: "Granted" })).toBeTruthy()
@@ -146,7 +146,7 @@ describe("the service filter", () => {
     fireEvent.keyDown(screen.getByRole("combobox", { name: "Service" }), { key: "Enter" })
 
     const offered = (await screen.findAllByRole("option")).map((option) => option.textContent)
-    expect(offered).toEqual(["All services", "Discord Bot", "SMP", "Steward"])
+    expect(offered).toEqual(["All services", "SMP", "Discord bot", "Steward"])
   })
 
   it("draws a tone in the colour the filtered service's settings give it", async () => {

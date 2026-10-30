@@ -778,6 +778,7 @@
     "steward.service.exited": ["services"],
     "steward.service.health": ["services"],
     "steward.service.held-since": ["overview","services"],
+    "steward.service.name": ["every"],
     "steward.service.no-health": ["services"],
     "steward.service.not-read": ["every"],
     "steward.service.starting": ["services"],

@@ -1,5 +1,4 @@
 import { QuestionIcon } from "@phosphor-icons/react"
-import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
 import { cn } from "@/lib/utils"
 
@@ -8,6 +7,8 @@ import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import type { ActorKind, Person } from "@/lib/api"
 import { useAvatarBaseUrl, usePeople, useTopology } from "@/lib/queries"
 import { t } from "@/lib/texts"
+import { serviceTitle } from "@/lib/words"
+import { ServiceIcon } from "@/components/steward/service-name"
 
 export type EntityKind = "discord" | "minecraft" | "service"
 
@@ -102,8 +103,8 @@ export function Entity({ id, kind, system, interactive, face, className }: Entit
   if (resolved === "service") {
     const closed = (
       <>
-        <TERM_ICON.service aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-        <span className="truncate text-sm text-foreground">{value}</span>
+        <ServiceIcon service={value} className="size-4 shrink-0 text-muted-foreground" />
+        <span className="truncate text-sm text-foreground">{serviceTitle(value)}</span>
       </>
     )
     const box = "inline-flex min-w-0 max-w-full items-center gap-1.5 " + (className ?? "")

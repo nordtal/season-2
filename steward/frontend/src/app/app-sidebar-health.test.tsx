@@ -88,9 +88,9 @@ describe("NavList - the health dot on a service row", () => {
     })
     draw(fetchImpl)
 
-    await waitFor(() => expect(within(row("limbo")).getByLabelText("unhealthy")).toBeTruthy())
+    await waitFor(() => expect(within(row("Limbo")).getByLabelText("unhealthy")).toBeTruthy())
 
-    expect(within(row("smp")).queryByLabelText(/./)).toBeNull()
+    expect(within(row("SMP")).queryByLabelText(/./)).toBeNull()
 
     const calls = fetchImpl.mock.calls.filter(([url]) => url === "/api/services")
     expect(calls.length).toBe(1)
@@ -102,7 +102,7 @@ describe("NavList - the health dot on a service row", () => {
     )
     draw(fetchImpl)
 
-    await waitFor(() => expect(within(row("smp")).getByLabelText(/not read/i)).toBeTruthy())
-    expect(within(row("limbo")).getByLabelText(/not read/i)).toBeTruthy()
+    await waitFor(() => expect(within(row("SMP")).getByLabelText(/not read/i)).toBeTruthy())
+    expect(within(row("Limbo")).getByLabelText(/not read/i)).toBeTruthy()
   })
 })

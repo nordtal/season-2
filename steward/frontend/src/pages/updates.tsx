@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router"
 import { ArrowRightIcon } from "@phosphor-icons/react"
+import { ServiceName } from "@/components/steward/service-name"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -190,9 +191,9 @@ function Available() {
                         <Link
                           to="/services/$name"
                           params={{ name: change.service }}
-                          className="underline-offset-4 tap-target hover:text-primary hover:underline"
+                          className="inline-flex min-w-0 underline-offset-4 tap-target hover:text-primary hover:underline"
                         >
-                          {change.service}
+                          <ServiceName service={change.service} />
                         </Link>
                       ) : (
                         <span className="text-muted-foreground">{t("steward.updates.resource-pack")}</span>

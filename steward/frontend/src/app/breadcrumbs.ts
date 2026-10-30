@@ -4,11 +4,12 @@ import { useEffect } from "react"
 import type { Person } from "@/lib/api"
 import { usePeople } from "@/lib/queries"
 import { t } from "@/lib/texts"
+import { serviceTitle } from "@/lib/words"
 import { personName } from "@/pages/access-person"
 
 export type Crumb = { label: string; href: string }
 
-/** Any segment outside this set is a service name and is shown as it is. */
+/** Any segment outside this set is a service name, shown as the service is called below `services`. */
 const SECTIONS = new Set([
   "services",
   "operations",
@@ -55,7 +56,10 @@ export function breadcrumbsFor(pathname: string, people?: Person[]): Crumb[] {
     href += `/${segment}`
     const known = SECTIONS.has(segment)
     crumbs.push({
-      label: known ? t("steward.shell.page", { page: segment }) : (runLabel(section, segment) ?? readable(segment)),
+      label: known
+        ? t("steward.shell.page", { page: segment })
+        : (runLabel(section, segment) ??
+          (section === "services" ? serviceTitle(readable(segment)) : readable(segment))),
       href,
     })
     section = known ? segment : undefined

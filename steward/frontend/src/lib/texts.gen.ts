@@ -1934,6 +1934,9 @@ export type TextArgs = {
     since: Arg["instant"]
     state: Arg["text"]
   }
+  "steward.service.name": {
+    service: Arg["choice"]
+  }
   "steward.service.no-health": Record<string, never>
   "steward.service.not-read": Record<string, never>
   "steward.service.starting": Record<string, never>

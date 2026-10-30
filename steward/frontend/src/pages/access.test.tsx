@@ -159,6 +159,39 @@ describe("AccessPage - a person is one element", () => {
   })
 })
 
+describe("AccessPage - the whole row opens the person's page", () => {
+  it("opens the page from a click anywhere in the row outside a value", async () => {
+    vi.stubGlobal("fetch", backend())
+    const { router } = draw(<AccessPage />)
+
+    const row = await rowFor("Ally")
+    fireEvent.click(assertElement(row.querySelector('[data-label="Last seen"]'), "the last seen cell"))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/access/214906139328839681"))
+  })
+
+  it("leaves a click on a value to its own dialog, and a click inside that dialog too", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "alice", aura: 10 })] }))
+    const { router } = draw(<AccessPage />)
+
+    await clickRowAction(/^aura$/i)
+    const dialog = await screen.findByRole("alertdialog")
+    fireEvent.click(within(dialog).getByLabelText(/^aura$/i))
+
+    expect(router.state.location.pathname).toBe("/")
+  })
+
+  it("draws last seen after the badges on a phone, on the person's one line", async () => {
+    vi.stubGlobal("fetch", backend({ people: () => [person({ discordUsername: "boss", admin: true })] }))
+    draw(<AccessPage />)
+
+    const line = assertElement(badges(await rowFor("boss")).firstElementChild, "the person's line")
+    const parts = [...line.children].map((part) => part.textContent)
+    expect(parts.at(-2)).toContain("Admin")
+    expect(parts.at(-1)).toBe("Never")
+  })
+})
+
 describe("AccessPage - pagination filters the whole roster before it pages", () => {
   // Fifteen seconds, because it draws 21 rows and waits twice.
   it(

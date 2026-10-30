@@ -166,6 +166,8 @@
   --container-rows: 60rem;
   /* The widest the page's content grows. */
   --container-page: 110rem;
+  /* The widest a person takes in a row, so the values beside it keep their share of the width. */
+  --container-person: 20rem;
 
   /* The height of a list that scrolls inside a page, a dialog or a drawer. */
   --spacing-list: 60svh;

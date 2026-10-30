@@ -1,5 +1,5 @@
 import { ArrowDownIcon, ArrowUpIcon } from "@phosphor-icons/react"
-import type { CSSProperties, ReactNode } from "react"
+import type { CSSProperties, MouseEvent, ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 import { SkeletonText } from "@/components/steward/query-state"
@@ -122,7 +122,7 @@ export function DataTable<T>({
                 key={rowKey(row)}
                 style={cardLines}
                 className={onRowClick ? "cursor-pointer" : undefined}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                onClick={onRowClick ? (event) => rowClicked(event) && onRowClick(row) : undefined}
               >
                 {columns.map((column, columnIndex) => (
                   <TableCell
@@ -139,6 +139,20 @@ export function DataTable<T>({
       </TableBody>
     </Table>
   )
+}
+
+/** What a click opens on its own, so the row leaves the click to it. */
+const OWN_CLICK = "a, button, input, select, textarea, label, [role=menuitem], [role=option], [role=checkbox]"
+
+/**
+ * Whether a click belongs to the row itself. A click inside a dialog or a menu the row opened reaches the row through
+ * React's tree although the dialog is elsewhere in the page, so it does not count, nor a click on a control in the row.
+ */
+function rowClicked(event: MouseEvent<HTMLTableRowElement>): boolean {
+  const target = event.target
+  if (!(target instanceof Element) || !event.currentTarget.contains(target)) return false
+  const own = target.closest(OWN_CLICK)
+  return own === null || !event.currentTarget.contains(own)
 }
 
 /** A heading that sorts. Its arrow shows while the order is its own, or on hover. The first press sorts from the top. */

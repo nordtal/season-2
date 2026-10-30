@@ -222,13 +222,14 @@ export function draw(node: ReactNode, at = "/") {
     routeTree: root.addChildren([service, personPage]),
     history: createMemoryHistory({ initialEntries: [at] }),
   })
-  return render(
+  const drawn = render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <RouterProvider router={router} />
       </TooltipProvider>
     </QueryClientProvider>,
   )
+  return { ...drawn, router }
 }
 
 /** Clicks one of a row's actions, opening its popover first when it has one. */

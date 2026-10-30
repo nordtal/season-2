@@ -70,7 +70,8 @@ describe("every tooltip is Steward's own", () => {
       found,
       [],
       "A `title` shows the browser's own tooltip, which looks like no other part of Steward and never opens on a" +
-        " touch screen. Put the text into a Tooltip (`Hint` on a control, `Tip` on a mark or a disabled control)," +
+        " touch screen. Put the text into a Tooltip (`Hint` on the element itself, `Tip` around a mark that should" +
+        " take the focus)," +
         " and give an icon-only control its name with `aria-label`. A component whose `title` is a heading it" +
         " draws goes into OWN_TITLE.\n\n" +
         found.join("\n"),

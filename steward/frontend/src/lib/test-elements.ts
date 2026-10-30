@@ -44,8 +44,8 @@ export function datasetOf(element: Element | null): DOMStringMap {
 }
 
 /**
- * The text of Steward's tooltip on an element, opened the way the keyboard opens it and closed again, or null without
- * one. A disabled control's tip sits on the focusable span around it.
+ * The text of Steward's tooltip on an element, opened by focusing it and closed again, or null without one. A disabled
+ * control takes no focus in a browser, where its tip opens on hover; the focus here stands in for that.
  */
 export function tipOf(element: Element | null): string | null {
   const trigger = asElement(element)

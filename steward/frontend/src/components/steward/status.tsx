@@ -5,7 +5,6 @@ import { choice, t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useState } from "react"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 /** Every badge also shows a word, so colour is never the only signal. */
@@ -80,10 +79,9 @@ export function Hint({
   ComponentProps<typeof TooltipTrigger>,
   "asChild" | "children"
 >) {
-  const [open, setOpen] = useState(false)
   const shown = Boolean(tip)
   return (
-    <Tooltip open={shown && open} onOpenChange={setOpen}>
+    <Tooltip>
       <TooltipTrigger
         asChild
         {...props}

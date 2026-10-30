@@ -467,6 +467,21 @@ class UpdateFeedTest {
     }
 
     @Test
+    void aMissingSecretIsSaidUnderItsServiceEvenInARunThatWentWell() {
+        final DocumentRenderer.Drawn card = card(
+                row(1L, UpdateStatus.DONE, RunStage.DONE, NOW),
+                documents,
+                step(RunStep.Kind.RESOLVE, "steward", RunStep.Outcome.WARNING, RunStep.Reason.LOCAL_BUILD),
+                step(RunStep.Kind.RESOLVE, "steward", RunStep.Outcome.WARNING, RunStep.Reason.MISSING_SECRET));
+
+        assertEquals(List.of("Duration", "Services", "Why"), names(card));
+        assertEquals(
+                "**steward** a secret is missing, ./nordtal.sh update on the host adds it",
+                field(card, "Why"),
+                "only the host adds it, so the card says how; the local build stays a mark");
+    }
+
+    @Test
     void aFailedRunShowsOnlyWhatFailedItEachUnderItsService() {
         final DocumentRenderer.Drawn card = card(
                 row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW),

@@ -43,6 +43,32 @@ class MissingSecretsTest {
     }
 
     @Test
+    void aMissingSecretKeepsItsOwnStepBesideAnotherFindingAboutTheSameService() {
+        final Work planned = new Work(
+                Map.of("steward", List.of(new RunStep.Change("steward", "0.64.0", "0.65.0", null))),
+                List.of(
+                        new Work.Finding("steward", RunStep.Outcome.FAILED, RunStep.Reason.SOURCE_FAILED),
+                        new Work.Finding(
+                                "steward",
+                                RunStep.Outcome.WARNING,
+                                RunStep.Reason.MISSING_SECRET,
+                                List.of("NORDTAL_STEWARD_WEB_TOTP_KEY"))));
+
+        Resolved.services(record, planned);
+
+        final List<RunStep.Row> steps = collected.rows();
+        assertEquals(2, steps.size());
+        assertEquals(RunStep.Reason.SOURCE_FAILED, steps.get(0).reason());
+        assertEquals(
+                List.of(new RunStep.Change("steward", "0.64.0", "0.65.0", null)),
+                steps.get(0).changes());
+        assertEquals(RunStep.Reason.MISSING_SECRET, steps.get(1).reason());
+        assertEquals(
+                List.of(new RunStep.Change("NORDTAL_STEWARD_WEB_TOTP_KEY", null, null, null)),
+                steps.get(1).changes());
+    }
+
+    @Test
     void aServiceThatIsStoppedHeldOutOfScopeOrCannotBeAskedNamesNothing() {
         final FakeContainers containers = new FakeContainers()
                 .running("discord-bot")

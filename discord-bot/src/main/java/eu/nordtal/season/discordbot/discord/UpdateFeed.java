@@ -371,8 +371,9 @@ public final class UpdateFeed {
                         .computeIfAbsent(step.service(), service -> new ArrayList<>())
                         .add(step);
             }
-            // The card is edited once the run settles, and only a failed run says why.
-            if (stage == RunStage.FAILED && step.outcome() == RunStep.Outcome.FAILED && step.reason() != null) {
+            // Only a failed run says why, but a missing secret is said in any run, since only the host adds it.
+            final boolean failedIt = stage == RunStage.FAILED && step.outcome() == RunStep.Outcome.FAILED;
+            if ((failedIt || step.reason() == RunStep.Reason.MISSING_SECRET) && step.reason() != null) {
                 final MessageRef what = TEXTS.run().reason(step.reason());
                 if (step.service() == null) {
                     reasons.add(new Reason(what));

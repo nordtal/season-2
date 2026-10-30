@@ -30,17 +30,19 @@ final class Resolved {
         }
     }
 
-    /** Writes one resolve step for each service that has work or a finding. */
+    /**
+     * Writes one resolve step for each service with work or a finding, and one for each finding that names things.
+     * A finding that names things keeps its own reason, which another finding about the service cannot outweigh.
+     */
     static void services(final Steps record, final Work planned) {
         planned.services().forEach((service, moving) -> {
-            final List<Work.Finding> about = planned.about(service);
-            if (moving.isEmpty() && about.isEmpty()) {
-                return;
+            final List<Work.Finding> about = unnamed(planned.about(service));
+            if (!moving.isEmpty() || !about.isEmpty()) {
+                final Steps.Step step = record.begin(RunStep.Kind.RESOLVE, service);
+                moving.forEach(change -> step.change(change.artefact(), change.from(), change.to(), change.image()));
+                worst(about).on(step);
             }
-            final Steps.Step step = record.begin(RunStep.Kind.RESOLVE, service);
-            moving.forEach(change -> step.change(change.artefact(), change.from(), change.to(), change.image()));
-            named(about, step);
-            worst(about).on(step);
+            named(record, planned.about(service));
         });
         planned.findings().stream()
                 .map(Work.Finding::service)
@@ -48,18 +50,25 @@ final class Resolved {
                 .distinct()
                 .filter(service -> !planned.services().containsKey(service))
                 .forEach(service -> {
-                    final Steps.Step step = record.begin(RunStep.Kind.RESOLVE, service);
-                    named(planned.about(service), step);
-                    worst(planned.about(service)).on(step);
+                    final List<Work.Finding> about = unnamed(planned.about(service));
+                    if (!about.isEmpty()) {
+                        worst(about).on(record.begin(RunStep.Kind.RESOLVE, service));
+                    }
+                    named(record, planned.about(service));
                 });
     }
 
-    /** Writes what each finding names as a line of the name alone. */
-    private static void named(final List<Work.Finding> findings, final Steps.Step step) {
-        findings.stream()
-                .flatMap(finding -> finding.names().stream())
-                .distinct()
-                .forEach(name -> step.change(name, null, null, null));
+    private static List<Work.Finding> unnamed(final List<Work.Finding> findings) {
+        return findings.stream().filter(finding -> finding.names().isEmpty()).toList();
+    }
+
+    /** Writes each finding that names something as a resolve step of its own, a line for each name alone. */
+    private static void named(final Steps record, final List<Work.Finding> findings) {
+        findings.stream().filter(finding -> !finding.names().isEmpty()).forEach(finding -> {
+            final Steps.Step step = record.begin(RunStep.Kind.RESOLVE, finding.service());
+            finding.names().stream().distinct().forEach(name -> step.change(name, null, null, null));
+            new Ended(finding.outcome(), finding.reason()).on(step);
+        });
     }
 
     /** How the run's own resolve step ends, by the findings about no service. */

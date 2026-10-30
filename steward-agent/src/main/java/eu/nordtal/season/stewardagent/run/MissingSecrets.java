@@ -7,6 +7,7 @@ import eu.nordtal.season.internalapi.agent.ServiceRuntime;
 import eu.nordtal.season.stewardagent.plan.Work;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -19,6 +20,8 @@ final class MissingSecrets {
     private MissingSecrets() {}
 
     /**
+     * Returns a warning for each running service in the run whose own file lacks a name its label gives.
+     *
      * @param scope the services this run is for, empty for the whole network
      * @param holds the services a hold keeps out of the run
      */
@@ -41,8 +44,8 @@ final class MissingSecrets {
             // A stopped container cannot be asked, and one older than the question answers nothing.
             final Optional<ServiceRuntime> running = runtime.service(service.name())
                     .filter(found -> found.containerId() != null && "running".equalsIgnoreCase(found.status()));
-            running.flatMap(found -> containers.missingSecrets(
-                            java.util.Objects.requireNonNull(found.containerId()), service.secrets()))
+            running.flatMap(found ->
+                            containers.missingSecrets(Objects.requireNonNull(found.containerId()), service.secrets()))
                     .filter(missing -> !missing.isEmpty())
                     .ifPresent(missing -> findings.add(new Work.Finding(
                             service.name(), RunStep.Outcome.WARNING, RunStep.Reason.MISSING_SECRET, missing)));

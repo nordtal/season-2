@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { AccessPage } from "@/pages/access"
-import { assertElement, backend, draw, person, rowFor } from "@/pages/access.fixtures"
+import { assertElement, backend, badges, draw, person, rowFor } from "@/pages/access.fixtures"
 
 /** The Users page's rows: the whole row opens the person's page, and the person keeps to one line. */
 
@@ -10,17 +10,6 @@ afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
-
-function badges(row: HTMLElement): HTMLElement {
-  return assertElement(row.querySelector(":scope > td:first-child"), "the person and their badges")
-}
-
-/** A click a finger made, which jsdom's `fireEvent.click` cannot say. */
-function tap(): MouseEvent {
-  const event = new MouseEvent("click", { bubbles: true, cancelable: true })
-  Object.defineProperty(event, "pointerType", { value: "touch" })
-  return event
-}
 
 describe("AccessPage - the whole row opens the person's page", () => {
   it("opens the page from a click anywhere in the row outside a value", async () => {
@@ -57,10 +46,11 @@ describe("AccessPage - the whole row opens the person's page", () => {
     const line = assertElement(badges(await rowFor("alice")).firstElementChild, "the person's line")
     const seen = assertElement(line.querySelector("[tabindex]"), "last seen with its tip")
     fireEvent.pointerDown(seen, { pointerType: "touch" })
-    fireEvent(seen, tap())
+    fireEvent.click(seen)
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(router.state.location.pathname).toBe("/")
 
+    fireEvent.pointerDown(seen, { pointerType: "mouse" })
     fireEvent.click(seen)
     await waitFor(() => expect(router.state.location.pathname).toBe("/access/100000000000000001"))
   })

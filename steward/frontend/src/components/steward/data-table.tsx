@@ -1,5 +1,5 @@
 import { ArrowDownIcon, ArrowUpIcon } from "@phosphor-icons/react"
-import type { CSSProperties, MouseEvent, ReactNode } from "react"
+import { useRef, type CSSProperties, type MouseEvent, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 import { SkeletonText } from "@/components/steward/query-state"
@@ -70,6 +70,8 @@ export function DataTable<T>({
   onSortChange?: (sort: Sort) => void
 }) {
   const cardLines: CSSProperties & { "--phone-lines": number } = { "--phone-lines": lines(columns) }
+  // The pointer that pressed last, as the tooltip reads it: a click itself does not say so in every browser.
+  const pressedBy = useRef("")
   return (
     <Table className="steward-table">
       <TableHeader>
@@ -125,7 +127,12 @@ export function DataTable<T>({
                 key={rowKey(row)}
                 style={cardLines}
                 className={onRowClick ? "cursor-pointer" : undefined}
-                onClick={onRowClick ? (event) => rowClicked(event) && onRowClick(row) : undefined}
+                onPointerDown={onRowClick ? (event) => (pressedBy.current = event.pointerType) : undefined}
+                onClick={
+                  onRowClick
+                    ? (event) => rowClicked(event, pressedBy.current === "touch") && onRowClick(row)
+                    : undefined
+                }
               >
                 {columns.map((column, columnIndex) => (
                   <TableCell
@@ -155,7 +162,7 @@ const TIP = "[data-state][tabindex]"
  * React's tree although the dialog is elsewhere in the page, so it does not count, nor a click on a control in the row,
  * a tap that opens a tooltip, or the end of a text selection.
  */
-function rowClicked(event: MouseEvent<HTMLTableRowElement>): boolean {
+function rowClicked(event: MouseEvent<HTMLTableRowElement>, touch: boolean): boolean {
   const target = event.target
   const row = event.currentTarget
   if (!(target instanceof Element) || !row.contains(target)) return false
@@ -163,7 +170,6 @@ function rowClicked(event: MouseEvent<HTMLTableRowElement>): boolean {
   const own = target.closest(OWN_CLICK)
   if (own !== null && row.contains(own)) return false
   const tip = target.closest(TIP)
-  const touch = "pointerType" in event.nativeEvent && event.nativeEvent.pointerType === "touch"
   return !(touch && tip !== null && row.contains(tip))
 }
 

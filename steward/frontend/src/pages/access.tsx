@@ -76,7 +76,7 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
         </div>
       ),
       render: (person) => (
-        // One line: a long name gives way with an ellipsis, and only a line too short for a bit of the name wraps.
+        // One line: a long name gives way with an ellipsis, and the badges wrap only once the name would be cut below its basis.
         <div className="flex min-w-0 max-w-person flex-wrap items-center gap-x-2 gap-y-1 py-1">
           <PersonLink person={person} />
           <span className="flex shrink-0 items-center gap-2 empty:hidden">

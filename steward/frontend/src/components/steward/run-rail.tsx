@@ -96,10 +96,18 @@ function StageRow({ stage, last }: { stage: Stage; last: boolean }) {
   )
 }
 
+/** A pill wraps onto further lines rather than cut its words on a narrow screen. */
+const WRAPS = "h-auto justify-start whitespace-normal break-words text-left"
+
 function PillBadge({ pill }: { pill: Pill }) {
-  if (pill.tone) return <StatusBadge tone={pill.tone}>{pill.text}</StatusBadge>
+  if (pill.tone)
+    return (
+      <StatusBadge tone={pill.tone} className={WRAPS}>
+        {pill.text}
+      </StatusBadge>
+    )
   return (
-    <Badge variant="outline" className="max-w-full truncate font-normal">
+    <Badge variant="outline" className={cn("max-w-full font-normal", WRAPS)}>
       {pill.services ? <TERM_ICON.service aria-hidden className="size-3 text-muted-foreground" /> : null}
       {pill.text}
     </Badge>

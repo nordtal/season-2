@@ -541,15 +541,15 @@ export type TextArgs = {
   "report.words": {
     text: Arg["text"]
   }
-  "run.archive-pruned": {
-    file: Arg["text"]
-    rule: Arg["choice"]
-  }
   "run.archive-saved": {
     file: Arg["text"]
     size: Arg["message"]
     took: Arg["duration"]
     verified: Arg["choice"]
+  }
+  "run.archives-pruned": {
+    count: Arg["number"]
+    rule: Arg["choice"]
   }
   "run.artefact": {
     artefact: Arg["text"]
@@ -605,6 +605,10 @@ export type TextArgs = {
   "run.title": {
     kind: Arg["choice"]
     stage: Arg["choice"]
+  }
+  "run.unchanged": {
+    artefact: Arg["text"]
+    version: Arg["text"]
   }
   "run.version": {
     artefact: Arg["text"]

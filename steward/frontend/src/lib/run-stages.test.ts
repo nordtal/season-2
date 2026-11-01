@@ -107,14 +107,14 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
     expect(stages.map(pillsOf)).toEqual([[{ text: "nothing" }], [{ text: "no offsite repository", tone: "idle" }]])
   })
 
-  it("words a change as the server does: a fingerprint by its first eight, an unchanged version still as a jump", () => {
+  it("words a change as the server does: a fingerprint by its first eight, an unchanged version as unchanged", () => {
     const sha = "0123456789abcdef0123456789abcdef01234567"
     expect(
       texts([
         step({ step: "INSTALL", service: "proxy", changes: [{ artefact: "proxy", from: sha, to: "ffff" }] }),
         step({ step: "INSTALL", service: "smp", changes: [{ artefact: "smp", from: "1.0", to: "1.0" }] }),
       ]),
-    ).toEqual([["proxy 01234567 → ffff", "smp 1.0 → 1.0"]])
+    ).toEqual([["proxy 01234567 → ffff", "smp 1.0, unchanged"]])
   })
 
   it("says a stage left out without a reason was skipped", () => {

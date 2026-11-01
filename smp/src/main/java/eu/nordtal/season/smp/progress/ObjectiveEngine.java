@@ -261,7 +261,7 @@ public final class ObjectiveEngine implements Contributions {
             return;
         }
         try {
-            announceObjective(finished.objectiveKey());
+            announceObjective(finished.milestoneKey(), finished.objectiveKey());
             // Runs after the commit so that two objectives completed at once see each other.
             checkMilestone(finished.milestoneKey(), completedBy);
         } catch (final RuntimeException failure) {
@@ -355,11 +355,12 @@ public final class ObjectiveEngine implements Contributions {
     }
 
     /** Sends the completion of the objective to every online player, without a sound. */
-    private void announceObjective(final String objectiveKey) {
+    private void announceObjective(final String milestoneKey, final String objectiveKey) {
         PaperScheduler.of(plugin).onMain(() -> {
             for (final Player player : Bukkit.getOnlinePlayers()) {
                 final var locale = identities.languageOf(player.getUniqueId());
-                player.sendMessage(renderer.format(locale, OBJECTIVE_COMPLETED.with(new Completed(objectiveKey))));
+                final String name = MilestoneNames.objective(renderer, locale, milestoneKey, objectiveKey);
+                player.sendMessage(renderer.format(locale, OBJECTIVE_COMPLETED.with(new Completed(name))));
             }
         });
     }

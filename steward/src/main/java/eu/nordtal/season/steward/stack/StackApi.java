@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -179,6 +180,11 @@ public final class StackApi implements AutoCloseable {
     /** Returns the admins' documents, which also check an announcement against the document it starts from. */
     public DocumentsApi documents() {
         return documents;
+    }
+
+    /** Returns a drawer of a game document as one plain line, as {@link DocumentsApi#plainLine} describes. */
+    public Function<Map<String, Object>, String> plainLine(final String namespace, final String name) {
+        return documents.plainLine(namespace, name);
     }
 
     /** Returns the preview of {@code POST /api/document-preview}. */

@@ -11,11 +11,12 @@ import org.jspecify.annotations.Nullable;
 
 /** The {@code when} of a part, a line or a row item: {@code value}, {@code !value} or {@code value=constant}.
  * A bare value holds when it is true, a number or amount above zero, or a text or list that is not empty.
+ * A constant compares a choice in kebab case or a text as written, such as the id of a milestone.
  */
 public record Condition(
         String value, boolean negated, @Nullable String constant) {
 
-    private static final Pattern FORM = Pattern.compile("(!?)([a-z][A-Za-z0-9_.]*)(?:=([a-z0-9][a-z0-9-]*))?");
+    private static final Pattern FORM = Pattern.compile("(!?)([a-z][A-Za-z0-9_.]*)(?:=([A-Za-z0-9][A-Za-z0-9_-]*))?");
 
     /** Returns the condition written as {@code when}, or {@code null} for a malformed one. */
     public static @Nullable Condition parse(final String when) {

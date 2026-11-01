@@ -1,7 +1,7 @@
 import type { ConfigEntry } from "@/lib/api"
 import { gameKey, isGameReference } from "@/lib/references"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
-import { blankSection, sectionsOf, withValue } from "@/components/steward/repeatable-cards"
+import { blankSection, sectionsFromEntry, sectionsOf, withValue } from "@/components/steward/repeatable-cards"
 
 /**
  * A key that the editor does not place is edited in the objective's sheet or the milestone's fields like any other.
@@ -61,6 +61,30 @@ export function strings(section: SectionValues | undefined, key: string): string
 
 export function objectivesOf(section: SectionValues | undefined): SectionValues[] {
   return sectionsOf(section?.[KEY.objectives])
+}
+
+/** The ids the stored track holds: each milestone's id with the ids of its objectives. */
+export type SavedIds = Map<string, Set<string>>
+
+export function savedIds(entry: ConfigEntry): SavedIds {
+  const out: SavedIds = new Map()
+  for (const milestone of sectionsFromEntry(entry))
+    out.set(text(milestone, KEY.id), new Set(objectivesOf(milestone).map((objective) => text(objective, KEY.id))))
+  return out
+}
+
+/**
+ * Returns whether the id of the section at `index` is stored, so progress and names hang on it and it stays fixed.
+ *
+ * A new section that takes a stored id is fixed as well, so no reorder can free the stored one. The track refuses the duplicate, and the new section can still be removed.
+ */
+export function isSaved(
+  sections: SectionValues[],
+  index: number,
+  saved: Pick<ReadonlySet<string>, "has"> | undefined,
+): boolean {
+  const id = text(sections[index], KEY.id)
+  return id !== "" && saved !== undefined && saved.has(id)
 }
 
 export function moved<T>(list: T[], from: number, to: number): T[] {

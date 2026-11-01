@@ -12,9 +12,11 @@ import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
+import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.MessageOverride;
 import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentCheck;
 import eu.nordtal.season.messages.document.DocumentDeclaration;
@@ -45,6 +47,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
@@ -646,6 +649,25 @@ public final class DocumentsApi {
         ctx.header("X-Content-Type-Options", "nosniff");
         ctx.contentType(image.mediaType());
         ctx.result(image.bytes());
+    }
+
+    /** Returns a drawer of the game document {@code namespace/name} in one plain line, blank for one not shipped. */
+    public Function<Map<String, Object>, String> plainLine(final String namespace, final String name) {
+        final Shipped shipped = shipped().get(namespace + "/" + name);
+        if (shipped == null) {
+            return values -> "";
+        }
+        final Documents.Packaged own = shipped.packaged();
+        final Renderer drawing = renderer(languages());
+        final Document document = store.documents(List.of(namespace)).stream()
+                .filter(stored -> stored.name().equals(name))
+                .findFirst()
+                .map(stored -> DocumentMerge.merge(own, stored.document(), stored.replaced())
+                        .document())
+                .orElse(own.document());
+        final Documents.Packaged applied =
+                new Documents.Packaged(own.declaration(), document.resolved(drawing.shared()));
+        return values -> new GameDocument(drawing.game(), applied, Viewer.of(Locales.DEFAULT), values).plainLine();
     }
 
     /** Returns the network's languages, the default first. */

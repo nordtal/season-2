@@ -8,7 +8,7 @@ import { date } from "@/lib/format"
 import { useConfig, useSmpTrack } from "@/lib/queries"
 import { QueryState, SkeletonText } from "@/components/steward/query-state"
 import { SectionSummary } from "@/components/steward/section-summary"
-import { ActionDialog, keyName } from "@/components/steward/game-actions"
+import { ActionDialog } from "@/components/steward/game-actions"
 import type { Ask } from "@/components/steward/game-actions"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -121,7 +121,7 @@ export function SmpActions() {
 
 /** Unlocking it moves the track on and pays aura to everybody who qualified. */
 function Step({ step, last, onAsk }: { step: TrackStep; last: boolean; onAsk: (ask: Ask) => void }) {
-  const name = keyName(step.key)
+  const name = step.name
   const active = step.state === "ACTIVE"
   const unlock = () =>
     onAsk({
@@ -248,7 +248,7 @@ function StepPopover({ step, name, onUnlock }: { step: TrackStep; name: string; 
 
 function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean; onAsk: (ask: Ask) => void }) {
   const [open, setOpen] = useState(false)
-  const name = keyName(task.key)
+  const name = task.name
   const value = share(task)
   const working = active && !task.completed
   return (

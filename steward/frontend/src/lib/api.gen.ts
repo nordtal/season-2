@@ -669,6 +669,7 @@ export type SeasonPhase = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "
 
 export type SmpMilestone = {
   key: string
+  name: string
   state: string
   unlocked?: string
   objectives: SmpObjective[]
@@ -1161,6 +1162,7 @@ export type RunArchive = {
 
 export type SmpObjective = {
   key: string
+  name: string
   type: string
   amount: number
   target: number

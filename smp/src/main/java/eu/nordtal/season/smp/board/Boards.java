@@ -203,7 +203,8 @@ public final class Boards {
                 OBJECTIVE_MILESTONE.with(
                         new Milestone(new MilestoneContext(MilestoneNames.of(renderer, locale, active.key()))))));
         for (final ObjectiveRow objective : active.objectives()) {
-            lines.add(renderer.format(locale, row(objective.key(), objective)));
+            lines.add(renderer.format(
+                    locale, row(MilestoneNames.objective(renderer, locale, active.key(), objective.key()), objective)));
         }
         return BoardFrame.render(width, title, lines);
     }

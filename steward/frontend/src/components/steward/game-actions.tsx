@@ -19,11 +19,6 @@ export type Ask = {
   confirm: string
 }
 
-export function keyName(key: string): string {
-  const spaced = key.replace(/[-_]+/g, " ").trim()
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
-}
-
 export function HungerGamesActions() {
   const round = useHungerGamesRound()
   const [ask, setAsk] = useState<Ask | null>(null)

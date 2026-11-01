@@ -134,6 +134,7 @@ export function Fields({
   fields,
   section,
   disabled,
+  fixed = [],
   onChange,
   className,
 }: {
@@ -141,10 +142,13 @@ export function Fields({
   fields: ConfigEntry[]
   section: SectionValues
   disabled: boolean
+  /** The keys shown but not edited, such as a stored id. A field the admin is typing in stays editable until they leave it. */
+  fixed?: readonly string[]
   onChange: (key: string, value: string | string[]) => void
   className?: string
 }) {
   const shown = useShownFields(fields, section)
+  const [typing, setTyping] = useState<string | null>(null)
   return (
     <div
       className={cn(
@@ -156,7 +160,12 @@ export function Fields({
       {shown.map((field) => {
         const fieldId = `${id}.${field.key}`
         return (
-          <div key={field.key} className={cn("flex min-w-0 flex-col gap-1", isWide(field) && "col-span-2")}>
+          <div
+            key={field.key}
+            className={cn("flex min-w-0 flex-col gap-1", isWide(field) && "col-span-2")}
+            onFocus={() => setTyping(field.key)}
+            onBlur={() => setTyping(null)}
+          >
             <Label htmlFor={fieldId} className="text-xs font-medium text-muted-foreground">
               <FieldLabelIcon fieldKey={field.key} />
               {field.label}
@@ -165,7 +174,7 @@ export function Fields({
               id={fieldId}
               field={field}
               section={section}
-              disabled={disabled}
+              disabled={disabled || (fixed.includes(field.key) && typing !== field.key)}
               onChange={(value) => onChange(field.key, value)}
             />
           </div>
@@ -326,6 +335,7 @@ export function ObjectiveSheet({
   objective,
   schema,
   disabled,
+  saved,
   onChange,
   onRemove,
   onClose,
@@ -334,6 +344,8 @@ export function ObjectiveSheet({
   objective: SectionValues | null
   schema: TrackSchema
   disabled: boolean
+  /** Whether the objective's id is stored, which fixes it. */
+  saved: boolean
   onChange: (next: SectionValues) => void
   onRemove: () => void
   onClose: () => void
@@ -354,6 +366,7 @@ export function ObjectiveSheet({
                 fields={schema.objective}
                 section={objective}
                 disabled={disabled}
+                fixed={saved ? [KEY.id] : []}
                 onChange={(key, value) => onChange(withValue(schema.objective, objective, key, value))}
               />
             </div>

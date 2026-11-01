@@ -97,25 +97,28 @@ const TRACK: SmpTrack = {
   milestones: [
     {
       key: "foothold",
+      name: "Foothold",
       state: "ACTIVE",
       objectives: [
         {
           key: "coal",
+          name: "Coal ore",
           type: "STATISTIC",
           amount: 1500,
           target: 1500,
           completed: true,
           completedAt: "2026-10-02T10:00:00Z",
         },
-        { key: "logs", type: "HAND_IN", amount: 512, target: 2048, completed: false },
+        { key: "logs", name: "Logs", type: "HAND_IN", amount: 512, target: 2048, completed: false },
       ],
     },
     {
       key: "nether",
+      name: "Nether",
       state: "LOCKED",
-      objectives: [{ key: "obsidian", type: "HAND_IN", amount: 0, target: 64, completed: false }],
+      objectives: [{ key: "obsidian", name: "Obsidian", type: "HAND_IN", amount: 0, target: 64, completed: false }],
     },
-    { key: "waiting", state: "UNLOCKED", unlocked: "2026-10-01T18:00:00Z", objectives: [] },
+    { key: "waiting", name: "Waiting", state: "UNLOCKED", unlocked: "2026-10-01T18:00:00Z", objectives: [] },
   ],
 }
 
@@ -171,7 +174,9 @@ describe("trackSteps", () => {
   it("keeps the database's order without the file, and a row the file lacks at the end", () => {
     expect(trackSteps(TRACK).map((step) => step.key)).toEqual(["foothold", "nether", "waiting"])
 
-    const extra: SmpTrack = { milestones: [...TRACK.milestones, { key: "gone", state: "LOCKED", objectives: [] }] }
+    const extra: SmpTrack = {
+      milestones: [...TRACK.milestones, { key: "gone", name: "gone", state: "LOCKED", objectives: [] }],
+    }
     expect(trackSteps(extra, FILE).map((step) => step.key)).toEqual(["waiting", "foothold", "nether", "gone"])
   })
 })
@@ -232,7 +237,7 @@ describe("SmpActions", () => {
     backend()
     draw(<SmpActions />)
 
-    fireEvent.click(await screen.findByRole("button", { name: "Coal" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Coal ore" }))
     expect(within(await screen.findByRole("dialog")).queryByRole("button", { name: "Complete" })).toBeNull()
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" })
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())

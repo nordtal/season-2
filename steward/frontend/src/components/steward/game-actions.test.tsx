@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { HungerGamesActions, keyName } from "@/components/steward/game-actions"
+import { HungerGamesActions } from "@/components/steward/game-actions"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asButton } from "@/lib/test-elements"
 import { words } from "@/lib/query-fixtures"
@@ -56,13 +56,6 @@ function draw(node: ReactNode) {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
-})
-
-describe("keyName", () => {
-  it("reads a track key as a name", () => {
-    expect(keyName("ancient-debris")).toBe("Ancient debris")
-    expect(keyName("frontier")).toBe("Frontier")
-  })
 })
 
 describe("HungerGamesActions", () => {

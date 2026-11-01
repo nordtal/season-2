@@ -56,6 +56,7 @@ final class BukkitRails implements RailView {
 
     /** Loads the chunks of {@code positions} off the main thread, each once, without generating any. */
     void load(final Set<RailPos> positions) {
+        loads.removeIf(CompletableFuture::isDone);
         final Set<RailPos> again = new HashSet<>(positions);
         again.addAll(failed);
         failed.clear();

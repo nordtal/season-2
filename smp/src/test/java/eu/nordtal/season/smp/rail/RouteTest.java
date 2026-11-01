@@ -37,7 +37,7 @@ class RouteTest {
 
         assertEquals(2, route.legs().size());
         assertEquals(6, route.length());
-        assertEquals(Map.of(JUNCTION, RailShape.SOUTH_WEST), route.switches(graph.junctions()));
+        assertEquals(Map.of(route.rails().indexOf(JUNCTION), RailShape.SOUTH_WEST), route.switches(graph.junctions()));
     }
 
     @Test
@@ -46,7 +46,7 @@ class RouteTest {
 
         final Route route = Route.between(graph, WEST, EAST).orElseThrow();
 
-        assertEquals(Map.of(JUNCTION, RailShape.EAST_WEST), route.switches(graph.junctions()));
+        assertEquals(Map.of(route.rails().indexOf(JUNCTION), RailShape.EAST_WEST), route.switches(graph.junctions()));
     }
 
     @Test
@@ -122,7 +122,8 @@ class RouteTest {
         assertEquals(Set.of(JUNCTION), graph.junctions());
         assertTrue(Route.between(graph, WEST, at(0, 65, 3)).isEmpty());
         final Route straight = Route.between(graph, WEST, EAST).orElseThrow();
-        assertEquals(Map.of(JUNCTION, RailShape.EAST_WEST), straight.switches(graph.junctions()));
+        assertEquals(
+                Map.of(straight.rails().indexOf(JUNCTION), RailShape.EAST_WEST), straight.switches(graph.junctions()));
     }
 
     @Test
@@ -146,5 +147,18 @@ class RouteTest {
                 .orElseThrow();
 
         assertFalse(Route.passes(graph, west.reversed(), west));
+    }
+
+    @Test
+    void aCartOnTrackThatEndsRidesBackToTheNodeItLeaves() {
+        final RailGraph graph = graph(new Track().eastWest(-3, 3, 64, 0), WEST);
+        final RailPos stub = at(2, 64, 0);
+
+        final Route back = Route.between(graph, stub, WEST).orElseThrow();
+
+        assertEquals(List.of(stub, at(1, 64, 0), at(0, 64, 0), at(-1, 64, 0), at(-2, 64, 0), WEST), back.rails());
+        assertTrue(RideList.onTrack(graph, stub));
+        assertTrue(Route.between(graph, stub, EAST, WEST).isEmpty(), "the track ends ahead");
+        assertEquals(Map.of(WEST, 5), Route.distances(graph, stub));
     }
 }

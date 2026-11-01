@@ -70,10 +70,13 @@ public record Route(List<RailEdge> legs) {
         return distances;
     }
 
-    /** Returns the first legs a cart on {@code from} can take: every edge of a node, or both ways along an edge. */
+    /** Returns the first legs from {@code from}: every edge of a node, both ways along an edge, or back off a spur. */
     private static List<RailEdge> starts(final RailGraph graph, final RailPos from, final @Nullable RailPos ahead) {
         final List<RailEdge> starts = new ArrayList<>();
-        if (graph.stations().contains(from) || graph.junctions().contains(from)) {
+        final @Nullable RailEdge spur = graph.spur(from);
+        if (spur != null) {
+            starts.add(spur);
+        } else if (graph.stations().contains(from) || graph.junctions().contains(from)) {
             starts.addAll(graph.leaving(from));
         } else {
             for (final RailEdge edge : graph.edges()) {
@@ -167,22 +170,27 @@ public record Route(List<RailEdge> legs) {
         return rails;
     }
 
-    /** Returns the shape each junction on the way must have for the cart to take its next leg, in route order. */
-    public Map<RailPos, RailShape> switches(final Set<RailPos> junctions) {
-        final Map<RailPos, RailShape> switches = new LinkedHashMap<>();
+    /**
+     * Returns the shape each junction on the way must have for the cart to take its next leg.
+     * The key is the junction's index in {@link #rails()}, so a junction passed twice is switched for each pass.
+     */
+    public Map<Integer, RailShape> switches(final Set<RailPos> junctions) {
+        final Map<Integer, RailShape> switches = new LinkedHashMap<>();
         final RailEdge start = legs.getFirst();
         if (junctions.contains(start.from())) {
             // A cart that starts on a junction comes from no rail, so the junction runs straight on ahead.
             final Heading ahead = Heading.between(start.from(), start.first());
             switches.put(
-                    start.from(),
+                    0,
                     RailShape.joining(
                             ahead.opposite(),
                             ahead,
                             start.first().y() > start.from().y() ? ahead : null));
         }
+        int index = 0;
         for (int leg = 1; leg < legs.size(); leg++) {
             final RailEdge in = legs.get(leg - 1);
+            index += in.rails().size() + 1;
             final RailEdge onward = legs.get(leg);
             final RailPos junction = onward.from();
             if (!junctions.contains(junction)) {
@@ -192,7 +200,7 @@ public record Route(List<RailEdge> legs) {
             final RailPos after = onward.first();
             final Heading back = Heading.between(junction, before);
             final Heading ahead = Heading.between(junction, after);
-            switches.put(junction, RailShape.joining(back, ahead, rising(junction, before, back, after, ahead)));
+            switches.put(index, RailShape.joining(back, ahead, rising(junction, before, back, after, ahead)));
         }
         return switches;
     }

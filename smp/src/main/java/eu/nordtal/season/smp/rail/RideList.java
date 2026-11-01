@@ -44,9 +44,10 @@ final class RideList {
         return List.copyOf(stops);
     }
 
-    /** Returns whether {@code at} is a node of {@code graph} or a rail of one of its edges. */
+    /** Returns whether {@code at} is a node of {@code graph}, a rail of one of its edges or a rail of a spur. */
     static boolean onTrack(final RailGraph graph, final RailPos at) {
-        return graph.stations().contains(at)
+        return graph.spur(at) != null
+                || graph.stations().contains(at)
                 || graph.junctions().contains(at)
                 || graph.edges().stream().anyMatch(edge -> edge.rails().contains(at));
     }

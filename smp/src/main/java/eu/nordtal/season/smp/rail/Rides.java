@@ -49,6 +49,9 @@ public final class Rides implements Listener {
     /** How many ticks a cart stopped before a gap waits for the networks to be walked again. */
     private static final int PATIENCE = 100;
 
+    /** How many ticks a cart waits for a chunk ahead that does not load. */
+    private static final int LOADING_PATIENCE = 600;
+
     /** How far beyond its stopping distance a cart reads the rails ahead and holds their chunks, in blocks. */
     private static final double LOOKOUT = 48;
 
@@ -72,7 +75,7 @@ public final class Rides implements Listener {
         private final Set<Long> loading = new HashSet<>();
         private UUID destination;
         private @Nullable RidePath path;
-        private Map<RailPos, RailShape> switches = Map.of();
+        private Map<Integer, RailShape> switches = Map.of();
         private double along;
         private double speed;
         private double end;
@@ -135,6 +138,8 @@ public final class Rides implements Listener {
             return false;
         }
         rides.put(cart.getUniqueId(), ride);
+        // The plugin moves the cart every tick, so vanilla gravity would only pull it off the line in between.
+        cart.setGravity(false);
         return true;
     }
 
@@ -242,22 +247,27 @@ public final class Rides implements Listener {
         ride.along += ride.speed;
         move(ride, path);
         if (ride.speed > 0 || ride.along < limit) {
+            ride.waited = 0;
+            return true;
+        }
+        if (ride.standingPlanDue && plan(ride, true)) {
             return true;
         }
         if (ride.end >= path.length() && lookout.clear() >= path.length()) {
             arrive(ride, path);
             return false;
         }
-        if (lookout.clear() < ride.end && !lookout.gap()) {
-            // A chunk ahead is still loading.
-            return true;
-        }
         if (ride.standingPlanDue) {
-            if (plan(ride, true)) {
-                return true;
-            }
             strand(ride);
             return false;
+        }
+        if (lookout.clear() < ride.end && !lookout.gap()) {
+            // A chunk ahead is still loading; one that never does strands the cart after a while.
+            if (++ride.waited > LOADING_PATIENCE) {
+                strand(ride);
+                return false;
+            }
+            return true;
         }
         if (++ride.waited > PATIENCE) {
             strand(ride);
@@ -305,12 +315,9 @@ public final class Rides implements Listener {
                 gap = true;
                 break;
             }
-            final @Nullable RailShape switched = ride.switches.get(rail);
-            if (switched != null
-                    && path.start(index) <= switchReach
-                    && !shape.getShape().name().equals(switched.name())) {
-                shape.setShape(Rail.Shape.valueOf(switched.name()));
-                block.setBlockData(shape, false);
+            final @Nullable RailShape switched = ride.switches.get(index);
+            if (switched != null && path.start(index) <= switchReach) {
+                switchTo(block, shape, Rail.Shape.valueOf(switched.name()));
             }
         }
         for (final long key : wanted) {
@@ -326,6 +333,14 @@ public final class Rides implements Listener {
             }
         }
         return new Lookout(clear, gap);
+    }
+
+    /** Sets the junction {@code block} to {@code target}, unless it has it or cannot take it, as a straight rail. */
+    private static void switchTo(final Block block, final Rail rail, final Rail.Shape target) {
+        if (rail.getShape() != target && rail.getShapes().contains(target)) {
+            rail.setShape(target);
+            block.setBlockData(rail, false);
+        }
     }
 
     private void load(final Ride ride, final int chunkX, final int chunkZ) {
@@ -381,6 +396,7 @@ public final class Rides implements Listener {
     }
 
     private void release(final Ride ride) {
+        ride.cart.setGravity(true);
         ride.held.forEach(key -> tickets.release(ride.world, key));
         ride.held.clear();
     }

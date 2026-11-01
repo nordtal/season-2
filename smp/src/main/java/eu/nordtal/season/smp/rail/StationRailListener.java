@@ -24,9 +24,10 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 
 /**
- * Places, protects and removes station rails, and tells the networks when a rail may have changed.
+ * Places, protects and removes station rails, and tells the networks when a rail may have changed or a chunk loaded.
  * Only the placer and admins break a station rail or the block under it; nothing else does.
  */
 public final class StationRailListener implements Listener {
@@ -39,6 +40,11 @@ public final class StationRailListener implements Listener {
         this.networks = networks;
         this.identities = identities;
         this.sounds = sounds;
+    }
+
+    @EventHandler
+    public void onChunkLoad(final ChunkLoadEvent event) {
+        networks.loaded(event.getChunk());
     }
 
     @EventHandler

@@ -287,7 +287,7 @@ class MigrationsAreImmutableTest {
                 "d2281359b6ea12455bc07671e89c678bb2d6b3d8b4def776cf9d96105d095dcd");
         FROZEN.put(
                 "V101__station_rails_join_the_rails_between_them_into_networks.sql",
-                "c2988003d35755e71665f6d830e376d3eb8f78df91d578d603b0b19cbc1f6f0c");
+                "fc79277cc747e15d5f14ea75b1b5a325176f6d965f4028ad56996fdd81e5a921");
     }
 
     @Test

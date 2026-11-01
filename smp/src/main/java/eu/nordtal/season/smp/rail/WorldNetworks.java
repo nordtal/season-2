@@ -56,9 +56,21 @@ public final class WorldNetworks {
         return Collections.unmodifiableSet(networks);
     }
 
-    /** Whether {@code pos} or a position next to it, diagonals and one block up or down included, is tracked. */
-    public boolean tracksNear(final RailPos pos) {
-        return !near(pos).isEmpty();
+    /** Returns the stations at {@code pos} and next to it, diagonals and one block up or down included. */
+    public List<StationRow> stationsNear(final RailPos pos) {
+        final List<StationRow> found = new ArrayList<>();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    final @Nullable StationRow station =
+                            stations.get(new RailPos(pos.x() + dx, pos.y() + dy, pos.z() + dz));
+                    if (station != null) {
+                        found.add(station);
+                    }
+                }
+            }
+        }
+        return found;
     }
 
     private Set<Network> near(final RailPos pos) {

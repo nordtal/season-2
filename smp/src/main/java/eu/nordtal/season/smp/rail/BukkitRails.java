@@ -23,7 +23,7 @@ final class BukkitRails implements RailView {
     private final Set<Long> requested = new HashSet<>();
     private final Set<Long> held = new HashSet<>();
     private final Set<Long> ungenerated = new HashSet<>();
-    private final List<CompletableFuture<Void>> loads = new ArrayList<>();
+    private final List<CompletableFuture<?>> loads = new ArrayList<>();
     private boolean released;
 
     BukkitRails(final Plugin plugin, final World world) {
@@ -60,7 +60,11 @@ final class BukkitRails implements RailView {
                 continue;
             }
             final CompletableFuture<Chunk> loading = world.getChunkAtAsync(chunkX, chunkZ, false);
-            loads.add(loading.thenAccept(chunk -> held(chunkX, chunkZ, chunk)));
+            // A chunk that fails to load counts as one without rails, so the walk never waits for it.
+            loads.add(loading.handle((chunk, failure) -> {
+                held(chunkX, chunkZ, failure == null ? chunk : null);
+                return null;
+            }));
         }
     }
 

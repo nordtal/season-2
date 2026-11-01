@@ -23,7 +23,9 @@ public interface RailDao {
     @SqlUpdate("""
             INSERT INTO smp_rail_station (id, world, x, y, z, axis, placed_by)
             VALUES (:id, :world, :x, :y, :z, :axis, :placedBy)
-            ON CONFLICT (world, x, y, z) DO NOTHING
+            ON CONFLICT (world, x, y, z) DO UPDATE
+                SET id = excluded.id, axis = excluded.axis, placed_by = excluded.placed_by, placed = now(),
+                    name = NULL, named = NULL
             """)
     void insertStation(
             @Bind("id") UUID id,

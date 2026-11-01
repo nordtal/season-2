@@ -88,8 +88,8 @@ class WorldNetworksTest {
         changed(at(0, 64, 0));
 
         assertTrue(networks.walkFor(List.of(at(40, 64, 40))).starts().isEmpty());
-        assertTrue(networks.tracksNear(at(5, 64, 0)));
-        assertFalse(networks.tracksNear(at(6, 64, 0)));
+        assertEquals(1, networks.stationsNear(at(1, 65, 1)).size());
+        assertTrue(networks.stationsNear(at(2, 64, 0)).isEmpty());
     }
 
     @Test
@@ -131,5 +131,27 @@ class WorldNetworksTest {
         assertEquals(Set.of(at(0, 64, 0)), junction.junctions());
         assertEquals(3, junction.stations().size());
         assertTrue(Route.between(junction, at(-3, 64, 0), at(0, 64, 3)).isPresent());
+    }
+
+    @Test
+    void aRestoredNetworkWalkedFromItsStationsTracksItsSpurAgain() {
+        track.eastWest(0, 10, 64, 0).northSouth(5, 64, 1, 4);
+        station(1, at(0, 64, 0), null, 0);
+        station(2, at(10, 64, 0), null, 0);
+        changed(at(0, 64, 0));
+        final RailGraph walked = networks.networks().iterator().next().graph();
+        final WorldNetworks restored = new WorldNetworks();
+        restored.restore(List.copyOf(networks.stations()), walked.junctions(), walked.edges());
+        assertTrue(restored.networkOf(at(5, 64, 4)).isEmpty(), "the store keeps no spur");
+
+        final WorldNetworks.Walk walk = restored.walkFor(List.of(at(0, 64, 0), at(10, 64, 0)));
+        final RailWalk rails = new RailWalk(track, walk.starts(), 10_000);
+        while (!rails.step(1_000)) {
+            // Every position is readable.
+        }
+        restored.replace(walk, rails.found(), rails.missing(), NOW);
+
+        assertEquals(1, restored.networks().size());
+        assertTrue(restored.networkOf(at(5, 64, 4)).isPresent(), "a rail placed at the spur's end must start a walk");
     }
 }

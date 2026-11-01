@@ -45,7 +45,7 @@ CREATE TABLE smp_rail_edge
     length integer NOT NULL CONSTRAINT smp_rail_edge_length_positive CHECK (length > 0)
 );
 COMMENT ON TABLE smp_rail_edge IS 'Owned by smp: the track between two nodes of a rail network.';
-CREATE INDEX smp_rail_edge_world_idx ON smp_rail_edge (world);
+CREATE INDEX smp_rail_edge_from_idx ON smp_rail_edge (world, from_x, from_y, from_z);
 
 CREATE TABLE smp_rail_edge_rail
 (

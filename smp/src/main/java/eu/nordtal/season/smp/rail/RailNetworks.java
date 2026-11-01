@@ -44,6 +44,7 @@ public final class RailNetworks {
     private final NamespacedKey displayKey;
     private final Map<String, WorldNetworks> worlds = new HashMap<>();
     private final Map<String, Set<RailPos>> changed = new LinkedHashMap<>();
+    private final Map<UUID, StationRow> crooked = new LinkedHashMap<>();
     private @Nullable Running running;
     private boolean restored;
 
@@ -65,8 +66,13 @@ public final class RailNetworks {
         Bukkit.addRecipe(item.recipe());
         store.load(
                 stored -> {
-                    stored.forEach(
-                            (world, part) -> networks(world).restore(part.stations(), part.junctions(), part.edges()));
+                    stored.forEach((world, part) -> {
+                        networks(world).restore(part.stations(), part.junctions(), part.edges());
+                        // The store keeps no track that ends nowhere, so each network is walked again once.
+                        part.stations()
+                                .forEach(station -> changed.computeIfAbsent(world, _ -> new LinkedHashSet<>())
+                                        .add(station.pos()));
+                    });
                     restored = true;
                     plugin.getLogger()
                             .info("restored "
@@ -110,8 +116,10 @@ public final class RailNetworks {
 
     /** Notes that the rail at {@code block} may have changed; the next tick walks the networks near it. */
     void changed(final Block block) {
-        changed.computeIfAbsent(block.getWorld().getName(), _ -> new LinkedHashSet<>())
-                .add(pos(block));
+        final String world = block.getWorld().getName();
+        changed.computeIfAbsent(world, _ -> new LinkedHashSet<>()).add(pos(block));
+        // Vanilla turns the rails next to a changed one after the event, so the stations are straightened a tick on.
+        networks(world).stationsNear(pos(block)).forEach(station -> crooked.put(station.id(), station));
     }
 
     /** Makes {@code block}, a placed rail, a station rail of {@code placer}, straight along {@code axis}. */
@@ -171,6 +179,7 @@ public final class RailNetworks {
 
     /** Runs every tick: starts the next walk, or reads on in the running one. */
     public void tick() {
+        straightenCrooked();
         if (!restored) {
             return;
         }
@@ -187,6 +196,18 @@ public final class RailNetworks {
         }
     }
 
+    private void straightenCrooked() {
+        for (final StationRow station : crooked.values()) {
+            final @Nullable World world = Bukkit.getWorld(station.world());
+            if (world != null
+                    && world.isChunkLoaded(station.x() >> 4, station.z() >> 4)
+                    && isStation(world.getBlockAt(station.x(), station.y(), station.z()))) {
+                straighten(world.getBlockAt(station.x(), station.y(), station.z()), RailShape.valueOf(station.axis()));
+            }
+        }
+        crooked.clear();
+    }
+
     private void begin() {
         final Iterator<Map.Entry<String, Set<RailPos>>> pending =
                 changed.entrySet().iterator();
@@ -201,12 +222,6 @@ public final class RailNetworks {
             final WorldNetworks.Walk walk = networks.walkFor(next.getValue());
             if (walk.starts().isEmpty() && walk.replaced().isEmpty()) {
                 continue;
-            }
-            // Vanilla turns a rail towards a new neighbour; a station rail stays straight.
-            for (final RailPos start : walk.starts()) {
-                networks.station(start)
-                        .ifPresent(station -> straighten(
-                                world.getBlockAt(start.x(), start.y(), start.z()), RailShape.valueOf(station.axis())));
             }
             final BukkitRails view = new BukkitRails(plugin, world);
             running = new Running(next.getKey(), walk, new RailWalk(view, walk.starts(), RAILS_PER_NETWORK), view);

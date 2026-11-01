@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
@@ -36,10 +37,13 @@ public final class GameActions {
 
     private final DataSource dataSource;
     private final CommandApi commands;
+    private final Supplier<TrackNames> names;
 
-    public GameActions(final DataSource dataSource, final CommandApi commands) {
+    /** @param names the names of the milestones and objectives, read for every reading of the track */
+    public GameActions(final DataSource dataSource, final CommandApi commands, final Supplier<TrackNames> names) {
         this.dataSource = dataSource;
         this.commands = commands;
+        this.names = names;
     }
 
     /** {@code GET /api/smp/track} answers every milestone with its state and objectives. */
@@ -50,13 +54,22 @@ public final class GameActions {
     /** Every milestone that has a row in {@code smp_milestone}, unlocked first. */
     public record SmpTrack(List<SmpMilestone> milestones) {}
 
-    /** One milestone. {@code state} is {@code LOCKED}, {@code ACTIVE} or {@code UNLOCKED}. */
+    /**
+     * One milestone. {@code state} is {@code LOCKED}, {@code ACTIVE} or {@code UNLOCKED}.
+     *
+     * @param name the English name the game shows, the key where no line names it
+     */
     public record SmpMilestone(
-            String key, String state, @Nullable Instant unlocked, List<SmpObjective> objectives) {}
+            String key, String name, String state, @Nullable Instant unlocked, List<SmpObjective> objectives) {}
 
-    /** One objective. {@code type} is {@code HAND_IN}, {@code STATISTIC} or {@code ADVANCEMENT}. */
+    /**
+     * One objective. {@code type} is {@code HAND_IN}, {@code STATISTIC} or {@code ADVANCEMENT}.
+     *
+     * @param name the English name the game shows, the key where no line names it
+     */
     public record SmpObjective(
             String key,
+            String name,
             String type,
             long amount,
             long target,
@@ -71,6 +84,7 @@ public final class GameActions {
     public record CommandAsked(String id, String status) {}
 
     public SmpTrack readTrack() {
+        final TrackNames named = names.get();
         final Map<String, SmpMilestone> milestones = new LinkedHashMap<>();
         try (Connection connection = dataSource.getConnection();
                 PreparedStatement statement = connection.prepareStatement("""
@@ -88,13 +102,15 @@ public final class GameActions {
                 final String state = rows.getString("state");
                 final @Nullable Instant unlocked = instant(rows.getTimestamp("unlocked"));
                 final SmpMilestone milestone = milestones.computeIfAbsent(
-                        key, fresh -> new SmpMilestone(fresh, state, unlocked, new ArrayList<>()));
+                        key,
+                        fresh -> new SmpMilestone(fresh, named.milestone(fresh), state, unlocked, new ArrayList<>()));
                 if (rows.getString("key") == null) continue;
                 final @Nullable Instant completed = instant(rows.getTimestamp("completed"));
                 milestone
                         .objectives()
                         .add(new SmpObjective(
                                 rows.getString("key"),
+                                named.objective(key, rows.getString("key")),
                                 rows.getString("type"),
                                 rows.getLong("amount"),
                                 rows.getLong("target"),

@@ -543,6 +543,34 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     })
   })
 
+  it("keeps a stored milestone's and objective's ID fixed, and one the admin adds editable", async () => {
+    backend()
+    draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
+
+    fireEvent.click(screen.getByRole("button", { name: /deep/ }))
+    const deep = screen.getByRole("region", { name: "deep" })
+    expect(within(deep).getByRole("textbox", { name: "ID" })).toHaveProperty("disabled", true)
+    fireEvent.click(within(deep).getByRole("button", { name: /hardware/ }))
+    const stored = await screen.findByRole("dialog")
+    expect(within(stored).getByRole("textbox", { name: "ID" })).toHaveProperty("disabled", true)
+    fireEvent.click(within(stored).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+
+    fireEvent.click(within(deep).getByRole("button", { name: "Objective" }))
+    const added = await screen.findByRole("dialog")
+    expect(within(added).getByRole("textbox", { name: "ID" })).toHaveProperty("disabled", false)
+    fireEvent.click(within(added).getByRole("button", { name: "Done" }))
+
+    fireEvent.click(screen.getByRole("button", { name: "Milestone" }))
+    const fresh = await screen.findByRole("region", { name: "unnamed" })
+    const id = within(fresh).getByRole("textbox", { name: "ID" })
+    fireEvent.change(id, { target: { value: "deep" } })
+    expect(within(screen.getByRole("region", { name: "deep" })).getByRole("textbox", { name: "ID" })).toHaveProperty(
+      "disabled",
+      false,
+    )
+  })
+
   it("saves every value that names something in the game in its namespaced form", async () => {
     const saved = backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)

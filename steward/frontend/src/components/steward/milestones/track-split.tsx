@@ -5,9 +5,11 @@ import type { SectionValues } from "@/components/steward/repeatable-cards"
 import {
   BUDGETS,
   KEY,
+  type SavedIds,
   type TrackEdits,
   type TrackSchema,
   budgetSums,
+  isSaved,
   objectivesOf,
   text,
 } from "@/components/steward/milestones/model"
@@ -30,19 +32,27 @@ export type TrackProps = {
   track: SectionValues[]
   edits: TrackEdits
   disabled: boolean
+  /** The stored ids, which stay fixed. An id the admin adds is editable until the track is saved. */
+  saved: SavedIds
 }
 
 type Open = { milestone: number; objective: number } | null
 
-function useObjectiveSheet({ id, schema, track, edits, disabled }: TrackProps) {
+function useObjectiveSheet({ id, schema, track, edits, disabled, saved }: TrackProps) {
   const [open, setOpen] = useState<Open>(null)
-  const objective = open ? (objectivesOf(track[open.milestone])[open.objective] ?? null) : null
+  const objectives = open ? objectivesOf(track[open.milestone]) : []
+  const objective = open ? (objectives[open.objective] ?? null) : null
+  const stored =
+    open !== null &&
+    isSaved(track, open.milestone, saved) &&
+    isSaved(objectives, open.objective, saved.get(text(track[open.milestone], KEY.id)))
   const sheet = (
     <ObjectiveSheet
       id={open ? `${id}.${open.milestone}.${open.objective}` : id}
       objective={objective}
       schema={schema}
       disabled={disabled}
+      saved={stored}
       onChange={(next) => open && edits.setObjective(open.milestone, open.objective, next)}
       onRemove={() => open && edits.removeObjective(open.milestone, open.objective)}
       onClose={() => setOpen(null)}
@@ -85,7 +95,7 @@ function MilestoneBody({
   onOpen: (objective: number) => void
   onAdd: () => void
 }) {
-  const { id, schema, track, disabled, edits } = props
+  const { id, schema, track, disabled, edits, saved } = props
   const milestone = track[index]
   const objectives = objectivesOf(milestone)
   return (
@@ -95,6 +105,7 @@ function MilestoneBody({
         fields={milestoneFields(schema)}
         section={milestone}
         disabled={disabled}
+        fixed={isSaved(track, index, saved) ? [KEY.id] : []}
         onChange={(key, value) => edits.setField(index, key, value)}
         className="@md:grid-cols-3 @3xl:grid-cols-5"
       />

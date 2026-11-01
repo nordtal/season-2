@@ -54,6 +54,7 @@ import eu.nordtal.season.steward.game.GameActions;
 import eu.nordtal.season.steward.game.GameDataRoutes;
 import eu.nordtal.season.steward.game.GameRoutes;
 import eu.nordtal.season.steward.game.Inventories;
+import eu.nordtal.season.steward.game.TrackNames;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.journal.Unjournaled;
 import eu.nordtal.season.steward.live.LiveFeed;
@@ -195,6 +196,9 @@ public final class Web {
     /** How often {@link AlertMonitor#poll} reads the stack. */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
 
+    /** How long the names of the milestones stay before they are read again, so a renamed one shows soon. */
+    private static final Duration TRACK_NAMES_FRESH = Duration.ofMinutes(1);
+
     private final Scheduler scheduler;
 
     /**
@@ -206,6 +210,15 @@ public final class Web {
     private final List<Scheduler.Task> timed = new ArrayList<>();
 
     private Javalin app;
+
+    /** Returns the names of the milestones and objectives as the game's name documents draw them. */
+    private static Supplier<TrackNames> trackNames(final StackApi stack, final Clock clock) {
+        return TrackNames.cached(
+                clock,
+                TRACK_NAMES_FRESH,
+                () -> new TrackNames(
+                        stack.plainLine("smp", "milestone-name"), stack.plainLine("smp", "objective-name")));
+    }
 
     /**
      * @param agentOffered whether an agent token is configured. Without one the page draws no recreate button
@@ -245,7 +258,7 @@ public final class Web {
         this.metrics = new Metrics(data, clock);
         this.guild = new DiscordApi(config.discord(), GuildChannels.using(data.dataSource()));
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), database);
-        this.games = new GameActions(data.dataSource(), commands);
+        this.games = new GameActions(data.dataSource(), commands, trackNames(stack, clock));
         this.inventories = new Inventories(data, games, ctx -> account(ctx).orElseThrow(), Waiting.on(clock));
         this.announcements = announcementsOf(data, stack, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());

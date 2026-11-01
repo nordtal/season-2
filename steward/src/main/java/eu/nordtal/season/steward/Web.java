@@ -118,7 +118,10 @@ public final class Web {
     private final BooleanSupplier game;
 
     /** The answer of the last ping, so a call of the open route never waits for one or sends one. */
-    private final AtomicBoolean gameAnswered = new AtomicBoolean();
+    private final AtomicBoolean gameAnswered = new AtomicBoolean(true);
+
+    /** Whether a ping is under way, so a slow one is not queued behind by the next tick. */
+    private final AtomicBoolean gamePinging = new AtomicBoolean();
 
     private final Sessions sessions;
 
@@ -423,8 +426,7 @@ public final class Web {
         timed.add(scheduler.every(Duration.ZERO, AuthFlow.SWEEP, authFlow::sweepSessions));
         timed.add(scheduler.every(Duration.ZERO, ALERT_POLL, () -> alertLane.execute(alertMonitor::poll)));
         final Executor gameLane = scheduler.serial();
-        timed.add(scheduler.every(
-                Duration.ZERO, GAME_PING, () -> gameLane.execute(() -> gameAnswered.set(game.getAsBoolean()))));
+        timed.add(scheduler.every(Duration.ZERO, GAME_PING, () -> pingGame(gameLane)));
         live.start();
         authFlow.whatIsMissing()
                 .ifPresent(missing ->
@@ -529,6 +531,20 @@ public final class Web {
 
     /** The body of {@code GET /api/health}, which anyone may call. It holds these two booleans only. */
     public record Health(boolean database, boolean agent) {}
+
+    /** Sends one status ping on the lane, unless one is under way; until its first answer the game counts as up. */
+    private void pingGame(final Executor lane) {
+        if (!gamePinging.compareAndSet(false, true)) {
+            return;
+        }
+        lane.execute(() -> {
+            try {
+                gameAnswered.set(game.getAsBoolean());
+            } finally {
+                gamePinging.set(false);
+            }
+        });
+    }
 
     /** Answers 200 when a proxy answered the last status ping and 503 otherwise. Anyone may call it. */
     private void gameHealth(final Context ctx) {

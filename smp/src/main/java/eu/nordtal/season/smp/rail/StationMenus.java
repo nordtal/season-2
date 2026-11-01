@@ -91,7 +91,10 @@ public final class StationMenus implements Listener {
         return identities.of(player).admin() || station.placedBy().equals(player.getUniqueId());
     }
 
-    /** A right click on a station rail opens its menu, unless it places a minecart; a left click still breaks it. */
+    /**
+     * A right click on a station rail opens its menu, unless it places a minecart; a left click still breaks it.
+     * A rider's right click on a block that has no click of its own opens the ride menu again.
+     */
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(final PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) {
@@ -99,12 +102,11 @@ public final class StationMenus implements Listener {
         }
         final Player player = event.getPlayer();
         final Block block = event.getClickedBlock();
-        final boolean emptyHand = player.getInventory().getItemInMainHand().getType() == Material.AIR;
-        if (player.getVehicle() instanceof RideableMinecart
-                && emptyHand
-                && (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK)) {
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK
+                && block != null
+                && !block.getType().isInteractable()
+                && reopenedRide(player)) {
             event.setCancelled(true);
-            openRide(player);
             return;
         }
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK
@@ -128,16 +130,28 @@ public final class StationMenus implements Listener {
         return item != null && item.getType().name().endsWith("MINECART");
     }
 
-    /** A right click with an empty hand on anything while riding opens the ride menu again. */
+    /** A right click with an empty hand on the rider's own cart opens the ride menu again. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteractEntity(final PlayerInteractEntityEvent event) {
-        final Player player = event.getPlayer();
         if (event.getHand() == EquipmentSlot.HAND
-                && player.getVehicle() instanceof RideableMinecart
-                && player.getInventory().getItemInMainHand().getType() == Material.AIR) {
+                && event.getRightClicked().equals(event.getPlayer().getVehicle())
+                && reopenedRide(event.getPlayer())) {
             event.setCancelled(true);
-            openRide(player);
         }
+    }
+
+    /**
+     * Opens the ride menu again for a rider with an empty hand, when their cart stands on a network.
+     * A button, a lever, a door or a chest keeps its own click, which the caller checks.
+     */
+    private boolean reopenedRide(final Player player) {
+        if (!(player.getVehicle() instanceof RideableMinecart)
+                || player.getInventory().getItemInMainHand().getType() != Material.AIR) {
+            return false;
+        }
+        final Optional<RideMenu> menu = ride(player, 0);
+        menu.ifPresent(open -> open.open(player));
+        return menu.isPresent();
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)

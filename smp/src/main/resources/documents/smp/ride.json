@@ -57,7 +57,7 @@
           "when": "!favourite",
           "text": {
             "en": "<emphasis>Add to favourites</emphasis>",
-            "de": "<emphasis>Zu den Favoriten</emphasis>"
+            "de": "<emphasis>Zu den Favoriten hinzufügen</emphasis>"
           }
         },
         {

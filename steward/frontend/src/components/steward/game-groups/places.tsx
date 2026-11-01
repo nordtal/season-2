@@ -296,6 +296,8 @@ export function PlaceList({
   onChange: (value: SectionValues[]) => void
 }) {
   const [chosen, choose] = useState<number | null>(null)
+  /** The area Add just made, as it was made: closed untouched, it goes again, so a stray click saves nothing. */
+  const [added, setAdded] = useState<{ index: number; values: SectionValues } | null>(null)
   const fields = entry.template ?? []
   const shape = placeShape(fields.map((field) => field.key))
   if (shape === undefined) return null
@@ -334,7 +336,9 @@ export function PlaceList({
             // A new area starts in the world of the one before it, which is where the next one usually is.
             const before = value.at(-1)
             const blank = blankSection(fields)
-            onChange([...value, before === undefined ? blank : { ...blank, world: text(before, "world") }])
+            const made = before === undefined ? blank : { ...blank, world: text(before, "world") }
+            onChange([...value, made])
+            setAdded({ index: value.length, values: made })
             choose(value.length)
           }}
         >
@@ -349,7 +353,15 @@ export function PlaceList({
           place={placeAt(open)}
           disabled={disabled}
           onRemove={() => onChange(value.filter((_, at) => at !== open))}
-          onClose={() => choose(null)}
+          onClose={() => {
+            const section = added !== null && added.index === open ? value[open] : undefined
+            const untouched =
+              section !== undefined &&
+              Object.keys({ ...section, ...added?.values }).every((key) => section[key] === added?.values[key])
+            if (untouched) onChange(value.filter((_, at) => at !== open))
+            setAdded(null)
+            choose(null)
+          }}
         />
       ) : null}
     </div>

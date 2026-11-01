@@ -62,6 +62,12 @@ class BotInboxTest {
                 carriedOut.add("announce " + line.language() + " " + announcement.message());
                 return !line.language().equals("fr");
             },
+            announcement -> {
+                carriedOut.add("post announcement " + announcement.announcement());
+                return new BotRequest.PostAnnouncement.Answer(announcement.targets().stream()
+                        .map(target -> new BotRequest.Announce.Posted(target.language(), true))
+                        .toList());
+            },
             alert -> {
                 carriedOut.add("alert " + alert.entry() + " " + alert.mention());
                 return true;

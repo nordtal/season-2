@@ -74,7 +74,7 @@ class GateTest extends WebFixture {
             Map.entry("POST /api/season/phase", Gate.KEY_FRESH),
             Map.entry("POST /api/smp/objective", Gate.KEY_FRESH),
             Map.entry("POST /api/smp/milestone", Gate.KEY_FRESH),
-            Map.entry("POST /api/announcements", Gate.KEY_FRESH),
+            Map.entry("POST /api/announcements/{id}/send", Gate.KEY_FRESH),
             // These changes are easily undone or touch only the admin's session, notifications or preview.
             Map.entry("POST /api/updates", Gate.KEY_HELD),
             Map.entry("POST /api/updates/cancel", Gate.KEY_HELD),
@@ -86,6 +86,9 @@ class GateTest extends WebFixture {
             Map.entry("POST /api/document-images", Gate.KEY_HELD),
             Map.entry("PUT /api/shared-parts/{name}", Gate.KEY_HELD),
             Map.entry("DELETE /api/shared-parts/{name}", Gate.KEY_HELD),
+            Map.entry("POST /api/announcements", Gate.KEY_HELD),
+            Map.entry("PUT /api/announcements/{id}", Gate.KEY_HELD),
+            Map.entry("DELETE /api/announcements/{id}", Gate.KEY_HELD),
             Map.entry("POST /api/shared-parts/{name}/changes", Gate.KEY_HELD),
             Map.entry("POST /api/message-changes", Gate.KEY_HELD),
             Map.entry("POST /api/access/revoke", Gate.KEY_HELD),

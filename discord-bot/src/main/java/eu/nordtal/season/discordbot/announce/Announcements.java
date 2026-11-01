@@ -16,6 +16,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
 
 public final class Announcements {
@@ -31,6 +32,11 @@ public final class Announcements {
     static final DocumentSpec<Milestone> BORDER = announcement("announce-border", Milestone.class, "Border");
     static final DocumentSpec<Milestone> NETHER = announcement("announce-nether", Milestone.class, "Nether");
     static final DocumentSpec<Milestone> END = announcement("announce-end", Milestone.class, "End");
+
+    /** The document a new admin announcement starts from, whose declaration every draft is drawn with. */
+    public static final DocumentSpec<DocumentSpec.None> DRAFT = DocumentSpec.message(
+                    StoredDocuments.NAMESPACE, "announcement", "Announcements")
+            .titled("New announcement");
 
     private static <V extends Record> DocumentSpec<V> announcement(
             final String name, final Class<V> values, final String title) {
@@ -114,6 +120,33 @@ public final class Announcements {
         }
     }
 
+    /**
+     * Posts a drawn message into a channel an admin chose and waits for Discord.
+     *
+     * @return whether it was posted, {@code false} when the bot cannot see the channel or Discord refused
+     */
+    public boolean post(final String channelId, final String languageTag, final MessageCreateData message) {
+        final Optional<String> channel = channels.name(channelId);
+        if (channel.isEmpty()) {
+            log.error(
+                    "Announcement channel {} for '{}' does not exist or the bot cannot see it", channelId, languageTag);
+            return false;
+        }
+        try {
+            channels.send(channelId, message);
+            log.info("Announced in '{}' in #{} ({})", languageTag, channel.get(), channelId);
+            return true;
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while announcing in '{}'", languageTag);
+            return false;
+        } catch (final ExecutionException | TimeoutException failure) {
+            // A timeout counts as a failure even though JDA may still deliver the message.
+            log.warn("Could not announce in '{}' in {}: {}", languageTag, channelId, failure.toString());
+            return false;
+        }
+    }
+
     private static final java.time.Duration POST_TIMEOUT = java.time.Duration.ofSeconds(15);
 
     interface Channels {
@@ -121,6 +154,9 @@ public final class Announcements {
         Optional<String> name(String channelId);
 
         void send(String channelId, String text) throws InterruptedException, ExecutionException, TimeoutException;
+
+        void send(String channelId, MessageCreateData message)
+                throws InterruptedException, ExecutionException, TimeoutException;
 
         static Channels of(final JDA jda) {
             return new Channels() {
@@ -138,6 +174,16 @@ public final class Announcements {
                         throw new ExecutionException(new IllegalStateException("channel " + channelId + " is gone"));
                     }
                     channel.sendMessage(text).submit().get(POST_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+                }
+
+                @Override
+                public void send(final String channelId, final MessageCreateData message)
+                        throws InterruptedException, ExecutionException, TimeoutException {
+                    final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
+                    if (channel == null) {
+                        throw new ExecutionException(new IllegalStateException("channel " + channelId + " is gone"));
+                    }
+                    channel.sendMessage(message).submit().get(POST_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
                 }
             };
         }

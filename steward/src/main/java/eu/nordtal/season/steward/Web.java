@@ -8,6 +8,7 @@ import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.access.PackExemptions;
 import eu.nordtal.season.database.alert.AlertBook;
+import eu.nordtal.season.database.announce.AnnouncementBook;
 import eu.nordtal.season.database.command.CommandTreeStore;
 import eu.nordtal.season.database.game.GameDataStore;
 import eu.nordtal.season.database.guild.GuildChannels;
@@ -83,6 +84,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -245,7 +247,7 @@ public final class Web {
         this.commands = new CommandApi(data, ctx -> account(ctx).orElseThrow(), database);
         this.games = new GameActions(data.dataSource(), commands);
         this.inventories = new Inventories(data, games, ctx -> account(ctx).orElseThrow(), Waiting.on(clock));
-        this.announcements = new Announcements(data, ctx -> account(ctx).orElseThrow());
+        this.announcements = announcementsOf(data, stack, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data, texts.messages());
         this.gameData = new GameDataRoutes(GameDataStore.using(data.dataSource()));
@@ -278,6 +280,16 @@ public final class Web {
         this.push = new PushEndpoints(this::requireSession, localPushSubscriptions, wiring.router(), localVapidKeys);
         this.live = watchLive(data, clock);
         this.overrides = MessageOverrideStore.using(data.dataSource());
+    }
+
+    /** The announcement routes, which check a draft against the bot's announcement document. */
+    private static Announcements announcementsOf(
+            final Data data, final StackApi stack, final Function<Context, DiscordAuth.Account> accounts) {
+        return new Announcements(
+                AnnouncementBook.using(data.dataSource()),
+                accounts,
+                document -> stack.documents()
+                        .check(Announcements.TEMPLATE_NAMESPACE, Announcements.TEMPLATE_NAME, document));
     }
 
     /** Maps each topic of the live stream to the reads that its routes answer with. */

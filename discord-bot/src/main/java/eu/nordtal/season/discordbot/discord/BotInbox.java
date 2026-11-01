@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -21,6 +22,7 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
 
     private final AccessChanges effects;
     private final BiPredicate<BotRequest.Announce, BotRequest.Announce.Line> announce;
+    private final Function<BotRequest.PostAnnouncement, BotRequest.PostAnnouncement.Answer> adminAnnouncement;
     private final Predicate<BotRequest.PostAlert> alert;
     private final Consumer<BotRequest.PaymentBooked> paid;
     private final Predicate<BotRequest.PreviewMessage> preview;
@@ -29,6 +31,7 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
     /**
      * @param announce renders one line of an announcement, posts it to that line language's announcement channel
      *     and returns whether it was posted
+     * @param adminAnnouncement posts an admin's announcement into its channels and answers per language
      * @param alert posts an alert to the admin channel and returns whether it was posted
      * @param paid sends the payer a message about the booked payment
      * @param preview sends an admin the previewed text as a direct message and returns whether Discord delivered it
@@ -37,12 +40,14 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
     public BotInbox(
             final AccessChanges effects,
             final BiPredicate<BotRequest.Announce, BotRequest.Announce.Line> announce,
+            final Function<BotRequest.PostAnnouncement, BotRequest.PostAnnouncement.Answer> adminAnnouncement,
             final Predicate<BotRequest.PostAlert> alert,
             final Consumer<BotRequest.PaymentBooked> paid,
             final Predicate<BotRequest.PreviewMessage> preview,
             final Predicate<BotRequest.PreviewDocument> document) {
         this.effects = Objects.requireNonNull(effects, "effects");
         this.announce = Objects.requireNonNull(announce, "announce");
+        this.adminAnnouncement = Objects.requireNonNull(adminAnnouncement, "adminAnnouncement");
         this.alert = Objects.requireNonNull(alert, "alert");
         this.paid = Objects.requireNonNull(paid, "paid");
         this.preview = Objects.requireNonNull(preview, "preview");
@@ -68,6 +73,7 @@ public final class BotInbox implements Inbox.Handler<BotRequest> {
                 yield Outcome.done(null);
             }
             case BotRequest.Announce announcement -> Outcome.done(post(announcement));
+            case BotRequest.PostAnnouncement announcement -> Outcome.done(adminAnnouncement.apply(announcement));
             case BotRequest.PostAlert posted -> Outcome.done(Map.of("posted", String.valueOf(alert.test(posted))));
             // Steward words the refusal.
             case BotRequest.PreviewMessage previewed ->

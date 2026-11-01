@@ -1,6 +1,6 @@
 import { Hint } from "@/components/steward/status"
 import { CaretRightIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import type {
   Document,
@@ -94,12 +94,18 @@ export function DocumentEditor({
   draft,
   onDraft,
   language,
+  renderActions,
 }: {
   view: DocumentView
   draft: Document
   onDraft: (draft: Document | undefined) => void
   /** The language edited and previewed, which the page holds. */
   language: Language
+  /**
+   * The pinned row's buttons beside the test send, in place of discard and save, for a page that keeps the document
+   * itself. Its versions are left out with them. `refused` says whether the draft has a problem a save is refused for.
+   */
+  renderActions?: (refused: boolean) => ReactNode
 }) {
   const save = useSaveDocument()
   // The same debounced draft the preview draws, so both share one drawing.
@@ -152,7 +158,7 @@ export function DocumentEditor({
       <ProblemList problems={problems.filter((problem) => draft.parts[problem.part[0] ?? -1] === undefined)} />
       <Parts parts={draft.parts} path={[]} context={context} />
       <AddPart parts={draft.parts} path={[]} context={context} />
-      <DocumentVersions view={view} disabled={save.isPending} onRestore={submit} />
+      {renderActions ? null : <DocumentVersions view={view} disabled={save.isPending} onRestore={submit} />}
       {save.error ? <Failure error={save.error} write /> : null}
       {send.error ? <Failure error={send.error} write /> : null}
       {/* The send and the save stay in reach while a long document scrolls. */}
@@ -178,19 +184,23 @@ export function DocumentEditor({
               </Button>
             </Hint>
           ) : null}
-          <span className="ml-auto flex items-center gap-1 md:gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={!changed || save.isPending}
-              onClick={() => onDraft(undefined)}
-            >
-              {t("steward.document-editor.discard")}
-            </Button>
-            <Button type="button" disabled={!changed || refused || save.isPending} onClick={() => submit()}>
-              {t("steward.document-editor.save")}
-            </Button>
-          </span>
+          {renderActions ? (
+            renderActions(refused)
+          ) : (
+            <span className="ml-auto flex items-center gap-1 md:gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={!changed || save.isPending}
+                onClick={() => onDraft(undefined)}
+              >
+                {t("steward.document-editor.discard")}
+              </Button>
+              <Button type="button" disabled={!changed || refused || save.isPending} onClick={() => submit()}>
+                {t("steward.document-editor.save")}
+              </Button>
+            </span>
+          )}
         </div>
       </PinnedRow>
     </section>

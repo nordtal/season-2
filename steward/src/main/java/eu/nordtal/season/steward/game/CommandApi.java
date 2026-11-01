@@ -207,7 +207,8 @@ public final class CommandApi {
     private CommandRun sent(final String name, final long id) {
         final Request<BotRequest> row = data.bot()
                 .find(id)
-                .filter(found -> !(found.payload() instanceof BotRequest.Announce))
+                .filter(found -> !(found.payload() instanceof BotRequest.Announce
+                        || found.payload() instanceof BotRequest.PostAnnouncement))
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
         final CommandRun run = settled(name, row);
         final Object answer = row.answer();
@@ -236,7 +237,8 @@ public final class CommandApi {
     private CommandRun announced(final String name, final long id, final String language) {
         final Request<BotRequest> row = data.bot()
                 .find(id)
-                .filter(found -> found.payload() instanceof BotRequest.Announce)
+                .filter(found -> found.payload() instanceof BotRequest.Announce
+                        || found.payload() instanceof BotRequest.PostAnnouncement)
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noAnnouncement(id)));
         return new CommandRun(
                 name,

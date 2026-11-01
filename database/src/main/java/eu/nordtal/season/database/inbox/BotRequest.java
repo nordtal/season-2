@@ -24,6 +24,7 @@ public sealed interface BotRequest {
                     Unlink.class,
                     SetPlaytime.class,
                     Announce.class,
+                    PostAnnouncement.class,
                     PreviewMessage.class,
                     PreviewDocument.class)
             .withOutcome();
@@ -185,6 +186,41 @@ public sealed interface BotRequest {
 
             public Posted {
                 Objects.requireNonNull(language, "language");
+            }
+        }
+    }
+
+    /**
+     * Posts an admin's announcement into the channel of each of its targets. The bot draws the document when it posts.
+     *
+     * @param announcement the announcement whose document is posted
+     */
+    record PostAnnouncement(long announcement, List<Target> targets) implements BotRequest {
+
+        public PostAnnouncement {
+            targets = List.copyOf(targets);
+            if (targets.isEmpty()) {
+                throw new IllegalArgumentException("an announcement is posted in at least one language");
+            }
+            if (targets.stream().map(Target::language).distinct().count() < targets.size()) {
+                throw new IllegalArgumentException("an announcement has one channel per language: " + targets);
+            }
+        }
+
+        /** @param channel the Discord channel the language is posted in */
+        public record Target(String language, String channel) {
+
+            public Target {
+                Objects.requireNonNull(language, "language");
+                Objects.requireNonNull(channel, "channel");
+            }
+        }
+
+        /** @param targets whether each language was posted */
+        public record Answer(List<Announce.Posted> targets) {
+
+            public Answer {
+                targets = List.copyOf(targets);
             }
         }
     }

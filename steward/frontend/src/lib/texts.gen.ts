@@ -611,21 +611,56 @@ export type TextArgs = {
     version: Arg["text"]
   }
   "steward.announcements.ask": Record<string, never>
+  "steward.announcements.changed": {
+    time: Arg["text"]
+  }
+  "steward.announcements.channel": {
+    language: Arg["text"]
+  }
   "steward.announcements.compose": Record<string, never>
-  "steward.announcements.host-channel": Record<string, never>
+  "steward.announcements.copy": Record<string, never>
+  "steward.announcements.delete": Record<string, never>
+  "steward.announcements.deleted": Record<string, never>
+  "steward.announcements.draft": Record<string, never>
+  "steward.announcements.drafts": Record<string, never>
+  "steward.announcements.empty": Record<string, never>
+  "steward.announcements.empty-note": Record<string, never>
   "steward.announcements.no-channel": Record<string, never>
+  "steward.announcements.no-drafts": Record<string, never>
+  "steward.announcements.no-match": Record<string, never>
+  "steward.announcements.none-open": Record<string, never>
+  "steward.announcements.none-open-note": Record<string, never>
+  "steward.announcements.not-everywhere": {
+    count: Arg["number"]
+  }
   "steward.announcements.not-posted": {
     language: Arg["text"]
   }
   "steward.announcements.posted": {
     language: Arg["text"]
   }
+  "steward.announcements.posting": {
+    language: Arg["text"]
+  }
+  "steward.announcements.retry": {
+    languages: Arg["text"]
+  }
+  "steward.announcements.saved": Record<string, never>
+  "steward.announcements.search": Record<string, never>
   "steward.announcements.send": Record<string, never>
+  "steward.announcements.send-short": Record<string, never>
+  "steward.announcements.sent": Record<string, never>
+  "steward.announcements.sent-at": {
+    time: Arg["text"]
+  }
+  "steward.announcements.tab": Record<string, never>
+  "steward.announcements.untitled": Record<string, never>
   "steward.announcements.where": {
-    languages: Arg["number"]
+    channels: Arg["text"]
   }
   "steward.answer.agent-unconfigured": Record<string, never>
   "steward.answer.already-admin": Record<string, never>
+  "steward.answer.announcement-sent": Record<string, never>
   "steward.answer.answer-unreadable": Record<string, never>
   "steward.answer.aura-range": {
     most: Arg["number"]
@@ -681,9 +716,6 @@ export type TextArgs = {
     server: Arg["text"]
   }
   "steward.answer.empty": Record<string, never>
-  "steward.answer.empty-text": {
-    language: Arg["text"]
-  }
   "steward.answer.enforced-already": Record<string, never>
   "steward.answer.exempt-already": Record<string, never>
   "steward.answer.grant-days": {
@@ -720,6 +752,7 @@ export type TextArgs = {
   "steward.answer.no-announcement": {
     announcement: Arg["number"]
   }
+  "steward.answer.no-announcement-channel": Record<string, never>
   "steward.answer.no-authenticator": Record<string, never>
   "steward.answer.no-backup": {
     backup: Arg["text"]
@@ -826,10 +859,6 @@ export type TextArgs = {
   }
   "steward.answer.subscription-gone": Record<string, never>
   "steward.answer.too-late": Record<string, never>
-  "steward.answer.too-long": {
-    language: Arg["text"]
-    most: Arg["number"]
-  }
   "steward.answer.too-many-codes": {
     until: Arg["instant"]
   }

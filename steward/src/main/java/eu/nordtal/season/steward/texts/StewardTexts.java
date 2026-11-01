@@ -191,8 +191,11 @@ public interface StewardTexts {
             @Name("Empty body")
             MessageRef empty();
 
-            @Name("Empty announcement text")
-            MessageRef emptyText(@Arg("language") @Example("Deutsch") String language);
+            @Name("Announcement already sent")
+            MessageRef announcementSent();
+
+            @Name("Announcement without a channel")
+            MessageRef noAnnouncementChannel();
 
             @Name("Countdown over")
             MessageRef tooLate();
@@ -408,10 +411,6 @@ public interface StewardTexts {
 
             @Name("Server opened no editor")
             MessageRef editorSilent(@Arg("server") @Example("smp") String server);
-
-            @Name("Announcement too long")
-            MessageRef tooLong(
-                    @Arg("language") @Example("Deutsch") String language, @Arg("most") @Example("2000") int most);
 
             @Name("Web push not configured")
             MessageRef pushUnconfigured();

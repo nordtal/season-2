@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.helpers.MessageFormatter;
@@ -54,6 +55,11 @@ class AnnouncementsTest {
         @Override
         public void send(final String channelId, final String text) {
             sent.add(channelId + ": " + text);
+        }
+
+        @Override
+        public void send(final String channelId, final MessageCreateData message) {
+            sent.add(channelId + ": " + message.getContent());
         }
     };
 

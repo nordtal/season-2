@@ -176,6 +176,11 @@ public final class StackApi implements AutoCloseable {
         return messages.preview(ctx);
     }
 
+    /** Returns the admins' documents, which also check an announcement against the document it starts from. */
+    public DocumentsApi documents() {
+        return documents;
+    }
+
     /** Returns the preview of {@code POST /api/document-preview}. */
     public DocumentPreview documentPreview(final Context ctx) {
         return documents.preview(ctx);

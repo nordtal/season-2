@@ -379,6 +379,33 @@ public final class DocumentsApi {
         if (document == null) {
             throw new RequestRefused(400, ANSWER.empty());
         }
+        check(declaration, document);
+        try {
+            store.change(
+                    new DocumentStore.StoredDocument(
+                            declaration.namespace(), declaration.name(), document, packaged.hash()),
+                    actor);
+        } catch (final IllegalArgumentException missing) {
+            throw new RequestRefused(
+                    400, ANSWER.documentRefused(declaration.id(), String.valueOf(missing.getMessage())));
+        }
+        ctx.json(documents());
+        return declaration.id();
+    }
+
+    /**
+     * Refuses a document with a 400 unless it is one the packaged document of that name could be saved as.
+     * An admin's announcement is checked so, against the document a new one starts from.
+     */
+    public void check(final String namespace, final String name, final Document document) {
+        final Shipped shipped = shipped().get(namespace + "/" + name);
+        if (shipped == null) {
+            throw new RequestRefused(404, ANSWER.noDocument(namespace, name));
+        }
+        check(shipped.packaged().declaration(), document);
+    }
+
+    private void check(final DocumentDeclaration declaration, final Document document) {
         final Renderer renderer = renderer(languages());
         final Document drawn = resolved(declaration, document, renderer);
         final List<String> problems;
@@ -391,17 +418,6 @@ public final class DocumentsApi {
         if (!problems.isEmpty()) {
             throw new RequestRefused(400, ANSWER.documentRefused(declaration.id(), problems.getFirst()));
         }
-        try {
-            store.change(
-                    new DocumentStore.StoredDocument(
-                            declaration.namespace(), declaration.name(), document, packaged.hash()),
-                    actor);
-        } catch (final IllegalArgumentException missing) {
-            throw new RequestRefused(
-                    400, ANSWER.documentRefused(declaration.id(), String.valueOf(missing.getMessage())));
-        }
-        ctx.json(documents());
-        return declaration.id();
     }
 
     /**

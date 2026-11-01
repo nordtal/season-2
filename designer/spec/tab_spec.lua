@@ -2102,6 +2102,17 @@ describe("the Minecraft bar of the Nordtal tab", function()
     assert.equal(count, #t.log)
   end)
 
+  it("shows no tip for a cut status that was cleared before the tip's timer ticked", function()
+    local t, dlg = connected()
+    click(dlg, "minecraft.install_pack")
+    bar(dlg, 212)
+    local tick = t.timers[#t.timers].args.ontick
+    dlg.handlers.tree.onchange({ node="glyphs" })
+    local count = #t.log
+    tick()
+    assert.equal(count, #t.log)
+  end)
+
   it("builds the tab again once when a paint measures the bar higher than its canvas, with the measured height", function()
     local t = setUp()
     local first = t.dialogs[1]

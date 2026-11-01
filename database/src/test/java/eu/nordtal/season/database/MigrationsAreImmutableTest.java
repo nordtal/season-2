@@ -282,6 +282,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V99__an_announcement_is_a_draft_with_a_channel_per_language.sql",
                 "d9d7ba140e681d42bfa47b8fe0e1ff534395a969f9c31629186354152d0f2510");
+        FROZEN.put(
+                "V100__the_spawn_names_its_protected_areas_and_the_nordtal_spawn.sql",
+                "d2281359b6ea12455bc07671e89c678bb2d6b3d8b4def776cf9d96105d095dcd");
     }
 
     @Test

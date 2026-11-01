@@ -90,14 +90,14 @@ public final class SeasonWelcome {
     }
 
     private void placeAtFirstJoinSpawn(final Player player, final String name) {
-        final FirstJoinSpawnSpec spawn = config.firstJoinSpawn();
+        final FirstJoinSpawnSpec spawn = config.nordtalSpawn();
         final World world = Bukkit.getWorld(spawn.world());
         if (world == null) {
             plugin.getLogger()
-                    .warning("first-join-spawn names the world '" + spawn.world()
+                    .warning("nordtal-spawn names the world '" + spawn.world()
                             + "', which does not exist, so " + name + " was left where the server spawned"
                             + " them. The SMP's build world is called '" + worlds.nameOf(WorldRole.NORDTAL)
-                            + "' - if that was renamed, first-join-spawn: world has to be renamed with it.");
+                            + "' - if that was renamed, nordtal-spawn: world has to be renamed with it.");
             return;
         }
         player.teleport(LandingSite.safeAt(

@@ -68,7 +68,8 @@ export function EntryDialog({
   description?: string
   disabled: boolean
   children: ReactNode
-  onRemove: () => void
+  /** Without it the entry is fixed: the dialog edits it and has no Remove. */
+  onRemove?: () => void
   onClose: () => void
 }) {
   const [asking, setAsking] = useState(false)
@@ -87,16 +88,18 @@ export function EntryDialog({
           </ResponsiveDialogHeader>
           <div className="flex flex-col gap-2">{children}</div>
           <ResponsiveDialogFooter>
-            <Button
-              type="button"
-              variant="destructive"
-              className="sm:mr-auto"
-              disabled={disabled}
-              onClick={() => setAsking(true)}
-            >
-              <TrashIcon aria-hidden />
-              {t("steward.form.remove")}
-            </Button>
+            {onRemove ? (
+              <Button
+                type="button"
+                variant="destructive"
+                className="sm:mr-auto"
+                disabled={disabled}
+                onClick={() => setAsking(true)}
+              >
+                <TrashIcon aria-hidden />
+                {t("steward.form.remove")}
+              </Button>
+            ) : null}
             <Button type="button" onClick={onClose}>
               {t("steward.form.done")}
             </Button>
@@ -111,7 +114,7 @@ export function EntryDialog({
         action={t("steward.game.remove-it")}
         destructive
         act={() => {
-          onRemove()
+          onRemove?.()
           onClose()
         }}
       />

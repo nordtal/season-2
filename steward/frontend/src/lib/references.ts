@@ -175,9 +175,16 @@ export function gameChoices(game: GameData | undefined, registry: string | null,
   return { choices, tags, tree: false, registry }
 }
 
+/** The block that stands for a world: netherrack for a Nether, end stone for an End, grass for any other. */
+export function worldIcon(world: string): string {
+  if (world.endsWith("_nether")) return `${MINECRAFT}netherrack`
+  if (world.endsWith("_the_end")) return `${MINECRAFT}end_stone`
+  return `${MINECRAFT}grass_block`
+}
+
 /**
  * Returns the worlds `service` reported at its last start. A world is named as the server names it, with no
- * namespace and no icon; the list stays as it was while the server is down.
+ * namespace, and drawn by `worldIcon`; the list stays as it was while the server is down.
  */
 export function worldChoices(game: GameData | undefined, service: string | undefined): Choices {
   const worlds = service === undefined ? undefined : game?.worlds[service]
@@ -188,7 +195,7 @@ export function worldChoices(game: GameData | undefined, service: string | undef
       tree: false,
       unavailable: t("steward.settings.no-worlds", { service: service ?? "" }),
     }
-  return { choices: worlds.map((world) => ({ id: world, name: world })), tags: [], tree: false }
+  return { choices: worlds.map((world) => ({ id: world, name: world, icon: worldIcon(world) })), tags: [], tree: false }
 }
 
 export function guildChoices(list: GuildList | undefined): Choices {

@@ -133,6 +133,23 @@ describe("a config file as a tree", () => {
     expect(shape(tree)).toEqual(["agent.url", "agent.token"])
   })
 
+  it("draws an area or a block, such as the arena or a fighter's start, as one leaf of its fields", () => {
+    const area = ["world", "min-x", "min-y", "min-z", "max-x", "max-y", "max-z"]
+    const tree = configTree([
+      config({ path: "arena", kind: "MAP", label: "Arena" }),
+      ...area.map((key) => config({ path: `arena.${key}` })),
+      config({ path: "exit", kind: "MAP", label: "Exit" }),
+      ...["world", "x", "y", "z", "yaw"].map((key) => config({ path: `exit.${key}` })),
+      config({ path: "grave", kind: "MAP", label: "Grave" }),
+      config({ path: "grave.world" }),
+      config({ path: "grave.x" }),
+    ])
+
+    expect(shape(tree)).toEqual(["arena", "exit", "[Grave]", "  grave.world", "  grave.x"])
+    const arena = tree[0]
+    expect(arena.kind === "leaf" && arena.ids).toEqual(area.map((key) => `arena.${key}`))
+  })
+
   it("names a section the file never listed after its key", () => {
     const tree = configTree([config({ path: "farm-world.size", label: "Size" }), config({ path: "x", label: "X" })])
 

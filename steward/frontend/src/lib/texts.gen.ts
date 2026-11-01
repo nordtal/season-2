@@ -1054,6 +1054,10 @@ export type TextArgs = {
   "steward.game.active": Record<string, never>
   "steward.game.advancement": Record<string, never>
   "steward.game.all-milestones": Record<string, never>
+  "steward.game.area": Record<string, never>
+  "steward.game.area-numbered": {
+    index: Arg["number"]
+  }
   "steward.game.arena": Record<string, never>
   "steward.game.aura-awarded": {
     total: Arg["number"]
@@ -1063,6 +1067,10 @@ export type TextArgs = {
   }
   "steward.game.awarded": {
     count: Arg["number"]
+  }
+  "steward.game.block": Record<string, never>
+  "steward.game.block-numbered": {
+    index: Arg["number"]
   }
   "steward.game.chance": Record<string, never>
   "steward.game.chance-is": {
@@ -1076,11 +1084,15 @@ export type TextArgs = {
     amount: Arg["number"]
     target: Arg["number"]
   }
+  "steward.game.corner": {
+    index: Arg["number"]
+  }
   "steward.game.counting-down": Record<string, never>
   "steward.game.done-at": {
     at: Arg["text"]
   }
   "steward.game.duel-types": Record<string, never>
+  "steward.game.height": Record<string, never>
   "steward.game.item": Record<string, never>
   "steward.game.keep": Record<string, never>
   "steward.game.loadout": Record<string, never>
@@ -1095,11 +1107,14 @@ export type TextArgs = {
   "steward.game.move-up": {
     name: Arg["text"]
   }
+  "steward.game.no-areas": Record<string, never>
   "steward.game.no-awards": Record<string, never>
+  "steward.game.no-blocks": Record<string, never>
   "steward.game.no-prizes": Record<string, never>
   "steward.game.no-round": Record<string, never>
   "steward.game.no-track": Record<string, never>
   "steward.game.no-way-back": Record<string, never>
+  "steward.game.no-world": Record<string, never>
   "steward.game.objective": Record<string, never>
   "steward.game.platform": Record<string, never>
   "steward.game.prize": Record<string, never>
@@ -1109,7 +1124,6 @@ export type TextArgs = {
   "steward.game.progress": {
     name: Arg["text"]
   }
-  "steward.game.region": Record<string, never>
   "steward.game.registered": {
     count: Arg["number"]
   }
@@ -1119,6 +1133,10 @@ export type TextArgs = {
   "steward.game.remove-it": Record<string, never>
   "steward.game.round": Record<string, never>
   "steward.game.running": Record<string, never>
+  "steward.game.span": {
+    from: Arg["text"]
+    to: Arg["text"]
+  }
   "steward.game.spins-awarded": {
     total: Arg["number"]
   }

@@ -111,9 +111,6 @@ public interface GameTexts {
     @Name("Prize")
     MessageRef prize();
 
-    @Name("Region")
-    MessageRef region();
-
     @Name("Total weight")
     MessageRef totalWeight(@Arg("total") @Example("100") int total);
 
@@ -164,4 +161,34 @@ public interface GameTexts {
 
     @Name("Max")
     MessageRef max();
+
+    @Name("Area")
+    MessageRef area();
+
+    @Name("Numbered area")
+    MessageRef areaNumbered(@Arg("index") @Example("2") int index);
+
+    @Name("Block")
+    MessageRef block();
+
+    @Name("Numbered block")
+    MessageRef blockNumbered(@Arg("index") @Example("2") int index);
+
+    @Name("No areas")
+    MessageRef noAreas();
+
+    @Name("No blocks")
+    MessageRef noBlocks();
+
+    @Name("No world")
+    MessageRef noWorld();
+
+    @Name("Corner")
+    MessageRef corner(@Arg("index") @Example("1") int index);
+
+    @Name("Height")
+    MessageRef height();
+
+    @Name("Span")
+    MessageRef span(@Arg("from") @Example("64") String from, @Arg("to") @Example("80") String to);
 }

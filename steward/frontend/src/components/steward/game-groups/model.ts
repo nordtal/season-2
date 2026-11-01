@@ -43,3 +43,24 @@ export const BOX = {
 } as const
 
 export const BOX_KEYS = ["world", ...BOX.min, ...BOX.max]
+
+/** An area's dialog: corner 1 and corner 2 as X and Z, then the height as Y from and Y to. */
+export const AREA = {
+  corners: [
+    ["min-x", "min-z"],
+    ["max-x", "max-z"],
+  ],
+  height: ["min-y", "max-y"],
+  keys: ["min-x", "min-z", "max-x", "max-z", "min-y", "max-y"],
+} as const
+
+/** An area between two corner blocks, or a single block. */
+export type PlaceShape = "area" | "block"
+
+/** The shape of a setting whose fields are `keys`, or none when it is not a place in a world. */
+export function placeShape(keys: readonly string[]): PlaceShape | undefined {
+  const holdsAll = (wanted: readonly string[]) => wanted.every((key) => keys.includes(key))
+  if (holdsAll(BOX_KEYS)) return "area"
+  if (holdsAll(["world", "x", "y", "z"])) return "block"
+  return undefined
+}

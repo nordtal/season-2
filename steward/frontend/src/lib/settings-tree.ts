@@ -6,6 +6,7 @@ import { choice, t } from "@/lib/texts"
 import { sentenceOf } from "@/lib/words"
 import { colourRuns } from "@/components/steward/colour-control"
 import { pairedBlocks, pairedPaths, type PairedBlocks } from "@/components/steward/paired-blocks"
+import { placeShape } from "@/components/steward/game-groups/model"
 
 /**
  * One leaf of a file's settings tree, built as data so a test can check its shape. Keys stay the identity: a leaf's `ids` are what a draft, a search hit and a jump name.
@@ -100,16 +101,34 @@ export type ConfigLeafValue =
   | { kind: "entry"; entry: ConfigEntry }
   | { kind: "run"; entries: ConfigEntry[] }
   | { kind: "pair"; pair: PairedBlocks }
+  | { kind: "place"; map: ConfigEntry; fields: ConfigEntry[] }
 
 function wideEntry(entry: ConfigEntry): boolean {
   return entry.kind === "LIST" || entry.kind === "SECTIONS" || !entry.editable || (entry.value ?? "").includes("\n")
 }
 
+/**
+ * The blocks that name a place in a world, an area or a single block, each with its fields. A block holding anything
+ * but plain values is not one.
+ */
+function placesOf(entries: ConfigEntry[]): Map<string, ConfigEntry[]> {
+  const places = new Map<string, ConfigEntry[]>()
+  for (const map of entries.filter((entry) => entry.kind === "MAP")) {
+    const below = entries.filter((entry) => entry.path.startsWith(`${map.path}.`))
+    if (below.some((entry) => entry.kind !== "SCALAR" || entry.path.slice(map.path.length + 1).includes("."))) continue
+    if (placeShape(below.map((entry) => entry.key)) !== undefined) places.set(map.path, below)
+  }
+  return places
+}
+
 export function configTree(entries: ConfigEntry[]): TreeNode<ConfigLeafValue>[] {
   const builder = new Builder<ConfigLeafValue>()
-  const pairs = pairedBlocks(entries)
+  const places = placesOf(entries)
+  const inPlace = new Set([...places.values()].flatMap((fields) => fields.map((field) => field.path)))
+  const loose = entries.filter((entry) => !places.has(entry.path) && !inPlace.has(entry.path))
+  const pairs = pairedBlocks(loose)
   const paired = pairedPaths(pairs)
-  const runs = colourRuns(entries.filter((entry) => entry.kind !== "MAP" && !paired.has(entry.path)))
+  const runs = colourRuns(loose.filter((entry) => entry.kind !== "MAP" && !paired.has(entry.path)))
   const runOf = new Map<string, ConfigEntry[]>()
   for (const run of runs) for (const member of run) runOf.set(member.path, run)
   const labelOf = new Map(entries.filter((entry) => entry.kind === "MAP").map((entry) => [entry.path, entry.label]))
@@ -127,6 +146,18 @@ export function configTree(entries: ConfigEntry[]): TreeNode<ConfigLeafValue>[] 
   }
 
   for (const entry of entries) {
+    const fields = places.get(entry.path)
+    if (fields) {
+      builder.add(ensure(parentPath(entry.path)), {
+        kind: "leaf",
+        id: entry.path,
+        ids: fields.map((field) => field.path),
+        value: { kind: "place", map: entry, fields },
+        wide: false,
+      })
+      continue
+    }
+    if (inPlace.has(entry.path)) continue
     const pair = pairs.find((candidate) => candidate.left.path === entry.path)
     if (pair) {
       const ids = pair.rows.flatMap((row) => [row.left.path, row.right.path])
@@ -175,7 +206,9 @@ export function configLeafMatches(value: ConfigLeafValue, query: string): boolea
       ? [value.entry]
       : value.kind === "run"
         ? value.entries
-        : [value.pair.left, value.pair.right, ...value.pair.rows.flatMap((row) => [row.left, row.right])]
+        : value.kind === "place"
+          ? [value.map, ...value.fields]
+          : [value.pair.left, value.pair.right, ...value.pair.rows.flatMap((row) => [row.left, row.right])]
   return entries.some((entry) => entryHaystack(entry).includes(needle))
 }
 

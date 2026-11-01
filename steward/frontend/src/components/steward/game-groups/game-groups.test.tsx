@@ -232,12 +232,34 @@ describe("game group editors", { timeout: 15_000 }, () => {
     expect(screen.getByRole("button", { name: /Acquire Hardware/ })).toBeTruthy()
   })
 
+  it("shows a region as a tile of its world and corners, edits it in a dialog and adds one that opens", async () => {
+    backend(WHEEL)
+    draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
+
+    const tile = await screen.findByRole("button", { name: "Area 1" })
+    expect(tile.textContent).toContain("nordtal")
+    expect(tile.textContent).toContain("0 to 0")
+    fireEvent.click(tile)
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByText("Corner 1")).toBeTruthy()
+    expect(within(dialog).getByText("Height")).toBeTruthy()
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Max Y" }), { target: { value: "90" } })
+    expect(within(dialog).getByRole("button", { name: "Remove" })).toBeTruthy()
+    expect(tile.textContent).toContain("0 to 90")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+
+    fireEvent.click(screen.getByRole("button", { name: "Area" }))
+    expect(await screen.findByRole("dialog")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Area 2", hidden: true })).toBeTruthy()
+  })
+
   it("shows each prize's chance on its tile and edits amount and weight in its dialog, never the item", async () => {
     backend(WHEEL)
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
     expect((await screen.findByRole("button", { name: /Oak Log/ })).textContent).toContain("99.7%")
-    expect(screen.getByRole("textbox", { name: "Min X" })).toHaveProperty("value", "3978")
+    expect(screen.getByRole("button", { name: "Area 1" }).textContent).toContain("3978")
     const elytra = screen.getByRole("button", { name: /Elytra/ })
     expect(within(elytra).getByText("0.30%")).toBeTruthy()
     fireEvent.click(elytra)

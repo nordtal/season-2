@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { ConfigEntry } from "@/lib/api"
@@ -354,5 +354,44 @@ describe("two blocks that share their keys, as one row per key", () => {
     expect(fieldFor(container, "hours.tier-02").closest("li")).toBeNull()
     expect(fieldFor(container, "hours.tier-01").value).toBe("0")
     expect(fieldFor(container, "colours.tier-01").value).toBe("#5fbfae")
+  })
+})
+
+describe("a place among the settings", () => {
+  const file = "smp/spawn"
+  const world = { refers: { to: "WORLD" as const, optional: false } }
+  const spawn = [
+    entry({ path: "nordtal-spawn", key: "nordtal-spawn", label: "Nordtal spawn", kind: "MAP" }),
+    entry({ path: "nordtal-spawn.world", key: "world", label: "World", value: "nordtal", ...world }),
+    ...["x", "y", "z", "yaw"].map((key) =>
+      entry({ path: `nordtal-spawn.${key}`, key, label: key.toUpperCase(), type: "DECIMAL", value: "0" }),
+    ),
+  ]
+
+  it("is one tile of its world and coordinates, edited in a dialog that cannot remove it", async () => {
+    const fetchMock = backend({
+      [file]: { ...location({ path: file, name: "spawn", service: "smp" }), revision: "r1", entries: spawn },
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    draw(<Settings service="smp" />)
+    await open("Spawn")
+
+    const tile = await screen.findByRole("button", { name: "Nordtal spawn" })
+    expect(tile.textContent).toContain("nordtal")
+    fireEvent.click(tile)
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).queryByRole("button", { name: "Remove" })).toBeNull()
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "X" }), { target: { value: "12" } })
+    expect(within(dialog).getByRole("textbox", { name: "YAW" })).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(tile.textContent).toContain("12")
+
+    fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(true))
+    const put = fetchMock.mock.calls.find(([, init]) => init?.method === "PUT")
+    const parsed: unknown = JSON.parse(requestBody(put?.[1]?.body))
+    if (!isBodyWithChanges(parsed)) throw new Error("the save did not carry changes")
+    expect(parsed.changes).toEqual({ "nordtal-spawn.x": "12" })
   })
 })

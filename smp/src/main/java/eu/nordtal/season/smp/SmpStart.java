@@ -260,7 +260,7 @@ final class SmpStart {
                 .getPluginManager()
                 .registerEvents(
                         new ProtectionListener(
-                                () -> plugin.spawnRegions,
+                                () -> plugin.protectedAreas,
                                 duels,
                                 plugin.identities(),
                                 plugin.renderer(),

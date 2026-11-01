@@ -81,7 +81,7 @@ export function Mark({
     return <TERM_ICON.voiceChannel aria-hidden className="size-4 shrink-0 text-muted-foreground" />
   if (choice.channel === "text")
     return <TERM_ICON.textChannel aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-  // A world names no registry and has no item, so it draws no mark rather than an empty square.
+  // A value with neither an icon nor a registry draws no mark rather than an empty square.
   if (icons === undefined || (choice.icon === undefined && registry === undefined)) return null
   if (choice.icon === undefined && registry !== undefined) {
     const Generic = GENERIC[registry] ?? TERM_ICON.item

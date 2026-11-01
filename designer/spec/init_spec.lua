@@ -16,7 +16,6 @@ local function start(version)
     events={ on=function() return 1 end, off=function() end },
     window={ width=1000, height=700 },
     os={ windows=false },
-    alert=function(t) table.insert(ran, "alert") end,
   }
   local env = setmetatable({ app=app, Dialog=Dialog, json=require("dkjson") }, { __index=_G })
   assert(loadfile("init.lua", "t", env))()
@@ -43,23 +42,37 @@ describe("the plugin's start", function()
     for _, w in ipairs(status.widgets) do
       if w.kind == "button" then table.insert(buttons, w.args) end
     end
-    assert.equal(1, #buttons)
-    assert.equal("Quit", buttons[1].text)
-    buttons[1].onclick()
-    assert.same({ "Exit" }, ran)
+    assert.equal(2, #buttons)
+    assert.equal("Try Again", buttons[1].text)
+    assert.equal("Quit", buttons[2].text)
     assert.same({}, required)
-    env.exit()
+
+    -- Try Again checks the app again and shows the status in place of the first
+    buttons[1].onclick()
+    assert.equal(2, #shown)
     assert.is_true(status.closed)
+    assert.is_false(shown[2].closed)
+    assert.same({}, required)
+
+    -- Quit quits, and Try Again opens the tab once the app offers the version
+    local again
+    for _, w in ipairs(shown[2].widgets) do
+      if w.kind == "button" and w.args.text == "Quit" then w.args.onclick() end
+      if w.kind == "button" and w.args.text == "Try Again" then again = w.args.onclick end
+    end
+    assert.same({ "Exit" }, ran)
+    env.app.forkApiVersion = 8
+    again()
+    assert.is_true(shown[2].closed)
+    assert.equal(2, #shown)
+    assert.same({ "language", "tab" }, { required[1], required[2] })
+    env.exit()
   end)
 
   it("opens the Nordtal tab without a status on fork API 8", function()
     local shown, required = start(8)
     assert.same({}, shown)
-    assert.is_truthy(required[1] == "language")
-    local tab = false
-    for _, name in ipairs(required) do
-      if name == "tab" then tab = true end
-    end
-    assert.is_true(tab)
+    assert.equal("language", required[1])
+    assert.equal("tab", required[2])
   end)
 end)

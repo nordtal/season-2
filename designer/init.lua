@@ -5,7 +5,9 @@
 
 -- plugin.require() is in version 4 of the fork's API, the width of
 -- Dialog:tree{} in version 5, Dialog:panel{} in version 6,
--- Dialog:splitter{} in version 7 and app.kiosk in version 8
+-- Dialog:splitter{} in version 7, and in version 8 the bootstrap's
+-- kiosk keeps every sprite in the Nordtal tab, which the save before
+-- another entry opens relies on
 local forkApi = 8
 
 local ctl, listener, outdated
@@ -40,15 +42,26 @@ function init(plugin)
   local language = old and dofile(join(plugin.path, "language.lua")) or plugin.require("language")
   local tr = language.load(plugin.path, app.preferences.general.language, read, join)
   if old then
-    -- One status in place of the Nordtal tab, like the bootstrap's: it
-    -- can't be closed, and it offers no Try Again, since the app's
-    -- version only changes with a new start
-    outdated = Dialog{ notitlebar=true }
-    outdated:label{ text=tr("update.text") }
-    outdated:newrow()
-    outdated:label{ text=tr("update.install") }
-    outdated:button{ text=tr("update.quit"), focus=true, onclick=function() app.command.Exit() end }
-    outdated:show{ wait=false }
+    -- One status in place of the Nordtal tab, like the bootstrap's
+    -- failures: it can't be closed, and Try Again checks the app again
+    local function status()
+      if outdated then
+        outdated:close()
+        outdated = nil
+      end
+      if (app.forkApiVersion or 0) >= forkApi then
+        init(plugin)
+        return
+      end
+      outdated = Dialog{ notitlebar=true }
+      outdated:label{ text=tr("update.text") }
+      outdated:newrow()
+      outdated:label{ text=tr("update.install") }
+      outdated:button{ text=tr("update.try_again"), focus=true, onclick=function() status() end }
+      outdated:button{ text=tr("update.quit"), onclick=function() app.command.Exit() end }
+      outdated:show{ wait=false }
+    end
+    status()
     return
   end
 

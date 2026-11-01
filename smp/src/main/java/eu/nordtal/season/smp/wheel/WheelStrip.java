@@ -1,9 +1,7 @@
 package eu.nordtal.season.smp.wheel;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -40,33 +38,23 @@ public final class WheelStrip {
     /**
      * Draws one ring of cells for the whole spin, with the winner in the resting cell at the last step.
      *
-     * A prize appears twice only when the pool has fewer prizes than cells.
+     * Every other cell is drawn with the same weights as the winner, so a prize shows as often as it can be won.
      */
-    public static WheelStrip landingOn(final int poolSize, final int winner, final Random random, final Shape shape) {
-        if (poolSize < 1) {
-            throw new IllegalArgumentException("a wheel needs at least one prize, not " + poolSize);
+    public static WheelStrip landingOn(
+            final List<Integer> weights, final int winner, final Random random, final Shape shape) {
+        if (winner < 0 || winner >= weights.size()) {
+            throw new IllegalArgumentException("prize " + winner + " is not in a pool of " + weights.size());
         }
-        if (winner < 0 || winner >= poolSize) {
-            throw new IllegalArgumentException("prize " + winner + " is not in a pool of " + poolSize);
+        final Integer weight = weights.get(winner);
+        if (weight == null || weight <= 0) {
+            throw new IllegalArgumentException("prize " + winner + " has no positive weight and cannot be won");
         }
 
-        final List<Integer> order = new ArrayList<>();
-        for (int prize = 0; prize < poolSize; prize++) {
-            if (prize != winner) {
-                order.add(prize);
-            }
-        }
-        Collections.shuffle(order, random);
-        order.add(0, winner);
-
-        // Ring index 0 holds the winner; a small pool repeats in the same order.
+        // Ring index 0 holds the winner.
         final int[] ring = new int[shape.count()];
-        for (int index = 0; index < ring.length; index++) {
-            ring[index] = order.get(index % poolSize);
-        }
-        final int last = ring.length - 1;
-        if (last > 0 && poolSize > 1 && ring[last] == winner) {
-            ring[last] = order.get(1);
+        ring[0] = winner;
+        for (int index = 1; index < ring.length; index++) {
+            ring[index] = PrizeDraw.draw(weights, random);
         }
         return new WheelStrip(ring, winner, shape);
     }

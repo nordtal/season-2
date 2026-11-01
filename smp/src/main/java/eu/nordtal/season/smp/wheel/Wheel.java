@@ -148,7 +148,7 @@ public final class Wheel {
         }
 
         // This part runs off the main thread.
-        final WheelStrip strip = WheelStrip.landingOn(pool.size(), index, random, WheelPanel.shape());
+        final WheelStrip strip = WheelStrip.landingOn(weights, index, random, WheelPanel.shape());
         final List<ItemStack> icons = icons(pool);
 
         PaperScheduler.of(plugin).onMain(() -> {

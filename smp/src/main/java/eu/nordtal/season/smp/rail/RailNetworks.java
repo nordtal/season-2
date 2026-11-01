@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
@@ -50,6 +51,7 @@ public final class RailNetworks {
     private final Map<UUID, StationRow> crooked = new LinkedHashMap<>();
     private final Map<UUID, Set<UUID>> favourites = new HashMap<>();
     private final Set<UUID> unseen = new HashSet<>();
+    private final Map<String, Map<Long, Set<RailPos>>> givenUp = new HashMap<>();
     private Consumer<StationRow> renamedByMerge = _ -> {};
     private @Nullable Running running;
     private boolean restored;
@@ -134,6 +136,16 @@ public final class RailNetworks {
         changed.computeIfAbsent(world, _ -> new LinkedHashSet<>()).add(pos(block));
         // Vanilla turns the rails next to a changed one after the event, so the stations are straightened a tick on.
         networks(world).stationsNear(pos(block)).forEach(station -> crooked.put(station.id(), station));
+    }
+
+    /** Walks again the networks whose walk gave up on {@code chunk}, now that it loaded. */
+    void loaded(final Chunk chunk) {
+        final String world = chunk.getWorld().getName();
+        final @Nullable Map<Long, Set<RailPos>> chunks = givenUp.get(world);
+        final @Nullable Set<RailPos> starts = chunks == null ? null : chunks.remove(chunk.getChunkKey());
+        if (starts != null) {
+            changed.computeIfAbsent(world, _ -> new LinkedHashSet<>()).addAll(starts);
+        }
     }
 
     /** Makes {@code block}, a placed rail, a station rail of {@code placer}, straight along {@code axis}. */
@@ -350,6 +362,16 @@ public final class RailNetworks {
         }
         replacement.lost().forEach(row -> forget(row.id()));
         store.replaced(walk.world(), replacement);
+        for (final long key : walk.view().givenUpChunks()) {
+            if (world != null && world.isChunkLoaded((int) key, (int) (key >> 32))) {
+                changed.computeIfAbsent(walk.world(), _ -> new LinkedHashSet<>())
+                        .addAll(walk.walk().starts());
+            } else {
+                givenUp.computeIfAbsent(walk.world(), _ -> new HashMap<>())
+                        .computeIfAbsent(key, _ -> new HashSet<>())
+                        .addAll(walk.walk().starts());
+            }
+        }
         replacement.renamed().forEach(row -> {
             unseen.add(row.id());
             renamedByMerge.accept(row);

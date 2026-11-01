@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * A flood fill along the rails from a list of start rails, which finds one network per group of connected starts.
  * It reads a bounded number of rails per {@link #step}, so a long track is walked over many ticks, and it waits
- * for positions it cannot read yet instead of loading them.
+ * for what it cannot read yet; where the view gave up, the track ends and a start is neither walked nor missing.
  */
 public final class RailWalk {
 
@@ -81,8 +81,10 @@ public final class RailWalk {
                 continue;
             }
             if (!view.readable(start)) {
-                wanted.add(start);
-                starts.addLast(start);
+                if (!view.givenUp(start)) {
+                    wanted.add(start);
+                    starts.addLast(start);
+                }
                 continue;
             }
             final @Nullable RailShape shape = view.shape(start);

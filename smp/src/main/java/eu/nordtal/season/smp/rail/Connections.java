@@ -34,7 +34,8 @@ public final class Connections {
     /**
      * Returns the readable rails connected to the rail at {@code pos}, which has {@code shape}.
      *
-     * @param unreadable receives each position next to {@code pos} that could hold a rail but cannot be read now
+     * @param unreadable receives each position next to {@code pos} that could hold a rail but cannot be read now,
+     *     unless the view gave up on it
      */
     public static List<RailPos> of(
             final RailPos pos, final RailShape shape, final RailView view, final List<RailPos> unreadable) {
@@ -43,7 +44,9 @@ public final class Connections {
             for (final int dy : RISES) {
                 final RailPos next = pos.step(heading, dy);
                 if (!view.readable(next)) {
-                    unreadable.add(next);
+                    if (!view.givenUp(next)) {
+                        unreadable.add(next);
+                    }
                     continue;
                 }
                 final @Nullable RailShape other = view.shape(next);

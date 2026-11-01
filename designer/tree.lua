@@ -7,6 +7,9 @@ local tree = {}
 tree.draftIcon = "tab_modified_icon_normal"
 -- The theme part that marks a draft with a conflict and each node above it
 tree.conflictIcon = "warning_box"
+-- The badge that marks an entry with unsaved changes and each node
+-- above it, before the badge the node has without them
+tree.unsavedBadge = "*"
 
 -- The nodes for Dialog:tree{} and an index from each node's id to
 -- { kind, entry, texture, font, block }, with the marks that mark(info)
@@ -113,10 +116,44 @@ function tree.build(model, tr, mark)
     node("overrides", tr("tree.overrides"), { kind="root" }, overrides),
     node("texts", tr("tree.texts"), { kind="texts", languages=model.languages }, texts),
   }
+  -- The badge without unsaved changes, which unsaved() falls back to
+  local function keep(list)
+    for _, n in ipairs(list) do
+      n.saved = n.badge or false
+      keep(n.children or {})
+    end
+  end
+  keep(nodes)
   for _, root in ipairs(nodes) do
     root.expanded = true
   end
   return nodes, index
+end
+
+-- Marks each node of nodes whose entry in index has unsaved changes, as
+-- changed(info) says, and each node above it with the unsaved badge. A
+-- cell is part of its sheet. Sets the new badges and returns { node,
+-- badge } for each node whose badge changed, with false for none.
+function tree.unsaved(nodes, index, changed)
+  local out = {}
+  local function walk(n)
+    local inside = false
+    for _, child in ipairs(n.children or {}) do
+      inside = walk(child) or inside
+    end
+    local info = index[n.id]
+    local marked = inside or (info ~= nil and info.kind ~= "cell" and changed(info) == true)
+    local saved = n.saved
+    if saved == nil then saved = n.badge or false end
+    local badge = marked and (saved and tree.unsavedBadge .. " " .. saved or tree.unsavedBadge) or saved
+    if badge ~= (n.badge or false) then
+      n.badge = badge or nil
+      table.insert(out, { node=n.id, badge=badge })
+    end
+    return marked
+  end
+  for _, n in ipairs(nodes) do walk(n) end
+  return out
 end
 
 return tree

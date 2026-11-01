@@ -194,6 +194,35 @@ describe("tree", function()
     assert.is_nil(block.children[2].icon)
   end)
 
+  it("marks an entry with unsaved changes and each node above it before their own badges, a sheet for its cells", function()
+    local drafted = texture("badges/moon.png")
+    drafted.draft = drafted.id
+    model.fonts[1].blocks[1].glyphs[2].texture = drafted
+    local nodes, index = tree.build(model, tr, drafts.marks(model))
+    model.fonts[1].blocks[1].glyphs[2].texture = texture("badges/moon.png")
+    local ids = { ["nordtal:badges/moon.png"]=true, ["nordtal:ui/gui/row_text.png"]=true }
+    local changes = tree.unsaved(nodes, index, function(info) return ids[info.texture and info.texture.id] end)
+    local font = nodes[1].children[1]
+    local block = font.children[1]
+    local rows = nodes[1].children[2].children[1]
+    assert.same({ "F0000", "* F0001", "tab_modified_icon_normal" },
+      { block.children[1].badge, block.children[2].badge, block.children[2].icon })
+    assert.same({ "* (1)", "* (1)", "* (1)" }, { block.badge, font.badge, nodes[1].badge })
+    assert.same({ "*", "*", nil }, { nodes[1].children[2].badge, rows.badge, rows.children[1].badge })
+    assert.same({ nil, "(1)" }, { nodes[2].badge, nodes[4].badge })
+    assert.same({ node="glyph/minecraft:default/F0001", badge="* F0001" }, changes[1])
+    assert.equal(6, #changes)
+
+    -- Once saved, each node shows its own badge again, and only the changed nodes are given
+    ids = {}
+    changes = tree.unsaved(nodes, index, function(info) return ids[info.texture and info.texture.id] end)
+    assert.same({ "F0001", "(1)", nil }, { block.children[2].badge, block.badge, rows.badge })
+    assert.same({ node="glyph/minecraft:default/F0001", badge="F0001" }, changes[1])
+    assert.same({ node="sheet/nordtal:gui/1", badge=false }, changes[4])
+    assert.equal(6, #changes)
+    assert.same({}, tree.unsaved(nodes, index, function() return false end))
+  end)
+
   it("names a cell whose code is no code point", function()
     local bad = { fonts={ { font="nordtal:gui", blocks={
       { kind="sheet", title="Row text", texture=texture("a.png"), cells={ { row=0, column=0, code="ZZ" } } },

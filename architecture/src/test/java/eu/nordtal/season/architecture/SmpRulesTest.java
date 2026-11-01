@@ -54,7 +54,7 @@ class SmpRulesTest {
      * {@code command} wire.
      */
     private static final List<String> FEATURES =
-            List.of("duel", "grave", "npc", "progress", "protect", "travel", "welcome", "wheel");
+            List.of("duel", "grave", "npc", "progress", "protect", "rail", "travel", "welcome", "wheel");
 
     /** Everything that outlives a reload and reads the milestone track. */
     private static final List<String> TRACK_READERS = List.of(

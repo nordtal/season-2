@@ -242,7 +242,7 @@ class PackModelTest {
         textures.forEach { assertTrue((it["width"] as Int) > 0, "${it["png"]} has a pixel size") }
         val overrides = model.list("overrides").flatMap { it.list("entries") }.map { it.map("texture")["id"] }
         assertTrue("minecraft:gui/sprites/boss_bar/white_progress.png" in overrides)
-        assertEquals(listOf("nordtal:blank"), model.list("items").flatMap { it.list("entries") }.map { it["id"] })
+        assertEquals(listOf("nordtal:blank", "nordtal:station_rail"), model.list("items").flatMap { it.list("entries") }.map { it["id"] })
     }
 
     @Test

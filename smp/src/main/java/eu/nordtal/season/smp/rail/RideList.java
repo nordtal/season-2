@@ -3,7 +3,6 @@ package eu.nordtal.season.smp.rail;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -47,29 +46,13 @@ final class RideList {
 
     /** Returns whether {@code at} is a node of {@code graph} or a rail of one of its edges. */
     static boolean onTrack(final RailGraph graph, final RailPos at) {
-        return distances(graph, at).isPresent();
+        return graph.stations().contains(at)
+                || graph.junctions().contains(at)
+                || graph.edges().stream().anyMatch(edge -> edge.rails().contains(at));
     }
 
     /** Returns the distance from {@code at} to every node it reaches, or empty when {@code at} is on no track. */
     private static Optional<Map<RailPos, Integer>> distances(final RailGraph graph, final RailPos at) {
-        if (graph.stations().contains(at) || graph.junctions().contains(at)) {
-            return Optional.of(Route.distances(graph, at));
-        }
-        for (final RailEdge edge : graph.edges()) {
-            final int index = edge.rails().indexOf(at);
-            if (index < 0) {
-                continue;
-            }
-            // A cart between two nodes rides to either end first, whichever way is shorter to the station.
-            final Map<RailPos, Integer> shortest = new HashMap<>();
-            merge(shortest, Route.distances(graph, edge.from()), index + 1);
-            merge(shortest, Route.distances(graph, edge.to()), edge.length() - index - 1);
-            return Optional.of(shortest);
-        }
-        return Optional.empty();
-    }
-
-    private static void merge(final Map<RailPos, Integer> into, final Map<RailPos, Integer> from, final int offset) {
-        from.forEach((node, distance) -> into.merge(node, distance + offset, Math::min));
+        return onTrack(graph, at) ? Optional.of(Route.distances(graph, at)) : Optional.empty();
     }
 }

@@ -26,8 +26,10 @@ import eu.nordtal.season.smp.progress.GateHolders;
 import eu.nordtal.season.smp.progress.ObjectiveEngine;
 import eu.nordtal.season.smp.progress.StatisticPoller;
 import eu.nordtal.season.smp.protect.ProtectionListener;
+import eu.nordtal.season.smp.rail.ChunkTickets;
 import eu.nordtal.season.smp.rail.RailNetworks;
 import eu.nordtal.season.smp.rail.RailStore;
+import eu.nordtal.season.smp.rail.Rides;
 import eu.nordtal.season.smp.rail.StationMenus;
 import eu.nordtal.season.smp.rail.StationRailListener;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
@@ -270,13 +272,23 @@ final class SmpStart {
                         plugin);
     }
 
-    /** Starts the rail networks: their recipe, their stored state, their walk every tick, their listener and menus. */
-    static RailNetworks wireRails(final SmpPlugin plugin) {
+    /** The rail networks and the rides on them, which stop together. */
+    record Rails(RailNetworks networks, Rides rides) {}
+
+    /**
+     * Starts the rail networks and the rides that drive minecarts along them.
+     * The networks bring their recipe, their stored state, their walk every tick, their listener and menus.
+     */
+    static Rails wireRails(final SmpPlugin plugin) {
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
-        final RailNetworks rails =
-                new RailNetworks(plugin, new RailStore(plugin.jdbi(), scheduler, plugin.getLogger()), plugin.clock());
+        final ChunkTickets tickets = new ChunkTickets(plugin);
+        final RailNetworks rails = new RailNetworks(
+                plugin, tickets, new RailStore(plugin.jdbi(), scheduler, plugin.getLogger()), plugin.clock());
         rails.start(scheduler::onMain);
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rails::tick);
+        final Rides rides = new Rides(scheduler, rails, tickets, plugin.railSettings::get);
+        scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rides::tick);
+        plugin.getServer().getPluginManager().registerEvents(rides, plugin);
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(new StationRailListener(rails, plugin.identities(), plugin.sounds), plugin);
@@ -285,6 +297,7 @@ final class SmpStart {
                 .registerEvents(
                         new StationMenus(
                                 rails,
+                                rides,
                                 plugin.renderer(),
                                 plugin.documents(),
                                 plugin.identities(),
@@ -292,6 +305,6 @@ final class SmpStart {
                                 scheduler,
                                 () -> plugin.railSettings.get().stationsPerPage()),
                         plugin);
-        return rails;
+        return new Rails(rails, rides);
     }
 }

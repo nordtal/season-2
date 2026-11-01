@@ -13,7 +13,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One network as a graph: its stations and junctions are the nodes, the track between them the edges.
- * A junction is a rail that three or more connected rails lead into. Track that ends without a node is no edge.
+ * A junction is a rail that three or more connected rails lead into. Track that ends without a node is no edge,
+ * and neither is track that meets a station rail from the side, since a cart leaves and reaches it only along it.
  */
 public final class RailGraph {
 
@@ -62,7 +63,10 @@ public final class RailGraph {
         for (final RailPos node : nodes) {
             for (final RailPos next : neighbours.getOrDefault(node, List.of())) {
                 final RailEdge edge = follow(node, next, nodes, neighbours, rails.size());
-                if (edge != null && keeps(edge)) {
+                if (edge != null
+                        && keeps(edge)
+                        && along(edge.from(), edge.first(), rails, onTrack)
+                        && along(edge.to(), edge.last(), rails, onTrack)) {
                     edges.add(edge);
                 }
             }
@@ -97,6 +101,13 @@ public final class RailGraph {
             at = onward.getFirst();
         }
         return RailEdge.of(node, at, between);
+    }
+
+    /** Whether track that leaves {@code node} through {@code next} runs along it, as it must at a station rail. */
+    private static boolean along(
+            final RailPos node, final RailPos next, final Map<RailPos, RailShape> rails, final Set<RailPos> stations) {
+        final @Nullable RailShape shape = rails.get(node);
+        return !stations.contains(node) || shape == null || shape.leadsTowards(Heading.between(node, next));
     }
 
     /** Each edge is found from both of its ends; this keeps one of the two. */

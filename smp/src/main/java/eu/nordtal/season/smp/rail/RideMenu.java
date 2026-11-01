@@ -131,7 +131,7 @@ final class RideMenu extends Menu {
             return menus.ride(player, page).<MenuClick>map(MenuClick::opening).orElse(MenuClick.closing());
         }
         if (RidePanel.stationSlots(row).contains(slot)) {
-            // A pick closes the menu and leaves the cart a vanilla minecart.
+            menus.pick(player, stop);
             return MenuClick.closing();
         }
         return MenuClick.nothing();

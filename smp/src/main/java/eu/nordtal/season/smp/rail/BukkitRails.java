@@ -29,6 +29,7 @@ final class BukkitRails implements RailView {
     static final int SPACING = 20;
 
     private final Plugin plugin;
+    private final ChunkTickets tickets;
     private final World world;
     private final Set<Long> requested = new HashSet<>();
     private final Set<Long> held = new HashSet<>();
@@ -42,8 +43,9 @@ final class BukkitRails implements RailView {
     private boolean warned;
     private boolean released;
 
-    BukkitRails(final Plugin plugin, final World world) {
+    BukkitRails(final Plugin plugin, final ChunkTickets tickets, final World world) {
         this.plugin = plugin;
+        this.tickets = tickets;
         this.world = world;
     }
 
@@ -120,8 +122,8 @@ final class BukkitRails implements RailView {
         }
         if (chunk == null) {
             ungenerated.add(Chunk.getChunkKey(chunkX, chunkZ));
-        } else if (chunk.addPluginChunkTicket(plugin)) {
-            held.add(chunk.getChunkKey());
+        } else if (held.add(chunk.getChunkKey())) {
+            tickets.hold(world, chunkX, chunkZ);
         }
     }
 
@@ -159,7 +161,7 @@ final class BukkitRails implements RailView {
         loads.forEach(load -> load.cancel(false));
         loads.clear();
         for (final long key : held) {
-            world.removePluginChunkTicket((int) key, (int) (key >> 32), plugin);
+            tickets.release(world, key);
         }
         held.clear();
     }

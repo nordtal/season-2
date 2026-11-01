@@ -41,6 +41,7 @@ public final class RailNetworks {
     private record Running(String world, WorldNetworks.Walk walk, RailWalk rails, BukkitRails view) {}
 
     private final Plugin plugin;
+    private final ChunkTickets tickets;
     private final RailStore store;
     private final Clock clock;
     private final StationMarks marks;
@@ -52,6 +53,7 @@ public final class RailNetworks {
     private final Map<UUID, Set<UUID>> favourites = new HashMap<>();
     private final Set<UUID> unseen = new HashSet<>();
     private final Map<String, ChunkRetries> retries = new HashMap<>();
+    private final Map<String, Integer> versions = new HashMap<>();
     private Consumer<StationRow> renamedByMerge = _ -> {};
     private @Nullable Running running;
     private boolean restored;
@@ -59,8 +61,9 @@ public final class RailNetworks {
     /** The network under a cart: its graph, where on it the cart is, and every station of it. */
     record Ride(RailGraph graph, RailPos at, List<StationRow> stations) {}
 
-    public RailNetworks(final Plugin plugin, final RailStore store, final Clock clock) {
+    public RailNetworks(final Plugin plugin, final ChunkTickets tickets, final RailStore store, final Clock clock) {
         this.plugin = plugin;
+        this.tickets = tickets;
         this.store = store;
         this.clock = clock;
         this.marks = new StationMarks(plugin);
@@ -235,6 +238,26 @@ public final class RailNetworks {
                                 .toList()));
     }
 
+    /** Returns how often the networks of {@code world} were walked again; a ride plans again when it changes. */
+    int version(final String world) {
+        return versions.getOrDefault(world, 0);
+    }
+
+    /** Returns the graph of the network {@code rail} is on in {@code world}, when it is on its track. */
+    Optional<RailGraph> graph(final String world, final RailPos rail) {
+        return networks(world)
+                .networkOf(rail)
+                .map(WorldNetworks.Network::graph)
+                .filter(graph -> RideList.onTrack(graph, rail));
+    }
+
+    /** Returns the station with {@code id} in {@code world}, while it exists. */
+    Optional<StationRow> station(final String world, final UUID id) {
+        return networks(world).stations().stream()
+                .filter(row -> row.id().equals(id))
+                .findFirst();
+    }
+
     Set<UUID> favourites(final UUID player) {
         return Set.copyOf(favourites.getOrDefault(player, Set.of()));
     }
@@ -340,7 +363,7 @@ public final class RailNetworks {
             if (walk.starts().isEmpty() && walk.replaced().isEmpty()) {
                 continue;
             }
-            final BukkitRails view = new BukkitRails(plugin, world);
+            final BukkitRails view = new BukkitRails(plugin, tickets, world);
             running = new Running(next.getKey(), walk, new RailWalk(view, walk.starts(), RAILS_PER_NETWORK), view);
             return;
         }
@@ -362,6 +385,7 @@ public final class RailNetworks {
         }
         replacement.lost().forEach(row -> forget(row.id()));
         store.replaced(walk.world(), replacement);
+        versions.merge(walk.world(), 1, Integer::sum);
         final Set<RailPos> again = retries.computeIfAbsent(walk.world(), _ -> new ChunkRetries())
                 .gaveUp(walk.view().givenUpChunks(), walk.walk().starts(), walk.view()::loaded);
         if (!again.isEmpty()) {

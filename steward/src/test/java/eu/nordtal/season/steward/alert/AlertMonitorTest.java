@@ -30,7 +30,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Tests that the monitor raises a change of a type, across a restart too, not unchanged numbers, and a failed run once. */
+/** Tests that the monitor raises a change of a type across restarts, not unchanged numbers, and a failed run once. */
 class AlertMonitorTest {
 
     private static final long GIB = 1L << 30;
@@ -87,6 +87,11 @@ class AlertMonitorTest {
                 .map(RaisedAlert::alert)
                 .map(alert -> alert.type().key() + " " + alert.level().key() + " " + AdminPlain.of(alert.title()))
                 .toList();
+    }
+
+    /** Returns a monitor as Steward starts it again, over the same journal. */
+    private AlertMonitor restarted() {
+        return new AlertMonitor(() -> reading.get(), () -> thresholds, book, runs, Clock.systemUTC());
     }
 
     @Test
@@ -180,11 +185,6 @@ class AlertMonitorTest {
         down[0] = false;
         monitor.poll();
         assertEquals(List.of("disk warn The disk is over its threshold"), raised());
-    }
-
-    /** Returns a monitor as Steward starts it again, over the same journal. */
-    private AlertMonitor restarted() {
-        return new AlertMonitor(() -> reading.get(), () -> thresholds, book, runs, Clock.systemUTC());
     }
 
     @Test

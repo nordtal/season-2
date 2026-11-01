@@ -1,0 +1,17 @@
+[
+  {
+    "id": 45,
+    "channel": "STABLE",
+    "time": "2026-10-27T20:55:56.418Z",
+    "downloads": {
+      "server:default": {
+        "name": "velocity-4.3.1-45.jar",
+        "checksums": {
+          "sha256": "0844bcabdcdb4f5b875906fd4c3365bc1bb76918e42bc595ed88ad195258dd75"
+        },
+        "size": 42342611,
+        "url": "https://fill-data.papermc.io/v1/objects/0844bcabdcdb4f5b875906fd4c3365bc1bb76918e42bc595ed88ad195258dd75/velocity-4.3.1-45.jar"
+      }
+    }
+  }
+]

@@ -69,7 +69,7 @@ class ResolverTest {
                 .serving("/projects/paper/versions/" + Platform.MINECRAFT + "/builds", "fill-paper-26.2.json")
                 // Two calls for the proxy: the project list names Velocity's major, then its build list is read.
                 .serving("/projects/velocity", "fill-velocity-project.json")
-                .serving("/projects/velocity/versions/4.3.0/builds", "fill-velocity-4.3.0.json")
+                .serving("/projects/velocity/versions/4.3.1/builds", "fill-velocity-4.3.1.json")
                 .answering(".zip.sha1", PACK_SHA1 + "\n");
     }
 
@@ -79,7 +79,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // 4.0.0 names the 4.x line, and 4.3.0 is the version the proxy plugin is compiled against.
+        // 4.0.0 names the 4.x line, and 4.3.1 is the version the proxy plugin is compiled against.
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "velocity"));
         assertEquals(
                 List.of(),
@@ -627,7 +627,7 @@ class ResolverTest {
     private void installCurrentEverything() throws IOException {
         write("proxy", "plugins/proxy-0.1.0.jar");
         write("proxy", "plugins/voicechat-velocity-2.6.18.jar");
-        write("proxy", ".server/velocity-4.3.0-44.jar");
+        write("proxy", ".server/velocity-4.3.1-45.jar");
         write("limbo", "plugins/limbo-0.1.0.jar");
         write("limbo", ".server/paper-26.2-121.jar");
         write("hunger-games", "plugins/hunger-games-0.1.0.jar");

@@ -43,10 +43,8 @@ public final class NetworkSettings {
     /**
      * When each crest is reached and the colour of a name. The card of every name shows the crest.
      */
-    public static final Group<PrestigeSpec> PRESTIGE = Group.of("prestige", PrestigeSpec.class)
-            .checkedBy(NetworkSettings::checkPrestige)
-            .whileRunning()
-            .networkWide();
+    public static final Group<PrestigeSpec> PRESTIGE =
+            Group.of("prestige", PrestigeSpec.class).whileRunning().networkWide();
 
     public static final Group<PricesSpec> PRICES = Group.of("prices", PricesSpec.class)
             .checkedBy(NetworkSettings::checkPrices)
@@ -65,15 +63,6 @@ public final class NetworkSettings {
 
     public static Prestige prestige(final PrestigeSpec spec) {
         return new Prestige(prestigeHours(spec));
-    }
-
-    /**
-     * Refuses bad crest hours. The constructor of {@link Prestige} holds the whole rule.
-     *
-     * @throws IllegalArgumentException naming what is wrong with the hours
-     */
-    public static void checkPrestige(final PrestigeSpec spec) {
-        final Prestige _ = prestige(spec);
     }
 
     public static List<String> prestigeColours(final PrestigeSpec spec) {

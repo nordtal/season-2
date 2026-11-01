@@ -251,10 +251,37 @@ public final class SettingsDocument {
                     path,
                     row != null ? JsonParser.parseString(row) : fallback == null ? JsonNull.INSTANCE : fallback);
         });
+        filled(schema, merged);
         final List<SettingRules.Breach> breaches = SettingRules.breaches(schema, merged, environment);
         if (!breaches.isEmpty()) {
             final SettingRules.Breach first = breaches.getFirst();
             throw SettingsRefusal.declared(group.service(), SettingRules.shown(schema, first), first);
+        }
+    }
+
+    /** Gives each stored list entry the fields it lacks from its template, as the server reads it. */
+    private static void filled(final JsonObject node, final JsonObject values) {
+        for (final Map.Entry<String, JsonElement> child : children(node).entrySet()) {
+            if (!(child.getValue() instanceof final JsonObject field)) {
+                continue;
+            }
+            final JsonElement value = values.get(child.getKey());
+            if (value instanceof final JsonObject nested) {
+                filled(field, nested);
+            } else if (value instanceof final JsonArray list) {
+                final JsonObject template =
+                        field.get("defaults") instanceof final JsonObject defaulted ? defaulted : new JsonObject();
+                for (final JsonElement entry : list) {
+                    if (entry instanceof final JsonObject stored) {
+                        template.entrySet().forEach(held -> {
+                            if (!stored.has(held.getKey())) {
+                                stored.add(held.getKey(), held.getValue().deepCopy());
+                            }
+                        });
+                        filled(field, stored);
+                    }
+                }
+            }
         }
     }
 

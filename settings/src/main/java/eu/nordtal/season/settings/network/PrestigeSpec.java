@@ -1,6 +1,8 @@
 package eu.nordtal.season.settings.network;
 
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Above;
+import eu.nordtal.season.settings.rule.Between;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
@@ -47,6 +49,7 @@ public interface PrestigeSpec {
         @Order(1)
         @Name("Tier 1")
         @Key("tier-01")
+        @Between(least = 0, most = 0)
         @NoExplanationNeeded
         default int tier01() {
             return 0;
@@ -55,6 +58,7 @@ public interface PrestigeSpec {
         @Order(2)
         @Name("Tier 2")
         @Key("tier-02")
+        @Above("tier-01")
         @NoExplanationNeeded
         default int tier02() {
             return 2;
@@ -63,6 +67,7 @@ public interface PrestigeSpec {
         @Order(3)
         @Name("Tier 3")
         @Key("tier-03")
+        @Above("tier-02")
         @NoExplanationNeeded
         default int tier03() {
             return 5;
@@ -71,6 +76,7 @@ public interface PrestigeSpec {
         @Order(4)
         @Name("Tier 4")
         @Key("tier-04")
+        @Above("tier-03")
         @NoExplanationNeeded
         default int tier04() {
             return 10;
@@ -79,6 +85,7 @@ public interface PrestigeSpec {
         @Order(5)
         @Name("Tier 5")
         @Key("tier-05")
+        @Above("tier-04")
         @NoExplanationNeeded
         default int tier05() {
             return 20;
@@ -87,6 +94,7 @@ public interface PrestigeSpec {
         @Order(6)
         @Name("Tier 6")
         @Key("tier-06")
+        @Above("tier-05")
         @NoExplanationNeeded
         default int tier06() {
             return 35;
@@ -95,6 +103,7 @@ public interface PrestigeSpec {
         @Order(7)
         @Name("Tier 7")
         @Key("tier-07")
+        @Above("tier-06")
         @NoExplanationNeeded
         default int tier07() {
             return 55;
@@ -103,6 +112,7 @@ public interface PrestigeSpec {
         @Order(8)
         @Name("Tier 8")
         @Key("tier-08")
+        @Above("tier-07")
         @NoExplanationNeeded
         default int tier08() {
             return 85;
@@ -111,6 +121,7 @@ public interface PrestigeSpec {
         @Order(9)
         @Name("Tier 9")
         @Key("tier-09")
+        @Above("tier-08")
         @NoExplanationNeeded
         default int tier09() {
             return 125;
@@ -119,6 +130,7 @@ public interface PrestigeSpec {
         @Order(10)
         @Name("Tier 10")
         @Key("tier-10")
+        @Above("tier-09")
         @NoExplanationNeeded
         default int tier10() {
             return 175;
@@ -127,6 +139,7 @@ public interface PrestigeSpec {
         @Order(11)
         @Name("Tier 11")
         @Key("tier-11")
+        @Above("tier-10")
         @NoExplanationNeeded
         default int tier11() {
             return 250;
@@ -135,6 +148,7 @@ public interface PrestigeSpec {
         @Order(12)
         @Name("Tier 12")
         @Key("tier-12")
+        @Above("tier-11")
         @NoExplanationNeeded
         default int tier12() {
             return 350;
@@ -143,6 +157,7 @@ public interface PrestigeSpec {
         @Order(13)
         @Name("Tier 13")
         @Key("tier-13")
+        @Above("tier-12")
         @NoExplanationNeeded
         default int tier13() {
             return 500;

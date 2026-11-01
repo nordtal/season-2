@@ -446,6 +446,12 @@ export type ConfigSaved = {
   reload: ReloadOutcome
 }
 
+export type ConfigRefused = {
+  error: string
+  code: string
+  refusal?: ConfigBreach
+}
+
 export type PluginDescriptor = {
   service: string
   id: string
@@ -974,6 +980,13 @@ export type ReloadOutcome = {
   message: MessageRef
 }
 
+export type ConfigBreach = {
+  setting: string
+  entries: number[]
+  rule: SettingRule
+  value?: string
+}
+
 export type MessageText = {
   entry: MessageEntry
   path: string
@@ -1273,6 +1286,24 @@ export type ConfigCondition = {
 }
 
 export type ReloadStatus = "APPLIED" | "RESTART_REQUIRED"
+
+export type SettingRule =
+  | "REQUIRED"
+  | "POSITIVE"
+  | "NOT_NEGATIVE"
+  | "AT_LEAST"
+  | "AT_MOST"
+  | "ABOVE"
+  | "ENTRIES"
+  | "MOST_ENTRIES"
+  | "LONGEST"
+  | "UNIQUE"
+  | "ASCENDING"
+  | "CORNERS"
+  | "KNOWN"
+  | "TRACK"
+  | "OBJECTIVE_NAMES"
+  | "VALID"
 
 export type MessageEntry = {
   key: string

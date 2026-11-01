@@ -46,22 +46,18 @@ public final class ErrorHandlers {
         });
 
         // The form marks the setting by the refusal's setting, rule and entries, and shows the error beside it.
-        cfg.routes.exception(SettingsRefusal.class, (refused, ctx) -> {
-            final Map<String, Object> body = new LinkedHashMap<>();
-            body.put(
-                    "error",
-                    texts.format(
-                            Locales.DEFAULT,
-                            StewardTexts.TEXTS
-                                    .steward()
-                                    .answer()
-                                    .settingsRefused(database.format(Locales.DEFAULT, refused.why()))));
-            body.put("code", "SETTINGS_REFUSED");
-            if (refused.breach() != null) {
-                body.put("refusal", refused.breach());
-            }
-            ctx.status(422).json(body);
-        });
+        cfg.routes.exception(
+                SettingsRefusal.class,
+                (refused, ctx) -> ctx.status(422)
+                        .json(new SettingsRefusal.Answer(
+                                texts.format(
+                                        Locales.DEFAULT,
+                                        StewardTexts.TEXTS
+                                                .steward()
+                                                .answer()
+                                                .settingsRefused(database.format(Locales.DEFAULT, refused.why()))),
+                                "SETTINGS_REFUSED",
+                                refused.breach())));
 
         cfg.routes.exception(
                 Refused.class,

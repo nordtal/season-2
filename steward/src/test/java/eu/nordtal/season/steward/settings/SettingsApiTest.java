@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.settings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
@@ -82,6 +83,19 @@ class SettingsApiTest {
     }
 
     @Test
+    void anEntryIsCheckedWithTheFieldsItLacksFromItsTemplateAsTheServerReadsIt() throws Exception {
+        store.settings("smp").load(EXAMPLE);
+
+        final HttpResponse<String> answer = save("{\"stages\": [{\"kind\": \"GIVEN\"}, {\"kind\": \"GIVEN\"}]}");
+
+        assertEquals(422, answer.statusCode());
+        assertEquals(
+                JsonParser.parseString(
+                        "{\"setting\":\"stages.key\",\"entries\":[1],\"rule\":\"UNIQUE\",\"value\":\"\"}"),
+                JsonParser.parseString(answer.body()).getAsJsonObject().get("refusal"));
+    }
+
+    @Test
     void aSettingTheEnvironmentHoldsIsLeftToTheServer() throws Exception {
         store.settings(
                         "smp",
@@ -125,7 +139,7 @@ class SettingsApiTest {
 
         assertEquals(422, answer.statusCode());
         final JsonObject body = JsonParser.parseString(answer.body()).getAsJsonObject();
-        assertEquals(false, body.has("refusal"), answer.body());
+        assertFalse(body.has("refusal"), answer.body());
         assertTrue(body.get("error").getAsString().contains("the track cannot be read"), answer.body());
     }
 

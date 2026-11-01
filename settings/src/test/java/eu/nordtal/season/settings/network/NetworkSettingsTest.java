@@ -167,7 +167,7 @@ class NetworkSettingsTest {
         // Tier 2 at no hours would be reached in the same second as tier 1, which no player could ever wear.
         values.put("hours.tier-02", 0);
 
-        assertRefused(NetworkSettings.PRESTIGE, "rise strictly");
+        assertRefused(NetworkSettings.PRESTIGE, "hours.tier-02 must be greater than tier-01");
     }
 
     @Test

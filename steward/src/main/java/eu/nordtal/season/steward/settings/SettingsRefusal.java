@@ -13,6 +13,9 @@ public final class SettingsRefusal extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
+    /** The answer to a refused save: the reason in words, and the broken rule where one is named. */
+    public record Answer(String error, String code, SettingRules.@Nullable Breach refusal) {}
+
     private final transient MessageRef why;
     private final transient SettingRules.@Nullable Breach breach;
 

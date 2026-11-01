@@ -40,7 +40,7 @@ public final class BotSettings {
     private static final int MAX_ROLE_NAME = 100;
 
     /** The longest tag that fits {@code managed_message.kind}, a {@code varchar(32)} of {@code CONTRIBUTION_<TAG>}. */
-    static final int MAX_TAG_LENGTH = 19;
+    static final int MAX_TAG_LENGTH = 32 - 13;
 
     private BotSettings() {}
 

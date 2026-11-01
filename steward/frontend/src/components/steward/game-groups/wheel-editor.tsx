@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 import { choiceFor, nameOfId } from "@/lib/references"
@@ -6,6 +6,7 @@ import { draftSections } from "@/components/steward/configuration"
 import type { CustomEditorProps } from "@/components/steward/config-editors"
 import { GroupEditor } from "@/components/steward/group-draft"
 import { Pill } from "@/components/steward/milestones/parts"
+import { EnchantmentBadges, ItemLines, itemTip, useItemDetails } from "@/components/steward/game-item"
 import { Empty } from "@/components/steward/query-state"
 import { Mark, useChoices } from "@/components/steward/reference-picker"
 import { type SectionValues, blankSection } from "@/components/steward/repeatable-cards"
@@ -125,8 +126,9 @@ function Prizes({
       ) : (
         <Tiles>
           {prizes.map((entry, index) => (
-            <Tile
+            <PrizeTile
               key={index}
+              data={text(entry, "data")}
               mark={mark(entry, 40)}
               name={nameOf(text(entry, "item"))}
               details={chance(count(entry, "weight"), total)}
@@ -136,8 +138,8 @@ function Prizes({
         </Tiles>
       )}
       {open !== null && prize !== undefined ? (
-        <EntryDialog
-          open
+        <PrizeDialog
+          data={text(prize, "data")}
           mark={mark(prize, 48)}
           name={nameOf(text(prize, "item"))}
           description={choiceFor(choices.choices, text(prize, "item"))?.description}
@@ -145,18 +147,89 @@ function Prizes({
           onRemove={() => onChange(prizes.filter((_, at) => at !== open))}
           onClose={() => choose(null)}
         >
-          <Prize
-            list={list}
-            prize={prize}
-            index={open}
-            name={nameOf(text(prize, "item"))}
-            total={total}
-            disabled={disabled}
-            onSet={(key, value) => update(open, key, value)}
-          />
-        </EntryDialog>
+          {(shown) => (
+            <Prize
+              list={list}
+              prize={prize}
+              index={open}
+              name={shown}
+              total={total}
+              disabled={disabled}
+              onSet={(key, value) => update(open, key, value)}
+            />
+          )}
+        </PrizeDialog>
       ) : null}
     </section>
+  )
+}
+
+/** The most enchantment badges a tile draws; the rest are counted, and listed in its tooltip. */
+const TILE_ENCHANTMENTS = 3
+
+/** A prize's tile: its item as one element, with the name, enchantments and tooltip of an item taken in whole. */
+function PrizeTile({
+  data,
+  mark,
+  name,
+  details: values,
+  onOpen,
+}: {
+  data: string
+  mark: ReactNode
+  name: string
+  details: ReactNode
+  onOpen: () => void
+}) {
+  const details = useItemDetails(data)
+  return (
+    <Tile
+      mark={mark}
+      name={details.name ?? name}
+      badges={<EnchantmentBadges enchantments={details.enchantments} most={TILE_ENCHANTMENTS} />}
+      details={values}
+      tip={itemTip(details, TILE_ENCHANTMENTS)}
+      onOpen={onOpen}
+    />
+  )
+}
+
+/** A prize's dialog: its item with every enchantment and line, then its values, which `children` draws by its name. */
+function PrizeDialog({
+  data,
+  mark,
+  name,
+  description,
+  disabled,
+  children,
+  onRemove,
+  onClose,
+}: {
+  data: string
+  mark: ReactNode
+  name: string
+  description?: string
+  disabled: boolean
+  children: (name: string) => ReactNode
+  onRemove: () => void
+  onClose: () => void
+}) {
+  const details = useItemDetails(data)
+  const shown = details.name ?? name
+  return (
+    <EntryDialog
+      open
+      mark={mark}
+      name={shown}
+      description={description}
+      badges={<EnchantmentBadges enchantments={details.enchantments} className="justify-start" />}
+      disabled={disabled}
+      onRemove={onRemove}
+      onClose={onClose}
+    >
+      <ItemLines lines={details.lines} className="pb-2" />
+      {children(shown)}
+    </EntryDialog>
   )
 }
 
@@ -209,9 +282,6 @@ function Prize({
         </Labelled>
       </div>
       <p className="text-xs text-muted-foreground">{t("steward.game.chance-is", { total })}</p>
-      {text(prize, "data") === "" ? null : (
-        <p className="text-xs text-muted-foreground">{t("steward.game.taken-in")}</p>
-      )}
     </>
   )
 }

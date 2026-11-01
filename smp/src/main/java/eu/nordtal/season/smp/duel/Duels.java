@@ -8,9 +8,9 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
-import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
+import eu.nordtal.season.smp.TakenItems;
 import eu.nordtal.season.smp.aura.AuraCause;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.config.DuelAreaSpec;
@@ -280,15 +280,16 @@ public final class Duels implements Arenas {
 
     private void giveLoadout(final Player player, final List<DuelLoadoutItemSpec> loadout) {
         for (final DuelLoadoutItemSpec entry : loadout) {
-            final Material material = GameKeys.material(entry.item()).orElse(null);
-            if (material == null) {
+            final ItemStack one = TakenItems.one(entry.item(), entry.data());
+            if (one == null) {
                 plugin.getLogger()
                         .warning("a duel loadout names '" + entry.item()
-                                + "', which is not a material - that piece is missing from the fight");
+                                + "', which is not a material or whose item data does not read"
+                                + " - that piece is missing from the fight");
                 continue;
             }
-            final ItemStack stack = new ItemStack(material, Math.max(1, entry.amount()));
-            if (!equipIfArmour(player, material, stack)) {
+            final ItemStack stack = one.asQuantity(Math.max(1, entry.amount()));
+            if (!equipIfArmour(player, stack.getType(), stack)) {
                 player.getInventory().addItem(stack);
             }
         }

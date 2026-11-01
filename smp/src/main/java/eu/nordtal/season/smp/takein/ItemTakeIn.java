@@ -1,4 +1,4 @@
-package eu.nordtal.season.smp.wheel;
+package eu.nordtal.season.smp.takein;
 
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.document.AppliedDocuments;
@@ -8,6 +8,7 @@ import eu.nordtal.season.database.inbox.Outcome;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.inbox.SmpRequest.TakeInItem;
+import eu.nordtal.season.database.inbox.TakeInPurpose;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
@@ -34,10 +35,10 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Takes in the item an admin's player puts into a window, which Steward makes a wheel prize of, whole.
+ * Takes in the item an admin's player puts into a window, which Steward makes a wheel prize or a kit's piece of, whole.
  * The request stays running while the window is open and is settled with the item, or empty when it closed so.
  */
-public final class PrizeTakeIn {
+public final class ItemTakeIn {
 
     private static final long WAIT_SECONDS = 5;
 
@@ -51,7 +52,7 @@ public final class PrizeTakeIn {
 
     private record Shown(UUID player, TakeInWindow window) {}
 
-    public PrizeTakeIn(
+    public ItemTakeIn(
             final Plugin plugin,
             final DataSource pool,
             final MessageRenderer renderer,
@@ -66,17 +67,17 @@ public final class PrizeTakeIn {
 
     /** Closes a window once Steward withdrew its request. Call it before the hub starts. */
     public void watch(final SignalHub hub) {
-        hub.on(SmpRequest.TABLE.channel(), "the wheel prize take-ins", this::closeWithdrawn);
+        hub.on(SmpRequest.TABLE.channel(), "the item take-ins", this::closeWithdrawn);
     }
 
     /**
      * Opens the window for {@code player} on the main thread and leaves {@code request} running while it shows.
-     * It runs on the hub's thread and is refused while the player is not on this server.
+     * The window names {@code purpose}. It runs on the hub's thread and is refused while the player is not here.
      */
-    public Answer open(final long request, final PlayerId player) {
+    public Answer open(final long request, final PlayerId player, final TakeInPurpose purpose) {
         final GameDocument document = new GameDocument(
                 renderer,
-                documents.applied(TakeInWindow.DOCUMENT),
+                documents.applied(TakeInWindow.document(purpose)),
                 Viewer.of(identities.languageOf(player.value())),
                 new DocumentSpec.None());
         final boolean shown = onMain(() -> {

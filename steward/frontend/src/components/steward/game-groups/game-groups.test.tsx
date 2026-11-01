@@ -1,4 +1,4 @@
-import { StrictMode, type ReactNode } from "react"
+import { StrictMode, type ReactNode, useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -6,8 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 import { clearDraft } from "@/lib/drafts"
 import { customEditor } from "@/components/steward/config-editors"
+import { Control } from "@/components/steward/configuration"
+import { type SectionValues, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import { AwardsEditor } from "@/components/steward/game-groups/awards-editor"
-import { DuelsEditor } from "@/components/steward/game-groups/duels-editor"
+import { KitList } from "@/components/steward/game-groups/kits"
 import { chance } from "@/components/steward/game-groups/model"
 import { WheelEditor } from "@/components/steward/game-groups/wheel-editor"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -42,13 +44,6 @@ function list(key: string, label: string, template: ConfigEntry[], rows: Record<
 }
 
 const ITEM = entry("item", { label: "Item", value: "", refers: { to: "ITEM", optional: false } })
-
-const BOX = [
-  entry("world", { label: "World", value: "nordtal" }),
-  ...["min-x", "min-y", "min-z", "max-x", "max-y", "max-z"].map((key) =>
-    number(key, `${key.startsWith("min") ? "Min" : "Max"} ${key.slice(-1).toUpperCase()}`, "0"),
-  ),
-]
 
 function document(name: string, entries: ConfigEntry[]): ConfigDocument {
   return {
@@ -100,26 +95,37 @@ const WHEEL = document("wheel", [
   ),
 ])
 
-/** The loadouts carry a weight here as the published schema before this change did, which the editor must still read. */
-const LOADOUT = [ITEM, number("amount", "Amount", "1"), number("weight", "Weight", "1")]
+const PIECE = [ITEM, number("amount", "Amount", "1"), entry("data", { label: "Item data", value: "" })]
 
-const DUELS = document("duels", [
-  list(
-    "duel-platforms",
-    "Duel platforms",
-    [entry("type", { label: "Type", value: "SWORD" }), ...BOX],
-    [
-      { type: "SWORD", "min-x": "99" },
-      { type: "BOW", "min-x": "111" },
-    ],
-  ),
-  number("duel-arena-base-y", "Duel arena base Y", "200"),
-  number("duel-stake", "Duel stake", "10"),
-  list("duel-loadout-sword", "Sword loadout", LOADOUT, [{ item: "minecraft:iron_sword" }]),
-  list("duel-loadout-bow", "Bow loadout", LOADOUT, [
-    { item: "minecraft:bow" },
-    { item: "minecraft:arrow", amount: "64" },
-  ]),
+const KIT = [
+  entry("name", { label: "Name", value: "", rules: [{ rule: "REQUIRED" }, { rule: "LONGEST", limit: 64 }] }),
+  entry("icon", { label: "Icon", value: "minecraft:iron_sword", refers: { to: "ITEM", optional: false } }),
+  entry("loadout", { label: "Loadout", kind: "SECTIONS", template: PIECE }),
+]
+
+/** One kit as smp sends it: its name and icon, and its loadout as a list in the list. */
+function kit(name: string, icon: string, pieces: Record<string, string>[]): ConfigEntry[] {
+  return [
+    { ...KIT[0], value: name },
+    { ...KIT[1], value: icon },
+    {
+      ...KIT[2],
+      sections: pieces.map((piece) => PIECE.map((field) => ({ ...field, value: piece[field.key] ?? field.value }))),
+    },
+  ]
+}
+
+function kits(sections: ConfigEntry[][]): ConfigEntry {
+  return {
+    ...entry("duel-kits", { label: "Duel kits", kind: "SECTIONS", template: KIT }),
+    rules: [{ rule: "REQUIRED" }, { rule: "MOST_ENTRIES", limit: 5 }],
+    sections,
+  }
+}
+
+const KITS = kits([
+  kit("Sword", "minecraft:iron_sword", [{ item: "minecraft:iron_sword" }]),
+  kit("Bow", "minecraft:bow", [{ item: "minecraft:bow" }, { item: "minecraft:arrow", amount: "64" }]),
 ])
 
 const GAME = {
@@ -154,7 +160,7 @@ function json(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
 }
 
-type Asked = (url: string, method: string) => Response | Promise<Response> | undefined
+type Asked = (url: string, method: string, body?: string) => Response | Promise<Response> | undefined
 
 function backend(saved: ConfigDocument, more: Asked = () => undefined) {
   const puts: unknown[] = []
@@ -166,7 +172,7 @@ function backend(saved: ConfigDocument, more: Asked = () => undefined) {
         return json(configSaved(saved))
       }
       if (url === "/api/game-data") return json(GAME)
-      const answered = more(url, init?.method ?? "GET")
+      const answered = more(url, init?.method ?? "GET", init?.body)
       if (answered) return answered
       throw new Error(`the editor asked for ${url}, which this test did not expect`)
     }),
@@ -214,9 +220,12 @@ function held() {
 /** A take-in that smp answers with `run` once it is asked, and the withdrawals it is sent. */
 function takeIn(run: Record<string, unknown>, sent: Promise<void> = Promise.resolve()) {
   const withdrawn: string[] = []
-  const more: Asked = (url, method) => {
-    if (url === "/api/smp/take-in" && method === "POST")
+  const asked: unknown[] = []
+  const more: Asked = (url, method, body) => {
+    if (url === "/api/smp/take-in" && method === "POST") {
+      asked.push(JSON.parse(body ?? "null"))
       return sent.then(() => json({ id: "smp:7", status: "PENDING" }))
+    }
     if (url === "/api/commands/smp:7" && method === "DELETE") {
       withdrawn.push(url)
       return new Response(null, { status: 204 })
@@ -224,7 +233,7 @@ function takeIn(run: Record<string, unknown>, sent: Promise<void> = Promise.reso
     if (url === "/api/commands/smp:7") return json({ id: "smp:7", ...run })
     return undefined
   }
-  return { more, withdrawn }
+  return { more, withdrawn, asked }
 }
 
 function draw(node: ReactNode) {
@@ -248,9 +257,8 @@ describe("customEditor", () => {
   it("draws each game group with its own editor, and falls back where the shape is another", () => {
     expect(customEditor("advancement-awards", AWARDS)).toBe(AwardsEditor)
     expect(customEditor("wheel", WHEEL)).toBe(WheelEditor)
-    expect(customEditor("duels", DUELS)).toBe(DuelsEditor)
     expect(customEditor("wheel", AWARDS)).toBeUndefined()
-    expect(customEditor("duels", { ...DUELS, entries: DUELS.entries.slice(0, 3) })).toBeUndefined()
+    expect(customEditor("duels", document("duels", [KITS]))).toBeUndefined()
   })
 })
 
@@ -431,13 +439,14 @@ describe("game group editors", { timeout: 15_000 }, () => {
 
   it("takes a prize in from the game whole and saves its data with it", async () => {
     const data = await frostbite()
-    const { more } = takeIn({ status: "DONE", answer: { item: "minecraft:iron_sword", data } })
+    const { more, asked } = takeIn({ status: "DONE", answer: { item: "minecraft:iron_sword", data } })
     const puts = backend(WHEEL, more)
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
     fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
     fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
     const dialog = await screen.findByRole("dialog", { name: "Frostbite" })
+    expect(asked).toEqual([{ purpose: "WHEEL_PRIZE" }])
     expect(within(dialog).getByText("Forged in the north")).toBeTruthy()
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
@@ -503,18 +512,116 @@ describe("game group editors", { timeout: 15_000 }, () => {
 
     expect(await screen.findByText("No advancement has an award.")).toBeTruthy()
   })
+})
 
-  it("draws a card per duel type with its platform and loadout", async () => {
-    backend(DUELS)
-    draw(<DuelsEditor file="smp/duels" document={DUELS} target={null} />)
+/** The kits as the settings form draws them, and every list it was changed to. */
+function drawKits(kitList: ConfigEntry = KITS) {
+  const changes: SectionValues[][] = []
+  function Form() {
+    const [value, setValue] = useState(() => sectionsFromEntry(kitList))
+    return (
+      <KitList
+        entry={kitList}
+        value={value}
+        disabled={false}
+        onChange={(next) => {
+          changes.push(next)
+          setValue(next)
+        }}
+      />
+    )
+  }
+  draw(<Form />)
+  return changes
+}
 
-    expect(screen.getByRole("textbox", { name: /Duel stake/ })).toHaveProperty("value", "10")
-    const arrow = await screen.findByRole("textbox", { name: "Arrow Amount" })
-    expect(arrow).toHaveProperty("value", "64")
-    const bow = arrow.closest<HTMLElement>("[data-slot=card]")
-    if (bow === null) throw new Error("the loadout sits in no card")
-    expect(bow.querySelector("[data-slot=card-title]")?.textContent).toBe("Bow")
-    expect(within(bow).getByRole("textbox", { name: "Min X" })).toHaveProperty("value", "111")
-    expect(within(bow).queryByText("Iron Sword")).toBeNull()
+describe("the duel kits", { timeout: 15_000 }, () => {
+  it("are drawn by the settings form as tiles", async () => {
+    backend(document("duels", [KITS]))
+    draw(<Control entry={KITS} draft={{}} disabled={false} onChange={NOTHING} />)
+
+    expect(await screen.findByRole("button", { name: /^Bow/ })).toBeTruthy()
+    expect(screen.getByRole("button", { name: /^Sword/ })).toBeTruthy()
+  })
+
+  it("show each kit's icon, name and loadout on a tile, and edit name and amounts in its dialog", async () => {
+    backend(document("duels", [KITS]))
+    const changes = drawKits()
+
+    const bow = await screen.findByRole("button", { name: /^Bow/ })
+    expect(within(bow).getByText("64")).toBeTruthy()
+    await waitFor(() => expect(tipOf(bow)).toBe("1 × Bow64 × Arrow"))
+    fireEvent.click(bow)
+    const dialog = await screen.findByRole("dialog", { name: "Bow" })
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Longbow" } })
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Longbow Arrow Amount" }), {
+      target: { value: "32" },
+    })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove Bow" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Remove it" }))
+    await waitFor(() => expect(within(dialog).queryByRole("textbox", { name: "Longbow Bow Amount" })).toBeNull())
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+
+    expect(screen.getByRole("button", { name: /^Longbow/ })).toBeTruthy()
+    expect(changes.at(-1)?.[1]).toMatchObject({
+      name: "Longbow",
+      icon: "minecraft:bow",
+      loadout: [{ item: "minecraft:arrow", amount: "32", data: "" }],
+    })
+  })
+
+  it("keep the last kit, and stop Add at the most kits the list takes", async () => {
+    backend(document("duels", [KITS]))
+    drawKits(kits([kit("Sword", "minecraft:iron_sword", [])]))
+    fireEvent.click(await screen.findByRole("button", { name: /^Sword/ }))
+    const dialog = await screen.findByRole("dialog", { name: "Sword" })
+    expect(within(dialog).queryByRole("button", { name: "Remove" })).toBeNull()
+    cleanup()
+
+    drawKits(kits(["A", "B", "C", "D", "E"].map((name) => kit(name, "minecraft:bow", []))))
+    expect(await screen.findByRole("button", { name: /^E/ })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Kit" })).toHaveProperty("disabled", true)
+  })
+
+  it("open a new kit's dialog at once, and drop the kit when it is closed untouched", async () => {
+    backend(document("duels", [KITS]))
+    const changes = drawKits()
+
+    fireEvent.click(await screen.findByRole("button", { name: "Kit" }))
+    const dialog = await screen.findByRole("dialog", { name: "Kit 3" })
+    expect(within(dialog).getByRole("button", { name: "Remove" })).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(changes.at(-1)).toHaveLength(2)
+
+    fireEvent.click(screen.getByRole("button", { name: "Kit" }))
+    const added = await screen.findByRole("dialog", { name: "Kit 3" })
+    fireEvent.change(within(added).getByRole("textbox", { name: "Name" }), { target: { value: "Axe" } })
+    fireEvent.click(within(added).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(changes.at(-1)?.[2]).toMatchObject({ name: "Axe", icon: "minecraft:iron_sword", loadout: [] })
+  })
+
+  it("take a loadout item in from the game whole, as a kit item, and show it as one element", async () => {
+    const data = await frostbite()
+    const { more, asked } = takeIn({ status: "DONE", answer: { item: "minecraft:iron_sword", data } })
+    backend(document("duels", [KITS]), more)
+    const changes = drawKits()
+
+    fireEvent.click(await screen.findByRole("button", { name: /^Sword/ }))
+    const dialog = await screen.findByRole("dialog", { name: "Sword" })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Item" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
+    expect(await within(dialog).findByText("Frostbite")).toBeTruthy()
+    expect(asked).toEqual([{ purpose: "DUEL_KIT" }])
+    expect(within(dialog).getByText("Sharpness V")).toBeTruthy()
+    expect(within(dialog).getByRole("textbox", { name: "Sword Frostbite Amount" })).toHaveProperty("value", "1")
+    expect(changes.at(-1)?.[0]).toMatchObject({
+      loadout: [
+        { item: "minecraft:iron_sword", data: "" },
+        { item: "minecraft:iron_sword", amount: "1", data },
+      ],
+    })
   })
 })

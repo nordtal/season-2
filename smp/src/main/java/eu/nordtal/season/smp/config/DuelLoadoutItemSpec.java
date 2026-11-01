@@ -27,4 +27,13 @@ public interface DuelLoadoutItemSpec {
     default int amount() {
         return 1;
     }
+
+    /** The whole item an admin took in from the game, as Base64 of its serialised stack; empty for a plain item. */
+    @Order(3)
+    @Name("Item data")
+    @Key("data")
+    @NoExplanationNeeded
+    default String data() {
+        return "";
+    }
 }

@@ -155,6 +155,10 @@ export type CommandRun = {
   answer?: Record<string, unknown>
 }
 
+export type TakeIn = {
+  purpose: TakeInPurpose
+}
+
 export type AnnouncementsAsked = {
   ids: Record<string, string>
 }
@@ -696,6 +700,8 @@ export type StateMode = "SURVIVAL" | "CREATIVE"
 export type StateContainer = "INVENTORY" | "ENDER_CHEST"
 
 export type InboxStatus = "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" | "EXPIRED" | "CANCELLED"
+
+export type TakeInPurpose = "WHEEL_PRIZE" | "DUEL_KIT"
 
 export type AnnouncementView = {
   id: number

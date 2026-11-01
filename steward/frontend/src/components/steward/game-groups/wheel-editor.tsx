@@ -104,7 +104,11 @@ function Prizes({
             label={t("steward.game.prize")}
             reference={item.refers!}
             disabled={disabled}
-            action={field(list, "data") === undefined ? undefined : <TakeInButton disabled={disabled} onTaken={add} />}
+            action={
+              field(list, "data") === undefined ? undefined : (
+                <TakeInButton purpose="WHEEL_PRIZE" disabled={disabled} onTaken={add} />
+              )
+            }
             onPick={(id) => add({ item: id })}
           />
         }

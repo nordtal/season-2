@@ -300,6 +300,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V105__steward_withdraws_a_hunger_games_question_it_asked.sql",
                 "8e3fa809a4bde08a143a474248984de34f9c744a4fb8e5f22060fe9835697631");
+        FROZEN.put(
+                "V106__an_admin_takes_a_duel_kit_item_in_from_the_game.sql",
+                "edd9da6a8dc1e42c568442c55d1f72f3203713e414dc54e701a311d915b4d093");
     }
 
     @Test

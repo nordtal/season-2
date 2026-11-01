@@ -187,23 +187,26 @@ public interface GameTexts {
     @Name("Spins of")
     MessageRef spinsOf(@Arg("name") @Example("The Nether") String name);
 
-    @Name("Arena")
-    MessageRef arena();
+    @Name("Kit")
+    MessageRef kit();
 
-    @Name("Duel types")
-    MessageRef duelTypes();
+    @Name("Numbered kit")
+    MessageRef kitNumbered(@Arg("index") @Example("2") int index);
 
-    @Name("Platform")
-    MessageRef platform();
+    @Name("No kits")
+    MessageRef noKits();
 
-    @Name("Loadout")
-    MessageRef loadout();
+    @Name("Kits full")
+    MessageRef kitsFull(@Arg("most") @Example("5") int most);
 
-    @Name("Min")
-    MessageRef min();
+    @Name("No loadout")
+    MessageRef noLoadout();
 
-    @Name("Max")
-    MessageRef max();
+    @Name("More items")
+    MessageRef moreItems(@Arg("count") @Example("2") int count);
+
+    @Name("Loadout line")
+    MessageRef loadoutLine(@Arg("amount") @Example("16") int amount, @Arg("name") @Example("Arrow") String name);
 
     @Name("Area")
     MessageRef area();

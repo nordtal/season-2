@@ -8,17 +8,16 @@ import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.GameContent;
-import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.SmpTexts;
+import eu.nordtal.season.smp.TakenItems;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -206,24 +205,7 @@ public final class Wheel {
 
     /** Returns one of a prize's item: the whole stack an admin took in, else its material, or null if neither reads. */
     private static @Nullable ItemStack itemOf(final WheelPrizeSpec prize) {
-        if (prize.data().isBlank()) {
-            final Material material = materialOf(prize.item());
-            return material == null ? null : new ItemStack(material);
-        }
-        try {
-            final ItemStack item =
-                    ItemStack.deserializeBytes(Base64.getDecoder().decode(prize.data()));
-            return item.isEmpty() ? null : item.asOne();
-        } catch (final RuntimeException unreadable) {
-            return null;
-        }
-    }
-
-    private static @Nullable Material materialOf(final @Nullable String name) {
-        if (name == null || name.isBlank()) {
-            return null;
-        }
-        return GameKeys.material(name).orElse(null);
+        return TakenItems.one(prize.item(), prize.data());
     }
 
     /** It logs a refund that the shutdown rejects. */

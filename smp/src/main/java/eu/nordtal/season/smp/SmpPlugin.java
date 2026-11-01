@@ -63,7 +63,7 @@ import eu.nordtal.season.smp.region.Boxes;
 import eu.nordtal.season.smp.region.ConfigBoxes;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.state.SeasonState;
-import eu.nordtal.season.smp.wheel.PrizeTakeIn;
+import eu.nordtal.season.smp.takein.ItemTakeIn;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.world.Datapacks;
 import eu.nordtal.season.smp.world.Worlds;
@@ -277,14 +277,14 @@ public final class SmpPlugin extends NordtalPlugin {
         // This handler runs before the surface handler, so one pass starts the track over and draws it.
         hub().on(Channel.PHASE, "the season reset", this::startTrackOverIfDue);
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
-        final PrizeTakeIn takeIn = new PrizeTakeIn(this, pool(), renderer(), documents(), identities());
+        final ItemTakeIn takeIn = new ItemTakeIn(this, pool(), renderer(), documents(), identities());
         takeIn.watch(hub());
         answerRequests(takeIn);
         getLogger().info(track.size() + " milestones, " + protectedAreas.all().size() + " protected boxes");
     }
 
     /** Carries out what Steward asks of smp, each request by its kind. */
-    private void answerRequests(final PrizeTakeIn takeIn) {
+    private void answerRequests(final ItemTakeIn takeIn) {
         answer(SmpRequest.TABLE, request -> switch (request.payload()) {
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
@@ -295,7 +295,7 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.CheckSettings check -> checkSettings(check.change());
             case SmpRequest.StoreModeState store -> storeModeState(store.player());
             case SmpRequest.OpenInventory open -> openEditor(open.admin(), open.player(), open.container());
-            case SmpRequest.TakeInItem take -> takeIn.open(request.id(), take.player());
+            case SmpRequest.TakeInItem take -> takeIn.open(request.id(), take.player(), take.purpose());
             case SmpRequest.RemoveStack remove ->
                 removeStack(
                         remove.player(),

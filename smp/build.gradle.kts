@@ -13,7 +13,6 @@ pluginDescriptor {
     editors.put("milestones", "milestones")
     editors.put("advancement-awards", "advancement-awards")
     editors.put("wheel", "wheel")
-    editors.put("duels", "duels")
 }
 
 // The base class calls prepare() and enable() before any code reads the fields of SmpPlugin.
@@ -65,7 +64,7 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.hud.SmpHud")
     documentClasses.add("eu.nordtal.season.smp.board.Boards")
     documentClasses.add("eu.nordtal.season.smp.wheel.Wheel")
-    documentClasses.add("eu.nordtal.season.smp.wheel.TakeInWindow")
+    documentClasses.add("eu.nordtal.season.smp.takein.TakeInWindow")
     documentClasses.add("eu.nordtal.season.smp.duel.Duels")
     documentClasses.add("eu.nordtal.season.smp.duel.Negotiation")
     documentClasses.add("eu.nordtal.season.smp.duel.NegotiationWindow")

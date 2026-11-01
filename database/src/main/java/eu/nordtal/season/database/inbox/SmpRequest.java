@@ -171,13 +171,14 @@ public sealed interface SmpRequest
     }
 
     /**
-     * Opens a window for the admin's player, who puts in one item that Steward copies whole.
+     * Opens a window for the admin's player, who puts in one item that Steward copies whole for {@code purpose}.
      * It stays running while the window is open and is refused while the player is not on the server.
      */
-    record TakeInItem(PlayerId player) implements SmpRequest {
+    record TakeInItem(PlayerId player, TakeInPurpose purpose) implements SmpRequest {
 
         public TakeInItem {
             Objects.requireNonNull(player, "player");
+            Objects.requireNonNull(purpose, "purpose");
         }
 
         /**

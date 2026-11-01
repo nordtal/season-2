@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -22,6 +23,7 @@ public interface WheelSpec {
     @Order(37)
     @Name("Wheel prizes")
     @Key("wheel-prizes")
+    @Required
     @NoExplanationNeeded
     default List<WheelPrizeSpec> wheelPrizes() {
         return DefaultSmp.WHEEL_PRIZES;

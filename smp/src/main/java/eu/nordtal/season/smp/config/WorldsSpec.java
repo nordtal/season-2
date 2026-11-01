@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -18,6 +19,7 @@ public interface WorldsSpec {
     @Order(1)
     @Name("Nordtal world")
     @Key("world-nordtal")
+    @Required
     @NoExplanationNeeded
     default String worldNordtal() {
         return "nordtal";

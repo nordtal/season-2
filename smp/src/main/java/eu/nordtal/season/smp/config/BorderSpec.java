@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -13,6 +14,7 @@ public interface BorderSpec {
     @Order(6)
     @Name("Nether border diameter")
     @Key("nether-border-diameter")
+    @Positive
     @NoExplanationNeeded
     default int netherBorderDiameter() {
         return 2000;
@@ -21,6 +23,7 @@ public interface BorderSpec {
     @Order(7)
     @Name("End border diameter")
     @Key("end-border-diameter")
+    @Positive
     @NoExplanationNeeded
     default int endBorderDiameter() {
         return 2000;
@@ -45,6 +48,7 @@ public interface BorderSpec {
     @Order(10)
     @Name("Border expansion speed (blocks per second)")
     @Key("border-expansion-blocks-per-second")
+    @Positive
     @NoExplanationNeeded
     default double borderExpansionBlocksPerSecond() {
         return 1.0;

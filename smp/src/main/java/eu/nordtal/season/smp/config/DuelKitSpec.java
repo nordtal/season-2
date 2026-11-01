@@ -1,6 +1,8 @@
 package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Longest;
+import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -12,9 +14,12 @@ import java.util.List;
 @ConfigSpec
 public interface DuelKitSpec {
 
+    /** The aura history stores the kit by name, in a column of 64 characters. */
     @Order(1)
     @Name("Name")
     @Key("name")
+    @Required
+    @Longest(64)
     @NoExplanationNeeded
     default String name() {
         return "";

@@ -2,7 +2,6 @@ package eu.nordtal.season.smp.rail;
 
 import static eu.nordtal.season.smp.rail.Track.at;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
@@ -104,11 +103,14 @@ class RideListTest {
     }
 
     @Test
-    void aCartOnTrackThatLeadsNowhereIsOnNoTrack() {
+    void aCartOnTrackThatEndsListsTheStationItLeadsBackTo() {
         final RailGraph spur = graph(new Track().eastWest(0, 10, 64, 0), at(5, 64, 0));
 
+        final List<RideList.Stop> stops =
+                RideList.of(spur, at(8, 64, 0), List.of(station(1, at(5, 64, 0), "Spawn")), Set.of());
+
         assertTrue(RideList.onTrack(LINE, at(13, 64, 0)));
-        assertFalse(RideList.onTrack(spur, at(8, 64, 0)));
-        assertEquals(List.of(), RideList.of(spur, at(8, 64, 0), List.of(station(1, at(5, 64, 0), "Spawn")), Set.of()));
+        assertTrue(RideList.onTrack(spur, at(8, 64, 0)));
+        assertEquals(List.of(3), stops.stream().map(RideList.Stop::distance).toList());
     }
 }

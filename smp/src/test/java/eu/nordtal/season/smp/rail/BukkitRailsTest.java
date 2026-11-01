@@ -48,7 +48,7 @@ class BukkitRailsTest {
     void aChunkThatNeverLoadsEndsTheTrackThere() {
         track.eastWest(0, 40, 64, 0);
         failuresLeft.put(BAD, Integer.MAX_VALUE);
-        final BukkitRails view = new BukkitRails(plugin, world);
+        final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
 
         final RailWalk walk = walked(view, at(0, 64, 0));
 
@@ -61,7 +61,8 @@ class BukkitRailsTest {
         track.eastWest(0, 40, 64, 0).eastWest(0, 9, 64, 100);
         failuresLeft.put(BAD, Integer.MAX_VALUE);
 
-        final RailWalk walk = walked(new BukkitRails(plugin, world), at(0, 64, 0), at(0, 64, 100));
+        final RailWalk walk =
+                walked(new BukkitRails(plugin, new ChunkTickets(plugin), world), at(0, 64, 0), at(0, 64, 100));
 
         assertEquals(16, walk.found().get(0).rails().size());
         assertEquals(10, walk.found().get(1).rails().size());
@@ -71,7 +72,7 @@ class BukkitRailsTest {
     void aChunkThatFailedIsAskedForAgainOnlyAfterTheSpacing() {
         track.eastWest(0, 40, 64, 0);
         failuresLeft.put(BAD, Integer.MAX_VALUE);
-        final BukkitRails view = new BukkitRails(plugin, world);
+        final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
         final RailWalk walk = new RailWalk(view, List.of(at(0, 64, 0)), 1_000);
 
         for (int tick = 0; tick < BukkitRails.SPACING; tick++) {
@@ -87,7 +88,7 @@ class BukkitRailsTest {
         track.eastWest(0, 40, 64, 0);
         failuresLeft.put(BAD, Integer.MAX_VALUE);
 
-        final RailWalk walk = walked(new BukkitRails(plugin, world), at(20, 64, 0));
+        final RailWalk walk = walked(new BukkitRails(plugin, new ChunkTickets(plugin), world), at(20, 64, 0));
 
         assertTrue(walk.found().isEmpty());
         assertTrue(walk.missing().isEmpty(), "a station whose chunk could not be read is kept");
@@ -97,7 +98,7 @@ class BukkitRailsTest {
     void aChunkThatFailsFewerTimesThanItsTriesIsWalked() {
         track.eastWest(0, 40, 64, 0);
         failuresLeft.put(BAD, BukkitRails.TRIES - 1);
-        final BukkitRails view = new BukkitRails(plugin, world);
+        final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
 
         final RailWalk walk = walked(view, at(0, 64, 0));
 
@@ -116,7 +117,7 @@ class BukkitRailsTest {
                     case "isChunkLoaded" -> loaded.contains(Chunk.getChunkKey((int) args[0], (int) args[1]));
                     case "getChunkAtAsync" -> load((int) args[0], (int) args[1]);
                     case "getBlockData" -> blockData(track.shape(at((int) args[0], (int) args[1], (int) args[2])));
-                    case "removePluginChunkTicket" -> true;
+                    case "addPluginChunkTicket", "removePluginChunkTicket" -> true;
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
     }

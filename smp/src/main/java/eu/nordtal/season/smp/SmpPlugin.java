@@ -59,7 +59,6 @@ import eu.nordtal.season.smp.prestige.PrestigeColours;
 import eu.nordtal.season.smp.progress.GateHolders;
 import eu.nordtal.season.smp.progress.ObjectiveEngine;
 import eu.nordtal.season.smp.progress.StatisticPoller;
-import eu.nordtal.season.smp.rail.RailNetworks;
 import eu.nordtal.season.smp.region.Boxes;
 import eu.nordtal.season.smp.region.ConfigBoxes;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
@@ -137,8 +136,7 @@ public final class SmpPlugin extends NordtalPlugin {
     GateHolders gates;
     Graves graves;
 
-    @Nullable
-    RailNetworks rails;
+    SmpStart.@Nullable Rails rails;
 
     @Nullable
     Duels duels;
@@ -409,9 +407,10 @@ public final class SmpPlugin extends NordtalPlugin {
         if (graves != null) {
             quietly("graves.clearDisplays", graves::clearDisplays);
         }
-        final RailNetworks tracked = rails;
+        final SmpStart.Rails tracked = rails;
         if (tracked != null) {
-            quietly("rails.stop", tracked::stop);
+            quietly("rides.stop", tracked.rides()::stop);
+            quietly("rails.stop", tracked.networks()::stop);
         }
         final StatisticPoller statistics = poller;
         if (statistics != null) {

@@ -5,6 +5,7 @@ import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
@@ -57,7 +58,12 @@ public final class StationMenus implements Listener {
                     "smp", "station-renamed", "Rails", DocumentSpec.Shape.CHAT, Renamed.class)
             .titled("Station renamed");
 
+    static final DocumentSpec<DocumentSpec.None> STOPPED = DocumentSpec.game(
+                    "smp", "ride-stopped", "Rails", DocumentSpec.Shape.CHAT)
+            .titled("Ride stopped");
+
     private final RailNetworks networks;
+    private final Rides rides;
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;
     private final Identities identities;
@@ -67,6 +73,7 @@ public final class StationMenus implements Listener {
 
     public StationMenus(
             final RailNetworks networks,
+            final Rides rides,
             final MessageRenderer renderer,
             final AppliedDocuments documents,
             final Identities identities,
@@ -74,6 +81,7 @@ public final class StationMenus implements Listener {
             final PaperScheduler scheduler,
             final IntSupplier perPage) {
         this.networks = networks;
+        this.rides = rides;
         this.renderer = renderer;
         this.documents = documents;
         this.identities = identities;
@@ -81,6 +89,7 @@ public final class StationMenus implements Listener {
         this.scheduler = scheduler;
         this.perPage = perPage;
         networks.whenRenamedByMerge(this::tellRenamed);
+        rides.whenStranded(this::stranded);
     }
 
     private Locale locale(final Player player) {
@@ -209,6 +218,21 @@ public final class StationMenus implements Listener {
                     new RideMenu.Window(shown + 1, pages));
             return new RideMenu(this, stops, each, shown, document);
         });
+    }
+
+    /** Starts the cart {@code player} sits in towards {@code stop}, or changes where it goes. */
+    void pick(final Player player, final RideList.Stop stop) {
+        if (player.getVehicle() instanceof RideableMinecart cart && rides.drive(player, cart, stop.station())) {
+            sounds.play(player, Feedback.SELECT);
+        } else {
+            sounds.play(player, Feedback.REFUSED);
+        }
+    }
+
+    /** Tells a rider whose cart stopped before the station that it goes no further, and shows the stations left. */
+    private void stranded(final Player player) {
+        player.sendMessage(renderer.format(locale(player), Sent.of(STOPPED)));
+        openRide(player);
     }
 
     void toggleFavourite(final Player player, final RideList.Stop stop) {

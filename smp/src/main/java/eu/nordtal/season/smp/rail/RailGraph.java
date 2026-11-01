@@ -13,7 +13,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One network as a graph: its stations and junctions are the nodes, the track between them the edges.
- * A junction is a rail that three or more connected rails lead into. Track that ends without a node is no edge.
+ * A junction is a rail that three or more connected rails lead into. Track that leaves a node and ends is a spur,
+ * which a cart rides only back to that node; track that meets a station rail from the side is neither.
  */
 public final class RailGraph {
 
@@ -21,9 +22,22 @@ public final class RailGraph {
     private final Set<RailPos> junctions;
     private final List<RailEdge> edges;
     private final Map<RailPos, List<RailEdge>> out = new HashMap<>();
+    private final Map<RailPos, Spur> spurs;
+
+    /** A rail on a spur: the node the spur leaves, the spur's rails from that node, and the rail's place among them. */
+    private record Spur(RailPos node, List<RailPos> rails, int index) {}
 
     public RailGraph(
             final Collection<RailPos> stations, final Collection<RailPos> junctions, final List<RailEdge> edges) {
+        this(stations, junctions, edges, Map.of());
+    }
+
+    private RailGraph(
+            final Collection<RailPos> stations,
+            final Collection<RailPos> junctions,
+            final List<RailEdge> edges,
+            final Map<RailPos, Spur> spurs) {
+        this.spurs = Map.copyOf(spurs);
         this.stations = Collections.unmodifiableSet(new TreeSet<>(stations));
         this.junctions = Collections.unmodifiableSet(new TreeSet<>(junctions));
         this.edges = List.copyOf(edges);
@@ -59,20 +73,52 @@ public final class RailGraph {
         final Set<RailPos> nodes = new TreeSet<>(onTrack);
         nodes.addAll(junctions);
         final List<RailEdge> edges = new ArrayList<>();
+        final Map<RailPos, Spur> spurs = new HashMap<>();
         for (final RailPos node : nodes) {
             for (final RailPos next : neighbours.getOrDefault(node, List.of())) {
-                final RailEdge edge = follow(node, next, nodes, neighbours, rails.size());
-                if (edge != null && keeps(edge)) {
+                final Stretch stretch = follow(node, next, nodes, neighbours, rails.size());
+                final @Nullable RailEdge edge = stretch.edge(node);
+                if (stretch.deadEnd() && along(node, next, rails, onTrack)) {
+                    spurs.putAll(stretch.spur(node));
+                }
+                if (edge != null
+                        && keeps(edge)
+                        && along(edge.from(), edge.first(), rails, onTrack)
+                        && along(edge.to(), edge.last(), rails, onTrack)) {
                     edges.add(edge);
                 }
             }
         }
         junctions.removeAll(onTrack);
-        return new RailGraph(onTrack, junctions, edges);
+        return new RailGraph(onTrack, junctions, edges, spurs);
     }
 
-    /** Follows the track from {@code node} through {@code next} to the next node, or returns null at a dead end. */
-    private static @Nullable RailEdge follow(
+    /**
+     * The track followed from a node.
+     *
+     * @param end     the node it reaches, or null when it ends or branches first
+     * @param deadEnd whether it ends without reaching a node
+     */
+    private record Stretch(List<RailPos> between, @Nullable RailPos end, boolean deadEnd) {
+
+        @Nullable
+        RailEdge edge(final RailPos node) {
+            return end == null ? null : RailEdge.of(node, end, between);
+        }
+
+        /** Returns each rail of a dead end with its place on the spur that leaves {@code node}; they share one list. */
+        Map<RailPos, Spur> spur(final RailPos node) {
+            final List<RailPos> rails = List.copyOf(between);
+            final Map<RailPos, Spur> spur = new HashMap<>();
+            for (int index = 0; index < rails.size(); index++) {
+                spur.put(rails.get(index), new Spur(node, rails, index));
+            }
+            return spur;
+        }
+    }
+
+    /** Follows the track from {@code node} through {@code next} until it reaches the next node or ends. */
+    private static Stretch follow(
             final RailPos node,
             final RailPos next,
             final Set<RailPos> nodes,
@@ -83,7 +129,7 @@ public final class RailGraph {
         RailPos at = next;
         while (!nodes.contains(at)) {
             if (between.size() > bound) {
-                return null;
+                return new Stretch(between, null, false);
             }
             between.add(at);
             final RailPos from = previous;
@@ -91,12 +137,19 @@ public final class RailGraph {
                     .filter(pos -> !pos.equals(from))
                     .toList();
             if (onward.size() != 1) {
-                return null;
+                return new Stretch(between, null, onward.isEmpty());
             }
             previous = at;
             at = onward.getFirst();
         }
-        return RailEdge.of(node, at, between);
+        return new Stretch(between, at, false);
+    }
+
+    /** Whether track that leaves {@code node} through {@code next} runs along it, as it must at a station rail. */
+    private static boolean along(
+            final RailPos node, final RailPos next, final Map<RailPos, RailShape> rails, final Set<RailPos> stations) {
+        final @Nullable RailShape shape = rails.get(node);
+        return !stations.contains(node) || shape == null || shape.leadsTowards(Heading.between(node, next));
     }
 
     /** Each edge is found from both of its ends; this keeps one of the two. */
@@ -126,6 +179,16 @@ public final class RailGraph {
         rails.addAll(junctions);
         edges.forEach(edge -> rails.addAll(edge.rails()));
         return rails;
+    }
+
+    /** Returns the way back from {@code rail} on a spur to the node the spur leaves, or null off every spur. */
+    @Nullable
+    RailEdge spur(final RailPos rail) {
+        final @Nullable Spur spur = spurs.get(rail);
+        return spur == null
+                ? null
+                : RailEdge.of(
+                        rail, spur.node(), spur.rails().subList(0, spur.index()).reversed());
     }
 
     /** Returns the edges that leave {@code node}, each walked from it. */

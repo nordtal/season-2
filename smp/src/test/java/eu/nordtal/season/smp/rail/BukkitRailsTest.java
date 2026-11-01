@@ -28,13 +28,14 @@ class BukkitRailsTest {
     private final Track track = new Track();
     private final Set<Long> loaded = new HashSet<>();
     private final Map<Long, Integer> failuresLeft = new HashMap<>();
+    private final Map<Long, Integer> asked = new HashMap<>();
     private final World world = world();
     private final Plugin plugin = plugin();
 
     /** Walks as the networks do, a tick at a time, and returns the walk once it ended. */
     private RailWalk walked(final BukkitRails view, final RailPos... starts) {
         final RailWalk walk = new RailWalk(view, List.of(starts), 1_000);
-        for (int tick = 0; tick < 100; tick++) {
+        for (int tick = 0; tick < 1_000; tick++) {
             view.load(walk.takeWanted());
             if (walk.step(2_000)) {
                 return walk;
@@ -61,10 +62,24 @@ class BukkitRailsTest {
         failuresLeft.put(BAD, Integer.MAX_VALUE);
 
         final RailWalk walk = walked(new BukkitRails(plugin, world), at(0, 64, 0), at(0, 64, 100));
-        final RailWalk next = walked(new BukkitRails(plugin, world), at(0, 64, 100));
 
+        assertEquals(16, walk.found().get(0).rails().size());
         assertEquals(10, walk.found().get(1).rails().size());
-        assertEquals(10, next.found().getFirst().rails().size());
+    }
+
+    @Test
+    void aChunkThatFailedIsAskedForAgainOnlyAfterTheSpacing() {
+        track.eastWest(0, 40, 64, 0);
+        failuresLeft.put(BAD, Integer.MAX_VALUE);
+        final BukkitRails view = new BukkitRails(plugin, world);
+        final RailWalk walk = new RailWalk(view, List.of(at(0, 64, 0)), 1_000);
+
+        for (int tick = 0; tick < BukkitRails.SPACING; tick++) {
+            view.load(walk.takeWanted());
+            walk.step(2_000);
+        }
+
+        assertEquals(1, asked.getOrDefault(BAD, 0), "the chunk is asked for once in its first spacing");
     }
 
     @Test
@@ -108,6 +123,7 @@ class BukkitRailsTest {
 
     private CompletableFuture<Chunk> load(final int chunkX, final int chunkZ) {
         final long key = Chunk.getChunkKey(chunkX, chunkZ);
+        asked.merge(key, 1, Integer::sum);
         final int left = failuresLeft.getOrDefault(key, 0);
         if (left > 0) {
             failuresLeft.put(key, left - 1);

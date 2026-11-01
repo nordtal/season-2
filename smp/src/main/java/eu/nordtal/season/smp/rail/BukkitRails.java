@@ -18,12 +18,15 @@ import org.jspecify.annotations.Nullable;
 /**
  * Reads the rails of a world on the main thread, for one walk.
  * A chunk that is not loaded is loaded off the main thread and held until {@link #release()}.
- * A chunk that fails to load {@link #TRIES} times is given up on, so the walk ends the track there.
+ * A chunk that fails to load {@link #TRIES} times, {@link #SPACING} loads apart, is given up on: the track ends there.
  */
 final class BukkitRails implements RailView {
 
     /** How often a chunk may fail to load before the walk gives up on it. */
     static final int TRIES = 5;
+
+    /** How many calls of {@link #load} pass between two tries of a chunk that failed, a second at one per tick. */
+    static final int SPACING = 20;
 
     private final Plugin plugin;
     private final World world;
@@ -32,8 +35,10 @@ final class BukkitRails implements RailView {
     private final Set<Long> ungenerated = new HashSet<>();
     private final List<CompletableFuture<?>> loads = new ArrayList<>();
     private final Set<RailPos> failed = new HashSet<>();
+    private final Map<Long, Integer> notBefore = new HashMap<>();
     private final Map<Long, Integer> failures = new HashMap<>();
     private final Set<Long> givenUp = new HashSet<>();
+    private int loadCalls;
     private boolean warned;
     private boolean released;
 
@@ -59,6 +64,11 @@ final class BukkitRails implements RailView {
         return Set.copyOf(givenUp);
     }
 
+    /** Whether the chunk with {@code key}, as {@link Chunk#getChunkKey()} gives it, is loaded now. */
+    boolean loaded(final long key) {
+        return world.isChunkLoaded((int) key, (int) (key >> 32));
+    }
+
     @Override
     public @Nullable RailShape shape(final RailPos pos) {
         if (outsideHeight(pos) || ungenerated.contains(Chunk.getChunkKey(pos.x() >> 4, pos.z() >> 4))) {
@@ -75,6 +85,7 @@ final class BukkitRails implements RailView {
     /** Loads the chunks of {@code positions} off the main thread, each once, without generating any. */
     void load(final Set<RailPos> positions) {
         loads.removeIf(CompletableFuture::isDone);
+        loadCalls++;
         final Set<RailPos> again = new HashSet<>(positions);
         again.addAll(failed);
         failed.clear();
@@ -82,9 +93,14 @@ final class BukkitRails implements RailView {
             final int chunkX = pos.x() >> 4;
             final int chunkZ = pos.z() >> 4;
             final long key = Chunk.getChunkKey(chunkX, chunkZ);
-            if (givenUp.contains(key) || !requested.add(key)) {
+            if (givenUp.contains(key) || requested.contains(key)) {
                 continue;
             }
+            if (notBefore.getOrDefault(key, 0) > loadCalls) {
+                failed.add(pos);
+                continue;
+            }
+            requested.add(key);
             final CompletableFuture<Chunk> loading = world.getChunkAtAsync(chunkX, chunkZ, false);
             loads.add(loading.handle((chunk, failure) -> {
                 if (failure == null) {
@@ -133,6 +149,7 @@ final class BukkitRails implements RailView {
             warned = true;
             plugin.getLogger().log(Level.WARNING, "a chunk of a rail network failed to load, asking again", failure);
         }
+        notBefore.put(key, loadCalls + SPACING);
         failed.add(pos);
     }
 

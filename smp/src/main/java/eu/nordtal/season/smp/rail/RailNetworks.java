@@ -51,7 +51,7 @@ public final class RailNetworks {
     private final Map<UUID, StationRow> crooked = new LinkedHashMap<>();
     private final Map<UUID, Set<UUID>> favourites = new HashMap<>();
     private final Set<UUID> unseen = new HashSet<>();
-    private final Map<String, Map<Long, Set<RailPos>>> givenUp = new HashMap<>();
+    private final Map<String, ChunkRetries> retries = new HashMap<>();
     private Consumer<StationRow> renamedByMerge = _ -> {};
     private @Nullable Running running;
     private boolean restored;
@@ -141,9 +141,9 @@ public final class RailNetworks {
     /** Walks again the networks whose walk gave up on {@code chunk}, now that it loaded. */
     void loaded(final Chunk chunk) {
         final String world = chunk.getWorld().getName();
-        final @Nullable Map<Long, Set<RailPos>> chunks = givenUp.get(world);
-        final @Nullable Set<RailPos> starts = chunks == null ? null : chunks.remove(chunk.getChunkKey());
-        if (starts != null) {
+        final @Nullable ChunkRetries waiting = retries.get(world);
+        final Set<RailPos> starts = waiting == null ? Set.of() : waiting.loaded(chunk.getChunkKey());
+        if (!starts.isEmpty()) {
             changed.computeIfAbsent(world, _ -> new LinkedHashSet<>()).addAll(starts);
         }
     }
@@ -362,15 +362,10 @@ public final class RailNetworks {
         }
         replacement.lost().forEach(row -> forget(row.id()));
         store.replaced(walk.world(), replacement);
-        for (final long key : walk.view().givenUpChunks()) {
-            if (world != null && world.isChunkLoaded((int) key, (int) (key >> 32))) {
-                changed.computeIfAbsent(walk.world(), _ -> new LinkedHashSet<>())
-                        .addAll(walk.walk().starts());
-            } else {
-                givenUp.computeIfAbsent(walk.world(), _ -> new HashMap<>())
-                        .computeIfAbsent(key, _ -> new HashSet<>())
-                        .addAll(walk.walk().starts());
-            }
+        final Set<RailPos> again = retries.computeIfAbsent(walk.world(), _ -> new ChunkRetries())
+                .gaveUp(walk.view().givenUpChunks(), walk.walk().starts(), walk.view()::loaded);
+        if (!again.isEmpty()) {
+            changed.computeIfAbsent(walk.world(), _ -> new LinkedHashSet<>()).addAll(again);
         }
         replacement.renamed().forEach(row -> {
             unseen.add(row.id());

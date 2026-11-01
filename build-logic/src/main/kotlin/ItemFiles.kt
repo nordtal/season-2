@@ -77,7 +77,7 @@ class ItemFiles(
         return linkedMapOf(
             "item" to id,
             "source" to if (file != null) "pack" else "vanilla",
-            "file" to file?.absolutePath,
+            "file" to file?.relativeTo(pack)?.invariantSeparatorsPath,
             "definition" to definition,
             "problems" to ItemDefinitions.problems(definition) + ItemDefinitions.missing(definition, ::read, ::sprite),
             "types" to ItemDefinitions.types,

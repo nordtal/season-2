@@ -16,7 +16,7 @@ local lampGui = { id="nordtal:item/lamp_gui.png", png="src/assets/nordtal/textur
 
 local function read()
   return {
-    item="nordtal:lamp", source="pack", file="/c/resource-pack/src/assets/nordtal/items/lamp.json", problems={},
+    item="nordtal:lamp", source="pack", file="src/assets/nordtal/items/lamp.json", problems={},
     definition={ model={
       type="minecraft:select", property="minecraft:display_context",
       cases={ { when="gui", model={ type="minecraft:model", model="nordtal:item/lamp_gui" } },
@@ -85,7 +85,7 @@ describe("the item definition editor", function()
 
   it("shows the item's own fields, then the type and fields of its model", function()
     assert.same({
-      "items.item=nordtal:lamp", "properties.file=/c/resource-pack/src/assets/nordtal/items/lamp.json",
+      "items.item=nordtal:lamp", "properties.file=src/assets/nordtal/items/lamp.json",
       "hand_animation_on_swap=*", "oversized_in_gui=*", "swap_animation_scale=*",
       "items.type=select*", "property=display_context*", "[items.add cases]", "transformation=*",
     }, shown(items.rows(read(), "", "item", tr)))

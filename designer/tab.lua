@@ -47,6 +47,9 @@ local sideWidth = 150
 -- holds at most
 local lineWidth = 48
 
+-- The least width of a form dialog, wide enough for a model's id
+local formWidth = 360
+
 function tab.open(context)
   local api, modules, tr = context.api, context.modules, context.tr
   local preferences, clone = context.preferences, context.bootstrap.clone
@@ -56,6 +59,11 @@ function tab.open(context)
   -- Shows text in the labels id1 to id<count> of a dialog
   local function labels(dialog, id, count, text, add)
     modules.panel.labels(dialog, id, count, text, add, lineWidth, utf8.len)
+  end
+
+  -- Widens a dialog to at least least inside the window
+  local function fit(dialog, least)
+    modules.panel.fit(dialog, least, api.Rectangle, api.screen)
   end
 
   local dlg, nodes, index, lists, selected, closed, model
@@ -130,6 +138,10 @@ function tab.open(context)
       table.insert(list, { text=i == 1 and tr("properties.refused") or nil, value=line })
     end
     local info = index and selected and index[selected]
+    -- A conflict with main comes first, where no scrolling hides it
+    for _, row in ipairs(modules.drafts.conflict(model, info, tr)) do
+      table.insert(list, row)
+    end
     if info and definition and (info.kind == "definition" or info.kind == "item" and info.entry.id == definition.item) then
       for _, row in ipairs(modules.items.rows(definition, info.at or "", info.part or "item", tr)) do
         table.insert(list, row)
@@ -777,7 +789,8 @@ function tab.open(context)
     return true
   end
 
-  -- Asks for the values of a form { title, widgets }, nil when cancelled
+  -- Asks for the values of a form { title, widgets }, nil when cancelled.
+  -- The dialog is wide enough to show a value such as a model's id whole.
   local function ask(form)
     local d = api.Dialog{ title=form.title }
     for _, w in ipairs(form.widgets) do
@@ -789,6 +802,7 @@ function tab.open(context)
     end
     d:button{ id="ok", text=tr("edit.ok"), focus=true }
     d:button{ id="cancel", text=tr("edit.cancel") }
+    fit(d, formWidth)
     d:show()
     local data = d.data
     return data.ok and data or nil
@@ -937,7 +951,7 @@ function tab.open(context)
     end
     local answer = modules.drafts.ask{ Dialog=api.Dialog, tr=tr, list=list, check=checkTitle, confirm=function(text)
       return api.alert{ title=tr("publish.discard"), text=text, buttons={ tr("properties.discard"), tr("edit.cancel") } } == 1
-    end, labels=labels, Rectangle=api.Rectangle, screen=api.screen }
+    end, labels=labels, fit=fit }
     if not answer then
       return
     end

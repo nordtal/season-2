@@ -268,4 +268,31 @@ describe("the properties panel", function()
       assert.is_nil(panel.hit(drawn, 1, 6))
     end)
   end)
+
+  describe("fit", function()
+    local function Rectangle(x, y, width, height) return { x=x, y=y, width=width, height=height } end
+    local function fitted(least, hint, width)
+      local d = { sizeHint=hint }
+      panel.fit(d, least, Rectangle, function() return width, 400 end)
+      return d.bounds
+    end
+
+    it("widens a dialog to the least width and centres it in the window", function()
+      assert.same({ x=120, y=100, width=360, height=200 }, fitted(360, { width=300, height=200 }, 600))
+    end)
+
+    it("keeps a dialog that is wider already", function()
+      assert.same({ x=50, y=100, width=500, height=200 }, fitted(360, { width=500, height=200 }, 600))
+    end)
+
+    it("stays inside a narrow window", function()
+      assert.same({ x=8, y=100, width=284, height=200 }, fitted(360, { width=300, height=200 }, 300))
+    end)
+
+    it("leaves the dialog as it is without a window to fit into", function()
+      local d = { sizeHint={ width=300, height=200 } }
+      panel.fit(d, 360)
+      assert.is_nil(d.bounds)
+    end)
+  end)
 end)

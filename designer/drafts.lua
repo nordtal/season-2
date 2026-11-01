@@ -65,11 +65,10 @@ function drafts.marks(model)
   end
 end
 
--- The rows of the properties panel for the draft and the pull request
--- of the entry info: the conflict and the buttons that resolve or
--- discard the draft, then the pull request's state, checks and
--- comments and the button that opens it.
-function drafts.rows(model, info, tr)
+-- The rows of the properties panel for the conflict of the draft of
+-- the entry info with main and the button that resolves it, which the
+-- panel shows first.
+function drafts.conflict(model, info, tr)
   local rows = {}
   local id = drafts.id(info)
   local draft = id and drafts.find(model, id)
@@ -80,6 +79,15 @@ function drafts.rows(model, info, tr)
     table.insert(rows, { text=tr("properties.conflict"), value=table.concat(names, ", ") })
     table.insert(rows, { text=tr("properties.resolve"), field="resolve", kind="button" })
   end
+  return rows
+end
+
+-- The rows of the properties panel for the draft and the pull request
+-- of the entry info: the button that discards the draft, then the pull
+-- request's state, checks and comments and the button that opens it.
+function drafts.rows(model, info, tr)
+  local rows = {}
+  local id = drafts.id(info)
   if id then
     table.insert(rows, { text=tr("properties.discard"), field="discard", kind="button" })
   end
@@ -132,8 +140,8 @@ end
 -- its reason, which the dialog shows before it asks again.
 -- confirm(text) returns whether the designer confirms a discard.
 -- labels(dialog, id, count, text, add) shows a refusal in the labels
--- id1 to id<count> of the dialog. Rectangle and screen, which
--- gives the window's width and height, widen the dialog.
+-- id1 to id<count> of the dialog. fit(dialog, least) widens the
+-- dialog to at least least inside the window.
 -- A draft with a conflict starts unchosen, and its publish is refused.
 -- Returns { publish=ids, title }, { discard=ids } or nil when cancelled.
 function drafts.ask(context)
@@ -179,18 +187,8 @@ function drafts.ask(context)
     context.labels(d, "refusal", refusalLines, table.concat(lines, " "))
   end
 
-  -- Takes the dialog's own size, but at least dialogWidth inside the
-  -- window, and centres it there
-  local function fit()
-    if not (context.Rectangle and context.screen) then return end
-    local hint = d.sizeHint
-    local width, height = context.screen()
-    local w = math.max(1, math.min(width - 16, math.max(hint.width, dialogWidth)))
-    d.bounds = context.Rectangle((width - w) // 2, (height - hint.height) // 2, w, hint.height)
-  end
-
   while true do
-    fit()
+    if context.fit then context.fit(d, dialogWidth) end
     d:show()
     local data = d.data
     if not (data.publish or data.discard) then

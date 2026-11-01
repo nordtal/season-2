@@ -35,12 +35,32 @@ local function animatedModel()
 end
 
 
+-- A sprite whose saveAs marks it saved and whose events keep their
+-- listeners, which change(sprite, fromUndo) calls
 local function fakeSprite(filename, log)
-  local sprite = { filename=filename, spec={}, palettes={ "palette" }, width=7, height=7, frames={ { duration=0.1 } } }
-  function sprite:saveAs(fn) table.insert(log, { "saveAs", fn }) self.filename = fn end
+  local sprite = { filename=filename, spec={}, palettes={ "palette" }, width=7, height=7, frames={ { duration=0.1 } },
+                   isModified=false, listeners={} }
+  sprite.events = { on=function(_, name, fn) table.insert(sprite.listeners, { name, fn }) end }
+  function sprite:saveAs(fn) table.insert(log, { "saveAs", fn }) self.filename, self.isModified = fn, false end
   function sprite:resize(w, h) table.insert(log, { "resize", w, h }) self.width, self.height = w, h end
   function sprite:close() table.insert(log, { "close", self.filename }) end
   return sprite
+end
+
+-- Changes sprite as an edit, an undo or a redo of the designer does
+local function change(sprite, fromUndo, modified)
+  sprite.isModified = modified ~= false
+  for _, listener in ipairs(sprite.listeners) do
+    if listener[1] == "change" then listener[2]({ fromUndo=fromUndo or false }) end
+  end
+end
+
+-- The badges of the star's glyph and the nodes above it
+local function starBadges(dlg)
+  local glyphs = dlg.handlers.tree.nodes[1]
+  local font = glyphs.children[1]
+  local block = font.children[1]
+  return { block.children[1].badge, block.badge, font.badge, glyphs.badge }
 end
 
 local function floats(value)
@@ -435,6 +455,99 @@ describe("the Nordtal tab", function()
     t.log[1], t.log[2] = nil, nil
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
     assert.same({ { "saveAs", starSource }, { "png", star } }, t.log)
+  end)
+
+  it("marks a changed texture and each node above it until its save, also when the pack is read again", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local sprite = t.open[1]
+    assert.same({ "F0000" }, starBadges(dlg))
+    change(sprite)
+    assert.same({ "* F0000", "*", "*", "*" }, starBadges(dlg))
+    assert.same({ id="tree", node="glyph/minecraft:default/F0000", badge="* F0000" }, dlg.nodesModified[1])
+    assert.equal(4, #dlg.nodesModified)
+    assert.is_nil(dlg.handlers.tree.nodes[3].badge)
+    change(sprite)
+    assert.equal(4, #dlg.nodesModified)
+
+    t.ctl.reload()
+    local read = t.started[#t.started]
+    assert.equal(":resource-pack:describePack", run(read))
+    read.isRunning = false
+    read.args.onexit(0)
+    assert.same({ "* F0000", "*", "*", "*" }, starBadges(dlg))
+
+    t.world.active = sprite
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.same({ "F0000" }, starBadges(dlg))
+    assert.same({ id="tree", node="glyphs", badge=false }, dlg.nodesModified[#dlg.nodesModified])
+  end)
+
+  it("drops the mark of unsaved changes once an undo returns to the save, and sets it again on a redo", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local sprite = t.open[1]
+    change(sprite)
+    change(sprite, true, false)
+    assert.same({ "F0000" }, starBadges(dlg))
+    change(sprite, true)
+    assert.equal("* F0000", starBadges(dlg)[1])
+  end)
+
+  it("saves the texture of the entry left with unsaved changes before the next one opens, and no unchanged one", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local slot = "override/minecraft:gui/sprites/container/slot.png"
+    change(t.open[1])
+    dlg.handlers.tree.onchange({ node=slot })
+    assert.same({ { "saveAs", starSource }, { "png", star } }, t.log)
+    assert.equal(t.open[2], dlg.data.editor)
+    assert.same({ "F0000" }, starBadges(dlg))
+
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    assert.equal(t.open[1], dlg.data.editor)
+    dlg.handlers.tree.onchange({ node=slot })
+    assert.equal(2, #t.log)
+  end)
+
+  it("counts a sprite as unchanged that is modified when it opens, until the designer changes it", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local sprite = t.open[1]
+    -- Like a sprite the tab built from the frames of a PNG
+    sprite.isModified = true
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    assert.same({}, t.log)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    assert.same({ "F0000" }, starBadges(dlg))
+    change(sprite)
+    assert.equal("* F0000", starBadges(dlg)[1])
+  end)
+
+  it("reads the pack again after the first save of an entry that is no draft, so the tree marks the draft", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.world.active = t.open[1]
+    local count = #t.started
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(count + 1, #t.started)
+    assert.equal(":resource-pack:describePack", run(t.started[#t.started]))
+  end)
+
+  it("reads the pack not again on the save of a draft", function()
+    local t = setUp(nil, draftModel)
+    local dlg = loaded(t)
+    synced(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.world.active = t.open[1]
+    local count = #t.started
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
+    assert.equal(count, #t.started)
   end)
 
   it("leaves the save of any other sprite to Aseprite", function()
@@ -1402,13 +1515,26 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:publishDrafts -Pdrafts=nordtal:badges/star.png -Pgh=/gh -Ptitle=feat(resource-pack): the star is white",
       run(t.started[4]))
     assert.equal("check", form.widgets[1].kind)
+    local starNode = t.dialogs[1].handlers.tree.nodes[1].children[1].children[1].children[1]
+    assert.same({ "F0000", "(1)", "(1)", "(1)" }, starBadges(t.dialogs[1]))
+    assert.equal("tab_modified_icon_normal", starNode.icon)
     t.started[4].args.onstdout("https://github.com/nordtal/season-2/pull/42")
     t.started[4].isRunning = false
     t.started[4].args.onexit(0)
     assert.equal(":resource-pack:describePack", run(t.started[5]))
+    -- The pull request holds the star now, so the model lists no draft of it
+    local m = dkjson.decode(draftModel)
+    local glyph = m.fonts[1].blocks[1].glyphs[1]
+    glyph.texture.draft, glyph.texture.review = nil, 42
+    m.drafts = { m.drafts[2] }
+    m.reviews = { { number=42, url="https://github.com/nordtal/season-2/pull/42" } }
+    t.world.model = dkjson.encode(m)
     t.started[5].isRunning = false
     t.started[5].args.onexit(0)
     assert.equal("status.published https://github.com/nordtal/season-2/pull/42", status(t.dialogs[1]))
+    starNode = t.dialogs[1].handlers.tree.nodes[1].children[1].children[1].children[1]
+    assert.same({ "#42" }, starBadges(t.dialogs[1]))
+    assert.is_nil(starNode.icon)
   end)
 
   it("reads the pack again after a publish that failed, since it may have moved code points, and says why", function()
@@ -1665,10 +1791,11 @@ describe("the Minecraft bar of the Nordtal tab", function()
   local previews = "/c/pack-rendering/build/glyph-previews.json"
 
   -- Opens the tab on world.instance and connects its bridge
-  local function connected(instance)
-    local t = setUp()
+  local function connected(instance, modelText)
+    local t = setUp(nil, modelText)
     t.world.instance = instance or fabric
     local dlg = loaded(t)
+    if modelText then synced(t) end
     local socket = t.sockets[1]
     if socket then
       socket.args.onreceive(1, "", "")
@@ -1767,8 +1894,9 @@ describe("the Minecraft bar of the Nordtal tab", function()
     assert.equal(2, #t.instanceRuns)
   end)
 
+  -- The star is a draft already, so its save reads the pack not again
   it("installs the pack on each save while live sync is on and reloads it in the connected client", function()
-    local t, dlg, socket = connected()
+    local t, dlg, socket = connected(nil, draftModel)
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     t.world.active = t.open[1]
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
@@ -1803,17 +1931,18 @@ describe("the Minecraft bar of the Nordtal tab", function()
 
   it("keeps live sync off once switched off, and installs the pack on a click", function()
     local preferences = { liveSync=false }
-    local t = setUp(preferences)
+    local t = setUp(preferences, draftModel)
     t.world.instance = plain
     local dlg = loaded(t)
+    synced(t)
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     t.world.active = t.open[1]
     t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() end })
-    assert.equal(1, #t.started)
+    assert.equal(2, #t.started)
     click(dlg, "minecraft.live_sync")
     assert.is_true(preferences.liveSync)
     click(dlg, "minecraft.install_pack")
-    assert.equal(":resource-pack:installPack", run(t.started[2]))
+    assert.equal(":resource-pack:installPack", run(t.started[3]))
     finish(t, 0)
     assert.equal("minecraft.installed_f3t", status(dlg))
   end)

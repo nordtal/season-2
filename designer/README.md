@@ -18,7 +18,8 @@ zoomed to fit, unless its PNG lies outside `resource-pack/src/` or its source ou
 `resource-pack/art/`. Then the editor stays empty and the tab says why. When the sprite leaves the
 editor without the tab, such as with **File > Close**, the tree selects nothing, so a click opens
 the entry again. Each save of that sprite writes its `.aseprite` source under `resource-pack/art/`
-and its PNG: the first frame for a glyph or an item, every frame for a vanilla override. **View >
+and its PNG: the first frame for a glyph or an item, every frame for a vanilla override. A click on
+another entry saves the sprite first when it has unsaved changes. **View >
 Nordtal Tree on the Right** docks the side panel right of the tools.
 
 The properties panel shows each value it edits in a sunken box. The mouse wheel scrolls the properties
@@ -70,7 +71,11 @@ which writes the item's definition from the client jar into the pack, and the it
 
 The tree marks each draft of the pack model with the icon of a modified tab: a texture with its
 entries, or the fields of a block or a font. A node with drafts inside it shows their count in
-brackets as its badge, such as `(2)`, so a collapsed font or block shows them too. The tree's
+brackets as its badge, such as `(2)`, so a collapsed font or block shows them too. A draft is no
+longer marked once a publish has opened its pull request. An entry whose sprite has unsaved changes,
+and each node above it, shows `*` at the start of its badge until a save or an undo back to the last
+save. A sprite that the tab built from the frames of a PNG has no unsaved changes until the designer
+changes it. The tree's
 **Texts** lists each key of the pack's language files, and its properties show the asset that owns
 the key, one value per language that `editText` writes, and **Delete Text**. **Add Text** on
 **Texts** asks for a key, a language and a value. The properties panel of a draft has

@@ -64,9 +64,13 @@ function tab.open(context)
   -- The text of the status, nil while there is none
   local status = tr("status.loading")
   -- What the tab opened, by the filenames of its PNG and its source:
-  -- { id, paths, frames } with the id of the entry's node and the count
-  -- of frames of its PNG when it was opened or last saved
+  -- { id, sprite, texture, paths, frames } with the id of the entry's
+  -- node and the count of frames of its PNG when it was opened or last saved
   local opened = {}
+  -- Whether the designer changed the sprite of a PNG's path since it
+  -- opened or was saved. A sprite the tab built from frames counts as
+  -- modified before any change.
+  local changed = {}
   -- The Gradle runs that wait, each a function(done) that starts one
   -- and returns its Process, and the one that runs as { process }
   local queue, running = {}, nil
@@ -331,6 +335,34 @@ function tab.open(context)
     return nil
   end
 
+  -- Whether the sprite that the tab opened for record holds changes
+  -- that no save wrote
+  local function unsaved(sprite, record)
+    return changed[record.paths.png] == true and sprite.isModified
+  end
+
+  -- Marks the nodes of the textures with unsaved changes, and the
+  -- nodes above them, in the tree. Marks the nodes alone when apply is false.
+  local function markUnsaved(apply)
+    if closed or not nodes then
+      return
+    end
+    local ids = {}
+    for _, sprite in ipairs(api.sprites()) do
+      local record = opened[sprite.filename]
+      if record and unsaved(sprite, record) then ids[record.texture.id] = true end
+    end
+    local badges = modules.tree.unsaved(nodes, index, function(info)
+      return info.texture ~= nil and ids[info.texture.id] == true
+    end)
+    if apply == false then
+      return
+    end
+    for _, change in ipairs(badges) do
+      dlg:modifyNode{ id="tree", node=change.node, badge=change.badge }
+    end
+  end
+
   -- Reads the pack again and shows its nodes
   local function describe(done)
     local process, problem = modules.pack.describe(context.bootstrap, api, function(read, err)
@@ -347,6 +379,7 @@ function tab.open(context)
             local node = findNode(nodes, id)
             node.children, node.expanded = children, true
           end
+          markUnsaved(false)
           lists = { statuses=read.statuses, scalings=read.scalings }
           dlg:modify{ id="tree", nodes=nodes }
           if selected and not index[selected] then
@@ -732,10 +765,14 @@ function tab.open(context)
       return
     end
     setStatus(nil)
+    changed[record.paths.png] = false
+    markUnsaved()
     follow(sprite, record)
     if preferences.liveSync ~= false and instance and instance.instance then
       installPack()
     end
+    -- The first save makes a draft, which the tree marks once the pack was read again
+    if not texture.draft then ctl.reload() end
     showProperties()
   end
 
@@ -1108,7 +1145,17 @@ function tab.open(context)
       setStatus(paths and tr("status.missing", missing) or tr("status.outside", outside))
       return
     end
-    local record = { id=id, texture=texture, paths=paths, info=info, frames=frames and #frames or nil }
+    local known = opened[paths.png]
+    if not (known and known.sprite == sprite) then
+      changed[paths.png] = false
+      -- Only the first change and an undo or redo can change the marks
+      sprite.events:on("change", function(ev)
+        local was = changed[paths.png]
+        changed[paths.png] = true
+        if not was or ev.fromUndo then markUnsaved() end
+      end)
+    end
+    local record = { id=id, sprite=sprite, texture=texture, paths=paths, info=info, frames=frames and #frames or nil }
     opened[paths.png], opened[paths.aseprite] = record, record
     dlg:modify{ id="editor", sprite=sprite }
     -- A texture of a few pixels fills the editor
@@ -1119,6 +1166,12 @@ function tab.open(context)
   -- item reads its definition, and a node of it opens the first
   -- texture of its model that the pack holds.
   function ctl.select(id)
+    -- The sprite of another entry is saved before it leaves the editor
+    local shown = dlg.data.editor
+    local record = shown and opened[shown.filename]
+    if id ~= selected and record and unsaved(shown, record) then
+      save(shown, record)
+    end
     selected = id
     refused = nil
     scroll = 0

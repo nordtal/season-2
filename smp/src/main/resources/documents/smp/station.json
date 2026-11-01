@@ -1,0 +1,200 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Station",
+            "de": "Bahnhof"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "heading",
+      "lines": [
+        {
+          "when": "named",
+          "text": {
+            "en": "<emphasis>{name}</emphasis>",
+            "de": "<emphasis>{name}</emphasis>"
+          }
+        },
+        {
+          "when": "!named",
+          "text": {
+            "en": "<emphasis>Unnamed {@terms.station, n=1}</emphasis>",
+            "de": "<emphasis>{@terms.station, n=1} ohne Namen</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Sit down in a minecart on these rails to pick a {@terms.station, n=1}.</muted>",
+            "de": "<muted>Setz dich in eine Lore auf diesen Schienen, um einen {@terms.station, n=1} zu wählen.</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "unnamed",
+      "lines": [
+        {
+          "text": {
+            "en": "Unnamed {@terms.station, n=1}",
+            "de": "{@terms.station, n=1} ohne Namen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "name",
+      "lines": [
+        {
+          "when": "!named",
+          "text": {
+            "en": "<emphasis>Name this {@terms.station, n=1}</emphasis>",
+            "de": "<emphasis>Diesen {@terms.station, n=1} benennen</emphasis>"
+          }
+        },
+        {
+          "when": "named",
+          "text": {
+            "en": "<emphasis>Rename this {@terms.station, n=1}</emphasis>",
+            "de": "<emphasis>Diesen {@terms.station, n=1} umbenennen</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Opens a field for the name.</muted>",
+            "de": "<muted>Öffnet ein Feld für den Namen.</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "name-button",
+      "lines": [
+        {
+          "text": {
+            "en": "Name",
+            "de": "Benennen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "rename-button",
+      "lines": [
+        {
+          "text": {
+            "en": "Rename",
+            "de": "Umbenennen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "dialog-title",
+      "lines": [
+        {
+          "text": {
+            "en": "Name the {@terms.station, n=1}",
+            "de": "{@terms.station, n=1} benennen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "dialog-rules",
+      "lines": [
+        {
+          "text": {
+            "en": "At most {most} characters. No other {@terms.station, n=1} on these rails may have the same name.",
+            "de": "Höchstens {most} Zeichen. Kein anderer {@terms.station, n=1} an diesen Schienen darf denselben Namen haben."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "dialog-field",
+      "lines": [
+        {
+          "text": {
+            "en": "Name",
+            "de": "Name"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "dialog-save",
+      "lines": [
+        {
+          "text": {
+            "en": "Save",
+            "de": "Speichern"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "dialog-cancel",
+      "lines": [
+        {
+          "text": {
+            "en": "Cancel",
+            "de": "Abbrechen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "name-empty",
+      "lines": [
+        {
+          "text": {
+            "en": "Type a name first.",
+            "de": "Gib zuerst einen Namen ein."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "name-too-long",
+      "lines": [
+        {
+          "text": {
+            "en": "{typed} is longer than {most} characters. Pick a shorter name.",
+            "de": "{typed} ist länger als {most} Zeichen. Wähl einen kürzeren Namen."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "name-taken",
+      "lines": [
+        {
+          "text": {
+            "en": "Another {@terms.station, n=1} on these rails is already called {typed}. Pick another name.",
+            "de": "Ein anderer {@terms.station, n=1} an diesen Schienen heißt schon {typed}. Wähl einen anderen Namen."
+          }
+        }
+      ]
+    }
+  ]
+}

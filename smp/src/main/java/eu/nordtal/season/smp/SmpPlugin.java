@@ -37,6 +37,7 @@ import eu.nordtal.season.smp.config.DuelsSpec;
 import eu.nordtal.season.smp.config.Milestones;
 import eu.nordtal.season.smp.config.MilestonesSpec;
 import eu.nordtal.season.smp.config.NpcSpec;
+import eu.nordtal.season.smp.config.RailsSpec;
 import eu.nordtal.season.smp.config.SmpSettings;
 import eu.nordtal.season.smp.config.SpawnSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
@@ -91,6 +92,7 @@ public final class SmpPlugin extends NordtalPlugin {
     Setting<NpcSpec> npcSettings;
     Setting<SpawnSpec> spawnSettings;
     Setting<DeathsSpec> deathSettings;
+    Setting<RailsSpec> railSettings;
 
     /** The protected areas of the spawn, rebuilt when the spawn group changes. */
     volatile Boxes protectedAreas;
@@ -214,6 +216,7 @@ public final class SmpPlugin extends NordtalPlugin {
         npcSettings = setting(Group.of("npc", NpcSpec.class).whileRunning());
         spawnSettings = setting(Group.of("spawn", SpawnSpec.class).whileRunning());
         deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class).whileRunning());
+        railSettings = setting(Group.of("rails", RailsSpec.class).whileRunning());
         milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
                 .checkedBy(SmpSettings::checkMilestones)
                 .whileRunning());

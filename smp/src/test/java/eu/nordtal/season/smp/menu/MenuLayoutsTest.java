@@ -63,12 +63,32 @@ class MenuLayoutsTest {
     }
 
     @Test
+    void theRideMenuDeclaresAFullPageWithItsStarsAndPageButtons() {
+        final DocumentDeclaration ride = menu("ride");
+
+        assertEquals(6, ride.rows());
+        assertEquals(List.of(8, 17, 26, 35, 44), at(ride, "favourite"));
+        assertEquals(35, at(ride, "station").size());
+        assertEquals(List.of(51), at(ride, "previous-page"));
+        assertEquals(List.of(53), at(ride, "next-page"));
+    }
+
+    @Test
+    void theStationMenuPutsItsNameButtonUnderTheHeading() {
+        final DocumentDeclaration station = menu("station");
+
+        assertEquals(2, station.rows());
+        assertEquals(IntStream.range(0, 9).boxed().toList(), at(station, "heading"));
+        assertEquals(IntStream.range(9, 18).boxed().toList(), at(station, "name"));
+    }
+
+    @Test
     void everyMenuPlacesEachItemInsideItsRows() {
         final List<DocumentDeclaration> menus = packaged().values().stream()
                 .map(Documents.Packaged::declaration)
                 .filter(declaration -> declaration.shape() == DocumentSpec.Shape.MENU)
                 .toList();
-        assertEquals(5, menus.size());
+        assertEquals(7, menus.size());
         for (final DocumentDeclaration menu : menus) {
             assertTrue(menu.rows() >= 1 && menu.rows() <= MenuTitle.MAX_ROWS, menu.id());
             for (final Slot slot : menu.slots()) {

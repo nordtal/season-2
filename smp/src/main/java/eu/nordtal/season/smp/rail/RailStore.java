@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.rail;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -23,6 +24,9 @@ public final class RailStore {
     /** What the store holds for one world. */
     public record Stored(List<StationRow> stations, Set<RailPos> junctions, List<RailEdge> edges) {}
 
+    /** Everything the store holds: each world's part, every favourite, and the renames no placer was told of. */
+    public record Loaded(Map<String, Stored> worlds, List<FavouriteRow> favourites, Set<UUID> unseen) {}
+
     private final Jdbi jdbi;
     private final Executor background;
     private final Logger log;
@@ -34,12 +38,15 @@ public final class RailStore {
         this.log = log;
     }
 
-    /** Reads everything off the main thread and hands each world's part to {@code done}. */
-    public void load(final Consumer<Map<String, Stored>> done, final Executor main) {
+    /** Reads everything off the main thread and hands it to {@code done} on {@code main}. */
+    public void load(final Consumer<Loaded> done, final Executor main) {
         last = last.thenRunAsync(
                         () -> {
                             final Map<String, Stored> worlds = read();
-                            main.execute(() -> done.accept(worlds));
+                            final RailDao dao = jdbi.onDemand(RailDao.class);
+                            final Loaded loaded =
+                                    new Loaded(worlds, dao.favourites(), new HashSet<>(dao.unseenRenames()));
+                            main.execute(() -> done.accept(loaded));
                         },
                         background)
                 .exceptionally(this::logged);
@@ -84,15 +91,44 @@ public final class RailStore {
         return stored;
     }
 
+    /** Stores a placed station, in place of any older one the store still holds at its position. */
     public void placed(final StationRow station) {
-        write(dao -> dao.insertStation(
-                station.id(),
-                station.world(),
-                station.x(),
-                station.y(),
-                station.z(),
-                station.axis(),
-                station.placedBy()));
+        last = last.thenRunAsync(
+                        () -> jdbi.useTransaction(handle -> {
+                            final RailDao dao = handle.attach(RailDao.class);
+                            dao.deleteStationAt(station.world(), station.x(), station.y(), station.z());
+                            dao.insertStation(
+                                    station.id(),
+                                    station.world(),
+                                    station.x(),
+                                    station.y(),
+                                    station.z(),
+                                    station.axis(),
+                                    station.placedBy());
+                        }),
+                        background)
+                .exceptionally(this::logged);
+    }
+
+    /** Stores the name a player gave {@code station}. */
+    public void named(final StationRow station) {
+        write(dao -> dao.renameStation(
+                station.id(), Objects.requireNonNull(station.name()), Objects.requireNonNull(station.named()), false));
+    }
+
+    /** Notes that the placer of {@code station} was told of its new name. */
+    public void seen(final UUID station) {
+        write(dao -> dao.seen(station));
+    }
+
+    public void favoured(final UUID player, final UUID station, final boolean favourite) {
+        write(dao -> {
+            if (favourite) {
+                dao.insertFavourite(player, station);
+            } else {
+                dao.deleteFavourite(player, station);
+            }
+        });
     }
 
     public void removed(final UUID station) {
@@ -122,7 +158,8 @@ public final class RailStore {
                                     .forEach(station -> dao.renameStation(
                                             station.id(),
                                             Objects.requireNonNull(station.name()),
-                                            Objects.requireNonNull(station.named())));
+                                            Objects.requireNonNull(station.named()),
+                                            true));
                         }),
                         background)
                 .exceptionally(this::logged);

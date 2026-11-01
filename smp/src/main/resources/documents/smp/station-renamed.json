@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<muted>Your {@terms.station, n=1} at {x, number, plain} {y, number, plain} {z, number, plain} is now called</muted> <emphasis>{name}</emphasis><muted>. Use its {@terms.station-rail, n=1} to rename it.</muted>",
+            "de": "<muted>Dein {@terms.station, n=1} bei {x, number, plain} {y, number, plain} {z, number, plain} heißt jetzt</muted> <emphasis>{name}</emphasis><muted>. Über seine {@terms.station-rail, n=1} kannst du ihn umbenennen.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

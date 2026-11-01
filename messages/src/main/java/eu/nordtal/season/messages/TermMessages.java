@@ -121,8 +121,12 @@ public interface TermMessages {
         @Describe("One turn of the SMP's wheel.")
         MessageRef spin(@Arg("n") @Example("2") long n);
 
+        @Name("Station")
+        @Describe("A named station rail, which a player picks from the menu of a minecart to ride there.")
+        MessageRef station(@Arg("n") @Example("2") long n);
+
         @Name("Station rail")
-        @Describe("A rail a player places on the SMP to join the rails around it into a network a minecart rides.")
+        @Describe("A rail a player places on the SMP, so a minecart on the rails it joins rides between them.")
         MessageRef stationRail(@Arg("n") @Example("2") long n);
 
         @Name("Team")

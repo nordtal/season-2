@@ -76,4 +76,7 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.travel.PortalGate")
     documentClasses.add("eu.nordtal.season.smp.npc.NpcListener")
     documentClasses.add("eu.nordtal.season.smp.npc.SpawnNpc")
+    documentClasses.add("eu.nordtal.season.smp.rail.StationMenu")
+    documentClasses.add("eu.nordtal.season.smp.rail.RideMenu")
+    documentClasses.add("eu.nordtal.season.smp.rail.StationMenus")
 }

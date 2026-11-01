@@ -288,6 +288,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V101__station_rails_join_the_rails_between_them_into_networks.sql",
                 "fc79277cc747e15d5f14ea75b1b5a325176f6d965f4028ad56996fdd81e5a921");
+        FROZEN.put(
+                "V102__a_player_names_a_station_and_keeps_favourite_stations.sql",
+                "e189c81e2aff955176d9b25f900908502bc4e9930a1465282147429d83b9175e");
     }
 
     @Test

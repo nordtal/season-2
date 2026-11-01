@@ -52,6 +52,7 @@ class SmpSettingsTest {
             Group.of("npc", NpcSpec.class),
             SPAWN,
             Group.of("deaths-and-graves", DeathsSpec.class),
+            Group.of("rails", RailsSpec.class),
             Group.of("sounds", SoundsSpec.class));
 
     private final MemorySettingStore store = new MemorySettingStore();

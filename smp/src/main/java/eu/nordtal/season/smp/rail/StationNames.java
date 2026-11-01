@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -40,6 +41,16 @@ public final class StationNames {
         }
         final String key = key(name);
         return others.stream().map(StationNames::key).anyMatch(key::equals) ? Verdict.TAKEN : Verdict.ACCEPTED;
+    }
+
+    /** Judges the name a player typed for {@code station} against the other named stations of {@code network}. */
+    public static Verdict judgeTyped(final String typed, final UUID station, final Collection<StationRow> network) {
+        final List<String> others = network.stream()
+                .filter(row -> !row.id().equals(station))
+                .map(StationRow::name)
+                .filter(Objects::nonNull)
+                .toList();
+        return judge(typed.strip(), others);
     }
 
     /**

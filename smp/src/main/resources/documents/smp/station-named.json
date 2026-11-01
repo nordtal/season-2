@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>This {@terms.station, n=1} is now called</good> <emphasis>{name}</emphasis><muted>.</muted>",
+            "de": "<good>Dieser {@terms.station, n=1} heißt jetzt</good> <emphasis>{name}</emphasis><muted>.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -651,10 +651,7 @@ public final class DocumentsApi {
         ctx.result(image.bytes());
     }
 
-    /**
-     * Returns a drawer of the game document {@code namespace/name} as one plain line in the default language.
-     * An admin's document lies over the packaged one, and a document the jars do not ship draws a blank line.
-     */
+    /** Returns a drawer of the game document {@code namespace/name} in one plain line, blank for one not shipped. */
     public Function<Map<String, Object>, String> plainLine(final String namespace, final String name) {
         final Shipped shipped = shipped().get(namespace + "/" + name);
         if (shipped == null) {

@@ -40,8 +40,6 @@ class CommandGateTest {
 
     @Test
     void thePlayerSurfaceIsIntact() {
-        assertTrue(SHIPPED.allows("/navigate"));
-        assertTrue(SHIPPED.allows("/poi add home"));
         assertTrue(SHIPPED.allows("/hg ready"));
         assertTrue(SHIPPED.allows("/msg Someone hello"));
         assertTrue(SHIPPED.allows("/whisper Someone hello"));

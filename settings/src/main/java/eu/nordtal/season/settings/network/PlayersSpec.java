@@ -25,6 +25,6 @@ public interface PlayersSpec {
     @NoExplanationNeeded
     default List<String> commandAllowlist() {
         // Only commands of this network. Every vanilla command, including /help, is absent.
-        return List.of("navigate", "poi", "hg ready", "msg", "whisper", "r", "discord", "rules");
+        return List.of("hg ready", "msg", "whisper", "r", "discord", "rules");
     }
 }

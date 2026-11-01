@@ -62,12 +62,12 @@ class NetworkSettingsTest {
     void theParsedAllowlistFollowsAReload() throws Exception {
         final var players = store.settings("proxy").load(NetworkSettings.PLAYERS);
         final var allowlist = NetworkSettings.allowlist(players.get());
-        assertTrue(allowlist.get().allows("/poi"));
+        assertTrue(allowlist.get().allows("/rules"));
         store.set(MemorySettingStore.NETWORK, "players", "command-allowlist", List.of("msg"));
 
         players.reload();
 
-        assertFalse(allowlist.get().allows("/poi"));
+        assertFalse(allowlist.get().allows("/rules"));
         assertTrue(allowlist.get().allows("/msg Alex hi"));
     }
 
@@ -75,7 +75,7 @@ class NetworkSettingsTest {
     void theDefaultAllowlistIsOurOwnPlayerCommands() throws Exception {
         // The default is the assertion: every player on the network can type these commands.
         assertEquals(
-                List.of("navigate", "poi", "hg ready", "msg", "whisper", "r", "discord", "rules"),
+                List.of("hg ready", "msg", "whisper", "r", "discord", "rules"),
                 checked(NetworkSettings.PLAYERS).commandAllowlist());
     }
 

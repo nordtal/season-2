@@ -67,3 +67,18 @@ export function matches(document: Document, query: string): boolean {
 export function missing(announcement: AnnouncementView): string[] {
   return announcement.targets.filter((target) => target.delivery === "NOT_POSTED").map((target) => target.language)
 }
+
+function sorted(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sorted)
+  if (value === null || typeof value !== "object") return value
+  return Object.fromEntries(
+    Object.entries(value)
+      .toSorted(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, sorted(entry)]),
+  )
+}
+
+/** Whether two values hold the same, whatever order their keys come in, as the server sends a text's languages sorted. */
+export function same(left: unknown, right: unknown): boolean {
+  return JSON.stringify(sorted(left)) === JSON.stringify(sorted(right))
+}

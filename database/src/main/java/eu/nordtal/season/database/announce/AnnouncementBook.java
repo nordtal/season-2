@@ -205,9 +205,18 @@ public final class AnnouncementBook {
     }
 
     private Optional<Announcement> find(final Handle handle, final long id, final boolean lock) {
+        // The row lock comes before the targets are read, so a second send waits and then sees the first one's request.
+        if (lock
+                && handle.createQuery("SELECT id FROM announcement WHERE id = :id FOR UPDATE")
+                        .bind("id", id)
+                        .mapTo(Long.class)
+                        .findOne()
+                        .isEmpty()) {
+            return Optional.empty();
+        }
         final Map<Long, List<Target>> targets = targets(handle, id);
-        return handle.createQuery("SELECT id, document::text AS document, changed, sent FROM announcement"
-                        + " WHERE id = :id" + (lock ? " FOR UPDATE" : ""))
+        return handle.createQuery(
+                        "SELECT id, document::text AS document, changed, sent FROM announcement" + " WHERE id = :id")
                 .bind("id", id)
                 .map((rows, context) -> announcement(
                         rows.getLong("id"),

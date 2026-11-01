@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { AnnouncementView, ConfigDocument, ConfigEntry, Document, DocumentView } from "@/lib/api"
-import { matches, titleOf } from "@/lib/announcements"
+import { matches, same, titleOf } from "@/lib/announcements"
 import { urlOf, wideScreen } from "@/lib/query-fixtures"
 import { asButton } from "@/lib/test-elements"
 import { Announcements } from "@/components/steward/announcements"
@@ -244,5 +244,14 @@ describe("titleOf and matches", () => {
     expect(matches(text("Tonight", "Tonight DE"), "NIGHT D")).toBe(true)
     expect(matches(text("Tonight", "Tonight DE"), "tomorrow")).toBe(false)
     expect(matches(text("Tonight", "Tonight DE"), " ")).toBe(true)
+  })
+})
+
+describe("same", () => {
+  it("ignores the order of keys but not of list entries", () => {
+    expect(same({ en: "a", de: "b" }, { de: "b", en: "a" })).toBe(true)
+    expect(same({ parts: [{ text: { en: "a", de: "b" } }] }, { parts: [{ text: { de: "b", en: "a" } }] })).toBe(true)
+    expect(same(["a", "b"], ["b", "a"])).toBe(false)
+    expect(same({ en: "a" }, { en: "a", de: "b" })).toBe(false)
   })
 })

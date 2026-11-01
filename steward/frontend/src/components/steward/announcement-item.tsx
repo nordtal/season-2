@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react"
 import { toast } from "sonner"
 
 import type { AnnouncementView, Document, DocumentView } from "@/lib/api"
-import { channelsOf, missing, viewFor } from "@/lib/announcements"
+import { channelsOf, missing, same, viewFor } from "@/lib/announcements"
 import { dateTime } from "@/lib/format"
 import { languageName } from "@/lib/language-names"
 import type { Language } from "@/lib/message-text"
@@ -112,9 +112,7 @@ function DraftItem({
   const remove = useDeleteAnnouncement()
   const send = useSendAnnouncement()
   const view = viewFor(template, announcement.document)
-  const changed =
-    JSON.stringify(document) !== JSON.stringify(announcement.document) ||
-    JSON.stringify(channels) !== JSON.stringify(channelsOf(announcement))
+  const changed = !same(document, announcement.document) || !same(channels, channelsOf(announcement))
   const shown = [...new Set([...languages, ...Object.keys(channels)])]
   const busy = save.isPending || send.isPending || remove.isPending
 

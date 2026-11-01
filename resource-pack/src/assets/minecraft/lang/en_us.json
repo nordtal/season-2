@@ -1,5 +1,6 @@
 {
   "menu.returnToGame": "§9Continue playing Nordtal",
   "menu.game": "\udbb8\udc21",
-  "menu.disconnect": "§7See You Next Time!"
+  "menu.disconnect": "§7See You Next Time!",
+  "item.nordtal.station_rail": "Station Rail"
 }

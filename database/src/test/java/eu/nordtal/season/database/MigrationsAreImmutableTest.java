@@ -285,6 +285,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V100__the_spawn_names_its_protected_areas_and_the_nordtal_spawn.sql",
                 "d2281359b6ea12455bc07671e89c678bb2d6b3d8b4def776cf9d96105d095dcd");
+        FROZEN.put(
+                "V101__station_rails_join_the_rails_between_them_into_networks.sql",
+                "c2988003d35755e71665f6d830e376d3eb8f78df91d578d603b0b19cbc1f6f0c");
     }
 
     @Test

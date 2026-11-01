@@ -1,0 +1,176 @@
+package eu.nordtal.season.smp.rail;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.jdbi.v3.core.Jdbi;
+import org.jspecify.annotations.Nullable;
+
+/** Writes the station rails and networks in the order they changed, one write after the other, off the main thread. */
+public final class RailStore {
+
+    /** What the store holds for one world. */
+    public record Stored(List<StationRow> stations, Set<RailPos> junctions, List<RailEdge> edges) {}
+
+    private final Jdbi jdbi;
+    private final Executor background;
+    private final Logger log;
+    private CompletableFuture<Void> last = CompletableFuture.completedFuture(null);
+
+    public RailStore(final Jdbi jdbi, final Executor background, final Logger log) {
+        this.jdbi = jdbi;
+        this.background = background;
+        this.log = log;
+    }
+
+    /** Reads everything off the main thread and hands each world's part to {@code done}. */
+    public void load(final Consumer<Map<String, Stored>> done, final Executor main) {
+        last = last.thenRunAsync(
+                        () -> {
+                            final Map<String, Stored> worlds = read();
+                            main.execute(() -> done.accept(worlds));
+                        },
+                        background)
+                .exceptionally(this::logged);
+    }
+
+    private Map<String, Stored> read() {
+        final RailDao dao = jdbi.onDemand(RailDao.class);
+        final Map<String, List<StationRow>> stations = new HashMap<>();
+        dao.stations()
+                .forEach(row -> stations.computeIfAbsent(row.world(), _ -> new ArrayList<>())
+                        .add(row));
+        final Map<String, Set<RailPos>> junctions = new HashMap<>();
+        dao.junctions()
+                .forEach(row -> junctions
+                        .computeIfAbsent(row.world(), _ -> new TreeSet<>())
+                        .add(row.pos()));
+        final Map<UUID, List<RailPos>> rails = new HashMap<>();
+        dao.edgeRails()
+                .forEach(row -> rails.computeIfAbsent(row.edge(), _ -> new ArrayList<>())
+                        .add(new RailPos(row.x(), row.y(), row.z())));
+        final Map<String, List<RailEdge>> edges = new HashMap<>();
+        for (final EdgeRow row : dao.edges()) {
+            edges.computeIfAbsent(row.world(), _ -> new ArrayList<>())
+                    .add(new RailEdge(
+                            new RailPos(row.fromX(), row.fromY(), row.fromZ()),
+                            new RailPos(row.toX(), row.toY(), row.toZ()),
+                            rails.getOrDefault(row.id(), List.of()),
+                            row.length()));
+        }
+        final Set<String> worlds = new TreeSet<>(stations.keySet());
+        worlds.addAll(edges.keySet());
+        worlds.addAll(junctions.keySet());
+        final Map<String, Stored> stored = new HashMap<>();
+        for (final String world : worlds) {
+            stored.put(
+                    world,
+                    new Stored(
+                            stations.getOrDefault(world, List.of()),
+                            junctions.getOrDefault(world, Set.of()),
+                            edges.getOrDefault(world, List.of())));
+        }
+        return stored;
+    }
+
+    public void placed(final StationRow station) {
+        write(dao -> dao.insertStation(
+                station.id(),
+                station.world(),
+                station.x(),
+                station.y(),
+                station.z(),
+                station.axis(),
+                station.placedBy()));
+    }
+
+    public void removed(final UUID station) {
+        write(dao -> dao.deleteStation(station));
+    }
+
+    /** Replaces what a walk changed in {@code world}, in one transaction. */
+    public void replaced(final String world, final WorldNetworks.Replacement replacement) {
+        last = last.thenRunAsync(
+                        () -> jdbi.useTransaction(handle -> {
+                            final RailDao dao = handle.attach(RailDao.class);
+                            replacement.lost().forEach(station -> dao.deleteStation(station.id()));
+                            final List<RailPos> oldNodes = new ArrayList<>();
+                            final List<RailPos> oldJunctions = new ArrayList<>();
+                            for (final WorldNetworks.Network network : replacement.removed()) {
+                                oldNodes.addAll(network.graph().stations());
+                                oldNodes.addAll(network.graph().junctions());
+                                oldJunctions.addAll(network.graph().junctions());
+                            }
+                            batch(oldNodes, (x, y, z) -> dao.deleteEdgesFrom(world, x, y, z));
+                            batch(oldJunctions, (x, y, z) -> dao.deleteJunctions(world, x, y, z));
+                            for (final WorldNetworks.Network network : replacement.added()) {
+                                insert(dao, world, network.graph());
+                            }
+                            replacement
+                                    .renamed()
+                                    .forEach(station -> dao.renameStation(
+                                            station.id(),
+                                            Objects.requireNonNull(station.name()),
+                                            Objects.requireNonNull(station.named())));
+                        }),
+                        background)
+                .exceptionally(this::logged);
+    }
+
+    private static void insert(final RailDao dao, final String world, final RailGraph graph) {
+        batch(graph.junctions(), (x, y, z) -> dao.insertJunctions(world, x, y, z));
+        for (final RailEdge edge : graph.edges()) {
+            final UUID id = UUID.randomUUID();
+            dao.insertEdge(
+                    id,
+                    world,
+                    edge.from().x(),
+                    edge.from().y(),
+                    edge.from().z(),
+                    edge.to().x(),
+                    edge.to().y(),
+                    edge.to().z(),
+                    edge.length());
+            final List<Integer> ordinals = new ArrayList<>();
+            for (int ordinal = 0; ordinal < edge.rails().size(); ordinal++) {
+                ordinals.add(ordinal);
+            }
+            batch(edge.rails(), (x, y, z) -> dao.insertEdgeRails(id, ordinals, x, y, z));
+        }
+    }
+
+    private interface Columns {
+        void accept(List<Integer> x, List<Integer> y, List<Integer> z);
+    }
+
+    private static void batch(final Collection<RailPos> positions, final Columns columns) {
+        if (positions.isEmpty()) {
+            return;
+        }
+        columns.accept(
+                positions.stream().map(RailPos::x).toList(),
+                positions.stream().map(RailPos::y).toList(),
+                positions.stream().map(RailPos::z).toList());
+    }
+
+    private void write(final Consumer<RailDao> work) {
+        last = last.thenRunAsync(() -> work.accept(jdbi.onDemand(RailDao.class)), background)
+                .exceptionally(this::logged);
+    }
+
+    private @Nullable Void logged(final Throwable failure) {
+        log.log(Level.WARNING, "a write of the rail networks failed", failure);
+        return null;
+    }
+}

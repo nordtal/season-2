@@ -4,11 +4,11 @@
 -- the environment its tools run with.
 
 -- plugin.require() is in version 4 of the fork's API, the width of
--- Dialog:tree{} in version 5, Dialog:panel{} in version 6 and
--- Dialog:splitter{} in version 7
-local forkApi = 7
+-- Dialog:tree{} in version 5, Dialog:panel{} in version 6,
+-- Dialog:splitter{} in version 7 and app.kiosk in version 8
+local forkApi = 8
 
-local ctl, listener
+local ctl, listener, outdated
 
 local function write(path, text)
   local file = assert(io.open(path, "wb"))
@@ -34,13 +34,21 @@ function init(plugin)
   local function join(...)
     return (fs.normalizePath(fs.joinPath(...)))
   end
-  -- An older app has no plugin.require(), so the alert that asks for
-  -- an update loads the strings' module itself
+  -- An older app may have no plugin.require(), so the status that asks
+  -- for an update loads the strings' module itself
   local old = (app.forkApiVersion or 0) < forkApi
   local language = old and dofile(join(plugin.path, "language.lua")) or plugin.require("language")
   local tr = language.load(plugin.path, app.preferences.general.language, read, join)
   if old then
-    app.alert{ title=tr("tab.title"), text=tr("update.text") }
+    -- One status in place of the Nordtal tab, like the bootstrap's: it
+    -- can't be closed, and it offers no Try Again, since the app's
+    -- version only changes with a new start
+    outdated = Dialog{ notitlebar=true }
+    outdated:label{ text=tr("update.text") }
+    outdated:newrow()
+    outdated:label{ text=tr("update.install") }
+    outdated:button{ text=tr("update.quit"), focus=true, onclick=function() app.command.Exit() end }
+    outdated:show{ wait=false }
     return
   end
 
@@ -120,6 +128,9 @@ function init(plugin)
 end
 
 function exit(plugin)
+  if outdated then
+    outdated:close()
+  end
   if listener then
     app.events:off(listener)
   end

@@ -1,0 +1,214 @@
+[
+  {
+    "case": "a text with content passes and a blank one is required",
+    "schema": {"kind": "MAP", "children": {
+      "name": {"kind": "SCALAR", "rules": [{"rule": "REQUIRED"}]},
+      "title": {"kind": "SCALAR", "rules": [{"rule": "REQUIRED"}]}
+    }},
+    "values": {"name": "Nordtal", "title": "  "},
+    "breaches": [{"setting": "title", "entries": [], "rule": "REQUIRED", "value": null}]
+  },
+  {
+    "case": "a missing value and an empty list are required",
+    "schema": {"kind": "MAP", "children": {
+      "name": {"kind": "SCALAR", "rules": [{"rule": "REQUIRED"}]},
+      "kits": {"kind": "LIST", "rules": [{"rule": "REQUIRED"}]}
+    }},
+    "values": {"kits": []},
+    "breaches": [
+      {"setting": "name", "entries": [], "rule": "REQUIRED", "value": null},
+      {"setting": "kits", "entries": [], "rule": "REQUIRED", "value": null}
+    ]
+  },
+  {
+    "case": "zero is not positive but not negative either",
+    "schema": {"kind": "MAP", "children": {
+      "port": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]},
+      "stake": {"kind": "SCALAR", "rules": [{"rule": "NOT_NEGATIVE"}]},
+      "penalty": {"kind": "SCALAR", "rules": [{"rule": "NOT_NEGATIVE"}]}
+    }},
+    "values": {"port": 0, "stake": 0, "penalty": -1},
+    "breaches": [
+      {"setting": "port", "entries": [], "rule": "POSITIVE", "value": null},
+      {"setting": "penalty", "entries": [], "rule": "NOT_NEGATIVE", "value": null}
+    ]
+  },
+  {
+    "case": "a decimal below zero is not positive",
+    "schema": {"kind": "MAP", "children": {
+      "speed": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]}
+    }},
+    "values": {"speed": -0.5},
+    "breaches": [{"setting": "speed", "entries": [], "rule": "POSITIVE", "value": null}]
+  },
+  {
+    "case": "a bound names its limit and the bounds themselves pass",
+    "schema": {"kind": "MAP", "children": {
+      "low": {"kind": "SCALAR", "rules": [{"rule": "AT_LEAST", "limit": 2}, {"rule": "AT_MOST", "limit": 10}]},
+      "high": {"kind": "SCALAR", "rules": [{"rule": "AT_LEAST", "limit": 2}, {"rule": "AT_MOST", "limit": 10}]},
+      "edge": {"kind": "SCALAR", "rules": [{"rule": "AT_LEAST", "limit": 2}, {"rule": "AT_MOST", "limit": 10}]}
+    }},
+    "values": {"low": 1, "high": 11, "edge": 10},
+    "breaches": [
+      {"setting": "low", "entries": [], "rule": "AT_LEAST", "value": "2"},
+      {"setting": "high", "entries": [], "rule": "AT_MOST", "value": "10"}
+    ]
+  },
+  {
+    "case": "a negative bound holds",
+    "schema": {"kind": "MAP", "children": {
+      "spawn-y": {"kind": "SCALAR", "rules": [{"rule": "AT_LEAST", "limit": -60}, {"rule": "AT_MOST", "limit": 300}]}
+    }},
+    "values": {"spawn-y": -61},
+    "breaches": [{"setting": "spawn-y", "entries": [], "rule": "AT_LEAST", "value": "-60"}]
+  },
+  {
+    "case": "a number must be greater than its sibling and equal is not greater",
+    "schema": {"kind": "MAP", "children": {
+      "start": {"kind": "SCALAR", "rules": [{"rule": "ABOVE", "field": "end"}]},
+      "end": {"kind": "SCALAR"}
+    }},
+    "values": {"start": 100, "end": 100},
+    "breaches": [{"setting": "start", "entries": [], "rule": "ABOVE", "value": "end"}]
+  },
+  {
+    "case": "an exact count and a most count of entries",
+    "schema": {"kind": "MAP", "children": {
+      "points": {"kind": "LIST", "rules": [{"rule": "ENTRIES", "limit": 5}]},
+      "kits": {"kind": "LIST", "rules": [{"rule": "MOST_ENTRIES", "limit": 2}]},
+      "few": {"kind": "LIST", "rules": [{"rule": "MOST_ENTRIES", "limit": 2}]}
+    }},
+    "values": {"points": [1, 2, 3, 4], "kits": ["a", "b", "c"], "few": ["a", "b"]},
+    "breaches": [
+      {"setting": "points", "entries": [], "rule": "ENTRIES", "value": "5"},
+      {"setting": "kits", "entries": [], "rule": "MOST_ENTRIES", "value": "2"}
+    ]
+  },
+  {
+    "case": "a missing list has no entries",
+    "schema": {"kind": "MAP", "children": {
+      "points": {"kind": "LIST", "rules": [{"rule": "ENTRIES", "limit": 1}]}
+    }},
+    "values": {},
+    "breaches": [{"setting": "points", "entries": [], "rule": "ENTRIES", "value": "1"}]
+  },
+  {
+    "case": "a text is measured in characters, not in bytes or code units",
+    "schema": {"kind": "MAP", "children": {
+      "short": {"kind": "SCALAR", "rules": [{"rule": "LONGEST", "limit": 3}]},
+      "long": {"kind": "SCALAR", "rules": [{"rule": "LONGEST", "limit": 3}]}
+    }},
+    "values": {"short": "ä😀ö", "long": "abcd"},
+    "breaches": [{"setting": "long", "entries": [], "rule": "LONGEST", "value": "3"}]
+  },
+  {
+    "case": "a rule on one value applies to each entry of a list of values",
+    "schema": {"kind": "MAP", "children": {
+      "tags": {"kind": "LIST", "rules": [{"rule": "LONGEST", "limit": 2}]},
+      "hours": {"kind": "LIST", "rules": [{"rule": "POSITIVE"}]}
+    }},
+    "values": {"tags": ["en", "deu"], "hours": [1, 0, 2]},
+    "breaches": [
+      {"setting": "tags", "entries": [1], "rule": "LONGEST", "value": "2"},
+      {"setting": "hours", "entries": [1], "rule": "POSITIVE", "value": null}
+    ]
+  },
+  {
+    "case": "a field of the entries of a list is unique and names the second entry",
+    "schema": {"kind": "MAP", "children": {
+      "tiers": {"kind": "LIST", "rules": [{"rule": "UNIQUE", "field": "days"}], "children": {
+        "days": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]},
+        "price-cents": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]}
+      }}
+    }},
+    "values": {"tiers": [{"days": 30, "price-cents": 500}, {"days": 90, "price-cents": 0}, {"days": 30, "price-cents": 900}]},
+    "breaches": [
+      {"setting": "tiers.days", "entries": [2], "rule": "UNIQUE", "value": "30"},
+      {"setting": "tiers.price-cents", "entries": [1], "rule": "POSITIVE", "value": null}
+    ]
+  },
+  {
+    "case": "the entries of a list of values are unique",
+    "schema": {"kind": "MAP", "children": {
+      "languages": {"kind": "LIST", "rules": [{"rule": "UNIQUE", "field": ""}]}
+    }},
+    "values": {"languages": ["en", "de", "en"]},
+    "breaches": [{"setting": "languages", "entries": [2], "rule": "UNIQUE", "value": "en"}]
+  },
+  {
+    "case": "a field that falls from one entry to the next is not ascending, and equal values are",
+    "schema": {"kind": "MAP", "children": {
+      "refill-tiers": {"kind": "LIST", "rules": [{"rule": "ASCENDING", "field": "delay-minutes"}], "children": {
+        "delay-minutes": {"kind": "SCALAR"}
+      }}
+    }},
+    "values": {"refill-tiers": [{"delay-minutes": 0}, {"delay-minutes": 5}, {"delay-minutes": 5}, {"delay-minutes": 3}]},
+    "breaches": [{"setting": "refill-tiers.delay-minutes", "entries": [3], "rule": "ASCENDING", "value": null}]
+  },
+  {
+    "case": "a nested group is checked under its own path",
+    "schema": {"kind": "MAP", "children": {
+      "backup": {"kind": "MAP", "children": {
+        "patience-minutes": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]}
+      }}
+    }},
+    "values": {"backup": {"patience-minutes": 0}},
+    "breaches": [{"setting": "backup.patience-minutes", "entries": [], "rule": "POSITIVE", "value": null}]
+  },
+  {
+    "case": "a list inside an entry of a list names both indexes",
+    "schema": {"kind": "MAP", "children": {
+      "boards": {"kind": "LIST", "children": {
+        "lines": {"kind": "LIST", "children": {
+          "width": {"kind": "SCALAR", "rules": [{"rule": "AT_MOST", "limit": 8}]}
+        }}
+      }}
+    }},
+    "values": {"boards": [{"lines": [{"width": 1}]}, {"lines": [{"width": 2}, {"width": 9}]}]},
+    "breaches": [{"setting": "boards.lines.width", "entries": [1, 1], "rule": "AT_MOST", "value": "8"}]
+  },
+  {
+    "case": "a setting that does not apply is not checked",
+    "schema": {"kind": "MAP", "children": {
+      "enabled": {"kind": "SCALAR"},
+      "url": {"kind": "SCALAR", "rules": [{"rule": "REQUIRED"}], "appliesWhen": {"key": "enabled", "values": ["true"]}},
+      "kind": {"kind": "SCALAR"},
+      "count": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}], "appliesWhen": {"key": "kind", "values": ["COUNTED"]}}
+    }},
+    "values": {"enabled": false, "url": "", "kind": "COUNTED", "count": 0},
+    "breaches": [{"setting": "count", "entries": [], "rule": "POSITIVE", "value": null}]
+  },
+  {
+    "case": "a skipped path is not checked",
+    "schema": {"kind": "MAP", "children": {
+      "port": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]},
+      "backup": {"kind": "MAP", "children": {
+        "days": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]}
+      }}
+    }},
+    "values": {"port": 0, "backup": {"days": 0}},
+    "skipped": ["port", "backup.days"],
+    "breaches": []
+  },
+  {
+    "case": "a value of another type is left to the types",
+    "schema": {"kind": "MAP", "children": {
+      "port": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]},
+      "name": {"kind": "SCALAR", "rules": [{"rule": "LONGEST", "limit": 1}]}
+    }},
+    "values": {"port": "eighty", "name": 1234},
+    "breaches": []
+  },
+  {
+    "case": "the order the schema lists is the order of the breaches",
+    "schema": {"kind": "MAP", "order": ["b", "a"], "children": {
+      "a": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]},
+      "b": {"kind": "SCALAR", "rules": [{"rule": "POSITIVE"}]}
+    }},
+    "values": {"a": 0, "b": 0},
+    "breaches": [
+      {"setting": "b", "entries": [], "rule": "POSITIVE", "value": null},
+      {"setting": "a", "entries": [], "rule": "POSITIVE", "value": null}
+    ]
+  }
+]

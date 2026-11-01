@@ -194,10 +194,8 @@ public final class StationMenus implements Listener {
         if (!(player.getVehicle() instanceof RideableMinecart cart)) {
             return Optional.empty();
         }
-        Block rail = cart.getLocation().getBlock();
-        if (!Tag.RAILS.isTagged(rail.getType())) {
-            rail = rail.getRelative(BlockFace.DOWN);
-        }
+        final Block at = cart.getLocation().getBlock();
+        final Block rail = Tag.RAILS.isTagged(at.getType()) ? at : at.getRelative(BlockFace.DOWN);
         return networks.ride(rail).map(ride -> {
             final List<RideList.Stop> stops =
                     RideList.of(ride.graph(), ride.at(), ride.stations(), networks.favourites(player.getUniqueId()));

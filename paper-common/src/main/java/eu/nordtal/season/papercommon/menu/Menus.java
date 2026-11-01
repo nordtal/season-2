@@ -31,12 +31,12 @@ public final class Menus implements Listener {
         if (!menu.leavesFree(slot, event.getClick())) {
             event.setCancelled(true);
         }
-        if (!(event.getWhoClicked() instanceof Player player)
-                || slot < 0
-                || slot >= event.getInventory().getSize()) {
+        if (!(event.getWhoClicked() instanceof Player player) || slot < 0) {
             return;
         }
-        final MenuClick click = menu.click(player, slot, event.getClick());
+        final MenuClick click = slot < event.getInventory().getSize()
+                ? menu.click(player, slot, event.getClick())
+                : menu.clickBelow(player, slot, event.getClick());
         final Feedback sound = click.sound();
         if (sound != null) {
             chime.accept(player, sound);

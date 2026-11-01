@@ -104,6 +104,7 @@ export const BARE =
 
 /**
  * Picks one game value. `face` is what the button shows; without a catalogue the value is typed.
+ * `action` sits beside the picker's search.
  */
 export function GamePicker({
   id,
@@ -113,6 +114,7 @@ export function GamePicker({
   disabled,
   face,
   className,
+  action,
   onPick,
 }: {
   id: string
@@ -122,6 +124,7 @@ export function GamePicker({
   disabled: boolean
   face: ReactNode
   className?: string
+  action?: ReactNode
   onPick: (value: string) => void
 }) {
   return (
@@ -134,6 +137,7 @@ export function GamePicker({
       disabled={disabled}
       face={face}
       className={className}
+      action={action}
       typed={
         <Input
           id={id}
@@ -157,12 +161,14 @@ export function AddPicker({
   label,
   reference,
   disabled,
+  action,
   onPick,
 }: {
   id: string
   label: string
   reference: ConfigReference
   disabled: boolean
+  action?: ReactNode
   onPick: (value: string) => void
 }) {
   return (
@@ -173,6 +179,7 @@ export function AddPicker({
       value=""
       disabled={disabled}
       className="h-8 min-h-8 w-auto shrink-0"
+      action={action}
       face={
         <>
           <PlusIcon aria-hidden />

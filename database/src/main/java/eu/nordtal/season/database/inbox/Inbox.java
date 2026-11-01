@@ -326,6 +326,7 @@ public final class Inbox<P> {
                                     : done.answer());
                 case Outcome.Failed failed -> new Settled(InboxStatus.FAILED, failed.answer());
                 case Outcome.Refused _ -> new Settled(InboxStatus.REFUSED, null);
+                case Outcome.Open _ -> throw new IllegalArgumentException("an open outcome settles no row");
             };
         }
     }
@@ -356,6 +357,16 @@ public final class Inbox<P> {
      */
     public Optional<Request<P>> cancel(final long id, final @Nullable Object answer) {
         return jdbi.inTransaction(handle -> move(handle, id, InboxStatus.PENDING, InboxStatus.CANCELLED, answer));
+    }
+
+    /**
+     * Withdraws a request that is pending or still running, such as one its consumer left open.
+     *
+     * @return the cancelled row, or empty if it was settled
+     */
+    public Optional<Request<P>> withdraw(final long id) {
+        return jdbi.inTransaction(handle -> move(handle, id, InboxStatus.PENDING, InboxStatus.CANCELLED, null)
+                .or(() -> move(handle, id, InboxStatus.RUNNING, InboxStatus.CANCELLED, null)));
     }
 
     private Optional<Request<P>> move(
@@ -620,6 +631,9 @@ public final class Inbox<P> {
             log.error("{} request {} ({}) failed", table, request.id(), request.kind(), failure);
             outcome = Outcome.failed(null);
         }
+        if (outcome instanceof Outcome.Open) {
+            return;
+        }
         if (settle(request.id(), outcome).isEmpty()) {
             log.warn("{} request {} was no longer running when it was settled", table, request.id());
         }
@@ -635,7 +649,7 @@ public final class Inbox<P> {
     @FunctionalInterface
     public interface Handler<P> {
 
-        /** Returns the outcome. A throw settles the request {@code FAILED}. */
+        /** Returns the outcome. A throw settles the request {@code FAILED}, and an open one leaves it running. */
         Outcome handle(Request<P> request);
     }
 

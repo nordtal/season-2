@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { StrictMode, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -90,7 +90,7 @@ const WHEEL = document("wheel", [
   list(
     "wheel-prizes",
     "Wheel prizes",
-    [ITEM, number("amount", "Amount", "1"), number("weight", "Weight", "1")],
+    [ITEM, number("amount", "Amount", "1"), number("weight", "Weight", "1"), entry("data", { value: "" })],
     [
       { item: "minecraft:oak_log", amount: "64", weight: "997" },
       { item: "minecraft:elytra", amount: "1", weight: "3" },
@@ -146,7 +146,9 @@ function json(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
 }
 
-function backend(saved: ConfigDocument) {
+type Asked = (url: string, method: string) => Response | Promise<Response> | undefined
+
+function backend(saved: ConfigDocument, more: Asked = () => undefined) {
   const puts: unknown[] = []
   vi.stubGlobal(
     "fetch",
@@ -156,18 +158,49 @@ function backend(saved: ConfigDocument) {
         return json(configSaved(saved))
       }
       if (url === "/api/game-data") return json(GAME)
+      const answered = more(url, init?.method ?? "GET")
+      if (answered) return answered
       throw new Error(`the editor asked for ${url}, which this test did not expect`)
     }),
   )
   return puts
 }
 
+const NOTHING = () => {}
+
+/** A promise that settles once `arrive` is called. */
+function held() {
+  let arrive = NOTHING
+  const promise = new Promise<void>((resolve) => {
+    arrive = resolve
+  })
+  return { promise, arrive }
+}
+
+/** A take-in that smp answers with `run` once it is asked, and the withdrawals it is sent. */
+function takeIn(run: Record<string, unknown>, sent: Promise<void> = Promise.resolve()) {
+  const withdrawn: string[] = []
+  const more: Asked = (url, method) => {
+    if (url === "/api/smp/take-in" && method === "POST")
+      return sent.then(() => json({ id: "smp:7", status: "PENDING" }))
+    if (url === "/api/commands/smp:7" && method === "DELETE") {
+      withdrawn.push(url)
+      return new Response(null, { status: 204 })
+    }
+    if (url === "/api/commands/smp:7") return json({ id: "smp:7", ...run })
+    return undefined
+  }
+  return { more, withdrawn }
+}
+
 function draw(node: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
-    <QueryClientProvider client={client}>
-      <TooltipProvider>{node}</TooltipProvider>
-    </QueryClientProvider>,
+    <StrictMode>
+      <QueryClientProvider client={client}>
+        <TooltipProvider>{node}</TooltipProvider>
+      </QueryClientProvider>
+    </StrictMode>,
   )
 }
 
@@ -322,6 +355,72 @@ describe("game group editors", { timeout: 15_000 }, () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(screen.getByRole("button", { name: /Iron Sword/ })).toBeTruthy()
+  })
+
+  it("takes a prize in from the game whole and saves its data with it", async () => {
+    const { more } = takeIn({ status: "DONE", answer: { item: "minecraft:iron_sword", data: "AAEC" } })
+    const puts = backend(WHEEL, more)
+    draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
+    const dialog = await screen.findByRole("dialog", { name: "Iron Sword" })
+    expect(within(dialog).getByText(/Taken in from the game whole/)).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+
+    fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
+    await waitFor(() => expect(puts).toHaveLength(1))
+    expect(puts[0]).toMatchObject({
+      changes: {
+        "wheel-prizes": [
+          { item: "minecraft:oak_log", data: "" },
+          { item: "minecraft:elytra", data: "" },
+          { item: "minecraft:iron_sword", amount: "1", weight: "1", data: "AAEC" },
+        ],
+      },
+    })
+  })
+
+  it("turns a waiting take-in into a red Cancel take-in, which withdraws it and changes nothing", async () => {
+    const { more, withdrawn } = takeIn({ status: "RUNNING" })
+    backend(WHEEL, more)
+    draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
+    const cancel = await screen.findByRole("button", { name: "Cancel take-in" })
+    expect(cancel.dataset.variant).toBe("destructive")
+    fireEvent.click(cancel)
+    expect(await screen.findByRole("button", { name: "Take in from game" })).toBeTruthy()
+    await waitFor(() => expect(withdrawn).toEqual(["/api/commands/smp:7"]))
+    expect(screen.queryByRole("button", { name: /Iron Sword/, hidden: true })).toBeNull()
+  })
+
+  it("withdraws a waiting take-in when the picker closes", async () => {
+    const { more, withdrawn } = takeIn({ status: "RUNNING" })
+    backend(WHEEL, more)
+    draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Cancel take-in" }), { key: "Escape" })
+    await waitFor(() => expect(withdrawn).toEqual(["/api/commands/smp:7"]))
+  })
+
+  it("withdraws a take-in that was still on its way when the picker closed", async () => {
+    const { promise, arrive } = held()
+    const { more, withdrawn } = takeIn({ status: "RUNNING" }, promise)
+    backend(WHEEL, more)
+    draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
+    const button = await screen.findByRole("button", { name: "Take in from game" })
+    fireEvent.click(button)
+    fireEvent.keyDown(button, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    arrive()
+    await waitFor(() => expect(withdrawn).toEqual(["/api/commands/smp:7"]))
   })
 
   it("says so when a section holds nothing", async () => {

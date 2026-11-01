@@ -3,7 +3,7 @@ package eu.nordtal.season.database.inbox;
 /**
  * The state of a request, the same in every inbox table.
  * {@code PENDING -> RUNNING -> DONE | REFUSED | FAILED}, {@code PENDING -> EXPIRED} if nobody claims it in time,
- * and {@code PENDING -> CANCELLED} if the asker withdraws it.
+ * and {@code PENDING | RUNNING -> CANCELLED} if the asker withdraws it.
  */
 public enum InboxStatus {
 

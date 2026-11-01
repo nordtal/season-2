@@ -385,6 +385,9 @@ public interface StewardTexts {
             @Name("Player not in a game")
             MessageRef previewOffline();
 
+            @Name("Player not on the SMP")
+            MessageRef takeInOffline();
+
             @Name("Grant too long")
             MessageRef grantDays(@Arg("most") @Example("365") int most);
 

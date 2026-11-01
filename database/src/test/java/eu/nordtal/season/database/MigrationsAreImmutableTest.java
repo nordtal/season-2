@@ -294,6 +294,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V103__the_wheel_opens_from_single_blocks.sql",
                 "80eb0ff21e2337600ce2de4852638a549b75725acda945d7720d51dbf03dbd87");
+        FROZEN.put(
+                "V104__an_admin_takes_a_wheel_prize_in_from_the_game.sql",
+                "10da8037fdf7a6f2ce3e57fd4b1e1878764dbb2991d21fb6f15c0e0c0a004b5d");
     }
 
     @Test

@@ -858,6 +858,7 @@ export type TextArgs = {
     most: Arg["number"]
   }
   "steward.answer.subscription-gone": Record<string, never>
+  "steward.answer.take-in-offline": Record<string, never>
   "steward.answer.too-late": Record<string, never>
   "steward.answer.too-many-codes": {
     until: Arg["instant"]
@@ -1072,6 +1073,7 @@ export type TextArgs = {
   "steward.game.block-numbered": {
     index: Arg["number"]
   }
+  "steward.game.cancel-take-in": Record<string, never>
   "steward.game.chance": Record<string, never>
   "steward.game.chance-is": {
     total: Arg["number"]
@@ -1150,6 +1152,9 @@ export type TextArgs = {
     anyway: Arg["choice"]
   }
   "steward.game.start-round": Record<string, never>
+  "steward.game.take-in": Record<string, never>
+  "steward.game.take-in-failed": Record<string, never>
+  "steward.game.taken-in": Record<string, never>
   "steward.game.tasks": {
     finished: Arg["number"]
     total: Arg["number"]

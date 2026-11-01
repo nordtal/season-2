@@ -93,6 +93,11 @@ public abstract class Menu implements InventoryHolder {
         return click(player, slot);
     }
 
+    /** Runs for a click of {@code type} on a raw slot of the player's own inventory below this window. */
+    protected MenuClick clickBelow(final Player player, final int rawSlot, final ClickType type) {
+        return MenuClick.nothing();
+    }
+
     /** Runs when {@code player} closed this window, after its close sound. */
     protected void closed(final Player player) {}
 

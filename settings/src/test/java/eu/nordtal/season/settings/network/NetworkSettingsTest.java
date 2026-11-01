@@ -163,6 +163,14 @@ class NetworkSettingsTest {
     }
 
     @Test
+    void aFirstTierThatNeedsPlayedHoursIsRefused() {
+        // Tier 1 is the crest a player has before playing at all.
+        values.put("hours.tier-01", 1);
+
+        assertRefused(NetworkSettings.PRESTIGE, "hours.tier-01 must be at most 0");
+    }
+
+    @Test
     void hoursThatDoNotRiseAreRefused() {
         // Tier 2 at no hours would be reached in the same second as tier 1, which no player could ever wear.
         values.put("hours.tier-02", 0);

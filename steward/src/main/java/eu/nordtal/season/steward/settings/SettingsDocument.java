@@ -249,7 +249,9 @@ public final class SettingsDocument {
             put(
                     merged,
                     path,
-                    row != null ? JsonParser.parseString(row) : fallback == null ? JsonNull.INSTANCE : fallback);
+                    row != null
+                            ? JsonParser.parseString(row)
+                            : fallback == null ? JsonNull.INSTANCE : fallback.deepCopy());
         });
         filled(schema, merged);
         final List<SettingRules.Breach> breaches = SettingRules.breaches(schema, merged, environment);

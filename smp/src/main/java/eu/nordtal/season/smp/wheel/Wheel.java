@@ -18,6 +18,7 @@ import eu.nordtal.season.smp.feedback.SmpSounds;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -137,11 +138,12 @@ public final class Wheel {
 
         final int index = PrizeDraw.draw(weights, random);
         final WheelPrizeSpec prize = pool.get(index);
-        final Material material = materialOf(prize.item());
-        if (material == null) {
+        final ItemStack item = itemOf(prize);
+        if (item == null) {
             plugin.getLogger()
                     .warning("wheel-prizes names '" + prize.item()
-                            + "', which is not a material - the spin is being put back and nothing was given");
+                            + "', which is not a material or whose item data does not read"
+                            + " - the spin is being put back and nothing was given");
             refund.run();
             tell(player, renderer.format(locale, Sent.of(BROKEN_PRIZE)), Feedback.LOSS);
             return;
@@ -153,7 +155,7 @@ public final class Wheel {
 
         PaperScheduler.of(plugin).onMain(() -> {
             if (!player.isOnline()) {
-                give(player, material, prize.amount(), locale, refund);
+                give(player, item, prize.amount(), locale, refund);
                 return;
             }
             new WheelGui(
@@ -165,45 +167,56 @@ public final class Wheel {
                             sounds,
                             spinsLeft,
                             spinsLeft > 0 ? () -> spin(player) : null,
-                            winner -> give(winner, material, prize.amount(), locale, refund))
+                            winner -> give(winner, item, prize.amount(), locale, refund))
                     .start(plugin, player);
         });
     }
 
     /** {@code WheelGui#finish} calls it once. It runs {@code refund} when the player is offline. */
     private void give(
-            final Player player,
-            final Material material,
-            final int amount,
-            final Locale locale,
-            final Runnable refund) {
+            final Player player, final ItemStack item, final int amount, final Locale locale, final Runnable refund) {
         final int count = Math.max(1, amount);
         if (!player.isOnline()) {
             plugin.getLogger()
-                    .warning(player.getName() + " left mid-spin; " + count + "x " + material.name()
-                            + " could not be handed over, so the spin goes back");
+                    .warning(player.getName() + " left mid-spin; " + count + "x "
+                            + item.getType().name() + " could not be handed over, so the spin goes back");
             refund.run();
             return;
         }
-        final ItemStack stack = new ItemStack(material, count);
+        final ItemStack stack = item.asQuantity(count);
         final Location dropAt = Objects.requireNonNull(player.getLocation());
         player.getInventory()
                 .addItem(stack)
                 .values()
                 .forEach(left -> player.getWorld().dropItemNaturally(dropAt, left));
-        player.sendMessage(
-                renderer.format(locale, WON.with(new Won(count, GameContent.of(material.translationKey())))));
+        player.sendMessage(renderer.format(
+                locale, WON.with(new Won(count, GameContent.of(item.getType().translationKey())))));
     }
 
-    /** A material that does not resolve gets a barrier. */
+    /** A prize whose item does not resolve gets a barrier. */
     private static List<ItemStack> icons(final List<WheelPrizeSpec> pool) {
         final List<ItemStack> out = new ArrayList<>(pool.size());
         for (final WheelPrizeSpec prize : pool) {
-            final Material material = materialOf(prize.item());
-            out.add(new ItemStack(
-                    material == null ? Material.BARRIER : material, Math.max(1, Math.min(64, prize.amount()))));
+            final ItemStack item = itemOf(prize);
+            out.add((item == null ? new ItemStack(Material.BARRIER) : item)
+                    .asQuantity(Math.max(1, Math.min(64, prize.amount()))));
         }
         return out;
+    }
+
+    /** Returns one of a prize's item: the whole stack an admin took in, else its material, or null if neither reads. */
+    private static @Nullable ItemStack itemOf(final WheelPrizeSpec prize) {
+        if (prize.data().isBlank()) {
+            final Material material = materialOf(prize.item());
+            return material == null ? null : new ItemStack(material);
+        }
+        try {
+            final ItemStack item =
+                    ItemStack.deserializeBytes(Base64.getDecoder().decode(prize.data()));
+            return item.isEmpty() ? null : item.asOne();
+        } catch (final RuntimeException unreadable) {
+            return null;
+        }
     }
 
     private static @Nullable Material materialOf(final @Nullable String name) {

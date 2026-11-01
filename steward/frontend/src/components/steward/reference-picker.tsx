@@ -227,10 +227,18 @@ export function ReferenceMarks({
   )
 }
 
+const PickerClose = createContext<() => void>(() => {})
+
+/** Answers what closes the picker an action sits in. */
+export function useClosePicker(): () => void {
+  return use(PickerClose)
+}
+
 /**
  * A list holds chips and adds values with the same picker. A value that nothing lists stays, marked, and is never replaced.
  *
- * `face` replaces what a single value's button shows, and `className` styles that button.
+ * `face` replaces what a single value's button shows, and `className` styles that button. `action` sits beside the
+ * search, and closes the picker through `useClosePicker`.
  */
 export function ReferencePicker({
   id,
@@ -243,6 +251,7 @@ export function ReferencePicker({
   typed,
   face,
   className,
+  action,
   onChange,
 }: {
   id: string
@@ -255,6 +264,7 @@ export function ReferencePicker({
   typed: ReactNode
   face?: ReactNode
   className?: string
+  action?: ReactNode
   onChange: (values: string[]) => void
 }) {
   const { choices, icons, pending } = useChoices(reference, sibling)
@@ -295,6 +305,7 @@ export function ReferencePicker({
           selected={new Set(values.map((value) => known(value)?.id ?? value))}
           multi={multi}
           clearable={!multi && values.some((value) => value !== "")}
+          action={action === undefined ? undefined : <PickerClose value={() => setOpen(false)}>{action}</PickerClose>}
           onPick={pick}
           onAddAll={(ids) => onChange([...values, ...ids.filter((candidate) => !values.includes(candidate))])}
           onClear={() => {
@@ -381,6 +392,7 @@ function Options({
   selected,
   multi,
   clearable,
+  action,
   onPick,
   onAddAll,
   onClear,
@@ -391,6 +403,7 @@ function Options({
   selected: ReadonlySet<string>
   multi: boolean
   clearable: boolean
+  action?: ReactNode
   onPick: (choice: Choice) => void
   onAddAll: (ids: string[]) => void
   onClear: () => void
@@ -414,6 +427,7 @@ function Options({
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <FilterBar>
         <SearchField value={query} onValueChange={setQuery} label={t("steward.settings.search-in", { what: label })} />
+        {action}
       </FilterBar>
       {/* A tag filters only where it adds a whole tag at once: a picker of one value leaves it out. */}
       {namespaces.length > 1 || (multi && choices.tags.length > 0) ? (

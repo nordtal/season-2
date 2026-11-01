@@ -21,12 +21,19 @@ public sealed interface Outcome {
     /** Failed while carried out. It is not retried. */
     record Failed(@Nullable Object answer) implements Outcome {}
 
+    /** Still being carried out: the row stays running until its consumer settles it or the asker withdraws it. */
+    record Open() implements Outcome {}
+
     static Outcome done(final @Nullable Object answer) {
         return new Done(answer);
     }
 
     static Outcome refused(final Refusal refusal) {
         return new Refused(refusal);
+    }
+
+    static Outcome open() {
+        return new Open();
     }
 
     static Outcome failed(final @Nullable Object answer) {

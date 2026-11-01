@@ -9,6 +9,7 @@ import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.spec.Display;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** A request to the SMP from another process. Each record is one kind. */
 public sealed interface SmpRequest
@@ -21,7 +22,8 @@ public sealed interface SmpRequest
                 SmpRequest.CheckSettings,
                 SmpRequest.StoreModeState,
                 SmpRequest.RemoveStack,
-                SmpRequest.OpenInventory {
+                SmpRequest.OpenInventory,
+                SmpRequest.TakeInItem {
 
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
             .withRows(
@@ -32,6 +34,7 @@ public sealed interface SmpRequest
                     StoreModeState.class,
                     RemoveStack.class,
                     OpenInventory.class,
+                    TakeInItem.class,
                     PreviewMessage.class,
                     PreviewDocument.class);
 
@@ -164,6 +167,36 @@ public sealed interface SmpRequest
             Objects.requireNonNull(admin, "admin");
             Objects.requireNonNull(player, "player");
             Objects.requireNonNull(container, "container");
+        }
+    }
+
+    /**
+     * Opens a window for the admin's player, who puts in one item that Steward copies whole.
+     * It stays running while the window is open and is refused while the player is not on the server.
+     */
+    record TakeInItem(PlayerId player) implements SmpRequest {
+
+        public TakeInItem {
+            Objects.requireNonNull(player, "player");
+        }
+
+        /**
+         * @param item the namespaced id of the item's material, null if the window closed empty
+         * @param data the whole stack as Base64 of its serialised bytes, null if the window closed empty
+         */
+        public record Answer(
+                @Nullable String item, @Nullable String data) {
+
+            public Answer {
+                if ((item == null) != (data == null)) {
+                    throw new IllegalArgumentException("an item comes with its data, and none without");
+                }
+            }
+
+            /** Returns the answer of a window closed empty. */
+            public static Answer none() {
+                return new Answer(null, null);
+            }
         }
     }
 }

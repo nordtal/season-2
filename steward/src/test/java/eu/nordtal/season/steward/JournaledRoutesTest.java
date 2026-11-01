@@ -50,7 +50,9 @@ class JournaledRoutesTest extends WebFixture {
             Map.entry("POST /api/document-preview", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/documents/render", Unjournaled.SHOWN_TO_ONESELF),
             Map.entry("POST /api/shared-parts/{name}/changes", Unjournaled.SHOWN_TO_ONESELF),
-            Map.entry("POST /api/document-images", Unjournaled.SHOWN_ONCE_SAVED));
+            Map.entry("POST /api/document-images", Unjournaled.SHOWN_ONCE_SAVED),
+            Map.entry("POST /api/smp/take-in", Unjournaled.SHOWN_ONCE_SAVED),
+            Map.entry("DELETE /api/commands/{id}", Unjournaled.SHOWN_ONCE_SAVED));
 
     @Test
     void everyChangingRouteIsJournaledOrNamedAsLeftOut() {

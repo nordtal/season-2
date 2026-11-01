@@ -63,6 +63,7 @@ import eu.nordtal.season.smp.region.Boxes;
 import eu.nordtal.season.smp.region.ConfigBoxes;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.state.SeasonState;
+import eu.nordtal.season.smp.wheel.PrizeTakeIn;
 import eu.nordtal.season.smp.wheel.SpinDao;
 import eu.nordtal.season.smp.world.Datapacks;
 import eu.nordtal.season.smp.world.Worlds;
@@ -276,16 +277,25 @@ public final class SmpPlugin extends NordtalPlugin {
         // This handler runs before the surface handler, so one pass starts the track over and draws it.
         hub().on(Channel.PHASE, "the season reset", this::startTrackOverIfDue);
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
-        answer(SmpRequest.TABLE, (request, actor) -> switch (request) {
+        final PrizeTakeIn takeIn = new PrizeTakeIn(this, pool(), renderer(), documents(), identities());
+        takeIn.watch(hub());
+        answerRequests(takeIn);
+        getLogger().info(track.size() + " milestones, " + protectedAreas.all().size() + " protected boxes");
+    }
+
+    /** Carries out what Steward asks of smp, each request by its kind. */
+    private void answerRequests(final PrizeTakeIn takeIn) {
+        answer(SmpRequest.TABLE, request -> switch (request.payload()) {
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
-            case SmpRequest.SetAura set -> admin.setAura(set.person(), set.aura(), actor);
+            case SmpRequest.SetAura set -> admin.setAura(set.person(), set.aura(), request.actor());
             case SmpRequest.SetSpins set -> admin.setSpins(set.person(), set.spins());
             case SmpRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
             case SmpRequest.PreviewDocument preview -> preview(preview.player(), preview.preview());
             case SmpRequest.CheckSettings check -> checkSettings(check.change());
             case SmpRequest.StoreModeState store -> storeModeState(store.player());
             case SmpRequest.OpenInventory open -> openEditor(open.admin(), open.player(), open.container());
+            case SmpRequest.TakeInItem take -> takeIn.open(request.id(), take.player());
             case SmpRequest.RemoveStack remove ->
                 removeStack(
                         remove.player(),
@@ -295,7 +305,6 @@ public final class SmpPlugin extends NordtalPlugin {
                         remove.item(),
                         remove.amount());
         });
-        getLogger().info(track.size() + " milestones, " + protectedAreas.all().size() + " protected boxes");
     }
 
     @Override

@@ -24,6 +24,7 @@ import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.InboxTable;
 import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.Outcome;
+import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.message.MessageOverrideStore;
@@ -93,6 +94,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -437,8 +439,12 @@ public abstract class NordtalPlugin extends JavaPlugin {
      * It is handed each request and the actor who asked for it.
      */
     protected final <P> void answer(final InboxTable<P> table, final BiFunction<P, Actor, Answer> action) {
-        Inbox.takeOver(pool, table, getName())
-                .listen(hub(), request -> outcome(safely(() -> action.apply(request.payload(), request.actor()))));
+        answer(table, request -> action.apply(request.payload(), request.actor()));
+    }
+
+    /** Answers this plugin's inbox on the hub, handed each whole request, so an open answer knows which to settle. */
+    protected final <P> void answer(final InboxTable<P> table, final Function<Request<P>, Answer> action) {
+        Inbox.takeOver(pool, table, getName()).listen(hub(), request -> outcome(safely(() -> action.apply(request))));
     }
 
     protected final Answer preview(final PlayerId player, final MessagePreview preview) {
@@ -528,6 +534,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
             case Answer.Done done -> user.reply(done.message());
             case Answer.Refused refused -> user.refuse(refused.refusal().message());
             case Answer.Failed failed -> user.reply(failed.message());
+            case Answer.Open open -> {}
         }
     }
 
@@ -535,6 +542,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private Outcome outcome(final Answer answer) {
         return switch (answer) {
             case Answer.Done done -> Outcome.done(null);
+            case Answer.Open open -> Outcome.open();
             case Answer.Refused refused -> Outcome.refused(refused.refusal());
             case Answer.Failed failed -> {
                 getLogger().warning("a request failed: " + english(failed.message()));

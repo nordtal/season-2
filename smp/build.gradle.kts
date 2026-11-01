@@ -65,6 +65,7 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.hud.SmpHud")
     documentClasses.add("eu.nordtal.season.smp.board.Boards")
     documentClasses.add("eu.nordtal.season.smp.wheel.Wheel")
+    documentClasses.add("eu.nordtal.season.smp.wheel.TakeInWindow")
     documentClasses.add("eu.nordtal.season.smp.duel.Duels")
     documentClasses.add("eu.nordtal.season.smp.duel.Negotiation")
     documentClasses.add("eu.nordtal.season.smp.duel.NegotiationWindow")

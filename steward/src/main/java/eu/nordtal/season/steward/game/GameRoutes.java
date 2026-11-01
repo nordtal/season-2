@@ -21,6 +21,12 @@ public final class GameRoutes {
             final GameDataRoutes gameData,
             final ConsoleCommands consoleCommands) {
         cfg.routes.get("/api/commands/{id}", commands::outcome, Gate.KEY_HELD);
+        cfg.routes.delete("/api/commands/{id}", commands::withdraw, Gate.KEY_HELD, Unjournaled.SHOWN_ONCE_SAVED);
+        cfg.routes.post(
+                "/api/smp/take-in",
+                ctx -> GameActions.answer(ctx, commands.takeIn(ctx)),
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_ONCE_SAVED);
 
         // These routes read the same rows by their target instead of by command name.
         cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);

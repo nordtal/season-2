@@ -40,4 +40,13 @@ public interface WheelPrizeSpec {
     default int weight() {
         return 1;
     }
+
+    /** The whole item an admin took in from the game, as Base64 of its serialised stack; empty for a plain item. */
+    @Order(4)
+    @Name("Item data")
+    @Key("data")
+    @NoExplanationNeeded
+    default String data() {
+        return "";
+    }
 }

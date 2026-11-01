@@ -17,7 +17,9 @@ public enum Unjournaled implements RouteRole {
     /** A text shown to the admin alone. */
     SHOWN_TO_ONESELF,
 
-    /** An uploaded image, which the later save of a document journals. */
+    /**
+     * Something brought in for a draft, an uploaded image or an item taken in from the game, which its save journals.
+     */
     SHOWN_ONCE_SAVED,
 
     /** A draft only the admins see: its send journals what goes out, and a draft deleted unsent reached nobody. */

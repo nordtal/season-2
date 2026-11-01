@@ -126,6 +126,18 @@ public interface GameTexts {
     @Name("No prizes")
     MessageRef noPrizes();
 
+    @Name("Take in from game")
+    MessageRef takeIn();
+
+    @Name("Cancel take-in")
+    MessageRef cancelTakeIn();
+
+    @Name("Take-in failed")
+    MessageRef takeInFailed();
+
+    @Name("Taken in whole")
+    MessageRef takenIn();
+
     @Name("Advancements with an award")
     MessageRef awarded(@Arg("count") @Example("192") int count);
 

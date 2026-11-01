@@ -13,6 +13,7 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import { BLOCK_KEYS, chance, count, field, listEntry, sum, text } from "@/components/steward/game-groups/model"
 import { AddPicker, Heading, NumberInput } from "@/components/steward/game-groups/parts"
 import { PlaceList } from "@/components/steward/game-groups/places"
+import { TakeInButton } from "@/components/steward/game-groups/take-in"
 import { EntryDialog, Labelled, Tile, Tiles } from "@/components/steward/game-groups/tiles"
 import { t } from "@/lib/texts"
 
@@ -86,6 +87,10 @@ function Prizes({
       </span>
     )
   }
+  const add = (prize: SectionValues) => {
+    onChange([...prizes, { ...blankSection(list.template ?? []), ...prize }])
+    choose(prizes.length)
+  }
   const open = chosen !== null && chosen < prizes.length ? chosen : null
   const prize = open === null ? undefined : prizes[open]
 
@@ -98,10 +103,8 @@ function Prizes({
             label={t("steward.game.prize")}
             reference={item.refers!}
             disabled={disabled}
-            onPick={(id) => {
-              onChange([...prizes, { ...blankSection(list.template ?? []), item: id }])
-              choose(prizes.length)
-            }}
+            action={field(list, "data") === undefined ? undefined : <TakeInButton disabled={disabled} onTaken={add} />}
+            onPick={(id) => add({ item: id })}
           />
         }
       >
@@ -206,6 +209,9 @@ function Prize({
         </Labelled>
       </div>
       <p className="text-xs text-muted-foreground">{t("steward.game.chance-is", { total })}</p>
+      {text(prize, "data") === "" ? null : (
+        <p className="text-xs text-muted-foreground">{t("steward.game.taken-in")}</p>
+      )}
     </>
   )
 }

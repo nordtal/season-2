@@ -31,6 +31,9 @@ public sealed interface Answer {
         }
     }
 
+    /** The action goes on after the answer, and the plugin settles its request itself once it ends. */
+    record Open() implements Answer {}
+
     static Answer done(final Sent<?> message) {
         return new Done(message);
     }
@@ -41,5 +44,9 @@ public sealed interface Answer {
 
     static Answer failed(final Sent<?> message) {
         return new Failed(message);
+    }
+
+    static Answer open() {
+        return new Open();
     }
 }

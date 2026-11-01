@@ -30,7 +30,6 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.Context;
 import java.time.Duration;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -50,6 +49,9 @@ public final class CommandApi {
 
     /** The time a request in a server's inbox waits to be picked up before it expires. */
     public static final Duration PATIENCE = Duration.ofMinutes(2);
+
+    /** The time a take-in waits for the SMP to open its window. Once it shows, it waits for the admin's player. */
+    public static final Duration TAKE_IN_PATIENCE = Duration.ofMinutes(1);
 
     private final Data data;
 
@@ -144,21 +146,67 @@ public final class CommandApi {
         if (MessagesApi.PreviewTarget.of(shown) == MessagesApi.PreviewTarget.DISCORD) {
             return "bot:" + ask(who, data.bot(), bot.apply(admin));
         }
-        final UUID linked = data.access()
-                .linkedMinecraftAccount(admin)
-                .orElseThrow(() -> new RequestRefused(409, ANSWER.previewUnlinked()));
-        final String server = data.roster().current().stream()
-                .filter(online -> online.uuid().equals(linked))
-                .map(OnlinePlayer::subject)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse("");
-        final PlayerId player = PlayerId.of(linked);
-        return switch (server) {
+        final PlayerId player = linked(admin);
+        return switch (serverOf(player)) {
             case Topology.SMP -> "smp:" + ask(who, data.smp(), smp.apply(player));
             case Topology.HUNGER_GAMES -> "hunger_games:" + ask(who, data.hungerGames(), games.apply(player));
             default -> throw new RequestRefused(409, ANSWER.previewOffline());
         };
+    }
+
+    /**
+     * Writes the request for an item the admin's player puts in on the SMP and returns its name.
+     * It is refused while the player is not there, so the admin never waits for a window that cannot open.
+     */
+    public String takeIn(final Context ctx) {
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final PlayerId player = linked(DiscordId.of(who.id()));
+        if (!serverOf(player).equals(Topology.SMP)) {
+            throw new RequestRefused(409, ANSWER.takeInOffline());
+        }
+        final SmpRequest request = new SmpRequest.TakeInItem(player);
+        final Request<SmpRequest> asked = data.smp().submit(request, who.actor(), Schedule.within(TAKE_IN_PATIENCE));
+        log.info("{} asked for {}", who.name(), data.smp().table().kindOf(request));
+        return "smp:" + asked.id();
+    }
+
+    /** {@code DELETE /api/commands/{id}} withdraws the admin's own take-in, waiting or with its window open. */
+    public void withdraw(final Context ctx) {
+        final String id = ctx.pathParam("id");
+        final String[] name = id.split(":", -1);
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        try {
+            final long row = name.length == 2 && name[0].equals("smp") ? Long.parseLong(name[1]) : -1;
+            final boolean own = data.smp()
+                    .find(row)
+                    .filter(found -> found.payload() instanceof SmpRequest.TakeInItem
+                            && found.actor().equals(who.actor()))
+                    .isPresent();
+            if (!own) {
+                throw new RequestRefused(404, ANSWER.noRequest(id));
+            }
+            final var _ = data.smp().withdraw(row);
+            ctx.status(204);
+        } catch (final NumberFormatException malformed) {
+            throw new RequestRefused(404, ANSWER.noRequest(id));
+        }
+    }
+
+    /** Returns the Minecraft account linked to {@code admin}, or refuses when there is none. */
+    private PlayerId linked(final DiscordId admin) {
+        return PlayerId.of(data.access()
+                .linkedMinecraftAccount(admin)
+                .orElseThrow(() -> new RequestRefused(409, ANSWER.previewUnlinked())));
+    }
+
+    /** Returns the server {@code player} is on, as the roster names it, or empty while they are on none. */
+    private String serverOf(final PlayerId player) {
+        return data.roster().current().stream()
+                .filter(online -> online.uuid().equals(player.value()))
+                .map(OnlinePlayer::subject)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse("");
     }
 
     private <P> long ask(final DiscordAuth.Account who, final Inbox<P> inbox, final P request) {
@@ -169,7 +217,7 @@ public final class CommandApi {
 
     /**
      * The status of a request.
-     * {@code reason} is the reason of a server refusal, {@code answer} the typed answer of a bot request that has one.
+     * {@code reason} is the reason of a server refusal, {@code answer} the typed answer of a request that has one.
      */
     public record CommandRun(
             String id,
@@ -210,17 +258,10 @@ public final class CommandApi {
                 .filter(found -> !(found.payload() instanceof BotRequest.Announce
                         || found.payload() instanceof BotRequest.PostAnnouncement))
                 .orElseThrow(() -> new RequestRefused(404, ANSWER.noRequest(name)));
-        final CommandRun run = settled(name, row);
-        final Object answer = row.answer();
-        return new CommandRun(
-                name,
-                run.status(),
-                run.result(),
-                run.reason(),
-                answer == null ? null : Json.gson().toJsonTree(answer).getAsJsonObject());
+        return settled(name, row);
     }
 
-    /** Returns the status of a request and the words and reason of a refusal. */
+    /** Returns the status of a request, the words and reason of a refusal and the typed answer. */
     private <P> CommandRun settled(final String name, final Request<P> row) {
         return new CommandRun(
                 name,
@@ -230,7 +271,9 @@ public final class CommandApi {
                         .map(StewardTexts.TEXTS.steward().said()::words)
                         .orElse(null),
                 row.refusal().map(refusal -> refusal.reason().name()).orElse(null),
-                null);
+                row.answer() == null
+                        ? null
+                        : Json.gson().toJsonTree(row.answer()).getAsJsonObject());
     }
 
     /** Returns the status of the announcement and the result for one language. */

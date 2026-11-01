@@ -1,0 +1,34 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Wheel prize",
+            "de": "Gewinn fürs Rad"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "put-in",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>Put in the prize</emphasis>",
+            "de": "<emphasis>Gewinn hineinlegen</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Click here with an item, or shift-click one in your inventory. It is copied whole and you keep it.</muted>",
+            "de": "<muted>Klicke hier mit einem Gegenstand oder klicke einen in deinem Inventar mit Shift an. Er wird ganz kopiert und du behältst ihn.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1492,6 +1492,8 @@ describe("the Nordtal tab", function()
     t.dialogs.answer = function(d) form = d d.data = { ok=true, file="/tmp/lamp.bbmodel", id="nordtal:item/lamp" } end
     click(dlg, "items.import")
     assert.equal("file", form.widgets[1].kind)
+    -- Wide enough to show a model's id whole
+    assert.equal(360, form.bounds.width)
     local import = t.started[#t.started]
     assert.equal(":resource-pack:importBlockbench -Pat=model/cases/0/model -Pid=nordtal:item/lamp -Pitem=nordtal:lamp -Pmodel=/tmp/lamp.bbmodel",
       run(import))
@@ -1739,7 +1741,10 @@ describe("the Nordtal tab", function()
     synced(t)
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     local shown = table.concat(texts(dlg), "\n")
-    assert.truthy(shown:find("properties.conflict\n  src/assets/nordtal/textures/badges/star.png, about", 1, true))
+    -- The conflict comes first in the panel
+    local conflict = shown:find("properties.conflict\n  src/assets/nordtal/textures/badges/star.png, about", 1, true)
+    assert.truthy(conflict)
+    assert.truthy(conflict < shown:find("properties.font", 1, true))
     click(dlg, "properties.resolve")
     assert.equal(":resource-pack:readConflict -Pdraft=nordtal:badges/star.png", run(t.started[3]))
     local compare

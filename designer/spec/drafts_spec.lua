@@ -139,8 +139,9 @@ describe("drafts", function()
         rawset(d, "sizeHint", { width=200, height=100 })
         return d
       end
-      drafts.ask{ labels=labeller(48), Dialog=Sized, tr=tr, list={ draft("star", "changed") }, Rectangle=Rectangle,
-        screen=function() return screenWidth, 400 end, check=function() return true end }
+      drafts.ask{ labels=labeller(48), Dialog=Sized, tr=tr, list={ draft("star", "changed") }, fit=function(d, least)
+          panel.fit(d, least, Rectangle, function() return screenWidth, 400 end)
+        end, check=function() return true end }
       return rawget(shown[#shown], "bounds")
     end
     assert.same({ x=60, y=150, width=480, height=100 }, wide(600))
@@ -195,6 +196,8 @@ describe("drafts", function()
     assert.same({
       { text="properties.conflict", value="src/moon.png, about" },
       { text="properties.resolve", field="resolve", kind="button" },
+    }, drafts.conflict(model, info, tr))
+    assert.same({
       { text="properties.discard", field="discard", kind="button" },
       { text="properties.review", value="review.changes_requested 42" },
       { text="properties.checks", value="checks.failure" },

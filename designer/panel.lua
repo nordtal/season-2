@@ -117,6 +117,17 @@ local buttonShadow = 2
 -- The space between a check box and its text
 local gap = 3
 
+-- Gives the dialog its own size, but at least least wide inside the
+-- window, centred there. Rectangle makes the bounds, screen() gives the
+-- window's width and height; without them the dialog keeps its size.
+function panel.fit(dialog, least, Rectangle, screen)
+  if not (Rectangle and screen) then return end
+  local hint = dialog.sizeHint
+  local width, height = screen()
+  local w = math.max(1, math.min(width - 16, math.max(hint.width, least)))
+  dialog.bounds = Rectangle((width - w) // 2, (height - hint.height) // 2, w, hint.height)
+end
+
 -- What to draw for rows { text, value, field, kind } and where a click hits a field: { ops, hits, height }.
 -- An op is a text { text, x, y, key }, a box, a check or a button. kind is nil for a key and its value or a
 -- value alone, "switch" for a check box with its text, or "button". textHeight is the height of a line's

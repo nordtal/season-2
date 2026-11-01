@@ -187,7 +187,7 @@ class ItemDefinitionsTest {
             listOf("vanilla", null, OxfmtJson.read(model(apple))),
             listOf(vanilla["source"], vanilla["file"], vanilla["definition"]),
         )
-        assertEquals(listOf("pack", written.absolutePath), listOf(override["source"], override["file"]))
+        assertEquals(listOf("pack", written.relativeTo(pack).invariantSeparatorsPath), listOf(override["source"], override["file"]))
         assertEquals(listOf(mapOf("label" to "", "give" to "minecraft:apple")), override["states"])
     }
 

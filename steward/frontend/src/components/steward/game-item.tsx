@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 
 import { type ItemDetails, type ItemLine, detailsOf, readItemData, translationsOf } from "@/lib/item-data"
+import { Badge } from "@/components/ui/badge"
 import { useGameData } from "@/lib/queries"
 import { gameKey } from "@/lib/references"
 import { t } from "@/lib/texts"
@@ -44,18 +45,22 @@ export function EnchantmentBadges({
   if (enchantments.length === 0) return null
   const shown = enchantments.slice(0, shownOf(enchantments.length, most))
   const rest = enchantments.length - shown.length
-  const badge = "inline-flex h-5 items-center rounded-full border px-1.5 text-badge font-medium whitespace-nowrap"
+  const badge = "px-1.5 text-badge"
   return (
     <span className={cn("flex flex-wrap justify-center gap-1", className)}>
       {shown.map((enchantment, index) => (
-        <span key={index} className={cn(badge, "border-enchantment/30 bg-enchantment/12 text-enchantment")}>
+        <Badge
+          key={index}
+          variant="outline"
+          className={cn(badge, "border-enchantment/30 bg-enchantment/12 text-enchantment")}
+        >
           {enchantment}
-        </span>
+        </Badge>
       ))}
       {rest > 0 ? (
-        <span className={cn(badge, "border-border bg-secondary text-muted-foreground")}>
+        <Badge variant="outline" className={cn(badge, "bg-secondary text-muted-foreground")}>
           {t("steward.game.more-enchantments", { count: rest })}
-        </span>
+        </Badge>
       ) : null}
     </span>
   )

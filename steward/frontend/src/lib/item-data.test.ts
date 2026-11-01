@@ -56,7 +56,11 @@ describe("detailsOf", () => {
       "minecraft:custom_name": compound({ text: text("Frostbite"), color: text("aqua"), italic: byte(0) }),
       "minecraft:lore": list([
         compound({ "": text("Forged in the north") }),
-        compound({ text: text("Kills: "), extra: list([compound({ text: text("12"), color: text("gold") })]) }),
+        compound({
+          text: text("Kills: "),
+          italic: byte(0),
+          extra: list([compound({ text: text("12"), color: text("gold") })]),
+        }),
       ]),
       "minecraft:enchantments": compound({
         "minecraft:sharpness": int(5),
@@ -79,7 +83,7 @@ describe("detailsOf", () => {
         }),
       ]),
       "minecraft:unbreakable": compound({}),
-      "minecraft:custom_model_data": compound({ floats: list([float(1)]), strings: list([text("lit")]) }),
+      "minecraft:custom_model_data": compound({ floats: list([float(1), float(0.1)]), strings: list([text("lit")]) }),
       "minecraft:repair_cost": int(3),
       "minecraft:custom_data": compound({ PublicBukkitValues: compound({ "smp:marker": byte(1) }) }),
       "!minecraft:food": compound({}),
@@ -90,11 +94,11 @@ describe("detailsOf", () => {
       enchantments: ["Sharpness V", "Mending", "Unbreaking III"],
       lines: [
         { text: "Forged in the north", lore: true },
-        { text: "Kills: 12", lore: true },
+        { text: "Kills: 12", lore: false },
         { text: "+7 Attack damage in the main hand" },
         { text: "+10% Movement speed" },
         { text: "Unbreakable" },
-        { text: "Custom model data 1, lit" },
+        { text: "Custom model data 1, 0.1, lit" },
         { text: "Repair cost 3" },
       ],
     })

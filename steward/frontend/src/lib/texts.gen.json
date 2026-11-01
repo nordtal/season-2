@@ -932,7 +932,7 @@
     "steward.game.corner": [["Corner ",{"v":"index","k":"number"}]],
     "steward.game.counting-down": [["Counting down"]],
     "steward.game.custom-model-data": [["Custom model data ",{"v":"values"}]],
-    "steward.game.damaged": [["Damaged by ",{"v":"damage","k":"number"}]],
+    "steward.game.damaged": [[{"v":"damage","k":"number"}," durability lost"]],
     "steward.game.done-at": [["Done ",{"v":"at"}]],
     "steward.game.duel-types": [["Duel types"]],
     "steward.game.dyed": [["Dyed ",{"v":"colour"}]],

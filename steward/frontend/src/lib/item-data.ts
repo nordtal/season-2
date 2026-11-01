@@ -222,7 +222,7 @@ export function detailsOf(
   })
   const lore = parts[MINECRAFT + "lore"]
   const lines: ItemLine[] = Array.isArray(lore)
-    ? lore.map((line) => ({ text: plainText(line, translations), lore: true }))
+    ? lore.map((line) => ({ text: plainText(line, translations), lore: !upright(line) }))
     : []
   lines.push(...attributeLines(parts[MINECRAFT + "attribute_modifiers"]))
   if (parts[MINECRAFT + "unbreakable"] !== undefined) lines.push({ text: t("steward.game.unbreakable") })
@@ -241,7 +241,7 @@ export function detailsOf(
     lines.push({
       text:
         typeof value === "string" || typeof value === "number" || typeof value === "bigint"
-          ? t("steward.game.component", { name: label, value: String(value) })
+          ? t("steward.game.component", { name: label, value: shownNumber(value) })
           : label,
     })
   }
@@ -282,11 +282,22 @@ function modelDataOf(value: Nbt | undefined): string {
   if (!isCompound(value)) return typeof value === "number" ? String(value) : ""
   const list = (key: string) => (Array.isArray(value[key]) ? value[key] : [])
   return [
-    ...list("floats").filter((float) => typeof float === "number"),
+    ...list("floats").flatMap((float) => (typeof float === "number" ? [shownNumber(float)] : [])),
     ...list("flags").map((flag) => String(flag === 1)),
     ...list("strings").filter((text) => typeof text === "string"),
     ...list("colors").flatMap((colour) => (typeof colour === "number" ? [hex(colour)] : [])),
   ].join(", ")
+}
+
+/** The game sets lore in italics unless the line, or its wrapped element, turns them off. */
+function upright(line: Nbt): boolean {
+  if (!isCompound(line)) return false
+  return line.italic === 0 || (Object.keys(line).length === 1 && line[""] !== undefined && upright(line[""]))
+}
+
+/** A float reads back widened to a double; seven significant digits give the value the game shows. */
+function shownNumber(value: number | bigint | string): string {
+  return typeof value === "number" && !Number.isInteger(value) ? String(Number(value.toPrecision(7))) : String(value)
 }
 
 function hex(rgb: number): string {

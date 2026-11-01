@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
@@ -156,6 +157,10 @@ abstract class WebFixture {
     }
 
     static Web newWeb(final Data over, final AgentClient client) {
+        return newWeb(over, client, () -> true);
+    }
+
+    static Web newWeb(final Data over, final AgentClient client, final BooleanSupplier game) {
         final StackApi stack = StackServer.over(
                 client,
                 over.updates(),
@@ -168,6 +173,7 @@ abstract class WebFixture {
                 stack,
                 client,
                 true,
+                game,
                 over,
                 NetworkSettings.defaultLanguages(),
                 Clock.systemUTC(),

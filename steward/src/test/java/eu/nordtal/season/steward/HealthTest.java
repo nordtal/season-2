@@ -17,10 +17,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
 
-/** Checks that the health route answers 503 when the database or steward-agent does not answer. */
+/** Checks that the health routes answer 503 when the database, steward-agent or the game does not answer. */
 class HealthTest extends WebFixture {
 
     @Test
@@ -46,18 +47,40 @@ class HealthTest extends WebFixture {
         assertFalse(health.get("agent").getAsBoolean(), health.toString());
     }
 
-    private static JsonObject healthOf(final Web web) throws Exception {
+    @Test
+    void theGameRouteFollowsTheLastPing() throws Exception {
+        final AtomicBoolean answers = new AtomicBoolean(false);
+        final Web web = newWeb(data, new AgentClient(agent.client()), answers::get);
         try {
             final int port = web.start(0).port();
-            final HttpResponse<String> answer = HttpClient.newHttpClient()
-                    .send(
-                            HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/health"))
-                                    .build(),
-                            HttpResponse.BodyHandlers.ofString());
-            assertEquals(503, answer.statusCode(), answer.body());
-            return GSON.fromJson(answer.body(), JsonObject.class);
+
+            assertFalse(answerOf(port, "/api/health/game", 503).get("game").getAsBoolean());
+            answers.set(true);
+            assertTrue(answerOf(port, "/api/health/game", 200).get("game").getAsBoolean());
         } finally {
             web.stop();
         }
+    }
+
+    private static JsonObject healthOf(final Web web) throws Exception {
+        try {
+            return answerOf(web.start(0).port(), "/api/health", 503);
+        } finally {
+            web.stop();
+        }
+    }
+
+    /** Asks until the route gives the status, because the game ping runs on the scheduler every 15 seconds. */
+    private static JsonObject answerOf(final int port, final String path, final int status) throws Exception {
+        final HttpRequest request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+                .build();
+        final long until = System.nanoTime() + Duration.ofSeconds(45).toNanos();
+        HttpResponse<String> answer = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        while (answer.statusCode() != status && System.nanoTime() < until) {
+            Thread.sleep(200);
+            answer = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+        }
+        assertEquals(status, answer.statusCode(), answer.body());
+        return GSON.fromJson(answer.body(), JsonObject.class);
     }
 }

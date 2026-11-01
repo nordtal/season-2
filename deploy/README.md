@@ -341,14 +341,16 @@ sudo bash deploy/restore.sh nordtal-<stamp>.dump                    # restore th
 Every alert runs inside the stack. An uptime service outside the host therefore checks three targets
 every minute from four locations and posts to a webhook in the admin channel:
 
-| check            | target                                                            | down means                                                  |
-| ---------------- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
-| Steward          | `https://<STEWARD_HOST>/api/health`, 200                          | Steward, Caddy, PostgreSQL or steward-agent does not answer |
-| game port        | TCP `<NETWORK_PUBLIC_ADDRESS>`                                    | the host, Docker or Caddy is down                           |
-| game, end to end | `https://api.mcsrvstat.us/simple/<address>`, 200, every 5 minutes | no proxy answers a status ping                              |
+| check            | target                                        | down means                                                  |
+| ---------------- | --------------------------------------------- | ----------------------------------------------------------- |
+| Steward          | `https://<STEWARD_HOST>/api/health`, 200      | Steward, Caddy, PostgreSQL or steward-agent does not answer |
+| game port        | TCP `<NETWORK_PUBLIC_ADDRESS>`                | the host, Docker or Caddy is down                           |
+| game, end to end | `https://<STEWARD_HOST>/api/health/game`, 200 | no proxy answers a status ping through Caddy's game port    |
 
-When all three fail, the host is down. Reach it through the console of the provider, or set the
-stack up again on a new host from the backups.
+Steward answers the third check itself, from a status ping every 15 seconds, so that check also
+fails while Steward is down.
+When all three fail, the host is down. Reach it through the console of the provider, or set the stack
+up again on a new host from the backups.
 
 ## The firewall
 

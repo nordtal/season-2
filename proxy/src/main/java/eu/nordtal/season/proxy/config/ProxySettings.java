@@ -11,26 +11,8 @@ public final class ProxySettings {
 
     private ProxySettings() {}
 
-    /** Throws an {@link IllegalArgumentException} that names the first invalid value of the gate group. */
-    public static void checkGate(final GateSpec config) {
-        Checks.requirePositive("link-code-ttl-minutes", config.linkCodeTtlMinutes());
-        Checks.requirePositive("fallback-cache-window-minutes", config.fallbackCacheWindowMinutes());
-        Checks.requirePositive("expiry-warning-lead-minutes", config.expiryWarningLeadMinutes());
-        Checks.requirePositive("playtime-flush-interval-seconds", config.playtimeFlushIntervalSeconds());
-        Checks.requirePositive("limbo-sweep-interval-seconds", config.limboSweepIntervalSeconds());
-        Checks.requireText("server-limbo", config.serverLimbo());
-        Checks.requireText("server-hunger-games", config.serverHungerGames());
-        Checks.requireText("server-smp", config.serverSmp());
-    }
-
-    /** Throws an {@link IllegalArgumentException} that names the first invalid value of the queue group. */
-    public static void checkQueue(final QueueSpec config) {
-        Checks.requirePositive("smp-interval-seconds", config.smpIntervalSeconds());
-    }
-
     /** Throws an {@link IllegalArgumentException} that names the first invalid value of the pack group. */
     public static void checkPack(final PackSpec config) {
-        Checks.requirePositive("apply-timeout-seconds", config.applyTimeoutSeconds());
         if (!config.enabled()) {
             return;
         }

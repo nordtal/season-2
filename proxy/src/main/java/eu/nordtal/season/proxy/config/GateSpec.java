@@ -1,5 +1,7 @@
 package eu.nordtal.season.proxy.config;
 
+import eu.nordtal.season.settings.rule.Positive;
+import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -23,6 +25,7 @@ public interface GateSpec {
     @Order(2)
     @Name("Link code lifetime (minutes)")
     @Key("link-code-ttl-minutes")
+    @Positive
     @NoExplanationNeeded
     default int linkCodeTtlMinutes() {
         return 10;
@@ -35,6 +38,7 @@ public interface GateSpec {
     @Order(3)
     @Name("Fallback cache window (minutes)")
     @Key("fallback-cache-window-minutes")
+    @Positive
     @NoExplanationNeeded
     default int fallbackCacheWindowMinutes() {
         return 15;
@@ -44,6 +48,7 @@ public interface GateSpec {
     @Order(5)
     @Name("Warning before expiry (minutes)")
     @Key("expiry-warning-lead-minutes")
+    @Positive
     @NoExplanationNeeded
     default int expiryWarningLeadMinutes() {
         return 5;
@@ -53,6 +58,7 @@ public interface GateSpec {
     @Order(8)
     @Name("Playtime flush interval (seconds)")
     @Key("playtime-flush-interval-seconds")
+    @Positive
     @NoExplanationNeeded
     default int playtimeFlushIntervalSeconds() {
         return 300;
@@ -62,6 +68,7 @@ public interface GateSpec {
     @Order(9)
     @Name("Limbo server")
     @Key("server-limbo")
+    @Required
     @Explain("Must match a server in velocity.toml.")
     default String serverLimbo() {
         return "limbo";
@@ -71,6 +78,7 @@ public interface GateSpec {
     @Order(10)
     @Name("Hunger Games server")
     @Key("server-hunger-games")
+    @Required
     @Explain("Must match a server in velocity.toml.")
     default String serverHungerGames() {
         return "hunger-games";
@@ -80,6 +88,7 @@ public interface GateSpec {
     @Order(11)
     @Name("SMP server")
     @Key("server-smp")
+    @Required
     @Explain("Must match a server in velocity.toml.")
     default String serverSmp() {
         return "smp";
@@ -98,6 +107,7 @@ public interface GateSpec {
     @Order(13)
     @Name("Limbo sweep interval (seconds)")
     @Key("limbo-sweep-interval-seconds")
+    @Positive
     @Explain("Keep it well below the pack's apply timeout.")
     default int limboSweepIntervalSeconds() {
         return 5;

@@ -1,6 +1,9 @@
 package eu.nordtal.season.discordbot.config;
 
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Entries;
+import eu.nordtal.season.settings.rule.Required;
+import eu.nordtal.season.settings.rule.Unique;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -54,6 +57,9 @@ public interface OnboardingSpec {
     @Order(5)
     @Name("Regions")
     @Key("regions")
+    @Required
+    @Entries(most = BotSettings.MAX_CHOICES)
+    @Unique("zone")
     @NoExplanationNeeded
     default List<RegionSpec> regions() {
         return DefaultRegions.LIST;

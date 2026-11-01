@@ -1,5 +1,6 @@
 package eu.nordtal.season.settings.network;
 
+import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -14,6 +15,7 @@ public interface PlayersSpec {
     @Order(1)
     @Name("Max players")
     @Key("max-players")
+    @Positive
     @NoExplanationNeeded
     default int maxPlayers() {
         return 500;

@@ -1,6 +1,8 @@
 package eu.nordtal.season.steward.config;
 
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Between;
+import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -16,6 +18,7 @@ public interface WebSpec {
     @Order(1)
     @Name("Port")
     @Key("port")
+    @Positive
     @NoExplanationNeeded
     default int port() {
         return 8080;
@@ -38,6 +41,8 @@ public interface WebSpec {
     @Order(4)
     @Name("Session length (days)")
     @Key("session-days")
+    // The ceiling keeps Max-Age within an int, and no session outlasts a season.
+    @Between(least = 1, most = 365)
     @NoExplanationNeeded
     default int sessionDays() {
         return 30;

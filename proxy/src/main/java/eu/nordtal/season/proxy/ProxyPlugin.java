@@ -218,16 +218,14 @@ public final class ProxyPlugin {
         this.pool = opened;
         final DatabaseSettings settings =
                 DatabaseSettings.over(SettingStore.using(opened), "proxy", environment, logger);
-        final GateSpec gate = settings.load(Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate))
-                .get();
+        final GateSpec gate = settings.load(Group.of("gate", GateSpec.class)).get();
         final PackSpec pack = settings.load(Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack))
                 .get();
         final NetworkSpec network = settings.load(
                         Group.of("network", NetworkSpec.class).whileRunning())
                 .get();
-        final Setting<QueueSpec> queue = settings.load(Group.of("queue", QueueSpec.class)
-                .checkedBy(ProxySettings::checkQueue)
-                .whileRunning());
+        final Setting<QueueSpec> queue =
+                settings.load(Group.of("queue", QueueSpec.class).whileRunning());
         final ToneColours colours =
                 ToneColours.parse(Colours.declared(settings.load(Colours.GROUP).get()), logger::warn);
         final Setting<PlayersSpec> players = settings.load(NetworkSettings.PLAYERS);

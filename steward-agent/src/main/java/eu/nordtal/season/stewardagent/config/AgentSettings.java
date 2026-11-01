@@ -64,18 +64,6 @@ public final class AgentSettings {
     static void checkRuns(final RunSpec config) {
         requireRepo("season-repo", config.seasonRepo());
         requireModrinthId("packetevents-project", config.packetEventsProject());
-        Checks.requireText("volumes-root", config.volumesRoot());
-        Checks.requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
-        Checks.requirePositive("download-timeout-seconds", config.downloadTimeoutSeconds());
-        Checks.requirePositive("backup.patience-minutes", config.backup().patienceMinutes());
-        requirePercent("backup.budget-percent", config.backup().budgetPercent(), 1);
-        requirePercent("backup.keep-free-percent", config.backup().keepFreePercent(), 0);
-    }
-
-    private static void requirePercent(final String key, final int value, final int least) {
-        if (value < least || value > 100) {
-            throw new IllegalArgumentException(key + " must be between " + least + " and 100, was " + value);
-        }
     }
 
     private static void checkDatabase(final DatabaseSpec config) {
@@ -92,7 +80,6 @@ public final class AgentSettings {
     }
 
     private static void requireRepo(final String key, final String value) {
-        Checks.requireText(key, value);
         if (!REPO.matcher(value).matches()) {
             throw new IllegalArgumentException(key + " must be a GitHub repository as owner/name"
                     + " - not a URL and not just the name - was '" + value + "'");
@@ -100,7 +87,6 @@ public final class AgentSettings {
     }
 
     private static void requireModrinthId(final String key, final String value) {
-        Checks.requireText(key, value);
         if (!MODRINTH_ID.matcher(value).matches()) {
             // The author can rename a slug, so a slug fails here as an id.
             throw new IllegalArgumentException(key + " must be a Modrinth project id: eight"

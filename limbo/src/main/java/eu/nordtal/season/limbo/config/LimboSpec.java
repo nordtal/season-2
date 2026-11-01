@@ -1,5 +1,8 @@
 package eu.nordtal.season.limbo.config;
 
+import eu.nordtal.season.settings.rule.Between;
+import eu.nordtal.season.settings.rule.Positive;
+import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -15,6 +18,7 @@ public interface LimboSpec {
     @Order(1)
     @Name("World name")
     @Key("world-name")
+    @Required
     @NoExplanationNeeded
     default String worldName() {
         return "limbo";
@@ -24,6 +28,7 @@ public interface LimboSpec {
     @Order(2)
     @Name("Spawn Y")
     @Key("spawn-y")
+    @Between(least = -60, most = 300)
     @NoExplanationNeeded
     default int spawnY() {
         return 64;
@@ -33,6 +38,7 @@ public interface LimboSpec {
     @Order(3)
     @Name("Title refresh (seconds)")
     @Key("title-refresh-seconds")
+    @Positive
     @Explain("Too long and the screen goes black between refreshes, which looks like a crash.")
     default int titleRefreshSeconds() {
         return 4;

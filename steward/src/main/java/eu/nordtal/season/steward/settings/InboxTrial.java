@@ -1,7 +1,6 @@
 package eu.nordtal.season.steward.settings;
 
 import eu.nordtal.season.common.id.Actor;
-import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.Inbox;
@@ -9,7 +8,7 @@ import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.messages.Messages;
+import eu.nordtal.season.messages.Refusal;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
@@ -22,18 +21,11 @@ public final class InboxTrial implements ServerTrial {
 
     private final Inbox<SmpRequest> smp;
     private final Inbox<HungerGamesRequest> hungerGames;
-    private final Messages refusals;
     private final Waiting clock;
 
-    /** @param refusals the database bundle that words a server's refusal */
-    public InboxTrial(
-            final Inbox<SmpRequest> smp,
-            final Inbox<HungerGamesRequest> hungerGames,
-            final Messages refusals,
-            final Waiting clock) {
+    public InboxTrial(final Inbox<SmpRequest> smp, final Inbox<HungerGamesRequest> hungerGames, final Waiting clock) {
         this.smp = Objects.requireNonNull(smp, "smp");
         this.hungerGames = Objects.requireNonNull(hungerGames, "hungerGames");
-        this.refusals = Objects.requireNonNull(refusals, "refusals");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -57,9 +49,7 @@ public final class InboxTrial implements ServerTrial {
             case REFUSED ->
                 new Verdict(
                         Verdict.Kind.REFUSED,
-                        row.refusal()
-                                .map(refusal -> refusals.format(Locales.DEFAULT, refusal.message()))
-                                .orElse(null));
+                        row.refusal().map(Refusal::message).orElse(null));
             default -> new Verdict(Verdict.Kind.UNANSWERED, null);
         };
     }

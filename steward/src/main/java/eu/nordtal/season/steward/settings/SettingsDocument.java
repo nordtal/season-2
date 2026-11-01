@@ -2,12 +2,14 @@ package eu.nordtal.season.steward.settings;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.common.Sha256;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.SettingRules;
 import eu.nordtal.season.spec.schema.SchemaNode;
 import eu.nordtal.season.spec.schema.SettingType;
 import eu.nordtal.season.steward.texts.RequestRefused;
@@ -232,6 +234,28 @@ public final class SettingsDocument {
             rows.put(path, value.equals(fallback) ? null : value.toString());
         }
         return rows;
+    }
+
+    /**
+     * Refuses {@code rows} when the group they leave breaks a rule its spec declares, as the server would.
+     * A path the environment holds is skipped, because Steward does not know its value.
+     *
+     * @throws SettingsRefusal for the first breach
+     */
+    void requireRules(final Map<String, @Nullable String> rows) {
+        final JsonObject merged = values.deepCopy();
+        rows.forEach((path, row) -> {
+            final JsonElement fallback = at(defaults, path);
+            put(
+                    merged,
+                    path,
+                    row != null ? JsonParser.parseString(row) : fallback == null ? JsonNull.INSTANCE : fallback);
+        });
+        final List<SettingRules.Breach> breaches = SettingRules.breaches(schema, merged, environment);
+        if (!breaches.isEmpty()) {
+            final SettingRules.Breach first = breaches.getFirst();
+            throw SettingsRefusal.declared(group.service(), SettingRules.shown(schema, first), first);
+        }
     }
 
     private @Nullable JsonObject nodeAt(final String path) {

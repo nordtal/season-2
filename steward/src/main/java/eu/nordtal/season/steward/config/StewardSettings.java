@@ -45,9 +45,7 @@ public final class StewardSettings {
 
     /** Returns the alerts group. A change applies at the next reading of the monitor. */
     public static Group<AlertsSpec> alertsGroup() {
-        return Group.of("alerts", AlertsSpec.class)
-                .checkedBy(StewardSettings::checkAlerts)
-                .whileRunning();
+        return Group.of("alerts", AlertsSpec.class).whileRunning();
     }
 
     public static Setting<AlertsSpec> alerts(final Settings settings) throws SettingsException {
@@ -68,26 +66,12 @@ public final class StewardSettings {
     }
 
     private static void checkSteward(final StewardSpec config) {
-        Checks.requirePositive("http-timeout-seconds", config.httpTimeoutSeconds());
-        requireBunq(config.bunq());
+        requireWatermark(config.bunq());
     }
 
     private static void checkWeb(final WebSpec config) {
-        Checks.requirePositive("port", config.port());
-        Checks.requirePositive("session-days", config.sessionDays());
-        // The ceiling keeps Max-Age within an int.
-        if (config.sessionDays() > 365) {
-            throw new IllegalArgumentException("session-days is " + config.sessionDays()
-                    + " - a session lasting longer than a season is not a session");
-        }
         requirePublicUrl(config.publicUrl());
         requireRelyingParty(config.webauthn() == null ? null : config.webauthn().relyingPartyId(), config.publicUrl());
-    }
-
-    private static void checkAlerts(final AlertsSpec config) {
-        Checks.requirePositive("disk-percent", config.diskPercent());
-        Checks.requirePositive("memory-percent", config.memoryPercent());
-        Checks.requirePositive("backup-age-hours", config.backupAgeHours());
     }
 
     private static void checkDatabase(final DatabaseSpec config) {
@@ -104,11 +88,8 @@ public final class StewardSettings {
         Checks.requirePositive("maximum-pool-size", config.maximumPoolSize());
     }
 
-    /** steward-bunq checks the credentials. */
-    private static void requireBunq(final StewardSpec.BunqSpec bunq) {
-        Checks.requirePositive("bunq.poll-interval-seconds", bunq.pollIntervalSeconds());
-        Checks.requirePositive("bunq.recent-payment-count", bunq.recentPaymentCount());
-
+    /** Refuses a watermark that is no instant. steward-bunq checks the credentials. */
+    private static void requireWatermark(final StewardSpec.BunqSpec bunq) {
         // An empty watermark is valid.
         final String watermark = bunq.watermark();
         if (watermark != null && !watermark.isBlank()) {

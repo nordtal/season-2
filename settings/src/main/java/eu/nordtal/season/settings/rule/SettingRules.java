@@ -66,6 +66,27 @@ public final class SettingRules {
         }
     }
 
+    /** Returns the path of {@code breach} with the index of each entry, such as {@code tiers[2].days}. */
+    public static String shown(final JsonObject schema, final Breach breach) {
+        final StringBuilder shown = new StringBuilder();
+        JsonObject node = schema;
+        int entry = 0;
+        for (final String segment : breach.setting().split("\\.", -1)) {
+            shown.append(shown.isEmpty() ? "" : ".").append(segment);
+            final JsonElement children = node.get("children");
+            if (!(children instanceof final JsonObject named)
+                    || !(named.get(segment) instanceof final JsonObject child)) {
+                break;
+            }
+            node = child;
+            if ("LIST".equals(text(node.get("kind")))
+                    && entry < breach.entries().size()) {
+                shown.append('[').append(breach.entries().get(entry++)).append(']');
+            }
+        }
+        return shown.toString();
+    }
+
     /** Where a node sits: its path without and with indexes, and the indexes. */
     private record Place(String setting, String shown, List<Integer> entries) {
 

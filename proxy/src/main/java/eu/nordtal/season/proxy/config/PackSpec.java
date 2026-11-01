@@ -1,5 +1,6 @@
 package eu.nordtal.season.proxy.config;
 
+import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -48,6 +49,7 @@ public interface PackSpec {
     @Order(5)
     @Name("Apply timeout (seconds)")
     @Key("apply-timeout-seconds")
+    @Positive
     @NoExplanationNeeded
     default int applyTimeoutSeconds() {
         return 180;

@@ -40,7 +40,7 @@ public final class BotSettings {
     private static final int MAX_ROLE_NAME = 100;
 
     /** The longest tag that fits {@code managed_message.kind}, a {@code varchar(32)} of {@code CONTRIBUTION_<TAG>}. */
-    private static final int MAX_TAG_LENGTH = 32 - "CONTRIBUTION_".length();
+    static final int MAX_TAG_LENGTH = 19;
 
     private BotSettings() {}
 
@@ -89,14 +89,9 @@ public final class BotSettings {
         for (final AccessSpec.LanguageSpec language : config.languages()) {
             requireRoleName("languages[" + language.tag() + "].role-name", GuildLanguages.roleNameOf(language), names);
         }
-
-        Checks.requirePositive("expiry-reminder-lead-days", config.expiryReminderLeadDays());
-        Checks.requirePositive("link-code-attempts-per-hour", config.linkCodeAttemptsPerHour());
-        Checks.requirePositive("role-reconcile-interval-minutes", config.roleReconcileIntervalMinutes());
-        Checks.requirePositive("payment.request-ttl-hours", config.payment().requestTtlHours());
     }
 
-    /** Requires one entry for each network language, tags that fit a managed message key, and snowflake ids. */
+    /** Requires one entry for each network language and snowflake ids. */
     private static void validateLanguages(final List<AccessSpec.LanguageSpec> languages, final Languages network) {
         GuildLanguages.requireTagsOf(
                 network, languages.stream().map(AccessSpec.LanguageSpec::tag).toList());
@@ -104,10 +99,6 @@ public final class BotSettings {
         for (int index = 0; index < languages.size(); index++) {
             final AccessSpec.LanguageSpec language = languages.get(index);
             final String path = "languages[" + index + "]";
-            if (language.tag().length() > MAX_TAG_LENGTH) {
-                throw new IllegalArgumentException(path + ".tag is longer than " + MAX_TAG_LENGTH
-                        + " characters, which is as long as a managed message's key can be: " + language.tag());
-            }
 
             // Each channel is optional and must be a snowflake when set.
             requireSnowflakeIfSet(path + ".contribution-channel", language.contributionChannel());
@@ -116,14 +107,9 @@ public final class BotSettings {
             requireSnowflakeIfSet(path + ".status-channel", language.statusChannel());
             requireSnowflakeIfSet(path + ".announcement-channel", language.announcementChannel());
         }
-
-        if (languages.size() > MAX_CHOICES) {
-            throw new IllegalArgumentException("languages holds " + languages.size() + " entries; a member chooses"
-                    + " from at most " + MAX_CHOICES + ".");
-        }
     }
 
-    /** Requires two different optional channels, a lock role, and one to 25 regions with unique zones. */
+    /** Requires two different optional channels, a lock role, and a known zone for each region. */
     private static void validateOnboarding(final OnboardingSpec config) {
         requireSnowflakeIfSet("channel", config.channel());
         requireSnowflakeIfSet("change-channel", config.changeChannel());
@@ -135,11 +121,6 @@ public final class BotSettings {
         requireRoleName("lock-role", config.lockRole(), names);
 
         final List<OnboardingSpec.RegionSpec> regions = config.regions();
-        if (regions == null || regions.isEmpty() || regions.size() > MAX_CHOICES) {
-            throw new IllegalArgumentException("regions holds " + (regions == null ? 0 : regions.size())
-                    + " entries; a member chooses from one to " + MAX_CHOICES + ".");
-        }
-        final Set<String> zones = new HashSet<>();
         for (int index = 0; index < regions.size(); index++) {
             final OnboardingSpec.RegionSpec region = regions.get(index);
             final String path = "regions[" + index + "]";
@@ -148,10 +129,6 @@ public final class BotSettings {
             if (!ZoneId.getAvailableZoneIds().contains(zone)) {
                 throw new IllegalArgumentException(
                         path + ".zone must be an IANA time zone such as Europe/Berlin, was: " + zone);
-            }
-            if (!zones.add(zone)) {
-                throw new IllegalArgumentException(path + " uses the zone " + zone + ", which another region"
-                        + " already uses. A zone is what a region stands for, so each is one region's.");
             }
         }
     }

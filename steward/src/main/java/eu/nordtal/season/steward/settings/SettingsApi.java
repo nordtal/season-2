@@ -72,10 +72,14 @@ public final class SettingsApi {
         if (revision == null || !revision.isJsonPrimitive() || changes == null || !changes.isJsonObject()) {
             throw new BadRequestResponse("a save sends the revision it read and its changes");
         }
-        final Map<String, @Nullable String> rows = documentOf(group).rowsFor(changes.getAsJsonObject());
+        final SettingsDocument document = documentOf(group);
+        final Map<String, @Nullable String> rows = document.rowsFor(changes.getAsJsonObject());
+        document.requireRules(rows);
         final ServerTrial.Verdict verdict = trial.ask(group.service(), changeOf(group, rows), actor);
         if (verdict.kind() == ServerTrial.Verdict.Kind.REFUSED) {
-            throw new RequestRefused(422, ANSWER.settingsRefused(String.valueOf(verdict.refusal())));
+            throw verdict.refusal() == null
+                    ? new RequestRefused(422, ANSWER.settingsRefused(""))
+                    : SettingsRefusal.ofServer(verdict.refusal());
         }
         final boolean written = store.change(
                 group.service(),

@@ -42,6 +42,28 @@ class SettingRulesTest {
         return tests.stream();
     }
 
+    @TestFactory
+    Stream<DynamicTest> aBreachIsShownWithTheIndexOfEachEntry() throws IOException {
+        final List<DynamicTest> tests = new ArrayList<>();
+        for (final JsonElement element : cases()) {
+            final JsonObject one = element.getAsJsonObject();
+            final JsonArray breaches = one.getAsJsonArray("breaches");
+            final List<SettingRules.Breach> expected = expected(breaches);
+            for (int index = 0; index < breaches.size(); index++) {
+                final JsonObject breach = breaches.get(index).getAsJsonObject();
+                if (breach.has("shown")) {
+                    final SettingRules.Breach found = expected.get(index);
+                    tests.add(DynamicTest.dynamicTest(
+                            breach.get("shown").getAsString(),
+                            () -> assertEquals(
+                                    breach.get("shown").getAsString(),
+                                    SettingRules.shown(one.getAsJsonObject("schema"), found))));
+                }
+            }
+        }
+        return tests.stream();
+    }
+
     @Test
     void theFirstBreachRefusesWithTheEntryInTheSentence() {
         final JsonObject schema = JsonParser.parseString(

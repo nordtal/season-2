@@ -3,6 +3,8 @@ package eu.nordtal.season.steward.settings;
 import eu.nordtal.season.settings.AppliesWhen;
 import eu.nordtal.season.settings.ChoiceNames;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Positive;
+import eu.nordtal.season.settings.rule.Unique;
 import eu.nordtal.season.spec.annotation.AllowedValues;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
@@ -10,12 +12,13 @@ import eu.nordtal.season.spec.annotation.Order;
 import eu.nordtal.season.spec.annotation.Secret;
 import java.util.List;
 
-/** Holds a number, a text, lists, sections and a secret, in an order that sorting the keys would not give. */
+/** Holds a number, a text, lists, sections, a secret and two rules, in an order sorting the keys would not give. */
 @ConfigSpec
 public interface ExampleGroupSpec {
 
     @Order(1)
     @Key("max-players")
+    @Positive
     default int maxPlayers() {
         return 20;
     }
@@ -41,6 +44,7 @@ public interface ExampleGroupSpec {
 
     @Order(5)
     @Key("stages")
+    @Unique("key")
     default List<Stage> stages() {
         return List.of();
     }

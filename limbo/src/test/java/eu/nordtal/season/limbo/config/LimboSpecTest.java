@@ -11,14 +11,13 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
- * The fail-fast for {@code limbo}'s config group.
+ * The fail-fast for {@code limbo}'s config group, by the rules its spec declares.
  *
  * A quietly wrong value here shows up as a black screen, which looks like a crash.
  */
-class LimboCheckTest {
+class LimboSpecTest {
 
-    private static final Group<LimboSpec> CONFIG =
-            Group.of("config", LimboSpec.class).checkedBy(LimboCheck::check);
+    private static final Group<LimboSpec> CONFIG = Group.of("config", LimboSpec.class);
 
     private final MemorySettingStore store = new MemorySettingStore();
 

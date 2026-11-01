@@ -1,6 +1,7 @@
 package eu.nordtal.season.settings.network;
 
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.settings.rule.Unique;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -24,6 +25,7 @@ public interface LanguageAndTimeSpec {
     @Order(2)
     @Name("Languages")
     @Key("languages")
+    @Unique
     @NoExplanationNeeded
     default List<String> languages() {
         return List.of(Locales.DEFAULT_TAG, "de");

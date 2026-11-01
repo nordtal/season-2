@@ -131,7 +131,7 @@ class NetworkSettingsTest {
         // A purchase button carries a day count, so two tiers sharing one is an ambiguous lookup.
         values.put("tiers", List.of(tier(30, 300), tier(30, 500)));
 
-        assertRefused(NetworkSettings.PRICES, "Day counts identify a tier");
+        assertRefused(NetworkSettings.PRICES, "tiers[1].days holds 30 twice");
     }
 
     @Test

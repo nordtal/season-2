@@ -477,6 +477,26 @@ function tab.open(context)
     return shown
   end
 
+  -- Closes each open sprite whose PNG a write removed, such as a texture
+  -- of the model that an import replaced. One with unsaved changes stays.
+  local function dropRemoved()
+    for path, record in pairs(opened) do
+      if path == record.paths.png and not api.isFile(path) and not api.isFile(record.paths.aseprite) then
+        opened[record.paths.png], opened[record.paths.aseprite] = nil, nil
+        local kept = false
+        for _, sprite in ipairs(api.sprites()) do
+          local mine = sprite.filename == record.paths.png or sprite.filename == record.paths.aseprite
+          if mine and unsaved(sprite, record) then
+            kept = true
+          elseif mine then
+            drop(sprite, dlg.data.editor == sprite)
+          end
+        end
+        if not kept then changed[record.paths.png] = nil end
+      end
+    end
+  end
+
   -- Runs job, a { task, options }, then after() once it succeeded and
   -- finally() in any case, and reads the pack again. A refusal shows
   -- its reason in the panel while its entry stays selected, and in the
@@ -838,6 +858,7 @@ function tab.open(context)
     end
     local id, item = selected, definition.item
     write(job, function()
+      dropRemoved()
       -- The item's own node shows the texture that the pack describes,
       -- so it opens again once the pack was read
       if index[id] and index[id].kind == "item" then

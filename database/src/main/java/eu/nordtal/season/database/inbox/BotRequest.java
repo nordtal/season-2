@@ -145,7 +145,7 @@ public sealed interface BotRequest {
             return new Announce(message, Objects.requireNonNull(milestone, "milestone"), lines);
         }
 
-        /** The bot's document that a request posts, one per message. */
+        /** What a request posts: an admin's words as written, or the bot's document of a milestone. */
         public enum Message {
             WORDS,
             MILESTONE,

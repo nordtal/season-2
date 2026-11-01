@@ -5,9 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.inbox.BotRequest;
+import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
+import eu.nordtal.season.messages.document.Documents;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -96,6 +98,21 @@ class AnnouncementsTest {
         assertTrue(post("en", milestone(BotRequest.Announce.Message.MILESTONE, "en", "Far_Side")));
 
         assertEquals(List.of("111: The **End** opens at 8_pm.", "111: Far\\_Side is complete."), sent);
+    }
+
+    @Test
+    void anAdminsWordsLongerThanAMessageAreCutToFitOne() {
+        assertTrue(post("en", BotRequest.Announce.words(Map.of("en", "a".repeat(2001)))));
+
+        assertEquals(List.of("111: " + "a".repeat(1999) + "…"), sent);
+    }
+
+    @Test
+    void anAdminsWordsHaveNoDocumentForTranslationsToList() {
+        assertFalse(
+                Documents.packaged(Announcements.class.getClassLoader(), StoredDocuments.NAMESPACE)
+                        .containsKey("announce-words"),
+                "an admin's announcement is a document of its own");
     }
 
     @Test

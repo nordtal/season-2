@@ -6,7 +6,6 @@ import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.context.MilestoneContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
-import eu.nordtal.season.messages.value.Example;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -15,19 +14,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
 
 public final class Announcements {
 
-    /** @param text an admin's words in one language, posted with their markdown */
-    record Words(
-            @Example("The End opens tonight at **eight**.") String text) {}
-
     record Milestone(MilestoneContext milestone) {}
 
-    static final DocumentSpec<Words> WORDS = announcement("announce-words", Words.class, "Words an admin wrote");
     static final DocumentSpec<Milestone> MILESTONE = announcement("announce-milestone", Milestone.class, "Milestone");
     static final DocumentSpec<Milestone> BORDER = announcement("announce-border", Milestone.class, "Border");
     static final DocumentSpec<Milestone> NETHER = announcement("announce-nether", Milestone.class, "Nether");
@@ -44,14 +39,17 @@ public final class Announcements {
                 .titled(title);
     }
 
-    /** Returns one line of an announcement as its document draws it in a reader's language. */
+    /** Returns one line of an announcement in a reader's language: an admin's words as written, else its document. */
     public static Function<Locale, String> text(
             final DocumentRenderer documents,
             final BotRequest.Announce announcement,
             final BotRequest.Announce.Line line) {
         if (announcement.message() == BotRequest.Announce.Message.WORDS) {
-            final Words words = new Words(Objects.requireNonNull(line.words(), "words"));
-            return locale -> documents.plain(WORDS, words, locale);
+            final String words = Objects.requireNonNull(line.words(), "words");
+            final String posted = words.length() <= Message.MAX_CONTENT_LENGTH
+                    ? words
+                    : words.substring(0, Message.MAX_CONTENT_LENGTH - 1) + "…";
+            return locale -> posted;
         }
         final DocumentSpec<Milestone> spec = switch (announcement.message()) {
             case MILESTONE_BORDER -> BORDER;

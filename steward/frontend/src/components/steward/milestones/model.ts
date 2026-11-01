@@ -76,7 +76,7 @@ export function savedIds(entry: ConfigEntry): SavedIds {
 /**
  * Returns whether the id of the section at `index` is stored, so progress and names hang on it and it stays fixed.
  *
- * A later section with the same id is a new one, so its id stays editable.
+ * A new section that takes a stored id is fixed as well, so no reorder can free the stored one. The track refuses the duplicate, and the new section can still be removed.
  */
 export function isSaved(
   sections: SectionValues[],
@@ -84,9 +84,7 @@ export function isSaved(
   saved: Pick<ReadonlySet<string>, "has"> | undefined,
 ): boolean {
   const id = text(sections[index], KEY.id)
-  return (
-    id !== "" && saved !== undefined && saved.has(id) && sections.findIndex((s) => text(s, KEY.id) === id) === index
-  )
+  return id !== "" && saved !== undefined && saved.has(id)
 }
 
 export function moved<T>(list: T[], from: number, to: number): T[] {

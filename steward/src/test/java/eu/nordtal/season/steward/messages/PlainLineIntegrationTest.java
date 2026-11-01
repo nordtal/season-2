@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.function.Function;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,7 +50,7 @@ class PlainLineIntegrationTest {
                 Map.of(
                         "documents/smp/declarations.json", DECLARATIONS,
                         "documents/smp/milestone-name.json", NAMES));
-        final javax.sql.DataSource database = TestDatabase.fresh().dataSource();
+        final DataSource database = TestDatabase.fresh().dataSource();
         store = DocumentStore.using(database);
         documents = new DocumentsApi(
                 new AgentClient(agent.client()),

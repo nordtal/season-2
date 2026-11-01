@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -36,7 +37,7 @@ class TrackNamesTest {
             }
 
             @Override
-            public Clock withZone(final java.time.ZoneId zone) {
+            public Clock withZone(final ZoneId zone) {
                 return this;
             }
 

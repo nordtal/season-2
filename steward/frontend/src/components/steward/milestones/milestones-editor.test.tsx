@@ -543,7 +543,7 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     })
   })
 
-  it("keeps a stored milestone's and objective's ID fixed, and one the admin adds editable", async () => {
+  it("keeps a stored milestone's and objective's ID fixed, and one the admin adds editable until it takes a stored ID", async () => {
     backend()
     draw(<MilestonesEditor file={FILE} document={DOCUMENT} target={null} />)
 
@@ -564,10 +564,13 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     fireEvent.click(screen.getByRole("button", { name: "Milestone" }))
     const fresh = await screen.findByRole("region", { name: "unnamed" })
     const id = within(fresh).getByRole("textbox", { name: "ID" })
-    fireEvent.change(id, { target: { value: "deep" } })
+    fireEvent.change(id, { target: { value: "harbour" } })
+    const harbour = within(screen.getByRole("region", { name: "harbour" })).getByRole("textbox", { name: "ID" })
+    expect(harbour).toHaveProperty("disabled", false)
+    fireEvent.change(harbour, { target: { value: "deep" } })
     expect(within(screen.getByRole("region", { name: "deep" })).getByRole("textbox", { name: "ID" })).toHaveProperty(
       "disabled",
-      false,
+      true,
     )
   })
 

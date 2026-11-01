@@ -5,9 +5,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /** Checks a milestone file for contradictions within the file. {@link TrackNames} checks the names. */
 public final class TrackShape {
+
+    /** An id a line on Translations can name, as a document's condition compares it. */
+    private static final Pattern ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_-]*");
+
+    private static final String ID_RULE = "is not an id a name can be given to. An id starts with a letter or a digit"
+            + " and holds only letters, digits, '_' and '-'.";
 
     private TrackShape() {}
 
@@ -30,6 +37,9 @@ public final class TrackShape {
             if (milestone.key().isBlank()) {
                 problems.add(new TrackValidation.Problem(null, null, "a milestone has a blank key."));
                 continue;
+            }
+            if (!ID.matcher(milestone.key()).matches()) {
+                problems.add(new TrackValidation.Problem(milestone.key(), null, ID_RULE));
             }
             if (!milestoneKeys.add(milestone.key())) {
                 problems.add(new TrackValidation.Problem(
@@ -64,6 +74,9 @@ public final class TrackShape {
             if (key.isBlank()) {
                 problems.add(new TrackValidation.Problem(milestone.key(), null, "an objective has a blank key."));
                 continue;
+            }
+            if (!ID.matcher(key).matches()) {
+                problems.add(new TrackValidation.Problem(milestone.key(), key, ID_RULE));
             }
             if (!keys.add(key)) {
                 problems.add(new TrackValidation.Problem(

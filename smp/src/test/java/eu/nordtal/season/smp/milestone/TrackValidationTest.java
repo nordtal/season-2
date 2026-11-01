@@ -60,6 +60,23 @@ class TrackValidationTest {
     }
 
     @Test
+    void anIdNoNameLineCanNameIsRefused() {
+        final Objective dotted = new Objective(
+                "iron.ore", ObjectiveType.HAND_IN, "gathering", 64, List.of("IRON_ORE"), "", List.of(), "", 0, 0);
+
+        final List<TrackValidation.Problem> problems = TrackShape.validate(List.of(
+                new Milestone("Harbour_2", Unlock.BORDER, 20, false, List.of(LOGS, GATE)),
+                new Milestone("Hafen Nord", Unlock.BORDER, 99, false, List.of(dotted, GATE))));
+
+        assertEquals(
+                List.of("Hafen Nord/null", "Hafen Nord/iron.ore"),
+                problems.stream()
+                        .map(problem -> problem.milestoneKey() + "/" + problem.objectiveKey())
+                        .toList(),
+                problems.toString());
+    }
+
+    @Test
     void aRenamedMilestoneIsRefused() {
         // A rename looks like a deletion, and stored progress and paid aura have nothing to point at.
         final StoredProgress stored =

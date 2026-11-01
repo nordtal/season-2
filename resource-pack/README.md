@@ -355,7 +355,7 @@ and one member per line, like the pack's other files.
 | `readItem`         | `item`                                  | one line of JSON: the definition, where it comes from, its problems, `types`, `models` and `states` |
 | `writeItem`        | `item`, `definition`                    | the absolute path of the definition it wrote                                                        |
 | `editItem`         | `item`, `at`, `fields`, `add`, `remove` | the absolute path of the definition it wrote                                                        |
-| `importBlockbench` | `model`, `id`, `item`, `at`             | the absolute path of the model, of each texture and of the definition it wrote                      |
+| `importBlockbench` | `model`, `id`, `item`, `at`             | the absolute path of the model, of each texture and of the definition it wrote, and of each removal |
 
 The line of `readItem` holds `item`, `source` (`pack`, or `vanilla` for a definition only the jar
 has), `file` (the path in the pack, or null), `definition`, `problems` (a list of strings, empty when
@@ -409,8 +409,13 @@ Without `fields`, `add` and `remove`, it writes the definition unchanged, which 
   `minecraft:model` that draws it. Each texture goes, with its `.mcmeta`, into the folder of the model
   under `textures/` under its name in lower case, and its reference is rewritten to the namespace of
   `id`. A reference that the pack or the jar resolves, such as `block/stone`, stays. A file that the
-  pack or the jar holds already is refused, so an import never hides a vanilla model or texture. The
-  model, its textures and the definition are written all or none.
+  pack or the jar holds already is refused, so an import never hides a vanilla model or texture.
+- A model of the pack that the item drew at `at` before goes when nothing of the pack draws it any
+  more, neither an item, a model's `parent` nor a block state. Each of its textures goes with it,
+  with its `.mcmeta` and its source under `art/`, when no other JSON of the pack and no glyph of
+  `glyphs.json` names it. What something else uses stays, and so does every file in `minecraft`,
+  which the client jar may draw. The new model, its textures, the definition and these removals
+  are written all or none.
 - Every item definition of the client jar passes these rules and is written back unchanged, keys in
   their order, which a test checks against the jar. Without the jar in the cache and without the
   network, that test is skipped.

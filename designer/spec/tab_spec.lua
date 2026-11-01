@@ -1528,7 +1528,10 @@ describe("the Nordtal tab", function()
       run(import))
     import.isRunning = false
     t.world.model = item("lamp_base")
+    -- The import removed the model it replaced, and its texture
+    t.world.files["/c/resource-pack/src/assets/nordtal/textures/item/old.png"] = nil
     import.args.onexit(0)
+    assert.same({ "close", "/c/resource-pack/src/assets/nordtal/textures/item/old.png" }, t.log[#t.log])
     -- The pack is read again first, and then the definition
     local runs = {}
     while t.started[#t.started].isRunning do
@@ -1541,6 +1544,63 @@ describe("the Nordtal tab", function()
     assert.same({ ":resource-pack:describePack", ":resource-pack:readItem -Pitem=nordtal:lamp" }, runs)
     assert.equal("/c/resource-pack/src/assets/nordtal/textures/item/lamp_base.png", t.open[#t.open].filename)
     assert.equal("item/nordtal:lamp", dlg.data.tree)
+  end)
+
+  it("keeps the sprite of a texture that an import removed open while it has unsaved changes", function()
+    local item = function(texture)
+      return dkjson.encode({ fonts={}, overrides={}, items={ { category="nordtal", entries={
+        { id="nordtal:lamp", model="minecraft:model", file="src/assets/nordtal/items/lamp.json",
+          texture={ id="nordtal:item/" .. texture .. ".png", png="src/assets/nordtal/textures/item/" .. texture .. ".png",
+                    aseprite="art/assets/nordtal/textures/item/" .. texture .. ".aseprite" } } } } } })
+    end
+    local read = dkjson.decode(lampRead)
+    read.definition = { model={ type="minecraft:model", model="nordtal:item/star" } }
+    local old = "/c/resource-pack/src/assets/nordtal/textures/item/old.png"
+    local t = setUp(nil, item("old"))
+    t.world.files = { [old]=true }
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp" })
+    local p = t.started[#t.started]
+    p.args.onstdout(dkjson.encode(read))
+    p.isRunning = false
+    p.args.onexit(0)
+    change(t.open[#t.open])
+    t.dialogs.answer = function(d) d.data = { ok=true, file="/tmp/lamp.bbmodel", id="nordtal:item/lamp" } end
+    click(dlg, "items.import")
+    local import = t.started[#t.started]
+    import.isRunning = false
+    t.world.files[old] = nil
+    import.args.onexit(0)
+    for _, entry in ipairs(t.log) do assert.are_not.same({ "close", old }, entry) end
+  end)
+
+  it("closes the sprite of a texture that an import removed when only its opening marked it modified", function()
+    local item = function(texture)
+      return dkjson.encode({ fonts={}, overrides={}, items={ { category="nordtal", entries={
+        { id="nordtal:lamp", model="minecraft:model", file="src/assets/nordtal/items/lamp.json",
+          texture={ id="nordtal:item/" .. texture .. ".png", png="src/assets/nordtal/textures/item/" .. texture .. ".png",
+                    aseprite="art/assets/nordtal/textures/item/" .. texture .. ".aseprite" } } } } } })
+    end
+    local read = dkjson.decode(lampRead)
+    read.definition = { model={ type="minecraft:model", model="nordtal:item/star" } }
+    local old = "/c/resource-pack/src/assets/nordtal/textures/item/old.png"
+    local t = setUp(nil, item("old"))
+    t.world.files = { [old]=true }
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp" })
+    local p = t.started[#t.started]
+    p.args.onstdout(dkjson.encode(read))
+    p.isRunning = false
+    p.args.onexit(0)
+    -- An animated texture is built when it opens, which marks it modified
+    t.open[#t.open].isModified = true
+    t.dialogs.answer = function(d) d.data = { ok=true, file="/tmp/lamp.bbmodel", id="nordtal:item/lamp" } end
+    click(dlg, "items.import")
+    local import = t.started[#t.started]
+    import.isRunning = false
+    t.world.files[old] = nil
+    import.args.onexit(0)
+    assert.same({ "close", old }, t.log[#t.log])
   end)
 
   it("discards the selected draft once the designer confirms it, and closes its sprite", function()

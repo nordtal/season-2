@@ -281,6 +281,86 @@ class ItemDefinitionsTest {
         assertTrue(!pack.resolve("src/assets/nordtal/models").exists())
     }
 
+    /** An export of a model of one cube whose texture is [texture] beside it, in a folder of its own */
+    private fun export(
+        name: String,
+        texture: String,
+    ): File {
+        val export = directory.resolve("export-$name").apply { mkdirs() }
+        export.resolve("$name.json").writeText("""{ "textures": { "0": "$texture" } }""")
+        export.resolve("$texture.png").writeText("png")
+        return export.resolve("$name.json")
+    }
+
+    @Test
+    fun anImportRemovesTheModelItReplacedWithItsTexturesWhenNothingElseNamesThem() {
+        imported(export("lamp", "lamp"))
+        val png = pack.resolve("src/assets/nordtal/textures/item/lamp.png")
+        File(png.path + ".mcmeta").writeText("""{ "animation": {} }""")
+        val art = pack.resolve("art/assets/nordtal/textures/item/lamp.aseprite").apply { parentFile.mkdirs() }
+        art.writeText("aseprite")
+
+        val written = imported(export("lantern", "lantern"), "nordtal:item/lantern")
+
+        val gone = listOf(pack.resolve("src/assets/nordtal/models/item/lamp.json"), png, File(png.path + ".mcmeta"), art)
+        val kept =
+            listOf(
+                pack.resolve("src/assets/nordtal/models/item/lantern.json"),
+                pack.resolve("src/assets/nordtal/textures/item/lantern.png"),
+            )
+        assertEquals((kept + gone + pack.resolve("src/assets/nordtal/items/lamp.json")).toSet(), written.toSet())
+        assertEquals(emptyList<File>(), gone.filter { it.exists() })
+    }
+
+    @Test
+    fun anImportKeepsAModelOrTextureThatSomethingElseNames() {
+        imported(export("lamp", "lamp"))
+        files().use { it.write("nordtal:other", model("""{ "type": "minecraft:model", "model": "nordtal:item/lamp" }""")) }
+        imported(export("lantern", "lantern"), "nordtal:item/lantern")
+        val shared = pack.resolve("src/assets/nordtal/models/item/shared.json")
+        shared.writeText("""{ "textures": { "0": "nordtal:item/lantern" } }""")
+
+        imported(export("torch", "torch"), "nordtal:item/torch")
+
+        val model = pack.resolve("src/assets/nordtal/models/item/")
+        val textures = pack.resolve("src/assets/nordtal/textures/item/")
+        assertTrue(model.resolve("lamp.json").isFile, "another item draws the lamp")
+        assertTrue(textures.resolve("lamp.png").isFile, "the kept lamp model names its texture")
+        assertTrue(!model.resolve("lantern.json").exists(), "nothing draws the lantern any more")
+        assertTrue(textures.resolve("lantern.png").isFile, "another model names the lantern's texture")
+    }
+
+    @Test
+    fun anImportKeepsATextureThatAGlyphDrawsAndTheParentOfAKeptModel() {
+        imported(export("lamp", "lamp"))
+        pack.resolve("glyphs.json").writeText("""{ "fonts": [{ "blocks": [{ "glyphs": [{ "texture": "nordtal:item/lamp.png" }] }] }] }""")
+        val models = pack.resolve("src/assets/nordtal/models/item/")
+        val composite = """{ "type": "minecraft:composite", "models": [
+            { "type": "minecraft:model", "model": "nordtal:item/lamp" }, { "type": "minecraft:model", "model": "nordtal:item/child" }] }"""
+        models.resolve("child.json").writeText("""{ "parent": "nordtal:item/lamp" }""")
+        files().use { it.write("nordtal:lamp", model(composite)) }
+        files().use { it.write("nordtal:other", model("""{ "type": "minecraft:model", "model": "nordtal:item/child" }""")) }
+
+        imported(export("lantern", "lantern"), "nordtal:item/lantern")
+
+        assertTrue(models.resolve("child.json").isFile, "another item draws the child")
+        assertTrue(models.resolve("lamp.json").isFile, "the kept child has the lamp as its parent")
+        assertTrue(pack.resolve("src/assets/nordtal/textures/item/lamp.png").isFile, "a glyph draws the lamp's texture")
+    }
+
+    @Test
+    fun anImportKeepsAModelAndTextureInMinecraftThatTheClientJarMayDraw() {
+        val textures = pack.resolve("src/assets/minecraft/textures/item/").apply { mkdirs() }
+        textures.resolve("stick_glow.png").writeText("png")
+        val old = pack.resolve("src/assets/minecraft/models/item/stick_glow.json").apply { parentFile.mkdirs() }
+        old.writeText("""{ "textures": { "layer0": "item/stick_glow" } }""")
+        files().use { it.write("nordtal:lamp", model("""{ "type": "minecraft:model", "model": "item/stick_glow" }""")) }
+
+        imported(export("lantern", "lantern"), "nordtal:item/lantern")
+
+        assertTrue(old.isFile && textures.resolve("stick_glow.png").isFile)
+    }
+
     @Test
     fun aBlockbenchTextureWithCapitalsIsImportedUnderItsNameInLowerCase() {
         val export = directory.resolve("export").apply { mkdirs() }

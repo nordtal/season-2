@@ -112,18 +112,18 @@ class ItemFiles(
     ): File = store(id, OxfmtJson.read(definition), emptyMap()).last()
 
     /**
-     * Writes [json] as the item [id] together with [pending], new files of the pack, all or none, after every rule passed
-     * with [pending] in place. Returns every file written.
+     * Writes [json] as the item [id] together with [pending], new files of the pack and null for each file it deletes, all
+     * or none, after every rule passed with [pending] in place. Returns every file written or deleted.
      */
     private fun store(
         id: String,
         json: Any?,
-        pending: Map<File, ByteArray>,
+        pending: Map<File, ByteArray?>,
     ): List<File> {
-        val pendingOrRead = { path: String -> pending[assets.resolve(path)] ?: read(path) }
+        val pendingOrRead = { path: String -> assets.resolve(path).let { if (it in pending) pending[it] else read(path) } }
         val pendingOrSprite = { texture: String ->
-            runCatching { assets.resolve(Identifier.resource(texture, "textures", ".png")) in pending }.getOrDefault(false) ||
-                sprite(texture)
+            val png = runCatching { assets.resolve(Identifier.resource(texture, "textures", ".png")) }.getOrNull()
+            if (png != null && png in pending) pending[png] != null else sprite(texture)
         }
         val problems = ItemDefinitions.problems(json).ifEmpty { ItemDefinitions.missing(json, pendingOrRead, pendingOrSprite) }
         check(problems.isEmpty()) { "The item $id breaks ${problems.size} rule(s):\n" + problems.joinToString("\n") { "    $it" } }
@@ -167,9 +167,9 @@ class ItemFiles(
     }
 
     /**
-     * Imports [source] as the model [id], such as `nordtal:item/lamp`, and has the item [item] draw it at [at], in one write.
-     * [source] is a Blockbench project or a model that Blockbench exported as JSON, whose textures lie beside it.
-     * Each texture goes next to the model's folder under `textures/`. Returns every file written.
+     * Imports [source], a Blockbench project or a model exported as JSON with its textures beside it, as the model [id]
+     * that the item [item] draws at [at], in one write. Each texture goes next to the model's folder under `textures/`,
+     * and the model drawn at [at] before goes as [unused] decides. Returns every file written or deleted.
      */
     fun import(
         source: File,
@@ -188,7 +188,7 @@ class ItemFiles(
                 exported(source)
             }
         val target = assets.resolve("$namespace/models/$path.json")
-        val pending = linkedMapOf<File, ByteArray>(target to ByteArray(0))
+        val pending = linkedMapOf<File, ByteArray?>(target to ByteArray(0))
 
         @Suppress("UNCHECKED_CAST")
         val textures = model["textures"] as? MutableMap<String, Any?> ?: mutableMapOf()
@@ -227,10 +227,90 @@ class ItemFiles(
         }
         pending[target] = OxfmtJson.asset(model).toByteArray()
         val definition = definition(item)
+        val before = ItemDefinitions.models(definition).map(::full).toSet()
         require(ItemDefinitions.edit(definition, at, mapOf("type" to "minecraft:model", "model" to id), null, false)) {
             "The item $item has nothing at $at."
         }
+        val replaced = before - ItemDefinitions.models(definition).map(::full).toSet()
+        pending.putAll(unused(replaced, item, definition, pending))
         return store(item, definition, pending)
+    }
+
+    /**
+     * Deletions, each a file mapped to null: each model of [replaced] that nothing of the pack draws once [item] is
+     * [definition] and [pending] is written, and each of its textures that nothing else names, with its `.mcmeta` and
+     * `art/` source. Files in `minecraft` stay, since the client jar may draw them.
+     */
+    private fun unused(
+        replaced: Set<String>,
+        item: String,
+        definition: Any?,
+        pending: Map<File, ByteArray?>,
+    ): Map<File, ByteArray?> {
+        // Every JSON of the pack as it will be, and glyphs.json, whose glyphs draw textures too
+        val texts =
+            assets
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "json" }
+                .associateWith { it.readText() }
+                .toMutableMap()
+        pack.resolve("glyphs.json").takeIf { it.isFile }?.let { texts[it] = it.readText() }
+        texts[assets.resolve(Identifier.resource(item, "items", ".json"))] = OxfmtJson.asset(definition)
+        pending.forEach { (file, bytes) -> if (bytes != null && file.extension == "json") texts[file] = bytes.decodeToString() }
+        val gone =
+            replaced
+                .filter { !it.startsWith("minecraft:") }
+                .associateBy { assets.resolve(Identifier.resource(it, "models", ".json")) }
+                .filterKeys { it.isFile }
+                .toMutableMap()
+        // A model is drawn by an item, as a model's parent or in a block state. A kept model can keep another one as its
+        // parent, so the models that go are found again until none more stays.
+        do {
+            val drawn = texts.filterKeys { it !in gone }.flatMap { (file, text) -> drawnBy(file, text, gone.values) }.toSet()
+            val kept = gone.filterValues { it in drawn }.keys
+            gone.keys.removeAll(kept)
+        } while (kept.isNotEmpty())
+        val named = { id: String -> texts.any { (file, text) -> file !in gone && names(text, id) } }
+        val deletions = linkedMapOf<File, ByteArray?>()
+        for (file in gone.keys) {
+            deletions[file] = null
+            val textures = ((OxfmtJson.read(file) as? Map<*, *>)?.get("textures") as? Map<*, *>).orEmpty()
+            val ids = textures.values.filterIsInstance<String>()
+            for (texture in ids.filterNot { it.startsWith("#") }.map(::full)) {
+                if (texture.startsWith("minecraft:")) continue
+                val png = runCatching { assets.resolve(Identifier.resource(texture, "textures", ".png")) }.getOrNull() ?: continue
+                if (!png.isFile || png in deletions || named(texture)) continue
+                deletions[png] = null
+                File(png.path + ".mcmeta").takeIf { it.isFile }?.let { deletions[it] = null }
+                val path = png.relativeTo(assets).invariantSeparatorsPath.removeSuffix(".png")
+                pack.resolve("art/assets/$path.aseprite").takeIf { it.isFile }?.let { deletions[it] = null }
+            }
+        }
+        return deletions
+    }
+
+    /** The models among [models] that [file], whose content is [text], draws: as an item, a model's parent or a block state */
+    private fun drawnBy(
+        file: File,
+        text: String,
+        models: Collection<String>,
+    ): List<String> {
+        val path = file.relativeTo(assets).invariantSeparatorsPath
+        return when (path.split('/').getOrNull(1)) {
+            "items" -> ItemDefinitions.models(OxfmtJson.read(text)).map(::full)
+            "models" -> listOfNotNull(((OxfmtJson.read(text) as? Map<*, *>)?.get("parent") as? String)?.let(::full))
+            "blockstates" -> models.filter { names(text, it) }
+            else -> emptyList()
+        }
+    }
+
+    /** Whether [text], a JSON file, names [id] as a string, also by its PNG and, in `minecraft`, without the namespace */
+    private fun names(
+        text: String,
+        id: String,
+    ): Boolean {
+        val forms = listOfNotNull(id, id.removePrefix("minecraft:").takeIf { id.startsWith("minecraft:") })
+        return forms.any { "\"$it\"" in text || "\"$it.png\"" in text }
     }
 
     /** A model that Blockbench exported as JSON to [source], and each texture beside it by the reference that names it */

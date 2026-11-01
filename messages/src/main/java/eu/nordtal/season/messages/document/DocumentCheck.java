@@ -48,6 +48,9 @@ public final class DocumentCheck {
 
     private static final Pattern LANGUAGE = Pattern.compile("[a-z]{2,3}(-[A-Z]{2})?");
     private static final Pattern ACCENT = Pattern.compile("#[0-9a-f]{6}");
+    /** A choice compares in kebab case, as {@link Kind#choiceOf} writes it. */
+    private static final Pattern KEBAB = Pattern.compile("[a-z0-9][a-z0-9-]*");
+
     private static final Pattern MEDIA =
             Pattern.compile("(attachment://[A-Za-z0-9_.-]+|upload://[1-9][0-9]*|https://\\S+)");
     private static final Pattern LINK = Pattern.compile("https://\\S+");
@@ -456,6 +459,11 @@ public final class DocumentCheck {
                 && !Kind.TEXT.token().equals(value.kind())) {
             error("the condition " + when + " compares {" + condition.value() + "}, which is a " + value.kind()
                     + ", not a choice or a text");
+        } else if (condition.constant() != null
+                && Kind.CHOICE.token().equals(value.kind())
+                && !KEBAB.matcher(condition.constant()).matches()) {
+            error("the condition " + when + " compares the choice {" + condition.value()
+                    + "} with a constant that is not in kebab case, so it never holds");
         }
     }
 

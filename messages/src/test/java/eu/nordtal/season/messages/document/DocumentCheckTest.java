@@ -223,12 +223,15 @@ class DocumentCheckTest {
                 List.of(
                         "the condition missing names {missing}, which the document does not have",
                         "the condition days=3 compares {days}, which is a number, not a choice or a text",
-                        "the condition !x=y is not value, !value or value=constant"),
+                        "the condition !x=y is not value, !value or value=constant",
+                        "the condition phase=CLOSED compares the choice {phase} with a constant that is not in kebab"
+                                + " case, so it never holds"),
                 errors(SUMMARY, SOUND.replace("""
                         "items": [""", """
                         "items": [{"when": "missing", "link": "https://a.eu", "label": {"en": "A", "de": "A"}},
                           {"when": "days=3", "link": "https://b.eu", "label": {"en": "B", "de": "B"}},
-                          {"when": "!x=y", "link": "https://c.eu", "label": {"en": "C", "de": "C"}},""")));
+                          {"when": "!x=y", "link": "https://c.eu", "label": {"en": "C", "de": "C"}},
+                          {"when": "phase=CLOSED", "link": "https://d.eu", "label": {"en": "D", "de": "D"}},""")));
     }
 
     @Test

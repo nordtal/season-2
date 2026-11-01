@@ -88,11 +88,11 @@ class CommandFilterTest {
     void aChangedListReachesTheNextCommand() {
         final AtomicReference<CommandAllowlist> list = new AtomicReference<>(CommandAllowlist.NOTHING);
         final CommandFilter filter = filter(list::get, new SpyChime());
-        final PlayerCommandPreprocessEvent before = new PlayerCommandPreprocessEvent(player(), "/poi", Set.of());
+        final PlayerCommandPreprocessEvent before = new PlayerCommandPreprocessEvent(player(), "/rules", Set.of());
         filter.onCommand(before);
 
-        list.set(CommandAllowlist.parse(List.of("poi")));
-        final PlayerCommandPreprocessEvent after = new PlayerCommandPreprocessEvent(player(), "/poi", Set.of());
+        list.set(CommandAllowlist.parse(List.of("rules")));
+        final PlayerCommandPreprocessEvent after = new PlayerCommandPreprocessEvent(player(), "/rules", Set.of());
         filter.onCommand(after);
 
         assertTrue(before.isCancelled());

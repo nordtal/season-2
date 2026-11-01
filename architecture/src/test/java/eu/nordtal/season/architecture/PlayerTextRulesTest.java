@@ -244,9 +244,9 @@ class PlayerTextRulesTest {
                 .should(openOnlyFramedMenus())
                 .check(classes);
         assertTrue(
-                classes.get("eu.nordtal.season.smp.navigate.NavigateGui").getMethodCallsFromSelf().stream()
+                classes.get("eu.nordtal.season.smp.grave.GraveWindow").getMethodCallsFromSelf().stream()
                         .anyMatch(PlayerTextRulesTest::framesAMenu),
-                "NavigateGui, the reference menu, frames no window, so this rule may be checking nothing");
+                "GraveWindow, the reference menu, frames no window, so this rule may be checking nothing");
     }
 
     private static boolean namesABossBar(final JavaMethodCall call) {

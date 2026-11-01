@@ -562,13 +562,6 @@
           "ascent": 4,
           "glyphs": [
             {
-              "code": "FEF00",
-              "constant": "BOSSBAR_ICON_COMPASS",
-              "texture": "nordtal:ui/bossbar/icons/compass.png",
-              "status": "final candidate",
-              "about": "Compass, 10 by 10: a red needle."
-            },
-            {
               "code": "FEF01",
               "constant": "BOSSBAR_ICON_FBLUE",
               "texture": "nordtal:ui/bossbar/icons/fblue.png",
@@ -650,7 +643,7 @@
         {
           "range": "FEF10-FEF1F",
           "title": "Bearing arrows",
-          "about": "Sixteen clockwise steps of 22.5 degrees, rasterized from the angle so they agree exactly, for /navigate, the hunger games' nearest player and the nearest loot point, drawn white because the line's text is white.",
+          "about": "Sixteen clockwise steps of 22.5 degrees, rasterized from the angle so they agree exactly, for the hunger games' nearest player and the nearest loot point, drawn white because the line's text is white.",
           "height": 10,
           "ascent": 4,
           "status": "final candidate",
@@ -1174,12 +1167,6 @@
               "about": "The active marker, 158 by 14: a hollow white frame 2 pixels wide, drawn last on its row."
             },
             {
-              "code": "FE102",
-              "constant": "GUI_ROW_BUTTON_WIDE",
-              "texture": "nordtal:ui/gui/row_button_wide.png",
-              "about": "A refusing button plate, 52 by 14 over three cells, as in the stop of /navigate."
-            },
-            {
               "code": "FE103",
               "constant": "GUI_ROW_BUTTON_SMALL",
               "texture": "nordtal:ui/gui/row_button_small.png",
@@ -1231,7 +1218,7 @@
             {
               "code": "FE112",
               "constant": "GUI_ROW_ICON_POI",
-              "about": "A map pin: a point of interest a player made."
+              "about": "A map pin: a place."
             },
             { "code": "FE113", "constant": "GUI_ROW_ICON_STOP", "about": "A cross: stop." },
             { "code": "FE114", "constant": "GUI_ROW_ICON_PREV", "about": "A left arrow: the previous page." },

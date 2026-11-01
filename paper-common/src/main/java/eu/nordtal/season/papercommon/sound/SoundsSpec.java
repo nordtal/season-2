@@ -29,7 +29,7 @@ public interface SoundsSpec {
         return DefaultSounds.BIG_SUCCESS;
     }
 
-    /** The server said no: spawn ground, not your POI, not registered, or nothing to show. */
+    /** The server said no: spawn ground, not registered, or nothing to show. */
     @Order(3)
     @Name("Refused")
     @Key("refused")

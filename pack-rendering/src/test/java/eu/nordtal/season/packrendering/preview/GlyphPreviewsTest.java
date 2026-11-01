@@ -64,11 +64,10 @@ class GlyphPreviewsTest {
 
     @Test
     void aBossBarGlyphIsTheIconOfAHudPill() {
-        final JsonObject previews = GlyphPreviews.render("nordtal:bossbar", Glyphs.BOSSBAR_ICON_COMPASS, 9, LAYOUT);
+        final JsonObject previews = GlyphPreviews.render("nordtal:bossbar", Glyphs.BOSSBAR_ICON_BORDER, 9, LAYOUT);
 
         assertEquals(
-                json(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, "Nordtal")))),
-                previews.get("hud"));
+                json(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, "Nordtal")))), previews.get("hud"));
         assertEquals(JsonNull.INSTANCE, previews.get("menu"));
         assertEquals(JsonNull.INSTANCE, previews.get("board"));
     }
@@ -97,7 +96,7 @@ class GlyphPreviewsTest {
 
         GlyphPreviews.main(new String[] {
             "--font=nordtal:bossbar",
-            "--code=FEF00",
+            "--code=FEF0C",
             "--width=9",
             "--rows=3",
             "--row=1",
@@ -110,9 +109,9 @@ class GlyphPreviewsTest {
         final JsonObject written = JsonParser.parseString(Files.readString(out, StandardCharsets.UTF_8))
                 .getAsJsonObject();
         assertEquals("nordtal:bossbar", written.get("font").getAsString());
-        assertEquals("FEF00", written.get("code").getAsString());
+        assertEquals("FEF0C", written.get("code").getAsString());
         assertEquals(
-                json(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, "Nordtal")))), written.get("hud"));
+                json(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, "Nordtal")))), written.get("hud"));
     }
 
     @Test
@@ -124,10 +123,10 @@ class GlyphPreviewsTest {
                 GlyphPreviews.render("nordtal:gui_r{row}", Glyphs.GUI_ROW_PILL, 0, LAYOUT)
                         .get("glyph"));
         assertEquals(
-                json(Component.text(Glyphs.BOSSBAR_ICON_COMPASS)
+                json(Component.text(Glyphs.BOSSBAR_ICON_BORDER)
                         .font(Key.key(Glyphs.FONT_BOSSBAR))
                         .shadowColor(ShadowColor.none())),
-                GlyphPreviews.render("nordtal:bossbar", Glyphs.BOSSBAR_ICON_COMPASS, 9, LAYOUT)
+                GlyphPreviews.render("nordtal:bossbar", Glyphs.BOSSBAR_ICON_BORDER, 9, LAYOUT)
                         .get("glyph"));
         assertEquals(
                 json(Component.text(Glyphs.BADGE_DONOR_STAR)),

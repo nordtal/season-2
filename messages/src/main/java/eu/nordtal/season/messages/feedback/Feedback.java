@@ -6,13 +6,13 @@ package eu.nordtal.season.messages.feedback;
  */
 public enum Feedback {
 
-    /** An objective handed in, a POI created or a little aura earned. */
+    /** An objective handed in or a little aura earned. */
     SMALL_SUCCESS,
 
     /** A milestone you finished, a duel won or a wheel prize. */
     BIG_SUCCESS,
 
-    /** Spawn protection, a foreign POI, no spin left or a locked destination. */
+    /** Spawn protection, no spin left or a locked destination. */
     REFUSED,
 
     /** A lost duel or aura lost to a death. */

@@ -4,7 +4,7 @@
 
 ## Features
 
-Each of the packages `duel`, `grave`, `navigate`, `npc`, `progress`, `protect`, `travel`, `welcome` and `wheel` is a feature. A feature uses no class of another feature, and `:architecture` fails the build when it does.
+Each of the packages `duel`, `grave`, `npc`, `progress`, `protect`, `travel`, `welcome` and `wheel` is a feature. A feature uses no class of another feature, and `:architecture` fails the build when it does.
 
 The features share the packages `milestone`, `state` and `aura`. The root package and `command` may use the classes of every feature.
 

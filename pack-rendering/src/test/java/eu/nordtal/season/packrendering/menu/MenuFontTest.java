@@ -53,7 +53,6 @@ class MenuFontTest {
         for (final String glyph : new String[] {
             Glyphs.GUI_ROW_PILL,
             Glyphs.GUI_ROW_FRAME,
-            Glyphs.GUI_ROW_BUTTON_WIDE,
             Glyphs.GUI_ROW_BUTTON_SMALL,
             Glyphs.GUI_ROW_BUTTON_SMALL_OFF,
             Glyphs.GUI_ROW_ICON_SPAWN,
@@ -77,7 +76,7 @@ class MenuFontTest {
         // ß has no single-character upper case; String#toUpperCase would make it two glyphs.
         assertEquals("STRAßE", MenuFont.fold("Straße"));
         assertEquals("MÜHLE", MenuFont.fold("mühle"));
-        // A POI name is typed by a player, so this is the ordinary case and not the exotic one.
+        // A name in a menu may be typed by a player, so this is the ordinary case and not the exotic one.
         assertEquals("A?B", MenuFont.fold("aéb"));
         assertEquals("??", MenuFont.fold("<>"));
     }
@@ -136,7 +135,7 @@ class MenuFontTest {
     /**
      * Pairs that may be the same picture, with the reason; empty, and each entry would be a debt.
      *
-     * POI names come from players, where an ambiguous pair does its damage.
+     * Names typed by players are where an ambiguous pair does its damage.
      */
     private static final Map<String, String> LOOKALIKES = Map.of();
 

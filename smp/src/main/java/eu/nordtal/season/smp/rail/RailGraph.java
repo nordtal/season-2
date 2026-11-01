@@ -22,7 +22,10 @@ public final class RailGraph {
     private final Set<RailPos> junctions;
     private final List<RailEdge> edges;
     private final Map<RailPos, List<RailEdge>> out = new HashMap<>();
-    private final Map<RailPos, RailEdge> spurs;
+    private final Map<RailPos, Spur> spurs;
+
+    /** A rail on a spur: the node the spur leaves, the spur's rails from that node, and the rail's place among them. */
+    private record Spur(RailPos node, List<RailPos> rails, int index) {}
 
     public RailGraph(
             final Collection<RailPos> stations, final Collection<RailPos> junctions, final List<RailEdge> edges) {
@@ -33,7 +36,7 @@ public final class RailGraph {
             final Collection<RailPos> stations,
             final Collection<RailPos> junctions,
             final List<RailEdge> edges,
-            final Map<RailPos, RailEdge> spurs) {
+            final Map<RailPos, Spur> spurs) {
         this.spurs = Map.copyOf(spurs);
         this.stations = Collections.unmodifiableSet(new TreeSet<>(stations));
         this.junctions = Collections.unmodifiableSet(new TreeSet<>(junctions));
@@ -70,7 +73,7 @@ public final class RailGraph {
         final Set<RailPos> nodes = new TreeSet<>(onTrack);
         nodes.addAll(junctions);
         final List<RailEdge> edges = new ArrayList<>();
-        final Map<RailPos, RailEdge> spurs = new HashMap<>();
+        final Map<RailPos, Spur> spurs = new HashMap<>();
         for (final RailPos node : nodes) {
             for (final RailPos next : neighbours.getOrDefault(node, List.of())) {
                 final Stretch stretch = follow(node, next, nodes, neighbours, rails.size());
@@ -103,18 +106,14 @@ public final class RailGraph {
             return end == null ? null : RailEdge.of(node, end, between);
         }
 
-        /** Returns, for each rail of a dead end, the way back from it to {@code node}. */
-        Map<RailPos, RailEdge> spur(final RailPos node) {
-            final Map<RailPos, RailEdge> back = new HashMap<>();
-            for (int index = 0; index < between.size(); index++) {
-                back.put(
-                        between.get(index),
-                        RailEdge.of(
-                                between.get(index),
-                                node,
-                                between.subList(0, index).reversed()));
+        /** Returns each rail of a dead end with its place on the spur that leaves {@code node}; they share one list. */
+        Map<RailPos, Spur> spur(final RailPos node) {
+            final List<RailPos> rails = List.copyOf(between);
+            final Map<RailPos, Spur> spur = new HashMap<>();
+            for (int index = 0; index < rails.size(); index++) {
+                spur.put(rails.get(index), new Spur(node, rails, index));
             }
-            return back;
+            return spur;
         }
     }
 
@@ -185,7 +184,11 @@ public final class RailGraph {
     /** Returns the way back from {@code rail} on a spur to the node the spur leaves, or null off every spur. */
     @Nullable
     RailEdge spur(final RailPos rail) {
-        return spurs.get(rail);
+        final @Nullable Spur spur = spurs.get(rail);
+        return spur == null
+                ? null
+                : RailEdge.of(
+                        rail, spur.node(), spur.rails().subList(0, spur.index()).reversed());
     }
 
     /** Returns the edges that leave {@code node}, each walked from it. */

@@ -63,6 +63,7 @@ public interface BoardSpec {
         return 0.0f;
     }
 
+    /** The content column in pixels, bounded by the frame's shifts, which would throw on the first render. */
     @Order(7)
     @Name("Width")
     @Key("width")

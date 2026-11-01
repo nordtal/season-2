@@ -81,6 +81,8 @@ class HungerGamesCheckTest {
         defaults.lootPoints().forEach(point -> points.add(Map.of("label", point.label())));
         final List<Map<String, Object>> twiceSpawn = new ArrayList<>(points);
         twiceSpawn.set(1, Map.of("label", points.getFirst().get("label")));
+        final List<Map<String, Object>> blankLabel = new ArrayList<>(points);
+        blankLabel.set(2, Map.of("label", ""));
         final Map<String, Object> early = Map.of("delay-minutes", 5, "items", List.of("minecraft:bread"));
         final Map<String, Object> late = Map.of("delay-minutes", 10, "items", List.of("minecraft:bread"));
         assertAll(
@@ -94,12 +96,24 @@ class HungerGamesCheckTest {
                         Map.of("border-wall-speed-blocks-per-second", 0.0),
                         "border-wall-speed-blocks-per-second must be greater than zero"),
                 () -> assertRefused(Map.of("spawn-tower-radius", -1.0), "spawn-tower-radius must be greater than zero"),
+                () -> assertRefused(
+                        Map.of("border-end-diameter", 0.0), "border-end-diameter must be greater than zero"),
+                () -> assertRefused(
+                        Map.of("border-quiet-period-seconds", 0),
+                        "border-quiet-period-seconds must be greater than zero"),
+                () -> assertRefused(
+                        Map.of("border-passive-shrink-blocks-per-hour", 0.0),
+                        "border-passive-shrink-blocks-per-hour must be greater than zero"),
+                () -> assertRefused(
+                        Map.of("pvp-protection-seconds", 0), "pvp-protection-seconds must be greater than zero"),
                 () -> assertRefused(Map.of("world-name", ""), "world-name must not be empty"),
                 () -> assertRefused(
                         Map.of("loot-points", gson.toJson(points.subList(0, 4))),
                         "loot-points must have exactly 5 entries, had 4"),
                 () -> assertRefused(
                         Map.of("loot-points", gson.toJson(twiceSpawn)), "loot-points[1].label holds spawn twice"),
+                () -> assertRefused(
+                        Map.of("loot-points", gson.toJson(blankLabel)), "loot-points[2].label must not be empty"),
                 () -> assertRefused(Map.of("refill-tiers", "[]"), "refill-tiers must not be empty"),
                 () -> assertRefused(
                         Map.of("refill-tiers", gson.toJson(List.of(late, early))),

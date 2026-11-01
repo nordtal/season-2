@@ -13,7 +13,7 @@ import java.util.List;
 @ConfigSpec
 public interface DeathsSpec {
 
-    /** A penalty is a positive number, subtracted at the point of use. */
+    /** The aura a death takes, written without its sign and subtracted at the point of use. */
     @Order(28)
     @Name("Death penalty")
     @Key("death-penalty")
@@ -51,7 +51,7 @@ public interface DeathsSpec {
                 "minecraft:stalagmite");
     }
 
-    /** 0 turns decay off. */
+    /** The hours a grave lasts before it decays, where 0 turns decay off. */
     @Order(44)
     @Name("Grave max age (hours)")
     @Key("grave-max-age-hours")

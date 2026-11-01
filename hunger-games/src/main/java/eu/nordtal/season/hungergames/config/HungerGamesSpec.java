@@ -35,7 +35,7 @@ public interface HungerGamesSpec {
         return 60;
     }
 
-    /** The number of participants below which {@code /hg start} needs a confirmation. */
+    /** The number of participants below which {@code /hg start} needs a confirmation, never below the hard floor. */
     @Order(2)
     @Name("Soft minimum of players")
     @Key("soft-minimum-participants")

@@ -160,15 +160,20 @@ function TextControl({
   const problem = problemOf(entry, value) ?? breach
   if (value.includes("\n")) {
     return (
-      <Textarea
-        id={id}
-        rows={Math.min(16, value.split("\n").length + 1)}
-        disabled={disabled}
-        value={value}
-        spellCheck={false}
-        className="font-mono text-sm max-md:text-base"
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <div className="flex flex-col gap-1">
+        <Textarea
+          id={id}
+          rows={Math.min(16, value.split("\n").length + 1)}
+          disabled={disabled}
+          value={value}
+          spellCheck={false}
+          aria-invalid={problem !== null}
+          aria-describedby={problem === null ? undefined : `${id}-problem`}
+          className="font-mono text-sm max-md:text-base"
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <FieldProblem id={`${id}-problem`} problem={problem} />
+      </div>
     )
   }
   return (
@@ -300,20 +305,25 @@ export function ListControl({
   sibling?: string
   onChange: (items: string[]) => void
 }) {
+  const breachAt = useBreaches()
   const rows = <ListRows id={id} entry={entry} items={items} disabled={disabled} onChange={onChange} />
   if (!entry.refers || isColour(entry.refers)) return rows
+  /** The picker draws no row per entry, so the list shows its own breach or the first of its entries'. */
+  const breach = [id, ...items.map((_, index) => `${id}.${index}`)].map(breachAt).find((found) => found !== null)
   return (
-    <ReferencePicker
-      id={id}
-      label={entry.label}
-      reference={entry.refers}
-      values={items}
-      multi
-      sibling={sibling}
-      disabled={disabled}
-      typed={rows}
-      onChange={onChange}
-    />
+    <Breached id={`${id}-picker`} breach={breach ?? null}>
+      <ReferencePicker
+        id={id}
+        label={entry.label}
+        reference={entry.refers}
+        values={items}
+        multi
+        sibling={sibling}
+        disabled={disabled}
+        typed={rows}
+        onChange={onChange}
+      />
+    </Breached>
   )
 }
 

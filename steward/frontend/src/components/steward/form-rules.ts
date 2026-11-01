@@ -1,9 +1,18 @@
-import type { ConfigBreach, ConfigDocument, ConfigEntry, SettingRule } from "@/lib/api"
+import type { ConfigBreach, ConfigDocument, ConfigEntry } from "@/lib/api"
 import { ApiError } from "@/lib/api"
 import { type Draft, draftSections, draftText } from "@/components/steward/configuration"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
-import { type Breach, breaches, controlOf, type Json, type JsonObject, type RuleNode } from "@/lib/setting-rules"
-import { t } from "@/lib/texts"
+import { problemOf } from "@/components/steward/config-controls"
+import {
+  type Breach,
+  breaches,
+  controlOf,
+  type Json,
+  type JsonObject,
+  type RuleNode,
+  unread,
+} from "@/lib/setting-rules"
+import { choice, t } from "@/lib/texts"
 
 /** A schema node with the name the form shows for it, so a breach is worded with the field's label. */
 type Labelled = RuleNode & { label: string; children?: Record<string, Labelled> }
@@ -11,13 +20,18 @@ type Labelled = RuleNode & { label: string; children?: Record<string, Labelled> 
 /** A group as the evaluator reads it: the schema the entries describe, the values the draft leaves, the skipped paths. */
 export type RuleTree = { schema: Labelled; values: JsonObject; skipped: Set<string> }
 
-const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/
-
-/** A typed text as the save converts it; a text the field's type cannot read stays text, which the rules skip. */
+/**
+ * A typed text as the save converts it. A text the field's type cannot read is marked so no rule judges it: the
+ * field already shows its type, and the save refuses it.
+ */
 function typed(text: string, entry: ConfigEntry): Json {
+  if (problemOf(entry, text) !== null) return unread()
   const stripped = text.trim()
-  if ((entry.type === "INTEGER" || entry.type === "DECIMAL") && NUMBER.test(stripped)) return Number(stripped)
-  if (entry.type === "BOOLEAN" && (stripped === "true" || stripped === "false")) return stripped === "true"
+  if (entry.type === "INTEGER" || entry.type === "DECIMAL") {
+    const number = Number(stripped)
+    return stripped === "" || Number.isNaN(number) ? unread() : number
+  }
+  if (entry.type === "BOOLEAN") return stripped === "true"
   return text
 }
 
@@ -119,11 +133,6 @@ function nodeAt(schema: Labelled, setting: string): { node?: Labelled; parent: L
   return { node, parent }
 }
 
-/** The rule as its text names it: `MOST_ENTRIES` is `most-entries`. */
-function ruleWord(rule: SettingRule): string {
-  return rule.toLowerCase().replaceAll("_", "-")
-}
-
 /** `breach` in words, with the field's label and, for a rule that names a sibling, the sibling's label. */
 export function worded(schema: Labelled, breach: Breach): string {
   const { node, parent } = nodeAt(schema, breach.setting)
@@ -133,7 +142,7 @@ export function worded(schema: Labelled, breach: Breach): string {
       : (breach.value ?? "")
   return t("steward.settings.breach", {
     setting: node?.label ?? breach.setting,
-    rule: ruleWord(breach.rule),
+    rule: choice(breach.rule),
     value,
   })
 }

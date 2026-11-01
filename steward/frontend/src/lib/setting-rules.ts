@@ -41,6 +41,18 @@ function field(place: Place, key: string): Place {
   return key === "" ? place : child(place, key)
 }
 
+/** The key that marks a value its type cannot read, which no rule judges: the save refuses it for its type. */
+const UNREAD = "\u0000unread"
+
+/** A value its field's type cannot read, left to the save. */
+export function unread(): JsonObject {
+  return { [UNREAD]: true }
+}
+
+function isUnread(value: Json | undefined): boolean {
+  return isObject(value) && value[UNREAD] === true
+}
+
 function isObject(value: Json | undefined): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -80,6 +92,7 @@ function applies(node: RuleNode, siblings: JsonObject | null): boolean {
 }
 
 function apply(declared: ConfigRule, value: Json | undefined, siblings: JsonObject | null, at: Place, into: Breach[]) {
+  if (isUnread(value)) return
   const add = (place: Place, named: string | null) =>
     into.push({ setting: place.setting, entries: place.entries, rule: declared.rule, value: named })
   const limit = declared.limit ?? 0
@@ -107,7 +120,7 @@ function apply(declared: ConfigRule, value: Json | undefined, siblings: JsonObje
       const seen = new Set<string>()
       for (const [index, item] of list.entries()) {
         const held = fieldOf(item, key)
-        if (held === undefined || held === null) continue
+        if (held === undefined || held === null || isUnread(held)) continue
         const identity = identityOf(held)
         if (seen.has(identity)) {
           add(field(entry(at, index), key), text(held))
@@ -217,11 +230,14 @@ function stepsOf(schema: RuleNode, breach: Breach): { key: string; node: RuleNod
   return steps
 }
 
-/** Returns the path of `breach` with the index of each entry, such as `tiers[2].days`. */
+/**
+ * Returns the path of `breach` with the index of each entry, such as `tiers[2].days`. A key the schema does not hold
+ * ends it, as the Java evaluator ends it.
+ */
 export function shown(schema: RuleNode, breach: Breach): string {
   const steps = stepsOf(schema, breach)
   const walked = steps.map((step) => (step.index === undefined ? step.key : `${step.key}[${step.index}]`)).join(".")
-  const rest = breach.setting.split(".").slice(steps.length)
+  const rest = breach.setting.split(".").slice(steps.length, steps.length + 1)
   return [walked, ...rest].filter((part) => part !== "").join(".")
 }
 

@@ -77,6 +77,59 @@ describe("a field checked by the rules its setting declares", () => {
     expect(asButton(screen.getByRole("button", { name: "Save 1" })).disabled).toBe(false)
   })
 
+  it("leaves a value its type cannot read to the type, so the field counts once", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        document([
+          entry({
+            path: "port",
+            key: "port",
+            label: "Port",
+            type: "INTEGER",
+            value: "25565",
+            rules: [{ rule: "POSITIVE" }, { rule: "AT_MOST", limit: 65535 }],
+          }),
+        ]),
+      ),
+    )
+    draw(<Settings service="smp" />)
+    await open("Example")
+
+    const field = asInput(await screen.findByLabelText("Port"))
+    for (const value of ["70000.5", "0f", "1e9"]) {
+      fireEvent.change(field, { target: { value } })
+      expect(screen.getByText("Takes a whole number, such as 12.")).toBeTruthy()
+      expect(screen.queryByText(/^Port must/)).toBeNull()
+      expect(screen.getByText("One field holds a value it cannot take.")).toBeTruthy()
+    }
+  })
+
+  it("marks a text of several lines", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend(
+        document([
+          entry({
+            path: "rules",
+            key: "rules",
+            label: "Rules",
+            value: "Be kind.\nNo griefing.",
+            rules: [{ rule: "LONGEST", limit: 30 }],
+          }),
+        ]),
+      ),
+    )
+    draw(<Settings service="smp" />)
+    await open("Example")
+
+    const field = await screen.findByLabelText("Rules")
+    fireEvent.change(field, { target: { value: "Be kind.\nNo griefing, no stealing, no traps." } })
+
+    expect(field.getAttribute("aria-invalid")).toBe("true")
+    expect(screen.getByText("A text in Rules is longer than 30 characters.")).toBeTruthy()
+  })
+
   it("marks the entry of a list that breaks a rule, by its index", async () => {
     vi.stubGlobal("fetch", backend(document([tiers])))
     const { container } = draw(<Settings service="smp" />)

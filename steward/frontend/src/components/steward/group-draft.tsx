@@ -58,16 +58,17 @@ export function useGroupDraft(file: string, document: ConfigDocument, save: Grou
   const count = Object.keys(changes).length
   const tree = useMemo(() => ruleTree(document, draft), [document, draft])
   const found = useMemo(() => formBreaches(tree), [tree])
-  const invalid = useMemo(() => invalidCount(document, changes) + found.length, [document, changes, found])
 
   /** A refused save marks its field while the draft is the one it sent. */
   const [sent, setSent] = useState<string | null>(null)
   const refusal = sent === JSON.stringify(changes) ? refusalOf(save.error) : null
-  const byId = useMemo(() => {
-    const marked = breachesById(tree.schema, found)
-    if (refusal === null) return marked
-    return new Map([...breachesById(tree.schema, [refusal]), ...marked])
-  }, [tree, found, refusal])
+  const marked = useMemo(() => breachesById(tree.schema, found), [tree, found])
+  /** A control that breaks two rules is one field that holds a value it cannot take. */
+  const invalid = useMemo(() => invalidCount(document, changes) + marked.size, [document, changes, marked])
+  const byId = useMemo(
+    () => (refusal === null ? marked : new Map([...breachesById(tree.schema, [refusal]), ...marked])),
+    [tree, marked, refusal],
+  )
   const breachAt: BreachAt = useCallback((id) => byId.get(id) ?? null, [byId])
   const listed = useMemo(() => found.map((breach) => worded(tree.schema, breach)), [tree, found])
 

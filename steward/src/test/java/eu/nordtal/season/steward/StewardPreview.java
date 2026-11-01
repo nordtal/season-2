@@ -194,6 +194,8 @@ public final class StewardPreview {
                     stackOf(configs, client, database, data, scheduler),
                     client,
                     true,
+                    // The preview runs no game.
+                    () -> false,
                     data,
                     configs.languages(),
                     Clock.systemUTC(),

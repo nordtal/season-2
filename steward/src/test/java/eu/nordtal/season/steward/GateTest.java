@@ -127,11 +127,13 @@ class GateTest extends WebFixture {
                 "A writing route carries the gate WRITES_GATED names for it, and every writing route is named there.");
     }
 
-    /** Reading needs at least {@link Gate#KEY_HELD}, except five routes that a signed-out browser needs. */
+    /** Reading needs at least {@link Gate#KEY_HELD}, except health checks and what a signed-out browser needs. */
     @Test
     void theOnlyReadsOutsideTheKeyAreTheDoorItself() {
         final Set<String> allowed = Set.of(
                 "GET /api/health",
+                // The uptime check outside the host reads whether a proxy answers.
+                "GET /api/health/game",
                 "GET /api/me",
                 // The sign-in page reads the page's words, which its script ships anyway.
                 "GET /api/texts",

@@ -78,8 +78,15 @@ const AWARDS = document("advancement-awards", [
   ),
 ])
 
+const BLOCK = [
+  entry("world", { label: "World", value: "nordtal", refers: { to: "WORLD", optional: false } }),
+  number("x", "X", "0"),
+  number("y", "Y", "64"),
+  number("z", "Z", "0"),
+]
+
 const WHEEL = document("wheel", [
-  list("wheel-regions", "Wheel regions", BOX, [{ "min-x": "3978", "max-x": "3978" }]),
+  list("wheel-blocks", "Wheel blocks", BLOCK, [{ x: "3978", y: "75", z: "2171" }]),
   list(
     "wheel-prizes",
     "Wheel prizes",
@@ -115,6 +122,7 @@ const DUELS = document("duels", [
 
 const GAME = {
   version: "26.2",
+  worlds: { smp: ["nordtal", "nordtal_nether", "nordtal_the_end"] },
   datapacks: [],
   registries: {
     item: [
@@ -232,35 +240,46 @@ describe("game group editors", { timeout: 15_000 }, () => {
     expect(screen.getByRole("button", { name: /Acquire Hardware/ })).toBeTruthy()
   })
 
-  it("shows a region as a tile of its world and corners, edits it in a dialog and adds one that opens", async () => {
-    backend(WHEEL)
+  it("shows a wheel block as a tile of its world and X, Y and Z, edits it in a dialog and saves the list", async () => {
+    const puts = backend(WHEEL)
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
-    const tile = await screen.findByRole("button", { name: "Area 1" })
+    const tile = await screen.findByRole("button", { name: "Block 1" })
     expect(tile.textContent).toContain("nordtal")
-    expect(tile.textContent).toContain("0 to 0")
+    for (const value of ["3978", "75", "2171"]) expect(tile.textContent).toContain(value)
     fireEvent.click(tile)
     const dialog = await screen.findByRole("dialog")
-    expect(within(dialog).getByText("Corner 1")).toBeTruthy()
-    expect(within(dialog).getByText("Height")).toBeTruthy()
-    fireEvent.change(within(dialog).getByRole("textbox", { name: "Max Y" }), { target: { value: "90" } })
+    expect(within(dialog).queryByText("Corner 1")).toBeNull()
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Y" }), { target: { value: "80" } })
     expect(within(dialog).getByRole("button", { name: "Remove" })).toBeTruthy()
-    expect(tile.textContent).toContain("0 to 90")
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(tile.textContent).toContain("80")
 
-    fireEvent.click(screen.getByRole("button", { name: "Area" }))
-    expect(await screen.findByRole("dialog")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Area 2", hidden: true }).textContent).toContain("nordtal")
-    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Done" }))
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Area 2" })).toBeNull())
+    fireEvent.click(screen.getByRole("button", { name: "Block" }))
+    expect(within(await screen.findByRole("dialog")).getByText("Block 2")).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Block 2", hidden: true })).toBeTruthy()
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(screen.queryByRole("button", { name: "Block 2", hidden: true })).toBeNull()
 
-    fireEvent.click(screen.getByRole("button", { name: "Area" }))
+    fireEvent.click(screen.getByRole("button", { name: "Block" }))
     const added = await screen.findByRole("dialog")
-    fireEvent.change(within(added).getByRole("textbox", { name: "Max X" }), { target: { value: "16" } })
+    fireEvent.change(within(added).getByRole("textbox", { name: "X" }), { target: { value: "16" } })
     fireEvent.click(within(added).getByRole("button", { name: "Done" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
-    expect(screen.getByRole("button", { name: "Area 2" }).textContent).toContain("16")
+    expect(screen.getByRole("button", { name: "Block 2" }).textContent).toContain("16")
+
+    fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
+    await waitFor(() => expect(puts).toHaveLength(1))
+    expect(puts[0]).toMatchObject({
+      changes: {
+        "wheel-blocks": [
+          { world: "nordtal", x: "3978", y: "80", z: "2171" },
+          { world: "nordtal", x: "16", y: "64", z: "0" },
+        ],
+      },
+    })
   })
 
   it("shows each prize's chance on its tile and edits amount and weight in its dialog, never the item", async () => {
@@ -268,7 +287,7 @@ describe("game group editors", { timeout: 15_000 }, () => {
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
     expect((await screen.findByRole("button", { name: /Oak Log/ })).textContent).toContain("99.7%")
-    expect(screen.getByRole("button", { name: "Area 1" }).textContent).toContain("3978")
+    expect(screen.getByRole("button", { name: "Block 1" }).textContent).toContain("3978")
     const elytra = screen.getByRole("button", { name: /Elytra/ })
     expect(within(elytra).getByText("0.30%")).toBeTruthy()
     fireEvent.click(elytra)

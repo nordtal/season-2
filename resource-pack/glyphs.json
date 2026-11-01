@@ -1218,7 +1218,7 @@
             {
               "code": "FE112",
               "constant": "GUI_ROW_ICON_POI",
-              "about": "A map pin: a point of interest a player made."
+              "about": "A map pin: a place."
             },
             { "code": "FE113", "constant": "GUI_ROW_ICON_STOP", "about": "A cross: stop." },
             { "code": "FE114", "constant": "GUI_ROW_ICON_PREV", "about": "A left arrow: the previous page." },

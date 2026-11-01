@@ -754,7 +754,7 @@ function tab.open(context)
   end
 
   -- Saves a sprite the tab opened as its source and its PNG, and runs
-  -- what follows from it
+  -- what follows from it. Returns true once saved.
   local function save(sprite, record)
     local info = record.info or index and index[record.id]
     local texture = info and info.texture or record.texture
@@ -762,7 +762,7 @@ function tab.open(context)
     local ok, err = pcall(modules.textures.save, sprite, texture, record.paths, api, column)
     if not ok then
       setStatus(tr("status.save_failed") .. " " .. tostring(err))
-      return
+      return false
     end
     setStatus(nil)
     changed[record.paths.png] = false
@@ -774,6 +774,7 @@ function tab.open(context)
     -- The first save makes a draft, which the tree marks once the pack was read again
     if not texture.draft then ctl.reload() end
     showProperties()
+    return true
   end
 
   -- Asks for the values of a form { title, widgets }, nil when cancelled
@@ -1148,11 +1149,13 @@ function tab.open(context)
     local known = opened[paths.png]
     if not (known and known.sprite == sprite) then
       changed[paths.png] = false
-      -- Only the first change and an undo or redo can change the marks
-      sprite.events:on("change", function(ev)
-        local was = changed[paths.png]
+      local modified = false
+      -- Only a change that flips the sprite's unsaved state changes the marks
+      sprite.events:on("change", function()
+        local was = changed[paths.png] and modified
         changed[paths.png] = true
-        if not was or ev.fromUndo then markUnsaved() end
+        modified = sprite.isModified
+        if was ~= modified then markUnsaved() end
       end)
     end
     local record = { id=id, sprite=sprite, texture=texture, paths=paths, info=info, frames=frames and #frames or nil }
@@ -1166,11 +1169,12 @@ function tab.open(context)
   -- item reads its definition, and a node of it opens the first
   -- texture of its model that the pack holds.
   function ctl.select(id)
-    -- The sprite of another entry is saved before it leaves the editor
+    -- The sprite of another entry is saved before it leaves the editor,
+    -- and stays in it when the save fails
     local shown = dlg.data.editor
     local record = shown and opened[shown.filename]
-    if id ~= selected and record and unsaved(shown, record) then
-      save(shown, record)
+    if id ~= selected and record and unsaved(shown, record) and not save(shown, record) then
+      return
     end
     selected = id
     refused = nil

@@ -513,6 +513,31 @@ describe("the Nordtal tab", function()
     assert.equal(2, #t.log)
   end)
 
+  it("marks the sprite again on an edit after an undo back to its save", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local sprite = t.open[1]
+    change(sprite)
+    change(sprite, true, false)
+    change(sprite)
+    assert.same({ "* F0000", "*", "*", "*" }, starBadges(dlg))
+  end)
+
+  it("keeps the sprite in the editor and says why when its save before the next entry fails", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local sprite = t.open[1]
+    change(sprite)
+    function sprite:saveAs() error("disk full", 0) end
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    assert.equal(sprite, dlg.data.editor)
+    assert.equal(1, #t.open)
+    assert.equal("* F0000", starBadges(dlg)[1])
+    assert.equal("status.save_failed disk full", status(dlg))
+  end)
+
   it("counts a sprite as unchanged that is modified when it opens, until the designer changes it", function()
     local t = setUp()
     local dlg = loaded(t)

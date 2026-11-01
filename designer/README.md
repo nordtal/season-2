@@ -19,8 +19,8 @@ zoomed to fit, unless its PNG lies outside `resource-pack/src/` or its source ou
 editor without the tab, such as with **File > Close**, the tree selects nothing, so a click opens
 the entry again. Each save of that sprite writes its `.aseprite` source under `resource-pack/art/`
 and its PNG: the first frame for a glyph or an item, every frame for a vanilla override. A click on
-another entry saves the sprite first when it has unsaved changes. **View >
-Nordtal Tree on the Right** docks the side panel right of the tools.
+another entry saves the sprite first when it has unsaved changes, and keeps it open when that save
+fails. **View > Nordtal Tree on the Right** docks the side panel right of the tools.
 
 The properties panel shows each value it edits in a sunken box. The mouse wheel scrolls the properties
 panel, and a panel taller than its room shows a scroll bar along its right edge. A click on a box asks
@@ -75,21 +75,21 @@ brackets as its badge, such as `(2)`, so a collapsed font or block shows them to
 longer marked once a publish has opened its pull request. An entry whose sprite has unsaved changes,
 and each node above it, shows `*` at the start of its badge until a save or an undo back to the last
 save. A sprite that the tab built from the frames of a PNG has no unsaved changes until the designer
-changes it. The tree's
-**Texts** lists each key of the pack's language files, and its properties show the asset that owns
-the key, one value per language that `editText` writes, and **Delete Text**. **Add Text** on
-**Texts** asks for a key, a language and a value. The properties panel of a draft has
-**Discard Changes**, which runs `discardDraft` once confirmed. **File > Publish...** lists every
-draft with a check, and a title that names the drafts chosen until it is edited. **Discard
+changes it. The tree's **Texts** lists each key of the pack's language files, and its properties
+show the asset that owns the key, one value per language that `editText` writes, and **Delete
+Text**. **Add Text** on **Texts** asks for a key, a language and a value. The properties panel of a
+draft has **Discard Changes**, which runs `discardDraft` once confirmed. **File > Publish...** lists
+every draft with a check, and a title that names the drafts chosen until it is edited. **Discard
 Chosen...** discards the chosen drafts once confirmed. **Publish** writes the title to
 `resource-pack/build/publish-message.txt` and runs `.githooks/commit-msg` on it through `git hook
-run` with the bootstrap's git. A refusal of the hook shows in the dialog over at most six lines, and the
-dialog stays open. The last line ends with `...` when the refusal is longer. An accepted title runs `publishDrafts` with the bootstrap's gh, and the status
-line shows the address of the pull request. After a publish, failed or not, the tab reads the pack
-again. Every task runs with the folder of the bootstrap's git first on `PATH`. A pack with drafts or
-pull requests runs `syncReviews` after the tab's first read and every five minutes, and the tab reads
-the pack again after a merge, a close, a put back of a pull that stopped halfway, a move of main or a
-change of a pull request.
+run` with the bootstrap's git. A refusal of the hook shows in the dialog over at most six lines, and
+the dialog stays open. The last line ends with `...` when the refusal is longer. An accepted title
+runs `publishDrafts` with the bootstrap's gh, and the status line shows the address of the pull
+request. After a publish, failed or not, the tab reads the pack again. Every task runs with the
+folder of the bootstrap's git first on `PATH`. A pack with drafts or pull requests runs
+`syncReviews` after the tab's first read and every five minutes, and the tab reads the pack again
+after a merge, a close, a put back of a pull that stopped halfway, a move of main or a change of a
+pull request.
 
 A draft that main changed too has a conflict. The tree marks it and each node above it with the
 theme's warning box, and the publish dialog leaves it unchosen and refuses it. Its properties panel lists the

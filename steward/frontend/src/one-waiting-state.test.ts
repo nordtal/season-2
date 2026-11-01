@@ -55,6 +55,11 @@ const NO_WAITING_SHAPE = new Map<string, string>([
     "The tones and glyphs only colour a line of text drawn from the start; until they arrive it is drawn plain.",
   ],
   [
+    "components/steward/game-item.tsx",
+    "The catalogue only names an item's enchantments and translated text, which show by their id until it arrives;" +
+      " the tile or dialog that draws the item waited for its group.",
+  ],
+  [
     "components/steward/config-controls.tsx",
     "The catalogue only adds a choice's icon beside its name, which is drawn from the start.",
   ],

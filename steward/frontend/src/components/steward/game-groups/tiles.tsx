@@ -2,6 +2,7 @@ import { TrashIcon } from "@phosphor-icons/react"
 import { type ReactNode, useState } from "react"
 
 import { AskThenAct } from "@/components/steward/ask-then-act"
+import { Hint } from "@/components/steward/status"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -19,32 +20,42 @@ export function Tiles({ children }: { children: ReactNode }) {
   return <ul className="grid grid-cols-3 gap-2 @lg:grid-cols-4 @2xl:grid-cols-5 @4xl:grid-cols-6">{children}</ul>
 }
 
-/** One tile: a click opens its dialog. `mark` is the game icon, `details` the values under the name. */
+/**
+ * One tile: a click opens its dialog. `mark` is the game icon, `badges` sit under the name, `details` are the values
+ * under them, and `tip` shows on hover.
+ */
 export function Tile({
   mark,
   name,
+  badges,
   details,
+  tip,
   onOpen,
 }: {
   mark: ReactNode
   name: string
+  badges?: ReactNode
   details: ReactNode
+  tip?: ReactNode
   onOpen: () => void
 }) {
   return (
     <li>
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        className="flex h-full w-full min-w-0 flex-col items-center gap-1 rounded-lg border px-1.5 py-2.5 text-center transition-colors hover:bg-muted/50"
-        onClick={onOpen}
-      >
-        {mark}
-        <span className="line-clamp-2 w-full text-xs break-words">{name}</span>
-        <span className="mt-auto flex flex-wrap items-center justify-center gap-x-2 text-sm font-medium tabular-nums">
-          {details}
-        </span>
-      </button>
+      <Hint tip={tip}>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          className="flex h-full w-full min-w-0 flex-col items-center gap-1 rounded-lg border px-1.5 py-2.5 text-center transition-colors hover:bg-muted/50"
+          onClick={onOpen}
+        >
+          {mark}
+          <span className="line-clamp-2 w-full text-xs break-words">{name}</span>
+          {badges}
+          <span className="mt-auto flex flex-wrap items-center justify-center gap-x-2 text-sm font-medium tabular-nums">
+            {details}
+          </span>
+        </button>
+      </Hint>
     </li>
   )
 }
@@ -57,6 +68,7 @@ export function EntryDialog({
   mark,
   name,
   description,
+  badges,
   disabled,
   children,
   onRemove,
@@ -66,6 +78,8 @@ export function EntryDialog({
   mark: ReactNode
   name: string
   description?: string
+  /** What sits under the name, such as an item's enchantments. */
+  badges?: ReactNode
   disabled: boolean
   children: ReactNode
   /** Without it the entry is fixed: the dialog edits it and has no Remove. */
@@ -82,6 +96,7 @@ export function EntryDialog({
               {mark}
               <div className="flex min-w-0 flex-col gap-1 text-left">
                 <ResponsiveDialogTitle>{name}</ResponsiveDialogTitle>
+                {badges}
                 {description ? <ResponsiveDialogDescription>{description}</ResponsiveDialogDescription> : null}
               </div>
             </div>

@@ -80,6 +80,7 @@ it:
 - `secondary-hover` is a secondary button under the pointer.
 - `mark` and `mark-wash` draw a placeholder in a text and the mark of hover text.
 - `chart-1` to `chart-5` draw chart series. None of them is blue, because a series cannot be clicked.
+- `enchantment` draws an item's enchantment badges, in the purple of the game's glint.
 - `overlay` is the backdrop behind a dialog, a sheet or a drawer.
 
 ## Type

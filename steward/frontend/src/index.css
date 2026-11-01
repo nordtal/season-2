@@ -49,6 +49,9 @@
   --destructive: #d8534a;
   --destructive-foreground: #fffcf6;
 
+  /* An enchantment's badge: the purple of the game's enchanted glint, lifted so it reads on the dark tones. */
+  --enchantment: #b98cf0;
+
   /* The scrim behind a dialog, sheet or drawer, drawn at a fraction of its strength. */
   --overlay: #000000;
 
@@ -125,6 +128,7 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-enchantment: var(--enchantment);
   --color-overlay: var(--overlay);
   --color-mark: var(--mark);
   --color-border: var(--border);

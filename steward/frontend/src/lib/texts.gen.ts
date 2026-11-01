@@ -1060,6 +1060,15 @@ export type TextArgs = {
     index: Arg["number"]
   }
   "steward.game.arena": Record<string, never>
+  "steward.game.attribute": {
+    amount: Arg["text"]
+    attribute: Arg["text"]
+  }
+  "steward.game.attribute-worn": {
+    amount: Arg["text"]
+    attribute: Arg["text"]
+    slot: Arg["choice"]
+  }
   "steward.game.aura-awarded": {
     total: Arg["number"]
   }
@@ -1086,16 +1095,36 @@ export type TextArgs = {
     amount: Arg["number"]
     target: Arg["number"]
   }
+  "steward.game.component": {
+    name: Arg["text"]
+    value: Arg["text"]
+  }
   "steward.game.corner": {
     index: Arg["number"]
   }
   "steward.game.counting-down": Record<string, never>
+  "steward.game.custom-model-data": {
+    values: Arg["text"]
+  }
+  "steward.game.damaged": {
+    damage: Arg["number"]
+  }
   "steward.game.done-at": {
     at: Arg["text"]
   }
   "steward.game.duel-types": Record<string, never>
+  "steward.game.dyed": {
+    colour: Arg["text"]
+  }
+  "steward.game.enchantment": {
+    name: Arg["text"]
+    level: Arg["text"]
+  }
   "steward.game.height": Record<string, never>
   "steward.game.item": Record<string, never>
+  "steward.game.item-model": {
+    model: Arg["text"]
+  }
   "steward.game.keep": Record<string, never>
   "steward.game.loadout": Record<string, never>
   "steward.game.locked": Record<string, never>
@@ -1103,6 +1132,9 @@ export type TextArgs = {
   "steward.game.milestone": Record<string, never>
   "steward.game.milestones": Record<string, never>
   "steward.game.min": Record<string, never>
+  "steward.game.more-enchantments": {
+    count: Arg["number"]
+  }
   "steward.game.move-down": {
     name: Arg["text"]
   }
@@ -1154,7 +1186,6 @@ export type TextArgs = {
   "steward.game.start-round": Record<string, never>
   "steward.game.take-in": Record<string, never>
   "steward.game.take-in-failed": Record<string, never>
-  "steward.game.taken-in": Record<string, never>
   "steward.game.tasks": {
     finished: Arg["number"]
     total: Arg["number"]
@@ -1163,6 +1194,7 @@ export type TextArgs = {
     total: Arg["number"]
   }
   "steward.game.track": Record<string, never>
+  "steward.game.unbreakable": Record<string, never>
   "steward.game.unlock": Record<string, never>
   "steward.game.unlock-ask": {
     name: Arg["text"]

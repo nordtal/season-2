@@ -11,7 +11,9 @@ import { DuelsEditor } from "@/components/steward/game-groups/duels-editor"
 import { chance } from "@/components/steward/game-groups/model"
 import { WheelEditor } from "@/components/steward/game-groups/wheel-editor"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { byte, compound, double, int, itemData, list as nbtList, stack, text } from "@/lib/item-data-fixtures"
 import { configSaved } from "@/lib/query-fixtures"
+import { tipOf } from "@/lib/test-elements"
 
 function entry(key: string, more: Partial<ConfigEntry> = {}): ConfigEntry {
   return {
@@ -132,6 +134,12 @@ const GAME = {
       { id: "minecraft:bow", text: "Bow" },
       { id: "minecraft:arrow", text: "Arrow" },
     ],
+    enchantment: [
+      { id: "minecraft:sharpness", text: "Sharpness" },
+      { id: "minecraft:mending", text: "Mending" },
+      { id: "minecraft:unbreaking", text: "Unbreaking" },
+      { id: "minecraft:fire_aspect", text: "Fire Aspect" },
+    ],
     advancement: [
       { id: "minecraft:story/mine_stone", text: "Stone Age", frame: "task", icon: "minecraft:oak_log" },
       { id: "minecraft:story/smelt_iron", text: "Acquire Hardware", frame: "task", icon: "minecraft:elytra" },
@@ -164,6 +172,32 @@ function backend(saved: ConfigDocument, more: Asked = () => undefined) {
     }),
   )
   return puts
+}
+
+/** An iron sword taken in whole: renamed, with lore, four enchantments, an attribute and unbreakable. */
+function frostbite(): Promise<string> {
+  return itemData(
+    stack("minecraft:iron_sword", {
+      "minecraft:custom_name": compound({ text: text("Frostbite"), italic: byte(0) }),
+      "minecraft:lore": nbtList([text("Forged in the north")]),
+      "minecraft:enchantments": compound({
+        "minecraft:sharpness": int(5),
+        "minecraft:mending": int(1),
+        "minecraft:unbreaking": int(3),
+        "minecraft:fire_aspect": int(2),
+      }),
+      "minecraft:attribute_modifiers": nbtList([
+        compound({
+          type: text("minecraft:attack_damage"),
+          id: text("minecraft:base_attack_damage"),
+          amount: double(6),
+          operation: text("add_value"),
+          slot: text("mainhand"),
+        }),
+      ]),
+      "minecraft:unbreakable": compound({}),
+    }),
+  )
 }
 
 const NOTHING = () => {}
@@ -331,6 +365,44 @@ describe("game group editors", { timeout: 15_000 }, () => {
     expect(within(elytra).getByText("66.7%")).toBeTruthy()
   })
 
+  it("shows a prize taken in whole as one element: its name, enchantment badges, and its lore in the tooltip", async () => {
+    const wheel = document("wheel", [
+      list(
+        "wheel-prizes",
+        "Wheel prizes",
+        [ITEM, number("amount", "Amount", "1"), number("weight", "Weight", "1"), entry("data", { value: "" })],
+        [
+          { item: "minecraft:iron_sword", amount: "1", weight: "1", data: await frostbite() },
+          { item: "minecraft:oak_log", amount: "64", weight: "1" },
+        ],
+      ),
+    ])
+    backend(wheel)
+    draw(<WheelEditor file="smp/wheel" document={wheel} target={null} />)
+
+    const tile = await screen.findByRole("button", { name: /Frostbite/ })
+    expect(within(tile).getByText("Sharpness V")).toBeTruthy()
+    expect(within(tile).getByText("Mending")).toBeTruthy()
+    expect(within(tile).getByText("2 more")).toBeTruthy()
+    expect(tipOf(tile)).toBe(
+      "Unbreaking IIIFire Aspect IIForged in the north+6 Attack damage in the main handUnbreakable",
+    )
+    expect(tipOf(screen.getByRole("button", { name: /Oak Log/ }))).toBeNull()
+
+    fireEvent.click(tile)
+    const dialog = await screen.findByRole("dialog", { name: "Frostbite" })
+    for (const shown of [
+      "Sharpness V",
+      "Mending",
+      "Unbreaking III",
+      "Fire Aspect II",
+      "Forged in the north",
+      "Unbreakable",
+    ])
+      expect(within(dialog).getByText(shown)).toBeTruthy()
+    expect(within(dialog).getByRole("textbox", { name: "Frostbite Weight" })).toBeTruthy()
+  })
+
   it("opens the dialog of an award as soon as it is added", async () => {
     backend(AWARDS)
     draw(<AwardsEditor file="smp/advancement-awards" document={AWARDS} target={null} />)
@@ -358,14 +430,15 @@ describe("game group editors", { timeout: 15_000 }, () => {
   })
 
   it("takes a prize in from the game whole and saves its data with it", async () => {
-    const { more } = takeIn({ status: "DONE", answer: { item: "minecraft:iron_sword", data: "AAEC" } })
+    const data = await frostbite()
+    const { more } = takeIn({ status: "DONE", answer: { item: "minecraft:iron_sword", data } })
     const puts = backend(WHEEL, more)
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
     fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
     fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
-    const dialog = await screen.findByRole("dialog", { name: "Iron Sword" })
-    expect(within(dialog).getByText(/Taken in from the game whole/)).toBeTruthy()
+    const dialog = await screen.findByRole("dialog", { name: "Frostbite" })
+    expect(within(dialog).getByText("Forged in the north")).toBeTruthy()
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
 
@@ -376,7 +449,7 @@ describe("game group editors", { timeout: 15_000 }, () => {
         "wheel-prizes": [
           { item: "minecraft:oak_log", data: "" },
           { item: "minecraft:elytra", data: "" },
-          { item: "minecraft:iron_sword", amount: "1", weight: "1", data: "AAEC" },
+          { item: "minecraft:iron_sword", amount: "1", weight: "1", data },
         ],
       },
     })

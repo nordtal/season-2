@@ -135,8 +135,39 @@ public interface GameTexts {
     @Name("Take-in failed")
     MessageRef takeInFailed();
 
-    @Name("Taken in whole")
-    MessageRef takenIn();
+    @Name("Enchantment with its level")
+    MessageRef enchantment(@Arg("name") @Example("Sharpness") String name, @Arg("level") @Example("V") String level);
+
+    @Name("Attribute")
+    MessageRef attribute(
+            @Arg("amount") @Example("+7") String amount, @Arg("attribute") @Example("Attack damage") String attribute);
+
+    @Name("Attribute in a slot")
+    MessageRef attributeWorn(
+            @Arg("amount") @Example("+7") String amount,
+            @Arg("attribute") @Example("Attack damage") String attribute,
+            @Arg("slot") ItemSlot slot);
+
+    @Name("Unbreakable")
+    MessageRef unbreakable();
+
+    @Name("Damaged")
+    MessageRef damaged(@Arg("damage") @Example("12") int damage);
+
+    @Name("Dyed")
+    MessageRef dyed(@Arg("colour") @Example("#3c44aa") String colour);
+
+    @Name("Item model")
+    MessageRef itemModel(@Arg("model") @Example("nordtal:station_rail") String model);
+
+    @Name("Custom model data")
+    MessageRef customModelData(@Arg("values") @Example("1, lit") String values);
+
+    @Name("Item component")
+    MessageRef component(@Arg("name") @Example("Repair cost") String name, @Arg("value") @Example("3") String value);
+
+    @Name("More enchantments")
+    MessageRef moreEnchantments(@Arg("count") @Example("2") int count);
 
     @Name("Advancements with an award")
     MessageRef awarded(@Arg("count") @Example("192") int count);
@@ -203,4 +234,18 @@ public interface GameTexts {
 
     @Name("Span")
     MessageRef span(@Arg("from") @Example("64") String from, @Arg("to") @Example("80") String to);
+
+    /** The slots an item's attribute applies in, as the game names them. */
+    enum ItemSlot {
+        MAINHAND,
+        OFFHAND,
+        HAND,
+        HEAD,
+        CHEST,
+        LEGS,
+        FEET,
+        ARMOR,
+        BODY,
+        SADDLE
+    }
 }

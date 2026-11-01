@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
@@ -24,6 +25,8 @@ final class BukkitRails implements RailView {
     private final Set<Long> held = new HashSet<>();
     private final Set<Long> ungenerated = new HashSet<>();
     private final List<CompletableFuture<?>> loads = new ArrayList<>();
+    private final Set<RailPos> failed = new HashSet<>();
+    private boolean warned;
     private boolean released;
 
     BukkitRails(final Plugin plugin, final World world) {
@@ -53,16 +56,22 @@ final class BukkitRails implements RailView {
 
     /** Loads the chunks of {@code positions} off the main thread, each once, without generating any. */
     void load(final Set<RailPos> positions) {
-        for (final RailPos pos : positions) {
+        final Set<RailPos> again = new HashSet<>(positions);
+        again.addAll(failed);
+        failed.clear();
+        for (final RailPos pos : again) {
             final int chunkX = pos.x() >> 4;
             final int chunkZ = pos.z() >> 4;
             if (!requested.add(Chunk.getChunkKey(chunkX, chunkZ))) {
                 continue;
             }
             final CompletableFuture<Chunk> loading = world.getChunkAtAsync(chunkX, chunkZ, false);
-            // A chunk that fails to load counts as one without rails, so the walk never waits for it.
             loads.add(loading.handle((chunk, failure) -> {
-                held(chunkX, chunkZ, failure == null ? chunk : null);
+                if (failure == null) {
+                    held(chunkX, chunkZ, chunk);
+                } else {
+                    failedToLoad(pos, failure);
+                }
                 return null;
             }));
         }
@@ -78,6 +87,18 @@ final class BukkitRails implements RailView {
         } else if (chunk.addPluginChunkTicket(plugin)) {
             held.add(chunk.getChunkKey());
         }
+    }
+
+    /** Asks for a chunk that failed to load again, so its rails are never taken for missing ones. */
+    private void failedToLoad(final RailPos pos, final Throwable failure) {
+        if (released) {
+            return;
+        }
+        if (requested.remove(Chunk.getChunkKey(pos.x() >> 4, pos.z() >> 4)) && !warned) {
+            warned = true;
+            plugin.getLogger().log(Level.WARNING, "a chunk of a rail network failed to load, asking again", failure);
+        }
+        failed.add(pos);
     }
 
     /** Lets go of the chunks this walk held loaded. */

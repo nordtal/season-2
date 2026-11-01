@@ -79,10 +79,9 @@ public final class PrizeTakeIn {
                 documents.applied(TakeInWindow.DOCUMENT),
                 Viewer.of(identities.languageOf(player.value())),
                 new DocumentSpec.None());
-        final AtomicBoolean given = new AtomicBoolean();
-        final boolean shown = onMain(given, () -> {
+        final boolean shown = onMain(() -> {
             final Player here = plugin.getServer().getPlayer(player.value());
-            if (here == null || given.get()) {
+            if (here == null) {
                 return false;
             }
             final TakeInWindow window = new TakeInWindow(document, stack -> answer(request, stack));
@@ -131,18 +130,25 @@ public final class PrizeTakeIn {
 
     /**
      * Runs {@code work} on the main thread and waits for it.
-     * A wait given up sets {@code given}, so the work opens nothing once it runs late.
+     * The work and a wait that runs out claim one flag, so work that starts late does nothing, and a wait for work
+     * already started lasts until it ends.
      */
-    private boolean onMain(final AtomicBoolean given, final Supplier<Boolean> work) {
+    private boolean onMain(final Supplier<Boolean> work) {
+        final AtomicBoolean claimed = new AtomicBoolean();
+        final CompletableFuture<Boolean> done = CompletableFuture.supplyAsync(
+                () -> claimed.compareAndSet(false, true) && work.get(),
+                PaperScheduler.of(plugin).mainThread());
         try {
-            return CompletableFuture.supplyAsync(work, PaperScheduler.of(plugin).mainThread())
-                    .get(WAIT_SECONDS, TimeUnit.SECONDS);
+            return done.get(WAIT_SECONDS, TimeUnit.SECONDS);
         } catch (final TimeoutException late) {
-            given.set(true);
-            throw new IllegalStateException(late);
+            if (claimed.compareAndSet(false, true)) {
+                throw new IllegalStateException(late);
+            }
+            return done.join();
         } catch (final ExecutionException failed) {
             throw new IllegalStateException(failed);
         } catch (final InterruptedException interrupted) {
+            claimed.set(true);
             Thread.currentThread().interrupt();
             throw new IllegalStateException(interrupted);
         }

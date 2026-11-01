@@ -36,26 +36,22 @@ import org.junit.jupiter.api.Test;
 
 class SmpSettingsTest {
 
-    private static final Group<WorldsSpec> WORLDS =
-            Group.of("worlds", WorldsSpec.class).checkedBy(SmpSettings::checkWorlds);
-    private static final Group<SpawnSpec> SPAWN =
-            Group.of("spawn", SpawnSpec.class).checkedBy(SmpSettings::checkSpawn);
-    private static final Group<BoardsSpec> BOARDS =
-            Group.of("boards", BoardsSpec.class).checkedBy(SmpSettings::checkBoards);
-    private static final Group<DuelsSpec> DUELS =
-            Group.of("duels", DuelsSpec.class).checkedBy(SmpSettings::checkDuels);
+    private static final Group<WorldsSpec> WORLDS = Group.of("worlds", WorldsSpec.class);
+    private static final Group<SpawnSpec> SPAWN = Group.of("spawn", SpawnSpec.class);
+    private static final Group<BoardsSpec> BOARDS = Group.of("boards", BoardsSpec.class);
+    private static final Group<DuelsSpec> DUELS = Group.of("duels", DuelsSpec.class);
 
     /** Every smp group but the milestones, whose own tests cover them. */
     private static final List<Group<?>> GROUPS = List.of(
             WORLDS,
-            Group.of("border", BorderSpec.class).checkedBy(SmpSettings::checkBorder),
-            Group.of("wheel", WheelSpec.class).checkedBy(SmpSettings::checkWheel),
-            Group.of("advancement-awards", AdvancementAwardsSpec.class).checkedBy(SmpSettings::checkAdvancementAwards),
+            Group.of("border", BorderSpec.class),
+            Group.of("wheel", WheelSpec.class),
+            Group.of("advancement-awards", AdvancementAwardsSpec.class),
             DUELS,
             BOARDS,
             Group.of("npc", NpcSpec.class),
             SPAWN,
-            Group.of("deaths-and-graves", DeathsSpec.class).checkedBy(SmpSettings::checkDeaths),
+            Group.of("deaths-and-graves", DeathsSpec.class),
             Group.of("sounds", SoundsSpec.class));
 
     private final MemorySettingStore store = new MemorySettingStore();
@@ -94,7 +90,7 @@ class SmpSettingsTest {
         final Exception refused =
                 assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("duel-kits", List.of())));
 
-        assertTrue(refused.getMessage().contains("duel-kits"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("duel-kits must not be empty"), refused.getMessage());
     }
 
     @Test
@@ -105,7 +101,7 @@ class SmpSettingsTest {
         final Exception refused =
                 assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("duel-kits", kits)));
 
-        assertTrue(refused.getMessage().contains("at most 5"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("more than 5"), refused.getMessage());
     }
 
     @Test
@@ -139,8 +135,7 @@ class SmpSettingsTest {
 
     @Test
     void aBrokenEntryOfAListNamesItsFieldAndTheLogSentenceNamesTheEntry() {
-        final Group<AdvancementAwardsSpec> awards = Group.of("advancement-awards", AdvancementAwardsSpec.class)
-                .checkedBy(SmpSettings::checkAdvancementAwards);
+        final Group<AdvancementAwardsSpec> awards = Group.of("advancement-awards", AdvancementAwardsSpec.class);
         final String entries = new Gson()
                 .toJson(List.of(Map.of("advancement", "minecraft:nether/netherite_armor", "aura", 50, "spins", 1)));
         final SettingsException refused = assertThrows(
@@ -155,9 +150,115 @@ class SmpSettingsTest {
         assertEquals(
                 Arrays.asList("advancement-awards.aura", SettingRule.AT_MOST, "10"),
                 Arrays.asList(named.setting(), named.rule(), named.value()));
-        assertTrue(
-                String.valueOf(named.getMessage()).startsWith("'minecraft:nether/netherite_armor': "),
-                named.getMessage());
+        assertTrue(String.valueOf(named.getMessage()).startsWith("advancement-awards[0].aura "), named.getMessage());
+    }
+
+    /** Each rule a spec declares where a hand-written check stood, with the sentence of its refusal. */
+    @Test
+    void theWorldsBorderAndDeathRulesRefuseWhatTheChecksRefused() {
+        assertAll(
+                () -> assertRefused(WORLDS, Map.of("world-nordtal", " "), "world-nordtal must not be empty"),
+                () -> assertRefused(
+                        Group.of("border", BorderSpec.class),
+                        Map.of("nether-border-diameter", -1),
+                        "nether-border-diameter must be greater than zero"),
+                () -> assertRefused(
+                        Group.of("deaths-and-graves", DeathsSpec.class),
+                        Map.of("death-penalty", -1),
+                        "death-penalty must not be negative"),
+                () -> assertRefused(
+                        Group.of("deaths-and-graves", DeathsSpec.class),
+                        Map.of("death-penalty-listed", -1),
+                        "death-penalty-listed must not be negative"),
+                () -> assertRefused(
+                        Group.of("border", BorderSpec.class),
+                        Map.of("end-border-diameter", 0),
+                        "end-border-diameter must be greater than zero"),
+                () -> assertRefused(
+                        Group.of("border", BorderSpec.class),
+                        Map.of("border-expansion-blocks-per-second", -0.5),
+                        "border-expansion-blocks-per-second must be greater than zero"),
+                () -> assertRefused(
+                        Group.of("deaths-and-graves", DeathsSpec.class),
+                        Map.of("grave-max-age-hours", -1),
+                        "grave-max-age-hours must not be negative"));
+    }
+
+    @Test
+    void theDuelRulesRefuseWhatTheChecksRefused() {
+        assertAll(
+                () -> assertRefused(
+                        DUELS, Map.of("negotiation-area.world", ""), "negotiation-area.world must not be empty"),
+                () -> assertRefused(
+                        DUELS, Map.of("fighter-start-first.world", ""), "fighter-start-first.world must not be empty"),
+                () -> assertRefused(
+                        DUELS,
+                        Map.of("fighter-start-second.world", ""),
+                        "fighter-start-second.world must not be empty"),
+                () -> assertRefused(
+                        DUELS,
+                        Map.of("duel-kits", List.of(Map.of("name", " "))),
+                        "duel-kits[0].name must not be empty"),
+                () -> assertRefused(DUELS, Map.of("duel-stake", -1), "duel-stake must not be negative"),
+                () -> assertRefused(DUELS, Map.of("arena.world", ""), "arena.world must not be empty"),
+                () -> assertRefused(DUELS, Map.of("exit.world", ""), "exit.world must not be empty"),
+                () -> assertRefused(
+                        DUELS,
+                        Map.of("duel-kits", List.of(Map.of("name", "x".repeat(65)))),
+                        "duel-kits[0].name is longer than 64 characters"));
+    }
+
+    @Test
+    void theRulesOnListEntriesRefuseWhatTheChecksRefused() {
+        final Map<String, Object> award = Map.of("advancement", "minecraft:story/mine_stone", "aura", 1);
+        final Map<String, Object> board = Map.of("kind", "OBJECTIVE", "world", "nordtal", "width", 241);
+        final Map<String, Object> prize = Map.of("item", "minecraft:diamond", "amount", 1, "weight", 0);
+        final Map<String, Object> area = Map.of("world", "", "min-x", 0, "max-x", 1);
+        assertAll(
+                () -> assertRefused(
+                        Group.of("advancement-awards", AdvancementAwardsSpec.class),
+                        Map.of("advancement-awards", List.of(Map.of("advancement", "", "aura", 5))),
+                        "advancement-awards[0].advancement must not be empty"),
+                () -> assertRefused(
+                        Group.of("advancement-awards", AdvancementAwardsSpec.class),
+                        Map.of(
+                                "advancement-awards",
+                                List.of(Map.of("advancement", "minecraft:story/mine_stone", "aura", 5, "spins", -1))),
+                        "advancement-awards[0].spins must not be negative"),
+                () -> assertRefused(
+                        Group.of("wheel", WheelSpec.class),
+                        Map.of("wheel-prizes", List.of(Map.of("item", "", "amount", 1, "weight", 1))),
+                        "wheel-prizes[0].item must not be empty"),
+                () -> assertRefused(
+                        Group.of("wheel", WheelSpec.class),
+                        Map.of("wheel-prizes", List.of(Map.of("item", "minecraft:diamond", "amount", 0, "weight", 1))),
+                        "wheel-prizes[0].amount must be greater than zero"),
+                () -> assertRefused(
+                        Group.of("advancement-awards", AdvancementAwardsSpec.class),
+                        Map.of("advancement-awards", List.of(award)),
+                        "advancement-awards[0].aura must be at least 2"),
+                () -> assertRefused(
+                        Group.of("wheel", WheelSpec.class),
+                        Map.of("wheel-prizes", List.of()),
+                        "wheel-prizes must not be empty"),
+                () -> assertRefused(
+                        Group.of("wheel", WheelSpec.class),
+                        Map.of("wheel-prizes", List.of(prize)),
+                        "wheel-prizes[0].weight must be greater than zero"),
+                () -> assertRefused(BOARDS, Map.of("boards", List.of(board)), "boards[0].width must be at most 240"),
+                () -> assertRefused(
+                        BOARDS,
+                        Map.of("boards", List.of(Map.of("kind", "OBJECTIVE", "world", "", "width", 64))),
+                        "boards[0].world must not be empty"),
+                () -> assertRefused(SPAWN, Map.of("nordtal-spawn.world", ""), "nordtal-spawn.world must not be empty"),
+                () -> assertRefused(
+                        SPAWN, Map.of("protected-areas", List.of(area)), "protected-areas[0].world must not be empty"));
+    }
+
+    private void assertRefused(final Group<?> group, final Map<String, ?> values, final String sentence) {
+        final SettingsException refused =
+                assertThrows(SettingsException.class, () -> new MemorySettingStore().checked("smp", group, values));
+        assertTrue(String.valueOf(refused.getMessage()).contains(sentence), refused.getMessage());
     }
 
     @Test

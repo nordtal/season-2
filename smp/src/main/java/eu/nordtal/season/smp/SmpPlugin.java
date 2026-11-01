@@ -200,29 +200,16 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected void prepare() {
-        worldsSettings = setting(Group.of("worlds", WorldsSpec.class).checkedBy(SmpSettings::checkWorlds));
-        borderSettings = setting(Group.of("border", BorderSpec.class)
-                .checkedBy(SmpSettings::checkBorder)
-                .whileRunning());
-        wheelSettings = setting(Group.of("wheel", WheelSpec.class)
-                .checkedBy(SmpSettings::checkWheel)
-                .whileRunning());
-        awardSettings = setting(Group.of("advancement-awards", AdvancementAwardsSpec.class)
-                .checkedBy(SmpSettings::checkAdvancementAwards)
-                .whileRunning());
-        duelSettings = setting(Group.of("duels", DuelsSpec.class)
-                .checkedBy(SmpSettings::checkDuels)
-                .whileRunning());
-        boardSettings = setting(Group.of("boards", BoardsSpec.class)
-                .checkedBy(SmpSettings::checkBoards)
-                .whileRunning());
+        worldsSettings = setting(Group.of("worlds", WorldsSpec.class));
+        borderSettings = setting(Group.of("border", BorderSpec.class).whileRunning());
+        wheelSettings = setting(Group.of("wheel", WheelSpec.class).whileRunning());
+        awardSettings = setting(
+                Group.of("advancement-awards", AdvancementAwardsSpec.class).whileRunning());
+        duelSettings = setting(Group.of("duels", DuelsSpec.class).whileRunning());
+        boardSettings = setting(Group.of("boards", BoardsSpec.class).whileRunning());
         npcSettings = setting(Group.of("npc", NpcSpec.class).whileRunning());
-        spawnSettings = setting(Group.of("spawn", SpawnSpec.class)
-                .checkedBy(SmpSettings::checkSpawn)
-                .whileRunning());
-        deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class)
-                .checkedBy(SmpSettings::checkDeaths)
-                .whileRunning());
+        spawnSettings = setting(Group.of("spawn", SpawnSpec.class).whileRunning());
+        deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class).whileRunning());
         milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
                 .checkedBy(SmpSettings::checkMilestones)
                 .whileRunning());

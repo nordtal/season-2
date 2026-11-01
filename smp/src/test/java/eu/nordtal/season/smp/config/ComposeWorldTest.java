@@ -19,7 +19,7 @@ class ComposeWorldTest {
     void composeGeneratesTheWorldTheSpecNames() throws Exception {
         final String composed = ComposeFile.get().service("smp").defaultedEnvironment("LEVEL_NAME");
         final String named = new MemorySettingStore()
-                .checked("smp", Group.of("worlds", WorldsSpec.class).checkedBy(SmpSettings::checkWorlds), Map.of())
+                .checked("smp", Group.of("worlds", WorldsSpec.class), Map.of())
                 .worldNordtal();
 
         assertEquals(

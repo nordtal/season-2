@@ -1,6 +1,8 @@
 package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Positive;
+import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -14,6 +16,7 @@ public interface WheelPrizeSpec {
     @Order(1)
     @Name("Item")
     @Key("item")
+    @Required
     @NoExplanationNeeded
     @Refers(Refers.To.ITEM)
     default String item() {
@@ -23,6 +26,7 @@ public interface WheelPrizeSpec {
     @Order(2)
     @Name("Amount")
     @Key("amount")
+    @Positive
     @NoExplanationNeeded
     default int amount() {
         return 1;
@@ -31,6 +35,7 @@ public interface WheelPrizeSpec {
     @Order(3)
     @Name("Weight")
     @Key("weight")
+    @Positive
     @NoExplanationNeeded
     default int weight() {
         return 1;

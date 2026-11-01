@@ -1,6 +1,14 @@
 package eu.nordtal.season.hungergames.config;
 
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Above;
+import eu.nordtal.season.settings.rule.Ascending;
+import eu.nordtal.season.settings.rule.Between;
+import eu.nordtal.season.settings.rule.Entries;
+import eu.nordtal.season.settings.rule.NotNegative;
+import eu.nordtal.season.settings.rule.Positive;
+import eu.nordtal.season.settings.rule.Required;
+import eu.nordtal.season.settings.rule.Unique;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -21,15 +29,17 @@ public interface HungerGamesSpec {
     @Order(1)
     @Name("Countdown (seconds)")
     @Key("countdown-seconds")
+    @Positive
     @NoExplanationNeeded
     default int countdownSeconds() {
         return 60;
     }
 
-    /** The number of participants below which {@code /hg start} needs a confirmation. */
+    /** The number of participants below which {@code /hg start} needs a confirmation, never below the hard floor. */
     @Order(2)
     @Name("Soft minimum of players")
     @Key("soft-minimum-participants")
+    @Between(least = HARD_MINIMUM_PARTICIPANTS)
     @NoExplanationNeeded
     default int softMinimumParticipants() {
         return 4;
@@ -38,6 +48,7 @@ public interface HungerGamesSpec {
     @Order(3)
     @Name("Border start diameter")
     @Key("border-start-diameter")
+    @Above("border-end-diameter")
     @NoExplanationNeeded
     default double borderStartDiameter() {
         return 250.0;
@@ -46,6 +57,7 @@ public interface HungerGamesSpec {
     @Order(4)
     @Name("Border end diameter")
     @Key("border-end-diameter")
+    @Positive
     @NoExplanationNeeded
     default double borderEndDiameter() {
         return 1.0;
@@ -54,6 +66,7 @@ public interface HungerGamesSpec {
     @Order(5)
     @Name("Border wall speed (blocks per second)")
     @Key("border-wall-speed-blocks-per-second")
+    @Positive
     @Explain("Keep it under walking speed (4.317), or players cannot outrun the wall.")
     default double borderWallSpeedBlocksPerSecond() {
         return 6.0;
@@ -63,6 +76,7 @@ public interface HungerGamesSpec {
     @Order(6)
     @Name("Border quiet period (seconds)")
     @Key("border-quiet-period-seconds")
+    @Positive
     @NoExplanationNeeded
     default int borderQuietPeriodSeconds() {
         return 600;
@@ -72,6 +86,7 @@ public interface HungerGamesSpec {
     @Order(7)
     @Name("Border passive shrink (blocks per hour)")
     @Key("border-passive-shrink-blocks-per-hour")
+    @Positive
     @NoExplanationNeeded
     default double borderPassiveShrinkBlocksPerHour() {
         return 15.0;
@@ -80,6 +95,7 @@ public interface HungerGamesSpec {
     @Order(8)
     @Name("PvP protection (seconds)")
     @Key("pvp-protection-seconds")
+    @Positive
     @NoExplanationNeeded
     default int pvpProtectionSeconds() {
         return 60;
@@ -88,6 +104,7 @@ public interface HungerGamesSpec {
     @Order(9)
     @Name("Spawn tower radius")
     @Key("spawn-tower-radius")
+    @Positive
     @NoExplanationNeeded
     default double spawnTowerRadius() {
         return 100.0;
@@ -105,6 +122,7 @@ public interface HungerGamesSpec {
     @Order(11)
     @Name("World name")
     @Key("world-name")
+    @Required
     @NoExplanationNeeded
     default String worldName() {
         return "hunger_games";
@@ -117,10 +135,12 @@ public interface HungerGamesSpec {
     @NoExplanationNeeded
     LobbySpec lobby();
 
-    /** The loot points. */
+    /** The loot points: the spawn plus four staggered points. */
     @Order(13)
     @Name("Loot points")
     @Key("loot-points")
+    @Entries(exactly = 5)
+    @Unique("label")
     @NoExplanationNeeded
     default List<LootPointSpec> lootPoints() {
         return DefaultLootPoints.LIST;
@@ -130,6 +150,9 @@ public interface HungerGamesSpec {
     @Order(14)
     @Name("Refill tiers")
     @Key("refill-tiers")
+    @Required
+    @Unique("delay-minutes")
+    @Ascending("delay-minutes")
     @NoExplanationNeeded
     default List<RefillTierSpec> refillTiers() {
         return DefaultRefillTiers.LIST;
@@ -228,6 +251,7 @@ public interface HungerGamesSpec {
         @Order(1)
         @Name("Label")
         @Key("label")
+        @Required
         @NoExplanationNeeded
         default String label() {
             return "spawn";
@@ -266,6 +290,7 @@ public interface HungerGamesSpec {
         @Order(1)
         @Name("Delay (minutes)")
         @Key("delay-minutes")
+        @NotNegative
         @Explain("Changing it on an existing entry retires that tier.")
         default int delayMinutes() {
             return 0;
@@ -275,6 +300,7 @@ public interface HungerGamesSpec {
         @Order(2)
         @Name("Items")
         @Key("items")
+        @Required
         @NoExplanationNeeded
         @Refers(Refers.To.ITEM)
         default List<String> items() {

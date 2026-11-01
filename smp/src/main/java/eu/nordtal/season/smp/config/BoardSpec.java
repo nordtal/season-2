@@ -2,6 +2,8 @@ package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.packrendering.board.BoardFrame;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Between;
+import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -22,6 +24,7 @@ public interface BoardSpec {
     @Order(2)
     @Name("World")
     @Key("world")
+    @Required
     @Refers(Refers.To.WORLD)
     @NoExplanationNeeded
     default String world() {
@@ -60,9 +63,11 @@ public interface BoardSpec {
         return 0.0f;
     }
 
+    /** The content column in pixels, bounded by the frame's shifts, which would throw on the first render. */
     @Order(7)
     @Name("Width")
     @Key("width")
+    @Between(least = BoardFrame.MIN_WIDTH, most = BoardFrame.MAX_WIDTH)
     @NoExplanationNeeded
     default int width() {
         return BoardFrame.DEFAULT_WIDTH;

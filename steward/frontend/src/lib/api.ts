@@ -11,14 +11,24 @@ export class ApiError extends Error {
   readonly where: Where
   readonly detail: string
   readonly code: string
+  /** The answer's whole body, for a refusal that carries data, such as the broken rule of a settings save. */
+  readonly body: Record<string, unknown> | null
 
-  constructor(status: number, message: string, where: Where, detail = "", code = "") {
+  constructor(
+    status: number,
+    message: string,
+    where: Where,
+    detail = "",
+    code = "",
+    body: Record<string, unknown> | null = null,
+  ) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.where = where
     this.detail = detail
     this.code = code
+    this.body = body
   }
 
   get isSignedOut(): boolean {
@@ -137,7 +147,7 @@ async function send<T>(path: string, options: Options = {}): Promise<T> {
     const message = (body && messageOf(body)) ?? `${response.status} ${response.statusText}`
     const detail = body ? (typeof body.detail === "string" ? body.detail : "") : text
     const code = typeof body?.code === "string" ? body.code : ""
-    throw new ApiError(response.status, message, where, detail, code)
+    throw new ApiError(response.status, message, where, detail, code, body)
   }
 
   return shapedAs(parsed, (value): value is T => value !== undefined, path)

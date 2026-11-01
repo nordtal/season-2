@@ -10,11 +10,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.DeclaredRule;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import java.util.List;
@@ -95,6 +97,22 @@ class SettingsDocumentTest {
                 new SettingsDocument.Condition("kind", List.of("COUNTED")),
                 templateField(document, "statistic").appliesWhen());
         assertNull(templateField(document, "key").appliesWhen());
+    }
+
+    @Test
+    void anEntryCarriesTheRulesItsSettingDeclaresAndATemplateFieldItsOwn() throws Exception {
+        final SettingsDocument document = document();
+
+        assertEquals(
+                List.of(new DeclaredRule(SettingRule.POSITIVE, null, null)),
+                entry(document, "max-players").rules());
+        assertEquals(
+                List.of(new DeclaredRule(SettingRule.UNIQUE, null, "key")),
+                entry(document, "stages").rules());
+        assertEquals(
+                List.of(new DeclaredRule(SettingRule.LONGEST, 32L, null)),
+                templateField(document, "key").rules());
+        assertNull(entry(document, "motd").rules(), "a setting without rules carries none");
     }
 
     @Test

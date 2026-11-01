@@ -973,6 +973,7 @@ export type ConfigEntry = {
   protectedEntry?: ConfigProtectedEntry
   refers?: ConfigReference
   appliesWhen?: ConfigCondition
+  rules?: ConfigRule[]
 }
 
 export type ReloadOutcome = {
@@ -1283,6 +1284,12 @@ export type ConfigReference = {
 export type ConfigCondition = {
   key: string
   values: string[]
+}
+
+export type ConfigRule = {
+  rule: SettingRule
+  limit?: number
+  field?: string
 }
 
 export type ReloadStatus = "APPLIED" | "RESTART_REQUIRED"

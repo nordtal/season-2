@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.texts;
 
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
@@ -62,6 +63,12 @@ public interface SettingsEditor {
 
     @Name("Not of the field's type")
     MessageRef notOfType(@Arg("expected") StewardTexts.Expected expected);
+
+    @Name("A broken rule")
+    MessageRef breach(
+            @Arg("setting") @Example("Duel kits") String setting,
+            @Arg("rule") @Example("most-entries") SettingRule rule,
+            @Arg("value") @Example("5") String value);
 
     @Name("Fields that hold a wrong value")
     MessageRef invalidFields(@Arg("count") @Example("2") int count);

@@ -1,4 +1,5 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import type { ReactNode } from "react"
 
 import type { ConfigChoices, ConfigEntry } from "@/lib/api"
 import { isColour, isGameReference } from "@/lib/references"
@@ -13,6 +14,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { fileTitle } from "@/lib/words"
 import { t } from "@/lib/texts"
+import { useBreach, useBreaches } from "@/components/steward/breach-context"
 
 /** `configuration.tsx` and `repeatable-cards.tsx` share it, so neither imports the other. */
 
@@ -144,26 +146,34 @@ function TextControl({
   entry,
   value,
   disabled,
+  breach = null,
   onChange,
 }: {
   id: string
   entry: ConfigEntry
   value: string
   disabled: boolean
+  /** A declared rule the value breaks, shown when its type is right. */
+  breach?: string | null
   onChange: (value: string) => void
 }) {
-  const problem = problemOf(entry, value)
+  const problem = problemOf(entry, value) ?? breach
   if (value.includes("\n")) {
     return (
-      <Textarea
-        id={id}
-        rows={Math.min(16, value.split("\n").length + 1)}
-        disabled={disabled}
-        value={value}
-        spellCheck={false}
-        className="font-mono text-sm max-md:text-base"
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <div className="flex flex-col gap-1">
+        <Textarea
+          id={id}
+          rows={Math.min(16, value.split("\n").length + 1)}
+          disabled={disabled}
+          value={value}
+          spellCheck={false}
+          aria-invalid={problem !== null}
+          aria-describedby={problem === null ? undefined : `${id}-problem`}
+          className="font-mono text-sm max-md:text-base"
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <FieldProblem id={`${id}-problem`} problem={problem} />
+      </div>
     )
   }
   return (
@@ -202,6 +212,7 @@ export function ScalarControl({
   sibling?: string
   onChange: (value: string) => void
 }) {
+  const breach = useBreach(id)
   /** A secret lives only in the host environment, so the form shows only whether it is set. */
   if (entry.secret) {
     return (
@@ -216,44 +227,66 @@ export function ScalarControl({
   }
 
   if (entry.choices) {
-    return <ChoicesControl id={id} value={value} choices={entry.choices} disabled={disabled} onChange={onChange} />
+    return (
+      <Breached id={id} breach={breach}>
+        <ChoicesControl id={id} value={value} choices={entry.choices} disabled={disabled} onChange={onChange} />
+      </Breached>
+    )
   }
 
   if (isColour(entry.refers)) {
-    return <ColourControl id={id} value={value} disabled={disabled} onChange={onChange} />
+    return (
+      <Breached id={id} breach={breach}>
+        <ColourControl id={id} value={value} disabled={disabled} onChange={onChange} />
+      </Breached>
+    )
   }
 
   if (entry.refers) {
     return (
-      <ReferencePicker
-        id={id}
-        label={entry.label}
-        reference={entry.refers}
-        values={value === "" ? [] : [value]}
-        multi={false}
-        sibling={sibling}
-        disabled={disabled}
-        typed={<TextControl id={id} entry={entry} value={value} disabled={disabled} onChange={onChange} />}
-        onChange={(values) => onChange(values[0] ?? "")}
-      />
+      <Breached id={id} breach={breach}>
+        <ReferencePicker
+          id={id}
+          label={entry.label}
+          reference={entry.refers}
+          values={value === "" ? [] : [value]}
+          multi={false}
+          sibling={sibling}
+          disabled={disabled}
+          typed={<TextControl id={id} entry={entry} value={value} disabled={disabled} onChange={onChange} />}
+          onChange={(values) => onChange(values[0] ?? "")}
+        />
+      </Breached>
     )
   }
 
   if (entry.type === "BOOLEAN") {
     return (
-      <div className="flex items-center gap-3">
-        <Switch
-          id={id}
-          disabled={disabled}
-          checked={value === "true"}
-          onCheckedChange={(on) => onChange(on ? "true" : "false")}
-        />
-        <span className="text-sm text-muted-foreground">{value === "true" ? "on" : "off"}</span>
-      </div>
+      <Breached id={id} breach={breach}>
+        <div className="flex items-center gap-3">
+          <Switch
+            id={id}
+            disabled={disabled}
+            checked={value === "true"}
+            onCheckedChange={(on) => onChange(on ? "true" : "false")}
+          />
+          <span className="text-sm text-muted-foreground">{value === "true" ? "on" : "off"}</span>
+        </div>
+      </Breached>
     )
   }
 
-  return <TextControl id={id} entry={entry} value={value} disabled={disabled} onChange={onChange} />
+  return <TextControl id={id} entry={entry} value={value} disabled={disabled} breach={breach} onChange={onChange} />
+}
+
+/** A control with the declared rule its value breaks below it, in one frame either way, so the control keeps its state. */
+function Breached({ id, breach, children }: { id: string; breach: string | null; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      {children}
+      <FieldProblem id={`${id}-breach`} problem={breach} />
+    </div>
+  )
 }
 
 /** The form sends the whole list with the file's `revision`, so a concurrent save gets a 409. */
@@ -272,20 +305,25 @@ export function ListControl({
   sibling?: string
   onChange: (items: string[]) => void
 }) {
+  const breachAt = useBreaches()
   const rows = <ListRows id={id} entry={entry} items={items} disabled={disabled} onChange={onChange} />
   if (!entry.refers || isColour(entry.refers)) return rows
+  /** The picker draws no row per entry, so the list shows its own breach or the first of its entries'. */
+  const breach = [id, ...items.map((_, index) => `${id}.${index}`)].map(breachAt).find((found) => found !== null)
   return (
-    <ReferencePicker
-      id={id}
-      label={entry.label}
-      reference={entry.refers}
-      values={items}
-      multi
-      sibling={sibling}
-      disabled={disabled}
-      typed={rows}
-      onChange={onChange}
-    />
+    <Breached id={`${id}-picker`} breach={breach ?? null}>
+      <ReferencePicker
+        id={id}
+        label={entry.label}
+        reference={entry.refers}
+        values={items}
+        multi
+        sibling={sibling}
+        disabled={disabled}
+        typed={rows}
+        onChange={onChange}
+      />
+    </Breached>
   )
 }
 
@@ -302,13 +340,15 @@ function ListRows({
   disabled: boolean
   onChange: (items: string[]) => void
 }) {
+  const breachAt = useBreaches()
+  const listBreach = breachAt(id)
   return (
     <div className="flex flex-col gap-2">
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("steward.settings.empty-list")}</p>
       ) : (
         items.map((item, index) => {
-          const problem = problemOf(entry, item)
+          const problem = problemOf(entry, item) ?? breachAt(`${id}.${index}`)
           return (
             <div key={index} className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
@@ -341,6 +381,7 @@ function ListRows({
           )
         })
       )}
+      <FieldProblem id={`${id}-breach`} problem={listBreach} />
       <div>
         <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onChange([...items, ""])}>
           <PlusIcon aria-hidden />

@@ -88,7 +88,7 @@ public record DeclaredRule(
     }
 
     /** Returns the rules a schema node lists, or none. */
-    static List<DeclaredRule> on(final JsonObject node) {
+    public static List<DeclaredRule> on(final JsonObject node) {
         if (!(node.get("rules") instanceof final JsonArray array)) {
             return List.of();
         }

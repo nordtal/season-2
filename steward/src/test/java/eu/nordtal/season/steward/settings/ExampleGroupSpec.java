@@ -3,6 +3,7 @@ package eu.nordtal.season.steward.settings;
 import eu.nordtal.season.settings.AppliesWhen;
 import eu.nordtal.season.settings.ChoiceNames;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Longest;
 import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.settings.rule.Unique;
 import eu.nordtal.season.spec.annotation.AllowedValues;
@@ -77,6 +78,7 @@ public interface ExampleGroupSpec {
 
         @Order(3)
         @Key("key")
+        @Longest(32)
         default String key() {
             return "";
         }

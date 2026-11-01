@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react"
+import { type ReactNode, useCallback, useMemo, useState } from "react"
 import type { UseMutationResult } from "@tanstack/react-query"
 
 import type { ConfigChanges, ConfigDocument, ReloadOutcome } from "@/lib/api"
@@ -8,6 +8,8 @@ import { useSaveConfig } from "@/lib/queries"
 import { Button } from "@/components/ui/button"
 import { changed, type Draft, invalidCount } from "@/components/steward/configuration"
 import { Failure } from "@/components/steward/query-state"
+import { type BreachAt, BreachContext } from "@/components/steward/breach-context"
+import { breachesById, formBreaches, refusalOf, ruleTree, worded } from "@/components/steward/form-rules"
 import { PinnedRow } from "@/components/steward/settings-view"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
 import { t } from "@/lib/texts"
@@ -54,7 +56,21 @@ export function useGroupDraft(file: string, document: ConfigDocument, save: Grou
   const byPath = useMemo(() => new Map(document.entries.map((entry) => [entry.path, entry])), [document.entries])
   const changes = useMemo(() => changed(document, draft), [document, draft])
   const count = Object.keys(changes).length
-  const invalid = useMemo(() => invalidCount(document, changes), [document, changes])
+  const tree = useMemo(() => ruleTree(document, draft), [document, draft])
+  const found = useMemo(() => formBreaches(tree), [tree])
+
+  /** A refused save marks its field while the draft is the one it sent. */
+  const [sent, setSent] = useState<string | null>(null)
+  const refusal = sent === JSON.stringify(changes) ? refusalOf(save.error) : null
+  const marked = useMemo(() => breachesById(tree.schema, found), [tree, found])
+  /** A control that breaks two rules is one field that holds a value it cannot take. */
+  const invalid = useMemo(() => invalidCount(document, changes) + marked.size, [document, changes, marked])
+  const byId = useMemo(
+    () => (refusal === null ? marked : new Map([...breachesById(tree.schema, [refusal]), ...marked])),
+    [tree, marked, refusal],
+  )
+  const breachAt: BreachAt = useCallback((id) => byId.get(id) ?? null, [byId])
+  const listed = useMemo(() => found.map((breach) => worded(tree.schema, breach)), [tree, found])
 
   function set(path: string, value: DraftValue | undefined) {
     const entry = byPath.get(path)
@@ -66,6 +82,7 @@ export function useGroupDraft(file: string, document: ConfigDocument, save: Grou
 
   function submit() {
     const label = t("steward.settings.settings-saved", { count })
+    setSent(JSON.stringify(changes))
     save.mutate(
       { revision: document.revision, changes },
       {
@@ -77,7 +94,18 @@ export function useGroupDraft(file: string, document: ConfigDocument, save: Grou
     )
   }
 
-  return { draft, changes, count, invalid, set, submit, discard: () => clearDraft(file), save }
+  return {
+    draft,
+    changes,
+    count,
+    invalid,
+    breachAt,
+    breaches: listed,
+    set,
+    submit,
+    discard: () => clearDraft(file),
+    save,
+  }
 }
 
 export function noticeOf(document: ConfigDocument): string | null {
@@ -138,27 +166,37 @@ export function GroupEditor({
   document: ConfigDocument
   children: (draft: Draft, set: (path: string, value: DraftValue | undefined) => void) => ReactNode
 }) {
-  const { draft, count, invalid, set, submit, discard, save } = useGroupDraft(
+  const { draft, count, invalid, breachAt, breaches, set, submit, discard, save } = useGroupDraft(
     file,
     document,
     useSaveConfig(document.path),
   )
   const notice = noticeOf(document)
   return (
-    <div className="flex flex-col gap-3">
-      {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
-      {save.error ? <Failure error={save.error} write /> : null}
-      {children(draft, set)}
-      <PinnedRow>
-        <SaveDraft
-          count={count}
-          invalid={invalid}
-          writable={document.writable}
-          pending={save.isPending}
-          onSave={submit}
-          onDiscard={discard}
-        />
-      </PinnedRow>
-    </div>
+    <BreachContext value={breachAt}>
+      <div className="flex flex-col gap-3">
+        {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
+        {save.error ? <Failure error={save.error} write /> : null}
+        {/* A custom editor draws its fields in tiles and dialogs, so each broken rule is also named above them. */}
+        {breaches.length > 0 ? (
+          <ul className="flex flex-col gap-1 text-sm text-destructive">
+            {breaches.map((breach, index) => (
+              <li key={index}>{breach}</li>
+            ))}
+          </ul>
+        ) : null}
+        {children(draft, set)}
+        <PinnedRow>
+          <SaveDraft
+            count={count}
+            invalid={invalid}
+            writable={document.writable}
+            pending={save.isPending}
+            onSave={submit}
+            onDiscard={discard}
+          />
+        </PinnedRow>
+      </div>
+    </BreachContext>
   )
 }

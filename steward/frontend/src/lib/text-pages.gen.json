@@ -837,6 +837,7 @@
     "steward.settings.applies-on-save": ["services","season"],
     "steward.settings.back-to-files": ["services","season"],
     "steward.settings.back-to-top": ["services","season"],
+    "steward.settings.breach": ["services","season"],
     "steward.settings.cannot-remove": ["services","season"],
     "steward.settings.changed": ["services","season","translations"],
     "steward.settings.choose-one": ["services","updates","backups","season"],

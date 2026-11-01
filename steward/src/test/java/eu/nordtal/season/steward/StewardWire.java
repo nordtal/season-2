@@ -25,6 +25,7 @@ import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.messages.value.Kind;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.DeclaredRule;
 import eu.nordtal.season.settings.rule.SettingRules;
 import eu.nordtal.season.spec.schema.SchemaNode;
 import eu.nordtal.season.steward.access.AccessApi;
@@ -187,6 +188,7 @@ public final class StewardWire {
             Map.entry(SettingsApi.Saved.class, "ConfigSaved"),
             Map.entry(SettingsRefusal.Answer.class, "ConfigRefused"),
             Map.entry(SettingRules.Breach.class, "ConfigBreach"),
+            Map.entry(DeclaredRule.class, "ConfigRule"),
             Map.entry(SettingsDocument.Entry.class, "ConfigEntry"),
             Map.entry(SettingsDocument.Shape.class, "ConfigShape"),
             Map.entry(SettingsDocument.Choices.class, "ConfigChoices"),

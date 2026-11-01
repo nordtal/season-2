@@ -824,6 +824,12 @@ function tab.open(context)
     end
     local id, item = selected, definition.item
     write(job, function()
+      -- The item's own node shows the texture that the pack describes,
+      -- so it opens again once the pack was read
+      if index[id] and index[id].kind == "item" then
+        if selected == id then reopen = id end
+        return
+      end
       readDefinition(item, function()
         if selected == id and index[id] then
           dlg.data = { tree=id }

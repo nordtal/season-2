@@ -1500,6 +1500,47 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:readItem -Pitem=nordtal:lamp", run(t.started[#t.started]))
   end)
 
+  it("opens the imported model's texture once the pack was read again after an import on the item's node", function()
+    local item = function(texture)
+      return dkjson.encode({ fonts={}, overrides={}, items={ { category="nordtal", entries={
+        { id="nordtal:lamp", model="minecraft:model", file="src/assets/nordtal/items/lamp.json",
+          texture={ id="nordtal:item/" .. texture .. ".png", png="src/assets/nordtal/textures/item/" .. texture .. ".png",
+                    aseprite="art/assets/nordtal/textures/item/" .. texture .. ".aseprite" } } } } } })
+    end
+    local read = dkjson.decode(lampRead)
+    read.definition = { model={ type="minecraft:model", model="nordtal:item/star" } }
+    local t = setUp(nil, item("old"))
+    t.world.files = { ["/c/resource-pack/src/assets/nordtal/textures/item/old.png"]=true,
+                      ["/c/resource-pack/src/assets/nordtal/textures/item/lamp_base.png"]=true }
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp" })
+    local p = t.started[#t.started]
+    p.args.onstdout(dkjson.encode(read))
+    p.isRunning = false
+    p.args.onexit(0)
+    assert.equal("/c/resource-pack/src/assets/nordtal/textures/item/old.png", t.open[#t.open].filename)
+    t.dialogs.answer = function(d) d.data = { ok=true, file="/tmp/lamp.bbmodel", id="nordtal:item/lamp" } end
+    click(dlg, "items.import")
+    local import = t.started[#t.started]
+    assert.equal(":resource-pack:importBlockbench -Pat=model -Pid=nordtal:item/lamp -Pitem=nordtal:lamp -Pmodel=/tmp/lamp.bbmodel",
+      run(import))
+    import.isRunning = false
+    t.world.model = item("lamp_base")
+    import.args.onexit(0)
+    -- The pack is read again first, and then the definition
+    local runs = {}
+    while t.started[#t.started].isRunning do
+      local pending = t.started[#t.started]
+      table.insert(runs, run(pending))
+      pending.isRunning = false
+      if run(pending) == ":resource-pack:readItem -Pitem=nordtal:lamp" then pending.args.onstdout(dkjson.encode(read)) end
+      pending.args.onexit(0)
+    end
+    assert.same({ ":resource-pack:describePack", ":resource-pack:readItem -Pitem=nordtal:lamp" }, runs)
+    assert.equal("/c/resource-pack/src/assets/nordtal/textures/item/lamp_base.png", t.open[#t.open].filename)
+    assert.equal("item/nordtal:lamp", dlg.data.tree)
+  end)
+
   it("discards the selected draft once the designer confirms it, and closes its sprite", function()
     local t = setUp(nil, draftModel)
     local dlg = loaded(t)

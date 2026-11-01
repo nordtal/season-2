@@ -6,6 +6,7 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseMessages;
+import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.Inbox;
@@ -16,6 +17,7 @@ import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SettingsChange;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.setting.SettingRule;
+import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.spec.MessageSchema;
 import java.time.Duration;
@@ -34,7 +36,8 @@ class InboxTrialIntegrationTest {
     private static final SettingsChange CHANGE =
             new SettingsChange("milestones", Map.of("milestones", "[]"), List.of("broadcast"));
 
-    private final DataSource database = TestDatabase.fresh().dataSource();
+    private final TestDatabase fresh = TestDatabase.fresh();
+    private final DataSource database = fresh.dataSource();
     private final Inbox<SmpRequest> smp = Inbox.over(database, SmpRequest.TABLE);
     private final Inbox<SmpRequest> server = Inbox.takeOver(database, SmpRequest.TABLE, "smp");
     private final Messages refusals = Messages.load(
@@ -79,6 +82,23 @@ class InboxTrialIntegrationTest {
     }
 
     @Test
+    void aHungerGamesServerThatDoesNotAnswerHasItsQuestionWithdrawnByStewardsOwnRole() {
+        final DataSource steward = fresh.dataSourceAs(DatabaseRole.STEWARD);
+        final Inbox<HungerGamesRequest> hungerGames = Inbox.over(steward, HungerGamesRequest.TABLE);
+        final InboxTrial trial = new InboxTrial(Inbox.over(steward, SmpRequest.TABLE), hungerGames, clock(() -> {}));
+
+        final ServerTrial.Verdict verdict = trial.ask(Topology.HUNGER_GAMES, CHANGE, Actor.STEWARD);
+
+        assertEquals(ServerTrial.Verdict.Kind.UNANSWERED, verdict.kind());
+        assertEquals(
+                List.of(InboxStatus.CANCELLED),
+                hungerGames.recent(HungerGamesRequest.CheckSettings.class, 5).stream()
+                        .map(Request::status)
+                        .toList(),
+                "hunger-games finds no question to answer when it starts later");
+    }
+
+    @Test
     void aServiceWithoutAnInboxIsNotAsked() {
         assertEquals(
                 ServerTrial.Verdict.Kind.UNASKED,
@@ -87,7 +107,16 @@ class InboxTrialIntegrationTest {
 
     /** Builds the trial whose first pause lets the server claim the question and answer it with {@code answer}. */
     private InboxTrial trial(final @Nullable Consumer<Request<SmpRequest>> answer) {
-        final Waiting clock = new Waiting() {
+        return new InboxTrial(smp, Inbox.over(database, HungerGamesRequest.TABLE), clock(() -> {
+            if (answer != null) {
+                server.claim().ifPresent(answer);
+            }
+        }));
+    }
+
+    /** A clock whose every pause passes at once and then runs {@code paused}. */
+    private static Waiting clock(final Runnable paused) {
+        return new Waiting() {
             private Instant now = Instant.parse("2026-10-18T17:00:00Z");
 
             @Override
@@ -98,12 +127,9 @@ class InboxTrialIntegrationTest {
             @Override
             public boolean sleep(final Duration duration) {
                 now = now.plus(duration);
-                if (answer != null) {
-                    server.claim().ifPresent(answer);
-                }
+                paused.run();
                 return true;
             }
         };
-        return new InboxTrial(smp, Inbox.over(database, HungerGamesRequest.TABLE), clock);
     }
 }

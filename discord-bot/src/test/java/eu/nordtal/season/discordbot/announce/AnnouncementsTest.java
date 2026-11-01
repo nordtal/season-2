@@ -101,6 +101,13 @@ class AnnouncementsTest {
     }
 
     @Test
+    void anAdminsWordsLongerThanAMessageAreCutToFitOne() {
+        assertTrue(post("en", BotRequest.Announce.words(Map.of("en", "a".repeat(2001)))));
+
+        assertEquals(List.of("111: " + "a".repeat(1999) + "…"), sent);
+    }
+
+    @Test
     void anAdminsWordsHaveNoDocumentForTranslationsToList() {
         assertFalse(
                 Documents.packaged(Announcements.class.getClassLoader(), StoredDocuments.NAMESPACE)

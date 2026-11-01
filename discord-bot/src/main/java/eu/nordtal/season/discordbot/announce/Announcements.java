@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.slf4j.Logger;
@@ -45,7 +46,10 @@ public final class Announcements {
             final BotRequest.Announce.Line line) {
         if (announcement.message() == BotRequest.Announce.Message.WORDS) {
             final String words = Objects.requireNonNull(line.words(), "words");
-            return locale -> words;
+            final String posted = words.length() <= Message.MAX_CONTENT_LENGTH
+                    ? words
+                    : words.substring(0, Message.MAX_CONTENT_LENGTH - 1) + "…";
+            return locale -> posted;
         }
         final DocumentSpec<Milestone> spec = switch (announcement.message()) {
             case MILESTONE_BORDER -> BORDER;

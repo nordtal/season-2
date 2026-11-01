@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { StrictMode, type ReactNode } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -196,9 +196,11 @@ function takeIn(run: Record<string, unknown>, sent: Promise<void> = Promise.reso
 function draw(node: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   return render(
-    <QueryClientProvider client={client}>
-      <TooltipProvider>{node}</TooltipProvider>
-    </QueryClientProvider>,
+    <StrictMode>
+      <QueryClientProvider client={client}>
+        <TooltipProvider>{node}</TooltipProvider>
+      </QueryClientProvider>
+    </StrictMode>,
   )
 }
 

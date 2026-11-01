@@ -41,13 +41,13 @@ export function TakeInButton({ disabled, onTaken }: { disabled: boolean; onTaken
   useEffect(() => {
     taken.current = { onTaken, close }
   }, [onTaken, close])
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    gone.current = false
+    return () => {
       gone.current = true
       if (current.current !== null) withdraw(current.current)
-    },
-    [],
-  )
+    }
+  }, [])
 
   const ended = (id: string, run: CommandRun) => {
     if (current.current !== id) return

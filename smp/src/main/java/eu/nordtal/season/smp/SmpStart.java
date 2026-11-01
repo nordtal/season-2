@@ -28,6 +28,7 @@ import eu.nordtal.season.smp.progress.StatisticPoller;
 import eu.nordtal.season.smp.protect.ProtectionListener;
 import eu.nordtal.season.smp.rail.RailNetworks;
 import eu.nordtal.season.smp.rail.RailStore;
+import eu.nordtal.season.smp.rail.StationMenus;
 import eu.nordtal.season.smp.rail.StationRailListener;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.travel.PortalGate;
@@ -269,7 +270,7 @@ final class SmpStart {
                         plugin);
     }
 
-    /** Starts the rail networks: their recipe, their stored state, their walk every tick and their listener. */
+    /** Starts the rail networks: their recipe, their stored state, their walk every tick, their listener and menus. */
     static RailNetworks wireRails(final SmpPlugin plugin) {
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
         final RailNetworks rails =
@@ -279,6 +280,18 @@ final class SmpStart {
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(new StationRailListener(rails, plugin.identities(), plugin.sounds), plugin);
+        plugin.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new StationMenus(
+                                rails,
+                                plugin.renderer(),
+                                plugin.documents(),
+                                plugin.identities(),
+                                plugin.sounds,
+                                scheduler,
+                                () -> plugin.railSettings.get().stationsPerPage()),
+                        plugin);
         return rails;
     }
 }

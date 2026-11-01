@@ -2,14 +2,17 @@ package eu.nordtal.season.smp.rail;
 
 import java.time.Clock;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -45,8 +48,14 @@ public final class RailNetworks {
     private final Map<String, WorldNetworks> worlds = new HashMap<>();
     private final Map<String, Set<RailPos>> changed = new LinkedHashMap<>();
     private final Map<UUID, StationRow> crooked = new LinkedHashMap<>();
+    private final Map<UUID, Set<UUID>> favourites = new HashMap<>();
+    private final Set<UUID> unseen = new HashSet<>();
+    private Consumer<StationRow> renamedByMerge = _ -> {};
     private @Nullable Running running;
     private boolean restored;
+
+    /** The network under a cart: its graph, where on it the cart is, and every station of it. */
+    record Ride(RailGraph graph, RailPos at, List<StationRow> stations) {}
 
     public RailNetworks(final Plugin plugin, final RailStore store, final Clock clock) {
         this.plugin = plugin;
@@ -65,8 +74,13 @@ public final class RailNetworks {
     public void start(final Executor main) {
         Bukkit.addRecipe(item.recipe());
         store.load(
-                stored -> {
-                    stored.forEach((world, part) -> {
+                loaded -> {
+                    loaded.favourites()
+                            .forEach(row -> favourites
+                                    .computeIfAbsent(row.player(), _ -> new HashSet<>())
+                                    .add(row.station()));
+                    unseen.addAll(loaded.unseen());
+                    loaded.worlds().forEach((world, part) -> {
                         networks(world).restore(part.stations(), part.junctions(), part.edges());
                         // The store keeps no track that ends nowhere, so each network is walked again once.
                         part.stations()
@@ -136,6 +150,7 @@ public final class RailNetworks {
                 null,
                 null);
         marks.mark(block);
+        networks(station.world()).station(station.pos()).ifPresent(old -> forget(old.id()));
         networks(station.world()).addStation(station);
         draw(block, axis);
         store.placed(station);
@@ -146,8 +161,98 @@ public final class RailNetworks {
     void remove(final Block block) {
         marks.unmark(block);
         erase(block);
-        networks(block.getWorld().getName()).removeStation(pos(block)).ifPresent(row -> store.removed(row.id()));
+        networks(block.getWorld().getName()).removeStation(pos(block)).ifPresent(row -> {
+            forget(row.id());
+            store.removed(row.id());
+        });
         changed(block);
+    }
+
+    /** Drops what the plugin holds of a removed station; the store deletes its favourites with its row. */
+    private void forget(final UUID station) {
+        favourites.values().forEach(stations -> stations.remove(station));
+        unseen.remove(station);
+    }
+
+    /** Runs {@code told} on the main thread for each station a merge gave a new name. */
+    void whenRenamedByMerge(final Consumer<StationRow> told) {
+        this.renamedByMerge = told;
+    }
+
+    /** Returns every station of the network {@code station} is on, itself included. */
+    List<StationRow> network(final StationRow station) {
+        final WorldNetworks networks = networks(station.world());
+        return networks.networkOf(station.pos())
+                .map(network -> network.graph().stations().stream()
+                        .map(networks::station)
+                        .flatMap(Optional::stream)
+                        .toList())
+                .orElse(List.of(station));
+    }
+
+    /** Names {@code station} as {@code typed} when the rules allow it; empty when the station is gone. */
+    Optional<StationNames.Verdict> rename(final StationRow station, final String typed) {
+        final WorldNetworks networks = networks(station.world());
+        final Optional<StationRow> current =
+                networks.station(station.pos()).filter(row -> row.id().equals(station.id()));
+        if (current.isEmpty()) {
+            return Optional.empty();
+        }
+        final StationNames.Verdict verdict = StationNames.judgeTyped(typed, station.id(), network(current.get()));
+        if (verdict == StationNames.Verdict.ACCEPTED) {
+            final StationRow named = current.get().renamed(typed.strip(), clock.instant());
+            networks.addStation(named);
+            unseen.remove(named.id());
+            store.named(named);
+        }
+        return Optional.of(verdict);
+    }
+
+    /** Returns the network under a cart on {@code rail}, when the rail is on its track between two stops. */
+    Optional<Ride> ride(final Block rail) {
+        final WorldNetworks networks = networks(rail.getWorld().getName());
+        final RailPos at = pos(rail);
+        return networks.networkOf(at)
+                .filter(network -> RideList.onTrack(network.graph(), at))
+                .map(network -> new Ride(
+                        network.graph(),
+                        at,
+                        network.graph().stations().stream()
+                                .map(networks::station)
+                                .flatMap(Optional::stream)
+                                .toList()));
+    }
+
+    Set<UUID> favourites(final UUID player) {
+        return Set.copyOf(favourites.getOrDefault(player, Set.of()));
+    }
+
+    /** Marks or unmarks {@code station} as a favourite of {@code player}, and returns whether it is one now. */
+    boolean toggleFavourite(final UUID player, final UUID station) {
+        final Set<UUID> own = favourites.computeIfAbsent(player, _ -> new HashSet<>());
+        final boolean favourite = !own.contains(station);
+        if (favourite) {
+            own.add(station);
+        } else {
+            own.remove(station);
+        }
+        store.favoured(player, station, favourite);
+        return favourite;
+    }
+
+    /** Returns the stations of {@code placer} whose new name from a merge they were not told yet. */
+    List<StationRow> unseenOf(final UUID placer) {
+        return worlds.values().stream()
+                .flatMap(networks -> networks.stations().stream())
+                .filter(row -> unseen.contains(row.id()) && row.placedBy().equals(placer))
+                .toList();
+    }
+
+    /** Notes that the placer of {@code station} was told of its new name. */
+    void seen(final UUID station) {
+        if (unseen.remove(station)) {
+            store.seen(station);
+        }
     }
 
     private static void straighten(final Block block, final RailShape axis) {
@@ -243,7 +348,12 @@ public final class RailNetworks {
                 erase(block);
             }
         }
+        replacement.lost().forEach(row -> forget(row.id()));
         store.replaced(walk.world(), replacement);
+        replacement.renamed().forEach(row -> {
+            unseen.add(row.id());
+            renamedByMerge.accept(row);
+        });
         if (walk.rails().found().stream().anyMatch(RailWalk.Found::bounded)) {
             plugin.getLogger()
                     .warning("a rail network in " + walk.world() + " holds more than " + RAILS_PER_NETWORK

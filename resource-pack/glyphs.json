@@ -1247,7 +1247,8 @@
               "code": "FE11A",
               "constant": "GUI_ROW_ICON_AURA",
               "about": "An experience orb: the objective menu's share line."
-            }
+            },
+            { "code": "FE11B", "constant": "GUI_ROW_ICON_FAVOURITE", "about": "A star: a favourite station." }
           ]
         },
         {

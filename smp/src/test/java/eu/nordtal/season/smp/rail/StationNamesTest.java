@@ -36,6 +36,26 @@ class StationNamesTest {
         assertEquals(Verdict.ACCEPTED, StationNames.judge("Spawn Nord", List.of("Spawn")));
     }
 
+    private static StationRow row(final int station, final String name) {
+        return new StationRow(
+                new UUID(0, station), "nordtal", station, 64, 0, "EAST_WEST", new UUID(1, station), name, FIRST);
+    }
+
+    @Test
+    void aTypedNameIsStrippedBeforeTheRulesJudgeIt() {
+        assertEquals(
+                Verdict.ACCEPTED, StationNames.judgeTyped("  " + "a".repeat(32) + "  ", new UUID(0, 1), List.of()));
+        assertEquals(Verdict.EMPTY, StationNames.judgeTyped("   ", new UUID(0, 1), List.of()));
+    }
+
+    @Test
+    void aStationMayTakeItsOwnNameInAnotherCaseButNotAnotherStationsName() {
+        final List<StationRow> network = List.of(row(1, "Spawn"), row(2, "Mine"));
+
+        assertEquals(Verdict.ACCEPTED, StationNames.judgeTyped("SPAWN", new UUID(0, 1), network));
+        assertEquals(Verdict.TAKEN, StationNames.judgeTyped(" mine ", new UUID(0, 1), network));
+    }
+
     @Test
     void theStationNamedLaterGetsASuffixOnAMerge() {
         final Map<UUID, String> renamed =

@@ -1,0 +1,23 @@
+package eu.nordtal.season.smp.config;
+
+import eu.nordtal.season.settings.rule.Between;
+import eu.nordtal.season.spec.annotation.ConfigSpec;
+import eu.nordtal.season.spec.annotation.Explain;
+import eu.nordtal.season.spec.annotation.Key;
+import eu.nordtal.season.spec.annotation.Name;
+import eu.nordtal.season.spec.annotation.Order;
+
+/** The {@code rails} group holds how the station menus of the rail networks look. */
+@ConfigSpec
+public interface RailsSpec {
+
+    /** The stations one page of the ride menu lists; a sixth row holds the page buttons. */
+    @Order(1)
+    @Name("Stations per page")
+    @Key("stations-per-page")
+    @Between(least = 1, most = 5)
+    @Explain("How many stations the menu lists on one page when a player sits down in a minecart on a station's rails.")
+    default int stationsPerPage() {
+        return 5;
+    }
+}

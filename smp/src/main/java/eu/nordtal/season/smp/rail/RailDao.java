@@ -20,12 +20,13 @@ public interface RailDao {
     @RegisterConstructorMapper(StationRow.class)
     List<StationRow> stations();
 
+    /** Deletes a station that a new one replaces at its position, with its favourites. */
+    @SqlUpdate("DELETE FROM smp_rail_station WHERE world = :world AND x = :x AND y = :y AND z = :z")
+    void deleteStationAt(@Bind("world") String world, @Bind("x") int x, @Bind("y") int y, @Bind("z") int z);
+
     @SqlUpdate("""
             INSERT INTO smp_rail_station (id, world, x, y, z, axis, placed_by)
             VALUES (:id, :world, :x, :y, :z, :axis, :placedBy)
-            ON CONFLICT (world, x, y, z) DO UPDATE
-                SET id = excluded.id, axis = excluded.axis, placed_by = excluded.placed_by, placed = now(),
-                    name = NULL, named = NULL
             """)
     void insertStation(
             @Bind("id") UUID id,
@@ -39,8 +40,32 @@ public interface RailDao {
     @SqlUpdate("DELETE FROM smp_rail_station WHERE id = :id")
     void deleteStation(@Bind("id") UUID id);
 
-    @SqlUpdate("UPDATE smp_rail_station SET name = :name, named = :named WHERE id = :id")
-    void renameStation(@Bind("id") UUID id, @Bind("name") String name, @Bind("named") Instant named);
+    /** Renames a station; {@code unseen} holds a notice for its placer until they are told. */
+    @SqlUpdate("UPDATE smp_rail_station SET name = :name, named = :named, renamed_unseen = :unseen WHERE id = :id")
+    void renameStation(
+            @Bind("id") UUID id,
+            @Bind("name") String name,
+            @Bind("named") Instant named,
+            @Bind("unseen") boolean unseen);
+
+    @SqlQuery("SELECT id FROM smp_rail_station WHERE renamed_unseen")
+    List<UUID> unseenRenames();
+
+    @SqlUpdate("UPDATE smp_rail_station SET renamed_unseen = false WHERE id = :id")
+    void seen(@Bind("id") UUID id);
+
+    @SqlQuery("SELECT player, station FROM smp_rail_favourite")
+    @RegisterConstructorMapper(FavouriteRow.class)
+    List<FavouriteRow> favourites();
+
+    @SqlUpdate("""
+            INSERT INTO smp_rail_favourite (player, station) VALUES (:player, :station)
+            ON CONFLICT DO NOTHING
+            """)
+    void insertFavourite(@Bind("player") UUID player, @Bind("station") UUID station);
+
+    @SqlUpdate("DELETE FROM smp_rail_favourite WHERE player = :player AND station = :station")
+    void deleteFavourite(@Bind("player") UUID player, @Bind("station") UUID station);
 
     @SqlQuery("SELECT world, x, y, z FROM smp_rail_junction")
     @RegisterConstructorMapper(NodeRow.class)

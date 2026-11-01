@@ -10,9 +10,8 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -54,9 +53,7 @@ class RailStoreIntegrationTest {
         store.placed(row);
         final StationRow named = row.renamed(name, NOW.plusSeconds(60L * minute));
         networks.addStation(named);
-        // Naming a station comes with the station menu; until then the test names it in the table.
-        execute("UPDATE smp_rail_station SET name = '" + name + "', named = '" + named.named() + "' WHERE id = '"
-                + row.id() + "'");
+        store.named(named);
     }
 
     private static void execute(final String sql) {
@@ -77,10 +74,14 @@ class RailStoreIntegrationTest {
         store.replaced("nordtal", networks.replace(walk, rails.found(), rails.missing(), NOW));
     }
 
+    private RailStore.Loaded load() {
+        final List<RailStore.Loaded> loaded = new ArrayList<>();
+        store.load(loaded::add, NOW_HERE);
+        return loaded.getFirst();
+    }
+
     private WorldNetworks loaded() {
-        final Map<String, RailStore.Stored> worlds = new HashMap<>();
-        store.load(worlds::putAll, NOW_HERE);
-        final RailStore.Stored stored = worlds.get("nordtal");
+        final RailStore.Stored stored = load().worlds().get("nordtal");
         final WorldNetworks restored = new WorldNetworks();
         restored.restore(stored.stations(), stored.junctions(), stored.edges());
         return restored;
@@ -128,5 +129,56 @@ class RailStoreIntegrationTest {
                 .graph()
                 .stations()
                 .contains(at(10, 64, 0)));
+    }
+
+    @Test
+    void aFavouriteOutlivesAMergeAndGoesWithItsStation() {
+        track.eastWest(0, 4, 64, 0).eastWest(6, 10, 64, 0);
+        station(1, at(0, 64, 0), "West", 0);
+        station(2, at(10, 64, 0), "East", 1);
+        changed(at(0, 64, 0));
+        changed(at(10, 64, 0));
+        final UUID player = new UUID(7, 7);
+        store.favoured(player, new UUID(0, 2), true);
+
+        track.rail(5, 64, 0, RailShape.EAST_WEST);
+        changed(at(5, 64, 0));
+        assertEquals(List.of(new FavouriteRow(player, new UUID(0, 2))), load().favourites());
+
+        networks.removeStation(at(10, 64, 0));
+        store.removed(new UUID(0, 2));
+        assertEquals(List.of(), load().favourites());
+    }
+
+    @Test
+    void aRenameByAMergeWaitsForItsPlacerUntilSeen() {
+        track.eastWest(0, 4, 64, 0).eastWest(6, 10, 64, 0);
+        station(1, at(0, 64, 0), "Spawn", 0);
+        station(2, at(10, 64, 0), "Spawn", 5);
+        changed(at(0, 64, 0));
+        changed(at(10, 64, 0));
+
+        track.rail(5, 64, 0, RailShape.EAST_WEST);
+        changed(at(5, 64, 0));
+        assertEquals(Set.of(new UUID(0, 2)), load().unseen());
+
+        store.seen(new UUID(0, 2));
+        assertEquals(Set.of(), load().unseen());
+    }
+
+    @Test
+    void aStationPlacedWhereTheStoreStillHoldsOneReplacesItWithItsFavourites() {
+        station(1, at(0, 64, 0), "Spawn", 0);
+        store.favoured(new UUID(7, 7), new UUID(0, 1), true);
+
+        store.placed(new StationRow(new UUID(0, 9), "nordtal", 0, 64, 0, "EAST_WEST", new UUID(1, 9), null, null));
+
+        final RailStore.Loaded loaded = load();
+        assertEquals(
+                List.of(new UUID(0, 9)),
+                loaded.worlds().get("nordtal").stations().stream()
+                        .map(StationRow::id)
+                        .toList());
+        assertEquals(List.of(), loaded.favourites());
     }
 }

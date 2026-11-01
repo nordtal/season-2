@@ -121,7 +121,11 @@ export function KitList({
               mark={icons.mark(text(kit, "icon"), 40)}
               name={name(index)}
               details={<LoadoutGlance loadout={sectionsIn(kit, "loadout")} items={items} />}
-              tip={<LoadoutTip loadout={sectionsIn(kit, "loadout")} items={items} />}
+              tip={
+                sectionsIn(kit, "loadout").length === 0 ? undefined : (
+                  <LoadoutTip loadout={sectionsIn(kit, "loadout")} items={items} />
+                )
+              }
               onOpen={() => choose(index)}
             />
           ))}
@@ -197,7 +201,6 @@ function LoadoutGlance({ loadout, items }: { loadout: SectionValues[]; items: It
 
 /** A kit's tooltip: every item of its loadout, one per line, by the name it carries in the game. */
 function LoadoutTip({ loadout, items }: { loadout: SectionValues[]; items: Items }) {
-  if (loadout.length === 0) return null
   return (
     <ul className="flex flex-col gap-0.5 text-left text-xs">
       {loadout.map((piece, index) => (

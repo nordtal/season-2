@@ -574,7 +574,9 @@ describe("the duel kits", { timeout: 15_000 }, () => {
   it("keep the last kit, and stop Add at the most kits the list takes", async () => {
     backend(document("duels", [KITS]))
     drawKits(kits([kit("Sword", "minecraft:iron_sword", [])]))
-    fireEvent.click(await screen.findByRole("button", { name: /^Sword/ }))
+    const sword = await screen.findByRole("button", { name: /^Sword/ })
+    expect(tipOf(sword)).toBeNull()
+    fireEvent.click(sword)
     const dialog = await screen.findByRole("dialog", { name: "Sword" })
     expect(within(dialog).queryByRole("button", { name: "Remove" })).toBeNull()
     cleanup()

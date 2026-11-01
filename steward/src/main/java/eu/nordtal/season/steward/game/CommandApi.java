@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.game;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.json.Json;
@@ -164,7 +165,7 @@ public final class CommandApi {
      * It is refused while the player is not there; a request without a body asks for a wheel prize.
      */
     public String takeIn(final Context ctx) {
-        final TakeInPurpose purpose = purposeOf(ctx);
+        final TakeInPurpose purpose = purposeOf(ctx.body());
         final DiscordAuth.Account who = accounts.apply(ctx);
         final PlayerId player = linked(DiscordId.of(who.id()));
         if (!serverOf(player).equals(Topology.SMP)) {
@@ -176,15 +177,19 @@ public final class CommandApi {
         return "smp:" + asked.id();
     }
 
-    private static TakeInPurpose purposeOf(final Context ctx) {
-        if (ctx.body().isBlank()) {
+    /** Reads the purpose a take-in names; a blank body asks for a wheel prize, and anything unreadable is refused. */
+    static TakeInPurpose purposeOf(final String body) {
+        if (body.isBlank()) {
             return TakeInPurpose.WHEEL_PRIZE;
         }
-        final @Nullable TakeIn body = ctx.bodyAsClass(TakeIn.class);
-        if (body == null || body.purpose() == null) {
+        try {
+            return TakeInPurpose.valueOf(JsonParser.parseString(body)
+                    .getAsJsonObject()
+                    .get("purpose")
+                    .getAsString());
+        } catch (final RuntimeException unreadable) {
             throw new BadRequestResponse("a take-in names its purpose");
         }
-        return body.purpose();
     }
 
     /** {@code DELETE /api/commands/{id}} withdraws the admin's own take-in, waiting or with its window open. */

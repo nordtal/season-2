@@ -5,6 +5,8 @@ import { languageName } from "@/lib/language-names"
 import { ListControl, ScalarControl, problemOf } from "@/components/steward/config-controls"
 import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import { StatusBadge } from "@/components/steward/status"
+import { placeShape } from "@/components/steward/game-groups/model"
+import { PlaceList } from "@/components/steward/game-groups/places"
 import { t } from "@/lib/texts"
 
 /** A saved value has no effect until the variable is removed. */
@@ -107,6 +109,9 @@ export function Control({
 
   if (entry.kind === "SECTIONS") {
     const value = draftSections(draft, entry)
+    if (placeShape((entry.template ?? []).map((field) => field.key)) !== undefined) {
+      return <PlaceList entry={entry} value={value} disabled={disabled} onChange={onChange} />
+    }
     return (
       <RepeatableCards
         entry={entry}

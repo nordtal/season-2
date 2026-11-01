@@ -8,11 +8,11 @@ public final class ConfigBoxes {
 
     private ConfigBoxes() {}
 
-    /** Returns the boxes of {@code regions} in their order. */
+    /** Returns the boxes of {@code regions} in their order. Either corner of a region may be the lower one. */
     public static Boxes of(final List<SpawnRegionSpec> regions) {
         final List<Box> boxes = new ArrayList<>();
         for (final SpawnRegionSpec region : regions) {
-            boxes.add(new Box(
+            boxes.add(Box.spanning(
                     region.world(),
                     region.minX(),
                     region.minY(),

@@ -7,23 +7,23 @@ import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 import java.util.List;
 
-/** The {@code spawn} group holds the first-join spawn and the protected spawn regions. */
+/** The {@code spawn} group holds the Nordtal spawn and the protected areas. */
 @ConfigSpec
 public interface SpawnSpec {
 
     @Order(43)
-    @Name("First join spawn")
-    @Key("first-join-spawn")
+    @Name("Nordtal spawn")
+    @Key("nordtal-spawn")
     @NoExplanationNeeded
-    default FirstJoinSpawnSpec firstJoinSpawn() {
+    default FirstJoinSpawnSpec nordtalSpawn() {
         return DefaultSmp.FIRST_JOIN_SPAWN;
     }
 
     @Order(27)
-    @Name("Spawn regions")
-    @Key("spawn-regions")
+    @Name("Protected areas")
+    @Key("protected-areas")
     @NoExplanationNeeded
-    default List<SpawnRegionSpec> spawnRegions() {
+    default List<SpawnRegionSpec> protectedAreas() {
         return DefaultSmp.SPAWN_REGIONS;
     }
 }

@@ -21,7 +21,7 @@ public interface DuelAreaSpec {
     }
 
     @Order(2)
-    @Name("Min X")
+    @Name("Corner 1 X")
     @Key("min-x")
     @NoExplanationNeeded
     default int minX() {
@@ -29,7 +29,7 @@ public interface DuelAreaSpec {
     }
 
     @Order(3)
-    @Name("Min Y")
+    @Name("Y from")
     @Key("min-y")
     @NoExplanationNeeded
     default int minY() {
@@ -37,7 +37,7 @@ public interface DuelAreaSpec {
     }
 
     @Order(4)
-    @Name("Min Z")
+    @Name("Corner 1 Z")
     @Key("min-z")
     @NoExplanationNeeded
     default int minZ() {
@@ -45,7 +45,7 @@ public interface DuelAreaSpec {
     }
 
     @Order(5)
-    @Name("Max X")
+    @Name("Corner 2 X")
     @Key("max-x")
     @NoExplanationNeeded
     default int maxX() {
@@ -53,7 +53,7 @@ public interface DuelAreaSpec {
     }
 
     @Order(6)
-    @Name("Max Y")
+    @Name("Y to")
     @Key("max-y")
     @NoExplanationNeeded
     default int maxY() {
@@ -61,7 +61,7 @@ public interface DuelAreaSpec {
     }
 
     @Order(7)
-    @Name("Max Z")
+    @Name("Corner 2 Z")
     @Key("max-z")
     @NoExplanationNeeded
     default int maxZ() {

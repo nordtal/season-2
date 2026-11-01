@@ -6,7 +6,8 @@ import { cn, type CSSVars } from "@/lib/utils"
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 import { useConfig, useSaveConfig } from "@/lib/queries"
 import { configLeafMatches, configTree, type ConfigLeafValue } from "@/lib/settings-tree"
-import { Control, EnvironmentOverriddenBadge, type Draft } from "@/components/steward/configuration"
+import { Control, EnvironmentOverriddenBadge, type Draft, draftText } from "@/components/steward/configuration"
+import { FixedPlace } from "@/components/steward/game-groups/places"
 import { type DraftValue, type GroupSave, noticeOf, SaveDraft, useGroupDraft } from "@/components/steward/group-draft"
 import { explanationOf } from "@/components/steward/config-controls"
 import { customEditor } from "@/components/steward/config-editors"
@@ -88,6 +89,17 @@ export function DraftForm({
       renderLeaf={(leaf, highlight) =>
         leaf.value.kind === "entry" ? (
           field(leaf.value.entry, highlight)
+        ) : leaf.value.kind === "place" ? (
+          <PlaceField
+            map={leaf.value.map}
+            fields={leaf.value.fields}
+            writable={writable}
+            draft={draft}
+            dirty={leaf.ids.some((id) => draftIds.has(id))}
+            highlight={highlight}
+            onChange={(path, value) => set(path, value)}
+            onUndo={() => leaf.ids.forEach((id) => set(id, undefined))}
+          />
         ) : leaf.value.kind === "run" ? (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-4">
             {leaf.value.entries.map((entry) => (
@@ -120,6 +132,112 @@ export function DraftForm({
  */
 export type FieldLayout = "full" | "compact" | "cell"
 
+/** A setting's name, the marks of its state and its undo, above its control. */
+function FieldHead({
+  entry,
+  label,
+  layout,
+  overridden,
+  dirty,
+  onUndo,
+}: {
+  entry: ConfigEntry
+  /** The element the name labels; none for a setting drawn as a tile, whose button carries the name. */
+  label?: string
+  layout: FieldLayout
+  overridden: boolean
+  dirty: boolean
+  onUndo: () => void
+}) {
+  const name = (
+    <>
+      <FieldLabelIcon fieldKey={entry.key} className="size-4 shrink-0 text-muted-foreground" />
+      {entry.label}
+    </>
+  )
+  return (
+    <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1", layout !== "cell" && "min-h-6")}>
+      {label === undefined ? (
+        <span className="flex min-w-0 items-center gap-1.5 text-sm">{name}</span>
+      ) : (
+        <Label htmlFor={label} className={layout === "cell" ? "sr-only" : "min-w-0 gap-1.5 text-sm font-normal"}>
+          {name}
+        </Label>
+      )}
+      {overridden ? <EnvironmentOverriddenBadge /> : null}
+      {dirty ? (
+        <>
+          <DraftDot />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={t("steward.settings.undo-entry", { what: entry.label })}
+            onClick={onUndo}
+          >
+            <ArrowCounterClockwiseIcon aria-hidden />
+          </Button>
+        </>
+      ) : null}
+    </div>
+  )
+}
+
+/** A setting that names one place in a world, such as the arena: its name above its tile, and the tile's dialog. */
+function PlaceField({
+  map,
+  fields,
+  writable,
+  draft,
+  dirty,
+  highlight,
+  onChange,
+  onUndo,
+}: {
+  map: ConfigEntry
+  fields: ConfigEntry[]
+  writable: boolean
+  draft: Draft
+  dirty: boolean
+  highlight: Highlight | null
+  onChange: (path: string, value: string) => void
+  onUndo: () => void
+}) {
+  const ref = useLanding(highlight)
+  const explanation = explanationOf(map)
+  const values = Object.fromEntries(fields.map((field) => [field.key, draftText(draft, field)]))
+  return (
+    <div
+      ref={ref}
+      className={cn(
+        "flex min-w-0 scroll-mt-4 flex-col gap-1.5 rounded-md transition-colors duration-300",
+        highlight && LIT,
+      )}
+    >
+      <FieldHead
+        entry={map}
+        layout="full"
+        overridden={fields.some((field) => field.environmentOverridden)}
+        dirty={dirty}
+        onUndo={onUndo}
+      />
+      {explanation ? <p className="whitespace-pre-wrap text-xs text-muted-foreground">{explanation}</p> : null}
+      <FixedPlace
+        id={map.path}
+        name={map.label}
+        description={explanation ?? undefined}
+        fields={fields}
+        values={values}
+        disabled={!writable || fields.some((field) => !field.editable)}
+        onChange={(key, value) => {
+          const field = fields.find((candidate) => candidate.key === key)
+          if (field) onChange(field.path, value)
+        }}
+      />
+    </div>
+  )
+}
+
 export function SettingField({
   entry,
   layout,
@@ -150,27 +268,14 @@ export function SettingField({
         highlight && LIT,
       )}
     >
-      <div className={cn("flex flex-wrap items-center gap-x-2 gap-y-1", layout !== "cell" && "min-h-6")}>
-        <Label htmlFor={entry.path} className={layout === "cell" ? "sr-only" : "min-w-0 gap-1.5 text-sm font-normal"}>
-          <FieldLabelIcon fieldKey={entry.key} className="size-4 shrink-0 text-muted-foreground" />
-          {entry.label}
-        </Label>
-        {entry.environmentOverridden ? <EnvironmentOverriddenBadge /> : null}
-        {dirty ? (
-          <>
-            <DraftDot />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label={t("steward.settings.undo-entry", { what: entry.label })}
-              onClick={onUndo}
-            >
-              <ArrowCounterClockwiseIcon aria-hidden />
-            </Button>
-          </>
-        ) : null}
-      </div>
+      <FieldHead
+        entry={entry}
+        label={entry.path}
+        layout={layout}
+        overridden={entry.environmentOverridden}
+        dirty={dirty}
+        onUndo={onUndo}
+      />
       {explanation ? <p className="whitespace-pre-wrap text-xs text-muted-foreground">{explanation}</p> : null}
       <Control entry={entry} draft={draft} disabled={!writable || !entry.editable} onChange={onChange} />
     </div>

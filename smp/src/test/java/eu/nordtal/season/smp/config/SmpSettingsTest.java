@@ -17,6 +17,8 @@ import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.settings.SettingsException;
+import eu.nordtal.season.smp.region.Box;
+import eu.nordtal.season.smp.region.ConfigBoxes;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import java.lang.reflect.Method;
@@ -107,6 +109,16 @@ class SmpSettingsTest {
     }
 
     @Test
+    void aProtectedAreaTakesItsCornersInEitherOrder() throws Exception {
+        final Map<String, Object> area =
+                Map.of("world", "nordtal", "min-x", 10, "min-y", 80, "min-z", 4, "max-x", 0, "max-y", 60, "max-z", 0);
+        final SpawnSpec spawn = store.checked("smp", SPAWN, Map.of("protected-areas", List.of(area)));
+
+        final Box box = ConfigBoxes.of(spawn.protectedAreas()).all().getFirst();
+        assertEquals(new Box("nordtal", 0, 60, 0, 10, 80, 4), box);
+    }
+
+    @Test
     void aTrialOfASixthKitNamesTheSettingAndTheRuleItBroke() {
         final List<Map<String, Object>> kits = IntStream.range(0, 6)
                 .mapToObj(index -> Map.<String, Object>of("name", "Kit " + index))
@@ -171,21 +183,21 @@ class SmpSettingsTest {
                 Specs.createDefault(DuelsSpec.class).arena().maxX(),
                 duels.arena().maxX());
         final SpawnSpec written = Specs.createDefault(SpawnSpec.class);
-        assertEquals(written.spawnRegions().size(), reread.spawnRegions().size());
+        assertEquals(written.protectedAreas().size(), reread.protectedAreas().size());
 
-        final FirstJoinSpawnSpec spawn = reread.firstJoinSpawn();
+        final FirstJoinSpawnSpec spawn = reread.nordtalSpawn();
         assertAll(
-                () -> assertEquals(written.firstJoinSpawn().world(), spawn.world()),
-                () -> assertEquals(written.firstJoinSpawn().x(), spawn.x()),
-                () -> assertEquals(written.firstJoinSpawn().y(), spawn.y()),
-                () -> assertEquals(written.firstJoinSpawn().z(), spawn.z()),
-                () -> assertEquals(written.firstJoinSpawn().yaw(), spawn.yaw()),
-                () -> assertEquals(written.firstJoinSpawn().pitch(), spawn.pitch()),
+                () -> assertEquals(written.nordtalSpawn().world(), spawn.world()),
+                () -> assertEquals(written.nordtalSpawn().x(), spawn.x()),
+                () -> assertEquals(written.nordtalSpawn().y(), spawn.y()),
+                () -> assertEquals(written.nordtalSpawn().z(), spawn.z()),
+                () -> assertEquals(written.nordtalSpawn().yaw(), spawn.yaw()),
+                () -> assertEquals(written.nordtalSpawn().pitch(), spawn.pitch()),
                 // The world must resolve on a real server, and a different default would move no first join anywhere.
                 () -> assertEquals(
                         Specs.createDefault(WorldsSpec.class).worldNordtal(),
                         spawn.world(),
-                        "first-join-spawn's default world has to be the build world's default name,"
+                        "nordtal-spawn's default world has to be the build world's default name,"
                                 + " or a fresh deployment ships a first join that goes nowhere"));
     }
 

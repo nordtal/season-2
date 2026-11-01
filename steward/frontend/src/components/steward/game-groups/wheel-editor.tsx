@@ -1,4 +1,3 @@
-import { PlusIcon } from "@phosphor-icons/react"
 import { useState } from "react"
 
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
@@ -12,9 +11,9 @@ import { Mark, useChoices } from "@/components/steward/reference-picker"
 import { type SectionValues, blankSection } from "@/components/steward/repeatable-cards"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { BOX_KEYS, chance, count, field, listEntry, sum, text } from "@/components/steward/game-groups/model"
-import { AddPicker, BoxFields, Heading, NumberInput, RemoveButton } from "@/components/steward/game-groups/parts"
+import { AddPicker, Heading, NumberInput } from "@/components/steward/game-groups/parts"
+import { PlaceList } from "@/components/steward/game-groups/places"
 import { EntryDialog, Labelled, Tile, Tiles } from "@/components/steward/game-groups/tiles"
-import { Button } from "@/components/ui/button"
 import { t } from "@/lib/texts"
 
 const KEYS = ["item", "amount", "weight"]
@@ -211,11 +210,7 @@ function Prize({
   )
 }
 
-function regionName(index: number): string {
-  return `${t("steward.game.region")} ${index + 1}`
-}
-
-/** The wheel's blocks, each a world and two corners. */
+/** The wheel's places, drawn as every place in the settings is. */
 function Regions({
   list,
   regions,
@@ -228,45 +223,9 @@ function Regions({
   onChange: (next: SectionValues[]) => void
 }) {
   return (
-    <section className="flex max-w-xl flex-col gap-3">
-      <Heading
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() => onChange([...regions, blankSection(list.template ?? [])])}
-          >
-            <PlusIcon aria-hidden />
-            {t("steward.game.region")}
-          </Button>
-        }
-      >
-        {list.label}
-      </Heading>
-      <ul className="flex flex-col divide-y rounded-lg border">
-        {regions.map((region, index) => (
-          <li key={index} className="flex items-start gap-2 p-3">
-            <div className="min-w-0 flex-1">
-              <BoxFields
-                id={`${list.path}-${index}`}
-                list={list}
-                section={region}
-                disabled={disabled}
-                onChange={(key, value) =>
-                  onChange(regions.map((entry, at) => (at === index ? { ...entry, [key]: value } : entry)))
-                }
-              />
-            </div>
-            <RemoveButton
-              name={regionName(index)}
-              disabled={disabled}
-              onRemove={() => onChange(regions.filter((_, at) => at !== index))}
-            />
-          </li>
-        ))}
-      </ul>
+    <section className="flex flex-col gap-3">
+      <Heading>{list.label}</Heading>
+      <PlaceList entry={list} value={regions} disabled={disabled} onChange={onChange} />
     </section>
   )
 }

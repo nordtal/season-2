@@ -118,15 +118,9 @@ public final class SmpSettings {
     }
 
     public static void checkSpawn(final SpawnSpec config) {
-        Checks.requireText("first-join-spawn.world", config.firstJoinSpawn().world());
-        for (final SpawnRegionSpec region : config.spawnRegions()) {
-            Checks.requireText("spawn-regions.world", region.world());
-            if (region.maxX() < region.minX() || region.maxY() < region.minY() || region.maxZ() < region.minZ()) {
-                throw new SettingRefused(
-                        "spawn-regions",
-                        SettingRule.CORNERS,
-                        "spawn-regions: the box in '" + region.world() + "' has a max corner below its min corner");
-            }
+        Checks.requireText("nordtal-spawn.world", config.nordtalSpawn().world());
+        for (final SpawnRegionSpec area : config.protectedAreas()) {
+            Checks.requireText("protected-areas.world", area.world());
         }
     }
 }

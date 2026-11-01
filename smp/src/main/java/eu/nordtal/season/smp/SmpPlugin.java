@@ -95,8 +95,8 @@ public final class SmpPlugin extends NordtalPlugin {
     Setting<SpawnSpec> spawnSettings;
     Setting<DeathsSpec> deathSettings;
 
-    /** The protected spawn regions, rebuilt when the spawn group changes. */
-    volatile Boxes spawnRegions;
+    /** The protected areas of the spawn, rebuilt when the spawn group changes. */
+    volatile Boxes protectedAreas;
 
     private Setting<MilestonesSpec> milestoneSettings;
 
@@ -253,7 +253,7 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Override
     protected void enable() {
-        spawnRegions = ConfigBoxes.of(spawnSettings.get().spawnRegions());
+        protectedAreas = ConfigBoxes.of(spawnSettings.get().protectedAreas());
         trackRows = jdbi().onDemand(TrackDao.class);
         aura = jdbi().onDemand(AuraDao.class);
         PaperScheduler.of(this).execute(this::loadSeasonState);
@@ -308,7 +308,7 @@ public final class SmpPlugin extends NordtalPlugin {
                         remove.item(),
                         remove.amount());
         });
-        getLogger().info(track.size() + " milestones, " + spawnRegions.all().size() + " protected boxes");
+        getLogger().info(track.size() + " milestones, " + protectedAreas.all().size() + " protected boxes");
     }
 
     @Override
@@ -391,10 +391,10 @@ public final class SmpPlugin extends NordtalPlugin {
         }
 
         // A missing first-join world is a warning, not a refusal.
-        if (Bukkit.getWorld(spawn.firstJoinSpawn().world()) == null) {
+        if (Bukkit.getWorld(spawn.nordtalSpawn().world()) == null) {
             getLogger()
-                    .warning("first-join-spawn names the world '"
-                            + spawn.firstJoinSpawn().world() + "', which does not exist on this server. "
+                    .warning("nordtal-spawn names the world '"
+                            + spawn.nordtalSpawn().world() + "', which does not exist on this server. "
                             + "First joins will not be moved anywhere. The build world is called '"
                             + config.worldNordtal() + "'.");
         }
@@ -568,7 +568,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 problems,
                 "the spawn",
                 spawnSettings,
-                () -> spawnRegions = ConfigBoxes.of(spawnSettings.get().spawnRegions()));
+                () -> protectedAreas = ConfigBoxes.of(spawnSettings.get().protectedAreas()));
         // These are read where they are used, so a reload alone applies them.
         reload(problems, "the wheel", wheelSettings, () -> {});
         reload(problems, "the advancement awards", awardSettings, () -> {});

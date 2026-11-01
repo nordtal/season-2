@@ -3,7 +3,7 @@ package eu.nordtal.season.smp.region;
 /**
  * An axis-aligned box in one world. Both corners are inside the box.
  *
- * It backs {@code spawn-regions}, {@code wheel-regions} and the areas of the duels.
+ * It backs {@code protected-areas}, {@code wheel-regions} and the areas of the duels.
  */
 public record Box(String world, int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
 

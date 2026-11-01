@@ -47,7 +47,7 @@ public final class WheelStrip {
         }
         final Integer weight = weights.get(winner);
         if (weight == null || weight <= 0) {
-            throw new IllegalArgumentException("prize " + winner + " has weight zero and cannot be won");
+            throw new IllegalArgumentException("prize " + winner + " has no positive weight and cannot be won");
         }
 
         // Ring index 0 holds the winner.

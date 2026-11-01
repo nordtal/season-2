@@ -81,11 +81,11 @@ class WheelStripTest {
         }
     }
 
-    /** Over many spins the cells beside the winner show each prize as often as its weight lets it be won. */
+    /** Over many spins the cells other than the winner's show each prize as often as its weight lets it be won. */
     @Test
     void aPrizeIsSeenAsOftenAsItCanBeWon() {
         final List<Integer> weights = List.of(1, 3, 6, 0, 10);
-        final int total = 20;
+        final int total = weights.stream().mapToInt(Integer::intValue).sum();
         final WheelStrip.Shape shape = WheelPanel.shape();
         final Random random = new Random(769);
         final long[] seen = new long[weights.size()];

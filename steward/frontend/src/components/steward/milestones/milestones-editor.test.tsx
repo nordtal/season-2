@@ -564,10 +564,22 @@ describe("MilestonesEditor", { timeout: 15_000 }, () => {
     fireEvent.click(screen.getByRole("button", { name: "Milestone" }))
     const fresh = await screen.findByRole("region", { name: "unnamed" })
     const id = within(fresh).getByRole("textbox", { name: "ID" })
-    fireEvent.change(id, { target: { value: "harbour" } })
-    const harbour = within(screen.getByRole("region", { name: "harbour" })).getByRole("textbox", { name: "ID" })
-    expect(harbour).toHaveProperty("disabled", false)
-    fireEvent.change(harbour, { target: { value: "deep" } })
+    fireEvent.focus(id)
+    // A stored id on the way to a new one does not lock the field while the admin types.
+    let shown = "unnamed"
+    for (const typed of ["d", "de", "dee", "deep", "deepe", "deeper"]) {
+      fireEvent.change(within(screen.getByRole("region", { name: shown })).getByRole("textbox", { name: "ID" }), {
+        target: { value: typed },
+      })
+      shown = typed
+      expect(within(screen.getByRole("region", { name: typed })).getByRole("textbox", { name: "ID" })).toHaveProperty(
+        "disabled",
+        false,
+      )
+    }
+    const deeper = within(screen.getByRole("region", { name: "deeper" })).getByRole("textbox", { name: "ID" })
+    fireEvent.change(deeper, { target: { value: "deep" } })
+    fireEvent.blur(deeper)
     expect(within(screen.getByRole("region", { name: "deep" })).getByRole("textbox", { name: "ID" })).toHaveProperty(
       "disabled",
       true,

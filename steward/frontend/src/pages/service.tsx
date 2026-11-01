@@ -11,7 +11,7 @@ import { ServiceSettings } from "@/components/steward/settings"
 import { ServicePlugins } from "@/components/steward/plugins"
 import { HungerGamesActions } from "@/components/steward/game-actions"
 import { SmpActions } from "@/components/steward/milestone-track"
-import { AnnouncementForm } from "@/components/steward/announcement"
+import { Announcements } from "@/components/steward/announcements"
 import { PageHeader } from "@/components/steward/page-header"
 import { Stat } from "@/components/steward/stat"
 import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
@@ -30,16 +30,16 @@ import { choice, since, t } from "@/lib/texts"
 import { serviceTitle } from "@/lib/words"
 
 /** What `/services/$name` keeps in its URL. Console is the default and is never written. */
-export type ServiceSearch = { tab?: "settings" | "plugins"; file?: string }
+export type ServiceSearch = { tab?: "settings" | "plugins" | "announcements"; file?: string }
 
 export function serviceSearch(search: Record<string, unknown>): ServiceSearch {
   const answer: ServiceSearch = {}
-  if (search.tab === "settings" || search.tab === "plugins") answer.tab = search.tab
+  if (search.tab === "settings" || search.tab === "plugins" || search.tab === "announcements") answer.tab = search.tab
   if (typeof search.file === "string" && search.file !== "") answer.file = search.file
   return answer
 }
 
-type Tab = "console" | "settings" | "plugins"
+type Tab = "console" | "settings" | "plugins" | "announcements"
 
 /** Returns which tabs this service has, or `undefined` until they are known. */
 export function useServiceTabs(name: string): Tab[] | undefined {
@@ -51,6 +51,7 @@ export function useServiceTabs(name: string): Tab[] | undefined {
   return [
     "console",
     ...(settings ? (["settings"] as const) : []),
+    ...(name === "discord-bot" ? (["announcements"] as const) : []),
     ...(service.data?.hasPlugins ? (["plugins"] as const) : []),
   ]
 }
@@ -92,7 +93,7 @@ export function ServicePage() {
                 ? {}
                 : next === "settings"
                   ? { tab: "settings", file: previous.file }
-                  : { tab: "plugins" },
+                  : { tab: next === "announcements" ? "announcements" : "plugins" },
             replace: true,
           })
         }
@@ -109,6 +110,12 @@ export function ServicePage() {
                 <TabsTrigger value="settings" className="sm:px-3">
                   <TERM_ICON.settings aria-hidden />
                   {t("steward.service-page.settings")}
+                </TabsTrigger>
+              ) : null}
+              {tabs.includes("announcements") ? (
+                <TabsTrigger value="announcements" className="sm:px-3">
+                  <TERM_ICON.announcement aria-hidden />
+                  {t("steward.announcements.tab")}
                 </TabsTrigger>
               ) : null}
               {tabs.includes("plugins") ? (
@@ -143,7 +150,6 @@ export function ServicePage() {
           {/* Their own area under the console, because the header's actions are about the container. */}
           {name === "smp" ? <SmpActions /> : null}
           {name === "hunger-games" ? <HungerGamesActions /> : null}
-          {name === "discord-bot" ? <AnnouncementForm /> : null}
         </TabsContent>
 
         <TabsContent value="settings">
@@ -154,6 +160,10 @@ export function ServicePage() {
               void navigate({ search: file ? { tab: "settings", file } : { tab: "settings" }, replace })
             }
           />
+        </TabsContent>
+
+        <TabsContent value="announcements" className="flex flex-col gap-6">
+          {tabs?.includes("announcements") ? <Announcements /> : null}
         </TabsContent>
 
         <TabsContent value="plugins" className="flex flex-col gap-6">

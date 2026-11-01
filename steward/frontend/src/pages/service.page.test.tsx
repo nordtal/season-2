@@ -119,20 +119,21 @@ describe("ServicePage - the head and the tabs", () => {
     expect(console.compareDocumentPosition(track) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it("puts the announcement form under the bot's log, and on no other service", async () => {
+  it("gives the bot an Announcements tab, and no other service", async () => {
     vi.stubGlobal("EventSource", SilentEventSource)
     vi.stubGlobal("fetch", backend(row("discord-bot", { hasPlugins: false })))
     draw("/services/discord-bot")
 
-    const form = await screen.findByText("New announcement")
-    const log = screen.getByRole("region", { name: "Console" })
-    expect(log.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const tab = await screen.findByRole("tab", { name: /announcements/i })
+    const tabs = screen.getAllByRole("tab").map((each) => each.textContent)
+    expect(tabs.indexOf(tab.textContent)).toBe(tabs.length - 1)
+    expect(screen.queryByText("New announcement")).toBeNull()
 
     cleanup()
     vi.stubGlobal("fetch", backend(row("smp", { hasPlugins: true })))
     draw("/services/smp")
     expect(await screen.findByText("Milestone track")).toBeTruthy()
-    expect(screen.queryByText("New announcement")).toBeNull()
+    expect(screen.queryByRole("tab", { name: /announcements/i })).toBeNull()
   })
 
   it("gives postgres Console alone and no online line", async () => {

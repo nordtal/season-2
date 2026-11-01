@@ -14,8 +14,6 @@ import {
   type KeyRegistered,
   type KeyRenamed,
   type KeyRemoved,
-  type AnnouncementsAsked,
-  type OpenAnnouncement,
   type ConsoleSent,
   type ConsoleTree,
   type PluginAdded,
@@ -46,7 +44,7 @@ import type { CreationOptionsJson } from "@/lib/webauthn"
 import { SECOND, keys } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
 import { retryUnless404 } from "@/lib/queries-settings"
-import { askUntilDone, doneRun } from "@/lib/queries-commands"
+import { askUntilDone } from "@/lib/queries-commands"
 
 /** One hook per endpoint. A hook's live topics are decided here and not at the call site. */
 
@@ -360,41 +358,6 @@ export function useGameAction() {
 }
 
 /**
- * The newest announcement that did not go out in every language, read once each time the form opens.
- * It is asked again on every mount, so a send in between never comes back as still open.
- */
-export function useOpenAnnouncement() {
-  return useQuery({
-    queryKey: keys.openAnnouncement,
-    queryFn: () => api<OpenAnnouncement>("/api/announcements/open"),
-    staleTime: Infinity,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: false,
-  })
-}
-
-/**
- * Waits until the bot has answered every language.
- * It calls `onPosted` with each language the bot posted and its text. It fails with the reason of the first it did not post.
- */
-export function useSendAnnouncement(onPosted: (tag: string, text: string) => void) {
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: async (texts: Record<string, string>) => {
-      const asked = await api<AnnouncementsAsked>("/api/announcements", { method: "POST", body: { texts } })
-      const runs = await Promise.allSettled(
-        Object.entries(asked.ids).map(([tag, id]) => doneRun(client, id).then(() => onPosted(tag, texts[tag]))),
-      )
-      const failed = runs.find((run) => run.status === "rejected")
-      if (failed) throw failed.reason
-    },
-    onSettled: () => {
-      void client.invalidateQueries({ queryKey: ["journal"] })
-    },
-  })
-}
-
-/**
  * The guild's channels. Fresh for five minutes with no refetch on focus, so a page with eleven pickers sends one request.
  */
 export function useGuildChannels(enabled = true) {
@@ -559,6 +522,7 @@ export function useSetSeasonDate() {
 export type { UseQueryOptions }
 
 export * from "@/lib/queries-access"
+export * from "@/lib/queries-announcements"
 export * from "@/lib/queries-alerts"
 export * from "@/lib/queries-commands"
 export * from "@/lib/queries-settings"

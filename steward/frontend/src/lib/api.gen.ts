@@ -159,8 +159,18 @@ export type AnnouncementsAsked = {
   ids: Record<string, string>
 }
 
-export type OpenAnnouncement = {
-  lines: OpenLine[]
+export type AnnouncementList = {
+  drafts: AnnouncementView[]
+  sent: AnnouncementView[]
+}
+
+export type AnnouncementDraft = {
+  document: Document
+  channels: Record<string, string>
+}
+
+export type AnnouncementCreated = {
+  id: number
 }
 
 export type Settled = {
@@ -680,10 +690,16 @@ export type StateContainer = "INVENTORY" | "ENDER_CHEST"
 
 export type InboxStatus = "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" | "EXPIRED" | "CANCELLED"
 
-export type OpenLine = {
-  language: string
-  text: string
-  posted: boolean
+export type AnnouncementView = {
+  id: number
+  document: Document
+  changed: string
+  sent?: string
+  targets: AnnouncementTarget[]
+}
+
+export type Document = {
+  parts: DocumentPart[]
 }
 
 export type SettleOutcome = "BOOKED" | "NOT_OPEN" | "UNKNOWN"
@@ -1010,10 +1026,6 @@ export type DocumentDeclaration = {
   slots: DocumentSlot[]
 }
 
-export type Document = {
-  parts: DocumentPart[]
-}
-
 export type MenuDrawing = {
   title: string
   parts: MenuPart[]
@@ -1165,6 +1177,26 @@ export type InventoryStack = {
   amount: number
 }
 
+export type AnnouncementTarget = {
+  language: string
+  channel: string
+  delivery: Delivery
+}
+
+export type DocumentPart = {
+  type: DocumentPartType
+  when?: string
+  accent?: string
+  parts?: DocumentPart[]
+  lines?: DocumentLine[]
+  button?: DocumentItem
+  thumbnail?: string
+  media?: string[]
+  items?: DocumentItem[]
+  slot?: string
+  shared?: string
+}
+
 export type JournalRun = {
   id: number
   kind: UpdateKind
@@ -1269,20 +1301,6 @@ export type DocumentAdaptation = {
   subject: string
 }
 
-export type DocumentPart = {
-  type: DocumentPartType
-  when?: string
-  accent?: string
-  parts?: DocumentPart[]
-  lines?: DocumentLine[]
-  button?: DocumentItem
-  thumbnail?: string
-  media?: string[]
-  items?: DocumentItem[]
-  slot?: string
-  shared?: string
-}
-
 export type DocumentShape =
   | "MESSAGE"
   | "MODAL"
@@ -1328,6 +1346,36 @@ export type ChangeImage = "PULLED" | "KEPT"
 
 export type PruneRule = "RETENTION" | "OVER_BUDGET"
 
+export type Delivery = "UNSENT" | "SENDING" | "POSTED" | "NOT_POSTED"
+
+export type DocumentPartType =
+  | "CONTAINER"
+  | "TEXT"
+  | "SECTION"
+  | "SEPARATOR"
+  | "GALLERY"
+  | "FILE"
+  | "ROW"
+  | "LANGUAGES"
+  | "ITEM"
+  | "LABEL"
+
+export type DocumentLine = {
+  text: Record<string, string | string[]>
+  style?: DocumentLineStyle
+  when?: string
+  list?: string
+}
+
+export type DocumentItem = {
+  slot?: string
+  link?: string
+  label?: Record<string, string | string[]>
+  placeholder?: Record<string, string | string[]>
+  option?: Record<string, string | string[]>
+  when?: string
+}
+
 export type ReferenceKind =
   | "ITEM"
   | "BLOCK"
@@ -1357,34 +1405,6 @@ export type MessageArg = {
 }
 
 export type DocumentChange = "SLOT_ADDED" | "SLOT_REMOVED" | "SET_ASIDE"
-
-export type DocumentPartType =
-  | "CONTAINER"
-  | "TEXT"
-  | "SECTION"
-  | "SEPARATOR"
-  | "GALLERY"
-  | "FILE"
-  | "ROW"
-  | "LANGUAGES"
-  | "ITEM"
-  | "LABEL"
-
-export type DocumentLine = {
-  text: Record<string, string | string[]>
-  style?: DocumentLineStyle
-  when?: string
-  list?: string
-}
-
-export type DocumentItem = {
-  slot?: string
-  link?: string
-  label?: Record<string, string | string[]>
-  placeholder?: Record<string, string | string[]>
-  option?: Record<string, string | string[]>
-  when?: string
-}
 
 export type DocumentSlotType = "BUTTON" | "SELECT" | "LIST" | "LANGUAGES" | "INPUT" | "ITEM" | "LABEL"
 

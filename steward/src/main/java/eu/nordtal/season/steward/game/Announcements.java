@@ -1,33 +1,33 @@
 package eu.nordtal.season.steward.game;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.common.language.Locales;
-import eu.nordtal.season.database.JournalDetail;
-import eu.nordtal.season.database.audit.AuditLine;
-import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.announce.AnnouncementBook;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.InboxStatus;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.messages.MessageRef;
+import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.steward.auth.DiscordAuth;
-import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
-import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
-/** Writes an announcement of an admin as one request with a line per language into the bot's inbox. */
+/**
+ * An admin's announcements: drafts with a channel per language, sent as one request to the bot.
+ * A send of a sent one posts again only the languages the bot could not post.
+ */
 public final class Announcements {
 
     private static final StewardTexts.Steward.Answer ANSWER =
@@ -35,122 +35,156 @@ public final class Announcements {
     private static final StewardTexts.Steward.Said SAID =
             StewardTexts.TEXTS.steward().said();
 
-    /** How many of the newest announcements {@link #open} reads back through a chain of retries. */
-    private static final int CHAIN = 10;
+    /** The namespace of the bot's document that a new announcement starts from and is checked against. */
+    public static final String TEMPLATE_NAMESPACE = "discord";
 
-    /** The longest message that Discord accepts. */
-    public static final int MAX_LENGTH = 2000;
+    /** The name of that document. */
+    public static final String TEMPLATE_NAME = "announcement";
 
     private static final Pattern TAG = Pattern.compile("[a-z]{2,8}");
+    private static final Pattern CHANNEL = Pattern.compile("[0-9]{1,32}");
 
-    private final Data data;
+    private final AnnouncementBook book;
     private final Function<Context, DiscordAuth.Account> accounts;
+    private final Consumer<Document> check;
 
-    public Announcements(final Data data, final Function<Context, DiscordAuth.Account> accounts) {
-        this.data = data;
+    /** @param check refuses a document that the bot's announcement document could not be saved as */
+    public Announcements(
+            final AnnouncementBook book,
+            final Function<Context, DiscordAuth.Account> accounts,
+            final Consumer<Document> check) {
+        this.book = book;
         this.accounts = accounts;
+        this.check = check;
     }
 
-    /** The answer to {@code POST /api/announcements}: the line id of each language by tag. */
+    /** The answer to {@code GET /api/announcements}: the drafts and the sent ones, the newest first. */
+    public record AnnouncementList(List<AnnouncementView> drafts, List<AnnouncementView> sent) {}
+
+    /** @param sent when it was first sent, absent for a draft */
+    public record AnnouncementView(
+            long id,
+            Document document,
+            Instant changed,
+            @Nullable Instant sent,
+            List<AnnouncementTarget> targets) {}
+
+    /** One language of an announcement, the channel it goes out in and how far it got. */
+    public record AnnouncementTarget(String language, String channel, AnnouncementBook.Delivery delivery) {}
+
+    /** The body of a new or changed draft: its document and the channel of each language, by tag. */
+    public record AnnouncementDraft(Document document, Map<String, String> channels) {}
+
+    /** The answer to a new draft. */
+    public record AnnouncementCreated(long id) {}
+
+    /** The answer to a send: the line id of each language it posts, by tag, empty when all are out already. */
     public record AnnouncementsAsked(Map<String, String> ids) {}
 
-    /** The answer to {@code GET /api/announcements/open}: the languages of an announcement not fully out. */
-    public record OpenAnnouncement(List<OpenLine> lines) {}
-
-    /** @param posted whether the bot posted {@code text} in that language */
-    public record OpenLine(String language, String text, boolean posted) {}
-
-    /** {@code GET /api/announcements/open} answers the newest announcement's languages, if it is not fully out. */
-    public void open(final Context ctx) {
-        ctx.json(new OpenAnnouncement(open(data.bot().recent(BotRequest.Announce.class, CHAIN))));
+    /** {@code GET /api/announcements} answers every announcement. */
+    public void list(final Context ctx) {
+        final List<AnnouncementView> all =
+                book.all().stream().map(Announcements::view).toList();
+        ctx.json(new AnnouncementList(
+                all.stream().filter(one -> one.sent() == null).toList(),
+                all.stream().filter(one -> one.sent() != null).toList()));
     }
 
-    /**
-     * Returns the newest announcement's lines when some were not posted, so a retry after a reload sends only those.
-     * Older requests a retry repeated fill in the rest: each that failed somewhere and holds every newer language.
-     */
-    static List<OpenLine> open(final List<Request<BotRequest>> newestFirst) {
-        final Map<String, OpenLine> lines = new LinkedHashMap<>();
-        for (final Request<BotRequest> row : newestFirst) {
-            if (!(row.payload() instanceof BotRequest.Announce announce)
-                    || announce.message() != BotRequest.Announce.Message.WORDS) {
-                continue;
-            }
-            if (row.status() == InboxStatus.PENDING || row.status() == InboxStatus.RUNNING) {
-                if (lines.isEmpty()) {
-                    return List.of();
-                }
-                break;
-            }
-            final List<String> languages = announce.lines().stream()
-                    .map(BotRequest.Announce.Line::language)
-                    .toList();
-            final boolean someFailed = languages.stream().anyMatch(tag -> status(row, tag) != InboxStatus.DONE);
-            if (!someFailed || !languages.containsAll(lines.keySet())) {
-                break;
-            }
-            for (final BotRequest.Announce.Line line : announce.lines()) {
-                lines.putIfAbsent(
-                        line.language(),
-                        new OpenLine(
-                                line.language(),
-                                Objects.requireNonNull(line.words(), "words"),
-                                status(row, line.language()) == InboxStatus.DONE));
-            }
+    /** {@code POST /api/announcements} writes a new draft. */
+    public void create(final Context ctx) {
+        final AnnouncementDraft draft = draftOf(ctx);
+        ctx.status(201).json(new AnnouncementCreated(book.create(draft.document(), draft.channels())));
+    }
+
+    /** {@code PUT /api/announcements/{id}} replaces a draft. A sent one is a 409. */
+    public void change(final Context ctx) {
+        final long id = idOf(ctx);
+        final AnnouncementBook.Announcement found =
+                book.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noAnnouncement(id)));
+        if (found.sent() != null) {
+            throw new RequestRefused(409, ANSWER.announcementSent());
         }
-        return List.copyOf(lines.values());
+        final AnnouncementDraft draft = draftOf(ctx);
+        if (!book.change(id, draft.document(), draft.channels())) {
+            throw refusal(id);
+        }
+        ctx.status(204);
+    }
+
+    /** {@code DELETE /api/announcements/{id}} deletes a draft. A sent one is a 409. */
+    public void delete(final Context ctx) {
+        final long id = idOf(ctx);
+        if (!book.delete(id)) {
+            throw refusal(id);
+        }
+        ctx.status(204);
     }
 
     /**
-     * {@code POST /api/announcements} with {@code {texts: {<tag>: <text>, ...}}} writes one request.
-     * It writes nothing unless every entry has text.
+     * {@code POST /api/announcements/{id}/send} asks the bot to post every language not out yet.
+     * The request and its journal line are one transaction.
      */
     public void send(final Context ctx) {
-        final Map<String, String> checked = texts(ctx);
-        final DiscordAuth.Account who = accounts.apply(ctx);
-        final Request<BotRequest> asked = data.bot()
-                .submit(
-                        BotRequest.Announce.words(checked),
-                        who.actor(),
-                        Schedule.within(CommandApi.PATIENCE),
-                        AuditLine.of(
-                                JournalAction.ANNOUNCE,
-                                who.actor(),
-                                new JournalDetail.Announced(List.copyOf(checked.keySet()))));
+        final long id = idOf(ctx);
+        final AnnouncementBook.Announcement announcement =
+                book.find(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noAnnouncement(id)));
+        if (announcement.targets().isEmpty()) {
+            throw new RequestRefused(400, ANSWER.noAnnouncementChannel());
+        }
+        final AnnouncementBook.Sent sent = book.send(
+                        id, accounts.apply(ctx).actor(), Schedule.within(CommandApi.PATIENCE))
+                .orElseThrow(() -> new RequestRefused(404, ANSWER.noAnnouncement(id)));
         final Map<String, String> ids = new LinkedHashMap<>();
-        checked.keySet().forEach(tag -> ids.put(tag, "announce:" + asked.id() + ":" + tag));
+        sent.request()
+                .ifPresent(request -> sent.languages().forEach(tag -> ids.put(tag, "announce:" + request + ":" + tag)));
         ctx.status(202).json(new AnnouncementsAsked(ids));
     }
 
-    private static Map<String, String> texts(final Context ctx) {
-        final JsonObject body;
+    private RequestRefused refusal(final long id) {
+        return book.find(id).isPresent()
+                ? new RequestRefused(409, ANSWER.announcementSent())
+                : new RequestRefused(404, ANSWER.noAnnouncement(id));
+    }
+
+    private static AnnouncementView view(final AnnouncementBook.Announcement announcement) {
+        return new AnnouncementView(
+                announcement.id(),
+                announcement.document(),
+                announcement.changed(),
+                announcement.sent(),
+                announcement.targets().stream()
+                        .map(target -> new AnnouncementTarget(target.language(), target.channel(), target.delivery()))
+                        .toList());
+    }
+
+    private static long idOf(final Context ctx) {
         try {
-            body = Json.tree(ctx.body()).getAsJsonObject();
+            return Long.parseLong(ctx.pathParam("id"));
+        } catch (final NumberFormatException malformed) {
+            throw new RequestRefused(404, ANSWER.noRequest(ctx.pathParam("id")));
+        }
+    }
+
+    /** Reads a draft's body, refusing a malformed one, a bad tag or channel, and a document the bot refuses. */
+    private AnnouncementDraft draftOf(final Context ctx) {
+        final AnnouncementDraft draft;
+        try {
+            draft = Json.decode(ctx.body(), AnnouncementDraft.class);
         } catch (final RuntimeException malformed) {
             throw new RequestRefused(400, ANSWER.notJson());
         }
-        final JsonElement texts = body.get("texts");
-        if (texts == null || !texts.isJsonObject() || texts.getAsJsonObject().isEmpty()) {
-            throw new BadRequestResponse("texts is one text per language.");
+        if (draft == null || draft.document() == null || draft.channels() == null) {
+            throw new RequestRefused(400, ANSWER.empty());
         }
-        final Map<String, String> checked = new LinkedHashMap<>();
-        for (final Map.Entry<String, JsonElement> entry :
-                texts.getAsJsonObject().entrySet()) {
-            final String tag = entry.getKey();
-            if (!TAG.matcher(tag).matches()) {
-                throw new BadRequestResponse(tag + " is not a language tag.");
+        for (final Map.Entry<String, String> channel : draft.channels().entrySet()) {
+            if (!TAG.matcher(channel.getKey()).matches()
+                    || channel.getValue() == null
+                    || !CHANNEL.matcher(channel.getValue()).matches()) {
+                throw new RequestRefused(400, ANSWER.notJson());
             }
-            final JsonElement text = entry.getValue();
-            if (text == null || !text.isJsonPrimitive() || text.getAsString().isBlank()) {
-                throw new RequestRefused(400, ANSWER.emptyText(tag));
-            }
-            final String stripped = text.getAsString().strip();
-            if (stripped.length() > MAX_LENGTH) {
-                throw new RequestRefused(400, ANSWER.tooLong(tag, MAX_LENGTH));
-            }
-            checked.put(tag, stripped);
         }
-        return checked;
+        check.accept(draft.document());
+        return draft;
     }
 
     /** Returns the status of one language's line for the browser: a line the bot did not post failed. */
@@ -172,8 +206,14 @@ public final class Announcements {
     }
 
     private static Optional<Boolean> posted(final Request<BotRequest> row, final String language) {
-        return row.answer(BotRequest.Announce.Answer.class).stream()
-                .flatMap(answer -> answer.lines().stream())
+        final List<BotRequest.Announce.Posted> lines = row.payload() instanceof BotRequest.PostAnnouncement
+                ? row.answer(BotRequest.PostAnnouncement.Answer.class)
+                        .map(BotRequest.PostAnnouncement.Answer::targets)
+                        .orElse(List.of())
+                : row.answer(BotRequest.Announce.Answer.class)
+                        .map(BotRequest.Announce.Answer::lines)
+                        .orElse(List.of());
+        return lines.stream()
                 .filter(line -> line.language().equals(language))
                 .findFirst()
                 .map(BotRequest.Announce.Posted::posted);

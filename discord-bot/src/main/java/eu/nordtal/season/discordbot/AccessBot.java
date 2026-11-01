@@ -9,6 +9,7 @@ import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.AdminTree;
 import eu.nordtal.season.database.alert.AlertBook;
+import eu.nordtal.season.database.announce.AnnouncementBook;
 import eu.nordtal.season.database.audit.AuditDirectory;
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.guild.GuildChannels;
@@ -36,6 +37,7 @@ import eu.nordtal.season.discordbot.access.discord.PurchaseFlow;
 import eu.nordtal.season.discordbot.access.discord.RedemptionLimit;
 import eu.nordtal.season.discordbot.access.payment.BookingReaction;
 import eu.nordtal.season.discordbot.access.payment.Purchases;
+import eu.nordtal.season.discordbot.announce.AdminAnnouncements;
 import eu.nordtal.season.discordbot.config.AccessSpec;
 import eu.nordtal.season.discordbot.config.BotSettings;
 import eu.nordtal.season.discordbot.config.BotSpec;
@@ -59,6 +61,7 @@ import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Palette;
+import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSettings;
 import eu.nordtal.season.settings.DatabaseSpec;
@@ -216,6 +219,7 @@ public class AccessBot implements AutoCloseable {
                                         line.language(),
                                         eu.nordtal.season.discordbot.announce.Announcements.text(
                                                 core.renderer(), announcement, line)),
+                        adminAnnouncements(core, wiring.announcements())::post,
                         alert -> wiring.admin()
                                 .postAlert(alert, wiring.adminRole().id(), updateFeed::failedCard),
                         payment -> wiring.bookings().tell(booked.told(payment)),
@@ -242,6 +246,28 @@ public class AccessBot implements AutoCloseable {
                 Locales.parse(preview.language()),
                 messages.raw().example(preview.key(), preview.given()),
                 preview.text()));
+    }
+
+    /** Posts an admin's announcement drawn as the draft of the announcement document, in each of its languages. */
+    private AdminAnnouncements adminAnnouncements(
+            final CoreServices core, final eu.nordtal.season.discordbot.announce.Announcements channels) {
+        final AnnouncementBook book = AnnouncementBook.using(database.dataSource());
+        return new AdminAnnouncements(
+                id -> book.find(id).map(AnnouncementBook.Announcement::document),
+                (document, language) -> core.renderer()
+                        .message(
+                                core.documents()
+                                        .drafted(new DocumentPreview(
+                                                StoredDocuments.NAMESPACE,
+                                                eu.nordtal.season.discordbot.announce.Announcements.DRAFT.name(),
+                                                language,
+                                                Display.DISCORD_MESSAGE,
+                                                document)),
+                                List.of(core.languages().locales()),
+                                Locales.parse(language)),
+                channels,
+                book::posted,
+                log);
     }
 
     /** Draws an admin's drafted document as members receive it. */

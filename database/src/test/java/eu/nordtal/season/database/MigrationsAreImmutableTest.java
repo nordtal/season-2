@@ -279,6 +279,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V98__a_settings_refusal_names_its_setting_and_rule.sql",
                 "6073c48515b63939cf727ecae7892600515e88086fcb905789e3667cbdcaa43f");
+        FROZEN.put(
+                "V99__an_announcement_is_a_draft_with_a_channel_per_language.sql",
+                "d9d7ba140e681d42bfa47b8fe0e1ff534395a969f9c31629186354152d0f2510");
     }
 
     @Test

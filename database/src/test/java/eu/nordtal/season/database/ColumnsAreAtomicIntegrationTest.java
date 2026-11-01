@@ -43,7 +43,8 @@ class ColumnsAreAtomicIntegrationTest {
             "document_version.document",
             "bot_preview_document.document",
             "smp_preview_document.document",
-            "hunger_games_preview_document.document");
+            "hunger_games_preview_document.document",
+            "announcement.document");
 
     @Test
     void noColumnHoldsADocumentOrAListButTheOnesListedHere() throws SQLException {

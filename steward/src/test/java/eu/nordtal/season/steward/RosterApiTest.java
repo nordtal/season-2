@@ -21,7 +21,6 @@ import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.messages.Refusal;
 import eu.nordtal.season.messages.value.Money;
-import eu.nordtal.season.steward.game.Announcements;
 import eu.nordtal.season.stewardagent.PluginJars;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
@@ -31,7 +30,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-/** Tests the game actions and announcements, and the requests they become. */
+/** Tests the game actions and the requests they become. */
 class RosterApiTest extends WebTestSupport {
 
     @Test
@@ -385,81 +384,6 @@ class RosterApiTest extends WebTestSupport {
                 statement.execute("DELETE FROM registration");
             }
         }
-    }
-
-    /** One form sends one request with every language, and nothing is written while a language lacks its text. */
-    @Test
-    void anAnnouncementIsOneRequestWithEveryLanguage() throws Exception {
-        final long before = count("SELECT count(*) FROM bot_inbox WHERE kind = 'ANNOUNCE'");
-        assertEquals(400, post("/api/announcements", "{\"texts\":{}}").statusCode());
-        assertEquals(
-                400,
-                post("/api/announcements", "{\"texts\":{\"en\":\"Hello\",\"de\":\"  \"}}")
-                        .statusCode());
-        assertEquals(
-                400,
-                post("/api/announcements", "{\"texts\":{\"EN x\":\"Hello\"}}").statusCode());
-        assertEquals(
-                400,
-                post("/api/announcements", "{\"texts\":{\"en\":\"" + "x".repeat(Announcements.MAX_LENGTH + 1) + "\"}}")
-                        .statusCode());
-        assertEquals(
-                before,
-                count("SELECT count(*) FROM bot_inbox WHERE kind = 'ANNOUNCE'"),
-                "a refused announcement wrote a row");
-
-        final HttpResponse<String> sent = post(
-                "/api/announcements",
-                "{\"texts\":{\"en\":\"The end opens tonight.\",\"de\":\"The second language, tonight.\"}}");
-        assertEquals(202, sent.statusCode(), sent.body());
-        final JsonObject ids = GSON.fromJson(sent.body(), JsonObject.class).getAsJsonObject("ids");
-        assertEquals(2, ids.size(), sent.body());
-        assertEquals(before + 1, count("SELECT count(*) FROM bot_inbox WHERE kind = 'ANNOUNCE'"));
-        for (final String tag : List.of("en", "de")) {
-            final JsonObject line = GSON.fromJson(
-                    get("/api/commands/" + ids.get(tag).getAsString()).body(), JsonObject.class);
-            assertEquals("PENDING", line.get("status").getAsString(), line.toString());
-        }
-
-        // Stands in for the bot: posts English and finds no channel for German.
-        final long asked = Long.parseLong(ids.get("en").getAsString().replaceAll("\\D", ""));
-        eu.nordtal.season.database.inbox.Inbox.over(
-                        WebFixture.postgres.dataSource(), eu.nordtal.season.database.inbox.BotRequest.TABLE)
-                .drain(request -> request.id() == asked
-                        ? eu.nordtal.season.database.inbox.Outcome.done(
-                                new eu.nordtal.season.database.inbox.BotRequest.Announce.Answer(List.of(
-                                        new eu.nordtal.season.database.inbox.BotRequest.Announce.Posted("de", false),
-                                        new eu.nordtal.season.database.inbox.BotRequest.Announce.Posted("en", true))))
-                        : eu.nordtal.season.database.inbox.Outcome.failed(null));
-        final JsonObject en = GSON.fromJson(
-                get("/api/commands/" + ids.get("en").getAsString()).body(), JsonObject.class);
-        assertEquals("DONE", en.get("status").getAsString(), en.toString());
-        assertFalse(en.has("result"), en.toString());
-        final JsonObject de = GSON.fromJson(
-                get("/api/commands/" + ids.get("de").getAsString()).body(), JsonObject.class);
-        assertEquals("FAILED", de.get("status").getAsString(), de.toString());
-        assertEquals(
-                "steward.said.not-announced",
-                de.getAsJsonObject("result").get("key").getAsString());
-
-        assertOnlyGermanIsOpen();
-    }
-
-    /** A reload reads back which languages went out, so a retry posts only German. */
-    private static void assertOnlyGermanIsOpen() throws Exception {
-        final HttpResponse<String> open = get("/api/announcements/open");
-        assertEquals(200, open.statusCode(), open.body());
-        final java.util.Map<String, JsonObject> lines = new java.util.HashMap<>();
-        GSON.fromJson(open.body(), JsonObject.class)
-                .getAsJsonArray("lines")
-                .forEach(line ->
-                        lines.put(line.getAsJsonObject().get("language").getAsString(), line.getAsJsonObject()));
-        assertEquals(java.util.Set.of("en", "de"), lines.keySet(), open.body());
-        assertEquals("The end opens tonight.", lines.get("en").get("text").getAsString());
-        assertTrue(lines.get("en").get("posted").getAsBoolean(), open.body());
-        assertEquals(
-                "The second language, tonight.", lines.get("de").get("text").getAsString());
-        assertFalse(lines.get("de").get("posted").getAsBoolean(), open.body());
     }
 
     private static void assertRow(

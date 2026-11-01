@@ -99,10 +99,12 @@ class RecreateRunTest extends WebTestSupport {
     private void assertAnnouncementAndRecreateNameTheirAsker(final HttpClient browser, final String snowflake)
             throws Exception {
         // 1. An announcement: the request and its journal line are one transaction, so an overflow loses both.
-        final HttpResponse<String> asked = post(
-                browser,
-                "/api/announcements",
-                "{\"texts\": {\"en\": \"The end opens tonight.\", \"de\": \"Heute Abend.\"}}");
+        final long draft = eu.nordtal.season.database.announce.AnnouncementBook.using(WebFixture.postgres.dataSource())
+                .create(
+                        eu.nordtal.season.messages.document.Document.decode(
+                                "{\"parts\": [{\"type\": \"TEXT\", \"lines\": [{\"text\": {\"en\": \"Tonight\"}}]}]}"),
+                        java.util.Map.of("en", "222", "de", "111"));
+        final HttpResponse<String> asked = post(browser, "/api/announcements/" + draft + "/send", "");
         assertEquals(202, asked.statusCode(), asked.body());
         assertEquals(
                 2,

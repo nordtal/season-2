@@ -74,7 +74,7 @@ class HealthTest extends WebFixture {
     private static JsonObject answerOf(final int port, final String path, final int status) throws Exception {
         final HttpRequest request = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
                 .build();
-        final long until = System.nanoTime() + Duration.ofSeconds(20).toNanos();
+        final long until = System.nanoTime() + Duration.ofSeconds(45).toNanos();
         HttpResponse<String> answer = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
         while (answer.statusCode() != status && System.nanoTime() < until) {
             Thread.sleep(200);

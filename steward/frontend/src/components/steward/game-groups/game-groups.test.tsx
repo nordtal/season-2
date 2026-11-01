@@ -251,7 +251,7 @@ describe("game group editors", { timeout: 15_000 }, () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Area" }))
     expect(await screen.findByRole("dialog")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Area 2", hidden: true })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Area 2", hidden: true }).textContent).toContain("nordtal")
   })
 
   it("shows each prize's chance on its tile and edits amount and weight in its dialog, never the item", async () => {

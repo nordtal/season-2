@@ -143,9 +143,23 @@ describe("a config file as a tree", () => {
       config({ path: "grave", kind: "MAP", label: "Grave" }),
       config({ path: "grave.world" }),
       config({ path: "grave.x" }),
+      config({ path: "board", kind: "MAP", label: "Board" }),
+      ...["kind", "world", "x", "y", "z"].map((key) => config({ path: `board.${key}` })),
     ])
 
-    expect(shape(tree)).toEqual(["arena", "exit", "[Grave]", "  grave.world", "  grave.x"])
+    expect(shape(tree)).toEqual([
+      "arena",
+      "exit",
+      "[Grave]",
+      "  grave.world",
+      "  grave.x",
+      "[Board]",
+      "  board.kind",
+      "  board.world",
+      "  board.x",
+      "  board.y",
+      "  board.z",
+    ])
     const arena = tree[0]
     expect(arena.kind === "leaf" && arena.ids).toEqual(area.map((key) => `arena.${key}`))
   })

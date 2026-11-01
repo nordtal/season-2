@@ -1,5 +1,5 @@
 import { PlusIcon } from "@phosphor-icons/react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useId, useState } from "react"
 
 import type { ConfigEntry } from "@/lib/api"
 import { type Choice, choiceFor, worldIcon } from "@/lib/references"
@@ -87,29 +87,48 @@ export function PlaceTile({
   onOpen: () => void
 }) {
   const world = text(place.values, "world")
+  const described = useId()
   return (
     <button
       type="button"
       aria-haspopup="dialog"
       aria-label={label}
+      aria-describedby={described}
       className="flex h-full w-full min-w-0 flex-col gap-2 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50"
       onClick={onOpen}
     >
-      <span className="flex min-w-0 items-center gap-2">
-        <WorldMark world={fieldOf(place.fields, "world")} reference={world} size={24} />
-        <span className="truncate font-medium">{world || t("steward.game.no-world")}</span>
+      <span id={described} className="flex min-w-0 flex-col gap-2">
+        <span className="flex min-w-0 items-center gap-2">
+          <WorldMark world={fieldOf(place.fields, "world")} reference={world} size={24} />
+          <span className="truncate font-medium">{world || t("steward.game.no-world")}</span>
+        </span>
+        <Coordinates shape={place.shape} values={place.values} />
       </span>
-      <Coordinates shape={place.shape} values={place.values} />
     </button>
   )
 }
 
-/** A number of the place, labelled by the schema so a screen reader hears "Corner 1 X". */
-function Coordinate({ id, place, field, disabled }: { id: string; place: Place; field: string; disabled: boolean }) {
+/**
+ * A number of the place. A screen reader hears the schema's label, such as "Corner 1 X"; under a row's name the
+ * eye sees `shown` alone, such as "X".
+ */
+function Coordinate({
+  id,
+  place,
+  field,
+  shown,
+  disabled,
+}: {
+  id: string
+  place: Place
+  field: string
+  shown?: string
+  disabled: boolean
+}) {
   const entry = fieldOf(place.fields, field)
   if (entry === undefined) return null
   return (
-    <Labelled id={`${id}-${field}`} label={entry.label}>
+    <Labelled id={`${id}-${field}`} label={shown ?? entry.label}>
       <NumberInput
         id={`${id}-${field}`}
         label={entry.label}
@@ -157,7 +176,14 @@ function PlaceFields({ id, place, disabled }: { id: string; place: Place; disabl
           {AREA.corners.map((corner, index) => (
             <Row key={corner[0]} name={t("steward.game.corner", { index: index + 1 })}>
               {corner.map((key) => (
-                <Coordinate key={key} id={id} place={place} field={key} disabled={disabled} />
+                <Coordinate
+                  key={key}
+                  id={id}
+                  place={place}
+                  field={key}
+                  shown={key.slice(-1).toUpperCase()}
+                  disabled={disabled}
+                />
               ))}
             </Row>
           ))}
@@ -305,7 +331,10 @@ export function PlaceList({
           size="sm"
           disabled={disabled}
           onClick={() => {
-            onChange([...value, blankSection(fields)])
+            // A new area starts in the world of the one before it, which is where the next one usually is.
+            const before = value.at(-1)
+            const blank = blankSection(fields)
+            onChange([...value, before === undefined ? blank : { ...blank, world: text(before, "world") }])
             choose(value.length)
           }}
         >

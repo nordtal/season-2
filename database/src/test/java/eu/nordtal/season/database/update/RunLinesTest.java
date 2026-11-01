@@ -84,6 +84,13 @@ class RunLinesTest {
     }
 
     @Test
+    void aVersionThatStaysTheSameReadsAsUnchanged() {
+        assertEquals(
+                List.of("schema 95, unchanged"),
+                english(resolve(List.of(new RunStep.Change("schema", "95", "95", null)))));
+    }
+
+    @Test
     void anArtefactWithoutAVersionOrAnImageReadsAsItsName() {
         assertEquals(
                 List.of("image kept", "voicechat"),
@@ -133,8 +140,17 @@ class RunLinesTest {
                 new RunStep.Room(4096, 1024 * 1024),
                 new RunStep.Offsite("4f1c2d", 512),
                 List.of(new RunStep.Archive("database", "nordtal-1.dump", 400, 1000, true, null)),
-                List.of(new RunStep.Archive(
-                        "mc-smp", "nordtal-s2_mc-smp-1.tar.gz", 900, 40_000, false, RunStep.PruneRule.OVER_BUDGET)));
+                List.of(
+                        new RunStep.Archive(
+                                "mc-smp",
+                                "nordtal-s2_mc-smp-1.tar.gz",
+                                900,
+                                40_000,
+                                false,
+                                RunStep.PruneRule.OVER_BUDGET),
+                        new RunStep.Archive("database", "nordtal-0.dump", 300, 0, false, RunStep.PruneRule.RETENTION),
+                        new RunStep.Archive(
+                                "database", "nordtal-00.dump", 300, 0, false, RunStep.PruneRule.RETENTION)));
         assertEquals(
                 List.of(
                         "paper 26.2.121 → 26.2.126",
@@ -146,7 +162,8 @@ class RunLinesTest {
                         "4 KiB needed, 1 MiB free",
                         "snapshot 4f1c2d, 512 B added",
                         "nordtal-1.dump, 400 B in 1s",
-                        "nordtal-s2_mc-smp-1.tar.gz, over the disk budget"),
+                        "2 archives pruned, kept by no retention rule",
+                        "1 archive pruned, over the disk budget"),
                 english(row));
     }
 }

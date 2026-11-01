@@ -328,10 +328,9 @@ public interface AdminTexts {
                 @Arg("took") @Example("PT2M") Duration took,
                 @Arg("verified") boolean verified);
 
-        @Name("An archive a step pruned")
+        @Name("How many archives a step pruned by one rule")
         @Shown(Display.STEWARD)
-        MessageRef archivePruned(
-                @Arg("file") @Example("nordtal-20261020-0400.dump") String file, @Arg("rule") RunStep.PruneRule rule);
+        MessageRef archivesPruned(@Arg("count") @Example("3") long count, @Arg("rule") RunStep.PruneRule rule);
 
         @Name("An artefact whose version was replaced by another")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
@@ -339,6 +338,11 @@ public interface AdminTexts {
                 @Arg("artefact") @Example("paper") String artefact,
                 @Arg("from") @Example("1.21.4") String from,
                 @Arg("to") @Example("1.21.5") String to);
+
+        @Name("An artefact whose version stayed the same")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef unchanged(
+                @Arg("artefact") @Example("schema") String artefact, @Arg("version") @Example("95") String version);
 
         @Name("An artefact and its one version")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})

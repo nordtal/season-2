@@ -195,6 +195,8 @@ function isRelease(change: RunChange): boolean {
 
 /** A change as its versions, as the server's RunLines.change words it. */
 function changeText(change: RunChange): string {
+  if (change.from && change.from === change.to)
+    return t("run.unchanged", { artefact: change.artefact, version: shown(change.from) })
   if (change.from && change.to)
     return t("run.moved", { artefact: change.artefact, from: shown(change.from), to: change.to })
   return t("run.version", { artefact: change.artefact, version: change.to ?? change.from ?? "" })

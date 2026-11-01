@@ -6,7 +6,9 @@ import eu.nordtal.season.messages.MessageRef;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
@@ -60,19 +62,24 @@ public final class RunLines {
                             Duration.ofMillis(archive.tookMillis()),
                             archive.stopVerified()));
         }
+        final Map<RunStep.PruneRule, Long> pruned = new EnumMap<>(RunStep.PruneRule.class);
         for (final RunStep.Archive archive : step.pruned()) {
             if (archive.rule() != null) {
-                lines.add(TEXTS.run().archivePruned(archive.file(), archive.rule()));
+                pruned.merge(archive.rule(), 1L, Long::sum);
             }
         }
+        pruned.forEach((rule, count) -> lines.add(TEXTS.run().archivesPruned(count, rule)));
         return List.copyOf(lines);
     }
 
     /** A fingerprint, as the resource pack reports its SHA-1. */
     private static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{32,64}", Pattern.CASE_INSENSITIVE);
 
-    /** Returns a change as its versions, else as what happened to its image, else as its name alone. */
+    /** Returns a change as its versions, one that stayed the same as unchanged, else as its image, else as its name. */
     public static MessageRef change(final RunStep.Change change) {
+        if (change.from() != null && change.from().equals(change.to())) {
+            return TEXTS.run().unchanged(change.artefact(), shown(change.from()));
+        }
         if (change.from() != null && change.to() != null) {
             return TEXTS.run().moved(change.artefact(), shown(change.from()), change.to());
         }

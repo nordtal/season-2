@@ -96,10 +96,21 @@ function StageRow({ stage, last }: { stage: Stage; last: boolean }) {
   )
 }
 
+/**
+ * A pill wraps onto further lines on a narrow screen and breaks a word only when it is longer than a line.
+ * `text-clip` displaces StatusBadge's `truncate` in `cn`, so the wrap does not hang on the order of CSS rules.
+ */
+const WRAPS = "h-auto justify-start whitespace-normal text-clip text-left wrap-anywhere"
+
 function PillBadge({ pill }: { pill: Pill }) {
-  if (pill.tone) return <StatusBadge tone={pill.tone}>{pill.text}</StatusBadge>
+  if (pill.tone)
+    return (
+      <StatusBadge tone={pill.tone} className={WRAPS}>
+        {pill.text}
+      </StatusBadge>
+    )
   return (
-    <Badge variant="outline" className="max-w-full truncate font-normal">
+    <Badge variant="outline" className={cn("max-w-full font-normal", WRAPS)}>
       {pill.services ? <TERM_ICON.service aria-hidden className="size-3 text-muted-foreground" /> : null}
       {pill.text}
     </Badge>

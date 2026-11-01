@@ -2,6 +2,9 @@ package eu.nordtal.season.discordbot.config;
 
 import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Entries;
+import eu.nordtal.season.settings.rule.Longest;
+import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -38,6 +41,7 @@ public interface AccessSpec {
     @Order(4)
     @Name("Languages")
     @Key("languages")
+    @Entries(most = BotSettings.MAX_CHOICES)
     // BotSettings#validateLanguages and steward's schema reader both read this annotation.
     @Protected(field = "tag", value = Locales.DEFAULT_TAG)
     @NoExplanationNeeded
@@ -54,6 +58,7 @@ public interface AccessSpec {
     @Order(6)
     @Name("Reminder before expiry (days)")
     @Key("expiry-reminder-lead-days")
+    @Positive
     @NoExplanationNeeded
     default int expiryReminderLeadDays() {
         return 3;
@@ -62,6 +67,7 @@ public interface AccessSpec {
     @Order(7)
     @Name("Role sync interval (minutes)")
     @Key("role-reconcile-interval-minutes")
+    @Positive
     @NoExplanationNeeded
     default int roleReconcileIntervalMinutes() {
         return 10;
@@ -73,6 +79,7 @@ public interface AccessSpec {
     @Order(8)
     @Name("Link code attempts per hour")
     @Key("link-code-attempts-per-hour")
+    @Positive
     @Explain("Raising it weakens the link code against guessing.")
     default int linkCodeAttemptsPerHour() {
         return 5;
@@ -91,6 +98,7 @@ public interface AccessSpec {
         @Order(1)
         @Name("Tag")
         @Key("tag")
+        @Longest(BotSettings.MAX_TAG_LENGTH)
         @NoExplanationNeeded
         default String tag() {
             return "";
@@ -220,6 +228,7 @@ public interface AccessSpec {
         @Order(2)
         @Name("Request lifetime (hours)")
         @Key("request-ttl-hours")
+        @Positive
         @NoExplanationNeeded
         default int requestTtlHours() {
             return 24;

@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
@@ -42,7 +43,7 @@ class InboxTrialIntegrationTest {
             Locales.DEFAULT);
 
     @Test
-    void aRefusalComesBackInWords() {
+    void aRefusalComesBackAsTheDatabaseBundlesMessage() {
         final ServerTrial.Verdict verdict = trial(asked -> server.settle(
                         asked.id(),
                         Outcome.refused(ServerRefusal.SETTINGS_REFUSED.with(
@@ -53,7 +54,7 @@ class InboxTrialIntegrationTest {
         assertEquals(
                 "smp would not start with this change. In milestones, the objective stone_axes names something"
                         + " this server does not have.",
-                verdict.refusal());
+                refusals.format(Locales.DEFAULT, Objects.requireNonNull(verdict.refusal(), "refusal")));
     }
 
     @Test
@@ -103,6 +104,6 @@ class InboxTrialIntegrationTest {
                 return true;
             }
         };
-        return new InboxTrial(smp, Inbox.over(database, HungerGamesRequest.TABLE), refusals, clock);
+        return new InboxTrial(smp, Inbox.over(database, HungerGamesRequest.TABLE), clock);
     }
 }

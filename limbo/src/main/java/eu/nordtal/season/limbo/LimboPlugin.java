@@ -1,6 +1,5 @@
 package eu.nordtal.season.limbo;
 
-import eu.nordtal.season.limbo.config.LimboCheck;
 import eu.nordtal.season.limbo.config.LimboSpec;
 import eu.nordtal.season.limbo.net.LimboChannel;
 import eu.nordtal.season.limbo.presence.WaitingRoomRules;
@@ -43,7 +42,7 @@ public final class LimboPlugin extends NordtalPlugin {
 
     @Override
     protected void prepare() {
-        config = setting(Group.of("config", LimboSpec.class).checkedBy(LimboCheck::check));
+        config = setting(Group.of("config", LimboSpec.class));
         final WaitingWorld loaded = WaitingWorld.loadOrCreate(this, config.get());
         if (loaded == null) {
             throw fatal("limbo could not create or load its waiting world '"

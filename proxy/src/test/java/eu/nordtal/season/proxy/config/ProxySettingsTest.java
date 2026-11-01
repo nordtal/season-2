@@ -55,8 +55,7 @@ class ProxySettingsTest {
 
     @Test
     void aFreshGateConfigGetsTheDocumentedDefaults() throws Exception {
-        final GateSpec config =
-                store.checked("proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values);
+        final GateSpec config = store.checked("proxy", Group.of("gate", GateSpec.class), values);
 
         assertEquals(
                 "https://nordtal.eu",
@@ -79,8 +78,7 @@ class ProxySettingsTest {
     @Test
     void theServerNamesDefaultToTheModuleDirectoryNames() throws Exception {
         // The defaults are the module directory names, the runtime identity of the three Paper plugins.
-        final GateSpec config =
-                store.checked("proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values);
+        final GateSpec config = store.checked("proxy", Group.of("gate", GateSpec.class), values);
 
         assertEquals("limbo", config.serverLimbo(), "MAINTENANCE routes here");
         assertEquals("hunger-games", config.serverHungerGames(), "PRE_EVENT and START_EVENT route here");
@@ -93,9 +91,7 @@ class ProxySettingsTest {
         values.put("server-limbo", "");
 
         final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> store.checked(
-                        "proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values));
+                SettingsException.class, () -> store.checked("proxy", Group.of("gate", GateSpec.class), values));
         assertTrue(error.getMessage().contains("server-limbo"), error.getMessage());
     }
 
@@ -104,9 +100,7 @@ class ProxySettingsTest {
         values.put("fallback-cache-window-minutes", -1);
 
         final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> store.checked(
-                        "proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values));
+                SettingsException.class, () -> store.checked("proxy", Group.of("gate", GateSpec.class), values));
         assertTrue(error.getMessage().contains("fallback-cache-window-minutes"), error.getMessage());
     }
 
@@ -115,9 +109,7 @@ class ProxySettingsTest {
         values.put("link-code-ttl-minutes", 0);
 
         final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> store.checked(
-                        "proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values));
+                SettingsException.class, () -> store.checked("proxy", Group.of("gate", GateSpec.class), values));
         assertTrue(error.getMessage().contains("link-code-ttl-minutes"), error.getMessage());
     }
 
@@ -126,9 +118,7 @@ class ProxySettingsTest {
         values.put("playtime-flush-interval-seconds", -30);
 
         final SettingsException error = assertThrows(
-                SettingsException.class,
-                () -> store.checked(
-                        "proxy", Group.of("gate", GateSpec.class).checkedBy(ProxySettings::checkGate), values));
+                SettingsException.class, () -> store.checked("proxy", Group.of("gate", GateSpec.class), values));
         assertTrue(error.getMessage().contains("playtime-flush-interval-seconds"), error.getMessage());
     }
 

@@ -1,5 +1,6 @@
 package eu.nordtal.season.proxy.config;
 
+import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -14,6 +15,7 @@ public interface QueueSpec {
     @Order(1)
     @Name("SMP interval (seconds)")
     @Key("smp-interval-seconds")
+    @Positive
     @Explain("One player goes onto the SMP per interval; too low and a full return lags the server, too high and the"
             + " last one waits long.")
     default int smpIntervalSeconds() {

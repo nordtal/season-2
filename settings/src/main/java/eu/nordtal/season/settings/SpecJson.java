@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.season.settings.rule.DeclaredRule;
+import eu.nordtal.season.settings.rule.SettingRules;
 import eu.nordtal.season.spec.SpecPaths;
 import eu.nordtal.season.spec.SpecProperty;
 import eu.nordtal.season.spec.Specs;
@@ -69,10 +71,20 @@ final class SpecJson {
      * Every node with children lists their keys in {@code order}, because the database keeps no key order.
      */
     static String schema(final Class<?> spec) {
+        return GSON.toJson(schemaTree(spec));
+    }
+
+    /** Returns the spec's schema tree, as {@link #schema} writes it. */
+    static JsonObject schemaTree(final Class<?> spec) {
         final JsonObject tree = GSON.toJsonTree(SchemaWriter.build(spec)).getAsJsonObject();
         addReferences(spec, tree);
         addOrder(tree);
-        return GSON.toJson(tree);
+        return tree;
+    }
+
+    /** Refuses {@code values} where they break a rule the spec declares. */
+    static <T> void checkRules(final Class<T> spec, final T values) {
+        SettingRules.check(schemaTree(spec), tree(values, spec));
     }
 
     private static void addOrder(final JsonObject node) {
@@ -87,7 +99,7 @@ final class SpecJson {
         node.add("order", order);
     }
 
-    /** Puts each {@link Refers}, {@link AppliesWhen} and {@link ChoiceNames} on its node, at every depth.
+    /** Puts each {@link Refers}, {@link AppliesWhen}, {@link ChoiceNames} and rule on its node, at every depth.
      * A list of specs also gets the {@code defaults} a new entry starts from.
      */
     private static void addReferences(final Class<?> spec, final JsonObject node) {
@@ -109,6 +121,10 @@ final class SpecJson {
                 condition.addProperty("key", applies.key());
                 condition.add("values", array(applies.values()));
                 child.add("appliesWhen", condition);
+            }
+            final List<DeclaredRule> rules = DeclaredRule.of(getter);
+            if (!rules.isEmpty()) {
+                child.add("rules", DeclaredRule.json(rules));
             }
             final ChoiceNames names = getter.getAnnotation(ChoiceNames.class);
             if (names != null) {

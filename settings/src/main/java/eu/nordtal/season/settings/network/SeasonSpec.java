@@ -1,5 +1,7 @@
 package eu.nordtal.season.settings.network;
 
+import eu.nordtal.season.settings.rule.Positive;
+import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -13,6 +15,7 @@ public interface SeasonSpec {
     @Order(1)
     @Name("Number")
     @Key("number")
+    @Positive
     @NoExplanationNeeded
     default int number() {
         return 2;
@@ -21,6 +24,7 @@ public interface SeasonSpec {
     @Order(2)
     @Name("Name")
     @Key("name")
+    @Required
     @NoExplanationNeeded
     default String name() {
         return "Season 2";

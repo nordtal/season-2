@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.settings;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.inbox.SettingsChange;
+import eu.nordtal.season.messages.MessageRef;
 import org.jspecify.annotations.Nullable;
 
 /** Asks the running server of a service whether it would start with a settings change, before Steward saves it. */
@@ -13,8 +14,8 @@ public interface ServerTrial {
 
     Verdict ask(String service, SettingsChange change, Actor actor);
 
-    /** @param refusal the server's reason in words, set only for {@link Kind#REFUSED} */
-    record Verdict(Kind kind, @Nullable String refusal) {
+    /** @param refusal the server's reason as a message of the database bundle, set only for {@link Kind#REFUSED} */
+    record Verdict(Kind kind, @Nullable MessageRef refusal) {
 
         static final Verdict UNASKED = new Verdict(Kind.UNASKED, null);
 

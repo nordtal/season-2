@@ -6,7 +6,9 @@ import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.Refused;
+import eu.nordtal.season.steward.settings.SettingsRefusal;
 import eu.nordtal.season.steward.texts.RequestRefused;
+import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,6 +44,20 @@ public final class ErrorHandlers {
             }
             ctx.status(refused.status()).json(body);
         });
+
+        // The form marks the setting by the refusal's setting, rule and entries, and shows the error beside it.
+        cfg.routes.exception(
+                SettingsRefusal.class,
+                (refused, ctx) -> ctx.status(422)
+                        .json(new SettingsRefusal.Answer(
+                                texts.format(
+                                        Locales.DEFAULT,
+                                        StewardTexts.TEXTS
+                                                .steward()
+                                                .answer()
+                                                .settingsRefused(database.format(Locales.DEFAULT, refused.why()))),
+                                "SETTINGS_REFUSED",
+                                refused.breach())));
 
         cfg.routes.exception(
                 Refused.class,

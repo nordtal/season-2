@@ -131,7 +131,7 @@ class NetworkSettingsTest {
         // A purchase button carries a day count, so two tiers sharing one is an ambiguous lookup.
         values.put("tiers", List.of(tier(30, 300), tier(30, 500)));
 
-        assertRefused(NetworkSettings.PRICES, "Day counts identify a tier");
+        assertRefused(NetworkSettings.PRICES, "tiers[1].days holds 30 twice");
     }
 
     @Test
@@ -163,11 +163,19 @@ class NetworkSettingsTest {
     }
 
     @Test
+    void aFirstTierThatNeedsPlayedHoursIsRefused() {
+        // Tier 1 is the crest a player has before playing at all.
+        values.put("hours.tier-01", 1);
+
+        assertRefused(NetworkSettings.PRESTIGE, "hours.tier-01 must be at most 0");
+    }
+
+    @Test
     void hoursThatDoNotRiseAreRefused() {
         // Tier 2 at no hours would be reached in the same second as tier 1, which no player could ever wear.
         values.put("hours.tier-02", 0);
 
-        assertRefused(NetworkSettings.PRESTIGE, "rise strictly");
+        assertRefused(NetworkSettings.PRESTIGE, "hours.tier-02 must be greater than tier-01");
     }
 
     @Test

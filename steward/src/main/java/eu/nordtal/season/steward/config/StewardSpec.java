@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.config;
 
+import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -19,6 +20,7 @@ public interface StewardSpec {
     @Order(9)
     @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
+    @Positive
     @NoExplanationNeeded
     default int httpTimeoutSeconds() {
         return 30;
@@ -75,6 +77,7 @@ public interface StewardSpec {
         @Order(3)
         @Name("Poll interval (seconds)")
         @Key("poll-interval-seconds")
+        @Positive
         @NoExplanationNeeded
         default int pollIntervalSeconds() {
             return 30;
@@ -92,6 +95,7 @@ public interface StewardSpec {
         @Order(5)
         @Name("Recent payment count")
         @Key("recent-payment-count")
+        @Positive
         @NoExplanationNeeded
         default int recentPaymentCount() {
             return 50;

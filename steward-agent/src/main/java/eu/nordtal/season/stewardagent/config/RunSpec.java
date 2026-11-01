@@ -1,5 +1,8 @@
 package eu.nordtal.season.stewardagent.config;
 
+import eu.nordtal.season.settings.rule.Between;
+import eu.nordtal.season.settings.rule.Positive;
+import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -19,6 +22,7 @@ public interface RunSpec {
     @Order(1)
     @Name("Season repository")
     @Key("season-repo")
+    @Required
     @NoExplanationNeeded
     default String seasonRepo() {
         return "nordtal/season-2";
@@ -27,6 +31,7 @@ public interface RunSpec {
     @Order(3)
     @Name("PacketEvents project")
     @Key("packetevents-project")
+    @Required
     @NoExplanationNeeded
     default String packetEventsProject() {
         return "HYKaKraK";
@@ -54,6 +59,7 @@ public interface RunSpec {
     @Order(7)
     @Name("Volumes root")
     @Key("volumes-root")
+    @Required
     @NoExplanationNeeded
     default String volumesRoot() {
         return "/volumes";
@@ -70,6 +76,7 @@ public interface RunSpec {
     @Order(9)
     @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
+    @Positive
     @NoExplanationNeeded
     default int httpTimeoutSeconds() {
         return 30;
@@ -79,6 +86,7 @@ public interface RunSpec {
     @Order(10)
     @Name("Download timeout (seconds)")
     @Key("download-timeout-seconds")
+    @Positive
     @NoExplanationNeeded
     default int downloadTimeoutSeconds() {
         return 600;
@@ -133,6 +141,7 @@ public interface RunSpec {
         @Order(7)
         @Name("Disk budget (percent)")
         @Key("budget-percent")
+        @Between(least = 1, most = 100)
         @Explain("Past it the oldest archive of the largest series is deleted.")
         default int budgetPercent() {
             return 30;
@@ -142,6 +151,7 @@ public interface RunSpec {
         @Order(8)
         @Name("Free space kept (percent)")
         @Key("keep-free-percent")
+        @Between(least = 0, most = 100)
         @Explain("A backup that would leave less free than this is refused.")
         default int keepFreePercent() {
             return 10;
@@ -151,6 +161,7 @@ public interface RunSpec {
         @Order(9)
         @Name("Patience (minutes)")
         @Key("patience-minutes")
+        @Positive
         @Explain("Past it the snapshot gives up and restarts the servers.")
         default int patienceMinutes() {
             return 30;

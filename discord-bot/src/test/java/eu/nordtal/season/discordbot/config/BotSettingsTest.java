@@ -335,7 +335,7 @@ class BotSettingsTest {
                 access(List.of(language("en", 30, 39), language("a".repeat(20), 33, 40))),
                 new Languages(List.of("en", "a".repeat(20))));
 
-        assertTrue(message.contains("as long as a managed message's key"), message);
+        assertTrue(message.contains("languages[1].tag is longer than 19 characters"), message);
     }
 
     @Test

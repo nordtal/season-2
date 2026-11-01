@@ -25,6 +25,7 @@ import eu.nordtal.season.messages.text.Declaration;
 import eu.nordtal.season.messages.text.MessageCheck;
 import eu.nordtal.season.messages.value.Kind;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.SettingRules;
 import eu.nordtal.season.spec.schema.SchemaNode;
 import eu.nordtal.season.steward.access.AccessApi;
 import eu.nordtal.season.steward.access.JournalPage;
@@ -51,6 +52,7 @@ import eu.nordtal.season.steward.settings.Reloading;
 import eu.nordtal.season.steward.settings.Settings;
 import eu.nordtal.season.steward.settings.SettingsApi;
 import eu.nordtal.season.steward.settings.SettingsDocument;
+import eu.nordtal.season.steward.settings.SettingsRefusal;
 import eu.nordtal.season.steward.stack.AgentApi;
 import eu.nordtal.season.steward.stack.PluginsForward;
 import eu.nordtal.season.steward.stack.Routes;
@@ -119,6 +121,7 @@ public final class StewardWire {
             SettingsDocument.Location.class,
             SettingsDocument.Document.class,
             SettingsApi.Saved.class,
+            SettingsRefusal.Answer.class,
             AgentWire.Descriptor.class,
             MessagesApi.Texts.class,
             MessagesApi.Saved.class,
@@ -182,6 +185,8 @@ public final class StewardWire {
             Map.entry(SettingsDocument.Location.class, "ConfigLocation"),
             Map.entry(SettingsDocument.Document.class, "ConfigDocument"),
             Map.entry(SettingsApi.Saved.class, "ConfigSaved"),
+            Map.entry(SettingsRefusal.Answer.class, "ConfigRefused"),
+            Map.entry(SettingRules.Breach.class, "ConfigBreach"),
             Map.entry(SettingsDocument.Entry.class, "ConfigEntry"),
             Map.entry(SettingsDocument.Shape.class, "ConfigShape"),
             Map.entry(SettingsDocument.Choices.class, "ConfigChoices"),

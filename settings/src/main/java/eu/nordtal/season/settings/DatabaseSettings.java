@@ -139,6 +139,7 @@ public final class DatabaseSettings implements Settings {
             }
             final T taken = SpecJson.read(tree, group.spec());
             environment.applyTo(group, taken);
+            SpecJson.checkRules(group.spec(), taken);
             group.check().check(taken);
             return taken;
         } catch (final RuntimeException wrong) {

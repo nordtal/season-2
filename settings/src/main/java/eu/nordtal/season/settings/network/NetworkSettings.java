@@ -8,7 +8,6 @@ import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.messages.Palette;
 import eu.nordtal.season.messages.context.MessageEnvironment;
 import eu.nordtal.season.messages.context.SeasonContext;
-import eu.nordtal.season.settings.Checks;
 import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.spec.Specs;
 import java.time.DateTimeException;
@@ -33,9 +32,8 @@ public final class NetworkSettings {
             .whileRunning()
             .networkWide();
 
-    public static final Group<SeasonSpec> SEASON = Group.of("season", SeasonSpec.class)
-            .checkedBy(NetworkSettings::checkSeason)
-            .networkWide();
+    public static final Group<SeasonSpec> SEASON =
+            Group.of("season", SeasonSpec.class).networkWide();
 
     public static final Group<LanguageAndTimeSpec> LANGUAGE_AND_TIME = Group.of(
                     "language-and-time", LanguageAndTimeSpec.class)
@@ -45,10 +43,8 @@ public final class NetworkSettings {
     /**
      * When each crest is reached and the colour of a name. The card of every name shows the crest.
      */
-    public static final Group<PrestigeSpec> PRESTIGE = Group.of("prestige", PrestigeSpec.class)
-            .checkedBy(NetworkSettings::checkPrestige)
-            .whileRunning()
-            .networkWide();
+    public static final Group<PrestigeSpec> PRESTIGE =
+            Group.of("prestige", PrestigeSpec.class).whileRunning().networkWide();
 
     public static final Group<PricesSpec> PRICES = Group.of("prices", PricesSpec.class)
             .checkedBy(NetworkSettings::checkPrices)
@@ -67,15 +63,6 @@ public final class NetworkSettings {
 
     public static Prestige prestige(final PrestigeSpec spec) {
         return new Prestige(prestigeHours(spec));
-    }
-
-    /**
-     * Refuses bad crest hours. The constructor of {@link Prestige} holds the whole rule.
-     *
-     * @throws IllegalArgumentException naming what is wrong with the hours
-     */
-    public static void checkPrestige(final PrestigeSpec spec) {
-        final Prestige _ = prestige(spec);
     }
 
     public static List<String> prestigeColours(final PrestigeSpec spec) {
@@ -114,25 +101,13 @@ public final class NetworkSettings {
                 tiers.tier13());
     }
 
-    /** Refuses a price list the purchase flow cannot offer.
-     * The days of a tier are unique, and more days cost more.
+    /** Refuses a price list the purchase flow cannot offer: more days cost more.
+     * The spec declares the rest.
      *
      * @throws IllegalArgumentException naming the first wrong value
      */
     public static void checkPrices(final PricesSpec spec) {
-        Checks.requirePositive("donation-cents", spec.donationCents());
-        final List<PricesSpec.TierSpec> tiers = spec.tiers();
-        final Set<Integer> days = new HashSet<>();
-        for (int index = 0; index < tiers.size(); index++) {
-            final PricesSpec.TierSpec tier = tiers.get(index);
-            Checks.requirePositive("tiers[" + index + "].days", tier.days());
-            Checks.requirePositive("tiers[" + index + "].price-cents", tier.priceCents());
-            if (!days.add(tier.days())) {
-                throw new IllegalArgumentException("tiers[" + index + "] offers " + tier.days()
-                        + " days, which another tier already offers. Day counts identify a tier and must be unique.");
-            }
-        }
-        final List<PricesSpec.TierSpec> byDays = tiers.stream()
+        final List<PricesSpec.TierSpec> byDays = spec.tiers().stream()
                 .sorted(Comparator.comparingInt(PricesSpec.TierSpec::days))
                 .toList();
         for (int index = 1; index < byDays.size(); index++) {
@@ -191,12 +166,11 @@ public final class NetworkSettings {
     }
 
     /**
-     * Refuses a limit or an allowlist the network cannot run on. An empty allowlist is valid.
+     * Refuses an allowlist the network cannot run on. An empty allowlist is valid.
      *
      * @throws IllegalArgumentException naming the first wrong value
      */
     public static void checkPlayers(final PlayersSpec spec) {
-        Checks.requirePositive("max-players", spec.maxPlayers());
         for (final String entry : spec.commandAllowlist()) {
             // A blank entry would be dropped silently.
             if (entry == null || entry.isBlank()) {
@@ -210,11 +184,6 @@ public final class NetworkSettings {
         }
     }
 
-    public static void checkSeason(final SeasonSpec spec) {
-        Checks.requirePositive("number", spec.number());
-        Checks.requireText("name", spec.name());
-    }
-
     public static void checkLanguageAndTime(final LanguageAndTimeSpec spec) {
         final String fallback = Locales.tag(Locales.DEFAULT);
         final Set<String> seen = new HashSet<>();
@@ -222,9 +191,7 @@ public final class NetworkSettings {
             if (tag == null || tag.isBlank() || !tag.equals(tag.strip().toLowerCase(Locale.ROOT))) {
                 throw new IllegalArgumentException("languages holds '" + tag + "', which is not a lower case tag");
             }
-            if (!seen.add(tag)) {
-                throw new IllegalArgumentException("languages lists '" + tag + "' twice");
-            }
+            seen.add(tag);
         }
         if (!seen.contains(spec.defaultLanguage())) {
             throw new IllegalArgumentException(

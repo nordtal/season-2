@@ -1,5 +1,7 @@
 package eu.nordtal.season.settings.network;
 
+import eu.nordtal.season.settings.rule.Positive;
+import eu.nordtal.season.settings.rule.Unique;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
@@ -17,6 +19,7 @@ public interface PricesSpec {
     @Order(1)
     @Name("Tiers")
     @Key("tiers")
+    @Unique("days")
     @Explain("Changing 'days' on an entry retires that tier.")
     default List<TierSpec> tiers() {
         return List.of(tier(30, 300), tier(60, 500), tier(90, 700));
@@ -26,6 +29,7 @@ public interface PricesSpec {
     @Order(2)
     @Name("Donation (cents)")
     @Key("donation-cents")
+    @Positive
     @NoExplanationNeeded
     default int donationCents() {
         return 500;
@@ -37,6 +41,7 @@ public interface PricesSpec {
         @Order(1)
         @Name("Duration (days)")
         @Key("days")
+        @Positive
         @NoExplanationNeeded
         default int days() {
             return 30;
@@ -45,6 +50,7 @@ public interface PricesSpec {
         @Order(2)
         @Name("Price (cents)")
         @Key("price-cents")
+        @Positive
         @NoExplanationNeeded
         default int priceCents() {
             return 300;

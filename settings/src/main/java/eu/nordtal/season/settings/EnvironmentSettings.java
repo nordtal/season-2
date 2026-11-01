@@ -26,6 +26,7 @@ public final class EnvironmentSettings implements Settings {
             group.defaults().forEach((path, value) -> SpecJson.put(defaults, path, SpecJson.GSON.toJsonTree(value)));
             values = SpecJson.read(defaults, group.spec());
             environment.applyTo(group, values);
+            SpecJson.checkRules(group.spec(), values);
             group.check().check(values);
         } catch (final RuntimeException refused) {
             throw new SettingsException(

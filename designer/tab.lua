@@ -1174,6 +1174,7 @@ function tab.open(context)
     local shown = dlg.data.editor
     local record = shown and opened[shown.filename]
     if id ~= selected and record and unsaved(shown, record) and not save(shown, record) then
+      dlg.data = { tree=selected }
       return
     end
     selected = id

@@ -264,7 +264,7 @@ function attributeLines(value: Nbt | undefined): ItemLine[] {
     const percent = operation === "add_multiplied_base" || operation === "add_multiplied_total"
     const shown = (percent ? amount * 100 : amount).toLocaleString("en", {
       signDisplay: "always",
-      maximumFractionDigits: 2,
+      maximumSignificantDigits: 3,
     })
     const args = { amount: percent ? `${shown}%` : shown, attribute: nameOfId(type) }
     return [

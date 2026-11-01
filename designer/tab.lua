@@ -269,7 +269,7 @@ function tab.open(context)
           local timer
           timer = api.Timer{ interval=0, ontick=function()
             timer:stop()
-            if status == tippedStatus then api.tip(status) end
+            if status and status == tippedStatus then api.tip(status) end
           end }
           timer:start()
         end

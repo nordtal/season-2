@@ -9,6 +9,7 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
+import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.database.audit.AuditLine;
@@ -26,6 +27,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.dv8tion.jda.api.components.buttons.Button;
@@ -77,6 +79,11 @@ class AdminLogTest {
 
         @Override
         public Optional<RaisedAlert> alert(final UUID id) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Map<AlertType, Alert> open() {
             throw new UnsupportedOperationException();
         }
     }

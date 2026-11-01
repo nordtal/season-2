@@ -24,7 +24,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Measures the stack, keeps the current alerts for the pages and raises an alert when a type changes.
- * The first reading only sets the baseline. A failed run is raised once.
+ * The first reading is compared with what the journal holds open, so a restart neither drops a raise nor repeats one.
+ * A failed run is raised once.
  */
 public final class AlertMonitor {
 
@@ -41,7 +42,7 @@ public final class AlertMonitor {
 
     private volatile Snapshot snapshot = new Snapshot(null, null, List.of());
 
-    /** Is null before the first reading. Only the polling thread uses it. */
+    /** Is null until the first reading has been compared with the journal. Only the polling thread uses it. */
     private @Nullable Map<AlertType, Alert> last;
 
     public AlertMonitor(
@@ -90,17 +91,27 @@ public final class AlertMonitor {
         }
         snapshot = new Snapshot(clock.instant(), null, now);
         final Map<AlertType, Alert> current = byType(now);
-        final Map<AlertType, Alert> previous = last;
-        last = current;
+        final Map<AlertType, Alert> previous = last != null ? last : journaled();
         if (previous == null) {
             return;
         }
+        last = current;
         for (final AlertType type : AlertType.values()) {
             final Alert before = previous.get(type);
             final Alert after = current.get(type);
             if (!sameFact(before, after)) {
                 raise(after != null ? after : cleared(Objects.requireNonNull(before)));
             }
+        }
+    }
+
+    /** Returns what the journal holds open per measured type, null when it cannot be read this round. */
+    private @Nullable Map<AlertType, Alert> journaled() {
+        try {
+            return book.open();
+        } catch (final RuntimeException failure) {
+            log.warn("Could not read the open alerts from the journal, so the baseline waits a round", failure);
+            return null;
         }
     }
 

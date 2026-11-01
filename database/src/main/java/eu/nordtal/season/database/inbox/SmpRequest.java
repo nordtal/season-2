@@ -181,6 +181,8 @@ public sealed interface SmpRequest
         }
 
         /**
+         * The item put into the window, or none when it was closed empty.
+         *
          * @param item the namespaced id of the item's material, null if the window closed empty
          * @param data the whole stack as Base64 of its serialised bytes, null if the window closed empty
          */

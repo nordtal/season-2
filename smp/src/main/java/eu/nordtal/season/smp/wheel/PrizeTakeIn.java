@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
 import org.bukkit.entity.Player;
@@ -78,9 +79,10 @@ public final class PrizeTakeIn {
                 documents.applied(TakeInWindow.DOCUMENT),
                 Viewer.of(identities.languageOf(player.value())),
                 new DocumentSpec.None());
-        final boolean shown = onMain(() -> {
+        final AtomicBoolean given = new AtomicBoolean();
+        final boolean shown = onMain(given, () -> {
             final Player here = plugin.getServer().getPlayer(player.value());
-            if (here == null) {
+            if (here == null || given.get()) {
                 return false;
             }
             final TakeInWindow window = new TakeInWindow(document, stack -> answer(request, stack));
@@ -127,11 +129,18 @@ public final class PrizeTakeIn {
         }
     }
 
-    private boolean onMain(final Supplier<Boolean> work) {
+    /**
+     * Runs {@code work} on the main thread and waits for it.
+     * A wait given up sets {@code given}, so the work opens nothing once it runs late.
+     */
+    private boolean onMain(final AtomicBoolean given, final Supplier<Boolean> work) {
         try {
             return CompletableFuture.supplyAsync(work, PaperScheduler.of(plugin).mainThread())
                     .get(WAIT_SECONDS, TimeUnit.SECONDS);
-        } catch (final ExecutionException | TimeoutException failed) {
+        } catch (final TimeoutException late) {
+            given.set(true);
+            throw new IllegalStateException(late);
+        } catch (final ExecutionException failed) {
             throw new IllegalStateException(failed);
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();

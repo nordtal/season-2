@@ -19,7 +19,7 @@ GRANT INSERT ON smp_take_in_item TO ${role_steward_ui};
 GRANT UPDATE (item, data) ON smp_take_in_item TO ${role_smp};
 
 -- Steward withdraws a request it asked for, pending or left running by a window that is still open.
-GRANT UPDATE (status, finished, started) ON smp_inbox, hunger_games_inbox TO ${role_steward_ui};
+GRANT UPDATE (status, finished, started) ON smp_inbox TO ${role_steward_ui};
 
 ALTER TABLE smp_inbox DROP CONSTRAINT smp_inbox_kind_check;
 ALTER TABLE smp_inbox
@@ -27,4 +27,4 @@ ALTER TABLE smp_inbox
         CHECK (kind IN ('COMPLETE_OBJECTIVE', 'UNLOCK_MILESTONE', 'PREVIEW_MESSAGE', 'PREVIEW_DOCUMENT',
                         'CHECK_SETTINGS', 'SET_AURA', 'SET_SPINS', 'STORE_MODE_STATE', 'REMOVE_STACK',
                         'OPEN_INVENTORY', 'TAKE_IN_ITEM'));
-COMMENT ON TABLE smp_inbox IS 'Owned by smp, which claims and carries out every row. steward asks for a track action, a person''s aura or spins, a player''s held state, the removal of a stack from it or its window for an admin, an admin''s preview of a text or a document, a try of a settings change and an item an admin takes in as a wheel prize.';
+COMMENT ON TABLE smp_inbox IS 'Owned by smp, which claims and carries out every row; steward withdraws its own take-in. steward asks for a track action, a person''s aura or spins, a player''s held state, the removal of a stack from it or its window for an admin, an admin''s preview of a text or a document, a try of a settings change and an item an admin takes in as a wheel prize.';

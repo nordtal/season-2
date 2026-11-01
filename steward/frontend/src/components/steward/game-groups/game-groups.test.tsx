@@ -146,7 +146,7 @@ function json(body: unknown): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
 }
 
-type Asked = (url: string, method: string) => Response | undefined
+type Asked = (url: string, method: string) => Response | Promise<Response> | undefined
 
 function backend(saved: ConfigDocument, more: Asked = () => undefined) {
   const puts: unknown[] = []
@@ -166,11 +166,23 @@ function backend(saved: ConfigDocument, more: Asked = () => undefined) {
   return puts
 }
 
+const NOTHING = () => {}
+
+/** A promise that settles once `arrive` is called. */
+function held() {
+  let arrive = NOTHING
+  const promise = new Promise<void>((resolve) => {
+    arrive = resolve
+  })
+  return { promise, arrive }
+}
+
 /** A take-in that smp answers with `run` once it is asked, and the withdrawals it is sent. */
-function takeIn(run: Record<string, unknown>) {
+function takeIn(run: Record<string, unknown>, sent: Promise<void> = Promise.resolve()) {
   const withdrawn: string[] = []
   const more: Asked = (url, method) => {
-    if (url === "/api/smp/take-in" && method === "POST") return json({ id: "smp:7", status: "PENDING" })
+    if (url === "/api/smp/take-in" && method === "POST")
+      return sent.then(() => json({ id: "smp:7", status: "PENDING" }))
     if (url === "/api/commands/smp:7" && method === "DELETE") {
       withdrawn.push(url)
       return new Response(null, { status: 204 })
@@ -391,6 +403,21 @@ describe("game group editors", { timeout: 15_000 }, () => {
     fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
     fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
     fireEvent.keyDown(await screen.findByRole("button", { name: "Cancel take-in" }), { key: "Escape" })
+    await waitFor(() => expect(withdrawn).toEqual(["/api/commands/smp:7"]))
+  })
+
+  it("withdraws a take-in that was still on its way when the picker closed", async () => {
+    const { promise, arrive } = held()
+    const { more, withdrawn } = takeIn({ status: "RUNNING" }, promise)
+    backend(WHEEL, more)
+    draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
+    const button = await screen.findByRole("button", { name: "Take in from game" })
+    fireEvent.click(button)
+    fireEvent.keyDown(button, { key: "Escape" })
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    arrive()
     await waitFor(() => expect(withdrawn).toEqual(["/api/commands/smp:7"]))
   })
 

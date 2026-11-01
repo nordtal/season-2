@@ -36,12 +36,14 @@ export function TakeInButton({ disabled, onTaken }: { disabled: boolean; onTaken
   const [asking, setAsking] = useState(false)
   // The request this button still waits for; a run of any other is stale.
   const current = useRef<string | null>(null)
+  const gone = useRef(false)
   const taken = useRef({ onTaken, close })
   useEffect(() => {
     taken.current = { onTaken, close }
   }, [onTaken, close])
   useEffect(
     () => () => {
+      gone.current = true
       if (current.current !== null) withdraw(current.current)
     },
     [],
@@ -68,6 +70,11 @@ export function TakeInButton({ disabled, onTaken }: { disabled: boolean; onTaken
     setAsking(true)
     try {
       const asked = await api<CommandAsked>("/api/smp/take-in", { method: "POST" })
+      // The picker closed while the request was on its way.
+      if (gone.current) {
+        withdraw(asked.id)
+        return
+      }
       current.current = asked.id
       setWaiting(asked.id)
       finalRun(client, asked.id).then(
@@ -82,7 +89,7 @@ export function TakeInButton({ disabled, onTaken }: { disabled: boolean; onTaken
     } catch (error) {
       toast.error(t("steward.game.take-in-failed"), { description: errorMessage(error) })
     } finally {
-      setAsking(false)
+      if (!gone.current) setAsking(false)
     }
   }
 

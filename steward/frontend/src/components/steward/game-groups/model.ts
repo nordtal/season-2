@@ -2,11 +2,11 @@ import type { ConfigEntry } from "@/lib/api"
 import type { SectionValues } from "@/components/steward/repeatable-cards"
 
 /** The list whose entries hold every one of `keys`, or none when the jar sends another shape. */
-export function listEntry(entries: ConfigEntry[], keys: string[]): ConfigEntry | undefined {
+export function listEntry(entries: ConfigEntry[], keys: readonly string[]): ConfigEntry | undefined {
   return entries.find((entry) => holds(entry, keys))
 }
 
-export function holds(entry: ConfigEntry, keys: string[]): boolean {
+export function holds(entry: ConfigEntry, keys: readonly string[]): boolean {
   return entry.kind === "SECTIONS" && keys.every((key) => entry.template?.some((candidate) => candidate.key === key))
 }
 
@@ -57,7 +57,7 @@ export const AREA = {
 /** An area between two corner blocks, or a single block. */
 export type PlaceShape = "area" | "block"
 
-const BLOCK_KEYS = ["world", "x", "y", "z"] as const
+export const BLOCK_KEYS = ["world", "x", "y", "z"] as const
 
 /** The shape of a setting whose fields are `keys`, or none when it is not a place in a world. */
 export function placeShape(keys: readonly string[]): PlaceShape | undefined {

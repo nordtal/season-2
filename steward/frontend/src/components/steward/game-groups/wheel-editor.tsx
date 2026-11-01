@@ -10,7 +10,7 @@ import { Empty } from "@/components/steward/query-state"
 import { Mark, useChoices } from "@/components/steward/reference-picker"
 import { type SectionValues, blankSection } from "@/components/steward/repeatable-cards"
 import { TERM_ICON } from "@/components/steward/term-icons"
-import { BOX_KEYS, chance, count, field, listEntry, sum, text } from "@/components/steward/game-groups/model"
+import { BLOCK_KEYS, chance, count, field, listEntry, sum, text } from "@/components/steward/game-groups/model"
 import { AddPicker, Heading, NumberInput } from "@/components/steward/game-groups/parts"
 import { PlaceList } from "@/components/steward/game-groups/places"
 import { EntryDialog, Labelled, Tile, Tiles } from "@/components/steward/game-groups/tiles"
@@ -25,7 +25,7 @@ export function readsWheel(document: ConfigDocument): boolean {
 
 export function WheelEditor({ file, document }: CustomEditorProps) {
   const prizes = listEntry(document.entries, KEYS)
-  const regions = listEntry(document.entries, BOX_KEYS)
+  const blocks = listEntry(document.entries, BLOCK_KEYS)
   if (prizes === undefined) return null
   const disabled = !document.writable
   return (
@@ -38,12 +38,12 @@ export function WheelEditor({ file, document }: CustomEditorProps) {
             disabled={disabled}
             onChange={(next) => set(prizes.path, next)}
           />
-          {regions ? (
-            <Regions
-              list={regions}
-              regions={draftSections(draft, regions)}
+          {blocks ? (
+            <Blocks
+              list={blocks}
+              blocks={draftSections(draft, blocks)}
               disabled={disabled}
-              onChange={(next) => set(regions.path, next)}
+              onChange={(next) => set(blocks.path, next)}
             />
           ) : null}
         </>
@@ -210,22 +210,22 @@ function Prize({
   )
 }
 
-/** The wheel's places, drawn as every place in the settings is. */
-function Regions({
+/** The blocks a player right clicks to open the wheel, each a tile as every place in the settings is. */
+function Blocks({
   list,
-  regions,
+  blocks,
   disabled,
   onChange,
 }: {
   list: ConfigEntry
-  regions: SectionValues[]
+  blocks: SectionValues[]
   disabled: boolean
   onChange: (next: SectionValues[]) => void
 }) {
   return (
     <section className="flex flex-col gap-3">
       <Heading>{list.label}</Heading>
-      <PlaceList entry={list} value={regions} disabled={disabled} onChange={onChange} />
+      <PlaceList entry={list} value={blocks} disabled={disabled} onChange={onChange} />
     </section>
   )
 }

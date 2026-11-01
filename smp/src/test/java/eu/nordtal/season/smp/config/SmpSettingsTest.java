@@ -106,6 +106,16 @@ class SmpSettingsTest {
     }
 
     @Test
+    void aStoredWheelBlockIsReadAsItsWorldAndCoordinates() throws Exception {
+        final Map<String, Object> block = Map.of("world", "nordtal_nether", "x", -3, "y", 70, "z", 12);
+        final WheelSpec wheel =
+                store.checked("smp", Group.of("wheel", WheelSpec.class), Map.of("wheel-blocks", List.of(block)));
+
+        final WheelBlockSpec read = wheel.wheelBlocks().getFirst();
+        assertEquals(List.of("nordtal_nether", -3, 70, 12), List.of(read.world(), read.x(), read.y(), read.z()));
+    }
+
+    @Test
     void aProtectedAreaTakesItsCornersInEitherOrder() throws Exception {
         final Map<String, Object> area =
                 Map.of("world", "nordtal", "min-x", 10, "min-y", 80, "min-z", 4, "max-x", 0, "max-y", 60, "max-z", 0);

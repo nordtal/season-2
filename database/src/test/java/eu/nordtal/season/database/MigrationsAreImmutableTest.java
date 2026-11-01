@@ -291,6 +291,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V102__a_player_names_a_station_and_keeps_favourite_stations.sql",
                 "e189c81e2aff955176d9b25f900908502bc4e9930a1465282147429d83b9175e");
+        FROZEN.put(
+                "V103__the_wheel_opens_from_single_blocks.sql",
+                "80eb0ff21e2337600ce2de4852638a549b75725acda945d7720d51dbf03dbd87");
     }
 
     @Test

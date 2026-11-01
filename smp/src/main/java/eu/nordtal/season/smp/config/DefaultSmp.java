@@ -24,8 +24,8 @@ final class DefaultSmp {
 
     static final DuelPositionSpec DUEL_EXIT = position("nordtal", 103, 68, 88);
 
-    static final List<SpawnRegionSpec> WHEEL_REGIONS = List.of(
-            region("nordtal", 3978, 75, 2171, 3978, 75, 2171), region("nordtal", 3978, 74, 2172, 3978, 74, 2172));
+    static final List<WheelBlockSpec> WHEEL_BLOCKS =
+            List.of(wheelBlock("nordtal", 3978, 75, 2171), wheelBlock("nordtal", 3978, 74, 2172));
 
     static final FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
     static final List<AdvancementAwardSpec> ADVANCEMENT_AWARDS = List.of(
@@ -156,6 +156,15 @@ final class DefaultSmp {
         values.put("y", y);
         values.put("z", z);
         return Specs.createUnsafe(DuelPositionSpec.class, values);
+    }
+
+    private static WheelBlockSpec wheelBlock(final String world, final int x, final int y, final int z) {
+        final Map<String, Object> values = new LinkedHashMap<>();
+        values.put("world", world);
+        values.put("x", x);
+        values.put("y", y);
+        values.put("z", z);
+        return Specs.createUnsafe(WheelBlockSpec.class, values);
     }
 
     private static DuelKitSpec kit(final String name, final String icon, final List<DuelLoadoutItemSpec> loadout) {

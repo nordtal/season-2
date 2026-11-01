@@ -1,7 +1,6 @@
 package eu.nordtal.season.smp.wheel;
 
 import eu.nordtal.season.smp.config.WheelSpec;
-import eu.nordtal.season.smp.region.ConfigBoxes;
 import java.util.Objects;
 import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
@@ -30,8 +29,8 @@ public final class WheelListener implements Listener {
             return;
         }
         final Location at = Objects.requireNonNull(event.getClickedBlock().getLocation());
-        if (!ConfigBoxes.of(config.wheelRegions())
-                .contains(at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ())) {
+        if (!WheelBlocks.holds(
+                config.wheelBlocks(), at.getWorld().getName(), at.getBlockX(), at.getBlockY(), at.getBlockZ())) {
             return;
         }
         event.setCancelled(true);

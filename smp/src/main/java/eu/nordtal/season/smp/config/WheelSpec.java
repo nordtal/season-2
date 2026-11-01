@@ -13,11 +13,11 @@ import java.util.List;
 public interface WheelSpec {
 
     @Order(25)
-    @Name("Wheel regions")
-    @Key("wheel-regions")
+    @Name("Wheel blocks")
+    @Key("wheel-blocks")
     @NoExplanationNeeded
-    default List<SpawnRegionSpec> wheelRegions() {
-        return DefaultSmp.WHEEL_REGIONS;
+    default List<WheelBlockSpec> wheelBlocks() {
+        return DefaultSmp.WHEEL_BLOCKS;
     }
 
     @Order(37)

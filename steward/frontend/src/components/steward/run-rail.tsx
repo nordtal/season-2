@@ -96,8 +96,11 @@ function StageRow({ stage, last }: { stage: Stage; last: boolean }) {
   )
 }
 
-/** A pill wraps onto further lines rather than cut its words on a narrow screen. */
-const WRAPS = "h-auto justify-start whitespace-normal break-words text-left"
+/**
+ * A pill wraps onto further lines on a narrow screen and breaks a word only when it is longer than a line.
+ * `text-clip` displaces StatusBadge's `truncate` in `cn`, so the wrap does not hang on the order of CSS rules.
+ */
+const WRAPS = "h-auto justify-start whitespace-normal text-clip text-left wrap-anywhere"
 
 function PillBadge({ pill }: { pill: Pill }) {
   if (pill.tone)

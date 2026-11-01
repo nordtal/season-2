@@ -391,6 +391,7 @@ final class PluginYaml {
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 

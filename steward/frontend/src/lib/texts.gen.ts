@@ -2031,6 +2031,11 @@ export type TextArgs = {
   "steward.settings.applies-on-save": Record<string, never>
   "steward.settings.back-to-files": Record<string, never>
   "steward.settings.back-to-top": Record<string, never>
+  "steward.settings.breach": {
+    setting: Arg["text"]
+    rule: Arg["choice"]
+    value: Arg["text"]
+  }
   "steward.settings.cannot-remove": Record<string, never>
   "steward.settings.changed": Record<string, never>
   "steward.settings.choose-one": Record<string, never>

@@ -12,6 +12,8 @@ import { FieldLabelIcon, TERM_ICON } from "@/components/steward/term-icons"
 import { Textarea } from "@/components/ui/textarea"
 import { t } from "@/lib/texts"
 import { Empty } from "@/components/steward/query-state"
+import { useBreach } from "@/components/steward/breach-context"
+import { FieldProblem } from "@/components/steward/config-controls"
 
 export type SectionValues = {
   [key: string]: string | string[] | SectionValues[]
@@ -117,6 +119,7 @@ export function RepeatableCards({
 
   const [pendingRemoval, setPendingRemoval] = useState<number | null>(null)
   const listExplanation = explanationOf(entry)
+  const breach = useBreach(entry.path)
 
   const protectedIndex = entry.protectedEntry
     ? value.findIndex((section) => textOf(section, entry.protectedEntry!.field) === entry.protectedEntry!.value)
@@ -271,6 +274,7 @@ export function RepeatableCards({
           </Card>
         )
       })}
+      <FieldProblem id={`${entry.path}-breach`} problem={breach} />
       <div>
         <Button
           type="button"

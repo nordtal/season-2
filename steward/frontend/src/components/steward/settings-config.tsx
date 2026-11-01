@@ -10,6 +10,7 @@ import { Control, EnvironmentOverriddenBadge, type Draft, draftText } from "@/co
 import { FixedPlace } from "@/components/steward/game-groups/places"
 import { type DraftValue, type GroupSave, noticeOf, SaveDraft, useGroupDraft } from "@/components/steward/group-draft"
 import { explanationOf } from "@/components/steward/config-controls"
+import { BreachContext } from "@/components/steward/breach-context"
 import { customEditor } from "@/components/steward/config-editors"
 import type { PairedBlocks } from "@/components/steward/paired-blocks"
 import { Failure, QueryState } from "@/components/steward/query-state"
@@ -58,7 +59,11 @@ export function DraftForm({
   /** The line above the fields; a group's own state by default. */
   notice?: string | null
 }) {
-  const { draft, changes, count, invalid, set, submit, discard, save } = useGroupDraft(file, document, mutation)
+  const { draft, changes, count, invalid, breachAt, set, submit, discard, save } = useGroupDraft(
+    file,
+    document,
+    mutation,
+  )
   const nodes = useMemo(() => configTree(document.entries), [document.entries])
   const draftIds = useMemo(() => new Set(Object.keys(changes)), [changes])
   const writable = document.writable
@@ -78,52 +83,54 @@ export function DraftForm({
   )
 
   return (
-    <TreeView<ConfigLeafValue>
-      file={file}
-      nodes={nodes}
-      draftIds={draftIds}
-      matches={configLeafMatches}
-      notice={notice}
-      target={target}
-      above={save.error ? <Failure error={save.error} write /> : null}
-      renderLeaf={(leaf, highlight) =>
-        leaf.value.kind === "entry" ? (
-          field(leaf.value.entry, highlight)
-        ) : leaf.value.kind === "place" ? (
-          <PlaceField
-            map={leaf.value.map}
-            fields={leaf.value.fields}
+    <BreachContext value={breachAt}>
+      <TreeView<ConfigLeafValue>
+        file={file}
+        nodes={nodes}
+        draftIds={draftIds}
+        matches={configLeafMatches}
+        notice={notice}
+        target={target}
+        above={save.error ? <Failure error={save.error} write /> : null}
+        renderLeaf={(leaf, highlight) =>
+          leaf.value.kind === "entry" ? (
+            field(leaf.value.entry, highlight)
+          ) : leaf.value.kind === "place" ? (
+            <PlaceField
+              map={leaf.value.map}
+              fields={leaf.value.fields}
+              writable={writable}
+              draft={draft}
+              dirty={leaf.ids.some((id) => draftIds.has(id))}
+              highlight={highlight}
+              onChange={(path, value) => set(path, value)}
+              onUndo={() => leaf.ids.forEach((id) => set(id, undefined))}
+            />
+          ) : leaf.value.kind === "run" ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-4">
+              {leaf.value.entries.map((entry) => (
+                <div key={entry.path}>{field(entry, highlight, "compact")}</div>
+              ))}
+            </div>
+          ) : (
+            <PairedRows
+              pair={leaf.value.pair}
+              field={(entry, block) => field({ ...entry, label: `${block} ${entry.label}` }, highlight, "cell")}
+            />
+          )
+        }
+        save={
+          <SaveDraft
+            count={count}
+            invalid={invalid}
             writable={writable}
-            draft={draft}
-            dirty={leaf.ids.some((id) => draftIds.has(id))}
-            highlight={highlight}
-            onChange={(path, value) => set(path, value)}
-            onUndo={() => leaf.ids.forEach((id) => set(id, undefined))}
+            pending={save.isPending}
+            onSave={submit}
+            onDiscard={discard}
           />
-        ) : leaf.value.kind === "run" ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-4">
-            {leaf.value.entries.map((entry) => (
-              <div key={entry.path}>{field(entry, highlight, "compact")}</div>
-            ))}
-          </div>
-        ) : (
-          <PairedRows
-            pair={leaf.value.pair}
-            field={(entry, block) => field({ ...entry, label: `${block} ${entry.label}` }, highlight, "cell")}
-          />
-        )
-      }
-      save={
-        <SaveDraft
-          count={count}
-          invalid={invalid}
-          writable={writable}
-          pending={save.isPending}
-          onSave={submit}
-          onDiscard={discard}
-        />
-      }
-    />
+        }
+      />
+    </BreachContext>
   )
 }
 

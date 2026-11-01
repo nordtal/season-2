@@ -9,6 +9,7 @@ import eu.nordtal.season.common.Sha256;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.DeclaredRule;
 import eu.nordtal.season.settings.rule.SettingRules;
 import eu.nordtal.season.spec.schema.SchemaNode;
 import eu.nordtal.season.spec.schema.SettingType;
@@ -138,7 +139,14 @@ public final class SettingsDocument {
                 choicesOf(node),
                 objectAt(node, "protectedEntry", SchemaNode.ProtectedEntry.class),
                 objectAt(node, "refers", Reference.class),
-                objectAt(node, "appliesWhen", Condition.class));
+                objectAt(node, "appliesWhen", Condition.class),
+                rulesOf(node));
+    }
+
+    /** Returns the rules the node declares, or {@code null} for none, so the form checks a field as the save does. */
+    private static @Nullable List<DeclaredRule> rulesOf(final JsonObject node) {
+        final List<DeclaredRule> rules = DeclaredRule.on(node);
+        return rules.isEmpty() ? null : rules;
     }
 
     /** Returns the choices of the node with the plugin name and icon of each value. */
@@ -450,7 +458,8 @@ public final class SettingsDocument {
             @Nullable Choices choices,
             SchemaNode.@Nullable ProtectedEntry protectedEntry,
             @Nullable Reference refers,
-            @Nullable Condition appliesWhen) {}
+            @Nullable Condition appliesWhen,
+            @Nullable List<DeclaredRule> rules) {}
 
     /** Holds the values a setting offers. {@code names} is null when the schema names no texts. */
     public record Choices(

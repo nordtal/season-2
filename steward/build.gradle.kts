@@ -141,6 +141,13 @@ val viteTest =
         // -PvitestShard=1/2 runs one half of the suite, so CI spreads it over parallel jobs.
         args.set(providers.gradleProperty("vitestShard").map { listOf("--", "--shard=$it") }.orElse(listOf()))
 
+        // setting-rules.test.ts runs the declared rules' shared cases and compares the wording with the database bundle.
+        inputs
+            .files(
+                rootProject.file("settings/src/test/resources/eu/nordtal/season/settings/rule/rule-cases.json"),
+                rootProject.file("database/src/main/resources/messages/database/en.properties"),
+            ).withPathSensitivity(PathSensitivity.RELATIVE)
+
         // No declared output, so it runs on every `check`: a cached verdict could report a pass nobody ran.
     }
 

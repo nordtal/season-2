@@ -2,6 +2,7 @@ package eu.nordtal.season.database.alert;
 
 import eu.nordtal.season.common.id.Actor;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
@@ -35,4 +36,7 @@ public interface AlertBook {
 
     /** Returns the alert of the entry {@code id}, empty for an entry that is no alert. */
     Optional<RaisedAlert> alert(UUID id);
+
+    /** Returns, per measured type, the alert its latest entry raises, leaving out a type whose latest entry clears. */
+    Map<AlertType, Alert> open();
 }

@@ -22,13 +22,15 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Tests that the monitor raises a change of a type, not unchanged numbers, and a failed run once. */
+/** Tests that the monitor raises a change of a type across restarts, not unchanged numbers, and a failed run once. */
 class AlertMonitorTest {
 
     private static final long GIB = 1L << 30;
@@ -87,6 +89,11 @@ class AlertMonitorTest {
                 .toList();
     }
 
+    /** Returns a monitor as Steward starts it again, over the same journal. */
+    private AlertMonitor restarted() {
+        return new AlertMonitor(() -> reading.get(), () -> thresholds, book, runs, Clock.systemUTC());
+    }
+
     @Test
     void aChangedThresholdAppliesAtTheNextReading() {
         reading = () -> stack(80, "running");
@@ -97,12 +104,87 @@ class AlertMonitorTest {
     }
 
     @Test
-    void theFirstReadingIsOnlyTheBaseline() {
+    void theFirstReadingRaisesWhatTheJournalDoesNotHoldOpen() {
         reading = () -> stack(90, "exited");
         monitor.poll();
-        assertEquals(List.of(), raised());
+        assertEquals(List.of("service down smp is not running", "disk warn The disk is over its threshold"), raised());
         assertEquals(2, monitor.snapshot().alerts().size());
         assertEquals(Alert.Level.DOWN, monitor.snapshot().level());
+    }
+
+    @Test
+    void anAlertOpenAcrossARestartIsNotRaisedAgainAndItsClearEndsIt() {
+        reading = () -> stack(90, "running");
+        monitor.poll();
+        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
+
+        final AlertMonitor restarted = restarted();
+        restarted.poll();
+        assertEquals(List.of(), raised(), "the journal holds the disk open already");
+
+        reading = () -> stack(10, "running");
+        restarted.poll();
+        assertEquals(List.of("disk ok The disk is below its threshold again"), raised());
+    }
+
+    @Test
+    void anAlertThatEndedDuringARestartIsClearedAtTheFirstReading() {
+        reading = () -> stack(90, "running");
+        monitor.poll();
+        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
+
+        reading = () -> stack(10, "running");
+        restarted().poll();
+        assertEquals(List.of("disk ok The disk is below its threshold again"), raised());
+    }
+
+    @Test
+    void anUnreadableJournalLeavesTheBaselineToTheNextRound() {
+        final boolean[] down = {true};
+        final AlertBook flaky = new AlertBook() {
+            @Override
+            public UUID raise(final Alert alert, final Actor actor) {
+                return book.raise(alert, actor);
+            }
+
+            @Override
+            public boolean raiseOnce(final Alert alert, final Actor actor) {
+                return book.raiseOnce(alert, actor);
+            }
+
+            @Override
+            public List<RaisedAlert> claimUnrouted() {
+                return book.claimUnrouted();
+            }
+
+            @Override
+            public List<RaisedAlert> alerts(final List<UUID> ids) {
+                return book.alerts(ids);
+            }
+
+            @Override
+            public Optional<RaisedAlert> alert(final UUID id) {
+                return book.alert(id);
+            }
+
+            @Override
+            public Map<AlertType, Alert> open() {
+                if (down[0]) {
+                    throw new IllegalStateException("the database is gone");
+                }
+                return book.open();
+            }
+        };
+        monitor = new AlertMonitor(() -> reading.get(), () -> thresholds, flaky, runs, Clock.systemUTC());
+        reading = () -> stack(90, "running");
+
+        monitor.poll();
+        assertEquals(List.of(), raised());
+        assertEquals(1, monitor.snapshot().alerts().size(), "the page shows the reading all the same");
+
+        down[0] = false;
+        monitor.poll();
+        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
     }
 
     @Test
@@ -158,6 +240,7 @@ class AlertMonitorTest {
     void anUnreadableStackKeepsWhatWasKnownAndSaysWhy() {
         reading = () -> stack(90, "running");
         monitor.poll();
+        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
         reading = () -> {
             throw new IllegalStateException("the agent did not answer");
         };

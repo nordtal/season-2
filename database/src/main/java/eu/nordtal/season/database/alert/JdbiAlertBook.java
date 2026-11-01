@@ -15,7 +15,10 @@ import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.messages.value.Money;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -141,6 +144,33 @@ final class JdbiAlertBook implements AlertBook {
                 .withHandle(handle -> read(handle, "AND e.id = :id", "id", Objects.requireNonNull(id, "id")))
                 .stream()
                 .findFirst();
+    }
+
+    @Override
+    public Map<AlertType, Alert> open() {
+        final List<String> measured = Arrays.stream(AlertType.values())
+                .filter(AlertType::measured)
+                .map(type -> type.action().name())
+                .toList();
+        final List<RaisedAlert> latest = jdbi.withHandle(handle -> {
+            final List<UUID> ids = handle.createQuery("""
+                            SELECT DISTINCT ON (action) id FROM journal_entry
+                            WHERE level IS NOT NULL AND action = ANY(:actions)
+                            ORDER BY action, occurred DESC, id DESC""")
+                    .bindArray("actions", String.class, measured)
+                    .mapTo(UUID.class)
+                    .list();
+            return ids.isEmpty()
+                    ? List.<RaisedAlert>of()
+                    : read(handle, "AND e.id = ANY(:ids)", "ids", ids.toArray(UUID[]::new));
+        });
+        final Map<AlertType, Alert> open = new EnumMap<>(AlertType.class);
+        for (final RaisedAlert raised : latest) {
+            if (raised.alert().level() != Alert.Level.OK) {
+                open.put(raised.alert().type(), raised.alert());
+            }
+        }
+        return open;
     }
 
     private static List<RaisedAlert> read(

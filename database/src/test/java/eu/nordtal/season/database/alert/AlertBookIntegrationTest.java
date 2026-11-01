@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeAll;
@@ -101,6 +102,27 @@ class AlertBookIntegrationTest {
         assertEquals(
                 List.of(down),
                 newest(steward, 5).stream().map(RaisedAlert::alert).toList());
+    }
+
+    @Test
+    void theJournalHoldsOpenTheLatestRaiseOfEachMeasuredTypeThatNoClearFollows() {
+        final AlertBook steward = AlertBook.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        final Alert worse = new Alert(
+                JournalAction.DISK_FULL,
+                Alert.Level.DOWN,
+                List.of(Measure.against(Measure.Gauge.DISK_PERCENT, "disk", 97.5, 85)));
+        final Alert memory = new Alert(
+                JournalAction.MEMORY_FULL,
+                Alert.Level.WARN,
+                List.of(Measure.against(Measure.Gauge.MEMORY_PERCENT, "memory", 93, 90)));
+
+        steward.raise(DISK, Actor.STEWARD);
+        steward.raise(worse, Actor.STEWARD);
+        steward.raise(memory, Actor.STEWARD);
+        steward.raise(new Alert(JournalAction.MEMORY_FULL, Alert.Level.OK, List.of()), Actor.STEWARD);
+        steward.raise(DM, Actor.STEWARD);
+
+        assertEquals(Map.of(AlertType.DISK, worse), steward.open(), "an event and a cleared type are not open");
     }
 
     @Test

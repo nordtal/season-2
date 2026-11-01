@@ -47,17 +47,6 @@ class MenuLayoutsTest {
     }
 
     @Test
-    void theNavigationDeclaresAFullPageBetweenTwoPagesAsItsExample() {
-        final DocumentDeclaration navigate = menu("navigate");
-
-        assertEquals(6, navigate.rows());
-        assertEquals(IntStream.range(0, 45).boxed().toList(), at(navigate, "target"));
-        assertEquals(List.of(45, 46, 47), at(navigate, "stop"));
-        assertEquals(List.of(51), at(navigate, "previous-page"));
-        assertEquals(List.of(53), at(navigate, "next-page"));
-    }
-
-    @Test
     void theObjectivesDeclareFourCardsBetweenTwoPagesAsTheirExample() {
         final DocumentDeclaration objective = menu("objectives");
 
@@ -79,7 +68,7 @@ class MenuLayoutsTest {
                 .map(Documents.Packaged::declaration)
                 .filter(declaration -> declaration.shape() == DocumentSpec.Shape.MENU)
                 .toList();
-        assertEquals(6, menus.size());
+        assertEquals(5, menus.size());
         for (final DocumentDeclaration menu : menus) {
             assertTrue(menu.rows() >= 1 && menu.rows() <= MenuTitle.MAX_ROWS, menu.id());
             for (final Slot slot : menu.slots()) {

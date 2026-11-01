@@ -152,7 +152,6 @@ class HandInPanelTest {
 
     @Test
     void theAffirmingPlateIsItsOwn() {
-        assertTrue(!Glyphs.GUI_ROW_BUTTON_CONFIRM.equals(Glyphs.GUI_ROW_BUTTON_WIDE));
         final BufferedImage confirm = PanelWalk.image("row_button_confirm.png");
         assertEquals(HandInPanel.CONFIRM_WIDTH, confirm.getWidth());
         assertEquals(SlotGeometry.PITCH - 2 * HandInPanel.INSET, confirm.getHeight());

@@ -15,8 +15,6 @@ import eu.nordtal.season.smp.grave.GraveDao;
 import eu.nordtal.season.smp.grave.GraveListener;
 import eu.nordtal.season.smp.grave.Graves;
 import eu.nordtal.season.smp.hud.SmpHud;
-import eu.nordtal.season.smp.navigate.NavigateListener;
-import eu.nordtal.season.smp.navigate.PlaceDao;
 import eu.nordtal.season.smp.npc.NpcListener;
 import eu.nordtal.season.smp.npc.NpcProtection;
 import eu.nordtal.season.smp.npc.SpawnNpc;
@@ -49,7 +47,7 @@ final class SmpStart {
     private SmpStart() {}
 
     static Announcer declareHudAndStartAnnouncer(final SmpPlugin plugin) {
-        new SmpHud(plugin.worlds, plugin.season, plugin.navigation, plugin.renderer()).declareOn(plugin.hud());
+        new SmpHud(plugin.worlds, plugin.season, plugin.renderer()).declareOn(plugin.hud());
 
         // Sends one request with every language to the bot's inbox and does not wait.
         final Announcer announcer = new Announcer(
@@ -105,17 +103,6 @@ final class SmpStart {
         final PlayerSurfacesListener listener = new PlayerSurfacesListener(
                 plugin, surfaces.surfaces(), presence.systemLines(), presence.welcome()::onLanguageReady);
         plugin.getServer().getPluginManager().registerEvents(listener, plugin);
-        plugin.getServer()
-                .getPluginManager()
-                .registerEvents(
-                        new NavigateListener(
-                                plugin,
-                                plugin.jdbi().onDemand(PlaceDao.class),
-                                plugin.navigation,
-                                plugin.identities(),
-                                plugin.renderer(),
-                                plugin.sounds),
-                        plugin);
         return listener;
     }
 

@@ -205,7 +205,7 @@ class MenuTitleTest {
 
     @Test
     void thePanelIsWhiteAndNamesItsFontTheReadableTitleDoesNeither() {
-        final Component title = MenuTitle.of(3, Component.text("Navigation"));
+        final Component title = MenuTitle.of(3, Component.text("Grave"));
         final Component panel = title.children().get(0);
         final Component readable = title.children().get(1);
 

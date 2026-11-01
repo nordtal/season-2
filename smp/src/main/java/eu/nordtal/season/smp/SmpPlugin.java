@@ -28,7 +28,6 @@ import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.board.Boards;
-import eu.nordtal.season.smp.command.NavigateCommand;
 import eu.nordtal.season.smp.command.SmpAdmin;
 import eu.nordtal.season.smp.config.AdvancementAwardsSpec;
 import eu.nordtal.season.smp.config.BoardsSpec;
@@ -53,8 +52,6 @@ import eu.nordtal.season.smp.milestone.StoredProgress;
 import eu.nordtal.season.smp.milestone.TrackDao;
 import eu.nordtal.season.smp.milestone.TrackNames;
 import eu.nordtal.season.smp.milestone.TrackValidation;
-import eu.nordtal.season.smp.navigate.Navigation;
-import eu.nordtal.season.smp.navigate.PlaceDao;
 import eu.nordtal.season.smp.npc.SpawnNpc;
 import eu.nordtal.season.smp.player.PlayerSurfacesListener;
 import eu.nordtal.season.smp.prestige.PrestigeColours;
@@ -70,7 +67,6 @@ import eu.nordtal.season.smp.world.Datapacks;
 import eu.nordtal.season.smp.world.Worlds;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -130,7 +126,6 @@ public final class SmpPlugin extends NordtalPlugin {
     @Nullable
     Boards boards;
 
-    final Navigation navigation = new Navigation();
     ObjectiveEngine engine;
 
     @Nullable
@@ -285,7 +280,6 @@ public final class SmpPlugin extends NordtalPlugin {
         SmpStart.restoreGravesAndRegisterWorld(this);
 
         admin = admin();
-        registerCommands(sounds);
         // This handler runs before the surface handler, so one pass starts the track over and draws it.
         hub().on(Channel.PHASE, "the season reset", this::startTrackOverIfDue);
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
@@ -432,22 +426,6 @@ public final class SmpPlugin extends NordtalPlugin {
         if (tags != null) {
             quietly("nameTags.stop", tags::stop);
         }
-    }
-
-    void registerCommands(final SmpSounds sounds) {
-        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
-            final NavigateCommand commands = new NavigateCommand(
-                    this,
-                    jdbi().onDemand(PlaceDao.class),
-                    navigation,
-                    identities(),
-                    renderer(),
-                    documents(),
-                    sounds,
-                    this::colours);
-            event.registrar().register(commands.navigate());
-            event.registrar().register(commands.poi());
-        });
     }
 
     /** Returns the admin actions of the console and the inbox. */

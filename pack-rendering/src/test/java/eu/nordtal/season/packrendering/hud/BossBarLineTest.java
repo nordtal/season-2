@@ -69,9 +69,9 @@ class BossBarLineTest {
 
     @Test
     void anIconOnlyPillAndATextOnlyPillAreBothJustTheirContentPlusPadding() {
-        final Walk icon = walk(BossBarLine.compose(List.of(Pill.of(Glyphs.BOSSBAR_ICON_COMPASS, ""))));
+        final Walk icon = walk(BossBarLine.compose(List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, ""))));
         assertEquals(
-                ADVANCES.get(Glyphs.BOSSBAR_ICON_COMPASS.codePointAt(0)) - 2,
+                ADVANCES.get(Glyphs.BOSSBAR_ICON_BORDER.codePointAt(0)) - 2,
                 icon.contents.get(0).end - icon.contents.get(0).start,
                 "an icon-only pill must not carry the icon gap after a text that is not there");
 

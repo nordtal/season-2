@@ -56,13 +56,7 @@ class ResourcePackTest {
                     Stream.of("alive", "dead", "loot", "border")
                             .map(name ->
                                     "hunger-games/src/main/resources/documents/hunger-games/hud-" + name + ".json"),
-                    Stream.of(
-                                    "hud-world",
-                                    "hud-progress",
-                                    "hud-distance",
-                                    "hud-other-world",
-                                    "milestone-name",
-                                    "navigate-target")
+                    Stream.of("hud-world", "hud-progress", "milestone-name")
                             .map(name -> "smp/src/main/resources/documents/smp/" + name + ".json"))
             .toList();
 

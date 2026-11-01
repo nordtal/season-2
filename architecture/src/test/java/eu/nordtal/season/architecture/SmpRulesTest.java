@@ -54,7 +54,7 @@ class SmpRulesTest {
      * {@code command} wire.
      */
     private static final List<String> FEATURES =
-            List.of("duel", "grave", "navigate", "npc", "progress", "protect", "travel", "welcome", "wheel");
+            List.of("duel", "grave", "npc", "progress", "protect", "travel", "welcome", "wheel");
 
     /** Everything that outlives a reload and reads the milestone track. */
     private static final List<String> TRACK_READERS = List.of(
@@ -383,8 +383,7 @@ class SmpRulesTest {
         classes()
                 .that()
                 .resideInAPackage("eu.nordtal.season.smp..")
-                // NavigateGui only shows the spawn's coordinates and never moves a player.
-                .and(DescribedPredicate.not(isListed(LANDING, "eu.nordtal.season.smp.navigate.NavigateGui")))
+                .and(DescribedPredicate.not(isListed(LANDING)))
                 .should(alwaysOnOneLine(
                         reaches("org.bukkit.World", "getSpawnLocation"),
                         DescribedPredicate.describe(

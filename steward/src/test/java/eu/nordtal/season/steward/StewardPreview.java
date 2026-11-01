@@ -276,7 +276,7 @@ public final class StewardPreview {
         eu.nordtal.season.stewardagent.PluginJars.write(
                 agent.configs.resolve("smp/smp.jar"),
                 "{\"id\": \"smp\", \"editors\": {\"milestones\": \"milestones\", \"advancement-awards\": "
-                        + "\"advancement-awards\", \"wheel\": \"wheel\", \"duels\": \"duels\"}}",
+                        + "\"advancement-awards\", \"wheel\": \"wheel\"}}",
                 java.util.Map.of());
         final Path plugins = agent.volumes.resolve("smp/plugins");
         write(plugins.resolve("CoreProtect/config.yml"), """

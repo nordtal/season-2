@@ -85,6 +85,7 @@ public final class StewardWire {
             Inventories.StackRemoval.class,
             Inventories.InventoryOpening.class,
             CommandApi.CommandRun.class,
+            CommandApi.TakeIn.class,
             Announcements.AnnouncementsAsked.class,
             Announcements.AnnouncementList.class,
             Announcements.AnnouncementDraft.class,

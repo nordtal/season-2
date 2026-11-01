@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.game;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.json.Json;
@@ -17,6 +18,7 @@ import eu.nordtal.season.database.inbox.MessagePreview;
 import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.database.inbox.SmpRequest;
+import eu.nordtal.season.database.inbox.TakeInPurpose;
 import eu.nordtal.season.database.online.OnlinePlayer;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.messages.MessageRef;
@@ -27,6 +29,7 @@ import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.messages.MessagesApi;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
+import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
 import java.time.Duration;
 import java.util.Objects;
@@ -154,20 +157,39 @@ public final class CommandApi {
         };
     }
 
+    /** What a take-in asks for: what the item becomes, which the window in the game names. */
+    public record TakeIn(TakeInPurpose purpose) {}
+
     /**
      * Writes the request for an item the admin's player puts in on the SMP and returns its name.
-     * It is refused while the player is not there, so the admin never waits for a window that cannot open.
+     * It is refused while the player is not there; a request without a body asks for a wheel prize.
      */
     public String takeIn(final Context ctx) {
+        final TakeInPurpose purpose = purposeOf(ctx.body());
         final DiscordAuth.Account who = accounts.apply(ctx);
         final PlayerId player = linked(DiscordId.of(who.id()));
         if (!serverOf(player).equals(Topology.SMP)) {
             throw new RequestRefused(409, ANSWER.takeInOffline());
         }
-        final SmpRequest request = new SmpRequest.TakeInItem(player);
+        final SmpRequest request = new SmpRequest.TakeInItem(player, purpose);
         final Request<SmpRequest> asked = data.smp().submit(request, who.actor(), Schedule.within(TAKE_IN_PATIENCE));
         log.info("{} asked for {}", who.name(), data.smp().table().kindOf(request));
         return "smp:" + asked.id();
+    }
+
+    /** Reads the purpose a take-in names; a blank body asks for a wheel prize, and anything unreadable is refused. */
+    static TakeInPurpose purposeOf(final String body) {
+        if (body.isBlank()) {
+            return TakeInPurpose.WHEEL_PRIZE;
+        }
+        try {
+            return TakeInPurpose.valueOf(JsonParser.parseString(body)
+                    .getAsJsonObject()
+                    .get("purpose")
+                    .getAsString());
+        } catch (final RuntimeException unreadable) {
+            throw new BadRequestResponse("a take-in names its purpose");
+        }
     }
 
     /** {@code DELETE /api/commands/{id}} withdraws the admin's own take-in, waiting or with its window open. */

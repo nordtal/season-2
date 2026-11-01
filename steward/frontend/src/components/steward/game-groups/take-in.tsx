@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { api, errorMessage, type CommandAsked, type CommandRun } from "@/lib/api"
+import { api, errorMessage, type CommandAsked, type CommandRun, type TakeInPurpose } from "@/lib/api"
 import { finalRun } from "@/lib/queries-commands"
 import { useClosePicker } from "@/components/steward/reference-picker"
 import { message, t } from "@/lib/texts"
@@ -26,10 +26,18 @@ function takenOf(run: CommandRun): TakenItem | undefined {
 }
 
 /**
- * Asks the admin's player on smp to put in an item, and closes the picker it sits in once one arrives. While the
- * request waits the button withdraws it, and so does leaving the picker; a withdrawn request is never answered here.
+ * Asks the admin's player on smp to put in an item for `purpose`, and closes the picker it sits in once one arrives.
+ * While the request waits the button withdraws it, and so does leaving the picker; a withdrawn request is never answered.
  */
-export function TakeInButton({ disabled, onTaken }: { disabled: boolean; onTaken: (taken: TakenItem) => void }) {
+export function TakeInButton({
+  purpose,
+  disabled,
+  onTaken,
+}: {
+  purpose: TakeInPurpose
+  disabled: boolean
+  onTaken: (taken: TakenItem) => void
+}) {
   const client = useQueryClient()
   const close = useClosePicker()
   const [waiting, setWaiting] = useState<string | null>(null)
@@ -69,7 +77,7 @@ export function TakeInButton({ disabled, onTaken }: { disabled: boolean; onTaken
   const ask = async () => {
     setAsking(true)
     try {
-      const asked = await api<CommandAsked>("/api/smp/take-in", { method: "POST" })
+      const asked = await api<CommandAsked>("/api/smp/take-in", { method: "POST", body: { purpose } })
       // The picker closed while the request was on its way.
       if (gone.current) {
         withdraw(asked.id)

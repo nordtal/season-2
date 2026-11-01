@@ -1,0 +1,34 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Put in a kit item",
+            "de": "Kit-Gegenstand hineinlegen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "put-in",
+      "lines": [
+        {
+          "text": {
+            "en": "<emphasis>Put in the item</emphasis>",
+            "de": "<emphasis>Gegenstand hineinlegen</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>Click here with an item, or shift-click one in your inventory. It is copied whole into the kit and you keep it.</muted>",
+            "de": "<muted>Klicke hier mit einem Gegenstand oder klicke einen in deinem Inventar mit Shift an. Er wird ganz ins Kit kopiert und du behältst ihn.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

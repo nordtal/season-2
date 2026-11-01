@@ -1059,7 +1059,6 @@ export type TextArgs = {
   "steward.game.area-numbered": {
     index: Arg["number"]
   }
-  "steward.game.arena": Record<string, never>
   "steward.game.attribute": {
     amount: Arg["text"]
     attribute: Arg["text"]
@@ -1112,7 +1111,6 @@ export type TextArgs = {
   "steward.game.done-at": {
     at: Arg["text"]
   }
-  "steward.game.duel-types": Record<string, never>
   "steward.game.dyed": {
     colour: Arg["text"]
   }
@@ -1126,13 +1124,24 @@ export type TextArgs = {
     model: Arg["text"]
   }
   "steward.game.keep": Record<string, never>
-  "steward.game.loadout": Record<string, never>
+  "steward.game.kit": Record<string, never>
+  "steward.game.kit-numbered": {
+    index: Arg["number"]
+  }
+  "steward.game.kits-full": {
+    most: Arg["number"]
+  }
+  "steward.game.loadout-line": {
+    amount: Arg["number"]
+    name: Arg["text"]
+  }
   "steward.game.locked": Record<string, never>
-  "steward.game.max": Record<string, never>
   "steward.game.milestone": Record<string, never>
   "steward.game.milestones": Record<string, never>
-  "steward.game.min": Record<string, never>
   "steward.game.more-enchantments": {
+    count: Arg["number"]
+  }
+  "steward.game.more-items": {
     count: Arg["number"]
   }
   "steward.game.move-down": {
@@ -1144,13 +1153,14 @@ export type TextArgs = {
   "steward.game.no-areas": Record<string, never>
   "steward.game.no-awards": Record<string, never>
   "steward.game.no-blocks": Record<string, never>
+  "steward.game.no-kits": Record<string, never>
+  "steward.game.no-loadout": Record<string, never>
   "steward.game.no-prizes": Record<string, never>
   "steward.game.no-round": Record<string, never>
   "steward.game.no-track": Record<string, never>
   "steward.game.no-way-back": Record<string, never>
   "steward.game.no-world": Record<string, never>
   "steward.game.objective": Record<string, never>
-  "steward.game.platform": Record<string, never>
   "steward.game.prize": Record<string, never>
   "steward.game.prizes": {
     count: Arg["number"]

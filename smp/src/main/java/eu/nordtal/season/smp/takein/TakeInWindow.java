@@ -1,5 +1,6 @@
-package eu.nordtal.season.smp.wheel;
+package eu.nordtal.season.smp.takein;
 
+import eu.nordtal.season.database.inbox.TakeInPurpose;
 import eu.nordtal.season.messagerendering.GameDocument;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
@@ -17,14 +18,14 @@ import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The window in which an admin's player puts in the item that becomes a wheel prize.
+ * The window in which an admin's player puts in the item that becomes a wheel prize or a piece of a duel kit.
  * A click on its row with a stack, or a shift-click on a stack below, copies that stack; the player keeps it.
  */
 final class TakeInWindow extends Menu {
 
     static final int ROWS = 1;
 
-    static final DocumentSpec<DocumentSpec.None> DOCUMENT = DocumentSpec.menu(
+    static final DocumentSpec<DocumentSpec.None> PRIZE = DocumentSpec.menu(
                     "smp",
                     "wheel-take-in",
                     "Wheel",
@@ -32,6 +33,23 @@ final class TakeInWindow extends Menu {
                     ROWS,
                     Slot.item("put-in").at(SlotGeometry.rows(0, ROWS)))
             .titled("Wheel prize take-in");
+
+    static final DocumentSpec<DocumentSpec.None> KIT = DocumentSpec.menu(
+                    "smp",
+                    "duel-kit-take-in",
+                    "Duels",
+                    DocumentSpec.None.class,
+                    ROWS,
+                    Slot.item("put-in").at(SlotGeometry.rows(0, ROWS)))
+            .titled("Duel kit take-in");
+
+    /** Returns the window's document, which says what the item becomes. */
+    static DocumentSpec<DocumentSpec.None> document(final TakeInPurpose purpose) {
+        return switch (purpose) {
+            case WHEEL_PRIZE -> PRIZE;
+            case DUEL_KIT -> KIT;
+        };
+    }
 
     // Handed the copied stack once, or null when the window closed empty.
     private final Consumer<@Nullable ItemStack> taken;

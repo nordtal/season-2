@@ -3,7 +3,6 @@ import type { ComponentType } from "react"
 import type { ConfigDocument } from "@/lib/api"
 import type { Target } from "@/components/steward/settings-view"
 import { AwardsEditor, readsAwards } from "@/components/steward/game-groups/awards-editor"
-import { DuelsEditor, readsDuels } from "@/components/steward/game-groups/duels-editor"
 import { WheelEditor, readsWheel } from "@/components/steward/game-groups/wheel-editor"
 import { MilestonesEditor, readsTrack } from "@/components/steward/milestones/milestones-editor"
 
@@ -19,7 +18,6 @@ const EDITORS: Readonly<Record<string, Editor>> = {
   milestones: { draw: MilestonesEditor, reads: readsTrack },
   "advancement-awards": { draw: AwardsEditor, reads: readsAwards },
   wheel: { draw: WheelEditor, reads: readsWheel },
-  duels: { draw: DuelsEditor, reads: readsDuels },
 }
 
 /**

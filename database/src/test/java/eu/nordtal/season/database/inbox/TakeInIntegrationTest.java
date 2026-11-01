@@ -33,7 +33,8 @@ class TakeInIntegrationTest {
 
     @Test
     void aRequestTheServerLeftOpenStaysRunningUntilStewardWithdrawsIt() {
-        final Request<SmpRequest> asked = steward.submit(new SmpRequest.TakeInItem(ALEX), ADMIN, MINUTE);
+        final Request<SmpRequest> asked =
+                steward.submit(new SmpRequest.TakeInItem(ALEX, TakeInPurpose.WHEEL_PRIZE), ADMIN, MINUTE);
 
         assertEquals(1, smp.drain(request -> Outcome.open()));
         assertEquals(InboxStatus.RUNNING, steward.find(asked.id()).orElseThrow().status());
@@ -50,7 +51,8 @@ class TakeInIntegrationTest {
 
     @Test
     void aPendingRequestIsWithdrawnTooAndTheServerNeverClaimsIt() {
-        final Request<SmpRequest> asked = steward.submit(new SmpRequest.TakeInItem(ALEX), ADMIN, MINUTE);
+        final Request<SmpRequest> asked =
+                steward.submit(new SmpRequest.TakeInItem(ALEX, TakeInPurpose.WHEEL_PRIZE), ADMIN, MINUTE);
 
         assertEquals(
                 InboxStatus.CANCELLED,
@@ -60,7 +62,8 @@ class TakeInIntegrationTest {
 
     @Test
     void theItemPutInIsTheAnswerStewardReadsBack() {
-        final Request<SmpRequest> asked = steward.submit(new SmpRequest.TakeInItem(ALEX), ADMIN, MINUTE);
+        final Request<SmpRequest> asked =
+                steward.submit(new SmpRequest.TakeInItem(ALEX, TakeInPurpose.WHEEL_PRIZE), ADMIN, MINUTE);
         smp.drain(request -> Outcome.open());
         final SmpRequest.TakeInItem.Answer item = new SmpRequest.TakeInItem.Answer("minecraft:diamond_sword", "AAEC");
 
@@ -69,12 +72,13 @@ class TakeInIntegrationTest {
         final Request<SmpRequest> read = steward.find(asked.id()).orElseThrow();
         assertEquals(InboxStatus.DONE, read.status());
         assertEquals(Optional.of(item), read.answer(SmpRequest.TakeInItem.Answer.class));
-        assertEquals(new SmpRequest.TakeInItem(ALEX), read.payload());
+        assertEquals(new SmpRequest.TakeInItem(ALEX, TakeInPurpose.WHEEL_PRIZE), read.payload());
     }
 
     @Test
     void aWindowClosedEmptyAnswersWithoutAnItem() {
-        final Request<SmpRequest> asked = steward.submit(new SmpRequest.TakeInItem(ALEX), ADMIN, MINUTE);
+        final Request<SmpRequest> asked =
+                steward.submit(new SmpRequest.TakeInItem(ALEX, TakeInPurpose.WHEEL_PRIZE), ADMIN, MINUTE);
         smp.drain(request -> Outcome.open());
 
         assertTrue(smp.settle(asked.id(), Outcome.done(SmpRequest.TakeInItem.Answer.none()))
@@ -83,5 +87,13 @@ class TakeInIntegrationTest {
         assertEquals(
                 Optional.of(SmpRequest.TakeInItem.Answer.none()),
                 steward.find(asked.id()).orElseThrow().answer(SmpRequest.TakeInItem.Answer.class));
+    }
+
+    @Test
+    void aDuelKitTakeInKeepsItsPurpose() {
+        final SmpRequest.TakeInItem kit = new SmpRequest.TakeInItem(ALEX, TakeInPurpose.DUEL_KIT);
+        final Request<SmpRequest> asked = steward.submit(kit, ADMIN, MINUTE);
+
+        assertEquals(kit, smp.find(asked.id()).orElseThrow().payload());
     }
 }

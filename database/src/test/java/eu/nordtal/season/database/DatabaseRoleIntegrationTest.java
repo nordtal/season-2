@@ -277,7 +277,10 @@ class DatabaseRoleIntegrationTest {
                 may(DatabaseRole.SMP, "SELECT count(*) FROM smp_unlock_milestone"),
                 mayNot(DatabaseRole.SMP, "INSERT INTO smp_unlock_milestone (request, key) VALUES (0, 'a')"),
                 may(DatabaseRole.HUNGER_GAMES, "SELECT count(*) FROM hunger_games_start_game"),
-                mayNot(DatabaseRole.STEWARD, "UPDATE smp_inbox SET status = 'DONE' WHERE false"),
+                // Steward withdraws its own take-in, so it moves an smp row's status and nothing else.
+                may(DatabaseRole.STEWARD, "UPDATE smp_inbox SET status = 'CANCELLED', finished = now() WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "UPDATE smp_inbox SET kind = 'SET_AURA' WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "UPDATE hunger_games_inbox SET status = 'DONE' WHERE false"),
                 mayNot(
                         DatabaseRole.PROXY,
                         "INSERT INTO smp_inbox (kind, actor_kind) VALUES ('UNLOCK_MILESTONE', 'HOST')"),

@@ -89,6 +89,8 @@ class GateTest extends WebFixture {
             Map.entry("POST /api/announcements", Gate.KEY_HELD),
             Map.entry("PUT /api/announcements/{id}", Gate.KEY_HELD),
             Map.entry("DELETE /api/announcements/{id}", Gate.KEY_HELD),
+            Map.entry("POST /api/smp/take-in", Gate.KEY_HELD),
+            Map.entry("DELETE /api/commands/{id}", Gate.KEY_HELD),
             Map.entry("POST /api/shared-parts/{name}/changes", Gate.KEY_HELD),
             Map.entry("POST /api/message-changes", Gate.KEY_HELD),
             Map.entry("POST /api/access/revoke", Gate.KEY_HELD),

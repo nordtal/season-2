@@ -46,13 +46,15 @@ class DocumentsTest {
     }
 
     @Test
-    void aConditionHoldsOnATruthyValueItsNegationOrAChoice() {
+    void aConditionHoldsOnATruthyValueItsNegationAChoiceOrAText() {
         assertTrue(Condition.holds("amount", Map.of("amount", Money.euroCents(1))));
         assertFalse(Condition.holds("amount", Map.of("amount", Money.euroCents(0))));
         assertTrue(Condition.holds("!name", Map.of("name", "")));
         assertTrue(Condition.holds("phase=closed", Map.of("phase", DocumentCheckTest.Phase.CLOSED)));
         assertFalse(Condition.holds("phase=open", Map.of("phase", DocumentCheckTest.Phase.CLOSED)));
         assertFalse(Condition.holds("missing", Map.of()));
+        assertTrue(Condition.holds("milestone=Harbour_2", Map.of("milestone", "Harbour_2")));
+        assertFalse(Condition.holds("milestone=harbour", Map.of("milestone", "Harbour_2")));
         assertTrue(Condition.holds(null, Map.of()));
     }
 

@@ -451,9 +451,11 @@ public final class DocumentCheck {
                 : declaration.named().get(condition.value());
         if (value == null) {
             error("the condition " + when + " names {" + condition.value() + "}, which the document does not have");
-        } else if (condition.constant() != null && !Kind.CHOICE.token().equals(value.kind())) {
+        } else if (condition.constant() != null
+                && !Kind.CHOICE.token().equals(value.kind())
+                && !Kind.TEXT.token().equals(value.kind())) {
             error("the condition " + when + " compares {" + condition.value() + "}, which is a " + value.kind()
-                    + ", not a choice");
+                    + ", not a choice or a text");
         }
     }
 

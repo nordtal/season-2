@@ -1,0 +1,229 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "when": "milestone=foothold",
+      "lines": [
+        {
+          "when": "objective=logs",
+          "text": {
+            "en": "Logs",
+            "de": "Holzstämme"
+          }
+        },
+        {
+          "when": "objective=coal",
+          "text": {
+            "en": "Coal ore",
+            "de": "Kohleerz"
+          }
+        },
+        {
+          "when": "objective=zombies",
+          "text": {
+            "en": "Zombies",
+            "de": "Zombies"
+          }
+        },
+        {
+          "when": "objective=iron-tools",
+          "text": {
+            "en": "Iron pickaxe",
+            "de": "Eisenspitzhacke"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "milestone=settlement",
+      "lines": [
+        {
+          "when": "objective=iron",
+          "text": {
+            "en": "Iron ingots",
+            "de": "Eisenbarren"
+          }
+        },
+        {
+          "when": "objective=diamonds",
+          "text": {
+            "en": "Diamonds",
+            "de": "Diamanten"
+          }
+        },
+        {
+          "when": "objective=hostiles",
+          "text": {
+            "en": "Hostile mobs",
+            "de": "Feindliche Monster"
+          }
+        },
+        {
+          "when": "objective=mine-diamond",
+          "text": {
+            "en": "First diamond",
+            "de": "Erster Diamant"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "milestone=nether",
+      "lines": [
+        {
+          "when": "objective=obsidian",
+          "text": {
+            "en": "Obsidian",
+            "de": "Obsidian"
+          }
+        },
+        {
+          "when": "objective=stone-bricks",
+          "text": {
+            "en": "Stone bricks",
+            "de": "Steinziegel"
+          }
+        },
+        {
+          "when": "objective=gold",
+          "text": {
+            "en": "Gold ore",
+            "de": "Golderz"
+          }
+        },
+        {
+          "when": "objective=form-obsidian",
+          "text": {
+            "en": "Obsidian in hand",
+            "de": "Obsidian in der Hand"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "milestone=end",
+      "lines": [
+        {
+          "when": "objective=blaze-rods",
+          "text": {
+            "en": "Blaze rods",
+            "de": "Lohenruten"
+          }
+        },
+        {
+          "when": "objective=ender-pearls",
+          "text": {
+            "en": "Ender pearls",
+            "de": "Enderperlen"
+          }
+        },
+        {
+          "when": "objective=ancient-debris",
+          "text": {
+            "en": "Ancient debris",
+            "de": "Antiker Schrott"
+          }
+        },
+        {
+          "when": "objective=endermen",
+          "text": {
+            "en": "Endermen",
+            "de": "Endermen"
+          }
+        },
+        {
+          "when": "objective=blaze-rod",
+          "text": {
+            "en": "First blaze rod",
+            "de": "Erste Lohenrute"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "milestone=expanse",
+      "lines": [
+        {
+          "when": "objective=iron",
+          "text": {
+            "en": "Iron ingots",
+            "de": "Eisenbarren"
+          }
+        },
+        {
+          "when": "objective=building-blocks",
+          "text": {
+            "en": "Building blocks",
+            "de": "Baublöcke"
+          }
+        },
+        {
+          "when": "objective=diamonds",
+          "text": {
+            "en": "Diamonds",
+            "de": "Diamanten"
+          }
+        },
+        {
+          "when": "objective=raiders",
+          "text": {
+            "en": "Raiders",
+            "de": "Plünderer"
+          }
+        },
+        {
+          "when": "objective=hero-of-the-village",
+          "text": {
+            "en": "Hero of the village",
+            "de": "Held des Dorfes"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "milestone=frontier",
+      "lines": [
+        {
+          "when": "objective=iron",
+          "text": {
+            "en": "Iron ingots",
+            "de": "Eisenbarren"
+          }
+        },
+        {
+          "when": "objective=netherite-scrap",
+          "text": {
+            "en": "Netherite scrap",
+            "de": "Netheritplatten"
+          }
+        },
+        {
+          "when": "objective=building-blocks",
+          "text": {
+            "en": "Building blocks",
+            "de": "Baublöcke"
+          }
+        },
+        {
+          "when": "objective=shulker-shells",
+          "text": {
+            "en": "Shulker shells",
+            "de": "Shulkerschalen"
+          }
+        },
+        {
+          "when": "objective=netherite-armor",
+          "text": {
+            "en": "Netherite armor",
+            "de": "Netheritrüstung"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -218,11 +218,11 @@ class DocumentCheckTest {
     }
 
     @Test
-    void aConditionNamesAValueOfTheDocumentAndComparesOnlyAChoice() {
+    void aConditionNamesAValueOfTheDocumentAndComparesOnlyAChoiceOrAText() {
         assertEquals(
                 List.of(
                         "the condition missing names {missing}, which the document does not have",
-                        "the condition days=3 compares {days}, which is a number, not a choice",
+                        "the condition days=3 compares {days}, which is a number, not a choice or a text",
                         "the condition !x=y is not value, !value or value=constant"),
                 errors(SUMMARY, SOUND.replace("""
                         "items": [""", """

@@ -237,7 +237,7 @@ public final class ObjectiveGui extends Menu {
     }
 
     private String name(final Objective definition) {
-        return definition.key();
+        return MilestoneNames.objective(renderer, locale, milestone.key(), definition.key());
     }
 
     /** Returns the share sentence as plain text, which {@code MenuFont} draws. */

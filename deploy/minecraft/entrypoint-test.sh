@@ -388,8 +388,10 @@ expect_line "$data/plugins/prism/storage.conf" '    database="season"'
 [[ "$(stat -c %a "$data/plugins/prism/storage.conf" 2>/dev/null)" == "600" ]] || bad "the saved-back file stayed readable to others"
 ok "storage.conf replaced"
 
-case_begin "a URL that is not PostgreSQL leaves Prism alone and the SMP starts"
+case_begin "a URL that is not PostgreSQL leaves Prism on its defaults and the SMP starts"
 data=$(volume prism-wrong)
+mkdir -p "$data/plugins/prism"
+printf 'primary-storage-type=POSTGRES\n' > "$data/plugins/prism/storage.conf"
 prism "$data" "jdbc:mysql://db:3306/x" secret
 expect_status 0
 expect_output "jdbc:postgresql://host"

@@ -210,10 +210,12 @@ configure_prism() {
     local pattern='^jdbc:postgresql://([^/:?]+)(:([0-9]+))?/([^/?]+)'
     # Prism is optional, so a setting it cannot use leaves it on its defaults and the SMP starts.
     if [[ ! "$url" =~ $pattern ]]; then
+        rm -f "$file"
         warn "NORDTAL_SMP_DATABASE_JDBC_URL is not jdbc:postgresql://host[:port]/database, so Prism is not pointed at it"
         return 0
     fi
     if [[ "${NORDTAL_SMP_DATABASE_PASSWORD:?}" == *[[:cntrl:]]* ]]; then
+        rm -f "$file"
         warn "smp's database password holds a control character, which storage.conf cannot carry, so Prism is not pointed at it"
         return 0
     fi
@@ -221,6 +223,8 @@ configure_prism() {
     mkdir -p "$(dirname "$file")"
     (
         umask 077
+        # A new file, because truncating keeps a mode the password must not get.
+        rm -f "$file"
         cat > "$file" <<HOCON
 # Written by the entrypoint at every start from smp's database settings. A change here is lost.
 primary-storage-type=POSTGRES

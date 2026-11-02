@@ -95,8 +95,15 @@ public final class Topology {
      */
     public static final String VOICE_CHAT_PROXY = "voicechat-velocity";
 
-    /** CoreProtect stays in the plan as {@link Change.Status#UNSUPPORTED} until it has a build. */
-    public static final String CORE_PROTECT = "coreprotect";
+    /**
+     * The SMP's block logger, which stores in the stack's database.
+     *
+     * Optional: it stays in the plan as {@link Change.Status#UNSUPPORTED} while it has no build for this version.
+     */
+    public static final String PRISM = "prism";
+
+    /** NBT-API, which Prism needs. It is optional, as Prism is. */
+    public static final String NBT_API = "nbtapi";
 
     public static final String PAPER = "paper";
     public static final String VELOCITY = "velocity";

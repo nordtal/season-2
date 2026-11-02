@@ -346,6 +346,67 @@ grep -qxF "  max-block-ticks: 65536" "$data/config/paper-world-defaults.yml" \
 ok "locate-structures-outside-world-border corrected"
 
 
+echo "entrypoint.sh: Prism in the stack's database"
+
+prism() {
+    local data="$1" url="$2" password="$3"
+    set +e
+    output=$(DATA="$data" NORDTAL_SMP_DATABASE_JDBC_URL="$url" NORDTAL_SMP_DATABASE_USERNAME=nordtal_smp \
+        NORDTAL_SMP_DATABASE_PASSWORD="$password" bash -c 'source "$1"; configure_prism' prism-test "$ENTRYPOINT" 2>&1)
+    status=$?
+    set -e
+}
+
+expect_line() {
+    grep -qxF "$2" "$1" 2>/dev/null || bad "${1##*/} lacks the line '$2'"
+}
+
+case_begin "Prism is pointed at smp's database, with the password quoted"
+data=$(volume prism-fresh)
+prism "$data" "jdbc:postgresql://postgres:5432/nordtal" 'pa"ss\word'
+expect_status 0
+conf="$data/plugins/prism/storage.conf"
+expect_line "$conf" "primary-storage-type=POSTGRES"
+expect_line "$conf" '    host="postgres"'
+expect_line "$conf" '    port="5432"'
+expect_line "$conf" '    database="nordtal"'
+expect_line "$conf" "    schema=prism"
+expect_line "$conf" '    username="nordtal_smp"'
+expect_line "$conf" '    password="pa\"ss\\word"'
+[[ "$(stat -c %a "$conf" 2>/dev/null)" == "600" ]] || bad "storage.conf holds a password and is not 600"
+ok "storage.conf written"
+
+case_begin "a file Prism saved back is replaced, and a URL without a port takes 5432"
+data=$(volume prism-saved)
+mkdir -p "$data/plugins/prism"
+printf 'primary-storage-type=SQLITE\n' > "$data/plugins/prism/storage.conf"
+prism "$data" "jdbc:postgresql://db.internal/season?sslmode=disable" secret
+expect_status 0
+expect_line "$data/plugins/prism/storage.conf" "primary-storage-type=POSTGRES"
+expect_line "$data/plugins/prism/storage.conf" '    port="5432"'
+expect_line "$data/plugins/prism/storage.conf" '    database="season"'
+[[ "$(stat -c %a "$data/plugins/prism/storage.conf" 2>/dev/null)" == "600" ]] || bad "the saved-back file stayed readable to others"
+ok "storage.conf replaced"
+
+case_begin "a URL that is not PostgreSQL leaves Prism on its defaults and the SMP starts"
+data=$(volume prism-wrong)
+mkdir -p "$data/plugins/prism"
+printf 'primary-storage-type=POSTGRES\n' > "$data/plugins/prism/storage.conf"
+prism "$data" "jdbc:mysql://db:3306/x" secret
+expect_status 0
+expect_output "jdbc:postgresql://host"
+expect_gone "$data/plugins/prism/storage.conf"
+ok "warned and skipped"
+
+case_begin "a password with a line break is not written into storage.conf"
+data=$(volume prism-newline)
+prism "$data" "jdbc:postgresql://postgres:5432/nordtal" $'pass\nword'
+expect_status 0
+expect_output "control character"
+expect_gone "$data/plugins/prism/storage.conf"
+ok "warned and skipped"
+
+
 echo "entrypoint.sh: the cached server jar"
 
 cache() {
@@ -616,6 +677,8 @@ for pair in \
     "smp-0.2.0.jar:smp" \
     "hunger-games-0.2.0.jar:hunger-games" \
     "packetevents-spigot-2.13.0.jar:packetevents-spigot" \
+    "prism-paper-v4.5.jar:prism-paper" \
+    "item-nbt-api-plugin-2.16.1.jar:item-nbt-api-plugin" \
     "paper-26.2-121.jar:paper-26.2" \
     "velocity-4.1.1-24.jar:velocity-4.1.1" \
     "WorldEditDisplay-2.6.0-paper.jar:WorldEditDisplay" \

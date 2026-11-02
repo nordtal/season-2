@@ -88,7 +88,8 @@ public final class Resolver {
         // The loader tells the Velocity jar from the other jar of the same Modrinth project.
         resolveModrinth(
                 newest, failures, unsupported, Topology.VOICE_CHAT_PROXY, config.voiceChatProject(), "velocity");
-        resolveModrinth(newest, failures, unsupported, Topology.CORE_PROTECT, config.coreProtectProject(), "paper");
+        resolveModrinth(newest, failures, unsupported, Topology.PRISM, config.prismProject(), "paper");
+        resolveModrinth(newest, failures, unsupported, Topology.NBT_API, config.nbtApiProject(), "paper");
         resolvePaper(newest, failures);
         resolveVelocity(newest, failures, notes);
 

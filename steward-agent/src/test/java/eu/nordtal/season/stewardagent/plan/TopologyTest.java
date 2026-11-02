@@ -69,12 +69,12 @@ class TopologyTest {
         final Topology.Service smp = server(Topology.SMP);
 
         assertTrue(
-                smp.plugins().contains(Topology.CORE_PROTECT),
-                "smp no longer carries CoreProtect - if that was deliberate, this test and the artefact go together");
+                smp.plugins().containsAll(List.of(Topology.PRISM, Topology.NBT_API)),
+                "smp no longer carries Prism and NBT-API - if that was deliberate, this test and the artefacts go together");
         assertTrue(
-                smp.optional().contains(Topology.CORE_PROTECT),
-                "CoreProtect is guarded again. Until a 26.2 build exists that is an SMP that will"
-                        + " not start, every start, for a reason nobody here can act on.");
+                smp.optional().containsAll(List.of(Topology.PRISM, Topology.NBT_API)),
+                "Prism or NBT-API is guarded again. A version they have no build for would be an SMP that"
+                        + " does not start, every start, for a reason nobody here can act on.");
     }
 
     @Test

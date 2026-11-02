@@ -56,7 +56,8 @@ final class RunRoutes {
                         Topology.PACKETEVENTS, now.packetEventsProject(),
                         Topology.VOICE_CHAT, now.voiceChatProject(),
                         Topology.VOICE_CHAT_PROXY, now.voiceChatProject(),
-                        Topology.CORE_PROTECT, now.coreProtectProject()),
+                        Topology.PRISM, now.prismProject(),
+                        Topology.NBT_API, now.nbtApiProject()),
                 clock);
     }
 

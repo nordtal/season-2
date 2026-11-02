@@ -56,7 +56,7 @@ class TopologyMergeTest {
 
         final Topology.Service smp = find(merged, Topology.SMP);
         assertTrue(smp.optional().contains("worldedit"));
-        // An added plugin without a build, like CoreProtect, must not hold the SMP. The label's plugins stay required.
+        // A plugin without a build for this version must not hold the SMP. The label's plugins stay required.
         assertFalse(smp.optional().contains(Topology.SMP));
         assertFalse(smp.optional().contains(Topology.PACKETEVENTS));
         // The jar prefixes the label gives survive the merge, since the plugins tab names a jar by them.

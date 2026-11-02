@@ -109,7 +109,7 @@ class ModrinthTest {
                 "the exception names an artefact the topology does not");
 
         // Every other artefact the resolver asks Modrinth for still refuses the same payload, id aside.
-        for (final String artifact : List.of("packetevents", "voicechat", "coreprotect")) {
+        for (final String artifact : List.of("packetevents", "voicechat", "prism", "nbtapi")) {
             final Modrinth modrinth = new Modrinth(new FakeHttp().answering("/version", VELOCITY_PRE_RELEASES));
 
             final IOException refused = assertThrows(

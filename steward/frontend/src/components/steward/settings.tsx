@@ -110,7 +110,8 @@ export function ServiceSettings({
       <nav
         aria-label={t("steward.settings.files")}
         className={cn(
-          "flex flex-col gap-0.5 lg:sticky lg:top-[calc(var(--content-top,0px)+(--spacing(4)))]",
+          // Capped like the Translations column, so a list taller than the window scrolls on its own and keeps its bottom room.
+          "flex flex-col gap-0.5 lg:sticky lg:top-[calc(var(--content-top,0px)+(--spacing(4)))] lg:-mx-0.5 lg:max-h-[calc(100dvh-var(--content-top,0px)-var(--content-bottom,0px)-(--spacing(8)))] lg:overflow-y-auto lg:p-0.5",
           file !== undefined && "max-lg:hidden",
         )}
       >

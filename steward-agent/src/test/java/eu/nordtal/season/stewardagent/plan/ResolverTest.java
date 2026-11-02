@@ -63,8 +63,9 @@ class ResolverTest {
                 .serving("/project/9eGKb6K1/version", "modrinth-voicechat.json")
                 // Velocity is asked again by loader filter, and the longer substring wins in FakeHttp.
                 .serving("loaders=%5B%22velocity%22%5D", "modrinth-voicechat-velocity.json")
-                // Modrinth answers an empty array for CoreProtect on this platform.
-                .serving("/project/Lu3KuzdV/version", "modrinth-coreprotect-none.json")
+                // Modrinth answers an empty array for Prism and NBT-API on this platform.
+                .serving("/project/oLV8Vvxy/version", "modrinth-no-build.json")
+                .serving("/project/nfGCP9fk/version", "modrinth-no-build.json")
                 // The fixture is 26.2's; only the route follows the version.
                 .serving("/projects/paper/versions/" + Platform.MINECRAFT + "/builds", "fill-paper-26.2.json")
                 // Two calls for the proxy: the project list names Velocity's major, then its build list is read.
@@ -181,7 +182,7 @@ class ResolverTest {
         installCurrentEverything();
 
         final UpdatePlan plan = resolve();
-        final Change change = changeFor(plan, "smp", "coreprotect");
+        final Change change = changeFor(plan, "smp", "prism");
 
         assertEquals(Change.Status.UNSUPPORTED, change.status());
         assertNull(change.wanted());
@@ -204,7 +205,7 @@ class ResolverTest {
 
         final UpdatePlan plan = resolve();
 
-        // CoreProtect alone must not turn the report into a claim of work done.
+        // Prism and NBT-API alone must not turn the report into a claim of work done.
         assertFalse(plan.hasWork(), Told.plan(plan));
         assertFalse(plan.hasMissing(), Told.plan(plan));
 
@@ -213,7 +214,7 @@ class ResolverTest {
         assertEquals(List.of(), work.about("smp"), Told.plan(plan));
         assertEquals(
                 Change.Status.UNSUPPORTED,
-                statusOf(plan, "smp", "coreprotect"),
+                statusOf(plan, "smp", "prism"),
                 "the artefact has to stay named while it waits - one dropped from the plan is one somebody has"
                         + " to remember: " + Told.plan(plan));
     }
@@ -223,11 +224,11 @@ class ResolverTest {
         installCurrentEverything();
         // The other reason for no file, asserted from both sides of the new status.
         http.failing(
-                "/project/Lu3KuzdV/version",
-                new HttpFailure(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
+                "/project/oLV8Vvxy/version",
+                new HttpFailure(URI.create("https://api.modrinth.com/v2/project/oLV8Vvxy/version"), 503, "down"));
 
         final UpdatePlan plan = resolve();
-        final Change change = changeFor(plan, "smp", "coreprotect");
+        final Change change = changeFor(plan, "smp", "prism");
 
         assertEquals(Change.Status.UNRESOLVED, change.status(), Told.plan(plan));
         assertTrue(plan.hasFailures(), Told.plan(plan));
@@ -564,8 +565,8 @@ class ResolverTest {
         installCurrentEverything();
         replace("smp", "plugins/packetevents-spigot-2.13.0.jar", "plugins/packetevents-spigot-2.12.0.jar");
         http.failing(
-                "/project/Lu3KuzdV/version",
-                new HttpFailure(URI.create("https://api.modrinth.com/v2/project/Lu3KuzdV/version"), 503, "down"));
+                "/project/oLV8Vvxy/version",
+                new HttpFailure(URI.create("https://api.modrinth.com/v2/project/oLV8Vvxy/version"), 503, "down"));
 
         final UpdatePlan plan = resolve();
         final Work work = Work.of(plan);
@@ -576,7 +577,7 @@ class ResolverTest {
                 work.about("smp"),
                 Told.plan(plan));
         assertFalse(work.moving().contains("smp"), Told.plan(plan));
-        assertTrue(changeFor(plan, "smp", "coreprotect").status().isFailure(), Told.plan(plan));
+        assertTrue(changeFor(plan, "smp", "prism").status().isFailure(), Told.plan(plan));
         assertEquals(
                 Change.Status.OUTDATED, changeFor(plan, "smp", "packetevents").status(), Told.plan(plan));
         assertTrue(work.of("smp").isEmpty(), "the outdated packetevents is held back with the rest: " + work);

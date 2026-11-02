@@ -124,6 +124,10 @@ class PluginFilesTest {
         write("CoreProtect/database.db", "SQLite format 3\n");
         write("CoreProtect/.license", "key\n");
 
+        // Prism's storage, which the entrypoint writes with smp's password, beside a config it leaves alone.
+        write("prism/storage.conf", "postgres { password=\"x\" }\n");
+        write("prism/prism.conf", "a=1\n");
+
         // Nested folders, every listed extension, and every excluded kind beside them.
         write("FastAsyncWorldEdit/worldedit-config.yml", "a: 1\n");
         write("FastAsyncWorldEdit/config.yaml", "a: 1\n");
@@ -177,6 +181,7 @@ class PluginFilesTest {
                         "FastAsyncWorldEdit/readme.TXT",
                         "FastAsyncWorldEdit/worldedit-config.yml",
                         "Orphan/settings.yml",
+                        "prism/prism.conf",
                         "spark/config.json"),
                 listed());
     }

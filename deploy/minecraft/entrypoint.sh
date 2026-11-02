@@ -203,6 +203,48 @@ YAML
     fi
 }
 
+# Prism, the SMP's block logger, stores in the stack's database, in the schema of its own that smp's
+# role owns. Written at every start, so the file follows the password; Prism adds its defaults to it.
+configure_prism() {
+    local url="${NORDTAL_SMP_DATABASE_JDBC_URL:-}" file="$DATA/plugins/prism/storage.conf"
+    local pattern='^jdbc:postgresql://([^/:?]+)(:([0-9]+))?/([^/?]+)'
+    # Prism is optional, so a setting it cannot use leaves it on its defaults and the SMP starts.
+    if [[ ! "$url" =~ $pattern ]]; then
+        warn "NORDTAL_SMP_DATABASE_JDBC_URL is not jdbc:postgresql://host[:port]/database, so Prism is not pointed at it"
+        return 0
+    fi
+    if [[ "${NORDTAL_SMP_DATABASE_PASSWORD:?}" == *[[:cntrl:]]* ]]; then
+        warn "smp's database password holds a control character, which storage.conf cannot carry, so Prism is not pointed at it"
+        return 0
+    fi
+    local host="${BASH_REMATCH[1]}" port="${BASH_REMATCH[3]:-5432}" database="${BASH_REMATCH[4]}"
+    mkdir -p "$(dirname "$file")"
+    (
+        umask 077
+        cat > "$file" <<HOCON
+# Written by the entrypoint at every start from smp's database settings. A change here is lost.
+primary-storage-type=POSTGRES
+postgres {
+    host=$(hocon_string "$host")
+    port=$(hocon_string "$port")
+    database=$(hocon_string "$database")
+    schema=prism
+    username=$(hocon_string "${NORDTAL_SMP_DATABASE_USERNAME:?}")
+    password=$(hocon_string "${NORDTAL_SMP_DATABASE_PASSWORD:?}")
+}
+HOCON
+    )
+    # Prism saves the file back with the JVM's umask, so the mode is set again after every write.
+    chmod 600 "$file"
+    log "plugins/prism/storage.conf points Prism at schema prism of ${database} on ${host}:${port}"
+}
+
+# A value as a quoted HOCON string, so a password with a quote or a backslash stays one value.
+hocon_string() {
+    local value="${1//\\/\\\\}"
+    printf '"%s"' "${value//\"/\\\"}"
+}
+
 # entrypoint-test.sh runs these functions against fixtures, because a wrong jar fails silently.
 
 # True when version $1 build $2 is newer than version $3 build $4. The comparison is numeric per
@@ -601,6 +643,10 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
 
     if [[ -n "${PAPER_VELOCITY_SECRET:-}" ]]; then
         prepare_backend
+    fi
+
+    if [[ -n "${NORDTAL_SMP_DATABASE_PASSWORD:-}" ]]; then
+        configure_prism
     fi
 else
     if [[ -n "${VELOCITY_FORWARDING_SECRET:-}" ]]; then

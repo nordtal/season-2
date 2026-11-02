@@ -48,15 +48,24 @@ public interface RunSpec {
 
     /** Retiring it means removing it from smp's eu.nordtal.plugins label in compose.yml. */
     @Order(6)
-    @Name("CoreProtect project")
-    @Key("coreprotect-project")
+    @Name("Prism project")
+    @Key("prism-project")
     @NoExplanationNeeded
-    default String coreProtectProject() {
-        return "Lu3KuzdV";
+    default String prismProject() {
+        return "oLV8Vvxy";
+    }
+
+    /** Prism needs it; the two leave smp's label together. */
+    @Order(7)
+    @Name("NBT-API project")
+    @Key("nbtapi-project")
+    @NoExplanationNeeded
+    default String nbtApiProject() {
+        return "nfGCP9fk";
     }
 
     /** A directory that is not mounted is reported missing. */
-    @Order(7)
+    @Order(8)
     @Name("Volumes root")
     @Key("volumes-root")
     @Required
@@ -65,7 +74,7 @@ public interface RunSpec {
         return "/volumes";
     }
 
-    @Order(8)
+    @Order(9)
     @Name("GitHub token")
     @Key("github-token")
     @NoExplanationNeeded
@@ -73,7 +82,7 @@ public interface RunSpec {
         return "";
     }
 
-    @Order(9)
+    @Order(10)
     @Name("HTTP timeout (seconds)")
     @Key("http-timeout-seconds")
     @Positive
@@ -83,7 +92,7 @@ public interface RunSpec {
     }
 
     /** Much larger than the HTTP timeout, because this bounds downloading a Paper jar of about 65 MB. */
-    @Order(10)
+    @Order(11)
     @Name("Download timeout (seconds)")
     @Key("download-timeout-seconds")
     @Positive

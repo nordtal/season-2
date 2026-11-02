@@ -18,7 +18,8 @@ class AbsentFixedPluginsTest {
     private static final Map<String, String> PROJECTS = Map.of(
             Topology.PACKETEVENTS, "HYKaKraK",
             Topology.VOICE_CHAT, "9eGKb6K1",
-            Topology.CORE_PROTECT, "Lu3KuzdV");
+            Topology.PRISM, "oLV8Vvxy",
+            Topology.NBT_API, "nfGCP9fk");
 
     private static Topology.Service smp() {
         return DeclaredTopology.topology().servers().stream()
@@ -31,13 +32,15 @@ class AbsentFixedPluginsTest {
         return new Installation.Jar(Path.of("/plugins", name), name);
     }
 
-    /** The smp volume on the dev host holds everything but CoreProtect. */
+    /** An smp volume that holds everything but Prism and the NBT-API it needs. */
     private static final List<Installation.Jar> SMP_TODAY =
             List.of(jar("packetevents-spigot-2.13.0.jar"), jar("smp-0.9.5.jar"), jar("voicechat-bukkit-2.6.24.jar"));
 
     @Test
     void namesOnlyTheFixedPluginThatIsNotOnTheDisk() {
-        assertEquals(List.of(Topology.CORE_PROTECT), PluginsApi.absentFixed(smp(), SMP_TODAY, Map.of(), PROJECTS));
+        assertEquals(
+                List.of(Topology.PRISM, Topology.NBT_API),
+                PluginsApi.absentFixed(smp(), SMP_TODAY, Map.of(), PROJECTS));
     }
 
     @Test
@@ -46,11 +49,13 @@ class AbsentFixedPluginsTest {
                 jar("smp-0.9.5.jar"),
                 jar("packetevents-spigot-2.13.0.jar"),
                 jar("voicechat-bukkit-2.6.24.jar"),
-                jar("BlockLog-24.1.jar"));
+                jar("BlockLog-4.5.jar"),
+                jar("item-nbt-api-plugin-2.16.1.jar"));
         final Map<String, Modrinth.Project> identified = Map.of(
-                "BlockLog-24.1.jar",
-                new Modrinth.Project(
-                        "Lu3KuzdV", "coreprotect", "CoreProtect", null, "https://modrinth.com/plugin/coreprotect"));
+                "BlockLog-4.5.jar",
+                new Modrinth.Project("oLV8Vvxy", "prism", "Prism", null, "https://modrinth.com/plugin/prism"),
+                "item-nbt-api-plugin-2.16.1.jar",
+                new Modrinth.Project("nfGCP9fk", "nbtapi", "NBT-API", null, "https://modrinth.com/plugin/nbtapi"));
         assertEquals(List.of(), PluginsApi.absentFixed(smp(), renamed, identified, PROJECTS));
     }
 
@@ -60,7 +65,8 @@ class AbsentFixedPluginsTest {
                 .filter(jar -> !jar.fileName().startsWith("smp"))
                 .toList();
         assertEquals(
-                List.of(Topology.SMP, Topology.CORE_PROTECT), PluginsApi.absentFixed(smp(), noSmp, Map.of(), PROJECTS));
+                List.of(Topology.SMP, Topology.PRISM, Topology.NBT_API),
+                PluginsApi.absentFixed(smp(), noSmp, Map.of(), PROJECTS));
     }
 
     @Test

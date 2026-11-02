@@ -72,6 +72,9 @@ public final class PluginFiles {
     /** The folder of Nordtal's name tags, which no jar claims. */
     private static final String NAME_TAGS_FOLDER = "DisplayTags";
 
+    /** Files the entrypoint writes at every start, as folder/path: they hold a password and lose any edit. */
+    private static final Set<String> WRITTEN_AT_START = Set.of("prism/storage.conf");
+
     private final Function<String, AgentWire.Plugins> plugins;
     private final @Nullable Path volumesRoot;
 
@@ -214,7 +217,8 @@ public final class PluginFiles {
             for (final Path file : walk.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
                     .toList()) {
                 final Path relative = folder.relativize(file);
-                if (isListed(relative, file)) {
+                if (isListed(relative, file)
+                        && !WRITTEN_AT_START.contains(folder.getFileName() + "/" + slashed(relative))) {
                     found.add(new Found(location(service, folder, plugin, relative, file), file));
                 }
             }
@@ -237,6 +241,12 @@ public final class PluginFiles {
                 && !isNordtalKind(name)
                 && Files.size(file) <= MAX_SIZE
                 && isText(file);
+    }
+
+    private static String slashed(final Path relative) {
+        final List<String> segments = new ArrayList<>();
+        relative.forEach(segment -> segments.add(segment.toString()));
+        return String.join("/", segments);
     }
 
     private static boolean isNordtalKind(final String name) {
@@ -268,8 +278,6 @@ public final class PluginFiles {
             final Path relative,
             final Path file)
             throws IOException {
-        final List<String> segments = new ArrayList<>();
-        relative.forEach(segment -> segments.add(segment.toString()));
         final Path parent = file.toAbsolutePath().getParent();
         // A writable file in a read-only folder still cannot be replaced.
         final boolean writable = Files.isWritable(file) && parent != null && Files.isWritable(parent);
@@ -278,7 +286,7 @@ public final class PluginFiles {
                 folder.getFileName().toString(),
                 plugin == null ? null : plugin.name(),
                 plugin == null ? null : plugin.iconUrl(),
-                String.join("/", segments),
+                slashed(relative),
                 Files.size(file),
                 Files.isReadable(file),
                 writable);

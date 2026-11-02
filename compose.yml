@@ -355,11 +355,11 @@ services:
   # The SMP: four worlds, and the only service with required third-party plugins.
   smp:
     <<: *minecraft
-    # As the proxy's; a backup also stops it, since a snapshot of a running world is torn. CoreProtect has
-    # no build for every version and voice chat is optional, so neither may stop it.
+    # As the proxy's; a backup also stops it, since a snapshot of a running world is torn. Prism and the
+    # NBT-API it needs have no build for every version and voice chat is optional, so none may stop it.
     labels:
       eu.nordtal.server: &smp-kind paper
-      eu.nordtal.plugins: &smp-plugins "smp packetevents=packetevents-spigot voicechat? coreprotect?"
+      eu.nordtal.plugins: &smp-plugins "smp packetevents=packetevents-spigot voicechat? prism=prism-paper? nbtapi=item-nbt-api-plugin?"
       eu.nordtal.renew: run
       eu.nordtal.console: "true"
       eu.nordtal.backup: stop

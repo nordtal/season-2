@@ -120,7 +120,22 @@ class DatabaseRoleIntegrationTest {
         cases.addAll(registration());
         cases.addAll(discordRoles());
         cases.addAll(commandTrees());
+        cases.addAll(prism());
         assertAll(cases.stream().map(DatabaseRoleIntegrationTest::check));
+    }
+
+    /** Prism runs inside smp and makes its own tables and functions in its schema, and nowhere else. */
+    private static List<Case> prism() {
+        final List<Case> cases = new ArrayList<>(List.of(
+                may(DatabaseRole.SMP, "CREATE TABLE prism.prism_probe (id int)"),
+                may(DatabaseRole.SMP, "CREATE FUNCTION prism.prism_probe() RETURNS int LANGUAGE sql AS 'SELECT 1'"),
+                mayNot(DatabaseRole.SMP, "CREATE TABLE public.prism_probe (id int)")));
+        for (final DatabaseRole role : LOGINS) {
+            if (role != DatabaseRole.SMP) {
+                cases.add(mayNot(role, "CREATE TABLE prism.prism_probe (id int)"));
+            }
+        }
+        return cases;
     }
 
     /** What steward writes on its own clock: the curves, the payment poll and bookings. It deletes from no inbox. */

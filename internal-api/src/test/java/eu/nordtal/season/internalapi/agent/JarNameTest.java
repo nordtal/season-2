@@ -31,6 +31,8 @@ class JarNameTest {
             "papermc-display-tags-2.0.0.jar, papermc-display-tags, 2.0.0",
             "packetevents-spigot-2.13.0.jar, packetevents-spigot,  2.13.0",
             "voicechat-bukkit-2.6.24.jar,    voicechat-bukkit,     2.6.24",
+            "prism-paper-v4.5.jar,           prism-paper,          v4.5",
+            "item-nbt-api-plugin-2.16.1.jar, item-nbt-api-plugin,  2.16.1",
             "paper-26.2-121.jar,             paper-26.2,           121",
             "velocity-4.1.1-24.jar,          velocity-4.1.1,       24",
             "WorldEditDisplay-2.6.0-paper.jar, WorldEditDisplay,   2.6.0-paper",

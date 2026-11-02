@@ -303,6 +303,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V106__an_admin_takes_a_duel_kit_item_in_from_the_game.sql",
                 "edd9da6a8dc1e42c568442c55d1f72f3203713e414dc54e701a311d915b4d093");
+        FROZEN.put(
+                "V107__prism_logs_the_smps_block_changes_in_a_schema_of_its_own.sql",
+                "c346da086a7711162bd02ccebe5e7f4cb4f94f02d235503a02a9ddb24ac3e87f");
     }
 
     @Test

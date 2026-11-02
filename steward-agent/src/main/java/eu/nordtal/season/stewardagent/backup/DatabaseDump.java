@@ -108,10 +108,10 @@ public final class DatabaseDump {
                     took(started),
                     dump + " is not a readable dump, so the database was not touched: " + firstLine(listed.output()));
         }
-        // The owner restores over the socket that the image trusts. A lock held elsewhere fails the restore.
+        // The owner over the trusted socket; a lock held elsewhere fails it. Prism's schema goes too.
         final Docker.ExecResult restored = run(
                 containerId,
-                "set -o pipefail; { printf '%s\\n' 'DROP SCHEMA public CASCADE;'"
+                "set -o pipefail; { printf '%s\\n' 'DROP SCHEMA IF EXISTS prism CASCADE;' 'DROP SCHEMA public CASCADE;'"
                         + " 'CREATE SCHEMA public AUTHORIZATION pg_database_owner;'; pg_restore --file=- "
                         + quote(path)
                         + "; } | PGOPTIONS='-c lock_timeout=60s -c client_min_messages=warning' psql -X -q -o /dev/null -v ON_ERROR_STOP=1"

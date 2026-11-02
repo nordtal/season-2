@@ -125,6 +125,22 @@ class DatabaseDumpIntegrationTest {
     }
 
     @Test
+    void aRestoreReplacesPrismsSchemaWithTheDumpsToo() {
+        assumeTrue(sql("SELECT to_regnamespace('prism')").equals("prism"), "no prism schema here yet - skipping");
+        final DatabaseDump dump = new DatabaseDump(docker, project, DIRECTORY, Clock.systemUTC());
+        final SnapshotResult saved = dump.save("postgres", ROLE);
+        assertTrue(saved.ok(), saved.message());
+        sql("CREATE TABLE prism.s2d_probe (id int)");
+
+        final SnapshotResult restored = dump.restore("postgres", name(saved));
+
+        assertTrue(restored.ok(), restored.message());
+        assertEquals("", sql("SELECT to_regclass('prism.s2d_probe')"), "a Prism table the dump does not hold survived");
+        assertEquals("nordtal_smp", sql("SELECT nspowner::regrole FROM pg_namespace WHERE nspname = 'prism'"));
+        docker.exec(postgres, List.of("sh", "-c", "rm -rf " + DIRECTORY), null);
+    }
+
+    @Test
     void aRestoreThatFailsIsRolledBackAndNamesWhy() {
         sql("CREATE ROLE s2d_probe_owner NOLOGIN");
         sql("CREATE TABLE s2d_probe_owned (id int)");

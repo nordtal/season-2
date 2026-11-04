@@ -18,11 +18,7 @@ class RouteTest {
     private static final RailPos JUNCTION = at(0, 64, 0);
 
     private static RailGraph graph(final Track track, final RailPos... stations) {
-        final RailWalk walk = new RailWalk(track, List.of(stations), 10_000);
-        while (!walk.step(1_000)) {
-            // Every position is readable.
-        }
-        return RailGraph.of(walk.found().getFirst().rails(), List.of(stations));
+        return RailGraph.of(track.rails(), List.of(stations));
     }
 
     private static RailGraph junction() {

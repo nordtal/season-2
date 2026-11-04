@@ -1,6 +1,5 @@
 package eu.nordtal.season.smp.rail;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -8,30 +7,30 @@ import java.util.Set;
 import java.util.function.LongPredicate;
 import org.jspecify.annotations.Nullable;
 
-/** The starts of the walks of one world that gave up on a chunk, kept until that chunk loads. */
+/** The rails of one world that a re-check could not read as their chunk failed to load, kept until it loads. */
 final class ChunkRetries {
 
     private final Map<Long, Set<RailPos>> waiting = new HashMap<>();
 
     /**
-     * Notes that a walk from {@code starts} gave up on {@code chunks}, and returns the starts to walk again now.
-     * They are walked again now when one of those chunks loaded while the walk ran, else when it next loads.
+     * Notes the rails a re-check gave up on, by chunk key, and returns those to check again now.
+     * The rails of a chunk that loaded while it ran are checked again now, the others once their chunk next loads.
      */
-    Set<RailPos> gaveUp(final Set<Long> chunks, final Collection<RailPos> starts, final LongPredicate loaded) {
+    Set<RailPos> gaveUp(final Map<Long, Set<RailPos>> rails, final LongPredicate loaded) {
         final Set<RailPos> now = new HashSet<>();
-        for (final long chunk : chunks) {
+        rails.forEach((chunk, positions) -> {
             if (loaded.test(chunk)) {
-                now.addAll(starts);
+                now.addAll(positions);
             } else {
-                waiting.computeIfAbsent(chunk, _ -> new HashSet<>()).addAll(starts);
+                waiting.computeIfAbsent(chunk, _ -> new HashSet<>()).addAll(positions);
             }
-        }
+        });
         return now;
     }
 
-    /** Returns and forgets the starts that waited for {@code chunk}, which loaded. */
+    /** Returns and forgets the rails that waited for {@code chunk}, which loaded. */
     Set<RailPos> loaded(final long chunk) {
-        final @Nullable Set<RailPos> starts = waiting.remove(chunk);
-        return starts == null ? Set.of() : starts;
+        final @Nullable Set<RailPos> rails = waiting.remove(chunk);
+        return rails == null ? Set.of() : rails;
     }
 }

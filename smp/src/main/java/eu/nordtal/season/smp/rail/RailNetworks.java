@@ -30,18 +30,18 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Tracks the rail networks of every world and keeps the store in step.
- * It walks the rails again after a tracked rail changes, a little every tick.
- * Only rails joined to a station rail are ever walked.
+ * A changed block re-checks only the track near it, a little every tick; only a restart reads every network again.
+ * Only rails joined to a station rail are ever read.
  */
 public final class RailNetworks {
 
-    /** The most rails one network holds; a walk stops growing a network beyond it. */
-    static final int RAILS_PER_NETWORK = 50_000;
-
-    /** The most rails a walk reads in one tick. */
+    /** The most rails a re-check reads in one tick. */
     static final int RAILS_PER_TICK = 2_000;
 
-    private record Running(String world, WorldNetworks.Walk walk, RailWalk rails, BukkitRails view) {}
+    /** How long a re-check may take of one tick, in nanoseconds. */
+    static final long NANOS_PER_TICK = 2_000_000;
+
+    private record Running(String world, RailRecheck job, BukkitRails view) {}
 
     private final Plugin plugin;
     private final ChunkTickets tickets;
@@ -59,7 +59,7 @@ public final class RailNetworks {
     private final Set<UUID> unseen = new HashSet<>();
     private final Set<UUID> hidden = new HashSet<>();
     private final Map<String, ChunkRetries> retries = new HashMap<>();
-    private final Map<String, Integer> versions = new HashMap<>();
+    private final Set<String> whole = new LinkedHashSet<>();
     private Consumer<StationRow> renamedByMerge = _ -> {};
     private @Nullable Running running;
     private boolean restored;
@@ -81,39 +81,57 @@ public final class RailNetworks {
         return item;
     }
 
-    /** Adds the recipe and reads the stored networks off the main thread. Changes wait until they are back. */
+    /**
+     * Adds the recipe and reads the stored networks, building them off the main thread.
+     * Changes wait until they are back; then every network is read again once, as the store keeps no spur.
+     */
     public void start(final Executor main) {
         Bukkit.addRecipe(item.recipe());
         store.load(
                 loaded -> {
-                    loaded.favourites()
-                            .forEach(row -> favourites
-                                    .computeIfAbsent(row.player(), _ -> new HashSet<>())
-                                    .add(row.station()));
-                    unseen.addAll(loaded.unseen());
-                    hidden.addAll(loaded.hidden());
-                    loaded.worlds().forEach((world, part) -> {
-                        networks(world).restore(part.stations(), part.junctions(), part.edges());
-                        // The store keeps no track that ends nowhere, so each network is walked again once.
-                        part.stations()
-                                .forEach(station -> changed.computeIfAbsent(world, _ -> new LinkedHashSet<>())
-                                        .add(station.pos()));
-                    });
-                    restored = true;
-                    worlds.forEach((world, networks) -> reconcileHolograms(world));
-                    plugin.getLogger()
-                            .info("restored "
-                                    + worlds.values().stream()
-                                            .mapToInt(w -> w.stations().size())
-                                            .sum() + " station rail(s)");
+                    final Map<String, WorldNetworks> built = new HashMap<>();
+                    loaded.worlds()
+                            .forEach((world, part) -> built.put(
+                                    world, WorldNetworks.restored(part.stations(), part.junctions(), part.edges())));
+                    main.execute(() -> restore(loaded, built));
                 },
-                main);
+                Runnable::run);
+    }
+
+    private void restore(final RailStore.Loaded loaded, final Map<String, WorldNetworks> built) {
+        loaded.favourites()
+                .forEach(row -> favourites
+                        .computeIfAbsent(row.player(), _ -> new HashSet<>())
+                        .add(row.station()));
+        unseen.addAll(loaded.unseen());
+        hidden.addAll(loaded.hidden());
+        built.forEach((world, networks) -> {
+            final @Nullable WorldNetworks before = worlds.put(world, networks);
+            if (before != null) {
+                networks.takeOver(before);
+            }
+        });
+        whole.addAll(worlds.keySet());
+        restored = true;
+        worlds.forEach((world, networks) -> reconcileHolograms(world));
+        plugin.getLogger()
+                .info("restored "
+                        + worlds.values().stream()
+                                .mapToInt(w -> w.stations().size())
+                                .sum() + " station rail(s)");
+    }
+
+    /** Hands {@code networks} to {@code world} as if the store held them, and reads them again on the next ticks. */
+    void install(final String world, final WorldNetworks networks) {
+        worlds.put(world, networks);
+        whole.add(world);
+        restored = true;
     }
 
     public void stop() {
-        final Running walk = running;
-        if (walk != null) {
-            walk.view().release();
+        final Running job = running;
+        if (job != null) {
+            job.view().release();
             running = null;
         }
         holograms.clear();
@@ -142,7 +160,7 @@ public final class RailNetworks {
         return networks(block.getWorld().getName()).station(pos(block));
     }
 
-    /** Notes that the rail at {@code block} may have changed; the next tick walks the networks near it. */
+    /** Notes that the rail at {@code block} may have changed; a re-check reads the track near it soon. */
     void changed(final Block block) {
         final String world = block.getWorld().getName();
         changed.computeIfAbsent(world, _ -> new LinkedHashSet<>()).add(pos(block));
@@ -150,13 +168,13 @@ public final class RailNetworks {
         networks(world).stationsNear(pos(block)).forEach(station -> crooked.put(station.id(), station));
     }
 
-    /** Walks again the networks whose walk gave up on {@code chunk}, now that it loaded. */
+    /** Re-checks the rails a re-check gave up on in {@code chunk}, now that it loaded. */
     void loaded(final Chunk chunk) {
         final String world = chunk.getWorld().getName();
         final @Nullable ChunkRetries waiting = retries.get(world);
-        final Set<RailPos> starts = waiting == null ? Set.of() : waiting.loaded(chunk.getChunkKey());
-        if (!starts.isEmpty()) {
-            changed.computeIfAbsent(world, _ -> new LinkedHashSet<>()).addAll(starts);
+        final Set<RailPos> rails = waiting == null ? Set.of() : waiting.loaded(chunk.getChunkKey());
+        if (!rails.isEmpty()) {
+            changed.computeIfAbsent(world, _ -> new LinkedHashSet<>()).addAll(rails);
         }
         if (restored) {
             marks.positions(chunk).forEach(at -> networks(world).station(at).ifPresent(holograms::show));
@@ -266,7 +284,7 @@ public final class RailNetworks {
         final WorldNetworks networks = networks(rail.getWorld().getName());
         final RailPos at = pos(rail);
         return networks.networkOf(at)
-                .filter(network -> RideList.onTrack(network.graph(), at))
+                .filter(network -> network.graph().onTrack(at))
                 .map(network -> new Ride(
                         network.graph(),
                         at,
@@ -276,24 +294,14 @@ public final class RailNetworks {
                                 .toList()));
     }
 
-    /** Returns how often the networks of {@code world} were walked again; a ride plans again when it changes. */
-    int version(final String world) {
-        return versions.getOrDefault(world, 0);
-    }
-
     /** Returns the graph of the network {@code rail} is on in {@code world}, when it is on its track. */
     Optional<RailGraph> graph(final String world, final RailPos rail) {
-        return networks(world)
-                .networkOf(rail)
-                .map(WorldNetworks.Network::graph)
-                .filter(graph -> RideList.onTrack(graph, rail));
+        return networks(world).networkOf(rail).map(WorldNetworks.Network::graph).filter(graph -> graph.onTrack(rail));
     }
 
     /** Returns the station with {@code id} in {@code world}, while it exists. */
     Optional<StationRow> station(final String world, final UUID id) {
-        return networks(world).stations().stream()
-                .filter(row -> row.id().equals(id))
-                .findFirst();
+        return networks(world).station(id);
     }
 
     Set<UUID> favourites(final UUID player) {
@@ -361,7 +369,7 @@ public final class RailNetworks {
         }
     }
 
-    /** Brings the holograms of {@code world} level with its stations, after they were restored or walked again. */
+    /** Brings the holograms of {@code world} level with its stations, after they were restored or read again. */
     private void reconcileHolograms(final String world) {
         holograms.reconcile(world, networks(world).stations(), RailNetworks::chunkLoaded);
     }
@@ -398,22 +406,25 @@ public final class RailNetworks {
                 .forEach(ItemDisplay::remove);
     }
 
-    /** Runs every tick: starts the next walk, or reads on in the running one. */
+    /** Runs every tick: starts the next re-check, or reads on in the running one. */
     public void tick() {
         straightenCrooked();
         if (!restored) {
             return;
         }
+        final long deadline = System.nanoTime() + NANOS_PER_TICK;
         if (running == null) {
             begin();
         }
-        final Running walk = running;
-        if (walk == null) {
-            return;
+        final Running job = running;
+        if (job != null) {
+            job.view().load(job.job().trace().takeWanted());
+            if (job.job().step(RAILS_PER_TICK, deadline)) {
+                finish(job);
+            }
         }
-        walk.view().load(walk.rails().takeWanted());
-        if (walk.rails().step(RAILS_PER_TICK)) {
-            finish(walk);
+        for (final WorldNetworks networks : worlds.values()) {
+            networks.tidy(RAILS_PER_TICK);
         }
     }
 
@@ -429,58 +440,65 @@ public final class RailNetworks {
         crooked.clear();
     }
 
+    /** Starts the next re-check: every network of a restored world first, then the changes, a world at a time. */
     private void begin() {
+        final Iterator<String> restoring = whole.iterator();
+        while (restoring.hasNext()) {
+            final String name = restoring.next();
+            restoring.remove();
+            final @Nullable World world = Bukkit.getWorld(name);
+            if (world != null) {
+                final BukkitRails view = new BukkitRails(plugin, tickets, world);
+                running = new Running(name, networks(name).retrace(view, clock), view);
+                return;
+            }
+        }
         final Iterator<Map.Entry<String, Set<RailPos>>> pending =
                 changed.entrySet().iterator();
         while (pending.hasNext()) {
             final Map.Entry<String, Set<RailPos>> next = pending.next();
             pending.remove();
-            final World world = Bukkit.getWorld(next.getKey());
+            final @Nullable World world = Bukkit.getWorld(next.getKey());
             if (world == null) {
                 continue;
             }
-            final WorldNetworks networks = networks(next.getKey());
-            final WorldNetworks.Walk walk = networks.walkFor(next.getValue());
-            if (walk.starts().isEmpty() && walk.replaced().isEmpty()) {
-                continue;
-            }
             final BukkitRails view = new BukkitRails(plugin, tickets, world);
-            running = new Running(next.getKey(), walk, new RailWalk(view, walk.starts(), RAILS_PER_NETWORK), view);
-            return;
+            final @Nullable RailRecheck job = networks(next.getKey()).recheck(next.getValue(), view, clock);
+            if (job != null) {
+                running = new Running(next.getKey(), job, view);
+                return;
+            }
         }
     }
 
-    private void finish(final Running walk) {
+    private void finish(final Running job) {
         running = null;
-        walk.view().release();
-        final WorldNetworks networks = networks(walk.world());
-        final WorldNetworks.Replacement replacement =
-                networks.replace(walk.walk(), walk.rails().found(), walk.rails().missing(), clock.instant());
-        final World world = Bukkit.getWorld(walk.world());
-        if (world != null) {
-            for (final StationRow lost : replacement.lost()) {
+        job.view().release();
+        final WorldNetworks.Change change = job.job().change();
+        final @Nullable World world = Bukkit.getWorld(job.world());
+        for (final StationRow lost : change.lost()) {
+            if (world != null) {
                 final Block block = world.getBlockAt(lost.x(), lost.y(), lost.z());
                 marks.unmark(block);
                 erase(block);
             }
+            forget(lost.id());
+            holograms.hide(lost.id());
         }
-        replacement.lost().forEach(row -> forget(row.id()));
-        store.replaced(walk.world(), replacement);
-        reconcileHolograms(walk.world());
-        versions.merge(walk.world(), 1, Integer::sum);
-        final Set<RailPos> again = retries.computeIfAbsent(walk.world(), _ -> new ChunkRetries())
-                .gaveUp(walk.view().givenUpChunks(), walk.walk().starts(), walk.view()::loaded);
+        store.changed(job.world(), change);
+        if (job.job().whole()) {
+            reconcileHolograms(job.world());
+        } else {
+            change.renamed().stream().filter(RailNetworks::chunkLoaded).forEach(holograms::show);
+        }
+        final Set<RailPos> again = retries.computeIfAbsent(job.world(), _ -> new ChunkRetries())
+                .gaveUp(job.job().trace().givenUp(), job.view()::loaded);
         if (!again.isEmpty()) {
-            changed.computeIfAbsent(walk.world(), _ -> new LinkedHashSet<>()).addAll(again);
+            changed.computeIfAbsent(job.world(), _ -> new LinkedHashSet<>()).addAll(again);
         }
-        replacement.renamed().forEach(row -> {
+        change.renamed().forEach(row -> {
             unseen.add(row.id());
             renamedByMerge.accept(row);
         });
-        if (walk.rails().found().stream().anyMatch(RailWalk.Found::bounded)) {
-            plugin.getLogger()
-                    .warning("a rail network in " + walk.world() + " holds more than " + RAILS_PER_NETWORK
-                            + " rails and was walked only that far");
-        }
     }
 }

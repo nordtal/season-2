@@ -3,162 +3,183 @@ package eu.nordtal.season.smp.rail;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
  * One network as a graph: its stations and junctions are the nodes, the track between them the edges.
- * A junction is a rail that three or more connected rails lead into. Track that leaves a node and ends is a spur,
- * which a cart rides only back to that node; track that meets a station rail from the side is neither.
+ * A junction is a rail that three or more connected rails lead into; track that leaves a node and ends is a spur.
+ * A graph is a snapshot: once its network changes it is no longer {@link #current()}, and a ride plans again.
  */
 public final class RailGraph {
 
+    /** Where a rail lies: the leg it is on, and its place among the leg's rails. */
+    record Place(RailLeg leg, int index) {}
+
+    /** Finds the place of a rail, among the legs of this graph and maybe others. */
+    interface Places {
+        @Nullable
+        Place place(RailPos rail);
+    }
+
+    /** Gathers a graph a node and a leg at a time, so a large one is built over several ticks. */
+    static final class Builder {
+        private final Set<RailPos> stations = new TreeSet<>();
+        private final Set<RailPos> junctions = new TreeSet<>();
+        private final Set<RailLeg> legs = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Map<RailPos, List<RailEdge>> out = new HashMap<>();
+
+        void station(final RailPos pos) {
+            stations.add(pos);
+        }
+
+        void junction(final RailPos pos) {
+            junctions.add(pos);
+        }
+
+        boolean hasStation() {
+            return !stations.isEmpty();
+        }
+
+        /** Adds {@code leg}, and returns whether it was not added before. */
+        boolean leg(final RailLeg leg) {
+            if (!legs.add(leg)) {
+                return false;
+            }
+            final @Nullable RailEdge edge = leg.edge();
+            if (edge != null) {
+                out.computeIfAbsent(edge.from(), _ -> new ArrayList<>()).add(edge);
+                out.computeIfAbsent(edge.to(), _ -> new ArrayList<>()).add(Objects.requireNonNull(leg.reversed()));
+            }
+            return true;
+        }
+
+        Set<RailLeg> legs() {
+            return Collections.unmodifiableSet(legs);
+        }
+
+        /** Returns the graph gathered, whose rails {@code places} finds; the builder is not used after. */
+        RailGraph build(final Places places) {
+            return new RailGraph(this, places);
+        }
+    }
+
     private final Set<RailPos> stations;
     private final Set<RailPos> junctions;
-    private final List<RailEdge> edges;
-    private final Map<RailPos, List<RailEdge>> out = new HashMap<>();
-    private final Map<RailPos, Spur> spurs;
-
-    /** A rail on a spur: the node the spur leaves, the spur's rails from that node, and the rail's place among them. */
-    private record Spur(RailPos node, List<RailPos> rails, int index) {}
+    private final Set<RailLeg> legs;
+    private final Places places;
+    private final Map<RailPos, List<RailEdge>> out;
+    private @Nullable List<RailEdge> edges;
+    private boolean current = true;
 
     public RailGraph(
             final Collection<RailPos> stations, final Collection<RailPos> junctions, final List<RailEdge> edges) {
-        this(stations, junctions, edges, Map.of());
+        this(stations, junctions, legs(edges));
     }
 
     private RailGraph(
+            final Collection<RailPos> stations, final Collection<RailPos> junctions, final Set<RailLeg> legs) {
+        this(stations, junctions, legs, index(legs)::get);
+    }
+
+    private static Set<RailLeg> legs(final Collection<RailEdge> edges) {
+        final Set<RailLeg> legs = Collections.newSetFromMap(new IdentityHashMap<>());
+        edges.forEach(edge -> legs.add(RailLeg.edge(UUID.randomUUID(), edge)));
+        return legs;
+    }
+
+    /** Returns the graph of {@code legs}, which the trace of a network found. */
+    static RailGraph ofLegs(
+            final Collection<RailPos> stations, final Collection<RailPos> junctions, final Collection<RailLeg> legs) {
+        final Set<RailLeg> held = Collections.newSetFromMap(new IdentityHashMap<>());
+        held.addAll(legs);
+        return new RailGraph(stations, junctions, held);
+    }
+
+    /**
+     * Builds the graph of {@code legs}, whose rails {@code places} finds; a place on a leg not among them is none.
+     */
+    RailGraph(
             final Collection<RailPos> stations,
             final Collection<RailPos> junctions,
-            final List<RailEdge> edges,
-            final Map<RailPos, Spur> spurs) {
-        this.spurs = Map.copyOf(spurs);
-        this.stations = Collections.unmodifiableSet(new TreeSet<>(stations));
-        this.junctions = Collections.unmodifiableSet(new TreeSet<>(junctions));
-        this.edges = List.copyOf(edges);
-        for (final RailEdge edge : this.edges) {
-            out.computeIfAbsent(edge.from(), _ -> new ArrayList<>()).add(edge);
-            out.computeIfAbsent(edge.to(), _ -> new ArrayList<>()).add(edge.reversed());
+            final Collection<RailLeg> legs,
+            final Places places) {
+        this(gathered(stations, junctions, legs), places);
+    }
+
+    private static Builder gathered(
+            final Collection<RailPos> stations, final Collection<RailPos> junctions, final Collection<RailLeg> legs) {
+        final Builder builder = new Builder();
+        stations.forEach(builder::station);
+        junctions.forEach(builder::junction);
+        legs.forEach(builder::leg);
+        return builder;
+    }
+
+    private RailGraph(final Builder builder, final Places places) {
+        this.stations = Collections.unmodifiableSet(builder.stations);
+        this.junctions = Collections.unmodifiableSet(builder.junctions);
+        this.legs = builder.legs;
+        this.out = builder.out;
+        this.places = places;
+    }
+
+    /** Returns where each rail of {@code legs} lies on them. */
+    static Map<RailPos, Place> index(final Collection<RailLeg> legs) {
+        final Map<RailPos, Place> places = new HashMap<>();
+        for (final RailLeg leg : legs) {
+            final List<RailPos> rails = leg.rails();
+            for (int index = 0; index < rails.size(); index++) {
+                places.put(rails.get(index), new Place(leg, index));
+            }
         }
+        return places;
     }
 
     /** Builds the graph of the network {@code rails}, in which {@code stations} are the station rails. */
     public static RailGraph of(final Map<RailPos, RailShape> rails, final Collection<RailPos> stations) {
-        final RailView view = new RailView() {
-            @Override
-            public boolean readable(final RailPos pos) {
-                return true;
-            }
+        final Set<RailPos> onTrack = Set.copyOf(stations);
+        final RailTrace trace = new RailTrace(
+                new RailView() {
+                    @Override
+                    public boolean readable(final RailPos pos) {
+                        return true;
+                    }
 
-            @Override
-            public @Nullable RailShape shape(final RailPos pos) {
-                return rails.get(pos);
-            }
-        };
-        final Map<RailPos, List<RailPos>> neighbours = new HashMap<>();
-        rails.forEach((pos, shape) -> neighbours.put(pos, Connections.of(pos, shape, view, new ArrayList<>())));
-        final Set<RailPos> onTrack = new TreeSet<>(stations);
-        onTrack.retainAll(rails.keySet());
-        final Set<RailPos> junctions = new TreeSet<>();
-        neighbours.forEach((pos, next) -> {
-            if (next.size() >= 3) {
-                junctions.add(pos);
-            }
-        });
-        final Set<RailPos> nodes = new TreeSet<>(onTrack);
-        nodes.addAll(junctions);
-        final List<RailEdge> edges = new ArrayList<>();
-        final Map<RailPos, Spur> spurs = new HashMap<>();
-        for (final RailPos node : nodes) {
-            for (final RailPos next : neighbours.getOrDefault(node, List.of())) {
-                final Stretch stretch = follow(node, next, nodes, neighbours, rails.size());
-                final @Nullable RailEdge edge = stretch.edge(node);
-                if (stretch.deadEnd() && along(node, next, rails, onTrack)) {
-                    spurs.putAll(stretch.spur(node));
-                }
-                if (edge != null
-                        && keeps(edge)
-                        && along(edge.from(), edge.first(), rails, onTrack)
-                        && along(edge.to(), edge.last(), rails, onTrack)) {
-                    edges.add(edge);
-                }
-            }
-        }
-        junctions.removeAll(onTrack);
-        return new RailGraph(onTrack, junctions, edges, spurs);
-    }
+                    @Override
+                    public @Nullable RailShape shape(final RailPos pos) {
+                        return rails.get(pos);
+                    }
+                },
+                new RailTrace.Known() {
+                    @Override
+                    public @Nullable RailShape station(final RailPos pos) {
+                        return onTrack.contains(pos) ? rails.get(pos) : null;
+                    }
 
-    /**
-     * The track followed from a node.
-     *
-     * @param end     the node it reaches, or null when it ends or branches first
-     * @param deadEnd whether it ends without reaching a node
-     */
-    private record Stretch(List<RailPos> between, @Nullable RailPos end, boolean deadEnd) {
+                    @Override
+                    public boolean settled(final RailPos pos) {
+                        return false;
+                    }
 
-        @Nullable
-        RailEdge edge(final RailPos node) {
-            return end == null ? null : RailEdge.of(node, end, between);
-        }
-
-        /** Returns each rail of a dead end with its place on the spur that leaves {@code node}; they share one list. */
-        Map<RailPos, Spur> spur(final RailPos node) {
-            final List<RailPos> rails = List.copyOf(between);
-            final Map<RailPos, Spur> spur = new HashMap<>();
-            for (int index = 0; index < rails.size(); index++) {
-                spur.put(rails.get(index), new Spur(node, rails, index));
-            }
-            return spur;
-        }
-    }
-
-    /** Follows the track from {@code node} through {@code next} until it reaches the next node or ends. */
-    private static Stretch follow(
-            final RailPos node,
-            final RailPos next,
-            final Set<RailPos> nodes,
-            final Map<RailPos, List<RailPos>> neighbours,
-            final int bound) {
-        final List<RailPos> between = new ArrayList<>();
-        RailPos previous = node;
-        RailPos at = next;
-        while (!nodes.contains(at)) {
-            if (between.size() > bound) {
-                return new Stretch(between, null, false);
-            }
-            between.add(at);
-            final RailPos from = previous;
-            final List<RailPos> onward = neighbours.getOrDefault(at, List.of()).stream()
-                    .filter(pos -> !pos.equals(from))
-                    .toList();
-            if (onward.size() != 1) {
-                return new Stretch(between, null, onward.isEmpty());
-            }
-            previous = at;
-            at = onward.getFirst();
-        }
-        return new Stretch(between, at, false);
-    }
-
-    /** Whether track that leaves {@code node} through {@code next} runs along it, as it must at a station rail. */
-    private static boolean along(
-            final RailPos node, final RailPos next, final Map<RailPos, RailShape> rails, final Set<RailPos> stations) {
-        final @Nullable RailShape shape = rails.get(node);
-        return !stations.contains(node) || shape == null || shape.leadsTowards(Heading.between(node, next));
-    }
-
-    /** Each edge is found from both of its ends; this keeps one of the two. */
-    private static boolean keeps(final RailEdge edge) {
-        final int ends = edge.from().compareTo(edge.to());
-        if (ends != 0) {
-            return ends < 0;
-        }
-        return edge.first().compareTo(edge.last()) < 0;
+                    @Override
+                    public @Nullable RailLeg same(final RailLeg leg) {
+                        return null;
+                    }
+                });
+        onTrack.forEach(trace::look);
+        trace.step(Integer.MAX_VALUE, Long.MAX_VALUE);
+        final Set<RailPos> found = new TreeSet<>(trace.nodes());
+        found.removeAll(trace.junctions());
+        return ofLegs(found, trace.junctions(), trace.traced());
     }
 
     public Set<RailPos> stations() {
@@ -169,26 +190,77 @@ public final class RailGraph {
         return junctions;
     }
 
+    /** Returns the edges between the nodes, each once, in the order of the node they are kept from. */
     public List<RailEdge> edges() {
-        return edges;
+        @Nullable List<RailEdge> known = edges;
+        if (known == null) {
+            known = legs.stream()
+                    .map(RailLeg::edge)
+                    .filter(Objects::nonNull)
+                    .sorted(Comparator.comparing(RailEdge::from).thenComparing(RailEdge::first))
+                    .toList();
+            edges = known;
+        }
+        return known;
+    }
+
+    /** Returns every leg of the graph: its edges, its spurs and the track that meets a station rail from the side. */
+    Set<RailLeg> legs() {
+        return Collections.unmodifiableSet(legs);
     }
 
     /** Returns every rail of the graph's nodes and edges. */
     public Set<RailPos> rails() {
         final Set<RailPos> rails = new TreeSet<>(stations);
         rails.addAll(junctions);
-        edges.forEach(edge -> rails.addAll(edge.rails()));
+        edges().forEach(edge -> rails.addAll(edge.rails()));
         return rails;
+    }
+
+    /** Whether this graph is still what its network is; a ride on a graph that is not plans again. */
+    public boolean current() {
+        return current;
+    }
+
+    /** Notes that the network of this graph changed or is gone. */
+    void retire() {
+        current = false;
+    }
+
+    /** Returns where {@code rail} lies on a leg of this graph, or null when it lies on none. */
+    @Nullable
+    Place place(final RailPos rail) {
+        final @Nullable Place place = places.place(rail);
+        return place != null && legs.contains(place.leg()) ? place : null;
+    }
+
+    /** Returns where {@code rail} lies on an edge of this graph, between two nodes, or null when it lies on none. */
+    @Nullable
+    Place edgeAt(final RailPos rail) {
+        final @Nullable Place place = place(rail);
+        return place != null && place.leg().kind() == RailLeg.Kind.EDGE ? place : null;
+    }
+
+    /** Returns whether {@code rail} is a node of this graph, a rail of one of its edges or a rail of a spur. */
+    boolean onTrack(final RailPos rail) {
+        if (stations.contains(rail) || junctions.contains(rail)) {
+            return true;
+        }
+        final @Nullable Place place = place(rail);
+        return place != null && place.leg().kind() != RailLeg.Kind.SIDE;
     }
 
     /** Returns the way back from {@code rail} on a spur to the node the spur leaves, or null off every spur. */
     @Nullable
     RailEdge spur(final RailPos rail) {
-        final @Nullable Spur spur = spurs.get(rail);
-        return spur == null
-                ? null
-                : RailEdge.of(
-                        rail, spur.node(), spur.rails().subList(0, spur.index()).reversed());
+        final @Nullable Place place = place(rail);
+        if (place == null || place.leg().kind() != RailLeg.Kind.SPUR) {
+            return null;
+        }
+        return RailEdge.of(
+                rail,
+                place.leg().from(),
+                place.leg().rails().subList(0, place.index()).reversed());
     }
 
     /** Returns the edges that leave {@code node}, each walked from it. */

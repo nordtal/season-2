@@ -19,7 +19,6 @@ import java.util.function.Supplier;
 import org.bukkit.Chunk;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -87,7 +86,7 @@ public final class Rides implements Listener {
         private double along;
         private double speed;
         private double end;
-        private int version;
+        private @Nullable RailGraph graph;
         private boolean standingPlanDue;
         private int waited;
 
@@ -184,7 +183,7 @@ public final class Rides implements Listener {
 
     private static RailPos railUnder(final Entity cart) {
         final Block at = cart.getLocation().getBlock();
-        return RailNetworks.pos(Tag.RAILS.isTagged(at.getType()) ? at : at.getRelative(BlockFace.DOWN));
+        return RailNetworks.pos(at.getBlockData() instanceof Rail ? at : at.getRelative(BlockFace.DOWN));
     }
 
     /**
@@ -193,7 +192,6 @@ public final class Rides implements Listener {
      * @param standing whether the cart may set off either way; a moving cart keeps its direction
      */
     private boolean plan(final Ride ride, final boolean standing) {
-        ride.version = networks.version(ride.world.getName());
         final @Nullable RidePath current = ride.path;
         final RailPos at;
         final @Nullable RailPos ahead;
@@ -207,6 +205,7 @@ public final class Rides implements Listener {
         }
         final Optional<StationRow> station = networks.station(ride.world.getName(), ride.destination);
         final Optional<RailGraph> graph = networks.graph(ride.world.getName(), at);
+        ride.graph = graph.orElse(null);
         if (station.isEmpty() || graph.isEmpty()) {
             return false;
         }
@@ -257,7 +256,8 @@ public final class Rides implements Listener {
 
     /** Moves {@code ride} one tick on, and returns false once it ended. */
     private boolean advance(final Ride ride, final RidePath.Motion now) {
-        if (ride.version != networks.version(ride.world.getName()) && !plan(ride, ride.speed == 0)) {
+        final @Nullable RailGraph planned = ride.graph;
+        if (planned != null && !planned.current() && !plan(ride, ride.speed == 0)) {
             if (ride.speed == 0) {
                 strand(ride);
                 return false;
@@ -285,8 +285,8 @@ public final class Rides implements Listener {
             return true;
         }
         if (!ride.standingPlanDue && stop < Math.min(ride.end, lookout.clear())) {
-            // The cart stands before a junction set the wrong way; one held too long strands it.
-            if (++ride.waited > PATIENCE) {
+            // A junction set the wrong way held too long strands the cart, unless a cart that still rides holds it.
+            if (!heldByRider(ride) && ++ride.waited > PATIENCE) {
                 strand(ride);
                 return false;
             }
@@ -490,6 +490,18 @@ public final class Rides implements Listener {
                 stranded.accept(rider);
             }
         });
+    }
+
+    /** Whether the junction {@code ride} waits for is held by another cart that rides on and will let go of it. */
+    private boolean heldByRider(final Ride ride) {
+        final @Nullable RailPos junction = ride.stops.waitingFor();
+        if (junction == null) {
+            return false;
+        }
+        final @Nullable UUID holder = claims.get(new Claim(ride.world.getUID(), junction));
+        final @Nullable Ride other = holder == null ? null : rides.get(holder);
+        // Two carts that wait for each other's junction wait out their patience, so one of them gives way.
+        return other != null && other != ride && other.stops.waitingFor() == null;
     }
 
     private void unclaim(final Ride ride) {

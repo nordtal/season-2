@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,7 +23,7 @@ import org.jspecify.annotations.Nullable;
 public final class RailStore {
 
     /** What the store holds for one world. */
-    public record Stored(List<StationRow> stations, Set<RailPos> junctions, List<RailEdge> edges) {}
+    public record Stored(List<StationRow> stations, Set<RailPos> junctions, Map<UUID, RailEdge> edges) {}
 
     /** Everything the store holds. {@code hidden} are the stations hidden from the map. */
     public record Loaded(
@@ -39,7 +40,7 @@ public final class RailStore {
         this.log = log;
     }
 
-    /** Reads everything off the main thread and hands it to {@code done} on {@code main}. */
+    /** Reads everything off the main thread and hands it to {@code done} through {@code main}. */
     public void load(final Consumer<Loaded> done, final Executor main) {
         last = last.thenRunAsync(
                         () -> {
@@ -71,14 +72,16 @@ public final class RailStore {
         dao.edgeRails()
                 .forEach(row -> rails.computeIfAbsent(row.edge(), _ -> new ArrayList<>())
                         .add(new RailPos(row.x(), row.y(), row.z())));
-        final Map<String, List<RailEdge>> edges = new HashMap<>();
+        final Map<String, Map<UUID, RailEdge>> edges = new HashMap<>();
         for (final EdgeRow row : dao.edges()) {
-            edges.computeIfAbsent(row.world(), _ -> new ArrayList<>())
-                    .add(new RailEdge(
-                            new RailPos(row.fromX(), row.fromY(), row.fromZ()),
-                            new RailPos(row.toX(), row.toY(), row.toZ()),
-                            rails.getOrDefault(row.id(), List.of()),
-                            row.length()));
+            edges.computeIfAbsent(row.world(), _ -> new LinkedHashMap<>())
+                    .put(
+                            row.id(),
+                            new RailEdge(
+                                    new RailPos(row.fromX(), row.fromY(), row.fromZ()),
+                                    new RailPos(row.toX(), row.toY(), row.toZ()),
+                                    rails.getOrDefault(row.id(), List.of()),
+                                    row.length()));
         }
         final Set<String> worlds = new TreeSet<>(stations.keySet());
         worlds.addAll(edges.keySet());
@@ -90,7 +93,7 @@ public final class RailStore {
                     new Stored(
                             stations.getOrDefault(world, List.of()),
                             junctions.getOrDefault(world, Set.of()),
-                            edges.getOrDefault(world, List.of())));
+                            edges.getOrDefault(world, Map.of())));
         }
         return stored;
     }
@@ -144,26 +147,24 @@ public final class RailStore {
         write(dao -> dao.deleteStation(station));
     }
 
-    /** Replaces what a walk changed in {@code world}, in one transaction. */
-    public void replaced(final String world, final WorldNetworks.Replacement replacement) {
+    /** Stores what a re-check changed in {@code world}, in one transaction. */
+    public void changed(final String world, final WorldNetworks.Change change) {
+        if (change.empty()) {
+            return;
+        }
         last = last.thenRunAsync(
                         () -> jdbi.useTransaction(handle -> {
                             final RailDao dao = handle.attach(RailDao.class);
-                            replacement.lost().forEach(station -> dao.deleteStation(station.id()));
-                            final List<RailPos> oldNodes = new ArrayList<>();
-                            final List<RailPos> oldJunctions = new ArrayList<>();
-                            for (final WorldNetworks.Network network : replacement.removed()) {
-                                oldNodes.addAll(network.graph().stations());
-                                oldNodes.addAll(network.graph().junctions());
-                                oldJunctions.addAll(network.graph().junctions());
+                            change.lost().forEach(station -> dao.deleteStation(station.id()));
+                            if (!change.removed().isEmpty()) {
+                                dao.deleteEdges(change.removed().stream()
+                                        .map(RailLeg::id)
+                                        .toList());
                             }
-                            batch(oldNodes, (x, y, z) -> dao.deleteEdgesFrom(world, x, y, z));
-                            batch(oldJunctions, (x, y, z) -> dao.deleteJunctions(world, x, y, z));
-                            for (final WorldNetworks.Network network : replacement.added()) {
-                                insert(dao, world, network.graph());
-                            }
-                            replacement
-                                    .renamed()
+                            batch(change.crossings(), (x, y, z) -> dao.deleteJunctions(world, x, y, z));
+                            batch(change.junctions(), (x, y, z) -> dao.insertJunctions(world, x, y, z));
+                            change.added().forEach(leg -> insert(dao, world, leg));
+                            change.renamed()
                                     .forEach(station -> dao.renameStation(
                                             station.id(),
                                             Objects.requireNonNull(station.name()),
@@ -174,26 +175,23 @@ public final class RailStore {
                 .exceptionally(this::logged);
     }
 
-    private static void insert(final RailDao dao, final String world, final RailGraph graph) {
-        batch(graph.junctions(), (x, y, z) -> dao.insertJunctions(world, x, y, z));
-        for (final RailEdge edge : graph.edges()) {
-            final UUID id = UUID.randomUUID();
-            dao.insertEdge(
-                    id,
-                    world,
-                    edge.from().x(),
-                    edge.from().y(),
-                    edge.from().z(),
-                    edge.to().x(),
-                    edge.to().y(),
-                    edge.to().z(),
-                    edge.length());
-            final List<Integer> ordinals = new ArrayList<>();
-            for (int ordinal = 0; ordinal < edge.rails().size(); ordinal++) {
-                ordinals.add(ordinal);
-            }
-            batch(edge.rails(), (x, y, z) -> dao.insertEdgeRails(id, ordinals, x, y, z));
+    private static void insert(final RailDao dao, final String world, final RailLeg leg) {
+        final RailEdge edge = Objects.requireNonNull(leg.edge());
+        dao.insertEdge(
+                leg.id(),
+                world,
+                edge.from().x(),
+                edge.from().y(),
+                edge.from().z(),
+                edge.to().x(),
+                edge.to().y(),
+                edge.to().z(),
+                edge.length());
+        final List<Integer> ordinals = new ArrayList<>();
+        for (int ordinal = 0; ordinal < edge.rails().size(); ordinal++) {
+            ordinals.add(ordinal);
         }
+        batch(edge.rails(), (x, y, z) -> dao.insertEdgeRails(leg.id(), ordinals, x, y, z));
     }
 
     private interface Columns {

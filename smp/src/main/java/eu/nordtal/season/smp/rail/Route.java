@@ -7,6 +7,7 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.Set;
@@ -79,16 +80,15 @@ public record Route(List<RailEdge> legs) {
         } else if (graph.stations().contains(from) || graph.junctions().contains(from)) {
             starts.addAll(graph.leaving(from));
         } else {
-            for (final RailEdge edge : graph.edges()) {
-                final int index = edge.rails().indexOf(from);
-                if (index >= 0) {
-                    final List<RailPos> rails = edge.rails();
-                    starts.add(new RailEdge(
-                            from, edge.to(), rails.subList(index + 1, rails.size()), edge.length() - index - 1));
-                    starts.add(new RailEdge(
-                            from, edge.from(), rails.subList(0, index).reversed(), index + 1));
-                    break;
-                }
+            final RailGraph.@Nullable Place place = graph.edgeAt(from);
+            if (place != null) {
+                final RailEdge edge = Objects.requireNonNull(place.leg().edge());
+                final int index = place.index();
+                final List<RailPos> rails = edge.rails();
+                starts.add(new RailEdge(
+                        from, edge.to(), rails.subList(index + 1, rails.size()), edge.length() - index - 1));
+                starts.add(
+                        new RailEdge(from, edge.from(), rails.subList(0, index).reversed(), index + 1));
             }
         }
         starts.removeIf(start -> ahead != null && !start.first().equals(ahead));

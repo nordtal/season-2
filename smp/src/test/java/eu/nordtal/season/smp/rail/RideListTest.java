@@ -17,11 +17,7 @@ class RideListTest {
     private static final Instant NAMED = Instant.parse("2026-11-01T12:00:00Z");
 
     private static RailGraph graph(final Track track, final RailPos... stations) {
-        final RailWalk walk = new RailWalk(track, List.of(stations), 10_000);
-        while (!walk.step(1_000)) {
-            // Every position is readable.
-        }
-        return RailGraph.of(walk.found().getFirst().rails(), List.of(stations));
+        return RailGraph.of(track.rails(), List.of(stations));
     }
 
     private static StationRow station(final int id, final RailPos pos, final @Nullable String name) {

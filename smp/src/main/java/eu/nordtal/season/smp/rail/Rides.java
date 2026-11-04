@@ -286,11 +286,11 @@ public final class Rides implements Listener {
             return true;
         }
         if (ride.end >= path.length() && lookout.clear() >= path.length()) {
-            arrive(ride, path);
+            arrive(ride, path.rails().getLast(), path.direction(path.length()));
             return false;
         }
         if (ride.standingPlanDue) {
-            strand(ride);
+            endStanding(ride, path);
             return false;
         }
         if (lookout.clear() < ride.end && !lookout.gap()) {
@@ -439,10 +439,21 @@ public final class Rides implements Listener {
         cart.setGravity(true);
     }
 
+    /** Ends a ride whose cart stopped to set off anew from where it stands, and could not. */
+    private void endStanding(final Ride ride, final RidePath path) {
+        final RailPos under = railUnder(ride.cart);
+        if (networks.station(ride.world.getName(), ride.destination)
+                .filter(station -> station.pos().equals(under))
+                .isPresent()) {
+            // A station chosen too near to brake for may still have the cart stop on it.
+            arrive(ride, under, path.direction(ride.along));
+        } else {
+            strand(ride);
+        }
+    }
+
     /** Sets the rider down on the station rail, facing the way they rode, and puts the cart away. */
-    private void arrive(final Ride ride, final RidePath path) {
-        final RailPos station = path.rails().getLast();
-        final double[] direction = path.direction(path.length());
+    private void arrive(final Ride ride, final RailPos station, final double[] direction) {
         final Location down = new Location(
                 ride.world,
                 station.x() + 0.5,

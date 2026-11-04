@@ -23,6 +23,9 @@ final class StationHolograms<H> {
         void retitle(H hologram, String name);
 
         void remove(H hologram);
+
+        /** Whether {@code hologram} is still in the world, and not removed by something else. */
+        boolean drawn(H hologram);
     }
 
     private record Shown<H>(StationRow station, String name, H hologram) {}
@@ -42,7 +45,7 @@ final class StationHolograms<H> {
             return;
         }
         final Shown<H> current = shown.get(station.id());
-        if (current != null && samePlace(current.station(), station)) {
+        if (current != null && samePlace(current.station(), station) && drawing.drawn(current.hologram())) {
             if (!current.name().equals(name)) {
                 drawing.retitle(current.hologram(), name);
             }

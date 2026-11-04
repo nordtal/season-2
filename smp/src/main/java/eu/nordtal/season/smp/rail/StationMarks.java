@@ -47,12 +47,15 @@ final class StationMarks {
 
     /** Returns where the station rails marked in {@code chunk} stand. */
     List<RailPos> positions(final Chunk chunk) {
-        final int baseX = chunk.getX() << 4;
-        final int baseZ = chunk.getZ() << 4;
         return Arrays.stream(marks(chunk.getPersistentDataContainer()))
-                .mapToObj(mark ->
-                        new RailPos(baseX + (int) (mark & 15), (int) (mark >> 8), baseZ + (int) ((mark >> 4) & 15)))
+                .mapToObj(mark -> unpacked(mark, chunk.getX(), chunk.getZ()))
                 .toList();
+    }
+
+    /** Returns the place a mark of the chunk at {@code chunkX}, {@code chunkZ} stands for. */
+    static RailPos unpacked(final long mark, final int chunkX, final int chunkZ) {
+        return new RailPos(
+                (chunkX << 4) + (int) (mark & 15), (int) (mark >> 8), (chunkZ << 4) + (int) ((mark >> 4) & 15));
     }
 
     private long[] marks(final PersistentDataContainer data) {
@@ -62,6 +65,10 @@ final class StationMarks {
 
     /** Packs the block's place within its chunk: x and z in the low byte, the height above. */
     private static long packed(final Block block) {
-        return (block.getX() & 15) | ((long) (block.getZ() & 15) << 4) | ((long) block.getY() << 8);
+        return packed(block.getX(), block.getY(), block.getZ());
+    }
+
+    static long packed(final int x, final int y, final int z) {
+        return (x & 15) | ((long) (z & 15) << 4) | ((long) y << 8);
     }
 }

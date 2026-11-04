@@ -235,7 +235,9 @@ public final class RailNetworks {
             final StationRow named = current.get().renamed(typed.strip(), clock.instant());
             networks.addStation(named);
             unseen.remove(named.id());
-            holograms.show(named);
+            if (chunkLoaded(named)) {
+                holograms.show(named);
+            }
             store.named(named);
         }
         return Optional.of(verdict);
@@ -310,11 +312,12 @@ public final class RailNetworks {
 
     /** Brings the holograms of {@code world} level with its stations, after they were restored or walked again. */
     private void reconcileHolograms(final String world) {
-        final @Nullable World loaded = Bukkit.getWorld(world);
-        holograms.reconcile(
-                world,
-                networks(world).stations(),
-                station -> loaded != null && loaded.isChunkLoaded(station.x() >> 4, station.z() >> 4));
+        holograms.reconcile(world, networks(world).stations(), RailNetworks::chunkLoaded);
+    }
+
+    private static boolean chunkLoaded(final StationRow station) {
+        final @Nullable World world = Bukkit.getWorld(station.world());
+        return world != null && world.isChunkLoaded(station.x() >> 4, station.z() >> 4);
     }
 
     private static void straighten(final Block block, final RailShape axis) {

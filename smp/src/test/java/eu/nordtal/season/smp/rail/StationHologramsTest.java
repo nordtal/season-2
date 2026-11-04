@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -20,6 +21,7 @@ class StationHologramsTest {
     private static final class Recording implements StationHolograms.Drawing<Integer> {
 
         final List<String> calls = new ArrayList<>();
+        final Set<Integer> killed = new HashSet<>();
         private int drawn;
 
         @Override
@@ -37,6 +39,11 @@ class StationHologramsTest {
         @Override
         public void remove(final Integer hologram) {
             calls.add("remove " + hologram);
+        }
+
+        @Override
+        public boolean drawn(final Integer hologram) {
+            return !killed.contains(hologram);
         }
     }
 
@@ -96,6 +103,17 @@ class StationHologramsTest {
 
         assertEquals(List.of("draw 1 Spawn", "remove 1"), drawing.calls);
         assertTrue(holograms.shown().isEmpty());
+    }
+
+    @Test
+    void aHologramRemovedByAnythingElseIsDrawnAgain() {
+        final StationRow spawn = station("world", 0, 0, "Spawn");
+        holograms.show(spawn);
+        drawing.killed.add(1);
+
+        holograms.show(spawn.renamed("Harbour", NAMED));
+
+        assertEquals(List.of("draw 1 Spawn", "remove 1", "draw 2 Harbour"), drawing.calls);
     }
 
     @Test

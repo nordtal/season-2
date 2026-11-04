@@ -25,6 +25,7 @@ final class StationHologramDrawing implements StationHolograms.Drawing<Optional<
             return Optional.empty();
         }
         final Location at = new Location(world, station.x() + 0.5, station.y() + HEIGHT, station.z() + 0.5);
+        // Unlike a grave's countdown, a name is not seen through blocks: towns and tunnels hold many stations.
         return Optional.of(world.spawn(at, TextDisplay.class, display -> {
             display.setPersistent(false);
             display.setBillboard(Display.Billboard.CENTER);
@@ -39,6 +40,11 @@ final class StationHologramDrawing implements StationHolograms.Drawing<Optional<
     @Override
     public void retitle(final Optional<TextDisplay> hologram, final String name) {
         hologram.ifPresent(display -> display.text(Component.text(name)));
+    }
+
+    @Override
+    public boolean drawn(final Optional<TextDisplay> hologram) {
+        return hologram.map(TextDisplay::isValid).orElse(false);
     }
 
     @Override

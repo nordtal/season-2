@@ -32,6 +32,11 @@ final class RidePath {
         double stopping(final double speed) {
             return speed * speed / (2 * acceleration);
         }
+
+        /** Returns whether a cart at {@code speed} can still brake to a stop within {@code distance}. */
+        boolean brakes(final double speed, final double distance) {
+            return speed <= 0 || distance >= stopping(speed) - acceleration / 2;
+        }
     }
 
     static final int TICKS_PER_SECOND = 20;
@@ -145,7 +150,7 @@ final class RidePath {
             return Math.min(left, speed + motion.acceleration());
         }
         double allowed = Math.min(motion.top(), reaching(0, left, motion.acceleration()));
-        final double ahead = motion.stopping(motion.top()) + 1;
+        final double ahead = motion.stopping(motion.top()) + motion.top() + 1;
         for (int rail = railAt(distance); rail < limits.length && along[rail] - distance <= ahead; rail++) {
             final double before = along[rail] - distance;
             allowed = Math.min(

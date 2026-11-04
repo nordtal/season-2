@@ -102,6 +102,33 @@ class RidePathTest {
         assertGentle(speeds);
     }
 
+    @Test
+    void aCartBrakesForADistanceOnlyWhereItsBrakingCurveFitsIn() {
+        final double speed = TOP;
+        final double least = speed * speed / (2 * MOTION.acceleration()) - MOTION.acceleration() / 2;
+        assertTrue(MOTION.brakes(speed, least), "just enough room");
+        assertTrue(!MOTION.brakes(speed, least - 0.01), "too little room");
+        assertTrue(MOTION.brakes(0, 0), "a standing cart needs none");
+
+        final List<RailPos> rails = straight(300);
+        final RidePath path = RidePath.of(rails, centre(rails.getFirst()), MOTION);
+        for (double room = least; room < least + 2; room += 0.01) {
+            final double end = 100 + room;
+            double along = 100;
+            double before = speed;
+            while (along < end) {
+                final double next = Math.min(path.next(along, before, end, MOTION), end - along);
+                assertTrue(before - next <= MOTION.acceleration() + 1e-9, "a hard brake with " + room + " room");
+                along += next;
+                before = next;
+                if (next == 0) {
+                    break;
+                }
+            }
+            assertEquals(end, along, 1e-9, "stopped at its end with " + room + " room");
+        }
+    }
+
     /** Asserts that the speed never changes by more than one tick's acceleration, from standing to standing. */
     private static void assertGentle(final List<Double> speeds) {
         double before = 0;

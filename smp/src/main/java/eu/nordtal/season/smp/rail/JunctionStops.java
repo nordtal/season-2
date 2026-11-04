@@ -86,8 +86,7 @@ final class JunctionStops {
             final int index = junction.getKey();
             final double left = path.start(index) - BEFORE - along;
             // A moving cart rides over a junction it can no longer brake for, rather than brake harder.
-            final boolean passing =
-                    index < on || (speed > 0 && left < motion.stopping(speed) - motion.acceleration() / 2);
+            final boolean passing = index < on || !motion.brakes(speed, left);
             if (!passing
                     && path.start(index) <= reach
                     && junctions.wrong(path.rails().get(index), junction.getValue())) {

@@ -214,8 +214,13 @@ public final class Rides implements Listener {
             return false;
         }
         final Location location = ride.cart.getLocation();
-        ride.path = RidePath.of(
+        final RidePath path = RidePath.of(
                 route.get().rails(), new RidePath.Point(location.getX(), location.getY(), location.getZ()), motion());
+        if (!standing && !motion().brakes(ride.speed, path.length())) {
+            // A station too near to brake for is ridden to after the cart stopped and set off from there.
+            return false;
+        }
+        ride.path = path;
         ride.switches = route.get().switches(graph.get().junctions());
         unclaim(ride);
         ride.stops = new JunctionStops();

@@ -21,19 +21,21 @@ final class RideList {
 
     /**
      * Lists the named stations a cart at {@code at} reaches: favourites first, then the rest, each by distance.
-     * The station the cart stands on and the stations it cannot reach are left out.
+     * The stations within {@code near} blocks along the rails, which the rider is already at, and the stations it
+     * cannot reach are left out.
      */
     static List<Stop> of(
             final RailGraph graph,
             final RailPos at,
             final Collection<StationRow> stations,
-            final Set<UUID> favourites) {
+            final Set<UUID> favourites,
+            final int near) {
         final Map<RailPos, Integer> distances = distances(graph, at).orElse(Map.of());
         final List<Stop> stops = new ArrayList<>();
         for (final StationRow station : stations) {
             final @Nullable String name = station.name();
             final @Nullable Integer distance = distances.get(station.pos());
-            if (name != null && distance != null && !station.pos().equals(at)) {
+            if (name != null && distance != null && distance > near) {
                 stops.add(new Stop(station.id(), name, distance, favourites.contains(station.id())));
             }
         }

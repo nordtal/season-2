@@ -306,9 +306,15 @@ object PackModel {
         drafts: Marks,
     ): List<Map<String, Any?>> {
         val shown =
-            allocation.fonts.flatMap { font -> font.blocks.flatMap { block -> listOfNotNull(block.texture) + block.glyphs.map { it.texture } } }.toSet() +
+            allocation.fonts
+                .flatMap { font ->
+                    font.blocks.flatMap { block -> listOfNotNull(block.texture) + block.glyphs.map { it.texture } }
+                }.toSet() +
                 namespaces(assets).flatMap { namespace ->
-                    files(namespace.resolve("items"), "json").mapNotNull { itemTexture((json(it) as? Map<*, *>)?.get("model") as? Map<*, *>, assets) }
+                    files(
+                        namespace.resolve("items"),
+                        "json",
+                    ).mapNotNull { itemTexture((json(it) as? Map<*, *>)?.get("model") as? Map<*, *>, assets) }
                 }
         return namespaces(assets).filter { it.name != "minecraft" }.flatMap { namespace ->
             val textures = namespace.resolve("textures")

@@ -147,7 +147,12 @@ abstract class EditPackSources : VanillaClientTask() {
                     }
 
                     "texture" -> {
-                        NewTextures.texture(pack, text("texture"), number("width") ?: text("width").toInt(), number("height") ?: text("height").toInt())
+                        NewTextures.texture(
+                            pack,
+                            text("texture"),
+                            number("width") ?: text("width").toInt(),
+                            number("height") ?: text("height").toInt(),
+                        )
                     }
 
                     "rename" -> {

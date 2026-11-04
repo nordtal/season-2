@@ -17,6 +17,8 @@ import java.util.function.Supplier;
 import org.bukkit.Chunk;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Sound;
+import org.bukkit.SoundCategory;
 import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -54,6 +56,9 @@ public final class Rides implements Listener {
 
     /** How far beyond its stopping distance a cart reads the rails ahead and holds their chunks, in blocks. */
     private static final double LOOKOUT = 48;
+
+    /** The pitch of the grindstone a switched junction sounds with, slower and lower than at a grindstone. */
+    private static final float SWITCH_PITCH = 0.65f;
 
     /** The vanilla top speed of a minecart, in blocks a tick, which a cart gets back when its ride ends. */
     private static final double VANILLA_MAX_SPEED = 0.4;
@@ -116,8 +121,7 @@ public final class Rides implements Listener {
 
     private RidePath.Motion motion() {
         final RailsSpec now = settings.get();
-        return RidePath.Motion.of(
-                now.acceleration(), now.topSpeed(), now.curveSpeed(), now.junctionSpeed(), now.brakingDistance());
+        return RidePath.Motion.of(now.acceleration(), now.topSpeed(), now.curveSpeed());
     }
 
     /** Runs {@code told} for a rider whose cart stopped for good before reaching the station. */
@@ -211,10 +215,7 @@ public final class Rides implements Listener {
         }
         final Location location = ride.cart.getLocation();
         ride.path = RidePath.of(
-                route.get().rails(),
-                new RidePath.Point(location.getX(), location.getY(), location.getZ()),
-                graph.get().junctions(),
-                motion());
+                route.get().rails(), new RidePath.Point(location.getX(), location.getY(), location.getZ()), motion());
         ride.switches = route.get().switches(graph.get().junctions());
         unclaim(ride);
         ride.stops = new JunctionStops();
@@ -388,6 +389,12 @@ public final class Rides implements Listener {
                 if (block.getBlockData() instanceof Rail shape) {
                     shape.setShape(Rail.Shape.valueOf(wanted.name()));
                     block.setBlockData(shape, false);
+                    world.playSound(
+                            block.getLocation().toCenterLocation(),
+                            Sound.BLOCK_GRINDSTONE_USE,
+                            SoundCategory.BLOCKS,
+                            1f,
+                            SWITCH_PITCH);
                 }
             }
         };

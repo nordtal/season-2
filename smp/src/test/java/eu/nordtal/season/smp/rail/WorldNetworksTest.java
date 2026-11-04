@@ -414,4 +414,30 @@ class WorldNetworksTest {
 
         assertEquals(held, networks.indexed());
     }
+
+    @Test
+    void aRailWhosePlaceWaitsToBeMovedStaysOnItsLegWhileTheNextReCheckRuns() {
+        track.eastWest(0, 100, 64, 0);
+        placed(1, at(0, 64, 0));
+        placed(2, at(100, 64, 0));
+        track.remove(50, 64, 0);
+        changed(at(50, 64, 0));
+        track.rail(50, 64, 0, RailShape.EAST_WEST);
+        changed(at(50, 64, 0));
+
+        track.remove(80, 64, 0);
+        final @Nullable RailRecheck job = networks.recheck(List.of(at(80, 64, 0)), track, CLOCK);
+        assertNotNull(job);
+        for (int steps = 0; !job.step(1, Long.MAX_VALUE); steps++) {
+            assertTrue(steps < 100_000, "the re-check did not end");
+            assertTrue(networks.networkOf(at(20, 64, 0)).isPresent(), "a rail of the held line, at step " + steps);
+        }
+        job.change();
+        for (int tick = 0; tick < 300; tick++) {
+            networks.tidy(1);
+        }
+
+        assertTrue(networks.networkOf(at(20, 64, 0)).isPresent());
+        sameAsAFreshTrace();
+    }
 }

@@ -311,9 +311,12 @@ final class RailRecheck implements RailTrace.Known {
                 }
                 final RailPos rail = rails.get(indexRail);
                 final RailGraph.Place at = new RailGraph.Place(leg, indexRail);
-                if (world.place(rail) == null) {
+                final RailGraph.@Nullable Place held = world.place(rail);
+                if (held == null) {
                     world.places.put(rail, at);
                 } else {
+                    // A held place still waiting to be moved goes first, so the new one cannot overwrite it.
+                    world.places.put(rail, held);
                     world.later.put(rail, at);
                     deferred.add(leg);
                 }

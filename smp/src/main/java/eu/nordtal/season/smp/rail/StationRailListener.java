@@ -10,6 +10,7 @@ import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.Rail;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -26,6 +27,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Places, protects and removes station rails, and tells the networks when a rail may have changed or a chunk loaded.
@@ -71,13 +73,19 @@ public final class StationRailListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        networks.place(block, event.getPlayer().getUniqueId(), axisFacing(event.getPlayer()));
+        networks.place(
+                block,
+                event.getPlayer().getUniqueId(),
+                StationAxis.of(
+                        new RailPos(block.getX(), block.getY(), block.getZ()),
+                        pos -> shapeAt(block, pos),
+                        Heading.valueOf(event.getPlayer().getFacing().name())));
     }
 
-    /** A station rail runs along the direction its placer faces. */
-    private static RailShape axisFacing(final Player player) {
-        final BlockFace facing = player.getFacing();
-        return facing == BlockFace.EAST || facing == BlockFace.WEST ? RailShape.EAST_WEST : RailShape.NORTH_SOUTH;
+    private static @Nullable RailShape shapeAt(final Block block, final RailPos pos) {
+        return block.getWorld().getBlockAt(pos.x(), pos.y(), pos.z()).getBlockData() instanceof Rail rail
+                ? RailShape.valueOf(rail.getShape().name())
+                : null;
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)

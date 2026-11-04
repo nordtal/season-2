@@ -20,7 +20,7 @@ class SettingsRefusalNamesItsGroupUpgradeIntegrationTest {
     @Test
     void aRefusalInWordsNamesTheGroupOfItsRequestWithTheRuleValid() {
         final TestDatabase upgraded = TestDatabase.empty();
-        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "109");
+        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "110");
         final Inbox<SmpRequest> smp = Inbox.over(upgraded.dataSource(), SmpRequest.TABLE);
         final long inWords = smp.submit(
                         new SmpRequest.CheckSettings(new SettingsChange("border", Map.of(), List.of())),
@@ -37,7 +37,7 @@ class SettingsRefusalNamesItsGroupUpgradeIntegrationTest {
                         + " WHERE request = ?",
                 inWords));
 
-        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "110");
+        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "111");
 
         assertEquals(
                 DatabaseMessages.MESSAGES.server().settingsRefused("smp", "border", SettingRule.VALID, null),

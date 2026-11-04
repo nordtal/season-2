@@ -44,6 +44,12 @@ class UpdateFeedTest {
         /** Whether Discord acknowledges a post. False tests the state with no message id yet. */
         boolean acknowledge = true;
 
+        /** Acknowledgements held back while {@link #late} is set; running one stands in for Discord's answer. */
+        final List<Runnable> unanswered = new ArrayList<>();
+
+        /** Whether Discord answers a post only after the pass that sent it. */
+        boolean late;
+
         /** Runs inside the next post and stands in for a signal that arrives during a pass. */
         Runnable duringPost = () -> {};
 
@@ -54,7 +60,9 @@ class UpdateFeedTest {
             during.run();
             final String id = "msg-" + (posted.size() + 1);
             posted.add(new Post(card, id));
-            if (acknowledge) {
+            if (late) {
+                unanswered.add(() -> sentId.accept(id));
+            } else if (acknowledge) {
                 sentId.accept(id);
             }
         }
@@ -374,6 +382,40 @@ class UpdateFeedTest {
         assertEquals("msg-2", feed.failedCard(2L), "failed before the feed saw it");
         assertNull(feed.failedCard(1L), "handed over once");
         assertNull(feed.failedCard(3L), "a run that went well keeps its card");
+    }
+
+    @Test
+    void aRunThatEndsBeforeDiscordAnswersItsPostIsStillRedrawnAndHandedToTheAlert() {
+        final List<Runnable> queued = new ArrayList<>();
+        final java.util.concurrent.Executor busy = queued::add;
+        board.late = true;
+        rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
+        feed.submit(busy);
+        queued.removeFirst().run();
+
+        // The run fails, and its signal's pass runs before the card's message id is known.
+        rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
+        feed.submit(busy);
+        queued.removeFirst().run();
+        board.unanswered.removeFirst().run();
+        while (!queued.isEmpty()) {
+            queued.removeFirst().run();
+        }
+
+        assertEquals(1, board.edited.size(), "no signal follows the answer, so the card kept its first stage");
+        assertEquals("msg-1", feed.failedCard(1L), "the alert found no card to take the place of");
+    }
+
+    @Test
+    void anAlertThatComesBeforeTheFeedHasSeenTheRunEndTakesItsCard() {
+        rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
+        feed.tick();
+        rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
+
+        assertEquals("msg-1", feed.failedCard(1L), "the card of a run still followed was not handed over");
+        feed.tick();
+        assertEquals(List.of(), board.edited, "the card the alert took was drawn again");
+        assertNull(feed.failedCard(1L), "handed over once");
     }
 
     @Test

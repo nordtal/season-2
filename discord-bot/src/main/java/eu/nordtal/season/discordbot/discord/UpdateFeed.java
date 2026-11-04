@@ -139,6 +139,9 @@ public final class UpdateFeed {
 
     private final String stewardUrl;
 
+    /** The pool of the last {@link #submit}, which a late message id asks for one more pass. */
+    private volatile @Nullable Executor worker;
+
     /** @param stewardUrl Steward's address, which the link on each card starts with. An empty value shows no link. */
     public UpdateFeed(
             final UpdateDirectory updates,
@@ -151,8 +154,16 @@ public final class UpdateFeed {
         this.documents = Objects.requireNonNull(documents, "documents");
     }
 
-    /** Returns the card of a failed run once, for the alert that takes its place, or {@code null}. */
+    /**
+     * Returns the card of a failed run once, for the alert that takes its place, or {@code null}.
+     *
+     * The alert can come before the pass that sees the run end, so a card still followed is handed over too.
+     */
     public @Nullable String failedCard(final long run) {
+        final Drawn followed = drawing.remove(run);
+        if (followed != null) {
+            return followed.messageId();
+        }
         return failed.remove(run);
     }
 
@@ -198,6 +209,7 @@ public final class UpdateFeed {
      */
     public void submit(final Executor worker) {
         Objects.requireNonNull(worker, "worker");
+        this.worker = worker;
         again.set(true);
         if (!ticking.compareAndSet(false, true)) {
             return;
@@ -256,6 +268,11 @@ public final class UpdateFeed {
                 return;
             }
             drawing.put(request.id(), new Drawn(messageId, shownOf(request)));
+            // The run may have moved on before Discord answered, and no signal of that is left to draw it.
+            final Executor pool = worker;
+            if (pool != null) {
+                submit(pool);
+            }
         });
     }
 
@@ -318,13 +335,12 @@ public final class UpdateFeed {
             final UpdateRequest request = row.get();
             final Drawn drawn = entry.getValue();
             final RunRecord showing = shownOf(request);
-            // Discord rate-limits edits.
-            if (!java.util.Objects.equals(drawn.showing(), showing)) {
+            // Discord rate-limits edits. A card an alert took in the meantime is not drawn again.
+            if (!java.util.Objects.equals(drawn.showing(), showing)
+                    && drawing.replace(id, drawn, new Drawn(drawn.messageId(), showing))) {
                 board.edit(drawn.messageId(), card(request));
-                drawing.put(id, new Drawn(drawn.messageId(), showing));
             }
-            if (request.status().isFinished()) {
-                drawing.remove(id);
+            if (request.status().isFinished() && drawing.remove(id) != null) {
                 ended(request, drawn.messageId());
             }
         }

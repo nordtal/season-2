@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -331,6 +332,11 @@ public final class RailNetworks {
     /** Names the spawn station's hologram with what {@code name} returns at the time it is shown. */
     void whenSpawnNamed(final Supplier<String> name) {
         holograms.spawnNamed(name);
+    }
+
+    /** Returns the name {@code station} goes by in a message, empty for an unnamed one. */
+    String nameOf(final StationRow station) {
+        return Objects.requireNonNullElse(holograms.nameOf(station), "");
     }
 
     /** Whether {@code station} is hidden from the map. It still shows in the ride menu. */

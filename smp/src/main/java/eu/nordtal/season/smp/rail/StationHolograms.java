@@ -41,6 +41,12 @@ final class StationHolograms<H> {
         this.drawing = drawing;
     }
 
+    /** Returns the name {@code station} shows: the spawn station's from the translations, or its own, or none. */
+    @Nullable
+    String nameOf(final StationRow station) {
+        return station.spawn() ? spawnName.get() : station.name();
+    }
+
     /** Names the spawn station's hologram with what {@code name} returns at the time it is shown. */
     void spawnNamed(final Supplier<String> name) {
         this.spawnName = name;
@@ -48,7 +54,7 @@ final class StationHolograms<H> {
 
     /** Shows {@code station} as it is now, in a loaded chunk: its name when it has one, and nothing otherwise. */
     void show(final StationRow station) {
-        final @Nullable String name = station.spawn() ? spawnName.get() : station.name();
+        final @Nullable String name = nameOf(station);
         if (name == null) {
             hide(station.id());
             return;

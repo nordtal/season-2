@@ -56,6 +56,14 @@ class StationHologramsTest {
     }
 
     @Test
+    void theSpawnStationGoesByItsTranslatedNameAndAStationByItsOwn() {
+        holograms.spawnNamed(() -> "Spawn station");
+        final StationRow spawn = new StationRow(UUID.randomUUID(), "world", 0, 64, 0, "NORTH_SOUTH", null, null, null);
+        assertEquals("Spawn station", holograms.nameOf(spawn));
+        assertEquals("Mine", holograms.nameOf(station("world", 5, 0, "Mine")));
+    }
+
+    @Test
     void aNamedStationShowsItsName() {
         final StationRow spawn = station("world", 0, 0, "Spawn");
 

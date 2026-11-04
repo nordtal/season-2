@@ -207,6 +207,15 @@ public final class RailNetworks {
         changed(block);
     }
 
+    /** Removes {@code station}, whose world is not loaded, without touching its block. */
+    void removeUnloaded(final StationRow station) {
+        networks(station.world()).removeStation(station.pos()).ifPresent(row -> {
+            forget(row.id());
+            holograms.hide(row.id());
+            store.removed(row.id());
+        });
+    }
+
     /** Drops what the plugin holds of a removed station; the store deletes its favourites with its row. */
     private void forget(final UUID station) {
         favourites.values().forEach(stations -> stations.remove(station));
@@ -337,20 +346,6 @@ public final class RailNetworks {
         }
         store.hidden(station, hide);
         return hide;
-    }
-
-    /** Returns the graphs of the networks of {@code world} that the map draws. */
-    List<RailGraph> mapped(final String world) {
-        final WorldNetworks networks = networks(world);
-        return networks.networks().stream()
-                .filter(network -> NetworkMap.drawn(
-                        network.graph().stations().stream()
-                                .map(networks::station)
-                                .flatMap(Optional::stream)
-                                .toList(),
-                        hidden))
-                .map(WorldNetworks.Network::graph)
-                .toList();
     }
 
     /** Notes that the placer of {@code station} was told of its new name. */

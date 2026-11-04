@@ -4,6 +4,7 @@ import eu.nordtal.season.smp.config.StationBlockSpec;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.bukkit.Bukkit;
@@ -50,7 +51,7 @@ public final class SpawnStation {
 
     /**
      * Returns the next step: a spawn station away from the target goes first.
-     * Then the target gets one when it has none or when {@code broken} says the one there lost its rail.
+     * Then the target gets one when it has none or when {@code broken} says the one there lost its rail or turned.
      */
     static Optional<Step> next(
             final Optional<Target> want, final Collection<StationRow> spawns, final Predicate<Target> broken) {
@@ -74,7 +75,19 @@ public final class SpawnStation {
         next(target.get(), networks.spawns(), this::broken).ifPresentOrElse(this::take, this::letGo);
     }
 
-    /** Whether the rail of the spawn station at {@code at} is gone; a chunk that is not loaded is not looked at. */
+    /**
+     * Returns the axis the spawn station at {@code here}, now along {@code axis}, takes from the track around it.
+     * It turns only when more track joins it along the other axis, so it does not flip back and forth.
+     */
+    static RailShape axis(
+            final RailPos here, final Function<RailPos, @Nullable RailShape> shapes, final RailShape axis) {
+        return StationAxis.of(here, shapes, axis == RailShape.EAST_WEST ? Heading.EAST : Heading.NORTH);
+    }
+
+    /**
+     * Whether the spawn station at {@code at} lost its rail or has to turn to the track joined to it.
+     * A chunk that is not loaded is not looked at.
+     */
     private boolean broken(final Target at) {
         final @Nullable World world = Bukkit.getWorld(at.world());
         if (world == null || !world.isChunkLoaded(at.pos().x() >> 4, at.pos().z() >> 4)) {
@@ -82,7 +95,12 @@ public final class SpawnStation {
         }
         final Block block =
                 world.getBlockAt(at.pos().x(), at.pos().y(), at.pos().z());
-        return block.getType() != Material.RAIL || !networks.isStation(block);
+        if (block.getType() != Material.RAIL || !networks.isStation(block)) {
+            return true;
+        }
+        final Optional<RailShape> now = networks.station(block).map(spawn -> RailShape.valueOf(spawn.axis()));
+        return now.isPresent()
+                && axis(at.pos(), next -> StationRailListener.shapeAt(block, next), now.get()) != now.get();
     }
 
     private void take(final Step step) {
@@ -96,6 +114,9 @@ public final class SpawnStation {
         };
         final @Nullable World world = Bukkit.getWorld(name);
         if (world == null) {
+            if (step instanceof Step.Remove remove) {
+                networks.removeUnloaded(remove.station());
+            }
             letGo();
             return;
         }
@@ -115,11 +136,16 @@ public final class SpawnStation {
                 }
             }
             case Step.Place _ -> {
+                if (!Material.RAIL.createBlockData().isSupported(block)) {
+                    break;
+                }
                 if (block.getType() != Material.RAIL) {
                     block.setType(Material.RAIL, false);
                 }
-                networks.place(
-                        block, null, StationAxis.of(pos, at -> StationRailListener.shapeAt(block, at), Heading.NORTH));
+                final RailShape axis = networks.station(block)
+                        .map(spawn -> RailShape.valueOf(spawn.axis()))
+                        .orElse(RailShape.NORTH_SOUTH);
+                networks.place(block, null, axis(pos, at -> StationRailListener.shapeAt(block, at), axis));
             }
         }
         letGo();

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.season.smp.config.StationBlockSpec;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -64,6 +65,26 @@ class SpawnStationTest {
                 Optional.of(new SpawnStation.Step.Remove(old)),
                 SpawnStation.next(Optional.empty(), List.of(old), _ -> true));
         assertEquals(Optional.empty(), SpawnStation.next(Optional.empty(), List.of(), _ -> true));
+    }
+
+    @Test
+    void aSpawnStationTurnsToATrackLaidAlongTheOtherAxisAfterItWasPlaced() {
+        final RailPos here = at(0, 64, 0);
+        assertEquals(
+                RailShape.NORTH_SOUTH,
+                SpawnStation.axis(here, Map.<RailPos, RailShape>of()::get, RailShape.NORTH_SOUTH));
+        assertEquals(
+                RailShape.EAST_WEST,
+                SpawnStation.axis(here, Map.of(at(1, 64, 0), RailShape.EAST_WEST)::get, RailShape.NORTH_SOUTH));
+    }
+
+    @Test
+    void aSpawnStationJoinedAlongBothAxesKeepsItsAxis() {
+        final RailPos here = at(0, 64, 0);
+        final Map<RailPos, RailShape> cross =
+                Map.of(at(1, 64, 0), RailShape.EAST_WEST, at(0, 64, 1), RailShape.NORTH_SOUTH);
+        assertEquals(RailShape.EAST_WEST, SpawnStation.axis(here, cross::get, RailShape.EAST_WEST));
+        assertEquals(RailShape.NORTH_SOUTH, SpawnStation.axis(here, cross::get, RailShape.NORTH_SOUTH));
     }
 
     @Test

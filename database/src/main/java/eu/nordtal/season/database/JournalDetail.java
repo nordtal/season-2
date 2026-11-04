@@ -164,7 +164,9 @@ public sealed interface JournalDetail {
 
         @Override
         public MessageRef line() {
-            return reason == null ? TEXTS.journal().resetTrack() : TEXTS.journal().resetTrackBecause(reason);
+            return reason == null
+                    ? TEXTS.journal().resetTrack()
+                    : TEXTS.journal().resetTrackBecause(reason);
         }
 
         @Override

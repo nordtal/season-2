@@ -130,10 +130,13 @@ class RosterApiTest extends WebTestSupport {
     @Test
     void aTrackResetIsAStampForTheSmpWithItsReasonInTheJournal() throws Exception {
         try {
-            final HttpResponse<String> reset = post("/api/smp/track/reset", "{\"reason\": \"the test weekend is over\"}");
+            final HttpResponse<String> reset =
+                    post("/api/smp/track/reset", "{\"reason\": \"the test weekend is over\"}");
             assertEquals(200, reset.statusCode(), reset.body());
             assertTrue(
-                    GSON.fromJson(reset.body(), JsonObject.class).get("resetPending").getAsBoolean(),
+                    GSON.fromJson(reset.body(), JsonObject.class)
+                            .get("resetPending")
+                            .getAsBoolean(),
                     "no SMP has applied the reset yet: " + reset.body());
             assertEquals(
                     "RESET_TRACK PERSON 1 the test weekend is over",

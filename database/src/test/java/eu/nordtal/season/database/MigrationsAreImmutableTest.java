@@ -318,6 +318,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V111__a_settings_refusal_always_names_its_setting_and_rule.sql",
                 "7af4f4696617f3df35fcb8ace360182ac4726f2484b9f348b94abd1f7b0954dd");
+        FROZEN.put(
+                "V112__steward_resets_the_smp_milestone_track.sql",
+                "6b05075430fc59f0a5ff3a7bd7955aba84ad0341007aa8d673c80a3e22190f54");
     }
 
     @Test

@@ -125,7 +125,7 @@ const TRACK: SmpTrack = {
 
 type Row = { status: string; result?: string }
 
-function backend({ row = { status: "DONE" } }: { row?: Row } = {}) {
+function backend({ row = { status: "DONE" }, tracks = [TRACK] }: { row?: Row; tracks?: SmpTrack[] } = {}) {
   const sent: { url: string; body: unknown }[] = []
   vi.stubGlobal(
     "fetch",
@@ -138,7 +138,7 @@ function backend({ row = { status: "DONE" } }: { row?: Row } = {}) {
         sent.push({ url, body: JSON.parse(init.body ?? "") })
         return json(202, { id: `smp:${sent.length}`, status: "PENDING" })
       }
-      if (url === "/api/smp/track") return json(200, TRACK)
+      if (url === "/api/smp/track") return json(200, tracks.length > 1 ? tracks.shift() : tracks[0])
       if (url === "/api/setting-groups/smp/milestones") return json(200, FILE)
       if (url === "/api/game-data") return json(200, GAME)
       if (url.startsWith("/api/commands/"))
@@ -265,13 +265,17 @@ describe("SmpActions", () => {
     await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/milestone", body: { key: "foothold" } }]))
   })
 
-  it("resets the track after naming what is lost, with the reason, and says that it waits for the SMP", async () => {
+  it("resets the track after naming what is lost, with the reason, and says that the SMP applies it", async () => {
     const sent = backend()
     draw(<SmpActions />)
 
     fireEvent.click(await screen.findByRole("button", { name: "Reset track" }))
     const dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).getByText(/Every contribution, the progress of every objective and every unlocked milestone are lost\. Aura stays\./)).toBeTruthy()
+    expect(
+      within(dialog).getByText(
+        /Every contribution, the progress of every objective and every unlocked milestone are lost, while aura stays\.$/,
+      ),
+    ).toBeTruthy()
     expect(sent).toHaveLength(0)
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Reason" }), {
       target: { value: "the test weekend is over" },
@@ -282,7 +286,15 @@ describe("SmpActions", () => {
       expect(sent).toEqual([{ url: "/api/smp/track/reset", body: { reason: "the test weekend is over" } }]),
     )
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    expect(await screen.findByText(/The reset waits for the SMP/)).toBeTruthy()
+    expect(await screen.findByText(/The SMP starts the track over as soon as it runs/)).toBeTruthy()
+  })
+
+  it("reads a pending reset again soon, as the SMP's own signal does not reach the live stream", async () => {
+    backend({ tracks: [{ ...TRACK, resetPending: true }, TRACK] })
+    draw(<SmpActions />)
+
+    expect(await screen.findByText(/as soon as it runs/)).toBeTruthy()
+    await waitFor(() => expect(screen.queryByText(/as soon as it runs/)).toBeNull(), { timeout: 4000 })
   })
 
   it("forgets a cancelled reason", async () => {
@@ -297,7 +309,7 @@ describe("SmpActions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Reset track" }))
     dialog = await screen.findByRole("alertdialog")
-    expect((within(dialog).getByRole("textbox", { name: "Reason" }) as HTMLInputElement).value).toBe("")
+    expect(within(dialog).getByRole("textbox", { name: "Reason" })).toHaveProperty("value", "")
     fireEvent.click(within(dialog).getByRole("button", { name: "Reset track" }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/track/reset", body: { reason: "" } }]))
   })

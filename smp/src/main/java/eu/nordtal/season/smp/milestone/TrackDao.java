@@ -100,8 +100,7 @@ public interface TrackDao {
             @Bind("target") long target);
 
     /**
-     * Resets the track when Steward has stamped {@code smp_reset_request} and {@code smp_reset.applied} is unset or
-     * older.
+     * Resets the track once for each stamp of {@code smp_reset_request} that {@code smp_reset.applied} does not hold.
      * It sets every milestone to {@code LOCKED}, every objective to zero and deletes {@code smp_contribution}.
      *
      * @return 1 when it reset the track, 0 otherwise

@@ -13,8 +13,9 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
- * An admin's reset of the SMP's milestone track. Steward stamps {@code smp_reset_request}, and smp applies each stamp
- * once, whenever it next looks: on the signal, on connecting and after every quiet minute.
+ * An admin's reset of the SMP's milestone track.
+ * Steward stamps {@code smp_reset_request}, and smp applies each stamp once, whenever it next looks: on the signal, on
+ * connecting and after every quiet minute.
  */
 public final class TrackResets {
 
@@ -30,7 +31,8 @@ public final class TrackResets {
         jdbi.useTransaction(handle -> {
             handle.createUpdate("""
                             INSERT INTO smp_reset_request (id, requested) VALUES (true, now())
-                            ON CONFLICT (id) DO UPDATE SET requested = EXCLUDED.requested""").execute();
+                            ON CONFLICT (id) DO UPDATE
+                            SET requested = GREATEST(smp_reset_request.requested, EXCLUDED.requested)""").execute();
             // smp of the release before reads the phase's stamp. It goes with season_phase.
             handle.createUpdate("UPDATE season_phase SET fresh_start = now() WHERE id")
                     .execute();

@@ -176,8 +176,9 @@ public final class GameActions {
     }
 
     /**
-     * {@code POST /api/smp/track/reset} with an optional {@code {reason}} starts the track over: the SMP clears every
-     * contribution, empties every objective and locks every milestone when it next looks, and keeps the aura.
+     * {@code POST /api/smp/track/reset} with an optional {@code {reason}} starts the track over.
+     * The SMP clears every contribution, empties every objective and locks every milestone when it next looks, and
+     * keeps the aura.
      */
     public void resetTrack(final Context ctx) {
         final JsonObject body = ctx.body().isBlank() ? new JsonObject() : body(ctx);

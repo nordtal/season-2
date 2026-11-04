@@ -274,8 +274,7 @@ public final class SmpPlugin extends NordtalPlugin {
         rails = SmpStart.wireRails(this);
 
         admin = admin();
-        // Steward signals a reset on this channel. This handler runs before the surface handler, so one pass starts the
-        // track over and draws it.
+        // Steward signals a reset here, and this runs before the surface handler, so one pass resets and draws.
         hub().on(Channel.SMP, "the track reset", this::startTrackOverIfDue);
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
         final ItemTakeIn takeIn = new ItemTakeIn(this, pool(), renderer(), documents(), identities());

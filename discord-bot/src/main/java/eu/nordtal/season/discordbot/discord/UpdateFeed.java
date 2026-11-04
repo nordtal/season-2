@@ -143,7 +143,7 @@ public final class UpdateFeed {
     /** The runs whose card is posted and has no message id yet. */
     private final Set<Long> posting = ConcurrentHashMap.newKeySet();
 
-    /** The runs whose alert came before their card's message id, which is then deleted. */
+    /** The runs whose alert came before their card, which is then not posted, or deleted once its id comes. */
     private final Set<Long> claimed = ConcurrentHashMap.newKeySet();
 
     /** Makes each hand-over between {@link #drawing}, {@link #posting}, {@link #failed} and an alert one step. */
@@ -187,7 +187,7 @@ public final class UpdateFeed {
                 return followed.messageId();
             }
             final String card = failed.remove(run);
-            if (card == null && posting.contains(run)) {
+            if (card == null) {
                 claimed.add(run);
             }
             return card;
@@ -293,8 +293,15 @@ public final class UpdateFeed {
     /** Posts the card of a run, and follows the run from the card's message id unless it is {@code over}. */
     private void post(final UpdateRequest request, final boolean over) {
         final long id = request.id();
-        posting.add(id);
+        synchronized (handing) {
+            if (claimed.remove(id)) {
+                // The alert came first and stands alone.
+                return;
+            }
+            posting.add(id);
+        }
         board.post(card(request), messageId -> {
+            final @Nullable RunRecord showing = over ? null : shownOf(request);
             final boolean taken;
             synchronized (handing) {
                 posting.remove(id);
@@ -303,7 +310,7 @@ public final class UpdateFeed {
                     if (over) {
                         ended(request, messageId);
                     } else {
-                        drawing.put(id, new Drawn(messageId, shownOf(request)));
+                        drawing.put(id, new Drawn(messageId, showing));
                     }
                 }
             }

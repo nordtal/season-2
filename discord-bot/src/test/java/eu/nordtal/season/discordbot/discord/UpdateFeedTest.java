@@ -400,13 +400,11 @@ class UpdateFeedTest {
     void aRunThatEndsBeforeDiscordAnswersItsPostIsStillRedrawnAndHandedToTheAlert() {
         board.late = true;
         rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
-        feed.submit();
-        runQueued();
+        feed.tick();
 
         // The run fails, and its signal's pass runs before the card's message id is known.
         rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
-        feed.submit();
-        runQueued();
+        feed.tick();
         board.unanswered.removeFirst().run();
         runQueued();
         assertEquals(1, board.edited.size(), "no signal follows the answer, so the card kept its first stage");
@@ -425,7 +423,7 @@ class UpdateFeedTest {
     }
 
     @Test
-    void anAlertThatComesBeforeDiscordAnswersThePostHasTheCardDeletedWhenItsIdComes() {
+    void anAlertThatComesBeforeTheCardIsPostedOrHasItsIdLeavesNoCardBesideIt() {
         board.late = true;
         rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
         feed.tick();
@@ -435,8 +433,11 @@ class UpdateFeedTest {
         board.unanswered.removeFirst().run();
         runQueued();
         assertEquals(List.of("msg-1"), board.deleted, "the card stayed beside the alert that came first");
-        assertEquals(List.of(), board.edited, "the deleted card was drawn again");
-        assertNull(feed.failedCard(1L), "the deleted card was handed over as well");
+        // A run shown only once it failed has its alert before the pass that would post its first card.
+        rows.put(row(2L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
+        assertNull(feed.failedCard(2L), "there is no card yet");
+        feed.tick();
+        assertEquals(1, board.posted.size(), "a card was posted after the alert of its run");
     }
 
     @Test
@@ -455,7 +456,6 @@ class UpdateFeedTest {
         rows.put(row(1L, UpdateStatus.DONE, RunStage.DONE, NOW));
         feed.tick();
         feed.tick();
-
         assertEquals(1, board.posted.size());
         assertEquals(List.of(), board.edited);
     }

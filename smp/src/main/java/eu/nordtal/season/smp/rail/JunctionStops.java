@@ -85,8 +85,8 @@ final class JunctionStops {
         for (final Map.Entry<Integer, RailShape> junction : switches.entrySet()) {
             final int index = junction.getKey();
             final double left = path.start(index) - BEFORE - along;
-            // A moving cart rides over a junction it can no longer brake for, rather than halt at once.
-            final boolean passing = index < on || (speed > 0 && left + speed < motion.stopping(speed));
+            // A moving cart rides over a junction it can no longer brake for, rather than brake harder.
+            final boolean passing = index < on || !motion.brakes(speed, left);
             if (!passing
                     && path.start(index) <= reach
                     && junctions.wrong(path.rails().get(index), junction.getValue())) {

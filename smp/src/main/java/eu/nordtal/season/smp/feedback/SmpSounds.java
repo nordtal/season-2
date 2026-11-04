@@ -65,6 +65,7 @@ public final class SmpSounds {
             case NETWORK_EVENT -> spec.networkEvent();
             case STAGING -> spec.staging();
             case RECLAIMED -> spec.reclaimed();
+            case SWITCH -> spec.switched();
         };
     }
 

@@ -2,7 +2,6 @@ package eu.nordtal.season.smp.rail;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 /**
  * The line a driven cart follows over the rails of a route, and the speed it may have along it.
@@ -17,30 +16,26 @@ final class RidePath {
     /**
      * How a driven cart speeds up and slows down, in blocks per tick.
      *
-     * @param acceleration the speed gained each tick
-     * @param braking      the speed lost each tick while braking
+     * @param acceleration the speed gained each tick, and lost each tick while braking
      */
-    record Motion(double acceleration, double top, double curve, double junction, double braking) {
+    record Motion(double acceleration, double top, double curve) {
 
-        /** Returns the motion of the settings, given in blocks per second and a braking distance from top speed. */
-        static Motion of(
-                final double acceleration,
-                final double top,
-                final double curve,
-                final double junction,
-                final double brakingDistance) {
-            final double perTick = top / TICKS_PER_SECOND;
+        /** Returns the motion of the settings, given in blocks per second. */
+        static Motion of(final double acceleration, final double top, final double curve) {
             return new Motion(
                     acceleration / (TICKS_PER_SECOND * TICKS_PER_SECOND),
-                    perTick,
-                    Math.min(curve, top) / TICKS_PER_SECOND,
-                    Math.min(junction, top) / TICKS_PER_SECOND,
-                    perTick * perTick / (2 * Math.max(brakingDistance, 1)));
+                    top / TICKS_PER_SECOND,
+                    Math.min(curve, top) / TICKS_PER_SECOND);
         }
 
         /** Returns the distance a cart at {@code speed} needs to stop. */
         double stopping(final double speed) {
-            return speed * speed / (2 * braking);
+            return speed * speed / (2 * acceleration);
+        }
+
+        /** Returns whether a cart at {@code speed} can still brake to a stop within {@code distance}. */
+        boolean brakes(final double speed, final double distance) {
+            return speed <= 0 || distance >= stopping(speed) - acceleration / 2;
         }
     }
 
@@ -63,10 +58,9 @@ final class RidePath {
 
     /**
      * Lays the line over {@code rails}, two or more in riding order, from {@code start} to the last rail's middle.
-     * A curve and a junction each limit the speed over their own rail.
+     * A curve limits the speed over its own rail.
      */
-    static RidePath of(
-            final List<RailPos> rails, final Point start, final Set<RailPos> junctions, final Motion motion) {
+    static RidePath of(final List<RailPos> rails, final Point start, final Motion motion) {
         final Point[] points = new Point[rails.size() + 1];
         points[0] = start;
         for (int i = 1; i < rails.size(); i++) {
@@ -77,9 +71,6 @@ final class RidePath {
         final double[] limits = new double[rails.size()];
         Arrays.fill(limits, motion.top());
         for (int i = 0; i < rails.size(); i++) {
-            if (junctions.contains(rails.get(i))) {
-                limits[i] = Math.min(limits[i], motion.junction());
-            }
             if (i > 0 && i < rails.size() - 1 && turns(rails.get(i - 1), rails.get(i), rails.get(i + 1))) {
                 limits[i] = Math.min(limits[i], motion.curve());
             }
@@ -158,11 +149,12 @@ final class RidePath {
         if (left <= motion.acceleration()) {
             return Math.min(left, speed + motion.acceleration());
         }
-        double allowed = Math.min(motion.top(), reaching(0, left, motion.braking()));
-        final double ahead = motion.stopping(motion.top()) + 1;
+        double allowed = Math.min(motion.top(), reaching(0, left, motion.acceleration()));
+        final double ahead = motion.stopping(motion.top()) + motion.top() + 1;
         for (int rail = railAt(distance); rail < limits.length && along[rail] - distance <= ahead; rail++) {
             final double before = along[rail] - distance;
-            allowed = Math.min(allowed, before <= 0 ? limits[rail] : reaching(limits[rail], before, motion.braking()));
+            allowed = Math.min(
+                    allowed, before <= 0 ? limits[rail] : reaching(limits[rail], before, motion.acceleration()));
         }
         return Math.max(0, Math.min(speed + motion.acceleration(), allowed));
     }

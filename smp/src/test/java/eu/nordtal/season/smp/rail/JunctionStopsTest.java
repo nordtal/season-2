@@ -9,12 +9,11 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class JunctionStopsTest {
 
-    private static final RidePath.Motion MOTION = RidePath.Motion.of(6, 24, 10, 8, 32);
+    private static final RidePath.Motion MOTION = RidePath.Motion.of(6, 24, 10);
 
     /** The shape each junction has in the world now. */
     private final Map<RailPos, RailShape> world = new HashMap<>();
@@ -79,10 +78,9 @@ class JunctionStopsTest {
         return rails;
     }
 
-    private static RidePath path(final List<RailPos> rails, final RailPos... junctionsOnIt) {
+    private static RidePath path(final List<RailPos> rails) {
         final RailPos first = rails.getFirst();
-        return RidePath.of(
-                rails, new RidePath.Point(first.x() + 0.5, first.y(), first.z() + 0.5), Set.of(junctionsOnIt), MOTION);
+        return RidePath.of(rails, new RidePath.Point(first.x() + 0.5, first.y(), first.z() + 0.5), MOTION);
     }
 
     /**
@@ -107,7 +105,7 @@ class JunctionStopsTest {
     void aJunctionSetTheWrongWayStopsTheCartTwoBlocksBeforeItIsSwitchedAndTheRideGoesOn() {
         final List<RailPos> rails = straight(60);
         final RailPos junction = rails.get(30);
-        final RidePath path = path(rails, junction);
+        final RidePath path = path(rails);
         world.put(junction, RailShape.NORTH_SOUTH);
 
         final List<Tick> ticks = ride(path, Map.of(30, RailShape.EAST_WEST), () -> {});
@@ -125,23 +123,78 @@ class JunctionStopsTest {
     }
 
     @Test
-    void aJunctionSetRightIsPassedAtJunctionSpeedWithoutAStop() {
-        final List<RailPos> rails = straight(60);
-        final RailPos junction = rails.get(30);
-        final RidePath path = path(rails, junction);
+    void aJunctionSetRightIsPassedAtTopSpeedWithoutAStop() {
+        final List<RailPos> rails = straight(240);
+        final RailPos junction = rails.get(120);
+        final RidePath path = path(rails);
         world.put(junction, RailShape.EAST_WEST);
 
-        final List<Tick> ticks = ride(path, Map.of(30, RailShape.EAST_WEST), () -> {});
+        final List<Tick> ticks = ride(path, Map.of(120, RailShape.EAST_WEST), () -> {});
 
         assertTrue(switched.isEmpty(), "nothing is switched");
-        double fastestOnIt = 0;
         for (int t = 0; t < ticks.size() - 1; t++) {
             assertTrue(ticks.get(t).speed() > 0, "the cart stood before the end at tick " + t);
-            if (path.railAt(ticks.get(t).along()) == 30) {
-                fastestOnIt = Math.max(fastestOnIt, ticks.get(t).speed());
-            }
         }
-        assertEquals(MOTION.junction(), fastestOnIt, 1e-9, "at junction speed on it");
+        final Tick onto = ticks.stream()
+                .filter(t -> t.along() >= path.start(120))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(MOTION.top(), onto.speed(), 1e-9, "onto it at top speed");
+    }
+
+    @Test
+    void aCartBrakesForAWrongJunctionAtItsAccelerationAndStandsStillExactlyAtItsStop() {
+        final List<RailPos> rails = straight(240);
+        final RailPos junction = rails.get(120);
+        final RidePath path = path(rails);
+        world.put(junction, RailShape.NORTH_SOUTH);
+
+        final List<Tick> ticks = ride(path, Map.of(120, RailShape.EAST_WEST), () -> {});
+
+        assertGentle(ticks);
+        final int standing = switched.getFirst().tick();
+        final double stop = path.start(120) - JunctionStops.BEFORE;
+        assertEquals(stop, ticks.get(standing - 1).along(), 1e-9, "standing at the stop before the switch");
+        assertEquals(0, ticks.get(standing - 1).speed(), "with no speed left");
+        assertTrue(ticks.get(standing - 2).speed() > 0, "and only from the tick it got there");
+        assertTrue(
+                ticks.stream().mapToDouble(Tick::speed).max().orElseThrow() >= MOTION.top() - 1e-9,
+                "after a ride at top speed");
+    }
+
+    @Test
+    void aJunctionSetWrongAheadOfAMovingCartIsBrakedForGentlyOrRiddenOver() {
+        final List<RailPos> rails = straight(120);
+        final RailPos junction = rails.get(80);
+        final RidePath path = path(rails);
+        for (double ahead = 0; ahead <= 60; ahead += 0.25) {
+            final double at = path.start(80) - ahead;
+            world.put(junction, RailShape.EAST_WEST);
+            switched.clear();
+            claims.clear();
+
+            final List<Tick> ticks = ride(path, Map.of(80, RailShape.EAST_WEST), () -> {
+                if (switched.isEmpty() && cart.along >= at) {
+                    world.put(junction, RailShape.NORTH_SOUTH);
+                }
+            });
+
+            assertGentle(ticks);
+            assertTrue(switched.stream().allMatch(made -> made.speed() == 0), "switched only standing, " + ahead);
+        }
+    }
+
+    /** Asserts that the speed never changes by more than one tick's acceleration, from standing to standing. */
+    private static void assertGentle(final List<Tick> ticks) {
+        double before = 0;
+        for (int t = 0; t < ticks.size(); t++) {
+            final double change = ticks.get(t).speed() - before;
+            assertTrue(
+                    Math.abs(change) <= MOTION.acceleration() + 1e-9,
+                    "the speed changed by " + change + " at tick " + t + ", along "
+                            + ticks.get(t).along());
+            before = ticks.get(t).speed();
+        }
     }
 
     @Test
@@ -153,7 +206,7 @@ class JunctionStopsTest {
         switches.put(0, RailShape.EAST_WEST);
         switches.put(1, RailShape.EAST_WEST);
 
-        final List<Tick> ticks = ride(path(rails, rails.get(0), rails.get(1)), switches, () -> {});
+        final List<Tick> ticks = ride(path(rails), switches, () -> {});
 
         assertEquals(
                 List.of(rails.get(0), rails.get(1)),
@@ -171,7 +224,7 @@ class JunctionStopsTest {
         final Map<Integer, RailShape> switches = new LinkedHashMap<>();
         switches.put(30, RailShape.EAST_WEST);
         switches.put(34, RailShape.EAST_WEST);
-        final RidePath path = path(rails, rails.get(30), rails.get(34));
+        final RidePath path = path(rails);
 
         final List<Tick> ticks = ride(path, switches, () -> {});
 
@@ -190,7 +243,7 @@ class JunctionStopsTest {
     void aJunctionSwitchedBackWhileTheCartWaitsIsSwitchedAgainAndNeverUnderAMovingCart() {
         final List<RailPos> rails = straight(60);
         final RailPos junction = rails.get(30);
-        final RidePath path = path(rails, junction);
+        final RidePath path = path(rails);
         world.put(junction, RailShape.NORTH_SOUTH);
         final boolean[] flipped = {false};
 
@@ -213,7 +266,7 @@ class JunctionStopsTest {
     void aJunctionSwitchedBackTooLateToBrakeForIsRiddenOverAndNeverSwitchedUnderTheCart() {
         final List<RailPos> rails = straight(60);
         final RailPos junction = rails.get(30);
-        final RidePath path = path(rails, junction);
+        final RidePath path = path(rails);
         world.put(junction, RailShape.EAST_WEST);
         final double late = path.start(30) - 1;
 
@@ -234,7 +287,7 @@ class JunctionStopsTest {
     void twoCartsWantingAJunctionSetApartTakeTurnsInsteadOfSwitchingItBackAndForth() {
         final List<RailPos> rails = straight(60);
         final RailPos junction = rails.get(30);
-        final RidePath path = path(rails, junction);
+        final RidePath path = path(rails);
         final Cart first = new Cart();
         final Cart second = new Cart();
         final Map<Integer, RailShape> east = Map.of(30, RailShape.EAST_WEST);
@@ -261,8 +314,8 @@ class JunctionStopsTest {
         for (int z = -8; z <= 20; z++) {
             north.add(at(30, 64, z));
         }
-        final RidePath passing = path(east, junction);
-        final RidePath waiting = path(north, junction);
+        final RidePath passing = path(east);
+        final RidePath waiting = path(north);
         world.put(junction, RailShape.EAST_WEST);
         final Cart first = new Cart();
         final Cart second = new Cart();

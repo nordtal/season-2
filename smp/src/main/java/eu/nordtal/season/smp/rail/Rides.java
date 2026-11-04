@@ -1,7 +1,9 @@
 package eu.nordtal.season.smp.rail;
 
+import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.config.RailsSpec;
+import eu.nordtal.season.smp.feedback.SmpSounds;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,6 +64,7 @@ public final class Rides implements Listener {
     private final RailNetworks networks;
     private final ChunkTickets tickets;
     private final Supplier<RailsSpec> settings;
+    private final SmpSounds sounds;
     private final Map<UUID, Ride> rides = new HashMap<>();
     /** The cart that holds each junction it is about to pass or switch, until it has ridden over it. */
     private final Map<Claim, UUID> claims = new HashMap<>();
@@ -107,17 +110,18 @@ public final class Rides implements Listener {
             final PaperScheduler scheduler,
             final RailNetworks networks,
             final ChunkTickets tickets,
-            final Supplier<RailsSpec> settings) {
+            final Supplier<RailsSpec> settings,
+            final SmpSounds sounds) {
         this.scheduler = scheduler;
         this.networks = networks;
         this.tickets = tickets;
         this.settings = settings;
+        this.sounds = sounds;
     }
 
     private RidePath.Motion motion() {
         final RailsSpec now = settings.get();
-        return RidePath.Motion.of(
-                now.acceleration(), now.topSpeed(), now.curveSpeed(), now.junctionSpeed(), now.brakingDistance());
+        return RidePath.Motion.of(now.acceleration(), now.topSpeed(), now.curveSpeed());
     }
 
     /** Runs {@code told} for a rider whose cart stopped for good before reaching the station. */
@@ -210,11 +214,13 @@ public final class Rides implements Listener {
             return false;
         }
         final Location location = ride.cart.getLocation();
-        ride.path = RidePath.of(
-                route.get().rails(),
-                new RidePath.Point(location.getX(), location.getY(), location.getZ()),
-                graph.get().junctions(),
-                motion());
+        final RidePath path = RidePath.of(
+                route.get().rails(), new RidePath.Point(location.getX(), location.getY(), location.getZ()), motion());
+        if (!standing && !motion().brakes(ride.speed, path.length())) {
+            // A station too near to brake for is ridden to after the cart stopped and set off from there.
+            return false;
+        }
+        ride.path = path;
         ride.switches = route.get().switches(graph.get().junctions());
         unclaim(ride);
         ride.stops = new JunctionStops();
@@ -280,11 +286,11 @@ public final class Rides implements Listener {
             return true;
         }
         if (ride.end >= path.length() && lookout.clear() >= path.length()) {
-            arrive(ride, path);
+            arrive(ride, path.rails().getLast(), path.direction(path.length()));
             return false;
         }
         if (ride.standingPlanDue) {
-            strand(ride);
+            endStanding(ride, path);
             return false;
         }
         if (lookout.clear() < ride.end && !lookout.gap()) {
@@ -388,6 +394,7 @@ public final class Rides implements Listener {
                 if (block.getBlockData() instanceof Rail shape) {
                     shape.setShape(Rail.Shape.valueOf(wanted.name()));
                     block.setBlockData(shape, false);
+                    sounds.playAt(block.getLocation().toCenterLocation(), Feedback.SWITCH);
                 }
             }
         };
@@ -432,10 +439,21 @@ public final class Rides implements Listener {
         cart.setGravity(true);
     }
 
+    /** Ends a ride whose cart stopped to set off anew from where it stands, and could not. */
+    private void endStanding(final Ride ride, final RidePath path) {
+        final RailPos under = railUnder(ride.cart);
+        if (networks.station(ride.world.getName(), ride.destination)
+                .filter(station -> station.pos().equals(under))
+                .isPresent()) {
+            // A station chosen too near to brake for may still have the cart stop on it.
+            arrive(ride, under, path.direction(ride.along));
+        } else {
+            strand(ride);
+        }
+    }
+
     /** Sets the rider down on the station rail, facing the way they rode, and puts the cart away. */
-    private void arrive(final Ride ride, final RidePath path) {
-        final RailPos station = path.rails().getLast();
-        final double[] direction = path.direction(path.length());
+    private void arrive(final Ride ride, final RailPos station, final double[] direction) {
         final Location down = new Location(
                 ride.world,
                 station.x() + 0.5,

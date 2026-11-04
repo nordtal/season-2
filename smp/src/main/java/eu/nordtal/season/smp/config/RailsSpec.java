@@ -28,7 +28,7 @@ public interface RailsSpec {
     @Name("Acceleration (blocks per second, each second)")
     @Key("acceleration")
     @Positive
-    @NoExplanationNeeded
+    @Explain("How fast a minecart speeds up, and how fast it brakes for a stop or a curve ahead.")
     default double acceleration() {
         return 6.0;
     }
@@ -52,24 +52,6 @@ public interface RailsSpec {
     }
 
     @Order(5)
-    @Name("Speed through junctions (blocks per second)")
-    @Key("junction-speed")
-    @Positive
-    @NoExplanationNeeded
-    default double junctionSpeed() {
-        return 8.0;
-    }
-
-    @Order(6)
-    @Name("Braking distance (blocks)")
-    @Key("braking-distance")
-    @Positive
-    @Explain("How far a minecart at top speed rides while it brakes to a stop. A shorter distance brakes harder.")
-    default double brakingDistance() {
-        return 32.0;
-    }
-
-    @Order(7)
     @Name("Already at a station within (blocks)")
     @Key("at-station-within")
     @NotNegative

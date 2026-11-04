@@ -1,9 +1,11 @@
 package eu.nordtal.season.smp.wheel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.messagerendering.GameLines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.document.Sent;
@@ -45,15 +47,32 @@ class WheelTextTest {
             final String line = PlainTextComponentSerializer.plainText()
                     .serialize(RENDERER.format(
                             locale,
-                            Wheel.WON.with(new Wheel.Won(1, Wheel.named(name, "item.minecraft.diamond_sword")))));
+                            Wheel.WON.with(new Wheel.Won(1, Wheel.named(name, null, "item.minecraft.diamond_sword")))));
             assertTrue(line.contains("1x Old Faithful"), locale + ": the custom name is missing in " + line);
-            assertTrue(!line.contains("Diamond Sword"), locale + ": the material is named in " + line);
+            assertFalse(line.contains("Diamond Sword"), locale + ": the material is named in " + line);
         }
     }
 
     @Test
     void aWonItemWithoutACustomNameKeepsItsMaterialsName() {
-        assertEquals(GameContent.of("item.minecraft.diamond_sword"), Wheel.named(null, "item.minecraft.diamond_sword"));
+        assertEquals(
+                GameContent.of("item.minecraft.diamond_sword"),
+                Wheel.named(null, null, "item.minecraft.diamond_sword"));
+    }
+
+    @Test
+    void aCustomNameComesBeforeAnItemNameOfItsOwn() {
+        assertEquals(
+                GameLines.of(Component.text("Old Faithful")),
+                Wheel.named(
+                        Component.text("Old Faithful"), Component.text("Ruby Blade"), "item.minecraft.diamond_sword"));
+    }
+
+    @Test
+    void anItemNameOfItsOwnComesBeforeTheMaterialsName() {
+        assertEquals(
+                GameLines.of(Component.text("Ruby Blade")),
+                Wheel.named(null, Component.text("Ruby Blade"), "item.minecraft.diamond_sword"));
     }
 
     @Test

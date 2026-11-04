@@ -198,15 +198,16 @@ public final class Wheel {
      * That is its custom name, else an item name of its own as a pack's item carries, else its material's.
      */
     static GameContent nameOf(final ItemStack item) {
-        Component named = item.getData(DataComponentTypes.CUSTOM_NAME);
-        if (named == null && item.isDataOverridden(DataComponentTypes.ITEM_NAME)) {
-            named = item.getData(DataComponentTypes.ITEM_NAME);
-        }
-        return named(named, item.getType().translationKey());
+        return named(
+                item.getData(DataComponentTypes.CUSTOM_NAME),
+                item.isDataOverridden(DataComponentTypes.ITEM_NAME) ? item.getData(DataComponentTypes.ITEM_NAME) : null,
+                item.getType().translationKey());
     }
 
-    /** Returns {@code name} as the item's content, or the material's name under {@code materialKey} without one. */
-    static GameContent named(final @Nullable Component name, final String materialKey) {
+    /** Names the item by its custom name, else its own item name, else the material's under {@code materialKey}. */
+    static GameContent named(
+            final @Nullable Component customName, final @Nullable Component itemName, final String materialKey) {
+        final Component name = customName != null ? customName : itemName;
         return name == null ? GameContent.of(materialKey) : GameLines.of(name);
     }
 

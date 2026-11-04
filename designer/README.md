@@ -33,10 +33,10 @@ panel, and a panel taller than its room shows a scroll bar along its right edge.
 for the new value in a form. OK runs the resource pack's task that writes it:
 `renameGlyph` for a name, `editGlyph` for status, display height, ascent and about, `scaleTexture`
 for the scaling of a GUI sprite. The Delete button below asks first and runs `deleteGlyph` for a glyph,
-`deleteTexture` for a vanilla override or a texture without a glyph and `deleteItem` for an item. The tasks run one at a time,
-and a click while one runs says that a change is being written. The tab reads the pack again after
-them. A refused task shows its reason at the top of the properties panel, with each place that still uses the
-entry.
+`deleteTexture` for a vanilla override or a texture without a glyph and `deleteItem` for an item.
+The tasks run one at a time, and a click while one runs says that a change is being written. The tab
+reads the pack again after them. A refused task shows its reason at the top of the properties panel,
+with each place that still uses the entry.
 
 A new pixel size resizes the sprite with nearest neighbour and saves it. A size that is no whole
 multiple of the old one up asks first, since it loses or doubles rows and columns of pixels. A save

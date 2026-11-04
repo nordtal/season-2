@@ -220,8 +220,8 @@ all or nothing, and fails with the reason when it refuses.
 ./gradlew -q :resource-pack:deleteItem -Pitem=nordtal:wand
 ```
 
-| task            | options   | prints                                  |
-| --------------- | --------- | --------------------------------------- |
+| task            | options   | prints                                    |
+| --------------- | --------- | ----------------------------------------- |
 | `deleteTexture` | `texture` | the absolute path of each file it removed |
 | `deleteItem`    | `item`    | the absolute path of each file it removed |
 
@@ -233,8 +233,9 @@ all or nothing, and fails with the reason when it refuses.
   sources when nothing else names it. Files in `minecraft` stay, since the client jar may draw them,
   and so do the item's texts.
 - An item outside `minecraft` is refused while a file that git tracks or would add, outside
-  `src/assets/`, names its id, such as code that gives it out, and the refusal lists each place as
-  `path:line`.
+  `src/assets/`, names it, and the refusal lists each place as `path:line`. A use is its id as a word,
+  or `Key.key` or `new NamespacedKey` with its namespace and path. A document or a test is no use.
+- A deleted item is one draft with the models and the texture it drew, the draft of that texture.
 - A texture or an item that the pack lacks is refused at `texture` or `item`.
 
 ## Texts

@@ -87,7 +87,10 @@ class ItemDeletesTest {
             "nordtal:item/wand is still used in 2 places:\n" +
                 "    resource-pack/glyphs.json:1\n" +
                 "    resource-pack/src/assets/nordtal/models/item/wand.json:1",
-            refused.message!!.lines().let { listOf(it[0]) + it.drop(1).sorted() }.joinToString("\n"),
+            refused.message!!
+                .lines()
+                .let { listOf(it[0]) + it.drop(1).sorted() }
+                .joinToString("\n"),
         )
         assertTrue(exists("src/assets/nordtal/textures/item/wand.png"))
     }
@@ -168,5 +171,20 @@ class ItemDeletesTest {
         val refused = assertThrows<FieldRefusal> { files().use { it.deleteItem("nordtal:none", repository) } }
 
         assertEquals("item", refused.field)
+    }
+
+    @Test
+    fun anItemThatCodeGivesAsAKeyStaysAndADocumentOrTestThatNamesItDoesNot() {
+        item("wand", "nordtal:item/wand")
+        model("item/wand", "minecraft:item/generated", "nordtal:item/wand")
+        repository.resolve("plugin/src/main/java/Wand.java").apply { parentFile.mkdirs() }.writeText(
+            "class Wand {\n    static final Key MODEL = Key.key(\"nordtal\", \"wand\");\n}\n",
+        )
+        repository.resolve("plugin/src/test/java/WandTest.java").apply { parentFile.mkdirs() }.writeText("\"nordtal:wand\"\n")
+        repository.resolve("README.md").writeText("Such as `nordtal:wand`.\n")
+
+        val refused = assertThrows<IllegalStateException> { files().use { it.deleteItem("nordtal:wand", repository) } }
+
+        assertEquals("The item nordtal:wand is still used in 1 place:\n    plugin/src/main/java/Wand.java:2", refused.message)
     }
 }

@@ -712,7 +712,10 @@ object Drafts {
         glyph: Map<*, *>,
     ) = glyph["texture"] as String? ?: "$font ${glyph["code"]}"
 
-    /** The id of the draft that the changed file [path] belongs to: its texture's, or its own path. */
+    /**
+     * The id of the draft that the changed file [path] belongs to: its texture's, or its own path. A deleted model or item
+     * is read as the last commit has it, so it goes with the texture it drew.
+     */
     internal fun idOf(
         pack: File,
         path: String,
@@ -723,15 +726,21 @@ object Drafts {
         Regex(
             """art/assets/([^/]+)/textures/(.+)\.aseprite""",
         ).matchEntire(path)?.let { return "${it.groupValues[1]}:${it.groupValues[2]}.png" }
-        val file = pack.resolve(path).takeIf { it.isFile } ?: return path
-        val json = runCatching { JsonSlurper().parse(file) as? Map<*, *> }.getOrNull() ?: return path
+        val read = { relative: String ->
+            val file = pack.resolve(relative)
+            runCatching {
+                if (file.isFile) JsonSlurper().parse(file) else JsonSlurper().parseText(git(pack, listOf("show", "HEAD:./$relative")))
+            }.getOrNull()
+        }
+        val json = read(path) as? Map<*, *> ?: return path
         Regex("""src/assets/([^/]+)/models/.+\.json""").matchEntire(path)?.let {
             val textures = json["textures"] as? Map<*, *>
             val texture = (textures?.get("layer0") ?: textures?.values?.firstOrNull()) as? String ?: return path
             return (if (':' in texture) texture else "minecraft:$texture") + ".png"
         }
         if (Regex("""src/assets/[^/]+/items/.+\.json""").matches(path)) {
-            return PackModel.itemTexture(json["model"] as? Map<*, *>, pack.resolve("src/assets")) ?: path
+            val assets = pack.resolve("src/assets")
+            return PackModel.itemTexture(json["model"] as? Map<*, *>, assets) { read(it.relativeTo(pack).invariantSeparatorsPath) } ?: path
         }
         return path
     }

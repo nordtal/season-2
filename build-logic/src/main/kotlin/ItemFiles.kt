@@ -268,9 +268,8 @@ class ItemFiles(
     }
 
     /**
-     * Deletes the item [id] from the pack: its definition, each model it draws that nothing else of the pack draws, those
-     * models' parents of the pack likewise, and each of their textures that nothing else names, with its source. An item of
-     * another namespace than `minecraft` is refused while a file of [repository] outside the pack's assets names it, each
+     * Deletes the item [id] with each model, parent model and texture of the pack that nothing else draws, as [unused] finds
+     * them. An item outside `minecraft` is refused while main code of [repository] names it, as [uses] finds it, each
      * listed as a path and a line. Returns every file deleted.
      */
     fun deleteItem(
@@ -281,16 +280,16 @@ class ItemFiles(
         if (!file.isFile) throw FieldRefusal("item", "The item $id is not in the pack.")
         val item = full(id)
         if (!item.startsWith("minecraft:")) {
-            val literal = Regex("""(?<![\w:/.-])${Regex.escape(item)}(?![\w:/-]|\.\w)""")
+            val uses = uses(item)
             val places =
                 trackedFiles(repository, emptyList(), untracked = true)
-                    .filterNot { repository.resolve(it).startsWith(assets) }
+                    .filterNot { repository.resolve(it).startsWith(assets) || EXAMPLES.containsMatchIn(it) }
                     .flatMap { path ->
                         readText(repository.resolve(path))
                             .orEmpty()
                             .lineSequence()
                             .withIndex()
-                            .filter { (_, line) -> literal.containsMatchIn(line) }
+                            .filter { (_, line) -> uses.containsMatchIn(line) }
                             .map { "$path:${it.index + 1}" }
                             .toList()
                     }
@@ -301,15 +300,27 @@ class ItemFiles(
         var next = ItemDefinitions.models(OxfmtJson.read(file)).map(::full)
         while (next.isNotEmpty()) {
             next =
-                next.filter { models.add(it) }.mapNotNull { model ->
-                    val json = runCatching { assets.resolve(Identifier.resource(model, "models", ".json")) }.getOrNull()
-                    (json?.takeIf { it.isFile }?.let { OxfmtJson.read(it) } as? Map<*, *>)?.get("parent") as? String
-                }.map(::full)
+                next
+                    .filter { models.add(it) }
+                    .mapNotNull { model ->
+                        val json = runCatching { assets.resolve(Identifier.resource(model, "models", ".json")) }.getOrNull()
+                        (json?.takeIf { it.isFile }?.let { OxfmtJson.read(it) } as? Map<*, *>)?.get("parent") as? String
+                    }.map(::full)
         }
         val deletions = linkedMapOf<File, ByteArray?>(file to null)
         deletions.putAll(unused(models, deletions))
         AtomicFiles.write(deletions)
         return deletions.keys.toList()
+    }
+
+    /**
+     * The uses of the item [id] in a line: its id as a word, or `Key.key` or `new NamespacedKey` with its namespace and
+     * path, the forms in which code gives an item its model.
+     */
+    private fun uses(id: String): Regex {
+        val (namespace, path) = id.split(':', limit = 2)
+        val key = """(Key\.key|NamespacedKey)\(\s*"${Regex.escape(namespace)}"\s*,\s*"${Regex.escape(path)}"\s*\)"""
+        return Regex("""(?<![\w:/.-])${Regex.escape(id)}(?![\w:/-]|\.\w)|$key""")
     }
 
     /** The refusal of a delete of [label], which [places] still use */
@@ -348,7 +359,13 @@ class ItemFiles(
         // Every JSON of the pack as it will be
         val texts = texts()
         pending.forEach { (file, bytes) ->
-            if (file.extension == "json") if (bytes == null) texts.remove(file) else texts[file] = bytes.decodeToString()
+            if (file.extension == "json") {
+                if (bytes == null) {
+                    texts.remove(file)
+                } else {
+                    texts[file] = bytes.decodeToString()
+                }
+            }
         }
         val gone =
             replaced
@@ -427,5 +444,8 @@ class ItemFiles(
 
     private companion object {
         val ATLAS = Regex("""assets/[^/]+/atlases/[^/]+\.json""")
+
+        /** The files in which an item id is an example rather than a use: documents and tests */
+        val EXAMPLES = Regex("""\.md$|(^|/)src/test/|\.(test|spec)\.[jt]sx?$""")
     }
 }

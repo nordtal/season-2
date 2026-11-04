@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,8 @@ public final class UpdateFeed {
 
         void edit(String messageId, DocumentRenderer.Drawn card);
 
+        void delete(String messageId);
+
         static Board of(final AdminLog admin) {
             return new Board() {
                 @Override
@@ -63,6 +66,11 @@ public final class UpdateFeed {
                 @Override
                 public void edit(final String messageId, final DocumentRenderer.Drawn card) {
                     admin.edit(messageId, card);
+                }
+
+                @Override
+                public void delete(final String messageId) {
+                    admin.delete(messageId);
                 }
             };
         }
@@ -127,10 +135,19 @@ public final class UpdateFeed {
     private final ConcurrentHashMap<Long, Drawn> drawing = new ConcurrentHashMap<>();
 
     /** The runs in progress that have no card yet, by request id. */
-    private final java.util.Set<Long> held = ConcurrentHashMap.newKeySet();
+    private final Set<Long> held = ConcurrentHashMap.newKeySet();
 
     /** The card of each failed run, by request id, until its alert takes its place. */
     private final ConcurrentHashMap<Long, String> failed = new ConcurrentHashMap<>();
+
+    /** The runs whose card is posted and has no message id yet. */
+    private final Set<Long> posting = ConcurrentHashMap.newKeySet();
+
+    /** The runs whose alert came before their card, which is then not posted, or deleted once its id comes. */
+    private final Set<Long> claimed = ConcurrentHashMap.newKeySet();
+
+    /** Makes each hand-over between {@link #drawing}, {@link #posting}, {@link #failed} and an alert one step. */
+    private final Object handing = new Object();
 
     private final java.util.concurrent.atomic.AtomicBoolean ticking = new java.util.concurrent.atomic.AtomicBoolean();
 
@@ -139,21 +156,42 @@ public final class UpdateFeed {
 
     private final String stewardUrl;
 
-    /** @param stewardUrl Steward's address, which the link on each card starts with. An empty value shows no link. */
+    /** Runs the passes of {@link #submit}. */
+    private final Executor worker;
+
+    /**
+     * @param stewardUrl Steward's address, which the link on each card starts with. An empty value shows no link.
+     * @param worker runs the passes of {@link #submit}
+     */
     public UpdateFeed(
             final UpdateDirectory updates,
             final Board board,
             final DocumentRenderer documents,
-            final String stewardUrl) {
+            final String stewardUrl,
+            final Executor worker) {
+        this.worker = Objects.requireNonNull(worker, "worker");
         this.stewardUrl = stewardUrl.endsWith("/") ? stewardUrl.substring(0, stewardUrl.length() - 1) : stewardUrl;
         this.updates = Objects.requireNonNull(updates, "updates");
         this.board = Objects.requireNonNull(board, "board");
         this.documents = Objects.requireNonNull(documents, "documents");
     }
 
-    /** Returns the card of a failed run once, for the alert that takes its place, or {@code null}. */
+    /**
+     * Returns the card of a failed run once, for the alert that takes its place, or {@code null}.
+     * A card still followed is handed over too, and one whose message id has not come yet is deleted when it comes.
+     */
     public @Nullable String failedCard(final long run) {
-        return failed.remove(run);
+        synchronized (handing) {
+            final Drawn followed = drawing.remove(run);
+            if (followed != null) {
+                return followed.messageId();
+            }
+            final String card = failed.remove(run);
+            if (card == null) {
+                claimed.add(run);
+            }
+            return card;
+        }
     }
 
     /** Starts from the highest request id and posts the runs that finished within {@link #CATCH_UP}. */
@@ -165,8 +203,10 @@ public final class UpdateFeed {
                 if (request.id() > mark || !shown(request)) {
                     continue;
                 }
-                board.post(card(request), messageId -> ended(request, messageId));
+                post(request, true);
             }
+            // Set before a card's message id can ask for a pass, which would read from it.
+            lastSeen = mark;
             // A run in progress is registered, so tick() follows it.
             for (final UpdateRequest request : updates.since(0L)) {
                 if (request.status().isFinished() || request.id() > mark) {
@@ -174,7 +214,6 @@ public final class UpdateFeed {
                 }
                 follow(request);
             }
-            lastSeen = mark;
         } catch (final RuntimeException failure) {
             log.error("Could not read the update history; the feed starts from {}", lastSeen, failure);
         }
@@ -192,12 +231,11 @@ public final class UpdateFeed {
     }
 
     /**
-     * Runs a pass on {@code worker}. A signal during a pass causes one more pass after it.
+     * Runs a pass on the worker. A signal during a pass causes one more pass after it.
      *
-     * The flag is released if {@code worker} rejects the pass.
+     * The flag is released if the worker rejects the pass.
      */
-    public void submit(final Executor worker) {
-        Objects.requireNonNull(worker, "worker");
+    public void submit() {
         again.set(true);
         if (!ticking.compareAndSet(false, true)) {
             return;
@@ -215,7 +253,7 @@ public final class UpdateFeed {
                 }
                 // A signal between the last pass and the release found the flag set.
                 if (again.get()) {
-                    submit(worker);
+                    submit();
                 }
             });
         } catch (final RuntimeException rejected) {
@@ -249,14 +287,49 @@ public final class UpdateFeed {
             }
             return;
         }
-        final boolean over = request.status().isFinished();
-        board.post(card(request), messageId -> {
-            if (over) {
-                ended(request, messageId);
+        post(request, request.status().isFinished());
+    }
+
+    /** Posts the card of a run, and follows the run from the card's message id unless it is {@code over}. */
+    private void post(final UpdateRequest request, final boolean over) {
+        final long id = request.id();
+        synchronized (handing) {
+            if (claimed.remove(id)) {
+                // The alert came first and stands alone.
                 return;
             }
-            drawing.put(request.id(), new Drawn(messageId, shownOf(request)));
+            posting.add(id);
+        }
+        board.post(card(request), messageId -> {
+            final @Nullable RunRecord showing = over ? null : shownOf(request);
+            final boolean taken;
+            synchronized (handing) {
+                posting.remove(id);
+                taken = claimed.remove(id);
+                if (!taken) {
+                    if (over) {
+                        ended(request, messageId);
+                    } else {
+                        drawing.put(id, new Drawn(messageId, showing));
+                    }
+                }
+            }
+            if (taken) {
+                // The alert came first and stands alone.
+                board.delete(messageId);
+            } else if (!over) {
+                again();
+            }
         });
+    }
+
+    /** Asks for one more pass, since the run may have moved on before Discord answered and left no signal. */
+    private void again() {
+        try {
+            submit();
+        } catch (final RuntimeException refused) {
+            log.debug("No pass after a card's message id; the next signal draws it", refused);
+        }
     }
 
     private void ended(final UpdateRequest request, final String messageId) {
@@ -318,14 +391,17 @@ public final class UpdateFeed {
             final UpdateRequest request = row.get();
             final Drawn drawn = entry.getValue();
             final RunRecord showing = shownOf(request);
-            // Discord rate-limits edits.
-            if (!java.util.Objects.equals(drawn.showing(), showing)) {
+            // Discord rate-limits edits. A card an alert took in the meantime is not drawn again.
+            if (!Objects.equals(drawn.showing(), showing)
+                    && drawing.replace(id, drawn, new Drawn(drawn.messageId(), showing))) {
                 board.edit(drawn.messageId(), card(request));
-                drawing.put(id, new Drawn(drawn.messageId(), showing));
             }
             if (request.status().isFinished()) {
-                drawing.remove(id);
-                ended(request, drawn.messageId());
+                synchronized (handing) {
+                    if (drawing.remove(id) != null) {
+                        ended(request, drawn.messageId());
+                    }
+                }
             }
         }
     }

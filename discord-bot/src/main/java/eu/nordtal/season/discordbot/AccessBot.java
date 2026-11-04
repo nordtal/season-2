@@ -198,7 +198,7 @@ public class AccessBot implements AutoCloseable {
                 wiring.announcements());
 
         final UpdateFeed updateFeed =
-                new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.renderer(), stewardUrl);
+                new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.renderer(), stewardUrl, scheduler);
         updateFeed.start();
 
         schedule(accessConfig, wiring.roles(), wiring.onboarding());
@@ -535,7 +535,7 @@ public class AccessBot implements AutoCloseable {
         hub.on(Channel.PAYMENT, "waiting payment links", () -> scheduler.execute(purchaseFlow::fillIn));
         hub.on(Channel.BOT, "the bot inbox", () -> scheduler.execute(drainInbox));
         hub.on(Channel.ADMIN, "admin role", () -> scheduler.execute(adminRole::reconcile));
-        hub.on(Channel.UPDATE, "the update feed", () -> updateFeed.submit(scheduler));
+        hub.on(Channel.UPDATE, "the update feed", updateFeed::submit);
         if (status.configured()) {
             status.follow(hub, scheduler, statusLane);
         } else {

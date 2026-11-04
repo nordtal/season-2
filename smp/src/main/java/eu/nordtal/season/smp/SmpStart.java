@@ -303,7 +303,8 @@ final class SmpStart {
                                 plugin.identities(),
                                 plugin.sounds,
                                 scheduler,
-                                () -> plugin.railSettings.get().stationsPerPage()),
+                                () -> plugin.railSettings.get().stationsPerPage(),
+                                () -> plugin.railSettings.get().atStationWithin()),
                         plugin);
         return new Rails(rails, rides);
     }

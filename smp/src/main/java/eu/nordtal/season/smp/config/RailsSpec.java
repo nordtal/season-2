@@ -1,6 +1,7 @@
 package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.settings.rule.Between;
+import eu.nordtal.season.settings.rule.NotNegative;
 import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
@@ -66,5 +67,14 @@ public interface RailsSpec {
     @Explain("How far a minecart at top speed rides while it brakes to a stop. A shorter distance brakes harder.")
     default double brakingDistance() {
         return 32.0;
+    }
+
+    @Order(7)
+    @Name("Already at a station within (blocks)")
+    @Key("at-station-within")
+    @NotNegative
+    @Explain("A station this close along the rails is left out of the ride menu: the rider is already there.")
+    default int atStationWithin() {
+        return 3;
     }
 }

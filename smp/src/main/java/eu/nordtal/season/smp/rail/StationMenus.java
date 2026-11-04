@@ -70,6 +70,7 @@ public final class StationMenus implements Listener {
     private final SmpSounds sounds;
     private final PaperScheduler scheduler;
     private final IntSupplier perPage;
+    private final IntSupplier near;
 
     public StationMenus(
             final RailNetworks networks,
@@ -79,7 +80,8 @@ public final class StationMenus implements Listener {
             final Identities identities,
             final SmpSounds sounds,
             final PaperScheduler scheduler,
-            final IntSupplier perPage) {
+            final IntSupplier perPage,
+            final IntSupplier near) {
         this.networks = networks;
         this.rides = rides;
         this.renderer = renderer;
@@ -88,6 +90,7 @@ public final class StationMenus implements Listener {
         this.sounds = sounds;
         this.scheduler = scheduler;
         this.perPage = perPage;
+        this.near = near;
         networks.whenRenamedByMerge(this::tellRenamed);
         rides.whenStranded(this::stranded);
     }
@@ -206,8 +209,12 @@ public final class StationMenus implements Listener {
         final Block at = cart.getLocation().getBlock();
         final Block rail = Tag.RAILS.isTagged(at.getType()) ? at : at.getRelative(BlockFace.DOWN);
         return networks.ride(rail).map(ride -> {
-            final List<RideList.Stop> stops =
-                    RideList.of(ride.graph(), ride.at(), ride.stations(), networks.favourites(player.getUniqueId()));
+            final List<RideList.Stop> stops = RideList.of(
+                    ride.graph(),
+                    ride.at(),
+                    ride.stations(),
+                    networks.favourites(player.getUniqueId()),
+                    near.getAsInt());
             final int each = Math.clamp(perPage.getAsInt(), 1, RidePanel.MOST_PER_PAGE);
             final int pages = RidePanel.pages(stops.size(), each);
             final int shown = Math.clamp(page, 0, pages - 1);

@@ -28,8 +28,8 @@ never migrates.
   writes the journal line and sends `PAYMENT_BOOKED`. It does all of this in one transaction. The
   unique index on `bunq_payment_id` lets a bank payment book at most one request.
 - Every directory that decides by the clock takes an `InstantSource`.
-- A switch into `SMP` from before the season stamps `fresh_start`. smp starts its own track over once
-  per stamp.
+- An admin's track reset in Steward stamps `smp_reset_request`. smp starts its own track over once
+  per stamp, whenever it next looks, and keeps the stamp it applied in `smp_reset`.
 - A run is a row of `steward_inbox`, and a unique index allows one open run. A kind that names more
   than its services has a table of its own, such as `steward_restore`, and the services are rows of
   `run_service`. The proxy reads the run's countdown from `scheduled_for` and `countdown_end`, and

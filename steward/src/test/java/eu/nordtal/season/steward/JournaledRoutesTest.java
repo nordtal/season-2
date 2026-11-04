@@ -35,6 +35,7 @@ class JournaledRoutesTest extends WebFixture {
             Map.entry("POST /api/season/date", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/smp/objective", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/smp/milestone", Unjournaled.IN_THE_CHANGE),
+            Map.entry("POST /api/smp/track/reset", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/hunger-games/start", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/announcements/{id}/send", Unjournaled.IN_THE_CHANGE),
             Map.entry("POST /api/announcements", Unjournaled.DRAFT),

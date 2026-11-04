@@ -414,6 +414,10 @@ export type TextArgs = {
     services: Arg["list"]
     count: Arg["number"]
   }
+  "journal.reset-track": Record<string, never>
+  "journal.reset-track-because": {
+    reason: Arg["text"]
+  }
   "journal.revoke-access": {
     grants: Arg["number"]
   }
@@ -1172,6 +1176,8 @@ export type TextArgs = {
   "steward.game.progress": {
     name: Arg["text"]
   }
+  "steward.game.reason": Record<string, never>
+  "steward.game.reason-placeholder": Record<string, never>
   "steward.game.registered": {
     count: Arg["number"]
   }
@@ -1179,6 +1185,10 @@ export type TextArgs = {
     name: Arg["text"]
   }
   "steward.game.remove-it": Record<string, never>
+  "steward.game.reset-ask": Record<string, never>
+  "steward.game.reset-note": Record<string, never>
+  "steward.game.reset-pending": Record<string, never>
+  "steward.game.reset-track": Record<string, never>
   "steward.game.round": Record<string, never>
   "steward.game.running": Record<string, never>
   "steward.game.span": {

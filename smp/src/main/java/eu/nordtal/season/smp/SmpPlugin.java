@@ -274,8 +274,8 @@ public final class SmpPlugin extends NordtalPlugin {
         rails = SmpStart.wireRails(this);
 
         admin = admin();
-        // This handler runs before the surface handler, so one pass starts the track over and draws it.
-        hub().on(Channel.PHASE, "the season reset", this::startTrackOverIfDue);
+        // Steward signals a reset here, and this runs before the surface handler, so one pass resets and draws.
+        hub().on(Channel.SMP, "the track reset", this::startTrackOverIfDue);
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
         final ItemTakeIn takeIn = new ItemTakeIn(this, pool(), renderer(), documents(), identities());
         takeIn.watch(hub());
@@ -494,10 +494,10 @@ public final class SmpPlugin extends NordtalPlugin {
         return builder.buildFuture();
     }
 
-    /** Starts the track over if the phase marked a fresh start that is not applied yet. */
+    /** Starts the track over if Steward asked for a reset that is not applied yet. */
     void startTrackOverIfDue() {
         if (trackRows.startOverIfDue() > 0) {
-            getLogger().info("the season started over: every milestone is locked and every objective is empty");
+            getLogger().info("the track started over: every milestone is locked and every objective is empty");
         }
     }
 

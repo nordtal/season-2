@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.game;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.common.json.Json;
@@ -66,6 +67,11 @@ public final class CommandApi {
         this.data = data;
         this.accounts = accounts;
         this.refusals = Objects.requireNonNull(refusals, "refusals");
+    }
+
+    /** The signed-in admin who asks, as the actor of a journal entry. */
+    Actor asker(final Context ctx) {
+        return accounts.apply(ctx).actor();
     }
 
     /** Writes the request to the SMP inbox with a journal line and returns its name. */

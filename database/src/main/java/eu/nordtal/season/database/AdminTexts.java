@@ -239,6 +239,12 @@ public interface AdminTexts {
         @Name("Milestone unlocked")
         MessageRef unlockMilestone(@Arg("milestone") @Example("The Nether") String milestone);
 
+        @Name("Track reset")
+        MessageRef resetTrack();
+
+        @Name("Track reset, with a reason")
+        MessageRef resetTrackBecause(@Arg("reason") @Example("The test weekend is over.") String reason);
+
         @Name("Hunger Games started")
         MessageRef startGame();
 

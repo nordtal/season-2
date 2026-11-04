@@ -195,30 +195,22 @@ class PhaseDirectoryIntegrationTest {
                 "a switch that changed nothing is still something a human may need to see afterwards");
     }
 
-    /** smp starts its track over when it sees the stamp. The switch writes nothing of smp's. */
+    /** Only an admin's reset in Steward starts the track over. No phase stamps one, nor touches the track. */
     @Test
-    void enteringTheSeasonFromTheEventStampsAFreshStartAndLeavesTheTrackToSmp() {
+    void enteringTheSeasonLeavesTheTrackAsItIs() {
         playedTrack();
+        execute("DELETE FROM smp_reset_request");
         phases.switchPhase(SeasonPhase.START_EVENT, ADMIN, null);
-        assertEquals(0, count("SELECT count(*) FROM season_phase WHERE fresh_start IS NOT NULL"));
-
+        phases.switchPhase(SeasonPhase.SMP, ADMIN, null);
+        phases.switchPhase(SeasonPhase.MAINTENANCE, ADMIN, null);
         phases.switchPhase(SeasonPhase.SMP, ADMIN, null);
 
-        assertEquals(1, count("SELECT count(*) FROM season_phase WHERE fresh_start = updated"));
+        assertEquals(0, count("SELECT count(*) FROM season_phase WHERE fresh_start IS NOT NULL"));
+        assertEquals(0, count("SELECT count(*) FROM smp_reset_request"));
         assertEquals(
                 List.of("departure|ACTIVE", "waiting|UNLOCKED"),
                 query("SELECT key || '|' || state FROM smp_milestone ORDER BY key"));
         assertEquals(1, count("SELECT count(*) FROM smp_contribution"));
-    }
-
-    @Test
-    void comingBackFromMaintenanceStampsNoFreshStart() {
-        playedTrack();
-        phases.switchPhase(SeasonPhase.MAINTENANCE, ADMIN, null);
-
-        phases.switchPhase(SeasonPhase.SMP, ADMIN, null);
-
-        assertEquals(0, count("SELECT count(*) FROM season_phase WHERE fresh_start IS NOT NULL"));
     }
 
     /** A track somebody has played: waiting done and departure active, with progress and a contribution. */

@@ -39,7 +39,7 @@ import {
 } from "@/lib/api"
 import { browserHasSecurityKeys, createSecurityKey, whyTheKeyFailed } from "@/lib/webauthn"
 import { holdTheKey } from "@/lib/hold-key"
-import { live } from "@/lib/live"
+import { live, RECONCILE } from "@/lib/live"
 import type { CreationOptionsJson } from "@/lib/webauthn"
 import { SECOND, keys } from "@/lib/query-keys"
 import { t } from "@/lib/texts"
@@ -335,6 +335,8 @@ export function useSmpTrack() {
     queryKey: keys.smpTrack,
     queryFn: () => api<SmpTrack>("/api/smp/track"),
     ...live("GAMES"),
+    // The SMP's signal that it applied a reset does not reach the live stream, so a pending reset is read again soon.
+    refetchInterval: (query) => (query.state.data?.resetPending ? 2 * SECOND : RECONCILE),
   })
 }
 
@@ -343,6 +345,18 @@ export function useHungerGamesRound() {
     queryKey: keys.hungerGamesRound,
     queryFn: () => api<HungerGamesRound>("/api/hunger-games/round"),
     ...live("GAMES"),
+  })
+}
+
+/** Steward stamps the reset and answers at once. The SMP applies it when it next looks, which the track's `resetPending` says. */
+export function useResetTrack() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (reason: string) => api<SmpTrack>("/api/smp/track/reset", { method: "POST", body: { reason } }),
+    onSuccess: (track) => {
+      client.setQueryData(keys.smpTrack, track)
+      void client.invalidateQueries({ queryKey: ["journal"] })
+    },
   })
 }
 

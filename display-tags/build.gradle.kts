@@ -20,4 +20,6 @@ dependencies {
     compileOnly(libs.paper.api)
     compileOnly(libs.packetevents)
     compileOnly(libs.tab.api)
+
+    testImplementation(libs.paper.api)
 }

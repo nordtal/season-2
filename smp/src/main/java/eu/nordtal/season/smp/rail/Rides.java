@@ -71,6 +71,7 @@ public final class Rides implements Listener {
         private final RideableMinecart cart;
         private final Player rider;
         private final World world;
+        private final double maxSpeed;
         private final Set<Long> held = new HashSet<>();
         private final Set<Long> loading = new HashSet<>();
         private UUID destination;
@@ -87,6 +88,7 @@ public final class Rides implements Listener {
             this.cart = cart;
             this.rider = rider;
             this.world = cart.getWorld();
+            this.maxSpeed = cart.getMaxSpeed();
             this.destination = destination;
         }
     }
@@ -140,6 +142,8 @@ public final class Rides implements Listener {
         rides.put(cart.getUniqueId(), ride);
         // The plugin moves the cart every tick, so vanilla gravity would only pull it off the line in between.
         cart.setGravity(false);
+        // The cart keeps the velocity it rides at, for the client's riding sound; vanilla must not move it by that too.
+        cart.setMaxSpeed(0);
         return true;
     }
 
@@ -354,15 +358,32 @@ public final class Rides implements Listener {
     private static void move(final Ride ride, final RidePath path) {
         final RidePath.Point point = path.at(ride.along);
         final double[] direction = path.direction(ride.along);
-        final Location to = new Location(
-                ride.world,
-                point.x(),
-                point.y(),
-                point.z(),
-                (float) Math.toDegrees(Math.atan2(-direction[1], -direction[0])),
-                0f);
-        ride.cart.teleport(to);
-        ride.cart.setVelocity(new Vector());
+        moveTo(
+                ride.cart,
+                new Location(
+                        ride.world,
+                        point.x(),
+                        point.y(),
+                        point.z(),
+                        (float) Math.toDegrees(Math.atan2(-direction[1], -direction[0])),
+                        0f));
+    }
+
+    /**
+     * Teleports {@code cart} to {@code to} and gives it the step it made as its velocity.
+     * A teleport leaves a cart without one, and without one the client plays no riding sound.
+     */
+    static void moveTo(final RideableMinecart cart, final Location to) {
+        final Location from = cart.getLocation();
+        cart.teleport(to);
+        cart.setVelocity(new Vector(to.getX() - from.getX(), 0, to.getZ() - from.getZ()));
+    }
+
+    /** Leaves {@code cart} standing, with vanilla physics moving it again. */
+    static void standStill(final RideableMinecart cart, final double maxSpeed) {
+        cart.setVelocity(new Vector());
+        cart.setMaxSpeed(maxSpeed);
+        cart.setGravity(true);
     }
 
     /** Sets the rider down on the station rail, facing the way they rode, and puts the cart away. */
@@ -384,7 +405,6 @@ public final class Rides implements Listener {
     }
 
     private void strand(final Ride ride) {
-        ride.cart.setVelocity(new Vector());
         release(ride);
         final Player rider = ride.rider;
         // The menu opens a tick on, once the ride has ended.
@@ -396,7 +416,7 @@ public final class Rides implements Listener {
     }
 
     private void release(final Ride ride) {
-        ride.cart.setGravity(true);
+        standStill(ride.cart, ride.maxSpeed);
         ride.held.forEach(key -> tickets.release(ride.world, key));
         ride.held.clear();
     }
@@ -421,7 +441,6 @@ public final class Rides implements Listener {
             return;
         }
         release(ride);
-        ride.cart.setVelocity(new Vector());
         if (!(event.getExited() instanceof Player rider)) {
             return;
         }
@@ -464,9 +483,6 @@ public final class Rides implements Listener {
     public void stop() {
         final List<Ride> running = new ArrayList<>(rides.values());
         rides.clear();
-        running.forEach(ride -> {
-            ride.cart.setVelocity(new Vector());
-            release(ride);
-        });
+        running.forEach(this::release);
     }
 }

@@ -4,6 +4,7 @@ import eu.nordtal.season.displaytags.DisplayTags;
 import eu.nordtal.season.displaytags.config.NameTagConfiguration;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import io.papermc.paper.event.player.PlayerClientLoadedWorldEvent;
+import java.util.Objects;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -53,7 +54,7 @@ public class PlayerListener implements Listener {
     public void onPlayerTeleport(final PlayerTeleportEvent event) {
         final Player player = event.getPlayer();
         final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(player);
-        if (tag == null) return;
+        if (tag == null || followsVehicle(event)) return;
 
         // The event fires before the player moves.
         tag.teleportForViewers(event.getTo());
@@ -63,6 +64,16 @@ public class PlayerListener implements Listener {
             final PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
             if (current != null) current.tick();
         });
+    }
+
+    /**
+     * Whether the teleport only carries the player along in their vehicle.
+     * A driven cart does so every tick. The tag rides on the player and follows by itself, while a teleport packet
+     * would put it ahead of the client's vehicle.
+     */
+    static boolean followsVehicle(final PlayerTeleportEvent event) {
+        return event.getPlayer().isInsideVehicle()
+                && Objects.equals(event.getFrom().getWorld(), event.getTo().getWorld());
     }
 
     @EventHandler

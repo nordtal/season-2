@@ -350,6 +350,21 @@ class NewTexturesTest {
     }
 
     @Test
+    fun aTextureOfItsOwnIsATransparentPngThatRefusesAFileThatExistsAndMinecraft() {
+        val written = NewTextures.texture(pack, "nordtal:gui/frame.png", 24, 12)
+
+        assertEquals(listOf(pack.resolve("src/assets/nordtal/textures/gui/frame.png")), written)
+        val image = ImageIO.read(written[0])
+        assertEquals(listOf(24, 12, 0), listOf(image.width, image.height, image.getRGB(0, 0)))
+        assertEquals("path", assertThrows<FieldRefusal> { NewTextures.texture(pack, "nordtal:gui/frame.png", 24, 12) }.field)
+        assertEquals("path", assertThrows<FieldRefusal> { NewTextures.texture(pack, "nordtal:gui/Frame.png", 24, 12) }.field)
+        assertEquals("height", assertThrows<FieldRefusal> { NewTextures.texture(pack, "nordtal:gui/tall.png", 24, 5000) }.field)
+        assertFalse(pack.resolve("src/assets/nordtal/textures/gui/tall.png").exists())
+        assertEquals("namespace", assertThrows<FieldRefusal> { NewTextures.texture(pack, "minecraft:block/stone.png", 16, 16) }.field)
+        assertFalse(pack.resolve("src/assets/minecraft/textures/block/stone.png").exists())
+    }
+
+    @Test
     fun anItemRefusesAnInvalidIdAndAFileThatExists() {
         NewTextures.item(pack, "nordtal:wand", 16, 16)
 

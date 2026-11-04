@@ -91,18 +91,25 @@ function tree.build(model, tr, mark)
       { kind="category", entry=category }, entries))
   end
 
-  local overrides = {}
-  for _, category in ipairs(model.overrides or {}) do
-    local entries = {}
-    for _, override in ipairs(category.entries or {}) do
-      local id = override.texture.id
-      local name = id:match("([^/:]+)%.png$") or id
-      table.insert(entries, node("override/" .. id, name,
-        { kind="override", entry=override, texture=override.texture }))
+  -- The vanilla overrides and the textures that no glyph, sheet or item
+  -- shows have entries of one shape, so both are of the kind override
+  local function textures(categories, prefix)
+    local out = {}
+    for _, category in ipairs(categories or {}) do
+      local entries = {}
+      for _, override in ipairs(category.entries or {}) do
+        local id = override.texture.id
+        local name = id:match("([^/:]+)%.png$") or id
+        table.insert(entries, node(prefix .. "/" .. id, name,
+          { kind="override", entry=override, texture=override.texture }))
+      end
+      table.insert(out, node(prefix .. "s/" .. category.category, category.category,
+        { kind="category", entry=category }, entries))
     end
-    table.insert(overrides, node("overrides/" .. category.category, category.category,
-      { kind="category", entry=category }, entries))
+    return out
   end
+  local overrides = textures(model.overrides, "override")
+  local own = textures(model.textures, "texture")
 
   -- A text carries the languages of the pack, so its panel shows each
   local texts = {}
@@ -114,6 +121,7 @@ function tree.build(model, tr, mark)
     node("glyphs", tr("tree.glyphs"), { kind="root" }, fonts),
     node("items", tr("tree.items"), { kind="root" }, items),
     node("overrides", tr("tree.overrides"), { kind="root" }, overrides),
+    node("textures", tr("tree.textures"), { kind="root" }, own),
     node("texts", tr("tree.texts"), { kind="texts", languages=model.languages }, texts),
   }
   -- The badge without unsaved changes, which unsaved() falls back to

@@ -7,7 +7,8 @@ import java.nio.file.Files
 import javax.imageio.ImageIO
 
 /**
- * Creates each kind of texture in the resource pack at [pack]: a glyph, a glyph block, a sheet and an item.
+ * Creates each kind of texture in the resource pack at [pack]: a glyph, a glyph block, a sheet, an item and a texture of
+ * its own.
  *
  * Each function writes a transparent PNG and the JSON entries that its kind needs, and returns the files it wrote. It
  * refuses a file that exists, and checks `glyphs.json` with [GlyphAllocation] before it writes anything. A refusal is a
@@ -132,6 +133,21 @@ object NewTextures {
             ),
         )
         return files
+    }
+
+    /** Adds the texture [id], such as `nordtal:gui/frame.png`: a transparent PNG of [width] by [height] that nothing draws yet. */
+    fun texture(
+        pack: File,
+        id: String,
+        width: Int,
+        height: Int,
+    ): List<File> {
+        if (id.substringBefore(':') == "minecraft") {
+            throw FieldRefusal("namespace", "A texture of minecraft overrides one of the client jar: create it as a vanilla override.")
+        }
+        val png = png(pack, id)
+        AtomicFiles.write(mapOf(png to transparent(width, height)))
+        return listOf(png)
     }
 
     /**

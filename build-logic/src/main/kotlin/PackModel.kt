@@ -24,6 +24,7 @@ object PackModel {
             "fonts" to allocation.fonts.map { font(it, root, drafts) },
             "items" to items(assets, root, drafts),
             "overrides" to overrides(assets, root, drafts),
+            "textures" to textures(allocation, assets, root, drafts),
             "statuses" to GlyphAllocation.STATUSES.toList(),
             "scalings" to TextureMeta.SCALINGS,
             "languages" to
@@ -292,9 +293,48 @@ object PackModel {
         assets: File,
         root: File,
         drafts: Marks,
+    ): List<Map<String, Any?>> = folders(assets.resolve("minecraft"), files(assets.resolve("minecraft/textures"), "png"), root, drafts)
+
+    /**
+     * The textures under `assets/<namespace>/textures` of every other namespace that no glyph, sheet or item of the model
+     * shows, one category per namespace and folder, such as `nordtal:gui`.
+     */
+    private fun textures(
+        allocation: GlyphAllocation,
+        assets: File,
+        root: File,
+        drafts: Marks,
     ): List<Map<String, Any?>> {
-        val textures = assets.resolve("minecraft/textures")
-        return files(textures, "png")
+        val shown =
+            allocation.fonts
+                .flatMap { font ->
+                    font.blocks.flatMap { block -> listOfNotNull(block.texture) + block.glyphs.map { it.texture } }
+                }.toSet() +
+                namespaces(assets).flatMap { namespace ->
+                    files(
+                        namespace.resolve("items"),
+                        "json",
+                    ).mapNotNull { itemTexture((json(it) as? Map<*, *>)?.get("model") as? Map<*, *>, assets) }
+                }
+        return namespaces(assets).filter { it.name != "minecraft" }.flatMap { namespace ->
+            val textures = namespace.resolve("textures")
+            val pngs = files(textures, "png").filter { "${namespace.name}:${it.relativeTo(textures).invariantSeparatorsPath}" !in shown }
+            folders(namespace, pngs, root, drafts).onEach {
+                it["category"] = namespace.name + (it["category"] as String).let { folder -> if (folder.isEmpty()) "" else ":$folder" }
+            }
+        }
+    }
+
+    /** The [pngs] under `textures/` of [namespace], one category per folder, each with its animation and scaling. */
+    private fun folders(
+        namespace: File,
+        pngs: List<File>,
+        root: File,
+        drafts: Marks,
+    ): List<MutableMap<String, Any?>> {
+        val textures = namespace.resolve("textures")
+        val vanilla = namespace.name == "minecraft"
+        return pngs
             .groupBy { it.parentFile.relativeTo(textures).invariantSeparatorsPath }
             .toSortedMap()
             .map { (category, pngs) ->
@@ -303,14 +343,14 @@ object PackModel {
                     "entries" to
                         pngs.map { png ->
                             val meta = File(png.path + ".mcmeta").takeIf { it.isFile }?.let { json(it) as? Map<*, *> }
-                            val texture = texture("minecraft:" + png.relativeTo(textures).invariantSeparatorsPath, root, drafts)
+                            val texture = texture("${namespace.name}:" + png.relativeTo(textures).invariantSeparatorsPath, root, drafts)
                             linkedMapOf<String, Any?>("texture" to texture) + animation(png, root, texture) +
                                 linkedMapOf(
                                     "scaling" to (meta?.get("gui") as? Map<*, *>)?.get("scaling"),
                                     "guiSprite" to png.relativeTo(textures).invariantSeparatorsPath.startsWith("gui/sprites/"),
                                     // The block or item of the same name, which Nordtal Designer places or gives as a preview.
-                                    "block" to "minecraft:${png.nameWithoutExtension}".takeIf { category == "block" },
-                                    "item" to "minecraft:${png.nameWithoutExtension}".takeIf { category == "item" },
+                                    "block" to "minecraft:${png.nameWithoutExtension}".takeIf { vanilla && category == "block" },
+                                    "item" to "minecraft:${png.nameWithoutExtension}".takeIf { vanilla && category == "item" },
                                 )
                         },
                 )

@@ -16,7 +16,7 @@
 
 local wizard = {}
 
-wizard.kinds = { "glyph", "block", "sheet", "item", "vanilla_item", "override" }
+wizard.kinds = { "glyph", "block", "sheet", "item", "texture", "vanilla_item", "override" }
 
 -- The kinds chosen in a browser of the client jar: the option of the
 -- task that names the choice and the strings of the browser
@@ -35,6 +35,7 @@ wizard.fields = {
   block={ "font", "title", "size", "height", "ascent" },
   sheet={ "font", "title", "namespace", "path", "constants", "width", "height", "ascent" },
   item={ "namespace", "path", "width", "height" },
+  texture={ "namespace", "path", "width", "height" },
 }
 
 -- The text a field starts with
@@ -43,12 +44,13 @@ local defaults = {
   block={ size="16" },
   sheet={ namespace="nordtal" },
   item={ namespace="nordtal", width="16", height="16" },
+  texture={ namespace="nordtal", width="16", height="16" },
 }
 
 -- editItem without a change writes a vanilla item's definition into
 -- the pack as the jar has it
 local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyphSheet", item="createItem",
-                vanilla_item="editItem", override="copyVanillaTexture" }
+                texture="createTexture", vanilla_item="editItem", override="copyVanillaTexture" }
 
 -- How many entries a group shows before it splits by first letter,
 -- and how many each letter shows

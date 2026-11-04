@@ -93,6 +93,7 @@ fonts[]       font, rows, constant, about, draft, review, blocks[]
   cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, draft, review, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite, block, item
+textures[]    category (namespace or namespace:folder), entries[] as in overrides[]: each PNG outside minecraft that no font or item shows
 texture       id, png, aseprite, asepriteExists, draft, review, width, height
 languages     the languages of the pack's language files, such as en_us
 texts[]       key, values (language to text), owner, draft, review
@@ -136,6 +137,7 @@ the reason when it refuses. The app writes the `.aseprite` source itself.
 ./gradlew -q :resource-pack:createGlyphSheet -Pfont=nordtal:bossbar -Ptitle=Arrows \
   -Ptexture=nordtal:hud/arrows.png -Pconstants=ARROW_LEFT,ARROW_RIGHT -Pwidth=6 -Pheight=5 -Pascent=-4
 ./gradlew -q :resource-pack:createItem -Pitem=nordtal:wand
+./gradlew -q :resource-pack:createTexture -Ptexture=nordtal:gui/frame.png -Pwidth=24 -Pheight=12
 ```
 
 | task               | options                                                                       | writes                                                                |
@@ -144,6 +146,7 @@ the reason when it refuses. The app writes the `.aseprite` source itself.
 | `createGlyphBlock` | `font`, `title`; `range`, `size` (16), `height`, `ascent`                     | an empty block in `glyphs.json`                                       |
 | `createGlyphSheet` | `font`, `title`, `texture`, `constants`, `width`, `height`, `ascent`; `range` | the sheet and its cells in `glyphs.json`, its PNG of one row of cells |
 | `createItem`       | `item`; `width`, `height` (16)                                                | `items/`, a `minecraft:item/generated` model and its PNG              |
+| `createTexture`    | `texture`, `width`, `height`                                                  | a transparent PNG that nothing draws yet                              |
 
 A vanilla override is created with `copyVanillaTexture`, under _Vanilla overrides_.
 

@@ -150,6 +150,43 @@ class PackModelTest {
     }
 
     @Test
+    fun texturesThatNoGlyphSheetOrItemShowsAreGroupedByNamespaceAndFolder() {
+        allocation(
+            """
+            {"fonts": [{"font": "minecraft:default", "blocks": [
+              {"range": "FE000-FE00F", "title": "Badges", "height": 7, "ascent": 7,
+               "glyphs": [{"code": "FE000", "constant": "STAR", "name": "star", "texture": "nordtal:badges/star.png"}]},
+              {"range": "FE010-FE01F", "title": "Arrows", "height": 5, "ascent": 4, "texture": "nordtal:hud/arrows.png",
+               "glyphs": [{"code": "FE010", "constant": "LEFT", "name": "left"}]}
+            ]}]}
+            """,
+        )
+        png("src/assets/nordtal/textures/badges/star.png", 7, 7)
+        png("src/assets/nordtal/textures/hud/arrows.png", 6, 5)
+        png("src/assets/nordtal/textures/item/wand.png", 16, 16)
+        file("src/assets/nordtal/items/wand.json").writeText("""{"model": {"type": "minecraft:model", "model": "nordtal:item/wand"}}""")
+        file("src/assets/nordtal/models/item/wand.json").writeText("""{"textures": {"layer0": "nordtal:item/wand"}}""")
+        png("src/assets/nordtal/textures/item/wand_glow.png", 16, 16)
+        png("src/assets/nordtal/textures/gui/sprites/frame.png", 24, 12)
+        file("src/assets/nordtal/textures/gui/sprites/frame.png.mcmeta")
+            .writeText("""{"gui": {"scaling": {"type": "stretch"}}}""")
+        png("src/assets/nordtal/textures/loose.png", 4, 4)
+        png("src/assets/minecraft/textures/block/stone.png", 16, 16)
+
+        val textures = model().list("textures")
+
+        assertEquals(listOf("nordtal", "nordtal:gui/sprites", "nordtal:item"), textures.map { it["category"] })
+        assertEquals(
+            listOf("nordtal:loose.png", "nordtal:gui/sprites/frame.png", "nordtal:item/wand_glow.png"),
+            textures.flatMap { it.list("entries") }.map { it.map("texture")["id"] },
+        )
+        val frame = only(textures[1].list("entries"))
+        assertEquals(listOf(24, true, "stretch"), listOf(frame.map("texture")["width"], frame["guiSprite"], frame.map("scaling")["type"]))
+        assertEquals("src/assets/nordtal/textures/gui/sprites/frame.png.mcmeta", frame["mcmeta"])
+        assertEquals(listOf(null, null), listOf(frame["block"], frame["item"]))
+    }
+
+    @Test
     fun theModelListsTheStatusesAGlyphCanHave() {
         allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
 

@@ -44,6 +44,7 @@ describe("the new-texture wizard", function()
     assert.same({ "font", "title", "size", "height", "ascent" }, wizard.fields.block)
     assert.same({ "font", "title", "namespace", "path", "constants", "width", "height", "ascent" }, wizard.fields.sheet)
     assert.same({ "namespace", "path", "width", "height" }, wizard.fields.item)
+    assert.same({ "namespace", "path", "width", "height" }, wizard.fields.texture)
   end)
 
   it("turns the values into a task and its options, without the empty ones", function()
@@ -59,6 +60,8 @@ describe("the new-texture wizard", function()
                             constants="LEFT,RIGHT", width="6", height="5", ascent="-4" }))
     assert.same({ "createItem", { item="nordtal:wand", width="16" } },
       wizard.job("item", { namespace="nordtal", path="wand", width="16", height="" }))
+    assert.same({ "createTexture", { texture="nordtal:gui/frame.png", width="24", height="12" } },
+      wizard.job("texture", { namespace="nordtal", path="gui/frame", width="24", height="12" }))
     assert.same({ "copyVanillaTexture", { texture="minecraft:block/stone.png" } },
       wizard.job("override", { texture="minecraft:block/stone.png", search="sto" }))
     assert.same({ "editItem", { item="minecraft:compass" } },
@@ -98,6 +101,7 @@ describe("the new-texture wizard", function()
       ["cell/nordtal:hud/FE041"]={ kind="cell", texture={ id="nordtal:hud/arrows.png" } },
       ["item/nordtal:wand"]={ kind="item", entry={ id="nordtal:wand" } },
       ["override/minecraft:block/stone.png"]={ kind="override", texture={ id="minecraft:block/stone.png" } },
+      ["texture/nordtal:gui/frame.png"]={ kind="override", texture={ id="nordtal:gui/frame.png" } },
     }
     assert.equal("glyph/minecraft:default/F0001",
       wizard.target(index, { "createGlyph", { texture="nordtal:ranks/gold.png" } }))
@@ -107,6 +111,8 @@ describe("the new-texture wizard", function()
     assert.equal("override/minecraft:block/stone.png",
       wizard.target(index, { "copyVanillaTexture", { texture="minecraft:block/stone.png" } }))
     assert.equal("item/nordtal:wand", wizard.target(index, { "editItem", { item="nordtal:wand" } }))
+    assert.equal("texture/nordtal:gui/frame.png",
+      wizard.target(index, { "createTexture", { texture="nordtal:gui/frame.png", width="16", height="16" } }))
     assert.is_nil(wizard.target(index, { "createItem", { item="nordtal:lamp" } }))
   end)
 

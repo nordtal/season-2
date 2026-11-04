@@ -1654,6 +1654,17 @@ describe("the Nordtal tab", function()
     loaded(drafted)
     assert.equal("publish.button 2", drafted.dialogs[1].handlers.publish.text)
     assert.is_true(drafted.dialogs[1].handlers.publish.enabled)
+    -- A read that finds the drafts gone disables the button again
+    local m = dkjson.decode(draftModel)
+    m.drafts = {}
+    drafted.world.model = dkjson.encode(m)
+    synced(drafted)
+    drafted.ctl.reload()
+    local read = drafted.started[#drafted.started]
+    read.isRunning = false
+    read.args.onexit(0)
+    assert.equal("publish.button 0", drafted.dialogs[1].handlers.publish.text)
+    assert.is_false(drafted.dialogs[1].handlers.publish.enabled)
   end)
 
   it("opens the publish dialog from the Publish button", function()

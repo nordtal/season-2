@@ -1,6 +1,7 @@
 -- The Nordtal tab: the embedded editor below the Minecraft bar, and a
--- side panel with the pack tree above the properties of the selected
--- entry and a splitter between them. The main window docks the panel
+-- side panel with the Publish button above the pack tree, and the tree
+-- above the properties of the selected entry with a splitter between
+-- them. The main window docks the panel
 -- outside the colour bar, or outside the tools when
 -- preferences.treeSide is "right".
 --

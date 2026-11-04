@@ -46,6 +46,9 @@ class RailLoadTest {
 
     private static final int CROSSINGS_EVERY = 64;
 
+    /** The length of a line between two stations with no junction on it. */
+    private static final int LONG_LINE = 50_000;
+
     private final Track track = new Track();
     private final List<StationRow> stations = new ArrayList<>();
 
@@ -70,7 +73,7 @@ class RailLoadTest {
 
     private static StationRow station(final int x, final int z) {
         return new StationRow(
-                new UUID(0, z), "nordtal", x, 64, z, RailShape.EAST_WEST.name(), new UUID(1, 0), null, null);
+                new UUID(x, z), "nordtal", x, 64, z, RailShape.EAST_WEST.name(), new UUID(1, 0), null, null);
     }
 
     /**
@@ -166,6 +169,27 @@ class RailLoadTest {
         return edges;
     }
 
+    /** Breaks a rail in the middle of a long line with no junction, lays it again, and returns both runs. */
+    private static List<Run> longLine() {
+        final List<Run> runs = new ArrayList<>();
+        final Map<RailPos, RailShape> line = new HashMap<>();
+        final Track straight = new Track();
+        straight.eastWest(0, LONG_LINE, 64, 0);
+        line.putAll(straight.rails());
+        final RailView lineView = view(line);
+        final List<StationRow> ends = List.of(station(0, 0), station(LONG_LINE, 0));
+        final WorldNetworks onLine = new WorldNetworks();
+        ends.forEach(onLine::addStation);
+        ticks(onLine, () -> onLine.retrace(lineView, CLOCK));
+        final RailPos middle = at(LONG_LINE / 2, 64, 0);
+        final RailShape shape = Objects.requireNonNull(line.remove(middle));
+        runs.add(ticks(onLine, () -> onLine.recheck(List.of(middle), lineView, CLOCK)));
+        line.put(middle, shape);
+        runs.add(ticks(onLine, () -> onLine.recheck(List.of(middle), lineView, CLOCK)));
+        assertEquals(1, onLine.networks().size(), "the line is whole again");
+        return runs;
+    }
+
     @Test
     void noTickSpendsMoreThanFiveMillisecondsOnALargeWorld() {
         warmUp();
@@ -192,11 +216,13 @@ class RailLoadTest {
         // Block changes: a rail broken in a long line and laid again, and a junction broken and laid again.
         final List<Run> changes = new ArrayList<>();
         for (final RailPos pos : List.of(at(400, 64, 400), at(CROSSINGS_EVERY * 5, 64, 400))) {
-            final RailShape shape = Objects.requireNonNull(world.remove(pos));
+            final RailShape removed = Objects.requireNonNull(world.remove(pos));
             changes.add(ticks(restarted, () -> restarted.recheck(List.of(pos), view, CLOCK)));
-            world.put(pos, shape);
+            world.put(pos, removed);
             changes.add(ticks(restarted, () -> restarted.recheck(List.of(pos), view, CLOCK)));
         }
+        changes.addAll(longLine());
+
         final long changed = changes.stream().mapToLong(Run::longest).max().orElseThrow();
         final long byClock = Stream.concat(Stream.of(traced, restart), changes.stream())
                 .mapToLong(Run::longestByClock)

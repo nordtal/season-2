@@ -69,14 +69,17 @@ final class BukkitRails implements RailView {
         if (key == lastKey) {
             return true;
         }
-        if (ungenerated.contains(key) || world.isChunkLoaded(pos.x() >> 4, pos.z() >> 4)) {
+        if (ungenerated.contains(key)) {
+            return true;
+        }
+        if (world.isChunkLoaded(pos.x() >> 4, pos.z() >> 4)) {
             read(key);
             return true;
         }
         return false;
     }
 
-    /** Notes that the chunk with {@code key} is read now, so it stays held a while longer. */
+    /** Notes that the chunk with {@code key}, which is loaded, is read now, so it stays held a while longer. */
     private void read(final long key) {
         lastKey = key;
         if (held.contains(key)) {

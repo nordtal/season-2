@@ -320,6 +320,10 @@ final class RailTrace {
     private boolean goesOn(final Follow follow, final RailPos at, final List<RailPos> connected) {
         final List<RailPos> onward = onward(connected, follow.previous);
         if (onward.size() >= 2) {
+            if (turnedAway(at, connected)) {
+                finish(follow, null);
+                return false;
+            }
             finish(follow, at);
             if (!looked.contains(at)) {
                 expand(at, true, connected);
@@ -345,6 +349,14 @@ final class RailTrace {
         }
         park(task, List.of(at));
         return false;
+    }
+
+    /**
+     * Whether the track led to {@code at} from a rail it no longer connects to, as when it changed between two ticks.
+     * The track ends there, and the re-check that change queued reads it again.
+     */
+    private boolean turnedAway(final RailPos at, final List<RailPos> connected) {
+        return connected.size() < 3 || (looked.contains(at) && !nodes.contains(at));
     }
 
     private static List<RailPos> onward(final List<RailPos> connected, final RailPos previous) {
@@ -399,7 +411,7 @@ final class RailTrace {
             }
             final List<RailPos> onward = onward(connected, find.previous);
             if (onward.size() >= 2) {
-                if (!looked.contains(at)) {
+                if (!turnedAway(at, connected) && !looked.contains(at)) {
                     expand(at, true, connected);
                 }
                 return;

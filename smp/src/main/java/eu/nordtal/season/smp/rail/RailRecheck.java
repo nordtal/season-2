@@ -29,6 +29,9 @@ import org.jspecify.annotations.Nullable;
  */
 final class RailRecheck implements RailTrace.Known {
 
+    /** The most rails one skip takes, so the trace spends its budget along a long leg it knows. */
+    static final int SKIP_MOST = 64;
+
     /** A share of a tick's work: so many units, until a time by {@link System#nanoTime()}. */
     private static final class Budget {
         private int left;
@@ -100,7 +103,7 @@ final class RailRecheck implements RailTrace.Known {
     private List<RailLeg> traced = List.of();
     private int indexLeg;
     private int indexRail;
-    private final List<RailGraph.Place> deferred = new ArrayList<>();
+    private final Set<RailLeg> deferred = Collections.newSetFromMap(new IdentityHashMap<>());
     private @Nullable Change change;
 
     // What the re-check found, beside what the world holds until the commit.
@@ -224,6 +227,7 @@ final class RailRecheck implements RailTrace.Known {
         int end = index;
         while (end >= 0
                 && end < rails.size()
+                && Math.abs(end - index) < SKIP_MOST
                 && !region.contains(rails.get(end))
                 && !world.stations.containsKey(rails.get(end))) {
             end += direction;
@@ -295,7 +299,7 @@ final class RailRecheck implements RailTrace.Known {
         return phase == Phase.DONE;
     }
 
-    /** Notes where the rails of the new legs lie; a rail on a leg that is held now waits for the commit. */
+    /** Notes where the rails of the new legs lie; a rail on a leg that is held now goes aside until the commit. */
     private boolean index(final int budget, final long deadline) {
         int left = budget;
         while (indexLeg < traced.size()) {
@@ -310,7 +314,8 @@ final class RailRecheck implements RailTrace.Known {
                 if (world.place(rail) == null) {
                     world.places.put(rail, at);
                 } else {
-                    deferred.add(at);
+                    world.later.put(rail, at);
+                    deferred.add(leg);
                 }
                 indexRail++;
             }
@@ -589,9 +594,7 @@ final class RailRecheck implements RailTrace.Known {
             }
             stranded.forEach(world::unlinkLegOnly);
         }
-        for (final RailGraph.Place place : deferred) {
-            world.places.put(place.leg().rails().get(place.index()), place);
-        }
+        world.moving.addAll(deferred);
         final List<StationRow> lost = new ArrayList<>();
         for (final RailPos pos : missing) {
             world.removeStation(pos).ifPresent(lost::add);

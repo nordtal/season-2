@@ -72,6 +72,42 @@ class RailTraceTest {
     }
 
     @Test
+    void aRailTurnedAwayWhileTracedEndsTheTrackAndIsNoJunction() {
+        final Track track = new Track().eastWest(0, 40, 64, 0);
+        // The rail at 20 and both beside it turn north to south just as the trace first reads it.
+        final RailView turning = new RailView() {
+            private boolean turned;
+
+            @Override
+            public boolean readable(final RailPos pos) {
+                return true;
+            }
+
+            @Override
+            public @Nullable RailShape shape(final RailPos pos) {
+                if (!turned && pos.equals(at(20, 64, 0))) {
+                    turned = true;
+                    track.rail(19, 64, 0, RailShape.NORTH_SOUTH)
+                            .rail(20, 64, 0, RailShape.NORTH_SOUTH)
+                            .rail(21, 64, 0, RailShape.NORTH_SOUTH)
+                            .rail(20, 64, -1, RailShape.NORTH_SOUTH)
+                            .rail(20, 64, 1, RailShape.NORTH_SOUTH);
+                }
+                return track.shape(pos);
+            }
+        };
+        final RailTrace trace =
+                new RailTrace(turning, known(track, Set.of(at(0, 64, 0), at(40, 64, 0)), _ -> false, _ -> null));
+        trace.look(at(0, 64, 0));
+        trace.look(at(40, 64, 0));
+
+        for (int steps = 0; steps < 1_000 && !trace.step(100, Long.MAX_VALUE); steps++) {}
+
+        assertEquals(Set.of(), trace.junctions(), "a rail with two connections is no junction");
+        assertTrue(trace.traced().stream().noneMatch(leg -> at(20, 64, 0).equals(leg.to())));
+    }
+
+    @Test
     void aBrokenRailEndsTheTrackOnEachSide() {
         final Track track = new Track().eastWest(0, 9, 64, 0).remove(5, 64, 0);
 

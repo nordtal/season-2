@@ -106,6 +106,7 @@ class RidesTest {
                         yield true;
                     }
                     case "isValid" -> valid;
+                    case "isEmpty" -> vehicle == null;
                     case "setVelocity", "setMaxSpeed" -> null;
                     case "setGravity" -> {
                         gravity = (boolean) args[0];
@@ -533,21 +534,21 @@ class RidesTest {
 
     @Test
     void aCartGoesIntoTheInventoryWhenThereIsRoom() {
-        Rides.pocket(cart, rider(GameMode.SURVIVAL, true));
+        Rides.pocket(recorded, rider(GameMode.SURVIVAL, true));
 
         assertEquals(List.of("into the inventory", "cart removed"), calls);
     }
 
     @Test
     void aCartDropsAtTheFeetOfARiderWithAFullInventory() {
-        Rides.pocket(cart, rider(GameMode.SURVIVAL, false));
+        Rides.pocket(recorded, rider(GameMode.SURVIVAL, false));
 
         assertEquals(List.of("into the inventory", "dropped at the feet", "cart removed"), calls);
     }
 
     @Test
     void aCartOfACreativeRiderIsOnlyRemoved() {
-        Rides.pocket(cart, rider(GameMode.CREATIVE, false));
+        Rides.pocket(recorded, rider(GameMode.CREATIVE, false));
 
         assertEquals(List.of("cart removed"), calls);
     }

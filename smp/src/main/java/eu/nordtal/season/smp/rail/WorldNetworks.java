@@ -41,6 +41,8 @@ public final class WorldNetworks {
      * @param added     the edges to store
      * @param junctions the junctions to store
      * @param crossings the stored junctions that are gone
+     * @param renamed   the stations a merge gave a new name
+     * @param lost      the stations whose rail is gone
      */
     public record Change(
             List<RailLeg> removed,
@@ -79,6 +81,14 @@ public final class WorldNetworks {
     Map<RailPos, Node> nodes = new HashMap<>();
     Map<RailTrace.End, RailLeg> legs = new HashMap<>();
     final RailMap<RailGraph.Place> places = new RailMap<>();
+
+    /** Where the rails of legs a re-check committed lie, while {@link #places} still names the legs they replaced. */
+    final RailMap<RailGraph.Place> later = new RailMap<>();
+
+    /** The legs whose rails {@link #tidy} moves from {@link #later} into {@link #places}. */
+    final Deque<RailLeg> moving = new ArrayDeque<>();
+
+    private int movingAt;
     final Set<Network> networks = Collections.newSetFromMap(new IdentityHashMap<>());
     final Deque<RailLeg> stale = new ArrayDeque<>();
     private int staleAt;
@@ -133,7 +143,11 @@ public final class WorldNetworks {
     /** Returns where {@code rail} lies on a leg this world holds now, or null when it lies on none. */
     RailGraph.@Nullable Place place(final RailPos rail) {
         final RailGraph.@Nullable Place place = places.get(rail);
-        return place != null && holds(place.leg()) ? place : null;
+        if (place != null && holds(place.leg())) {
+            return place;
+        }
+        final RailGraph.@Nullable Place next = later.get(rail);
+        return next != null && holds(next.leg()) ? next : null;
     }
 
     private boolean holds(final RailLeg leg) {
@@ -218,9 +232,28 @@ public final class WorldNetworks {
         return job;
     }
 
-    /** Drops at most {@code budget} rails of gone legs from the index of where each rail lies. */
+    /** Moves or drops at most {@code budget} rails in the index of where each rail lies, after a re-check. */
     void tidy(final int budget) {
         int left = budget;
+        while (left > 0 && !moving.isEmpty()) {
+            final RailLeg leg = moving.peek();
+            final List<RailPos> rails = leg.rails();
+            while (left > 0 && movingAt < rails.size()) {
+                final RailPos rail = rails.get(movingAt++);
+                final RailGraph.@Nullable Place place = later.get(rail);
+                if (place != null && place.leg() == leg) {
+                    later.remove(rail);
+                    if (holds(leg)) {
+                        places.put(rail, place);
+                    }
+                }
+                left--;
+            }
+            if (movingAt >= rails.size()) {
+                moving.poll();
+                movingAt = 0;
+            }
+        }
         while (left > 0 && !stale.isEmpty()) {
             final RailLeg leg = stale.peek();
             final List<RailPos> rails = leg.rails();
@@ -366,7 +399,7 @@ public final class WorldNetworks {
 
     /** Returns how many rails the index of where each rail lies holds, gone legs not tidied away yet included. */
     int indexed() {
-        return places.size();
+        return places.size() + later.size();
     }
 
     /** Returns the stations by id, for a lookup by its key. */

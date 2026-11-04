@@ -29,6 +29,7 @@ class BukkitRailsTest {
     private final Track track = new Track();
     private final Set<Long> loaded = new HashSet<>();
     private final Map<Long, Integer> failuresLeft = new HashMap<>();
+    private final Set<Long> ungenerated = new HashSet<>();
     private final Map<Long, Integer> asked = new HashMap<>();
     private final List<Runnable> pending = new ArrayList<>();
     private boolean deferred;
@@ -141,6 +142,17 @@ class BukkitRailsTest {
     }
 
     @Test
+    void aChunkNotGeneratedEndsTheTrackWithoutBeingRead() {
+        track.eastWest(0, 40, 64, 0);
+        ungenerated.add(BAD);
+        final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
+
+        final RailTrace trace = traced(view, at(0, 64, 0));
+
+        assertEquals(15, railsFrom(trace, at(0, 64, 0)), "the track ends where the chunk was never generated");
+    }
+
+    @Test
     void onlyAFewChunksLoadAtOnce() {
         deferred = true;
         final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
@@ -186,7 +198,12 @@ class BukkitRailsTest {
                     case "getMaxHeight" -> 320;
                     case "isChunkLoaded" -> loaded.contains(Chunk.getChunkKey((int) args[0], (int) args[1]));
                     case "getChunkAtAsync" -> load((int) args[0], (int) args[1]);
-                    case "getBlockData" -> blockData(track.shape(at((int) args[0], (int) args[1], (int) args[2])));
+                    case "getBlockData" -> {
+                        if (!loaded.contains(Chunk.getChunkKey((int) args[0] >> 4, (int) args[2] >> 4))) {
+                            throw new IllegalStateException("a read of a chunk not loaded loads it on the main thread");
+                        }
+                        yield blockData(track.shape(at((int) args[0], (int) args[1], (int) args[2])));
+                    }
                     case "addPluginChunkTicket", "removePluginChunkTicket" -> true;
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
@@ -199,6 +216,9 @@ class BukkitRailsTest {
         if (left > 0) {
             failuresLeft.put(key, left - 1);
             return CompletableFuture.failedFuture(new IllegalStateException("the chunk is corrupt"));
+        }
+        if (ungenerated.contains(key)) {
+            return CompletableFuture.completedFuture(null);
         }
         final Chunk chunk = chunk(key);
         if (deferred) {

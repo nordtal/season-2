@@ -637,6 +637,13 @@
               "texture": "nordtal:ui/bossbar/icons/status_border.png",
               "status": "final candidate",
               "about": "World border, 10 by 10: a dashed square."
+            },
+            {
+              "code": "FEF0D",
+              "constant": "BOSSBAR_ICON_RIDE",
+              "texture": "nordtal:ui/bossbar/icons/status_ride.png",
+              "status": "final candidate",
+              "about": "A ride to a station, 10 by 10: a minecart."
             }
           ]
         },
@@ -766,6 +773,64 @@
           "range": "FEF20-FEF2F",
           "title": "Reserved for a larger digit set",
           "glyphs": []
+        },
+        {
+          "range": "FEF30-FEF3F",
+          "title": "Ride progress",
+          "about": "The progress bar of a ride: the empty track, then the ridden part over it from segments of the brand blue whose code point's last digit counts up with the width, composed by BossBarProgress.",
+          "height": 5,
+          "ascent": 1,
+          "status": "final candidate",
+          "glyphs": [
+            {
+              "code": "FEF30",
+              "constant": "BOSSBAR_RIDE_TRACK",
+              "texture": "nordtal:ui/bossbar/ride/track.png",
+              "about": "The empty track, 100 by 5, with an outline of one pixel around 98 by 3."
+            },
+            {
+              "code": "FEF31",
+              "constant": "BOSSBAR_RIDE_FILL_1",
+              "texture": "nordtal:ui/bossbar/ride/fill_1.png",
+              "about": "The ridden part of the track, 1 pixel."
+            },
+            {
+              "code": "FEF32",
+              "constant": "BOSSBAR_RIDE_FILL_2",
+              "texture": "nordtal:ui/bossbar/ride/fill_2.png",
+              "about": "The ridden part of the track, 2 pixels."
+            },
+            {
+              "code": "FEF33",
+              "constant": "BOSSBAR_RIDE_FILL_4",
+              "texture": "nordtal:ui/bossbar/ride/fill_4.png",
+              "about": "The ridden part of the track, 4 pixels."
+            },
+            {
+              "code": "FEF34",
+              "constant": "BOSSBAR_RIDE_FILL_8",
+              "texture": "nordtal:ui/bossbar/ride/fill_8.png",
+              "about": "The ridden part of the track, 8 pixels."
+            },
+            {
+              "code": "FEF35",
+              "constant": "BOSSBAR_RIDE_FILL_16",
+              "texture": "nordtal:ui/bossbar/ride/fill_16.png",
+              "about": "The ridden part of the track, 16 pixels."
+            },
+            {
+              "code": "FEF36",
+              "constant": "BOSSBAR_RIDE_FILL_32",
+              "texture": "nordtal:ui/bossbar/ride/fill_32.png",
+              "about": "The ridden part of the track, 32 pixels."
+            },
+            {
+              "code": "FEF37",
+              "constant": "BOSSBAR_RIDE_FILL_64",
+              "texture": "nordtal:ui/bossbar/ride/fill_64.png",
+              "about": "The ridden part of the track, 64 pixels."
+            }
+          ]
         }
       ],
       "lists": [

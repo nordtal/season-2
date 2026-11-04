@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Arrived at</good> <emphasis>{name}</emphasis>",
+            "de": "<good>Angekommen in</good> <emphasis>{name}</emphasis>"
+          }
+        }
+      ]
+    }
+  ]
+}

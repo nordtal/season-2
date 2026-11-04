@@ -29,6 +29,7 @@ import eu.nordtal.season.smp.protect.ProtectionListener;
 import eu.nordtal.season.smp.rail.ChunkTickets;
 import eu.nordtal.season.smp.rail.RailNetworks;
 import eu.nordtal.season.smp.rail.RailStore;
+import eu.nordtal.season.smp.rail.RideFeedback;
 import eu.nordtal.season.smp.rail.Rides;
 import eu.nordtal.season.smp.rail.StationMenus;
 import eu.nordtal.season.smp.rail.StationRailListener;
@@ -288,6 +289,10 @@ final class SmpStart {
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rails::tick);
         final Rides rides = new Rides(scheduler, rails, tickets, plugin.railSettings::get, plugin.sounds);
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rides::tick);
+        final RideFeedback feedback =
+                new RideFeedback(plugin.renderer(), plugin.identities(), plugin.sounds, plugin.clock());
+        rides.watch(feedback);
+        plugin.hud().declare(feedback);
         plugin.getServer().getPluginManager().registerEvents(rides, plugin);
         plugin.getServer()
                 .getPluginManager()

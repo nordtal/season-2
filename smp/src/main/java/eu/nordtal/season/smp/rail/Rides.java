@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -70,6 +71,7 @@ public final class Rides implements Listener {
     private final Map<Claim, UUID> claims = new HashMap<>();
 
     private Consumer<Player> stranded = _ -> {};
+    private RideWatch watch = RideWatch.NONE;
 
     /** One cart on its way: the line it follows, how far along it is and how fast it goes. */
     private static final class Ride {
@@ -127,6 +129,11 @@ public final class Rides implements Listener {
     /** Runs {@code told} for a rider whose cart stopped for good before reaching the station. */
     void whenStranded(final Consumer<Player> told) {
         this.stranded = told;
+    }
+
+    /** Reports every ride to {@code watching}. */
+    public void watch(final RideWatch watching) {
+        this.watch = watching;
     }
 
     /** Drives {@code cart} with {@code rider} in it to the station {@code station}; false when no way leads there. */
@@ -228,6 +235,7 @@ public final class Rides implements Listener {
         ride.end = ride.path.length();
         ride.standingPlanDue = false;
         ride.waited = 0;
+        watch.planned(ride.rider, ride.destination, nameOf(station.get()), path.length());
         return true;
     }
 
@@ -270,6 +278,7 @@ public final class Rides implements Listener {
         ride.speed = Math.min(path.next(ride.along, ride.speed, limit, now), limit - ride.along);
         ride.along += ride.speed;
         move(ride, path);
+        watch.moved(ride.rider, path.length() - ride.along);
         if (ride.speed > 0 || ride.along < limit) {
             ride.waited = 0;
             return true;
@@ -462,6 +471,12 @@ public final class Rides implements Listener {
                 (float) Math.toDegrees(Math.atan2(-direction[0], direction[1])),
                 ride.rider.getPitch());
         rides.remove(ride.cart.getUniqueId());
+        watch.arrived(
+                ride.rider,
+                ride.destination,
+                networks.station(ride.world.getName(), ride.destination)
+                        .map(Rides::nameOf)
+                        .orElse(""));
         release(ride);
         ride.cart.removePassenger(ride.rider);
         ride.rider.teleport(down);
@@ -483,7 +498,12 @@ public final class Rides implements Listener {
         claims.values().removeIf(ride.cart.getUniqueId()::equals);
     }
 
+    private static String nameOf(final StationRow station) {
+        return Objects.requireNonNullElse(station.name(), "");
+    }
+
     private void release(final Ride ride) {
+        watch.ended(ride.rider);
         unclaim(ride);
         standStill(ride.cart);
         ride.held.forEach(key -> tickets.release(ride.world, key));

@@ -50,7 +50,8 @@ local defaults = {
 local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyphSheet", item="createItem",
                 vanilla_item="editItem", override="copyVanillaTexture" }
 
--- How many entries of one folder or letter the browser shows
+-- How many entries a group shows before it splits by first letter,
+-- and how many each letter shows
 local limit = 300
 
 -- How many lines the browser's hint shows
@@ -195,8 +196,8 @@ end
 
 -- The nodes of the ids that hold every word of query, grouped by
 -- folder with the ids outside a folder after them, how many match and
--- how many the nodes show. Every folder shows; only the entries of a
--- large folder or letter are cut, as lettered says.
+-- how many the nodes show. Every folder shows; only a letter of more
+-- than most entries is cut, as lettered says.
 function wizard.matches(ids, query, most)
   local words = {}
   for word in query:lower():gmatch("%S+") do table.insert(words, word) end

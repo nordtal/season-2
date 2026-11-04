@@ -50,7 +50,7 @@ local defaults = {
 local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyphSheet", item="createItem",
                 vanilla_item="editItem", override="copyVanillaTexture" }
 
--- How many ids of the client jar the browser shows at once
+-- How many entries of one folder or letter the browser shows
 local limit = 300
 
 -- How many lines the browser's hint shows
@@ -172,10 +172,10 @@ function wizard.choices(kind, listing, model)
   return out
 end
 
--- The entries of one group as they are, or once they are more than
--- most, in groups by their first letter that show at most most entries
--- each, and how many it shows. A group's id starts with "folder/" and
--- holds a "#", which no path of a resource holds.
+-- The entries of one group, and how many of them show. A group larger
+-- than most is split by first letter, and each letter shows its first
+-- most entries. A letter's id starts with "folder/" and holds a "#",
+-- which no path of a resource holds.
 local function lettered(entries, id, most, expanded)
   if #entries <= most then return entries, #entries end
   local groups, order, shown = {}, {}, 0
@@ -195,9 +195,8 @@ end
 
 -- The nodes of the ids that hold every word of query, grouped by
 -- folder with the ids outside a folder after them, how many match and
--- how many the nodes show. Every folder shows; a group of more than
--- most entries is split by their first letter, of which each shows at
--- most most entries.
+-- how many the nodes show. Every folder shows; only the entries of a
+-- large folder or letter are cut, as lettered says.
 function wizard.matches(ids, query, most)
   local words = {}
   for word in query:lower():gmatch("%S+") do table.insert(words, word) end

@@ -65,7 +65,9 @@ vanilla item or vanilla override. It then shows the options of the kind's task i
 value. A refusal shows below the field it names, and the dialog stays open with what was typed. Once
 the task succeeded, the tab reads the pack again and opens the new texture in the editor. A vanilla
 override is chosen from the textures of the client jar, which `listVanillaAssets` lists once per
-session together with its items, with a search for the words of its id. A search that hides the
+session together with its items, by folder, with a search for the words of its id. Every folder
+shows; one of more than 300 entries, and the items, which have no folder, are split by first letter.
+A search that hides the
 chosen id clears the choice. A choice hides the refusal of Create. A vanilla item is chosen the same
 way from the items that the pack does not override yet. Create runs `editItem` without a change,
 which writes the item's definition from the client jar into the pack, and the item editor opens it.

@@ -21,6 +21,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Rail;
 import org.bukkit.entity.ItemDisplay;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
@@ -47,6 +48,8 @@ public final class RailNetworks {
     private final StationMarks marks;
     private final StationRailItem item;
     private final NamespacedKey displayKey;
+    private final StationHolograms<Optional<TextDisplay>> holograms =
+            new StationHolograms<>(new StationHologramDrawing());
     private final Map<String, WorldNetworks> worlds = new HashMap<>();
     private final Map<String, Set<RailPos>> changed = new LinkedHashMap<>();
     private final Map<UUID, StationRow> crooked = new LinkedHashMap<>();
@@ -93,6 +96,7 @@ public final class RailNetworks {
                                         .add(station.pos()));
                     });
                     restored = true;
+                    worlds.forEach((world, networks) -> reconcileHolograms(world));
                     plugin.getLogger()
                             .info("restored "
                                     + worlds.values().stream()
@@ -108,6 +112,7 @@ public final class RailNetworks {
             walk.view().release();
             running = null;
         }
+        holograms.clear();
         Bukkit.removeRecipe(item.recipeKey());
     }
 
@@ -149,6 +154,14 @@ public final class RailNetworks {
         if (!starts.isEmpty()) {
             changed.computeIfAbsent(world, _ -> new LinkedHashSet<>()).addAll(starts);
         }
+        if (restored) {
+            marks.positions(chunk).forEach(at -> networks(world).station(at).ifPresent(holograms::show));
+        }
+    }
+
+    /** Removes the holograms of {@code chunk}, which unloads. */
+    void unloaded(final Chunk chunk) {
+        holograms.unloaded(chunk.getWorld().getName(), chunk.getChunkKey());
     }
 
     /** Makes {@code block}, a placed rail, a station rail of {@code placer}, straight along {@code axis}. */
@@ -165,7 +178,10 @@ public final class RailNetworks {
                 null,
                 null);
         marks.mark(block);
-        networks(station.world()).station(station.pos()).ifPresent(old -> forget(old.id()));
+        networks(station.world()).station(station.pos()).ifPresent(old -> {
+            forget(old.id());
+            holograms.hide(old.id());
+        });
         networks(station.world()).addStation(station);
         draw(block, axis);
         store.placed(station);
@@ -178,6 +194,7 @@ public final class RailNetworks {
         erase(block);
         networks(block.getWorld().getName()).removeStation(pos(block)).ifPresent(row -> {
             forget(row.id());
+            holograms.hide(row.id());
             store.removed(row.id());
         });
         changed(block);
@@ -218,6 +235,7 @@ public final class RailNetworks {
             final StationRow named = current.get().renamed(typed.strip(), clock.instant());
             networks.addStation(named);
             unseen.remove(named.id());
+            holograms.show(named);
             store.named(named);
         }
         return Optional.of(verdict);
@@ -288,6 +306,15 @@ public final class RailNetworks {
         if (unseen.remove(station)) {
             store.seen(station);
         }
+    }
+
+    /** Brings the holograms of {@code world} level with its stations, after they were restored or walked again. */
+    private void reconcileHolograms(final String world) {
+        final @Nullable World loaded = Bukkit.getWorld(world);
+        holograms.reconcile(
+                world,
+                networks(world).stations(),
+                station -> loaded != null && loaded.isChunkLoaded(station.x() >> 4, station.z() >> 4));
     }
 
     private static void straighten(final Block block, final RailShape axis) {
@@ -385,6 +412,7 @@ public final class RailNetworks {
         }
         replacement.lost().forEach(row -> forget(row.id()));
         store.replaced(walk.world(), replacement);
+        reconcileHolograms(walk.world());
         versions.merge(walk.world(), 1, Integer::sum);
         final Set<RailPos> again = retries.computeIfAbsent(walk.world(), _ -> new ChunkRetries())
                 .gaveUp(walk.view().givenUpChunks(), walk.walk().starts(), walk.view()::loaded);

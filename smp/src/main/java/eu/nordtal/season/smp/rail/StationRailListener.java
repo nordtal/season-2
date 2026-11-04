@@ -25,6 +25,7 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 
 /**
  * Places, protects and removes station rails, and tells the networks when a rail may have changed or a chunk loaded.
@@ -45,6 +46,11 @@ public final class StationRailListener implements Listener {
     @EventHandler
     public void onChunkLoad(final ChunkLoadEvent event) {
         networks.loaded(event.getChunk());
+    }
+
+    @EventHandler
+    public void onChunkUnload(final ChunkUnloadEvent event) {
+        networks.unloaded(event.getChunk());
     }
 
     @EventHandler

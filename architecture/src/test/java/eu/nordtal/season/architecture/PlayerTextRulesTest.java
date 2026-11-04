@@ -61,6 +61,9 @@ class PlayerTextRulesTest {
             Map.entry(
                     "eu.nordtal.season.smp.rail.StationDialog",
                     "the labels of the station document, already rendered, as the texts of a dialog"),
+            Map.entry(
+                    "eu.nordtal.season.smp.rail.StationHologramDrawing",
+                    "a station's name as its placer typed it, above its rail"),
             Map.entry("eu.nordtal.season.smp.welcome.SeasonWelcome", "the opening frames, pictures and not sentences"),
             Map.entry("eu.nordtal.season.hungergames.body.PlayerBodies", "a disconnected player's name on their body"),
             Map.entry("eu.nordtal.season.hungergames.player.ArenaComposition", "a flag glyph and a player name"),

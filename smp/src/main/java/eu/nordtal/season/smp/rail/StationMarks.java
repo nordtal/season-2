@@ -1,6 +1,8 @@
 package eu.nordtal.season.smp.rail;
 
 import java.util.Arrays;
+import java.util.List;
+import org.bukkit.Chunk;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -41,6 +43,16 @@ final class StationMarks {
         } else {
             data.set(key, PersistentDataType.LONG_ARRAY, left);
         }
+    }
+
+    /** Returns where the station rails marked in {@code chunk} stand. */
+    List<RailPos> positions(final Chunk chunk) {
+        final int baseX = chunk.getX() << 4;
+        final int baseZ = chunk.getZ() << 4;
+        return Arrays.stream(marks(chunk.getPersistentDataContainer()))
+                .mapToObj(mark ->
+                        new RailPos(baseX + (int) (mark & 15), (int) (mark >> 8), baseZ + (int) ((mark >> 4) & 15)))
+                .toList();
     }
 
     private long[] marks(final PersistentDataContainer data) {

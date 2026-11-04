@@ -50,7 +50,8 @@ local defaults = {
 local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyphSheet", item="createItem",
                 vanilla_item="editItem", override="copyVanillaTexture" }
 
--- How many ids of the client jar the browser shows at once
+-- How many entries a group shows before it splits by first letter,
+-- and how many each letter shows
 local limit = 300
 
 -- How many lines the browser's hint shows
@@ -172,13 +173,36 @@ function wizard.choices(kind, listing, model)
   return out
 end
 
+-- The entries of one group, and how many of them show. A group larger
+-- than most is split by first letter, and each letter shows its first
+-- most entries. A letter's id starts with "folder/" and holds a "#",
+-- which no path of a resource holds.
+local function lettered(entries, id, most, expanded)
+  if #entries <= most then return entries, #entries end
+  local groups, order, shown = {}, {}, 0
+  for _, entry in ipairs(entries) do
+    local letter = entry.text:sub(1, 1):upper()
+    if not groups[letter] then
+      groups[letter] = { id=id .. "#" .. letter, text=letter, children={}, expanded=expanded }
+      table.insert(order, groups[letter])
+    end
+    if #groups[letter].children < most then
+      table.insert(groups[letter].children, entry)
+      shown = shown + 1
+    end
+  end
+  return order, shown
+end
+
 -- The nodes of the ids that hold every word of query, grouped by
--- folder with an id outside a folder after them, at most limit of
--- them, and how many match
+-- folder with the ids outside a folder after them, how many match and
+-- how many the nodes show. Every folder shows; only a letter of more
+-- than most entries is cut, as lettered says.
 function wizard.matches(ids, query, most)
   local words = {}
   for word in query:lower():gmatch("%S+") do table.insert(words, word) end
-  local folders, order, loose, count, shown = {}, {}, {}, 0, 0
+  local expanded = #words > 0 or nil
+  local folders, order, loose, count = {}, {}, {}, 0
   local sorted = table.move(ids, 1, #ids, 1, {})
   table.sort(sorted)
   for _, id in ipairs(sorted) do
@@ -188,28 +212,31 @@ function wizard.matches(ids, query, most)
     end
     if matched then
       count = count + 1
-      if shown < most then
-        shown = shown + 1
-        local path = id:match("^[^:]+:(.*)$") or id
-        local folder, name = path:match("^(.*)/([^/]+)$")
-        name = (name or path):gsub("%.png$", "")
-        if not folder then
-          table.insert(loose, { id=id, text=name })
-        else
-          if not folders[folder] then
-            folders[folder] = { id="folder/" .. folder, text=folder, children={}, expanded=#words > 0 or nil }
-            table.insert(order, folder)
-          end
-          table.insert(folders[folder].children, { id=id, text=name })
+      local path = id:match("^[^:]+:(.*)$") or id
+      local folder, name = path:match("^(.*)/([^/]+)$")
+      name = (name or path):gsub("%.png$", "")
+      if not folder then
+        table.insert(loose, { id=id, text=name })
+      else
+        if not folders[folder] then
+          folders[folder] = {}
+          table.insert(order, folder)
         end
+        table.insert(folders[folder], { id=id, text=name })
       end
     end
   end
   table.sort(order)
-  local nodes = {}
-  for _, folder in ipairs(order) do table.insert(nodes, folders[folder]) end
-  table.move(loose, 1, #loose, #nodes + 1, nodes)
-  return nodes, count
+  local nodes, shown = {}, 0
+  for _, folder in ipairs(order) do
+    local id = "folder/" .. folder
+    local children, n = lettered(folders[folder], id, most, expanded)
+    table.insert(nodes, { id=id, text=folder, children=children, expanded=expanded })
+    shown = shown + n
+  end
+  local rest, n = lettered(loose, "folder/", most, expanded)
+  table.move(rest, 1, #rest, #nodes + 1, nodes)
+  return nodes, count, shown + n
 end
 
 -- Whether the nodes of the browser hold id
@@ -294,22 +321,22 @@ function wizard.open(context)
     end
     local browser = browsers[kind]
     local ids = wizard.choices(kind, listing, model)
-    local function counted(n)
-      return n > limit and tr(browser.more, limit, n) or tr(browser.count, n)
+    local function counted(n, shown)
+      return shown < n and tr(browser.more, shown, n) or tr(browser.count, n)
     end
     -- The hint below the list names the chosen id. It adds its labels
     -- to the dialog with add, or else changes them.
     local function hint(add)
       context.labels(dlg, "chosen", hintLines, chosen[kind] and tr(browser.chosen, chosen[kind]) or tr(browser.none), add)
     end
-    local nodes, count = wizard.matches(ids, values.search or "", limit)
+    local nodes, count, shown = wizard.matches(ids, values.search or "", limit)
     -- A search under another kind can hide the chosen id
     if chosen[kind] and not wizard.holds(nodes, chosen[kind]) then chosen[kind] = nil end
     dlg:entry{ id="search", label=tr("new.search"), text=values.search or "", onchange=function()
       values.search = dlg.data.search
-      local found, n = wizard.matches(ids, values.search, limit)
+      local found, n, visible = wizard.matches(ids, values.search, limit)
       dlg:modify{ id="choices", nodes=found }
-      dlg:modify{ id="count", text=counted(n) }
+      dlg:modify{ id="count", text=counted(n, visible) }
       -- Create creates only an id that the list shows
       if chosen[kind] and not wizard.holds(found, chosen[kind]) then
         chosen[kind] = nil
@@ -326,7 +353,7 @@ function wizard.open(context)
       end
     end }
     dlg:newrow()
-    dlg:label{ id="count", text=counted(count) }
+    dlg:label{ id="count", text=counted(count, shown) }
     dlg:newrow()
     hint(true)
     reason(refusal and refusal.lines)

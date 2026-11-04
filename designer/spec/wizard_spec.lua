@@ -139,11 +139,52 @@ describe("the new-texture wizard", function()
       { { id=nodes[1].id, text=nodes[1].text }, nodes[2], nodes[3] })
   end)
 
-  it("shows at most limit textures and counts every match", function()
-    local nodes, count = wizard.matches(textures, "stone", 2)
+  local function texts(nodes)
+    local out = {}
+    for _, node in ipairs(nodes) do table.insert(out, node.text) end
+    return out
+  end
+
+  it("shows every folder however many entries come before it", function()
+    local nodes, count, shown = wizard.matches(textures, "", 1)
+    assert.equal(5, count)
+    assert.equal(4, shown)
+    assert.same({ "block", "gui/sprites/hud/heart", "item" }, texts(nodes))
+  end)
+
+  it("splits a folder of more than limit entries by their first letter, so each is reachable", function()
+    local nodes, count, shown = wizard.matches(textures, "", 2)
+    assert.equal(5, count)
+    assert.equal(5, shown)
+    assert.same({ "D", "S" }, texts(nodes[1].children))
+    assert.same({ "dirt" }, texts(nodes[1].children[1].children))
+    assert.same({ "stone", "stone_bricks" }, texts(nodes[1].children[2].children))
+    assert.equal("minecraft:block/stone_bricks.png", nodes[1].children[2].children[2].id)
+    assert.is_false(wizard.isChoice(nodes[1].children[2].id))
+    assert.is_falsy(nodes[1].children[2].expanded)
+    assert.same({ "stone_sword" }, texts(nodes[3].children))
+  end)
+
+  it("shows at most limit entries of one letter and counts every match", function()
+    local nodes, count, shown = wizard.matches(textures, "stone", 1)
     assert.equal(3, count)
-    assert.equal(1, #nodes)
-    assert.equal(2, #nodes[1].children)
+    assert.equal(2, shown)
+    assert.same({ "block", "item" }, texts(nodes))
+    assert.same({ "S" }, texts(nodes[1].children))
+    assert.same({ "stone" }, texts(nodes[1].children[1].children))
+    assert.is_true(nodes[1].children[1].expanded)
+  end)
+
+  it("groups ids without a folder by their first letter once they are more than limit", function()
+    local items = { "minecraft:compass", "minecraft:apple", "minecraft:acacia_boat", "minecraft:block/dirt.png" }
+    local nodes, count, shown = wizard.matches(items, "", 2)
+    assert.equal(4, count)
+    assert.equal(4, shown)
+    assert.same({ "block", "A", "C" }, texts(nodes))
+    assert.same({ "acacia_boat", "apple" }, texts(nodes[2].children))
+    assert.equal("minecraft:compass", nodes[3].children[1].id)
+    assert.is_false(wizard.isChoice(nodes[2].id))
+    assert.is_true(wizard.holds(nodes, "minecraft:apple"))
   end)
 
   it("knows a folder's node from a choice's", function()

@@ -251,6 +251,7 @@ val sourceEdits =
         "createGlyphBlock" to "block",
         "createGlyphSheet" to "sheet",
         "createItem" to "item",
+        "createTexture" to "texture",
         "renameGlyph" to "rename",
         "editGlyph" to "edit",
         "resizeGlyph" to "resize",

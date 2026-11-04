@@ -23,6 +23,11 @@ and its PNG: the first frame for a glyph or an item, every frame for a vanilla o
 another entry saves the sprite first when it has unsaved changes, and keeps it open when that save
 fails. **View > Nordtal Tree on the Right** docks the side panel right of the tools.
 
+The tree's **Textures** lists every PNG under `src/assets/<namespace>/textures/` outside `minecraft`
+that no glyph, sheet or item of the tree shows, by namespace and folder, so a texture that nothing
+draws yet can still be drawn, animated and published. Such a texture opens and saves like a vanilla
+override, with every frame, its animation and, for a GUI sprite, its scaling.
+
 The properties panel shows each value it edits in a sunken box. The mouse wheel scrolls the properties
 panel, and a panel taller than its room shows a scroll bar along its right edge. A click on a box asks
 for the new value in a form. OK runs the resource pack's task that writes it:
@@ -60,7 +65,7 @@ and its textures and makes the node draw it in one run. The model ID it proposes
 namespace `nordtal`. An item that the pack overrides from the client jar is edited the same way.
 
 **File > New Texture...** opens a dialog that asks for the kind first: glyph, glyph block, sheet, item,
-vanilla item or vanilla override. It then shows the options of the kind's task in
+texture, vanilla item or vanilla override. It then shows the options of the kind's task in
 `resource-pack/README.md`, with font and block to choose and namespace and path for the id. Create runs the task, which checks every
 value. A refusal shows below the field it names, and the dialog stays open with what was typed. Once
 the task succeeded, the tab reads the pack again and opens the new texture in the editor. A vanilla

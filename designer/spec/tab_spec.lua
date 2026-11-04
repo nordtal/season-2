@@ -1075,8 +1075,8 @@ describe("the Nordtal tab", function()
     assert.same({ "combobox kind", "combobox font", "combobox block", "entry namespace", "entry path", "entry name",
                   "entry constant", "entry width", "entry height", "entry ascent", "button create", "button cancel" },
       layout(w))
-    assert.same({ "new.kind_glyph", "new.kind_block", "new.kind_sheet", "new.kind_item", "new.kind_vanilla_item",
-                  "new.kind_override" },
+    assert.same({ "new.kind_glyph", "new.kind_block", "new.kind_sheet", "new.kind_item", "new.kind_texture",
+                  "new.kind_vanilla_item", "new.kind_override" },
       w.handlers.kind.options)
     assert.same({ "minecraft:default" }, w.handlers.font.options)
     assert.same({ "Player badges" }, w.handlers.block.options)
@@ -1096,6 +1096,21 @@ describe("the Nordtal tab", function()
                   "button cancel" }, layout(item))
     assert.equal("wand", item.handlers.path.text)
     assert.equal("16", item.handlers.width.text)
+  end)
+
+  it("asks a texture for its id and pixel size, 16 by 16 unless typed", function()
+    local t = setUp()
+    local w = wizard(t)
+    w.values.kind = "new.kind_texture"
+    w.handlers.kind.onchange()
+    local texture = t.dialogs[#t.dialogs]
+    assert.same({ "combobox kind", "entry namespace", "entry path", "entry width", "entry height", "button create",
+                  "button cancel" }, layout(texture))
+    assert.same({ "nordtal", "16", "16" },
+      { texture.handlers.namespace.text, texture.handlers.width.text, texture.handlers.height.text })
+    texture.values = { kind="new.kind_texture", namespace="nordtal", path="gui/frame", width="24", height="12" }
+    texture.handlers.create.onclick()
+    assert.equal(":resource-pack:createTexture -Pheight=12 -Ptexture=nordtal:gui/frame.png -Pwidth=24", run(t.started[2]))
   end)
 
   it("creates a glyph, reads the pack again and opens the new texture in the editor", function()

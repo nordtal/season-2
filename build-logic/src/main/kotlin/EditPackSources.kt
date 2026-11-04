@@ -20,7 +20,7 @@ import java.io.File
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class EditPackSources : VanillaClientTask() {
     /**
-     * `glyph`, `block`, `sheet`, `item`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`,
+     * `glyph`, `block`, `sheet`, `item`, `texture`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`,
      * `readItem`, `writeItem`, `editItem`, `import`, `text`, `discard`, `resolve`, `conflict`, `publish` or `sync`.
      */
     @get:Input
@@ -144,6 +144,10 @@ abstract class EditPackSources : VanillaClientTask() {
 
                     "item" -> {
                         NewTextures.item(pack, text("item"), number("width") ?: 16, number("height") ?: 16)
+                    }
+
+                    "texture" -> {
+                        NewTextures.texture(pack, text("texture"), number("width") ?: text("width").toInt(), number("height") ?: text("height").toInt())
                     }
 
                     "rename" -> {

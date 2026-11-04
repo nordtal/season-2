@@ -35,6 +35,9 @@ local model = {
                   png="src/assets/minecraft/textures/gui/sprites/boss_bar/white_background.png" } },
     } },
   },
+  textures = {
+    { category="nordtal:gui", entries={ { texture=texture("gui/frame.png") } } },
+  },
   languages = { "de_de", "en_us" },
   texts = {
     { key="item.nordtal.wand", values={ en_us="Wand" }, owner="src/assets/nordtal/items/wand.json" },
@@ -54,7 +57,7 @@ local function texts(nodes)
 end
 
 describe("tree", function()
-  it("lists glyphs by font, block and glyph, a sheet as one entry with cells, items and overrides by category, then texts", function()
+  it("lists glyphs by font, block and glyph, a sheet as one entry with cells, items, overrides and loose textures by category, then texts", function()
     local nodes = tree.build(model, tr, drafts.marks(model))
     assert.same({
       { "<tree.glyphs>", {
@@ -63,13 +66,14 @@ describe("tree", function()
       } },
       { "<tree.items>", { { "nordtal", { { "nordtal:wand" }, { "nordtal:lamp" } } } } },
       { "<tree.overrides>", { { "gui/sprites/boss_bar", { { "white_background" } } } } },
+      { "<tree.textures>", { { "nordtal:gui", { { "frame" } } } } },
       { "<tree.texts>", { { "item.nordtal.wand" }, { "menu.title" } } },
     }, texts(nodes))
   end)
 
   it("marks a text that is a draft and counts it on the texts root", function()
     local nodes = tree.build(model, tr, drafts.marks(model))
-    local root = nodes[4]
+    local root = nodes[5]
     assert.equal("(1)", root.badge)
     assert.is_nil(root.children[1].icon)
     assert.equal(tree.draftIcon, root.children[2].icon)
@@ -112,6 +116,14 @@ describe("tree", function()
     assert.equal("item", index[lamp.id].kind)
     assert.is_nil(index[lamp.id].texture)
     assert.is_nil(index[font.id].texture)
+  end)
+
+  it("opens a texture that nothing draws like an override, so its properties and animation are the same", function()
+    local nodes, index = tree.build(model, tr, drafts.marks(model))
+    local frame = nodes[4].children[1].children[1]
+    assert.equal("texture/nordtal:gui/frame.png", frame.id)
+    assert.equal("override", index[frame.id].kind)
+    assert.equal("nordtal:gui/frame.png", index[frame.id].texture.id)
   end)
 
   it("marks the node of a draft texture with the icon of a modified tab", function()
@@ -209,7 +221,7 @@ describe("tree", function()
       { block.children[1].badge, block.children[2].badge, block.children[2].icon })
     assert.same({ "* (1)", "* (1)", "* (1)" }, { block.badge, font.badge, nodes[1].badge })
     assert.same({ "*", "*", nil }, { nodes[1].children[2].badge, rows.badge, rows.children[1].badge })
-    assert.same({ nil, "(1)" }, { nodes[2].badge, nodes[4].badge })
+    assert.same({ nil, "(1)" }, { nodes[2].badge, nodes[5].badge })
     assert.same({ node="glyph/minecraft:default/F0001", badge="* F0001" }, changes[1])
     assert.equal(6, #changes)
 

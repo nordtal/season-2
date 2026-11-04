@@ -210,6 +210,33 @@ fails with the reason when it refuses.
   sheet is its code point, so a renamed cell keeps its place. A new block that overlaps a block of main
   moves to the first free run with its glyphs.
 
+## Deleting textures and items
+
+Two tasks delete what no glyph names: a texture, such as a vanilla override, and an item. Each deletes
+all or nothing, and fails with the reason when it refuses.
+
+```bash
+./gradlew -q :resource-pack:deleteTexture -Ptexture=minecraft:block/stone.png
+./gradlew -q :resource-pack:deleteItem -Pitem=nordtal:wand
+```
+
+| task            | options   | prints                                  |
+| --------------- | --------- | --------------------------------------- |
+| `deleteTexture` | `texture` | the absolute path of each file it removed |
+| `deleteItem`    | `item`    | the absolute path of each file it removed |
+
+- A texture goes with its `.png.mcmeta` and its `.aseprite` under `art/`. It is refused while
+  `glyphs.json` or a JSON file under `src/assets/` names it, and the refusal lists each place as
+  `path:line`. An override of a texture of the client jar is never refused, since the jar's shows again.
+- An item goes with each model that it draws and each parent of those in the pack that nothing else
+  draws: no other item, no block state and no model that stays. A texture of those models goes with its
+  sources when nothing else names it. Files in `minecraft` stay, since the client jar may draw them,
+  and so do the item's texts.
+- An item outside `minecraft` is refused while a file that git tracks or would add, outside
+  `src/assets/`, names its id, such as code that gives it out, and the refusal lists each place as
+  `path:line`.
+- A texture or an item that the pack lacks is refused at `texture` or `item`.
+
 ## Texts
 
 `editText` writes one key of the language files under `src/assets/`. A file keeps its other keys,

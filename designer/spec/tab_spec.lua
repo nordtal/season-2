@@ -919,6 +919,25 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:describePack", run(t.started[3]))
   end)
 
+  it("deletes an override once the designer confirms it by its id", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
+    t.world.confirm = 1
+    click(dlg, "properties.delete")
+    assert.same({ "alert", "properties.delete_confirm_texture minecraft:gui/sprites/container/slot.png" }, t.log[#t.log])
+    assert.equal(":resource-pack:deleteTexture -Ptexture=minecraft:gui/sprites/container/slot.png", run(t.started[#t.started]))
+  end)
+
+  it("deletes an item once the designer confirms it by its id", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    t.world.confirm = 1
+    click(dlg, "properties.delete", 1000)
+    assert.same({ "alert", "properties.delete_confirm_item nordtal:lamp" }, t.log[#t.log])
+    assert.equal(":resource-pack:deleteItem -Pitem=nordtal:lamp", run(t.started[#t.started]))
+  end)
+
   it("closes the deleted glyph's sprite and keeps an entry the designer selected while the task ran", function()
     local t = setUp()
     local dlg = loaded(t)

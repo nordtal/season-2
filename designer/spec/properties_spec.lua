@@ -81,7 +81,7 @@ describe("the properties of an entry", function()
     assert.same({
       "mcmeta=src/button.png.mcmeta", "animation=properties.frames 2", "scaling=nine_slice*",
       "texture=minecraft:gui/sprites/widget/button.png", "size=properties.pixels 200 10*",
-      "source=properties.no_source",
+      "source=properties.no_source", "delete=properties.delete*",
     }, shown(info, true))
   end)
 
@@ -150,6 +150,20 @@ describe("an edit of a property", function()
 
   it("deletes a glyph by its name", function()
     assert.same({ "deleteGlyph", { glyph="star" } }, properties.jobs(glyph(), "delete", {}))
+  end)
+
+  it("deletes an override or a texture without a glyph by its texture, and asks first by its id", function()
+    assert.is_truthy(table.concat(shown(override()), "\n"):find("delete=properties.delete*", 1, true))
+    assert.same({ "deleteTexture", { texture="minecraft:gui/sprites/widget/button.png" } },
+      properties.jobs(override(), "delete", {}))
+    assert.equal("properties.delete_confirm_texture minecraft:gui/sprites/widget/button.png", properties.confirm(override(), tr))
+  end)
+
+  it("deletes an item by its id, and asks first by its id", function()
+    local item = { kind="item", entry={ id="nordtal:wand", model="nordtal:item/wand", file="src/assets/nordtal/items/wand.json" } }
+    assert.is_truthy(table.concat(shown(item), "\n"):find("delete=properties.delete*", 1, true))
+    assert.same({ "deleteItem", { item="nordtal:wand" } }, properties.jobs(item, "delete", {}))
+    assert.equal("properties.delete_confirm_item nordtal:wand", properties.confirm(item, tr))
   end)
 
   it("writes a nine-slice scaling with its border as four numbers", function()

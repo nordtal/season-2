@@ -256,6 +256,8 @@ val sourceEdits =
         "editGlyph" to "edit",
         "resizeGlyph" to "resize",
         "deleteGlyph" to "delete",
+        "deleteTexture" to "deleteTexture",
+        "deleteItem" to "deleteItem",
         "assignCodePoints" to "codePoints",
         "animateTexture" to "animate",
         "scaleTexture" to "scaling",

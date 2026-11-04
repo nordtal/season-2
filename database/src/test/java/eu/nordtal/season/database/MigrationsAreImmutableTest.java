@@ -309,6 +309,7 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V108__a_duel_record_names_its_kit_only.sql",
                 "d4f6ae13d73c9f14cf7715b0c165839c55c2983169416cf0c6e48104b9b9e06d");
+        FROZEN.put(
                 "V109__a_spawn_station_has_no_owner_and_an_owner_hides_a_station.sql",
                 "4b6dd7cb492c5f1bda8e528386c4b547985b787048aae33f372fefb1b48b0609");
     }

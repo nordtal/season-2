@@ -31,7 +31,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Places, protects and removes station rails, and tells the networks when a rail may have changed or a chunk loaded.
- * Only the placer and admins break a station rail or the block under it; nothing else does.
+ * Only the placer and admins break a station rail or the block under it; nothing else does, and nobody breaks the
+ * spawn station.
  */
 public final class StationRailListener implements Listener {
 
@@ -82,7 +83,7 @@ public final class StationRailListener implements Listener {
                         Heading.valueOf(event.getPlayer().getFacing().name())));
     }
 
-    private static @Nullable RailShape shapeAt(final Block block, final RailPos pos) {
+    static @Nullable RailShape shapeAt(final Block block, final RailPos pos) {
         return block.getWorld().getBlockAt(pos.x(), pos.y(), pos.z()).getBlockData() instanceof Rail rail
                 ? RailShape.valueOf(rail.getShape().name())
                 : null;
@@ -119,10 +120,10 @@ public final class StationRailListener implements Listener {
     }
 
     private boolean mayBreak(final Player player, final Block station) {
-        return identities.of(player).admin()
-                || networks.station(station)
-                        .map(row -> row.placedBy().equals(player.getUniqueId()))
-                        .orElse(false);
+        return networks.station(station)
+                .map(row -> row.mayChange(
+                        player.getUniqueId(), identities.of(player).admin()))
+                .orElse(identities.of(player).admin());
     }
 
     /** Whether {@code block} is a station rail or the block it stands on. */
@@ -201,17 +202,24 @@ public final class StationRailListener implements Listener {
         }
     }
 
-    /** A rail that loses its support breaks without a player; a station rail drops itself, not a plain rail. */
+    /**
+     * A rail that loses its support breaks without a player; a station rail drops itself, not a plain rail.
+     * The spawn station drops nothing, and the plugin places it again.
+     */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     public void onDestroy(final BlockDestroyEvent event) {
         final Block block = event.getBlock();
         if (networks.isStation(block)) {
             event.setWillDrop(false);
+            final boolean spawn = networks.station(block).map(StationRow::spawn).orElse(false);
+            networks.remove(block);
+            if (spawn) {
+                return;
+            }
             block.getWorld()
                     .dropItemNaturally(
                             block.getLocation().add(0.5, 0.5, 0.5),
                             networks.item().create());
-            networks.remove(block);
             return;
         }
         noteRails(block);

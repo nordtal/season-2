@@ -7,10 +7,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Keeps one hologram over every named station whose chunk is loaded, and none over any other.
+ * The spawn station is named by the translations, so its hologram shows the name it has there.
  * The holograms themselves are drawn by a {@link Drawing}, so the rules run without a server.
  */
 final class StationHolograms<H> {
@@ -32,14 +35,20 @@ final class StationHolograms<H> {
 
     private final Drawing<H> drawing;
     private final Map<UUID, Shown<H>> shown = new HashMap<>();
+    private Supplier<String> spawnName = () -> "Spawn";
 
     StationHolograms(final Drawing<H> drawing) {
         this.drawing = drawing;
     }
 
+    /** Names the spawn station's hologram with what {@code name} returns at the time it is shown. */
+    void spawnNamed(final Supplier<String> name) {
+        this.spawnName = name;
+    }
+
     /** Shows {@code station} as it is now, in a loaded chunk: its name when it has one, and nothing otherwise. */
     void show(final StationRow station) {
-        final String name = station.name();
+        final @Nullable String name = station.spawn() ? spawnName.get() : station.name();
         if (name == null) {
             hide(station.id());
             return;

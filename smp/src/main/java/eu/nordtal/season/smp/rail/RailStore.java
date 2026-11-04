@@ -24,8 +24,9 @@ public final class RailStore {
     /** What the store holds for one world. */
     public record Stored(List<StationRow> stations, Set<RailPos> junctions, List<RailEdge> edges) {}
 
-    /** Everything the store holds: each world's part, every favourite, and the renames no placer was told of. */
-    public record Loaded(Map<String, Stored> worlds, List<FavouriteRow> favourites, Set<UUID> unseen) {}
+    /** Everything the store holds. {@code hidden} are the stations hidden from the map. */
+    public record Loaded(
+            Map<String, Stored> worlds, List<FavouriteRow> favourites, Set<UUID> unseen, Set<UUID> hidden) {}
 
     private final Jdbi jdbi;
     private final Executor background;
@@ -44,8 +45,11 @@ public final class RailStore {
                         () -> {
                             final Map<String, Stored> worlds = read();
                             final RailDao dao = jdbi.onDemand(RailDao.class);
-                            final Loaded loaded =
-                                    new Loaded(worlds, dao.favourites(), new HashSet<>(dao.unseenRenames()));
+                            final Loaded loaded = new Loaded(
+                                    worlds,
+                                    dao.favourites(),
+                                    new HashSet<>(dao.unseenRenames()),
+                                    new HashSet<>(dao.hiddenStations()));
                             main.execute(() -> done.accept(loaded));
                         },
                         background)
@@ -119,6 +123,11 @@ public final class RailStore {
     /** Notes that the placer of {@code station} was told of its new name. */
     public void seen(final UUID station) {
         write(dao -> dao.seen(station));
+    }
+
+    /** Stores whether {@code station} is hidden from the map. */
+    public void hidden(final UUID station, final boolean hidden) {
+        write(dao -> dao.hide(station, hidden));
     }
 
     public void favoured(final UUID player, final UUID station, final boolean favourite) {

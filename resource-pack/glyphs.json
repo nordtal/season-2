@@ -1266,6 +1266,12 @@
               "constant": "GUI_ROW_PILL_SHORT",
               "texture": "nordtal:ui/gui/row_pill_short.png",
               "about": "The entry plate at 122 by 14, for a row that carries controls on its right."
+            },
+            {
+              "code": "FE109",
+              "constant": "GUI_ROW_PILL_LONG",
+              "texture": "nordtal:ui/gui/row_pill_long.png",
+              "about": "The entry plate at 140 by 14, over eight cells, for a row that carries one button on its right."
             }
           ]
         },

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /** The stations a rider can pick, in the order the ride menu lists them. */
@@ -20,26 +21,29 @@ final class RideList {
     private RideList() {}
 
     /**
-     * Lists the named stations a cart at {@code at} reaches: favourites first, then the rest, each by distance.
-     * The stations within {@code near} blocks along the rails, which the rider is already at, and the stations it
-     * cannot reach are left out.
+     * Lists the stations a cart at {@code at} reaches: the spawn, then favourites, then the rest, by distance.
+     * The spawn is called {@code spawnName}. Stations within {@code near} blocks and unreachable ones are left out.
      */
     static List<Stop> of(
             final RailGraph graph,
             final RailPos at,
             final Collection<StationRow> stations,
             final Set<UUID> favourites,
-            final int near) {
+            final int near,
+            final String spawnName) {
         final Map<RailPos, Integer> distances = distances(graph, at).orElse(Map.of());
+        final Set<UUID> spawns =
+                stations.stream().filter(StationRow::spawn).map(StationRow::id).collect(Collectors.toSet());
         final List<Stop> stops = new ArrayList<>();
         for (final StationRow station : stations) {
-            final @Nullable String name = station.name();
+            final @Nullable String name = station.spawn() ? spawnName : station.name();
             final @Nullable Integer distance = distances.get(station.pos());
             if (name != null && distance != null && distance > near) {
                 stops.add(new Stop(station.id(), name, distance, favourites.contains(station.id())));
             }
         }
-        stops.sort(Comparator.comparing((Stop stop) -> !stop.favourite())
+        stops.sort(Comparator.comparing((Stop stop) -> !spawns.contains(stop.station()))
+                .thenComparing(stop -> !stop.favourite())
                 .thenComparingInt(Stop::distance)
                 .thenComparing(stop -> stop.name().toLowerCase(Locale.ROOT))
                 .thenComparing(Stop::station));

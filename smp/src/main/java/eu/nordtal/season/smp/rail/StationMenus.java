@@ -15,6 +15,7 @@ import io.papermc.paper.dialog.Dialog;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.IntSupplier;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -88,6 +89,8 @@ public final class StationMenus implements Listener {
         this.scheduler = scheduler;
         this.near = near;
         networks.whenRenamedByMerge(this::tellRenamed);
+        // One hologram serves every viewer, so the spawn station's shows its English name.
+        networks.whenSpawnNamed(() -> spawnName(Locale.ENGLISH));
         rides.whenStranded(this::stranded);
     }
 
@@ -96,7 +99,7 @@ public final class StationMenus implements Listener {
     }
 
     private boolean mayName(final Player player, final StationRow station) {
-        return identities.of(player).admin() || station.placedBy().equals(player.getUniqueId());
+        return station.mayChange(player.getUniqueId(), identities.of(player).admin());
     }
 
     /**
@@ -177,16 +180,51 @@ public final class StationMenus implements Listener {
 
     private void openStation(final Player player, final StationRow station) {
         final GameDocument document = stationDocument(player, station, "");
-        new StationMenu(this, station, mayName(player, station), document).open(player);
+        new StationMenu(this, station, mayName(player, station), networks.hidden(station.id()), document).open(player);
     }
 
     private GameDocument stationDocument(final Player player, final StationRow station, final String typed) {
-        final String name = station.name();
+        return stationDocument(locale(player), station, typed);
+    }
+
+    private GameDocument stationDocument(final Locale locale, final StationRow station, final String typed) {
+        final @Nullable String name = station.spawn() ? spawnName(locale) : station.name();
         return new GameDocument(
                 renderer,
                 documents.applied(StationMenu.DOCUMENT),
-                Viewer.of(locale(player)),
-                new StationMenu.Window(name != null, name == null ? "" : name, typed, StationNames.MAX_LENGTH));
+                Viewer.of(locale),
+                new StationMenu.Window(
+                        name != null,
+                        networks.hidden(station.id()),
+                        name == null ? "" : name,
+                        typed,
+                        StationNames.MAX_LENGTH));
+    }
+
+    /** Returns the spawn station's name in {@code locale}, from the translations. */
+    private String spawnName(final Locale locale) {
+        return new GameDocument(
+                        renderer,
+                        documents.applied(StationMenu.DOCUMENT),
+                        Viewer.of(locale),
+                        new StationMenu.Window(true, false, "", "", StationNames.MAX_LENGTH))
+                .label("spawn");
+    }
+
+    /** Hides {@code station} from the map or shows it there again, and opens its menu once more. */
+    void toggleHidden(final Player player, final StationRow station) {
+        if (!mayName(player, station)
+                || networks.station(station.world(), station.id()).isEmpty()) {
+            sounds.play(player, Feedback.REFUSED);
+            return;
+        }
+        networks.toggleHidden(station.id());
+        sounds.play(player, Feedback.SELECT);
+        scheduler.onMainAfter(PaperScheduler.TICK, () -> {
+            if (player.isOnline()) {
+                openStation(player, station);
+            }
+        });
     }
 
     private void openRide(final Player player) {
@@ -206,7 +244,8 @@ public final class StationMenus implements Listener {
                     ride.at(),
                     ride.stations(),
                     networks.favourites(player.getUniqueId()),
-                    near.getAsInt());
+                    near.getAsInt(),
+                    spawnName(locale(player)));
             final int each = RidePanel.MOST_PER_PAGE;
             final int pages = RidePanel.pages(stops.size(), each);
             final int shown = Math.clamp(page, 0, pages - 1);
@@ -292,7 +331,8 @@ public final class StationMenus implements Listener {
 
     /** Tells the placer of {@code station} its new name when they are online; otherwise their next join does. */
     private void tellRenamed(final StationRow station) {
-        final @Nullable Player placer = Bukkit.getPlayer(station.placedBy());
+        final @Nullable UUID placedBy = station.placedBy();
+        final @Nullable Player placer = placedBy == null ? null : Bukkit.getPlayer(placedBy);
         final String name = station.name();
         if (placer == null || !placer.isOnline() || name == null) {
             return;

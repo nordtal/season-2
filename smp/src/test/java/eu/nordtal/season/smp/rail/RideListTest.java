@@ -51,12 +51,15 @@ class RideListTest {
             station(3, at(20, 64, 0), "Farm"),
             station(4, at(30, 64, 0), "Harbour"));
 
+    /** What the translations call the spawn station. */
+    private static final String SPAWN = "Spawn station";
+
     /** The default distance within which the cart counts as already at a station. */
     private static final int NEAR = new RailsSpec() {}.stationWidth();
 
     @Test
     void theNearestStationsComeFirstAndTheOneTheCartStandsOnIsLeftOut() {
-        final List<RideList.Stop> stops = RideList.of(LINE, at(10, 64, 0), STATIONS, Set.of(), NEAR);
+        final List<RideList.Stop> stops = RideList.of(LINE, at(10, 64, 0), STATIONS, Set.of(), NEAR, SPAWN);
 
         assertEquals(List.of("Farm", "Spawn", "Harbour"), names(stops));
         assertEquals(
@@ -66,7 +69,7 @@ class RideListTest {
     @Test
     void favouritesComeFirstEachByDistance() {
         final List<RideList.Stop> stops =
-                RideList.of(LINE, at(0, 64, 0), STATIONS, Set.of(new UUID(0, 4), new UUID(0, 3)), NEAR);
+                RideList.of(LINE, at(0, 64, 0), STATIONS, Set.of(new UUID(0, 4), new UUID(0, 3)), NEAR, SPAWN);
 
         assertEquals(List.of("Farm", "Harbour", "Mine"), names(stops));
         assertEquals(
@@ -76,7 +79,7 @@ class RideListTest {
 
     @Test
     void aCartBetweenTwoStationsMeasuresAlongTheRailsFromWhereItIs() {
-        final List<RideList.Stop> stops = RideList.of(LINE, at(14, 64, 0), STATIONS, Set.of(), NEAR);
+        final List<RideList.Stop> stops = RideList.of(LINE, at(14, 64, 0), STATIONS, Set.of(), NEAR, SPAWN);
 
         assertEquals(List.of("Mine", "Farm", "Spawn", "Harbour"), names(stops));
         assertEquals(
@@ -88,12 +91,14 @@ class RideListTest {
     void aStationWithinTheSettingAlongTheRailsIsLeftOutAsTheRiderIsAlreadyThere() {
         assertEquals(3, NEAR);
         assertEquals(
-                List.of("Spawn", "Farm", "Harbour"), names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), NEAR)));
+                List.of("Spawn", "Farm", "Harbour"),
+                names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), NEAR, SPAWN)));
         assertEquals(
-                List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(13, 64, 0), STATIONS, Set.of(), NEAR)));
+                List.of("Farm", "Spawn", "Harbour"),
+                names(RideList.of(LINE, at(13, 64, 0), STATIONS, Set.of(), NEAR, SPAWN)));
         assertEquals(
                 List.of("Mine", "Farm", "Spawn", "Harbour"),
-                names(RideList.of(LINE, at(14, 64, 0), STATIONS, Set.of(), NEAR)));
+                names(RideList.of(LINE, at(14, 64, 0), STATIONS, Set.of(), NEAR, SPAWN)));
     }
 
     @Test
@@ -109,7 +114,7 @@ class RideListTest {
                 at(2, 64, 2));
         final List<StationRow> stations = List.of(station(1, at(0, 64, 0), "Spawn"), station(2, at(2, 64, 2), "Mine"));
 
-        final List<RideList.Stop> stops = RideList.of(turn, at(2, 64, 0), stations, Set.of(), NEAR);
+        final List<RideList.Stop> stops = RideList.of(turn, at(2, 64, 0), stations, Set.of(), NEAR, SPAWN);
 
         assertEquals(List.of("Mine"), names(stops));
         assertEquals(List.of(10), stops.stream().map(RideList.Stop::distance).toList());
@@ -119,23 +124,25 @@ class RideListTest {
     void withNoDistanceSetOnlyTheStationTheCartStandsOnIsLeftOut() {
         assertEquals(
                 List.of("Mine", "Spawn", "Farm", "Harbour"),
-                names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), 0)));
+                names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), 0, SPAWN)));
         assertEquals(
-                List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(10, 64, 0), STATIONS, Set.of(), 0)));
+                List.of("Farm", "Spawn", "Harbour"),
+                names(RideList.of(LINE, at(10, 64, 0), STATIONS, Set.of(), 0, SPAWN)));
     }
 
     @Test
     void stationsAtTheSameDistanceGoByNameRegardlessOfCase() {
         final List<StationRow> stations = List.of(station(1, at(0, 64, 0), "spawn"), station(3, at(20, 64, 0), "Farm"));
 
-        assertEquals(List.of("Farm", "spawn"), names(RideList.of(LINE, at(10, 64, 0), stations, Set.of(), NEAR)));
+        assertEquals(
+                List.of("Farm", "spawn"), names(RideList.of(LINE, at(10, 64, 0), stations, Set.of(), NEAR, SPAWN)));
     }
 
     @Test
     void anUnnamedStationIsNotListed() {
         final List<StationRow> stations = List.of(station(1, at(0, 64, 0), "Spawn"), station(2, at(10, 64, 0), null));
 
-        assertEquals(List.of("Spawn"), names(RideList.of(LINE, at(20, 64, 0), stations, Set.of(), NEAR)));
+        assertEquals(List.of("Spawn"), names(RideList.of(LINE, at(20, 64, 0), stations, Set.of(), NEAR, SPAWN)));
     }
 
     @Test
@@ -143,7 +150,7 @@ class RideListTest {
         final List<StationRow> stations =
                 List.of(station(1, at(0, 64, 0), "Spawn"), station(9, at(50, 64, 50), "Elsewhere"));
 
-        assertEquals(List.of("Spawn"), names(RideList.of(LINE, at(30, 64, 0), stations, Set.of(), NEAR)));
+        assertEquals(List.of("Spawn"), names(RideList.of(LINE, at(30, 64, 0), stations, Set.of(), NEAR, SPAWN)));
     }
 
     @Test
@@ -151,10 +158,21 @@ class RideListTest {
         final RailGraph spur = graph(new Track().eastWest(0, 10, 64, 0), at(5, 64, 0));
 
         final List<RideList.Stop> stops =
-                RideList.of(spur, at(9, 64, 0), List.of(station(1, at(5, 64, 0), "Spawn")), Set.of(), NEAR);
+                RideList.of(spur, at(9, 64, 0), List.of(station(1, at(5, 64, 0), "Spawn")), Set.of(), NEAR, SPAWN);
 
         assertTrue(RideList.onTrack(LINE, at(13, 64, 0)));
         assertTrue(RideList.onTrack(spur, at(8, 64, 0)));
         assertEquals(List.of(4), stops.stream().map(RideList.Stop::distance).toList());
+    }
+
+    @Test
+    void theSpawnStationComesFirstBeforeTheFavouritesUnderItsTranslatedName() {
+        final StationRow spawn = new StationRow(new UUID(0, 9), "nordtal", 30, 64, 0, "EAST_WEST", null, null, null);
+        final List<StationRow> stations = List.of(STATIONS.get(0), STATIONS.get(1), STATIONS.get(2), spawn);
+
+        final List<RideList.Stop> stops =
+                RideList.of(LINE, at(0, 64, 0), stations, Set.of(new UUID(0, 3)), NEAR, SPAWN);
+
+        assertEquals(List.of(SPAWN, "Farm", "Mine"), names(stops));
     }
 }

@@ -39,14 +39,26 @@ public final class Connections {
      */
     public static List<RailPos> of(
             final RailPos pos, final RailShape shape, final RailView view, final List<RailPos> unreadable) {
+        return of(pos, shape, view, unreadable, new ArrayList<>(0));
+    }
+
+    /**
+     * Returns the readable rails connected to the rail at {@code pos}, as the shorter {@code of} does.
+     *
+     * @param givenUp receives each position next to {@code pos} that could hold a rail but the view gave up on
+     */
+    public static List<RailPos> of(
+            final RailPos pos,
+            final RailShape shape,
+            final RailView view,
+            final List<RailPos> unreadable,
+            final List<RailPos> givenUp) {
         final List<RailPos> connected = new ArrayList<>(3);
         for (final Heading heading : Heading.values()) {
             for (final int dy : RISES) {
                 final RailPos next = pos.step(heading, dy);
                 if (!view.readable(next)) {
-                    if (!view.givenUp(next)) {
-                        unreadable.add(next);
-                    }
+                    (view.givenUp(next) ? givenUp : unreadable).add(next);
                     continue;
                 }
                 final @Nullable RailShape other = view.shape(next);

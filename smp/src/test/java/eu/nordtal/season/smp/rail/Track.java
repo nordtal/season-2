@@ -57,6 +57,13 @@ final class Track implements RailView {
         return read.contains(pos);
     }
 
+    /** Returns how many positions were read since the last call, and starts counting anew. */
+    int readSinceLast() {
+        final int count = read.size();
+        read.clear();
+        return count;
+    }
+
     @Override
     public boolean readable(final RailPos pos) {
         return readable.test(pos);

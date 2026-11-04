@@ -98,16 +98,9 @@ public interface RailDao {
             @Bind("y") List<Integer> y,
             @Bind("z") List<Integer> z);
 
-    /** Deletes every edge that leaves a node at the given positions, with its rails. */
-    @SqlBatch("""
-            DELETE FROM smp_rail_edge
-            WHERE world = :world AND from_x = :x AND from_y = :y AND from_z = :z
-            """)
-    void deleteEdgesFrom(
-            @Bind("world") String world,
-            @Bind("x") List<Integer> x,
-            @Bind("y") List<Integer> y,
-            @Bind("z") List<Integer> z);
+    /** Deletes the edges with {@code ids}, with their rails. */
+    @SqlUpdate("DELETE FROM smp_rail_edge WHERE id = ANY(:ids)")
+    void deleteEdges(@Bind("ids") List<UUID> ids);
 
     @SqlBatch("INSERT INTO smp_rail_junction (world, x, y, z) VALUES (:world, :x, :y, :z) ON CONFLICT DO NOTHING")
     void insertJunctions(

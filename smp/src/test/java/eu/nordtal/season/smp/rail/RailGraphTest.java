@@ -10,12 +10,7 @@ import org.junit.jupiter.api.Test;
 class RailGraphTest {
 
     private static RailGraph graph(final Track track, final RailPos... stations) {
-        final RailWalk walk = new RailWalk(track, List.of(stations), 10_000);
-        while (!walk.step(1_000)) {
-            // The track is readable everywhere, so every step makes progress.
-        }
-        assertEquals(1, walk.found().size(), "the stations are one network");
-        return RailGraph.of(walk.found().getFirst().rails(), List.of(stations));
+        return RailGraph.of(track.rails(), List.of(stations));
     }
 
     @Test

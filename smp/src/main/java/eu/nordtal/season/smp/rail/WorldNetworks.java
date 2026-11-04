@@ -1,11 +1,17 @@
 package eu.nordtal.season.smp.rail;
 
-import java.time.Instant;
+import java.time.Clock;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -15,25 +21,75 @@ import java.util.TreeSet;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** The station rails and rail networks of one world, held in memory and changed only on the main thread. */
+/**
+ * The station rails and rail networks of one world, held in memory and changed only on the main thread.
+ * What it holds of the track is the truth: a change of a block re-checks only the legs near it, from the node on
+ * each side of the change, and joins or splits the networks it touched. Only a restart reads every network again.
+ */
 public final class WorldNetworks {
 
-    /** One network: its graph, and every rail the walk found for it, the track that ends nowhere included. */
-    public record Network(RailGraph graph, Set<RailPos> rails) {}
+    /** How far from a changed block a rail may change too, as vanilla turns the rails next to a changed one. */
+    static final int REACH = 2;
 
-    /** What a walk replaces: the networks it covers and the station rails it starts from. */
-    public record Walk(Set<Network> replaced, Set<RailPos> starts) {}
+    /** One network: its nodes, and the graph it had when it last changed. */
+    public record Network(RailGraph graph, Set<RailPos> nodes) {}
 
-    /** What a finished walk changed, for the store. */
-    public record Replacement(
-            Set<Network> removed, List<Network> added, List<StationRow> renamed, List<StationRow> lost) {}
+    /**
+     * What a re-check changed, for the store.
+     *
+     * @param removed   the stored edges that are gone
+     * @param added     the edges to store
+     * @param junctions the junctions to store
+     * @param crossings the stored junctions that are gone
+     */
+    public record Change(
+            List<RailLeg> removed,
+            List<RailLeg> added,
+            Set<RailPos> junctions,
+            Set<RailPos> crossings,
+            List<StationRow> renamed,
+            List<StationRow> lost) {
 
-    private final Map<RailPos, StationRow> stations = new HashMap<>();
-    private final Set<Network> networks = Collections.newSetFromMap(new IdentityHashMap<>());
-    private final Map<RailPos, Network> byRail = new HashMap<>();
+        /** Whether the store has nothing to write. */
+        boolean empty() {
+            return removed.isEmpty()
+                    && added.isEmpty()
+                    && junctions.isEmpty()
+                    && crossings.isEmpty()
+                    && renamed.isEmpty()
+                    && lost.isEmpty();
+        }
+    }
+
+    /** A station rail or a junction, with the legs that leave or reach it. */
+    static final class Node {
+        boolean junction;
+        final List<RailLeg> legs = new ArrayList<>(3);
+
+        @Nullable
+        Network network;
+
+        Node(final boolean junction) {
+            this.junction = junction;
+        }
+    }
+
+    final Map<RailPos, StationRow> stations = new HashMap<>();
+    private final Map<UUID, StationRow> byId = new HashMap<>();
+    Map<RailPos, Node> nodes = new HashMap<>();
+    Map<RailTrace.End, RailLeg> legs = new HashMap<>();
+    final RailMap<RailGraph.Place> places = new RailMap<>();
+    final Set<Network> networks = Collections.newSetFromMap(new IdentityHashMap<>());
+    final Deque<RailLeg> stale = new ArrayDeque<>();
+    private int staleAt;
 
     public Optional<StationRow> station(final RailPos pos) {
         return Optional.ofNullable(stations.get(pos));
+    }
+
+    /** Returns the station with {@code id}, while it exists. */
+    public Optional<StationRow> station(final UUID id) {
+        return Optional.ofNullable(byId.get(id));
     }
 
     public Collection<StationRow> stations() {
@@ -41,19 +97,47 @@ public final class WorldNetworks {
     }
 
     public void addStation(final StationRow station) {
-        stations.put(station.pos(), station);
+        final @Nullable StationRow old = stations.put(station.pos(), station);
+        if (old != null) {
+            byId.remove(old.id());
+        }
+        byId.put(station.id(), station);
     }
 
     public Optional<StationRow> removeStation(final RailPos pos) {
-        return Optional.ofNullable(stations.remove(pos));
+        final @Nullable StationRow row = stations.remove(pos);
+        if (row != null) {
+            byId.remove(row.id());
+        }
+        return Optional.ofNullable(row);
     }
 
+    /** Returns the network {@code rail} belongs to: as one of its nodes, or as a rail of one of its legs. */
     public Optional<Network> networkOf(final RailPos rail) {
-        return Optional.ofNullable(byRail.get(rail));
+        final @Nullable Node node = nodes.get(rail);
+        if (node != null) {
+            return Optional.ofNullable(node.network);
+        }
+        final RailGraph.@Nullable Place place = place(rail);
+        if (place == null) {
+            return Optional.empty();
+        }
+        final @Nullable Node from = nodes.get(place.leg().from());
+        return Optional.ofNullable(from == null ? null : from.network);
     }
 
     public Set<Network> networks() {
         return Collections.unmodifiableSet(networks);
+    }
+
+    /** Returns where {@code rail} lies on a leg this world holds now, or null when it lies on none. */
+    RailGraph.@Nullable Place place(final RailPos rail) {
+        final RailGraph.@Nullable Place place = places.get(rail);
+        return place != null && holds(place.leg()) ? place : null;
+    }
+
+    private boolean holds(final RailLeg leg) {
+        return legs.get(new RailTrace.End(leg.from(), leg.first())) == leg;
     }
 
     /** Returns the stations at {@code pos} and next to it, diagonals and one block up or down included. */
@@ -73,119 +157,182 @@ public final class WorldNetworks {
         return found;
     }
 
-    private Set<Network> near(final RailPos pos) {
-        final Set<Network> found = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    final @Nullable Network network = byRail.get(new RailPos(pos.x() + dx, pos.y() + dy, pos.z() + dz));
-                    if (network != null) {
-                        found.add(network);
+    /**
+     * Returns the re-check that changes of the blocks at {@code changed} need, or null when they touch nothing.
+     * They touch nothing when no leg, no node and no station rail of this world is within {@link #REACH} of them.
+     */
+    @Nullable
+    RailRecheck recheck(final Collection<RailPos> changed, final RailView view, final Clock clock) {
+        final Set<RailPos> region = new HashSet<>();
+        for (final RailPos pos : changed) {
+            for (int dx = -REACH; dx <= REACH; dx++) {
+                for (int dy = -REACH; dy <= REACH; dy++) {
+                    for (int dz = -REACH; dz <= REACH; dz++) {
+                        region.add(new RailPos(pos.x() + dx, pos.y() + dy, pos.z() + dz));
                     }
                 }
             }
         }
-        return found;
+        final Set<RailLeg> candidates = Collections.newSetFromMap(new IdentityHashMap<>());
+        final Set<RailPos> old = new TreeSet<>();
+        final Set<RailPos> placed = new TreeSet<>();
+        for (final RailPos pos : region) {
+            final RailGraph.@Nullable Place place = place(pos);
+            if (place != null) {
+                candidates.add(place.leg());
+            }
+            final @Nullable Node node = nodes.get(pos);
+            if (node != null) {
+                old.add(pos);
+                candidates.addAll(node.legs);
+            }
+            if (stations.containsKey(pos)) {
+                placed.add(pos);
+            }
+        }
+        if (candidates.isEmpty() && old.isEmpty() && placed.isEmpty()) {
+            return null;
+        }
+        final RailRecheck job = new RailRecheck(this, view, clock, region, false, candidates, old);
+        for (final RailLeg leg : candidates) {
+            if (!region.contains(leg.from())) {
+                job.trace().follow(leg.from(), leg.first());
+            }
+            final @Nullable RailPos to = leg.to();
+            if (to != null && !region.contains(to)) {
+                job.trace().follow(to, leg.last());
+            }
+        }
+        old.forEach(job.trace()::look);
+        placed.forEach(job.trace()::look);
+        return job;
+    }
+
+    /** Returns the re-check that reads every network again from its station rails, as after a restart. */
+    RailRecheck retrace(final RailView view, final Clock clock) {
+        final Set<RailLeg> candidates = Collections.newSetFromMap(new IdentityHashMap<>());
+        candidates.addAll(legs.values());
+        final RailRecheck job =
+                new RailRecheck(this, view, clock, Set.of(), true, candidates, Set.copyOf(nodes.keySet()));
+        new TreeSet<>(stations.keySet()).forEach(job.trace()::look);
+        return job;
+    }
+
+    /** Drops at most {@code budget} rails of gone legs from the index of where each rail lies. */
+    void tidy(final int budget) {
+        int left = budget;
+        while (left > 0 && !stale.isEmpty()) {
+            final RailLeg leg = stale.peek();
+            final List<RailPos> rails = leg.rails();
+            while (left > 0 && staleAt < rails.size()) {
+                final RailPos rail = rails.get(staleAt++);
+                final RailGraph.@Nullable Place place = places.get(rail);
+                if (place != null && place.leg() == leg) {
+                    places.remove(rail);
+                }
+                left--;
+            }
+            if (staleAt >= rails.size()) {
+                stale.poll();
+                staleAt = 0;
+            }
+        }
+    }
+
+    /** Returns the node at {@code pos}, which must be one. */
+    Node node(final RailPos pos) {
+        return Objects.requireNonNull(nodes.get(pos), "no node at " + pos);
+    }
+
+    private void link(final RailLeg leg) {
+        legs.put(new RailTrace.End(leg.from(), leg.first()), leg);
+        node(leg.from()).legs.add(leg);
+        final @Nullable RailPos to = leg.to();
+        if (to != null) {
+            legs.put(new RailTrace.End(to, leg.last()), leg);
+            final Node end = node(to);
+            if (end != nodes.get(leg.from())) {
+                end.legs.add(leg);
+            }
+        }
+    }
+
+    void unlinkLegOnly(final RailLeg leg) {
+        legs.remove(new RailTrace.End(leg.from(), leg.first()), leg);
+        final @Nullable RailPos to = leg.to();
+        if (to != null) {
+            legs.remove(new RailTrace.End(to, leg.last()), leg);
+        }
     }
 
     /**
-     * Returns the walk that a change at {@code changed} needs: the networks near it, from all of their stations.
-     * A change near no network and at no station needs none, so the walk has no starts.
+     * Returns the networks of a world as the store holds them, built from its stations, junctions and edges.
+     * Built off the main thread, and handed to it whole.
      */
-    public Walk walkFor(final Collection<RailPos> changed) {
-        final Set<Network> replaced = Collections.newSetFromMap(new IdentityHashMap<>());
-        final Set<RailPos> starts = new TreeSet<>();
-        for (final RailPos pos : changed) {
-            replaced.addAll(near(pos));
-            if (stations.containsKey(pos)) {
-                starts.add(pos);
+    static WorldNetworks restored(
+            final List<StationRow> rows, final Set<RailPos> junctions, final Map<UUID, RailEdge> edges) {
+        final WorldNetworks world = new WorldNetworks();
+        rows.forEach(world::addStation);
+        world.stations.keySet().forEach(pos -> world.nodes.put(pos, new Node(false)));
+        junctions.forEach(pos -> world.nodes.putIfAbsent(pos, new Node(true)));
+        edges.forEach((id, edge) -> {
+            final RailLeg leg = RailLeg.edge(id, edge);
+            if (world.legs.containsKey(new RailTrace.End(leg.from(), leg.first()))
+                    || world.legs.containsKey(new RailTrace.End(Objects.requireNonNull(leg.to()), leg.last()))) {
+                return;
+            }
+            world.nodes.putIfAbsent(leg.from(), new Node(false));
+            world.nodes.putIfAbsent(edge.to(), new Node(false));
+            world.link(leg);
+            RailGraph.index(List.of(leg)).forEach(world.places::put);
+        });
+        final Set<RailPos> joined = new HashSet<>();
+        for (final RailPos seed : new TreeSet<>(world.nodes.keySet())) {
+            if (joined.add(seed)) {
+                world.gather(seed, joined);
             }
         }
-        for (final Network network : replaced) {
-            network.graph().stations().stream().filter(stations::containsKey).forEach(starts::add);
-        }
-        return new Walk(replaced, starts);
+        return world;
     }
 
-    /** Replaces the networks a walk covered with the networks it found, and settles the names that now clash. */
-    public Replacement replace(
-            final Walk walk, final List<RailWalk.Found> found, final List<RailPos> missing, final Instant now) {
-        final List<StationRow> lost = new ArrayList<>();
-        for (final RailPos pos : missing) {
-            removeStation(pos).ifPresent(lost::add);
+    /** Builds the network {@code seed} is on, as the store held it. */
+    private void gather(final RailPos seed, final Set<RailPos> joined) {
+        final Set<RailPos> members = new LinkedHashSet<>();
+        final Set<RailLeg> track = Collections.newSetFromMap(new IdentityHashMap<>());
+        final Deque<RailPos> open = new ArrayDeque<>(List.of(seed));
+        while (!open.isEmpty()) {
+            final RailPos pos = open.poll();
+            members.add(pos);
+            for (final RailLeg leg : node(pos).legs) {
+                if (track.add(leg)) {
+                    for (final @Nullable RailPos end : Arrays.asList(leg.from(), leg.to())) {
+                        if (end != null && joined.add(end)) {
+                            open.add(end);
+                        }
+                    }
+                }
+            }
         }
-        final Set<Network> removed = Collections.newSetFromMap(new IdentityHashMap<>());
-        removed.addAll(walk.replaced());
-        for (final RailWalk.Found network : found) {
-            network.rails().keySet().stream()
-                    .map(byRail::get)
-                    .filter(Objects::nonNull)
-                    .forEach(removed::add);
-        }
-        removed.forEach(this::forget);
-        final List<Network> added = new ArrayList<>();
-        final List<StationRow> renamed = new ArrayList<>();
-        for (final RailWalk.Found rails : found) {
-            final List<RailPos> onTrack = rails.rails().keySet().stream()
-                    .filter(stations::containsKey)
-                    .toList();
-            final Network network = new Network(
-                    RailGraph.of(rails.rails(), onTrack),
-                    Set.copyOf(rails.rails().keySet()));
-            remember(network);
-            added.add(network);
-            renamed.addAll(settleNames(network, now));
-        }
-        return new Replacement(removed, added, renamed, lost);
-    }
-
-    /** Puts back what the store holds: the stations, and the networks built from the junctions and edges. */
-    public void restore(final List<StationRow> rows, final Set<RailPos> junctions, final List<RailEdge> edges) {
-        rows.forEach(this::addStation);
-        final Map<RailPos, RailPos> parent = new HashMap<>();
-        for (final RailEdge edge : edges) {
-            union(parent, edge.from(), edge.to());
-        }
-        stations.keySet().forEach(pos -> find(parent, pos));
-        junctions.forEach(pos -> find(parent, pos));
-        final Map<RailPos, List<RailEdge>> edgesByRoot = new HashMap<>();
-        edges.forEach(edge -> edgesByRoot
-                .computeIfAbsent(find(parent, edge.from()), _ -> new ArrayList<>())
-                .add(edge));
-        final Map<RailPos, List<RailPos>> nodesByRoot = new HashMap<>();
-        for (final RailPos node : new TreeSet<>(parent.keySet())) {
-            nodesByRoot
-                    .computeIfAbsent(find(parent, node), _ -> new ArrayList<>())
-                    .add(node);
-        }
-        nodesByRoot.forEach((root, nodes) -> {
-            final List<RailPos> onTrack =
-                    nodes.stream().filter(stations::containsKey).toList();
-            final List<RailPos> crossings =
-                    nodes.stream().filter(junctions::contains).toList();
-            final RailGraph graph = new RailGraph(onTrack, crossings, edgesByRoot.getOrDefault(root, List.of()));
-            remember(new Network(graph, graph.rails()));
+        final Set<RailPos> onTrack = new TreeSet<>();
+        final Set<RailPos> crossings = new TreeSet<>();
+        members.forEach(pos -> {
+            if (stations.containsKey(pos)) {
+                onTrack.add(pos);
+            } else if (node(pos).junction) {
+                crossings.add(pos);
+            }
         });
+        final Network network = new Network(new RailGraph(onTrack, crossings, track, this::place), members);
+        members.forEach(pos -> node(pos).network = network);
+        networks.add(network);
     }
 
-    private static RailPos find(final Map<RailPos, RailPos> parent, final RailPos pos) {
-        RailPos root = parent.computeIfAbsent(pos, p -> p);
-        while (!root.equals(parent.get(root))) {
-            root = Objects.requireNonNull(parent.get(root));
-        }
-        parent.put(pos, root);
-        return root;
+    /** Takes over the stations placed in {@code before}, the world as it was until the store answered. */
+    void takeOver(final WorldNetworks before) {
+        before.stations().forEach(this::addStation);
     }
 
-    private static void union(final Map<RailPos, RailPos> parent, final RailPos a, final RailPos b) {
-        final RailPos one = find(parent, a);
-        final RailPos other = find(parent, b);
-        if (!one.equals(other)) {
-            parent.put(one.compareTo(other) < 0 ? other : one, one.compareTo(other) < 0 ? one : other);
-        }
-    }
-
-    private List<StationRow> settleNames(final Network network, final Instant now) {
+    List<StationRow> settleNames(final Network network, final Clock clock) {
         final List<StationNames.Named> named = new ArrayList<>();
         for (final RailPos pos : network.graph().stations()) {
             final @Nullable StationRow row = stations.get(pos);
@@ -193,27 +340,37 @@ public final class WorldNetworks {
                 named.add(new StationNames.Named(row.id(), row.name(), row.named()));
             }
         }
+        if (named.size() < 2) {
+            return List.of();
+        }
         final Map<UUID, String> names = StationNames.settleClashes(named);
         final List<StationRow> renamed = new ArrayList<>();
         for (final RailPos pos : network.graph().stations()) {
             final @Nullable StationRow row = stations.get(pos);
             final @Nullable String name = row == null ? null : names.get(row.id());
             if (row != null && name != null) {
-                final StationRow next = row.renamed(name, now);
-                stations.put(pos, next);
+                final StationRow next = row.renamed(name, clock.instant());
+                addStation(next);
                 renamed.add(next);
             }
         }
         return renamed;
     }
 
-    private void remember(final Network network) {
-        networks.add(network);
-        network.rails().forEach(rail -> byRail.put(rail, network));
+    /** Returns every leg this world holds, for tests. */
+    Set<RailLeg> legs() {
+        final Set<RailLeg> held = Collections.newSetFromMap(new IdentityHashMap<>());
+        held.addAll(legs.values());
+        return held;
     }
 
-    private void forget(final Network network) {
-        networks.remove(network);
-        network.rails().forEach(rail -> byRail.remove(rail, network));
+    /** Returns how many rails the index of where each rail lies holds, gone legs not tidied away yet included. */
+    int indexed() {
+        return places.size();
+    }
+
+    /** Returns the stations by id, for a lookup by its key. */
+    Map<UUID, StationRow> byId() {
+        return Collections.unmodifiableMap(new LinkedHashMap<>(byId));
     }
 }

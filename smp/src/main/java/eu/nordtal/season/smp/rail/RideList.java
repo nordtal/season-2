@@ -52,10 +52,7 @@ final class RideList {
 
     /** Returns whether {@code at} is a node of {@code graph}, a rail of one of its edges or a rail of a spur. */
     static boolean onTrack(final RailGraph graph, final RailPos at) {
-        return graph.spur(at) != null
-                || graph.stations().contains(at)
-                || graph.junctions().contains(at)
-                || graph.edges().stream().anyMatch(edge -> edge.rails().contains(at));
+        return graph.onTrack(at);
     }
 
     /** Returns the distance from {@code at} to every node it reaches, or empty when {@code at} is on no track. */

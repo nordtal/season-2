@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Stops a driven cart before each junction set the wrong way and switches it once the cart stands.
@@ -45,6 +46,13 @@ final class JunctionStops {
 
     private final Set<Integer> claimed = new HashSet<>();
     private int pause;
+    private @Nullable RailPos waitingFor;
+
+    /** Returns the junction the cart stands before because another cart holds it, or null when it waits for none. */
+    @Nullable
+    RailPos waitingFor() {
+        return waitingFor;
+    }
 
     /**
      * Returns the distance up to which the cart may ride this tick, and switches junctions once it stands.
@@ -77,6 +85,7 @@ final class JunctionStops {
                 take(path, index, junctions);
             }
         }
+        waitingFor = null;
         if (pause > 0) {
             pause--;
             return along;
@@ -99,8 +108,12 @@ final class JunctionStops {
         wrong.sort(Map.Entry.comparingByKey(Comparator.naturalOrder()));
         final int first = wrong.getFirst().getKey();
         final double stop = path.start(first) - BEFORE;
-        if (speed > 0 || along < stop - AT || !take(path, first, junctions)) {
+        if (speed > 0 || along < stop - AT) {
+            return Math.max(along, stop);
+        }
+        if (!take(path, first, junctions)) {
             // A junction another cart holds is waited for, so two carts never switch it back and forth.
+            waitingFor = path.rails().get(first);
             return Math.max(along, stop);
         }
         for (final Map.Entry<Integer, RailShape> junction : wrong) {

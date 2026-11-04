@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -29,19 +30,50 @@ class BukkitRailsTest {
     private final Set<Long> loaded = new HashSet<>();
     private final Map<Long, Integer> failuresLeft = new HashMap<>();
     private final Map<Long, Integer> asked = new HashMap<>();
+    private final List<Runnable> pending = new ArrayList<>();
+    private boolean deferred;
     private final World world = world();
     private final Plugin plugin = plugin();
 
-    /** Walks as the networks do, a tick at a time, and returns the walk once it ended. */
-    private RailWalk walked(final BukkitRails view, final RailPos... starts) {
-        final RailWalk walk = new RailWalk(view, List.of(starts), 1_000);
+    /** Traces from {@code stations} as the networks do, a tick at a time, and returns the trace once it ended. */
+    private RailTrace traced(final BukkitRails view, final RailPos... stations) {
+        final RailTrace trace = trace(view, stations);
         for (int tick = 0; tick < 1_000; tick++) {
-            view.load(walk.takeWanted());
-            if (walk.step(2_000)) {
-                return walk;
+            view.load(trace.takeWanted());
+            if (trace.step(2_000, Long.MAX_VALUE)) {
+                return trace;
             }
         }
-        throw new AssertionError("the walk did not end");
+        throw new AssertionError("the trace did not end");
+    }
+
+    private RailTrace trace(final BukkitRails view, final RailPos... stations) {
+        final Set<RailPos> onTrack = Set.of(stations);
+        final RailTrace trace = new RailTrace(view, new RailTrace.Known() {
+            @Override
+            public @Nullable RailShape station(final RailPos pos) {
+                return onTrack.contains(pos) ? track.rails().getOrDefault(pos, RailShape.EAST_WEST) : null;
+            }
+
+            @Override
+            public boolean settled(final RailPos pos) {
+                return false;
+            }
+
+            @Override
+            public @Nullable RailLeg same(final RailLeg leg) {
+                return null;
+            }
+        });
+        onTrack.forEach(trace::look);
+        return trace;
+    }
+
+    private static int railsFrom(final RailTrace trace, final RailPos station) {
+        return trace.traced().stream()
+                .filter(leg -> leg.from().equals(station))
+                .mapToInt(leg -> leg.rails().size())
+                .sum();
     }
 
     @Test
@@ -50,10 +82,11 @@ class BukkitRailsTest {
         failuresLeft.put(BAD, Integer.MAX_VALUE);
         final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
 
-        final RailWalk walk = walked(view, at(0, 64, 0));
+        final RailTrace trace = traced(view, at(0, 64, 0));
 
-        assertEquals(16, walk.found().getFirst().rails().size(), "the track ends where the chunk begins");
+        assertEquals(15, railsFrom(trace, at(0, 64, 0)), "the track ends where the chunk begins");
         assertEquals(Set.of(BAD), view.givenUpChunks());
+        assertEquals(Set.of(BAD), trace.givenUp().keySet());
     }
 
     @Test
@@ -61,11 +94,11 @@ class BukkitRailsTest {
         track.eastWest(0, 40, 64, 0).eastWest(0, 9, 64, 100);
         failuresLeft.put(BAD, Integer.MAX_VALUE);
 
-        final RailWalk walk =
-                walked(new BukkitRails(plugin, new ChunkTickets(plugin), world), at(0, 64, 0), at(0, 64, 100));
+        final RailTrace trace =
+                traced(new BukkitRails(plugin, new ChunkTickets(plugin), world), at(0, 64, 0), at(0, 64, 100));
 
-        assertEquals(16, walk.found().get(0).rails().size());
-        assertEquals(10, walk.found().get(1).rails().size());
+        assertEquals(15, railsFrom(trace, at(0, 64, 0)));
+        assertEquals(9, railsFrom(trace, at(0, 64, 100)));
     }
 
     @Test
@@ -73,11 +106,11 @@ class BukkitRailsTest {
         track.eastWest(0, 40, 64, 0);
         failuresLeft.put(BAD, Integer.MAX_VALUE);
         final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
-        final RailWalk walk = new RailWalk(view, List.of(at(0, 64, 0)), 1_000);
+        final RailTrace trace = trace(view, at(0, 64, 0));
 
         for (int tick = 0; tick < BukkitRails.SPACING; tick++) {
-            view.load(walk.takeWanted());
-            walk.step(2_000);
+            view.load(trace.takeWanted());
+            trace.step(2_000, Long.MAX_VALUE);
         }
 
         assertEquals(1, asked.getOrDefault(BAD, 0), "the chunk is asked for once in its first spacing");
@@ -88,22 +121,59 @@ class BukkitRailsTest {
         track.eastWest(0, 40, 64, 0);
         failuresLeft.put(BAD, Integer.MAX_VALUE);
 
-        final RailWalk walk = walked(new BukkitRails(plugin, new ChunkTickets(plugin), world), at(20, 64, 0));
+        final RailTrace trace = traced(new BukkitRails(plugin, new ChunkTickets(plugin), world), at(20, 64, 0));
 
-        assertTrue(walk.found().isEmpty());
-        assertTrue(walk.missing().isEmpty(), "a station whose chunk could not be read is kept");
+        assertTrue(trace.traced().isEmpty());
+        assertTrue(trace.missing().isEmpty(), "a station whose chunk could not be read is kept");
+        assertEquals(Set.of(at(20, 64, 0)), trace.unread());
     }
 
     @Test
-    void aChunkThatFailsFewerTimesThanItsTriesIsWalked() {
+    void aChunkThatFailsFewerTimesThanItsTriesIsRead() {
         track.eastWest(0, 40, 64, 0);
         failuresLeft.put(BAD, BukkitRails.TRIES - 1);
         final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
 
-        final RailWalk walk = walked(view, at(0, 64, 0));
+        final RailTrace trace = traced(view, at(0, 64, 0));
 
-        assertEquals(41, walk.found().getFirst().rails().size());
+        assertEquals(40, railsFrom(trace, at(0, 64, 0)));
         assertTrue(view.givenUpChunks().isEmpty());
+    }
+
+    @Test
+    void onlyAFewChunksLoadAtOnce() {
+        deferred = true;
+        final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
+        final Set<RailPos> wanted = new HashSet<>();
+        for (int chunk = 0; chunk < 3 * BukkitRails.LOADING; chunk++) {
+            wanted.add(at(chunk * 16, 64, 0));
+        }
+
+        view.load(wanted);
+        assertEquals(BukkitRails.LOADING, asked.size());
+
+        view.load(Set.of());
+        assertEquals(BukkitRails.LOADING, asked.size(), "the others wait while those load");
+
+        pending.forEach(Runnable::run);
+        pending.clear();
+        view.load(Set.of());
+        assertEquals(2 * BukkitRails.LOADING, asked.size(), "the next ones load once those are done");
+    }
+
+    @Test
+    void aChunkTheReCheckNoLongerReadsIsLetGo() {
+        final BukkitRails view = new BukkitRails(plugin, new ChunkTickets(plugin), world);
+        view.load(Set.of(at(0, 64, 0), at(100, 64, 0)));
+        view.load(Set.of());
+        assertEquals(2, view.holding());
+
+        for (int tick = 0; tick <= BukkitRails.IDLE; tick++) {
+            view.load(Set.of());
+            assertTrue(view.readable(at(0, 64, 0)));
+        }
+
+        assertEquals(1, view.holding(), "the chunk read every tick is held, the other let go");
     }
 
     private World world() {
@@ -130,15 +200,28 @@ class BukkitRailsTest {
             failuresLeft.put(key, left - 1);
             return CompletableFuture.failedFuture(new IllegalStateException("the chunk is corrupt"));
         }
+        final Chunk chunk = chunk(key);
+        if (deferred) {
+            final CompletableFuture<Chunk> loading = new CompletableFuture<>();
+            pending.add(() -> {
+                loaded.add(key);
+                loading.complete(chunk);
+            });
+            return loading;
+        }
         loaded.add(key);
-        return CompletableFuture.completedFuture((Chunk) Proxy.newProxyInstance(
+        return CompletableFuture.completedFuture(chunk);
+    }
+
+    private static Chunk chunk(final long key) {
+        return (Chunk) Proxy.newProxyInstance(
                 Chunk.class.getClassLoader(),
                 new Class<?>[] {Chunk.class},
                 (_, method, _) -> switch (method.getName()) {
                     case "addPluginChunkTicket" -> true;
                     case "getChunkKey" -> key;
                     default -> throw new UnsupportedOperationException(method.getName());
-                }));
+                });
     }
 
     private static BlockData blockData(final @Nullable RailShape shape) {

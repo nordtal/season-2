@@ -1,6 +1,6 @@
 # smp
 
-`smp` is the season's Paper plugin for the SMP. It holds the farm world, the Nether, the End, the milestone track, aura, the wheel, duels and graves.
+`smp` is the season's Paper plugin for the SMP. It holds the Nether, the End, the milestone track, aura, the wheel, duels and graves.
 
 ## Features
 

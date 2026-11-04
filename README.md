@@ -107,7 +107,7 @@ jars of the services.
 | `proxy`             | Velocity        | Login check, season phase, backend selection.                                             |
 | `limbo`             | Paper           | Holding server that applies the resource pack.                                            |
 | `hunger-games`      | Paper           | Start event: teams registered via the bot, border, loot, HUD, winner.                     |
-| `smp`               | Paper           | Nordtal, farm world, Nether, End, milestones, aura, prestige, wheel, duels, graves.       |
+| `smp`               | Paper           | Nordtal, Nether, End, milestones, aura, prestige, wheel, duels, graves.                   |
 | `discord-bot`       | JVM app         | Access sales and grants, linking, roles, game registration, admin log. Books no payments. |
 | `steward`           | JVM app + React | Web interface and API; books payments, sends alerts, schedules runs.                      |
 | `steward-agent`     | JVM app         | Schema, jar versions, all runs. The only service that creates containers.                 |

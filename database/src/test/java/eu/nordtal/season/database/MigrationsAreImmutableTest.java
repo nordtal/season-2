@@ -306,6 +306,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V107__prism_logs_the_smps_block_changes_in_a_schema_of_its_own.sql",
                 "c346da086a7711162bd02ccebe5e7f4cb4f94f02d235503a02a9ddb24ac3e87f");
+        FROZEN.put(
+                "V108__a_duel_record_names_its_kit_only.sql",
+                "d4f6ae13d73c9f14cf7715b0c165839c55c2983169416cf0c6e48104b9b9e06d");
     }
 
     @Test

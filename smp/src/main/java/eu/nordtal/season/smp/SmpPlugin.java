@@ -559,6 +559,7 @@ public final class SmpPlugin extends NordtalPlugin {
         reload(problems, "the advancement awards", awardSettings, () -> {});
         reload(problems, "the duels", duelSettings, () -> {});
         reload(problems, "the deaths and graves", deathSettings, () -> {});
+        reload(problems, "the rails", railSettings, () -> {});
         prestigeColours = prestigeColours();
         reloadMilestoneTrack();
         problems.addAll(trackProblems);

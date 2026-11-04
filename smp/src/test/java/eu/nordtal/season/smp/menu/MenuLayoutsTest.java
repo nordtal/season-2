@@ -68,18 +68,19 @@ class MenuLayoutsTest {
 
         assertEquals(6, ride.rows());
         assertEquals(List.of(8, 17, 26, 35, 44), at(ride, "favourite"));
-        assertEquals(35, at(ride, "station").size());
+        assertEquals(40, at(ride, "station").size());
         assertEquals(List.of(51), at(ride, "previous-page"));
         assertEquals(List.of(53), at(ride, "next-page"));
     }
 
     @Test
-    void theStationMenuPutsItsNameButtonUnderTheHeading() {
+    void theStationMenuPutsItsNameAndVisibilityButtonsUnderTheHeading() {
         final DocumentDeclaration station = menu("station");
 
-        assertEquals(2, station.rows());
+        assertEquals(3, station.rows());
         assertEquals(IntStream.range(0, 9).boxed().toList(), at(station, "heading"));
         assertEquals(IntStream.range(9, 18).boxed().toList(), at(station, "name"));
+        assertEquals(IntStream.range(18, 27).boxed().toList(), at(station, "visibility"));
     }
 
     @Test

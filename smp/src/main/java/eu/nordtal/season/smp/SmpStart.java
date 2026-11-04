@@ -32,6 +32,7 @@ import eu.nordtal.season.smp.rail.RailNetworks;
 import eu.nordtal.season.smp.rail.RailStore;
 import eu.nordtal.season.smp.rail.RideFeedback;
 import eu.nordtal.season.smp.rail.Rides;
+import eu.nordtal.season.smp.rail.SpawnStation;
 import eu.nordtal.season.smp.rail.StationMenus;
 import eu.nordtal.season.smp.rail.StationRailListener;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
@@ -279,7 +280,8 @@ final class SmpStart {
 
     /**
      * Starts the rail networks and the rides that drive minecarts along them.
-     * The networks bring their recipe, their stored state, their walk every tick, their listener and menus.
+     * The networks bring their recipe, their stored state, their walk every tick, their listener and menus, and the
+     * spawn station that the settings place.
      */
     static Rails wireRails(final SmpPlugin plugin) {
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
@@ -288,6 +290,11 @@ final class SmpStart {
                 plugin, tickets, new RailStore(plugin.jdbi(), scheduler, plugin.getLogger()), plugin.clock());
         rails.start(scheduler::onMain);
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rails::tick);
+        final SpawnStation spawn = new SpawnStation(
+                rails,
+                tickets,
+                () -> SpawnStation.target(plugin.railSettings.get().spawnStation()));
+        scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), spawn::tick);
         final Rides rides = new Rides(scheduler, rails, tickets, plugin.railSettings::get, plugin.sounds);
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rides::tick);
         final RideFeedback feedback =

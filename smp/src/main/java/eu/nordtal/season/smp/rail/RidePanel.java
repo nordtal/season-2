@@ -19,8 +19,8 @@ public final class RidePanel {
 
     public static final int PILL_X = SlotGeometry.ORIGIN_X + INSET;
 
-    /** The width of {@link Glyphs#GUI_ROW_PILL_SHORT}: the station's cells 0 to 6. */
-    public static final int PILL_WIDTH = 7 * SlotGeometry.PITCH - 2 * INSET;
+    /** The width of {@link Glyphs#GUI_ROW_PILL_LONG}: the station's cells 0 to 7, up to the star. */
+    public static final int PILL_WIDTH = 8 * SlotGeometry.PITCH - 2 * INSET;
 
     /** The width of a full row's plate, for the line when no station is listed. */
     public static final int WIDE_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH - 2 * INSET;
@@ -29,7 +29,7 @@ public final class RidePanel {
     public static final int STAR_COLUMN = 8;
 
     /** The cells of a station row that its plate covers. */
-    public static final int STATION_COLUMNS = 7;
+    public static final int STATION_COLUMNS = 8;
 
     private static final int ICON_SIZE = 8;
     private static final int ICON_X = PILL_X + 3;
@@ -130,7 +130,7 @@ public final class RidePanel {
     }
 
     private static void station(final MenuTitle.Canvas canvas, final int row, final Row station) {
-        canvas.rowArt(Glyphs.GUI_ROW_PILL_SHORT, row, PILL_X, null);
+        canvas.rowArt(Glyphs.GUI_ROW_PILL_LONG, row, PILL_X, null);
         canvas.rowArt(Glyphs.GUI_ROW_ICON_POI, row, ICON_X, MenuPalette.INK);
         final String distance = MenuFont.fold(station.distance());
         final int distanceWidth = MenuFont.width(distance);

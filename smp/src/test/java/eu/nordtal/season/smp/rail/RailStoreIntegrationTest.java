@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.rail;
 import static eu.nordtal.season.smp.rail.Track.at;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
@@ -180,5 +181,26 @@ class RailStoreIntegrationTest {
                         .map(StationRow::id)
                         .toList());
         assertEquals(List.of(), loaded.favourites());
+    }
+
+    @Test
+    void aHiddenStationStaysHiddenUntilShownAgain() {
+        station(1, at(0, 64, 0), "West", 0);
+        station(2, at(10, 64, 0), "East", 1);
+
+        store.hidden(new UUID(0, 2), true);
+        assertEquals(Set.of(new UUID(0, 2)), load().hidden());
+
+        store.hidden(new UUID(0, 2), false);
+        assertEquals(Set.of(), load().hidden());
+    }
+
+    @Test
+    void theSpawnStationIsStoredWithoutAPlacer() {
+        store.placed(new StationRow(new UUID(0, 5), "nordtal", 0, 64, 0, "NORTH_SOUTH", null, null, null));
+
+        final StationRow spawn = load().worlds().get("nordtal").stations().getFirst();
+        assertTrue(spawn.spawn());
+        assertEquals("NORTH_SOUTH", spawn.axis());
     }
 }

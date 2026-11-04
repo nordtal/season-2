@@ -54,7 +54,7 @@ class RidePanelTest {
             final String font = Glyphs.FONT_GUI_ROWS.get(row);
             assertEquals(
                     RidePanel.PILL_X,
-                    PanelWalk.find(runs, font, Glyphs.GUI_ROW_PILL_SHORT).x());
+                    PanelWalk.find(runs, font, Glyphs.GUI_ROW_PILL_LONG).x());
             final List<Run> text = PanelWalk.textRuns(runs, font);
             assertEquals(2, text.size(), "row " + row + " draws a name and a distance");
             assertEquals(MenuFont.fold(THREE.get(row).distance()), text.get(1).content());
@@ -66,6 +66,12 @@ class RidePanelTest {
             final int cell = SlotGeometry.x(RidePanel.STAR_COLUMN);
             assertTrue(star.x() >= cell && star.end() - 1 < cell + SlotGeometry.PITCH, "the star stays in its cell");
         }
+    }
+
+    @Test
+    void aStationRowReachesUpToTheStarWithoutAGap() {
+        assertEquals(List.of(0, 1, 2, 3, 4, 5, 6, 7), RidePanel.stationSlots(0));
+        assertEquals(SlotGeometry.x(RidePanel.STAR_COLUMN) - RidePanel.INSET, RidePanel.PILL_X + RidePanel.PILL_WIDTH);
     }
 
     @Test
@@ -140,7 +146,7 @@ class RidePanelTest {
 
     @Test
     void theStationMenuNamesTheRulesAndTheRefusals() {
-        final StationMenu.Window window = new StationMenu.Window(true, "Spawn", "Mine", StationNames.MAX_LENGTH);
+        final StationMenu.Window window = new StationMenu.Window(true, false, "Spawn", "Mine", StationNames.MAX_LENGTH);
         final var english = PanelWalk.document(StationMenu.DOCUMENT, Locale.ENGLISH, window);
         assertEquals(
                 "At most 32 characters. No other station on these rails may have the same name.",

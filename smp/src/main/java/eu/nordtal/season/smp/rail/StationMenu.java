@@ -10,17 +10,23 @@ import eu.nordtal.season.papercommon.menu.MenuClick;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.jspecify.annotations.Nullable;
 
-/** The menu of a station rail: its name, and for its placer and admins the button that opens the naming dialog. */
+/**
+ * The menu of a station rail: its name, and the buttons that name it and hide it from the map.
+ * Only its placer and admins see the buttons. The spawn is named by the translations, and nobody changes it.
+ */
 final class StationMenu extends Menu {
 
     /**
      * @param named whether the station has a name
+     * @param hidden whether the station is hidden from the map
      * @param typed the name the player typed last, for a refusal
      * @param most  the most characters a name has
      */
     record Window(
             boolean named,
+            boolean hidden,
             @Example("Spawn") String name,
             @Example("Spawn") String typed,
             @Example("32") long most) {}
@@ -36,6 +42,10 @@ final class StationMenu extends Menu {
                     Slot.item("name").at(StationPanel.NAME_SLOTS),
                     Slot.label("name-button"),
                     Slot.label("rename-button"),
+                    Slot.label("spawn"),
+                    Slot.item("visibility").at(StationPanel.VISIBILITY_SLOTS),
+                    Slot.label("hide-button"),
+                    Slot.label("show-button"),
                     Slot.label("dialog-title"),
                     Slot.label("dialog-rules"),
                     Slot.label("dialog-field"),
@@ -48,34 +58,48 @@ final class StationMenu extends Menu {
 
     private final StationMenus menus;
     private final StationRow station;
-    private final boolean mayName;
+    private final boolean mayChange;
 
     StationMenu(
-            final StationMenus menus, final StationRow station, final boolean mayName, final GameDocument document) {
+            final StationMenus menus,
+            final StationRow station,
+            final boolean mayChange,
+            final boolean hidden,
+            final GameDocument document) {
         this.menus = menus;
         this.station = station;
-        this.mayName = mayName;
-        final String name = station.name();
+        this.mayChange = mayChange;
+        final @Nullable String name = station.spawn() ? document.label("spawn") : station.name();
         final Inventory inventory = frame(
-                StationPanel.rows(mayName),
+                StationPanel.rows(mayChange),
                 StationPanel.title(
                         document.title(),
                         name == null ? document.label("unnamed") : name,
-                        mayName ? document.label(name == null ? "name-button" : "rename-button") : null));
+                        mayChange
+                                ? new StationPanel.Buttons(
+                                        document.label(name == null ? "name-button" : "rename-button"),
+                                        document.label(hidden ? "show-button" : "hide-button"))
+                                : null));
         final ItemStack heading = BlankItem.of(document.item("heading"));
         StationPanel.HEADING_SLOTS.forEach(slot -> inventory.setItem(slot, heading));
-        if (mayName) {
+        if (mayChange) {
             final ItemStack button = BlankItem.of(document.item("name"));
             StationPanel.NAME_SLOTS.forEach(slot -> inventory.setItem(slot, button));
+            final ItemStack visibility = BlankItem.of(document.item("visibility"));
+            StationPanel.VISIBILITY_SLOTS.forEach(slot -> inventory.setItem(slot, visibility));
         }
     }
 
     @Override
     protected MenuClick click(final Player player, final int slot) {
-        if (!mayName || !StationPanel.NAME_SLOTS.contains(slot)) {
-            return MenuClick.nothing();
+        if (mayChange && StationPanel.NAME_SLOTS.contains(slot)) {
+            menus.askName(player, station, null, "");
+            return MenuClick.closing();
         }
-        menus.askName(player, station, null, "");
-        return MenuClick.closing();
+        if (mayChange && StationPanel.VISIBILITY_SLOTS.contains(slot)) {
+            menus.toggleHidden(player, station);
+            return MenuClick.closing();
+        }
+        return MenuClick.nothing();
     }
 }

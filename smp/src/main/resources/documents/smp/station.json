@@ -102,6 +102,68 @@
     },
     {
       "type": "LABEL",
+      "slot": "spawn",
+      "lines": [
+        {
+          "text": {
+            "en": "Spawn",
+            "de": "Spawn"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "visibility",
+      "lines": [
+        {
+          "when": "!hidden",
+          "text": {
+            "en": "<emphasis>Hide this {@terms.station, n=1}</emphasis>",
+            "de": "<emphasis>Diesen {@terms.station, n=1} verbergen</emphasis>"
+          }
+        },
+        {
+          "when": "hidden",
+          "text": {
+            "en": "<emphasis>Show this {@terms.station, n=1}</emphasis>",
+            "de": "<emphasis>Diesen {@terms.station, n=1} zeigen</emphasis>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>A hidden {@terms.station, n=1} is not shown on the map. Riders still find it when they sit down in a minecart.</muted>",
+            "de": "<muted>Ein verborgener {@terms.station, n=1} wird nicht auf der Karte gezeigt. Wer sich in eine Lore setzt, findet ihn trotzdem.</muted>"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "hide-button",
+      "lines": [
+        {
+          "text": {
+            "en": "Hide",
+            "de": "Verbergen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "show-button",
+      "lines": [
+        {
+          "text": {
+            "en": "Show",
+            "de": "Zeigen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
       "slot": "dialog-title",
       "lines": [
         {

@@ -8,6 +8,7 @@ import org.jdbi.v3.sqlobject.customizer.Bind;
 import org.jdbi.v3.sqlobject.statement.SqlBatch;
 import org.jdbi.v3.sqlobject.statement.SqlQuery;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
+import org.jspecify.annotations.Nullable;
 
 /** Reads and writes the station rails and the rail networks. Blocking, so call it off the main thread only. */
 public interface RailDao {
@@ -35,7 +36,7 @@ public interface RailDao {
             @Bind("y") int y,
             @Bind("z") int z,
             @Bind("axis") String axis,
-            @Bind("placedBy") UUID placedBy);
+            @Bind("placedBy") @Nullable UUID placedBy);
 
     @SqlUpdate("DELETE FROM smp_rail_station WHERE id = :id")
     void deleteStation(@Bind("id") UUID id);
@@ -53,6 +54,13 @@ public interface RailDao {
 
     @SqlUpdate("UPDATE smp_rail_station SET renamed_unseen = false WHERE id = :id")
     void seen(@Bind("id") UUID id);
+
+    @SqlQuery("SELECT id FROM smp_rail_station WHERE hidden")
+    List<UUID> hiddenStations();
+
+    /** Hides a station from the map of the networks, or shows it there again. */
+    @SqlUpdate("UPDATE smp_rail_station SET hidden = :hidden WHERE id = :id")
+    void hide(@Bind("id") UUID id, @Bind("hidden") boolean hidden);
 
     @SqlQuery("SELECT player, station FROM smp_rail_favourite")
     @RegisterConstructorMapper(FavouriteRow.class)

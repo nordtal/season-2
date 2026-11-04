@@ -10,7 +10,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -234,7 +233,7 @@ public final class Rides implements Listener {
         ride.end = ride.path.length();
         ride.standingPlanDue = false;
         ride.waited = 0;
-        watch.planned(ride.rider, ride.destination, nameOf(station.get()), path.length());
+        watch.planned(ride.rider, ride.destination, networks.nameOf(station.get()), path.length());
         return true;
     }
 
@@ -474,7 +473,7 @@ public final class Rides implements Listener {
                 ride.rider,
                 ride.destination,
                 networks.station(ride.world.getName(), ride.destination)
-                        .map(Rides::nameOf)
+                        .map(networks::nameOf)
                         .orElse(""));
         release(ride);
         ride.cart.removePassenger(ride.rider);
@@ -495,10 +494,6 @@ public final class Rides implements Listener {
 
     private void unclaim(final Ride ride) {
         claims.values().removeIf(ride.cart.getUniqueId()::equals);
-    }
-
-    private static String nameOf(final StationRow station) {
-        return Objects.requireNonNullElse(station.name(), "");
     }
 
     private void release(final Ride ride) {

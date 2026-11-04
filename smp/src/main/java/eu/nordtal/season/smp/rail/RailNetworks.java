@@ -8,11 +8,13 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -55,6 +57,7 @@ public final class RailNetworks {
     private final Map<UUID, StationRow> crooked = new LinkedHashMap<>();
     private final Map<UUID, Set<UUID>> favourites = new HashMap<>();
     private final Set<UUID> unseen = new HashSet<>();
+    private final Set<UUID> hidden = new HashSet<>();
     private final Map<String, ChunkRetries> retries = new HashMap<>();
     private final Map<String, Integer> versions = new HashMap<>();
     private Consumer<StationRow> renamedByMerge = _ -> {};
@@ -88,6 +91,7 @@ public final class RailNetworks {
                                     .computeIfAbsent(row.player(), _ -> new HashSet<>())
                                     .add(row.station()));
                     unseen.addAll(loaded.unseen());
+                    hidden.addAll(loaded.hidden());
                     loaded.worlds().forEach((world, part) -> {
                         networks(world).restore(part.stations(), part.junctions(), part.edges());
                         // The store keeps no track that ends nowhere, so each network is walked again once.
@@ -164,8 +168,11 @@ public final class RailNetworks {
         holograms.unloaded(chunk.getWorld().getName(), chunk.getChunkKey());
     }
 
-    /** Makes {@code block}, a placed rail, a station rail of {@code placer}, straight along {@code axis}. */
-    void place(final Block block, final UUID placer, final RailShape axis) {
+    /**
+     * Makes {@code block}, a placed rail, a station rail of {@code placer}, straight along {@code axis}.
+     * Without a placer it is the spawn station.
+     */
+    void place(final Block block, final @Nullable UUID placer, final RailShape axis) {
         straighten(block, axis);
         final StationRow station = new StationRow(
                 UUID.randomUUID(),
@@ -183,6 +190,7 @@ public final class RailNetworks {
             holograms.hide(old.id());
         });
         networks(station.world()).addStation(station);
+        erase(block);
         draw(block, axis);
         store.placed(station);
         changed(block);
@@ -200,10 +208,20 @@ public final class RailNetworks {
         changed(block);
     }
 
+    /** Removes {@code station}, whose world is not loaded, without touching its block. */
+    void removeUnloaded(final StationRow station) {
+        networks(station.world()).removeStation(station.pos()).ifPresent(row -> {
+            forget(row.id());
+            holograms.hide(row.id());
+            store.removed(row.id());
+        });
+    }
+
     /** Drops what the plugin holds of a removed station; the store deletes its favourites with its row. */
     private void forget(final UUID station) {
         favourites.values().forEach(stations -> stations.remove(station));
         unseen.remove(station);
+        hidden.remove(station);
     }
 
     /** Runs {@code told} on the main thread for each station a merge gave a new name. */
@@ -299,8 +317,41 @@ public final class RailNetworks {
     List<StationRow> unseenOf(final UUID placer) {
         return worlds.values().stream()
                 .flatMap(networks -> networks.stations().stream())
-                .filter(row -> unseen.contains(row.id()) && row.placedBy().equals(placer))
+                .filter(row -> unseen.contains(row.id()) && placer.equals(row.placedBy()))
                 .toList();
+    }
+
+    /** Returns the spawn stations: one, or more for the moment a setting moved it, or none. */
+    List<StationRow> spawns() {
+        return worlds.values().stream()
+                .flatMap(networks -> networks.stations().stream())
+                .filter(StationRow::spawn)
+                .toList();
+    }
+
+    /** Names the spawn station's hologram with what {@code name} returns at the time it is shown. */
+    void whenSpawnNamed(final Supplier<String> name) {
+        holograms.spawnNamed(name);
+    }
+
+    /** Returns the name {@code station} goes by in a message, empty for an unnamed one. */
+    String nameOf(final StationRow station) {
+        return Objects.requireNonNullElse(holograms.nameOf(station), "");
+    }
+
+    /** Whether {@code station} is hidden from the map. It still shows in the ride menu. */
+    boolean hidden(final UUID station) {
+        return hidden.contains(station);
+    }
+
+    /** Hides {@code station} from the map or shows it there again, and returns whether it is hidden now. */
+    boolean toggleHidden(final UUID station) {
+        final boolean hide = hidden.add(station);
+        if (!hide) {
+            hidden.remove(station);
+        }
+        store.hidden(station, hide);
+        return hide;
     }
 
     /** Notes that the placer of {@code station} was told of its new name. */

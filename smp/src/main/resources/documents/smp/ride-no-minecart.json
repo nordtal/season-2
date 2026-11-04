@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>You have no minecart.</bad> <muted>Take one along to ride these rails.</muted>",
+            "de": "<bad>Du hast keine Lore dabei.</bad> <muted>Nimm eine mit, um auf diesen Schienen zu fahren.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

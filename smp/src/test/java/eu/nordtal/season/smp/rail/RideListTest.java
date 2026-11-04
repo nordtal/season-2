@@ -52,7 +52,7 @@ class RideListTest {
             station(4, at(30, 64, 0), "Harbour"));
 
     /** The default distance within which the cart counts as already at a station. */
-    private static final int NEAR = new RailsSpec() {}.atStationWithin();
+    private static final int NEAR = new RailsSpec() {}.stationWidth();
 
     @Test
     void theNearestStationsComeFirstAndTheOneTheCartStandsOnIsLeftOut() {

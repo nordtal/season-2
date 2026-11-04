@@ -1,6 +1,5 @@
 package eu.nordtal.season.smp.config;
 
-import eu.nordtal.season.settings.rule.Between;
 import eu.nordtal.season.settings.rule.NotNegative;
 import eu.nordtal.season.settings.rule.Positive;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
@@ -10,30 +9,20 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** The {@code rails} group holds how the station menus of the rail networks look and how a minecart rides. */
+/** The {@code rails} group holds how a minecart rides on the rail networks and which stations it is already at. */
 @ConfigSpec
 public interface RailsSpec {
 
-    /** The stations one page of the ride menu lists; a sixth row holds the page buttons. */
     @Order(1)
-    @Name("Stations per page")
-    @Key("stations-per-page")
-    @Between(least = 1, most = 5)
-    @Explain("How many stations the menu lists on one page when a player sits down in a minecart on a station's rails.")
-    default int stationsPerPage() {
-        return 5;
-    }
-
-    @Order(2)
     @Name("Acceleration (blocks per second, each second)")
     @Key("acceleration")
     @Positive
-    @Explain("How fast a minecart speeds up, and how fast it brakes for a stop or a curve ahead.")
+    @Explain("How fast a minecart speeds up, and how fast it brakes for a stop ahead.")
     default double acceleration() {
         return 6.0;
     }
 
-    @Order(3)
+    @Order(2)
     @Name("Top speed (blocks per second)")
     @Key("top-speed")
     @Positive
@@ -42,21 +31,12 @@ public interface RailsSpec {
         return 24.0;
     }
 
-    @Order(4)
-    @Name("Speed through curves (blocks per second)")
-    @Key("curve-speed")
-    @Positive
-    @NoExplanationNeeded
-    default double curveSpeed() {
-        return 10.0;
-    }
-
-    @Order(5)
-    @Name("Already at a station within (blocks)")
-    @Key("at-station-within")
+    @Order(3)
+    @Name("Station width (blocks)")
+    @Key("station-width")
     @NotNegative
     @Explain("A station this close along the rails is left out of the ride menu: the rider is already there.")
-    default int atStationWithin() {
+    default int stationWidth() {
         return 3;
     }
 }

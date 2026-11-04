@@ -32,8 +32,8 @@
         },
         {
           "text": {
-            "en": "<muted>Sit down in a minecart on these rails to pick a {@terms.station, n=1}.</muted>",
-            "de": "<muted>Setz dich in eine Lore auf diesen Schienen, um einen {@terms.station, n=1} zu wählen.</muted>"
+            "en": "<muted>Right-click these rails with a minecart in your inventory to pick a {@terms.station, n=1}.</muted>",
+            "de": "<muted>Klick mit einer Lore im Inventar rechts auf diese Schienen, um einen {@terms.station, n=1} zu wählen.</muted>"
           }
         }
       ]

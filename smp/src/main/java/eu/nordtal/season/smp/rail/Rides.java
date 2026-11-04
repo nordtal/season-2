@@ -35,14 +35,13 @@ import org.bukkit.event.vehicle.VehicleDamageEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
 import org.bukkit.event.vehicle.VehicleEntityCollisionEvent;
 import org.bukkit.event.vehicle.VehicleExitEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Drives minecarts with a player in them to the station they picked, moving each cart itself every tick.
- * It stops before a junction set the wrong way and switches it, holds the chunks ahead loaded, plans again when
- * the networks change and lets driven carts pass through everything. At the station it sets the rider down.
+ * It switches a junction set the wrong way, holds the chunks ahead loaded, plans again when the networks change
+ * and lets driven carts pass through everything. At the station the rider gets out with the cart in their pocket.
  */
 public final class Rides implements Listener {
 
@@ -123,7 +122,7 @@ public final class Rides implements Listener {
 
     private RidePath.Motion motion() {
         final RailsSpec now = settings.get();
-        return RidePath.Motion.of(now.acceleration(), now.topSpeed(), now.curveSpeed());
+        return RidePath.Motion.of(now.acceleration(), now.topSpeed());
     }
 
     /** Runs {@code told} for a rider whose cart stopped for good before reaching the station. */
@@ -221,8 +220,8 @@ public final class Rides implements Listener {
             return false;
         }
         final Location location = ride.cart.getLocation();
-        final RidePath path = RidePath.of(
-                route.get().rails(), new RidePath.Point(location.getX(), location.getY(), location.getZ()), motion());
+        final RidePath path =
+                RidePath.of(route.get().rails(), new RidePath.Point(location.getX(), location.getY(), location.getZ()));
         if (!standing && !motion().brakes(ride.speed, path.length())) {
             // A station too near to brake for is ridden to after the cart stopped and set off from there.
             return false;
@@ -510,40 +509,95 @@ public final class Rides implements Listener {
         ride.held.clear();
     }
 
-    /** Puts the cart into the rider's inventory when there is room, or removes it in creative mode. */
-    private static void pocket(final RideableMinecart cart, final Player rider) {
-        if (rider.getGameMode() == GameMode.CREATIVE) {
-            cart.remove();
-            return;
+    /**
+     * Puts the cart into the rider's inventory, or at their feet when it is full; in creative mode it is only removed.
+     */
+    static void pocket(final RideableMinecart cart, final Player rider) {
+        if (rider.getGameMode() != GameMode.CREATIVE) {
+            rider.getInventory()
+                    .addItem(cart.getPickItemStack())
+                    .values()
+                    .forEach(left -> rider.getWorld().dropItem(rider.getLocation(), left));
         }
-        final ItemStack item = cart.getPickItemStack();
-        if (rider.getInventory().addItem(item).isEmpty()) {
-            cart.remove();
-        }
+        cart.remove();
     }
 
-    /** A rider who gets out on the way stays on the track, and the cart goes into their inventory. */
+    /** Whether {@code cart} stands on the track of a rail network. */
+    boolean onNetwork(final Entity cart) {
+        return networks.graph(cart.getWorld().getName(), railUnder(cart)).isPresent();
+    }
+
+    /**
+     * Getting out of a cart on a network puts the cart away, and a rider who gets out on the way stays on the track.
+     * A cart is on a network only while it is ridden.
+     */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onExit(final VehicleExitEvent event) {
-        final @Nullable Ride ride = rides.remove(event.getVehicle().getUniqueId());
-        if (ride == null) {
+        if (!(event.getVehicle() instanceof RideableMinecart cart)) {
             return;
         }
-        release(ride);
+        final @Nullable Ride ride = rides.remove(cart.getUniqueId());
+        if (ride != null) {
+            release(ride);
+        } else if (!onNetwork(cart)) {
+            return;
+        }
         if (!(event.getExited() instanceof Player rider)) {
             return;
         }
         // The rider leaves the cart only after the event.
         scheduler.onMainAfter(PaperScheduler.TICK, () -> {
-            if (!rider.isOnline() || rider.isDead() || rider.isInsideVehicle() || !ride.cart.isValid()) {
-                return;
+            switch (leaving(
+                    rider.isOnline() && cart.isValid() && cart.isEmpty(),
+                    rider.isDead() || rider.isInsideVehicle(),
+                    ride != null)) {
+                case KEEP -> {}
+                case DROP -> {
+                    if (rider.getGameMode() != GameMode.CREATIVE) {
+                        cart.getWorld().dropItem(cart.getLocation(), cart.getPickItemStack());
+                    }
+                    cart.remove();
+                }
+                case ON_TRACK -> {
+                    final Location track = cart.getLocation();
+                    track.setYaw(rider.getYaw());
+                    track.setPitch(rider.getPitch());
+                    rider.teleport(track);
+                    pocket(cart, rider);
+                }
+                case POCKET -> pocket(cart, rider);
             }
-            final Location track = ride.cart.getLocation();
-            track.setYaw(rider.getYaw());
-            track.setPitch(rider.getPitch());
-            rider.teleport(track);
-            pocket(ride.cart, rider);
         });
+    }
+
+    /** What becomes of a cart on a network a tick after its rider got out. */
+    enum Leaving {
+        /** The cart is left alone. */
+        KEEP,
+        /** The cart drops as an item where it stands. */
+        DROP,
+        /** The rider is set on the track and the cart goes into their inventory. */
+        ON_TRACK,
+        /** The cart goes into the rider's inventory. */
+        POCKET
+    }
+
+    /**
+     * Decides what becomes of a cart on a network once its rider got out.
+     * A rider who logged out takes the cart along, and one who arrived has it in the inventory already.
+     *
+     * @param present whether the rider is online and the cart still there and empty
+     * @param elsewhere whether the rider died or sits in another vehicle
+     * @param riding whether the cart was driven to a station when the rider got out
+     */
+    static Leaving leaving(final boolean present, final boolean elsewhere, final boolean riding) {
+        if (!present) {
+            return Leaving.KEEP;
+        }
+        if (elsewhere) {
+            return Leaving.DROP;
+        }
+        return riding ? Leaving.ON_TRACK : Leaving.POCKET;
     }
 
     /** A driven cart passes through other carts, mobs and players, and neither pushes nor is pushed. */

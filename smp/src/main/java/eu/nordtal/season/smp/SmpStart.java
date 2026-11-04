@@ -27,6 +27,7 @@ import eu.nordtal.season.smp.progress.ObjectiveEngine;
 import eu.nordtal.season.smp.progress.StatisticPoller;
 import eu.nordtal.season.smp.protect.ProtectionListener;
 import eu.nordtal.season.smp.rail.ChunkTickets;
+import eu.nordtal.season.smp.rail.NetworkCarts;
 import eu.nordtal.season.smp.rail.RailNetworks;
 import eu.nordtal.season.smp.rail.RailStore;
 import eu.nordtal.season.smp.rail.RideFeedback;
@@ -297,19 +298,21 @@ final class SmpStart {
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(new StationRailListener(rails, plugin.identities(), plugin.sounds), plugin);
+        final StationMenus menus = new StationMenus(
+                rails,
+                rides,
+                plugin.renderer(),
+                plugin.documents(),
+                plugin.identities(),
+                plugin.sounds,
+                scheduler,
+                () -> plugin.railSettings.get().stationWidth());
+        plugin.getServer().getPluginManager().registerEvents(menus, plugin);
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(
-                        new StationMenus(
-                                rails,
-                                rides,
-                                plugin.renderer(),
-                                plugin.documents(),
-                                plugin.identities(),
-                                plugin.sounds,
-                                scheduler,
-                                () -> plugin.railSettings.get().stationsPerPage(),
-                                () -> plugin.railSettings.get().atStationWithin()),
+                        NetworkCarts.of(
+                                rails, rides, menus, plugin.renderer(), plugin.identities(), plugin.sounds, scheduler),
                         plugin);
         return new Rails(rails, rides);
     }

@@ -33,7 +33,6 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.vehicle.VehicleEnterEvent;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -69,7 +68,6 @@ public final class StationMenus implements Listener {
     private final Identities identities;
     private final SmpSounds sounds;
     private final PaperScheduler scheduler;
-    private final IntSupplier perPage;
     private final IntSupplier near;
 
     public StationMenus(
@@ -80,7 +78,6 @@ public final class StationMenus implements Listener {
             final Identities identities,
             final SmpSounds sounds,
             final PaperScheduler scheduler,
-            final IntSupplier perPage,
             final IntSupplier near) {
         this.networks = networks;
         this.rides = rides;
@@ -89,7 +86,6 @@ public final class StationMenus implements Listener {
         this.identities = identities;
         this.sounds = sounds;
         this.scheduler = scheduler;
-        this.perPage = perPage;
         this.near = near;
         networks.whenRenamedByMerge(this::tellRenamed);
         rides.whenStranded(this::stranded);
@@ -104,7 +100,7 @@ public final class StationMenus implements Listener {
     }
 
     /**
-     * A right click on a station rail opens its menu, unless it places a minecart; a left click still breaks it.
+     * A right click on a station rail opens its menu, unless it seats the player; a left click still breaks it.
      * A rider's right click on a block that has no click of its own opens the ride menu again.
      */
     @EventHandler(priority = EventPriority.HIGH)
@@ -124,7 +120,7 @@ public final class StationMenus implements Listener {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK
                 || block == null
                 || event.useInteractedBlock() == Event.Result.DENY
-                || placesMinecart(event.getItem())
+                || NetworkCarts.seats(player)
                 || !networks.isStation(block)) {
             return;
         }
@@ -136,10 +132,6 @@ public final class StationMenus implements Listener {
             return;
         }
         openStation(player, station.get());
-    }
-
-    private static boolean placesMinecart(final @Nullable ItemStack item) {
-        return item != null && item.getType().name().endsWith("MINECART");
     }
 
     /** A right click with an empty hand on the rider's own cart opens the ride menu again. */
@@ -215,7 +207,7 @@ public final class StationMenus implements Listener {
                     ride.stations(),
                     networks.favourites(player.getUniqueId()),
                     near.getAsInt());
-            final int each = Math.clamp(perPage.getAsInt(), 1, RidePanel.MOST_PER_PAGE);
+            final int each = RidePanel.MOST_PER_PAGE;
             final int pages = RidePanel.pages(stops.size(), each);
             final int shown = Math.clamp(page, 0, pages - 1);
             final GameDocument document = new GameDocument(

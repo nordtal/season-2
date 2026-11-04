@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 
 class JunctionStopsTest {
 
-    private static final RidePath.Motion MOTION = RidePath.Motion.of(6, 24, 10);
+    private static final RidePath.Motion MOTION = RidePath.Motion.of(6, 24);
 
     /** The shape each junction has in the world now. */
     private final Map<RailPos, RailShape> world = new HashMap<>();
@@ -80,7 +80,7 @@ class JunctionStopsTest {
 
     private static RidePath path(final List<RailPos> rails) {
         final RailPos first = rails.getFirst();
-        return RidePath.of(rails, new RidePath.Point(first.x() + 0.5, first.y(), first.z() + 0.5), MOTION);
+        return RidePath.of(rails, new RidePath.Point(first.x() + 0.5, first.y(), first.z() + 0.5));
     }
 
     /**

@@ -2,6 +2,7 @@ package eu.nordtal.season.smp.rail;
 
 import static eu.nordtal.season.smp.rail.Track.at;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -12,7 +13,7 @@ class RidePathTest {
 
     private static final double TOP = 24.0 / RidePath.TICKS_PER_SECOND;
 
-    private static final RidePath.Motion MOTION = RidePath.Motion.of(6, 24, 10);
+    private static final RidePath.Motion MOTION = RidePath.Motion.of(6, 24);
 
     private static List<RailPos> straight(final int length) {
         final List<RailPos> rails = new ArrayList<>();
@@ -45,7 +46,7 @@ class RidePathTest {
     @Test
     void aCartSpeedsUpSteadilyToTheTopSpeedAndStopsAtTheEnd() {
         final List<RailPos> rails = straight(300);
-        final RidePath path = RidePath.of(rails, centre(rails.getFirst()), MOTION);
+        final RidePath path = RidePath.of(rails, centre(rails.getFirst()));
 
         final List<Double> speeds = ride(path);
 
@@ -58,7 +59,7 @@ class RidePathTest {
     @Test
     void theCartBrakesToTheEndAtItsAccelerationAndStopsThere() {
         final List<RailPos> rails = straight(300);
-        final RidePath path = RidePath.of(rails, centre(rails.getFirst()), MOTION);
+        final RidePath path = RidePath.of(rails, centre(rails.getFirst()));
 
         final List<Double> speeds = ride(path);
 
@@ -73,32 +74,43 @@ class RidePathTest {
     }
 
     @Test
-    void aCurveIsRiddenSlowlyAndBrakedForAtTheAcceleration() {
-        // East for 120 rails, a curve to the south at x 120, then south for sixty more.
+    void curvesAreRiddenAtTopSpeedWithNoBrakingBeforeThem() {
+        // East for 120 rails, a curve to the south at x 120, south for 120 more, a curve to the east and on.
         final List<RailPos> rails = straight(120);
-        for (int z = 1; z <= 60; z++) {
+        for (int z = 1; z <= 120; z++) {
             rails.add(at(120, 64, z));
         }
-        final RailPos curve = at(120, 64, 0);
-        final RidePath path = RidePath.of(rails, centre(rails.getFirst()), MOTION);
+        for (int x = 121; x <= 240; x++) {
+            rails.add(at(x, 64, 120));
+        }
+        final RidePath path = RidePath.of(rails, centre(rails.getFirst()));
 
         double along = 0;
         double speed = 0;
-        double fastestOnCurve = 0;
+        final List<Double> onCurves = new ArrayList<>();
         final List<Double> speeds = new ArrayList<>();
         while (along < path.length()) {
             speed = Math.min(path.next(along, speed, path.length(), MOTION), path.length() - along);
             along += speed;
             speeds.add(speed);
-            if (rails.get(path.railAt(along)).equals(curve)) {
-                fastestOnCurve = Math.max(fastestOnCurve, speed);
+            final RailPos on = rails.get(path.railAt(along));
+            if (on.equals(at(120, 64, 0)) || on.equals(at(120, 64, 120))) {
+                onCurves.add(speed);
             }
         }
 
-        assertTrue(fastestOnCurve > 0 && fastestOnCurve <= MOTION.curve() + 1e-9, "curve at " + fastestOnCurve);
-        assertTrue(
-                speeds.stream().mapToDouble(Double::doubleValue).max().orElseThrow() >= TOP - 1e-9,
-                "at top speed before it");
+        assertFalse(onCurves.isEmpty(), "the cart rode over the curves");
+        onCurves.forEach(onCurve -> assertEquals(TOP, onCurve, 1e-9, "a curve at top speed"));
+        // Once at the top speed, the cart keeps it without a dip until it brakes for the end.
+        int braking = speeds.indexOf(TOP);
+        while (braking < speeds.size() && speeds.get(braking) == TOP) {
+            braking++;
+        }
+        double braked = 0;
+        for (int tick = braking; tick < speeds.size(); tick++) {
+            braked += speeds.get(tick);
+        }
+        assertTrue(braked <= MOTION.stopping(TOP) + TOP, "braked only for the end, over " + braked + " blocks");
         assertGentle(speeds);
     }
 
@@ -111,7 +123,7 @@ class RidePathTest {
         assertTrue(MOTION.brakes(0, 0), "a standing cart needs none");
 
         final List<RailPos> rails = straight(300);
-        final RidePath path = RidePath.of(rails, centre(rails.getFirst()), MOTION);
+        final RidePath path = RidePath.of(rails, centre(rails.getFirst()));
         for (double room = least; room < least + 2; room += 0.01) {
             final double end = 100 + room;
             double along = 100;
@@ -142,7 +154,7 @@ class RidePathTest {
     @Test
     void theLineCutsACurveFromEdgeToEdgeAndClimbsASlope() {
         final List<RailPos> rails = List.of(at(0, 64, 0), at(1, 64, 0), at(1, 64, 1), at(1, 65, 2), at(1, 65, 3));
-        final RidePath path = RidePath.of(rails, centre(rails.getFirst()), MOTION);
+        final RidePath path = RidePath.of(rails, centre(rails.getFirst()));
 
         assertEquals(new RidePath.Point(1.5, 64, 1), path.at(path.start(2)), "the curve is left at its south edge");
         assertEquals(new RidePath.Point(1.5, 65, 3.0), path.at(path.start(4)), "the slope ends one block higher");

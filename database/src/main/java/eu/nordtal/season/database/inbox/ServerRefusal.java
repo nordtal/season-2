@@ -62,7 +62,7 @@ public enum ServerRefusal implements RefusalReason {
             case WRONG_STATE -> List.of("state");
             case BELOW_HARD_MINIMUM -> List.of("minimum", "count");
             case BELOW_SOFT_MINIMUM -> List.of("count", "minimum");
-            case SETTINGS_REFUSED -> List.of("service", "setting", "rule", "value", "detail");
+            case SETTINGS_REFUSED -> List.of("service", "setting", "rule", "value");
         };
     }
 
@@ -94,15 +94,14 @@ public enum ServerRefusal implements RefusalReason {
                 });
     }
 
-    /** Words a settings refusal from its setting and rule, or from the free text an older server wrote instead. */
+    /** Words a settings refusal from its setting and rule. */
     private static MessageRef settingsRefused(
             final DatabaseMessages.ServerRefusals words, final @Nullable Object... args) {
-        final String service = String.valueOf(args[0]);
-        if (args[1] == null) {
-            return words.settingsRefusedInWords(service, String.valueOf(args.length > 4 ? args[4] : null));
-        }
         return words.settingsRefused(
-                service, String.valueOf(args[1]), rule(args[2]), args[3] == null ? null : String.valueOf(args[3]));
+                String.valueOf(args[0]),
+                String.valueOf(Objects.requireNonNull(args[1], "setting")),
+                rule(args[2]),
+                args[3] == null ? null : String.valueOf(args[3]));
     }
 
     /** Returns the rule as the server named it or its column holds it, and {@code VALID} where none is named. */

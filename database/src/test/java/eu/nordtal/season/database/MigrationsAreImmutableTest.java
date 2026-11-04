@@ -315,6 +315,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V110__the_old_spawn_and_wheel_setting_names_and_the_corners_rule_leave.sql",
                 "efaf2b531f7364979472206c5477e84301acd4cd01d6b408dd38bdb3550e7633");
+        FROZEN.put(
+                "V111__a_settings_refusal_always_names_its_setting_and_rule.sql",
+                "7af4f4696617f3df35fcb8ace360182ac4726f2484b9f348b94abd1f7b0954dd");
     }
 
     @Test

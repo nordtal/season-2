@@ -9,7 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
-import eu.nordtal.season.database.DatabaseMessages;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.audit.AuditLine;
@@ -449,7 +448,7 @@ class InboxIntegrationTest {
     }
 
     @Test
-    void aSettingsRefusalAnOlderServerWroteAsFreeTextReadsBackInItsWords() throws SQLException {
+    void aSettingsRefusalThatNamesNoSettingIsNeverKept() throws SQLException {
         execute("DELETE FROM smp_inbox");
         final Inbox<SmpRequest> smp = Inbox.over(database.dataSource(), SmpRequest.TABLE);
         final long settings = smp.submit(
@@ -460,12 +459,11 @@ class InboxIntegrationTest {
         smp.settle(
                 settings,
                 Outcome.refused(ServerRefusal.SETTINGS_REFUSED.with("smp", "duel-kits", SettingRule.VALID, null)));
-        execute("UPDATE smp_refusal SET setting = NULL, rule = NULL, detail = 'duels: duel-kits is broken'"
-                + " WHERE request = " + settings);
 
-        assertEquals(
-                DatabaseMessages.MESSAGES.server().settingsRefusedInWords("smp", "duels: duel-kits is broken"),
-                smp.find(settings).orElseThrow().refusal().orElseThrow().message());
+        final SQLException refused = assertThrows(
+                SQLException.class,
+                () -> execute("UPDATE smp_refusal SET setting = NULL, rule = NULL WHERE request = " + settings));
+        assertTrue(refused.getMessage().contains("smp_refusal_settings_named"), refused.getMessage());
     }
 
     @Test

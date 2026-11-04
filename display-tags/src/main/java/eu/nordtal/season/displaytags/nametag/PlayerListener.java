@@ -54,15 +54,20 @@ public class PlayerListener implements Listener {
     public void onPlayerTeleport(final PlayerTeleportEvent event) {
         final Player player = event.getPlayer();
         final PlayerNameTag tag = this.plugin.getNameTagManager().getByPlayer(player);
-        if (tag == null || followsVehicle(event)) return;
+        if (tag == null) return;
 
-        // The event fires before the player moves.
-        tag.teleportForViewers(event.getTo());
+        // The event fires before the player moves, and for a rider taken off by a command, before the dismount.
+        final boolean riding = followsVehicle(event);
+        if (!riding) tag.teleportForViewers(event.getTo());
 
         // The distance and world can be evaluated only after the move.
         PaperScheduler.of(this.plugin.host()).onMain(() -> {
             final PlayerNameTag current = this.plugin.getNameTagManager().getByPlayer(player);
-            if (current != null) current.tick();
+            if (current == null || (riding && player.isInsideVehicle())) return;
+            if (riding)
+                current.teleportForViewers(
+                        Objects.requireNonNull(player.getLocation(), "an online player has a location"));
+            current.tick();
         });
     }
 

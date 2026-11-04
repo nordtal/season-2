@@ -55,6 +55,9 @@ public final class Rides implements Listener {
     /** How far beyond its stopping distance a cart reads the rails ahead and holds their chunks, in blocks. */
     private static final double LOOKOUT = 48;
 
+    /** The vanilla top speed of a minecart, in blocks a tick, which a cart gets back when its ride ends. */
+    private static final double VANILLA_MAX_SPEED = 0.4;
+
     /** How far ahead of the cart a junction is switched, beyond the distance it rides in two ticks, in blocks. */
     private static final double SWITCH_AHEAD = 3;
 
@@ -71,7 +74,6 @@ public final class Rides implements Listener {
         private final RideableMinecart cart;
         private final Player rider;
         private final World world;
-        private final double maxSpeed;
         private final Set<Long> held = new HashSet<>();
         private final Set<Long> loading = new HashSet<>();
         private UUID destination;
@@ -88,7 +90,6 @@ public final class Rides implements Listener {
             this.cart = cart;
             this.rider = rider;
             this.world = cart.getWorld();
-            this.maxSpeed = cart.getMaxSpeed();
             this.destination = destination;
         }
     }
@@ -380,9 +381,9 @@ public final class Rides implements Listener {
     }
 
     /** Leaves {@code cart} standing, with vanilla physics moving it again. */
-    static void standStill(final RideableMinecart cart, final double maxSpeed) {
+    static void standStill(final RideableMinecart cart) {
         cart.setVelocity(new Vector());
-        cart.setMaxSpeed(maxSpeed);
+        cart.setMaxSpeed(VANILLA_MAX_SPEED);
         cart.setGravity(true);
     }
 
@@ -416,7 +417,7 @@ public final class Rides implements Listener {
     }
 
     private void release(final Ride ride) {
-        standStill(ride.cart, ride.maxSpeed);
+        standStill(ride.cart);
         ride.held.forEach(key -> tickets.release(ride.world, key));
         ride.held.clear();
     }

@@ -42,7 +42,7 @@ class RidesTest {
 
     @Test
     void aCartLeftStandingHasNoVelocityAndVanillaPhysicsBack() {
-        Rides.standStill(cart, 0.4);
+        Rides.standStill(cart);
 
         assertEquals(List.of("velocity 0.0,0.0,0.0", "max speed 0.4", "gravity true"), calls);
     }

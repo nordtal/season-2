@@ -86,9 +86,11 @@ save. A sprite that the tab built from the frames of a PNG has no unsaved change
 changes it. The tree's **Texts** lists each key of the pack's language files, and its properties
 show the asset that owns the key, one value per language that `editText` writes, and **Delete
 Text**. **Add Text** on **Texts** asks for a key, a language and a value. The properties panel of a
-draft has **Discard Changes**, which runs `discardDraft` once confirmed. **File > Publish...** lists
-every draft with a check, and a title that names the drafts chosen until it is edited. **Discard
-Chosen...** discards the chosen drafts once confirmed. **Publish** writes the title to
+draft has **Discard Changes**, which runs `discardDraft` once confirmed. **Publish** above the tree
+shows the number of drafts and is disabled while there are none. It opens the same dialog as
+**File > Publish...**, which lists every draft with a check, and a title that names the drafts
+chosen until it is edited. **Discard Chosen...** discards the chosen drafts once confirmed. The
+dialog's **Publish** writes the title to
 `resource-pack/build/publish-message.txt` and runs `.githooks/commit-msg` on it through `git hook
 run` with the bootstrap's git. A refusal of the hook shows in the dialog over at most six lines, and
 the dialog stays open. The last line ends with `...` when the refusal is longer. An accepted title

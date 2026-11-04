@@ -375,6 +375,11 @@ function tab.open(context)
     end
   end
 
+  -- The number of drafts that the Publish button above the tree shows
+  local function draftCount()
+    return #(model and model.drafts or {})
+  end
+
   -- Reads the pack again and shows its nodes
   local function describe(done)
     local process, problem = modules.pack.describe(context.bootstrap, api, function(read, err)
@@ -394,6 +399,7 @@ function tab.open(context)
           markUnsaved(false)
           lists = { statuses=read.statuses, scalings=read.scalings }
           dlg:modify{ id="tree", nodes=nodes }
+          dlg:modify{ id="publish", text=tr("publish.button", draftCount()), enabled=draftCount() > 0 }
           if selected and not index[selected] then
             ctl.clear()
           end
@@ -1161,6 +1167,8 @@ function tab.open(context)
     end }
     -- The widgets from the panel on go into it, one below the other
     dlg:panel{ id=sidePanel, side=preferences.treeSide == "right" and "right" or "left", width=sideWidth }
+    dlg:button{ id="publish", text=tr("publish.button", draftCount()), enabled=draftCount() > 0, hexpand=true,
+                onclick=function() ctl.publish() end }
     dlg:tree{ id="tree", nodes=nodes or {}, onchange=function(ev) ctl.select(ev.node) end }
     dlg:splitter{}
     dlg:canvas{ id="properties", onpaint=paintProperties, onmousedown=click, onwheel=wheel,

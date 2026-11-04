@@ -36,7 +36,7 @@ describe("the plugin's start", function()
     local status = shown[1]
     assert.is_true(status.args.notitlebar)
     assert.same({ "This plugin needs a newer Nordtal Designer.",
-                  "Run the install line from the README of nordtal/aseprite again, then restart the app." },
+                  "Run the install line from the README of nordtal/designer again, then restart the app." },
                 status:labels())
     local buttons = {}
     for _, w in ipairs(status.widgets) do

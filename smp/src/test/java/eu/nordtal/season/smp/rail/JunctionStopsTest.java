@@ -27,10 +27,30 @@ class JunctionStopsTest {
     /** What one tick ended with. */
     private record Tick(double along, double speed) {}
 
-    private final JunctionStops.Junctions junctions = new JunctionStops.Junctions() {
+    /** Which cart holds each junction. */
+    private final Map<RailPos, Cart> claims = new HashMap<>();
+
+    private int tick;
+
+    /** One driven cart, with the junctions as it reads and holds them. */
+    private final class Cart implements JunctionStops.Junctions {
+        private final JunctionStops stops = new JunctionStops();
+        private double along;
+        private double speed;
+
         @Override
         public boolean wrong(final RailPos rail, final RailShape wanted) {
             return world.get(rail) != wanted;
+        }
+
+        @Override
+        public boolean claim(final RailPos rail) {
+            return claims.putIfAbsent(rail, this) == null || claims.get(rail) == this;
+        }
+
+        @Override
+        public void release(final RailPos rail) {
+            claims.remove(rail, this);
         }
 
         @Override
@@ -38,11 +58,18 @@ class JunctionStopsTest {
             world.put(rail, wanted);
             switched.add(new Switch(rail, tick, along, speed));
         }
-    };
 
-    private int tick;
-    private double along;
-    private double speed;
+        /** Rides one tick as {@code Rides} does, and returns whether the cart stands at the end of {@code path}. */
+        boolean tick(final RidePath path, final Map<Integer, RailShape> switches) {
+            final double stop = stops.limit(path, switches, along, speed, path.length(), MOTION, this);
+            final double limit = Math.max(along, Math.min(path.length(), stop));
+            speed = Math.min(path.next(along, speed, limit, MOTION), limit - along);
+            along += speed;
+            return speed == 0 && along >= path.length();
+        }
+    }
+
+    private Cart cart = new Cart();
 
     private static List<RailPos> straight(final int length) {
         final List<RailPos> rails = new ArrayList<>();
@@ -63,18 +90,13 @@ class JunctionStopsTest {
      * {@code during} runs before each tick, so a test can switch a junction back as a player would.
      */
     private List<Tick> ride(final RidePath path, final Map<Integer, RailShape> switches, final Runnable during) {
-        final JunctionStops stops = new JunctionStops();
+        cart = new Cart();
         final List<Tick> ticks = new ArrayList<>();
-        along = 0;
-        speed = 0;
         for (tick = 0; tick < 10_000; tick++) {
             during.run();
-            final double stop = stops.limit(path, switches, along, speed, path.length(), junctions);
-            final double limit = Math.max(along, Math.min(path.length(), stop));
-            speed = Math.min(path.next(along, speed, limit, MOTION), limit - along);
-            along += speed;
-            ticks.add(new Tick(along, speed));
-            if (speed == 0 && along >= path.length()) {
+            final boolean arrived = cart.tick(path, switches);
+            ticks.add(new Tick(cart.along, cart.speed));
+            if (arrived) {
                 return ticks;
             }
         }
@@ -188,7 +210,7 @@ class JunctionStopsTest {
     }
 
     @Test
-    void aJunctionSwitchedBackJustAheadOfAMovingCartStopsItBeforeTheJunction() {
+    void aJunctionSwitchedBackTooLateToBrakeForIsRiddenOverAndNeverSwitchedUnderTheCart() {
         final List<RailPos> rails = straight(60);
         final RailPos junction = rails.get(30);
         final RidePath path = path(rails, junction);
@@ -196,14 +218,76 @@ class JunctionStopsTest {
         final double late = path.start(30) - 1;
 
         final List<Tick> ticks = ride(path, Map.of(30, RailShape.EAST_WEST), () -> {
-            if (switched.isEmpty() && speed > 0 && along >= late && world.get(junction) == RailShape.EAST_WEST) {
+            if (cart.speed > 0 && cart.along >= late && cart.along < path.start(30)) {
                 world.put(junction, RailShape.NORTH_SOUTH);
             }
         });
 
-        assertEquals(1, switched.size());
-        assertEquals(0, switched.getFirst().speed(), "switched only once the cart stood");
-        assertTrue(switched.getFirst().along() < path.start(30), "before the junction");
+        assertTrue(switched.isEmpty(), "nothing is switched under a moving cart");
+        for (int t = 0; t < ticks.size() - 1; t++) {
+            assertTrue(ticks.get(t).speed() > 0, "the cart halted at tick " + t);
+        }
         assertEquals(path.length(), ticks.getLast().along(), 1e-6);
+    }
+
+    @Test
+    void twoCartsWantingAJunctionSetApartTakeTurnsInsteadOfSwitchingItBackAndForth() {
+        final List<RailPos> rails = straight(60);
+        final RailPos junction = rails.get(30);
+        final RidePath path = path(rails, junction);
+        final Cart first = new Cart();
+        final Cart second = new Cart();
+        final Map<Integer, RailShape> east = Map.of(30, RailShape.EAST_WEST);
+        final Map<Integer, RailShape> north = Map.of(30, RailShape.NORTH_SOUTH);
+        world.put(junction, RailShape.SOUTH_EAST);
+
+        boolean firstIn = false;
+        boolean secondIn = false;
+        for (tick = 0; tick < 2_000 && !(firstIn && secondIn); tick++) {
+            firstIn = firstIn || first.tick(path, east);
+            secondIn = secondIn || second.tick(path, north);
+        }
+
+        assertTrue(firstIn && secondIn, "both carts arrive");
+        assertEquals(2, switched.size(), "each switched it once: " + switched);
+        assertTrue(claims.isEmpty(), "and let go of it");
+    }
+
+    @Test
+    void aCartOnAnotherLegWaitsWithItsSwitchUntilAPassingCartHasRiddenOverTheJunction() {
+        final List<RailPos> east = straight(60);
+        final RailPos junction = east.get(30);
+        final List<RailPos> north = new ArrayList<>();
+        for (int z = -8; z <= 20; z++) {
+            north.add(at(30, 64, z));
+        }
+        final RidePath passing = path(east, junction);
+        final RidePath waiting = path(north, junction);
+        world.put(junction, RailShape.EAST_WEST);
+        final Cart first = new Cart();
+        final Cart second = new Cart();
+        final Map<Integer, RailShape> straightOn = Map.of(30, RailShape.EAST_WEST);
+        final Map<Integer, RailShape> turned = Map.of(8, RailShape.NORTH_SOUTH);
+        final List<Double> passingAtSwitch = new ArrayList<>();
+        second.along = waiting.start(8) - JunctionStops.BEFORE;
+
+        boolean firstIn = false;
+        boolean secondIn = false;
+        for (tick = 0; tick < 2_000 && !(firstIn && secondIn); tick++) {
+            firstIn = firstIn || first.tick(passing, straightOn);
+            final int before = switched.size();
+            if (first.along >= passing.start(30) - 3) {
+                secondIn = secondIn || second.tick(waiting, turned);
+            }
+            if (switched.size() > before) {
+                passingAtSwitch.add(first.along);
+            }
+        }
+
+        assertTrue(firstIn && secondIn, "both carts arrive");
+        assertEquals(1, passingAtSwitch.size(), "switched once: " + switched);
+        assertTrue(
+                passingAtSwitch.getFirst() > passing.start(31),
+                "only once the passing cart is over it, not at " + passingAtSwitch.getFirst());
     }
 }

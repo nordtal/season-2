@@ -312,6 +312,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V109__a_spawn_station_has_no_owner_and_an_owner_hides_a_station.sql",
                 "4b6dd7cb492c5f1bda8e528386c4b547985b787048aae33f372fefb1b48b0609");
+        FROZEN.put(
+                "V110__the_old_spawn_and_wheel_setting_names_and_the_corners_rule_leave.sql",
+                "efaf2b531f7364979472206c5477e84301acd4cd01d6b408dd38bdb3550e7633");
     }
 
     @Test

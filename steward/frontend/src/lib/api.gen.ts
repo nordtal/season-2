@@ -1312,7 +1312,6 @@ export type SettingRule =
   | "LONGEST"
   | "UNIQUE"
   | "ASCENDING"
-  | "CORNERS"
   | "KNOWN"
   | "TRACK"
   | "OBJECTIVE_NAMES"

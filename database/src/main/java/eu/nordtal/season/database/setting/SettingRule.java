@@ -36,9 +36,6 @@ public enum SettingRule {
     /** The entries are not in ascending order. */
     ASCENDING,
 
-    /** A box has a max corner below its min corner. */
-    CORNERS,
-
     /** The value names nothing this server has. */
     KNOWN,
 

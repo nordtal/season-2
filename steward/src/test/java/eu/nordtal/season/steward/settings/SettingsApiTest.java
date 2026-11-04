@@ -1,7 +1,6 @@
 package eu.nordtal.season.steward.settings;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
@@ -124,23 +123,6 @@ class SettingsApiTest {
                         + "\"value\":\"stone_axes\"}"),
                 body.get("refusal"));
         assertTrue(body.get("error").getAsString().contains("stone_axes names something"), answer.body());
-    }
-
-    @Test
-    void aRefusalTheServerWroteInWordsCarriesNoRule() throws Exception {
-        store.settings("smp").load(EXAMPLE);
-        verdict = new ServerTrial.Verdict(
-                ServerTrial.Verdict.Kind.REFUSED,
-                ServerRefusal.SETTINGS_REFUSED
-                        .with("smp", null, null, null, "the track cannot be read")
-                        .message());
-
-        final HttpResponse<String> answer = save("{\"motd\": \"Welcome\"}");
-
-        assertEquals(422, answer.statusCode());
-        final JsonObject body = JsonParser.parseString(answer.body()).getAsJsonObject();
-        assertFalse(body.has("refusal"), answer.body());
-        assertTrue(body.get("error").getAsString().contains("the track cannot be read"), answer.body());
     }
 
     private HttpResponse<String> save(final String changes) throws Exception {

@@ -346,6 +346,18 @@ export function useHungerGamesRound() {
   })
 }
 
+/** Steward stamps the reset and answers at once. The SMP applies it when it next looks, which the track's `resetPending` says. */
+export function useResetTrack() {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (reason: string) => api<SmpTrack>("/api/smp/track/reset", { method: "POST", body: { reason } }),
+    onSuccess: (track) => {
+      client.setQueryData(keys.smpTrack, track)
+      void client.invalidateQueries({ queryKey: ["journal"] })
+    },
+  })
+}
+
 /** Pends until the server has done the request, and fails with its reason in words otherwise. */
 export function useGameAction() {
   const client = useQueryClient()

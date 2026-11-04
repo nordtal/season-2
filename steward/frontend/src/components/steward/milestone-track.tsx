@@ -5,13 +5,16 @@ import { cn } from "@/lib/utils"
 
 import type { ConfigDocument, ConfigEntry, SmpMilestone, SmpObjective, SmpTrack } from "@/lib/api"
 import { date } from "@/lib/format"
-import { useConfig, useSmpTrack } from "@/lib/queries"
+import { useConfig, useResetTrack, useSmpTrack } from "@/lib/queries"
 import { QueryState, SkeletonText } from "@/components/steward/query-state"
 import { SectionSummary } from "@/components/steward/section-summary"
+import { AskThenAct } from "@/components/steward/ask-then-act"
 import { ActionDialog } from "@/components/steward/game-actions"
 import type { Ask } from "@/components/steward/game-actions"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Popover,
   PopoverContent,
@@ -90,12 +93,18 @@ export function SmpActions() {
           {t("steward.game.track")}
         </CardTitle>
         {steps ? (
-          <CardAction className="text-sm tabular-nums text-muted-foreground">
+          <CardAction className="flex items-center gap-3 text-sm tabular-nums text-muted-foreground">
             {done} / {steps.length}
+            <ResetTrack />
           </CardAction>
         ) : null}
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-3">
+        {track.data?.resetPending ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            {t("steward.game.reset-pending")}
+          </p>
+        ) : null}
         <QueryState
           query={track}
           isEmpty={(data: SmpTrack) => data.milestones.length === 0}
@@ -116,6 +125,45 @@ export function SmpActions() {
       </CardContent>
       <ActionDialog ask={ask} onClose={() => setAsk(null)} refresh="smp-track" />
     </Card>
+  )
+}
+
+/** Starts the track over: contributions, objectives' progress and unlocked milestones go, aura stays. */
+function ResetTrack() {
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState("")
+  const reset = useResetTrack()
+
+  return (
+    <>
+      <Button type="button" variant="outline" size="xs" onClick={() => setOpen(true)}>
+        {t("steward.game.reset-track")}
+      </Button>
+      {/* Cleared with the dialog, or the next reset would carry a cancelled reason. */}
+      <AskThenAct
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next)
+          if (!next) setReason("")
+        }}
+        title={t("steward.game.reset-ask")}
+        description={t("steward.game.reset-note")}
+        action={t("steward.game.reset-track")}
+        acting={t("steward.form.waiting")}
+        destructive
+        act={() => reset.mutateAsync(reason)}
+      >
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="track-reset-reason">{t("steward.game.reason")}</Label>
+          <Input
+            id="track-reset-reason"
+            value={reason}
+            placeholder={t("steward.game.reason-placeholder")}
+            onChange={(event) => setReason(event.target.value)}
+          />
+        </div>
+      </AskThenAct>
+    </>
   )
 }
 

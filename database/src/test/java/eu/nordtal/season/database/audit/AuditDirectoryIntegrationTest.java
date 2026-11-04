@@ -275,6 +275,8 @@ class AuditDirectoryIntegrationTest {
         written.put(new JournalDetail.AuraSet(-40), JournalAction.SET_AURA);
         written.put(new JournalDetail.SpinsSet(3), JournalAction.SET_SPINS);
         written.put(new JournalDetail.StackRemoved("minecraft:oak_log", 12), JournalAction.REMOVE_STACK);
+        written.put(new JournalDetail.TrackReset("the test weekend is over"), JournalAction.RESET_TRACK);
+        written.put(new JournalDetail.TrackReset(null), JournalAction.RESET_TRACK);
 
         return written;
     }

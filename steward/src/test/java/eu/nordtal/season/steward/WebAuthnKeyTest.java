@@ -312,6 +312,7 @@ class WebAuthnKeyTest extends WebTestSupport {
             {"/api/access/grant", "{\"discordId\":\"1\",\"days\":1}"},
             {"/api/season/phase", "{\"phase\":\"LIVE\"}"},
             {"/api/smp/milestone", "{\"key\":\"aufbruch\"}"},
+            {"/api/smp/track/reset", "{}"},
         };
         for (final String[] write : writes) {
             final HttpResponse<String> refused = post(browser, write[0], write[1]);

@@ -74,6 +74,7 @@ class GateTest extends WebFixture {
             Map.entry("POST /api/season/phase", Gate.KEY_FRESH),
             Map.entry("POST /api/smp/objective", Gate.KEY_FRESH),
             Map.entry("POST /api/smp/milestone", Gate.KEY_FRESH),
+            Map.entry("POST /api/smp/track/reset", Gate.KEY_FRESH),
             Map.entry("POST /api/announcements/{id}/send", Gate.KEY_FRESH),
             // These changes are easily undone or touch only the admin's session, notifications or preview.
             Map.entry("POST /api/updates", Gate.KEY_HELD),

@@ -31,18 +31,10 @@ interface PhaseDao {
             WITH previous AS (
                 SELECT phase FROM season_phase WHERE id
             ),
-                 -- Entering SMP from before the season starts the milestone track over, which smp does when it
-                 -- sees the stamp. From MAINTENANCE, a mid-season break keeps its progress.
                  switched AS (
                      UPDATE season_phase
                      SET phase = :phase,
-                         updated = now(),
-                         fresh_start = CASE
-                             WHEN (SELECT phase FROM previous) IN ('PRE_LAUNCH', 'PRE_EVENT', 'START_EVENT')
-                                  AND cast(:phase AS text) = 'SMP'
-                             THEN now()
-                             ELSE fresh_start
-                         END
+                         updated = now()
                      WHERE id
                      RETURNING phase, updated
                  )

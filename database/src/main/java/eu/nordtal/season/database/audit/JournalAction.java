@@ -50,6 +50,7 @@ public enum JournalAction {
     SET_SPINS,
     REMOVE_STACK,
     OPEN_INVENTORY,
+    RESET_TRACK,
     SERVICE_DOWN,
     BACKUP_STALE,
     DISK_FULL,

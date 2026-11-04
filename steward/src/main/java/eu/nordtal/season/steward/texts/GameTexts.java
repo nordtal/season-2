@@ -78,6 +78,24 @@ public interface GameTexts {
     @Name("Complete note")
     MessageRef completeNote(@Arg("amount") @Example("40") int amount, @Arg("target") @Example("64") int target);
 
+    @Name("Reset track")
+    MessageRef resetTrack();
+
+    @Name("Reset question")
+    MessageRef resetAsk();
+
+    @Name("Reset note")
+    MessageRef resetNote();
+
+    @Name("Reset pending")
+    MessageRef resetPending();
+
+    @Name("Reason")
+    MessageRef reason();
+
+    @Name("Reason placeholder")
+    MessageRef reasonPlaceholder();
+
     @Name("Complete")
     MessageRef complete();
 

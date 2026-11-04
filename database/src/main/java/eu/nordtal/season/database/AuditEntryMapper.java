@@ -36,6 +36,7 @@ import eu.nordtal.season.database.JournalDetail.Settled;
 import eu.nordtal.season.database.JournalDetail.SmpStartSet;
 import eu.nordtal.season.database.JournalDetail.SpinsSet;
 import eu.nordtal.season.database.JournalDetail.StackRemoved;
+import eu.nordtal.season.database.JournalDetail.TrackReset;
 import eu.nordtal.season.database.JournalDetail.Unlinked;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
@@ -86,7 +87,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     SETTLE,
                     REVOKE_ADMIN,
                     UNANCHORED_GRANT -> person(action, rs);
-            case SET_PHASE, SET_LAUNCH, SET_SMP_START, ANNOUNCE, COMPLETE_OBJECTIVE, UNLOCK_MILESTONE ->
+            case SET_PHASE, SET_LAUNCH, SET_SMP_START, ANNOUNCE, COMPLETE_OBJECTIVE, UNLOCK_MILESTONE, RESET_TRACK ->
                 season(action, rs);
             case REGISTER_KEY,
                     RENAME_KEY,
@@ -203,6 +204,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                 final String milestone = rs.getString("milestone");
                 yield milestone == null ? null : new MilestoneUnlocked(milestone);
             }
+            case RESET_TRACK -> new TrackReset(rs.getString("reset_reason"));
             default -> throw new IllegalArgumentException(action + " is not a season action");
         };
     }

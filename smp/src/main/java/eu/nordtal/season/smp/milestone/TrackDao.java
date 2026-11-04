@@ -100,23 +100,23 @@ public interface TrackDao {
             @Bind("target") long target);
 
     /**
-     * Resets the track when {@code season_phase.fresh_start} is set and {@code smp_reset.applied} is unset or older.
+     * Resets the track when Steward has stamped {@code smp_reset_request} and {@code smp_reset.applied} is unset or
+     * older.
      * It sets every milestone to {@code LOCKED}, every objective to zero and deletes {@code smp_contribution}.
      *
      * @return 1 when it reset the track, 0 otherwise
      */
     @SqlQuery("""
             WITH due AS (
-                SELECT phase.fresh_start
-                FROM season_phase phase
+                SELECT request.requested
+                FROM smp_reset_request request
                          LEFT JOIN smp_reset reset ON reset.id
-                WHERE phase.id
-                  AND phase.fresh_start IS NOT NULL
-                  AND (reset.applied IS NULL OR reset.applied < phase.fresh_start)
+                WHERE request.id
+                  AND (reset.applied IS NULL OR reset.applied < request.requested)
             ),
                  marked AS (
                      INSERT INTO smp_reset (id, applied)
-                     SELECT true, fresh_start FROM due
+                     SELECT true, requested FROM due
                      ON CONFLICT (id) DO UPDATE SET applied = EXCLUDED.applied
                          WHERE smp_reset.applied < EXCLUDED.applied
                      RETURNING applied

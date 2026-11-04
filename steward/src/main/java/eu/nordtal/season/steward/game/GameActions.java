@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.JournalAction;
+import eu.nordtal.season.database.game.TrackResets;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SmpRequest;
@@ -38,12 +39,14 @@ public final class GameActions {
     private final DataSource dataSource;
     private final CommandApi commands;
     private final Supplier<TrackNames> names;
+    private final TrackResets resets;
 
     /** @param names the names of the milestones and objectives, read for every reading of the track */
     public GameActions(final DataSource dataSource, final CommandApi commands, final Supplier<TrackNames> names) {
         this.dataSource = dataSource;
         this.commands = commands;
         this.names = names;
+        this.resets = new TrackResets(dataSource);
     }
 
     /** {@code GET /api/smp/track} answers every milestone with its state and objectives. */
@@ -51,8 +54,12 @@ public final class GameActions {
         ctx.json(readTrack());
     }
 
-    /** Every milestone that has a row in {@code smp_milestone}, unlocked first. */
-    public record SmpTrack(List<SmpMilestone> milestones) {}
+    /**
+     * Every milestone that has a row in {@code smp_milestone}, unlocked first.
+     *
+     * @param resetPending whether the SMP has yet to start over for the last reset, as while it is stopped
+     */
+    public record SmpTrack(List<SmpMilestone> milestones, boolean resetPending) {}
 
     /**
      * One milestone. {@code state} is {@code LOCKED}, {@code ACTIVE} or {@code UNLOCKED}.
@@ -120,7 +127,7 @@ public final class GameActions {
         } catch (final SQLException failure) {
             throw new IllegalStateException("could not read the SMP's track", failure);
         }
-        return new SmpTrack(List.copyOf(milestones.values()));
+        return new SmpTrack(List.copyOf(milestones.values()), resets.pending());
     }
 
     private static @Nullable Instant instant(final java.sql.@Nullable Timestamp at) {
@@ -166,6 +173,19 @@ public final class GameActions {
                         new SmpRequest.UnlockMilestone(key),
                         JournalAction.UNLOCK_MILESTONE,
                         new JournalDetail.MilestoneUnlocked(key)));
+    }
+
+    /**
+     * {@code POST /api/smp/track/reset} with an optional {@code {reason}} starts the track over: the SMP clears every
+     * contribution, empties every objective and locks every milestone when it next looks, and keeps the aura.
+     */
+    public void resetTrack(final Context ctx) {
+        final JsonObject body = ctx.body().isBlank() ? new JsonObject() : body(ctx);
+        final @Nullable String reason = body.has("reason") && body.get("reason").isJsonPrimitive()
+                ? body.get("reason").getAsString()
+                : null;
+        resets.request(commands.asker(ctx), reason);
+        ctx.json(readTrack());
     }
 
     /** The largest aura, up or down, an admin sets. */

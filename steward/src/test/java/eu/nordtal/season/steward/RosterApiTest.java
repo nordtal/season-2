@@ -126,6 +126,40 @@ class RosterApiTest extends WebTestSupport {
         }
     }
 
+    /** A reset is a stamp the SMP applies when it next looks, so it waits while the SMP is away. */
+    @Test
+    void aTrackResetIsAStampForTheSmpWithItsReasonInTheJournal() throws Exception {
+        try {
+            final HttpResponse<String> reset = post("/api/smp/track/reset", "{\"reason\": \"the test weekend is over\"}");
+            assertEquals(200, reset.statusCode(), reset.body());
+            assertTrue(
+                    GSON.fromJson(reset.body(), JsonObject.class).get("resetPending").getAsBoolean(),
+                    "no SMP has applied the reset yet: " + reset.body());
+            assertEquals(
+                    "RESET_TRACK PERSON 1 the test weekend is over",
+                    text("SELECT e.action || ' ' || e.actor_kind || ' ' || e.actor_id || ' ' || r.reason"
+                            + " FROM journal_entry e JOIN journal_track_reset r ON r.entry = e.id"));
+            assertEquals(
+                    "true",
+                    text("SELECT cast(r.requested = p.fresh_start AS text) FROM smp_reset_request r, season_phase p"));
+
+            sql("INSERT INTO smp_reset (id, applied) SELECT true, requested FROM smp_reset_request"
+                    + " ON CONFLICT (id) DO UPDATE SET applied = EXCLUDED.applied");
+            assertFalse(GSON.fromJson(get("/api/smp/track").body(), JsonObject.class)
+                    .get("resetPending")
+                    .getAsBoolean());
+
+            assertEquals(200, post("/api/smp/track/reset", "").statusCode(), "the reason is optional");
+            assertEquals("2", text("SELECT cast(count(*) AS text) FROM journal_entry WHERE action = 'RESET_TRACK'"));
+            assertEquals("1", text("SELECT cast(count(*) AS text) FROM journal_track_reset"));
+        } finally {
+            sql("DELETE FROM journal_entry WHERE action = 'RESET_TRACK'");
+            sql("DELETE FROM smp_reset_request");
+            sql("DELETE FROM smp_reset");
+            sql("UPDATE season_phase SET fresh_start = NULL");
+        }
+    }
+
     /** An SMP jar with a welcome to the game, whose player has an example, and a link message on Discord. */
     private Path welcomeJar() throws Exception {
         final Path jar = agent.configs.resolve("smp/smp-0.9.1.jar");

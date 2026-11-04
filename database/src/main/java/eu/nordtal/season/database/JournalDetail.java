@@ -156,6 +156,25 @@ public sealed interface JournalDetail {
         }
     }
 
+    /** An admin started the SMP's track over, the reason null when none was given. */
+    record TrackReset(@Nullable String reason) implements JournalDetail {
+        public TrackReset {
+            reason = reason == null || reason.isBlank() ? null : reason.trim();
+        }
+
+        @Override
+        public MessageRef line() {
+            return reason == null ? TEXTS.journal().resetTrack() : TEXTS.journal().resetTrackBecause(reason);
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            if (reason != null) {
+                row(handle, "journal_track_reset", entry, "reason", reason);
+            }
+        }
+    }
+
     record Unlinked(boolean selfService) implements JournalDetail {
         @Override
         public MessageRef line() {

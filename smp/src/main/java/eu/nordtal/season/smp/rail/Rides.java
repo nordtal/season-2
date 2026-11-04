@@ -63,7 +63,7 @@ public final class Rides implements Listener {
     private final ChunkTickets tickets;
     private final Supplier<RailsSpec> settings;
     private final Map<UUID, Ride> rides = new HashMap<>();
-    /** The cart that holds each junction it switched, until it has ridden over it. */
+    /** The cart that holds each junction it is about to pass or switch, until it has ridden over it. */
     private final Map<Claim, UUID> claims = new HashMap<>();
 
     private Consumer<Player> stranded = _ -> {};

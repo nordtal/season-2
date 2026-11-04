@@ -286,7 +286,7 @@ final class SmpStart {
                 plugin, tickets, new RailStore(plugin.jdbi(), scheduler, plugin.getLogger()), plugin.clock());
         rails.start(scheduler::onMain);
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rails::tick);
-        final Rides rides = new Rides(scheduler, rails, tickets, plugin.railSettings::get);
+        final Rides rides = new Rides(scheduler, rails, tickets, plugin.railSettings::get, plugin.sounds);
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rides::tick);
         plugin.getServer().getPluginManager().registerEvents(rides, plugin);
         plugin.getServer()

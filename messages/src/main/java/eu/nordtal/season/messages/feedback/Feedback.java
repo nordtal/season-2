@@ -40,5 +40,8 @@ public enum Feedback {
     STAGING,
 
     /** Something given back that everyone nearby hears, such as an emptied grave. */
-    RECLAIMED
+    RECLAIMED,
+
+    /** A mechanism that moves by itself, such as a rail junction switched for a driven minecart. */
+    SWITCH
 }

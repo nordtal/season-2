@@ -119,6 +119,15 @@ public interface SoundsSpec {
         return DefaultSounds.RECLAIMED;
     }
 
+    /** A rail junction switched for a driven minecart. Heard by everyone nearby. */
+    @Order(13)
+    @Name("Switch")
+    @Key("switch")
+    @NoExplanationNeeded
+    default SoundSpec switched() {
+        return DefaultSounds.SWITCH;
+    }
+
     /** One sound: the key, how loud, how fast. */
     @ConfigSpec
     interface SoundSpec {

@@ -1,7 +1,9 @@
 package eu.nordtal.season.smp.rail;
 
+import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.config.RailsSpec;
+import eu.nordtal.season.smp.feedback.SmpSounds;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -17,8 +19,6 @@ import java.util.function.Supplier;
 import org.bukkit.Chunk;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.Tag;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -57,9 +57,6 @@ public final class Rides implements Listener {
     /** How far beyond its stopping distance a cart reads the rails ahead and holds their chunks, in blocks. */
     private static final double LOOKOUT = 48;
 
-    /** The pitch of the grindstone a switched junction sounds with, slower and lower than at a grindstone. */
-    private static final float SWITCH_PITCH = 0.65f;
-
     /** The vanilla top speed of a minecart, in blocks a tick, which a cart gets back when its ride ends. */
     private static final double VANILLA_MAX_SPEED = 0.4;
 
@@ -67,6 +64,7 @@ public final class Rides implements Listener {
     private final RailNetworks networks;
     private final ChunkTickets tickets;
     private final Supplier<RailsSpec> settings;
+    private final SmpSounds sounds;
     private final Map<UUID, Ride> rides = new HashMap<>();
     /** The cart that holds each junction it is about to pass or switch, until it has ridden over it. */
     private final Map<Claim, UUID> claims = new HashMap<>();
@@ -112,11 +110,13 @@ public final class Rides implements Listener {
             final PaperScheduler scheduler,
             final RailNetworks networks,
             final ChunkTickets tickets,
-            final Supplier<RailsSpec> settings) {
+            final Supplier<RailsSpec> settings,
+            final SmpSounds sounds) {
         this.scheduler = scheduler;
         this.networks = networks;
         this.tickets = tickets;
         this.settings = settings;
+        this.sounds = sounds;
     }
 
     private RidePath.Motion motion() {
@@ -389,12 +389,7 @@ public final class Rides implements Listener {
                 if (block.getBlockData() instanceof Rail shape) {
                     shape.setShape(Rail.Shape.valueOf(wanted.name()));
                     block.setBlockData(shape, false);
-                    world.playSound(
-                            block.getLocation().toCenterLocation(),
-                            Sound.BLOCK_GRINDSTONE_USE,
-                            SoundCategory.BLOCKS,
-                            1f,
-                            SWITCH_PITCH);
+                    sounds.playAt(block.getLocation().toCenterLocation(), Feedback.SWITCH);
                 }
             }
         };

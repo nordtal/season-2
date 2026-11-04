@@ -209,13 +209,12 @@ public final class StationMenus implements Listener {
         final Block at = cart.getLocation().getBlock();
         final Block rail = Tag.RAILS.isTagged(at.getType()) ? at : at.getRelative(BlockFace.DOWN);
         return networks.ride(rail).map(ride -> {
-            final List<RideList.Stop> stops =
-                    RideList.of(
-                            ride.graph(),
-                            ride.at(),
-                            ride.stations(),
-                            networks.favourites(player.getUniqueId()),
-                            near.getAsInt());
+            final List<RideList.Stop> stops = RideList.of(
+                    ride.graph(),
+                    ride.at(),
+                    ride.stations(),
+                    networks.favourites(player.getUniqueId()),
+                    near.getAsInt());
             final int each = Math.clamp(perPage.getAsInt(), 1, RidePanel.MOST_PER_PAGE);
             final int pages = RidePanel.pages(stops.size(), each);
             final int shown = Math.clamp(page, 0, pages - 1);

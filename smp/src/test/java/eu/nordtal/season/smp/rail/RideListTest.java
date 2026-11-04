@@ -87,8 +87,10 @@ class RideListTest {
     @Test
     void aStationWithinTheSettingAlongTheRailsIsLeftOutAsTheRiderIsAlreadyThere() {
         assertEquals(3, NEAR);
-        assertEquals(List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), NEAR)));
-        assertEquals(List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(13, 64, 0), STATIONS, Set.of(), NEAR)));
+        assertEquals(
+                List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), NEAR)));
+        assertEquals(
+                List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(13, 64, 0), STATIONS, Set.of(), NEAR)));
         assertEquals(
                 List.of("Mine", "Farm", "Spawn", "Harbour"),
                 names(RideList.of(LINE, at(14, 64, 0), STATIONS, Set.of(), NEAR)));
@@ -99,7 +101,8 @@ class RideListTest {
         assertEquals(
                 List.of("Mine", "Farm", "Spawn", "Harbour"),
                 names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), 0)));
-        assertEquals(List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(10, 64, 0), STATIONS, Set.of(), 0)));
+        assertEquals(
+                List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(10, 64, 0), STATIONS, Set.of(), 0)));
     }
 
     @Test

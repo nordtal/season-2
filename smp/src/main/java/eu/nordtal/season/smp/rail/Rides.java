@@ -38,8 +38,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Drives minecarts with a player in them to the station they picked, moving each cart itself every tick.
- * It switches each junction just before the cart, holds the chunks ahead loaded, plans again when the
- * networks change and lets driven carts pass through everything. At the station it sets the rider down.
+ * It stops before a junction set the wrong way and switches it, holds the chunks ahead loaded, plans again when
+ * the networks change and lets driven carts pass through everything. At the station it sets the rider down.
  */
 public final class Rides implements Listener {
 
@@ -58,14 +58,14 @@ public final class Rides implements Listener {
     /** The vanilla top speed of a minecart, in blocks a tick, which a cart gets back when its ride ends. */
     private static final double VANILLA_MAX_SPEED = 0.4;
 
-    /** How far ahead of the cart a junction is switched, beyond the distance it rides in two ticks, in blocks. */
-    private static final double SWITCH_AHEAD = 3;
-
     private final PaperScheduler scheduler;
     private final RailNetworks networks;
     private final ChunkTickets tickets;
     private final Supplier<RailsSpec> settings;
     private final Map<UUID, Ride> rides = new HashMap<>();
+    /** The cart that holds each junction it is about to pass or switch, until it has ridden over it. */
+    private final Map<Claim, UUID> claims = new HashMap<>();
+
     private Consumer<Player> stranded = _ -> {};
 
     /** One cart on its way: the line it follows, how far along it is and how fast it goes. */
@@ -76,6 +76,8 @@ public final class Rides implements Listener {
         private final World world;
         private final Set<Long> held = new HashSet<>();
         private final Set<Long> loading = new HashSet<>();
+        private final JunctionStops.Junctions junctions;
+        private JunctionStops stops = new JunctionStops();
         private UUID destination;
         private @Nullable RidePath path;
         private Map<Integer, RailShape> switches = Map.of();
@@ -86,13 +88,20 @@ public final class Rides implements Listener {
         private boolean standingPlanDue;
         private int waited;
 
-        Ride(final RideableMinecart cart, final Player rider, final UUID destination) {
+        Ride(
+                final RideableMinecart cart,
+                final Player rider,
+                final UUID destination,
+                final JunctionStops.Junctions junctions) {
             this.cart = cart;
             this.rider = rider;
             this.world = cart.getWorld();
             this.destination = destination;
+            this.junctions = junctions;
         }
     }
+
+    private record Claim(UUID world, RailPos rail) {}
 
     public Rides(
             final PaperScheduler scheduler,
@@ -136,7 +145,7 @@ public final class Rides implements Listener {
             running.destination = before;
             return false;
         }
-        final Ride ride = new Ride(cart, rider, station);
+        final Ride ride = new Ride(cart, rider, station, junctions(cart.getWorld(), cart.getUniqueId()));
         if (!plan(ride, true)) {
             return false;
         }
@@ -207,6 +216,8 @@ public final class Rides implements Listener {
                 graph.get().junctions(),
                 motion());
         ride.switches = route.get().switches(graph.get().junctions());
+        unclaim(ride);
+        ride.stops = new JunctionStops();
         ride.along = 0;
         ride.end = ride.path.length();
         ride.standingPlanDue = false;
@@ -247,7 +258,9 @@ public final class Rides implements Listener {
             return false;
         }
         final Lookout lookout = look(ride, path, now);
-        final double limit = Math.max(ride.along, Math.min(ride.end, lookout.clear()));
+        final double reach = Math.min(lookout.clear(), ride.along + now.stopping(now.top()) + LOOKOUT);
+        final double stop = ride.stops.limit(path, ride.switches, ride.along, ride.speed, reach, now, ride.junctions);
+        final double limit = Math.max(ride.along, Math.min(stop, Math.min(ride.end, lookout.clear())));
         ride.speed = Math.min(path.next(ride.along, ride.speed, limit, now), limit - ride.along);
         ride.along += ride.speed;
         move(ride, path);
@@ -256,6 +269,14 @@ public final class Rides implements Listener {
             return true;
         }
         if (ride.standingPlanDue && plan(ride, true)) {
+            return true;
+        }
+        if (!ride.standingPlanDue && stop < Math.min(ride.end, lookout.clear())) {
+            // The cart stands before a junction set the wrong way; one held too long strands it.
+            if (++ride.waited > PATIENCE) {
+                strand(ride);
+                return false;
+            }
             return true;
         }
         if (ride.end >= path.length() && lookout.clear() >= path.length()) {
@@ -289,10 +310,9 @@ public final class Rides implements Listener {
      */
     private record Lookout(double clear, boolean gap) {}
 
-    /** Reads the rails ahead of the cart, holds their chunks, switches the junctions it nears, and finds a gap. */
+    /** Reads the rails ahead of the cart, holds their chunks and finds a gap. */
     private Lookout look(final Ride ride, final RidePath path, final RidePath.Motion now) {
         final double reach = ride.along + now.stopping(now.top()) + LOOKOUT;
-        final double switchReach = ride.along + 2 * ride.speed + SWITCH_AHEAD;
         final Set<Long> wanted = new HashSet<>();
         double clear = path.length();
         boolean gap = false;
@@ -310,7 +330,7 @@ public final class Rides implements Listener {
             }
             wanted.add(key);
             final Block block = ride.world.getBlockAt(rail.x(), rail.y(), rail.z());
-            if (!(block.getBlockData() instanceof Rail shape)) {
+            if (!(block.getBlockData() instanceof Rail)) {
                 if (index == on) {
                     // The rail under the cart went just now; the cart rides off it to the next one.
                     continue;
@@ -319,10 +339,6 @@ public final class Rides implements Listener {
                 clear = ride.end;
                 gap = true;
                 break;
-            }
-            final @Nullable RailShape switched = ride.switches.get(index);
-            if (switched != null && path.start(index) <= switchReach) {
-                switchTo(block, shape, Rail.Shape.valueOf(switched.name()));
             }
         }
         for (final long key : wanted) {
@@ -340,12 +356,41 @@ public final class Rides implements Listener {
         return new Lookout(clear, gap);
     }
 
-    /** Sets the junction {@code block} to {@code target}, unless it has it or cannot take it, as a straight rail. */
-    private static void switchTo(final Block block, final Rail rail, final Rail.Shape target) {
-        if (rail.getShape() != target && rail.getShapes().contains(target)) {
-            rail.setShape(target);
-            block.setBlockData(rail, false);
-        }
+    /**
+     * Returns the junctions of {@code world} as the cart {@code cart} reads and holds them.
+     * One in a chunk not loaded, or one that cannot take the shape, counts as set right.
+     */
+    private JunctionStops.Junctions junctions(final World world, final UUID cart) {
+        return new JunctionStops.Junctions() {
+            @Override
+            public boolean claim(final RailPos rail) {
+                return claims.putIfAbsent(new Claim(world.getUID(), rail), cart) == null
+                        || cart.equals(claims.get(new Claim(world.getUID(), rail)));
+            }
+
+            @Override
+            public void release(final RailPos rail) {
+                claims.remove(new Claim(world.getUID(), rail), cart);
+            }
+
+            @Override
+            public boolean wrong(final RailPos rail, final RailShape wanted) {
+                final Rail.Shape target = Rail.Shape.valueOf(wanted.name());
+                return world.isChunkLoaded(rail.x() >> 4, rail.z() >> 4)
+                        && world.getBlockAt(rail.x(), rail.y(), rail.z()).getBlockData() instanceof Rail shape
+                        && shape.getShape() != target
+                        && shape.getShapes().contains(target);
+            }
+
+            @Override
+            public void set(final RailPos rail, final RailShape wanted) {
+                final Block block = world.getBlockAt(rail.x(), rail.y(), rail.z());
+                if (block.getBlockData() instanceof Rail shape) {
+                    shape.setShape(Rail.Shape.valueOf(wanted.name()));
+                    block.setBlockData(shape, false);
+                }
+            }
+        };
     }
 
     private void load(final Ride ride, final int chunkX, final int chunkZ) {
@@ -416,7 +461,12 @@ public final class Rides implements Listener {
         });
     }
 
+    private void unclaim(final Ride ride) {
+        claims.values().removeIf(ride.cart.getUniqueId()::equals);
+    }
+
     private void release(final Ride ride) {
+        unclaim(ride);
         standStill(ride.cart);
         ride.held.forEach(key -> tickets.release(ride.world, key));
         ride.held.clear();

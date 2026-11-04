@@ -321,6 +321,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V112__steward_resets_the_smp_milestone_track.sql",
                 "6b05075430fc59f0a5ff3a7bd7955aba84ad0341007aa8d673c80a3e22190f54");
+        FROZEN.put(
+                "V113__launch_date_maintenance_and_mode_replace_the_season_phase.sql",
+                "d356ff9fa054fab88179020b967dd94e6481383151ee9086da310e9ed05defdc");
     }
 
     @Test

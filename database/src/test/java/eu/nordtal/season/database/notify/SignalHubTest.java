@@ -39,7 +39,7 @@ class SignalHubTest {
     private SignalHub hub(
             final Notifications.Connector connector, final Duration reconciliation, final Duration backoff) {
         final SignalHub hub = new SignalHub(connector, "test", LOGGER, reconciliation, backoff);
-        hub.on(Channel.PHASE, "the first thing", first::incrementAndGet);
+        hub.on(Channel.SEASON, "the first thing", first::incrementAndGet);
         hub.on(Channel.ADMIN, "the second thing", second::incrementAndGet);
         return hub;
     }
@@ -106,21 +106,21 @@ class SignalHubTest {
                 },
                 QUIET,
                 BACKOFF);
-        hub.on(Channel.PHASE, "a second reader of the phase", () -> {});
+        hub.on(Channel.SEASON, "a second reader of the season", () -> {});
 
         runBriefly(hub);
 
-        assertEquals(EnumSet.of(Channel.PHASE, Channel.ADMIN), asked.get());
+        assertEquals(EnumSet.of(Channel.SEASON, Channel.ADMIN), asked.get());
     }
 
     @Test
     void aRefreshThatThrowsDoesNotTakeTheLoopOrTheOtherRefreshesDown() throws Exception {
         final SignalHub hub = new SignalHub(channels -> FakeChannel.publishing(3), "test", LOGGER, QUIET, BACKOFF);
-        hub.on(Channel.PHASE, "the broken thing", () -> {
+        hub.on(Channel.SEASON, "the broken thing", () -> {
             first.incrementAndGet();
             throw new IllegalStateException("the database went away mid-refresh");
         });
-        hub.on(Channel.PHASE, "the second thing", second::incrementAndGet);
+        hub.on(Channel.SEASON, "the second thing", second::incrementAndGet);
 
         runBriefly(hub);
 
@@ -141,7 +141,7 @@ class SignalHubTest {
                 LOGGER,
                 QUIET,
                 BACKOFF);
-        hub.on(Channel.PHASE, "the counted thing", () -> {
+        hub.on(Channel.SEASON, "the counted thing", () -> {
             first.incrementAndGet();
             thirdRead.countDown();
         });

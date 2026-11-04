@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import java.util.Arrays;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ class UpdateKindTest {
             final StewardRequest request = switch (kind) {
                 case RESTORE -> new StewardRequest.Restore("db-20261002T030000Z.dump");
                 case REMOVE_PLUGIN -> new StewardRequest.RemovePlugin("chunky");
+                case SWITCH_MODE -> new StewardRequest.SwitchMode(SeasonMode.SMP, null);
                 case INSTALL -> new StewardRequest.Install();
                 default -> kind.request();
             };

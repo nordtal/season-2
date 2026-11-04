@@ -1,8 +1,9 @@
 package eu.nordtal.season.database.access;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.common.season.SeasonState;
+import eu.nordtal.season.database.season.SeasonStateMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
@@ -30,7 +31,6 @@ public final class AccessStateMapper implements RowMapper<AccessState> {
                 rs.getBoolean("pack_exempt"),
                 rs.getLong("playtime_seconds"),
                 Locales.parse(rs.getString("locale")),
-                SeasonPhase.fromDatabase(rs.getString("phase")),
-                AccessGrantMapper.instant(rs, "launch"));
+                rs.getString("mode") == null ? SeasonState.UNREAD : SeasonStateMapper.read(rs, ""));
     }
 }

@@ -163,7 +163,8 @@ interface AccessDao {
     Optional<MinecraftProfile> minecraftProfile(@Bind("discordId") DiscordId discordId);
 
     /**
-     * Appends a grant starting at {@code max(now(), smp_start, current valid_until)} on PostgreSQL's clock.
+     * Appends a grant starting at {@code max(now(), launch, current valid_until)} on PostgreSQL's clock.
+     * A period bought before the launch starts at the launch, which anchors it to a later change of the date.
      * Periods are never summed. A day is exactly 24 hours in any session time zone.
      */
     @SqlQuery("""
@@ -174,8 +175,8 @@ interface AccessDao {
                    :source,
                    :paymentRequestId
             FROM (SELECT GREATEST(now(),
-                                  COALESCE((SELECT phase.smp_start FROM season_phase phase
-                                            WHERE phase.id), now()),
+                                  COALESCE((SELECT season.launch FROM season_state season
+                                            WHERE season.id), now()),
                                   COALESCE((SELECT max(valid_until)
                                             FROM access_grant
                                             WHERE discord_id = :discordId
@@ -234,11 +235,11 @@ interface AccessDao {
                     WHERE grant_row.discord_id = link.discord_id
                       AND grant_row.revoked IS NULL
                       AND grant_row.valid_until > now())                    AS valid_until,
-                   (SELECT season.phase FROM season_phase season
-                    WHERE season.id)                                        AS phase,
-                   (SELECT season.launch FROM season_phase season
-                    WHERE season.id)                                        AS launch
+                   season.launch,
+                   season.maintenance,
+                   season.mode
             FROM (VALUES (1)) AS anchor (one)
+                     LEFT JOIN season_state season ON season.id
                      LEFT JOIN account_link link ON link.mc_uuid = cast(:mcUuid AS uuid)
                      LEFT JOIN discord_user usr ON usr.discord_id = link.discord_id
                      LEFT JOIN player_playtime playtime ON playtime.discord_id = link.discord_id

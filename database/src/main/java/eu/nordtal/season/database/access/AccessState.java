@@ -1,7 +1,8 @@
 package eu.nordtal.season.database.access;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
@@ -18,8 +19,7 @@ import org.jspecify.annotations.Nullable;
  * @param admin whether the linked account has the admin flag mirrored from Discord
  * @param packExempt whether an admin let this account join without the resource pack
  * @param playtimeSeconds the network-wide play time at this read, which the crest of the card follows from
- * @param phase the season phase at this read, {@link SeasonPhase#MAINTENANCE} if unreadable
- * @param launch when the network opens, null if no date is announced
+ * @param season the launch date, maintenance and game mode at this read, {@link SeasonState#UNREAD} if unreadable
  */
 public record AccessState(
         UUID minecraftAccount,
@@ -32,23 +32,22 @@ public record AccessState(
         boolean packExempt,
         long playtimeSeconds,
         Locale locale,
-        SeasonPhase phase,
-        @Nullable Instant launch) {
+        SeasonState season) {
 
-    /** Maps a null phase to {@link SeasonPhase#MAINTENANCE}. */
+    /** Maps a null season to {@link SeasonState#UNREAD}. */
     public AccessState {
-        if (phase == null) {
-            phase = SeasonPhase.MAINTENANCE;
+        if (season == null) {
+            season = SeasonState.UNREAD;
         }
     }
 
-    /** Returns an unlinked state in {@link SeasonPhase#MAINTENANCE}, as a fallback and test fixture. */
+    /** Returns an unlinked state in {@link SeasonState#UNREAD}, as a fallback and test fixture. */
     public static AccessState unlinked(final UUID minecraftAccount) {
-        return unlinked(minecraftAccount, SeasonPhase.MAINTENANCE);
+        return unlinked(minecraftAccount, SeasonState.UNREAD);
     }
 
-    public static AccessState unlinked(final UUID account, final SeasonPhase phase) {
-        return new AccessState(account, null, null, false, null, false, false, false, 0L, Locale.ENGLISH, phase, null);
+    public static AccessState unlinked(final UUID account, final SeasonState season) {
+        return new AccessState(account, null, null, false, null, false, false, false, 0L, Locale.ENGLISH, season);
     }
 
     public boolean linked() {
@@ -64,7 +63,7 @@ public record AccessState(
     }
 
     public Optional<Instant> launchAt() {
-        return Optional.ofNullable(launch);
+        return Optional.ofNullable(season.launch());
     }
 
     /** Returns whether a bought access period still has time, also one that has not started. */
@@ -77,19 +76,25 @@ public record AccessState(
     }
 
     /**
-     * Returns whether this account may join now, in the phase of this read.
-     * In {@code SMP} the admin flag stands in for access, so the admin who switches into {@code SMP} stays connected.
+     * Returns whether this account may be on the network at {@code now}, by the gate's order.
+     * An admin always may; anyone else only once the season has launched, and on {@code smp} only with access.
+     * Maintenance does not change the answer: who may join waits in the waiting room, see {@link #waits(Instant)}.
      */
-    public boolean mayJoin() {
+    public boolean mayJoin(final Instant now) {
         if (!linkedMember()) {
             return false;
         }
-        return switch (phase) {
-            // Only SMP asks for more than a linked member.
-            case PRE_EVENT, START_EVENT, MAINTENANCE -> true;
-            case SMP -> accessActive || admin;
-            // Before the network has opened, only an admin may be on it.
-            case PRE_LAUNCH -> admin;
-        };
+        if (admin) {
+            return true;
+        }
+        if (!season.launched(now)) {
+            return false;
+        }
+        return season.mode() == SeasonMode.HUNGER_GAMES || accessActive;
+    }
+
+    /** Returns whether this account, if it may join, is held in the waiting room by maintenance. */
+    public boolean waits(final Instant now) {
+        return season.maintenance() && !admin && mayJoin(now);
     }
 }

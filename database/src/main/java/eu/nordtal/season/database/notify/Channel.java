@@ -8,8 +8,11 @@ import java.util.Objects;
  */
 public enum Channel {
 
-    /** The season phase changed. The phase directory emits, the proxy, smp, hunger-games and the bot listen. */
-    PHASE("nordtal_phase"),
+    /**
+     * The launch date, maintenance or the game mode changed.
+     * The season directory emits; the proxy, steward-agent and the bot listen.
+     */
+    SEASON("nordtal_season"),
 
     /**
      * An admin flag in {@code discord_user} changed. The payload is the Discord id.

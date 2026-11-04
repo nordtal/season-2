@@ -1,6 +1,6 @@
 package eu.nordtal.season.database;
 
-import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
@@ -110,12 +110,12 @@ public interface AdminTexts {
                 @Arg("donation") @Example("100") Money donation);
 
         @Name("Phase changed")
-        MessageRef setPhase(@Arg("from") SeasonPhase from, @Arg("to") SeasonPhase to);
+        MessageRef setPhase(@Arg("from") @Example("pre-event") String from, @Arg("to") @Example("smp") String to);
 
         @Name("Phase changed, with a reason")
         MessageRef setPhaseBecause(
-                @Arg("from") SeasonPhase from,
-                @Arg("to") SeasonPhase to,
+                @Arg("from") @Example("pre-event") String from,
+                @Arg("to") @Example("smp") String to,
                 @Arg("reason") @Example("The start event is over.") String reason);
 
         @Name("Opening set")
@@ -131,6 +131,49 @@ public interface AdminTexts {
 
         @Name("Paid time cleared")
         MessageRef clearSmpStart();
+
+        @Name("Launch date set")
+        MessageRef setLaunchDate(
+                @Arg("to") @Example("2026-11-13T17:00:00Z") Instant to, @Arg("moved") @Example("14") long moved);
+
+        @Name("Launch date set, with a reason")
+        MessageRef setLaunchDateBecause(
+                @Arg("to") @Example("2026-11-13T17:00:00Z") Instant to,
+                @Arg("moved") @Example("14") long moved,
+                @Arg("reason") @Example("The pack needs another week.") String reason);
+
+        @Name("Season launched now")
+        MessageRef launchNow(@Arg("moved") @Example("14") long moved);
+
+        @Name("Season launched now, with a reason")
+        MessageRef launchNowBecause(
+                @Arg("moved") @Example("14") long moved,
+                @Arg("reason") @Example("Everything is ready early.") String reason);
+
+        @Name("Season closed")
+        MessageRef closeSeason(@Arg("from") @Example("2026-11-13T17:00:00Z") Instant from);
+
+        @Name("Season closed, with a reason")
+        MessageRef closeSeasonBecause(
+                @Arg("from") @Example("2026-11-13T17:00:00Z") Instant from,
+                @Arg("reason") @Example("The world needs a reset.") String reason);
+
+        @Name("Maintenance switched")
+        MessageRef setMaintenance(@Arg("on") boolean on);
+
+        @Name("Maintenance switched, with a reason")
+        MessageRef setMaintenanceBecause(
+                @Arg("on") boolean on, @Arg("reason") @Example("The world is being backed up by hand.") String reason);
+
+        @Name("Game mode switched")
+        MessageRef switchMode(
+                @Arg("from") @Example("hunger-games") SeasonMode from, @Arg("to") @Example("smp") SeasonMode to);
+
+        @Name("Game mode switched, with a reason")
+        MessageRef switchModeBecause(
+                @Arg("from") @Example("hunger-games") SeasonMode from,
+                @Arg("to") @Example("smp") SeasonMode to,
+                @Arg("reason") @Example("The start event is over.") String reason);
 
         @Name("Security key added")
         MessageRef registerKey(@Arg("label") @Example("YubiKey") String label);

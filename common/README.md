@@ -6,7 +6,8 @@ plugin, the proxy, the bot and Steward use it without a database, Adventure or t
 
 | Package    | Contents                                                                              |
 | ---------- | ------------------------------------------------------------------------------------- |
-| root       | `Platform`, `SeasonPhase`                                                             |
+| root       | `Platform`                                                                            |
+| `season`   | `SeasonState`, `SeasonMode`, `SeasonOpening`: the launch date, maintenance and mode   |
 | `time`     | `NetworkTime`, `Scheduler`, `ProcessScheduler`, `Waiting`, `Backoff`, `CountdownPlan` |
 | `http`     | `WebClient`                                                                           |
 | `json`     | `Json`                                                                                |

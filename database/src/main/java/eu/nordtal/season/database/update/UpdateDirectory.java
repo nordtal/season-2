@@ -186,6 +186,11 @@ public interface UpdateDirectory {
     /** Returns the run whose servers are going down, or empty. */
     Optional<UpdateRequest> running();
 
+    /** Returns the newest mode switch in any status, which holds players while it runs and after it failed. */
+    default Optional<UpdateRequest> lastSwitch() {
+        return Optional.empty();
+    }
+
     /** Returns the open run, {@code PENDING} or {@code RUNNING}, or empty. */
     default Optional<UpdateRequest> open() {
         return Optional.empty();

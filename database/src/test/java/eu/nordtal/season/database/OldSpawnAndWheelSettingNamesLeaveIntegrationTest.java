@@ -22,7 +22,7 @@ class OldSpawnAndWheelSettingNamesLeaveIntegrationTest {
     @Test
     void theOldPathsLeaveWithTheirNodesAndEveryOtherValueStays() {
         final TestDatabase upgraded = TestDatabase.empty();
-        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "108");
+        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "109");
         final Jdbi jdbi = Jdbi.create(upgraded.dataSource());
         jdbi.useHandle(handle -> {
             handle.execute("""
@@ -46,7 +46,7 @@ class OldSpawnAndWheelSettingNamesLeaveIntegrationTest {
                     """);
         });
 
-        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "109");
+        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "110");
 
         final List<String> kept = List.of(
                 "hunger-games/spawn/spawn-regions",
@@ -73,7 +73,7 @@ class OldSpawnAndWheelSettingNamesLeaveIntegrationTest {
     @Test
     void aCornersRefusalReadsAsValidAndEveryRuleLeftIsStillKept() {
         final TestDatabase upgraded = TestDatabase.empty();
-        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "108");
+        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "109");
         final Inbox<SmpRequest> smp = Inbox.over(upgraded.dataSource(), SmpRequest.TABLE);
         final long refused = smp.submit(
                         new SmpRequest.CheckSettings(new SettingsChange("spawn", Map.of(), List.of())),
@@ -87,7 +87,7 @@ class OldSpawnAndWheelSettingNamesLeaveIntegrationTest {
         final Jdbi jdbi = Jdbi.create(upgraded.dataSource());
         jdbi.useHandle(handle -> handle.execute("UPDATE smp_refusal SET rule = 'CORNERS' WHERE request = ?", refused));
 
-        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "109");
+        upgraded.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "110");
 
         assertEquals(
                 ServerRefusal.SETTINGS_REFUSED

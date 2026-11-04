@@ -39,6 +39,24 @@ class WheelTextTest {
     }
 
     @Test
+    void aWonItemWithACustomNameIsCalledByIt() {
+        final Component name = Component.text("Old ").append(Component.text("Faithful"));
+        for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
+            final String line = PlainTextComponentSerializer.plainText()
+                    .serialize(RENDERER.format(
+                            locale,
+                            Wheel.WON.with(new Wheel.Won(1, Wheel.named(name, "item.minecraft.diamond_sword")))));
+            assertTrue(line.contains("1x Old Faithful"), locale + ": the custom name is missing in " + line);
+            assertTrue(!line.contains("Diamond Sword"), locale + ": the material is named in " + line);
+        }
+    }
+
+    @Test
+    void aWonItemWithoutACustomNameKeepsItsMaterialsName() {
+        assertEquals(GameContent.of("item.minecraft.diamond_sword"), Wheel.named(null, "item.minecraft.diamond_sword"));
+    }
+
+    @Test
     void theSpinsLeftNameTheirCountThroughTheTerm() {
         assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(0))).endsWith("Come back tomorrow."));
         assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(1))).endsWith("Still waiting: 1 extra spin."));

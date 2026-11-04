@@ -2,6 +2,7 @@ package eu.nordtal.season.smp.wheel;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.messagerendering.GameLines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
@@ -15,6 +16,7 @@ import eu.nordtal.season.smp.TakenItems;
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
+import io.papermc.paper.datacomponent.DataComponentTypes;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -188,8 +190,24 @@ public final class Wheel {
                 .addItem(stack)
                 .values()
                 .forEach(left -> player.getWorld().dropItemNaturally(dropAt, left));
-        player.sendMessage(renderer.format(
-                locale, WON.with(new Won(count, GameContent.of(item.getType().translationKey())))));
+        player.sendMessage(renderer.format(locale, WON.with(new Won(count, nameOf(item)))));
+    }
+
+    /**
+     * Returns the name a won item is called by, the one Steward's prize tile shows of the stored item.
+     * That is its custom name, else an item name of its own as a pack's item carries, else its material's.
+     */
+    static GameContent nameOf(final ItemStack item) {
+        Component named = item.getData(DataComponentTypes.CUSTOM_NAME);
+        if (named == null && item.isDataOverridden(DataComponentTypes.ITEM_NAME)) {
+            named = item.getData(DataComponentTypes.ITEM_NAME);
+        }
+        return named(named, item.getType().translationKey());
+    }
+
+    /** Returns {@code name} as the item's content, or the material's name under {@code materialKey} without one. */
+    static GameContent named(final @Nullable Component name, final String materialKey) {
+        return name == null ? GameContent.of(materialKey) : GameLines.of(name);
     }
 
     /** A prize whose item does not resolve gets a barrier. */

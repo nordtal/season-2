@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "{distance} m",
+            "de": "{distance} m"
+          }
+        }
+      ]
+    }
+  ]
+}

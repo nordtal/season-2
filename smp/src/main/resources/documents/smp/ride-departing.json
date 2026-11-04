@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good>Departing for</good> <emphasis>{name}</emphasis>",
+            "de": "<good>Abfahrt nach</good> <emphasis>{name}</emphasis>"
+          }
+        }
+      ]
+    }
+  ]
+}

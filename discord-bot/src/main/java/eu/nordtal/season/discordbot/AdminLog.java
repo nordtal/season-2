@@ -229,6 +229,17 @@ public final class AdminLog {
                         failure -> log.error("Could not edit admin-channel message {}", messageId, failure));
     }
 
+    public void delete(final String messageId) {
+        final MessageChannel channel = channel();
+        if (channel == null) {
+            return;
+        }
+        channel.deleteMessageById(messageId)
+                .queue(
+                        success -> {},
+                        failure -> log.error("Could not delete admin-channel message {}", messageId, failure));
+    }
+
     /**
      * Writes one journal entry, posts it to the admin channel and never throws.
      * The action has already happened. The card renders the values the entry stores, so both agree.

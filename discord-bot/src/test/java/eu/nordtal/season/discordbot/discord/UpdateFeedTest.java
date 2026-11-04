@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
@@ -40,6 +41,7 @@ class UpdateFeedTest {
 
         final List<Post> posted = new ArrayList<>();
         final List<Post> edited = new ArrayList<>();
+        final List<String> deleted = new ArrayList<>();
 
         /** Whether Discord acknowledges a post. False tests the state with no message id yet. */
         boolean acknowledge = true;
@@ -70,6 +72,11 @@ class UpdateFeedTest {
         @Override
         public void edit(final String messageId, final DocumentRenderer.Drawn card) {
             edited.add(new Post(card, messageId));
+        }
+
+        @Override
+        public void delete(final String messageId) {
+            deleted.add(messageId);
         }
     }
 
@@ -187,58 +194,63 @@ class UpdateFeedTest {
     private final Rows rows = new Rows();
     private final Board board = new Board();
     private final DocumentRenderer documents = StoredDocumentsStandIn.renderer();
-    private final UpdateFeed feed = new UpdateFeed(rows, board, documents, "https://steward.example/");
+    private final List<Runnable> queued = new ArrayList<>(); // passes held as by busy workers
+
+    private final UpdateFeed feed = new UpdateFeed(rows, board, documents, "https://steward.example/", queued::add);
+
+    private void runQueued() {
+        while (!queued.isEmpty()) {
+            queued.removeFirst().run();
+        }
+    }
 
     @Test
     void aPassIsAdmittedBeforeTheHandOverSoABusyPoolQueuesOneAndNotThirty() {
-        // The executor stands in for busy workers, holding the task before it runs.
-        final List<Runnable> queued = new ArrayList<>();
-        final java.util.concurrent.Executor busy = queued::add;
-
+        board.acknowledge = false;
         rows.put(row(1, UpdateStatus.RUNNING, RunStage.STOPPING, null));
 
-        feed.submit(busy);
-        feed.submit(busy);
-        feed.submit(busy);
+        feed.submit();
+        feed.submit();
+        feed.submit();
         assertEquals(1, queued.size(), "three ticks against a busy pool queued more than one pass");
 
         queued.getFirst().run();
         assertEquals(1, board.posted.size(), "the one pass that was admitted did not run");
 
-        feed.submit(busy);
+        feed.submit();
         assertEquals(2, queued.size(), "the flag was not released when the pass finished");
     }
 
     @Test
     void aSignalDuringAPassIsFollowedByOneMorePassSoTheChangeItAnnouncedIsDrawn() {
-        final List<Runnable> queued = new ArrayList<>();
-        final java.util.concurrent.Executor busy = queued::add;
         rows.put(row(1, UpdateStatus.RUNNING, RunStage.STOPPING, null));
         // The run moves on while the first pass draws it, and the signal of that write arrives during the pass.
         board.duringPost = () -> {
             rows.put(row(2, UpdateStatus.RUNNING, RunStage.STOPPING, null));
-            feed.submit(busy);
+            feed.submit();
         };
 
-        feed.submit(busy);
-        while (!queued.isEmpty()) {
-            queued.removeFirst().run();
-        }
+        feed.submit();
+        runQueued();
 
         assertEquals(2, board.posted.size(), "the row written during the pass waited for the next signal");
     }
 
     @Test
     void aPoolThatRefusesThePassReleasesTheFlagInsteadOfSwitchingTheFeedOff() {
-        final java.util.concurrent.Executor shuttingDown = task -> {
-            throw new java.util.concurrent.RejectedExecutionException("shutting down");
-        };
-        assertThrows(java.util.concurrent.RejectedExecutionException.class, () -> feed.submit(shuttingDown));
+        final boolean[] refusing = {true};
+        final UpdateFeed refused = new UpdateFeed(rows, board, documents, "", task -> {
+            if (refusing[0]) {
+                throw new RejectedExecutionException("shutting down");
+            }
+            queued.add(task);
+        });
+        assertThrows(RejectedExecutionException.class, refused::submit);
 
         // Without the release in the catch block, one rejection silences the feed for good.
+        refusing[0] = false;
         rows.put(row(1, UpdateStatus.RUNNING, RunStage.STOPPING, null));
-        final List<Runnable> queued = new ArrayList<>();
-        feed.submit(queued::add);
+        refused.submit();
         assertEquals(1, queued.size(), "the flag stayed taken after a rejected submission");
     }
 
@@ -386,22 +398,17 @@ class UpdateFeedTest {
 
     @Test
     void aRunThatEndsBeforeDiscordAnswersItsPostIsStillRedrawnAndHandedToTheAlert() {
-        final List<Runnable> queued = new ArrayList<>();
-        final java.util.concurrent.Executor busy = queued::add;
         board.late = true;
         rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
-        feed.submit(busy);
-        queued.removeFirst().run();
+        feed.submit();
+        runQueued();
 
         // The run fails, and its signal's pass runs before the card's message id is known.
         rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
-        feed.submit(busy);
-        queued.removeFirst().run();
+        feed.submit();
+        runQueued();
         board.unanswered.removeFirst().run();
-        while (!queued.isEmpty()) {
-            queued.removeFirst().run();
-        }
-
+        runQueued();
         assertEquals(1, board.edited.size(), "no signal follows the answer, so the card kept its first stage");
         assertEquals("msg-1", feed.failedCard(1L), "the alert found no card to take the place of");
     }
@@ -411,11 +418,36 @@ class UpdateFeedTest {
         rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
         feed.tick();
         rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
-
         assertEquals("msg-1", feed.failedCard(1L), "the card of a run still followed was not handed over");
         feed.tick();
         assertEquals(List.of(), board.edited, "the card the alert took was drawn again");
         assertNull(feed.failedCard(1L), "handed over once");
+    }
+
+    @Test
+    void anAlertThatComesBeforeDiscordAnswersThePostHasTheCardDeletedWhenItsIdComes() {
+        board.late = true;
+        rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
+        feed.tick();
+        rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
+        feed.tick();
+        assertNull(feed.failedCard(1L), "there is no message id to hand over yet");
+        board.unanswered.removeFirst().run();
+        runQueued();
+        assertEquals(List.of("msg-1"), board.deleted, "the card stayed beside the alert that came first");
+        assertEquals(List.of(), board.edited, "the deleted card was drawn again");
+        assertNull(feed.failedCard(1L), "the deleted card was handed over as well");
+    }
+
+    @Test
+    void aRunThatIsFollowedFromStartUpIsNotPostedAgainByThePassItsAnswerAsksFor() {
+        board.late = true;
+        rows.put(row(1L, UpdateStatus.DONE, RunStage.DONE, NOW.minusSeconds(3600)));
+        rows.put(row(2L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
+        feed.start();
+        board.unanswered.removeFirst().run();
+        runQueued();
+        assertEquals(1, board.posted.size(), "the pass after the answer read the history from its start");
     }
 
     @Test
@@ -616,7 +648,7 @@ class UpdateFeedTest {
 
     @Test
     void withoutStewardsAddressTheCardCarriesNoLink() {
-        final UpdateFeed unlinked = new UpdateFeed(rows, board, documents, "");
+        final UpdateFeed unlinked = new UpdateFeed(rows, board, documents, "", queued::add);
         rows.put(row(7L, UpdateStatus.DONE, RunStage.DONE, NOW));
         unlinked.tick();
 

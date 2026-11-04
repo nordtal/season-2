@@ -37,9 +37,6 @@ class RideListTest {
                 name == null ? null : NAMED);
     }
 
-    /** The default distance within which the cart counts as already at a station. */
-    private static final int NEAR = new RailsSpec() {}.atStationWithin();
-
     private static List<String> names(final List<RideList.Stop> stops) {
         return stops.stream().map(RideList.Stop::name).toList();
     }
@@ -53,6 +50,9 @@ class RideListTest {
             station(2, at(10, 64, 0), "Mine"),
             station(3, at(20, 64, 0), "Farm"),
             station(4, at(30, 64, 0), "Harbour"));
+
+    /** The default distance within which the cart counts as already at a station. */
+    private static final int NEAR = new RailsSpec() {}.atStationWithin();
 
     @Test
     void theNearestStationsComeFirstAndTheOneTheCartStandsOnIsLeftOut() {
@@ -88,7 +88,7 @@ class RideListTest {
     void aStationWithinTheSettingAlongTheRailsIsLeftOutAsTheRiderIsAlreadyThere() {
         assertEquals(3, NEAR);
         assertEquals(
-                List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), NEAR)));
+                List.of("Spawn", "Farm", "Harbour"), names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), NEAR)));
         assertEquals(
                 List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(13, 64, 0), STATIONS, Set.of(), NEAR)));
         assertEquals(
@@ -97,9 +97,28 @@ class RideListTest {
     }
 
     @Test
+    void aStationCloseInAStraightLineButFarAlongTheRailsIsListed() {
+        final RailGraph turn = graph(
+                new Track()
+                        .eastWest(0, 5, 64, 0)
+                        .rail(6, 64, 0, RailShape.SOUTH_WEST)
+                        .rail(6, 64, 1, RailShape.NORTH_SOUTH)
+                        .rail(6, 64, 2, RailShape.NORTH_WEST)
+                        .eastWest(0, 5, 64, 2),
+                at(0, 64, 0),
+                at(2, 64, 2));
+        final List<StationRow> stations = List.of(station(1, at(0, 64, 0), "Spawn"), station(2, at(2, 64, 2), "Mine"));
+
+        final List<RideList.Stop> stops = RideList.of(turn, at(2, 64, 0), stations, Set.of(), NEAR);
+
+        assertEquals(List.of("Mine"), names(stops));
+        assertEquals(List.of(10), stops.stream().map(RideList.Stop::distance).toList());
+    }
+
+    @Test
     void withNoDistanceSetOnlyTheStationTheCartStandsOnIsLeftOut() {
         assertEquals(
-                List.of("Mine", "Farm", "Spawn", "Harbour"),
+                List.of("Mine", "Spawn", "Farm", "Harbour"),
                 names(RideList.of(LINE, at(9, 64, 0), STATIONS, Set.of(), 0)));
         assertEquals(
                 List.of("Farm", "Spawn", "Harbour"), names(RideList.of(LINE, at(10, 64, 0), STATIONS, Set.of(), 0)));

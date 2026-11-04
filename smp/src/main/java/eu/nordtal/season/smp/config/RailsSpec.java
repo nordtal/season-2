@@ -73,8 +73,7 @@ public interface RailsSpec {
     @Name("Already at a station within (blocks)")
     @Key("at-station-within")
     @NotNegative
-    @Explain(
-            "A station this close to the minecart along the rails is left out of the ride menu, because the rider is already there.")
+    @Explain("A station this close along the rails is left out of the ride menu: the rider is already there.")
     default int atStationWithin() {
         return 3;
     }

@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
-import { UsageBar } from "@/components/steward/stat"
+import { standsAlone, UsageBar } from "@/components/steward/stat"
 import { asElement } from "@/lib/test-elements"
 
 afterEach(cleanup)
@@ -63,5 +63,15 @@ describe("UsageBar - the colour, which is the reason it is not shadcn's Progress
   it("stays green for an unmeasured ceiling instead of drawing a red full bar", () => {
     render(<UsageBar used={5} total={0} />)
     expect(fill().className).toContain("bg-success")
+  })
+})
+
+describe("standsAlone - which value takes the mono face", () => {
+  it.each(["3", "0", "1.234", "12,5", "-2", "1\u202f234", 42])("takes it for the bare number %s", (value) => {
+    expect(standsAlone(value)).toBe(true)
+  })
+
+  it.each(["2 hours ago", "12 %", "1.8 GB", "€12.00", "–", "", "en_GB", undefined])("keeps tnum for %s", (value) => {
+    expect(standsAlone(value)).toBe(false)
   })
 })

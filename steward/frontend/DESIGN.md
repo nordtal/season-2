@@ -85,8 +85,10 @@ it:
 
 ## Type
 
-- `font-sans` (DM Sans) sets the interface. `font-heading` (JetBrains Mono) sets a heading and a stat's
-  label. `font-mono` sets identifiers, code and the console. Monocraft sets the game's text in a preview.
+- `font-sans` and `font-heading` (both Onest) set the interface, a heading and a stat's label.
+  `font-mono` (Monocraft) sets identifiers, code, the console and a figure that is a number alone: a
+  stat's value without word or unit, and the count of players online. Monocraft also sets the game's
+  text in a preview.
 - Text sizes are Tailwind's, plus three. `text-caption` is a small label: the line under the brand, a
   console line on a phone, the details of a network node. `text-badge` is the label of a small badge
   and a count drawn over an icon. `text-inline` is a chip inside running text, sized to that text.

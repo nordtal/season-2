@@ -126,13 +126,16 @@ class ModeSwitchTest {
 
     @Test
     void aSwitchRecreatesATargetWhoseImageAnUpdateLeftBehind() {
-        containers.imageOutdated("smp");
+        containers.containerOutdated("smp");
         final UpdateRequest request = switchTo(SeasonMode.SMP);
 
         final Outcome outcome = runner.run(request, progress::add);
 
         assertEquals(UpdateStatus.DONE, outcome.status(), steps(request.id()).toString());
-        assertEquals(List.of("stop:hunger-games-container", "recreate:smp"), containers.calls);
+        assertEquals(
+                List.of("stop:hunger-games-container", "recreate-local:smp"),
+                containers.calls,
+                "the image on this host, so a build made here stays");
     }
 
     @Test

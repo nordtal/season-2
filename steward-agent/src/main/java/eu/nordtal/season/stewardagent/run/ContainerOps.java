@@ -39,6 +39,9 @@ public interface ContainerOps {
     /** Returns the services whose image the registry has moved past. */
     ImageResult images();
 
+    /** Returns whether a service's container, running or stopped, differs from what compose makes of it now. */
+    boolean isOutdated(String service);
+
     /**
      * Pulls one service's image and recreates its container from it; never asked for steward-agent itself.
      *

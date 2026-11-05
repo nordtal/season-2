@@ -94,6 +94,14 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
+    /** Services whose container an older compose made, which only {@link #isOutdated} sees, as for a stopped one. */
+    private final java.util.Set<String> containersOutdated = new java.util.LinkedHashSet<>();
+
+    FakeContainers containerOutdated(final String... names) {
+        containersOutdated.addAll(List.of(names));
+        return this;
+    }
+
     FakeContainers imageCurrent(final String... names) {
         for (final String name : names) {
             images.put(name, ImageResult.State.UP_TO_DATE);
@@ -125,6 +133,11 @@ final class FakeContainers implements ContainerOps {
             return ImageResult.unreachable("no docker socket");
         }
         return ImageResult.of(images);
+    }
+
+    @Override
+    public boolean isOutdated(final String service) {
+        return containersOutdated.contains(service);
     }
 
     @Override

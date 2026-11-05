@@ -33,7 +33,7 @@ public enum Feedback {
     /** One tick of a countdown before a duel start or a restart. */
     COUNTDOWN_TICK,
 
-    /** An event everybody hears, such as a milestone finished by others or a phase switch. */
+    /** An event everybody hears, such as a milestone finished by others or a mode switch. */
     NETWORK_EVENT,
 
     /** A staged moment, such as the opening of the season. Its empty sound key is silent. */

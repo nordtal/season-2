@@ -1838,7 +1838,6 @@
     "terms.objective": [[{"c":"n","plural":true,"cases":{"one":["objective"],"other":["objectives"]}}]],
     "terms.participant": [[{"c":"n","plural":true,"cases":{"one":["participant"],"other":["participants"]}}]],
     "terms.period": [[{"c":"n","plural":true,"cases":{"one":["period"],"other":["periods"]}}]],
-    "terms.phase": [["phase"]],
     "terms.player": [[{"c":"n","plural":true,"cases":{"one":["player"],"other":["players"]}}]],
     "terms.season": [["season"]],
     "terms.smp": [["SMP"]],

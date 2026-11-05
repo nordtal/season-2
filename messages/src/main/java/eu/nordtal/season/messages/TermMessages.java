@@ -101,10 +101,6 @@ public interface TermMessages {
         @Describe("A span of days of access bought at once.")
         MessageRef period(@Arg("n") @Example("2") long n);
 
-        @Name("Phase")
-        @Describe("The season's current stage, which decides which server is open.")
-        MessageRef phase();
-
         @Name("Player")
         @Describe("Someone who plays on the servers.")
         MessageRef player(@Arg("n") @Example("2") long n, @Arg("case") @Example("nominative") Case grammaticalCase);

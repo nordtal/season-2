@@ -1,49 +1,44 @@
 package eu.nordtal.season.discordbot.access;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
-import eu.nordtal.season.database.phase.PhaseDirectory;
+import eu.nordtal.season.database.season.SeasonDirectory;
 import eu.nordtal.season.discordbot.AdminLog;
 import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Warns when a grant starts now because {@code season_phase.smp_start} is not set.
+ * Warns when a grant starts now because the season has no launch date it could start at.
  * The warning is a journal line by the bot, not an alert.
- * It mentions no admin, and every test purchase fires it.
+ * It mentions no admin, and every test grant fires it.
  */
 @Slf4j
 public final class SeasonStart {
 
-    private final PhaseDirectory phases;
+    private final SeasonDirectory season;
     private final AdminLog admin;
 
-    public SeasonStart(final PhaseDirectory phases, final AdminLog admin) {
-        this.phases = phases;
+    public SeasonStart(final SeasonDirectory season, final AdminLog admin) {
+        this.season = season;
         this.admin = admin;
-    }
-
-    private static boolean beforeTheSmp(final SeasonPhase phase) {
-        return phase == SeasonPhase.PRE_LAUNCH || phase == SeasonPhase.PRE_EVENT || phase == SeasonPhase.START_EVENT;
     }
 
     public void warnIfUnanchored(final DiscordId discordId, final Instant validFrom) {
         try {
-            if (phases.smpStart().isPresent() || !beforeTheSmp(phases.currentPhase())) {
+            if (season.state().launch() != null) {
                 return;
             }
         } catch (final RuntimeException unreachable) {
-            log.warn("Could not check whether the season has a start date", unreachable);
+            log.warn("Could not check whether the season has a launch date", unreachable);
             return;
         }
 
         log.warn(
-                "Granted access to {} while season_phase.smp_start is NULL: the period runs from"
-                        + " {} instead of from the SMP opening",
+                "Granted access to {} while the season has no launch date: the period runs from {}"
+                        + " instead of from the launch",
                 discordId,
                 validFrom);
         // Expected while testing. Before the season opens, somebody sets the date in Steward.

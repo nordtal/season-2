@@ -25,8 +25,8 @@ import eu.nordtal.season.database.payment.Bookings;
 import eu.nordtal.season.database.payment.PaymentGateway;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.database.payment.Tiers;
-import eu.nordtal.season.database.phase.PhaseDirectory;
 import eu.nordtal.season.database.registration.Game;
+import eu.nordtal.season.database.season.SeasonDirectory;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
@@ -156,18 +156,18 @@ public class AccessBot implements AutoCloseable {
             final Setting<OnboardingSpec> onboarding = BotSettings.onboarding(settings);
 
             this.access = AccessDirectory.using(database.dataSource(), clock);
-            final PhaseDirectory phases = PhaseDirectory.using(database.dataSource(), clock);
+            final SeasonDirectory seasons = SeasonDirectory.using(database.dataSource(), clock);
             final UpdateDirectory updates = UpdateDirectory.using(database.dataSource());
 
             final CoreServices core =
                     loadCoreServices(accessConfig, network, season, languageAndTime, tiers, onboarding);
             this.jda = connectJda(botConfig);
 
-            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, phases, botConfig.stewardUrl());
+            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, seasons, botConfig.stewardUrl());
             publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), core.documents(), wiring);
 
             this.signals = finishStartup(
-                    databaseConfig, settings, accessConfig, core, wiring, phases, updates, botConfig.stewardUrl());
+                    databaseConfig, settings, accessConfig, core, wiring, seasons, updates, botConfig.stewardUrl());
 
             started = true;
             log.info("access-bot is up");
@@ -184,18 +184,12 @@ public class AccessBot implements AutoCloseable {
             final AccessSpec accessConfig,
             final CoreServices core,
             final DiscordWiring wiring,
-            final PhaseDirectory phases,
+            final SeasonDirectory seasons,
             final UpdateDirectory updates,
             final String stewardUrl) {
         // After the guild state reconcile, so the first tick renames against the reconciled state.
         final StatusChannels status = new StatusChannels(
-                jda,
-                core.languages(),
-                core.renderer(),
-                phases,
-                SnapshotDirectory.using(database.dataSource()),
-                clock,
-                wiring.announcements());
+                jda, core.languages(), core.renderer(), seasons, SnapshotDirectory.using(database.dataSource()), clock);
 
         final UpdateFeed updateFeed =
                 new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.renderer(), stewardUrl, scheduler);
@@ -293,7 +287,8 @@ public class AccessBot implements AutoCloseable {
                         .within(NetworkSettings.environment(SERVICE, season, languageAndTime, Palette.DEFAULTS)));
         Configured.report(accessConfig, tiers, PaymentGateway.state(database.jdbi()));
         final PaymentRequests requests = new PaymentRequests(database.dataSource());
-        final Purchases purchases = new Purchases(requests, tiers, accessConfig);
+        final Purchases purchases =
+                new Purchases(requests, tiers, accessConfig, SeasonDirectory.using(database.dataSource(), clock));
 
         return new CoreServices(
                 languages,
@@ -324,7 +319,7 @@ public class AccessBot implements AutoCloseable {
             final JDA jda,
             final AccessSpec accessConfig,
             final CoreServices core,
-            final PhaseDirectory phases,
+            final SeasonDirectory seasons,
             final String stewardUrl) {
         final AdminLog admin = new AdminLog(
                 jda,
@@ -333,8 +328,8 @@ public class AccessBot implements AutoCloseable {
                 AlertBook.using(database.dataSource()),
                 core.renderer(),
                 stewardUrl);
-        // A period sold while season_phase.smp_start is NULL starts at the sale, not at the SMP opening.
-        final SeasonStart seasonStart = new SeasonStart(phases, admin);
+        // A period granted while the season has no launch date starts at the grant, not at the launch.
+        final SeasonStart seasonStart = new SeasonStart(seasons, admin);
         final GuildRoles guildRoles = GuildRoles.stored(database.jdbi(), admin::alert);
         final Executor onboardingLane = scheduler.serial();
         final Onboarding onboarding = onboarding(jda, accessConfig, core, guildRoles, admin, onboardingLane);

@@ -131,7 +131,7 @@ public final class GuildLanguages {
      * @param contributionChannelId the channel of the buy-access message and the donation thank-yous
      * @param linkChannelId the channel of the account-link message
      * @param hungerGamesChannelId the channel of the hunger games Register message
-     * @param announcementChannelId the channel of milestones and phase changes
+     * @param announcementChannelId the channel of milestone announcements
      * @param statusChannelId the channel whose name shows the status
      */
     public record Language(

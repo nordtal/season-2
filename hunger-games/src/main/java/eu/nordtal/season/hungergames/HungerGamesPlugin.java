@@ -3,11 +3,8 @@ package eu.nordtal.season.hungergames;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.inbox.HungerGamesRequest;
 import eu.nordtal.season.database.inbox.ServerRefusal;
-import eu.nordtal.season.database.notify.Channel;
-import eu.nordtal.season.database.phase.PhaseDirectory;
 import eu.nordtal.season.hungergames.body.PlayerBodies;
 import eu.nordtal.season.hungergames.border.BorderController;
 import eu.nordtal.season.hungergames.combat.CombatListener;
@@ -94,9 +91,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     private HungerGamesSounds sounds;
 
     private World world;
-
-    /** The phase of the season as the signal hub last read it. */
-    private volatile SeasonPhase phase = SeasonPhase.PRE_LAUNCH;
 
     private GameDao dao;
     private RosterDao rosters;
@@ -186,8 +180,6 @@ public final class HungerGamesPlugin extends NordtalPlugin {
                         remove.item(),
                         remove.amount());
         });
-        final PhaseDirectory phases = PhaseDirectory.using(pool(), clock());
-        hub().on(Channel.PHASE, "the season phase", () -> phase = phases.currentPhase());
     }
 
     @Override
@@ -271,12 +263,7 @@ public final class HungerGamesPlugin extends NordtalPlugin {
                 round.map(open -> Demotion.resolve(rosters.roster(open)).size()).orElse(0);
         final int recommended = config.get().softMinimumParticipants();
         final Optional<Refusal> refused = StartCheck.refusal(
-                underWay.map(HgGame::state).orElse(null),
-                round.isPresent(),
-                phase,
-                participants,
-                recommended,
-                confirmed);
+                underWay.map(HgGame::state).orElse(null), round.isPresent(), participants, recommended, confirmed);
         if (refused.isPresent() || round.isEmpty()) {
             return Answer.refused(refused.orElseGet(ServerRefusal.NO_GAME::with));
         }

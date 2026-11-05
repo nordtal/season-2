@@ -231,14 +231,14 @@ class AdminLogTest {
     }
 
     @Test
-    void aGrantWithoutASeasonStartIsALineTheBotWritesAboutThePerson() {
+    void aGrantWithoutALaunchDateIsALineTheBotWritesAboutThePerson() {
         final AuditLine line =
                 SeasonStart.unanchored(DiscordId.of("400000000000000001"), Instant.parse("2026-11-02T10:00:00Z"));
 
         assertEquals(JournalAction.UNANCHORED_GRANT, line.action());
         assertEquals("""
-                ## ⚠️ No season start
-                Access starts at <t:1793613600:f>, not at the SMP opening. Set the date in Steward under Season.
+                ## ⚠️ No launch date
+                Access starts at <t:1793613600:f>, as the season has no launch date yet. Set it in Steward on the proxy's Router tab.
                 **By** the bot
                 **Concerns** <@400000000000000001>""", AdminLog.card(ADMIN, line).text());
     }

@@ -2,11 +2,13 @@ package eu.nordtal.season.discordbot.access.payment;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.PaymentRequests;
 import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
+import eu.nordtal.season.database.season.SeasonDirectory;
 import eu.nordtal.season.discordbot.config.AccessSpec;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -17,11 +19,27 @@ public final class Purchases {
     private final PaymentRequests requests;
     private final Tiers tiers;
     private final AccessSpec config;
+    private final SeasonDirectory season;
 
-    public Purchases(final PaymentRequests requests, final Tiers tiers, final AccessSpec config) {
+    public Purchases(
+            final PaymentRequests requests, final Tiers tiers, final AccessSpec config, final SeasonDirectory season) {
         this.requests = requests;
         this.tiers = tiers;
         this.config = config;
+        this.season = season;
+    }
+
+    /** Returns whether access is for sale, read from the season on every call. */
+    public boolean onSale() {
+        return onSale(season.state());
+    }
+
+    /**
+     * Returns whether access is for sale in {@code state}, which it is once the season has a launch date.
+     * A period bought before the launch starts at the launch.
+     */
+    public static boolean onSale(final SeasonState state) {
+        return state.launch() != null;
     }
 
     public PaymentRequest select(final DiscordId discordId, final Tier tier, final boolean donation) {

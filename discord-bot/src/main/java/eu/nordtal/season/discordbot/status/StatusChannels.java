@@ -1,19 +1,16 @@
 package eu.nordtal.season.discordbot.status;
 
-import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.season.SeasonOpening;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.common.time.Coalescing;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.network.NetworkSnapshot;
 import eu.nordtal.season.database.network.SnapshotDirectory;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
-import eu.nordtal.season.database.phase.PhaseDirectory;
-import eu.nordtal.season.discordbot.StoredDocuments;
-import eu.nordtal.season.discordbot.announce.Announcements;
+import eu.nordtal.season.database.season.SeasonDirectory;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
-import eu.nordtal.season.messages.document.DocumentSpec;
-import eu.nordtal.season.messages.value.Example;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -41,67 +38,45 @@ public final class StatusChannels {
     /** The time that the first signal of a burst waits for the following signals. */
     static final Duration SETTLE = Duration.ofSeconds(2);
 
-    /** The notification channels that change a name: the phase and the hunger games. */
-    static final Set<Channel> CHANNELS = EnumSet.of(Channel.PHASE, Channel.HUNGER_GAMES);
+    /** How long after the launch its tick runs, so a clock a little behind already reads it as passed. */
+    static final Duration PAST_LAUNCH = Duration.ofSeconds(1);
 
-    record Phase(
-            @Example("smp") SeasonPhase phase,
-            @Example("pre-event") SeasonPhase previous) {}
-
-    static final DocumentSpec<Phase> ANNOUNCE = DocumentSpec.plain(
-                    StoredDocuments.NAMESPACE, "announce-phase", "Announcements", Phase.class)
-            .titled("Phase change");
+    /** The notification channels that change a name: the season and the hunger games. */
+    static final Set<Channel> CHANNELS = EnumSet.of(Channel.SEASON, Channel.HUNGER_GAMES);
 
     private final JDA jda;
     private final GuildLanguages languages;
     private final DocumentRenderer documents;
-    private final PhaseDirectory phases;
+    private final SeasonDirectory season;
     private final SnapshotDirectory snapshots;
     private final Clock clock;
 
     /** The last rename attempt by channel id. The timer and JDA callbacks write it. */
     private final Map<String, Rename> attempts = new ConcurrentHashMap<>();
 
+    /** Where a tick at the launch is scheduled, null until {@link #follow} or without it. */
+    private volatile @Nullable Ticking ticking;
+
+    /** The tick waiting for the launch, null while none waits. Only the lane writes it. */
+    private volatile @Nullable LaunchTick atLaunch;
+
     public StatusChannels(
             final JDA jda,
             final GuildLanguages languages,
             final DocumentRenderer documents,
-            final PhaseDirectory phases,
+            final SeasonDirectory season,
             final SnapshotDirectory snapshots,
             final Clock clock) {
-        this(jda, languages, documents, phases, snapshots, clock, null);
-    }
-
-    /**
-     * Creates the renamer, posting phase changes when announcements are given.
-     *
-     * @param announcements where a phase change is posted, or {@code null} to only rename
-     */
-    public StatusChannels(
-            final JDA jda,
-            final GuildLanguages languages,
-            final DocumentRenderer documents,
-            final PhaseDirectory phases,
-            final SnapshotDirectory snapshots,
-            final Clock clock,
-            final @Nullable Announcements announcements) {
         this.jda = jda;
         this.languages = languages;
         this.documents = documents;
-        this.phases = phases;
+        this.season = season;
         this.snapshots = snapshots;
         this.clock = clock;
-        this.announcements = announcements;
     }
 
-    private final @Nullable Announcements announcements;
-    /** The phase of the last tick, or null before the first tick. */
-    private volatile @Nullable SeasonPhase lastSeen;
-
     public boolean configured() {
-        return languages.all().stream()
-                .anyMatch(language ->
-                        language.hasStatusChannel() || (announcements != null && language.hasAnnouncementChannel()));
+        return languages.all().stream().anyMatch(GuildLanguages.Language::hasStatusChannel);
     }
 
     /**
@@ -111,6 +86,7 @@ public final class StatusChannels {
      * @param lane the executor that runs the ticks one at a time
      */
     public void follow(final SignalHub hub, final Scheduler scheduler, final Executor lane) {
+        ticking = new Ticking(scheduler, lane);
         final Runnable signal = tickOnSignal(scheduler, lane);
         for (final Channel channel : CHANNELS) {
             hub.on(channel, "the status channels", signal);
@@ -124,9 +100,6 @@ public final class StatusChannels {
 
     /** Reads the state, renders a name per language and renames the channels whose name changed. */
     public void tick() {
-        final SeasonPhase phase = phases.currentPhase();
-        announceIfChanged(phase);
-
         final List<GuildLanguages.Language> configured = languages.all().stream()
                 .filter(GuildLanguages.Language::hasStatusChannel)
                 .toList();
@@ -134,32 +107,37 @@ public final class StatusChannels {
             return;
         }
 
-        // Neither is read during MAINTENANCE.
-        final Instant launch = phase == SeasonPhase.PRE_LAUNCH ? phases.launch().orElse(null) : null;
-        final NetworkSnapshot snapshot = needsCounts(phase) ? snapshots.snapshot() : NetworkSnapshot.EMPTY;
+        final SeasonState state = season.state();
         final Instant now = clock.instant();
+        armForLaunch(state, now);
+        final NetworkSnapshot snapshot =
+                StatusName.needsCounts(state, now) ? snapshots.snapshot() : NetworkSnapshot.EMPTY;
 
         for (final GuildLanguages.Language language : configured) {
-            rename(language, StatusName.render(documents, language.locale(), phase, snapshot, launch, now), now);
+            rename(language, StatusName.render(documents, language.locale(), state, snapshot, now), now);
         }
     }
 
-    /**
-     * Posts a phase change to every announcement channel in the language of the channel.
-     *
-     * The first tick after a start only stores the phase and posts nothing.
-     */
-    private void announceIfChanged(final SeasonPhase phase) {
-        final SeasonPhase previous = lastSeen;
-        lastSeen = phase;
-        if (announcements == null || previous == null || previous == phase) {
+    /** Schedules a tick at a launch date in the future, since its passing sends no signal. */
+    private void armForLaunch(final SeasonState state, final Instant now) {
+        final Ticking timer = ticking;
+        final Instant launch = state.launch();
+        final LaunchTick armed = atLaunch;
+        if (timer == null || (armed != null && armed.at().equals(launch))) {
             return;
         }
-        announcements.postAll(locale -> documents.plain(ANNOUNCE, new Phase(phase, previous), locale));
-    }
-
-    private static boolean needsCounts(final SeasonPhase phase) {
-        return phase == SeasonPhase.PRE_EVENT || phase == SeasonPhase.START_EVENT || phase == SeasonPhase.SMP;
+        if (armed != null) {
+            armed.task().cancel();
+            atLaunch = null;
+        }
+        if (launch == null || state.opening(now) != SeasonOpening.COUNTDOWN) {
+            return;
+        }
+        final Scheduler.Task task = timer.scheduler()
+                .after(
+                        Duration.between(now, launch).plus(PAST_LAUNCH),
+                        () -> timer.lane().execute(this::tick));
+        atLaunch = new LaunchTick(launch, task);
     }
 
     private void rename(final GuildLanguages.Language language, final String name, final Instant now) {
@@ -200,6 +178,12 @@ public final class StatusChannels {
                             failure);
                 });
     }
+
+    /** The scheduler a tick at the launch waits on, and the lane it runs on. */
+    private record Ticking(Scheduler scheduler, Executor lane) {}
+
+    /** A tick waiting for the launch at {@code at}. */
+    private record LaunchTick(Instant at, Scheduler.Task task) {}
 
     /**
      * The last rename attempt of a channel.

@@ -4,14 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.game.TrackResets;
-import eu.nordtal.season.database.phase.PhaseDirectory;
+import eu.nordtal.season.database.season.SeasonDirectory;
 import java.time.Clock;
 import java.util.List;
 import org.jdbi.v3.core.Jdbi;
@@ -26,7 +26,7 @@ class TrackResetIntegrationTest {
     private Jdbi owner;
     private TrackDao smp;
     private TrackResets steward;
-    private PhaseDirectory phases;
+    private SeasonDirectory season;
 
     @BeforeEach
     void playedTrack() {
@@ -34,9 +34,9 @@ class TrackResetIntegrationTest {
         owner = Jdbis.over(database.dataSource());
         smp = Jdbis.over(database.dataSourceAs(DatabaseRole.SMP)).onDemand(TrackDao.class);
         steward = new TrackResets(database.dataSourceAs(DatabaseRole.STEWARD));
-        phases = PhaseDirectory.using(database.dataSource(), Clock.systemUTC());
+        season = SeasonDirectory.using(database.dataSource(), Clock.systemUTC());
         owner.useHandle(handle -> {
-            handle.execute("UPDATE season_phase SET phase = 'START_EVENT' WHERE id");
+            handle.execute("UPDATE season_state SET mode = 'HUNGER_GAMES', maintenance = false WHERE id");
             handle.execute("INSERT INTO discord_user (discord_id) VALUES ('400000000000000001')");
             handle.execute("INSERT INTO smp_milestone (key, state, unlocked) VALUES ('waiting', 'UNLOCKED', now()),"
                     + " ('departure', 'ACTIVE', NULL)");
@@ -78,10 +78,11 @@ class TrackResetIntegrationTest {
     }
 
     @Test
-    void enteringTheSeasonStartsNothingOver() {
-        phases.switchPhase(SeasonPhase.SMP, Actor.STEWARD, null);
-        phases.switchPhase(SeasonPhase.MAINTENANCE, Actor.STEWARD, null);
-        phases.switchPhase(SeasonPhase.SMP, Actor.STEWARD, null);
+    void launchingSwitchingToTheSmpAndMaintenanceStartNothingOver() {
+        season.launchNow(Actor.STEWARD, null);
+        season.setMode(SeasonMode.SMP, Actor.STEWARD, null);
+        season.setMaintenance(true, Actor.STEWARD, null);
+        season.setMaintenance(false, Actor.STEWARD, null);
 
         assertEquals(0, smp.startOverIfDue());
         assertEquals(1, count("SELECT count(*) FROM smp_objective WHERE amount = 64 AND completed IS NOT NULL"));

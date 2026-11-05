@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -496,7 +497,8 @@ class RidesTest {
                 case "getLocation" -> standing.clone();
                 case "teleport" -> {
                     standing = ((Location) args[0]).clone();
-                    calls.add("teleport " + standing.getX() + "," + standing.getY() + "," + standing.getZ());
+                    calls.add("teleport " + standing.getX() + "," + standing.getY() + "," + standing.getZ()
+                            + (args.length > 2 ? " keeping " + Arrays.toString((Object[]) args[2]) : ""));
                     yield true;
                 }
                 case "setVelocity" -> {
@@ -574,10 +576,14 @@ class RidesTest {
     }
 
     @Test
-    void aMovedCartRidesAtTheStepItMade() {
+    void aMovedCartRidesAtTheStepItMadeWithoutLosingItsVelocityOnTheWay() {
         Rides.moveTo(recorded, new Location(null, 11.5, 65, 18));
 
-        assertEquals(List.of("teleport 11.5,65.0,18.0", "velocity 1.5,0.0,-2.0"), calls);
+        assertEquals(
+                List.of(
+                        "teleport 11.5,65.0,18.0 keeping [VELOCITY_X, VELOCITY_Y, VELOCITY_Z]",
+                        "velocity 1.5,0.0,-2.0"),
+                calls);
     }
 
     @Test

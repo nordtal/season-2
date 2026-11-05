@@ -4,6 +4,7 @@ import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.config.RailsSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
+import io.papermc.paper.entity.TeleportFlag;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,6 +30,7 @@ import org.bukkit.entity.minecart.RideableMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.vehicle.VehicleDamageEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
 import org.bukkit.event.vehicle.VehicleEntityCollisionEvent;
@@ -444,11 +446,17 @@ public final class Rides implements Listener {
 
     /**
      * Teleports {@code cart} to {@code to} and gives it the step it made as its velocity.
-     * A teleport leaves a cart without one, and without one the client plays no riding sound.
+     * The teleport keeps the velocity it had, as one that zeroed it would mute the client's riding sound until the
+     * next velocity reaches it, and the sound would stutter.
      */
     static void moveTo(final RideableMinecart cart, final Location to) {
         final Location from = cart.getLocation();
-        cart.teleport(to);
+        cart.teleport(
+                to,
+                PlayerTeleportEvent.TeleportCause.PLUGIN,
+                TeleportFlag.Relative.VELOCITY_X,
+                TeleportFlag.Relative.VELOCITY_Y,
+                TeleportFlag.Relative.VELOCITY_Z);
         cart.setVelocity(new Vector(to.getX() - from.getX(), 0, to.getZ() - from.getZ()));
     }
 

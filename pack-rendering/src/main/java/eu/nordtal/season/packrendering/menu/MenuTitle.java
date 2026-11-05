@@ -171,6 +171,24 @@ public final class MenuTitle {
             return rowText(folded, row, xRight - MenuFont.width(folded), colour);
         }
 
+        /**
+         * Draws a button plate with its left edge at {@code x}, and its label centred on it.
+         * The label is shortened to keep 3 pixels free on each side.
+         *
+         * @param width the drawn width of the plate
+         */
+        public Canvas rowButton(
+                final String plate,
+                final int row,
+                final int x,
+                final int width,
+                final String label,
+                final TextColor colour) {
+            rowArt(plate, row, x, null);
+            final String fitted = MenuFont.fit(label, width - 6);
+            return rowText(fitted, row, x + (width - MenuFont.width(fitted)) / 2, colour);
+        }
+
         private static String rowFont(final int row) {
             if (row < 0 || row >= MAX_ROWS) {
                 throw new IllegalArgumentException("there is no chest row " + row);

@@ -82,9 +82,7 @@ public final class WheelPanel {
         info(canvas, ruleTop, RULE_TOP_ROW, MenuPalette.SOFT);
         info(canvas, ruleFoot, RULE_BOTTOM_ROW, MenuPalette.SOFT);
 
-        canvas.rowArt(Glyphs.GUI_ROW_BUTTON_CONFIRM, AGAIN_ROW, AGAIN_X, null);
-        final String label = MenuFont.fit(again, AGAIN_WIDTH - 6);
-        canvas.rowText(label, AGAIN_ROW, AGAIN_X + (AGAIN_WIDTH - MenuFont.width(label)) / 2, MenuPalette.INK);
+        canvas.rowButton(Glyphs.GUI_ROW_BUTTON_CONFIRM, AGAIN_ROW, AGAIN_X, AGAIN_WIDTH, again, MenuPalette.INK);
 
         return canvas.build(title);
     }

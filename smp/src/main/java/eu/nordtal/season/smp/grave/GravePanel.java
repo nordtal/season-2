@@ -96,9 +96,7 @@ public final class GravePanel {
         canvas.overlay(Glyphs.GUI_GRAVE_SLAB.get(contentRows - 1), SLAB_X, SLAB_WIDTH);
         canvas.rowText(MenuFont.fit(experience, TAKE_X - 4 - EXPERIENCE_X), footer, EXPERIENCE_X, MenuPalette.INK);
 
-        canvas.rowArt(Glyphs.GUI_ROW_BUTTON_TAKE, footer, TAKE_X, null);
-        final String label = MenuFont.fit(takeAll, TAKE_WIDTH - 6);
-        canvas.rowText(label, footer, TAKE_X + (TAKE_WIDTH - MenuFont.width(label)) / 2, MenuPalette.INK);
+        canvas.rowButton(Glyphs.GUI_ROW_BUTTON_TAKE, footer, TAKE_X, TAKE_WIDTH, takeAll, MenuPalette.INK);
 
         return canvas.build(title);
     }

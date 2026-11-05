@@ -74,13 +74,13 @@ class MenuLayoutsTest {
     }
 
     @Test
-    void theStationMenuPutsItsNameAndVisibilityButtonsUnderTheHeading() {
+    void theStationMenuPutsItsNameAndVisibilityButtonsSideBySideUnderTheHeading() {
         final DocumentDeclaration station = menu("station");
 
-        assertEquals(3, station.rows());
+        assertEquals(2, station.rows());
         assertEquals(IntStream.range(0, 9).boxed().toList(), at(station, "heading"));
-        assertEquals(IntStream.range(9, 18).boxed().toList(), at(station, "name"));
-        assertEquals(IntStream.range(18, 27).boxed().toList(), at(station, "visibility"));
+        assertEquals(List.of(10, 11, 12, 13), at(station, "name"));
+        assertEquals(List.of(14, 15, 16), at(station, "visibility"));
     }
 
     @Test

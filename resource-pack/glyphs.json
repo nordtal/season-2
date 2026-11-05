@@ -1253,7 +1253,7 @@
               "code": "FE106",
               "constant": "GUI_ROW_BUTTON_CONFIRM",
               "texture": "nordtal:ui/gui/row_button_confirm.png",
-              "about": "An affirming gold button plate, 50 by 14 over three cells, for a click that cannot be undone."
+              "about": "A gold button plate, 50 by 14 over three cells, for a menu's action."
             },
             {
               "code": "FE107",

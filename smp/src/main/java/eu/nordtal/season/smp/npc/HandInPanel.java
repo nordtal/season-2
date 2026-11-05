@@ -60,10 +60,7 @@ public final class HandInPanel {
         canvas.overlay(Glyphs.GUI_HANDIN_TRAY, TRAY_X, TRAY_WIDTH);
         canvas.rowText(MenuFont.fit(needed, CONFIRM_X - 4 - NEEDED_X), FOOTER_ROW, NEEDED_X, MenuPalette.INK);
 
-        canvas.rowArt(Glyphs.GUI_ROW_BUTTON_CONFIRM, FOOTER_ROW, CONFIRM_X, null);
-        // The label is centred on the plate.
-        final String label = MenuFont.fit(button, CONFIRM_WIDTH - 6);
-        canvas.rowText(label, FOOTER_ROW, CONFIRM_X + (CONFIRM_WIDTH - MenuFont.width(label)) / 2, MenuPalette.INK);
+        canvas.rowButton(Glyphs.GUI_ROW_BUTTON_CONFIRM, FOOTER_ROW, CONFIRM_X, CONFIRM_WIDTH, button, MenuPalette.INK);
 
         return canvas.build(title);
     }

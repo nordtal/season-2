@@ -7,11 +7,9 @@ import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
-import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -71,16 +69,9 @@ final class ModeSwitch {
         final Run.Plan planned = Run.Plan.of(stopping, turn, true, Runner.Doubt.IS_ONLY_SAID)
                 .countingDown(Duration.ZERO)
                 .alsoStarting(targetRuns ? List.of() : List.of(target.server()));
-        // An update while the target rested installed its files but left its container on the old image.
+        // A resting target's container keeps its old image; it is remade from the image here, so a local build stays.
         final boolean renews = !targetRuns && runner.containers.isOutdated(target.server());
-        return Kinds.Planned.plan(
-                renews
-                        ? planned.renewing(
-                                Map.of(),
-                                ImageResult.of(Map.of(target.server(), ImageResult.State.OUTDATED)),
-                                List.of(),
-                                false)
-                        : planned);
+        return Kinds.Planned.plan(renews ? planned.remaking(List.of(target.server()), List.of(), false) : planned);
     }
 
     /** Writes the mode, or aborts the run so the old server starts again. */

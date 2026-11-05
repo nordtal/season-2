@@ -387,6 +387,9 @@ public final class StewardAgent {
                 log.error("Could not write the readiness marker, so the rest of the stack will not start.");
             }
             final UpdateDirectory updates = Schema.updates(database);
+            final Runner runner = runner(server, compose, docker, clock, database, runs, updates, runRoutes.removal());
+            // Before the first run, so no run starts from two game servers.
+            runner.restInactive();
             try (SignalHub signals = SignalHub.open(
                             databaseConfig.jdbcUrl(),
                             databaseConfig.username(),
@@ -394,11 +397,7 @@ public final class StewardAgent {
                             databaseConfig.queryTimeoutSeconds(),
                             "steward-agent-signals",
                             log);
-                    UpdateServer loop = new UpdateServer(
-                            updates,
-                            runner(server, compose, docker, clock, database, runs, updates, runRoutes.removal()),
-                            docker::isRunning,
-                            clock);
+                    UpdateServer loop = new UpdateServer(updates, runner, docker::isRunning, clock);
                     GameAssets icons = gameAssets(database, runs, clock)) {
                 loop.listen(signals);
                 icons.listen(signals);

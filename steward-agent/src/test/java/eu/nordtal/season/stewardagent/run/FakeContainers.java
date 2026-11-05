@@ -16,6 +16,9 @@ final class FakeContainers implements ContainerOps {
     /** Every stop and start, in order. */
     final List<String> calls = new ArrayList<>();
 
+    /** Sees each stop and start as it is called, for a test that reads the state around it. */
+    java.util.function.Consumer<String> watcher = call -> {};
+
     /** service -> the recent lines of its log, oldest first. */
     private final Map<String, List<String>> logs = new LinkedHashMap<>();
 
@@ -240,6 +243,7 @@ final class FakeContainers implements ContainerOps {
     @Override
     public RedeployResult stop(final String containerId) {
         calls.add("stop:" + containerId);
+        watcher.accept("stop:" + containerId);
         if (stopFails) {
             return RedeployResult.refused("refused");
         }
@@ -305,11 +309,16 @@ final class FakeContainers implements ContainerOps {
     @Override
     public RedeployResult start(final String containerId) {
         calls.add("start:" + containerId);
+        watcher.accept("start:" + containerId);
         // Started and not healthy.
         services.computeIfPresent(
                 service(containerId),
-                (name, entry) ->
-                        new ServiceRuntime(name, entry.containerId(), "running", "starting", entry.restarts()));
+                (name, entry) -> new ServiceRuntime(
+                        name,
+                        entry.containerId(),
+                        "running",
+                        neverHealthy.contains(name) ? "unhealthy" : "starting",
+                        entry.restarts()));
         return RedeployResult.triggered("HTTP 204");
     }
 

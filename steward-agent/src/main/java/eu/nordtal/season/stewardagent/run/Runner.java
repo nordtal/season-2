@@ -1,6 +1,7 @@
 package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.common.time.Waiting;
+import eu.nordtal.season.database.season.SeasonDirectory;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
@@ -16,6 +17,8 @@ import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.InstantSource;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -69,6 +72,17 @@ public final class Runner implements RequestRunner {
             occupancy = Occupancy.over(database.dataSource(), waiting::now);
         }
         return occupancy;
+    }
+
+    /** Built on first use, on the run's own clock. */
+    private volatile @Nullable SeasonDirectory season;
+
+    SeasonDirectory season() {
+        if (season == null) {
+            final InstantSource clock = waiting::now;
+            season = SeasonDirectory.using(database.dataSource(), clock.withZone(ZoneOffset.UTC));
+        }
+        return season;
     }
 
     /** {@code message()} is set whenever the runtime could not be reached, the only case this asks for it. */
@@ -166,6 +180,9 @@ public final class Runner implements RequestRunner {
                 record.ended(RunStep.Kind.RUNTIME, null, RunStep.Outcome.FAILED, RunStep.Reason.UNREACHABLE);
                 return Outcome.failed();
             }
+            if (request.kind() == UpdateKind.SWITCH_MODE) {
+                return new ModeSwitch(this, steps, runtime, progress).carryOut(request);
+            }
             // The row is the lock: the inbox holds one open run at a time.
             final Kinds.Planned planned = plan(request, progress, record);
             if (planned.outcome() != null) {
@@ -194,6 +211,7 @@ public final class Runner implements RequestRunner {
             case REMOVE_PLUGIN -> Kinds.removePlugin(this, request, record);
             case RESTORE -> Restores.restore(this, request, record);
             case INSTALL -> throw new IllegalStateException("a start-up install is written settled and never claimed");
+            case SWITCH_MODE -> throw new IllegalStateException("a mode switch is carried out, never planned");
         };
     }
 
@@ -204,8 +222,22 @@ public final class Runner implements RequestRunner {
      */
     Steps.@Nullable Step countDown(
             final long id, final List<String> moving, final Consumer<RunStage> progress, final Steps record) {
+        return countDown(id, UpdateDirectory.UPDATE_COUNTDOWN, moving, progress, record);
+    }
+
+    /**
+     * Counts down for {@code length}, which a mode switch sets to zero, on this run's own row.
+     *
+     * @return the step the players are moved in, begun as the countdown ran out; {@code null} when cancelled
+     */
+    Steps.@Nullable Step countDown(
+            final long id,
+            final Duration length,
+            final List<String> moving,
+            final Consumer<RunStage> progress,
+            final Steps record) {
         final Steps.Step countdown = record.begin(RunStep.Kind.COUNTDOWN);
-        final Optional<UpdateRequest> counting = directory.startCountdown(id, UpdateDirectory.UPDATE_COUNTDOWN, moving);
+        final Optional<UpdateRequest> counting = directory.startCountdown(id, length, moving);
         if (counting.isEmpty()) {
             // A run that is no longer RUNNING after the claim was cancelled.
             log.info("Request {} is no longer running, so no countdown was started", id);
@@ -289,6 +321,20 @@ public final class Runner implements RequestRunner {
                 .filter(service -> !holds.contains(service))
                 .filter(service -> scope.isEmpty() || scope.contains(service))
                 .toList();
+    }
+
+    /**
+     * Returns the inactive mode's server while it is stopped, which no run wakes.
+     *
+     * An admin wakes it by hand with a start run, and a switch onto its mode does.
+     */
+    List<String> resting() {
+        return ModeServers.resting(ModeServers.active(season()), containers.runtime());
+    }
+
+    /** Lets only the active mode's server run, once at the agent's start; see {@link ModeServers#reconcile}. */
+    public void restInactive() {
+        ModeServers.reconcile(this);
     }
 
     List<String> held() {

@@ -15,9 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Which game server rests, and the pass at the agent's start that lets only the active mode's server run.
- *
- * Resting follows from the mode and the runtime and is never written: a hold is an admin's, the mode is not.
+ * Which game server rests, read from the mode and the runtime.
+ * At the agent's start, it stops the inactive mode's server and starts the active one.
  */
 @Slf4j
 final class ModeServers {
@@ -26,6 +25,9 @@ final class ModeServers {
     static final Duration COMPOSE_STARTS_WITHIN = Duration.ofMinutes(3);
 
     private static final Duration SETTLE_POLL = Duration.ofSeconds(5);
+
+    /** Docker's statuses of a container that runs nothing and needs no stop. */
+    private static final List<String> STOPPED = List.of("created", "exited", "dead");
 
     /** Docker's statuses of a container that compose or the restart policy is about to run. */
     private static final List<String> ABOUT_TO_RUN = List.of("created", "restarting");
@@ -58,6 +60,13 @@ final class ModeServers {
 
     static boolean isRunning(final RuntimeResult runtime, final String service) {
         return status(runtime, service).map("running"::equalsIgnoreCase).orElse(false);
+    }
+
+    /** Returns whether the service has no container or one that runs nothing, so a stop has nothing to do. */
+    static boolean isStopped(final RuntimeResult runtime, final String service) {
+        return status(runtime, service)
+                .map(status -> STOPPED.stream().anyMatch(status::equalsIgnoreCase))
+                .orElse(true);
     }
 
     /**

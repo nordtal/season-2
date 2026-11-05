@@ -8,6 +8,9 @@ public enum SeasonRefusal implements RefusalReason {
     /** The date has passed. */
     IN_THE_PAST,
 
+    /** The season has no launch date, so it cannot launch now. */
+    NOT_SET,
+
     /** The season is already launched, so it cannot launch now. */
     ALREADY_LAUNCHED,
 

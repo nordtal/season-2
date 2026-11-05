@@ -46,6 +46,14 @@ const routes = [
       throw redirect({ to: "/operations/updates/$id", params: { id: params.id } })
     },
   }),
+  /** The season page is now the proxy's Router tab. */
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/season",
+    beforeLoad: () => {
+      throw redirect({ to: "/services/$name", params: { name: "proxy" }, search: { tab: "router" } })
+    },
+  }),
   createRoute({ getParentRoute: () => rootRoute, path: "/operations/updates", component: UpdatesPage }),
   createRoute({
     getParentRoute: () => rootRoute,

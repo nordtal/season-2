@@ -10,7 +10,7 @@ public enum Channel {
 
     /**
      * The launch date, maintenance or the game mode changed.
-     * The season directory emits; the proxy, steward-agent and the bot listen.
+     * The season directory emits it. The proxy, steward-agent and the bot listen.
      */
     SEASON("nordtal_season"),
 

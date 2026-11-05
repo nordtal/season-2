@@ -15,7 +15,6 @@ import eu.nordtal.season.database.alert.RaisedAlert;
 import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.payment.PaymentMatch;
-import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.LinkFlow;
 import eu.nordtal.season.discordrendering.DiscordRenderer;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
@@ -228,19 +227,6 @@ class AdminLogTest {
 
         assertTrue(card.text().startsWith("## 💶 Payment settled\n"), card.text());
         assertTrue(card.text().contains("NT\\_7Q"), card.text());
-    }
-
-    @Test
-    void aGrantWithoutALaunchDateIsALineTheBotWritesAboutThePerson() {
-        final AuditLine line =
-                SeasonStart.unanchored(DiscordId.of("400000000000000001"), Instant.parse("2026-11-02T10:00:00Z"));
-
-        assertEquals(JournalAction.UNANCHORED_GRANT, line.action());
-        assertEquals("""
-                ## ⚠️ No launch date
-                Access starts at <t:1793613600:f>, as the season has no launch date yet. Set it in Steward on the proxy's Router tab.
-                **By** the bot
-                **Concerns** <@400000000000000001>""", AdminLog.card(ADMIN, line).text());
     }
 
     @Test

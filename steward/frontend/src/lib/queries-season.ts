@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { api, type Players, type Router, type SeasonChange, type SeasonMode, type Switch } from "@/lib/api"
-import { live, RECONCILE } from "@/lib/live"
-import { keys, SECOND } from "@/lib/query-keys"
+import { live } from "@/lib/live"
+import { keys } from "@/lib/query-keys"
 
 /** The launch date, maintenance and the game mode, with the last switch's run, which moves with the runs. */
 export function useSeasonRouter(enabled = true) {
@@ -10,18 +10,8 @@ export function useSeasonRouter(enabled = true) {
     queryKey: keys.season,
     queryFn: () => api<Router>("/api/season"),
     ...live("SEASON", "RUNS"),
-    refetchInterval: (query) => nextRead(query.state.data, Date.now()),
     enabled,
   })
-}
-
-/**
- * Returns how long the Router waits before it reads again: a second past a launch ahead, since a launch that passes
- * writes no row that would announce it, and a minute otherwise.
- */
-export function nextRead(router: Router | undefined, now: number): number {
-  if (router?.opening !== "COUNTDOWN" || !router.launch) return RECONCILE
-  return Math.min(RECONCILE, Math.max(SECOND, new Date(router.launch).getTime() - now + SECOND))
 }
 
 /** The players a change moves. Each read asks for every player's access, so only an open dialog asks. */

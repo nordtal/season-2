@@ -11,10 +11,10 @@ public enum WaitReason {
     /** The resource pack is offered and not applied yet. */
     PACK,
 
-    /** The backend of the phase is not registered or refuses the connection. */
+    /** The server of the active game mode is not registered or refuses the connection. */
     BACKEND,
 
-    /** The phase is {@code MAINTENANCE} and the player is not an admin. */
+    /** The network is under maintenance and the player is not an admin. */
     MAINTENANCE,
 
     /** An update run has stopped the backend of the player. The proxy reads this from the update row. */

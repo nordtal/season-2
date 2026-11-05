@@ -147,7 +147,7 @@ describe("serverState", () => {
     expect(serverState(season(), "SMP", service("smp", "exited", { alert: "down" }))).toBe("failed")
   })
 
-  it("keeps a stopped server out of a hand's reach while a switch holds", () => {
+  it("disables a start by hand on a stopped server while a switch holds", () => {
     expect(serverState(switching({ status: "FAILED" }), "HUNGER_GAMES", service("hunger-games", "exited"))).toBe(
       "stopped",
     )

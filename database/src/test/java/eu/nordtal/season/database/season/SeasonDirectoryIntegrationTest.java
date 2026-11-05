@@ -131,16 +131,16 @@ class SeasonDirectoryIntegrationTest {
     }
 
     @Test
-    void launchingNowFromClosedOpensWithoutMovingAnything() {
-        final SeasonChange change = season.launchNow(ADMIN, null);
+    void aClosedSeasonDoesNotLaunchNow() {
+        final Refused refused = assertThrows(Refused.class, () -> season.launchNow(ADMIN, null));
 
-        assertEquals(0, change.grants());
-        assertNull(change.previous().launch());
-        assertTrue(season.state().launched(Instant.now()));
+        assertEquals(SeasonRefusal.NOT_SET, refused.reason());
+        assertNull(season.state().launch());
     }
 
     @Test
     void closingClearsTheDateAndPausesNoPeriod() {
+        season.setLaunch(soon(Duration.ofDays(1)), ADMIN, null);
         season.launchNow(ADMIN, null);
         access.grantAccess(EARLY, 30, AccessSource.PURCHASE, null);
         final List<Instant> before = startsOf(EARLY);

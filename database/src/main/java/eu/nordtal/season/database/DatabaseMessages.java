@@ -73,6 +73,9 @@ public interface DatabaseMessages {
         @Name("Already launched")
         MessageRef alreadyLaunched(@Arg("at") @Example("2026-11-13T17:00:00Z") Instant at);
 
+        @Name("No launch date")
+        MessageRef notSet();
+
         @Name("Not launched")
         MessageRef notLaunched();
     }

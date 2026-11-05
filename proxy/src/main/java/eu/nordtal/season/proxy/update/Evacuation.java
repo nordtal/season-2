@@ -129,7 +129,7 @@ public final class Evacuation {
         try {
             held = heldServices(updates.holds());
             running = updates.running();
-            lastSwitch = updates.lastSwitch();
+            lastSwitch = updates.lastStartedSwitch();
         } catch (final RuntimeException failure) {
             logger.warn("Could not read the update row; nobody was moved this pass", failure);
             return;
@@ -183,7 +183,7 @@ public final class Evacuation {
             final List<RunProgress.Step> runningSteps) {
         final boolean before = switching;
         final boolean now;
-        if (run == null || run.status() != UpdateStatus.RUNNING) {
+        if (run == null || (run.status() != UpdateStatus.RUNNING && run.status() != UpdateStatus.FAILED)) {
             now = ModeSwitch.holds(run, List.of(), "", clock.instant());
         } else {
             final boolean same = running.map(other -> other.id() == run.id()).orElse(false);

@@ -98,10 +98,7 @@ export function Hint({
 export type ServiceHealth = Pick<Service, "state" | "health" | "hold" | "alert"> &
   Partial<Pick<Service, "oneShot" | "lastRun" | "inactiveMode">>
 
-/**
- * The inactive mode's server, stopped as it should be: it waits for a switch or a start by hand.
- * A stop by hand holds it, and it still rests, since the next switch releases the hold.
- */
+/** Returns whether the service is the inactive mode's server and stopped, held or not. */
 export function restingMode(service: ServiceHealth): boolean {
   return service.inactiveMode === true && service.state !== "running"
 }

@@ -39,7 +39,7 @@ include("internal-api")
 // The shared kernel every other module stands on: no database, no Adventure, no pack.
 include("common")
 
-// The database: access, phase, online, audit, the inboxes, the signal hub and the migrations.
+// The database: access, the season, online, audit, the inboxes, the signal hub and the migrations.
 include("database")
 
 // The message system without Adventure: bundles, specs, contexts; the bot and Steward stop here.

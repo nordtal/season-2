@@ -30,6 +30,13 @@ interface SeasonDao {
     @RegisterRowMapper(SeasonStateMapper.class)
     Optional<SeasonState> state();
 
+    /**
+     * Locks the state row until the transaction ends, so a second write waits.
+     * Its statement then reads the first one's grants and date, instead of moving the same grants again.
+     */
+    @SqlQuery("SELECT id FROM season_state WHERE id FOR UPDATE")
+    Optional<Boolean> lock();
+
     /** Counts the live grants of every account whose access starts at the launch date. */
     @SqlQuery("""
             WITH anchored AS (

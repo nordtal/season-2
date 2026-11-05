@@ -34,8 +34,8 @@
         {
           "when": "countdown=unknown",
           "text": {
-            "en": "<muted>The opening date is not announced yet. Watch Discord.</muted>",
-            "de": "<muted>Der Eröffnungstermin steht noch nicht fest. Schau auf Discord.</muted>"
+            "en": "<muted>The launch date is not announced yet. Watch Discord.</muted>",
+            "de": "<muted>Der Starttermin steht noch nicht fest. Schau auf Discord.</muted>"
           }
         }
       ]

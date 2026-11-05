@@ -1,7 +1,7 @@
 # database
 
 The `database` module reads and writes PostgreSQL for every service. It holds the migrations in
-`src/main/resources/db/migration` and the code for access, the season phase, online players, the
+`src/main/resources/db/migration` and the code for access, the season state, online players, the
 audit log, payments, update runs, inboxes and signals.
 
 JDBI, HikariCP and the driver are `compileOnly`, so a consumer supplies its own runtime. The module

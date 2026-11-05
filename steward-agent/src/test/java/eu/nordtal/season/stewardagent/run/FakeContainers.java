@@ -80,6 +80,13 @@ final class FakeContainers implements ContainerOps {
         return this;
     }
 
+    /** Leaves the service in Docker's restart loop: up to a stop, and running nothing. */
+    FakeContainers restarting(final String name) {
+        services.computeIfPresent(
+                name, (service, entry) -> new ServiceRuntime(service, entry.containerId(), "restarting", null, 1));
+        return this;
+    }
+
     FakeContainers imageOutdated(final String... names) {
         for (final String name : names) {
             images.put(name, ImageResult.State.OUTDATED);

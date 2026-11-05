@@ -223,6 +223,11 @@ final class JdbiUpdateDirectory implements UpdateDirectory {
     }
 
     @Override
+    public Optional<UpdateRequest> lastStartedSwitch() {
+        return dao.lastStartedSwitch();
+    }
+
+    @Override
     public Optional<UpdateRequest> open() {
         return dao.open();
     }

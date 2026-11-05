@@ -13,7 +13,7 @@ import { LIMBO } from "@/components/steward/router/router-state"
 export function RouterTab() {
   const season = useSeasonRouter()
   const table = useServices()
-  const now = useNow()
+  const now = useNow(season.dataUpdatedAt)
   const services = table.data?.services ?? []
   const waiting = services.find((row) => row.service === LIMBO)?.players ?? 0
 

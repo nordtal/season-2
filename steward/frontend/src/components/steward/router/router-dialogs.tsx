@@ -190,8 +190,14 @@ export function SwitchDialog({ router, target, open, onOpenChange }: DialogProps
 export function MaintenanceDialog({ router, open, onOpenChange, waiting }: DialogProps & { waiting: number }) {
   const set = useSetMaintenance()
   const [reason, setReason] = useReason(open)
-  const { players } = usePlayers(open && !router.maintenance)
-  const on = !router.maintenance
+  // The direction is the one the dialog opened with, so a change that lands meanwhile turns no button around.
+  const [on, setOn] = useState(!router.maintenance)
+  const [seen, setSeen] = useState(open)
+  if (seen !== open) {
+    setSeen(open)
+    if (open) setOn(!router.maintenance)
+  }
+  const { players } = usePlayers(open && on)
   const sw = switchState(router)
   const switching = switchHolds(sw) && sw !== "failed"
   const target = router.lastSwitch?.target ?? router.mode
@@ -247,14 +253,16 @@ export function DateDialog({
 }: DialogProps & { at: Date; onDone: () => void; now: number }) {
   const setLaunch = useSetLaunch()
   const [step, setStep] = useState(1)
+  const [seen, setSeen] = useState(open)
+  if (seen !== open) {
+    setSeen(open)
+    if (open) setStep(1)
+  }
   const [reason, setReason] = useReason(open)
   const { players } = usePlayers(open)
   const launched = router.opening === "LAUNCHED"
   const closed = router.opening === "CLOSED"
-  const change = (next: boolean) => {
-    if (next) setStep(1)
-    onOpenChange(next)
-  }
+  const change = onOpenChange
   const days = router.launch ? Math.round(Math.abs(at.getTime() - new Date(router.launch).getTime()) / 86_400_000) : 0
 
   if (step === 2) {

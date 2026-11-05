@@ -862,7 +862,7 @@
     "steward.router.switch-mode": ["services"],
     "steward.router.switch-title": ["services"],
     "steward.router.switch-waiting": ["services"],
-    "steward.router.tab": ["services"],
+    "steward.router.tab": ["every"],
     "steward.router.to-closed-screen": ["services"],
     "steward.router.to-countdown": ["services"],
     "steward.router.to-waiting-room": ["services"],

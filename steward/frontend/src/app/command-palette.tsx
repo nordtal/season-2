@@ -62,6 +62,23 @@ function runSearchValue(run: Run): string {
   )
 }
 
+/** The service whose Router tab holds the launch date, maintenance and the game mode. */
+const ROUTER_SERVICE = "proxy"
+
+const ROUTER_KEYWORDS = [
+  "router",
+  "season",
+  "launch",
+  "open",
+  "close",
+  "maintenance",
+  "game mode",
+  "switch",
+  "smp",
+  "hunger games",
+  "gate",
+]
+
 /**
  * The search dialog on Ctrl+K and ⌘K. It fetches runs, configs and translations only while it is open.
  */
@@ -185,6 +202,27 @@ export function CommandPalette() {
                   </CommandItem>
                 )
               })}
+              {group.entries.some((entry) => entry.id === `service-${ROUTER_SERVICE}`) ? (
+                <CommandItem
+                  value={`page-${group.id}-router`}
+                  keywords={[searchValue(t("steward.router.tab"), ROUTER_KEYWORDS.join(" "))]}
+                  onSelect={() => {
+                    setOpen(false)
+                    void navigate({
+                      to: "/services/$name",
+                      params: { name: ROUTER_SERVICE },
+                      search: { tab: "router" },
+                    })
+                  }}
+                  className="min-h-control gap-2.5"
+                >
+                  <TERM_ICON.season aria-hidden className="size-4 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{t("steward.router.tab")}</span>
+                  <CommandShortcut className="truncate text-muted-foreground/70">
+                    {serviceTitle(ROUTER_SERVICE)}
+                  </CommandShortcut>
+                </CommandItem>
+              ) : null}
             </CommandGroup>
           </React.Fragment>
         ))}

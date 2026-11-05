@@ -72,6 +72,9 @@ final class JdbiSeasonDirectory implements SeasonDirectory {
         // Read outside the write, as this guards an admin's slip, not a race.
         final Instant now = clock.instant();
         final SeasonState state = state();
+        if (state.opening(now) == SeasonOpening.CLOSED) {
+            throw new Refused(SeasonRefusal.NOT_SET, MESSAGES.season().notSet());
+        }
         if (state.opening(now) == SeasonOpening.LAUNCHED) {
             throw new Refused(
                     SeasonRefusal.ALREADY_LAUNCHED,
@@ -125,7 +128,9 @@ final class JdbiSeasonDirectory implements SeasonDirectory {
             final Actor actor,
             final Function<SeasonChange, JournalDetail> line) {
         return jdbi.inTransaction(handle -> {
-            final @Nullable SeasonChange change = write.apply(handle.attach(SeasonDao.class));
+            final SeasonDao seasons = handle.attach(SeasonDao.class);
+            final Optional<Boolean> _ = seasons.lock();
+            final @Nullable SeasonChange change = write.apply(seasons);
             if (change == null) {
                 // The singleton row is gone: a corrupted database gets no journal entry.
                 throw new IllegalStateException(MISSING);

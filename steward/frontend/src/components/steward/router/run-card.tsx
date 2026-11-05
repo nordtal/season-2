@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router"
 
 import type { Router, Run, SeasonMode } from "@/lib/api"
 import { time } from "@/lib/format"
+import { useRunLock } from "@/lib/run-lock"
 import { runPath } from "@/lib/run-path"
 import { t } from "@/lib/texts"
 import { CancelButton, cancellable } from "@/pages/operations"
@@ -95,14 +96,16 @@ function RunHead({ run, state, now }: { run: Run; state: Exclude<SwitchState, "n
 
 /** After a failed switch: the same switch again, or the switch back to the mode it left. */
 function Retry({ router, target }: { router: Router; target: SeasonMode }) {
+  const lock = useRunLock()
   const [open, setOpen] = useState<SeasonMode | null>(null)
+  const busy = lock.locked ? t("steward.router.switch-busy") : undefined
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <KeyedButton size="sm" onClick={() => setOpen(target)}>
+      <KeyedButton size="sm" disabled={lock.locked} tip={busy} onClick={() => setOpen(target)}>
         <TERM_ICON.retry aria-hidden />
         {t("steward.router.try-again")}
       </KeyedButton>
-      <KeyedButton variant="outline" size="sm" onClick={() => setOpen(OTHER[target])}>
+      <KeyedButton variant="outline" size="sm" disabled={lock.locked} tip={busy} onClick={() => setOpen(OTHER[target])}>
         <TERM_ICON.gameMode aria-hidden />
         {t("steward.router.back-to", { mode: modeName(OTHER[target]) })}
       </KeyedButton>

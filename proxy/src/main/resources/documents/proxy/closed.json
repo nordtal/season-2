@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<brand>Nordtal</brand> <warn>is closed.</warn> <muted>The opening date is not announced yet. Discord says when it opens.</muted>",
-            "de": "<brand>Nordtal</brand> <warn>ist geschlossen.</warn> <muted>Der Eröffnungstermin steht noch nicht fest. Auf Discord steht, wann es öffnet.</muted>"
+            "en": "<brand>Nordtal</brand> <warn>is closed.</warn> <muted>The launch date is not announced yet. Discord says when it opens.</muted>",
+            "de": "<brand>Nordtal</brand> <warn>ist geschlossen.</warn> <muted>Der Starttermin steht noch nicht fest. Auf Discord steht, wann es öffnet.</muted>"
           }
         },
         {

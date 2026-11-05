@@ -1527,7 +1527,7 @@
     "steward.router.launch-now": [["Launch now"]],
     "steward.router.launch-now-title": [["Launch the ",{"b":"terms.season"}," now?"]],
     "steward.router.launch-title": [["Season launch"]],
-    "steward.router.let-in": [[{"c":"count","plural":true,"cases":{"one":[{"pound":"count"}," member waiting goes"],"other":[{"pound":"count"}," members waiting go"]}}," on through the gate."]],
+    "steward.router.let-in": [[{"c":"count","plural":true,"cases":{"one":[{"pound":"count"}," member waiting goes"],"other":[{"pound":"count"}," members waiting go"]}}," on to the game server."]],
     "steward.router.lost": [["Lost"]],
     "steward.router.maintenance": [["Maintenance"]],
     "steward.router.maintenance-for": [["maintenance for ",{"v":"length","k":"duration","s":"minutes"}]],

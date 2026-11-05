@@ -74,7 +74,7 @@ public interface TermMessages {
         MessageRef extraSpin(@Arg("n") @Example("2") long n);
 
         @Name("Hunger Games")
-        @Describe("The season's start event, played in teams.")
+        @Describe("The season's game mode played in teams, beside the SMP.")
         MessageRef hungerGames();
 
         @Name("Kill")

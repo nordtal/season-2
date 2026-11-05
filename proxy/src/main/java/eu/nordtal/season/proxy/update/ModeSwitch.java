@@ -13,8 +13,8 @@ final class ModeSwitch {
     private ModeSwitch() {}
 
     /**
-     * Returns whether the switch holds every player, admins included.
-     * A running switch holds from the end of its countdown until its target passes its check. A failed one holds.
+     * Returns whether the switch holds every player, admins included, until its target passes its check.
+     * A running switch holds from the end of its countdown, a failed one once a step names the target.
      *
      * @param run the newest switch run, {@code null} without one
      * @param target the server that the switch makes active
@@ -28,7 +28,7 @@ final class ModeSwitch {
             return false;
         }
         return switch (run.status()) {
-            case FAILED -> true;
+            case FAILED -> reached(steps, target) && !verified(steps, target);
             case RUNNING -> moving(run, now) && !verified(steps, target);
             case PENDING, DONE, CANCELLED -> false;
         };
@@ -38,6 +38,19 @@ final class ModeSwitch {
     static boolean moving(final UpdateRequest run, final Instant now) {
         final Instant end = run.countdownEnd();
         return end != null && !now.isBefore(end);
+    }
+
+    /** Returns whether the run went on to start, recreate or check the target, which follows the write of the mode. */
+    static boolean reached(final List<RunProgress.Step> steps, final String target) {
+        for (final RunProgress.Step step : steps) {
+            if ((step.kind() == RunStep.Kind.START
+                            || step.kind() == RunStep.Kind.INSTALL
+                            || step.kind() == RunStep.Kind.VERIFY)
+                    && target.equals(step.service())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Returns whether the check of the target has passed or was skipped, because the target already ran. */

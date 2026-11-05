@@ -118,14 +118,27 @@ class EvacuationSwitchTest {
     }
 
     @Test
-    void aFailedSwitchKeepsHoldingEverybody() {
+    void aSwitchThatFailedOnItsTargetKeepsHoldingEverybody() {
         evacuation.check();
         status = UpdateStatus.FAILED;
+        steps = List.of(new RunProgress.Step(RunStep.Kind.START, "hunger-games", RunStep.Outcome.FAILED));
 
         evacuation.check();
 
         assertTrue(evacuation.holdsEveryone());
         assertEquals(0, released.get());
+    }
+
+    @Test
+    void aSwitchThatFailedBeforeItsTargetReleasesTheWaitingRoom() {
+        evacuation.check();
+        status = UpdateStatus.FAILED;
+        steps = List.of(new RunProgress.Step(RunStep.Kind.STOP, "smp", RunStep.Outcome.FAILED));
+
+        evacuation.check();
+
+        assertFalse(evacuation.holdsEveryone(), "the old mode's server is back, so nobody waits for the target");
+        assertEquals(1, released.get());
     }
 
     @Test
@@ -172,7 +185,7 @@ class EvacuationSwitchTest {
         return fake(UpdateDirectory.class, (method, arguments) -> switch (method) {
             case "holds" -> List.of();
             case "running" -> status == UpdateStatus.RUNNING ? Optional.of(run()) : Optional.empty();
-            case "lastSwitch" -> Optional.of(run());
+            case "lastStartedSwitch" -> Optional.of(run());
             case "requestOf" -> Optional.of(new StewardRequest.SwitchMode(SeasonMode.HUNGER_GAMES, null));
             case "recorder" -> recorder;
             case "stepsOf" -> steps;

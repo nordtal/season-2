@@ -10,6 +10,7 @@ import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -46,7 +47,7 @@ final class ModeSwitch {
 
         final RuntimeResult runtime = runner.containers.runtime();
         final List<String> stopping =
-                !again && ModeServers.isRunning(runtime, from.server()) ? List.of(from.server()) : List.of();
+                !again && !ModeServers.isStopped(runtime, from.server()) ? List.of(from.server()) : List.of();
         // A target started by hand or left by a failed switch runs already and is only verified.
         final boolean targetRuns = ModeServers.isRunning(runtime, target.server());
         final Run.Payload turn = (steps, stopped) -> {
@@ -66,9 +67,12 @@ final class ModeSwitch {
             return new Run.Done(false, () -> {}, stopping);
         };
         // Admins too: the proxy holds everyone in the waiting room from the end of this countdown.
-        return Kinds.Planned.plan(Run.Plan.of(stopping, turn, true, Runner.Doubt.IS_ONLY_SAID)
+        final Run.Plan planned = Run.Plan.of(stopping, turn, true, Runner.Doubt.IS_ONLY_SAID)
                 .countingDown(Duration.ZERO)
-                .alsoStarting(targetRuns ? List.of() : List.of(target.server())));
+                .alsoStarting(targetRuns ? List.of() : List.of(target.server()));
+        // An update while the target rested installed its files but left its container on the old image.
+        return Kinds.Planned.plan(
+                targetRuns ? planned : planned.renewing(Map.of(), runner.containers.images(), List.of(), false));
     }
 
     /** Writes the mode, or aborts the run so the old server starts again. */

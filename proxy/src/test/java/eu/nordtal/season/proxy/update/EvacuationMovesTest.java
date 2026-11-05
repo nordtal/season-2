@@ -169,7 +169,7 @@ class EvacuationMovesTest {
         return fake(UpdateDirectory.class, (method, arguments) -> switch (method) {
             case "holds" -> List.of();
             case "running" -> Optional.of(running);
-            case "lastSwitch" -> Optional.empty();
+            case "lastStartedSwitch" -> Optional.empty();
             case "recorder" -> recorder;
             case "stepsOf" -> {
                 if (unreadableSteps) {

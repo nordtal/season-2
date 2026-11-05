@@ -124,6 +124,28 @@ class ModeSwitchTest {
                 steps(request.id()));
     }
 
+    @Test
+    void aSwitchRecreatesATargetWhoseImageAnUpdateLeftBehind() {
+        containers.imageOutdated("smp");
+        final UpdateRequest request = switchTo(SeasonMode.SMP);
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps(request.id()).toString());
+        assertEquals(List.of("stop:hunger-games-container", "recreate:smp"), containers.calls);
+    }
+
+    @Test
+    void aSwitchStopsAnOldServerThatIsRestarting() {
+        containers.restarting("hunger-games");
+        final UpdateRequest request = switchTo(SeasonMode.SMP);
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps(request.id()).toString());
+        assertEquals(List.of("stop:hunger-games-container", "start:smp-container"), containers.calls);
+    }
+
     /** A failed start keeps the mode on the target and the players waiting, and Try again only brings it up. */
     @Test
     void aFailedSwitchKeepsTheModeAndTryAgainOnlyStartsTheTarget() {

@@ -30,7 +30,7 @@ export function switchState(router: Pick<Router, "lastSwitch">): SwitchState {
   return "none"
 }
 
-/** Returns whether a switch is open or failed, which keeps both servers out of a hand's reach. */
+/** Returns whether a switch is open or failed, which disables a start or stop by hand on both servers. */
 export function switchHolds(state: SwitchState): boolean {
   return state === "queued" || state === "running" || state === "failed"
 }

@@ -28,7 +28,6 @@ import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.database.registration.Game;
 import eu.nordtal.season.database.season.SeasonDirectory;
 import eu.nordtal.season.database.update.UpdateDirectory;
-import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
 import eu.nordtal.season.discordbot.access.discord.LinkFlow;
 import eu.nordtal.season.discordbot.access.discord.LockedRoles;
@@ -163,7 +162,7 @@ public class AccessBot implements AutoCloseable {
                     loadCoreServices(accessConfig, network, season, languageAndTime, tiers, onboarding);
             this.jda = connectJda(botConfig);
 
-            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, seasons, botConfig.stewardUrl());
+            final DiscordWiring wiring = wireDiscord(jda, accessConfig, core, botConfig.stewardUrl());
             publishAndReconcile(jda, core.languages(), core.tiers(), core.messages(), core.documents(), wiring);
 
             this.signals = finishStartup(
@@ -316,11 +315,7 @@ public class AccessBot implements AutoCloseable {
     }
 
     private DiscordWiring wireDiscord(
-            final JDA jda,
-            final AccessSpec accessConfig,
-            final CoreServices core,
-            final SeasonDirectory seasons,
-            final String stewardUrl) {
+            final JDA jda, final AccessSpec accessConfig, final CoreServices core, final String stewardUrl) {
         final AdminLog admin = new AdminLog(
                 jda,
                 accessConfig,
@@ -328,8 +323,6 @@ public class AccessBot implements AutoCloseable {
                 AlertBook.using(database.dataSource()),
                 core.renderer(),
                 stewardUrl);
-        // A period granted while the season has no launch date starts at the grant, not at the launch.
-        final SeasonStart seasonStart = new SeasonStart(seasons, admin);
         final GuildRoles guildRoles = GuildRoles.stored(database.jdbi(), admin::alert);
         final Executor onboardingLane = scheduler.serial();
         final Onboarding onboarding = onboarding(jda, accessConfig, core, guildRoles, admin, onboardingLane);
@@ -344,8 +337,7 @@ public class AccessBot implements AutoCloseable {
                 admin,
                 database.jdbi(),
                 clock);
-        final BookingReaction bookings =
-                new BookingReaction(core.languages(), roles, admin, core.renderer(), jda, seasonStart);
+        final BookingReaction bookings = new BookingReaction(core.languages(), roles, admin, core.renderer(), jda);
         final AdminTree adminTree = AdminTree.using(database.dataSource());
         final GuildState guildState = new GuildState(jda, accessConfig, access, adminTree, database.jdbi());
         final AdminRole adminRole = new AdminRole(jda, accessConfig, guildRoles, adminTree, admin);
@@ -366,7 +358,6 @@ public class AccessBot implements AutoCloseable {
                 accessConfig,
                 core,
                 admin,
-                seasonStart,
                 roles,
                 bookings,
                 guildState,
@@ -415,7 +406,6 @@ public class AccessBot implements AutoCloseable {
             final AccessSpec accessConfig,
             final CoreServices core,
             final AdminLog admin,
-            final SeasonStart seasonStart,
             final AccessRoles roles,
             final BookingReaction bookings,
             final GuildState guildState,
@@ -443,7 +433,7 @@ public class AccessBot implements AutoCloseable {
                         scheduler),
                 new RegisterFlow(jda, teams, access, core.renderer(), scheduler));
 
-        final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin, seasonStart);
+        final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin);
         final eu.nordtal.season.discordbot.announce.Announcements announcements =
                 new eu.nordtal.season.discordbot.announce.Announcements(jda, core.languages(), log);
 

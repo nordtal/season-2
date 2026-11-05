@@ -56,16 +56,19 @@ and `StewardRequest` types the request's data.
 
 ## The game mode
 
-Only the active mode's server runs. The other one rests: at its start, the agent stops it and starts
-the active one, unless a take-down holds that. Updates, restarts, recreates and deploys leave a
-resting server stopped; an update still installs its files. An admin wakes it with a start run, and
-it rests again at the agent's next start or the next switch.
+Only the active mode's server runs. The other one is stopped, which Steward calls resting. At its
+start, the agent stops the inactive mode's server and starts the active one, unless a take-down holds
+the active one. Updates, restarts, recreates and deploys leave a resting server stopped. An update
+still installs its files, and the next switch recreates its container on a newer image. An admin
+starts a resting server with a start run, and the agent stops it again at its next start or the next
+switch.
 
 A mode switch (`ModeSwitch`) is planned like any kind: a countdown of zero, after which the proxy
 holds everyone in the waiting room, then the stop of the old mode's server, a payload that writes the
-mode, and the start and verify of the target. The proxy lets the players out once the target's verify
-step is done. A failure leaves the mode on the target and the players waiting. A switch to the active
-mode runs only after a failed switch: it stops nothing and brings the target up.
+mode, and the start and verify of the target. The proxy sends the players on once the target's verify
+step is done. A failure after the write leaves the mode on the target and the players waiting. A
+failure before it starts the old server again, and the proxy sends the players back. A switch to the
+active mode runs only after a failed switch: it stops nothing and starts the target.
 
 The agent recreates caddy, pack-host and postgres last, after the standbys have stopped. Caddy
 publishes the standbys' ports.

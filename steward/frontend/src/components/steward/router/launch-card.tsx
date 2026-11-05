@@ -104,12 +104,13 @@ export function LaunchCard({ router, now }: { router: Router; now: number }) {
 
 /** Returns the instant as a `datetime-local` field writes it, in the browser's time zone, to the minute. */
 export function localInput(at: Date): string {
-  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`
+  return `${String(at.getFullYear()).padStart(4, "0")}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`
 }
 
-/** The date the editor offers where none lies ahead: a day from now, on the full hour. */
+/** The date the editor offers where none lies ahead: the same hour tomorrow, on the full hour. */
 export function tomorrow(now: number): Date {
-  const at = new Date(now + 86_400_000)
+  const at = new Date(now)
+  at.setDate(at.getDate() + 1)
   at.setMinutes(0, 0, 0)
   return at
 }

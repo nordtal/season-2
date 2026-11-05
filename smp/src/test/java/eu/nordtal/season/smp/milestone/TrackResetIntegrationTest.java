@@ -13,6 +13,8 @@ import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.game.TrackResets;
 import eu.nordtal.season.database.season.SeasonDirectory;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,6 +81,7 @@ class TrackResetIntegrationTest {
 
     @Test
     void launchingSwitchingToTheSmpAndMaintenanceStartNothingOver() {
+        season.setLaunch(Instant.now().plus(Duration.ofDays(1)), Actor.STEWARD, null);
         season.launchNow(Actor.STEWARD, null);
         season.setMode(SeasonMode.SMP, Actor.STEWARD, null);
         season.setMaintenance(true, Actor.STEWARD, null);

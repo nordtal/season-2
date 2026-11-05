@@ -57,6 +57,7 @@ import eu.nordtal.season.steward.game.Inventories;
 import eu.nordtal.season.steward.game.TrackNames;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.journal.Unjournaled;
+import eu.nordtal.season.steward.live.LaunchBell;
 import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
 import eu.nordtal.season.steward.messages.DocumentsApi;
@@ -339,7 +340,12 @@ public final class Web {
                         data.access().people(500),
                         data.payments().recent(200),
                         data.payments().allOpen()));
-        live.watch(Topic.SEASON, season::read);
+        final LaunchBell launch = new LaunchBell(scheduler, clock, live::ring);
+        live.watch(Topic.SEASON, () -> {
+            final SeasonRoutes.Router router = season.read();
+            launch.arm(router.launch());
+            return router;
+        });
         live.watch(Topic.GAMES, () -> List.of(games.readTrack(), games.readRound()));
         live.watch(
                 Topic.METRICS,

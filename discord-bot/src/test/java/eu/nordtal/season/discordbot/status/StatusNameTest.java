@@ -78,12 +78,12 @@ class StatusNameTest {
 
     @Test
     void noDateAtAllSaysSoRatherThanCountingFromNothing() {
-        assertEquals("Opening date to come", render(CLOSED));
+        assertEquals("Launch date to come", render(CLOSED));
     }
 
     @Test
     void aClosedSeasonInMaintenanceStillShowsTheClosedSeason() {
-        assertEquals("Opening date to come", render(CLOSED.withMaintenance(true)));
+        assertEquals("Launch date to come", render(CLOSED.withMaintenance(true)));
         assertEquals("Opens in 2d 0h", render(CLOSED.withMaintenance(true).withLaunch(NOW.plus(Duration.ofDays(2)))));
     }
 

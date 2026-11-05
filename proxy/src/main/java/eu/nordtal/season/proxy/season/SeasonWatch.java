@@ -57,11 +57,11 @@ public final class SeasonWatch {
     }
 
     /**
-     * Reads the state from the database and tells the listener about a change or an opening.
+     * Reads the state from the database and tells the listener about a change or an opening, one read at a time.
      *
      * @return {@code false} when the database does not answer, then {@link #state()} keeps its value
      */
-    public boolean refresh() {
+    public synchronized boolean refresh() {
         final SeasonState current;
         try {
             current = seasons.state();

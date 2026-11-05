@@ -266,7 +266,7 @@ describe("RouterTab - the maintenance card", () => {
     expect(screen.getByText("Waiting room")).toBeTruthy()
     await press(/End maintenance/)
     const asked = await dialog()
-    expect(within(asked).getByText("8 members waiting go on through the gate.")).toBeTruthy()
+    expect(within(asked).getByText("8 members waiting go on to the game server.")).toBeTruthy()
     fireEvent.click(within(asked).getByRole("button", { name: "End maintenance" }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/season/maintenance", body: { on: false } }]))
   })

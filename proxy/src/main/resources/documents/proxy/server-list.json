@@ -51,8 +51,8 @@
         {
           "when": "state=closed",
           "text": {
-            "en": "<muted>{season.name} is closed. The opening date is not announced yet.</muted>",
-            "de": "<muted>{season.name} ist geschlossen. Der Eröffnungstermin steht noch nicht fest.</muted>"
+            "en": "<muted>{season.name} is closed. The launch date is not announced yet.</muted>",
+            "de": "<muted>{season.name} ist geschlossen. Der Starttermin steht noch nicht fest.</muted>"
           }
         },
         {

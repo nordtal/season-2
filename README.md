@@ -7,8 +7,8 @@ services and the resource pack. One Gradle build, versioned in `gradle.propertie
 ## Overview
 
 A Velocity proxy forwards players to three Paper servers. Every player joins `limbo` first,
-receives the resource pack and is then moved to the server set by the current season phase. Access,
-language, phase and event state are stored in one PostgreSQL database; Discord roles are derived
+receives the resource pack and is then moved to the server of the active game mode. Access, language,
+the launch date, maintenance, the game mode and event state are stored in one PostgreSQL database; Discord roles are derived
 from it. Steward is the admin web interface and runs every update, restart and backup.
 
 ## Architecture
@@ -26,7 +26,7 @@ flowchart TB
         NCS["<b>proxy-standby</b><br/>during proxy updates"]:::standby
 
         subgraph ppr["Paper servers"]
-            HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>start event"]:::paper
+            HG["<b>hunger-games</b><br/><i>:hunger-games</i><br/>game mode"]:::paper
             SMP["<b>smp</b><br/><i>:smp</i><br/>survival server"]:::paper
             LIMBO["<b>limbo</b><br/><i>:limbo</i><br/>resource pack"]:::paper
             LIMBOS["<b>limbo-standby</b><br/>during limbo updates"]:::standby
@@ -104,16 +104,16 @@ jars of the services.
 
 | module              | platform        | contents                                                                                  |
 | ------------------- | --------------- | ----------------------------------------------------------------------------------------- |
-| `proxy`             | Velocity        | Login check, season phase, backend selection.                                             |
+| `proxy`             | Velocity        | Login check, launch date, maintenance, backend by game mode.                              |
 | `limbo`             | Paper           | Holding server that applies the resource pack.                                            |
-| `hunger-games`      | Paper           | Start event: teams registered via the bot, border, loot, HUD, winner.                     |
+| `hunger-games`      | Paper           | Game mode: teams registered via the bot, border, loot, HUD, winner.                       |
 | `smp`               | Paper           | Nordtal, Nether, End, milestones, aura, prestige, wheel, duels, graves.                   |
 | `discord-bot`       | JVM app         | Access sales and grants, linking, roles, game registration, admin log. Books no payments. |
 | `steward`           | JVM app + React | Web interface and API; books payments, sends alerts, schedules runs.                      |
 | `steward-agent`     | JVM app         | Schema, jar versions, all runs. The only service that creates containers.                 |
 | `steward-bunq`      | JVM app         | Holds the bunq API key; creates and cancels tabs, lists payments. Makes no decisions.     |
-| `common`            | library         | Platform constants, phase enum, languages, readiness. Depends only on the JDK and Gson.   |
-| `database`          | library         | All PostgreSQL access: access, phase, payments, inboxes, signal hub, migration SQL.       |
+| `common`            | library         | Platform constants, season state, languages, readiness. Depends only on the JDK and Gson. |
+| `database`          | library         | All PostgreSQL access: access, season, payments, inboxes, signal hub, migration SQL.      |
 | `messages`          | library         | Message system without Adventure, used by the bot and Steward.                            |
 | `message-rendering` | library         | Messages as Adventure components, for Paper, Velocity and Steward's menu previews.        |
 | `discord-rendering` | library         | Documents and messages as Discord components, for the bot and Steward's previews.         |

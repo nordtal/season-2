@@ -414,5 +414,5 @@ is for a repository forked into a new season, which starts on an empty host.
 | Velocity exits with _"Your configuration is invalid"_           | `velocity.toml` names a server that its `[servers]` does not define             |
 | the proxy shows a "network misconfigured" screen                | the proxy could not start; its log says why                                     |
 | a backend answers _"Server full"_                               | the backend was not restarted after a limit change                              |
-| everybody is refused with a countdown                           | the phase is `PRE_LAUNCH`; `/phase set PRE_EVENT` opens the network             |
+| everybody is refused with a countdown                           | the launch date lies ahead; Steward's Router tab on the proxy launches now      |
 | `docker rm -f` fails with _"did not receive an exit event"_     | a console is mirrored with `tmux pipe-pane`; only a Docker daemon restart helps |

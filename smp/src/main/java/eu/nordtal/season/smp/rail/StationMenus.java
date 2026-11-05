@@ -103,8 +103,8 @@ public final class StationMenus implements Listener {
     }
 
     /**
-     * A right click on a station rail opens its menu, unless a minecart in the main hand seats the player; a left
-     * click still breaks it.
+     * A right click on a station rail opens its menu, unless a minecart in the main hand seats the player.
+     * A left click still breaks it.
      * A rider's right click on a block that has no click of its own opens the ride menu again.
      */
     @EventHandler(priority = EventPriority.HIGH)

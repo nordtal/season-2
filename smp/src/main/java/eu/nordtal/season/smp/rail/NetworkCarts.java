@@ -172,8 +172,8 @@ public final class NetworkCarts implements Listener {
     }
 
     /**
-     * Whether a right click on a station rail seats the player instead of opening the station's menu: only with a
-     * minecart in the main hand, neither sneaking nor seated.
+     * Whether a right click on a station rail seats the player instead of opening the station's menu.
+     * Only a player with a minecart in the main hand who neither sneaks nor sits is seated.
      */
     static boolean seatsOnStation(final boolean sneaking, final boolean seated, final boolean minecartInHand) {
         return !sneaking && !seated && minecartInHand;

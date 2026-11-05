@@ -55,7 +55,6 @@ class NetworkCartsTest {
         assertFalse(NetworkCarts.seatsOnStation(false, true, true), "seated");
     }
 
-
     @Test
     void noMinecartIsPlacedOnANetworkRailNorBySomeoneSeated() {
         assertFalse(NetworkCarts.placeable(true, false), "on a network rail");

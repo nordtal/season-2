@@ -7,6 +7,7 @@ import { count, dateTime } from "@/lib/format"
 import { Hint, Tip } from "@/components/steward/status"
 import { span, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
+import { cutOff } from "@/lib/utils"
 import { usePeople } from "@/lib/queries"
 import { Entity } from "@/components/steward/entity"
 import { DataTable, type Column, type Sort } from "@/components/steward/data-table"
@@ -157,11 +158,6 @@ function peopleColumns(list: Person[], now: number): Column<Person>[] {
     },
     { head: "", phone: "action", render: (person) => <PersonActions person={person} menu /> },
   ]
-}
-
-/** Whether a name inside the element is cut off by its ellipsis. */
-function cutOff(element: Element): boolean {
-  return [...element.querySelectorAll(".truncate")].some((name) => name.scrollWidth > name.clientWidth)
 }
 
 /** The person as one element that opens their page. A name cut off by the width shows in full in the tip. */

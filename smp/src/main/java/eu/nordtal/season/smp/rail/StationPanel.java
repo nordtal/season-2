@@ -6,19 +6,19 @@ import eu.nordtal.season.packrendering.menu.MenuTitle;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import eu.nordtal.season.papercommon.menu.MenuPalette;
 import java.util.List;
+import java.util.stream.IntStream;
 import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Draws the station menu: the station's name, and below it the buttons that name and hide it for those who may.
+ * Draws the station menu: its name, and below it the buttons that name and hide it, for those who may.
+ * The buttons stand side by side on the gold plates of the other menus, each on the narrowest that holds its labels.
  */
 public final class StationPanel {
 
     public static final int HEADING_ROW = 0;
 
-    public static final int NAME_ROW = 1;
-
-    public static final int VISIBILITY_ROW = 2;
+    public static final int BUTTON_ROW = 1;
 
     public static final int INSET = 2;
 
@@ -32,15 +32,26 @@ public final class StationPanel {
 
     public static final List<Integer> HEADING_SLOTS = SlotGeometry.rows(HEADING_ROW, 1);
 
-    public static final List<Integer> NAME_SLOTS = SlotGeometry.rows(NAME_ROW, 1);
+    /** The name button's first column. Seven cells hold both buttons, so one cell is left free on either side. */
+    private static final int NAME_COLUMN = 1;
 
-    public static final List<Integer> VISIBILITY_SLOTS = SlotGeometry.rows(VISIBILITY_ROW, 1);
+    /** The cells under the name button: four, as {@code GUI_ROW_BUTTON_TAKE}, which the German rename label needs. */
+    private static final int NAME_CELLS = 4;
+
+    private static final int VISIBILITY_COLUMN = NAME_COLUMN + NAME_CELLS;
+
+    /** The cells under the visibility button: three, as the {@code GUI_ROW_BUTTON_CONFIRM} plate. */
+    private static final int VISIBILITY_CELLS = 3;
+
+    public static final List<Integer> NAME_SLOTS = cells(NAME_COLUMN, NAME_CELLS);
+
+    public static final List<Integer> VISIBILITY_SLOTS = cells(VISIBILITY_COLUMN, VISIBILITY_CELLS);
 
     private StationPanel() {}
 
-    /** Returns the window's rows: the heading, and the name and visibility buttons when {@code mayChange}. */
+    /** Returns the window's rows: the heading, and the row of buttons when {@code mayChange}. */
     public static int rows(final boolean mayChange) {
-        return mayChange ? 3 : 1;
+        return mayChange ? 2 : 1;
     }
 
     /** The labels of the name and visibility buttons, for a viewer who may change the station. */
@@ -59,14 +70,26 @@ public final class StationPanel {
         canvas.rowArt(Glyphs.GUI_ROW_ICON_POI, HEADING_ROW, ICON_X, MenuPalette.INK);
         canvas.rowText(MenuFont.fit(name, TEXT_RIGHT - TEXT_X), HEADING_ROW, TEXT_X, MenuPalette.INK);
         if (buttons != null) {
-            button(canvas, NAME_ROW, buttons.name());
-            button(canvas, VISIBILITY_ROW, buttons.visibility());
+            button(canvas, Glyphs.GUI_ROW_BUTTON_TAKE, NAME_COLUMN, NAME_CELLS, buttons.name());
+            button(canvas, Glyphs.GUI_ROW_BUTTON_CONFIRM, VISIBILITY_COLUMN, VISIBILITY_CELLS, buttons.visibility());
         }
         return canvas.build(title);
     }
 
-    private static void button(final MenuTitle.Canvas canvas, final int row, final String label) {
-        canvas.rowArt(Glyphs.GUI_ROW_PILL, row, PILL_X, null);
-        canvas.rowText(MenuFont.fit(label, TEXT_RIGHT - TEXT_X), row, TEXT_X, MenuPalette.INK);
+    private static void button(
+            final MenuTitle.Canvas canvas, final String plate, final int column, final int cells, final String label) {
+        canvas.rowButton(
+                plate,
+                BUTTON_ROW,
+                SlotGeometry.x(column) + INSET,
+                cells * SlotGeometry.PITCH - 2 * INSET,
+                label,
+                MenuPalette.INK);
+    }
+
+    private static List<Integer> cells(final int column, final int count) {
+        return IntStream.range(column, column + count)
+                .mapToObj(cell -> SlotGeometry.slot(cell, BUTTON_ROW))
+                .toList();
     }
 }

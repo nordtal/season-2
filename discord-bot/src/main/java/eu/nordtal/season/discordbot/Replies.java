@@ -56,6 +56,8 @@ public final class Replies {
             reply("purchase-gone", "Purchase").titled("Purchase closed");
     public static final DocumentSpec<DocumentSpec.None> PURCHASE_TIER_GONE =
             reply("purchase-tier-gone", "Purchase").titled("Period no longer offered");
+    public static final DocumentSpec<DocumentSpec.None> PURCHASE_CLOSED =
+            reply("purchase-closed", "Purchase").titled("No launch date yet");
     public static final DocumentSpec<DocumentSpec.None> PURCHASE_FAILED =
             reply("purchase-failed", "Purchase").titled("Payment link failed");
 

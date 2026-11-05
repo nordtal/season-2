@@ -21,26 +21,23 @@ public record RouteDecision(Action action, @Nullable String server) {
         /** Disconnect the player. The Discord account has left the guild or is banned. */
         REFUSE_NOT_MEMBER,
 
-        /** Disconnect the player. The phase is {@code SMP} and no period is running. */
+        /** Disconnect the player. The active mode is {@code SMP} and no period is running. */
         REFUSE_NO_ACCESS,
 
-        /** Disconnect the player. The phase is {@code MAINTENANCE} and no {@code limbo} is registered. */
+        /** Disconnect the player. Maintenance holds the player and no waiting room is registered. */
         REFUSE_MAINTENANCE_UNAVAILABLE,
 
-        /** Disconnect the player. The backend of the phase is not registered. */
+        /** Disconnect the player. The server of the active mode is not registered. */
         REFUSE_NO_SERVER,
 
-        /**
-         * Disconnect the player with the countdown screen.
-         * The phase changed to {@code PRE_LAUNCH} and the player has bought no period.
-         */
-        REFUSE_PRE_LAUNCH_BUY,
+        /** Disconnect the player with the closed screen. The season has no launch date. */
+        REFUSE_CLOSED,
 
-        /**
-         * Disconnect the player with the countdown screen.
-         * The phase changed to {@code PRE_LAUNCH} and the player has bought a period.
-         */
-        REFUSE_PRE_LAUNCH_READY
+        /** Disconnect the player with the countdown screen. The member has bought no period for the {@code SMP}. */
+        REFUSE_COUNTDOWN_BUY,
+
+        /** Disconnect the player with the countdown screen. The member may play at the start. */
+        REFUSE_COUNTDOWN_READY
     }
 
     public RouteDecision {

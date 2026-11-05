@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -14,19 +14,19 @@ import org.junit.jupiter.api.Test;
 /** Where a player coming back from a proxy swap is let out to. */
 class ParkedSeatsTest {
 
-    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
     private static final Set<String> AVAILABLE = Set.of("limbo", "limbo-standby", "hunger-games", "smp");
     private static final Instant NOW = Instant.parse("2026-09-19T20:00:00Z");
     private static final UUID PLAYER = UUID.fromString("00000000-0000-0000-0000-00000000f00d");
 
     @Test
     void anAdminGoesBackWhereTheyWere() {
-        // The only case where the seat differs from the phase: an admin is not moved.
+        // The only case where the seat differs from the server of the mode: an admin is not moved.
         assertEquals("hunger-games", ParkedSeats.destination("hunger-games", true, "smp", AVAILABLE, SERVERS));
     }
 
     @Test
-    void everybodyElseGoesByThePhase() {
+    void everybodyElseGoesToTheServerOfTheMode() {
         // For a non-admin the two agree by construction.
         assertEquals("smp", ParkedSeats.destination("hunger-games", false, "smp", AVAILABLE, SERVERS));
     }
@@ -53,7 +53,7 @@ class ParkedSeatsTest {
     void aSeatIsUsedOnce() {
         final ParkedSeats seats = new ParkedSeats(List.of(new SwapStore.Seat(PLAYER, "hunger-games", NOW)), NOW);
         assertEquals("hunger-games", seats.releaseTo(PLAYER, true, "smp", AVAILABLE, SERVERS));
-        // A retried release goes by the phase, since the seat is already used.
+        // A retried release goes to the server of the mode, since the seat is already used.
         assertEquals("smp", seats.releaseTo(PLAYER, true, "smp", AVAILABLE, SERVERS));
     }
 

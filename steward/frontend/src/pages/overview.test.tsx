@@ -80,12 +80,7 @@ function reading(alerts: unknown[], unreadable: string | null = null) {
 }
 
 /** `alerts` is a function, so a test can hold it open. */
-function backend(over: {
-  services?: unknown[]
-  backups?: unknown[]
-  alerts?: () => Promise<unknown>
-  season?: unknown
-}) {
+function backend(over: { services?: unknown[]; backups?: unknown[]; alerts?: () => Promise<unknown> }) {
   return vi.fn<(url: string) => Promise<Response>>(async (url: string) => {
     if (url === "/api/services") {
       return json(200, {
@@ -101,9 +96,6 @@ function backend(over: {
     if (url === "/api/agent") return json(200, { available: true })
     if (url.startsWith("/api/metrics")) return json(200, { points: [] })
     if (url.startsWith("/api/updates")) return json(200, [])
-    if (url === "/api/season") {
-      return json(200, over.season ?? { phase: "SMP", launch: null, smpStart: null })
-    }
     if (url.startsWith("/api/journal")) return json(200, { items: [], terms: [] })
     throw new Error(`the page asked for ${url}, which this test did not expect`)
   })
@@ -121,7 +113,6 @@ function draw() {
     createRoute({ getParentRoute: () => root, path: "/operations", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/operations/backups", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/services/$name", component: nothing }),
-    createRoute({ getParentRoute: () => root, path: "/season", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/journal", component: nothing }),
   ])
   const router = createRouter({

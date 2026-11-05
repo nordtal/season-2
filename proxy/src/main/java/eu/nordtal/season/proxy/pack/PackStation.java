@@ -9,14 +9,14 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
-import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.limboprotocol.LimboProtocol;
 import eu.nordtal.season.limboprotocol.WaitReason;
 import eu.nordtal.season.proxy.config.PackSpec;
 import eu.nordtal.season.proxy.gate.BackendHealth;
 import eu.nordtal.season.proxy.gate.LoginRoster;
-import eu.nordtal.season.proxy.phase.PhaseWatch;
-import eu.nordtal.season.proxy.routing.PhaseRouting;
+import eu.nordtal.season.proxy.routing.SeasonRouting;
+import eu.nordtal.season.proxy.season.SeasonWatch;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,6 +24,7 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
@@ -31,15 +32,15 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Keeps each player in {@code limbo} until the pack is applied and the backend of the phase accepts the player.
+ * Keeps each player in {@code limbo} until the pack is applied and the server of the active mode accepts them.
  * Each handler records a fact and asks {@link WaitingBook}.
  */
 public final class PackStation {
 
     private final ProxyServer proxy;
     private final Logger logger;
-    private final PhaseRouting routing;
-    private final PhaseWatch phases;
+    private final SeasonRouting routing;
+    private final SeasonWatch seasons;
     private final LoginRoster roster;
     private final PackMessages messages;
     private final PackSpec config;
@@ -62,14 +63,17 @@ public final class PackStation {
     /** Whether an admin keeps the backend stopped. */
     private volatile java.util.function.Predicate<String> held = server -> false;
 
+    /** Whether a mode switch holds every player. */
+    private volatile BooleanSupplier switching = () -> false;
+
     /** How far the running update is. */
     private volatile Supplier<OptionalInt> progress = OptionalInt::empty;
 
     public PackStation(
             final ProxyServer proxy,
             final Logger logger,
-            final PhaseRouting routing,
-            final PhaseWatch phases,
+            final SeasonRouting routing,
+            final SeasonWatch seasons,
             final LoginRoster roster,
             final PackMessages messages,
             final PackSpec config,
@@ -79,7 +83,7 @@ public final class PackStation {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.routing = Objects.requireNonNull(routing, "routing");
-        this.phases = Objects.requireNonNull(phases, "phases");
+        this.seasons = Objects.requireNonNull(seasons, "seasons");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.config = Objects.requireNonNull(config, "config");
@@ -101,6 +105,16 @@ public final class PackStation {
     /** Sets the check whether an update run has stopped a backend. */
     public void whenUpdating(final java.util.function.Predicate<String> updating) {
         this.updating = Objects.requireNonNull(updating, "updating");
+    }
+
+    /** Sets the check whether a mode switch holds every player. */
+    public void whenSwitching(final BooleanSupplier switching) {
+        this.switching = Objects.requireNonNull(switching, "switching");
+    }
+
+    /** Returns whether a mode switch holds every player. */
+    public boolean isSwitching() {
+        return switching.getAsBoolean();
     }
 
     /** Sets the source of the percentage of the running update. */
@@ -276,12 +290,18 @@ public final class PackStation {
             return;
         }
 
-        final SeasonPhase phase = phases.lastKnown();
+        final SeasonState season = seasons.state();
         final boolean admin = roster.isAdmin(uuid);
-        final String destination = routing.servers().forAdmitted(phase, admin);
+        final String destination = routing.servers().forMode(season.mode());
         final boolean available = proxy.getServer(destination).isPresent() && !health.isSuspended(destination);
         final WaitingDecision decision = book.decide(
-                uuid, phase, admin, available, destination, updating.test(destination), held.test(destination));
+                uuid,
+                holdOf(season, switching.getAsBoolean()),
+                admin,
+                available,
+                destination,
+                updating.test(destination),
+                held.test(destination));
 
         final OptionalInt percent = progress.get();
         switch (decision.action()) {
@@ -333,8 +353,7 @@ public final class PackStation {
 
     /** Returns the player to the waiting list after a failed release connection and suspends the backend. */
     public void releaseFailed(final Player player, final String cause) {
-        final String destination =
-                routing.servers().forAdmitted(phases.lastKnown(), roster.isAdmin(player.getUniqueId()));
+        final String destination = routing.servers().forMode(seasons.state().mode());
         book.releaseFailed(player.getUniqueId(), destination);
         health.suspend(destination);
         logger.warn(
@@ -344,6 +363,21 @@ public final class PackStation {
                 cause,
                 WaitingBook.RELEASE_RETRY.toSeconds());
         evaluate(player);
+    }
+
+    /** Returns what the season holds: a switch before maintenance. */
+    static SeasonHold holdOf(final SeasonState season, final boolean switching) {
+        if (switching) {
+            return SeasonHold.SWITCH;
+        }
+        return season.maintenance() ? SeasonHold.MAINTENANCE : SeasonHold.NONE;
+    }
+
+    /** Puts a player whom the gate lets wait back on the waiting list, with the maintenance screen. */
+    public void holdAgain(final Player player) {
+        if (onLimbo(player) && book.heldAgain(player.getUniqueId(), WaitReason.MAINTENANCE)) {
+            sendToLimbo(player, LimboProtocol.wait(WaitReason.MAINTENANCE, null));
+        }
     }
 
     // housekeeping

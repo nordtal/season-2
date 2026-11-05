@@ -3,6 +3,7 @@ package eu.nordtal.season.stewardagent;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseText;
@@ -27,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The host's side of a run: it writes a request to the inbox and reads its status.
@@ -84,13 +86,23 @@ final class HostRequests {
             System.err.println(REPLACE_LOCAL + " is for an update only, the one kind that replaces a build");
             return 2;
         }
-        final List<String> services =
-                args.size() > 2 && !args.get(2).isBlank() ? List.of(args.get(2).split(",")) : List.of();
+        final String named = args.size() > 2 ? args.get(2) : "";
+        final @Nullable SeasonMode target = kind == UpdateKind.SWITCH_MODE ? modeNamed(named) : null;
+        if (kind == UpdateKind.SWITCH_MODE && target == null) {
+            System.err.println("request SWITCH_MODE MODE: MODE is one of " + Arrays.toString(SeasonMode.values()));
+            return 2;
+        }
+        final List<String> services = target == null && !named.isBlank() ? List.of(named.split(",")) : List.of();
         final Duration delay = Duration.ofMinutes(args.size() > 3 ? Long.parseLong(args.get(3)) : 0);
         try {
-            final UpdateRequest written = replaceLocal
-                    ? runs.submit(new StewardRequest.Update(true), services, Actor.HOST, delay)
-                    : runs.submit(kind, Actor.HOST, delay, services);
+            final UpdateRequest written;
+            if (target != null) {
+                written = runs.submit(new StewardRequest.SwitchMode(target, null), services, Actor.HOST, delay);
+            } else if (replaceLocal) {
+                written = runs.submit(new StewardRequest.Update(true), services, Actor.HOST, delay);
+            } else {
+                written = runs.submit(kind, Actor.HOST, delay, services);
+            }
             System.out.println(written.id());
             return 0;
         } catch (final Refused refused) {
@@ -100,6 +112,14 @@ final class HostRequests {
             System.err.println(refused.getMessage());
             return 2;
         }
+    }
+
+    /** Returns the mode a host names in place of the services of a {@code SWITCH_MODE}, or null if it names none. */
+    static @Nullable SeasonMode modeNamed(final String named) {
+        return Arrays.stream(SeasonMode.values())
+                .filter(mode -> mode.name().equalsIgnoreCase(named.strip()))
+                .findFirst()
+                .orElse(null);
     }
 
     private static int status(final UpdateDirectory runs, final String[] args) {

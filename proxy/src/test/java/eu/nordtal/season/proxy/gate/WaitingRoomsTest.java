@@ -6,7 +6,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.server.ServerInfo;
 import eu.nordtal.season.common.time.Waiting;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import java.lang.reflect.Proxy;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 /** The live proxy answers only once its waiting room does, so the standby keeps its players until then. */
 class WaitingRoomsTest {
 
-    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     private final Driven clock = new Driven();
 

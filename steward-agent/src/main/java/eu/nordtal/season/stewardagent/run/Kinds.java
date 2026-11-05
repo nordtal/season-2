@@ -15,6 +15,7 @@ import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import eu.nordtal.season.stewardagent.plan.Work;
 import eu.nordtal.season.stewardagent.schema.Schema;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,16 +69,16 @@ final class Kinds {
         final Work planned = ForeignImages.withImages(Work.of(plan), images, topology, scope)
                 .without(holds)
                 .with(MissingSecrets.of(runner.containers, topology, scope, holds));
-        skipped(
-                record,
-                holds.stream()
-                        .filter(service -> scope.isEmpty() || scope.contains(service))
-                        .toList(),
-                RunStep.Reason.HELD);
+        skippedHeld(record, holds, scope);
         Resolved.services(record, planned);
         Release.changed(plan.seasonTag(), Release.ownVersion())
                 .ifPresent(release -> resolving.change(RELEASE, Release.ownVersion(), release, null));
-        final List<String> foreign = renewed(ForeignImages.staleForeign(topology, images), scope, holds);
+        // A resting server takes its files but is neither stopped, started nor recreated.
+        final List<String> resting = runner.resting();
+        final List<String> foreign = renewed(
+                ForeignImages.staleForeign(topology, images),
+                scope,
+                Stream.concat(holds.stream(), resting.stream()).toList());
 
         // A build made on this host is replaced only when the request said so.
         final Release.Standing standing = Release.of(plan.seasonTag(), Release.ownVersion());
@@ -102,15 +103,28 @@ final class Kinds {
                     : Planned.outcome(Outcome.at(plan.hasFailures() ? RunStage.FAILED : RunStage.NOTHING_TO_DO));
         }
 
-        return Planned.plan(Run.Plan.of(
-                        planned.moving(),
-                        pruningImages(
-                                runner.containers,
-                                planned.isWork() ? install(runner, plan, planned, progress, record) : Run.Payload.NONE,
-                                record),
-                        true,
-                        Runner.Doubt.FAILS_THE_RUN)
-                .renewing(planned.services(), images, foreign, plan.hasFailures()));
+        // A resting server takes its files, so an update of nothing else stops nobody and warns nobody.
+        final List<String> awake = awake(planned.moving(), resting);
+        final boolean onlyResting = !planned.moving().isEmpty() && awake.isEmpty() && foreign.isEmpty();
+        final Run.Payload payload =
+                planned.isWork() ? install(runner, plan, planned, resting, progress, record) : Run.Payload.NONE;
+        return Planned.plan(
+                Run.Plan.of(awake, pruningImages(runner.containers, payload, record), true, Runner.Doubt.FAILS_THE_RUN)
+                        .announced(!onlyResting)
+                        .renewing(planned.services(), images, foreign, plan.hasFailures()));
+    }
+
+    private static void skippedHeld(final Steps record, final List<String> holds, final List<String> scope) {
+        skipped(
+                record,
+                holds.stream()
+                        .filter(service -> scope.isEmpty() || scope.contains(service))
+                        .toList(),
+                RunStep.Reason.HELD);
+    }
+
+    private static List<String> awake(final List<String> moving, final List<String> resting) {
+        return moving.stream().filter(service -> !resting.contains(service)).toList();
     }
 
     private static List<String> renewed(final List<String> stale, final List<String> scope, final List<String> holds) {
@@ -234,6 +248,7 @@ final class Kinds {
             final Runner runner,
             final UpdatePlan plan,
             final Work planned,
+            final List<String> resting,
             final Consumer<RunStage> progress,
             final Steps record) {
         return (steps, state) -> {
@@ -249,7 +264,9 @@ final class Kinds {
             }
             final ApplyResult result =
                     Runs.apply(runner.config, runner.topology(), plan, runner.settings(), runner.plugins);
-            Installed.record(record, planned, result, state.services());
+            final List<String> installed = new ArrayList<>(state.services());
+            installed.addAll(resting);
+            Installed.record(record, planned, result, installed);
             return new Run.Done(result.hasFailures());
         };
     }
@@ -258,7 +275,10 @@ final class Kinds {
         final List<String> holds = runner.held();
         final List<String> scope = runner.directory.scopeOf(request.id());
         final List<String> servers = runner.servers();
-        final List<String> restarted = Runner.restarted(servers, scope, holds);
+        // A resting server is stopped by the mode, and a restart wakes none.
+        final List<String> resting = runner.resting();
+        final List<String> restarted = Runner.restarted(
+                servers, scope, Stream.concat(holds.stream(), resting.stream()).toList());
         if (restarted.isEmpty()) {
             if (scope.isEmpty()) {
                 record.ended(RunStep.Kind.SCOPE, null, RunStep.Outcome.SKIPPED, RunStep.Reason.HELD);
@@ -445,15 +465,25 @@ final class Kinds {
             return failed();
         }
         final List<String> holds = runner.held();
+        // Recreating a resting server would start it, which only a start or a switch does.
+        final List<String> resting = runner.resting();
         final List<String> ours = scope.stream()
                 .filter(recreatable::contains)
                 .filter(service -> !holds.contains(service))
+                .filter(service -> !resting.contains(service))
                 .toList();
         final List<String> theirs = foreign.stream()
                 .filter(scope::contains)
                 .filter(service -> !holds.contains(service))
                 .toList();
         skipped(record, scope.stream().filter(holds::contains).toList(), RunStep.Reason.HELD);
+        skipped(
+                record,
+                scope.stream()
+                        .filter(resting::contains)
+                        .filter(service -> !holds.contains(service))
+                        .toList(),
+                RunStep.Reason.NOT_IN_SCOPE);
         if (ours.isEmpty() && theirs.isEmpty()) {
             return Planned.outcome(Outcome.at(RunStage.NOTHING_TO_DO));
         }

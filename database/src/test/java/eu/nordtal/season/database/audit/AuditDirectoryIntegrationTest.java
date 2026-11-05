@@ -6,12 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.JournalDetail.AccessGranted;
 import eu.nordtal.season.database.JournalDetail.Settled;
+import eu.nordtal.season.database.SeasonDetail;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
@@ -97,6 +98,9 @@ class AuditDirectoryIntegrationTest {
         assertEquals(
                 Set.of(),
                 Arrays.stream(JournalDetail.class.getPermittedSubclasses())
+                        .flatMap(kind -> kind.isInterface()
+                                ? Arrays.stream(kind.getPermittedSubclasses())
+                                : java.util.stream.Stream.of(kind))
                         .filter(kind -> !covered.contains(kind) && !ALERT_DETAILS.contains(kind))
                         .collect(Collectors.toSet()),
                 "every detail is written and read back here");
@@ -235,15 +239,7 @@ class AuditDirectoryIntegrationTest {
         written.put(
                 new Settled(byHand, "NT-HANDHA", PaymentMatch.MANUAL, 7, 7, null, Money.euroCents(0)),
                 JournalAction.SETTLE);
-        written.put(
-                new JournalDetail.PhaseSet(SeasonPhase.PRE_EVENT, SeasonPhase.SMP, "the opening"),
-                JournalAction.SET_PHASE);
-        written.put(
-                new JournalDetail.PhaseSet(SeasonPhase.SMP, SeasonPhase.MAINTENANCE, null), JournalAction.SET_PHASE);
-        written.put(new JournalDetail.LaunchSet(UNTIL), JournalAction.SET_LAUNCH);
-        written.put(new JournalDetail.LaunchSet(null), JournalAction.SET_LAUNCH);
-        written.put(new JournalDetail.SmpStartSet(UNTIL, 3), JournalAction.SET_SMP_START);
-        written.put(new JournalDetail.SmpStartSet(null, 0), JournalAction.SET_SMP_START);
+        seasonDetails(written);
         written.put(new JournalDetail.KeyRegistered("YubiKey"), JournalAction.REGISTER_KEY);
         written.put(new JournalDetail.KeyHeld("YubiKey", true, Duration.ofMinutes(15)), JournalAction.HELD_KEY);
         written.put(new JournalDetail.KeyRenamed("Laptop"), JournalAction.RENAME_KEY);
@@ -279,6 +275,29 @@ class AuditDirectoryIntegrationTest {
         written.put(new JournalDetail.TrackReset(null), JournalAction.RESET_TRACK);
 
         return written;
+    }
+
+    /** One detail of every season action, the old phase ones included until their contract step. */
+    private static void seasonDetails(final Map<JournalDetail, JournalAction> written) {
+        written.put(new SeasonDetail.PhaseSet("PRE_EVENT", "SMP", "the opening"), JournalAction.SET_PHASE);
+        written.put(new SeasonDetail.PhaseSet("SMP", "MAINTENANCE", null), JournalAction.SET_PHASE);
+        written.put(new SeasonDetail.LaunchSet(UNTIL), JournalAction.SET_LAUNCH);
+        written.put(new SeasonDetail.LaunchSet(null), JournalAction.SET_LAUNCH);
+        written.put(new SeasonDetail.SmpStartSet(UNTIL, 3), JournalAction.SET_SMP_START);
+        written.put(new SeasonDetail.SmpStartSet(null, 0), JournalAction.SET_SMP_START);
+        written.put(new SeasonDetail.LaunchDateSet(null, UNTIL, 0, null), JournalAction.SET_LAUNCH_DATE);
+        written.put(
+                new SeasonDetail.LaunchDateSet(UNTIL.minus(Duration.ofDays(2)), UNTIL, 4, "a later weekend"),
+                JournalAction.SET_LAUNCH_DATE);
+        written.put(
+                new SeasonDetail.LaunchedNow(UNTIL, UNTIL.minus(Duration.ofDays(1)), 4, null),
+                JournalAction.LAUNCH_NOW);
+        written.put(new SeasonDetail.SeasonClosed(UNTIL, "the map is broken"), JournalAction.CLOSE_SEASON);
+        written.put(new SeasonDetail.MaintenanceSet(true, "the backup"), JournalAction.SET_MAINTENANCE);
+        written.put(new SeasonDetail.MaintenanceSet(false, null), JournalAction.SET_MAINTENANCE);
+        written.put(
+                new SeasonDetail.ModeSwitched(SeasonMode.HUNGER_GAMES, SeasonMode.SMP, null),
+                JournalAction.SWITCH_MODE);
     }
 
     /** Three entries about Alice and one about Bob, two of which share an action. */

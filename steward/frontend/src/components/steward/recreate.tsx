@@ -2,12 +2,12 @@ import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 import { toast } from "sonner"
 
-import { useAgent, useAskForRun } from "@/lib/queries"
+import { useAgent, useAskForRun, useServices } from "@/lib/queries"
 import { lockTitle, touches, useRunLock } from "@/lib/run-lock"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Hint, runKind } from "@/components/steward/status"
+import { Hint, restingMode, runKind } from "@/components/steward/status"
 import { message, t } from "@/lib/texts"
 
 /** It is a run like any other, so players are warned and moved before the container goes. */
@@ -108,12 +108,16 @@ export function useRecreateGate(service: string): { unavailable: boolean; title:
    * A run owns the containers in its scope, and recreating a container that the run is about to stop would race the run.
    */
   const run = useRunLock().run
+  /** The inactive mode's server only starts, so nothing replaces a container that is meant to rest. */
+  const row = useServices().data?.services.find((each) => each.service === service)
+  const rests = row !== undefined && restingMode(row)
   const lock =
     run && touches(run, service) ? { locked: true, title: lockTitle(run) } : { locked: false, title: undefined }
   const unreachable = agent.data?.available === true && agent.data.reachable === false
-  const unavailable = agent.data?.available === false || unreachable || agent.isError || lock.locked
+  const unavailable = agent.data?.available === false || unreachable || agent.isError || lock.locked || rests
   const title =
     lock.title ??
+    (rests ? t("steward.service-page.resting-first") : undefined) ??
     (agent.data?.available === false
       ? agent.data.reason && message(agent.data.reason)
       : unreachable

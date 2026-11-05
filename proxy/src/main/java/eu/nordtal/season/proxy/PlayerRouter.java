@@ -6,19 +6,20 @@ import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.access.AccessReader;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.proxy.gate.BackendHealth;
 import eu.nordtal.season.proxy.gate.FallbackCache;
 import eu.nordtal.season.proxy.gate.GateMessages;
+import eu.nordtal.season.proxy.gate.GateOutcome;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import eu.nordtal.season.proxy.pack.PackStation;
-import eu.nordtal.season.proxy.phase.PhaseWatch;
-import eu.nordtal.season.proxy.routing.PhaseRouting;
 import eu.nordtal.season.proxy.routing.RouteDecision;
 import eu.nordtal.season.proxy.routing.RouteIntents;
+import eu.nordtal.season.proxy.routing.SeasonRouting;
+import eu.nordtal.season.proxy.season.SeasonWatch;
 import eu.nordtal.season.proxy.update.ParkedSeats;
 import java.time.Clock;
 import java.time.Instant;
@@ -34,16 +35,16 @@ import org.slf4j.Logger;
 
 /**
  * Executes a {@link RouteDecision} as a connection or a disconnect.
- * A phase change leaves the players in the waiting room to the pack station.
+ * A season change leaves the players in the waiting room to the pack station.
  */
-public final class PlayerRouter implements PhaseWatch.ChangeListener {
+public final class PlayerRouter implements SeasonWatch.ChangeListener {
 
     private final Scheduler scheduler;
     private final ProxyServer proxy;
     private final Logger logger;
     private final AccessReader access;
-    private final PhaseRouting routing;
-    private final PhaseWatch phases;
+    private final SeasonRouting routing;
+    private final SeasonWatch seasons;
     private final LoginRoster roster;
     private final FallbackCache fallback;
     private final GateMessages messages;
@@ -66,8 +67,8 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             final ProxyServer proxy,
             final Logger logger,
             final AccessReader access,
-            final PhaseRouting routing,
-            final PhaseWatch phases,
+            final SeasonRouting routing,
+            final SeasonWatch seasons,
             final LoginRoster roster,
             final FallbackCache fallback,
             final GateMessages messages,
@@ -77,13 +78,13 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             final ParkedSeats seats,
             final eu.nordtal.season.proxy.update.Homecoming homecoming,
             final Clock clock) {
-        this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.access = Objects.requireNonNull(access, "access");
         this.routing = Objects.requireNonNull(routing, "routing");
-        this.phases = Objects.requireNonNull(phases, "phases");
+        this.seasons = Objects.requireNonNull(seasons, "seasons");
         this.roster = Objects.requireNonNull(roster, "roster");
         this.fallback = Objects.requireNonNull(fallback, "fallback");
         this.messages = Objects.requireNonNull(messages, "messages");
@@ -96,14 +97,14 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
 
     /**
      * Sets {@code limbo} as the initial server of every admitted login.
-     * It reads {@link PhaseWatch#lastKnown()} and {@link LoginRoster}.
+     * It reads {@link SeasonWatch#state()} and {@link LoginRoster}.
      */
     @Subscribe
     public void onChooseInitialServer(final PlayerChooseInitialServerEvent event) {
-        final SeasonPhase phase = phases.lastKnown();
+        final SeasonState season = seasons.state();
         final Player player = event.getPlayer();
         final UUID uuid = player.getUniqueId();
-        final RouteDecision decision = routing.decideInitial(phase, roster.isAdmin(uuid), registeredServerNames());
+        final RouteDecision decision = routing.decideInitial(season, roster.isAdmin(uuid), registeredServerNames());
 
         switch (decision.action()) {
             case CONNECT -> {
@@ -113,82 +114,94 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                 if (!routing.servers().isWaitingRoom(server)) {
                     logger.warn(
                             "No '{}' server is registered, so admin {} is connected straight to "
-                                    + "'{}' in phase {} - WITHOUT the resource pack",
+                                    + "'{}' in {} - WITHOUT the resource pack",
                             routing.servers().limbo(),
                             player.getUsername(),
                             server,
-                            phase);
+                            season);
                 }
             }
             case STAY ->
                 logger.warn(
-                        "Routing answered STAY for {} at login in phase {}, which "
-                                + "leaves the choice to velocity.toml",
+                        "Routing answered STAY for {} at login in {}, which leaves the choice to velocity.toml",
                         player.getUsername(),
-                        phase);
+                        season);
             default -> {
                 event.setInitialServer(null);
                 logger.error(
                         "No '{}' server is registered on this proxy, so {} cannot be put in the "
-                                + "waiting room in phase {} and is being disconnected instead",
+                                + "waiting room in {} and is being disconnected instead",
                         routing.servers().limbo(),
                         player.getUsername(),
-                        phase);
-                player.disconnect(reasonFor(decision, roster.localeOf(uuid), null, null));
+                        season);
+                player.disconnect(reasonFor(decision, roster.localeOf(uuid), null, clock.instant()));
             }
         }
     }
 
-    /** Connects a player whom the pack station released to the server of the phase. */
+    /**
+     * Connects a player whom the pack station released to the server of the active mode, through the gate.
+     * A refused player gets the screen of the refusal, and a player whom maintenance holds waits again.
+     */
     public void releaseFromLimbo(final Player player) {
-        final SeasonPhase phase = phases.lastKnown();
-        final RouteDecision decision =
-                routing.decideRelease(phase, roster.isAdmin(player.getUniqueId()), registeredServerNames());
+        final UUID uuid = player.getUniqueId();
+        final Instant now = clock.instant();
+        final Set<String> available = registeredServerNames();
+        AccessState state = null;
+        RouteDecision decision;
+        try {
+            state = access.accessState(uuid);
+            fallback.remember(uuid, state);
+            roster.remember(uuid, state);
+            decision = routing.decideRelease(state, available, now);
+        } catch (final RuntimeException exception) {
+            logger.warn(
+                    "Could not re-check {} ({}) on leaving the waiting room; routing by the last known season",
+                    uuid,
+                    player.getUsername(),
+                    exception);
+            decision = routing.decideRemembered(seasons.state(), roster.isAdmin(uuid), available);
+        }
+        final Locale locale = state == null ? roster.localeOf(uuid) : state.locale();
 
         switch (decision.action()) {
             case CONNECT -> {
-                final String phaseDestination =
+                final String modeDestination =
                         Objects.requireNonNull(decision.server(), "CONNECT always carries a server");
-                final String destination = seats.releaseTo(
-                        player.getUniqueId(),
-                        roster.isAdmin(player.getUniqueId()),
-                        phaseDestination,
-                        registeredServerNames(),
-                        routing.servers());
+                final String destination =
+                        seats.releaseTo(uuid, roster.isAdmin(uuid), modeDestination, available, routing.servers());
                 homecoming.comingBack(player, destination);
-                connect(
-                        player,
-                        destination,
-                        roster.localeOf(player.getUniqueId()),
-                        cause -> packs.releaseFailed(player, cause));
+                connect(player, destination, locale, cause -> packs.releaseFailed(player, cause));
             }
-            case STAY ->
-                logger.warn(
-                        "The pack station released {} but routing says to leave them " + "where they are, in phase {}",
-                        player.getUsername(),
-                        phase);
+            case STAY -> {
+                logger.info("{} leaves the waiting room into maintenance, so they wait again", player.getUsername());
+                packs.holdAgain(player);
+                scheduler.execute(() -> {
+                    final boolean _ = seasons.refresh();
+                });
+            }
             default -> {
-                logger.error(
-                        "The pack station released {} but routing now says {}",
+                logger.info(
+                        "{} leaves the waiting room and the gate refuses them: {}",
                         player.getUsername(),
                         decision.action());
-                player.disconnect(reasonFor(decision, roster.localeOf(player.getUniqueId()), null, null));
+                player.disconnect(reasonFor(decision, locale, state, now));
             }
         }
     }
 
     @Override
-    public void phaseChanged(final @Nullable SeasonPhase previous, final SeasonPhase current) {
-        onPhaseChanged(previous, current);
+    public void seasonChanged(final @Nullable SeasonState previous, final SeasonState current) {
+        onSeasonChanged(previous, current);
     }
 
-    /** Schedules a re-route of every connected player. */
-    public void onPhaseChanged(final @Nullable SeasonPhase previous, final SeasonPhase current) {
+    /** Schedules a re-route of every connected player. The first read changes nothing. */
+    public void onSeasonChanged(final @Nullable SeasonState previous, final SeasonState current) {
         if (previous == null) {
             return;
         }
         logger.info(
-                "Phase changed {} -> {}: re-routing {} connected players",
+                "Season changed {} -> {}: re-routing {} connected players",
                 previous,
                 current,
                 proxy.getAllPlayers().size());
@@ -196,28 +209,29 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     }
 
     /**
-     * Re-routes every connected player.
+     * Re-routes every connected player by the gate.
      *
-     * @param phase the phase for the log
+     * @param season the state for the log
      * @return the number of moved or disconnected players
      */
-    public int rerouteAll(final SeasonPhase phase) {
+    public int rerouteAll(final SeasonState season) {
         final Set<String> available = registeredServerNames();
+        final Instant now = clock.instant();
         int acted = 0;
         for (final Player player : proxy.getAllPlayers()) {
-            if (rerouteOne(player, available)) {
+            if (rerouteOne(player, available, now)) {
                 acted++;
             }
         }
         logger.info(
                 "Re-route for {} finished: {} of {} players moved or disconnected",
-                phase,
+                season,
                 acted,
                 proxy.getAllPlayers().size());
         return acted;
     }
 
-    private boolean rerouteOne(final Player player, final Set<String> available) {
+    private boolean rerouteOne(final Player player, final Set<String> available, final Instant now) {
         final UUID uuid = player.getUniqueId();
 
         final AccessState state;
@@ -225,7 +239,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
             state = access.accessState(uuid);
         } catch (final RuntimeException exception) {
             logger.warn(
-                    "Could not re-check {} ({}) while re-routing for a phase change; leaving " + "them where they are",
+                    "Could not re-check {} ({}) while re-routing for a season change; leaving them where they are",
                     uuid,
                     player.getUsername(),
                     exception);
@@ -234,11 +248,15 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
         fallback.remember(uuid, state);
         roster.remember(uuid, state);
 
-        final RouteDecision decision = routing.decide(state, available);
-        if (packs.isHeld(uuid)
-                && (decision.action() == RouteDecision.Action.CONNECT
-                        || decision.action() == RouteDecision.Action.STAY)) {
+        final RouteDecision decision = routing.decide(state, available, now);
+        final boolean moves =
+                decision.action() == RouteDecision.Action.CONNECT || decision.action() == RouteDecision.Action.STAY;
+        if (moves && packs.isHeld(uuid)) {
             packs.evaluate(player);
+            return false;
+        }
+        if (moves && packs.isSwitching()) {
+            // The evacuation of the switch moves the players, and the waiting room releases them.
             return false;
         }
         return switch (decision.action()) {
@@ -255,8 +273,8 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
                                 available),
                         state.locale());
             default -> {
-                logger.info("Disconnecting {} on the phase change: {}", player.getUsername(), decision.action());
-                player.disconnect(reasonFor(decision, state.locale(), state.launch(), clock.instant()));
+                logger.info("Disconnecting {} on the season change: {}", player.getUsername(), decision.action());
+                player.disconnect(reasonFor(decision, state.locale(), state, now));
                 yield true;
             }
         };
@@ -269,7 +287,7 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     static String viaWaitingRoom(
             final String server,
             final @Nullable String current,
-            final PhaseServers servers,
+            final NetworkServers servers,
             final Set<String> available) {
         if (server.equals(current)) {
             return server;
@@ -340,22 +358,26 @@ public final class PlayerRouter implements PhaseWatch.ChangeListener {
     /**
      * Returns the screen for the refusal.
      *
-     * @param launch the opening time, {@code null} without a date
+     * @param state the access of the player, {@code null} when it was not read
      */
     private Component reasonFor(
-            final RouteDecision decision,
-            final Locale locale,
-            final @Nullable Instant launch,
-            final @Nullable Instant now) {
+            final RouteDecision decision, final Locale locale, final @Nullable AccessState state, final Instant now) {
         return switch (decision.action()) {
             case REFUSE_UNLINKED -> messages.unlinked(locale);
             case REFUSE_NOT_MEMBER -> messages.notMember(locale);
             case REFUSE_NO_ACCESS -> messages.noAccess(locale);
             case REFUSE_MAINTENANCE_UNAVAILABLE -> messages.maintenance(locale);
             case REFUSE_NO_SERVER -> messages.noServer(locale);
-            case REFUSE_PRE_LAUNCH_BUY -> messages.preLaunchBuy(locale, launch, now);
-            case REFUSE_PRE_LAUNCH_READY -> messages.preLaunchReady(locale, launch, now);
+            case REFUSE_CLOSED -> beforeLaunch(GateOutcome.CLOSED, locale, state, now);
+            case REFUSE_COUNTDOWN_BUY -> beforeLaunch(GateOutcome.COUNTDOWN_BUY, locale, state, now);
+            case REFUSE_COUNTDOWN_READY -> beforeLaunch(GateOutcome.COUNTDOWN_READY, locale, state, now);
             case CONNECT, STAY -> throw new IllegalArgumentException("not a refusal: " + decision.action());
         };
+    }
+
+    /** Returns the screen of a season that has not launched, the trouble screen without a read state. */
+    private Component beforeLaunch(
+            final GateOutcome outcome, final Locale locale, final @Nullable AccessState state, final Instant now) {
+        return state == null ? messages.trouble(locale) : messages.beforeLaunch(outcome, state, now);
     }
 }

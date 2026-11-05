@@ -15,7 +15,7 @@ import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import eu.nordtal.season.proxy.ProxyRenderer;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.lang.reflect.Proxy;
@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 /** A player on a stopped server is asked to move once, told why once, and never shown Velocity's own refusal. */
 class EvacuationMovesTest {
 
-    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     private final RegisteredServer limbo = server("limbo");
     private final RegisteredServer smp = server("smp");
@@ -169,6 +169,7 @@ class EvacuationMovesTest {
         return fake(UpdateDirectory.class, (method, arguments) -> switch (method) {
             case "holds" -> List.of();
             case "running" -> Optional.of(running);
+            case "lastStartedSwitch" -> Optional.empty();
             case "recorder" -> recorder;
             case "stepsOf" -> {
                 if (unreadableSteps) {

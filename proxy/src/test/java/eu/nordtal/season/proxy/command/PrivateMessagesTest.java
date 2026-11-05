@@ -10,8 +10,9 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.MemberState;
 import eu.nordtal.season.messages.document.DocumentSpec;
@@ -241,8 +242,7 @@ class PrivateMessagesTest {
                 false,
                 0L,
                 locale,
-                SeasonPhase.SMP,
-                null);
+                new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
     /** A name and a UUID, which is all {@link PrivateMessages#line} asks a player for. */

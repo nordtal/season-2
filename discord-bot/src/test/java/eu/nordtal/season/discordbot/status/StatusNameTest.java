@@ -2,10 +2,10 @@ package eu.nordtal.season.discordbot.status;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.network.NetworkSnapshot;
 import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
@@ -24,9 +24,20 @@ class StatusNameTest {
     private static final NetworkSnapshot RUNNING =
             new NetworkSnapshot(8, 3, 24, 7, 17, "NETHER", 40, 3, 8, 12_400L, 31);
 
+    private static final SeasonState CLOSED = new SeasonState(null, false, SeasonMode.HUNGER_GAMES);
+    private static final SeasonState LAUNCHED = CLOSED.withLaunch(NOW.minus(Duration.ofDays(1)));
+
+    /** Every state the gate tells apart, the countdown two days out. */
+    private static final List<SeasonState> STATES = List.of(
+            CLOSED,
+            CLOSED.withLaunch(NOW.plus(Duration.ofDays(2))),
+            LAUNCHED.withMaintenance(true),
+            LAUNCHED.withMode(SeasonMode.SMP),
+            LAUNCHED);
+
     private static String at(final Duration untilLaunch) {
         return StatusName.render(
-                MESSAGES, Locale.ENGLISH, SeasonPhase.PRE_LAUNCH, NetworkSnapshot.EMPTY, NOW.plus(untilLaunch), NOW);
+                MESSAGES, Locale.ENGLISH, CLOSED.withLaunch(NOW.plus(untilLaunch)), NetworkSnapshot.EMPTY, NOW);
     }
 
     @Test
@@ -61,101 +72,103 @@ class StatusNameTest {
     }
 
     @Test
-    void aDateThatHasPassedIsNotANegativeNumber() {
-        // A passed date is normal until an admin switches the phase.
-        assertEquals("Opens any moment", at(Duration.ofHours(-6)));
+    void aDateThatHasPassedOpensTheSeasonByItself() {
+        assertEquals("3 teams left, 7 alive", render(CLOSED.withLaunch(NOW.minus(Duration.ofSeconds(1)))));
     }
 
     @Test
     void noDateAtAllSaysSoRatherThanCountingFromNothing() {
+        assertEquals("Launch date to come", render(CLOSED));
+    }
+
+    @Test
+    void aClosedSeasonInMaintenanceStillShowsTheClosedSeason() {
+        assertEquals("Launch date to come", render(CLOSED.withMaintenance(true)));
+        assertEquals("Opens in 2d 0h", render(CLOSED.withMaintenance(true).withLaunch(NOW.plus(Duration.ofDays(2)))));
+    }
+
+    @Test
+    void theHungerGamesShowWhoHasRegisteredUntilTheFirstElimination() {
         assertEquals(
-                "Opening date to come",
-                StatusName.render(MESSAGES, Locale.ENGLISH, SeasonPhase.PRE_LAUNCH, NetworkSnapshot.EMPTY, null, NOW));
+                "8 teams registered",
+                StatusName.render(
+                        MESSAGES,
+                        Locale.ENGLISH,
+                        LAUNCHED,
+                        new NetworkSnapshot(8, 8, 24, 24, 0, "", 0, 0, 0, 0L, 31),
+                        NOW));
     }
 
     @Test
-    void preEventShowsWhoHasRegistered() {
-        assertEquals("8 teams registered", render(SeasonPhase.PRE_EVENT));
-    }
-
-    @Test
-    void theEventShowsWhoIsLeft() {
-        assertEquals("3 teams left, 7 alive", render(SeasonPhase.START_EVENT));
+    void theHungerGamesShowWhoIsLeftOnceAnyoneIsEliminated() {
+        assertEquals(
+                "3 teams left, 7 alive",
+                StatusName.render(
+                        MESSAGES,
+                        Locale.ENGLISH,
+                        LAUNCHED,
+                        new NetworkSnapshot(8, 3, 24, 7, 17, "", 0, 0, 0, 0L, 31),
+                        NOW));
     }
 
     @Test
     void theSmpShowsRegisteredPlayersDeliberatelyNotTheMilestone() {
         // Chosen over the milestone percentage, which moves faster than the rename budget.
-        assertEquals("31 players", render(SeasonPhase.SMP));
+        final SeasonState smp = LAUNCHED.withMode(SeasonMode.SMP);
+        assertEquals("31 players", render(smp));
         assertEquals(
                 "1,200 players",
                 StatusName.render(
                         MESSAGES,
                         Locale.ENGLISH,
-                        SeasonPhase.SMP,
+                        smp,
                         new NetworkSnapshot(8, 3, 24, 7, 17, "NETHER", 40, 3, 8, 12_400L, 1200),
-                        null,
                         NOW));
     }
 
     @Test
-    void maintenanceSaysSoAndReadsNoCounts() {
-        assertEquals("Maintenance", render(SeasonPhase.MAINTENANCE));
+    void maintenanceOfALaunchedSeasonSaysSoInEitherMode() {
+        assertEquals("Maintenance", render(LAUNCHED.withMaintenance(true)));
+        assertEquals("Maintenance", render(LAUNCHED.withMaintenance(true).withMode(SeasonMode.SMP)));
     }
 
     @Test
-    void everyPhaseRendersInGermanToo() {
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            final String german =
-                    StatusName.render(MESSAGES, Locale.GERMAN, phase, RUNNING, NOW.plus(Duration.ofDays(2)), NOW);
-            assertTrue(german != null && !german.isBlank(), phase + " has no German name");
-            assertNotEquals(phase.name(), german, phase + " fell through to its own enum name");
-        }
+    void onlyAnOpenModeReadsTheCounts() {
+        assertTrue(StatusName.needsCounts(LAUNCHED, NOW));
+        assertTrue(StatusName.needsCounts(LAUNCHED.withMode(SeasonMode.SMP), NOW));
+        assertFalse(StatusName.needsCounts(LAUNCHED.withMaintenance(true), NOW));
+        assertFalse(StatusName.needsCounts(CLOSED, NOW));
+        assertFalse(StatusName.needsCounts(CLOSED.withLaunch(NOW.plus(Duration.ofHours(1))), NOW));
+    }
+
+    @Test
+    void aSeasonThatCannotBeReadShowsMaintenance() {
+        assertEquals("Maintenance", render(SeasonState.UNREAD));
+    }
+
+    @Test
+    void everyStateRendersInGermanToo() {
+        final List<String> german = STATES.stream()
+                .map(state -> StatusName.render(MESSAGES, Locale.GERMAN, state, RUNNING, NOW))
+                .toList();
+        assertEquals(
+                List.of("Starttermin folgt", "Start in 2T 0Std", "Wartung", "31 Spieler", "3 Teams übrig, 7 am Leben"),
+                german);
     }
 
     @Test
     void everyNameFitsInAChannelName() {
-        for (final SeasonPhase phase : SeasonPhase.values()) {
+        for (final SeasonState state : STATES) {
             for (final Locale locale : new Locale[] {Locale.ENGLISH, Locale.GERMAN}) {
-                final String name =
-                        StatusName.render(MESSAGES, locale, phase, RUNNING, NOW.plus(Duration.ofDays(365)), NOW);
+                final String name = StatusName.render(MESSAGES, locale, state, RUNNING, NOW);
                 assertTrue(
                         name.length() <= Channel.MAX_NAME_LENGTH,
-                        phase + "/" + locale + " is " + name.length() + " characters: " + name);
+                        state + "/" + locale + " is " + name.length() + " characters: " + name);
             }
         }
     }
 
-    @Test
-    void aPhaseIsAnnouncedByItsPhraseInTheReadersLanguage() {
-        assertEquals(
-                "The network phase is now **Season running** (it was **Before the event**).",
-                announce(Locale.ENGLISH, SeasonPhase.SMP, SeasonPhase.PRE_EVENT));
-        assertEquals(
-                "Die Netzwerkphase ist jetzt **Saison läuft** (vorher **Vor dem Event**).",
-                announce(Locale.GERMAN, SeasonPhase.SMP, SeasonPhase.PRE_EVENT));
-    }
-
-    @Test
-    void noPhaseIsAnnouncedByItsEnumKey() {
-        for (final Locale locale : List.of(Locale.ENGLISH, Locale.GERMAN)) {
-            for (final SeasonPhase phase : SeasonPhase.values()) {
-                final String sentence = announce(locale, phase, phase);
-                for (final SeasonPhase key : SeasonPhase.values()) {
-                    assertFalse(
-                            sentence.contains(
-                                    key.name().toLowerCase(Locale.ROOT).replace('_', '-')),
-                            locale + " announces " + phase + " as a raw key: " + sentence);
-                }
-            }
-        }
-    }
-
-    private static String announce(final Locale locale, final SeasonPhase phase, final SeasonPhase previous) {
-        return MESSAGES.plain(StatusChannels.ANNOUNCE, new StatusChannels.Phase(phase, previous), locale);
-    }
-
-    private static String render(final SeasonPhase phase) {
-        return StatusName.render(MESSAGES, Locale.ENGLISH, phase, RUNNING, null, NOW);
+    private static String render(final SeasonState state) {
+        return StatusName.render(MESSAGES, Locale.ENGLISH, state, RUNNING, NOW);
     }
 }

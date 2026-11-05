@@ -151,7 +151,7 @@ class BotInboxTest {
     @Test
     void aPreviewIsSentToTheAdminAndRefusedWhereDiscordDeliversNothing() {
         final MessagePreview preview = new MessagePreview(
-                DatabaseMessages.MESSAGES.season().smpRunning().key(),
+                DatabaseMessages.MESSAGES.season().notLaunched().key(),
                 "de",
                 "**{text}**",
                 Display.DISCORD_MESSAGE,

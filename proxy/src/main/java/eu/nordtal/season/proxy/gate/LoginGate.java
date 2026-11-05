@@ -5,7 +5,6 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.access.AccessDirectory;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.LinkCode;
@@ -79,23 +78,26 @@ public final class LoginGate {
 
         final int online = proxy.getPlayerCount();
         final int maximum = players.maxPlayers();
-        final Instant countdownFrom = state.phase() == SeasonPhase.PRE_LAUNCH ? clock.instant() : null;
+        final Instant now = clock.instant();
+        final GateOutcome outcome = GateOutcome.of(state, now, online, maximum);
 
-        switch (GateOutcome.of(state, online, maximum)) {
+        switch (outcome) {
             case ALLOW -> {}
             case FULL -> {
                 logger.info("Refused {} - the network is full ({} of {})", state.minecraftAccount(), online, maximum);
                 event.setResult(ComponentResult.denied(messages.full(state.locale(), online, maximum)));
             }
-            case NOT_LINKED -> issueCodeAndDeny(event, player, uuid, state.launch(), countdownFrom);
+            case NOT_LINKED ->
+                issueCodeAndDeny(
+                        event,
+                        player,
+                        uuid,
+                        state.season().launch(),
+                        state.season().launched(now) ? null : now);
             case NOT_MEMBER -> event.setResult(ComponentResult.denied(messages.notMember(state.locale())));
             case NO_ACCESS -> event.setResult(ComponentResult.denied(messages.noAccess(state.locale())));
-            case PRE_LAUNCH_BUY ->
-                event.setResult(
-                        ComponentResult.denied(messages.preLaunchBuy(state.locale(), state.launch(), countdownFrom)));
-            case PRE_LAUNCH_READY ->
-                event.setResult(
-                        ComponentResult.denied(messages.preLaunchReady(state.locale(), state.launch(), countdownFrom)));
+            case CLOSED, COUNTDOWN_BUY, COUNTDOWN_READY ->
+                event.setResult(ComponentResult.denied(messages.beforeLaunch(outcome, state, now)));
             case TROUBLE -> event.setResult(ComponentResult.denied(messages.trouble(state.locale())));
         }
     }

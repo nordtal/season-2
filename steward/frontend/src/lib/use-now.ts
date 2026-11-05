@@ -5,8 +5,10 @@ const TICK_MS = 30_000
 
 /**
  * Returns the current time, read once into state and ticking every {@link TICK_MS}, so one render sees one instant.
+ *
+ * @param since when the data on screen was read, so a time the data names is never ahead of the clock it is shown by
  */
-export function useNow(): number {
+export function useNow(since = 0): number {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -14,5 +16,5 @@ export function useNow(): number {
     return () => clearInterval(timer)
   }, [])
 
-  return now
+  return Math.max(now, since)
 }

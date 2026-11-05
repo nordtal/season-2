@@ -7,7 +7,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.season.common.time.Waiting;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -31,7 +31,7 @@ public final class BackendKick {
     }
 
     private final ProxyServer proxy;
-    private final PhaseServers servers;
+    private final NetworkServers servers;
     private final BackendHealth health;
     private final GateMessages messages;
     private final LoginRoster roster;
@@ -40,7 +40,7 @@ public final class BackendKick {
 
     public BackendKick(
             final ProxyServer proxy,
-            final PhaseServers servers,
+            final NetworkServers servers,
             final BackendHealth health,
             final GateMessages messages,
             final LoginRoster roster,

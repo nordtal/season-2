@@ -22,6 +22,8 @@ steward-agent migrate
 steward-agent run ID
 # Write a run request, as a button does, and print its id.
 steward-agent request KIND [a,b] [MIN]
+# Switch the game mode, as the Router tab does.
+steward-agent request SWITCH_MODE SMP|HUNGER_GAMES
 # Print the status and stage of a run, then each step with its facts.
 steward-agent status ID
 ```
@@ -49,8 +51,24 @@ flowchart LR
 ```
 
 A standby is a service that stands in for another one, such as `proxy-standby`. Every kind of run
-follows this sequence. `Run` implements it, `Kinds` holds one planner per kind, and
-`StewardRequest` types the request's data.
+follows this sequence. `Run` implements it, `Kinds` holds one planner per kind,
+and `StewardRequest` types the request's data.
+
+## The game mode
+
+Only the active mode's server runs. The other one is stopped, which Steward calls resting. At its
+start, the agent stops the inactive mode's server and starts the active one, unless a take-down holds
+the active one. Updates, restarts, recreates and deploys leave a resting server stopped. An update
+still installs its files, and the next switch recreates its container on a newer image. An admin
+starts a resting server with a start run, and the agent stops it again at its next start or the next
+switch.
+
+A mode switch (`ModeSwitch`) is planned like any kind: a countdown of zero, after which the proxy
+holds everyone in the waiting room, then the stop of the old mode's server, a payload that writes the
+mode, and the start and verify of the target. The proxy sends the players on once the target's verify
+step is done. A failure after the write leaves the mode on the target and the players waiting. A
+failure before it starts the old server again, and the proxy sends the players back. A switch to the
+active mode runs only after a failed switch: it stops nothing and starts the target.
 
 The agent recreates caddy, pack-host and postgres last, after the standbys have stopped. Caddy
 publishes the standbys' ports.

@@ -41,46 +41,39 @@
             "en": "<muted>{season.name} opens in <emphasis>any moment now</emphasis></muted>",
             "de": "<muted>{season.name} öffnet in <emphasis>jedem Moment</emphasis></muted>"
           }
-        },
-        {
-          "when": "countdown=unknown",
-          "text": {
-            "en": "<muted>{season.name} opens in <emphasis>not announced yet</emphasis></muted>",
-            "de": "<muted>{season.name} öffnet in <emphasis>noch nicht angekündigt</emphasis></muted>"
-          }
         }
       ],
-      "when": "phase=pre-launch"
+      "when": "state=countdown"
     },
     {
       "type": "TEXT",
       "lines": [
         {
-          "when": "phase=pre-event",
+          "when": "state=closed",
+          "text": {
+            "en": "<muted>{season.name} is closed. The launch date is not announced yet.</muted>",
+            "de": "<muted>{season.name} ist geschlossen. Der Starttermin steht noch nicht fest.</muted>"
+          }
+        },
+        {
+          "when": "state=maintenance",
+          "text": {
+            "en": "<muted>The {@terms.network} is down for maintenance.</muted>",
+            "de": "<muted>Das {@terms.network} ist wegen Wartung offline.</muted>"
+          }
+        },
+        {
+          "when": "state=hunger-games",
           "text": {
             "en": "<muted>{@terms.hunger-games}: <emphasis>{list.hgParticipants}</emphasis> {@terms.player, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>",
             "de": "<muted>{@terms.hunger-games}: <emphasis>{list.hgParticipants}</emphasis> {@terms.player, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>"
           }
         },
         {
-          "when": "phase=start-event",
-          "text": {
-            "en": "<muted>{@terms.hunger-games}: <emphasis>{list.hgAlive}</emphasis> of <emphasis>{list.hgParticipants}</emphasis> still alive</muted>",
-            "de": "<muted>{@terms.hunger-games}: <emphasis>{list.hgAlive}</emphasis> von <emphasis>{list.hgParticipants}</emphasis> leben noch</muted>"
-          }
-        },
-        {
-          "when": "phase=smp",
+          "when": "state=smp",
           "text": {
             "en": "<muted>{season.name} is running. <emphasis>{list.smpMilestonesDone}</emphasis> of <emphasis>{list.smpMilestones}</emphasis> {@terms.milestone, n=list.smpMilestones} done.</muted>",
             "de": "<muted>{season.name} läuft. <emphasis>{list.smpMilestonesDone}</emphasis> von <emphasis>{list.smpMilestones}</emphasis> {@terms.milestone, n=list.smpMilestones, case=dative} geschafft.</muted>"
-          }
-        },
-        {
-          "when": "phase=maintenance",
-          "text": {
-            "en": "<muted>The {@terms.network} is down for maintenance.</muted>",
-            "de": "<muted>Das {@terms.network} ist wegen Wartung offline.</muted>"
           }
         }
       ]

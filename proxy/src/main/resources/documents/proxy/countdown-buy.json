@@ -1,0 +1,22 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand>Nordtal</brand> <warn>has not opened yet.</warn> <muted>Buy your first {@terms.period, n=1} in the {@terms.contribution-channel} on Discord. Your {@terms.access} to the {@terms.smp} starts when Nordtal opens.</muted>",
+            "de": "<brand>Nordtal</brand> <warn>hat noch nicht eröffnet.</warn> <muted>Kauf deinen ersten {@terms.period, n=1} im {@terms.contribution-channel} auf Discord. Dein {@terms.access} zur {@terms.smp} beginnt, wenn Nordtal öffnet.</muted>"
+          }
+        },
+        {
+          "when": "invite",
+          "text": {
+            "en": "<muted>Discord: <emphasis>{invite}</emphasis></muted>",
+            "de": "<muted>Discord: <emphasis>{invite}</emphasis></muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

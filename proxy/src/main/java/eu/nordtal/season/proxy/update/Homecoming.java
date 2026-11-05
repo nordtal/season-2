@@ -8,13 +8,13 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Service;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 /**
  * Informs each player whom an update run moved that the player returns.
  * The waiting room sends a chat message. The standby proxy sends a chat message and a countdown subtitle.
+ * A mode switch moves the player to the server of the target mode instead.
  */
 public final class Homecoming {
 
@@ -37,6 +38,10 @@ public final class Homecoming {
             chat("return-moved-out", Named.class).titled("Moved to the waiting room");
     static final DocumentSpec<Named> WAITING_ROOM =
             chat("return-waiting-room", Named.class).titled("Server back, leaving the waiting room");
+    static final DocumentSpec<Named> SWITCH_MOVED_OUT =
+            chat("switch-moved-out", Named.class).titled("Moved to the waiting room for a mode switch");
+    static final DocumentSpec<Named> SWITCH_READY =
+            chat("switch-ready", Named.class).titled("Mode switch done, leaving the waiting room");
     static final DocumentSpec<Seconds> COUNTDOWN =
             chat("return-countdown", Seconds.class).titled("Return countdown");
     static final DocumentSpec<DocumentSpec.None> NOW =
@@ -52,11 +57,18 @@ public final class Homecoming {
     private final Logger logger;
     private final MessageRenderer renderer;
     private final LoginRoster roster;
-    private final PhaseServers servers;
+    private final NetworkServers servers;
     private final RunRecorder runs;
 
+    /**
+     * Where a moved player came from, and whether a mode switch moved the player.
+     *
+     * @param from the server the run stopped under the player
+     */
+    record Owed(String from, boolean switching) {}
+
     /** The players who were moved and have not been informed. */
-    private final Set<UUID> owed = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, Owed> owed = new ConcurrentHashMap<>();
 
     /** The run that moved the players in {@link #owed}. */
     private long owedFor = -1;
@@ -66,7 +78,7 @@ public final class Homecoming {
             final Logger logger,
             final MessageRenderer renderer,
             final LoginRoster roster,
-            final PhaseServers servers,
+            final NetworkServers servers,
             final RunRecorder runs) {
         this.logger = Objects.requireNonNull(logger, "logger");
         this.runs = Objects.requireNonNull(runs, "runs");
@@ -81,15 +93,17 @@ public final class Homecoming {
      * Tells the player why the run moves them, once per run, and adds them to the players to inform on return.
      *
      * @param from the server the run stops under the player
+     * @param switchTo the server a mode switch makes active, {@code null} for another run
      * @return whether the player was not moved by this run before
      */
-    public boolean movedOut(final long run, final Player player, final String from) {
-        if (!owe(run, player.getUniqueId())) {
+    public boolean movedOut(final long run, final Player player, final String from, final @Nullable String switchTo) {
+        if (!owe(run, player.getUniqueId(), new Owed(from, switchTo != null))) {
             return false;
         }
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
-            player.sendMessage(renderer.format(locale, MOVED_OUT.with(named(from))));
+            player.sendMessage(renderer.format(
+                    locale, switchTo == null ? MOVED_OUT.with(named(from)) : SWITCH_MOVED_OUT.with(named(switchTo))));
         } catch (final RuntimeException failure) {
             logger.warn("Could not tell {} why they are moved off '{}'", player.getUsername(), from, failure);
         }
@@ -101,34 +115,39 @@ public final class Homecoming {
      *
      * @return whether the player was not owed for this run yet
      */
-    synchronized boolean owe(final long run, final UUID uuid) {
+    synchronized boolean owe(final long run, final UUID uuid, final Owed move) {
         if (run != owedFor) {
             owed.clear();
             owedFor = run;
         }
-        return owed.add(uuid);
+        return owed.putIfAbsent(uuid, move) == null;
     }
 
-    /** Returns whether the player is to be informed and removes the player from the set. */
-    boolean claim(final UUID uuid) {
+    /** Returns the move of the player to inform and removes the player, {@code null} when nothing is owed. */
+    @Nullable
+    Owed claim(final UUID uuid) {
         return owed.remove(uuid);
     }
 
     /**
      * Informs the player about the return if an update run moved the player.
+     * The return counts against the server the player was moved off, which a mode switch does not return to.
      *
      * @param destination the server of the player
      */
     public void comingBack(final Player player, final String destination) {
-        if (!claim(player.getUniqueId())) {
+        final Owed move = claim(player.getUniqueId());
+        if (move == null) {
             return;
         }
         player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName())
-                .ifPresent(room -> returned(destination, room, 1));
+                .ifPresent(room -> returned(move.from(), room, 1));
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
-            player.sendMessage(renderer.format(locale, WAITING_ROOM.with(named(destination))));
+            final Named named = named(destination);
+            player.sendMessage(
+                    renderer.format(locale, move.switching() ? SWITCH_READY.with(named) : WAITING_ROOM.with(named)));
         } catch (final RuntimeException failure) {
             logger.warn(
                     "Could not tell {} that they are being moved back to '{}'",
@@ -204,7 +223,7 @@ public final class Homecoming {
      *
      * @param server the server of the player, {@code null} while the player connects
      */
-    static boolean interrupts(final @Nullable String server, final PhaseServers servers) {
+    static boolean interrupts(final @Nullable String server, final NetworkServers servers) {
         return server != null && !servers.isWaitingRoom(server);
     }
 

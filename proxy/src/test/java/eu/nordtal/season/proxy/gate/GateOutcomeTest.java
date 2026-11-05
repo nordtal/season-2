@@ -4,212 +4,202 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.MemberState;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** The gate's phase table, asserted phase by phase. */
+/** The gate's order, asserted over every opening, mode and maintenance flag of the season. */
 class GateOutcomeTest {
 
     private static final UUID PLAYER = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final String DISCORD_ID = "300000000000000001";
+    private static final Instant NOW = Instant.parse("2026-11-05T12:00:00Z");
+    private static final Instant AHEAD = NOW.plus(Duration.ofDays(3));
+    private static final Instant PAST = NOW.minus(Duration.ofDays(1));
 
-    // unlinked, in every phase
-
-    @Test
-    void anUnlinkedAccountIsRefusedAsUnlinkedInEveryPhase() {
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            assertEquals(
-                    GateOutcome.NOT_LINKED,
-                    GateOutcome.of(AccessState.unlinked(PLAYER, phase)),
-                    "linking is the one requirement no phase waives - " + phase);
-        }
-    }
-
-    @Test
-    void anUnlinkedAccountIsToldToLinkEvenDuringMaintenance() {
-        // Order matters: "here is your link code" is more useful than "the network is closed".
-        assertEquals(GateOutcome.NOT_LINKED, GateOutcome.of(AccessState.unlinked(PLAYER, SeasonPhase.MAINTENANCE)));
-    }
-
-    // not a member, in every phase
-
-    @Test
-    void aBannedAccountIsRefusedInEveryPhaseEvenWithAccessAndTheAdminFlag() {
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            final AccessState banned = state(phase, MemberState.BANNED, true, true);
-            assertEquals(
-                    GateOutcome.NOT_MEMBER,
-                    GateOutcome.of(banned),
-                    "a ban outranks paid access and the admin flag - " + phase);
-        }
-    }
-
-    @Test
-    void anAccountThatLeftTheGuildIsRefusedTheSameWayABannedOneIs() {
-        assertEquals(
-                GateOutcome.NOT_MEMBER, GateOutcome.of(state(SeasonPhase.PRE_EVENT, MemberState.LEFT, false, false)));
-    }
-
-    // PRE_EVENT and START_EVENT
-
-    @Test
-    void theTwoEventPhasesLetInAnyLinkedMemberWithNothingBought() {
-        for (final SeasonPhase phase : new SeasonPhase[] {SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT}) {
-            assertEquals(
-                    GateOutcome.ALLOW,
-                    GateOutcome.of(member(phase, false)),
-                    "access is only required from SMP onwards; " + phase + " is free");
-        }
-    }
-
-    @Test
-    void havingBoughtAccessEarlyChangesNothingBeforeTheSmp() {
-        // Selling access before the SMP begins is still possible and banks days.
-        assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.PRE_EVENT, true)));
-    }
-
-    // SMP
-
-    @Test
-    void theSmpIsTheOnlyPhaseThatAsksForAccess() {
-        assertEquals(GateOutcome.NO_ACCESS, GateOutcome.of(member(SeasonPhase.SMP, false)));
-        assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.SMP, true)));
-    }
-
-    @Test
-    void theAdminFlagIsAFreeAccessPeriod() {
-        // The admin flag is a free pass in SMP, else the admin who types /phase set SMP is disconnected by it.
-        final AccessState adminWithoutAccess = state(SeasonPhase.SMP, MemberState.MEMBER, false, true);
-
-        assertEquals(
-                GateOutcome.ALLOW,
-                GateOutcome.of(adminWithoutAccess),
-                "an admin is on the network to run it, not to play a bought period");
-    }
+    private static final SeasonState CLOSED = new SeasonState(null, false, SeasonMode.SMP);
+    private static final SeasonState COUNTDOWN = new SeasonState(AHEAD, false, SeasonMode.SMP);
+    private static final SeasonState SMP = new SeasonState(PAST, false, SeasonMode.SMP);
+    private static final SeasonState HUNGER_GAMES = new SeasonState(PAST, false, SeasonMode.HUNGER_GAMES);
 
     // the whole table at once
 
     @Test
-    void theFullDecisionTableIsWhatThisClassProduces() {
-        // The whole table, one row per phase: unlinked, left, member without access, member with access, admin.
-        assertRow(SeasonPhase.PRE_LAUNCH, GateOutcome.PRE_LAUNCH_BUY, GateOutcome.PRE_LAUNCH_READY, GateOutcome.ALLOW);
-        assertRow(SeasonPhase.PRE_EVENT, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
-        assertRow(SeasonPhase.START_EVENT, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
-        assertRow(SeasonPhase.SMP, GateOutcome.NO_ACCESS, GateOutcome.ALLOW, GateOutcome.ALLOW);
-        assertRow(SeasonPhase.MAINTENANCE, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
+    void theOrderTableIsWhatThisClassProduces() {
+        // One row per season: member without anything bought, member with a running period, admin.
+        row(CLOSED, GateOutcome.CLOSED, GateOutcome.CLOSED, GateOutcome.ALLOW);
+        row(COUNTDOWN, GateOutcome.COUNTDOWN_BUY, GateOutcome.COUNTDOWN_READY, GateOutcome.ALLOW);
+        row(COUNTDOWN.withMode(SeasonMode.HUNGER_GAMES), ready(), ready(), GateOutcome.ALLOW);
+        row(SMP, GateOutcome.NO_ACCESS, GateOutcome.ALLOW, GateOutcome.ALLOW);
+        row(HUNGER_GAMES, GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
+        row(SMP.withMaintenance(true), GateOutcome.NO_ACCESS, GateOutcome.ALLOW, GateOutcome.ALLOW);
+        row(HUNGER_GAMES.withMaintenance(true), GateOutcome.ALLOW, GateOutcome.ALLOW, GateOutcome.ALLOW);
+        row(CLOSED.withMaintenance(true), GateOutcome.CLOSED, GateOutcome.CLOSED, GateOutcome.ALLOW);
     }
 
-    private static void assertRow(
-            final SeasonPhase phase,
-            final GateOutcome memberNoAccess,
+    private static GateOutcome ready() {
+        return GateOutcome.COUNTDOWN_READY;
+    }
+
+    private static void row(
+            final SeasonState season,
+            final GateOutcome memberNothingBought,
             final GateOutcome memberWithAccess,
-            final GateOutcome adminNoAccess) {
-        assertEquals(
-                GateOutcome.NOT_LINKED, GateOutcome.of(AccessState.unlinked(PLAYER, phase)), phase + " / unlinked");
-        assertEquals(
-                GateOutcome.NOT_MEMBER, GateOutcome.of(state(phase, MemberState.LEFT, true, true)), phase + " / left");
-        assertEquals(
-                GateOutcome.NOT_MEMBER,
-                GateOutcome.of(state(phase, MemberState.BANNED, true, true)),
-                phase + " / banned");
-        assertEquals(
-                memberNoAccess,
-                GateOutcome.of(state(phase, MemberState.MEMBER, false, false)),
-                phase + " / member without access");
-        assertEquals(
-                memberWithAccess,
-                GateOutcome.of(state(phase, MemberState.MEMBER, true, false)),
-                phase + " / member with access");
-        assertEquals(
-                adminNoAccess,
-                GateOutcome.of(state(phase, MemberState.MEMBER, false, true)),
-                phase + " / admin without access");
+            final GateOutcome admin) {
+        assertEquals(GateOutcome.NOT_LINKED, of(AccessState.unlinked(PLAYER, season)), season + " / unlinked");
+        assertEquals(GateOutcome.NOT_MEMBER, of(state(season, MemberState.LEFT, true, true)), season + " / left");
+        assertEquals(GateOutcome.NOT_MEMBER, of(state(season, MemberState.BANNED, true, true)), season + " / banned");
+        assertEquals(memberNothingBought, of(member(season, false)), season + " / member without access");
+        assertEquals(memberWithAccess, of(member(season, true)), season + " / member with access");
+        assertEquals(admin, of(state(season, MemberState.MEMBER, false, true)), season + " / admin");
     }
 
-    // MAINTENANCE
+    // link and membership come first
 
     @Test
-    void maintenanceLetsAPlainLinkedMemberInSoTheyCanBeHeldInLimbo() {
-        // Maintenance is a routing decision: a non-admin is admitted and then held in limbo.
-        assertEquals(
-                GateOutcome.ALLOW,
-                GateOutcome.of(member(SeasonPhase.MAINTENANCE, false)),
-                "a linked member is admitted during maintenance and then routed to limbo");
-    }
-
-    @Test
-    void maintenanceDoesNotAskWhetherAccessWasBought() {
-        // The admission rule is the one PRE_EVENT and START_EVENT use; only SMP asks for more.
-        assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.MAINTENANCE, true)));
-        assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.MAINTENANCE, false)));
-    }
-
-    @Test
-    void anAdminGetsIntoMaintenanceWithNothingBought() {
-        final AccessState admin = state(SeasonPhase.MAINTENANCE, MemberState.MEMBER, false, true);
-
-        assertEquals(GateOutcome.ALLOW, GateOutcome.of(admin));
-    }
-
-    @Test
-    void theAdminFlagChangesTheGateDecisionInPreLaunchAndSmpAndNowhereElse() {
-        // PRE_LAUNCH: admin is the admission rule. SMP: it stands in for access. Elsewhere it only routes.
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            if (phase == SeasonPhase.PRE_LAUNCH || phase == SeasonPhase.SMP) {
-                continue;
-            }
-            for (final boolean accessActive : new boolean[] {false, true}) {
-                assertEquals(
-                        GateOutcome.of(state(phase, MemberState.MEMBER, accessActive, false)),
-                        GateOutcome.of(state(phase, MemberState.MEMBER, accessActive, true)),
-                        "the admin flag must not affect admission - " + phase + "/access=" + accessActive);
-            }
+    void anUnlinkedAccountIsToldToLinkEvenBeforeTheOpeningAndDuringMaintenance() {
+        // "Here is your link code" is more useful than "the network is closed".
+        for (final SeasonState season : seasons()) {
+            assertEquals(GateOutcome.NOT_LINKED, of(AccessState.unlinked(PLAYER, season)), season.toString());
         }
     }
 
     @Test
-    void aBannedAdminIsStillRefusedDuringMaintenance() {
-        assertEquals(
-                GateOutcome.NOT_MEMBER,
-                GateOutcome.of(state(SeasonPhase.MAINTENANCE, MemberState.BANNED, true, true)),
-                "linkedMember() is still asked before the phase, so the reversal did not open a hole");
+    void aBanOutranksPaidAccessAndTheAdminFlag() {
+        for (final SeasonState season : seasons()) {
+            assertEquals(
+                    GateOutcome.NOT_MEMBER,
+                    of(state(season, MemberState.BANNED, true, true)),
+                    "a banned admin is still banned - " + season);
+        }
+    }
+
+    // the admin
+
+    @Test
+    void anAdminIsLetInBeforeTheOpeningAndWithoutAccess() {
+        // Somebody has to be able to get on the network before it opens.
+        for (final SeasonState season : seasons()) {
+            assertEquals(GateOutcome.ALLOW, of(state(season, MemberState.MEMBER, false, true)), season.toString());
+        }
+    }
+
+    // the opening
+
+    @Test
+    void aSeasonWithoutALaunchDateShowsTheClosedScreen() {
+        assertEquals(GateOutcome.CLOSED, of(member(CLOSED, true)));
+        assertEquals(GateOutcome.CLOSED, of(member(CLOSED.withMode(SeasonMode.HUNGER_GAMES), false)));
+    }
+
+    @Test
+    void aLaunchDateAheadShowsTheCountdown() {
+        assertEquals(GateOutcome.COUNTDOWN_BUY, of(member(COUNTDOWN, false)));
+        assertEquals(GateOutcome.COUNTDOWN_READY, of(member(COUNTDOWN, true)));
+    }
+
+    @Test
+    void theCountdownAsksWhetherAccessWasBoughtAndNotWhetherItIsRunning() {
+        // A period bought before the opening waits rather than runs; accessActive() would ask them to buy.
+        final AccessState boughtButNotRunning = new AccessState(
+                PLAYER,
+                DiscordId.of(DISCORD_ID),
+                MemberState.MEMBER,
+                false,
+                AHEAD.plus(Duration.ofDays(30)),
+                false,
+                false,
+                false,
+                0L,
+                Locale.ENGLISH,
+                COUNTDOWN);
+
+        assertEquals(GateOutcome.COUNTDOWN_READY, of(boughtButNotRunning));
+    }
+
+    @Test
+    void theLaunchInstantItselfOpensTheNetwork() {
+        final SeasonState launchingNow = new SeasonState(NOW, false, SeasonMode.SMP);
+
+        assertEquals(GateOutcome.ALLOW, of(member(launchingNow, true)));
+        assertEquals(GateOutcome.COUNTDOWN_READY, GateOutcome.of(member(launchingNow, true), NOW.minusMillis(1)));
+    }
+
+    @Test
+    void everyBeforeLaunchOutcomeIsMarkedSo() {
+        assertTrue(GateOutcome.CLOSED.beforeLaunch());
+        assertTrue(GateOutcome.COUNTDOWN_BUY.beforeLaunch());
+        assertTrue(GateOutcome.COUNTDOWN_READY.beforeLaunch());
+        assertFalse(GateOutcome.NO_ACCESS.beforeLaunch());
+        assertFalse(GateOutcome.ALLOW.beforeLaunch());
+    }
+
+    // the mode
+
+    @Test
+    void hungerGamesAdmitsEveryLinkedMemberAndSmpAsksForAccess() {
+        assertEquals(GateOutcome.ALLOW, of(member(HUNGER_GAMES, false)));
+        assertEquals(GateOutcome.NO_ACCESS, of(member(SMP, false)));
+        assertEquals(GateOutcome.ALLOW, of(member(SMP, true)));
+    }
+
+    // maintenance
+
+    @Test
+    void maintenanceAdmitsAMemberSoTheWaitingRoomCanHoldThem() {
+        // Maintenance is a routing decision: the member is admitted and waits in the waiting room.
+        final AccessState member = member(SMP.withMaintenance(true), true);
+
+        assertEquals(GateOutcome.ALLOW, of(member));
+        assertTrue(member.waits(NOW));
+    }
+
+    @Test
+    void maintenanceDoesNotLetInWhoTheModeRefuses() {
+        // Admitting a player only to refuse them once maintenance ends would waste their wait.
+        assertEquals(GateOutcome.NO_ACCESS, of(member(SMP.withMaintenance(true), false)));
+    }
+
+    @Test
+    void anAdminDoesNotWaitForMaintenance() {
+        assertFalse(state(SMP.withMaintenance(true), MemberState.MEMBER, false, true)
+                .waits(NOW));
     }
 
     // the boolean form agrees
 
     @Test
-    void mayJoinAgreesWithTheOutcomeForEveryPhaseAndEveryAccountState() {
+    void mayJoinAgreesWithTheOutcomeForEverySeasonAndEveryAccount() {
         // mayJoin() is the same table as a boolean; if they drift, a player let in is kicked a minute later.
-        for (final SeasonPhase phase : SeasonPhase.values()) {
+        for (final SeasonState season : seasons()) {
             for (final MemberState membership : MemberState.values()) {
                 for (final boolean accessActive : new boolean[] {false, true}) {
                     for (final boolean admin : new boolean[] {false, true}) {
-                        final AccessState state = state(phase, membership, accessActive, admin);
+                        final AccessState state = state(season, membership, accessActive, admin);
                         assertEquals(
-                                GateOutcome.of(state).allowed(),
-                                state.mayJoin(),
-                                "disagreement for " + phase + "/" + membership + "/access=" + accessActive + "/admin="
-                                        + admin);
+                                of(state).allowed(),
+                                state.mayJoin(NOW),
+                                season + "/" + membership + "/access=" + accessActive + "/admin=" + admin);
                     }
                 }
             }
-
-            final AccessState unlinked = AccessState.unlinked(PLAYER, phase);
-            assertFalse(unlinked.mayJoin());
-            assertFalse(GateOutcome.of(unlinked).allowed());
+            assertFalse(AccessState.unlinked(PLAYER, season).mayJoin(NOW));
         }
     }
 
     @Test
-    void aNullPhaseIsTreatedAsMaintenanceRatherThanCrashingTheLoginPath() {
-        final AccessState state = new AccessState(
+    void aSeasonThatWasNeverReadLetsOnlyAnAdminIn() {
+        // A null season reads as UNREAD: launched long ago, in maintenance, so members wait.
+        final AccessState unread = new AccessState(
                 PLAYER,
                 DiscordId.of(DISCORD_ID),
                 MemberState.MEMBER,
@@ -220,107 +210,44 @@ class GateOutcomeTest {
                 false,
                 0L,
                 Locale.ENGLISH,
-                null,
                 null);
 
-        assertEquals(SeasonPhase.MAINTENANCE, state.phase());
-        // The guess is MAINTENANCE, where everybody waits in limbo.
-        assertEquals(GateOutcome.ALLOW, GateOutcome.of(state));
-        assertTrue(state.mayJoin());
-    }
-
-    @Test
-    void thereIsNoOutcomeLeftThatOnlyMaintenanceCouldProduce() {
-        // No maintenance refusal exists, so nothing can start returning one.
-        assertEquals(
-                8,
-                GateOutcome.values().length,
-                "ALLOW, NOT_LINKED, NOT_MEMBER, NO_ACCESS, PRE_LAUNCH_BUY, PRE_LAUNCH_READY, FULL and TROUBLE,"
-                        + " and nothing about maintenance");
-    }
-
-    // PRE_LAUNCH
-
-    @Test
-    void preLaunchLetsNobodyInButAnAdmin() {
-        assertEquals(
-                GateOutcome.ALLOW,
-                GateOutcome.of(state(SeasonPhase.PRE_LAUNCH, MemberState.MEMBER, false, true)),
-                "somebody has to be able to get on the network before it opens, and that is the" + " whole of who");
-        assertFalse(GateOutcome.of(member(SeasonPhase.PRE_LAUNCH, false)).allowed());
-        assertFalse(GateOutcome.of(member(SeasonPhase.PRE_LAUNCH, true)).allowed());
-    }
-
-    @Test
-    void preLaunchAsksWhetherAccessWasBoughtAndNotWhetherItIsRunning() {
-        // A period bought before opening waits rather than running; accessActive() would ask them to buy.
-        final AccessState boughtButNotRunning = new AccessState(
-                PLAYER,
-                DiscordId.of(DISCORD_ID),
-                MemberState.MEMBER,
-                false,
-                Instant.now().plus(Duration.ofDays(30)),
-                false,
-                false,
-                false,
-                0L,
-                Locale.ENGLISH,
-                SeasonPhase.PRE_LAUNCH,
-                null);
-
-        assertEquals(GateOutcome.PRE_LAUNCH_READY, GateOutcome.of(boughtButNotRunning));
-        assertEquals(
-                GateOutcome.PRE_LAUNCH_BUY,
-                GateOutcome.of(member(SeasonPhase.PRE_LAUNCH, false)),
-                "nothing bought, so the screen is the invitation to buy");
-    }
-
-    @Test
-    void preLaunchStillAsksAboutLinkingAndMembershipFirst() {
-        assertEquals(
-                GateOutcome.NOT_LINKED,
-                GateOutcome.of(AccessState.unlinked(PLAYER, SeasonPhase.PRE_LAUNCH)),
-                "an unlinked player gets their code before the network opens, not after - that is"
-                        + " the first of the three countdown screens");
-        assertEquals(
-                GateOutcome.NOT_MEMBER,
-                GateOutcome.of(state(SeasonPhase.PRE_LAUNCH, MemberState.BANNED, true, true)),
-                "a banned admin is still banned, before the opening as after it");
+        assertEquals(SeasonState.UNREAD, unread.season());
+        assertEquals(GateOutcome.ALLOW, of(unread));
+        assertTrue(unread.waits(NOW));
     }
 
     // the player limit
 
     @Test
     void aFullNetworkRefusesAMemberTheTableWouldAdmit() {
-        assertEquals(GateOutcome.FULL, GateOutcome.of(member(SeasonPhase.PRE_EVENT, false), 20, 20));
-        assertEquals(GateOutcome.FULL, GateOutcome.of(member(SeasonPhase.SMP, true), 21, 20));
+        assertEquals(GateOutcome.FULL, GateOutcome.of(member(HUNGER_GAMES, false), NOW, 20, 20));
+        assertEquals(GateOutcome.FULL, GateOutcome.of(member(SMP, true), NOW, 21, 20));
     }
 
     @Test
     void theLastFreePlaceStillAdmits() {
-        assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SeasonPhase.SMP, true), 19, 20));
+        assertEquals(GateOutcome.ALLOW, GateOutcome.of(member(SMP, true), NOW, 19, 20));
     }
 
     @Test
     void anAdminEntersAFullNetworkToFixIt() {
-        assertEquals(
-                GateOutcome.ALLOW, GateOutcome.of(state(SeasonPhase.SMP, MemberState.MEMBER, false, true), 20, 20));
+        assertEquals(GateOutcome.ALLOW, GateOutcome.of(state(SMP, MemberState.MEMBER, false, true), NOW, 20, 20));
     }
 
     @Test
     void aFullNetworkNeverHidesTheRefusalThatComesFirst() {
-        assertEquals(GateOutcome.NOT_LINKED, GateOutcome.of(AccessState.unlinked(PLAYER, SeasonPhase.SMP), 20, 20));
-        assertEquals(GateOutcome.NO_ACCESS, GateOutcome.of(member(SeasonPhase.SMP, false), 20, 20));
-        assertEquals(
-                GateOutcome.NOT_MEMBER, GateOutcome.of(state(SeasonPhase.SMP, MemberState.BANNED, true, true), 20, 20));
+        assertEquals(GateOutcome.NOT_LINKED, GateOutcome.of(AccessState.unlinked(PLAYER, SMP), NOW, 20, 20));
+        assertEquals(GateOutcome.NO_ACCESS, GateOutcome.of(member(SMP, false), NOW, 20, 20));
+        assertEquals(GateOutcome.COUNTDOWN_BUY, GateOutcome.of(member(COUNTDOWN, false), NOW, 20, 20));
     }
 
     @Test
     void withoutAFullNetworkTheLimitChangesNothing() {
-        for (final SeasonPhase phase : SeasonPhase.values()) {
+        for (final SeasonState season : seasons()) {
             for (final boolean accessActive : new boolean[] {false, true}) {
-                final AccessState state = member(phase, accessActive);
-                assertEquals(GateOutcome.of(state), GateOutcome.of(state, 0, 20), phase + "/" + accessActive);
+                final AccessState state = member(season, accessActive);
+                assertEquals(of(state), GateOutcome.of(state, NOW, 0, 20), season + "/" + accessActive);
             }
         }
     }
@@ -345,24 +272,40 @@ class GateOutcomeTest {
 
     // helpers
 
-    private static AccessState member(final SeasonPhase phase, final boolean accessActive) {
-        return state(phase, MemberState.MEMBER, accessActive, false);
+    private static List<SeasonState> seasons() {
+        return List.of(
+                CLOSED,
+                COUNTDOWN,
+                COUNTDOWN.withMode(SeasonMode.HUNGER_GAMES),
+                SMP,
+                HUNGER_GAMES,
+                SMP.withMaintenance(true),
+                HUNGER_GAMES.withMaintenance(true),
+                CLOSED.withMaintenance(true));
+    }
+
+    private static GateOutcome of(final AccessState state) {
+        return GateOutcome.of(state, NOW);
+    }
+
+    private static AccessState member(final SeasonState season, final boolean accessActive) {
+        return state(season, MemberState.MEMBER, accessActive, false);
     }
 
     private static AccessState state(
-            final SeasonPhase phase, final MemberState membership, final boolean accessActive, final boolean admin) {
+            final SeasonState season, final MemberState membership, final boolean accessActive, final boolean admin) {
+        final @Nullable Instant validUntil = accessActive ? NOW.plus(Duration.ofDays(1)) : null;
         return new AccessState(
                 PLAYER,
                 DiscordId.of(DISCORD_ID),
                 membership,
                 accessActive,
-                accessActive ? Instant.now().plus(Duration.ofDays(1)) : null,
+                validUntil,
                 false,
                 admin,
                 false,
                 0L,
                 Locale.ENGLISH,
-                phase,
-                null);
+                season);
     }
 }

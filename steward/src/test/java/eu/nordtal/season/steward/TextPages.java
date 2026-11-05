@@ -249,8 +249,11 @@ public final class TextPages {
             final Map<String, StringBuilder> code = new LinkedHashMap<>();
             for (final String route : sources.get("router.tsx").split("create(?=(?:Root)?Route\\()", -1)) {
                 final Matcher path = ROUTE_PATH.matcher(route);
-                final String page = route.startsWith("RootRoute(") ? EVERY : path.find() ? pageOf(path.group(1)) : null;
                 final Matcher component = COMPONENT.matcher(route);
+                final boolean renders = component.find();
+                component.reset();
+                final String page =
+                        route.startsWith("RootRoute(") ? EVERY : renders && path.find() ? pageOf(path.group(1)) : null;
                 while (page != null && component.find()) {
                     final List<String> start = component.group(2) != null
                             ? router.imports().get(component.group(2))

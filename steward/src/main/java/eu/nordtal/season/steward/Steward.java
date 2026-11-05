@@ -2,6 +2,8 @@ package eu.nordtal.season.steward;
 
 import eu.nordtal.season.common.health.Readiness;
 import eu.nordtal.season.common.language.Languages;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.ProcessScheduler;
 import eu.nordtal.season.common.time.Scheduler;
@@ -39,6 +41,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -251,8 +254,20 @@ public final class Steward {
                 eu.nordtal.season.database.document.DocumentStore.using(database.dataSource()),
                 settings,
                 new InboxTrial(data.smp(), data.hungerGames(), Waiting.on(CLOCK)),
+                () -> activeMode(data),
                 CLOCK,
                 scheduler);
+    }
+
+    /** Returns the active game mode, empty while the row or the database cannot be read. */
+    static Optional<SeasonMode> activeMode(final Data data) {
+        try {
+            final SeasonState state = data.season().state();
+            return state.equals(SeasonState.UNREAD) ? Optional.empty() : Optional.of(state.mode());
+        } catch (final RuntimeException unreadable) {
+            log.warn("The game mode cannot be read, so no server reads as resting: {}", unreadable.getMessage());
+            return Optional.empty();
+        }
     }
 
     /** Reloads the live groups after a change in Steward and rearms both clocks from the {@code steward} group. */

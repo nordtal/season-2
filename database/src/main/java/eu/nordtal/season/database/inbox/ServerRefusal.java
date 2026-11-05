@@ -22,7 +22,7 @@ public enum ServerRefusal implements RefusalReason {
     /** The key names a milestone that is not active. */
     MILESTONE_NOT_ACTIVE,
 
-    /** A game starts only during the start event. */
+    /** A game starts only during the start event. Kept for the rows written before the game mode. */
     WRONG_PHASE,
 
     /** No game is open for registration. */

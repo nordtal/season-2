@@ -32,7 +32,7 @@ public final class FallbackCache {
     public void remember(final UUID mcUuid, final AccessState state) {
         Objects.requireNonNull(mcUuid, "mcUuid");
         Objects.requireNonNull(state, "state");
-        if (state.mayJoin()) {
+        if (state.mayJoin(clock.instant())) {
             entries.put(mcUuid, new Entry(state.locale(), clock.instant()));
         } else {
             entries.remove(mcUuid);

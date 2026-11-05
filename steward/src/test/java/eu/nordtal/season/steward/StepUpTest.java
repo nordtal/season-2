@@ -97,6 +97,8 @@ class StepUpTest extends WebTestSupport {
                     post(browser, "/api/updates", "{\"kind\":\"" + kind + "\",\"services\":[\"smp\"]}");
             assertEquals(403, refused.statusCode(), kind + ": " + refused.body());
         }
+        final HttpResponse<String> switched = post(browser, "/api/season/switch", "{\"target\":\"SMP\"}");
+        assertEquals(403, switched.statusCode(), "SWITCH_MODE: " + switched.body());
         for (final String kind : List.of("RESTART", "START", "BACKUP")) {
             final HttpResponse<String> asked =
                     post(browser, "/api/updates", "{\"kind\":\"" + kind + "\",\"services\":[\"smp\"]}");

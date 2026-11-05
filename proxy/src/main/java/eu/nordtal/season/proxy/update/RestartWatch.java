@@ -15,7 +15,7 @@ import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Occasion;
 import eu.nordtal.season.messages.value.Service;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.time.Clock;
 import java.time.Duration;
@@ -80,7 +80,7 @@ public final class RestartWatch {
     private final UpdateDirectory updates;
     private final LoginRoster roster;
     private final MessageRenderer renderer;
-    private final PhaseServers servers;
+    private final NetworkServers servers;
     private final Clock clock;
 
     /** Asks whether a standby proxy answers. It is asked once per countdown. */
@@ -110,7 +110,7 @@ public final class RestartWatch {
             final UpdateDirectory updates,
             final LoginRoster roster,
             final MessageRenderer renderer,
-            final PhaseServers servers,
+            final NetworkServers servers,
             final Clock clock) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.proxy = Objects.requireNonNull(proxy, "proxy");

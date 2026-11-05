@@ -33,7 +33,7 @@ class SignalHubIntegrationTest {
             hub.start();
             assertTrue(refreshed.tryAcquire(30, TimeUnit.SECONDS), "the connect's own re-read never ran");
 
-            execute("SELECT pg_notify('" + Channel.PHASE.sqlName() + "', '')");
+            execute("SELECT pg_notify('" + Channel.SEASON.sqlName() + "', '')");
 
             assertTrue(refreshed.tryAcquire(10, TimeUnit.SECONDS), "the notification never woke the hub");
         }
@@ -51,11 +51,11 @@ class SignalHubIntegrationTest {
                     // Found by its statement, as the fixture URL has an application name that overrides the hub's.
                     count("SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity"
                             + " WHERE datname = current_database() AND query = 'LISTEN "
-                            + Channel.PHASE.sqlName() + "'"),
+                            + Channel.SEASON.sqlName() + "'"),
                     "no listening connection to kill");
 
             assertTrue(refreshed.tryAcquire(30, TimeUnit.SECONDS), "the reconnect did not re-read");
-            execute("SELECT pg_notify('" + Channel.PHASE.sqlName() + "', '')");
+            execute("SELECT pg_notify('" + Channel.SEASON.sqlName() + "', '')");
             assertTrue(refreshed.tryAcquire(10, TimeUnit.SECONDS), "the new connection does not listen");
         }
     }
@@ -68,7 +68,7 @@ class SignalHubIntegrationTest {
                 LoggerFactory.getLogger(SignalHubIntegrationTest.class),
                 reconciliation,
                 Duration.ofMillis(100));
-        hub.on(Channel.PHASE, "the counter", refreshed::release);
+        hub.on(Channel.SEASON, "the counter", refreshed::release);
         return hub;
     }
 

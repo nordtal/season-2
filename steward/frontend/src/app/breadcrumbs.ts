@@ -16,7 +16,6 @@ const SECTIONS = new Set([
   "updates",
   "backups",
   "runs",
-  "season",
   "translations",
   "access",
   "payments",

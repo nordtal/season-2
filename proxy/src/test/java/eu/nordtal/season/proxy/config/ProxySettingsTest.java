@@ -81,7 +81,7 @@ class ProxySettingsTest {
         final GateSpec config = store.checked("proxy", Group.of("gate", GateSpec.class), values);
 
         assertEquals("limbo", config.serverLimbo(), "MAINTENANCE routes here");
-        assertEquals("hunger-games", config.serverHungerGames(), "PRE_EVENT and START_EVENT route here");
+        assertEquals("hunger-games", config.serverHungerGames(), "Hunger Games routes here");
         assertEquals("smp", config.serverSmp(), "SMP routes here");
     }
 

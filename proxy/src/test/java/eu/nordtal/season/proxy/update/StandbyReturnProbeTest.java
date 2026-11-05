@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.season.common.time.Scheduler;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import eu.nordtal.season.proxy.ProxyRole;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
@@ -93,7 +93,7 @@ class StandbyReturnProbeTest {
                 LOG,
                 eu.nordtal.season.proxy.ProxyRenderer.RENDERER,
                 new eu.nordtal.season.proxy.gate.LoginRoster(),
-                new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp"),
+                new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp"),
                 eu.nordtal.season.database.update.RunRecorder.NONE);
     }
 

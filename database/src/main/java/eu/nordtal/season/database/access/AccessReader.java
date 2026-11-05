@@ -31,9 +31,9 @@ public interface AccessReader {
     Optional<DiscordId> linkedDiscordAccount(UUID mcUuid);
 
     /**
-     * Returns the access state and the season phase in one round trip.
+     * Returns the access state and the season state in one round trip.
      *
-     * @return the state. {@link AccessState#linked()} is false for an unlinked UUID, and the phase is always set
+     * @return the state. {@link AccessState#linked()} is false for an unlinked UUID, and the season is always set
      */
     AccessState accessState(UUID mcUuid);
 

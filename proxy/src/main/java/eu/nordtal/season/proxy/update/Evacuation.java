@@ -4,11 +4,14 @@ import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
+import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.RunProgress;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateDirectory;
+import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.database.update.UpdateStatus;
+import eu.nordtal.season.proxy.NetworkServers;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HashMap;
@@ -27,14 +30,16 @@ import org.slf4j.Logger;
 
 /**
  * Moves the players of a server that an update run stops to the waiting room when the countdown reaches zero.
- * The sweep of the waiting room sends them back.
+ * The sweep of the waiting room sends them back. A mode switch holds every player there until its target is up.
  */
 public final class Evacuation {
 
     private final ProxyServer proxy;
     private final Logger logger;
     private final UpdateDirectory updates;
-    private final PhaseServers servers;
+    private final NetworkServers servers;
+
+    private final Clock clock;
 
     /** When this proxy started. */
     private final Instant started;
@@ -56,6 +61,18 @@ public final class Evacuation {
     /** The run {@link #progress} belongs to. */
     private long progressRun;
 
+    /** Whether a mode switch holds every player in the waiting room. */
+    private volatile boolean switching;
+
+    /** Runs when a mode switch stops holding the players. */
+    private volatile Runnable whenReleased = () -> {};
+
+    /** The switch run whose target {@link #target} is, {@code -1} for none. */
+    private long targetRun = -1;
+
+    /** The server that the switch run {@link #targetRun} makes active. */
+    private @Nullable String target;
+
     /** Whether the warning about the missing waiting room was logged. */
     private volatile boolean warnedAboutWaitingRoom;
 
@@ -63,7 +80,7 @@ public final class Evacuation {
             final ProxyServer proxy,
             final Logger logger,
             final UpdateDirectory updates,
-            final PhaseServers servers,
+            final NetworkServers servers,
             final Homecoming homecoming,
             final Clock clock) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
@@ -71,7 +88,18 @@ public final class Evacuation {
         this.updates = Objects.requireNonNull(updates, "updates");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.homecoming = Objects.requireNonNull(homecoming, "homecoming");
+        this.clock = Objects.requireNonNull(clock, "clock");
         this.started = clock.instant();
+    }
+
+    /** Sets the work that runs when a mode switch stops holding the players, such as a sweep. */
+    public void whenReleased(final Runnable released) {
+        this.whenReleased = Objects.requireNonNull(released, "released");
+    }
+
+    /** Returns whether a mode switch holds every player in the waiting room, admins included. */
+    public boolean holdsEveryone() {
+        return switching;
     }
 
     /** Returns whether an update run stops or has stopped the server. */
@@ -97,14 +125,17 @@ public final class Evacuation {
     /** Reads the update row and moves the players when the countdown has ended. It never throws. */
     public synchronized void check() {
         final Optional<UpdateRequest> running;
+        final Optional<UpdateRequest> lastSwitch;
         try {
             held = heldServices(updates.holds());
             running = updates.running();
+            lastSwitch = updates.lastStartedSwitch();
         } catch (final RuntimeException failure) {
             logger.warn("Could not read the update row; nobody was moved this pass", failure);
             return;
         }
         final List<RunProgress.Step> steps = steps(running);
+        followSwitch(lastSwitch.orElse(null), running, steps);
 
         final Set<String> next = notYetReplaced(imminent(running), steps);
         if (next.isEmpty()) {
@@ -142,7 +173,57 @@ public final class Evacuation {
             // The proxy this one replaced moved the players already; the rooms may be gone by now.
             return;
         }
-        evacuate(next, room, run.id());
+        evacuate(next, room, run.id(), run.kind() == UpdateKind.SWITCH_MODE ? targetOf(run) : null);
+    }
+
+    /** Updates {@link #switching} from the newest switch run and runs {@link #whenReleased} when the hold ends. */
+    private void followSwitch(
+            final @Nullable UpdateRequest run,
+            final Optional<UpdateRequest> running,
+            final List<RunProgress.Step> runningSteps) {
+        final boolean before = switching;
+        final boolean now;
+        if (run == null || (run.status() != UpdateStatus.RUNNING && run.status() != UpdateStatus.FAILED)) {
+            now = ModeSwitch.holds(run, List.of(), "", clock.instant());
+        } else {
+            final boolean same = running.map(other -> other.id() == run.id()).orElse(false);
+            final List<RunProgress.Step> steps = same ? runningSteps : steps(Optional.of(run));
+            final String server = targetOf(run);
+            now = server == null
+                    ? ModeSwitch.moving(run, clock.instant())
+                    : ModeSwitch.holds(run, steps, server, clock.instant());
+        }
+        switching = now;
+        if (before && !now) {
+            logger.info("The mode switch holds nobody any more; releasing the waiting room");
+            try {
+                whenReleased.run();
+            } catch (final RuntimeException failure) {
+                logger.warn("Could not release the waiting room after the mode switch", failure);
+            }
+        } else if (!before && now) {
+            logger.info("Mode switch run {} holds every player in the waiting room", run == null ? -1 : run.id());
+        }
+    }
+
+    /** Returns the server that the switch run makes active, {@code null} while its request cannot be read. */
+    private @Nullable String targetOf(final UpdateRequest run) {
+        if (run.id() == targetRun) {
+            return target;
+        }
+        final Optional<StewardRequest> request;
+        try {
+            request = updates.requestOf(run.id());
+        } catch (final RuntimeException failure) {
+            logger.warn("Could not read the target of mode switch run {}", run.id(), failure);
+            return null;
+        }
+        targetRun = run.id();
+        target = request.filter(StewardRequest.SwitchMode.class::isInstance)
+                .map(StewardRequest.SwitchMode.class::cast)
+                .map(sw -> sw.target().server())
+                .orElse(null);
+        return target;
     }
 
     /**
@@ -245,8 +326,13 @@ public final class Evacuation {
         }
     }
 
-    /** Moves every player on one of the servers to the waiting room. */
-    private void evacuate(final Set<String> backends, final String waitingRoom, final long run) {
+    /**
+     * Moves every player on one of the servers to the waiting room.
+     *
+     * @param switchTo the server a mode switch makes active, {@code null} for another run
+     */
+    private void evacuate(
+            final Set<String> backends, final String waitingRoom, final long run, final @Nullable String switchTo) {
         final RegisteredServer limbo = proxy.getServer(waitingRoom).orElse(null);
         if (limbo == null) {
             logger.error(
@@ -265,7 +351,7 @@ public final class Evacuation {
             if (on == null || !backends.contains(on)) {
                 continue;
             }
-            if (homecoming.movedOut(run, player, on)) {
+            if (homecoming.movedOut(run, player, on, switchTo)) {
                 off.merge(on, 1, Integer::sum);
             }
             move(player, limbo);

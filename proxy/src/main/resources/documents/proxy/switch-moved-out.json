@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent>Next up: <emphasis>{@values.service}</emphasis>.</accent> <muted>You wait in the {@terms.waiting-room} until it is ready.</muted>",
+            "de": "<accent>Als Nächstes: <emphasis>{@values.service}</emphasis>.</accent> <muted>Du wartest im {@terms.waiting-room}, bis der Server bereit ist.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

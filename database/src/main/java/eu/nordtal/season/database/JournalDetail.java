@@ -1,8 +1,8 @@
 package eu.nordtal.season.database;
 
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
+import static eu.nordtal.season.database.JournalRows.row;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
@@ -24,11 +24,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.jdbi.v3.core.Handle;
-import org.jdbi.v3.core.statement.Update;
 import org.jspecify.annotations.Nullable;
 
 /** The values of one journal entry, one record per line. It is rendered when shown and never stored. */
@@ -212,56 +210,16 @@ public sealed interface JournalDetail {
         }
     }
 
-    record PhaseSet(
-            SeasonPhase from, SeasonPhase to, @Nullable String reason) implements JournalDetail {
-        public PhaseSet {
-            reason = reason == null || reason.isBlank() ? null : reason;
-        }
-
-        @Override
-        public MessageRef line() {
-            return reason == null
-                    ? TEXTS.journal().setPhase(from, to)
-                    : TEXTS.journal().setPhaseBecause(from, to, reason);
-        }
-
-        @Override
-        public void insert(final Handle handle, final UUID entry) {
-            row(handle, "journal_phase", entry, "from_phase", from.name(), "to_phase", to.name(), "reason", reason);
-        }
-    }
-
-    record LaunchSet(@Nullable Instant opens) implements JournalDetail {
-        @Override
-        public MessageRef line() {
-            return opens == null
-                    ? TEXTS.journal().clearLaunch()
-                    : TEXTS.journal().setLaunch(opens);
-        }
-
-        @Override
-        public void insert(final Handle handle, final UUID entry) {
-            if (opens != null) {
-                row(handle, "journal_launch", entry, "opens", opens);
-            }
-        }
-    }
-
-    record SmpStartSet(@Nullable Instant starts, long movedGrants) implements JournalDetail {
-        @Override
-        public MessageRef line() {
-            return starts == null
-                    ? TEXTS.journal().clearSmpStart()
-                    : TEXTS.journal().setSmpStart(starts, movedGrants);
-        }
-
-        @Override
-        public void insert(final Handle handle, final UUID entry) {
-            if (starts != null) {
-                row(handle, "journal_smp_start", entry, "starts", starts, "moved_grants", movedGrants);
-            }
-        }
-    }
+    /** The values of a change of the launch date, maintenance or the game mode, in {@link SeasonDetail}. */
+    sealed interface Season extends JournalDetail
+            permits SeasonDetail.LaunchDateSet,
+                    SeasonDetail.LaunchedNow,
+                    SeasonDetail.SeasonClosed,
+                    SeasonDetail.MaintenanceSet,
+                    SeasonDetail.ModeSwitched,
+                    SeasonDetail.PhaseSet,
+                    SeasonDetail.LaunchSet,
+                    SeasonDetail.SmpStartSet {}
 
     record KeyRegistered(String label) implements JournalDetail {
         @Override
@@ -757,21 +715,4 @@ public sealed interface JournalDetail {
 
     /** A channel and what Discord answered when the bot set its overwrites. */
     record ChannelFailure(String channel, String error) {}
-
-    /** Inserts one row into the table of a family from the column names and values in {@code pairs}. */
-    private static void row(
-            final Handle handle, final String table, final UUID entry, final @Nullable Object... pairs) {
-        final StringJoiner columns = new StringJoiner(", ", "(entry, ", ")");
-        final StringJoiner values = new StringJoiner(", ", "(:entry, ", ")");
-        for (int at = 0; at < pairs.length; at += 2) {
-            columns.add((String) pairs[at]);
-            values.add(":" + pairs[at]);
-        }
-        final Update insert = handle.createUpdate("INSERT INTO " + table + " " + columns + " VALUES " + values)
-                .bind("entry", Objects.requireNonNull(entry, "entry"));
-        for (int at = 0; at < pairs.length; at += 2) {
-            insert.bind((String) pairs[at], pairs[at + 1]);
-        }
-        insert.execute();
-    }
 }

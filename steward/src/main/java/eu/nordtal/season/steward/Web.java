@@ -57,6 +57,7 @@ import eu.nordtal.season.steward.game.Inventories;
 import eu.nordtal.season.steward.game.TrackNames;
 import eu.nordtal.season.steward.journal.Journaling;
 import eu.nordtal.season.steward.journal.Unjournaled;
+import eu.nordtal.season.steward.live.LaunchBell;
 import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
 import eu.nordtal.season.steward.messages.DocumentsApi;
@@ -198,7 +199,7 @@ public final class Web {
             Channel.BOT,
             Channel.PAYMENT,
             Channel.ADMIN,
-            Channel.PHASE,
+            Channel.SEASON,
             Channel.SETTINGS,
             Channel.ALERT,
             Channel.GAME_DATA,
@@ -285,7 +286,7 @@ public final class Web {
                 PackExemptions.using(data.dataSource()), ctx -> account(ctx).orElseThrow());
         this.authFlow = new AuthFlow(config, discord, data, this.sessions, admins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow(), secondFactor::requireStepUp);
-        this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow());
+        this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow(), stack::online, clock);
         this.deployments = new AgentApi(agent, agentOffered);
         final PushSubscriptions localPushSubscriptions = new PushSubscriptions(data.dataSource());
         this.profile = new Profile(
@@ -339,7 +340,12 @@ public final class Web {
                         data.access().people(500),
                         data.payments().recent(200),
                         data.payments().allOpen()));
-        live.watch(Topic.SEASON, season::read);
+        final LaunchBell launch = new LaunchBell(scheduler, clock, live::ring);
+        live.watch(Topic.SEASON, () -> {
+            final SeasonRoutes.Router router = season.read();
+            launch.arm(router.launch());
+            return router;
+        });
         live.watch(Topic.GAMES, () -> List.of(games.readTrack(), games.readRound()));
         live.watch(
                 Topic.METRICS,

@@ -76,6 +76,7 @@ public final class StackServer {
                 DocumentStore.using(database),
                 SettingStore.using(database),
                 ServerTrial.NONE,
+                java.util.Optional::empty,
                 clock,
                 TestScheduler.SHARED);
     }

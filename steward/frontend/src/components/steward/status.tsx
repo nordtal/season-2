@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils"
 import type { ImageState, LocalBuild, Service } from "@/lib/api"
 import { choice, t } from "@/lib/texts"
 import { Badge } from "@/components/ui/badge"
+import { TERM_ICON } from "@/components/steward/term-icons"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
@@ -95,7 +96,12 @@ export function Hint({
 }
 
 export type ServiceHealth = Pick<Service, "state" | "health" | "hold" | "alert"> &
-  Partial<Pick<Service, "oneShot" | "lastRun">>
+  Partial<Pick<Service, "oneShot" | "lastRun" | "inactiveMode">>
+
+/** Returns whether the service is the inactive mode's server and stopped, held or not. */
+export function restingMode(service: ServiceHealth): boolean {
+  return service.inactiveMode === true && service.state !== "running"
+}
 
 /**
  * Red is the alert rule's word alone. A stop that the rule raises nothing about is intended, as for a standby or a hold, so it is `idle`. A one-shot that exited cleanly did its job, so it is `ok`.
@@ -137,6 +143,14 @@ export function ServiceState({ service }: { service: ServiceHealth }) {
         </StatusBadge>
       )
     }
+    if (restingMode(service)) {
+      return (
+        <StatusBadge tone="idle" tipContent={t("steward.service.docker-state", { state })}>
+          <TERM_ICON.resting aria-hidden />
+          {t("steward.service.state", { state: "resting" })}
+        </StatusBadge>
+      )
+    }
     /** One badge. Docker's own word moves to the title and does not become a second, red badge. */
     return (
       <StatusBadge
@@ -162,6 +176,14 @@ export function ServiceState({ service }: { service: ServiceHealth }) {
     return (
       <StatusBadge tone="warn" tipContent={t("steward.service.starting")}>
         {t("steward.service.state", { state: "starting" })}
+      </StatusBadge>
+    )
+  }
+  if (service.inactiveMode) {
+    return (
+      <StatusBadge tone="idle" tipContent={t("steward.service.by-hand")}>
+        <TERM_ICON.byHand aria-hidden />
+        {t("steward.service.state", { state: "by-hand" })}
       </StatusBadge>
     )
   }
@@ -221,7 +243,13 @@ export function HealthDot({
   const tone = serviceTone(service)
   if (tone === "ok" && quiet) return null
   const word = t("steward.service.state", {
-    state: completed(service) ? "completed" : tone === "idle" && !held(service) ? "standby" : DOT_STATE[tone],
+    state: completed(service)
+      ? "completed"
+      : restingMode(service)
+        ? "resting"
+        : tone === "idle" && !held(service)
+          ? "standby"
+          : DOT_STATE[tone],
   })
 
   const dot = (

@@ -94,21 +94,32 @@ export type ActiveRun = {
   run?: Run
 }
 
-export type Season = {
-  phase: SeasonPhase
+export type Router = {
   launch?: string
-  smpStart?: string
+  opening: SeasonOpening
+  maintenance: boolean
+  mode: SeasonMode
+  anchoredGrants: number
+  lastMaintenance?: Maintenance
+  lastSwitch?: Switch
+  handStart?: HandStart
 }
 
-export type PhaseChange = {
-  previous: SeasonPhase
-  current: SeasonPhase
-  at?: string
+export type Players = {
+  members: number
+  admins: number
+  withoutAccess: number
 }
 
-export type DateChange = {
-  previous?: string
-  current?: string
+export type Switch = {
+  target: SeasonMode
+  reason?: string
+  run: Run
+}
+
+export type SeasonChange = {
+  previous: SeasonState
+  current: SeasonState
   grants: number
   accounts: number
 }
@@ -638,6 +649,7 @@ export type UpdateKind =
   | "RECREATE"
   | "DEPLOY"
   | "REMOVE_PLUGIN"
+  | "SWITCH_MODE"
   | "INSTALL"
 
 export type UpdateStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED" | "CANCELLED"
@@ -676,7 +688,29 @@ export type RunStep = {
   pruned: RunArchive[]
 }
 
-export type SeasonPhase = "PRE_LAUNCH" | "PRE_EVENT" | "START_EVENT" | "SMP" | "MAINTENANCE"
+export type SeasonOpening = "CLOSED" | "COUNTDOWN" | "LAUNCHED"
+
+export type SeasonMode = "SMP" | "HUNGER_GAMES"
+
+export type Maintenance = {
+  on: string
+  off?: string
+  byKind: ActorKind
+  byId: string
+}
+
+export type HandStart = {
+  service: string
+  byKind: ActorKind
+  byId: string
+  at: string
+}
+
+export type SeasonState = {
+  launch?: string
+  maintenance: boolean
+  mode: SeasonMode
+}
 
 export type SmpMilestone = {
   key: string
@@ -781,6 +815,11 @@ export type JournalAction =
   | "REMOVE_STACK"
   | "OPEN_INVENTORY"
   | "RESET_TRACK"
+  | "SET_LAUNCH_DATE"
+  | "LAUNCH_NOW"
+  | "CLOSE_SEASON"
+  | "SET_MAINTENANCE"
+  | "SWITCH_MODE"
   | "SERVICE_DOWN"
   | "BACKUP_STALE"
   | "DISK_FULL"
@@ -874,6 +913,7 @@ export type Service = {
   players?: number
   roster?: Connected[]
   standby?: boolean
+  inactiveMode?: boolean
   hold?: Hold
   oneShot?: boolean
   lastRun?: LastRun

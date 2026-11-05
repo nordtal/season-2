@@ -310,7 +310,8 @@ class WebAuthnKeyTest extends WebTestSupport {
         final String[][] writes = {
             {"/api/updates", "{\"kind\":\"UPDATE\"}"},
             {"/api/access/grant", "{\"discordId\":\"1\",\"days\":1}"},
-            {"/api/season/phase", "{\"phase\":\"LIVE\"}"},
+            {"/api/season/close", "{}"},
+            {"/api/season/switch", "{\"target\":\"SMP\"}"},
             {"/api/smp/milestone", "{\"key\":\"aufbruch\"}"},
             {"/api/smp/track/reset", "{}"},
         };

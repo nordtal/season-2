@@ -59,7 +59,8 @@ export function stagesOf(steps: RailStep[]): Stage[] {
   })
 }
 
-function verdictOf(steps: RailStep[]): Verdict {
+/** Returns the verdict of a group of steps: the worst outcome, else whether one is under way or still to come. */
+export function verdictOf(steps: RailStep[]): Verdict {
   if (steps.some((step) => step.outcome === "FAILED")) return "failed"
   if (steps.some((step) => step.outcome === "WARNING")) return "warning"
   if (steps.some((step) => !step.outcome && step.started)) return "running"

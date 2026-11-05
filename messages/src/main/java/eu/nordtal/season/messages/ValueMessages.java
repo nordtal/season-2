@@ -1,7 +1,7 @@
 package eu.nordtal.season.messages;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.messages.spec.Key;
@@ -155,8 +155,8 @@ public interface ValueMessages {
         @Name("The name of an update run, at the start of a sentence")
         MessageRef occasion(@Arg("occasion") @Example("update") Occasion occasion);
 
-        @Name("The season's phase")
-        MessageRef phase(@Arg("phase") @Example("smp") SeasonPhase phase);
+        @Name("The active game mode")
+        MessageRef mode(@Arg("mode") @Example("hunger-games") SeasonMode mode);
 
         @Name("Choice")
         interface Choice {

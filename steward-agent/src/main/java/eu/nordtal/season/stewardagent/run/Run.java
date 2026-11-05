@@ -2,11 +2,13 @@ package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
+import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -91,6 +93,7 @@ final class Run {
      * @param refusesUnstopped whether a service that did not stop ends the run before its payload
      * @param remade services whose container is created again as they start
      * @param pulls whether recreating a container pulls its image first
+     * @param countdown how long the players are warned when the run is announced
      */
     record Plan(
             List<String> moving,
@@ -106,7 +109,8 @@ final class Run {
             Runner.Doubt doubt,
             boolean alreadyFailed,
             List<String> remade,
-            boolean pulls) {
+            boolean pulls,
+            Duration countdown) {
 
         Plan {
             moving = List.copyOf(moving);
@@ -135,7 +139,8 @@ final class Run {
                     doubt,
                     false,
                     List.of(),
-                    true);
+                    true,
+                    UpdateDirectory.UPDATE_COUNTDOWN);
         }
 
         Plan announced(final boolean warned) {
@@ -153,7 +158,8 @@ final class Run {
                     doubt,
                     alreadyFailed,
                     remade,
-                    pulls);
+                    pulls,
+                    countdown);
         }
 
         Plan stoppingNothing() {
@@ -171,7 +177,8 @@ final class Run {
                     doubt,
                     alreadyFailed,
                     remade,
-                    pulls);
+                    pulls,
+                    countdown);
         }
 
         Plan leavingThemDown() {
@@ -189,7 +196,8 @@ final class Run {
                     doubt,
                     alreadyFailed,
                     remade,
-                    pulls);
+                    pulls,
+                    countdown);
         }
 
         Plan alsoStarting(final List<String> services) {
@@ -207,7 +215,8 @@ final class Run {
                     doubt,
                     alreadyFailed,
                     remade,
-                    pulls);
+                    pulls,
+                    countdown);
         }
 
         Plan renewing(
@@ -229,7 +238,8 @@ final class Run {
                     doubt,
                     failed,
                     remade,
-                    pulls);
+                    pulls,
+                    countdown);
         }
 
         /**
@@ -252,7 +262,28 @@ final class Run {
                     doubt,
                     alreadyFailed,
                     ours,
-                    pulling);
+                    pulling,
+                    countdown);
+        }
+
+        /** Warns the players for {@code length} instead of an update's countdown, zero for a mode switch. */
+        Plan countingDown(final Duration length) {
+            return new Plan(
+                    moving,
+                    work,
+                    announced,
+                    stops,
+                    payload,
+                    startsAgain,
+                    alsoStarts,
+                    images,
+                    foreign,
+                    refusesUnstopped,
+                    doubt,
+                    alreadyFailed,
+                    remade,
+                    pulls,
+                    length);
         }
 
         /**
@@ -274,8 +305,9 @@ final class Run {
             return Outcome.failed();
         }
         try {
-            final Steps.Step players =
-                    plan.announced() ? runner.countDown(request.id(), plan.named(), progress, steps.record) : null;
+            final Steps.Step players = plan.announced()
+                    ? runner.countDown(request.id(), plan.countdown(), plan.named(), progress, steps.record)
+                    : null;
             if (plan.announced() && players == null) {
                 return Runner.cancelled();
             }

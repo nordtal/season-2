@@ -1,6 +1,5 @@
 package eu.nordtal.season.hungergames.game;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.hungergames.config.HungerGamesSpec;
 import eu.nordtal.season.messages.Refusal;
@@ -21,15 +20,11 @@ public final class StartCheck {
     public static Optional<Refusal> refusal(
             final @Nullable HgGameState underWay,
             final boolean open,
-            final SeasonPhase phase,
             final int participants,
             final int recommended,
             final boolean confirmed) {
         if (underWay == null && !open) {
             return Optional.of(ServerRefusal.NO_GAME.with());
-        }
-        if (phase != SeasonPhase.START_EVENT) {
-            return Optional.of(ServerRefusal.WRONG_PHASE.with(phase.name()));
         }
         if (underWay != null) {
             return Optional.of(ServerRefusal.WRONG_STATE.with(underWay.name()));

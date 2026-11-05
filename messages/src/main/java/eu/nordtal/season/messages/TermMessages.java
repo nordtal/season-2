@@ -74,7 +74,7 @@ public interface TermMessages {
         MessageRef extraSpin(@Arg("n") @Example("2") long n);
 
         @Name("Hunger Games")
-        @Describe("The season's start event, played in teams.")
+        @Describe("The season's game mode played in teams, beside the SMP.")
         MessageRef hungerGames();
 
         @Name("Kill")
@@ -100,10 +100,6 @@ public interface TermMessages {
         @Name("Period")
         @Describe("A span of days of access bought at once.")
         MessageRef period(@Arg("n") @Example("2") long n);
-
-        @Name("Phase")
-        @Describe("The season's current stage, which decides which server is open.")
-        MessageRef phase();
 
         @Name("Player")
         @Describe("Someone who plays on the servers.")

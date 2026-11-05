@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.Jdbis;
 import eu.nordtal.season.database.TestDatabase;
@@ -48,21 +47,20 @@ class AccessDirectoryIntegrationTest {
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, journal_entry, "
                 + "player_playtime, admin_grant, discord_user CASCADE");
 
-        // season_phase is a seeded singleton that is not truncated. SMP is the phase in which access decides.
-        phase(SeasonPhase.SMP);
-        // smp_start is cleared, or a test that sets it anchors every later test.
-        execute("UPDATE season_phase SET smp_start = NULL WHERE id");
+        // season_state is a seeded singleton that is not truncated: launched a day ago, on smp, where access decides.
+        execute(
+                "UPDATE season_state SET launch = now() - interval '1 day', maintenance = false, mode = 'SMP' WHERE id");
         directory = AccessDirectory.using(dataSource, Clock.systemUTC());
     }
 
-    /** Puts the season_phase singleton into one phase. */
-    private static void phase(final SeasonPhase phase) {
-        execute("UPDATE season_phase SET phase = '" + phase.name() + "' WHERE id");
+    /** Sets the launch date, in the past for a negative duration. */
+    private static void launchIn(final Duration fromNow) {
+        execute("UPDATE season_state SET launch = now() + interval '" + fromNow.toSeconds() + " seconds' WHERE id");
     }
 
-    /** Sets {@code smp_start}. */
-    private static void smpStartsIn(final Duration fromNow) {
-        execute("UPDATE season_phase SET smp_start = now() + interval '" + fromNow.toSeconds() + " seconds' WHERE id");
+    /** Clears the launch date, which closes the season. */
+    private static void closed() {
+        execute("UPDATE season_state SET launch = NULL WHERE id");
     }
 
     @Test
@@ -116,9 +114,8 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void aPurchaseBeforeTheSeasonStartsBeginsWhenTheSeasonDoes() {
-        // A thirty-day purchase made a fortnight before the opening is thirty days of SMP.
-        phase(SeasonPhase.PRE_LAUNCH);
-        smpStartsIn(Duration.ofDays(14));
+        // A thirty-day purchase made a fortnight before the launch is thirty days of the season.
+        launchIn(Duration.ofDays(14));
 
         final AccessGrant grant = directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
 
@@ -128,9 +125,8 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void twoPurchasesBeforeTheSeasonStartStackIntoOneRunFromTheOpening() {
-        // Two purchases made weeks in advance are sixty days of season from the opening.
-        phase(SeasonPhase.PRE_LAUNCH);
-        smpStartsIn(Duration.ofDays(14));
+        // Two purchases made weeks in advance are sixty days of season from the launch.
+        launchIn(Duration.ofDays(14));
 
         final AccessGrant first = directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
         final AccessGrant second = directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
@@ -142,8 +138,8 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void aPurchaseAfterTheSeasonHasOpenedIgnoresTheStoredDate() {
-        // Once the season runs, smp_start stays set. In the past, now() is the greater of the two.
-        execute("UPDATE season_phase SET smp_start = now() - interval '30 days' WHERE id");
+        // Once the season runs, the launch stays set. In the past, now() is the greater of the two.
+        launchIn(Duration.ofDays(-30));
 
         final AccessGrant grant = directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
 
@@ -153,8 +149,8 @@ class AccessDirectoryIntegrationTest {
 
     @Test
     void withNoSeasonStartTheChainStillStartsNowSoTheShopWorksUndated() {
-        // Selling is not blocked on an unset date. The bot warns on every such grant.
-        phase(SeasonPhase.PRE_LAUNCH);
+        // The database refuses no grant while closed: the bot shuts the shop, and an admin grant starts now.
+        closed();
 
         final AccessGrant grant = directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
 
@@ -164,7 +160,7 @@ class AccessDirectoryIntegrationTest {
     @Test
     void aLapseAfterTheOpeningStartsTodayRatherThanBackAtTheSeasonStart() {
         // Periods are never summed, so an expired grant and a past anchor cannot drag a new period backwards.
-        execute("UPDATE season_phase SET smp_start = now() - interval '90 days' WHERE id");
+        launchIn(Duration.ofDays(-90));
         directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
         execute("""
                 UPDATE access_grant
@@ -203,7 +199,7 @@ class AccessDirectoryIntegrationTest {
         assertTrue(state.linked(), "the account is still linked, it just has no access left");
         assertFalse(state.accessActive());
         assertNull(state.accessValidUntil());
-        assertFalse(state.mayJoin());
+        assertFalse(state.mayJoin(Instant.now()));
     }
 
     @Test
@@ -231,7 +227,7 @@ class AccessDirectoryIntegrationTest {
         final AccessState state = directory.accessState(MC_UUID);
         assertFalse(state.accessActive(), "the window still covers now, but the grant is revoked");
         assertNull(state.accessValidUntil());
-        assertFalse(state.mayJoin());
+        assertFalse(state.mayJoin(Instant.now()));
 
         final List<AccessGrant> grants = directory.grantsOf(DiscordId.of(DISCORD_ID));
         assertEquals(1, grants.size(), "revoking marks the row, it does not delete it");
@@ -277,7 +273,7 @@ class AccessDirectoryIntegrationTest {
         assertFalse(state.donor());
         assertFalse(state.admin());
         assertEquals(Locale.ENGLISH, state.locale());
-        assertFalse(state.mayJoin());
+        assertFalse(state.mayJoin(Instant.now()));
     }
 
     @Test
@@ -290,7 +286,7 @@ class AccessDirectoryIntegrationTest {
         assertEquals(DiscordId.of(DISCORD_ID), state.discordId());
         assertEquals(MemberState.MEMBER, state.memberState());
         assertFalse(state.accessActive());
-        assertFalse(state.mayJoin());
+        assertFalse(state.mayJoin(Instant.now()));
     }
 
     @Test
@@ -303,7 +299,7 @@ class AccessDirectoryIntegrationTest {
 
         assertEquals(MemberState.BANNED, state.memberState());
         assertTrue(state.accessActive(), "a ban does not pause the paid period, it only blocks the join");
-        assertFalse(state.mayJoin());
+        assertFalse(state.mayJoin(Instant.now()));
     }
 
     @Test
@@ -315,119 +311,10 @@ class AccessDirectoryIntegrationTest {
 
         final AccessState state = directory.accessState(MC_UUID);
 
-        assertTrue(state.mayJoin());
+        assertTrue(state.mayJoin(Instant.now()));
         assertTrue(state.donor());
         assertEquals(Locale.GERMAN, state.locale());
         assertWithinSeconds(Instant.now().plus(Duration.ofDays(60)), state.accessValidUntil(), 60);
-    }
-
-    @Test
-    void theLoginQueryCarriesThePhaseSoTheProxyNeverMakesASecondRoundTrip() {
-        // One round trip on the login path returns the access state and the phase.
-        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
-        phase(SeasonPhase.START_EVENT);
-
-        assertEquals(SeasonPhase.START_EVENT, directory.accessState(MC_UUID).phase());
-        assertEquals(
-                SeasonPhase.START_EVENT,
-                directory.accessState(UUID.randomUUID()).phase(),
-                "an unlinked UUID still has to learn the phase - the disconnect screen depends on it");
-    }
-
-    @Test
-    void aLinkedMemberWithNoAccessGetsInBeforeTheSmpAndNotAfterIt() {
-        // The pre-event and the start event are free for anyone with a linked account.
-        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
-
-        phase(SeasonPhase.PRE_EVENT);
-        assertTrue(directory.accessState(MC_UUID).mayJoin(), "PRE_EVENT needs no access");
-
-        phase(SeasonPhase.START_EVENT);
-        assertTrue(directory.accessState(MC_UUID).mayJoin(), "START_EVENT needs no access");
-
-        phase(SeasonPhase.SMP);
-        assertFalse(directory.accessState(MC_UUID).mayJoin(), "SMP is the phase access is for");
-    }
-
-    @Test
-    void anUnlinkedAccountIsRefusedInEveryPhaseIncludingTheFreeOnes() {
-        final UUID stranger = UUID.randomUUID();
-
-        for (final SeasonPhase each : SeasonPhase.values()) {
-            phase(each);
-            assertFalse(
-                    directory.accessState(stranger).mayJoin(),
-                    "linking is the one requirement no phase waives, and " + each + " is no exception");
-        }
-    }
-
-    @Test
-    void aBannedMemberIsRefusedInEveryPhaseEvenWithAccessAndTheAdminFlag() {
-        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
-        directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
-        setAdmin(DiscordId.of(DISCORD_ID), true);
-        directory.setMemberState(DiscordId.of(DISCORD_ID), MemberState.BANNED);
-
-        for (final SeasonPhase each : SeasonPhase.values()) {
-            phase(each);
-            assertFalse(
-                    directory.accessState(MC_UUID).mayJoin(),
-                    "a ban outranks paid access and the admin flag, in " + each);
-        }
-    }
-
-    @Test
-    void maintenanceAdmitsAnyLinkedMemberSoTheProxyCanHoldThemInLimbo() {
-        // MAINTENANCE admits like the event phases. The proxy's PhaseRouting decides where a player goes.
-        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
-        phase(SeasonPhase.MAINTENANCE);
-
-        assertTrue(
-                directory.accessState(MC_UUID).mayJoin(),
-                "a linked member is let in during maintenance and then routed to limbo");
-
-        directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
-        assertTrue(directory.accessState(MC_UUID).mayJoin(), "buying access changes nothing here");
-
-        setAdmin(DiscordId.of(DISCORD_ID), true);
-        assertTrue(directory.accessState(MC_UUID).mayJoin(), "and neither does the admin flag");
-    }
-
-    @Test
-    void anAdminWithoutAccessGetsIntoMaintenanceAndIntoTheSmp() {
-        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
-        setAdmin(DiscordId.of(DISCORD_ID), true);
-
-        phase(SeasonPhase.MAINTENANCE);
-        assertTrue(
-                directory.accessState(MC_UUID).mayJoin(),
-                "an admin gets in during maintenance - as does everybody else");
-
-        // The admin flag is a free pass in SMP, so an admin who switches to SMP stays connected.
-        phase(SeasonPhase.SMP);
-        assertTrue(directory.accessState(MC_UUID).mayJoin(), "the admin flag is an access period");
-        setAdmin(DiscordId.of(DISCORD_ID), false);
-        assertFalse(
-                directory.accessState(MC_UUID).mayJoin(),
-                "and losing the role loses the pass, with nothing bought underneath it");
-    }
-
-    @Test
-    void aDeletedPhaseRowReadsAsMaintenanceRatherThanLookingLikeAnUnlinkedAccount() {
-        // Without the phase row the account reads as linked and the phase as MAINTENANCE.
-        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
-        directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
-        execute("DELETE FROM season_phase");
-        try {
-            final AccessState state = directory.accessState(MC_UUID);
-
-            assertTrue(state.linked(), "a missing phase row must not make a linked player look unlinked");
-            assertTrue(state.accessActive());
-            assertEquals(SeasonPhase.MAINTENANCE, state.phase());
-            assertTrue(state.mayJoin(), "admitted, and then held in the waiting room");
-        } finally {
-            execute("INSERT INTO season_phase (phase) VALUES ('PRE_EVENT')");
-        }
     }
 
     @Test
@@ -499,12 +386,8 @@ class AccessDirectoryIntegrationTest {
 
         final AccessState state = directory.accessState(MC_UUID);
 
-        assertTrue(
-                state.admin(), "this is what MAINTENANCE and the proxy's emergency /phase command are authorised by");
-        assertTrue(
-                state.mayJoin(),
-                "it is also an access period: the seeded phase is PRE_LAUNCH, "
-                        + "where the flag is the admission rule, and in SMP it stands in for a grant");
+        assertTrue(state.admin(), "this is what maintenance and the closed season let through");
+        assertTrue(state.mayJoin(Instant.now()), "it is also an access period: on smp it stands in for a grant");
     }
 
     @Test

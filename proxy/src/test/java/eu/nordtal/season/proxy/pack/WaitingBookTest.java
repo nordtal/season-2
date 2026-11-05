@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.limboprotocol.WaitReason;
 import eu.nordtal.season.proxy.MutableClock;
 import eu.nordtal.season.proxy.ProxyRole;
@@ -26,8 +25,8 @@ class WaitingBookTest {
 
     private static final Duration APPLY_TIMEOUT = Duration.ofMinutes(3);
     private static final Duration READY_GRACE = Duration.ofSeconds(5);
-    private static final SeasonPhase PLAYABLE = SeasonPhase.PRE_EVENT;
-    /** The phase's backend; a retry window belongs to a backend, not to a player. */
+    private static final SeasonHold PLAYABLE = SeasonHold.NONE;
+    /** The server of the active mode; a retry window belongs to a backend, not to a player. */
     private static final String DESTINATION = "hunger-games";
 
     private final MutableClock clock = new MutableClock(Instant.parse("2026-09-03T00:09:58Z"));
@@ -184,7 +183,7 @@ class WaitingBookTest {
         assertEquals(Action.IDLE, decide(book), "the clock starts here");
 
         clock.advance(Duration.ofSeconds(4));
-        // The phase's backend goes away: the wait is no longer down to READY alone.
+        // The server of the active mode goes away: the wait is down to more than READY.
         assertEquals(
                 Action.SHOW,
                 book.decide(player, PLAYABLE, false, false, DESTINATION, false, false)
@@ -279,7 +278,7 @@ class WaitingBookTest {
         book.packApplied(player);
         assertEquals(
                 WaitingDecision.show(WaitReason.MAINTENANCE),
-                book.decide(player, SeasonPhase.MAINTENANCE, false, true, DESTINATION, false, false));
+                book.decide(player, SeasonHold.MAINTENANCE, false, true, DESTINATION, false, false));
     }
 
     @Test
@@ -351,11 +350,11 @@ class WaitingBookTest {
 
         assertEquals(
                 WaitingDecision.show(WaitReason.BACKEND),
-                book.decide(player, SeasonPhase.MAINTENANCE, true, false, DESTINATION, false, false),
+                book.decide(player, SeasonHold.MAINTENANCE, true, false, DESTINATION, false, false),
                 "the SMP is not registered: the admin waits for it, and is told that");
         assertEquals(
                 Action.RELEASE,
-                book.decide(player, SeasonPhase.MAINTENANCE, true, true, DESTINATION, false, false)
+                book.decide(player, SeasonHold.MAINTENANCE, true, true, DESTINATION, false, false)
                         .action(),
                 "the SMP is there: nothing is left to wait for");
     }
@@ -370,7 +369,7 @@ class WaitingBookTest {
 
         assertEquals(
                 WaitingDecision.show(WaitReason.MAINTENANCE),
-                book.decide(player, SeasonPhase.MAINTENANCE, false, true, DESTINATION, false, false));
+                book.decide(player, SeasonHold.MAINTENANCE, false, true, DESTINATION, false, false));
     }
 
     @Test
@@ -412,7 +411,7 @@ class WaitingBookTest {
                 "the backend that refused is still refused");
         assertEquals(
                 Action.RELEASE,
-                book.decide(player, SeasonPhase.SMP, false, true, "smp", false, false)
+                book.decide(player, SeasonHold.NONE, false, true, "smp", false, false)
                         .action(),
                 "another backend is not held for a failure that was not its own");
     }
@@ -531,13 +530,56 @@ class WaitingBookTest {
 
         assertEquals(
                 WaitingDecision.show(WaitReason.MAINTENANCE),
-                book.decide(held, SeasonPhase.MAINTENANCE, false, true, "smp", false, false));
+                book.decide(held, SeasonHold.MAINTENANCE, false, true, "smp", false, false));
         clock.advance(Duration.ofSeconds(3));
 
         assertEquals(
                 Action.RELEASE,
-                book.decide(admin, SeasonPhase.MAINTENANCE, true, true, "smp", false, false)
+                book.decide(admin, SeasonHold.MAINTENANCE, true, true, "smp", false, false)
                         .action(),
                 "a player kept back by maintenance does not keep the head of the queue");
+    }
+
+    // a mode switch and a release the gate sends back
+
+    @Test
+    void aModeSwitchHoldsAnAdminWithEverythingElseReady() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        book.packApplied(player);
+        book.ready(player);
+
+        assertEquals(
+                WaitingDecision.show(WaitReason.UPDATE),
+                book.decide(player, SeasonHold.SWITCH, true, true, DESTINATION, false, false));
+        assertEquals(
+                Action.RELEASE,
+                book.decide(player, PLAYABLE, true, true, DESTINATION, false, false)
+                        .action(),
+                "the end of the switch releases the admin");
+    }
+
+    @Test
+    void aPlayerHeldAgainWaitsUnderTheReasonAndIsReleasedOnceItEnds() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player);
+        book.packApplied(player);
+        book.ready(player);
+        assertEquals(Action.RELEASE, decide(book));
+
+        assertTrue(book.heldAgain(player, WaitReason.MAINTENANCE));
+        assertEquals(
+                Action.IDLE,
+                book.decide(player, SeasonHold.MAINTENANCE, false, true, DESTINATION, false, false)
+                        .action(),
+                "the screen was sent with the hold, so nothing changes");
+        assertEquals(Action.RELEASE, decide(book), "maintenance off releases the player again");
+    }
+
+    @Test
+    void aPlayerWithoutASessionIsNotHeldAgain() {
+        assertFalse(book().heldAgain(player, WaitReason.MAINTENANCE));
     }
 }

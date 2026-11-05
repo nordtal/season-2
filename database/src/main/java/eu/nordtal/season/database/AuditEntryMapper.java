@@ -1,8 +1,8 @@
 package eu.nordtal.season.database;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.database.JournalDetail.AccessGranted;
 import eu.nordtal.season.database.JournalDetail.AccessRevoked;
 import eu.nordtal.season.database.JournalDetail.AdminRevoked;
@@ -19,11 +19,9 @@ import eu.nordtal.season.database.JournalDetail.KeyHeld;
 import eu.nordtal.season.database.JournalDetail.KeyRegistered;
 import eu.nordtal.season.database.JournalDetail.KeyRemoved;
 import eu.nordtal.season.database.JournalDetail.KeyRenamed;
-import eu.nordtal.season.database.JournalDetail.LaunchSet;
 import eu.nordtal.season.database.JournalDetail.MessagesSaved;
 import eu.nordtal.season.database.JournalDetail.MilestoneUnlocked;
 import eu.nordtal.season.database.JournalDetail.ObjectiveCompleted;
-import eu.nordtal.season.database.JournalDetail.PhaseSet;
 import eu.nordtal.season.database.JournalDetail.PlaytimeSet;
 import eu.nordtal.season.database.JournalDetail.PluginAdded;
 import eu.nordtal.season.database.JournalDetail.PluginRemoved;
@@ -33,11 +31,13 @@ import eu.nordtal.season.database.JournalDetail.RunAsked;
 import eu.nordtal.season.database.JournalDetail.RunCancelled;
 import eu.nordtal.season.database.JournalDetail.SettingsSaved;
 import eu.nordtal.season.database.JournalDetail.Settled;
-import eu.nordtal.season.database.JournalDetail.SmpStartSet;
 import eu.nordtal.season.database.JournalDetail.SpinsSet;
 import eu.nordtal.season.database.JournalDetail.StackRemoved;
 import eu.nordtal.season.database.JournalDetail.TrackReset;
 import eu.nordtal.season.database.JournalDetail.Unlinked;
+import eu.nordtal.season.database.SeasonDetail.LaunchSet;
+import eu.nordtal.season.database.SeasonDetail.PhaseSet;
+import eu.nordtal.season.database.SeasonDetail.SmpStartSet;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.audit.AuditEntry;
@@ -89,6 +89,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     UNANCHORED_GRANT -> person(action, rs);
             case SET_PHASE, SET_LAUNCH, SET_SMP_START, ANNOUNCE, COMPLETE_OBJECTIVE, UNLOCK_MILESTONE, RESET_TRACK ->
                 season(action, rs);
+            case SET_LAUNCH_DATE, LAUNCH_NOW, CLOSE_SEASON, SET_MAINTENANCE, SWITCH_MODE -> launch(action, rs);
             case REGISTER_KEY,
                     RENAME_KEY,
                     HELD_KEY,
@@ -188,10 +189,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                 final String from = rs.getString("from_phase");
                 yield from == null
                         ? null
-                        : new PhaseSet(
-                                SeasonPhase.valueOf(from),
-                                SeasonPhase.valueOf(Objects.requireNonNull(rs.getString("to_phase"))),
-                                rs.getString("reason"));
+                        : new PhaseSet(from, Objects.requireNonNull(rs.getString("to_phase")), rs.getString("reason"));
             }
             case SET_LAUNCH -> new LaunchSet(instant(rs, "opens"));
             case SET_SMP_START -> new SmpStartSet(instant(rs, "starts"), rs.getLong("moved_grants"));
@@ -209,6 +207,42 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
         };
     }
 
+    private static @Nullable JournalDetail launch(final JournalAction action, final ResultSet rs) throws SQLException {
+        return switch (action) {
+            case SET_LAUNCH_DATE, LAUNCH_NOW, CLOSE_SEASON -> {
+                final Instant from = instant(rs, "from_launch");
+                final Instant to = instant(rs, "to_launch");
+                final String reason = rs.getString("launch_reason");
+                final long moved = rs.getLong("launch_moved_grants");
+                if (action == JournalAction.CLOSE_SEASON) {
+                    yield from == null ? null : new SeasonDetail.SeasonClosed(from, reason);
+                }
+                if (to == null) {
+                    yield null;
+                }
+                yield action == JournalAction.LAUNCH_NOW
+                        ? new SeasonDetail.LaunchedNow(from, to, moved, reason)
+                        : new SeasonDetail.LaunchDateSet(from, to, moved, reason);
+            }
+            case SET_MAINTENANCE -> {
+                final Boolean on = rs.getObject("maintenance", Boolean.class);
+                yield on == null ? null : new SeasonDetail.MaintenanceSet(on, rs.getString("maintenance_reason"));
+            }
+            case SWITCH_MODE -> {
+                final String from = rs.getString("from_mode");
+                final String to = rs.getString("to_mode");
+                yield from == null || to == null
+                        ? null
+                        : new SeasonDetail.ModeSwitched(
+                                SeasonMode.fromDatabase(from),
+                                SeasonMode.fromDatabase(to),
+                                rs.getString("mode_reason"));
+            }
+            default -> throw new IllegalArgumentException(action + " is not a launch, maintenance or mode action");
+        };
+    }
+
+    /** Returns a stored phase name as its message value, {@code PRE_EVENT} as {@code pre-event}. */
     private static @Nullable JournalDetail security(final JournalAction action, final ResultSet rs)
             throws SQLException {
         return switch (action) {

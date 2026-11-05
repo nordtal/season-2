@@ -15,7 +15,7 @@ public enum Topic {
     /** The roster, the access periods and the payments. */
     PEOPLE(false),
 
-    /** The season's phase and its two dates. */
+    /** The launch date, maintenance, the game mode and the last mode switch. */
     SEASON(false),
 
     /** The SMP track and the Hunger Games round. */

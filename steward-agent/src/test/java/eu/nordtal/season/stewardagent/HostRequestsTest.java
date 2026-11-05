@@ -2,8 +2,10 @@ package eu.nordtal.season.stewardagent;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.database.update.RunRecord;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
@@ -12,8 +14,20 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** Tests that {@code status} on the host prints a run's steps and tells a kept local build from other failures. */
+/**
+ * Tests the host's {@code request} and {@code status}.
+ *
+ * {@code status} prints a run's steps and tells a kept local build from other failures; a switch names its mode.
+ */
 class HostRequestsTest {
+
+    @Test
+    void aSwitchNamesItsModeInAnyCaseAndNothingElse() {
+        assertEquals(SeasonMode.HUNGER_GAMES, HostRequests.modeNamed("hunger_games"));
+        assertEquals(SeasonMode.SMP, HostRequests.modeNamed(" SMP "));
+        assertNull(HostRequests.modeNamed("smp,proxy"));
+        assertNull(HostRequests.modeNamed(""));
+    }
 
     @Test
     void aRunThatStoppedBeforeReplacingALocalBuildIsTold() {

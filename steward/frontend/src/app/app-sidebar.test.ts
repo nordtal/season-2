@@ -13,7 +13,7 @@ describe("activeEntryId - the longest match wins", () => {
   })
 
   it("does not light up the start page for a path that merely begins with a slash", () => {
-    expect(activeEntryId("/season", NAVIGATION)).not.toBe("overview")
+    expect(activeEntryId("/access", NAVIGATION)).not.toBe("overview")
   })
 
   it("picks the nested entry over its parent, which is the whole reason it is not a predicate", () => {

@@ -3,7 +3,7 @@ package eu.nordtal.season.proxy.routing;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
  */
 class RouteIntentsAllowTest {
 
-    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     @Test
     void bothWaitingRoomsNeedNoIntent() {
@@ -24,7 +24,7 @@ class RouteIntentsAllowTest {
     @Test
     void aBackendStillNeedsItsIntent() {
         assertTrue(RouteIntents.allows(SERVERS, "smp", "smp"));
-        // /server hunger-games during the SMP phase.
+        // /server hunger-games while the SMP is the active mode.
         assertFalse(RouteIntents.allows(SERVERS, "hunger-games", "smp"));
         assertFalse(RouteIntents.allows(SERVERS, "smp", null));
     }

@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-/** A move onto {@code smp} after a phase change passes the waiting room, whose queue lets the player on. */
+/** A move onto {@code smp} after a change of the season passes the waiting room, whose queue lets the player on. */
 class PlayerRouterTest {
 
-    private final PhaseServers servers = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private final NetworkServers servers = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     @Test
     void aMoveOntoSmpGoesThroughTheWaitingRoom() {
@@ -22,7 +22,7 @@ class PlayerRouterTest {
 
     @Test
     void aPlayerAlreadyOnSmpStaysThere() {
-        // The phase change resolves to smp for everybody; those on it would otherwise queue again.
+        // The change of the season resolves to smp for everybody; those on it would otherwise queue again.
         assertEquals("smp", PlayerRouter.viaWaitingRoom("smp", "smp", servers, Set.of("limbo", "smp")));
     }
 

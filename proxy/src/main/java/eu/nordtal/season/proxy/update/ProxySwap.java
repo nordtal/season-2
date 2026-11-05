@@ -247,7 +247,7 @@ public final class ProxySwap {
             } catch (final RuntimeException failure) {
                 logger.warn(
                         "Could not record where {} was standing; they will be routed by the"
-                                + " phase when they come back",
+                                + " season when they come back",
                         player.getUsername(),
                         failure);
             }

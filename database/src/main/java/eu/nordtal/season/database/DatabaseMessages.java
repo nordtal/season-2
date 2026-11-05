@@ -61,32 +61,23 @@ public interface DatabaseMessages {
         MessageRef alreadyHeld(@Arg("services") @Example("smp,proxy") List<String> services);
     }
 
-    @Name("Season dates")
+    @Name("Season launch")
     @Shown(Display.STEWARD)
     interface SeasonRefusals {
 
-        @Name("Opening in the past")
+        @Name("Launch date in the past")
         MessageRef launchInThePast(
-                @Arg("at") @Example("2026-10-01T18:00:00Z") Instant at,
-                @Arg("clear") @Example("/season launch clear") String clear);
+                @Arg("at") @Example("2026-11-01T17:00:00Z") Instant at,
+                @Arg("now") @Example("2026-11-04T13:20:00Z") Instant now);
 
-        @Name("Paid time in the past")
-        MessageRef smpStartInThePast(
-                @Arg("at") @Example("2026-10-01T18:00:00Z") Instant at,
-                @Arg("clear") @Example("/season smp-start clear") String clear);
+        @Name("Already launched")
+        MessageRef alreadyLaunched(@Arg("at") @Example("2026-11-13T17:00:00Z") Instant at);
 
-        @Name("Opening after paid time")
-        MessageRef launchAfterSmpStart(
-                @Arg("at") @Example("2026-11-07T18:00:00Z") Instant at,
-                @Arg("smp") @Example("2026-10-31T18:00:00Z") Instant smpStart);
+        @Name("No launch date")
+        MessageRef notSet();
 
-        @Name("Paid time already running")
-        MessageRef smpRunning();
-
-        @Name("Paid time before the opening")
-        MessageRef smpStartBeforeLaunch(
-                @Arg("at") @Example("2026-10-24T18:00:00Z") Instant at,
-                @Arg("launch") @Example("2026-10-31T18:00:00Z") Instant launch);
+        @Name("Not launched")
+        MessageRef notLaunched();
     }
 
     @Name("Server actions")

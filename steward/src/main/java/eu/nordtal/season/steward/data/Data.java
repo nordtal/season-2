@@ -11,7 +11,7 @@ import eu.nordtal.season.database.metric.MetricDirectory;
 import eu.nordtal.season.database.online.OnlineRoster;
 import eu.nordtal.season.database.payment.Bookings;
 import eu.nordtal.season.database.payment.PaymentRequests;
-import eu.nordtal.season.database.phase.PhaseDirectory;
+import eu.nordtal.season.database.season.SeasonDirectory;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.settings.Database;
 import java.time.Clock;
@@ -26,7 +26,7 @@ public final class Data {
     private final Database database;
     private final UpdateDirectory updates;
     private final MetricDirectory metrics;
-    private final PhaseDirectory phase;
+    private final SeasonDirectory season;
     private final PaymentRequests payments;
     private final Bookings bookings;
     private final AuditDirectory audit;
@@ -41,7 +41,7 @@ public final class Data {
         this.database = database;
         this.updates = UpdateDirectory.using(database.dataSource());
         this.metrics = MetricDirectory.using(database.dataSource());
-        this.phase = PhaseDirectory.using(database.dataSource(), clock);
+        this.season = SeasonDirectory.using(database.dataSource(), clock);
         this.payments = new PaymentRequests(database.dataSource());
         this.bookings = new Bookings(database.dataSource());
         this.audit = AuditDirectory.using(database.dataSource());
@@ -75,8 +75,8 @@ public final class Data {
         return metrics;
     }
 
-    public PhaseDirectory phase() {
-        return phase;
+    public SeasonDirectory season() {
+        return season;
     }
 
     public PaymentRequests payments() {

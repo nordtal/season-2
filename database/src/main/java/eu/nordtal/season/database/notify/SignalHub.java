@@ -83,7 +83,7 @@ public final class SignalHub implements AutoCloseable {
     /**
      * Registers a re-read that waits for {@code channel}. It is refused after the hub started.
      *
-     * @param what a name for the log line on failure, such as "the season phase"
+     * @param what a name for the log line on failure, such as "the season state"
      * @param task the re-read, which runs repeatedly on the hub's thread
      */
     public synchronized void on(final Channel channel, final String what, final Runnable task) {

@@ -6,7 +6,6 @@ import { UpdateRunPage } from "@/pages/operations"
 import { UpdatesPage } from "@/pages/updates"
 import { BackupsPage, BackupRunDetailPage } from "@/pages/backups"
 import { ServicePage, serviceSearch } from "@/pages/service"
-import { SeasonPage, seasonSearch } from "@/pages/season"
 import { TranslationsPage, translationsSearch } from "@/pages/translations"
 import { AccessPage } from "@/pages/access"
 import { JournalPage } from "@/pages/journal"
@@ -47,6 +46,14 @@ const routes = [
       throw redirect({ to: "/operations/updates/$id", params: { id: params.id } })
     },
   }),
+  /** The season page is now the proxy's Router tab. */
+  createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/season",
+    beforeLoad: () => {
+      throw redirect({ to: "/services/$name", params: { name: "proxy" }, search: { tab: "router" } })
+    },
+  }),
   createRoute({ getParentRoute: () => rootRoute, path: "/operations/updates", component: UpdatesPage }),
   createRoute({
     getParentRoute: () => rootRoute,
@@ -64,12 +71,6 @@ const routes = [
     component: BackupRunDetailPage,
   }),
   /** Files are cards on their service's page, and the account is the popover. */
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/season",
-    component: SeasonPage,
-    validateSearch: seasonSearch,
-  }),
   createRoute({
     getParentRoute: () => rootRoute,
     path: "/translations",

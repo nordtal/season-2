@@ -2,7 +2,19 @@
   "parts": [
     {
       "type": "TEXT",
-      "when": "phase=pre-launch",
+      "when": "state=closed",
+      "lines": [
+        {
+          "text": {
+            "en": "Launch date to come",
+            "de": "Starttermin folgt"
+          }
+        }
+      ]
+    },
+    {
+      "type": "TEXT",
+      "when": "state=countdown",
       "lines": [
         {
           "text": {
@@ -31,43 +43,24 @@
             "de": "Start jeden Moment"
           },
           "when": "countdown=imminent"
-        },
-        {
-          "text": {
-            "en": "Opening date to come",
-            "de": "Starttermin folgt"
-          },
-          "when": "countdown=unknown"
         }
       ]
     },
     {
       "type": "TEXT",
-      "when": "phase=pre-event",
+      "when": "state=maintenance",
       "lines": [
         {
           "text": {
-            "en": "{teams} {@terms.team, n=teams} registered",
-            "de": "{teams} {@terms.team, n=teams} angemeldet"
+            "en": "Maintenance",
+            "de": "Wartung"
           }
         }
       ]
     },
     {
       "type": "TEXT",
-      "when": "phase=start-event",
-      "lines": [
-        {
-          "text": {
-            "en": "{teams} {@terms.team, n=teams} left, {players} alive",
-            "de": "{teams} {@terms.team, n=teams} übrig, {players} am Leben"
-          }
-        }
-      ]
-    },
-    {
-      "type": "TEXT",
-      "when": "phase=smp",
+      "when": "state=smp",
       "lines": [
         {
           "text": {
@@ -79,13 +72,21 @@
     },
     {
       "type": "TEXT",
-      "when": "phase=maintenance",
+      "when": "state=hunger-games",
       "lines": [
         {
           "text": {
-            "en": "Maintenance",
-            "de": "Wartung"
-          }
+            "en": "{teams} {@terms.team, n=teams} registered",
+            "de": "{teams} {@terms.team, n=teams} angemeldet"
+          },
+          "when": "!playing"
+        },
+        {
+          "text": {
+            "en": "{teams} {@terms.team, n=teams} left, {players} alive",
+            "de": "{teams} {@terms.team, n=teams} übrig, {players} am Leben"
+          },
+          "when": "playing"
         }
       ]
     }

@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.function.BooleanSupplier;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
@@ -130,11 +131,53 @@ public final class PurchaseFlow extends ListenerAdapter {
         final Locale locale = roles.localeOf(DiscordId.of(event.getUser().getId()));
 
         switch (id) {
-            case Ids.BUY, Ids.CHANGE -> chooseDays(event, locale);
-            case Ids.DONATION -> toggleDonation(event, locale);
-            case Ids.CONFIRM -> confirm(event, locale);
+            case Ids.BUY, Ids.CHANGE, Ids.DONATION, Ids.CONFIRM -> {
+                if (!refusedWhileClosed(event, locale)) {
+                    purchase(event, id, locale);
+                }
+            }
             default -> log.debug("Ignoring unknown component id {}", id);
         }
+    }
+
+    private void purchase(final ButtonInteractionEvent event, final String id, final Locale locale) {
+        switch (id) {
+            case Ids.DONATION -> toggleDonation(event, locale);
+            case Ids.CONFIRM -> confirm(event, locale);
+            default -> chooseDays(event, locale);
+        }
+    }
+
+    /**
+     * Refuses every step of a purchase while the season has no launch date, before any request or link is made.
+     *
+     * @return whether the step was refused, with a reply that says so
+     */
+    private boolean refusedWhileClosed(final IReplyCallback event, final Locale locale) {
+        return refusedWhileClosed(event, locale, documents, purchases::onSale);
+    }
+
+    static boolean refusedWhileClosed(
+            final IReplyCallback event,
+            final Locale locale,
+            final DocumentRenderer documents,
+            final BooleanSupplier onSale) {
+        final boolean open;
+        try {
+            open = onSale.getAsBoolean();
+        } catch (final RuntimeException unreadable) {
+            log.warn("Could not read whether the season has a launch date", unreadable);
+            event.reply(documents.reply(locale, Replies.PURCHASE_FAILED).create())
+                    .setEphemeral(true)
+                    .queue();
+            return true;
+        }
+        if (!open) {
+            event.reply(documents.reply(locale, Replies.PURCHASE_CLOSED).create())
+                    .setEphemeral(true)
+                    .queue();
+        }
+        return !open;
     }
 
     @Override
@@ -143,6 +186,9 @@ public final class PurchaseFlow extends ListenerAdapter {
             return;
         }
         final Locale locale = roles.localeOf(DiscordId.of(event.getUser().getId()));
+        if (refusedWhileClosed(event, locale)) {
+            return;
+        }
         final int days = Integer.parseInt(event.getValues().getFirst());
 
         final Optional<Tier> tier = tiers.byDays(days);

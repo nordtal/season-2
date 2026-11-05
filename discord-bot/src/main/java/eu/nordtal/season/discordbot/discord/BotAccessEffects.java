@@ -10,7 +10,6 @@ import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.Replies;
-import eu.nordtal.season.discordbot.access.SeasonStart;
 import eu.nordtal.season.discordbot.access.discord.AccessRoles;
 import eu.nordtal.season.messages.document.Sent;
 import java.time.Duration;
@@ -24,23 +23,16 @@ public final class BotAccessEffects implements AccessChanges {
     private final AccessDirectory access;
     private final AccessRoles roles;
     private final AdminLog admin;
-    private final SeasonStart seasonStart;
 
-    public BotAccessEffects(
-            final AccessDirectory access,
-            final AccessRoles roles,
-            final AdminLog admin,
-            final SeasonStart seasonStart) {
+    public BotAccessEffects(final AccessDirectory access, final AccessRoles roles, final AdminLog admin) {
         this.access = access;
         this.roles = roles;
         this.admin = admin;
-        this.seasonStart = seasonStart;
     }
 
     @Override
     public Instant grant(final DiscordId discordId, final int days, final Actor by) {
         final AccessGrant granted = access.grantAccess(discordId, days, AccessSource.ADMIN, null);
-        seasonStart.warnIfUnanchored(discordId, granted.validFrom());
         roles.applyAccessRole(discordId, true);
         roles.dm(discordId, new Sent<>(Replies.DM_GRANTED_ADMIN, new Replies.Given(days, granted.validUntil())));
 

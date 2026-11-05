@@ -8,8 +8,7 @@ import eu.nordtal.season.database.access.Person;
 import eu.nordtal.season.database.audit.AuditEntry;
 import eu.nordtal.season.database.command.CommandTree;
 import eu.nordtal.season.database.payment.PaymentRequest;
-import eu.nordtal.season.database.phase.DateChange;
-import eu.nordtal.season.database.phase.PhaseChange;
+import eu.nordtal.season.database.season.SeasonChange;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.messages.document.DocumentCheck;
@@ -75,9 +74,10 @@ public final class StewardWire {
             AgentApi.AgentState.class,
             Updates.Run.class,
             Updates.ActiveRun.class,
-            SeasonRoutes.Season.class,
-            PhaseChange.class,
-            DateChange.class,
+            SeasonRoutes.Router.class,
+            SeasonRoutes.Players.class,
+            SeasonRoutes.Switch.class,
+            SeasonChange.class,
             GameActions.SmpTrack.class,
             GameActions.HungerGamesRound.class,
             GameActions.CommandAsked.class,

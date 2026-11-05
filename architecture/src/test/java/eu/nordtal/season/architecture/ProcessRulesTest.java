@@ -68,9 +68,9 @@ class ProcessRulesTest {
                 .check(classes);
     }
 
-    /** The bot sees a phase change through its hub like every other process; a timer of its own is a poll. */
+    /** The bot sees a change of the season through its hub like every other process; a timer of its own is a poll. */
     @Test
-    void theBotSeesThePhaseThroughItsHubAndNotOnATimer() {
+    void theBotSeesTheSeasonThroughItsHubAndNotOnATimer() {
         classes()
                 .that(isListed(BOT))
                 .should(callFrom("listen", "StatusChannels#follow"))

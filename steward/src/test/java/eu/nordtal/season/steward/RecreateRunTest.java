@@ -61,7 +61,7 @@ class RecreateRunTest extends WebTestSupport {
     /**
      * Exercises every path into {@code journal_entry.actor_id} ({@code varchar(32)}) with a 32-character nickname.
      *
-     * {@code PhaseDao}'s explicit cast truncates instead of refusing, so that path asserts the value, not the status.
+     * The season's writes journal the actor themselves, so that path asserts the value, not the status.
      */
     @Test
     void aLongDisplayNameIsNotAnOverflow() throws Exception {
@@ -80,7 +80,7 @@ class RecreateRunTest extends WebTestSupport {
             registerAKey(browser, new TestAuthenticator(), "Archibald's key");
             assertAnnouncementAndRecreateNameTheirAsker(browser, snowflake);
             assertAccessGrantAndRevokeAreJournalled(browser, snowflake);
-            assertSeasonDatesAndPhaseAreJournalled(browser, snowflake);
+            assertSeasonChangesAreJournalled(browser, snowflake);
         } finally {
             memberId.set("1");
             memberNick.set("Ally");
@@ -157,41 +157,29 @@ class RecreateRunTest extends WebTestSupport {
         }
     }
 
-    private void assertSeasonDatesAndPhaseAreJournalled(final HttpClient browser, final String snowflake)
-            throws Exception {
-        // 5. The two season dates and the phase; PhaseDao casts the actor id to varchar(32) and would truncate it.
+    private void assertSeasonChangesAreJournalled(final HttpClient browser, final String snowflake) throws Exception {
+        // 5. The launch date and maintenance, each journalled by the season's own write with the long actor.
         final JsonObject season = GSON.fromJson(get("/api/season").body(), JsonObject.class);
-        final String phaseBefore = season.get("phase").getAsString();
-        final String launchAt = SOON;
-        final String smpStartAt = SOON;
-
+        final boolean maintenanceBefore = season.get("maintenance").getAsBoolean();
         assertEquals(
                 200,
-                post(browser, "/api/season/date", "{\"at\":\"" + launchAt + "\",\"which\":\"launch\"}")
-                        .statusCode());
-        assertEquals(snowflake, actorOf("SET_LAUNCH"), "the season journal took a truncated actor and said nothing");
-
+                post(browser, "/api/season/launch", "{\"at\":\"" + SOON + "\"}").statusCode());
         assertEquals(
-                200,
-                post(browser, "/api/season/date", "{\"at\":\"" + smpStartAt + "\",\"which\":\"smpStart\"}")
-                        .statusCode());
-        assertEquals(snowflake, actorOf("SET_SMP_START"));
-
-        // START_EVENT and never SMP: setSmpStart refuses when the season is already in SMP.
+                snowflake, actorOf("SET_LAUNCH_DATE"), "the season journal took a truncated actor and said nothing");
         try {
             assertEquals(
                     200,
                     post(
                                     browser,
-                                    "/api/season/phase",
-                                    "{\"phase\":\"START_EVENT\",\"reason\":\"a long name should not matter\"}")
+                                    "/api/season/maintenance",
+                                    "{\"on\":" + !maintenanceBefore + ",\"reason\":\"a long name should not matter\"}")
                             .statusCode());
-            assertEquals(snowflake, actorOf("SET_PHASE"));
+            assertEquals(snowflake, actorOf("SET_MAINTENANCE"));
         } finally {
             post(
                     browser,
-                    "/api/season/phase",
-                    "{\"phase\":\"" + phaseBefore + "\",\"reason\":\"restoring the fixture\"}");
+                    "/api/season/maintenance",
+                    "{\"on\":" + maintenanceBefore + ",\"reason\":\"restoring the fixture\"}");
         }
     }
 

@@ -432,6 +432,9 @@ class UpdateDirectoryIntegrationTest {
         return switch (kind) {
             case RESTORE -> new eu.nordtal.season.database.inbox.StewardRequest.Restore("db-20261002T030000Z.dump");
             case REMOVE_PLUGIN -> new eu.nordtal.season.database.inbox.StewardRequest.RemovePlugin("a");
+            case SWITCH_MODE ->
+                new eu.nordtal.season.database.inbox.StewardRequest.SwitchMode(
+                        eu.nordtal.season.common.season.SeasonMode.HUNGER_GAMES, "a test");
             case INSTALL -> new eu.nordtal.season.database.inbox.StewardRequest.Install();
             default -> kind.request();
         };

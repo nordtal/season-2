@@ -349,6 +349,13 @@ export type TextArgs = {
   }
   "journal.clear-launch": Record<string, never>
   "journal.clear-smp-start": Record<string, never>
+  "journal.close-season": {
+    from: Arg["instant"]
+  }
+  "journal.close-season-because": {
+    from: Arg["instant"]
+    reason: Arg["text"]
+  }
   "journal.complete-objective": {
     objective: Arg["text"]
   }
@@ -379,6 +386,13 @@ export type TextArgs = {
     label: Arg["text"]
     unlocked: Arg["choice"]
     hold: Arg["duration"]
+  }
+  "journal.launch-now": {
+    moved: Arg["number"]
+  }
+  "journal.launch-now-because": {
+    moved: Arg["number"]
+    reason: Arg["text"]
   }
   "journal.link": Record<string, never>
   "journal.link-codes-exhausted": Record<string, never>
@@ -443,13 +457,29 @@ export type TextArgs = {
   "journal.set-launch": {
     to: Arg["instant"]
   }
+  "journal.set-launch-date": {
+    to: Arg["instant"]
+    moved: Arg["number"]
+  }
+  "journal.set-launch-date-because": {
+    to: Arg["instant"]
+    moved: Arg["number"]
+    reason: Arg["text"]
+  }
+  "journal.set-maintenance": {
+    on: Arg["choice"]
+  }
+  "journal.set-maintenance-because": {
+    on: Arg["choice"]
+    reason: Arg["text"]
+  }
   "journal.set-phase": {
-    from: Arg["choice"]
-    to: Arg["choice"]
+    from: Arg["text"]
+    to: Arg["text"]
   }
   "journal.set-phase-because": {
-    from: Arg["choice"]
-    to: Arg["choice"]
+    from: Arg["text"]
+    to: Arg["text"]
     reason: Arg["text"]
   }
   "journal.set-playtime": {
@@ -477,6 +507,15 @@ export type TextArgs = {
     donation: Arg["money"]
   }
   "journal.start-game": Record<string, never>
+  "journal.switch-mode": {
+    from: Arg["choice"]
+    to: Arg["choice"]
+  }
+  "journal.switch-mode-because": {
+    from: Arg["choice"]
+    to: Arg["choice"]
+    reason: Arg["text"]
+  }
   "journal.unanchored-grant": {
     from: Arg["instant"]
   }
@@ -866,6 +905,10 @@ export type TextArgs = {
     most: Arg["number"]
   }
   "steward.answer.subscription-gone": Record<string, never>
+  "steward.answer.switch-open": Record<string, never>
+  "steward.answer.switch-to-active": {
+    mode: Arg["choice"]
+  }
   "steward.answer.take-in-offline": Record<string, never>
   "steward.answer.too-late": Record<string, never>
   "steward.answer.too-many-codes": {
@@ -1047,8 +1090,6 @@ export type TextArgs = {
   "steward.form.remove-named": {
     name: Arg["text"]
   }
-  "steward.form.removing": Record<string, never>
-  "steward.form.reset": Record<string, never>
   "steward.form.save": Record<string, never>
   "steward.form.save-count": {
     count: Arg["number"]
@@ -1191,6 +1232,7 @@ export type TextArgs = {
   "steward.game.reset-track": Record<string, never>
   "steward.game.round": Record<string, never>
   "steward.game.running": Record<string, never>
+  "steward.game.season-sum": Record<string, never>
   "steward.game.span": {
     from: Arg["text"]
     to: Arg["text"]
@@ -1898,6 +1940,243 @@ export type TextArgs = {
   }
   "steward.people.window": Record<string, never>
   "steward.people.with-access": Record<string, never>
+  "steward.router.access-needed": Record<string, never>
+  "steward.router.active": Record<string, never>
+  "steward.router.admins": Record<string, never>
+  "steward.router.admins-on-it": {
+    count: Arg["number"]
+  }
+  "steward.router.admins-stay": {
+    count: Arg["number"]
+  }
+  "steward.router.admins-through": Record<string, never>
+  "steward.router.admins-to": {
+    server: Arg["text"]
+  }
+  "steward.router.admins-wait": Record<string, never>
+  "steward.router.after-switch": Record<string, never>
+  "steward.router.arrived": {
+    arrived: Arg["number"]
+    total: Arg["number"]
+  }
+  "steward.router.at-time": {
+    at: Arg["instant"]
+  }
+  "steward.router.back": Record<string, never>
+  "steward.router.back-to": {
+    mode: Arg["text"]
+  }
+  "steward.router.bought-in-advance": Record<string, never>
+  "steward.router.by-hand-tip": {
+    by: Arg["text"]
+    at: Arg["instant"]
+  }
+  "steward.router.change": Record<string, never>
+  "steward.router.change-to": {
+    at: Arg["instant"]
+  }
+  "steward.router.close-season": Record<string, never>
+  "steward.router.close-title": Record<string, never>
+  "steward.router.close-until": {
+    at: Arg["instant"]
+  }
+  "steward.router.close-until-title": {
+    at: Arg["instant"]
+  }
+  "steward.router.closed": Record<string, never>
+  "steward.router.closed-for": Record<string, never>
+  "steward.router.closed-for-length": {
+    length: Arg["duration"]
+  }
+  "steward.router.closed-screen": Record<string, never>
+  "steward.router.closes-until": Record<string, never>
+  "steward.router.date-title": Record<string, never>
+  "steward.router.done": {
+    change: Arg["choice"]
+  }
+  "steward.router.end-maintenance": Record<string, never>
+  "steward.router.end-maintenance-title": Record<string, never>
+  "steward.router.every-member": Record<string, never>
+  "steward.router.failed-after": {
+    length: Arg["duration"]
+  }
+  "steward.router.finished": Record<string, never>
+  "steward.router.from-now": Record<string, never>
+  "steward.router.game-mode": Record<string, never>
+  "steward.router.gate": {
+    gate: Arg["choice"]
+  }
+  "steward.router.in-waiting-room": Record<string, never>
+  "steward.router.key-next": Record<string, never>
+  "steward.router.key-tip": Record<string, never>
+  "steward.router.land-in": Record<string, never>
+  "steward.router.last-on": Record<string, never>
+  "steward.router.last-switch": Record<string, never>
+  "steward.router.launch-date": Record<string, never>
+  "steward.router.launch-now": Record<string, never>
+  "steward.router.launch-now-title": Record<string, never>
+  "steward.router.launch-title": Record<string, never>
+  "steward.router.let-in": {
+    count: Arg["number"]
+  }
+  "steward.router.lost": Record<string, never>
+  "steward.router.maintenance": Record<string, never>
+  "steward.router.maintenance-for": {
+    length: Arg["duration"]
+  }
+  "steward.router.maintenance-on": {
+    on: Arg["choice"]
+  }
+  "steward.router.maintenance-title": Record<string, never>
+  "steward.router.mode": Record<string, never>
+  "steward.router.mode-switch": Record<string, never>
+  "steward.router.moved": Record<string, never>
+  "steward.router.moved-to": {
+    count: Arg["number"]
+    server: Arg["text"]
+  }
+  "steward.router.never": Record<string, never>
+  "steward.router.next": Record<string, never>
+  "steward.router.no-access": Record<string, never>
+  "steward.router.no-access-after": Record<string, never>
+  "steward.router.no-effect": Record<string, never>
+  "steward.router.no-effect-tip": Record<string, never>
+  "steward.router.no-launch-date": Record<string, never>
+  "steward.router.nobody": Record<string, never>
+  "steward.router.none": Record<string, never>
+  "steward.router.not-in-past": {
+    earliest: Arg["instant"]
+  }
+  "steward.router.not-set": Record<string, never>
+  "steward.router.nothing": Record<string, never>
+  "steward.router.now": {
+    now: Arg["choice"]
+  }
+  "steward.router.now-at": {
+    at: Arg["instant"]
+  }
+  "steward.router.now-heading": Record<string, never>
+  "steward.router.on-server": {
+    server: Arg["text"]
+  }
+  "steward.router.online": Record<string, never>
+  "steward.router.open-again": Record<string, never>
+  "steward.router.open-log": Record<string, never>
+  "steward.router.open-on": {
+    at: Arg["instant"]
+  }
+  "steward.router.opening": {
+    opening: Arg["choice"]
+  }
+  "steward.router.opens": Record<string, never>
+  "steward.router.opens-at": {
+    at: Arg["instant"]
+  }
+  "steward.router.opens-title": Record<string, never>
+  "steward.router.periods": Record<string, never>
+  "steward.router.periods-move": {
+    count: Arg["number"]
+    days: Arg["number"]
+  }
+  "steward.router.periods-start-now": {
+    count: Arg["number"]
+  }
+  "steward.router.periods-start-then": {
+    count: Arg["number"]
+  }
+  "steward.router.players": {
+    count: Arg["number"]
+  }
+  "steward.router.players-heading": Record<string, never>
+  "steward.router.players-on": {
+    count: Arg["number"]
+  }
+  "steward.router.reason": Record<string, never>
+  "steward.router.reason-placeholder": Record<string, never>
+  "steward.router.released": {
+    released: Arg["number"]
+    total: Arg["number"]
+  }
+  "steward.router.requested-by": Record<string, never>
+  "steward.router.round-ends": Record<string, never>
+  "steward.router.run": {
+    state: Arg["choice"]
+  }
+  "steward.router.running-for": {
+    length: Arg["duration"]
+  }
+  "steward.router.server": {
+    state: Arg["choice"]
+  }
+  "steward.router.server-works": Record<string, never>
+  "steward.router.set-date-title": Record<string, never>
+  "steward.router.set-launch-date": Record<string, never>
+  "steward.router.since": Record<string, never>
+  "steward.router.start": Record<string, never>
+  "steward.router.start-maintenance": Record<string, never>
+  "steward.router.start-tip": {
+    server: Arg["text"]
+    mode: Arg["text"]
+  }
+  "steward.router.stay-maintenance": {
+    count: Arg["number"]
+  }
+  "steward.router.step": {
+    step: Arg["number"]
+  }
+  "steward.router.step-start": {
+    server: Arg["text"]
+  }
+  "steward.router.step-stop": {
+    server: Arg["text"]
+  }
+  "steward.router.step-to-server": {
+    server: Arg["text"]
+  }
+  "steward.router.step-to-waiting-room": Record<string, never>
+  "steward.router.stop": Record<string, never>
+  "steward.router.stop-tip": {
+    server: Arg["text"]
+    mode: Arg["text"]
+  }
+  "steward.router.switch-busy": Record<string, never>
+  "steward.router.switch-failed": {
+    server: Arg["text"]
+  }
+  "steward.router.switch-mode": Record<string, never>
+  "steward.router.switch-title": {
+    mode: Arg["text"]
+  }
+  "steward.router.switch-waiting": {
+    server: Arg["text"]
+  }
+  "steward.router.tab": Record<string, never>
+  "steward.router.to-closed-screen": {
+    count: Arg["number"]
+  }
+  "steward.router.to-countdown": {
+    count: Arg["number"]
+  }
+  "steward.router.to-waiting-room": {
+    count: Arg["number"]
+  }
+  "steward.router.took": {
+    length: Arg["duration"]
+  }
+  "steward.router.try-again": Record<string, never>
+  "steward.router.until-runs": {
+    server: Arg["text"]
+  }
+  "steward.router.until-then": Record<string, never>
+  "steward.router.waiting": Record<string, never>
+  "steward.router.waiting-room": Record<string, never>
+  "steward.router.waiting-switch": {
+    count: Arg["number"]
+  }
+  "steward.router.without-access": Record<string, never>
+  "steward.router.without-access-count": {
+    count: Arg["number"]
+  }
   "steward.said.channels-not-published": Record<string, never>
   "steward.said.guild-not-listed": Record<string, never>
   "steward.said.message": Record<string, never>
@@ -1917,44 +2196,6 @@ export type TextArgs = {
   "steward.said.words": {
     text: Arg["text"]
   }
-  "steward.season.current": Record<string, never>
-  "steward.season.date-removed": {
-    date: Arg["text"]
-  }
-  "steward.season.date-saved": {
-    date: Arg["text"]
-  }
-  "steward.season.dates": Record<string, never>
-  "steward.season.lands-on": {
-    where: Arg["text"]
-  }
-  "steward.season.launch": Record<string, never>
-  "steward.season.network": Record<string, never>
-  "steward.season.no-date": Record<string, never>
-  "steward.season.now": Record<string, never>
-  "steward.season.phase": {
-    phase: Arg["choice"]
-  }
-  "steward.season.phase-heading": Record<string, never>
-  "steward.season.phase-is-now": {
-    phase: Arg["text"]
-  }
-  "steward.season.reason": Record<string, never>
-  "steward.season.reason-placeholder": Record<string, never>
-  "steward.season.remove-title": {
-    date: Arg["text"]
-  }
-  "steward.season.saved-at": {
-    at: Arg["instant"]
-  }
-  "steward.season.smp-start": Record<string, never>
-  "steward.season.smp-start-removal": Record<string, never>
-  "steward.season.switch-phase": Record<string, never>
-  "steward.season.switch-title": {
-    phase: Arg["text"]
-  }
-  "steward.season.switching": Record<string, never>
-  "steward.season.title": Record<string, never>
   "steward.service-page.add-plugin": Record<string, never>
   "steward.service-page.added": Record<string, never>
   "steward.service-page.agent-not-yet": Record<string, never>
@@ -2047,6 +2288,7 @@ export type TextArgs = {
   "steward.service-page.remove-title": {
     name: Arg["text"]
   }
+  "steward.service-page.resting-first": Record<string, never>
   "steward.service-page.search-modrinth": Record<string, never>
   "steward.service-page.search-placeholder": Record<string, never>
   "steward.service-page.send": Record<string, never>
@@ -2058,6 +2300,7 @@ export type TextArgs = {
   "steward.service-page.up-to-date": Record<string, never>
   "steward.service-page.update-available": Record<string, never>
   "steward.service-page.waiting-for-log": Record<string, never>
+  "steward.service.by-hand": Record<string, never>
   "steward.service.docker-state": {
     state: Arg["text"]
   }

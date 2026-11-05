@@ -7,7 +7,8 @@ import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { bytes, dateTime, percent, relative, NO_VALUE } from "@/lib/format"
 import { useConfigs, useMetrics, useService } from "@/lib/queries"
 import { ServiceConsole } from "@/components/steward/console"
-import { ServiceSettings } from "@/components/steward/settings"
+import { NETWORK, NETWORK_PAGE, ServiceSettings } from "@/components/steward/settings"
+import { RouterTab } from "@/components/steward/router/router-tab"
 import { ServicePlugins } from "@/components/steward/plugins"
 import { HungerGamesActions } from "@/components/steward/game-actions"
 import { SmpActions } from "@/components/steward/milestone-track"
@@ -18,7 +19,7 @@ import { RecreateButton, useRecreateGate } from "@/components/steward/recreate"
 import { ServiceOnlineLine } from "@/components/steward/online"
 import { AskButton, CancelButton, ENDINGS, StageBadge, cancellable } from "@/pages/operations"
 import { runPath } from "@/lib/run-path"
-import { DriftBadge, RunStatus, ServiceState, runKind } from "@/components/steward/status"
+import { DriftBadge, RunStatus, ServiceState, restingMode, runKind } from "@/components/steward/status"
 import type { Run } from "@/lib/api"
 import { touches, useRunLock } from "@/lib/run-lock"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
@@ -30,26 +31,38 @@ import { choice, since, t } from "@/lib/texts"
 import { serviceTitle } from "@/lib/words"
 
 /** What `/services/$name` keeps in its URL. Console is the default and is never written. */
-export type ServiceSearch = { tab?: "settings" | "plugins" | "announcements"; file?: string }
+export type ServiceSearch = { tab?: "router" | "settings" | "plugins" | "announcements"; file?: string }
 
 export function serviceSearch(search: Record<string, unknown>): ServiceSearch {
   const answer: ServiceSearch = {}
-  if (search.tab === "settings" || search.tab === "plugins" || search.tab === "announcements") answer.tab = search.tab
+  if (
+    search.tab === "router" ||
+    search.tab === "settings" ||
+    search.tab === "plugins" ||
+    search.tab === "announcements"
+  )
+    answer.tab = search.tab
   if (typeof search.file === "string" && search.file !== "") answer.file = search.file
   return answer
 }
 
-type Tab = "console" | "settings" | "plugins" | "announcements"
+type Tab = "console" | "router" | "settings" | "plugins" | "announcements"
 
 /** Returns which tabs this service has, or `undefined` until they are known. */
 export function useServiceTabs(name: string): Tab[] | undefined {
   const service = useService(name)
   const configs = useConfigs()
   if (service.isPending || configs.isPending) return undefined
+  /** The proxy's page holds the router and the network's settings. */
+  const router = name === NETWORK_PAGE
   const settings =
-    configs.isError || service.data?.hasPlugins === true || (configs.data ?? []).some((file) => file.service === name)
+    router ||
+    configs.isError ||
+    service.data?.hasPlugins === true ||
+    (configs.data ?? []).some((file) => file.service === name)
   return [
     "console",
+    ...(router ? (["router"] as const) : []),
     ...(settings ? (["settings"] as const) : []),
     ...(name === "discord-bot" ? (["announcements"] as const) : []),
     ...(service.data?.hasPlugins ? (["plugins"] as const) : []),
@@ -93,7 +106,7 @@ export function ServicePage() {
                 ? {}
                 : next === "settings"
                   ? { tab: "settings", file: previous.file }
-                  : { tab: next === "announcements" ? "announcements" : "plugins" },
+                  : { tab: next === "router" || next === "announcements" ? next : "plugins" },
             replace: true,
           })
         }
@@ -106,6 +119,12 @@ export function ServicePage() {
                 <TERM_ICON.console aria-hidden />
                 {t("steward.service-page.console")}
               </TabsTrigger>
+              {tabs.includes("router") ? (
+                <TabsTrigger value="router" className="sm:px-3">
+                  <TERM_ICON.router aria-hidden />
+                  {t("steward.router.tab")}
+                </TabsTrigger>
+              ) : null}
               {tabs.includes("settings") ? (
                 <TabsTrigger value="settings" className="sm:px-3">
                   <TERM_ICON.settings aria-hidden />
@@ -152,9 +171,12 @@ export function ServicePage() {
           {name === "hunger-games" ? <HungerGamesActions /> : null}
         </TabsContent>
 
+        <TabsContent value="router">{tabs?.includes("router") ? <RouterTab /> : null}</TabsContent>
+
         <TabsContent value="settings">
           <ServiceSettings
             service={name}
+            also={name === NETWORK_PAGE ? NETWORK : undefined}
             file={search.file}
             onFile={(file, replace) =>
               void navigate({ search: file ? { tab: "settings", file } : { tab: "settings" }, replace })
@@ -193,6 +215,10 @@ function ServiceActions({
   const HoldIcon = hold === "START" ? TERM_ICON.start : TERM_ICON.down
   const holdLabel = hold ? t("steward.operations.ask", { kind: choice(hold) }) : ""
 
+  /** The inactive mode's server only starts while it rests, for admins. */
+  if (service && restingMode(service)) {
+    return <AskButton kind="START" services={[name]} variant="default" size="sm" />
+  }
   /** A one-shot and a standby are started by runs alone. */
   if (service && resting(service)) return null
 
@@ -299,10 +325,10 @@ export function offline(run: Run | null, name: string, state: string | undefined
 }
 
 /**
- * Returns whether a run starts this service on its own, a one-shot or a standby, and it is not running now.
+ * Returns whether this service is not running on purpose: a one-shot, a standby or the inactive mode's server.
  */
 export function resting(service: NonNullable<ReturnType<typeof useService>["data"]>): boolean {
-  return (service.oneShot === true || service.standby === true) && service.state !== "running"
+  return ((service.oneShot === true || service.standby === true) && service.state !== "running") || restingMode(service)
 }
 
 /** The head of a service page, exported because some fields must be absent and not zero. */

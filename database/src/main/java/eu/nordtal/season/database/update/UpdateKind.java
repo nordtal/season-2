@@ -42,6 +42,12 @@ public enum UpdateKind {
     REMOVE_PLUGIN,
 
     /**
+     * Moves everyone to the waiting room, stops the active mode's server, starts the other and writes the mode.
+     * A target an admin already started by hand is not restarted.
+     */
+    SWITCH_MODE,
+
+    /**
      * Puts what has nothing installed into the volumes when steward-agent starts, before any server runs.
      * Nobody asks for it: steward-agent writes the row when done, already settled.
      */
@@ -72,7 +78,7 @@ public enum UpdateKind {
             case START -> new StewardRequest.Start();
             case RECREATE -> new StewardRequest.Recreate();
             case DEPLOY -> new StewardRequest.Deploy();
-            case RESTORE, REMOVE_PLUGIN ->
+            case RESTORE, REMOVE_PLUGIN, SWITCH_MODE ->
                 throw new IllegalArgumentException(this + " names more than its kind; submit the request itself");
             case INSTALL ->
                 throw new IllegalArgumentException("steward-agent installs on its start; nobody asks for it");

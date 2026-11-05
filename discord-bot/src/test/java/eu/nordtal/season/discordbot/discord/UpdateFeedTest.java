@@ -272,6 +272,11 @@ class UpdateFeedTest {
         return new UpdateRequest(id, UpdateKind.UPDATE, status, OWNER, NOW, NOW, null, List.of(), NOW, finished, stage);
     }
 
+    private static UpdateRequest asked(final UpdateKind kind, final RunStage stage, final @Nullable Instant finished) {
+        final UpdateStatus status = finished == null ? UpdateStatus.RUNNING : UpdateStatus.DONE;
+        return new UpdateRequest(1L, kind, status, OWNER, NOW, NOW, null, List.of(), NOW, finished, stage);
+    }
+
     /** A step of a run, with the artefacts it names. */
     private static RunStep.Row step(
             final RunStep.Kind kind,
@@ -611,6 +616,7 @@ class UpdateFeedTest {
         assertEquals("🔄 Stopping the servers for the take-down", title(UpdateKind.DOWN, RunStage.STOPPING));
         assertEquals("✅ Nothing to start", title(UpdateKind.START, RunStage.NOTHING_TO_DO));
         assertEquals("⏹️ Plugin removal cancelled", title(UpdateKind.REMOVE_PLUGIN, RunStage.CANCELLED));
+        assertEquals("✅ Mode switch finished", title(UpdateKind.SWITCH_MODE, RunStage.DONE));
         for (final UpdateKind kind : UpdateKind.values()) {
             for (final RunStage stage : RunStage.values()) {
                 final String shown = title(kind, stage);
@@ -621,8 +627,7 @@ class UpdateFeedTest {
 
     @Test
     void theKindIsInTheTitleAndNotAgainAsAField() {
-        rows.put(new UpdateRequest(
-                1L, UpdateKind.BACKUP, UpdateStatus.DONE, OWNER, NOW, NOW, null, List.of(), NOW, NOW, RunStage.DONE));
+        rows.put(asked(UpdateKind.BACKUP, RunStage.DONE, NOW));
         feed.tick();
 
         assertEquals(List.of("By", "Duration"), names(board.posted.getFirst().card()));
@@ -724,18 +729,15 @@ class UpdateFeedTest {
 
     @Test
     void aRestartThatFoundNothingToDoKeepsItsCardBecauseSomeoneAskedForIt() {
-        rows.put(new UpdateRequest(
-                1L,
-                UpdateKind.RESTART,
-                UpdateStatus.DONE,
-                OWNER,
-                NOW,
-                NOW,
-                null,
-                List.of(),
-                NOW,
-                NOW,
-                RunStage.NOTHING_TO_DO));
+        rows.put(asked(UpdateKind.RESTART, RunStage.NOTHING_TO_DO, NOW));
+        feed.tick();
+
+        assertEquals(1, board.posted.size());
+    }
+
+    @Test
+    void aModeSwitchIsPostedFromItsFirstStageBecauseItMovesEveryPlayer() {
+        rows.put(asked(UpdateKind.SWITCH_MODE, RunStage.RESOLVING, null));
         feed.tick();
 
         assertEquals(1, board.posted.size());
@@ -747,9 +749,7 @@ class UpdateFeedTest {
     }
 
     private String title(final UpdateKind kind, final RunStage stage) {
-        return title(card(
-                new UpdateRequest(1L, kind, UpdateStatus.RUNNING, OWNER, NOW, NOW, null, List.of(), NOW, null, stage),
-                documents));
+        return title(card(asked(kind, stage, null), documents));
     }
 
     private static String title(final DocumentRenderer.Drawn card) {

@@ -1,6 +1,7 @@
 package eu.nordtal.season.discordbot.status;
 
-import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.network.NetworkSnapshot;
 import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
@@ -9,10 +10,9 @@ import eu.nordtal.season.messages.value.Example;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
-import org.jspecify.annotations.Nullable;
 
 /**
- * Renders the status channel name of one language from the phase, the counts and the launch time.
+ * Renders the status channel name of one language from the season, the counts and the clock.
  *
  * The countdown has coarse steps, because each change costs a rename. It rounds down.
  */
@@ -20,25 +20,36 @@ public final class StatusName {
 
     private static final int FINAL_HOUR_STEP_MINUTES = 10;
 
+    /** What the name shows, in the order of the gate: not launched, then maintenance, then the mode. */
+    enum Shown {
+        CLOSED,
+        COUNTDOWN,
+        MAINTENANCE,
+        SMP,
+        HUNGER_GAMES
+    }
+
     /** Which step of the countdown before the launch the name shows. */
     enum Countdown {
         DAYS,
         HOURS,
         MINUTES,
         IMMINENT,
-        UNKNOWN
+        NONE
     }
 
     /**
-     * @param teams the teams registered before the event, or left during it
-     * @param players the players alive during the event, or online in the season
+     * @param playing whether a game of the {@code hunger-games} has eliminated anyone yet
+     * @param teams the teams registered for the round, or left in its game
+     * @param players the players alive in the game, or the players the {@code smp} has seen
      */
     record Status(
-            @Example("smp") SeasonPhase phase,
+            @Example("smp") Shown state,
             @Example("days") Countdown countdown,
             @Example("3") long days,
             @Example("5") long hours,
             @Example("40") long minutes,
+            boolean playing,
             @Example("12") long teams,
             @Example("31") long players) {}
 
@@ -48,42 +59,65 @@ public final class StatusName {
 
     private StatusName() {}
 
+    /** Returns what the name shows for {@code season} at {@code now}. */
+    static Shown shown(final SeasonState season, final Instant now) {
+        return switch (season.opening(now)) {
+            case CLOSED -> Shown.CLOSED;
+            case COUNTDOWN -> Shown.COUNTDOWN;
+            case LAUNCHED -> {
+                if (season.maintenance()) {
+                    yield Shown.MAINTENANCE;
+                }
+                yield season.mode() == SeasonMode.SMP ? Shown.SMP : Shown.HUNGER_GAMES;
+            }
+        };
+    }
+
+    /** Returns whether the name for {@code season} at {@code now} reads the counts. */
+    static boolean needsCounts(final SeasonState season, final Instant now) {
+        final Shown shown = shown(season, now);
+        return shown == Shown.SMP || shown == Shown.HUNGER_GAMES;
+    }
+
     /**
      * Returns the channel name, which is never empty and never longer than Discord allows.
      *
-     * @param snapshot the counts, which {@code PRE_LAUNCH} and {@code MAINTENANCE} ignore
-     * @param launch the launch time, or {@code null} when there is no date
+     * @param snapshot the counts, which only an open {@code smp} or {@code hunger-games} reads
      */
     public static String render(
             final DocumentRenderer documents,
             final Locale locale,
-            final SeasonPhase phase,
+            final SeasonState season,
             final NetworkSnapshot snapshot,
-            final @Nullable Instant launch,
             final Instant now) {
+        final Instant launch = season.launch();
         return documents.plain(
                 STATUS,
-                switch (phase) {
-                    case PRE_LAUNCH -> countdown(launch, now);
-                    case PRE_EVENT -> counts(phase, snapshot.hgTeams(), 0);
-                    case START_EVENT -> counts(phase, snapshot.hgTeamsAlive(), snapshot.hgAlive());
-                    case SMP -> counts(phase, 0, snapshot.smpPlayers());
-                    case MAINTENANCE -> counts(phase, 0, 0);
+                switch (shown(season, now)) {
+                    case CLOSED -> counts(Shown.CLOSED, false, 0, 0);
+                    case COUNTDOWN ->
+                        launch == null ? counts(Shown.CLOSED, false, 0, 0) : countdown(Duration.between(now, launch));
+                    case MAINTENANCE -> counts(Shown.MAINTENANCE, false, 0, 0);
+                    case SMP -> counts(Shown.SMP, false, 0, snapshot.smpPlayers());
+                    case HUNGER_GAMES -> hungerGames(snapshot);
                 },
                 locale);
     }
 
-    private static Status counts(final SeasonPhase phase, final long teams, final long players) {
-        return new Status(phase, Countdown.UNKNOWN, 0, 0, 0, teams, players);
+    /** Before the first elimination the name counts the registered teams, after it those still in. */
+    private static Status hungerGames(final NetworkSnapshot snapshot) {
+        if (snapshot.hgEliminated() > 0) {
+            return counts(Shown.HUNGER_GAMES, true, snapshot.hgTeamsAlive(), snapshot.hgAlive());
+        }
+        return counts(Shown.HUNGER_GAMES, false, snapshot.hgTeams(), 0);
     }
 
-    private static Status countdown(final @Nullable Instant launch, final Instant now) {
-        if (launch == null) {
-            return step(Countdown.UNKNOWN, 0, 0, 0);
-        }
-        final Duration remaining = Duration.between(now, launch);
+    private static Status counts(final Shown shown, final boolean playing, final long teams, final long players) {
+        return new Status(shown, Countdown.NONE, 0, 0, 0, playing, teams, players);
+    }
+
+    private static Status countdown(final Duration remaining) {
         if (remaining.toMinutes() < FINAL_HOUR_STEP_MINUTES) {
-            // This includes a launch time in the past.
             return step(Countdown.IMMINENT, 0, 0, 0);
         }
         if (remaining.toDays() >= 1) {
@@ -98,6 +132,6 @@ public final class StatusName {
     }
 
     private static Status step(final Countdown countdown, final long days, final long hours, final long minutes) {
-        return new Status(SeasonPhase.PRE_LAUNCH, countdown, days, hours, minutes, 0, 0);
+        return new Status(Shown.COUNTDOWN, countdown, days, hours, minutes, false, 0, 0);
     }
 }

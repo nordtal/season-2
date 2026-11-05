@@ -29,7 +29,7 @@ import {
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { entryHaystack, rankHits, rankValue, searchAcross, searchValue, setPendingJump } from "@/lib/settings-search"
 import { TranslationHits } from "@/app/translation-hits"
-import { NETWORK } from "@/components/steward/settings"
+import { NETWORK, NETWORK_PAGE } from "@/components/steward/settings"
 import { pluginFileId, pluginLabel } from "@/lib/settings-tree"
 import { runKind, runStatus } from "@/components/steward/status"
 import { t } from "@/lib/texts"
@@ -61,6 +61,23 @@ function runSearchValue(run: Run): string {
     ].join(" "),
   )
 }
+
+/** The service whose Router tab holds the launch date, maintenance and the game mode. */
+const ROUTER_SERVICE = "proxy"
+
+const ROUTER_KEYWORDS = [
+  "router",
+  "season",
+  "launch",
+  "open",
+  "close",
+  "maintenance",
+  "game mode",
+  "switch",
+  "smp",
+  "hunger games",
+  "gate",
+]
 
 /**
  * The search dialog on Ctrl+K and ⌘K. It fetches runs, configs and translations only while it is open.
@@ -185,6 +202,27 @@ export function CommandPalette() {
                   </CommandItem>
                 )
               })}
+              {group.entries.some((entry) => entry.id === `service-${ROUTER_SERVICE}`) ? (
+                <CommandItem
+                  value={`page-${group.id}-router`}
+                  keywords={[searchValue(t("steward.router.tab"), ROUTER_KEYWORDS.join(" "))]}
+                  onSelect={() => {
+                    setOpen(false)
+                    void navigate({
+                      to: "/services/$name",
+                      params: { name: ROUTER_SERVICE },
+                      search: { tab: "router" },
+                    })
+                  }}
+                  className="min-h-control gap-2.5"
+                >
+                  <TERM_ICON.season aria-hidden className="size-4 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{t("steward.router.tab")}</span>
+                  <CommandShortcut className="truncate text-muted-foreground/70">
+                    {serviceTitle(ROUTER_SERVICE)}
+                  </CommandShortcut>
+                </CommandItem>
+              ) : null}
             </CommandGroup>
           </React.Fragment>
         ))}
@@ -265,13 +303,12 @@ export function CommandPalette() {
                     onSelect={() => {
                       setOpen(false)
                       setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
-                      void (service === NETWORK
-                        ? navigate({ to: "/season", search: { file: hit.location.path } })
-                        : navigate({
-                            to: "/services/$name",
-                            params: { name: service },
-                            search: { tab: "settings", file: hit.location.path },
-                          }))
+                      // The network's settings are on the proxy's page.
+                      void navigate({
+                        to: "/services/$name",
+                        params: { name: service === NETWORK ? NETWORK_PAGE : service },
+                        search: { tab: "settings", file: hit.location.path },
+                      })
                     }}
                     className="min-h-control gap-2.5"
                   >

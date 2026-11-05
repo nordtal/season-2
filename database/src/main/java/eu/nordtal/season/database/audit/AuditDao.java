@@ -26,6 +26,9 @@ interface AuditDao {
                    pu.alert, pu.channel, pu.enabled, co.command, st.setting_group, bu.bundle, pl.artifact,
                    bk.archive, bk.size_bytes, ob.objective, mi.milestone, un.valid_from, au.aura, sp.spins,
                    rs.item AS removed_item, rs.amount AS removed_amount, tr.reason AS reset_reason,
+                   sl.from_launch, sl.to_launch, sl.moved_grants AS launch_moved_grants, sl.reason AS launch_reason,
+                   mn.maintenance, mn.reason AS maintenance_reason, sm.from_mode, sm.to_mode,
+                   sm.reason AS mode_reason,
                    ARRAY(SELECT l.language FROM journal_language l WHERE l.entry = e.id ORDER BY l.position)
                        AS languages,
                    ARRAY(SELECT a.discord_id FROM journal_admin_below a WHERE a.entry = e.id ORDER BY a.position)
@@ -58,6 +61,9 @@ interface AuditDao {
                      LEFT JOIN journal_spins sp ON sp.entry = e.id
                      LEFT JOIN journal_removed_stack rs ON rs.entry = e.id
                      LEFT JOIN journal_track_reset tr ON tr.entry = e.id
+                     LEFT JOIN journal_season_launch sl ON sl.entry = e.id
+                     LEFT JOIN journal_maintenance mn ON mn.entry = e.id
+                     LEFT JOIN journal_season_mode sm ON sm.entry = e.id
             """;
 
     /**

@@ -24,6 +24,22 @@ interface UpdateDao {
             FROM steward_inbox r
             """;
 
+    /** Returns the newest mode switch in any status. */
+    @SqlQuery(RUN + """
+            WHERE kind = 'SWITCH_MODE'
+            ORDER BY id DESC
+            LIMIT 1
+            """)
+    Optional<UpdateRequest> lastSwitch();
+
+    /** Returns the newest mode switch the agent has started, which a pending one behind it leaves standing. */
+    @SqlQuery(RUN + """
+            WHERE kind = 'SWITCH_MODE' AND started IS NOT NULL
+            ORDER BY id DESC
+            LIMIT 1
+            """)
+    Optional<UpdateRequest> lastStartedSwitch();
+
     /** Returns the oldest pending or running run, which refuses a new one. */
     @SqlQuery(RUN + """
             WHERE status IN ('PENDING', 'RUNNING')

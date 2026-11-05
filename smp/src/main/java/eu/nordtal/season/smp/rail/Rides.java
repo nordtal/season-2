@@ -482,16 +482,17 @@ public final class Rides implements Listener {
                 (float) Math.toDegrees(Math.atan2(-direction[0], direction[1])),
                 ride.rider.getPitch());
         rides.remove(ride.cart.getUniqueId());
+        release(ride);
+        ride.cart.removePassenger(ride.rider);
+        ride.rider.teleport(down);
+        pocket(ride.cart, ride.rider);
+        // Told last, so a display that fails cannot keep the rider in the cart.
         watch.arrived(
                 ride.rider,
                 ride.destination,
                 networks.station(ride.world.getName(), ride.destination)
                         .map(networks::nameOf)
                         .orElse(""));
-        release(ride);
-        ride.cart.removePassenger(ride.rider);
-        ride.rider.teleport(down);
-        pocket(ride.cart, ride.rider);
     }
 
     private void strand(final Ride ride) {

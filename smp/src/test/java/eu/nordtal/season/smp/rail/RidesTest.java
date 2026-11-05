@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.messagerendering.feedback.FeedbackSounds;
@@ -344,6 +345,24 @@ class RidesTest {
         assertEquals(List.of(), stranded);
         assertTrue(rider.gravity, "vanilla physics are back");
         assertEveryChunkLetGo();
+    }
+
+    @Test
+    void aDisplayThatFailsOnArrivalStillSetsTheRiderDown() {
+        track.eastWest(0, 40, 64, 0);
+        stations(at(0, 64, 0), at(40, 64, 0));
+        rides.watch(new RideWatch() {
+            @Override
+            public void arrived(final Player rider, final UUID station, final String name) {
+                throw new IllegalStateException("no document");
+            }
+        });
+
+        final Rider rider = drive(at(0, 64, 0), 2);
+        assertThrows(IllegalStateException.class, () -> tickUntil(() -> ended(rider)));
+
+        assertSetDownOn(at(40, 64, 0), rider);
+        assertTrue(rider.gravity, "vanilla physics are back");
     }
 
     @Test

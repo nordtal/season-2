@@ -171,9 +171,20 @@ public final class NetworkCarts implements Listener {
         return item != null && item.getType().name().endsWith("MINECART");
     }
 
-    /** Whether a right click on a network's rail seats {@code player}, who neither sneaks nor sits and has a cart. */
-    static boolean seats(final Player player) {
-        return !player.isSneaking() && !player.isInsideVehicle() && hasMinecart(player);
+    /**
+     * Whether a right click on a station rail seats the player instead of opening the station's menu.
+     * Only a player with a minecart in the main hand who neither sneaks nor sits is seated.
+     */
+    static boolean seatsOnStation(final boolean sneaking, final boolean seated, final boolean minecartInHand) {
+        return !sneaking && !seated && minecartInHand;
+    }
+
+    /** Whether a right click on a station rail by {@code player} seats them, as {@link #seatsOnStation} decides. */
+    static boolean seatsOnStation(final Player player) {
+        return seatsOnStation(
+                player.isSneaking(),
+                player.isInsideVehicle(),
+                player.getInventory().getItemInMainHand().getType() == Material.MINECART);
     }
 
     private static boolean hasMinecart(final Player player) {
@@ -183,7 +194,7 @@ public final class NetworkCarts implements Listener {
 
     /**
      * A right click on a network's rail seats the player in a minecart from their inventory.
-     * A station rail's own click opens its menu instead when the player sneaks or has no minecart.
+     * A station rail's own click opens its menu instead, unless the player holds a minecart in the main hand.
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInteract(final PlayerInteractEvent event) {

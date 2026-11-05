@@ -131,9 +131,14 @@ final class RideMenu extends Menu {
             return menus.ride(player, page).<MenuClick>map(MenuClick::opening).orElse(MenuClick.closing());
         }
         if (RidePanel.stationSlots(row).contains(slot)) {
-            menus.pick(player, stop);
-            return MenuClick.closing();
+            // A station no way leads to keeps the menu open, so the rider can pick another.
+            return menus.pick(player, stop) ? MenuClick.closing() : MenuClick.refused();
         }
         return MenuClick.nothing();
+    }
+
+    @Override
+    protected void closed(final Player player) {
+        menus.closedRide(player);
     }
 }

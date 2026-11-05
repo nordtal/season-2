@@ -9,15 +9,12 @@ import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Chunk;
-import org.bukkit.GameMode;
-import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.minecart.RideableMinecart;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
-import org.bukkit.inventory.PlayerInventory;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -51,33 +48,11 @@ class NetworkCartsTest {
     }
 
     @Test
-    void aStationRailSeatsOnlyAPlayerWhoNeitherSneaksNorSitsAndHasACart() {
-        assertTrue(NetworkCarts.seats(clicking(false, null, GameMode.SURVIVAL, true)), "a cart in the inventory");
-        assertTrue(NetworkCarts.seats(clicking(false, null, GameMode.CREATIVE, false)), "creative needs none");
-        assertFalse(NetworkCarts.seats(clicking(false, null, GameMode.SURVIVAL, false)), "no cart: station menu");
-        assertFalse(NetworkCarts.seats(clicking(true, null, GameMode.SURVIVAL, true)), "sneaking: station menu");
-        assertFalse(NetworkCarts.seats(clicking(false, cart(true), GameMode.SURVIVAL, true)), "seated");
-    }
-
-    private static Player clicking(
-            final boolean sneaking, final @Nullable Entity vehicle, final GameMode mode, final boolean minecart) {
-        final PlayerInventory inventory = (PlayerInventory) Proxy.newProxyInstance(
-                PlayerInventory.class.getClassLoader(), new Class<?>[] {PlayerInventory.class}, (_, method, args) -> {
-                    if (method.getName().equals("contains") && args[0] == Material.MINECART) {
-                        return minecart;
-                    }
-                    throw new UnsupportedOperationException(method.getName());
-                });
-        return (Player) Proxy.newProxyInstance(
-                Player.class.getClassLoader(),
-                new Class<?>[] {Player.class},
-                (_, method, _) -> switch (method.getName()) {
-                    case "isSneaking" -> sneaking;
-                    case "isInsideVehicle" -> vehicle != null;
-                    case "getGameMode" -> mode;
-                    case "getInventory" -> inventory;
-                    default -> throw new UnsupportedOperationException(method.getName());
-                });
+    void aStationRailSeatsOnlyAPlayerWithAMinecartInTheMainHandWhoNeitherSneaksNorSits() {
+        assertTrue(NetworkCarts.seatsOnStation(false, false, true), "a minecart in the hand");
+        assertFalse(NetworkCarts.seatsOnStation(false, false, false), "none in the hand: station menu");
+        assertFalse(NetworkCarts.seatsOnStation(true, false, true), "sneaking: station menu");
+        assertFalse(NetworkCarts.seatsOnStation(false, true, true), "seated");
     }
 
     @Test

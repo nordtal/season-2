@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.messagerendering.feedback.FeedbackSounds;
@@ -18,6 +19,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -347,6 +349,24 @@ class RidesTest {
     }
 
     @Test
+    void aDisplayThatFailsOnArrivalStillSetsTheRiderDown() {
+        track.eastWest(0, 40, 64, 0);
+        stations(at(0, 64, 0), at(40, 64, 0));
+        rides.watch(new RideWatch() {
+            @Override
+            public void arrived(final Player rider, final UUID station, final String name) {
+                throw new IllegalStateException("no document");
+            }
+        });
+
+        final Rider rider = drive(at(0, 64, 0), 2);
+        assertThrows(IllegalStateException.class, () -> tickUntil(() -> ended(rider)));
+
+        assertSetDownOn(at(40, 64, 0), rider);
+        assertTrue(rider.gravity, "vanilla physics are back");
+    }
+
+    @Test
     void aRiderWhoGetsOutStaysOnTheTrackAndPocketsTheCart() {
         track.eastWest(0, 40, 64, 0);
         stations(at(0, 64, 0), at(40, 64, 0));
@@ -477,7 +497,8 @@ class RidesTest {
                 case "getLocation" -> standing.clone();
                 case "teleport" -> {
                     standing = ((Location) args[0]).clone();
-                    calls.add("teleport " + standing.getX() + "," + standing.getY() + "," + standing.getZ());
+                    calls.add("teleport " + standing.getX() + "," + standing.getY() + "," + standing.getZ()
+                            + (args.length > 2 ? " keeping " + Arrays.toString((Object[]) args[2]) : ""));
                     yield true;
                 }
                 case "setVelocity" -> {
@@ -555,10 +576,14 @@ class RidesTest {
     }
 
     @Test
-    void aMovedCartRidesAtTheStepItMade() {
+    void aMovedCartRidesAtTheStepItMadeWithoutLosingItsVelocityOnTheWay() {
         Rides.moveTo(recorded, new Location(null, 11.5, 65, 18));
 
-        assertEquals(List.of("teleport 11.5,65.0,18.0", "velocity 1.5,0.0,-2.0"), calls);
+        assertEquals(
+                List.of(
+                        "teleport 11.5,65.0,18.0 keeping [VELOCITY_X, VELOCITY_Y, VELOCITY_Z]",
+                        "velocity 1.5,0.0,-2.0"),
+                calls);
     }
 
     @Test

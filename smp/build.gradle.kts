@@ -26,6 +26,7 @@ tasks.withType<JavaCompile>().configureEach {
 repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
+    readsTree("smp/src/main/resources/documents/smp")
 }
 
 dependencies {
@@ -80,4 +81,5 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.smp.rail.RideMenu")
     documentClasses.add("eu.nordtal.season.smp.rail.StationMenus")
     documentClasses.add("eu.nordtal.season.smp.rail.NetworkCarts")
+    documentClasses.add("eu.nordtal.season.smp.rail.RideFeedback")
 }

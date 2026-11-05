@@ -12,8 +12,10 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import io.papermc.paper.dialog.Dialog;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.IntSupplier;
@@ -70,6 +72,8 @@ public final class StationMenus implements Listener {
     private final SmpSounds sounds;
     private final PaperScheduler scheduler;
     private final IntSupplier near;
+    // The ride menu last made for each rider, so a closed one can tell whether another took its place.
+    private final Map<UUID, RideMenu> lastRide = new HashMap<>();
 
     public StationMenus(
             final RailNetworks networks,
@@ -103,7 +107,8 @@ public final class StationMenus implements Listener {
     }
 
     /**
-     * A right click on a station rail opens its menu, unless it seats the player; a left click still breaks it.
+     * A right click on a station rail opens its menu, unless a minecart in the main hand seats the player.
+     * A left click still breaks it.
      * A rider's right click on a block that has no click of its own opens the ride menu again.
      */
     @EventHandler(priority = EventPriority.HIGH)
@@ -123,7 +128,7 @@ public final class StationMenus implements Listener {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK
                 || block == null
                 || event.useInteractedBlock() == Event.Result.DENY
-                || NetworkCarts.seats(player)
+                || NetworkCarts.seatsOnStation(player)
                 || !networks.isStation(block)) {
             return;
         }
@@ -254,17 +259,40 @@ public final class StationMenus implements Listener {
                     documents.applied(RideMenu.DOCUMENT),
                     Viewer.of(locale(player)),
                     new RideMenu.Window(shown + 1, pages));
-            return new RideMenu(this, stops, each, shown, document);
+            final RideMenu menu = new RideMenu(this, stops, each, shown, document);
+            lastRide.put(player.getUniqueId(), menu);
+            return menu;
         });
     }
 
-    /** Starts the cart {@code player} sits in towards {@code stop}, or changes where it goes. */
-    void pick(final Player player, final RideList.Stop stop) {
-        if (player.getVehicle() instanceof RideableMinecart cart && rides.drive(player, cart, stop.station())) {
-            sounds.play(player, Feedback.SELECT);
-        } else {
-            sounds.play(player, Feedback.REFUSED);
-        }
+    /** Starts the cart {@code player} sits in towards {@code stop}, or changes where it goes; false when it cannot. */
+    boolean pick(final Player player, final RideList.Stop stop) {
+        return player.getVehicle() instanceof RideableMinecart cart && rides.drive(player, cart, stop.station());
+    }
+
+    /**
+     * A rider who closed the ride menu without a ride gets out, and the cart goes back into their inventory.
+     * It is decided a tick on, so a menu that took the closed one's place and a ride just picked count.
+     */
+    void closedRide(final Player player) {
+        scheduler.onMainAfter(PaperScheduler.TICK, () -> {
+            final @Nullable RideMenu last = lastRide.get(player.getUniqueId());
+            final boolean shown = last != null && last.showsTo(player);
+            if (!shown) {
+                lastRide.remove(player.getUniqueId());
+            }
+            if (player.isOnline()
+                    && player.getVehicle() instanceof RideableMinecart cart
+                    && getsOut(rides.driven(cart), shown)) {
+                // Getting out puts the cart away, as when the rider gets out themselves.
+                cart.removePassenger(player);
+            }
+        });
+    }
+
+    /** Whether a rider who closed the ride menu gets out: only when the cart is not driven and no ride menu shows. */
+    static boolean getsOut(final boolean driven, final boolean rideMenuShown) {
+        return !driven && !rideMenuShown;
     }
 
     /** Tells a rider whose cart stopped before the station that it goes no further, and shows the stations left. */

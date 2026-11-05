@@ -1,7 +1,6 @@
 package eu.nordtal.season.stewardagent.run;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
@@ -138,9 +137,6 @@ class ModeSwitchTest {
         assertTrue(
                 steps(failing.id()).contains("VERIFY smp FAILED NOT_HEALTHY"),
                 steps(failing.id()).toString());
-        assertFalse(
-                steps(failing.id()).stream().anyMatch(step -> step.startsWith("PLAYERS_BACK")),
-                "the players wait while the switch has failed: " + steps(failing.id()));
         directory.finish(failing.id(), failed.stage());
 
         containers.back("smp");
@@ -151,11 +147,7 @@ class ModeSwitchTest {
         assertEquals(UpdateStatus.DONE, retried.status(), steps(again.id()).toString());
         assertEquals(List.of(), containers.calls, "a target that runs is neither stopped nor started again");
         assertEquals(
-                List.of(
-                        "COUNTDOWN DONE",
-                        "PLAYERS_MOVED WARNING PLAYERS_UNKNOWN",
-                        "VERIFY smp DONE",
-                        "PLAYERS_BACK DONE"),
+                List.of("COUNTDOWN DONE", "PLAYERS_MOVED DONE", "VERIFY smp DONE", "PLAYERS_BACK DONE"),
                 steps(again.id()));
     }
 
@@ -171,17 +163,25 @@ class ModeSwitchTest {
         assertEquals(null, directory.find(request.id()).orElseThrow().countdownEnd(), "nobody is moved");
     }
 
+    /** Every run stops its servers after the same bounded wait, and the proxy moves those left as one stops. */
     @Test
-    void playersWhoStayOnTheOldServerFailTheSwitchBeforeAnythingStops() {
+    void playersWhoStayOnTheOldServerAreWarnedAboutAndTheSwitchGoesOn() {
         staying = Map.of("hunger-games", 2);
         final UpdateRequest request = switchTo(SeasonMode.SMP);
 
         final Outcome outcome = runner.run(request, progress::add);
 
-        assertEquals(UpdateStatus.FAILED, outcome.status(), steps(request.id()).toString());
-        assertEquals(List.of(), containers.calls);
-        assertEquals(SeasonMode.HUNGER_GAMES, season.state().mode());
-        assertEquals(List.of("COUNTDOWN DONE", "PLAYERS_MOVED FAILED PLAYERS_STAYED"), steps(request.id()));
+        assertEquals(UpdateStatus.DONE, outcome.status(), steps(request.id()).toString());
+        assertEquals(SeasonMode.SMP, season.state().mode());
+        assertEquals(
+                List.of(
+                        "COUNTDOWN DONE",
+                        "PLAYERS_MOVED WARNING PLAYERS_STAYED",
+                        "STOP hunger-games DONE",
+                        "START smp DONE",
+                        "VERIFY smp DONE",
+                        "PLAYERS_BACK DONE"),
+                steps(request.id()));
     }
 
     @Test

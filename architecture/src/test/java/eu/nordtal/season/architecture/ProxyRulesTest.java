@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 class ProxyRulesTest {
 
     private static final String PROXY = "eu.nordtal.season.proxy.ProxyPlugin";
-    private static final String PHASE_SERVERS = "eu.nordtal.season.proxy.PhaseServers";
+    private static final String NETWORK_SERVERS = "eu.nordtal.season.proxy.NetworkServers";
     private static final String SETTINGS = "eu.nordtal.season.proxy.config.ProxySettings";
     private static final String GATE = "eu.nordtal.season.proxy.config.GateSpec";
     private static final String WATCH = "eu.nordtal.season.proxy.update.RestartWatch";
@@ -44,7 +44,7 @@ class ProxyRulesTest {
         classes()
                 .that(isListed(PROXY))
                 .should(callInOrder("refreshAdmins", "LoginRoster#refreshAdmins", "PlayerRouter#rerouteAll"))
-                .because("a revoked admin otherwise stays on the SMP until the phase happens to change")
+                .because("a revoked admin otherwise stays on the SMP until the season state happens to change")
                 .check(classes);
     }
 
@@ -54,19 +54,19 @@ class ProxyRulesTest {
         classes()
                 .that()
                 .resideInAPackage("eu.nordtal.season.proxy..")
-                .and(DescribedPredicate.not(isListed(PHASE_SERVERS)))
+                .and(DescribedPredicate.not(isListed(NETWORK_SERVERS)))
                 .should(Wiring.neverOnOneLine(
-                        reaches(PHASE_SERVERS, "limbo"),
+                        reaches(NETWORK_SERVERS, "limbo"),
                         DescribedPredicate.describe(
                                 "an equals",
                                 access -> access.getTarget().getName().equals("equals"))))
-                .because("PhaseServers#isWaitingRoom knows both")
+                .because("NetworkServers#isWaitingRoom knows both")
                 .check(classes);
         noClasses()
-                .that(DescribedPredicate.not(isListed(PHASE_SERVERS, SETTINGS)))
+                .that(DescribedPredicate.not(isListed(NETWORK_SERVERS, SETTINGS)))
                 .should()
                 .callMethodWhere(reaches(GATE, "serverLimbo"))
-                .because("a class handed one waiting room's name keeps it; take PhaseServers instead")
+                .because("a class handed one waiting room's name keeps it; take NetworkServers instead")
                 .check(classes);
     }
 

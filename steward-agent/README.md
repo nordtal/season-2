@@ -49,7 +49,7 @@ flowchart LR
 ```
 
 A standby is a service that stands in for another one, such as `proxy-standby`. Every kind of run
-but the mode switch follows this sequence. `Run` implements it, `Kinds` holds one planner per kind,
+follows this sequence. `Run` implements it, `Kinds` holds one planner per kind,
 and `StewardRequest` types the request's data.
 
 ## The game mode
@@ -59,11 +59,11 @@ the active one, unless a take-down holds that. Updates, restarts, recreates and 
 resting server stopped; an update still installs its files. An admin wakes it with a start run, and
 it rests again at the agent's next start or the next switch.
 
-A mode switch (`ModeSwitch`) moves everyone into the waiting room and waits until nobody is left on
-a game server. It stops the old mode's server, writes the mode, then starts and verifies the target,
-and waits while the proxy lets the players out. A failure leaves the mode on the target and the
-players waiting. A switch to the active mode runs only after a failed switch: it stops nothing and
-brings the target up.
+A mode switch (`ModeSwitch`) is planned like any kind: a countdown of zero, after which the proxy
+holds everyone in the waiting room, then the stop of the old mode's server, a payload that writes the
+mode, and the start and verify of the target. The proxy lets the players out once the target's verify
+step is done. A failure leaves the mode on the target and the players waiting. A switch to the active
+mode runs only after a failed switch: it stops nothing and brings the target up.
 
 The agent recreates caddy, pack-host and postgres last, after the standbys have stopped. Caddy
 publishes the standbys' ports.

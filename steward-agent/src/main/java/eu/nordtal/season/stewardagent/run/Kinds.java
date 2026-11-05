@@ -69,12 +69,7 @@ final class Kinds {
         final Work planned = ForeignImages.withImages(Work.of(plan), images, topology, scope)
                 .without(holds)
                 .with(MissingSecrets.of(runner.containers, topology, scope, holds));
-        skipped(
-                record,
-                holds.stream()
-                        .filter(service -> scope.isEmpty() || scope.contains(service))
-                        .toList(),
-                RunStep.Reason.HELD);
+        skippedHeld(record, holds, scope);
         Resolved.services(record, planned);
         Release.changed(plan.seasonTag(), Release.ownVersion())
                 .ifPresent(release -> resolving.change(RELEASE, Release.ownVersion(), release, null));
@@ -108,27 +103,28 @@ final class Kinds {
                     : Planned.outcome(Outcome.at(plan.hasFailures() ? RunStage.FAILED : RunStage.NOTHING_TO_DO));
         }
 
-        return Planned.plan(updating(runner, plan, planned, resting, foreign, progress, record)
-                .renewing(planned.services(), images, foreign, plan.hasFailures()));
-    }
-
-    /** Plans the stops and the install of an update, leaving a resting server stopped. */
-    private static Run.Plan updating(
-            final Runner runner,
-            final UpdatePlan plan,
-            final Work planned,
-            final List<String> resting,
-            final List<String> foreign,
-            final Consumer<RunStage> progress,
-            final Steps record) {
-        final List<String> awake = planned.moving().stream()
-                .filter(service -> !resting.contains(service))
-                .toList();
+        // A resting server takes its files, so an update of nothing else stops nobody and warns nobody.
+        final List<String> awake = awake(planned.moving(), resting);
+        final boolean onlyResting = !planned.moving().isEmpty() && awake.isEmpty() && foreign.isEmpty();
         final Run.Payload payload =
                 planned.isWork() ? install(runner, plan, planned, resting, progress, record) : Run.Payload.NONE;
-        return Run.Plan.of(awake, pruningImages(runner.containers, payload, record), true, Runner.Doubt.FAILS_THE_RUN)
-                // Files for a resting server alone stop nobody, so nobody is warned.
-                .announced(!awake.isEmpty() || !foreign.isEmpty());
+        return Planned.plan(
+                Run.Plan.of(awake, pruningImages(runner.containers, payload, record), true, Runner.Doubt.FAILS_THE_RUN)
+                        .announced(!onlyResting)
+                        .renewing(planned.services(), images, foreign, plan.hasFailures()));
+    }
+
+    private static void skippedHeld(final Steps record, final List<String> holds, final List<String> scope) {
+        skipped(
+                record,
+                holds.stream()
+                        .filter(service -> scope.isEmpty() || scope.contains(service))
+                        .toList(),
+                RunStep.Reason.HELD);
+    }
+
+    private static List<String> awake(final List<String> moving, final List<String> resting) {
+        return moving.stream().filter(service -> !resting.contains(service)).toList();
     }
 
     private static List<String> renewed(final List<String> stale, final List<String> scope, final List<String> holds) {

@@ -180,9 +180,6 @@ public final class Runner implements RequestRunner {
                 record.ended(RunStep.Kind.RUNTIME, null, RunStep.Outcome.FAILED, RunStep.Reason.UNREACHABLE);
                 return Outcome.failed();
             }
-            if (request.kind() == UpdateKind.SWITCH_MODE) {
-                return new ModeSwitch(this, steps, runtime, progress).carryOut(request);
-            }
             // The row is the lock: the inbox holds one open run at a time.
             final Kinds.Planned planned = plan(request, progress, record);
             if (planned.outcome() != null) {
@@ -211,22 +208,12 @@ public final class Runner implements RequestRunner {
             case REMOVE_PLUGIN -> Kinds.removePlugin(this, request, record);
             case RESTORE -> Restores.restore(this, request, record);
             case INSTALL -> throw new IllegalStateException("a start-up install is written settled and never claimed");
-            case SWITCH_MODE -> throw new IllegalStateException("a mode switch is carried out, never planned");
+            case SWITCH_MODE -> ModeSwitch.plan(this, request, record);
         };
     }
 
     /**
      * Counts down on this run's own row to the database's instant, so the proxy's countdown agrees with it.
-     *
-     * @return the step the players are moved in, begun as the countdown ran out; {@code null} when cancelled
-     */
-    Steps.@Nullable Step countDown(
-            final long id, final List<String> moving, final Consumer<RunStage> progress, final Steps record) {
-        return countDown(id, UpdateDirectory.UPDATE_COUNTDOWN, moving, progress, record);
-    }
-
-    /**
-     * Counts down for {@code length}, which a mode switch sets to zero, on this run's own row.
      *
      * @return the step the players are moved in, begun as the countdown ran out; {@code null} when cancelled
      */

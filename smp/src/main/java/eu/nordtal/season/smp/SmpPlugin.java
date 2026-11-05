@@ -271,7 +271,7 @@ public final class SmpPlugin extends NordtalPlugin {
         SmpStart.registerActivityListeners(this, activities);
         npc = SmpStart.wireNpc(this);
         SmpStart.restoreGravesAndRegisterWorld(this);
-        rails = SmpStart.wireRails(this);
+        rails = SmpStart.wireRails(this, wired.effects());
 
         admin = admin();
         // Steward signals a reset here, and this runs before the surface handler, so one pass resets and draws.

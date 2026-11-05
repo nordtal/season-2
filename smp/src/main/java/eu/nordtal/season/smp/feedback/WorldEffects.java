@@ -35,6 +35,10 @@ public final class WorldEffects implements Listener {
             Color.fromRGB(78, 86, 104), // highlight
             Color.WHITE);
 
+    /** Iron grey, small, as from a rail scraped over. */
+    private static final Particle.DustOptions SWITCH_DUST =
+            new Particle.DustOptions(Color.fromRGB(140, 140, 140), 0.7f);
+
     private final NamespacedKey celebration;
 
     public WorldEffects(final Plugin plugin) {
@@ -56,6 +60,12 @@ public final class WorldEffects implements Listener {
 
     public void arenaEntered(final Location at) {
         at.getWorld().spawnParticle(Particle.CRIT, at.clone().add(0, 1, 0), 24, 0.35, 0.5, 0.35, 0.15);
+    }
+
+    /** A few grey specks over a switched junction, gone within a second, so the track stays in view. */
+    public void junctionSwitched(final Location centre) {
+        centre.getWorld()
+                .spawnParticle(Particle.DUST, centre.clone().add(0, -0.3, 0), 6, 0.2, 0.05, 0.2, 0, SWITCH_DUST);
     }
 
     /**

@@ -68,6 +68,7 @@ public final class Rides implements Listener {
     private final Map<Claim, UUID> claims = new HashMap<>();
 
     private Consumer<Player> stranded = _ -> {};
+    private Consumer<Location> switched = _ -> {};
     private RideWatch watch = RideWatch.NONE;
 
     /** One cart on its way: the line it follows, how far along it is and how fast it goes. */
@@ -126,6 +127,11 @@ public final class Rides implements Listener {
     /** Runs {@code told} for a rider whose cart stopped for good before reaching the station. */
     void whenStranded(final Consumer<Player> told) {
         this.stranded = told;
+    }
+
+    /** Runs {@code shown} at the centre of every junction switched for a ride. */
+    public void whenSwitched(final Consumer<Location> shown) {
+        this.switched = shown;
     }
 
     /** Reports every ride to {@code watching}. */
@@ -254,6 +260,12 @@ public final class Rides implements Listener {
         }
     }
 
+    /** Returns how far {@code ride} may go before a junction set the wrong way, at the stop distance set now. */
+    private double junctionStop(final Ride ride, final RidePath path, final double reach, final RidePath.Motion now) {
+        final double before = settings.get().junctionStop();
+        return ride.stops.limit(path, ride.switches, ride.along, ride.speed, reach, before, now, ride.junctions);
+    }
+
     /** Moves {@code ride} one tick on, and returns false once it ended. */
     private boolean advance(final Ride ride, final RidePath.Motion now) {
         final @Nullable RailGraph planned = ride.graph;
@@ -271,7 +283,7 @@ public final class Rides implements Listener {
         }
         final Lookout lookout = look(ride, path, now);
         final double reach = Math.min(lookout.clear(), ride.along + now.stopping(now.top()) + LOOKOUT);
-        final double stop = ride.stops.limit(path, ride.switches, ride.along, ride.speed, reach, now, ride.junctions);
+        final double stop = junctionStop(ride, path, reach, now);
         final double limit = Math.max(ride.along, Math.min(stop, Math.min(ride.end, lookout.clear())));
         ride.speed = Math.min(path.next(ride.along, ride.speed, limit, now), limit - ride.along);
         ride.along += ride.speed;
@@ -402,6 +414,7 @@ public final class Rides implements Listener {
                     shape.setShape(Rail.Shape.valueOf(wanted.name()));
                     block.setBlockData(shape, false);
                     sounds.playAt(block.getLocation().toCenterLocation(), Feedback.SWITCH);
+                    switched.accept(block.getLocation().toCenterLocation());
                 }
             }
         };

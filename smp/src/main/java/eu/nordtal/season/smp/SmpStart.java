@@ -283,7 +283,7 @@ final class SmpStart {
      * The networks bring their recipe, their stored state, their walk every tick, their listener and menus, and the
      * spawn station that the settings place.
      */
-    static Rails wireRails(final SmpPlugin plugin) {
+    static Rails wireRails(final SmpPlugin plugin, final WorldEffects effects) {
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
         final ChunkTickets tickets = new ChunkTickets(plugin);
         final RailNetworks rails = new RailNetworks(
@@ -296,6 +296,7 @@ final class SmpStart {
                 () -> SpawnStation.target(plugin.railSettings.get().spawnStation()));
         scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), spawn::tick);
         final Rides rides = new Rides(scheduler, rails, tickets, plugin.railSettings::get, plugin.sounds);
+        rides.whenSwitched(effects::junctionSwitched);
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rides::tick);
         final RideFeedback feedback =
                 new RideFeedback(plugin.renderer(), plugin.identities(), plugin.sounds, plugin.clock());

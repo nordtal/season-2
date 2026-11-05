@@ -16,9 +16,6 @@ import org.jspecify.annotations.Nullable;
  */
 final class JunctionStops {
 
-    /** How far before a junction set the wrong way the cart stops. */
-    static final double BEFORE = 2;
-
     /** How many ticks a cart stands after a switch before it sets off. */
     static final int PAUSE = 10;
 
@@ -56,11 +53,12 @@ final class JunctionStops {
 
     /**
      * Returns the distance up to which the cart may ride this tick, and switches junctions once it stands.
-     * It stops {@link #BEFORE} the nearest junction set the wrong way that it can still brake for, then waits.
+     * It stops {@code before} the nearest junction set the wrong way that it can still brake for, then waits.
      *
      * @param switches the shape the route wants of each junction, by its index on the path
      * @param speed    the speed the cart had on its last tick; zero for a cart that stands
      * @param reach    the distance up to which the junctions are read
+     * @param before   how far before a junction set the wrong way the cart stops
      */
     double limit(
             final RidePath path,
@@ -68,6 +66,7 @@ final class JunctionStops {
             final double along,
             final double speed,
             final double reach,
+            final double before,
             final RidePath.Motion motion,
             final Junctions junctions) {
         final int on = path.railAt(along);
@@ -79,7 +78,7 @@ final class JunctionStops {
             }
         }
         // A cart holds every junction it could no longer stop before, so no other cart switches it under it.
-        final double committed = along + speed + motion.stopping(speed) + BEFORE;
+        final double committed = along + speed + motion.stopping(speed) + before;
         for (final int index : switches.keySet()) {
             if (index >= on && path.start(index) <= committed) {
                 take(path, index, junctions);
@@ -93,7 +92,7 @@ final class JunctionStops {
         final List<Map.Entry<Integer, RailShape>> wrong = new ArrayList<>();
         for (final Map.Entry<Integer, RailShape> junction : switches.entrySet()) {
             final int index = junction.getKey();
-            final double left = path.start(index) - BEFORE - along;
+            final double left = path.start(index) - before - along;
             // A moving cart rides over a junction it can no longer brake for, rather than brake harder.
             final boolean passing = index < on || !motion.brakes(speed, left);
             if (!passing
@@ -107,7 +106,7 @@ final class JunctionStops {
         }
         wrong.sort(Map.Entry.comparingByKey(Comparator.naturalOrder()));
         final int first = wrong.getFirst().getKey();
-        final double stop = path.start(first) - BEFORE;
+        final double stop = path.start(first) - before;
         if (speed > 0 || along < stop - AT) {
             return Math.max(along, stop);
         }
@@ -118,7 +117,7 @@ final class JunctionStops {
         }
         for (final Map.Entry<Integer, RailShape> junction : wrong) {
             final int index = junction.getKey();
-            if (path.start(index) - BEFORE <= stop + TOGETHER && take(path, index, junctions)) {
+            if (path.start(index) - before <= stop + TOGETHER && take(path, index, junctions)) {
                 junctions.set(path.rails().get(index), junction.getValue());
             }
         }

@@ -161,7 +161,7 @@ export function RouterCard({
           <Icon className="size-4 text-muted-foreground" aria-hidden />
           {title}
         </CardTitle>
-        {badges ? <CardAction className="flex items-center gap-1.5">{badges}</CardAction> : null}
+        {badges ? <CardAction className="flex flex-wrap items-center justify-end gap-1.5">{badges}</CardAction> : null}
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4">{children}</CardContent>
     </Card>

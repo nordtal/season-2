@@ -13,7 +13,7 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
- * The countdown the three {@code PRE_LAUNCH} screens and the server browser share.
+ * The countdown the screens before the opening and the server browser share.
  *
  * No announced date and a passed date are normal states and must not render as faults.
  */

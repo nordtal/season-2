@@ -2,7 +2,6 @@ package eu.nordtal.season.proxy.pack;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.limboprotocol.WaitReason;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -16,13 +15,13 @@ class StandbyNeverReleasesTest {
 
     @Test
     void everybodyIsHeldOnAStandby() {
-        for (final SeasonPhase phase : SeasonPhase.values()) {
+        for (final SeasonHold hold : SeasonHold.values()) {
             for (final boolean admin : new boolean[] {false, true}) {
-                final Optional<WaitReason> reason = LimboHold.reason(true, phase, admin, true, true, false, false);
+                final Optional<WaitReason> reason = LimboHold.reason(true, hold, admin, true, true, false, false);
                 // MAINTENANCE for a non-admin outranks it, as the longer-lived truth.
                 final WaitReason expected =
-                        phase == SeasonPhase.MAINTENANCE && !admin ? WaitReason.MAINTENANCE : WaitReason.UPDATE;
-                assertEquals(Optional.of(expected), reason, phase + ", admin=" + admin);
+                        hold == SeasonHold.MAINTENANCE && !admin ? WaitReason.MAINTENANCE : WaitReason.UPDATE;
+                assertEquals(Optional.of(expected), reason, hold + ", admin=" + admin);
             }
         }
     }
@@ -31,11 +30,11 @@ class StandbyNeverReleasesTest {
     void thePackStillComesFirst() {
         assertEquals(
                 Optional.of(WaitReason.PACK),
-                LimboHold.reason(false, SeasonPhase.SMP, false, true, true, false, false));
+                LimboHold.reason(false, SeasonHold.NONE, false, true, true, false, false));
     }
 
     @Test
     void theLiveProxyIsUnchanged() {
-        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, false));
+        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonHold.NONE, false, false, true, false, false));
     }
 }

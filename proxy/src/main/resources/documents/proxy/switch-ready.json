@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<good><emphasis>{@values.service}</emphasis> is ready.</good> <muted>You join it now.</muted>",
+            "de": "<good><emphasis>{@values.service}</emphasis> ist bereit.</good> <muted>Du wechselst jetzt dorthin.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -74,7 +74,7 @@ public interface GateSpec {
         return "limbo";
     }
 
-    /** The server for {@code PRE_EVENT} and {@code START_EVENT}. */
+    /** The server of Hunger Games. */
     @Order(10)
     @Name("Hunger Games server")
     @Key("server-hunger-games")

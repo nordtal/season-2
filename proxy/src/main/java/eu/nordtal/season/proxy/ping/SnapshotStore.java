@@ -48,7 +48,7 @@ public final class SnapshotStore {
         Objects.requireNonNull(hub, "hub");
         Objects.requireNonNull(scheduler, "scheduler");
         final Runnable signal = refreshOnSignal(scheduler);
-        for (final Channel channel : new Channel[] {Channel.PHASE, Channel.HUNGER_GAMES, Channel.SMP}) {
+        for (final Channel channel : new Channel[] {Channel.SEASON, Channel.HUNGER_GAMES, Channel.SMP}) {
             hub.on(channel, "the server list numbers", signal);
         }
     }

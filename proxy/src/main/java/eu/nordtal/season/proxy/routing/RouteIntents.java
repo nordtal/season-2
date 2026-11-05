@@ -4,7 +4,7 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.proxy.Player;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import eu.nordtal.season.proxy.PlayerRouter;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.util.Objects;
@@ -17,12 +17,12 @@ import org.slf4j.Logger;
 public final class RouteIntents {
 
     private final LoginRoster roster;
-    private final PhaseServers servers;
+    private final NetworkServers servers;
     private final Logger logger;
 
     private final ConcurrentHashMap<UUID, String> intents = new ConcurrentHashMap<>();
 
-    public RouteIntents(final LoginRoster roster, final PhaseServers servers, final Logger logger) {
+    public RouteIntents(final LoginRoster roster, final NetworkServers servers, final Logger logger) {
         this.roster = Objects.requireNonNull(roster, "roster");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -64,7 +64,7 @@ public final class RouteIntents {
      *
      * @param intended the server that the player is to connect to, {@code null} without an intent
      */
-    static boolean allows(final PhaseServers servers, final String destination, final @Nullable String intended) {
+    static boolean allows(final NetworkServers servers, final String destination, final @Nullable String intended) {
         return servers.isWaitingRoom(destination) || destination.equals(intended);
     }
 

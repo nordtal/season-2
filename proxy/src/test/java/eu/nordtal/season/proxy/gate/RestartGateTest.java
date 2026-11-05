@@ -4,8 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.MemberState;
 import eu.nordtal.season.messages.document.Sent;
@@ -127,8 +128,7 @@ class RestartGateTest {
                 false,
                 0L,
                 Locale.GERMAN,
-                SeasonPhase.SMP,
-                null);
+                new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
     /** A {@link GateSpec} that answers every method with its declared default. */

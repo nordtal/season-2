@@ -1,6 +1,7 @@
 package eu.nordtal.season.proxy.gate;
 
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
@@ -14,7 +15,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.jspecify.annotations.Nullable;
 
-/** Builds the screens and messages of the login gate, the expiry check and the phase router. */
+/** Builds the screens and messages of the login gate, the expiry check and the season router. */
 public final class GateMessages {
 
     record Code(@Example("K7Q2MX") String code) {}
@@ -26,6 +27,9 @@ public final class GateMessages {
     record Full(@Example("100") int online, @Example("100") int max) {}
 
     record Minutes(@Example("5") long minutes) {}
+
+    /** @param paid whether the member has bought a period, otherwise the active mode is the Hunger Games */
+    record Ready(@Example("true") boolean paid) {}
 
     static final DocumentSpec<Code> NOT_LINKED =
             screen("not-linked", Code.class).titled("Account not linked, with the code");
@@ -44,14 +48,15 @@ public final class GateMessages {
     static final DocumentSpec<DocumentSpec.None> MAINTENANCE =
             screen("maintenance", DocumentSpec.None.class).titled("Closed for maintenance");
     static final DocumentSpec<DocumentSpec.None> NO_SERVER =
-            screen("no-server", DocumentSpec.None.class).titled("No server for the phase");
+            screen("no-server", DocumentSpec.None.class).titled("No server for the game mode");
     static final DocumentSpec<DocumentSpec.None> TROUBLE =
             screen("trouble", DocumentSpec.None.class).titled("Access check unavailable");
     static final DocumentSpec<Full> FULL = screen("full", Full.class).titled("Network full");
-    static final DocumentSpec<Invite> PRE_LAUNCH_BUY =
-            screen("pre-launch-buy", Invite.class).titled("Before launch, access not paid");
-    static final DocumentSpec<DocumentSpec.None> PRE_LAUNCH_READY =
-            screen("pre-launch-ready", DocumentSpec.None.class).titled("Before launch, all set");
+    static final DocumentSpec<Invite> CLOSED = screen("closed", Invite.class).titled("Season closed, no launch date");
+    static final DocumentSpec<Invite> COUNTDOWN_BUY =
+            screen("countdown-buy", Invite.class).titled("Before launch, access not paid");
+    static final DocumentSpec<Ready> COUNTDOWN_READY =
+            screen("countdown-ready", Ready.class).titled("Before launch, all set");
     static final DocumentSpec<DocumentSpec.None> EXPIRED =
             screen("expired", DocumentSpec.None.class).titled("Access ended");
     /** The chat line of a player whom a lost backend sends to the waiting room. */
@@ -102,12 +107,12 @@ public final class GateMessages {
         return renderer.format(locale, NO_ACCESS.with(invite()));
     }
 
-    /** The screen for {@code MAINTENANCE} when {@code gate#server-limbo} names no registered server. */
+    /** The screen for maintenance when {@code gate#server-limbo} names no registered server. */
     public Component maintenance(final Locale locale) {
         return renderer.format(locale, Sent.of(MAINTENANCE));
     }
 
-    /** The screen for a phase whose server is not registered. */
+    /** The screen for a game mode whose server is not registered. */
     public Component noServer(final Locale locale) {
         return renderer.format(locale, Sent.of(NO_SERVER));
     }
@@ -117,14 +122,26 @@ public final class GateMessages {
         return renderer.format(locale, FULL.with(new Full(online, max)));
     }
 
-    /** The screen for {@code PRE_LAUNCH} without a bought period. */
-    public Component preLaunchBuy(final Locale locale, final @Nullable Instant launch, final @Nullable Instant now) {
-        return withCountdown(renderer.format(locale, PRE_LAUNCH_BUY.with(invite())), locale, launch, now);
-    }
-
-    /** The screen for {@code PRE_LAUNCH} with a bought period. */
-    public Component preLaunchReady(final Locale locale, final @Nullable Instant launch, final @Nullable Instant now) {
-        return withCountdown(renderer.format(locale, Sent.of(PRE_LAUNCH_READY)), locale, launch, now);
+    /**
+     * The screen of a season that has not launched: closed without a date, otherwise the countdown under it.
+     *
+     * @param outcome one of the outcomes of {@link GateOutcome#beforeLaunch()}
+     */
+    public Component beforeLaunch(final GateOutcome outcome, final AccessState state, final Instant now) {
+        final Locale locale = state.locale();
+        final Instant launch = state.season().launch();
+        return switch (outcome) {
+            case CLOSED -> renderer.format(locale, CLOSED.with(invite()));
+            case COUNTDOWN_BUY ->
+                withCountdown(renderer.format(locale, COUNTDOWN_BUY.with(invite())), locale, launch, now);
+            case COUNTDOWN_READY ->
+                withCountdown(
+                        renderer.format(locale, COUNTDOWN_READY.with(new Ready(state.accessBought()))),
+                        locale,
+                        launch,
+                        now);
+            default -> throw new IllegalArgumentException("not a screen before the launch: " + outcome);
+        };
     }
 
     /** Appends the countdown in grey below a blank line. Without a countdown it returns the screen. */

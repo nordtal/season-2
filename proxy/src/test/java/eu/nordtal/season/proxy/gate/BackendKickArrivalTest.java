@@ -16,7 +16,7 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.server.ServerInfo;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.proxy.MutableClock;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import eu.nordtal.season.proxy.ProxyRenderer;
 import eu.nordtal.season.proxy.config.GateSpec;
 import java.lang.reflect.InvocationHandler;
@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
 /** A player sent back from the standby whom limbo refuses waits for limbo rather than seeing Velocity's error. */
 class BackendKickArrivalTest {
 
-    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     private final Driven clock = new Driven();
     private @Nullable Instant limboUpAt;

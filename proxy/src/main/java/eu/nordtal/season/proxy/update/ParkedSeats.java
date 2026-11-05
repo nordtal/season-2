@@ -1,6 +1,6 @@
 package eu.nordtal.season.proxy.update;
 
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -49,36 +49,36 @@ public final class ParkedSeats {
     /**
      * Returns the server for the released player and deletes the seat.
      *
-     * @param phaseDestination the server from {@code PhaseRouting#decideRelease}
+     * @param modeDestination the server from {@code SeasonRouting#decideRelease}
      * @param available the registered servers
      */
     public String releaseTo(
             final UUID player,
             final boolean admin,
-            final String phaseDestination,
+            final String modeDestination,
             final Set<String> available,
-            final PhaseServers servers) {
+            final NetworkServers servers) {
         final String seat = seats.remove(player);
-        return destination(seat, admin, phaseDestination, available, servers);
+        return destination(seat, admin, modeDestination, available, servers);
     }
 
     /**
      * Returns the seat of an admin.
-     * The seat must be a registered server that is not a waiting room, otherwise the result is the server of the phase.
+     * The seat must be a registered server and not a waiting room, otherwise it is the server of the active mode.
      *
      * @param seat the server before the swap, {@code null} without a swap
      */
     static String destination(
             final @Nullable String seat,
             final boolean admin,
-            final String phaseDestination,
+            final String modeDestination,
             final Set<String> available,
-            final PhaseServers servers) {
+            final NetworkServers servers) {
         if (seat == null || !admin) {
-            return phaseDestination;
+            return modeDestination;
         }
         if (!available.contains(seat) || servers.isWaitingRoom(seat)) {
-            return phaseDestination;
+            return modeDestination;
         }
         return seat;
     }

@@ -3,7 +3,8 @@ package eu.nordtal.season.proxy.gate;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.access.AccessState;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,8 +31,7 @@ class ExpiryLookTest {
                 false,
                 0L,
                 Locale.ENGLISH,
-                SeasonPhase.SMP,
-                null);
+                new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
     @Test

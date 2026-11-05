@@ -10,9 +10,10 @@ import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zaxxer.hikari.HikariDataSource;
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.health.Readiness;
 import eu.nordtal.season.common.language.Languages;
+import eu.nordtal.season.common.season.SeasonOpening;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.common.time.Waiting;
@@ -27,7 +28,7 @@ import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.online.OnlineDirectory;
 import eu.nordtal.season.database.online.OnlineRoster;
-import eu.nordtal.season.database.phase.PhaseDirectory;
+import eu.nordtal.season.database.season.SeasonDirectory;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.messagerendering.MessageRenderer;
@@ -61,14 +62,14 @@ import eu.nordtal.season.proxy.pack.PackMessages;
 import eu.nordtal.season.proxy.pack.PackOffer;
 import eu.nordtal.season.proxy.pack.PackStation;
 import eu.nordtal.season.proxy.pack.WaitingBook;
-import eu.nordtal.season.proxy.phase.PhaseWatch;
 import eu.nordtal.season.proxy.ping.NetworkPing;
 import eu.nordtal.season.proxy.ping.ServerIcon;
 import eu.nordtal.season.proxy.ping.SnapshotStore;
 import eu.nordtal.season.proxy.playtime.PlaytimeStore;
 import eu.nordtal.season.proxy.playtime.PlaytimeWriter;
-import eu.nordtal.season.proxy.routing.PhaseRouting;
 import eu.nordtal.season.proxy.routing.RouteIntents;
+import eu.nordtal.season.proxy.routing.SeasonRouting;
+import eu.nordtal.season.proxy.season.SeasonWatch;
 import eu.nordtal.season.proxy.time.VelocityScheduler;
 import eu.nordtal.season.proxy.update.Evacuation;
 import eu.nordtal.season.proxy.update.Homecoming;
@@ -112,7 +113,7 @@ import org.slf4j.Logger;
         id = "proxy",
         name = "proxy",
         version = ProxyVersion.VALUE,
-        description = "Season 2 phase control and backend routing.",
+        description = "Season 2 season gate and backend routing.",
         url = "https://nordtal.eu",
         authors = {"nordtal"})
 public final class ProxyPlugin {
@@ -171,10 +172,10 @@ public final class ProxyPlugin {
             MessageRenderer renderer,
             GateMessages gateMessages,
             FallbackCache fallback,
-            PhaseServers phaseServers,
+            NetworkServers servers,
             ProxyRole role,
-            PhaseRouting routing,
-            PhaseWatch phaseWatch,
+            SeasonRouting routing,
+            SeasonWatch seasonWatch,
             ParkedSeats parkedSeats,
             SwapStore swaps,
             @Nullable InetSocketAddress publicAddress,
@@ -261,7 +262,7 @@ public final class ProxyPlugin {
         hub.start();
         numbers.start();
         startHeartbeat();
-        holdUntilWaitingRoom(shared.phaseServers());
+        holdUntilWaitingRoom(shared.servers());
     }
 
     /**
@@ -269,7 +270,7 @@ public final class ProxyPlugin {
      * Velocity binds the port only after it, so the standby's probe, the healthcheck and a run's check see the proxy
      * as up only once it can place a player.
      */
-    private void holdUntilWaitingRoom(final PhaseServers servers) {
+    private void holdUntilWaitingRoom(final NetworkServers servers) {
         logger.info("Opening the port once '{}' or '{}' answers", servers.limbo(), servers.limboStandby());
         if (WaitingRooms.answering(proxy, servers, Waiting.on(clock), WaitingRooms.AT_START)
                 .isEmpty()) {
@@ -289,7 +290,7 @@ public final class ProxyPlugin {
         final LoginRoster roster = new LoginRoster();
         final MessageRenderer renderer = MessageRenderer.of(loaded.messages(), Names.BARE, roster.cards(() -> prestige))
                 .reading(documents);
-        final PhaseServers phaseServers = PhaseServers.from(loaded.gate());
+        final NetworkServers servers = NetworkServers.from(loaded.gate());
         final ProxyRole role = ProxyRole.of(loaded.network().standby());
         final InetSocketAddress publicAddress =
                 SwapAddresses.publicAddress(loaded.network().publicAddress()).orElse(null);
@@ -299,12 +300,13 @@ public final class ProxyPlugin {
                         .orElse(null);
         final SwapStore swaps = SwapStore.using(pool);
         final AtomicReference<PlayerRouter> routerRef = new AtomicReference<>();
-        final PhaseWatch phaseWatch = new PhaseWatch(PhaseDirectory.using(pool, clock), logger, (previous, current) -> {
-            final PlayerRouter router = routerRef.get();
-            if (router != null) {
-                router.onPhaseChanged(previous, current);
-            }
-        });
+        final SeasonWatch seasonWatch =
+                new SeasonWatch(SeasonDirectory.using(pool, clock), scheduler, clock, logger, (previous, current) -> {
+                    final PlayerRouter router = routerRef.get();
+                    if (router != null) {
+                        router.onSeasonChanged(previous, current);
+                    }
+                });
         return new Shared(
                 loaded,
                 access,
@@ -312,10 +314,10 @@ public final class ProxyPlugin {
                 renderer,
                 new GateMessages(renderer, loaded.gate()),
                 new FallbackCache(Duration.ofMinutes(loaded.gate().fallbackCacheWindowMinutes()), clock),
-                phaseServers,
+                servers,
                 role,
-                new PhaseRouting(phaseServers, role),
-                phaseWatch,
+                new SeasonRouting(servers, role),
+                seasonWatch,
                 takeParkedSeats(swaps),
                 swaps,
                 publicAddress,
@@ -325,7 +327,7 @@ public final class ProxyPlugin {
                         logger,
                         renderer,
                         roster,
-                        phaseServers,
+                        servers,
                         UpdateDirectory.using(pool).recorder()),
                 routerRef);
     }
@@ -338,7 +340,7 @@ public final class ProxyPlugin {
         } catch (final RuntimeException failure) {
             logger.warn(
                     "Could not read where players were standing before the last proxy swap; "
-                            + "everybody will be routed by the season phase",
+                            + "everybody will be routed by the season",
                     failure);
             return new ParkedSeats(List.of(), clock.instant());
         }
@@ -358,7 +360,7 @@ public final class ProxyPlugin {
                     "pack#enabled is false: NO RESOURCE PACK IS OFFERED. Players still pass "
                             + "through '{}', but every glyph in the tab list, the nametags, the boards and "
                             + "the HUD will render as a missing-glyph box.",
-                    shared.phaseServers().limbo());
+                    shared.servers().limbo());
         } else {
             logger.info(
                     "Offering the resource pack from {} (sha1 {}, forced: {})",
@@ -372,7 +374,7 @@ public final class ProxyPlugin {
                 Duration.ofSeconds(shared.loaded().gate().limboReadyGraceSeconds()),
                 shared.role(),
                 new AccessQueue(
-                        shared.phaseServers().smp(),
+                        shared.servers().smp(),
                         () -> Duration.ofSeconds(shared.loaded().queue().get().smpIntervalSeconds()),
                         clock),
                 clock);
@@ -380,7 +382,7 @@ public final class ProxyPlugin {
                 proxy,
                 logger,
                 shared.routing(),
-                shared.phaseWatch(),
+                shared.seasonWatch(),
                 shared.roster(),
                 packMessages,
                 config,
@@ -393,7 +395,7 @@ public final class ProxyPlugin {
 
     /** Creates the router and the sweep of the waiting room. */
     private PlayerRouter wireRouting(final Shared shared, final PackStation packs) {
-        final RouteIntents intents = new RouteIntents(shared.roster(), shared.phaseServers(), logger);
+        final RouteIntents intents = new RouteIntents(shared.roster(), shared.servers(), logger);
         proxy.getEventManager().register(this, intents);
         final PlayerRouter router = new PlayerRouter(
                 scheduler,
@@ -401,7 +403,7 @@ public final class ProxyPlugin {
                 logger,
                 shared.access(),
                 shared.routing(),
-                shared.phaseWatch(),
+                shared.seasonWatch(),
                 shared.roster(),
                 shared.fallback(),
                 shared.gateMessages(),
@@ -419,7 +421,7 @@ public final class ProxyPlugin {
         final var _ = scheduler.every(sweepInterval, sweepInterval, packs::sweep);
         // A waiting queue and an update's percentage change faster than the sweep runs, so they are swept every second.
         final var _ = scheduler.every(BUSY_TICK, BUSY_TICK, packs::sweepBusy);
-        shared.phaseWatch().refresh();
+        shared.seasonWatch().refresh();
         return router;
     }
 
@@ -453,7 +455,7 @@ public final class ProxyPlugin {
                         this,
                         new BackendKick(
                                 proxy,
-                                shared.phaseServers(),
+                                shared.servers(),
                                 shared.backendHealth(),
                                 shared.gateMessages(),
                                 shared.roster(),
@@ -472,7 +474,7 @@ public final class ProxyPlugin {
                         new NetworkPing(
                                 proxy,
                                 shared.loaded().players().get(),
-                                shared.phaseWatch(),
+                                shared.seasonWatch(),
                                 snapshots,
                                 shared.renderer(),
                                 languages.locales()[0],
@@ -486,7 +488,7 @@ public final class ProxyPlugin {
         final HikariDataSource pool = shared.loaded().pool();
         final OnlineWriter onlineWriter = new OnlineWriter(
                 proxy,
-                shared.phaseServers(),
+                shared.servers(),
                 OnlineDirectory.using(pool, clock),
                 OnlineRoster.using(pool, clock),
                 shared.role(),
@@ -517,13 +519,15 @@ public final class ProxyPlugin {
                 UpdateDirectory.using(pool),
                 shared.roster(),
                 shared.renderer(),
-                shared.phaseServers(),
+                shared.servers(),
                 clock);
         final Evacuation evacuation = new Evacuation(
-                proxy, logger, UpdateDirectory.using(pool), shared.phaseServers(), shared.homecoming(), clock);
+                proxy, logger, UpdateDirectory.using(pool), shared.servers(), shared.homecoming(), clock);
         packs.whenUpdating(evacuation::isMoving);
         packs.whenHeld(evacuation::isHeld);
         packs.whenProgressing(evacuation::progress);
+        packs.whenSwitching(evacuation::holdsEveryone);
+        evacuation.whenReleased(() -> scheduler.execute(packs::sweep));
         onlineWriter.whenHurrying(() -> restartWatch.isCountingDown() || evacuation.isAnyMoving());
         return new Updates(restartWatch, evacuation);
     }
@@ -575,7 +579,7 @@ public final class ProxyPlugin {
                     "THIS IS THE STANDBY PROXY. Arrivals are held in '{}' and transferred back "
                             + "to {} as soon as {} answers again; no player counts are written "
                             + "from here.",
-                    shared.phaseServers().limboStandby(),
+                    shared.servers().limboStandby(),
                     publicAddress == null
                             ? "nowhere - network#public-address is empty"
                             : publicAddress.getHostString() + ":" + publicAddress.getPort(),
@@ -632,7 +636,7 @@ public final class ProxyPlugin {
         final Loaded loaded = shared.loaded();
         final SignalHub hub = openHub(loaded, "proxy-signals");
         this.signals = hub;
-        hub.on(Channel.PHASE, "the season phase", shared.phaseWatch()::refresh);
+        hub.on(Channel.SEASON, "the season state", shared.seasonWatch()::refresh);
         loaded.settings().listen(hub, () -> reloadNetwork(loaded));
         MessageOverrideStore.using(loaded.pool()).follow(loaded.messages(), hub);
         documents.follow(DocumentStore.using(loaded.pool()), hub, () -> {});
@@ -640,7 +644,7 @@ public final class ProxyPlugin {
         hub.on(Channel.UPDATE, "the restart countdown", updates.restartWatch()::check);
         hub.on(Channel.UPDATE, "the update evacuation", updates.evacuation()::check);
         hub.on(Channel.UPDATE, "the proxy swap", reads.swap()::check);
-        hub.on(Channel.PHASE, "the players' access", () -> scheduler.execute(reads.expiry()::check));
+        hub.on(Channel.SEASON, "the players' access", () -> scheduler.execute(reads.expiry()::check));
         return hub;
     }
 
@@ -668,7 +672,7 @@ public final class ProxyPlugin {
         final int changed = shared.roster().refreshAdmins(shared.access().admins());
         if (changed > 0) {
             logger.info("The admin flag changed for {} connected player(s); re-routing", changed);
-            router.rerouteAll(shared.phaseWatch().lastKnown());
+            router.rerouteAll(shared.seasonWatch().state());
         }
     }
 
@@ -676,27 +680,24 @@ public final class ProxyPlugin {
     private void logStartup(final Shared shared) {
         final GateSpec gate = shared.loaded().gate();
         final PlayersSpec players = shared.loaded().players().get();
-        final SeasonPhase phase = shared.phaseWatch().lastKnown();
+        final SeasonState season = shared.seasonWatch().state();
         logger.info(
-                "Access login gate is up in phase {} (query timeout {}s, fallback cache window "
+                "Access login gate is up in {} (query timeout {}s, fallback cache window "
                         + "{}m, play time flushed every "
                         + "{}s, waiting room '{}' swept every {}s)",
-                phase,
+                season,
                 shared.loaded().database().queryTimeoutSeconds(),
                 gate.fallbackCacheWindowMinutes(),
                 gate.playtimeFlushIntervalSeconds(),
-                shared.phaseServers().limbo(),
+                shared.servers().limbo(),
                 gate.limboSweepIntervalSeconds());
         logger.info("The network takes {} players, enforced here alone.", players.maxPlayers());
-        if (phase == SeasonPhase.PRE_LAUNCH) {
+        if (season.opening(clock.instant()) != SeasonOpening.LAUNCHED) {
             logger.info(
                     "The network has not opened yet: only admins get in, everybody else is shown "
                             + "the countdown ({}).",
                     shared.renderer()
-                            .plainLine(
-                                    Locale.ENGLISH,
-                                    LaunchCountdown.line(
-                                            shared.phaseWatch().launch().orElse(null), clock.instant())));
+                            .plainLine(Locale.ENGLISH, LaunchCountdown.line(season.launch(), clock.instant())));
         }
     }
 

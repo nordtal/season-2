@@ -1,6 +1,5 @@
 package eu.nordtal.season.proxy.pack;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.limboprotocol.WaitReason;
 import eu.nordtal.season.proxy.ProxyRole;
 import java.time.Clock;
@@ -209,6 +208,26 @@ public final class WaitingBook {
         }
     }
 
+    /**
+     * Puts a released player back on the waiting list with the reason on the screen.
+     *
+     * @return whether the player has a session, so the caller sends the screen
+     */
+    public boolean heldAgain(final UUID uuid, final WaitReason reason) {
+        final Session session = sessions.get(uuid);
+        if (session == null) {
+            return false;
+        }
+        synchronized (session) {
+            session.waiting = true;
+            session.settledAt = null;
+            session.shown = reason;
+            session.percent = -1;
+        }
+        queue.refund(uuid);
+        return true;
+    }
+
     /** Returns whether a released player waits for a slot onto {@code smp}. */
     public boolean anyQueued() {
         return queue.isWaiting();
@@ -225,17 +244,18 @@ public final class WaitingBook {
      * Returns the decision for the player.
      * A release or a timeout ends the visit, so the next call returns {@code IDLE}.
      *
-     * @param destination the backend of the phase
+     * @param hold what the season holds
+     * @param destination the server of the active mode
      */
     public WaitingDecision decide(
             final UUID uuid,
-            final SeasonPhase phase,
+            final SeasonHold hold,
             final boolean admin,
             final boolean destinationAvailable,
             final String destination,
             final boolean destinationUpdating,
             final boolean destinationHeld) {
-        Objects.requireNonNull(phase, "phase");
+        Objects.requireNonNull(hold, "hold");
         final Session session = sessions.get(uuid);
         if (session == null) {
             return WaitingDecision.idle();
@@ -257,7 +277,7 @@ public final class WaitingBook {
                     && clock.instant().isBefore(session.backendDownUntil);
             final boolean available = destinationAvailable && !stillDown;
             final Optional<WaitReason> reason = LimboHold.reason(
-                    packSettled, phase, admin, role.isStandby(), available, destinationUpdating, destinationHeld);
+                    packSettled, hold, admin, role.isStandby(), available, destinationUpdating, destinationHeld);
             if (reason.isPresent()) {
                 session.settledAt = null;
                 // A player held back for another reason would otherwise keep the head of the queue.

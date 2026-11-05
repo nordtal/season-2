@@ -60,7 +60,7 @@ class SnapshotStoreSignalTest {
     }
 
     @Test
-    void followingWaitsOnTheRoundsTheGamesAndTheSmpAsWellAsThePhase() {
+    void followingWaitsOnTheRoundsTheGamesAndTheSmpAsWellAsTheSeason() {
         final SignalHub hub = new SignalHub(
                 channels -> {
                     throw new SQLException("never started");
@@ -70,6 +70,6 @@ class SnapshotStoreSignalTest {
 
         storeReading(() -> NetworkSnapshot.EMPTY).follow(hub, scheduler);
 
-        assertEquals(EnumSet.of(Channel.PHASE, Channel.HUNGER_GAMES, Channel.SMP), hub.channels());
+        assertEquals(EnumSet.of(Channel.SEASON, Channel.HUNGER_GAMES, Channel.SMP), hub.channels());
     }
 }

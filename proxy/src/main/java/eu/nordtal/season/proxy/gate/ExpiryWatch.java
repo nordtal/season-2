@@ -99,8 +99,9 @@ public final class ExpiryWatch {
         }
         fallback.remember(uuid, state);
 
-        if (!state.mayJoin()) {
-            player.disconnect(reasonFor(state));
+        final Instant now = clock.instant();
+        if (!state.mayJoin(now)) {
+            player.disconnect(reasonFor(state, now));
             warned.remove(uuid);
             cancelLook(uuid);
             return;
@@ -112,7 +113,7 @@ public final class ExpiryWatch {
             return;
         }
 
-        final Duration remaining = Duration.between(clock.instant(), validUntil);
+        final Duration remaining = Duration.between(now, validUntil);
         if (remaining.compareTo(warningLead) <= 0) {
             if (warned.add(uuid)) {
                 final long minutes = Math.max(1, remaining.toMinutes());
@@ -167,13 +168,13 @@ public final class ExpiryWatch {
     }
 
     /** Returns the disconnect screen for the outcome of {@link GateOutcome}. */
-    private Component reasonFor(final AccessState state) {
-        return switch (GateOutcome.of(state)) {
+    private Component reasonFor(final AccessState state, final Instant now) {
+        final GateOutcome outcome = GateOutcome.of(state, now);
+        return switch (outcome) {
             case NOT_LINKED -> messages.unlinked(state.locale());
             case NOT_MEMBER -> messages.notMember(state.locale());
             case NO_ACCESS -> messages.expired(state.locale());
-            case PRE_LAUNCH_BUY -> messages.preLaunchBuy(state.locale(), state.launch(), clock.instant());
-            case PRE_LAUNCH_READY -> messages.preLaunchReady(state.locale(), state.launch(), clock.instant());
+            case CLOSED, COUNTDOWN_BUY, COUNTDOWN_READY -> messages.beforeLaunch(outcome, state, now);
             case ALLOW, FULL, TROUBLE -> messages.trouble(state.locale());
         };
     }

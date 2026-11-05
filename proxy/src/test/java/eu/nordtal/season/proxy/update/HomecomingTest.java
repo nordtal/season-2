@@ -2,10 +2,12 @@ package eu.nordtal.season.proxy.update;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.time.CountdownPlan;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -13,7 +15,8 @@ import org.junit.jupiter.api.Test;
 /** The way back, and who is told about it: nobody just logged in, nobody waiting, and never without warning. */
 class HomecomingTest {
 
-    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final Homecoming.Owed OFF_SMP = new Homecoming.Owed("smp", false);
 
     private final Homecoming homecoming = new Homecoming(
             org.slf4j.LoggerFactory.getLogger(HomecomingTest.class),
@@ -28,13 +31,13 @@ class HomecomingTest {
     void theRegisterIsTheEvacuationAndNotEveryRelease() {
         final UUID moved = UUID.randomUUID();
         final UUID justLoggedIn = UUID.randomUUID();
-        homecoming.owe(1L, moved);
+        homecoming.owe(1L, moved, OFF_SMP);
 
         // Every login waits in limbo, so a release alone is not a homecoming.
-        assertFalse(homecoming.claim(justLoggedIn));
+        assertNull(homecoming.claim(justLoggedIn));
 
-        assertTrue(homecoming.claim(moved));
-        assertFalse(
+        assertNotNull(homecoming.claim(moved));
+        assertNull(
                 homecoming.claim(moved),
                 "a release that failed and is retried every ten seconds must not say it again");
     }
@@ -43,13 +46,13 @@ class HomecomingTest {
     void aNewRunReplacesTheRegister() {
         final UUID lastRun = UUID.randomUUID();
         final UUID thisRun = UUID.randomUUID();
-        homecoming.owe(1L, lastRun);
-        homecoming.owe(2L, thisRun);
+        homecoming.owe(1L, lastRun, OFF_SMP);
+        homecoming.owe(2L, thisRun, OFF_SMP);
 
-        assertFalse(
+        assertNull(
                 homecoming.claim(lastRun),
                 "somebody who never came back from the last run is not owed a line about this one");
-        assertTrue(homecoming.claim(thisRun));
+        assertNotNull(homecoming.claim(thisRun));
     }
 
     @Test
@@ -57,13 +60,22 @@ class HomecomingTest {
         final UUID first = UUID.randomUUID();
         final UUID later = UUID.randomUUID();
 
-        assertTrue(homecoming.owe(1L, first));
-        assertTrue(homecoming.owe(1L, later));
-        assertFalse(homecoming.owe(1L, first), "a later pass of the same run owes nobody twice");
+        assertTrue(homecoming.owe(1L, first, OFF_SMP));
+        assertTrue(homecoming.owe(1L, later, OFF_SMP));
+        assertFalse(homecoming.owe(1L, first, OFF_SMP), "a later pass of the same run owes nobody twice");
 
         // A player who reached the waiting room on an earlier pass is still told on return.
-        assertTrue(homecoming.claim(first));
-        assertTrue(homecoming.claim(later));
+        assertNotNull(homecoming.claim(first));
+        assertNotNull(homecoming.claim(later));
+    }
+
+    @Test
+    void aClaimKeepsTheServerMovedOffAndWhetherASwitchMovedThem() {
+        // A mode switch returns the player elsewhere, yet the return counts against the move off that server.
+        final UUID player = UUID.randomUUID();
+        homecoming.owe(3L, player, new Homecoming.Owed("hunger-games", true));
+
+        assertEquals(new Homecoming.Owed("hunger-games", true), homecoming.claim(player));
     }
 
     // who gets a counter

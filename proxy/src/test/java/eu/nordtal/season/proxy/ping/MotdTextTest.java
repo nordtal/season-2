@@ -5,8 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.proxy.launch.LaunchCountdown;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -16,7 +19,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
 
 /**
- * The server list's document: one line per phase under the brand mark.
+ * The server list's document: one line per state of the season under the brand mark.
  *
  * None carries a glyph, since the server list draws a text before any resource pack.
  */
@@ -26,30 +29,30 @@ class MotdTextTest {
 
     private static final List<Locale> LOCALES = List.of(Locale.ENGLISH, Locale.GERMAN);
 
-    /** The text of every phase in one language. */
+    /** The text of every state in one language. */
     private static List<String> all(final Locale locale) {
         final List<String> texts = new ArrayList<>();
-        for (final SeasonPhase phase : SeasonPhase.values()) {
+        for (final NetworkPing.State state : NetworkPing.State.values()) {
             texts.add(PlainTextComponentSerializer.plainText()
                     .serialize(RENDERER.format(
                             locale,
                             NetworkPing.SERVER_LIST.with(
-                                    new NetworkPing.ServerList(phase, LIST, LaunchCountdown.Stage.DAYS, 3, 4, 0)))));
+                                    new NetworkPing.ServerList(state, LIST, LaunchCountdown.Stage.DAYS, 3, 4, 0)))));
         }
         return texts;
     }
 
     @Test
-    void everyPhaseGetsItsOwnTextRatherThanOneSharedLine() {
+    void everyStateGetsItsOwnTextRatherThanOneSharedLine() {
         for (final Locale locale : LOCALES) {
             final Set<String> distinct = new HashSet<>(all(locale));
-            assertEquals(SeasonPhase.values().length, distinct.size(), "two phases share a text in " + locale);
+            assertEquals(NetworkPing.State.values().length, distinct.size(), "two states share a text in " + locale);
         }
     }
 
     @Test
     void everyTextOpensWithTheOneBrandMarkOnALineOfItsOwn() {
-        // One mark, and the phase is what the second line says: a name that changes colour is five marks.
+        // One mark, and the state is what the second line says: a name that changes colour is five marks.
         for (final Locale locale : LOCALES) {
             for (final String text : all(locale)) {
                 assertTrue(text.startsWith("nordtal.eu\n"), "opens without the mark: " + text);
@@ -78,14 +81,31 @@ class MotdTextTest {
     }
 
     @Test
-    void thePreLaunchLineCountsDown() {
+    void theCountdownLineCountsDown() {
         final String text = PlainTextComponentSerializer.plainText()
                 .serialize(RENDERER.format(
                         Locale.ENGLISH,
                         NetworkPing.SERVER_LIST.with(new NetworkPing.ServerList(
-                                SeasonPhase.PRE_LAUNCH, LIST, LaunchCountdown.Stage.HOURS, 0, 5, 12))));
+                                NetworkPing.State.COUNTDOWN, LIST, LaunchCountdown.Stage.HOURS, 0, 5, 12))));
         assertTrue(text.contains("5 hours 12 minutes"), text);
         assertFalse(text.contains("{"), text);
+    }
+
+    @Test
+    void theStateFollowsTheOpeningThenMaintenanceThenTheMode() {
+        final Instant now = Instant.parse("2026-11-05T12:00:00Z");
+        final SeasonState open = new SeasonState(now.minus(Duration.ofDays(1)), false, SeasonMode.SMP);
+
+        assertEquals(
+                NetworkPing.State.CLOSED,
+                NetworkPing.State.of(open.withLaunch(null).withMaintenance(true), now));
+        assertEquals(
+                NetworkPing.State.COUNTDOWN,
+                NetworkPing.State.of(
+                        open.withLaunch(now.plus(Duration.ofHours(1))).withMaintenance(true), now));
+        assertEquals(NetworkPing.State.MAINTENANCE, NetworkPing.State.of(open.withMaintenance(true), now));
+        assertEquals(NetworkPing.State.HUNGER_GAMES, NetworkPing.State.of(open.withMode(SeasonMode.HUNGER_GAMES), now));
+        assertEquals(NetworkPing.State.SMP, NetworkPing.State.of(open, now));
     }
 
     /** Both private-use areas, so a character pasted from an older file is still caught. */

@@ -4,7 +4,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.season.common.time.Backoff;
 import eu.nordtal.season.common.time.Waiting;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -29,7 +29,7 @@ public final class WaitingRooms {
 
     /** Returns limbo, otherwise the standby, as soon as one answers a ping, or empty once the patience is spent. */
     public static Optional<RegisteredServer> answering(
-            final ProxyServer proxy, final PhaseServers servers, final Waiting clock, final Duration patience) {
+            final ProxyServer proxy, final NetworkServers servers, final Waiting clock, final Duration patience) {
         return clock.until(
                 () -> Stream.of(servers.limbo(), servers.limboStandby())
                         .flatMap(name -> proxy.getServer(name).stream())

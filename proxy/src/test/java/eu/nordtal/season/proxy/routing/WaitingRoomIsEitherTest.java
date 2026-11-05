@@ -4,15 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.common.season.SeasonState;
+import eu.nordtal.season.proxy.NetworkServers;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /** Either limbo counts as the waiting room, so a player on the standby is still released. */
 class WaitingRoomIsEitherTest {
 
-    private static final PhaseServers SERVERS = new PhaseServers("limbo", "limbo-standby", "hunger-games", "smp");
+    private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     @Test
     void bothRoomsAreTheWaitingRoom() {
@@ -29,26 +29,29 @@ class WaitingRoomIsEitherTest {
 
     @Test
     void aJoinDuringTheSwapLandsInTheStandby() {
-        final PhaseRouting routing = new PhaseRouting(SERVERS);
+        final SeasonRouting routing = new SeasonRouting(SERVERS);
 
         // What a proxy has registered mid-swap: the limbo is stopped, the standby is up.
         final Set<String> midSwap = Set.of("limbo-standby", "smp", "hunger-games");
 
         assertEquals(
                 "limbo-standby",
-                routing.decideInitial(SeasonPhase.MAINTENANCE, false, midSwap).server(),
+                routing.decideInitial(SeasonState.UNREAD, false, midSwap).server(),
                 "a player joining while the waiting room is being replaced was refused outright");
         assertEquals(
                 "limbo-standby",
-                routing.decideInitial(SeasonPhase.SMP, false, midSwap).server());
+                routing.decideInitial(SeasonState.UNREAD.withMaintenance(false), false, midSwap)
+                        .server());
     }
 
     @Test
     void theLiveRoomWinsWhenBothAreUp() {
-        final PhaseRouting routing = new PhaseRouting(SERVERS);
+        final SeasonRouting routing = new SeasonRouting(SERVERS);
         final Set<String> both = Set.of("limbo", "limbo-standby", "smp", "hunger-games");
 
         assertEquals(
-                "limbo", routing.decideInitial(SeasonPhase.SMP, false, both).server());
+                "limbo",
+                routing.decideInitial(SeasonState.UNREAD.withMaintenance(false), false, both)
+                        .server());
     }
 }

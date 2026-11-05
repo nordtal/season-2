@@ -4,7 +4,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import eu.nordtal.season.database.online.OnlineDirectory;
 import eu.nordtal.season.database.online.OnlineRoster;
-import eu.nordtal.season.proxy.PhaseServers;
+import eu.nordtal.season.proxy.NetworkServers;
 import eu.nordtal.season.proxy.ProxyRole;
 import java.time.Clock;
 import java.time.Duration;
@@ -25,7 +25,7 @@ import org.slf4j.Logger;
 public final class OnlineWriter {
 
     private final ProxyServer proxy;
-    private final PhaseServers servers;
+    private final NetworkServers servers;
     private final OnlineDirectory online;
     private final OnlineRoster roster;
     private final ProxyRole role;
@@ -43,7 +43,7 @@ public final class OnlineWriter {
 
     public OnlineWriter(
             final ProxyServer proxy,
-            final PhaseServers servers,
+            final NetworkServers servers,
             final OnlineDirectory online,
             final OnlineRoster roster,
             final ProxyRole role,

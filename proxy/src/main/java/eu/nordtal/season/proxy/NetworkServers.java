@@ -1,19 +1,19 @@
 package eu.nordtal.season.proxy;
 
-import eu.nordtal.season.common.SeasonPhase;
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.proxy.config.GateSpec;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
-/** Maps each phase to a server. The names come from the {@code gate} group. */
-public final class PhaseServers {
+/** Names the waiting rooms and the server of each game mode. The names come from the {@code gate} group. */
+public final class NetworkServers {
 
     private final String limbo;
     private final String limboStandby;
     private final String hungerGames;
     private final String smp;
 
-    public PhaseServers(final String limbo, final String limboStandby, final String hungerGames, final String smp) {
+    public NetworkServers(final String limbo, final String limboStandby, final String hungerGames, final String smp) {
         this.limbo = requireName("limbo", limbo);
         this.limboStandby = requireName("limboStandby", limboStandby);
         this.hungerGames = requireName("hungerGames", hungerGames);
@@ -21,32 +21,19 @@ public final class PhaseServers {
     }
 
     /** Reads the server names from the {@code gate} group. */
-    public static PhaseServers from(final GateSpec config) {
+    public static NetworkServers from(final GateSpec config) {
         Objects.requireNonNull(config, "config");
-        return new PhaseServers(
+        return new NetworkServers(
                 config.serverLimbo(), config.serverLimboStandby(), config.serverHungerGames(), config.serverSmp());
     }
 
-    /** Returns the server of the phase. */
-    public String forPhase(final SeasonPhase phase) {
-        Objects.requireNonNull(phase, "phase");
-        return switch (phase) {
-            case PRE_EVENT, START_EVENT -> hungerGames;
+    /** Returns the server of the game mode. */
+    public String forMode(final SeasonMode mode) {
+        Objects.requireNonNull(mode, "mode");
+        return switch (mode) {
+            case HUNGER_GAMES -> hungerGames;
             case SMP -> smp;
-            case MAINTENANCE, PRE_LAUNCH -> limbo;
         };
-    }
-
-    /**
-     * Returns the server for a player who leaves the waiting room.
-     * It equals {@link #forPhase}, except that an admin in {@code MAINTENANCE} or {@code PRE_LAUNCH} gets the SMP.
-     */
-    public String forAdmitted(final SeasonPhase phase, final boolean admin) {
-        Objects.requireNonNull(phase, "phase");
-        if (admin && (phase == SeasonPhase.MAINTENANCE || phase == SeasonPhase.PRE_LAUNCH)) {
-            return smp;
-        }
-        return forPhase(phase);
     }
 
     /** Returns the waiting room. */
@@ -64,12 +51,12 @@ public final class PhaseServers {
         return limbo.equals(server) || limboStandby.equals(server);
     }
 
-    /** Returns the server of {@code PRE_EVENT} and {@code START_EVENT}. */
+    /** Returns the server of {@link SeasonMode#HUNGER_GAMES}. */
     public String hungerGames() {
         return hungerGames;
     }
 
-    /** Returns the SMP server. */
+    /** Returns the server of {@link SeasonMode#SMP}. */
     public String smp() {
         return smp;
     }

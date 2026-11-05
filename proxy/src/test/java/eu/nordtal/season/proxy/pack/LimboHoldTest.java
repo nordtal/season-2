@@ -3,7 +3,6 @@ package eu.nordtal.season.proxy.pack;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.limboprotocol.WaitReason;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -14,15 +13,15 @@ class LimboHoldTest {
     @Test
     void anUnappliedPackOutranksEveryOtherReason() {
         // Including maintenance: the download is on the player's machine, and quitting loses it.
-        for (final SeasonPhase phase : SeasonPhase.values()) {
+        for (final SeasonHold hold : SeasonHold.values()) {
             assertEquals(
                     Optional.of(WaitReason.PACK),
-                    LimboHold.reason(false, phase, false, false, true, false, false),
-                    phase.toString());
+                    LimboHold.reason(false, hold, false, false, true, false, false),
+                    hold.toString());
             assertEquals(
                     Optional.of(WaitReason.PACK),
-                    LimboHold.reason(false, phase, false, false, false, false, false),
-                    phase.toString());
+                    LimboHold.reason(false, hold, false, false, false, false, false),
+                    hold.toString());
         }
     }
 
@@ -30,76 +29,65 @@ class LimboHoldTest {
     void maintenanceHoldsAPlayerWhosePackIsDone() {
         assertEquals(
                 Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, true, false, false));
+                LimboHold.reason(true, SeasonHold.MAINTENANCE, false, false, true, false, false));
     }
 
     @Test
     void maintenanceOutranksAMissingBackend() {
-        // In MAINTENANCE the phase's backend is limbo, so "not available" there still means maintenance.
+        // A missing backend during maintenance still reads as maintenance, the reason that lasts longer.
         assertEquals(
                 Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, false, false));
+                LimboHold.reason(true, SeasonHold.MAINTENANCE, false, false, false, false, false));
     }
 
     @Test
-    void aMissingBackendIsItsOwnReasonInEveryPlayablePhase() {
-        for (final SeasonPhase phase :
-                new SeasonPhase[] {SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT, SeasonPhase.SMP}) {
-            assertEquals(
-                    Optional.of(WaitReason.BACKEND),
-                    LimboHold.reason(true, phase, false, false, false, false, false),
-                    phase.toString());
-        }
+    void aMissingBackendIsItsOwnReasonWithoutAHold() {
+        assertEquals(
+                Optional.of(WaitReason.BACKEND),
+                LimboHold.reason(true, SeasonHold.NONE, false, false, false, false, false));
     }
 
     @Test
     void nothingLeftToWaitForReleasesThePlayer() {
-        for (final SeasonPhase phase :
-                new SeasonPhase[] {SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT, SeasonPhase.SMP}) {
-            assertEquals(
-                    Optional.empty(),
-                    LimboHold.reason(true, phase, false, false, true, false, false),
-                    phase.toString());
-        }
+        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonHold.NONE, false, false, true, false, false));
     }
 
     @Test
     void maintenanceNeverReleasesAnybodyNoMatterWhatElseIsTrue() {
-        // The one reason that does not end on its own; only a phase switch ends it.
+        // The one reason that does not end on its own; only switching maintenance off ends it.
         assertEquals(
                 Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, true, false, false));
+                LimboHold.reason(true, SeasonHold.MAINTENANCE, false, false, true, false, false));
         assertEquals(
                 Optional.of(WaitReason.PACK),
-                LimboHold.reason(false, SeasonPhase.MAINTENANCE, false, false, true, false, false));
+                LimboHold.reason(false, SeasonHold.MAINTENANCE, false, false, true, false, false));
     }
 
     @Test
     void maintenanceDoesNotHoldTheAdminItIsBeingDoneBy() {
         // Maintenance alone does not hold an admin; pack and destination still count.
-        assertEquals(
-                Optional.empty(), LimboHold.reason(true, SeasonPhase.MAINTENANCE, true, false, true, false, false));
+        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonHold.MAINTENANCE, true, false, true, false, false));
         assertEquals(
                 Optional.of(WaitReason.BACKEND),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, true, false, false, false, false));
+                LimboHold.reason(true, SeasonHold.MAINTENANCE, true, false, false, false, false));
         assertEquals(
                 Optional.of(WaitReason.PACK),
-                LimboHold.reason(false, SeasonPhase.MAINTENANCE, true, false, true, false, false));
+                LimboHold.reason(false, SeasonHold.MAINTENANCE, true, false, true, false, false));
     }
 
     @Test
     void theAdminFlagChangesNothingOutsideMaintenance() {
-        // PRE_LAUNCH included: SMP availability is the caller's input, the same for everybody.
-        for (final SeasonPhase phase : SeasonPhase.values()) {
-            if (phase == SeasonPhase.MAINTENANCE) {
+        // A mode switch included: it holds admins as it holds everybody else.
+        for (final SeasonHold hold : SeasonHold.values()) {
+            if (hold == SeasonHold.MAINTENANCE) {
                 continue;
             }
             for (final boolean settled : new boolean[] {false, true}) {
                 for (final boolean available : new boolean[] {false, true}) {
                     assertEquals(
-                            LimboHold.reason(settled, phase, false, false, available, false, false),
-                            LimboHold.reason(settled, phase, true, false, available, false, false),
-                            phase + "/settled=" + settled + "/available=" + available);
+                            LimboHold.reason(settled, hold, false, false, available, false, false),
+                            LimboHold.reason(settled, hold, true, false, available, false, false),
+                            hold + "/settled=" + settled + "/available=" + available);
                 }
             }
         }
@@ -108,23 +96,23 @@ class LimboHoldTest {
     @Test
     void aDisabledPackIsNotASpecialCaseButAWaitWithOneFewerThingInIt() {
         // PackStation passes `offer == null || applied`, so a disabled pack counts as applied.
-        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, false));
+        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonHold.NONE, false, false, true, false, false));
         assertEquals(
                 Optional.of(WaitReason.BACKEND),
-                LimboHold.reason(true, SeasonPhase.SMP, false, false, false, false, false));
+                LimboHold.reason(true, SeasonHold.NONE, false, false, false, false, false));
     }
 
     @Test
     void unknownIsNeverProducedHereBecauseTheProxyAlwaysKnowsWhy() {
         // WaitReason.UNKNOWN is for limbo's first tick; this rule always knows its reason.
-        for (final SeasonPhase phase : SeasonPhase.values()) {
+        for (final SeasonHold hold : SeasonHold.values()) {
             for (final boolean settled : new boolean[] {false, true}) {
                 for (final boolean admin : new boolean[] {false, true}) {
                     for (final boolean available : new boolean[] {false, true}) {
                         assertNotEquals(
                                 Optional.of(WaitReason.UNKNOWN),
-                                LimboHold.reason(settled, phase, admin, false, available, false, false),
-                                phase + "/settled=" + settled + "/admin=" + admin + "/available=" + available);
+                                LimboHold.reason(settled, hold, admin, false, available, false, false),
+                                hold + "/settled=" + settled + "/admin=" + admin + "/available=" + available);
                     }
                 }
             }
@@ -136,13 +124,9 @@ class LimboHoldTest {
     @Test
     void anUpdateIsItsOwnReasonAndOutranksAMissingBackend() {
         // BACKEND and UPDATE are the same fact here, but the player cares about the difference.
-        for (final SeasonPhase phase :
-                new SeasonPhase[] {SeasonPhase.PRE_EVENT, SeasonPhase.START_EVENT, SeasonPhase.SMP}) {
-            assertEquals(
-                    Optional.of(WaitReason.UPDATE),
-                    LimboHold.reason(true, phase, false, false, false, true, false),
-                    phase.toString());
-        }
+        assertEquals(
+                Optional.of(WaitReason.UPDATE),
+                LimboHold.reason(true, SeasonHold.NONE, false, false, false, true, false));
     }
 
     @Test
@@ -150,7 +134,7 @@ class LimboHoldTest {
         // A server stays registered while its container is down; holding here avoids releasing into it.
         assertEquals(
                 Optional.of(WaitReason.UPDATE),
-                LimboHold.reason(true, SeasonPhase.SMP, false, false, true, true, false));
+                LimboHold.reason(true, SeasonHold.NONE, false, false, true, true, false));
     }
 
     @Test
@@ -158,7 +142,7 @@ class LimboHoldTest {
         // Maintenance is the longer-lived truth, so it outranks the update.
         assertEquals(
                 Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, true, false));
+                LimboHold.reason(true, SeasonHold.MAINTENANCE, false, false, false, true, false));
     }
 
     @Test
@@ -166,13 +150,13 @@ class LimboHoldTest {
         // The download is on the player's machine, the only thing they influence.
         assertEquals(
                 Optional.of(WaitReason.PACK),
-                LimboHold.reason(false, SeasonPhase.SMP, false, false, false, true, false));
+                LimboHold.reason(false, SeasonHold.NONE, false, false, false, true, false));
     }
 
     @Test
     void anUpdateOfSomebodyElsesBackendHoldsNobody() {
         // The flag is per destination: moving hunger-games must not hold a player headed for the SMP.
-        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, false));
+        assertEquals(Optional.empty(), LimboHold.reason(true, SeasonHold.NONE, false, false, true, false, false));
     }
 
     // a backend somebody is holding down
@@ -182,27 +166,54 @@ class LimboHoldTest {
         // An unheld title would read "something has gone wrong" for a server held down on purpose.
         assertEquals(
                 Optional.of(WaitReason.HELD),
-                LimboHold.reason(true, SeasonPhase.SMP, false, false, false, false, true));
+                LimboHold.reason(true, SeasonHold.NONE, false, false, false, false, true));
     }
 
     @Test
     void theHoldOutranksTheUpdate() {
         // Both are true during a hold; the update screen would promise a return that will not happen.
         assertEquals(
-                Optional.of(WaitReason.HELD), LimboHold.reason(true, SeasonPhase.SMP, false, false, false, true, true));
+                Optional.of(WaitReason.HELD), LimboHold.reason(true, SeasonHold.NONE, false, false, false, true, true));
     }
 
     @Test
     void maintenanceStillWins() {
         assertEquals(
                 Optional.of(WaitReason.MAINTENANCE),
-                LimboHold.reason(true, SeasonPhase.MAINTENANCE, false, false, false, false, true));
+                LimboHold.reason(true, SeasonHold.MAINTENANCE, false, false, false, false, true));
     }
 
     @Test
     void aHoldHoldsEvenWhileAvailable() {
         // Registered does not mean the container is up, so availability does not guard this either.
         assertEquals(
-                Optional.of(WaitReason.HELD), LimboHold.reason(true, SeasonPhase.SMP, false, false, true, false, true));
+                Optional.of(WaitReason.HELD), LimboHold.reason(true, SeasonHold.NONE, false, false, true, false, true));
+    }
+
+    // a mode switch
+
+    @Test
+    void aModeSwitchHoldsEverybodyAdminsIncluded() {
+        for (final boolean admin : new boolean[] {false, true}) {
+            assertEquals(
+                    Optional.of(WaitReason.UPDATE),
+                    LimboHold.reason(true, SeasonHold.SWITCH, admin, false, true, false, false),
+                    "admin=" + admin);
+        }
+    }
+
+    @Test
+    void aModeSwitchOutranksMaintenanceAndAHeldBackend() {
+        // The switch moves every player; the screen says so until its target passed its check.
+        assertEquals(
+                Optional.of(WaitReason.UPDATE),
+                LimboHold.reason(true, SeasonHold.SWITCH, false, false, true, false, true));
+    }
+
+    @Test
+    void anUnappliedPackStillOutranksAModeSwitch() {
+        assertEquals(
+                Optional.of(WaitReason.PACK),
+                LimboHold.reason(false, SeasonHold.SWITCH, true, false, true, false, false));
     }
 }

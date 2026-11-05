@@ -5,15 +5,17 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.MemberState;
 import eu.nordtal.season.database.access.PlayerCard;
 import eu.nordtal.season.database.access.Prestige;
 import eu.nordtal.season.messagerendering.NameCards;
 import eu.nordtal.season.messages.value.DisplayName;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +24,7 @@ import org.junit.jupiter.api.Test;
 /**
  * What the login query may be remembered for.
  *
- * An account the roster has never heard of is not an admin, since {@code /phase} is authorised off this.
+ * An account the roster has never heard of is not an admin, since admin commands are authorised off this.
  */
 class LoginRosterTest {
 
@@ -69,7 +71,7 @@ class LoginRosterTest {
     void anUnlinkedStateIsNotRememberedAndEvictsAnyEarlierEntry() {
         roster.remember(PLAYER, state(true, Locale.ENGLISH));
 
-        roster.remember(PLAYER, AccessState.unlinked(PLAYER, SeasonPhase.SMP));
+        roster.remember(PLAYER, AccessState.unlinked(PLAYER, new SeasonState(Instant.EPOCH, false, SeasonMode.SMP)));
 
         assertEquals(0, roster.size(), "there is no Discord id to remember, so there is no entry");
         assertFalse(roster.isAdmin(PLAYER));
@@ -98,8 +100,7 @@ class LoginRosterTest {
                         true,
                         0L,
                         Locale.ENGLISH,
-                        SeasonPhase.SMP,
-                        null));
+                        new SeasonState(Instant.EPOCH, false, SeasonMode.SMP)));
         assertTrue(roster.isPackExempt(PLAYER));
         roster.refreshAdmins(java.util.Set.of(DISCORD_ID));
         assertTrue(roster.isPackExempt(PLAYER), "refreshing the admin flag dropped the exemption");
@@ -122,8 +123,7 @@ class LoginRosterTest {
                         false,
                         7200L,
                         Locale.ENGLISH,
-                        SeasonPhase.SMP,
-                        null));
+                        new SeasonState(Instant.EPOCH, false, SeasonMode.SMP)));
         final DisplayName name = new DisplayName(PlayerId.of(PLAYER), "Alex");
 
         assertEquals(PlayerCard.of(name, false, true, 7200L, prestige), cards.card(name));
@@ -149,8 +149,7 @@ class LoginRosterTest {
                 false,
                 0L,
                 locale,
-                SeasonPhase.SMP,
-                null);
+                new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
     // revocation reaches a live session

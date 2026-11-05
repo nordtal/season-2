@@ -16,7 +16,7 @@ import java.util.function.Supplier;
 
 /**
  * Stores the login data of each connected, linked player.
- * The {@code /phase} requirement and the play-time writer read it.
+ * The router, the commands and the play-time writer read it.
  */
 public final class LoginRoster {
 

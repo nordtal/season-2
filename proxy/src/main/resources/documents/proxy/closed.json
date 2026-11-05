@@ -1,0 +1,22 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<brand>Nordtal</brand> <warn>is closed.</warn> <muted>The opening date is not announced yet. Discord says when it opens.</muted>",
+            "de": "<brand>Nordtal</brand> <warn>ist geschlossen.</warn> <muted>Der Eröffnungstermin steht noch nicht fest. Auf Discord steht, wann es öffnet.</muted>"
+          }
+        },
+        {
+          "when": "invite",
+          "text": {
+            "en": "<muted>Discord: <emphasis>{invite}</emphasis></muted>",
+            "de": "<muted>Discord: <emphasis>{invite}</emphasis></muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

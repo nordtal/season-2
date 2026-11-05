@@ -58,7 +58,7 @@ public record RunShape(
             return Occasion.MAINTENANCE;
         }
         return switch (kind) {
-            case DOWN -> Occasion.DOWN;
+            case DOWN, SWITCH_MODE -> Occasion.DOWN;
             case RESTART, RESTORE, RECREATE, DEPLOY, REMOVE_PLUGIN -> Occasion.RECREATE;
             case BACKUP -> Occasion.BACKUP;
             case UPDATE, START, INSTALL -> Occasion.UPDATE;

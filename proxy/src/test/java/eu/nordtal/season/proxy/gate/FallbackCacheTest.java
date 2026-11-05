@@ -5,8 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.common.SeasonPhase;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.MemberState;
 import eu.nordtal.season.proxy.MutableClock;
@@ -108,9 +109,9 @@ class FallbackCacheTest {
     }
 
     @Test
-    void aMemberWithNoAccessAtAllIsCachedWhileThePhaseAsksForNone() {
-        // Else a database outage during PRE_EVENT would refuse every player the gate had been letting in.
-        cache.remember(PLAYER, memberInAFreePhase());
+    void aMemberWithNoAccessAtAllIsCachedWhileHungerGamesAsksForNone() {
+        // Else a database outage during Hunger Games would refuse every player the gate had been letting in.
+        cache.remember(PLAYER, memberInHungerGames());
 
         assertTrue(cache.mayJoin(PLAYER));
         assertEquals(1, cache.size());
@@ -141,8 +142,7 @@ class FallbackCacheTest {
                 false,
                 0L,
                 locale,
-                SeasonPhase.SMP,
-                null);
+                new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
     private AccessState inactiveState() {
@@ -157,12 +157,11 @@ class FallbackCacheTest {
                 false,
                 0L,
                 Locale.ENGLISH,
-                SeasonPhase.SMP,
-                null);
+                new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
-    /** The same account in a phase that asks for no access, which caches as a positive entry. */
-    private AccessState memberInAFreePhase() {
+    /** The same account while Hunger Games is active, which asks for no access and caches as a positive entry. */
+    private AccessState memberInHungerGames() {
         return new AccessState(
                 PLAYER,
                 DiscordId.of(DISCORD_ID),
@@ -174,7 +173,6 @@ class FallbackCacheTest {
                 false,
                 0L,
                 Locale.ENGLISH,
-                SeasonPhase.PRE_EVENT,
-                null);
+                new SeasonState(Instant.EPOCH, false, SeasonMode.HUNGER_GAMES));
     }
 }

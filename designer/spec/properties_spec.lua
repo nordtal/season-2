@@ -156,7 +156,7 @@ describe("an edit of a property", function()
     assert.is_truthy(table.concat(shown(override()), "\n"):find("delete=properties.delete*", 1, true))
     assert.same({ "deleteTexture", { texture="minecraft:gui/sprites/widget/button.png" } },
       properties.jobs(override(), "delete", {}))
-    assert.equal("properties.delete_confirm_texture minecraft:gui/sprites/widget/button.png", properties.confirm(override(), tr))
+    assert.equal("properties.delete_confirm_override minecraft:gui/sprites/widget/button.png", properties.confirm(override(), tr))
   end)
 
   it("deletes an item by its id, and asks first by its id", function()

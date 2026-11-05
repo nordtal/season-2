@@ -713,10 +713,72 @@ object Drafts {
     ) = glyph["texture"] as String? ?: "$font ${glyph["code"]}"
 
     /**
-     * The id of the draft that the changed file [path] belongs to: its texture's, or its own path. A deleted model or item
-     * is read as the last commit has it, so it goes with the texture it drew.
+     * The id of the draft that the changed file [path] belongs to: its texture's, or its own path. A file that a deleted
+     * item drew goes with that item, as [deletedItem] finds it.
      */
     internal fun idOf(
+        pack: File,
+        path: String,
+    ): String = pack.resolve(path).takeIf { !it.exists() }?.let { deletedItem(pack, path) } ?: ownId(pack, path)
+
+    /**
+     * The id of the deleted item that drew the deleted file [path] as the last commit has them, through its models, their
+     * parents and their textures, or null. It is the item's texture when that went too, else the item's own path, so the
+     * whole delete is one draft and never joins a texture that stays.
+     */
+    private fun deletedItem(
+        pack: File,
+        path: String,
+    ): String? {
+        val items = Regex("""src/assets/[^/]+/items/.+\.json""")
+        for (item in changedFiles(pack).filter { items.matches(it) && !pack.resolve(it).exists() }.sorted()) {
+            val drawn = mutableSetOf(item)
+            var next = ItemDefinitions.models(readJson(pack, item)).map(::full)
+            val seen = mutableSetOf<String>()
+            while (next.isNotEmpty()) {
+                next =
+                    next.filter { seen.add(it) }.mapNotNull { model ->
+                        val file = asset(model, "models", ".json") ?: return@mapNotNull null
+                        drawn += file
+                        val json = readJson(pack, file) as? Map<*, *>
+                        for (texture in (json?.get("textures") as? Map<*, *>).orEmpty().values.filterIsInstance<String>()) {
+                            val png = asset(texture, "textures", ".png") ?: continue
+                            val source = "art/assets/" + png.removePrefix("src/assets/").removeSuffix(".png") + ".aseprite"
+                            drawn += listOf(png, "$png.mcmeta", source)
+                        }
+                        (json?.get("parent") as? String)?.let(::full)
+                    }
+            }
+            if (path !in drawn) continue
+            val texture = ownId(pack, item)
+            val png = "src/assets/" + texture.replaceFirst(":", "/textures/")
+            return if (texture != item && !pack.resolve(png).exists()) texture else item
+        }
+        return null
+    }
+
+    private fun full(id: String) = if (':' in id) id else "minecraft:$id"
+
+    /** The path in a pack of the [kind] [id] with [suffix], or null for an id that is none */
+    private fun asset(
+        id: String,
+        kind: String,
+        suffix: String,
+    ) = runCatching { "src/assets/" + Identifier.resource(id, kind, suffix) }.getOrNull()
+
+    /** The JSON of the file [relative] of [pack], read as the last commit has it once it is deleted, or null */
+    private fun readJson(
+        pack: File,
+        relative: String,
+    ): Any? {
+        val file = pack.resolve(relative)
+        return runCatching {
+            if (file.isFile) JsonSlurper().parse(file) else JsonSlurper().parseText(git(pack, listOf("show", "HEAD:./$relative")))
+        }.getOrNull()
+    }
+
+    /** The id of the draft of [path] by the file alone: its texture's, or its own path */
+    private fun ownId(
         pack: File,
         path: String,
     ): String {
@@ -726,13 +788,7 @@ object Drafts {
         Regex(
             """art/assets/([^/]+)/textures/(.+)\.aseprite""",
         ).matchEntire(path)?.let { return "${it.groupValues[1]}:${it.groupValues[2]}.png" }
-        val read = { relative: String ->
-            val file = pack.resolve(relative)
-            runCatching {
-                if (file.isFile) JsonSlurper().parse(file) else JsonSlurper().parseText(git(pack, listOf("show", "HEAD:./$relative")))
-            }.getOrNull()
-        }
-        val json = read(path) as? Map<*, *> ?: return path
+        val json = readJson(pack, path) as? Map<*, *> ?: return path
         Regex("""src/assets/([^/]+)/models/.+\.json""").matchEntire(path)?.let {
             val textures = json["textures"] as? Map<*, *>
             val texture = (textures?.get("layer0") ?: textures?.values?.firstOrNull()) as? String ?: return path
@@ -740,7 +796,8 @@ object Drafts {
         }
         if (Regex("""src/assets/[^/]+/items/.+\.json""").matches(path)) {
             val assets = pack.resolve("src/assets")
-            return PackModel.itemTexture(json["model"] as? Map<*, *>, assets) { read(it.relativeTo(pack).invariantSeparatorsPath) } ?: path
+            val read = { file: File -> readJson(pack, file.relativeTo(pack).invariantSeparatorsPath) }
+            return PackModel.itemTexture(json["model"] as? Map<*, *>, assets, read) ?: path
         }
         return path
     }

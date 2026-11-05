@@ -235,7 +235,8 @@ all or nothing, and fails with the reason when it refuses.
 - An item outside `minecraft` is refused while a file that git tracks or would add, outside
   `src/assets/`, names it, and the refusal lists each place as `path:line`. A use is its id as a word,
   or `Key.key` or `new NamespacedKey` with its namespace and path. A document or a test is no use.
-- A deleted item is one draft with the models and the texture it drew, the draft of that texture.
+- A deleted item is one draft with each model and texture that went with it: the draft of its texture when that
+  went too, else of its own file.
 - A texture or an item that the pack lacks is refused at `texture` or `item`.
 
 ## Texts

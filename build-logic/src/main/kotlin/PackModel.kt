@@ -271,10 +271,9 @@ object PackModel {
         }
 
     /**
-     * The texture that a `minecraft:model` item draws: `layer0` of its model in the pack, or the model's first texture.
+     * The texture that a `minecraft:model` item draws: `layer0` of its model as [read] gives it, or its first texture.
      * It is null for any other item type, a model outside the pack, a model without a texture, or a texture that is no
      * identifier, so that no path of the model leads out of the pack.
-     * [read] reads the model's file, null where there is none.
      */
     internal fun itemTexture(
         model: Map<*, *>?,

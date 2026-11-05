@@ -29,7 +29,9 @@ end
 function properties.confirm(info, tr)
   local text
   if info.kind == "override" then
-    text = tr("properties.delete_confirm_texture", info.texture.id)
+    -- An override of Minecraft's texture gives the jar's back
+    local vanilla = info.texture.id:find("^minecraft:") ~= nil
+    text = tr(vanilla and "properties.delete_confirm_override" or "properties.delete_confirm_texture", info.texture.id)
   elseif info.kind == "item" then
     text = tr("properties.delete_confirm_item", info.entry.id)
   else

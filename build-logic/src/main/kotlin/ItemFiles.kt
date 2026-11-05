@@ -252,7 +252,7 @@ class ItemFiles(
         val relative = png.relativeTo(assets).invariantSeparatorsPath
         if (!texture.startsWith("minecraft:") || zip.getEntry("assets/$relative") == null) {
             val places =
-                texts().filterKeys { it != png }.flatMap { (file, text) ->
+                texts().flatMap { (file, text) ->
                     text
                         .lineSequence()
                         .withIndex()
@@ -295,7 +295,7 @@ class ItemFiles(
                     }
             check(places.isEmpty()) { used("The item $item", places) }
         }
-        // The models it draws and, up to the first of another namespace or the client jar, their parents
+        // The models it draws and each parent of those that the pack holds
         val models = linkedSetOf<String>()
         var next = ItemDefinitions.models(OxfmtJson.read(file)).map(::full)
         while (next.isNotEmpty()) {
@@ -446,6 +446,6 @@ class ItemFiles(
         val ATLAS = Regex("""assets/[^/]+/atlases/[^/]+\.json""")
 
         /** The files in which an item id is an example rather than a use: documents and tests */
-        val EXAMPLES = Regex("""\.md$|(^|/)src/test/|\.(test|spec)\.[jt]sx?$""")
+        val EXAMPLES = Regex("""\.md$|(^|/)src/test/|\.(test|spec)\.[jt]sx?$|(^|/)spec/[^/]+_spec\.lua$""")
     }
 }

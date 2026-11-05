@@ -925,7 +925,7 @@ describe("the Nordtal tab", function()
     dlg.handlers.tree.onchange({ node="override/minecraft:gui/sprites/container/slot.png" })
     t.world.confirm = 1
     click(dlg, "properties.delete")
-    assert.same({ "alert", "properties.delete_confirm_texture minecraft:gui/sprites/container/slot.png" }, t.log[#t.log])
+    assert.same({ "alert", "properties.delete_confirm_override minecraft:gui/sprites/container/slot.png" }, t.log[#t.log])
     assert.equal(":resource-pack:deleteTexture -Ptexture=minecraft:gui/sprites/container/slot.png", run(t.started[#t.started]))
   end)
 

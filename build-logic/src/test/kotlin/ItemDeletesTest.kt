@@ -182,6 +182,7 @@ class ItemDeletesTest {
         )
         repository.resolve("plugin/src/test/java/WandTest.java").apply { parentFile.mkdirs() }.writeText("\"nordtal:wand\"\n")
         repository.resolve("README.md").writeText("Such as `nordtal:wand`.\n")
+        repository.resolve("designer/spec/tab_spec.lua").apply { parentFile.mkdirs() }.writeText("local id = \"nordtal:wand\"\n")
 
         val refused = assertThrows<IllegalStateException> { files().use { it.deleteItem("nordtal:wand", repository) } }
 

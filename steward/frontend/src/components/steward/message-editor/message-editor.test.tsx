@@ -14,7 +14,10 @@ vi.mock("@/lib/queries", () => ({
   useMessageTexts: () => queryResult(undefined),
 }))
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  document.body.replaceChildren()
+})
 
 function steward(key: string, text: string): MessageEntry {
   return {

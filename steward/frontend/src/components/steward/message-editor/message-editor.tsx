@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { useDebounced } from "@/lib/use-debounced"
 
 import type { MessageEntry, MessageFallback, MessagePreviewTarget } from "@/lib/api"
-import { previewPlacesOf, type Places } from "@/lib/text-places"
+import { isAnswer, previewPlacesOf, type Places } from "@/lib/text-places"
 import { overrideOf, packagedOf, type Language } from "@/lib/message-text"
 import { useGameAction, useGlyphs, useMessageCheck, useMessageExamples, useMessageSyntax } from "@/lib/queries"
 import { branchesOf, formatOf, longestLength, parse } from "@/lib/rich-text"
@@ -369,6 +369,7 @@ function PlacePreview({
         fill={fill}
         glyphs={glyphs}
         tones={tones}
+        answer={isAnswer(request.entry)}
       />
       {send.error ? <Failure error={send.error} write /> : null}
     </figure>

@@ -22,6 +22,8 @@ steward-agent migrate
 steward-agent run ID
 # Write a run request, as a button does, and print its id.
 steward-agent request KIND [a,b] [MIN]
+# Switch the game mode, as the Router tab does.
+steward-agent request SWITCH_MODE SMP|HUNGER_GAMES
 # Print the status and stage of a run, then each step with its facts.
 steward-agent status ID
 ```

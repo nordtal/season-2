@@ -12,8 +12,10 @@ import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import io.papermc.paper.dialog.Dialog;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.IntSupplier;
@@ -70,6 +72,8 @@ public final class StationMenus implements Listener {
     private final SmpSounds sounds;
     private final PaperScheduler scheduler;
     private final IntSupplier near;
+    // The ride menu last made for each rider, so a closed one can tell whether another took its place.
+    private final Map<UUID, RideMenu> lastRide = new HashMap<>();
 
     public StationMenus(
             final RailNetworks networks,
@@ -255,7 +259,9 @@ public final class StationMenus implements Listener {
                     documents.applied(RideMenu.DOCUMENT),
                     Viewer.of(locale(player)),
                     new RideMenu.Window(shown + 1, pages));
-            return new RideMenu(this, stops, each, shown, document);
+            final RideMenu menu = new RideMenu(this, stops, each, shown, document);
+            lastRide.put(player.getUniqueId(), menu);
+            return menu;
         });
     }
 
@@ -270,11 +276,14 @@ public final class StationMenus implements Listener {
      */
     void closedRide(final Player player) {
         scheduler.onMainAfter(PaperScheduler.TICK, () -> {
+            final @Nullable RideMenu last = lastRide.get(player.getUniqueId());
+            final boolean shown = last != null && last.showsTo(player);
+            if (!shown) {
+                lastRide.remove(player.getUniqueId());
+            }
             if (player.isOnline()
                     && player.getVehicle() instanceof RideableMinecart cart
-                    && getsOut(
-                            rides.driven(cart),
-                            player.getOpenInventory().getTopInventory().getHolder() instanceof RideMenu)) {
+                    && getsOut(rides.driven(cart), shown)) {
                 // Getting out puts the cart away, as when the rider gets out themselves.
                 cart.removePassenger(player);
             }

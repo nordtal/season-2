@@ -128,6 +128,11 @@ final class FakeContainers implements ContainerOps {
     }
 
     @Override
+    public boolean isOutdated(final String service) {
+        return images.get(service) == ImageResult.State.OUTDATED;
+    }
+
+    @Override
     public RedeployResult deploy(final String service) {
         // "recreate:" and not "deploy:", so the existing order assertions keep their meaning.
         return made("recreate:" + service, service);

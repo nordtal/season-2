@@ -7,6 +7,7 @@ import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
+import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import java.time.Duration;
 import java.util.List;
@@ -71,8 +72,15 @@ final class ModeSwitch {
                 .countingDown(Duration.ZERO)
                 .alsoStarting(targetRuns ? List.of() : List.of(target.server()));
         // An update while the target rested installed its files but left its container on the old image.
+        final boolean renews = !targetRuns && runner.containers.isOutdated(target.server());
         return Kinds.Planned.plan(
-                targetRuns ? planned : planned.renewing(Map.of(), runner.containers.images(), List.of(), false));
+                renews
+                        ? planned.renewing(
+                                Map.of(),
+                                ImageResult.of(Map.of(target.server(), ImageResult.State.OUTDATED)),
+                                List.of(),
+                                false)
+                        : planned);
     }
 
     /** Writes the mode, or aborts the run so the old server starts again. */

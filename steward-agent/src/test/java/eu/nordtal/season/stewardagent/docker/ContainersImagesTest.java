@@ -159,6 +159,21 @@ class ContainersImagesTest {
                 asked.toString());
     }
 
+    /** A resting server's container stays on the image an update found it with, so a switch to it renews it. */
+    @Test
+    void aStoppedContainerFromAnOlderComposeIsOutdated() throws IOException {
+        final Containers ops = ops(
+                request -> request.contains("/containers/json")
+                        ? "[" + stopped(container("smp", "made-from-the-old-release")) + ","
+                                + stopped(container("limbo", "current")) + "]"
+                        : null,
+                () -> java.util.Map.of("smp", "current", "limbo", "current"));
+
+        assertEquals(true, ops.isOutdated("smp"));
+        assertEquals(false, ops.isOutdated("limbo"));
+        assertEquals(false, ops.isOutdated("hunger-games"), "a service without a container is made anew anyway");
+    }
+
     @Test
     void anImageBuiltHereIsNamedEvenWhenComposeWouldMakeItsContainerAnew() throws IOException {
         // A host compose of another version hashes binds differently, so a container made by hand reads OUTDATED.
@@ -246,6 +261,11 @@ class ContainersImagesTest {
                 + "\"State\":\"running\",\"Status\":\"Up\",\"Labels\":{"
                 + "\"com.docker.compose.project\":\"nordtal-s2\",\"com.docker.compose.service\":\"" + service + "\","
                 + "\"com.docker.compose.config-hash\":\"" + hash + "\"}}";
+    }
+
+    private static String stopped(final String container) {
+        return container.replace(
+                "\"State\":\"running\",\"Status\":\"Up\"", "\"State\":\"exited\",\"Status\":\"Exited (143)\"");
     }
 
     /** A Containers whose daemon answers `/images/` and `/distribution/` through {@code answer}. */

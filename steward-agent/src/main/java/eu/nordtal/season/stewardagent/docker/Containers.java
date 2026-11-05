@@ -274,6 +274,26 @@ public final class Containers {
         }
     }
 
+    /**
+     * Returns whether a service's container, running or stopped, differs from what compose makes of it now.
+     *
+     * {@link #images()} compares running containers only. A resting server keeps the image an update found it with.
+     */
+    public boolean isOutdated(final String service) {
+        final String hash = wantedDefinitions().get(service);
+        if (hash == null) {
+            return false;
+        }
+        try {
+            return docker.containers(project).stream()
+                    .filter(container -> service.equals(container.service()))
+                    .anyMatch(container -> !hash.equals(container.configHash()));
+        } catch (DockerException e) {
+            log.warn("could not compare {}'s container with compose.yml", service, e);
+            return false;
+        }
+    }
+
     /** Returns whether the image was built here and pushed nowhere. */
     private boolean builtHere(final @Nullable String imageId) {
         return docker.imageIdentity(imageId)

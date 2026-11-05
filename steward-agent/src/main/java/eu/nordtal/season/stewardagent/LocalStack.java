@@ -115,6 +115,11 @@ final class LocalStack implements ContainerOps {
     }
 
     @Override
+    public boolean isOutdated(final String service) {
+        return containers.isOutdated(service);
+    }
+
+    @Override
     public RedeployResult deploy(final String service) {
         return composed(
                 "deploy",

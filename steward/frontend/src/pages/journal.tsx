@@ -18,7 +18,7 @@ import { FilterBar, SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
 import { Panel } from "@/components/steward/panel"
 import { QueryState, Skeleton, SkeletonText } from "@/components/steward/query-state"
-import { RunStatus, StatusBadge, runKind, runStatus } from "@/components/steward/status"
+import { Hint, RunStatus, StatusBadge, runKind, runStatus } from "@/components/steward/status"
 import { TERM_ICON, type Glyph } from "@/components/steward/term-icons"
 import { serviceGlyph } from "@/components/steward/service-name"
 import { serviceTitle } from "@/lib/words"
@@ -276,14 +276,21 @@ function JournalRow({
     >
       <div className="flex items-start gap-x-3">
         <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1">
-          <icons.Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          {run ? (
-            <Link {...runPath(run)} className="text-sm font-medium underline-offset-4 tap-target hover:underline">
-              {itemTitle(item)}
-            </Link>
-          ) : (
-            <span className="text-sm font-medium break-words">{itemTitle(item)}</span>
-          )}
+          <div className="flex max-w-full min-w-0 items-center gap-x-2">
+            <icons.Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+            <Hint tip={itemTitle(item)}>
+              {run ? (
+                <Link
+                  {...runPath(run)}
+                  className="min-w-0 truncate text-sm font-medium underline-offset-4 tap-target hover:underline"
+                >
+                  {itemTitle(item)}
+                </Link>
+              ) : (
+                <span className="min-w-0 truncate text-sm font-medium">{itemTitle(item)}</span>
+              )}
+            </Hint>
+          </div>
           {run ? <RunStatus status={run.status} /> : null}
           {alert ? <StatusBadge tone={alert.level}>{t("alert.level", { level: alert.level })}</StatusBadge> : null}
           {alert?.level === "ok" && item.opened ? (

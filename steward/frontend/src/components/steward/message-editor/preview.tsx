@@ -715,13 +715,18 @@ function PagePreview({
   )
   if (frame === "page") {
     return (
-      <div className={cn("w-full rounded-md border bg-card p-3 text-sm text-card-foreground", className)}>{text}</div>
+      <div
+        data-frame="page"
+        className={cn("w-full rounded-md border bg-card p-3 text-sm text-card-foreground", className)}
+      >
+        {text}
+      </div>
     )
   }
   if (frame === "toast") {
     // As the Toaster draws one, on the page's muted ground.
     return (
-      <div className={cn("flex w-full justify-end rounded-md bg-muted p-3", className)}>
+      <div data-frame="toast" className={cn("flex w-full justify-end rounded-md bg-muted p-3", className)}>
         <div className="w-full max-w-sm rounded-(--radius) border bg-popover p-4 text-sm text-popover-foreground shadow-lg">
           {text}
         </div>
@@ -729,7 +734,7 @@ function PagePreview({
     )
   }
   return (
-    <div className={cn("flex w-full justify-center rounded-md bg-muted p-3", className)}>
+    <div data-frame="push" className={cn("flex w-full justify-center rounded-md bg-muted p-3", className)}>
       <div className="flex w-full max-w-sm gap-3 rounded-lg border bg-popover p-3 text-sm text-popover-foreground shadow-sm">
         <span
           className="flex size-8 shrink-0 items-center justify-center rounded-md text-white"

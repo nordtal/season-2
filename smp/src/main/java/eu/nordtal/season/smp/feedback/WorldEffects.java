@@ -37,7 +37,7 @@ public final class WorldEffects implements Listener {
 
     /** Iron grey, small, as from a rail scraped over. */
     private static final Particle.DustOptions SWITCH_DUST =
-            new Particle.DustOptions(Color.fromRGB(140, 140, 140), 0.7f);
+            new Particle.DustOptions(Color.fromRGB(140, 140, 140), 0.5f);
 
     private final NamespacedKey celebration;
 

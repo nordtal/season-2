@@ -192,19 +192,19 @@ class JunctionStopsTest {
     }
 
     @Test
-    void aStopDistanceChangedDuringTheRideTakesEffectOnTheNextTick() {
+    void aStopDistanceChangedDuringTheRideMovesTheStopOfThatRide() {
         final List<RailPos> rails = straight(240);
         final RidePath path = path(rails);
         world.put(rails.get(120), RailShape.NORTH_SOUTH);
 
         final List<Tick> ticks = ride(path, Map.of(120, RailShape.EAST_WEST), () -> {
             if (tick == 20) {
-                before = 0;
+                before = 1;
             }
         });
 
         assertGentle(ticks);
-        assertEquals(path.start(120), switched.getFirst().along(), 1e-9, "standing right before the junction");
+        assertEquals(path.start(120) - 1, switched.getFirst().along(), 1e-9, "standing one block before the junction");
     }
 
     @Test

@@ -46,7 +46,7 @@ public interface RailsSpec {
     @Order(4)
     @Name("Stop before a junction (blocks)")
     @Key("junction-stop")
-    @Between(least = 0, most = 16)
+    @Between(least = 1, most = 16)
     @Explain("How far before a junction set the wrong way a minecart stops, while the junction is switched for it.")
     default int junctionStop() {
         return 2;

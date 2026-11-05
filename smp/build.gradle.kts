@@ -26,6 +26,7 @@ tasks.withType<JavaCompile>().configureEach {
 repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
+    readsTree("smp/src/main/resources/documents/smp")
 }
 
 dependencies {

@@ -261,12 +261,7 @@ public final class StationMenus implements Listener {
 
     /** Starts the cart {@code player} sits in towards {@code stop}, or changes where it goes; false when it cannot. */
     boolean pick(final Player player, final RideList.Stop stop) {
-        if (player.getVehicle() instanceof RideableMinecart cart && rides.drive(player, cart, stop.station())) {
-            sounds.play(player, Feedback.SELECT);
-            return true;
-        }
-        sounds.play(player, Feedback.REFUSED);
-        return false;
+        return player.getVehicle() instanceof RideableMinecart cart && rides.drive(player, cart, stop.station());
     }
 
     /**

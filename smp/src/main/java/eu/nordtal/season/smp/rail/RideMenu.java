@@ -132,7 +132,7 @@ final class RideMenu extends Menu {
         }
         if (RidePanel.stationSlots(row).contains(slot)) {
             // A station no way leads to keeps the menu open, so the rider can pick another.
-            return menus.pick(player, stop) ? MenuClick.closing() : MenuClick.nothing();
+            return menus.pick(player, stop) ? MenuClick.closing() : MenuClick.refused();
         }
         return MenuClick.nothing();
     }

@@ -21,7 +21,7 @@ postgresql = "42.7.14"
 jdbi = "3.55.0"
 hikaricp = "7.1.0"
 # Tests apply the real migration files with it; at runtime only steward-agent migrates.
-flyway = "13.11.1"
+flyway = "13.12.0"
 # API only; :common never binds a backend.
 slf4j = "2.0.20"
 # The postgresql module only; its junit-jupiter module targets JUnit 5.
@@ -57,7 +57,7 @@ spotless = "8.10.4"
 palantir-java-format = "2.99.0"
 ktlint = "1.8.0"
 checkstyle = "14.1.0"
-errorprone-plugin = "5.1.1"
+errorprone-plugin = "5.2.0"
 errorprone = "2.51.0"
 nullaway = "0.14.3"
 jspecify = "1.0.1"

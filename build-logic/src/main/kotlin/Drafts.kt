@@ -722,39 +722,55 @@ object Drafts {
     ): String = pack.resolve(path).takeIf { !it.exists() }?.let { deletedItem(pack, path) } ?: ownId(pack, path)
 
     /**
-     * The id of the deleted item that drew the deleted file [path] as the last commit has them, through its models, their
-     * parents and their textures, or null. It is the item's texture when that went too, else the item's own path, so the
-     * whole delete is one draft and never joins a texture that stays.
+     * The id of the deleted items that drew the deleted file [path] as the last commit has them, through their models, the
+     * parents and the textures, or null. Deleted items that drew the same deleted file are one draft, so no publish of one
+     * removes what another still draws on main. Its id is the first item's texture when that went too, else its path.
      */
     private fun deletedItem(
         pack: File,
         path: String,
     ): String? {
         val items = Regex("""src/assets/[^/]+/items/.+\.json""")
-        for (item in changedFiles(pack).filter { items.matches(it) && !pack.resolve(it).exists() }.sorted()) {
-            val drawn = mutableSetOf(item)
-            var next = ItemDefinitions.models(readJson(pack, item)).map(::full)
-            val seen = mutableSetOf<String>()
-            while (next.isNotEmpty()) {
-                next =
-                    next.filter { seen.add(it) }.mapNotNull { model ->
-                        val file = asset(model, "models", ".json") ?: return@mapNotNull null
-                        drawn += file
-                        val json = readJson(pack, file) as? Map<*, *>
-                        for (texture in (json?.get("textures") as? Map<*, *>).orEmpty().values.filterIsInstance<String>()) {
-                            val png = asset(texture, "textures", ".png") ?: continue
-                            val source = "art/assets/" + png.removePrefix("src/assets/").removeSuffix(".png") + ".aseprite"
-                            drawn += listOf(png, "$png.mcmeta", source)
-                        }
-                        (json?.get("parent") as? String)?.let(::full)
-                    }
-            }
-            if (path !in drawn) continue
-            val texture = ownId(pack, item)
-            val png = "src/assets/" + texture.replaceFirst(":", "/textures/")
-            return if (texture != item && !pack.resolve(png).exists()) texture else item
+        val walks =
+            changedFiles(pack)
+                .filter { items.matches(it) && !pack.resolve(it).exists() }
+                .sorted()
+                .associateWith { item -> drawn(pack, item).filterTo(mutableSetOf()) { !pack.resolve(it).exists() } }
+        val group = walks.filterValues { path in it }.keys.toMutableSet()
+        if (group.isEmpty()) return null
+        while (true) {
+            val files = group.flatMap { walks.getValue(it) }.toSet()
+            if (!group.addAll(walks.filterValues { walk -> walk.any { it in files } }.keys)) break
         }
-        return null
+        val first = group.sorted()
+        return first.firstNotNullOfOrNull { item ->
+            ownId(pack, item).takeIf { it != item && !pack.resolve("src/assets/" + it.replaceFirst(":", "/textures/")).exists() }
+        } ?: first.first()
+    }
+
+    /** The item file [item] of [pack] and each model, parent model and texture file it draws, as the last commit has them */
+    private fun drawn(
+        pack: File,
+        item: String,
+    ): Set<String> {
+        val drawn = mutableSetOf(item)
+        var next = ItemDefinitions.models(readJson(pack, item)).map(::full)
+        val seen = mutableSetOf<String>()
+        while (next.isNotEmpty()) {
+            next =
+                next.filter { seen.add(it) }.mapNotNull { model ->
+                    val file = asset(model, "models", ".json") ?: return@mapNotNull null
+                    drawn += file
+                    val json = readJson(pack, file) as? Map<*, *>
+                    for (texture in (json?.get("textures") as? Map<*, *>).orEmpty().values.filterIsInstance<String>()) {
+                        val png = asset(texture, "textures", ".png") ?: continue
+                        val source = "art/assets/" + png.removePrefix("src/assets/").removeSuffix(".png") + ".aseprite"
+                        drawn += listOf(png, "$png.mcmeta", source)
+                    }
+                    (json?.get("parent") as? String)?.let(::full)
+                }
+        }
+        return drawn
     }
 
     private fun full(id: String) = if (':' in id) id else "minecraft:$id"

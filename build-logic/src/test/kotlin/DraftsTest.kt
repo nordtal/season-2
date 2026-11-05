@@ -228,4 +228,48 @@ class DraftsTest {
             drafts(clone),
         )
     }
+
+    @Test
+    fun deletedItemsThatDrewTheSameDeletedTextureAreOneDraft() {
+        val clone = DraftClone(root, "star@FE000")
+        val assets = clone.pack.resolve("src/assets/nordtal")
+        clone.pngFile("star").copyTo(assets.resolve("textures/item/shared.png").apply { parentFile.mkdirs() })
+        for (item in listOf("a", "b")) {
+            clone.pngFile("star").copyTo(assets.resolve("textures/item/$item.png"))
+            assets.resolve("models/item/$item.json").apply { parentFile.mkdirs() }.writeText(
+                """{ "parent": "minecraft:item/generated", "textures": """ +
+                    """{ "layer0": "nordtal:item/$item", "layer1": "nordtal:item/shared" } }""",
+            )
+            assets.resolve("items/$item.json").apply { parentFile.mkdirs() }.writeText(
+                """{ "model": { "type": "minecraft:model", "model": "nordtal:item/$item" } }""",
+            )
+        }
+        clone.commitAll("feat: a and b")
+        clone.git(clone.clone, "push", "-q", "origin", "main")
+
+        ItemFiles(clone.pack) { error("no client jar") }.use { files ->
+            files.deleteItem("nordtal:a", clone.clone)
+            files.deleteItem("nordtal:b", clone.clone)
+        }
+
+        assertEquals(
+            listOf(
+                listOf(
+                    "nordtal:item/a.png",
+                    "a",
+                    "deleted",
+                    listOf(
+                        "src/assets/nordtal/items/a.json",
+                        "src/assets/nordtal/items/b.json",
+                        "src/assets/nordtal/models/item/a.json",
+                        "src/assets/nordtal/models/item/b.json",
+                        "src/assets/nordtal/textures/item/a.png",
+                        "src/assets/nordtal/textures/item/b.png",
+                        "src/assets/nordtal/textures/item/shared.png",
+                    ),
+                ),
+            ),
+            drafts(clone),
+        )
+    }
 }

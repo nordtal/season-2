@@ -198,7 +198,7 @@ public final class Web {
             Channel.BOT,
             Channel.PAYMENT,
             Channel.ADMIN,
-            Channel.PHASE,
+            Channel.SEASON,
             Channel.SETTINGS,
             Channel.ALERT,
             Channel.GAME_DATA,
@@ -285,7 +285,7 @@ public final class Web {
                 PackExemptions.using(data.dataSource()), ctx -> account(ctx).orElseThrow());
         this.authFlow = new AuthFlow(config, discord, data, this.sessions, admins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow(), secondFactor::requireStepUp);
-        this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow());
+        this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow(), stack::online, clock);
         this.deployments = new AgentApi(agent, agentOffered);
         final PushSubscriptions localPushSubscriptions = new PushSubscriptions(data.dataSource());
         this.profile = new Profile(

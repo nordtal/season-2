@@ -28,7 +28,6 @@ const PATHS = [
   "/operations/updates/$id",
   "/operations/backups",
   "/operations/backups/$id",
-  "/season",
   "/access",
   "/payments",
   "/journal",

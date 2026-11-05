@@ -8,6 +8,7 @@ import eu.nordtal.season.database.update.RunLines;
 import eu.nordtal.season.database.update.RunRecord;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
+import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
@@ -83,6 +84,9 @@ public final class Updates {
         } catch (IllegalArgumentException e) {
             throw new BadRequestResponse(ask.kind + " is not a kind of run");
         }
+        if (kind == UpdateKind.SWITCH_MODE) {
+            throw new BadRequestResponse("a mode switch is asked for at /api/season/switch");
+        }
         if (needsStepUp(kind)) {
             stepUp.accept(ctx);
         }
@@ -120,7 +124,7 @@ public final class Updates {
     /** Returns whether a run of this kind replaces, stops or destroys something without undo. */
     static boolean needsStepUp(final UpdateKind kind) {
         return switch (kind) {
-            case UPDATE, DOWN, RECREATE, DEPLOY, RESTORE, REMOVE_PLUGIN, INSTALL -> true;
+            case UPDATE, DOWN, RECREATE, DEPLOY, RESTORE, REMOVE_PLUGIN, INSTALL, SWITCH_MODE -> true;
             case RESTART, START, BACKUP -> false;
         };
     }
@@ -214,12 +218,16 @@ public final class Updates {
     public record ActiveRun(@Nullable Run run) {}
 
     Run describe(final UpdateRequest request) {
-        return describe(
-                request, data.updates().scopeOf(request.id()), data.updates().recordOf(request.id()));
+        return describe(data.updates(), request);
+    }
+
+    /** Returns the run with its scope and its steps as {@code updates} holds them. */
+    public static Run describe(final UpdateDirectory updates, final UpdateRequest request) {
+        return describe(request, updates.scopeOf(request.id()), updates.recordOf(request.id()));
     }
 
     /** Returns the run for {@code scope}, and an empty scope means the whole network. */
-    static Run describe(final UpdateRequest request, final List<String> scope, final RunRecord record) {
+    public static Run describe(final UpdateRequest request, final List<String> scope, final RunRecord record) {
         return new Run(
                 request.id(),
                 request.kind(),

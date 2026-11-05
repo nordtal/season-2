@@ -105,6 +105,9 @@ public interface GameTexts {
     @Name("Milestone")
     MessageRef milestone();
 
+    @Name("Season sums")
+    MessageRef seasonSum();
+
     @Name("Remove question")
     MessageRef removeAsk(@Arg("name") @Example("Mine 64 diamonds") String name);
 

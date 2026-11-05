@@ -131,7 +131,7 @@ function SeasonSums({ track, schema }: { track: SectionValues[]; schema: TrackSc
   if (BUDGETS.every((key) => sums[key] <= 0)) return null
   return (
     <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 text-xs text-muted-foreground">
-      <span className="font-medium text-foreground/80">{t("steward.season.title")}</span>
+      <span className="font-medium text-foreground/80">{t("steward.game.season-sum")}</span>
       <BudgetMarks sums={sums} schema={schema} />
     </p>
   )

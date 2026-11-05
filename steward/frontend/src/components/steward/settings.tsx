@@ -31,15 +31,21 @@ import { StewardMark } from "@/app/steward-mark"
 /** The service under which the network's own settings are published. Every process reads them. */
 export const NETWORK = "network"
 
+/** The service whose Settings tab lists the network's settings too. */
+export const NETWORK_PAGE = "proxy"
+
 /**
  * The open file is the page's `?file=`. The page passes it in and receives changes through a callback.
+ * The files of `also` share the list, as the network's do on the proxy's page.
  */
 export function ServiceSettings({
   service,
+  also,
   file,
   onFile,
 }: {
   service: string
+  also?: string
   file: string | undefined
   /**
    * `replace` is set for a choice that nobody made, so Back does not return to a list that chose itself.
@@ -60,8 +66,8 @@ export function ServiceSettings({
   })
 
   const files = useMemo(
-    () => filesOf(service, configs.data ?? [], descriptors.data ?? []),
-    [service, configs.data, descriptors.data],
+    () => filesOf([service, ...(also ? [also] : [])], configs.data ?? [], descriptors.data ?? []),
+    [service, also, configs.data, descriptors.data],
   )
   const ownService = useService(service)
   const pluginFiles = usePluginFiles(service, ownService.data?.hasPlugins === true)
@@ -92,7 +98,7 @@ export function ServiceSettings({
    */
   useEffect(() => {
     const land = () => {
-      const config = takePendingJump(service)
+      const config = takePendingJump(service) ?? (also ? takePendingJump(also) : undefined)
       if (config) {
         setTarget({ file: config.file, id: config.path, seq: ++jumps })
         report.current(config.file)
@@ -100,7 +106,7 @@ export function ServiceSettings({
     }
     land()
     return onPendingJump(land)
-  }, [service])
+  }, [service, also])
 
   const failure = configs.error ?? (isMissing(pluginFiles.error) ? null : pluginFiles.error)
   const isOpen = (id: string) => openedPlugins[id] ?? chain.includes(id)
@@ -181,7 +187,7 @@ export function ServiceSettings({
       </nav>
 
       <div className={cn("min-w-0", file === undefined && "max-lg:hidden")}>
-        <SettingsService value={service}>
+        <SettingsService value={selected?.location.service ?? service}>
           {selected ? (
             <>
               <BackRow label={selected.label} onFile={onFile} />
@@ -287,9 +293,9 @@ function byLabel(a: FileItem, b: FileItem): number {
   return a.label.localeCompare(b.label)
 }
 
-function filesOf(service: string, configs: ConfigLocation[], descriptors: PluginDescriptor[]): FileItem[] {
+function filesOf(services: string[], configs: ConfigLocation[], descriptors: PluginDescriptor[]): FileItem[] {
   const settings: FileItem[] = configs
-    .filter((file) => file.service === service)
+    .filter((file) => services.includes(file.service))
     .map((location) => ({
       id: location.path,
       label: fileTitle(location.name),

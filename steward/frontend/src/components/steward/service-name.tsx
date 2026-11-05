@@ -3,7 +3,7 @@ import { standbyOf } from "@/lib/services"
 import { cn } from "@/lib/utils"
 import { serviceTitle } from "@/lib/words"
 
-/** A standby takes the icon of the service it stands in for, marked with the term `standby` in its corner. */
+/** A standby takes the icon of the service it stands in for, marked with the term `resting` in its corner. */
 export function ServiceIcon({ service, className }: { service: string; className?: string }) {
   const primary = standbyOf(service)
   const Drawn = SERVICE_ICON[primary ?? service] ?? TERM_ICON.service
@@ -11,7 +11,7 @@ export function ServiceIcon({ service, className }: { service: string; className
   return (
     <span aria-hidden data-standby className={cn("relative inline-flex", className)}>
       <Drawn className="size-full" />
-      <TERM_ICON.standby weight="fill" className="absolute -right-0.5 -bottom-0.5 size-1/2 text-foreground" />
+      <TERM_ICON.resting weight="fill" className="absolute -right-0.5 -bottom-0.5 size-1/2 text-foreground" />
     </span>
   )
 }

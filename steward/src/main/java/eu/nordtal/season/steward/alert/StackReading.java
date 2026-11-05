@@ -65,7 +65,7 @@ public record StackReading(
     public enum Purpose {
         /** Should run, so a stop is an outage. */
         SERVES,
-        /** Is meant to be stopped: a standby, or a service an admin holds down. */
+        /** Is meant to be stopped: a standby, the inactive game mode's server, or a service held down. */
         RESTS,
         /** Runs once and exits, so only a failed exit is wrong. */
         ONCE,

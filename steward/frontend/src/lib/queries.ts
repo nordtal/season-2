@@ -30,9 +30,6 @@ import {
   type Run,
   type ActiveRun,
   type Schedule,
-  type Season,
-  type PhaseChange,
-  type DateChange,
   type Service,
   type ServiceTable,
   type NetworkMap,
@@ -321,15 +318,6 @@ export function useMetrics(subject: string, metric: string, minutes: number, ena
   })
 }
 
-export function useSeason(enabled = true) {
-  return useQuery({
-    queryKey: keys.season,
-    queryFn: () => api<Season>("/api/season"),
-    ...live("SEASON"),
-    enabled,
-  })
-}
-
 export function useSmpTrack() {
   return useQuery({
     queryKey: keys.smpTrack,
@@ -508,35 +496,11 @@ export function useRemovePlugin(service: string) {
   })
 }
 
-export function useSetPhase() {
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: (change: { phase: string; reason: string }) =>
-      api<PhaseChange>("/api/season/phase", { method: "POST", body: change }),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: keys.season })
-      void client.invalidateQueries({ queryKey: ["journal"] })
-    },
-  })
-}
-
-export function useSetSeasonDate() {
-  const client = useQueryClient()
-  return useMutation({
-    /** `at: null` removes the date, which the countdown reads as "none announced". */
-    mutationFn: (change: { which: "launch" | "smpStart"; at: string | null }) =>
-      api<DateChange>("/api/season/date", { method: "POST", body: change }),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: keys.season })
-      void client.invalidateQueries({ queryKey: ["journal"] })
-    },
-  })
-}
-
 export type { UseQueryOptions }
 
 export * from "@/lib/queries-access"
 export * from "@/lib/queries-announcements"
 export * from "@/lib/queries-alerts"
+export * from "@/lib/queries-season"
 export * from "@/lib/queries-commands"
 export * from "@/lib/queries-settings"

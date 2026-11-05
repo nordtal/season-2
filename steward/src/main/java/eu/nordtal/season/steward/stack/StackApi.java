@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.stack;
 
 import eu.nordtal.season.common.http.WebClient;
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.document.DocumentStore;
@@ -134,6 +135,7 @@ public final class StackApi implements AutoCloseable {
      * @param nightly the current schedule
      * @param settings every process's settings
      * @param trial asks a server whether it takes a settings change before it is saved
+     * @param mode the active game mode, empty while it cannot be read, whose other server rests
      */
     public StackApi(
             final AgentClient agent,
@@ -146,6 +148,7 @@ public final class StackApi implements AutoCloseable {
             final DocumentStore documentStore,
             final SettingStore settings,
             final ServerTrial trial,
+            final Supplier<Optional<SeasonMode>> mode,
             final Clock clock,
             final Scheduler scheduler) {
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
@@ -161,11 +164,16 @@ public final class StackApi implements AutoCloseable {
         this.translationSearch = new TranslationSearch(messages, documents);
         this.disk = new DiskUsage(agent, scheduler, clock::instant);
         this.logFollows = new LogFollows(agent, scheduler);
-        this.serviceRows = new ServiceRows(agent, updates, online);
+        this.serviceRows = new ServiceRows(agent, updates, online, mode);
         this.drift = new Refreshed<>(
                 () -> new Drift(agent.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
         this.available = resolve == null ? null : new Refreshed<>(resolve, AVAILABLE_TTL, driftRefresh, clock::instant);
         this.deadPack = new Refreshed<>(() -> deadPack(settings), PACK_TTL, driftRefresh, clock::instant);
+    }
+
+    /** Returns the players online by service, read fresh. */
+    public ServicesApi.Online online() {
+        return serviceRows.online();
     }
 
     public void register(final JavalinConfig config, final Caller caller) {
@@ -278,7 +286,13 @@ public final class StackApi implements AutoCloseable {
             final boolean hasPlugins = topology.hasPlugins(name);
             final Optional<DiskUsage.Measured> measured = hasPlugins ? disk.of(name) : Optional.empty();
             return ServiceRows.describe(
-                            container, drift, serviceRows.online(), serviceRows.holds(), serviceRows.moving(), topology)
+                            container,
+                            drift,
+                            serviceRows.online(),
+                            serviceRows.holds(),
+                            serviceRows.moving(),
+                            topology,
+                            serviceRows.inactiveServer())
                     .detailed(
                             container.digests() == null ? List.of() : container.digests(),
                             hasPlugins,

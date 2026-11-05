@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.stack;
 
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.online.OnlinePlayer;
 import eu.nordtal.season.database.update.ServiceHold;
@@ -19,7 +20,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 /** Builds the rows of {@code /api/services} and {@code /api/services/{name}}. */
@@ -31,11 +34,18 @@ public final class ServiceRows {
     private final AgentClient agent;
     private final UpdateDirectory updates;
     private final ServicesApi players;
+    private final Supplier<Optional<SeasonMode>> mode;
 
-    ServiceRows(final AgentClient agent, final UpdateDirectory updates, final ServicesApi players) {
+    /** @param mode the active game mode, empty while it cannot be read */
+    ServiceRows(
+            final AgentClient agent,
+            final UpdateDirectory updates,
+            final ServicesApi players,
+            final Supplier<Optional<SeasonMode>> mode) {
         this.agent = agent;
         this.updates = updates;
         this.players = players;
+        this.mode = mode;
     }
 
     /**
@@ -43,6 +53,7 @@ public final class ServiceRows {
      *
      * @param localBuild the image or jars built on the host
      * @param oneShot true for a service that runs once and exits, else absent
+     * @param inactiveMode true for the server of the game mode that is not active, which rests, else absent
      * @param lastRun the last run of a one-shot, absent while it runs, before its first run and for other services
      * @param alert {@code DOWN} where {@link StackAlerts#down} finds the row down, else absent
      * @param restarts how often Docker restarted it since it was last started on purpose, absent for none
@@ -59,6 +70,7 @@ public final class ServiceRows {
             @Nullable Integer players,
             @Nullable List<Connected> roster,
             @Nullable Boolean standby,
+            @Nullable Boolean inactiveMode,
             @Nullable Hold hold,
             @Nullable Boolean oneShot,
             @Nullable LastRun lastRun,
@@ -81,7 +93,7 @@ public final class ServiceRows {
                     service,
                     state,
                     health,
-                    purpose(service, standby, hold, oneShot, moving),
+                    purpose(service, standby, inactiveMode, hold, oneShot, moving),
                     lastRun == null ? null : lastRun.exitCode(),
                     drift == ImageResult.State.OUTDATED,
                     restarts == null ? 0 : restarts,
@@ -107,6 +119,7 @@ public final class ServiceRows {
                     players,
                     roster,
                     standby,
+                    inactiveMode,
                     hold,
                     oneShot,
                     lastRun,
@@ -129,6 +142,7 @@ public final class ServiceRows {
     static StackReading.Purpose purpose(
             final String service,
             final @Nullable Boolean standby,
+            final @Nullable Boolean inactiveMode,
             final @Nullable Object hold,
             final @Nullable Boolean oneShot,
             final Set<String> moving) {
@@ -138,7 +152,9 @@ public final class ServiceRows {
         if (Boolean.TRUE.equals(oneShot)) {
             return StackReading.Purpose.ONCE;
         }
-        return Boolean.TRUE.equals(standby) || hold != null ? StackReading.Purpose.RESTS : StackReading.Purpose.SERVES;
+        return Boolean.TRUE.equals(standby) || Boolean.TRUE.equals(inactiveMode) || hold != null
+                ? StackReading.Purpose.RESTS
+                : StackReading.Purpose.SERVES;
     }
 
     private static StackReading.Service reading(
@@ -186,9 +202,10 @@ public final class ServiceRows {
         final Map<String, ServiceHold> holds = holds();
         final Set<String> moving = moving();
         final AgentWire.Topology topology = topology();
+        final @Nullable String inactive = inactiveServer();
         final List<Service> all = new ArrayList<>();
         for (final AgentWire.Container container : containers.containers()) {
-            all.add(describe(container, drift, counts, holds, moving, topology));
+            all.add(describe(container, drift, counts, holds, moving, topology, inactive));
         }
         return new Table(List.copyOf(all), Set.copyOf(moving));
     }
@@ -211,6 +228,12 @@ public final class ServiceRows {
 
     AgentWire.Topology topology() {
         return agent.topology();
+    }
+
+    /** Returns the server of the game mode that is not active, or {@code null} while the mode cannot be read. */
+    @Nullable
+    String inactiveServer() {
+        return mode.get().map(active -> active.other().server()).orElse(null);
     }
 
     static Set<String> consoles(final AgentWire.Topology topology) {
@@ -239,7 +262,20 @@ public final class ServiceRows {
             final Map<String, ServiceHold> holds,
             final Set<String> moving,
             final AgentWire.Topology topology) {
+        return describe(container, drift, counts, holds, moving, topology, null);
+    }
+
+    /** Returns the row of {@code container}, resting when it is {@code inactive}, the other mode's server. */
+    static Service describe(
+            final AgentWire.Container container,
+            final ImageResult drift,
+            final ServicesApi.Online counts,
+            final Map<String, ServiceHold> holds,
+            final Set<String> moving,
+            final AgentWire.Topology topology,
+            final @Nullable String inactive) {
         final String service = container.service();
+        final @Nullable Boolean inactiveMode = service.equals(inactive) ? Boolean.TRUE : null;
         final ServiceHold hold = holds.get(service);
         final boolean running = container.isRunning();
         final AgentWire.@Nullable Reading sample = running ? container.sample() : null;
@@ -251,7 +287,7 @@ public final class ServiceRows {
                 service,
                 container.state(),
                 health,
-                purpose(service, standby, hold, oneShot, moving),
+                purpose(service, standby, inactiveMode, hold, oneShot, moving),
                 lastRun == null ? null : lastRun.exitCode(),
                 false,
                 0,
@@ -268,6 +304,7 @@ public final class ServiceRows {
                 counts.counts().get(service),
                 roster(service, counts),
                 standby,
+                inactiveMode,
                 hold == null ? null : new Hold(hold.since()),
                 oneShot,
                 lastRun,

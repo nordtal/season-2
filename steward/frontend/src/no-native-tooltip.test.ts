@@ -17,6 +17,7 @@ const OWN_TITLE = new Map<string, string>([
   ["Empty", "the empty state's line"],
   ["PageHeader", "the page's heading"],
   ["Panel", "the panel's heading"],
+  ["RouterCard", "the card's heading"],
   ["RunPage", "the page's heading"],
 ])
 

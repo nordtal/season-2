@@ -43,7 +43,6 @@ function draw(fetchImpl: ReturnType<typeof vi.fn>) {
     createRoute({ getParentRoute: () => root, path: "/operations/updates/$id", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/operations/backups", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/operations/backups/$id", component: nothing }),
-    createRoute({ getParentRoute: () => root, path: "/season", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/access", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/payments", component: nothing }),
     createRoute({ getParentRoute: () => root, path: "/journal", component: nothing }),

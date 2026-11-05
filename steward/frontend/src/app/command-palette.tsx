@@ -29,7 +29,7 @@ import {
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { entryHaystack, rankHits, rankValue, searchAcross, searchValue, setPendingJump } from "@/lib/settings-search"
 import { TranslationHits } from "@/app/translation-hits"
-import { NETWORK } from "@/components/steward/settings"
+import { NETWORK, NETWORK_PAGE } from "@/components/steward/settings"
 import { pluginFileId, pluginLabel } from "@/lib/settings-tree"
 import { runKind, runStatus } from "@/components/steward/status"
 import { t } from "@/lib/texts"
@@ -265,13 +265,12 @@ export function CommandPalette() {
                     onSelect={() => {
                       setOpen(false)
                       setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
-                      void (service === NETWORK
-                        ? navigate({ to: "/season", search: { file: hit.location.path } })
-                        : navigate({
-                            to: "/services/$name",
-                            params: { name: service },
-                            search: { tab: "settings", file: hit.location.path },
-                          }))
+                      // The network's settings are on the proxy's page.
+                      void navigate({
+                        to: "/services/$name",
+                        params: { name: service === NETWORK ? NETWORK_PAGE : service },
+                        search: { tab: "settings", file: hit.location.path },
+                      })
                     }}
                     className="min-h-control gap-2.5"
                   >

@@ -92,7 +92,6 @@ public interface Shell {
         UPDATES,
         BACKUPS,
         ALERTS,
-        SEASON,
         TRANSLATIONS,
         ANNOUNCEMENTS,
         ACCESS,

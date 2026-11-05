@@ -182,11 +182,7 @@ abstract class WebFixture {
 
     static final TestAuthenticator authenticator = new TestAuthenticator();
 
-    /**
-     * A season date a month ahead, the same for the whole run.
-     *
-     * A past date is refused, and so is a launch after the SMP start.
-     */
+    /** A launch date a month ahead, the same for the whole run, since a past date is refused. */
     static final String SOON = java.time.Instant.now()
             .plus(Duration.ofDays(30))
             .truncatedTo(java.time.temporal.ChronoUnit.SECONDS)

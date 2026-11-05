@@ -40,12 +40,6 @@ public interface Forms {
     @Name("Remove one by name")
     MessageRef removeNamed(@Arg("name") @Example("Chunky") String name);
 
-    @Name("Removing")
-    MessageRef removing();
-
-    @Name("Reset")
-    MessageRef reset();
-
     @Name("Saving")
     MessageRef saving();
 

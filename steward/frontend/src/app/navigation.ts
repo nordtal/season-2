@@ -83,14 +83,6 @@ export function navigation(services: readonly string[]): NavGroup[] {
       id: "the-rest",
       entries: [
         {
-          id: "season",
-          label: t("steward.shell.page", { page: "season" }),
-          to: "/season",
-          note: t("steward.shell.note", { page: "season" }),
-          icon: TERM_ICON.season,
-          keywords: ["season", "phase", "reset", "launch"],
-        },
-        {
           id: "translations",
           label: t("steward.shell.page", { page: "translations" }),
           to: "/translations",

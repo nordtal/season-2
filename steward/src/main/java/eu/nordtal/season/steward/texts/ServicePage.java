@@ -108,6 +108,9 @@ public interface ServicePage {
     @Name("Agent not yet")
     MessageRef agentNotYet();
 
+    @Name("Resting, start first")
+    MessageRef restingFirst();
+
     @Name("Add plugin")
     MessageRef addPlugin();
 

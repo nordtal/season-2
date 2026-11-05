@@ -1,5 +1,6 @@
 package eu.nordtal.season.steward.texts;
 
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
@@ -68,7 +69,7 @@ public interface StewardTexts {
 
         OverviewPage overview();
 
-        SeasonPage season();
+        RouterTab router();
 
         TranslationsPage texts();
 
@@ -105,6 +106,9 @@ public interface StewardTexts {
 
             @Name("No verdict yet")
             MessageRef starting();
+
+            @Name("Started by hand")
+            MessageRef byHand();
 
             @Name("Healthcheck")
             MessageRef health(@Arg("health") @Example("unhealthy") String health);
@@ -199,6 +203,12 @@ public interface StewardTexts {
 
             @Name("Countdown over")
             MessageRef tooLate();
+
+            @Name("Mode switch open")
+            MessageRef switchOpen();
+
+            @Name("Switch to the active mode")
+            MessageRef switchToActive(@Arg("mode") SeasonMode mode);
 
             @Name("Key not held")
             MessageRef keyNotHeld();
@@ -497,6 +507,8 @@ public interface StewardTexts {
         UNHEALTHY,
         HELD,
         STANDBY,
+        RESTING,
+        BY_HAND,
         COMPLETED,
         FAILED,
         CREATED,

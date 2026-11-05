@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.rule.Between;
 import eu.nordtal.season.settings.rule.Entries;
 import eu.nordtal.season.settings.rule.NotNegative;
 import eu.nordtal.season.settings.rule.Positive;
@@ -40,6 +41,15 @@ public interface RailsSpec {
     @Explain("A station this close along the rails is left out of the ride menu: the rider is already there.")
     default int stationWidth() {
         return 3;
+    }
+
+    @Order(4)
+    @Name("Stop before a junction (blocks)")
+    @Key("junction-stop")
+    @Between(least = 1, most = 16)
+    @Explain("How far before a junction set the wrong way a minecart stops, while the junction is switched for it.")
+    default int junctionStop() {
+        return 2;
     }
 
     /** The spawn station stands at this block; without an entry there is none. */

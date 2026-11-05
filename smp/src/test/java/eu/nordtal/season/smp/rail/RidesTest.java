@@ -169,7 +169,7 @@ class RidesTest {
                 PaperScheduler.of(plugin),
                 networks,
                 new ChunkTickets(plugin),
-                () -> new RailsSpec() {},
+                () -> spec,
                 new SmpSounds(FeedbackSounds.silent(), _ -> {}));
         rides.whenStranded(stranded::add);
     }
@@ -413,6 +413,34 @@ class RidesTest {
     }
 
     @Test
+    void aCartStopsAsFarBeforeAWrongJunctionAsTheSettingsSayAndTheSwitchIsShownAtTheJunction() {
+        // A line from west to east, and a branch to the north from its middle.
+        track.eastWest(-30, 30, 64, 0).northSouth(0, 64, -30, -1);
+        stations(at(-30, 64, 0), at(30, 64, 0), at(0, 64, -30));
+        final List<Location> shown = new ArrayList<>();
+        rides.whenSwitched(shown::add);
+        final Rider rider = drive(at(-30, 64, 0), 3);
+        tick();
+        // Changed while the cart already rides, as Steward changes it.
+        spec = new RailsSpec() {
+            @Override
+            public int junctionStop() {
+                return 7;
+            }
+        };
+        tickUntil(() -> track.rails().get(at(0, 64, 0)) != RailShape.EAST_WEST);
+
+        assertEquals(RailShape.NORTH_WEST, track.rails().get(at(0, 64, 0)));
+        assertEquals(-7, rider.x(), 0.6, "it stands seven blocks before the junction");
+        assertEquals(
+                List.of(List.of(0.5, 64.5, 0.5)),
+                shown.stream()
+                        .map(at -> List.of(at.getX(), at.getY(), at.getZ()))
+                        .toList(),
+                "the switch is shown once, at the junction's centre");
+    }
+
+    @Test
     void aCartWaitsForAJunctionAnotherRidingCartHolds() {
         // A line from west to east, and a branch to the north from its middle.
         track.eastWest(-30, 30, 64, 0).northSouth(0, 64, -30, -1);
@@ -441,6 +469,7 @@ class RidesTest {
         assertSetDownOn(at(-30, 64, 0), west);
     }
 
+    private RailsSpec spec = new RailsSpec() {};
     private final List<String> calls = new ArrayList<>();
     private Location standing = new Location(null, 10, 64, 20);
     private final RideableMinecart recorded =

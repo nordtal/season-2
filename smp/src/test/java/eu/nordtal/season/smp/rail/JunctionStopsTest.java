@@ -4,6 +4,7 @@ import static eu.nordtal.season.smp.rail.Track.at;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.smp.config.RailsSpec;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -14,6 +15,12 @@ import org.junit.jupiter.api.Test;
 class JunctionStopsTest {
 
     private static final RidePath.Motion MOTION = RidePath.Motion.of(6, 24);
+
+    /** The stop distance the settings hold by default. */
+    private static final double BEFORE = new RailsSpec() {}.junctionStop();
+
+    /** The stop distance the settings hold now, read on every tick as {@code Rides} does. */
+    private double before = BEFORE;
 
     /** The shape each junction has in the world now. */
     private final Map<RailPos, RailShape> world = new HashMap<>();
@@ -60,7 +67,7 @@ class JunctionStopsTest {
 
         /** Rides one tick as {@code Rides} does, and returns whether the cart stands at the end of {@code path}. */
         boolean tick(final RidePath path, final Map<Integer, RailShape> switches) {
-            final double stop = stops.limit(path, switches, along, speed, path.length(), MOTION, this);
+            final double stop = stops.limit(path, switches, along, speed, path.length(), before, MOTION, this);
             final double limit = Math.max(along, Math.min(path.length(), stop));
             speed = Math.min(path.next(along, speed, limit, MOTION), limit - along);
             along += speed;
@@ -113,7 +120,7 @@ class JunctionStopsTest {
         assertEquals(1, switched.size(), "switched once");
         final Switch made = switched.getFirst();
         assertEquals(0, made.speed(), "switched by a standing cart");
-        assertEquals(path.start(30) - JunctionStops.BEFORE, made.along(), 1e-6, "standing two blocks before it");
+        assertEquals(path.start(30) - BEFORE, made.along(), 1e-6, "standing two blocks before it");
         assertEquals(RailShape.EAST_WEST, world.get(junction));
         for (int t = made.tick(); t < made.tick() + JunctionStops.PAUSE; t++) {
             assertEquals(0, ticks.get(t).speed(), "the cart stands a moment after the switch, at tick " + t);
@@ -153,13 +160,51 @@ class JunctionStopsTest {
 
         assertGentle(ticks);
         final int standing = switched.getFirst().tick();
-        final double stop = path.start(120) - JunctionStops.BEFORE;
+        final double stop = path.start(120) - BEFORE;
         assertEquals(stop, ticks.get(standing - 1).along(), 1e-9, "standing at the stop before the switch");
         assertEquals(0, ticks.get(standing - 1).speed(), "with no speed left");
         assertTrue(ticks.get(standing - 2).speed() > 0, "and only from the tick it got there");
         assertTrue(
                 ticks.stream().mapToDouble(Tick::speed).max().orElseThrow() >= MOTION.top() - 1e-9,
                 "after a ride at top speed");
+    }
+
+    @Test
+    void aLongerStopDistanceOnlyMovesTheStopAndTheCartStillBrakesAtItsAcceleration() {
+        final List<RailPos> rails = straight(240);
+        final RailPos junction = rails.get(120);
+        final RidePath path = path(rails);
+        world.put(junction, RailShape.NORTH_SOUTH);
+        before = 9;
+
+        final List<Tick> ticks = ride(path, Map.of(120, RailShape.EAST_WEST), () -> {});
+
+        assertGentle(ticks);
+        final Switch made = switched.getFirst();
+        assertEquals(0, made.speed(), "switched by a standing cart");
+        assertEquals(path.start(120) - 9, made.along(), 1e-9, "standing nine blocks before it");
+        assertEquals(path.start(120) - 9, ticks.get(made.tick() - 1).along(), 1e-9, "from the tick before");
+        assertTrue(ticks.get(made.tick() - 2).speed() > 0, "and only from the tick it got there");
+        assertTrue(
+                ticks.stream().mapToDouble(Tick::speed).max().orElseThrow() >= MOTION.top() - 1e-9,
+                "after a ride at top speed");
+        assertEquals(path.length(), ticks.getLast().along(), 1e-6, "and arrives");
+    }
+
+    @Test
+    void aStopDistanceChangedDuringTheRideMovesTheStopOfThatRide() {
+        final List<RailPos> rails = straight(240);
+        final RidePath path = path(rails);
+        world.put(rails.get(120), RailShape.NORTH_SOUTH);
+
+        final List<Tick> ticks = ride(path, Map.of(120, RailShape.EAST_WEST), () -> {
+            if (tick == 20) {
+                before = 1;
+            }
+        });
+
+        assertGentle(ticks);
+        assertEquals(path.start(120) - 1, switched.getFirst().along(), 1e-9, "standing one block before the junction");
     }
 
     @Test
@@ -322,7 +367,7 @@ class JunctionStopsTest {
         final Map<Integer, RailShape> straightOn = Map.of(30, RailShape.EAST_WEST);
         final Map<Integer, RailShape> turned = Map.of(8, RailShape.NORTH_SOUTH);
         final List<Double> passingAtSwitch = new ArrayList<>();
-        second.along = waiting.start(8) - JunctionStops.BEFORE;
+        second.along = waiting.start(8) - BEFORE;
 
         boolean firstIn = false;
         boolean secondIn = false;

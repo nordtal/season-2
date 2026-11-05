@@ -2,7 +2,7 @@ import { useState } from "react"
 import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 import { CheckIcon } from "@phosphor-icons/react"
-import { cn } from "@/lib/utils"
+import { cn, cutOff } from "@/lib/utils"
 
 import type { Icon } from "@phosphor-icons/react"
 
@@ -241,6 +241,34 @@ function itemTitle(item: JournalItem): string {
   return item.entry ? actionLabel(item.entry.action) : ""
 }
 
+/**
+ * The item's title on one line, cut off by an ellipsis when it does not fit, and then shown in full in the tip. A run's
+ * title opens the run; the ellipsis sits on an inner span, so the link keeps its hit area on a touch screen.
+ */
+function ItemTitle({ item }: { item: JournalItem }) {
+  const [cut, setCut] = useState(false)
+  const title = itemTitle(item)
+  const measure = (event: { currentTarget: Element }) => setCut(cutOff(event.currentTarget))
+  return (
+    <Hint tip={cut ? title : undefined}>
+      {item.run ? (
+        <Link
+          {...runPath(item.run)}
+          onPointerEnter={measure}
+          onFocus={measure}
+          className="flex min-w-0 text-sm font-medium underline-offset-4 tap-target hover:underline"
+        >
+          <span className="truncate">{title}</span>
+        </Link>
+      ) : (
+        <span onPointerEnter={measure} className="flex min-w-0 text-sm font-medium">
+          <span className="truncate">{title}</span>
+        </span>
+      )}
+    </Hint>
+  )
+}
+
 function itemIcon(item: JournalItem) {
   if (item.run) return actionIcon(item.run.kind)
   if (item.alert) return ALERT_ICON[item.alert.type]
@@ -278,18 +306,7 @@ function JournalRow({
         <div className="flex min-w-0 grow flex-wrap items-center gap-x-2 gap-y-1">
           <div className="flex max-w-full min-w-0 items-center gap-x-2">
             <icons.Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            <Hint tip={itemTitle(item)}>
-              {run ? (
-                <Link
-                  {...runPath(run)}
-                  className="min-w-0 truncate text-sm font-medium underline-offset-4 tap-target hover:underline"
-                >
-                  {itemTitle(item)}
-                </Link>
-              ) : (
-                <span className="min-w-0 truncate text-sm font-medium">{itemTitle(item)}</span>
-              )}
-            </Hint>
+            <ItemTitle item={item} />
           </div>
           {run ? <RunStatus status={run.status} /> : null}
           {alert ? <StatusBadge tone={alert.level}>{t("alert.level", { level: alert.level })}</StatusBadge> : null}

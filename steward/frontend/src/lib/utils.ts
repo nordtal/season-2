@@ -9,4 +9,9 @@ export const cn = createCn({
   extend: { theme: { text: ["caption", "badge", "inline"], container: ["page"], spacing: ["list"] } },
 })
 
+/** Whether a text inside the element is cut off by its ellipsis. */
+export function cutOff(element: Element): boolean {
+  return [...element.querySelectorAll(".truncate")].some((text) => text.scrollWidth > text.clientWidth)
+}
+
 export type CSSVars = CSSProperties & Record<`--${string}`, string | number>

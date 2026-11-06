@@ -1,7 +1,7 @@
 import { Hint } from "@/components/steward/status"
 import { createContext, use, useEffect, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
-import { CaretDownIcon } from "@phosphor-icons/react"
+import { CaretDownIcon } from "@/components/ui/icons"
 import { StewardMark } from "@/app/steward-mark"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { cn } from "@/lib/utils"

@@ -1,4 +1,4 @@
-import { ArrowSquareInIcon, XIcon } from "@phosphor-icons/react"
+import { ArrowSquareInIcon, XIcon } from "@/components/ui/icons"
 import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"

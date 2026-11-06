@@ -1,4 +1,4 @@
-import { ArrowDownIcon, ArrowUpIcon } from "@phosphor-icons/react"
+import { ArrowDownIcon, ArrowUpIcon } from "@/components/ui/icons"
 import { useRef, type CSSProperties, type MouseEvent, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 

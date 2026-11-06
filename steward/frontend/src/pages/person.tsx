@@ -1,5 +1,5 @@
 import { useParams } from "@tanstack/react-router"
-import { ArrowRightIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon } from "@/components/ui/icons"
 
 import type { Grant, Person } from "@/lib/api"
 import { count, dateTime, NO_VALUE } from "@/lib/format"

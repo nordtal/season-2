@@ -1,4 +1,4 @@
-import { PlugsIcon, TrayIcon } from "@phosphor-icons/react"
+import { PlugsIcon, TrayIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import type { ReactNode } from "react"
 

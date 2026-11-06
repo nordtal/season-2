@@ -1,4 +1,4 @@
-import { ShieldWarningIcon } from "@phosphor-icons/react"
+import { ShieldWarningIcon } from "@/components/ui/icons"
 import type { Me } from "@/lib/api"
 import { DiscordMark } from "@/app/discord-mark"
 import { StewardMark } from "@/app/steward-mark"

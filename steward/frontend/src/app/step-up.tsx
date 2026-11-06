@@ -1,4 +1,4 @@
-import { FingerprintIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { FingerprintIcon, ShieldWarningIcon } from "@/components/ui/icons"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { onSecondFactorRequired } from "@/lib/api"

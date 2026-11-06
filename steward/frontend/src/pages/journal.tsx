@@ -1,10 +1,10 @@
 import { useState } from "react"
 import type { ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
-import { CheckIcon } from "@phosphor-icons/react"
+import { CheckIcon } from "@/components/ui/icons"
 import { cn, cutOff } from "@/lib/utils"
 
-import type { Icon } from "@phosphor-icons/react"
+import type { Icon } from "@/components/ui/icons"
 
 import type { Alert, AlertLevel, AlertType, JournalItem, JournalTerm, Measure } from "@/lib/api"
 import { LOCALE, relative, time } from "@/lib/format"
@@ -154,7 +154,7 @@ function OpenNow() {
         {(data) =>
           data.alerts.length === 0 && !data.unreadable ? (
             <p className="flex items-center gap-2 text-sm">
-              <CheckIcon aria-hidden className="size-4 text-success" weight="bold" />
+              <CheckIcon aria-hidden className="size-4 text-success" />
               <span className="font-medium">{t("steward.journal.nothing-open")}</span>
               {data.checkedAt ? (
                 <span className="text-muted-foreground">

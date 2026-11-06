@@ -1,4 +1,4 @@
-import { TrashIcon } from "@phosphor-icons/react"
+import { TrashIcon } from "@/components/ui/icons"
 import { type ReactNode, useState } from "react"
 
 import { AskThenAct } from "@/components/steward/ask-then-act"

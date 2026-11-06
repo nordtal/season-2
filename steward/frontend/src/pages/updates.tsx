@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router"
-import { ArrowRightIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon } from "@/components/ui/icons"
 import { ServiceName } from "@/components/steward/service-name"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { cn } from "@/lib/utils"

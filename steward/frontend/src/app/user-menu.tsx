@@ -1,4 +1,4 @@
-import { GearIcon, LockOpenIcon, SignOutIcon } from "@phosphor-icons/react"
+import { GearIcon, LockOpenIcon, SignOutIcon } from "@/components/ui/icons"
 import { useState } from "react"
 
 import { api } from "@/lib/api"

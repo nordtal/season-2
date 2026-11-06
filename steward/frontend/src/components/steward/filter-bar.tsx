@@ -1,5 +1,5 @@
-import { CheckIcon, FunnelSimpleIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react"
-import type { Icon } from "@phosphor-icons/react"
+import { CheckIcon, FunnelSimpleIcon, MagnifyingGlassIcon, XIcon } from "@/components/ui/icons"
+import type { Icon } from "@/components/ui/icons"
 import { useState, type ReactNode, type Ref } from "react"
 import { cn } from "@/lib/utils"
 

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { CaretRightIcon, ListIcon, MagnifyingGlassIcon, SidebarIcon, XIcon } from "@phosphor-icons/react"
+import { CaretRightIcon, ListIcon, MagnifyingGlassIcon, SidebarIcon, XIcon } from "@/components/ui/icons"
 import { createContext, Fragment } from "react"
 
 import type { Crumb } from "@/app/breadcrumbs"

@@ -1,6 +1,6 @@
 import { Hint } from "@/components/steward/status"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { CodeIcon, EyeIcon } from "@phosphor-icons/react"
+import { CodeIcon, EyeIcon } from "@/components/ui/icons"
 import { cn } from "@/lib/utils"
 
 import type { MessageArg } from "@/lib/api"

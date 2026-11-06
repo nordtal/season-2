@@ -1,5 +1,5 @@
 import { Hint } from "@/components/steward/status"
-import { FingerprintIcon, PencilIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { FingerprintIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 

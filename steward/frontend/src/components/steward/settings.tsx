@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, CaretRightIcon, FolderIcon, GearSixIcon, LockIcon } from "@phosphor-icons/react"
+import { ArrowLeftIcon, CaretRightIcon, FolderIcon, GearSixIcon, LockIcon } from "@/components/ui/icons"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"

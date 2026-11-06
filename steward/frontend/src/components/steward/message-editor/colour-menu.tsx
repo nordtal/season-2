@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { PaletteIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { PaletteIcon, PlusIcon, TrashIcon } from "@/components/ui/icons"
 import { cn } from "@/lib/utils"
 
 import { NAMED_COLOURS, gradientAt, hexOf } from "@/lib/rich-text"

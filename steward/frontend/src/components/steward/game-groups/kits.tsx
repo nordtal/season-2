@@ -1,4 +1,4 @@
-import { PlusIcon } from "@phosphor-icons/react"
+import { PlusIcon } from "@/components/ui/icons"
 import { useState } from "react"
 
 import type { ConfigEntry } from "@/lib/api"

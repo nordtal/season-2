@@ -1,5 +1,5 @@
 import { useId, useState } from "react"
-import { CalendarPlusIcon, PencilSimpleIcon } from "@phosphor-icons/react"
+import { CalendarPlusIcon, PencilSimpleIcon } from "@/components/ui/icons"
 
 import type { Router } from "@/lib/api"
 import { dateTime, relative } from "@/lib/format"

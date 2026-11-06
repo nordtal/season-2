@@ -11,7 +11,7 @@ export function ServiceIcon({ service, className }: { service: string; className
   return (
     <span aria-hidden data-standby className={cn("relative inline-flex", className)}>
       <Drawn className="size-full" />
-      <TERM_ICON.standby weight="fill" className="absolute -right-0.5 -bottom-0.5 size-1/2 text-foreground" />
+      <TERM_ICON.standby className="absolute -right-0.5 -bottom-0.5 size-1/2 text-foreground" />
     </span>
   )
 }

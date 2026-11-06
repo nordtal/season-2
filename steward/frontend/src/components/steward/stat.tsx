@@ -3,6 +3,14 @@ import { cn } from "@/lib/utils"
 
 import { Skeleton, SkeletonText } from "@/components/ui/skeleton"
 
+/** A number alone, signed, grouped in thousands or with decimals, and nothing else: no word, no unit, no date. */
+const BARE_NUMBER = /^[+\u2212-]?\d+(?:[.,\s]\d{3})*(?:[.,]\d+)?$/u
+
+/** A number alone stands out in the mono face. A value with a word or a unit keeps the interface face in tabular figures. */
+export function standsAlone(value: ReactNode): boolean {
+  return typeof value === "number" || (typeof value === "string" && BARE_NUMBER.test(value) && /\d/.test(value))
+}
+
 /**
  * Without `value` it shows the label and a bar where the number will be, so nothing moves when the number arrives.
  */
@@ -26,7 +34,8 @@ export function Stat({
       <span className="text-xs font-medium font-heading text-muted-foreground">{label}</span>
       <span
         className={cn(
-          "truncate text-xl font-semibold tnum",
+          "truncate text-xl",
+          standsAlone(value) ? "font-mono" : "tnum font-semibold",
           tone === "ok" && "text-success",
           tone === "warn" && "text-warning",
           tone === "down" && "text-destructive",

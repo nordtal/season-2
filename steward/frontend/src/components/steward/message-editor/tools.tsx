@@ -1,6 +1,6 @@
 import { Hint } from "@/components/steward/status"
 import type { ReactNode } from "react"
-import { ArrowElbowDownLeftIcon, HashStraightIcon } from "@phosphor-icons/react"
+import { ArrowElbowDownLeftIcon, HashStraightIcon } from "@/components/ui/icons"
 import { cn } from "@/lib/utils"
 
 import { t } from "@/lib/texts"

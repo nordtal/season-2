@@ -1,4 +1,4 @@
-import { DotsThreeIcon } from "@phosphor-icons/react"
+import { DotsThreeIcon } from "@/components/ui/icons"
 import type { ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"

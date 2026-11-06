@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
+import { EyeIcon, EyeSlashIcon } from "@/components/ui/icons"
 import type { ConfigEntry } from "@/lib/api"
 import { isColour } from "@/lib/references"
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group"

@@ -1,6 +1,6 @@
 import { Hint } from "@/components/steward/status"
 import { useMemo, useState } from "react"
-import { PlusIcon, XIcon } from "@phosphor-icons/react"
+import { PlusIcon, XIcon } from "@/components/ui/icons"
 
 import type { GlyphInfo, MessageArg } from "@/lib/api"
 import { choiceOf, choiceSource, inside, type Choice, type Format, type Run, type Style } from "@/lib/rich-text"

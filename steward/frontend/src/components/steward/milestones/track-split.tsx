@@ -1,4 +1,4 @@
-import { CaretLeftIcon, CaretRightIcon, PlusIcon } from "@phosphor-icons/react"
+import { CaretLeftIcon, CaretRightIcon, PlusIcon } from "@/components/ui/icons"
 import { useState } from "react"
 
 import type { SectionValues } from "@/components/steward/repeatable-cards"

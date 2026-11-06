@@ -1,6 +1,6 @@
-import { ShieldWarningIcon } from "@phosphor-icons/react"
+import { ShieldWarningIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
-import type { Icon } from "@phosphor-icons/react"
+import type { Icon } from "@/components/ui/icons"
 
 /** An action's icon, by inbox kind or journal action, so the journal draws one per action and run. */
 const KIND_ICON: Record<string, Icon> = {

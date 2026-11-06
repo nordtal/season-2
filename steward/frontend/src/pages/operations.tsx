@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { ArrowRightIcon, ShieldWarningIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon, ShieldWarningIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link, Navigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"

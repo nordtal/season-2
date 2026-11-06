@@ -1,5 +1,5 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
-import { CheckCircleIcon, InfoIcon, SpinnerIcon } from "@phosphor-icons/react"
+import { CheckCircleIcon, InfoIcon, SpinnerIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import type { CSSVars } from "@/lib/utils"
 

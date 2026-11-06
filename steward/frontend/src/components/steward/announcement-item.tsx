@@ -1,4 +1,4 @@
-import { ArrowLeftIcon, CheckIcon, CopyIcon, SpinnerIcon, TrashIcon } from "@phosphor-icons/react"
+import { ArrowLeftIcon, CheckIcon, CopyIcon, SpinnerIcon, TrashIcon } from "@/components/ui/icons"
 import { useState, type ReactNode } from "react"
 import { toast } from "sonner"
 

@@ -1,5 +1,5 @@
 import { Hint } from "@/components/steward/status"
-import { CheckIcon, CopyIcon, QuestionIcon } from "@phosphor-icons/react"
+import { CheckIcon, CopyIcon, QuestionIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link, useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"

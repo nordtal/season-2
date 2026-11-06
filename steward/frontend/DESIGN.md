@@ -85,8 +85,13 @@ it:
 
 ## Type
 
-- `font-sans` (DM Sans) sets the interface. `font-heading` (JetBrains Mono) sets a heading and a stat's
-  label. `font-mono` sets identifiers, code and the console. Monocraft sets the game's text in a preview.
+- `font-sans` (Inter) sets the interface. `font-heading` (Outfit) sets a heading and a stat's label.
+  `font-mono` (Monocraft) sets identifiers, code, the console and the game's text in a preview. It also
+  sets a figure that is the whole value: a stat that is a number alone, and the count of players online.
+  A count beside a label, in a badge or in a table keeps the interface face in tabular figures. Monocraft
+  has one weight and is never set bold. Each face is bundled, from its `@fontsource-variable` package or
+  `public/fonts/`; none is fetched while Steward runs. _(faces and bundling checked in
+  `faces-and-icons.test.ts`)_
 - Text sizes are Tailwind's, plus three. `text-caption` is a small label: the line under the brand, a
   console line on a phone, the details of a network node. `text-badge` is the label of a small badge
   and a count drawn over an icon. `text-inline` is a chip inside running text, sized to that text.
@@ -112,6 +117,11 @@ it:
   replaces. Every view waits through `QueryState`. _(checked in `one-waiting-state.test.ts`)_
 - **Scroll area**: every scroll container draws the same thin scrollbar in the border colour.
   _(checked in `one-scrollbar.test.ts`)_
+- **Icons** (`components/ui/icons.tsx`): every icon is a Pixelarticons icon, drawn in the text colour at
+  the size of a line unless a `size-*` class sets it. A file imports its icons from that module, which
+  names each by what it means and maps it to the set's own icon; a new icon is added there. A brand's own
+  logo, such as `app/discord-mark.tsx`, is drawn as the brand draws it. An icon has one weight: there is
+  no bold or filled variant. _(imports, hand-drawn icons and the paths checked in `faces-and-icons.test.ts`)_
 - **Term icons** (`components/steward/term-icons.tsx`): one icon per domain term, as `CONVENTIONS.md`
   says.
 
@@ -130,3 +140,6 @@ Discord, not this file.
 | `cn` comes from `lib/utils.ts`, configured with the tokens | The package alone reads `text-caption` as a colour and drops the real colour. |
 | One `list` height for scrolling lists                      | The console and three lists each had their own share of the screen.           |
 | `text-inline` is one size for every chip in a text         | The editor and the preview drew the same placeholder chip at 0.7em and 0.9em. |
+| Pixelarticons come from `@iconify-json/pixelarticons`      | The `pixelarticons` package lacks 18 of the icons Steward draws.              |
+| `icons.tsx` copies the paths it draws from the set         | The whole set would ship 1300 icons to draw 145.                              |
+| Monocraft sets a bare figure                               | A number that stands alone reads as the game's own counter.                   |

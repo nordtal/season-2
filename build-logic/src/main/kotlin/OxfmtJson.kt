@@ -60,6 +60,51 @@ object OxfmtJson {
     /** [value] in the layout of the pack's files under `src/assets`: four spaces of indent and one member per line. */
     fun asset(value: Any?): String = format(expanded(value), "    ")
 
+    /**
+     * [value] in the layout of [like], as [read] gave it, so that [format] changes only the lines of what differs. A key
+     * of an object keeps its place in [like], with a new key after them; a member keeps the lines and empty lines it had,
+     * and a number equal to the one in [like] its spelling. A new member of an object whose members are all objects, or of
+     * an array, takes the layout of a member beside it; anything else new is laid out as [asset] does.
+     */
+    fun shaped(
+        value: Any?,
+        like: Any?,
+    ): Any? =
+        when (value) {
+            is Map<*, *> -> {
+                val old = like as? Map<*, *>
+                val sibling = old?.values?.takeIf { members -> members.isNotEmpty() && members.all { it is Map<*, *> } }?.first()
+                Object((like as? Object)?.expanded ?: (like !is Map<*, *>)).also { copy ->
+                    val keys = old?.keys?.filter { it in value }.orEmpty() + value.keys.filter { old?.containsKey(it) != true }
+                    keys.forEach { key ->
+                        val member = value[key]
+                        copy[key as String] = shaped(member, if (old?.containsKey(key) == true) old[key] else sibling)
+                        if (key in ((like as? Object)?.spaced ?: emptySet<String>()) && old?.containsKey(key) == true) copy.spaced += key
+                    }
+                    (like as? Object)?.spellings?.let(copy.spellings::putAll)
+                }
+            }
+
+            is List<*> -> {
+                val old = like as? List<*>
+                Array().also { copy ->
+                    value.forEachIndexed { i, member ->
+                        copy += shaped(member, if (old != null && i < old.size) old[i] else old?.lastOrNull())
+                        if (old != null && i < old.size && i in ((like as? Array)?.spaced ?: emptySet<Int>())) copy.spaced += i
+                    }
+                    (like as? Array)?.spellings?.let(copy.spellings::putAll)
+                }
+            }
+
+            is Number -> {
+                if (like is Number && BigDecimal(like.toString()).compareTo(BigDecimal(value.toString())) == 0) like else value
+            }
+
+            else -> {
+                value
+            }
+        }
+
     private fun expanded(value: Any?): Any? =
         when (value) {
             is Map<*, *> -> Object().also { copy -> value.forEach { (key, member) -> copy[key as String] = expanded(member) } }

@@ -22,9 +22,6 @@ public enum ServerRefusal implements RefusalReason {
     /** The key names a milestone that is not active. */
     MILESTONE_NOT_ACTIVE,
 
-    /** A game starts only during the start event. Kept for the rows written before the game mode. */
-    WRONG_PHASE,
-
     /** No game is open for registration. */
     NO_GAME,
 
@@ -58,7 +55,6 @@ public enum ServerRefusal implements RefusalReason {
             case NO_ACTIVE_MILESTONE, NO_GAME, NOT_HERE, NOT_DELIVERED, STACK_CHANGED, NOT_EDITABLE -> List.of();
             case NO_SUCH_OBJECTIVE -> List.of("key");
             case MILESTONE_NOT_ACTIVE -> List.of("key", "active");
-            case WRONG_PHASE -> List.of("phase");
             case WRONG_STATE -> List.of("state");
             case BELOW_HARD_MINIMUM -> List.of("minimum", "count");
             case BELOW_SOFT_MINIMUM -> List.of("count", "minimum");
@@ -81,7 +77,6 @@ public enum ServerRefusal implements RefusalReason {
                     case NO_SUCH_OBJECTIVE -> words.noSuchObjective(String.valueOf(args[0]));
                     case MILESTONE_NOT_ACTIVE ->
                         words.milestoneNotActive(String.valueOf(args[0]), String.valueOf(args[1]));
-                    case WRONG_PHASE -> words.wrongPhase(String.valueOf(args[0]));
                     case NO_GAME -> words.noGame();
                     case WRONG_STATE -> words.wrongState(String.valueOf(args[0]));
                     case BELOW_HARD_MINIMUM -> words.belowHardMinimum(count(args[0]), count(args[1]));

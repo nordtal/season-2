@@ -327,6 +327,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V114__the_free_text_detail_of_a_settings_refusal_leaves.sql",
                 "30af9a0861105a8ba679fd2465413c9b1e70cec650ce67329e537a50befb030f");
+        FROZEN.put(
+                "V115__the_season_phase_s_journal_entries_and_refusal_leave.sql",
+                "00b03f8021790b4847bec37e866507b3c48bd714ad4924848e56d6518b114a25");
     }
 
     @Test

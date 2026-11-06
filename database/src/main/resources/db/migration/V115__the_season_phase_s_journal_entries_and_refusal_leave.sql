@@ -1,0 +1,29 @@
+-- The launch date, maintenance and the game mode replaced the season phase, and no release writes its journal
+-- entries. They go, with their detail rows by cascade. Their tables and season_phase stay until no release reads them.
+DELETE FROM journal_entry WHERE action IN ('SET_PHASE', 'SET_LAUNCH', 'SET_SMP_START', 'UNANCHORED_GRANT');
+
+ALTER TABLE journal_entry DROP CONSTRAINT journal_entry_action_check;
+ALTER TABLE journal_entry
+    ADD CONSTRAINT journal_entry_action_check CHECK (action IN (
+        'ADMIN_ROOT', 'GRANT_ADMIN', 'REVOKE_ADMIN', 'ENFORCE_PACK', 'EXEMPT_PACK', 'GRANT_ACCESS', 'REVOKE_ACCESS',
+        'SET_PLAYTIME', 'LINK', 'UNLINK', 'SETTLE', 'REGISTER_KEY', 'HELD_KEY', 'RENAME_KEY', 'REMOVE_KEY',
+        'ADD_AUTHENTICATOR', 'USED_AUTHENTICATOR', 'REMOVE_AUTHENTICATOR', 'FORGET_FACTORS', 'WEB_PUSH_SUBSCRIBE',
+        'WEB_PUSH_UNSUBSCRIBE', 'WEB_PUSH_TEST', 'SET_ALERT_PREFERENCE', 'CONSOLE', 'SAVE_SETTINGS', 'SAVE_MESSAGES',
+        'ADD_PLUGIN', 'REMOVE_PLUGIN', 'REQUEST_RUN', 'CANCEL_RUN', 'DOWNLOAD_BACKUP', 'ANNOUNCE', 'COMPLETE_OBJECTIVE',
+        'UNLOCK_MILESTONE', 'START_GAME', 'LINK_CODES_EXHAUSTED', 'SET_AURA', 'SET_SPINS', 'SERVICE_DOWN',
+        'BACKUP_STALE', 'DISK_FULL', 'MEMORY_FULL', 'IMAGE_DRIFT', 'PACK_DEAD', 'RUN_FAILED', 'PAYMENT_NEEDS_LOOK',
+        'LINK_REFUSED', 'LINK_FAILED', 'PURCHASE_FAILED', 'DM_NOT_DELIVERED', 'ROLE_NOT_CHANGED', 'ROLE_AMBIGUOUS',
+        'ROLE_NOT_CREATED', 'LOCK_NOT_KEPT', 'LOCK_WITHOUT_CHANNEL', 'REMOVE_STACK', 'OPEN_INVENTORY', 'RESET_TRACK',
+        'SET_LAUNCH_DATE', 'LAUNCH_NOW', 'CLOSE_SEASON', 'SET_MAINTENANCE', 'SWITCH_MODE'));
+
+-- No server refuses a game start for its phase. A request refused that way goes with its refusal.
+DELETE FROM hunger_games_inbox
+WHERE id IN (SELECT request FROM hunger_games_refusal WHERE reason = 'WRONG_PHASE');
+ALTER TABLE hunger_games_refusal
+    DROP CONSTRAINT hunger_games_refusal_phase_iff_wrong,
+    DROP CONSTRAINT hunger_games_refusal_reason_check,
+    DROP COLUMN phase;
+ALTER TABLE hunger_games_refusal
+    ADD CONSTRAINT hunger_games_refusal_reason_check CHECK (reason IN (
+        'NO_GAME', 'WRONG_STATE', 'BELOW_HARD_MINIMUM', 'BELOW_SOFT_MINIMUM', 'NOT_HERE', 'SETTINGS_REFUSED',
+        'STACK_CHANGED', 'NOT_EDITABLE'));

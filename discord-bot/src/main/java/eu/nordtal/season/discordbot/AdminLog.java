@@ -97,7 +97,6 @@ public final class AdminLog {
             JournalAction.UNLINK, Mark.UNLINKED,
             JournalAction.SET_PLAYTIME, Mark.TIMED,
             JournalAction.SETTLE, Mark.PAID,
-            JournalAction.UNANCHORED_GRANT, Mark.WARNING,
             JournalAction.LINK_CODES_EXHAUSTED, Mark.LOCKED);
 
     private final JDA jda;

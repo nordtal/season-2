@@ -46,18 +46,13 @@ class TrackResetsIntegrationTest {
         execute("TRUNCATE TABLE journal_entry CASCADE");
         execute("DELETE FROM smp_reset_request");
         execute("DELETE FROM smp_reset");
-        execute("UPDATE season_phase SET fresh_start = NULL");
     }
 
     @Test
-    void aResetStampsBothRowsAndJournalsItsReason() {
+    void aResetStampsItsRowAndJournalsItsReason() {
         resets.request(ADMIN, "  the test weekend is over ");
 
-        assertEquals(
-                1,
-                count("SELECT count(*) FROM smp_reset_request request, season_phase phase"
-                        + " WHERE request.requested = phase.fresh_start"),
-                "an smp of the release before reads season_phase.fresh_start, so both carry the same stamp");
+        assertEquals(1, count("SELECT count(*) FROM smp_reset_request WHERE requested IS NOT NULL"));
         assertEquals(
                 List.of("RESET_TRACK|PERSON|" + ADMIN_ID + "|the test weekend is over"),
                 query("SELECT e.action || '|' || e.actor_kind || '|' || e.actor_id || '|' || r.reason"

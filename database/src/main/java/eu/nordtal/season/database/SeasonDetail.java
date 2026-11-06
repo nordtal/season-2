@@ -6,13 +6,12 @@ import static eu.nordtal.season.database.JournalRows.row;
 import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.messages.MessageRef;
 import java.time.Instant;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import org.jdbi.v3.core.Handle;
 import org.jspecify.annotations.Nullable;
 
-/** The journal details of the launch date, maintenance and the game mode, and of the season phase before them. */
+/** The journal details of the launch date, maintenance and the game mode. */
 public final class SeasonDetail {
 
     private SeasonDetail() {}
@@ -125,63 +124,6 @@ public final class SeasonDetail {
         @Override
         public void insert(final Handle handle, final UUID entry) {
             row(handle, "journal_season_mode", entry, "from_mode", from.name(), "to_mode", to.name(), "reason", reason);
-        }
-    }
-
-    /** A switch of the season phase, which only older entries hold. Each phase is its stored name. */
-    public record PhaseSet(String from, String to, @Nullable String reason) implements JournalDetail.Season {
-        public PhaseSet {
-            reason = given(reason);
-        }
-
-        @Override
-        public MessageRef line() {
-            return reason == null
-                    ? TEXTS.journal().setPhase(shown(from), shown(to))
-                    : TEXTS.journal().setPhaseBecause(shown(from), shown(to), reason);
-        }
-
-        private static String shown(final String stored) {
-            return stored.toLowerCase(Locale.ROOT).replace('_', '-');
-        }
-
-        @Override
-        public void insert(final Handle handle, final UUID entry) {
-            row(handle, "journal_phase", entry, "from_phase", from, "to_phase", to, "reason", reason);
-        }
-    }
-
-    /** An opening date of the season phase, which only older entries hold. */
-    public record LaunchSet(@Nullable Instant opens) implements JournalDetail.Season {
-        @Override
-        public MessageRef line() {
-            return opens == null
-                    ? TEXTS.journal().clearLaunch()
-                    : TEXTS.journal().setLaunch(opens);
-        }
-
-        @Override
-        public void insert(final Handle handle, final UUID entry) {
-            if (opens != null) {
-                row(handle, "journal_launch", entry, "opens", opens);
-            }
-        }
-    }
-
-    /** A start of paid time, which only older entries hold. */
-    public record SmpStartSet(@Nullable Instant starts, long movedGrants) implements JournalDetail.Season {
-        @Override
-        public MessageRef line() {
-            return starts == null
-                    ? TEXTS.journal().clearSmpStart()
-                    : TEXTS.journal().setSmpStart(starts, movedGrants);
-        }
-
-        @Override
-        public void insert(final Handle handle, final UUID entry) {
-            if (starts != null) {
-                row(handle, "journal_smp_start", entry, "starts", starts, "moved_grants", movedGrants);
-            }
         }
     }
 

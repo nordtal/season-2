@@ -97,7 +97,7 @@ describe("HungerGamesActions", () => {
 
   it("offers no second step for a refusal a confirmation cannot overrule", async () => {
     const sent = backend({
-      row: { status: "REFUSED", reason: "WRONG_PHASE", result: "A game only starts during the start event." },
+      row: { status: "REFUSED", reason: "BELOW_HARD_MINIMUM", result: "Only 4 registered, at least 6 are needed." },
     })
     draw(<HungerGamesActions />)
 
@@ -106,7 +106,7 @@ describe("HungerGamesActions", () => {
     const dialog = await screen.findByRole("alertdialog")
     fireEvent.click(within(dialog).getByRole("button", { name: "Start" }))
 
-    await within(dialog).findByText("A game only starts during the start event.")
+    await within(dialog).findByText("Only 4 registered, at least 6 are needed.")
     expect(within(dialog).queryByRole("button", { name: "Start anyway" })).toBeNull()
     expect(sent).toEqual([{ url: "/api/hunger-games/start", body: {} }])
   })

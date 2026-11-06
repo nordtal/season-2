@@ -94,9 +94,6 @@ public interface DatabaseMessages {
         MessageRef milestoneNotActive(
                 @Arg("key") @Example("the-end") String key, @Arg("active") @Example("the-nether") String active);
 
-        @Name("Wrong phase")
-        MessageRef wrongPhase(@Arg("phase") @Example("smp") String phase);
-
         @Name("No game")
         MessageRef noGame();
 

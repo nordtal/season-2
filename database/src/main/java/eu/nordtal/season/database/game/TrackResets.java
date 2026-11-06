@@ -33,9 +33,6 @@ public final class TrackResets {
                             INSERT INTO smp_reset_request (id, requested) VALUES (true, now())
                             ON CONFLICT (id) DO UPDATE
                             SET requested = GREATEST(smp_reset_request.requested, EXCLUDED.requested)""").execute();
-            // smp of the release before reads the phase's stamp. It goes with season_phase.
-            handle.createUpdate("UPDATE season_phase SET fresh_start = now() WHERE id")
-                    .execute();
             Journal.write(handle, AuditLine.of(JournalAction.RESET_TRACK, actor, new JournalDetail.TrackReset(reason)));
             handle.createQuery("SELECT pg_notify(:channel, '') IS NULL")
                     .bind("channel", Channel.SMP.sqlName())

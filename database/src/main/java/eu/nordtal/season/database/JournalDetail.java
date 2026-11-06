@@ -76,8 +76,6 @@ public sealed interface JournalDetail {
             case WEB_PUSH_UNSUBSCRIBE -> TEXTS.journal().webPushUnsubscribe();
             case START_GAME -> TEXTS.journal().startGame();
             case LINK_CODES_EXHAUSTED -> TEXTS.journal().linkCodesExhausted();
-            case SET_LAUNCH -> TEXTS.journal().clearLaunch();
-            case SET_SMP_START -> TEXTS.journal().clearSmpStart();
             default -> TEXTS.journal().action(action);
         };
     }
@@ -216,10 +214,7 @@ public sealed interface JournalDetail {
                     SeasonDetail.LaunchedNow,
                     SeasonDetail.SeasonClosed,
                     SeasonDetail.MaintenanceSet,
-                    SeasonDetail.ModeSwitched,
-                    SeasonDetail.PhaseSet,
-                    SeasonDetail.LaunchSet,
-                    SeasonDetail.SmpStartSet {}
+                    SeasonDetail.ModeSwitched {}
 
     record KeyRegistered(String label) implements JournalDetail {
         @Override
@@ -496,18 +491,6 @@ public sealed interface JournalDetail {
             for (int position = 0; position < below.size(); position++) {
                 row(handle, "journal_admin_below", entry, "position", position, "discord_id", below.get(position));
             }
-        }
-    }
-
-    record GrantUnanchored(Instant from) implements JournalDetail {
-        @Override
-        public MessageRef line() {
-            return TEXTS.journal().unanchoredGrant(from);
-        }
-
-        @Override
-        public void insert(final Handle handle, final UUID entry) {
-            row(handle, "journal_unanchored", entry, "valid_from", from);
         }
     }
 

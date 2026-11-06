@@ -25,18 +25,21 @@ function properties.label(info)
   return (e.name or nil) or (e.constant or nil)
 end
 
--- The question that confirms the delete of info
+-- The question that confirms the delete of info: for an override or
+-- an item, the question and what goes with it as lines of their own,
+-- since a long id would push one line past the window
 function properties.confirm(info, tr)
-  local text
   if info.kind == "override" then
+    local lines = { tr("properties.delete_question", info.texture.id), tr("properties.delete_texture_note") }
     -- An override of Minecraft's texture gives the jar's back
-    local vanilla = info.texture.id:find("^minecraft:") ~= nil
-    text = tr(vanilla and "properties.delete_confirm_override" or "properties.delete_confirm_texture", info.texture.id)
+    if info.texture.id:find("^minecraft:") then
+      table.insert(lines, tr("properties.delete_override_note"))
+    end
+    return lines
   elseif info.kind == "item" then
-    text = tr("properties.delete_confirm_item", info.entry.id)
-  else
-    text = tr("properties.delete_confirm", properties.label(info))
+    return { tr("properties.delete_question", info.entry.id), tr("properties.delete_item_note") }
   end
+  local text = tr("properties.delete_confirm", properties.label(info))
   return text
 end
 

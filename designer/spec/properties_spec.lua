@@ -156,14 +156,19 @@ describe("an edit of a property", function()
     assert.is_truthy(table.concat(shown(override()), "\n"):find("delete=properties.delete*", 1, true))
     assert.same({ "deleteTexture", { texture="minecraft:gui/sprites/widget/button.png" } },
       properties.jobs(override(), "delete", {}))
-    assert.equal("properties.delete_confirm_override minecraft:gui/sprites/widget/button.png", properties.confirm(override(), tr))
+    assert.same({ "properties.delete_question minecraft:gui/sprites/widget/button.png", "properties.delete_texture_note",
+      "properties.delete_override_note" }, properties.confirm(override(), tr))
+    local own = override()
+    own.texture.id = "nordtal:gui/frame.png"
+    assert.same({ "properties.delete_question nordtal:gui/frame.png", "properties.delete_texture_note" },
+      properties.confirm(own, tr))
   end)
 
   it("deletes an item by its id, and asks first by its id", function()
     local item = { kind="item", entry={ id="nordtal:wand", model="nordtal:item/wand", file="src/assets/nordtal/items/wand.json" } }
     assert.is_truthy(table.concat(shown(item), "\n"):find("delete=properties.delete*", 1, true))
     assert.same({ "deleteItem", { item="nordtal:wand" } }, properties.jobs(item, "delete", {}))
-    assert.equal("properties.delete_confirm_item nordtal:wand", properties.confirm(item, tr))
+    assert.same({ "properties.delete_question nordtal:wand", "properties.delete_item_note" }, properties.confirm(item, tr))
   end)
 
   it("writes a nine-slice scaling with its border as four numbers", function()

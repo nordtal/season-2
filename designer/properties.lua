@@ -6,16 +6,21 @@
 
 local properties = {}
 
+-- The integer of a whole number, any other value as it is. Aseprite's
+-- Lua floors in math.tointeger, so a fraction needs its own check.
+local function int(value)
+  if type(value) == "number" and value % 1 == 0 then
+    return math.tointeger(value) or value
+  end
+  return value
+end
+
 -- A number of the model as text: JSON gives every number as a float
 local function shown(value)
   if type(value) == "number" then
-    return (tostring(math.tointeger(value) or value))
+    return (tostring(int(value)))
   end
   return (tostring(value))
-end
-
-local function int(value)
-  return math.tointeger(value) or value
 end
 
 -- The name or constant by which the tasks find a glyph or cell, or

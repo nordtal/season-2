@@ -46,6 +46,16 @@ describe("the properties of an entry", function()
     }, shown(glyph(), true))
   end)
 
+  it("shows a fraction as it is where Aseprite's math.tointeger floors it", function()
+    local tointeger = math.tointeger
+    math.tointeger = function(value) return math.floor(value) end
+    local ok, rows = pcall(shown, glyph({ height=7.5, ascent=6.0 }), true)
+    math.tointeger = tointeger
+    assert.is_true(ok)
+    assert.is_truthy(table.concat(rows, "\n"):find("height=7.5*", 1, true))
+    assert.is_truthy(table.concat(rows, "\n"):find("ascent=6*", 1, true))
+  end)
+
   it("renames a glyph without a name by its constant", function()
     local rows = shown(glyph({ name=false, constant="HALF_MOON" }), true)
     assert.equal("constant=HALF_MOON*", rows[4])

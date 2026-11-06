@@ -101,7 +101,7 @@ try {
 
   assert.deepEqual(await rows(desktop), {
     nordtal: ["Distances"],
-    plugins: ["B stats", "Chunky", "CoreProtect", "LuckPerms"],
+    plugins: ["bStats", "Chunky", "CoreProtect", "LuckPerms"],
   })
   assert.equal(await icon(desktop, "CoreProtect"), ICONS.CoreProtect)
   assert.equal(await icon(desktop, "LuckPerms"), ICONS.LuckPerms)
@@ -110,11 +110,11 @@ try {
     .evaluate((tab) => tab.querySelector("svg")?.innerHTML)
   assert.equal(await icon(desktop, "Chunky"), plug, "a plugin without an icon shows the plugins icon")
 
-  await expand(desktop, "B stats", "LuckPerms", /yaml-storage/)
+  await expand(desktop, "bStats", "LuckPerms", /yaml-storage/)
   assert.deepEqual(await rows(desktop), {
     nordtal: ["Distances"],
     plugins: [
-      "B stats",
+      "bStats",
       "config.yml",
       "notes.txt",
       "Chunky",
@@ -130,12 +130,12 @@ try {
   const folder = await desktop
     .getByRole("button", { name: /yaml-storage/ })
     .evaluate((row) => row.firstElementChild?.innerHTML)
-  assert.equal(await icon(desktop, "B stats"), folder, "a folder no jar claims shows the folder icon")
+  assert.equal(await icon(desktop, "bStats"), folder, "a folder no jar claims shows the folder icon")
   assert.notEqual(folder, plug)
 
   const before = snapshot()
   await desktop.getByRole("button", { name: "notes.txt", exact: true }).click()
-  const text = desktop.getByRole("textbox", { name: "B stats notes.txt" })
+  const text = desktop.getByRole("textbox", { name: "bStats notes.txt" })
   await text.click()
   await desktop.keyboard.press("Control+Home")
   await desktop.keyboard.press("End")
@@ -151,7 +151,7 @@ try {
   await desktop.keyboard.type(" Saved.")
   await desktop.getByRole("button", { name: "Save 1" }).click()
   await until("the save", () => changed(before, snapshot()).length > 0)
-  await desktop.getByText("B stats notes.txt saved.").waitFor()
+  await desktop.getByText("bStats notes.txt saved.").waitFor()
   assert.deepEqual(changed(before, snapshot()), [NOTES], "a save writes its own file only")
   assert.equal(readFileSync(path.join(volumes, NOTES), "utf8"), `${NOTES_TEXT} Saved.\n`)
   await desktop.screenshot({ path: path.join(shots, "settings-1280.png"), fullPage: true, animations: "disabled" })

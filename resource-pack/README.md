@@ -287,7 +287,7 @@ absolute path of every file it wrote or deleted.
 | `playSound`     | `sound`; `at`                                                                            | the WAV it wrote              |
 
 - Only Ogg Vorbis files are taken: Minecraft plays no other format, and Audacity exports one with
-  *Export Audio*, format *Ogg Vorbis*. `checkPack` flags an `.ogg` under `src/assets/` that is none.
+  _Export Audio_, format _Ogg Vorbis_. `checkPack` flags an `.ogg` under `src/assets/` that is none.
 - `createSound` refuses the namespace `minecraft`, an event the pack has, and an event that is not
   words of `a` to `z`, `0` to `9`, `_` and `-` with dots between them. It copies the file to
   `sounds/<event, dots as slashes>.ogg`.

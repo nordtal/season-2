@@ -1792,6 +1792,7 @@ describe("the Nordtal tab", function()
     local form
     t.dialogs.answer = function(d) form = d end
     dlg.handlers.publish.onclick()
+    assert.equal("publish.title", form.args.title)
     assert.equal("check", form.widgets[1].kind)
   end)
 

@@ -878,7 +878,7 @@ object Drafts {
         val assets = pack.resolve("src/assets")
         // A deleted file is read as the last commit has it, and so are the textures it draws.
         val deleted = !pack.resolve(path).isFile
-        val held = { file: File -> file.isFile || deleted && inHead(pack, file.relativeTo(pack).invariantSeparatorsPath) }
+        val held = { file: File -> file.isFile || (deleted && inHead(pack, file.relativeTo(pack).invariantSeparatorsPath)) }
         if (Regex("""src/assets/([^/]+)/models/.+\.json""").matches(path)) {
             return PackModel.modelTexture(json["textures"] as? Map<*, *>, assets, held) ?: path
         }

@@ -306,7 +306,11 @@ class DraftsTest {
         item.writeText("""{ "model": { "type": "minecraft:model", "model": "nordtal:item/wand" }, "oversized_in_gui": true }""")
 
         assertEquals(listOf("nordtal:item/a.png", "nordtal:item/b.png"), drafts(clone).map { it.first() })
-        val texture = PackModel.itemTexture(mapOf("type" to "minecraft:model", "model" to "nordtal:item/wand"), clone.pack.resolve("src/assets"))
+        val texture =
+            PackModel.itemTexture(
+                mapOf("type" to "minecraft:model", "model" to "nordtal:item/wand"),
+                clone.pack.resolve("src/assets"),
+            )
         assertEquals("nordtal:item/b.png", texture)
     }
 

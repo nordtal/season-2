@@ -124,7 +124,7 @@ object OxfmtJson {
 
     /**
      * The index in [old] whose layout each member of [value] keeps, or null. An object or array keeps that of an equal one,
-     * else of a free one between those of its neighbours; a scalar keeps that of its own index.
+     * else of the most alike free one between those of its neighbours; a scalar keeps that of its own index.
      */
     private fun slots(
         value: List<*>,
@@ -133,19 +133,42 @@ object OxfmtJson {
         val slots = MutableList<Int?>(value.size) { null }
         val used = mutableSetOf<Int>()
         value.forEachIndexed { i, member ->
-            if (member !is Map<*, *> && member !is List<*>) {
-                slots[i] = i.takeIf { it < old.size }
-                return@forEachIndexed
-            }
-            slots[i] = old.indices.firstOrNull { it !in used && same(old[it], member) }?.also { used += it }
+            slots[i] =
+                if (member !is Map<*, *> && member !is List<*>) {
+                    i.takeIf { it < old.size && it !in used }
+                } else {
+                    old.indices.firstOrNull { it !in used && same(old[it], member) }
+                }?.also { used += it }
         }
-        value.indices.filter { slots[it] == null && (value[it] is Map<*, *> || value[it] is List<*>) }.forEach { i ->
-            val after = (i - 1 downTo 0).firstNotNullOfOrNull { slots[it] } ?: -1
-            val before = (i + 1 until value.size).firstNotNullOfOrNull { slots[it] } ?: old.size
-            slots[i] = (after + 1 until before).firstOrNull { it !in used }?.also { used += it }
+        val matched = slots.toList()
+        val open = value.indices.filter { slots[it] == null && (value[it] is Map<*, *> || value[it] is List<*>) }
+        // Each pair of a member and a free index between its neighbours' matches, the most alike first
+        val pairs =
+            open
+                .flatMap { i ->
+                    val after = (i - 1 downTo 0).firstNotNullOfOrNull { matched[it] } ?: -1
+                    val before = (i + 1 until value.size).firstNotNullOfOrNull { matched[it] } ?: old.size
+                    (after + 1 until before).filter { it !in used }.map { Triple(i, it, alike(value[i], old[it])) }
+                }.sortedByDescending { it.third }
+        pairs.forEach { (i, j, _) ->
+            if (slots[i] == null && j !in used) {
+                slots[i] = j
+                used += j
+            }
         }
         return slots
     }
+
+    /** How many members of [a] and [b] are the same at the same key or index. */
+    private fun alike(
+        a: Any?,
+        b: Any?,
+    ): Int =
+        when {
+            a is Map<*, *> && b is Map<*, *> -> a.count { (key, member) -> b.containsKey(key) && same(member, b[key]) }
+            a is List<*> && b is List<*> -> a.indices.count { it < b.size && same(a[it], b[it]) }
+            else -> 0
+        }
 
     /** Whether [a] and [b] hold the same JSON, a number equal to another however it is spelled. */
     private fun same(

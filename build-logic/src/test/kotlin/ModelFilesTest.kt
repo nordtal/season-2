@@ -302,6 +302,34 @@ class ModelFilesTest {
     }
 
     @Test
+    fun aCubeAddedInFrontOfAnEditedOneLeavesTheEditedOnesOtherLines() {
+        model.writeText(laidOut().replaceFirst("\n            \"faces\"", "\n\n            \"faces\""))
+        val before = model.readText().lines()
+
+        reimported { project ->
+            @Suppress("UNCHECKED_CAST")
+            val elements = project["elements"] as MutableList<Any?>
+            @Suppress("UNCHECKED_CAST")
+            val up = ((elements[0] as Map<*, *>)["faces"] as Map<*, *>)["up"] as MutableMap<String, Any?>
+            up["uv"] = listOf(0, 0, 8, 16)
+            @Suppress("UNCHECKED_CAST")
+            val cube = JsonSlurper().parseText(JsonOutput.toJson(elements[1])) as MutableMap<String, Any?>
+            cube["from"] = listOf(12, 1, 0)
+            cube["to"] = listOf(14, 2, 16)
+            elements.add(0, cube)
+        }
+
+        val after = model.readText().lines()
+        val edited =
+            before.drop(8).map {
+                it.replace(""""up": { "uv": [0, 0, 16, 16]""", """"up": { "uv": [0, 0, 8, 16]""")
+            }
+        assertEquals(1, edited.zip(before.drop(8)).count { (a, b) -> a != b })
+        assertEquals(before.take(8), after.take(8))
+        assertEquals(edited, after.takeLast(before.size - 8))
+    }
+
+    @Test
     fun aReimportKeepsEachNumberAsItWasSpelled() {
         model.writeText(laidOut().replace("[16, 1, 16]", "[16.0, 1, 16]"))
         val before = model.readText()

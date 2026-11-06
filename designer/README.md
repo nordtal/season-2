@@ -9,19 +9,20 @@ offers only **Quit**, since the app's version changes only with a restart.
 The Nordtal tab holds the embedded editor below the Minecraft bar. The bar ends in the status line.
 The tab's side panel holds the **Publish** button above the tree of the resource pack, and the tree
 above the properties panel of the selected entry, with a splitter between them. The main window
-docks the side panel left of the colour bar while the tab is active. The side panel keeps the width and the splitter's place the designer drags
-them to. The editor takes the rest of the width. A longer node of the tree scrolls. The plugin runs
-`:resource-pack:describePack` with the clone's Gradle wrapper and builds the tree from
-`build/pack-model.json`. Every task starts as `java -jar gradle/wrapper/gradle-wrapper.jar` on the
-JDK of the bootstrap's `JAVA_HOME`, so no shell and no batch file reads an option. A task that
-cannot start shows why in the status line. A click on an entry opens its texture in the editor,
-zoomed to fit, unless its PNG lies outside `resource-pack/src/` or its source outside
-`resource-pack/art/`. Then the editor stays empty and the tab says why. When the sprite leaves the
-editor without the tab, such as with **File > Close**, the tree selects nothing, so a click opens
-the entry again. Each save of that sprite writes its `.aseprite` source under `resource-pack/art/`
-and its PNG: the first frame for a glyph or an item, every frame for a vanilla override. A click on
-another entry saves the sprite first when it has unsaved changes, and keeps it open when that save
-fails. **View > Nordtal Tree on the Right** docks the side panel right of the tools.
+docks the side panel left of the colour bar while the tab is active. The side panel keeps the width
+and the splitter's place the designer drags them to. The editor takes the rest of the width. A
+longer node of the tree scrolls. The plugin runs `:resource-pack:describePack` with the clone's
+Gradle wrapper and builds the tree from `build/pack-model.json`. Every task starts as `java -jar
+gradle/wrapper/gradle-wrapper.jar` on the JDK of the bootstrap's `JAVA_HOME`, so no shell and no
+batch file reads an option. A task that cannot start shows why in the status line. A click on an
+entry opens its texture in the editor, zoomed to fit, unless its PNG lies outside
+`resource-pack/src/` or its source outside `resource-pack/art/`. Then the editor stays empty and
+the tab says why. When the sprite leaves the editor without the tab, such as with **File > Close**,
+the tree selects nothing, so a click opens the entry again. Each save of that sprite writes its
+`.aseprite` source under `resource-pack/art/` and its PNG: the first frame for a glyph or an item,
+every frame for a vanilla override. A click on another entry saves the sprite first when it has
+unsaved changes, and keeps it open when that save fails. **View > Nordtal Tree on the Right** docks
+the side panel right of the tools.
 
 The tree's **Textures** lists every PNG under `src/assets/<namespace>/textures/` outside `minecraft`
 that no glyph, sheet or item of the tree shows, by namespace and folder, so a texture that nothing

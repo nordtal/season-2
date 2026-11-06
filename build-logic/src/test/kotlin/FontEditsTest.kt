@@ -294,10 +294,15 @@ class FontEditsTest {
         use("build.gradle.kts", "advances.put(\"nordtal:hud\", \"hud.properties\")\n")
         use("smp/src/main/kotlin/Hud.kt", "val left = Glyphs.ARROW_LEFT\n")
         use("README.md", "The font \"nordtal:hud\" draws the HUD.\n")
+        use("smp/src/test/kotlin/HudTest.kt", "val font = \"nordtal:hud\"\n")
+        use("designer/spec/pack_spec.lua", "local font = \"nordtal:hud\"\n")
 
         val error = assertThrows<IllegalStateException> { FontEdits.deleteFont(pack, repository, "nordtal:hud") }
 
-        assertEquals("The font nordtal:hud is still used in 2 places:\n    build.gradle.kts:1\n    smp/src/main/kotlin/Hud.kt:1", error.message)
+        assertEquals(
+            "The font nordtal:hud is still used in 2 places:\n    build.gradle.kts:1\n    smp/src/main/kotlin/Hud.kt:1",
+            error.message,
+        )
         assertThrows<IllegalArgumentException> { FontEdits.deleteFont(pack, repository, "minecraft:default") }
         assertEquals(glyphs, allocation.readText())
     }

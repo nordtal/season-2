@@ -783,6 +783,24 @@ describe("the Nordtal tab", function()
     assert.same({ { "saveAs", arrowsSource }, { "png", arrows } }, { t.log[#t.log - 1], t.log[#t.log] })
   end)
 
+  it("adds no cell to a sheet whose sprite is not in the editor, since its source would stay narrow", function()
+    local sheetModel = dkjson.encode({ fonts={ { font="nordtal:hud", constant="FONT_HUD", blocks={
+      { kind="sheet", title="Arrows", range="FE040-FE04F", height=5, ascent=4, characters=false,
+        texture={ id="nordtal:hud/arrows.png", png="src/assets/nordtal/textures/hud/arrows.png",
+                  aseprite="art/assets/nordtal/textures/hud/arrows.aseprite", asepriteExists=true, width=14, height=7 },
+        cells={ { code="FE040", constant="ARROW_LEFT" } } } } } },
+      items={}, overrides={} })
+    local t = setUp(nil, sheetModel)
+    local dlg = loaded(t)
+    -- Neither its source nor its PNG exists, so the editor stays empty
+    dlg.handlers.tree.onchange({ node="sheet/nordtal:hud/1" })
+    local started = #t.started
+    t.dialogs.answer = function(d) d.data = { ok=true, constants="ARROW_UP" } end
+    click(dlg, "properties.add_cells")
+    assert.equal(started, #t.started)
+    assert.equal("status.sheet_closed", status(dlg))
+  end)
+
   it("asks before a pixel size that loses or doubles rows, and resizes only once confirmed", function()
     local t = setUp()
     local dlg = loaded(t)

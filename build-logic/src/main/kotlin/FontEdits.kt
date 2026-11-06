@@ -22,7 +22,9 @@ object FontEdits {
         about: String? = null,
     ): List<File> {
         val (namespace, _) = Identifier.parse(font)
-        if (namespace == "minecraft") throw FieldRefusal("namespace", "A font of minecraft is one of the client's: give it a namespace of its own.")
+        if (namespace == "minecraft") {
+            throw FieldRefusal("namespace", "A font of minecraft is one of the client's: give it a namespace of its own.")
+        }
         if (constant.isBlank()) throw FieldRefusal("constant", "A font needs the constant by which code names it.")
         return NewTextures.edit(pack, null, 0, 0, refused = "constant") { root ->
             val fonts = root["fonts"] as MutableList<Any?>

@@ -152,8 +152,8 @@ object NewTextures {
 
     /**
      * Applies [change] to `glyphs.json`, checks the result, and writes it, a transparent [png] of [width] by [height] and
-     * the files of [write], and deletes [remove], all or none. A result that [GlyphAllocation] refuses is a [FieldRefusal] of the field [refused]
-     * when one is given.
+     * the files of [write], and deletes [remove], all or none. A result that [GlyphAllocation] refuses is a [FieldRefusal]
+     * of the field [refused] when one is given.
      */
     internal fun edit(
         pack: File,

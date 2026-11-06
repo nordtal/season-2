@@ -41,7 +41,8 @@ The font `minecraft:default` and a sheet of ordinary characters have no Delete b
 font has no constant to edit. The rows, pitch, numbering, spaces and lists of a font stay read only and
 are changed in `glyphs.json`. **Add Cells** on a sheet asks for the constants of the new cells and runs
 `addSheetCells`, which widens the PNG by one cell each on the right. The tab then widens the open
-sprite to match and saves it, so its source keeps the new cells.
+sprite to match and saves it, so its source keeps the new cells. While the sheet's sprite is not in
+the editor, the status line says so and no cell is added.
 The tasks run one at a time, and a click while one runs says that a change is being written. The tab
 reads the pack again after them. A refused task shows its reason at the top of the properties panel,
 with each place that still uses the entry.

@@ -254,10 +254,9 @@ object GlyphEdits {
     ) = refuseUsed(repository, found.label, listOfNotNull(found.glyph["constant"] as String?), listOfNotNull(found.glyph["name"] as String?))
 
     /**
-     * Refuses while the repository's files, tracked or not yet, use one of [constants], [names] or [fonts], and lists each
-     * place under [label]. A use is `Glyphs.CONSTANT` in Java or Kotlin, the bare `CONSTANT` in a file that imports it or
-     * every glyph statically, `<glyph:name>`, or a font id in quotes outside `glyphs.json` and Markdown. A tag that code
-     * builds at runtime is not found.
+     * Refuses while the repository's files use one of [constants], [names] or [fonts], and lists each place under [label]:
+     * `Glyphs.CONSTANT`, a bare `CONSTANT` that is imported, `<glyph:name>`, or a font id in quotes outside tests, specs,
+     * `glyphs.json` and Markdown. A tag that code builds at runtime is not found.
      */
     internal fun refuseUsed(
         repository: File,
@@ -273,7 +272,9 @@ object GlyphEdits {
         val places =
             trackedFiles(repository, emptyList(), untracked = true).flatMap { path ->
                 val code = path.endsWith(".java") || path.endsWith(".kt")
-                val quoted = ids.isNotEmpty() && !path.endsWith(".md") && !path.endsWith("/glyphs.json") && path != "glyphs.json"
+                val quoted =
+                    ids.isNotEmpty() && !path.endsWith(".md") && !path.endsWith("/glyphs.json") && path != "glyphs.json" &&
+                        !fixtures.containsMatchIn(path)
                 val text = if ((code && qualified != null) || tags.isNotEmpty() || quoted) readText(repository.resolve(path)) else null
                 val bare = if (code && text != null) imported(text, constants) else null
                 text
@@ -292,6 +293,9 @@ object GlyphEdits {
                 places.joinToString("\n") { "    $it" }
         }
     }
+
+    /** The folders of tests and specs, whose font ids are fixtures that name no font of the pack */
+    private val fixtures = Regex("""(^|/)(src/test|spec)/""")
 
     /** The bare uses of those of [constants] that [text] imports, one by one or with every glyph, or null for none. */
     private fun imported(

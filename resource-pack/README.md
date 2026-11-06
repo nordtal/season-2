@@ -247,7 +247,8 @@ and fails with the reason when it refuses.
   constant is refused while code uses the old one, and `minecraft:default` has none. A glyph without
   its own `height` or `ascent` takes the block's new one.
 - New cells follow the last cell of the sheet, one per constant, and the PNG grows by one cell width per
-  new cell on the right, in transparent columns. Nordtal Designer widens the `.aseprite` source too.
+  new cell on the right, in transparent columns. Nordtal Designer adds cells only to the sheet open in its
+  editor, and widens its `.aseprite` source too.
 - A delete removes the block or font with every glyph, and the PNG under `src/` and the `.aseprite` under
   `art/` of each texture that no other glyph, sheet or item model draws. A list that loses its last
   glyph goes too. It refuses while code uses a constant, a name or such a list, as a glyph's delete

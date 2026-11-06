@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>This {@terms.station-rail, n=1} belongs to the spawn.</bad> <muted>Nobody can break it.</muted>",
+            "de": "<bad>Diese {@terms.station-rail, n=1} gehört zum Spawn.</bad> <muted>Niemand kann sie abbauen.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

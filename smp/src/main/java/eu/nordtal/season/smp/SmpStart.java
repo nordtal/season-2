@@ -306,7 +306,8 @@ final class SmpStart {
         plugin.getServer().getPluginManager().registerEvents(rides, plugin);
         plugin.getServer()
                 .getPluginManager()
-                .registerEvents(new StationRailListener(rails, plugin.identities(), plugin.sounds), plugin);
+                .registerEvents(
+                        new StationRailListener(rails, plugin.identities(), plugin.sounds, plugin.renderer()), plugin);
         final StationMenus menus = new StationMenus(
                 rails,
                 rides,

@@ -347,8 +347,6 @@ export type TextArgs = {
     run: Arg["number"]
     kind: Arg["choice"]
   }
-  "journal.clear-launch": Record<string, never>
-  "journal.clear-smp-start": Record<string, never>
   "journal.close-season": {
     from: Arg["instant"]
   }
@@ -454,9 +452,6 @@ export type TextArgs = {
   "journal.set-aura": {
     aura: Arg["number"]
   }
-  "journal.set-launch": {
-    to: Arg["instant"]
-  }
   "journal.set-launch-date": {
     to: Arg["instant"]
     moved: Arg["number"]
@@ -473,21 +468,8 @@ export type TextArgs = {
     on: Arg["choice"]
     reason: Arg["text"]
   }
-  "journal.set-phase": {
-    from: Arg["text"]
-    to: Arg["text"]
-  }
-  "journal.set-phase-because": {
-    from: Arg["text"]
-    to: Arg["text"]
-    reason: Arg["text"]
-  }
   "journal.set-playtime": {
     seconds: Arg["duration"]
-  }
-  "journal.set-smp-start": {
-    to: Arg["instant"]
-    movedGrants: Arg["number"]
   }
   "journal.set-spins": {
     spins: Arg["number"]
@@ -515,9 +497,6 @@ export type TextArgs = {
     from: Arg["choice"]
     to: Arg["choice"]
     reason: Arg["text"]
-  }
-  "journal.unanchored-grant": {
-    from: Arg["instant"]
   }
   "journal.unlink": {
     selfService: Arg["choice"]

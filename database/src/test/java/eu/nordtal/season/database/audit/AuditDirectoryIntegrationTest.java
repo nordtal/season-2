@@ -267,7 +267,6 @@ class AuditDirectoryIntegrationTest {
         written.put(new JournalDetail.ObjectiveCompleted("first-diamond"), JournalAction.COMPLETE_OBJECTIVE);
         written.put(new JournalDetail.MilestoneUnlocked("nether"), JournalAction.UNLOCK_MILESTONE);
         written.put(new JournalDetail.AdminRevoked(List.of(BOB, ALICE)), JournalAction.REVOKE_ADMIN);
-        written.put(new JournalDetail.GrantUnanchored(UNTIL), JournalAction.UNANCHORED_GRANT);
         written.put(new JournalDetail.AuraSet(-40), JournalAction.SET_AURA);
         written.put(new JournalDetail.SpinsSet(3), JournalAction.SET_SPINS);
         written.put(new JournalDetail.StackRemoved("minecraft:oak_log", 12), JournalAction.REMOVE_STACK);
@@ -277,14 +276,8 @@ class AuditDirectoryIntegrationTest {
         return written;
     }
 
-    /** One detail of every season action, the old phase ones included until their contract step. */
+    /** One detail of every season action. */
     private static void seasonDetails(final Map<JournalDetail, JournalAction> written) {
-        written.put(new SeasonDetail.PhaseSet("PRE_EVENT", "SMP", "the opening"), JournalAction.SET_PHASE);
-        written.put(new SeasonDetail.PhaseSet("SMP", "MAINTENANCE", null), JournalAction.SET_PHASE);
-        written.put(new SeasonDetail.LaunchSet(UNTIL), JournalAction.SET_LAUNCH);
-        written.put(new SeasonDetail.LaunchSet(null), JournalAction.SET_LAUNCH);
-        written.put(new SeasonDetail.SmpStartSet(UNTIL, 3), JournalAction.SET_SMP_START);
-        written.put(new SeasonDetail.SmpStartSet(null, 0), JournalAction.SET_SMP_START);
         written.put(new SeasonDetail.LaunchDateSet(null, UNTIL, 0, null), JournalAction.SET_LAUNCH_DATE);
         written.put(
                 new SeasonDetail.LaunchDateSet(UNTIL.minus(Duration.ofDays(2)), UNTIL, 4, "a later weekend"),

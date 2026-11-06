@@ -20,11 +20,10 @@ interface AuditDao {
                        AS run_services,
                    rr.archive AS run_archive, rp.artifact AS run_artifact,
                    g.days AS grant_days, g.until AS grant_until, rv.grants, pt.seconds AS playtime_seconds,
-                   ul.self_service, b.days AS booked_days, b.donation_cents, ph.from_phase, ph.to_phase, ph.reason,
-                   la.opens, ss.starts, ss.moved_grants, k.label, k.unlocked, k.hold_seconds AS key_hold_seconds,
+                   ul.self_service, b.days AS booked_days, b.donation_cents, k.label, k.unlocked, k.hold_seconds AS key_hold_seconds,
                    k.keys_left, f.hold_seconds AS factor_hold_seconds, f.keys, f.authenticator, f.sessions,
                    pu.alert, pu.channel, pu.enabled, co.command, st.setting_group, bu.bundle, pl.artifact,
-                   bk.archive, bk.size_bytes, ob.objective, mi.milestone, un.valid_from, au.aura, sp.spins,
+                   bk.archive, bk.size_bytes, ob.objective, mi.milestone, au.aura, sp.spins,
                    rs.item AS removed_item, rs.amount AS removed_amount, tr.reason AS reset_reason,
                    sl.from_launch, sl.to_launch, sl.moved_grants AS launch_moved_grants, sl.reason AS launch_reason,
                    mn.maintenance, mn.reason AS maintenance_reason, sm.from_mode, sm.to_mode,
@@ -43,9 +42,6 @@ interface AuditDao {
                      LEFT JOIN journal_playtime pt ON pt.entry = e.id
                      LEFT JOIN journal_unlink ul ON ul.entry = e.id
                      LEFT JOIN journal_booking b ON b.entry = e.id
-                     LEFT JOIN journal_phase ph ON ph.entry = e.id
-                     LEFT JOIN journal_launch la ON la.entry = e.id
-                     LEFT JOIN journal_smp_start ss ON ss.entry = e.id
                      LEFT JOIN journal_key k ON k.entry = e.id
                      LEFT JOIN journal_factor f ON f.entry = e.id
                      LEFT JOIN journal_push pu ON pu.entry = e.id
@@ -56,7 +52,6 @@ interface AuditDao {
                      LEFT JOIN journal_backup bk ON bk.entry = e.id
                      LEFT JOIN journal_objective ob ON ob.entry = e.id
                      LEFT JOIN journal_milestone mi ON mi.entry = e.id
-                     LEFT JOIN journal_unanchored un ON un.entry = e.id
                      LEFT JOIN journal_aura au ON au.entry = e.id
                      LEFT JOIN journal_spins sp ON sp.entry = e.id
                      LEFT JOIN journal_removed_stack rs ON rs.entry = e.id

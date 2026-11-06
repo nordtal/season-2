@@ -14,7 +14,6 @@ import eu.nordtal.season.database.JournalDetail.AuthenticatorUsed;
 import eu.nordtal.season.database.JournalDetail.BackupDownloaded;
 import eu.nordtal.season.database.JournalDetail.ConsoleTyped;
 import eu.nordtal.season.database.JournalDetail.FactorsForgotten;
-import eu.nordtal.season.database.JournalDetail.GrantUnanchored;
 import eu.nordtal.season.database.JournalDetail.KeyHeld;
 import eu.nordtal.season.database.JournalDetail.KeyRegistered;
 import eu.nordtal.season.database.JournalDetail.KeyRemoved;
@@ -35,9 +34,6 @@ import eu.nordtal.season.database.JournalDetail.SpinsSet;
 import eu.nordtal.season.database.JournalDetail.StackRemoved;
 import eu.nordtal.season.database.JournalDetail.TrackReset;
 import eu.nordtal.season.database.JournalDetail.Unlinked;
-import eu.nordtal.season.database.SeasonDetail.LaunchSet;
-import eu.nordtal.season.database.SeasonDetail.PhaseSet;
-import eu.nordtal.season.database.SeasonDetail.SmpStartSet;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
 import eu.nordtal.season.database.audit.AuditEntry;
@@ -85,10 +81,8 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     REMOVE_STACK,
                     UNLINK,
                     SETTLE,
-                    REVOKE_ADMIN,
-                    UNANCHORED_GRANT -> person(action, rs);
-            case SET_PHASE, SET_LAUNCH, SET_SMP_START, ANNOUNCE, COMPLETE_OBJECTIVE, UNLOCK_MILESTONE, RESET_TRACK ->
-                season(action, rs);
+                    REVOKE_ADMIN -> person(action, rs);
+            case ANNOUNCE, COMPLETE_OBJECTIVE, UNLOCK_MILESTONE, RESET_TRACK -> season(action, rs);
             case SET_LAUNCH_DATE, LAUNCH_NOW, CLOSE_SEASON, SET_MAINTENANCE, SWITCH_MODE -> launch(action, rs);
             case REGISTER_KEY,
                     RENAME_KEY,
@@ -175,24 +169,12 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                                 Money.euroCents(rs.getInt("donation_cents")));
             }
             case REVOKE_ADMIN -> new AdminRevoked(strings(rs.getArray("below")));
-            case UNANCHORED_GRANT -> {
-                final Instant from = instant(rs, "valid_from");
-                yield from == null ? null : new GrantUnanchored(from);
-            }
             default -> throw new IllegalArgumentException(action + " is not a person action");
         };
     }
 
     private static @Nullable JournalDetail season(final JournalAction action, final ResultSet rs) throws SQLException {
         return switch (action) {
-            case SET_PHASE -> {
-                final String from = rs.getString("from_phase");
-                yield from == null
-                        ? null
-                        : new PhaseSet(from, Objects.requireNonNull(rs.getString("to_phase")), rs.getString("reason"));
-            }
-            case SET_LAUNCH -> new LaunchSet(instant(rs, "opens"));
-            case SET_SMP_START -> new SmpStartSet(instant(rs, "starts"), rs.getLong("moved_grants"));
             case ANNOUNCE -> new Announced(strings(rs.getArray("languages")));
             case COMPLETE_OBJECTIVE -> {
                 final String objective = rs.getString("objective");
@@ -242,7 +224,7 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
         };
     }
 
-    /** Returns a stored phase name as its message value, {@code PRE_EVENT} as {@code pre-event}. */
+    /** Returns the detail of a passkey, authenticator or Web Push action, or null where its row holds none. */
     private static @Nullable JournalDetail security(final JournalAction action, final ResultSet rs)
             throws SQLException {
         return switch (action) {

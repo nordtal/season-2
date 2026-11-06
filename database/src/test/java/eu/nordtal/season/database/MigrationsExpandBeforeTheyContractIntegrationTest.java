@@ -276,10 +276,11 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
         }
         // A run's report, its request as JSON and the services it stops, which the proxy reads from run rows.
         listed(unused, "0.56.0", "nordtal_proxy", "SELECT", "steward_inbox", "outcome", "payload", "moving");
-        // A settings refusal's free text, which no server writes since it names the setting and the rule.
+        // Refusal columns no server writes: a settings refusal's free text and a game start's season phase.
         for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
             listed(unused, "0.73.0", role, "SELECT", "smp_refusal", "detail");
             listed(unused, "0.73.0", role, "SELECT", "hunger_games_refusal", "detail");
+            listed(unused, "0.74.0", role, "SELECT", "hunger_games_refusal", "phase");
         }
         return Map.copyOf(unused);
     }

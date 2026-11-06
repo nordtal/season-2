@@ -109,29 +109,6 @@ public interface AdminTexts {
                 @Arg("ordered") @Example("30") int ordered,
                 @Arg("donation") @Example("100") Money donation);
 
-        @Name("Phase changed")
-        MessageRef setPhase(@Arg("from") @Example("pre-event") String from, @Arg("to") @Example("smp") String to);
-
-        @Name("Phase changed, with a reason")
-        MessageRef setPhaseBecause(
-                @Arg("from") @Example("pre-event") String from,
-                @Arg("to") @Example("smp") String to,
-                @Arg("reason") @Example("The start event is over.") String reason);
-
-        @Name("Opening set")
-        MessageRef setLaunch(@Arg("to") @Example("2026-10-24T18:00:00Z") Instant to);
-
-        @Name("Opening cleared")
-        MessageRef clearLaunch();
-
-        @Name("Paid time set")
-        MessageRef setSmpStart(
-                @Arg("to") @Example("2026-10-31T18:00:00Z") Instant to,
-                @Arg("movedGrants") @Example("3") long movedGrants);
-
-        @Name("Paid time cleared")
-        MessageRef clearSmpStart();
-
         @Name("Launch date set")
         MessageRef setLaunchDate(
                 @Arg("to") @Example("2026-11-13T17:00:00Z") Instant to, @Arg("moved") @Example("14") long moved);
@@ -290,10 +267,6 @@ public interface AdminTexts {
 
         @Name("Hunger Games started")
         MessageRef startGame();
-
-        @Name("Access anchored to the grant")
-        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
-        MessageRef unanchoredGrant(@Arg("from") @Example("2026-10-24T18:00:00Z") Instant from);
 
         @Name("Refused linking for the hour")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})

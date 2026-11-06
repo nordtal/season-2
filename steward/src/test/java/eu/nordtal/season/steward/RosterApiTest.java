@@ -142,9 +142,6 @@ class RosterApiTest extends WebTestSupport {
                     "RESET_TRACK PERSON 1 the test weekend is over",
                     text("SELECT e.action || ' ' || e.actor_kind || ' ' || e.actor_id || ' ' || r.reason"
                             + " FROM journal_entry e JOIN journal_track_reset r ON r.entry = e.id"));
-            assertEquals(
-                    "true",
-                    text("SELECT cast(r.requested = p.fresh_start AS text) FROM smp_reset_request r, season_phase p"));
 
             sql("INSERT INTO smp_reset (id, applied) SELECT true, requested FROM smp_reset_request"
                     + " ON CONFLICT (id) DO UPDATE SET applied = EXCLUDED.applied");
@@ -159,7 +156,6 @@ class RosterApiTest extends WebTestSupport {
             sql("DELETE FROM journal_entry WHERE action = 'RESET_TRACK'");
             sql("DELETE FROM smp_reset_request");
             sql("DELETE FROM smp_reset");
-            sql("UPDATE season_phase SET fresh_start = NULL");
         }
     }
 

@@ -1,4 +1,4 @@
-import { DotsThreeIcon } from "@phosphor-icons/react"
+import { DotsThreeIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"

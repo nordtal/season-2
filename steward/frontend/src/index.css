@@ -1,11 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/dm-sans";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/outfit";
 @import "./brand.gen.css";
 
-/* Monocraft (OFL-1.1) stands in for the Minecraft font, which cannot be shipped. */
+/* Monocraft (OFL-1.1) is the mono face, and stands in for the Minecraft font in a preview, which cannot be shipped. */
 @font-face {
   font-family: "Monocraft";
   src: url("/fonts/Monocraft.ttf") format("truetype");
@@ -150,8 +150,9 @@
   --spacing-row: var(--row-height);
   --spacing-cell: var(--cell-padding);
   --spacing-control: var(--control-min-height);
-  --font-sans: "DM Sans Variable", sans-serif;
-  --font-heading: "JetBrains Mono Variable", monospace;
+  --font-sans: "Inter Variable", sans-serif;
+  --font-heading: "Outfit Variable", sans-serif;
+  --font-mono: "Monocraft", ui-monospace, monospace;
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);

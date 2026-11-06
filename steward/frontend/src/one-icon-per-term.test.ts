@@ -11,7 +11,7 @@ const source = path.resolve(path.dirname(fileURLToPath(import.meta.url)))
 
 const MAP = path.join("components", "steward", "term-icons.tsx")
 
-const PHOSPHOR_IMPORT = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*"@phosphor-icons\/react[^"]*"/g
+const ICON_IMPORT = /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*"@\/components\/ui\/icons"/g
 
 function sourceFiles(directory: string): string[] {
   const found: string[] = []
@@ -27,7 +27,7 @@ function sourceFiles(directory: string): string[] {
 }
 
 function iconsImportedBy(text: string): string[] {
-  return [...text.matchAll(PHOSPHOR_IMPORT)].flatMap((match) =>
+  return [...text.matchAll(ICON_IMPORT)].flatMap((match) =>
     match[1]
       .split(",")
       .map((name) => name.replace(/^\s*type\s+/, "").trim())
@@ -75,8 +75,8 @@ describe("one icon per domain term", () => {
 
   /** A broken path would make the rule above pass by finding nothing. */
   it("actually reads the map and the sources", () => {
-    const phosphorServices = Object.values(SERVICE_ICON).filter((icon) => icon !== DiscordMark)
-    expect(mappedIcons().size).toBe(Object.keys(TERM_ICON).length + phosphorServices.length)
+    const pixelServices = Object.values(SERVICE_ICON).filter((icon) => icon !== DiscordMark)
+    expect(mappedIcons().size).toBe(Object.keys(TERM_ICON).length + pixelServices.length)
     const imported = sourceFiles(source).flatMap((file) => iconsImportedBy(readFileSync(file, "utf8")))
     expect(imported).toContain("PlusIcon")
     expect(imported.length).toBeGreaterThan(100)

@@ -1,5 +1,5 @@
 import { Hint } from "@/components/steward/status"
-import { CaretRightIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { CaretRightIcon, PaperPlaneTiltIcon, PlusIcon, TrashIcon } from "@/components/ui/icons"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
 import type {

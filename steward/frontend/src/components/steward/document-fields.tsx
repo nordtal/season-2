@@ -6,7 +6,7 @@ import {
   PlusIcon,
   TrashIcon,
   UploadSimpleIcon,
-} from "@phosphor-icons/react"
+} from "@/components/ui/icons"
 import { useId, useMemo, useRef, type ReactNode } from "react"
 
 import type { SharedPartView, DocumentPart, DocumentProblem, DocumentValue, DocumentView, MessageArg } from "@/lib/api"

@@ -1,4 +1,4 @@
-import { ClockCounterClockwiseIcon, GearSixIcon } from "@phosphor-icons/react"
+import { ClockCounterClockwiseIcon, GearSixIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import * as React from "react"
 import { useNavigate } from "@tanstack/react-router"

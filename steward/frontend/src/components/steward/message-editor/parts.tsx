@@ -15,7 +15,7 @@ import {
   TextStrikethroughIcon,
   TextTSlashIcon,
   TextUnderlineIcon,
-} from "@phosphor-icons/react"
+} from "@/components/ui/icons"
 import { cn } from "@/lib/utils"
 
 import type { GlyphInfo, MessageArg } from "@/lib/api"

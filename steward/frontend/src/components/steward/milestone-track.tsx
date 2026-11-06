@@ -1,4 +1,4 @@
-import { CheckIcon } from "@phosphor-icons/react"
+import { CheckIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
@@ -224,7 +224,7 @@ function Node({ state }: { state: SmpMilestone["state"] }) {
   if (state === "UNLOCKED") {
     return (
       <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-        <CheckIcon className="size-3" weight="bold" />
+        <CheckIcon className="size-3" />
       </span>
     )
   }
@@ -313,7 +313,7 @@ function TaskPopover({ task, active, onAsk }: { task: TrackTask; active: boolean
           <span className="flex min-w-0 items-center justify-between gap-1">
             <span className="truncate">{name}</span>
             {task.completed ? (
-              <CheckIcon className="size-3 shrink-0 text-primary" weight="bold" aria-hidden />
+              <CheckIcon className="size-3 shrink-0 text-primary" aria-hidden />
             ) : working ? (
               <span className="shrink-0 tabular-nums text-muted-foreground">{value} %</span>
             ) : null}

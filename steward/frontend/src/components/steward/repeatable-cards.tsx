@@ -1,5 +1,5 @@
 import { Hint } from "@/components/steward/status"
-import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { PlusIcon, TrashIcon } from "@/components/ui/icons"
 import { useMemo, useState } from "react"
 
 import type { ConfigEntry } from "@/lib/api"

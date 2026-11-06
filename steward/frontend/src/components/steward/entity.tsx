@@ -1,4 +1,4 @@
-import { QuestionIcon } from "@phosphor-icons/react"
+import { QuestionIcon } from "@/components/ui/icons"
 import { Link } from "@tanstack/react-router"
 import { cn } from "@/lib/utils"
 

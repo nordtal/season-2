@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import { ArrowLeftIcon, SpinnerIcon } from "@phosphor-icons/react"
+import { ArrowLeftIcon, SpinnerIcon } from "@/components/ui/icons"
 
 import { Failure } from "@/components/steward/query-state"
 import { Button } from "@/components/ui/button"

@@ -3,7 +3,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
-import { ShieldCheckIcon } from "@phosphor-icons/react"
+import { ShieldCheckIcon } from "@/components/ui/icons"
 import { useState } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -139,6 +139,7 @@ const OWN_MAGNIFIER = new Map<string, string>([
   [path.join("components", "ui", "command.tsx"), "the Ctrl+K field, which cmdk draws"],
   [path.join("app", "island.tsx"), "the dock's button that opens Ctrl+K, not a field"],
   [path.join("components", "steward", "filter-bar.tsx"), "the filter bar itself"],
+  [path.join("components", "ui", "icons.tsx"), "the icon set, which defines the magnifier"],
 ])
 
 describe("every search field is the filter bar's", () => {

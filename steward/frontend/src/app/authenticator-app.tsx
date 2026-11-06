@@ -1,5 +1,5 @@
 import { Hint } from "@/components/steward/status"
-import { ArrowSquareOutIcon, CaretDownIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { ArrowSquareOutIcon, CaretDownIcon, PlusIcon, TrashIcon } from "@/components/ui/icons"
 import { useState } from "react"
 
 import type { Me, StepUpHold, StepUpLength } from "@/lib/api"

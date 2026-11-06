@@ -5,7 +5,7 @@ import {
   ListMagnifyingGlassIcon,
   PaperPlaneTiltIcon,
   XIcon,
-} from "@phosphor-icons/react"
+} from "@/components/ui/icons"
 import { Hint } from "@/components/steward/status"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useLayoutEffect, useMemo, useRef, useState } from "react"

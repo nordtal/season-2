@@ -1,4 +1,4 @@
-import { ArrowSquareOutIcon, QuestionIcon } from "@phosphor-icons/react"
+import { ArrowSquareOutIcon, QuestionIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
 import { cn } from "@/lib/utils"

@@ -1,6 +1,6 @@
 import { Hint } from "@/components/steward/status"
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { ArrowLeftIcon, CaretRightIcon } from "@phosphor-icons/react"
+import { ArrowLeftIcon, CaretRightIcon } from "@/components/ui/icons"
 import { cn } from "@/lib/utils"
 
 import type { BlockUses, Document, DocumentList, DocumentPart, MessageTexts } from "@/lib/api"

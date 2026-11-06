@@ -1,7 +1,7 @@
 import { Hint } from "@/components/steward/status"
 import { useMemo, useState } from "react"
 import { createPortal } from "react-dom"
-import { ArrowCounterClockwiseIcon, EraserIcon, MinusIcon, PaperPlaneTiltIcon, PlusIcon } from "@phosphor-icons/react"
+import { ArrowCounterClockwiseIcon, EraserIcon, MinusIcon, PaperPlaneTiltIcon, PlusIcon } from "@/components/ui/icons"
 import { cn } from "@/lib/utils"
 import { useDebounced } from "@/lib/use-debounced"
 

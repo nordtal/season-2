@@ -1,4 +1,4 @@
-import { CaretRightIcon } from "@phosphor-icons/react"
+import { CaretRightIcon } from "@/components/ui/icons"
 import { useState, type ReactNode } from "react"
 
 import type { Document, DocumentView } from "@/lib/api"

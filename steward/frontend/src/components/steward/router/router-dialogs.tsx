@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { toast } from "sonner"
-import { CalendarPlusIcon, PencilSimpleIcon } from "@phosphor-icons/react"
+import { CalendarPlusIcon, PencilSimpleIcon } from "@/components/ui/icons"
 
 import type { Router, SeasonMode } from "@/lib/api"
 import { NO_VALUE, dateTime, relative } from "@/lib/format"

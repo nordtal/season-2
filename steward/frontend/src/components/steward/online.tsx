@@ -105,7 +105,7 @@ function Where({ online, className }: { online: Online; className?: string }) {
     <ul className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground ${className ?? ""}`}>
       {online.servers.map((row) => (
         <li key={row.service} className="flex items-center gap-1">
-          <span className="tabular-nums text-foreground">{count(row.players)}</span>
+          <span className="font-mono text-foreground">{count(row.players)}</span>
           <span>{serviceTitle(row.service)}</span>
         </li>
       ))}
@@ -128,7 +128,7 @@ export function OnlineLine({ online }: { online: Online }) {
           </p>
         ) : (
           <p className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-semibold tabular-nums tracking-tight">{number}</span>
+            <span className="font-mono text-2xl">{number}</span>
             <span className="text-sm text-muted-foreground">{word}</span>
           </p>
         )}
@@ -177,7 +177,7 @@ export function OnlineCluster({ online }: { online: Online }) {
           </div>
         ) : null}
         <p className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-semibold tabular-nums tracking-tight">{number}</span>
+          <span className="font-mono text-2xl">{number}</span>
           <span className="text-sm text-muted-foreground">{word}</span>
         </p>
       </div>
@@ -193,7 +193,7 @@ export function OnlineFigure({ online }: { online: Online }) {
     <Heading>
       <div className="flex min-w-0 items-end gap-3">
         <p className="flex flex-col">
-          <span className="text-4xl leading-none font-semibold tabular-nums tracking-tight">{number}</span>
+          <span className="font-mono text-4xl leading-none">{number}</span>
           <span className="mt-1 text-sm text-muted-foreground">{word}</span>
         </p>
         <div className="flex flex-col items-start gap-1 pb-0.5">
@@ -226,7 +226,7 @@ export function ServiceOnlineLine({ name }: { name: string }) {
     <div className="flex min-w-0 items-center gap-x-3">
       <Stack online={online} base={base} size="size-7" />
       <p className="flex items-baseline gap-1.5">
-        <span className="text-lg font-semibold tabular-nums tracking-tight">{number}</span>
+        <span className="font-mono text-lg">{number}</span>
         <span className="text-sm text-muted-foreground">{word}</span>
       </p>
     </div>

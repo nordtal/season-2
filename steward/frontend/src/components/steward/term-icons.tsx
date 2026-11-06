@@ -69,8 +69,8 @@ import {
   WarningIcon,
   WrenchIcon,
   XCircleIcon,
-} from "@phosphor-icons/react"
-import type { Icon } from "@phosphor-icons/react"
+} from "@/components/ui/icons"
+import type { Icon } from "@/components/ui/icons"
 import type { ComponentType } from "react"
 
 import { DiscordMark } from "@/app/discord-mark"
@@ -144,7 +144,7 @@ export const TERM_ICON = {
 
 export type Term = keyof typeof TERM_ICON
 
-/** An icon as a list draws it: a Phosphor icon or a brand's mark. */
+/** An icon as a list draws it: a Pixelarticons icon or a brand's mark. */
 export type Glyph = ComponentType<{ className?: string; "aria-hidden"?: boolean }>
 
 /**

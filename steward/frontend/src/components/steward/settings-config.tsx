@@ -1,4 +1,4 @@
-import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react"
+import { ArrowCounterClockwiseIcon } from "@/components/ui/icons"
 import { useMemo } from "react"
 import type { ReactNode } from "react"
 import { cn, type CSSVars } from "@/lib/utils"

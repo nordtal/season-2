@@ -1,4 +1,4 @@
-import { ArrowSquareOutIcon, PlusIcon, SpinnerIcon, TrashIcon } from "@phosphor-icons/react"
+import { ArrowSquareOutIcon, PlusIcon, SpinnerIcon, TrashIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"

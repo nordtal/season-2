@@ -1,7 +1,7 @@
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { CheckIcon, SpinnerIcon, type Icon } from "@phosphor-icons/react"
+import { CheckIcon, SpinnerIcon, type Icon } from "@/components/ui/icons"
 
 import type { CommandRun } from "@/lib/api"
 import { RunNotDone, useGameAction, useHungerGamesRound } from "@/lib/queries"

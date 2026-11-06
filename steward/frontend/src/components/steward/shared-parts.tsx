@@ -1,5 +1,5 @@
 import { Hint } from "@/components/steward/status"
-import { PuzzlePieceIcon } from "@phosphor-icons/react"
+import { PuzzlePieceIcon } from "@/components/ui/icons"
 import { use, useId, useState } from "react"
 
 import type { SharedPartView, DocumentPart } from "@/lib/api"

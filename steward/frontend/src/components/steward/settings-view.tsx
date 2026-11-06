@@ -1,4 +1,4 @@
-import { ArrowUpIcon, CaretRightIcon } from "@phosphor-icons/react"
+import { ArrowUpIcon, CaretRightIcon } from "@/components/ui/icons"
 import { Fragment, use, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import type { ReactNode, RefObject } from "react"

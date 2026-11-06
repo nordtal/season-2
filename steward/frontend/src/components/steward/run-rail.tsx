@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import { CaretDownIcon, CheckIcon, CircleIcon, CircleNotchIcon, MinusIcon } from "@phosphor-icons/react"
+import { CaretDownIcon, CheckIcon, CircleIcon, CircleNotchIcon, MinusIcon } from "@/components/ui/icons"
 import { cn } from "@/lib/utils"
 
 import {
@@ -36,9 +36,9 @@ function verdictWord(verdict: Verdict): string {
 export function Mark({ verdict, className }: { verdict: Verdict; className?: string }) {
   const classes = cn("size-4 shrink-0", VERDICT_COLOUR[verdict], className)
   const word = verdictWord(verdict)
-  if (verdict === "done") return <CheckIcon role="img" aria-label={word} weight="bold" className={classes} />
-  if (verdict === "failed") return <TERM_ICON.failed role="img" aria-label={word} weight="fill" className={classes} />
-  if (verdict === "warning") return <TERM_ICON.warning role="img" aria-label={word} weight="fill" className={classes} />
+  if (verdict === "done") return <CheckIcon role="img" aria-label={word} className={classes} />
+  if (verdict === "failed") return <TERM_ICON.failed role="img" aria-label={word} className={classes} />
+  if (verdict === "warning") return <TERM_ICON.warning role="img" aria-label={word} className={classes} />
   if (verdict === "running") {
     return <CircleNotchIcon role="img" aria-label={word} className={cn(classes, "motion-safe:animate-spin")} />
   }

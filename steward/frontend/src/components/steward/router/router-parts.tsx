@@ -1,5 +1,5 @@
 import { type ComponentProps, type ReactNode, useId } from "react"
-import { ArrowRightIcon } from "@phosphor-icons/react"
+import { ArrowRightIcon } from "@/components/ui/icons"
 
 import { cn } from "@/lib/utils"
 import { t } from "@/lib/texts"

@@ -1,4 +1,4 @@
-import { BellSlashIcon, PaperPlaneTiltIcon, TrashIcon } from "@phosphor-icons/react"
+import { BellSlashIcon, PaperPlaneTiltIcon, TrashIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { Link } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"

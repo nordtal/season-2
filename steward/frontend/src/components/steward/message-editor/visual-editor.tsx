@@ -1,7 +1,7 @@
 import { Hint } from "@/components/steward/status"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
-import { ChatTextIcon } from "@phosphor-icons/react"
+import { ChatTextIcon } from "@/components/ui/icons"
 import { cn } from "@/lib/utils"
 
 import type { GlyphInfo, MessageArg } from "@/lib/api"

@@ -1,6 +1,6 @@
-import { CheckIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
+import { CheckIcon, PlusIcon, XIcon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
-import type { Icon } from "@phosphor-icons/react"
+import type { Icon } from "@/components/ui/icons"
 import { type ReactNode, createContext, use, useMemo, useState } from "react"
 
 import type { ConfigReference, GameIcons } from "@/lib/api"

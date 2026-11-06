@@ -1,4 +1,4 @@
-import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { PlusIcon, TrashIcon } from "@/components/ui/icons"
 import type { ReactNode } from "react"
 
 import type { ConfigChoices, ConfigEntry } from "@/lib/api"

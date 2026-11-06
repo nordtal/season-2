@@ -5,8 +5,8 @@ import {
   ClockCountdownIcon,
   ProhibitIcon,
   SwapIcon,
-} from "@phosphor-icons/react"
-import type { Icon } from "@phosphor-icons/react"
+} from "@/components/ui/icons"
+import type { Icon } from "@/components/ui/icons"
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { useState } from "react"
 import { toast } from "sonner"

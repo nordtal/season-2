@@ -1,4 +1,4 @@
-import { FingerprintIcon, ShieldWarningIcon, SignOutIcon } from "@phosphor-icons/react"
+import { FingerprintIcon, ShieldWarningIcon, SignOutIcon } from "@/components/ui/icons"
 import { useState } from "react"
 
 import type { Me } from "@/lib/api"

@@ -8,7 +8,8 @@ typealias TextFiles = Map<String, Map<String, String>>
 /**
  * The keys of the language files under `src/assets/<namespace>/lang/`. A key is part of the draft of the asset whose
  * translation key it is or starts with and a dot: `item.<ns>.<path>` for an item definition, `block.<ns>.<path>` for a
- * texture under `textures/block/`, each `/` as `.`. Any other key is the draft `text <key>` of its own.
+ * texture under `textures/block/`, each `/` as `.`. A sound event's subtitle key is part of the event's draft. Any other
+ * key is the draft `text <key>` of its own.
  */
 object Texts {
     private val FILE = Regex("""src/assets/([^/]+)/lang/([^/]+)\.json""")
@@ -67,8 +68,8 @@ object Texts {
             }.toSet()
 
     /**
-     * The id of the draft that a key is part of in [pack]: its asset's as [Drafts] names it, where the work tree or
-     * [ref] holds the asset, else `text <key>`. The longest translation key wins where several match.
+     * The id of the draft that a key is part of in [pack]: its asset's as [Drafts] names it, or the sound event's whose
+     * subtitle it is, where the work tree or [ref] holds the asset or event, else `text <key>`. The longest translation key wins where several match.
      */
     fun owner(
         pack: File,
@@ -87,9 +88,10 @@ object Texts {
             BLOCK.matchEntire(path)?.let { assets["block.${it.groupValues[1]}.${it.groupValues[2].replace('/', '.')}"] = path }
         }
         val ids = mutableMapOf<String, String>()
+        val subtitles = Sounds.subtitles(pack, ref)
         return { key ->
             val asset = assets.keys.filter { key == it || key.startsWith("$it.") }.maxByOrNull { it.length }
-            asset?.let { ids.getOrPut(it) { Drafts.idOf(pack, assets.getValue(it)) } } ?: "$OWN$key"
+            asset?.let { ids.getOrPut(it) { Drafts.idOf(pack, assets.getValue(it)) } } ?: subtitles[key] ?: "$OWN$key"
         }
     }
 
@@ -136,8 +138,8 @@ object Texts {
 
     /**
      * Merges the [keys] of [clone] and [main] since [base], each file by itself: a side's change wins where the other
-     * made none. A value that both changed each their own way is a [Drafts.Field] named `<language> <key>`, which takes
-     * the side [fields] names, else the clone's. Returns the merged files and those fields.
+     * made none. A value that both changed each their own way is a [Drafts.Field] that [named] names, `<language> <key>`
+     * for a text, which takes the side [fields] names, else the clone's. Returns the merged files and those fields.
      */
     fun merge(
         base: TextFiles,
@@ -145,6 +147,7 @@ object Texts {
         main: TextFiles,
         keys: Set<String>,
         fields: Map<String, String> = emptyMap(),
+        named: (String, String) -> String = { path, key -> "${language(path)} $key" },
     ): Pair<TextFiles, List<Drafts.Field>> {
         val both = mutableListOf<Drafts.Field>()
         val merged =
@@ -163,7 +166,7 @@ object Texts {
                             }
 
                             else -> {
-                                val name = "${language(path)} $key"
+                                val name = named(path, key)
                                 both += Drafts.Field(name, c[key]?.let(::quoted), m[key]?.let(::quoted))
                                 if (fields[name] == "main") m[key] else c[key]
                             }

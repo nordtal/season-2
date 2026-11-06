@@ -34,6 +34,7 @@ object PackRules {
             }
         fonts(assets).forEach { findings += fontFindings(assets, it, images) }
         findings += itemFindings(assets)
+        findings += soundFindings(assets)
         TRANSPARENT.map { assets.resolve(it) }.forEach { file ->
             val image = images[file] ?: return@forEach
             if (hasPixels(image, 0, 0, image.width, image.height)) {
@@ -184,6 +185,91 @@ object PackRules {
         assets: File,
         file: File,
     ): String = file.relativeTo(assets).invariantSeparatorsPath
+
+    /**
+     * The rules of `sounds.json`, whose one wrong entry makes the client drop the whole file, and of the `.ogg` files,
+     * which must be Ogg Vorbis. A sound in `minecraft` may be the client's, which this check does not download, so it passes.
+     */
+    private fun soundFindings(assets: File): List<String> {
+        val findings = mutableListOf<String>()
+        assets
+            .walkTopDown()
+            .filter { it.isFile && it.extension == "ogg" }
+            .sorted()
+            .forEach {
+                if (!OggVorbis.isVorbis(it.readBytes())) {
+                    findings +=
+                        "${name(assets, it)} is no Ogg Vorbis file, the one format Minecraft plays."
+                }
+            }
+        for (file in assets
+            .listFiles()
+            .orEmpty()
+            .map { it.resolve("sounds.json") }
+            .filter { it.isFile }
+            .sorted()) {
+            val where = name(assets, file)
+            val root = runCatching { JsonSlurper().parse(file) as? Map<*, *> }.getOrNull()
+            if (root == null) {
+                findings += "$where is no JSON object."
+                continue
+            }
+            for ((event, value) in root) {
+                val entry = value as? Map<*, *>
+                if (entry == null) {
+                    findings += "$where: $event is no object."
+                    continue
+                }
+                (entry.keys - setOf("replace", "subtitle", "sounds")).forEach { findings += "$where: $event has the unknown field $it." }
+                if ("replace" in entry && entry["replace"] !is Boolean) findings += "$where: replace of $event must be true or false."
+                if ("subtitle" in entry && entry["subtitle"] !is String) findings += "$where: subtitle of $event must be a translation key."
+                val sounds = entry["sounds"] as? List<*>
+                if (sounds == null) {
+                    findings += "$where: $event has no list of sounds."
+                    continue
+                }
+                sounds.forEachIndexed { index, sound -> findings += soundFindings(assets, "$where: sound $index of $event", sound) }
+            }
+        }
+        return findings
+    }
+
+    private fun soundFindings(
+        assets: File,
+        where: String,
+        sound: Any?,
+    ): List<String> {
+        val fields =
+            (sound as? Map<*, *>) ?: (sound as? String)?.let { mapOf("name" to it) }
+                ?: return listOf("$where is neither a name nor an object.")
+        val findings = mutableListOf<String>()
+        val name = fields["name"] as? String
+        if (name == null || name.isEmpty() || name.any { it.isWhitespace() }) return listOf("$where needs a name without spaces.")
+        (fields.keys - setOf("name", "volume", "pitch", "weight", "stream", "attenuation_distance", "preload", "type")).forEach {
+            findings += "$where has the unknown field $it."
+        }
+        for (field in listOf("volume", "pitch")) {
+            if (field in fields &&
+                (fields[field] as? Number)?.toDouble()?.let { it > 0 } != true
+            ) {
+                findings += "$where: $field must be a number above 0."
+            }
+        }
+        for (field in listOf("weight", "attenuation_distance")) {
+            val value = fields[field]
+            if (field in fields && (value !is Int || value < 1)) findings += "$where: $field must be a whole number from 1."
+        }
+        for (field in listOf("stream", "preload")) {
+            if (field in fields && fields[field] !is Boolean) findings += "$where: $field must be true or false."
+        }
+        val type = fields["type"] ?: "file"
+        if (type != "file" && type != "event") findings += "$where: type must be file or event."
+        val namespace = if (':' in name) name.substringBefore(':') else "minecraft"
+        if (type == "file" && namespace != "minecraft" && !assets.resolve("$namespace/sounds/${name.substringAfter(':')}.ogg").isFile) {
+            findings += "$where names $name, but the pack has no $namespace/sounds/${name.substringAfter(':')}.ogg."
+        }
+        return findings
+    }
 
     private fun hasPixels(
         image: BufferedImage,

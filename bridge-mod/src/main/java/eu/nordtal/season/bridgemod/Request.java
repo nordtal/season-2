@@ -33,6 +33,9 @@ sealed interface Request {
     /** Places a block state, written as `/setblock` writes it, in the client only. */
     record Block(String block, @Nullable Position pos) implements Request {}
 
+    /** Plays a sound event of the loaded packs to the player alone, at a volume up to 1 and a pitch from 0.5 to 2. */
+    record Sound(String sound, float volume, float pitch) implements Request {}
+
     /** A block position in the world. */
     record Position(int x, int y, int z) {}
 
@@ -60,6 +63,9 @@ sealed interface Request {
             case "chest" -> new Chest(required(json, "text"), (int) number(json, "rows", 3, 1, 6));
             case "give" -> new Give(string(json, "item"), (int) number(json, "count", 1, 1, 99));
             case "block" -> new Block(string(json, "block"), position(json));
+            case "sound" ->
+                new Sound(string(json, "sound"), (float) number(json, "volume", 1, 0, 1), (float)
+                        number(json, "pitch", 1, 0.5, 2));
             case "clear" -> new Clear();
             default -> throw new IllegalArgumentException("The bridge knows no op '" + op + "'.");
         };

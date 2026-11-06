@@ -41,6 +41,9 @@ class RequestTest {
         assertEquals(
                 new Request.Block("minecraft:stone", new Request.Position(1, -2, 3)),
                 of("{\"op\":\"block\",\"block\":\"minecraft:stone\",\"pos\":[1,-2,3]}"));
+        assertEquals(new Request.Sound("nordtal:bell", 1, 1), of("{\"op\":\"sound\",\"sound\":\"nordtal:bell\"}"));
+        assertEquals(new Request.Sound("minecraft:block.anvil.land", 0.5f, 2), of("""
+                {"op":"sound","sound":"minecraft:block.anvil.land","volume":0.5,"pitch":2}"""));
         assertEquals(new Request.Clear(), of("{\"op\":\"clear\"}"));
     }
 
@@ -59,6 +62,9 @@ class RequestTest {
                 "{'op':'bossbar','progress':'full'}|bossbar needs 'progress' as a number.",
                 "{'op':'bossbar','progress':2}|bossbar needs 'progress' from 0 to 1.",
                 "{'op':'block','block':'a','pos':[1,2]}|block needs 'pos' as [x, y, z].",
+                "{'op':'sound'}|sound needs 'sound'.",
+                "{'op':'sound','sound':'a','pitch':3}|sound needs 'pitch' from 0.5 to 2.",
+                "{'op':'sound','sound':'a','volume':1.5}|sound needs 'volume' from 0 to 1.",
             })
     void aWrongRequestSaysWhatIsWrong(final String json, final String message) {
         assertEquals(message, refusal(json.replace('\'', '"')));

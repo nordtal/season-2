@@ -187,9 +187,10 @@ class Publish(
     )
 
     /**
-     * Moves the clone to `origin/main` and puts each local change back on top, merged with main's entries field by field
-     * and texts key by key. A draft of a [merged] pull request that equals what was last pushed takes main's version. A
-     * draft in conflict with main keeps its base, so the conflict stays. A pull that fails leaves the clone as it was.
+     * Moves the clone to `origin/main` and puts each local change back on top, merged with main's entries field by field,
+     * texts key by key and sound events event by event. A draft of a [merged] pull request that equals what was last
+     * pushed takes main's version. A draft in conflict with main keeps its base, so the conflict stays. A pull that fails
+     * leaves the clone as it was.
      */
     private fun pull(merged: List<Drafts.Review>) {
         val taken = merged.flatMap { it.drafts }.toSet() - Drafts.ids(pack)
@@ -199,7 +200,8 @@ class Publish(
         val bases = drafts.mapNotNull { draft -> Drafts.base(pack, draft.id)?.let { draft.id to it } }.toMap()
         val owner = Texts.owner(pack)
 
-        fun text(path: String) = path.startsWith("$prefix/") && Texts.isText(path.removePrefix("$prefix/"))
+        fun text(path: String) =
+            path.startsWith("$prefix/") && path.removePrefix("$prefix/").let { Texts.isText(it) || Sounds.isSounds(it) }
         val (name, email) = author()
         git(
             repository,
@@ -236,6 +238,11 @@ class Publish(
             val keys = Texts.changedKeys(Texts.at(pack, "$commit^1"), mine).filter { owner(it) !in taken }
             for ((base, group) in keys.groupBy { bases[owner(it)] ?: "$commit^1" }) {
                 Texts.put(pack, Texts.merge(Texts.at(pack, base), mine, Texts.at(pack, "HEAD"), group.toSet()).first, group.toSet())
+            }
+            val sounds = Sounds.at(pack, commit) + Sounds.at(pack, "$commit^3")
+            val events = Texts.changedKeys(Sounds.at(pack, "$commit^1"), sounds).filter { Sounds.id(it) !in taken }
+            for ((base, group) in events.groupBy { bases[Sounds.id(it)] ?: "$commit^1" }) {
+                Sounds.put(pack, Sounds.merge(Sounds.at(pack, base), sounds, Sounds.at(pack, "HEAD"), group.toSet()).first, group.toSet())
             }
         } catch (failure: Exception) {
             runCatching { putBack(stash) }.onFailure { failure.addSuppressed(it) }

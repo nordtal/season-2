@@ -336,7 +336,9 @@ public final class StationMenus implements Listener {
         if (!player.isOnline() || !mayName(player, asked)) {
             return;
         }
-        final Optional<StationNames.Verdict> verdict = networks.rename(asked, typed);
+        // The spawn station shows its name in the viewer's language and on its hologram in English.
+        final Optional<StationNames.Verdict> verdict =
+                networks.rename(asked, typed, List.of(spawnName(locale(player)), spawnName(Locale.ENGLISH)));
         if (verdict.isEmpty()) {
             sounds.play(player, Feedback.REFUSED);
             return;

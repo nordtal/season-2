@@ -8,10 +8,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /** The rules for a station's name: at most 32 characters, and unique within its network regardless of case. */
 public final class StationNames {
@@ -43,12 +43,18 @@ public final class StationNames {
         return others.stream().map(StationNames::key).anyMatch(key::equals) ? Verdict.TAKEN : Verdict.ACCEPTED;
     }
 
-    /** Judges the name a player typed for {@code station} against the other named stations of {@code network}. */
-    public static Verdict judgeTyped(final String typed, final UUID station, final Collection<StationRow> network) {
+    /**
+     * Judges the name a player typed for {@code station} against the other named stations of {@code network}.
+     * The spawn station, which has no stored name, counts as each of {@code spawnNames}, the names it is shown by.
+     */
+    public static Verdict judgeTyped(
+            final String typed,
+            final UUID station,
+            final Collection<StationRow> network,
+            final Collection<String> spawnNames) {
         final List<String> others = network.stream()
                 .filter(row -> !row.id().equals(station))
-                .map(StationRow::name)
-                .filter(Objects::nonNull)
+                .flatMap(row -> row.spawn() ? spawnNames.stream() : Stream.ofNullable(row.name()))
                 .toList();
         return judge(typed.strip(), others);
     }

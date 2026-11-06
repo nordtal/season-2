@@ -17,6 +17,7 @@ import eu.nordtal.season.build.MinecraftInstanceChooser
 import eu.nordtal.season.build.MinecraftVersion
 import eu.nordtal.season.build.Sha1File
 import eu.nordtal.season.build.VanillaClientTask
+import eu.nordtal.season.build.WriteItemSprites
 import org.gradle.accessors.dm.LibrariesForLibs
 
 plugins {
@@ -237,6 +238,17 @@ val vanillaClient: VanillaClientTask.() -> Unit = {
     client.from(vanillaClientFiles)
     assetIndex.from(vanillaAssetIndexFiles)
     assetCache.set(vanillaAssetCache)
+}
+
+// The atlas sprite of each item, for :pack-rendering, which ships the table that a menu draws an item's texture from.
+val writeItemSprites =
+    tasks.register<WriteItemSprites>("writeItemSprites") {
+        vanillaClient()
+        assets.set(packSource.dir("assets"))
+        resources.set(layout.buildDirectory.dir("generated/item-sprites"))
+    }
+configurations.consumable("itemSprites") {
+    outgoing.artifact(writeItemSprites.flatMap { it.resources })
 }
 
 tasks.register<ListVanillaAssets>("listVanillaAssets") {

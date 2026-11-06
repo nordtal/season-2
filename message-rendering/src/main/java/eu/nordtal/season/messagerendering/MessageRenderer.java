@@ -25,16 +25,21 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.function.Function;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.Context;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.ParsingException;
 import net.kyori.adventure.text.minimessage.tag.Tag;
 import net.kyori.adventure.text.minimessage.tag.resolver.ArgumentQueue;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.text.object.ObjectContents;
 import net.kyori.adventure.title.Title;
 import org.jspecify.annotations.Nullable;
 
@@ -372,7 +377,17 @@ public final class MessageRenderer {
             for (final Object arg : content.args()) {
                 filled.add(item(arg));
             }
-            return Component.translatable(content.key(), content.english(), filled);
+            final Component name = Component.translatable(content.key(), content.english(), filled);
+            final GameContent.Sprite sprite = content.sprite();
+            return sprite == null ? name : Component.textOfChildren(sprite(sprite), Component.space(), name);
+        }
+
+        /** Draws the sprite as its atlas holds it: white, so no colour tints it, upright and without a shadow. */
+        private static Component sprite(final GameContent.Sprite sprite) {
+            return Component.object(ObjectContents.sprite(Key.key(sprite.atlas()), Key.key(sprite.sprite())))
+                    .color(NamedTextColor.WHITE)
+                    .decoration(TextDecoration.ITALIC, false)
+                    .shadowColor(ShadowColor.none());
         }
 
         private Component list(final List<?> items, final boolean or) {

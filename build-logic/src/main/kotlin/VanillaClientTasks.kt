@@ -6,9 +6,12 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -102,4 +105,30 @@ abstract class CopyVanillaTexture : VanillaClientTask() {
 
     @TaskAction
     fun copy() = VanillaClient.copy(jar(), texture.get(), assets.get().asFile).forEach { logger.quiet(it.absolutePath) }
+}
+
+/**
+ * Writes [ItemSprites] of the pack's [assets] over the client jar to `nordtal/menu/item-sprites.properties` in [resources],
+ * the table that a plugin draws an item's texture in a text from.
+ */
+// Cacheable although the jar is internal: Mojang never changes the client jar of a released version.
+@CacheableTask
+abstract class WriteItemSprites : VanillaClientTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val assets: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val resources: DirectoryProperty
+
+    init {
+        description = "Writes the atlas sprite of each item that a text can draw."
+    }
+
+    @TaskAction
+    fun write() {
+        val file = resources.get().asFile.resolve("nordtal/menu/item-sprites.properties")
+        file.parentFile.mkdirs()
+        file.writeText(ItemSprites.properties(ItemSprites.of(assets.get().asFile, jar())))
+    }
 }

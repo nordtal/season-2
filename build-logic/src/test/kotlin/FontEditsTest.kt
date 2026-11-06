@@ -271,6 +271,7 @@ class FontEditsTest {
         FontEdits.createFont(pack, "nordtal:signs", "FONT_SIGNS")
         FontEdits.deleteFont(pack, repository, "nordtal:signs")
         val root = OxfmtJson.read(allocation) as OxfmtJson.Object
+
         @Suppress("UNCHECKED_CAST")
         val fonts = root["fonts"] as MutableList<Any?>
         // A font without characters can go too

@@ -51,8 +51,12 @@ public final class BossBarLine {
         return BossBar.bossBar(Component.empty(), 1f, BossBar.Color.WHITE, BossBar.Overlay.PROGRESS);
     }
 
+    /** Names the bar only when its line changed: every call to name is sent to each viewer, even an equal one. */
     public static void show(final BossBar bar, final List<Pill> pills) {
-        bar.name(render(pills));
+        final Component name = render(pills);
+        if (!name.equals(bar.name())) {
+            bar.name(name);
+        }
     }
 
     public static Component render(final List<Pill> pills) {

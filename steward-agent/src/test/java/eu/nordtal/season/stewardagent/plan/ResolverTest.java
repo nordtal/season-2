@@ -386,6 +386,47 @@ class ResolverTest {
     }
 
     @Test
+    void aRetiredPluginsJarAndFolderAreWorkForItsServerAndNoUnclaimedJar() throws IOException {
+        installCurrentEverything();
+        write("smp", "plugins/CoreProtect-CE-24.1.jar");
+        write("smp", "plugins/CoreProtect/config.yml");
+
+        final UpdatePlan plan = resolve();
+
+        assertEquals(List.of(), plan.unclaimed(), Told.plan(plan));
+        assertEquals(
+                List.of(new UpdatePlan.Retiring(
+                        "smp", "coreprotect", List.of("CoreProtect-CE-24.1.jar", "CoreProtect"))),
+                plan.retiring());
+        assertEquals(
+                List.of(new RunStep.Change("coreprotect", null, null, null)),
+                Work.of(plan).of("smp"));
+        assertEquals(List.of(), Work.of(plan).about("smp"), "deleting it is work, not a warning");
+        assertTrue(plan.hasWork());
+    }
+
+    @Test
+    void aRetiredPluginsFolderAloneIsStillDeleted() throws IOException {
+        installCurrentEverything();
+        write("smp", "plugins/CoreProtect/database.db");
+
+        final UpdatePlan plan = resolve();
+
+        assertEquals(List.of(new UpdatePlan.Retiring("smp", "coreprotect", List.of("CoreProtect"))), plan.retiring());
+    }
+
+    @Test
+    void aServerWithoutARetiredPluginHasNothingToDelete() throws IOException {
+        installCurrentEverything();
+        write("limbo", "plugins/CoreProtect-CE-24.1.jar");
+
+        final UpdatePlan plan = resolve();
+
+        assertEquals(List.of(), plan.retiring(), "only smp ever ran it");
+        assertEquals(List.of(new UpdatePlan.Unclaimed("limbo", "CoreProtect-CE-24.1.jar")), plan.unclaimed());
+    }
+
+    @Test
     void aPluginRenamedByItsPublisherShowsUpAsMissingAndUnclaimedAtOnce() throws IOException {
         installCurrentEverything();
         // -paper- instead of -spigot-: the two rows together show a renamed jar.

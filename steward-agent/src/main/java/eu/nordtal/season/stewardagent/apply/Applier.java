@@ -9,6 +9,7 @@ import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.Installation;
+import eu.nordtal.season.stewardagent.plan.PluginsApi;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
 import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.Fetcher;
@@ -70,7 +71,10 @@ public final class Applier {
         }
 
         for (final Map.Entry<String, List<Change>> entry : byService.entrySet()) {
-            outcomes.addAll(applyService(root, entry.getKey(), entry.getValue()));
+            final List<UpdatePlan.Retiring> retiring = plan.retiring().stream()
+                    .filter(gone -> gone.service().equals(entry.getKey()))
+                    .toList();
+            outcomes.addAll(applyService(root, entry.getKey(), entry.getValue(), retiring));
         }
 
         outcomes.addAll(fillStandbys(root, byService.keySet()));
@@ -83,7 +87,11 @@ public final class Applier {
         return Standbys.fill(root, services, topology);
     }
 
-    private List<ApplyResult.Outcome> applyService(final Path root, final String service, final List<Change> changes) {
+    private List<ApplyResult.Outcome> applyService(
+            final Path root,
+            final String service,
+            final List<Change> changes,
+            final List<UpdatePlan.Retiring> retiring) {
         final List<ApplyResult.Outcome> outcomes = new ArrayList<>();
 
         final Change blocked = UpdatePlan.blocker(changes);
@@ -102,13 +110,14 @@ public final class Applier {
                 .toList();
 
         markUnsupportedOrUnchanged(service, changes, outcomes);
+        final Path volume = root.resolve(service);
+        retiring.forEach(gone -> outcomes.add(retire(volume, gone)));
 
         if (work.isEmpty()) {
             outcomes.addAll(applyPack(service, changes));
             return outcomes;
         }
 
-        final Path volume = root.resolve(service);
         final Map<Path, Path> stagingByDestination = new LinkedHashMap<>();
         final Map<String, Path> staged;
         try {
@@ -291,6 +300,26 @@ public final class Applier {
 
     private static Path directoryFor(final Path volume, final String artifact) {
         return isServerJar(artifact) ? volume.resolve(Installation.SERVER_CACHE) : volume.resolve(Installation.PLUGINS);
+    }
+
+    /** Deletes a retired plugin's jars and data folder; a failure names the file it stopped at. */
+    private static ApplyResult.Outcome retire(final Path volume, final UpdatePlan.Retiring gone) {
+        final Path plugins = volume.resolve(Installation.PLUGINS);
+        final List<String> removed = new ArrayList<>();
+        for (final String name : gone.files()) {
+            try {
+                PluginsApi.deleteTree(plugins.resolve(name));
+                removed.add(name);
+            } catch (final IOException failed) {
+                return new ApplyResult.Outcome(
+                        gone.service(),
+                        gone.artifact(),
+                        ApplyResult.Status.FAILED,
+                        "could not remove " + name + ": " + failed.getMessage());
+            }
+        }
+        return new ApplyResult.Outcome(
+                gone.service(), gone.artifact(), ApplyResult.Status.DONE, "removed " + String.join(", ", removed));
     }
 
     private static boolean isServerJar(final String artifact) {

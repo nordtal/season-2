@@ -14,6 +14,7 @@ import org.jspecify.annotations.Nullable;
  * @param seasonPrerelease true only when an operator pinned a pre-release by tag
  * @param unclaimed jars in a {@code plugins/} folder no row accounts for, never touched and always reported
  * @param notes findings that belong to no single service, which only {@link Work} reads
+ * @param retiring the files of {@link Retired} plugins still in a {@code plugins/} folder, which a run deletes
  */
 public record UpdatePlan(
         Instant resolvedAt,
@@ -21,9 +22,33 @@ public record UpdatePlan(
         boolean seasonPrerelease,
         List<Change> changes,
         List<Unclaimed> unclaimed,
-        List<MessageRef> notes) {
+        List<MessageRef> notes,
+        List<Retiring> retiring) {
 
     public record Unclaimed(String service, String fileName) {}
+
+    /**
+     * A retired plugin's files on one service.
+     *
+     * @param files names in {@code plugins/}: its jars and its data folder
+     */
+    public record Retiring(String service, String artifact, List<String> files) {
+
+        public Retiring {
+            files = List.copyOf(files);
+        }
+    }
+
+    /** A plan with no retired plugin to delete. */
+    public UpdatePlan(
+            final Instant resolvedAt,
+            final @Nullable String seasonTag,
+            final boolean seasonPrerelease,
+            final List<Change> changes,
+            final List<Unclaimed> unclaimed,
+            final List<MessageRef> notes) {
+        this(resolvedAt, seasonTag, seasonPrerelease, changes, unclaimed, notes, List.of());
+    }
 
     /**
      * Returns the row that makes a run leave {@code service} alone, or {@code null} when the run applies its work.
@@ -47,7 +72,8 @@ public record UpdatePlan(
     }
 
     public boolean hasWork() {
-        return changes.stream().anyMatch(change -> change.status().isWork());
+        return !retiring.isEmpty()
+                || changes.stream().anyMatch(change -> change.status().isWork());
     }
 
     public boolean hasFailures() {
@@ -61,7 +87,7 @@ public record UpdatePlan(
     /**
      * Returns the plan reduced to what a bootstrap installs: {@link Change.Status#MISSING} and every unresolved row.
      *
-     * A bootstrap never upgrades. Unresolved rows stay, so an outage empties the folder visibly.
+     * A bootstrap never upgrades or deletes. Unresolved rows stay, so an outage empties the folder visibly.
      */
     public UpdatePlan onlyMissing() {
         final List<Change> keep = changes.stream()
@@ -90,7 +116,8 @@ public record UpdatePlan(
                         .filter(change -> change.service() != null && wanted.contains(change.service()))
                         .toList(),
                 unclaimed.stream().filter(one -> wanted.contains(one.service())).toList(),
-                notes);
+                notes,
+                retiring.stream().filter(one -> wanted.contains(one.service())).toList());
     }
 
     /**
@@ -112,7 +139,8 @@ public record UpdatePlan(
                         .filter(change -> change.service() == null || !gone.contains(change.service()))
                         .toList(),
                 unclaimed.stream().filter(one -> !gone.contains(one.service())).toList(),
-                notes);
+                notes,
+                retiring.stream().filter(one -> !gone.contains(one.service())).toList());
     }
 
     /** Returns whether anything is absent, not merely unknown. */

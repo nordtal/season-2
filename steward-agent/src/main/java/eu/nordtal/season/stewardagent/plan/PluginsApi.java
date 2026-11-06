@@ -548,8 +548,8 @@ public final class PluginsApi {
         }
     }
 
-    /** Deletes depth first, because {@link Files#delete} refuses a non-empty directory. */
-    private static void deleteTree(final Path directory) throws IOException {
+    /** Deletes a file or a folder depth first, because {@link Files#delete} refuses a non-empty directory. */
+    public static void deleteTree(final Path directory) throws IOException {
         if (!Files.exists(directory)) {
             return;
         }

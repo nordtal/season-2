@@ -101,10 +101,19 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
 
   it("gives a stage that did nothing a pill that says so, and a left-out one its reason", () => {
     const stages = stagesOf([
-      step({ step: "PLAYERS_MOVED", players: [] }),
+      step({ step: "CLEANUP" }),
       step({ step: "OFFSITE_COPY", outcome: "SKIPPED", reason: "NO_REPOSITORY" }),
     ])
     expect(stages.map(pillsOf)).toEqual([[{ text: "nothing" }], [{ text: "no offsite repository", tone: "idle" }]])
+  })
+
+  it("says no one was to move when the players step found nobody, and leaves a failed one to its reason", () => {
+    expect(texts([step({ step: "PLAYERS_MOVED", players: [] }), step({ step: "PLAYERS_BACK" })])).toEqual([
+      ["no one to move"],
+    ])
+    expect(texts([step({ step: "PLAYERS_MOVED", outcome: "FAILED", reason: "TOOL_FAILED" })])).toEqual([
+      ["the tool failed"],
+    ])
   })
 
   it("words a change as the server does: a fingerprint by its first eight, an unchanged version as unchanged", () => {

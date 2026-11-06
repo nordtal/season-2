@@ -1295,6 +1295,7 @@
     "steward.operations.now": [["Now"]],
     "steward.operations.players-back": [[{"v":"count","k":"number"}," back"]],
     "steward.operations.players-moved": [[{"v":"count","k":"number"}," ",{"b":"terms.player","with":{"n":"count"}}," moved to ",{"v":"to"}]],
+    "steward.operations.players-none": [["no one to move"]],
     "steward.operations.requested-by": [["Requested by"]],
     "steward.operations.run": [["Run #",{"v":"id"}]],
     "steward.operations.saved": [[{"v":"count","k":"number"}," saved"]],

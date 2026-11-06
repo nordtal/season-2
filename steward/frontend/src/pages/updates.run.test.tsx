@@ -144,14 +144,28 @@ describe("a run's stages give their coarse facts and open to their steps", () =>
       "fetch",
       backend([
         ...STEPS,
+        { seq: 2, step: "CLEANUP", outcome: "DONE", lines: [], changes: [], players: [], saved: [], pruned: [] },
+      ]),
+    )
+    draw()
+
+    const stage = await screen.findByRole("button", { name: "Cleanup" })
+    expect(stage.className).toBe(screen.getByRole("button", { name: "Install" }).className)
+    expect(within(stage.parentElement!).getByText("nothing")).toBeTruthy()
+  })
+
+  it("says no one was to move when the players step found nobody online", async () => {
+    vi.stubGlobal(
+      "fetch",
+      backend([
+        ...STEPS,
         { seq: 2, step: "PLAYERS_MOVED", outcome: "DONE", lines: [], changes: [], players: [], saved: [], pruned: [] },
       ]),
     )
     draw()
 
     const players = await screen.findByRole("button", { name: "Players" })
-    expect(players.className).toBe(screen.getByRole("button", { name: "Install" }).className)
-    expect(within(players.parentElement!).getByText("nothing")).toBeTruthy()
+    expect(within(players.parentElement!).getByText("no one to move")).toBeTruthy()
   })
 
   it("sends a backup run to its page under Backups", async () => {

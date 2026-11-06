@@ -43,6 +43,8 @@ function minecraft.commands(request, encode)
     return { "/give @s " .. request.item }
   elseif op == "block" then
     return { "/setblock ^ ^ ^2 " .. request.block .. " keep" }
+  elseif op == "sound" then
+    return { "/playsound " .. request.sound .. " master @s" }
   end
   return {}
 end
@@ -72,6 +74,10 @@ function minecraft.previews(info, rendered, definition, tr)
     for _, state in ipairs(definition.states or {}) do
       add(state.label ~= "" and tr("minecraft.give", state.label) or tr("minecraft.give_plain"), { op="give", item=state.give })
     end
+  elseif kind == "sound" or kind == "sound_file" then
+    -- The client plays an event, one of its sounds by weight
+    local event = kind == "sound" and info.entry or info.event
+    add(tr("minecraft.play_sound", event.id), { op="sound", sound=event.id })
   elseif kind == "override" then
     if info.entry.block then add(tr("minecraft.place", info.entry.block), { op="block", block=info.entry.block }) end
     if info.entry.item then add(tr("minecraft.give", info.entry.item), { op="give", item=info.entry.item }) end

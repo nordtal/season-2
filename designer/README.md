@@ -141,10 +141,25 @@ characters and ends with "..." inside the bar. Moving the pointer onto an item s
 in Aseprite's tip above the status bar. A status line that the bar cuts shows whole in that tip
 when it is set.
 
+The tree's **Sounds** lists each sound event of the pack and, below it, each of its sounds. The
+properties of an event show its subtitle in each of the pack's languages, which `subtitleSound`
+writes, and for a `minecraft:` event whether the pack's sounds replace vanilla's. A vanilla event
+that keeps vanilla's sounds shows no subtitle, because the client shows vanilla's. **Add Sound
+File...** takes an Ogg Vorbis file, and **Add Sound by Name...** a sound that Minecraft or the pack
+already has. The properties of a sound show its file and its volume, pitch, weight and stream, which
+`editSound` writes, and **Remove Sound**. **Play** on either runs `playSound` and plays the WAV it
+writes with the system's player: `afplay` on macOS, `Media.SoundPlayer` through PowerShell on
+Windows, and `paplay` or else `aplay` on Linux. **Delete Sound Event** runs `deleteSound` once
+confirmed, and an event's draft is discarded like any other. **File > New Sound...** and **New
+Sound...** on **Sounds** open the wizard for a sound event of its own from an audio file, or for an
+override of one of the client's sound events, chosen in a browser of its dotted words. The override
+replaces vanilla's sounds or keeps them, and keeping them needs a file of the pack's to add.
+
 The properties panel lists the previews of the selected entry. A glyph or a cell runs `renderGlyphPreviews`
 first, with **Show Previews**, and then offers itself alone in each place the bridge mod shows text,
 and the menu, HUD line or board that its font draws. An item offers a give of each of its `states`, an
-override under `block` or `item` the block or item of its name. With Fabric, a click sends the
+override under `block` or `item` the block or item of its name, and a sound event or one of its sounds
+a play of the event. With Fabric, a click sends the
 preview to the bridge mod. Without Fabric, each preview is a list of vanilla commands, and a click
 copies one. A text of the properties panel wraps only at a space or after the last of a run of punctuation
 marks. It never wraps at an underscore or at a full stop between two letters or digits, and it

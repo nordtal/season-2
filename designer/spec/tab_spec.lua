@@ -176,7 +176,7 @@ local function setUp(preferences, modelText)
     modules={ pack=require("pack"), tree=require("tree"), textures=require("textures"),
                panel=require("panel"), properties=require("properties"), items=require("items"),
                wizard=require("wizard"), drafts=require("drafts"), conflicts=require("conflicts"),
-               minecraft=require("minecraft") },
+               minecraft=require("minecraft"), sounds=require("sounds") },
     bootstrap={ clone=clone, env={ JAVA_HOME="/jdk" }, git="/usr/bin/git", gh="/gh" },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
@@ -1983,6 +1983,91 @@ describe("the Nordtal tab", function()
     t.started[5].isRunning = false
     t.started[5].args.onexit(0)
     assert.equal("status.yours /c/resource-pack/build/conflict/yours", status(dlg))
+  end)
+end)
+
+describe("the sounds of the Nordtal tab", function()
+  local function sounding()
+    local m = dkjson.decode(model)
+    m.languages = { "en_us" }
+    m.sounds = { { id="nordtal:ui.ping", subtitle="subtitles.nordtal.ui.ping", subtitles={ en_us="Ping" },
+                   draft="sound nordtal:ui.ping",
+                   sounds={ { name="nordtal:ui/ping", file="src/assets/nordtal/sounds/ui/ping.ogg" } } } }
+    m.drafts = { { id="sound nordtal:ui.ping", label="nordtal:ui.ping", state="added", files={} } }
+    local t = setUp(nil, dkjson.encode(m))
+    local dlg = loaded(t)
+    synced(t)
+    dlg.handlers.tree.onchange({ node="sound/nordtal:ui.ping" })
+    return t, dlg
+  end
+
+  it("lists the pack's sound events in the tree and shows an event's subtitle and actions", function()
+    local t, dlg = sounding()
+    local root = dlg.handlers.tree.nodes[#dlg.handlers.tree.nodes]
+    assert.same({ "sounds", "nordtal:ui.ping", "ui/ping" },
+      { root.id, root.children[1].text, root.children[1].children[1].text })
+    local shown = texts(dlg)
+    for _, line in ipairs({ "sounds.event", "  nordtal:ui.ping", "sounds.subtitle_in en_us", "  Ping", "sounds.play",
+                            "properties.discard" }) do
+      assert.is_true(table.concat(shown, "\n"):find(line, 1, true) ~= nil, line)
+    end
+    assert.equal(2, #t.started)
+  end)
+
+  it("writes a subtitle with its task", function()
+    local t, dlg = sounding()
+    local form
+    t.dialogs.answer = function(d) form = d d.data = { ok=true, value="Pong" } end
+    click(dlg, "Ping")
+    assert.equal("sounds.subtitle_of nordtal:ui.ping en_us", form.args.title)
+    assert.equal(":resource-pack:subtitleSound -Planguage=en_us -Psound=nordtal:ui.ping -Pvalue=Pong",
+      run(t.started[#t.started]))
+  end)
+
+  it("plays a sound as the WAV that playSound writes, with each player of the system until one plays it", function()
+    local t, dlg = sounding()
+    click(dlg, "sounds.play")
+    local p = t.started[#t.started]
+    assert.equal(":resource-pack:playSound -Psound=nordtal:ui.ping", run(p))
+    assert.equal("status.playing", status(dlg))
+    p.args.onstdout("/c/resource-pack/build/sounds/ping.wav")
+    p.isRunning = false
+    p.args.onexit(0)
+    local player = t.started[#t.started]
+    assert.same({ "paplay", "/c/resource-pack/build/sounds/ping.wav" }, player.args.cmd)
+    assert.is_nil(status(dlg))
+    player.args.onexit(1)
+    local fallback = t.started[#t.started]
+    assert.same({ "aplay", "-q", "/c/resource-pack/build/sounds/ping.wav" }, fallback.args.cmd)
+    fallback.args.onexit(1)
+    assert.equal("status.not_played", status(dlg))
+  end)
+
+  it("deletes a sound event once confirmed, and discards its draft", function()
+    local t, dlg = sounding()
+    t.world.confirm = 2
+    click(dlg, "sounds.delete")
+    assert.equal(2, #t.started)
+    t.world.confirm = 1
+    click(dlg, "sounds.delete")
+    assert.equal(":resource-pack:deleteSound -Psound=nordtal:ui.ping", run(t.started[#t.started]))
+    local alert = t.log[#t.log]
+    assert.same({ "alert", { "sounds.delete_question nordtal:ui.ping", "sounds.delete_note" } }, alert)
+  end)
+
+  it("discards the draft of a sound event", function()
+    local t, dlg = sounding()
+    t.world.confirm = 1
+    click(dlg, "properties.discard")
+    assert.equal(":resource-pack:discardDraft -Pdraft=sound nordtal:ui.ping", run(t.started[#t.started]))
+  end)
+
+  it("opens the wizard for a new sound event", function()
+    local t = sounding()
+    t.ctl.createSound()
+    local wizard = t.dialogs[#t.dialogs]
+    assert.equal("new.sound_dialog", wizard.args.title)
+    assert.same({ "new.kind_sound", "new.kind_vanilla_sound" }, wizard.handlers.kind.options)
   end)
 end)
 

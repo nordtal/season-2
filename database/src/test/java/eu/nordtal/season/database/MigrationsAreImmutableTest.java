@@ -333,6 +333,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V116__the_smp_s_saved_places_leave.sql",
                 "f11d612776650e2abde8d6cf31f1361097f4976edc65efca364862728340c87c");
+        FROZEN.put(
+                "V117__the_bot_keeps_each_run_s_card.sql",
+                "577018260dbce1650bd2a63e1eb52ace48ab30b74dbbc13727825fec4977af2a");
     }
 
     @Test

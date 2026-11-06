@@ -126,6 +126,7 @@ public final class UpdateFeed {
 
     private final UpdateDirectory updates;
     private final Board board;
+    private final RunCards cards;
     private final DocumentRenderer documents;
 
     /** The highest request id handled. Only the tick thread writes it. */
@@ -166,9 +167,11 @@ public final class UpdateFeed {
     public UpdateFeed(
             final UpdateDirectory updates,
             final Board board,
+            final RunCards cards,
             final DocumentRenderer documents,
             final String stewardUrl,
             final Executor worker) {
+        this.cards = Objects.requireNonNull(cards, "cards");
         this.worker = Objects.requireNonNull(worker, "worker");
         this.stewardUrl = stewardUrl.endsWith("/") ? stewardUrl.substring(0, stewardUrl.length() - 1) : stewardUrl;
         this.updates = Objects.requireNonNull(updates, "updates");
@@ -177,20 +180,64 @@ public final class UpdateFeed {
     }
 
     /**
-     * Returns the card of a failed run once, for the alert that takes its place, or {@code null}.
+     * Returns the card of a failed run once, for the alert that takes its place.
      * A card still followed is handed over too, and one whose message id has not come yet is deleted when it comes.
+     * A second alert of the same run, such as a redelivery, is told that one was posted.
      */
-    public @Nullable String failedCard(final long run) {
+    public AdminLog.RunCard failedCard(final long run) {
+        // A run that went well keeps its card, so only a failed run's row hands the kept one over.
+        final @Nullable String kept = endedWell(run)
+                ? null
+                : stored(run).map(RunCards.Card::messageId).orElse(null);
         synchronized (handing) {
+            if (!alerted(run)) {
+                return new AdminLog.RunCard(null, true);
+            }
             final Drawn followed = drawing.remove(run);
             if (followed != null) {
-                return followed.messageId();
+                return new AdminLog.RunCard(followed.messageId(), false);
             }
             final String card = failed.remove(run);
-            if (card == null) {
+            if (card != null) {
+                return new AdminLog.RunCard(card, false);
+            }
+            // A bot that restarted since the card was posted knows it only from the table.
+            if (kept == null) {
                 claimed.add(run);
             }
-            return card;
+            return new AdminLog.RunCard(kept, false);
+        }
+    }
+
+    /** Whether a run's row says it ended without failing. A row that cannot be read says nothing. */
+    private boolean endedWell(final long run) {
+        try {
+            return updates.find(run)
+                    .filter(request -> request.status().isFinished() && request.status() != UpdateStatus.FAILED)
+                    .isPresent();
+        } catch (final RuntimeException failure) {
+            log.warn("Could not read update request {} for its alert", run, failure);
+            return false;
+        }
+    }
+
+    /** Records the alert of a run. A table that cannot be read lets the alert through rather than lose it. */
+    private boolean alerted(final long run) {
+        try {
+            return cards.alert(run);
+        } catch (final RuntimeException failure) {
+            log.warn("Could not record the alert of run {}; it is posted all the same", run, failure);
+            return true;
+        }
+    }
+
+    /** Returns the card a run has, or empty when it has none or the table cannot be read. */
+    private Optional<RunCards.Card> stored(final long run) {
+        try {
+            return cards.of(run);
+        } catch (final RuntimeException failure) {
+            log.warn("Could not read the card of run {}; a new one is posted", run, failure);
+            return Optional.empty();
         }
     }
 
@@ -290,17 +337,27 @@ public final class UpdateFeed {
         post(request, request.status().isFinished());
     }
 
-    /** Posts the card of a run, and follows the run from the card's message id unless it is {@code over}. */
+    /**
+     * Posts the card of a run, and follows the run from the card's message id unless it is {@code over}.
+     * A run that has a card from before a restart keeps it, and that card is edited instead.
+     */
     private void post(final UpdateRequest request, final boolean over) {
         final long id = request.id();
+        final Optional<RunCards.Card> kept = stored(id);
         synchronized (handing) {
-            if (claimed.remove(id)) {
+            if (claimed.remove(id) || kept.filter(RunCards.Card::alerted).isPresent()) {
                 // The alert came first and stands alone.
+                return;
+            }
+            final @Nullable String existing = kept.map(RunCards.Card::messageId).orElse(null);
+            if (existing != null) {
+                adopt(request, existing, over);
                 return;
             }
             posting.add(id);
         }
         board.post(card(request), messageId -> {
+            keep(id, messageId);
             final @Nullable RunRecord showing = over ? null : shownOf(request);
             final boolean taken;
             synchronized (handing) {
@@ -321,6 +378,26 @@ public final class UpdateFeed {
                 again();
             }
         });
+    }
+
+    /** Takes over a card posted before a restart: draws a finished run into it, or follows the run from it. */
+    private void adopt(final UpdateRequest request, final String messageId, final boolean over) {
+        if (over) {
+            board.edit(messageId, card(request));
+            ended(request, messageId);
+        } else {
+            // Nothing is shown yet, so the next pass draws the run's present state into the card.
+            drawing.put(request.id(), new Drawn(messageId, null));
+            again();
+        }
+    }
+
+    private void keep(final long run, final String messageId) {
+        try {
+            cards.keep(run, messageId);
+        } catch (final RuntimeException failure) {
+            log.warn("Could not keep the card of run {}; a restart posts another", run, failure);
+        }
     }
 
     /** Asks for one more pass, since the run may have moved on before Discord answered and left no signal. */

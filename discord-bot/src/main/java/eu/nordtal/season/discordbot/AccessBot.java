@@ -48,6 +48,7 @@ import eu.nordtal.season.discordbot.discord.BotAccessEffects;
 import eu.nordtal.season.discordbot.discord.BotInbox;
 import eu.nordtal.season.discordbot.discord.ChannelList;
 import eu.nordtal.season.discordbot.discord.GuildState;
+import eu.nordtal.season.discordbot.discord.RunCards;
 import eu.nordtal.season.discordbot.discord.UpdateFeed;
 import eu.nordtal.season.discordbot.onboarding.Onboarding;
 import eu.nordtal.season.discordbot.onboarding.OnboardingFlow;
@@ -190,8 +191,13 @@ public class AccessBot implements AutoCloseable {
         final StatusChannels status = new StatusChannels(
                 jda, core.languages(), core.renderer(), seasons, SnapshotDirectory.using(database.dataSource()), clock);
 
-        final UpdateFeed updateFeed =
-                new UpdateFeed(updates, UpdateFeed.Board.of(wiring.admin()), core.renderer(), stewardUrl, scheduler);
+        final UpdateFeed updateFeed = new UpdateFeed(
+                updates,
+                UpdateFeed.Board.of(wiring.admin()),
+                RunCards.stored(database.jdbi()),
+                core.renderer(),
+                stewardUrl,
+                scheduler);
         updateFeed.start();
 
         schedule(accessConfig, wiring.roles(), wiring.onboarding());

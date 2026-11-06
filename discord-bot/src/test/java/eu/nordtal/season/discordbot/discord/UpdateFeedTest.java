@@ -10,21 +10,18 @@ import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.update.RunRecord;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
-import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
+import eu.nordtal.season.discordbot.discord.UpdateFeedFakes.Board;
+import eu.nordtal.season.discordbot.discord.UpdateFeedFakes.Rows;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.function.Consumer;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
@@ -33,170 +30,27 @@ import org.junit.jupiter.api.Test;
 
 class UpdateFeedTest {
 
-    private static final Instant NOW = Instant.parse("2026-09-08T20:00:00Z");
-
-    private static final class Board implements UpdateFeed.Board {
-
-        record Post(DocumentRenderer.Drawn card, String messageId) {}
-
-        final List<Post> posted = new ArrayList<>();
-        final List<Post> edited = new ArrayList<>();
-        final List<String> deleted = new ArrayList<>();
-
-        /** Whether Discord acknowledges a post. False tests the state with no message id yet. */
-        boolean acknowledge = true;
-
-        /** Acknowledgements held back while {@link #late} is set; running one stands in for Discord's answer. */
-        final List<Runnable> unanswered = new ArrayList<>();
-
-        /** Whether Discord answers a post only after the pass that sent it. */
-        boolean late;
-
-        /** Runs inside the next post and stands in for a signal that arrives during a pass. */
-        Runnable duringPost = () -> {};
-
-        @Override
-        public void post(final DocumentRenderer.Drawn card, final Consumer<String> sentId) {
-            final Runnable during = duringPost;
-            duringPost = () -> {};
-            during.run();
-            final String id = "msg-" + (posted.size() + 1);
-            posted.add(new Post(card, id));
-            if (late) {
-                unanswered.add(() -> sentId.accept(id));
-            } else if (acknowledge) {
-                sentId.accept(id);
-            }
-        }
-
-        @Override
-        public void edit(final String messageId, final DocumentRenderer.Drawn card) {
-            edited.add(new Post(card, messageId));
-        }
-
-        @Override
-        public void delete(final String messageId) {
-            deleted.add(messageId);
-        }
-    }
-
-    private static final class Rows implements UpdateDirectory {
-
-        @Override
-        public java.util.List<UpdateRequest> recent(final int limit) {
-            return java.util.List.of();
-        }
-
-        final Map<Long, UpdateRequest> byId = new LinkedHashMap<>();
-
-        /** The steps of each run, by request id. */
-        final Map<Long, List<RunStep.Row>> steps = new LinkedHashMap<>();
-
-        @Override
-        public RunRecord recordOf(final long run) {
-            final UpdateRequest request = byId.get(run);
-            return new RunRecord(request == null ? null : request.stage(), steps.getOrDefault(run, List.of()));
-        }
-
-        @Override
-        public java.util.Optional<UpdateRequest> running() {
-            return java.util.Optional.empty();
-        }
-
-        void put(final UpdateRequest request) {
-            byId.put(request.id(), request);
-        }
-
-        @Override
-        public List<UpdateRequest> since(final long id) {
-            return byId.values().stream().filter(row -> row.id() > id).toList();
-        }
-
-        @Override
-        public long latestId() {
-            return byId.keySet().stream().mapToLong(Long::longValue).max().orElse(0L);
-        }
-
-        @Override
-        public List<UpdateRequest> finishedWithin(final Duration window) {
-            final Instant from = NOW.minus(window);
-            return byId.values().stream()
-                    .filter(row -> row.finished() != null && row.finished().isAfter(from))
-                    .toList();
-        }
-
-        @Override
-        public Optional<UpdateRequest> find(final long id) {
-            return Optional.ofNullable(byId.get(id));
-        }
-
-        @Override
-        public Optional<UpdateRequest> lastSuccessfulBackup(final Duration within) {
-            throw new UnsupportedOperationException("the feed never asks about backups");
-        }
-
-        @Override
-        public UpdateRequest submit(
-                final eu.nordtal.season.database.inbox.StewardRequest request,
-                final java.util.@Nullable List<String> services,
-                final Actor actor,
-                final @Nullable Duration delay) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<UpdateRequest> claimNext() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<UpdateRequest> finish(final long id, final RunStage stage) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean progress(final long id, final RunStage stage) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<UpdateRequest> startCountdown(
-                final long id, final Duration seconds, final java.util.Collection<String> moving) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean commitCountdown(final long id) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<UpdateRequest> countingDown() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<UpdateRequest> cancelCountdown() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<Instant> nextDue() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int settleOrphans(final java.util.function.Predicate<String> stillRunning) {
-            throw new UnsupportedOperationException();
-        }
-    }
+    private static final Instant NOW = UpdateFeedFakes.NOW;
 
     private final Rows rows = new Rows();
     private final Board board = new Board();
     private final DocumentRenderer documents = StoredDocumentsStandIn.renderer();
     private final List<Runnable> queued = new ArrayList<>(); // passes held as by busy workers
 
-    private final UpdateFeed feed = new UpdateFeed(rows, board, documents, "https://steward.example/", queued::add);
+    private final RunCards cards = RunCards.inMemory();
+    private final UpdateFeed feed = restarted();
+
+    /** A feed as the bot builds it at start, over the same rows, channel and kept cards. */
+    private UpdateFeed restarted() {
+        return new UpdateFeed(rows, board, cards, documents, "https://steward.example/", queued::add);
+    }
+
+    /** The card the alert of a failed run takes, or {@code null} for none. */
+    private static @Nullable String card(final UpdateFeed feed, final long run) {
+        final eu.nordtal.season.discordbot.AdminLog.RunCard taken = feed.failedCard(run);
+        assertFalse(taken.again(), "the alert of run " + run + " was posted before");
+        return taken.messageId();
+    }
 
     private void runQueued() {
         while (!queued.isEmpty()) {
@@ -239,7 +93,7 @@ class UpdateFeedTest {
     @Test
     void aPoolThatRefusesThePassReleasesTheFlagInsteadOfSwitchingTheFeedOff() {
         final boolean[] refusing = {true};
-        final UpdateFeed refused = new UpdateFeed(rows, board, documents, "", task -> {
+        final UpdateFeed refused = new UpdateFeed(rows, board, cards, documents, "", task -> {
             if (refusing[0]) {
                 throw new RejectedExecutionException("shutting down");
             }
@@ -395,10 +249,72 @@ class UpdateFeedTest {
         rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
         feed.tick();
 
-        assertEquals("msg-1", feed.failedCard(1L), "failed while it was followed");
-        assertEquals("msg-2", feed.failedCard(2L), "failed before the feed saw it");
-        assertNull(feed.failedCard(1L), "handed over once");
-        assertNull(feed.failedCard(3L), "a run that went well keeps its card");
+        assertEquals("msg-1", card(feed, 1L), "failed while it was followed");
+        assertEquals("msg-2", card(feed, 2L), "failed before the feed saw it");
+        assertTrue(feed.failedCard(1L).again(), "handed over once");
+        assertNull(card(feed, 3L), "a run that went well keeps its card");
+    }
+
+    @Test
+    void aRunFollowedAcrossARestartOfTheBotKeepsItsOneCardAndItIsEditedToTheEnd() {
+        rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
+        feed.tick();
+
+        // The update recreates the bot, and the run moves on while it is down.
+        rows.put(row(1L, UpdateStatus.RUNNING, RunStage.INSTALLING, null));
+        final UpdateFeed after = restarted();
+        after.start();
+        runQueued();
+        rows.put(row(1L, UpdateStatus.DONE, RunStage.DONE, NOW));
+        after.tick();
+
+        assertEquals(1, board.posted.size(), "the restarted bot posted a second card beside the first");
+        assertEquals(
+                List.of("msg-1", "msg-1"),
+                board.edited.stream().map(Board.Post::messageId).toList());
+        assertTrue(
+                board.edited.getLast().card().text().contains("Duration"),
+                board.edited.getLast().card().text());
+    }
+
+    @Test
+    void aRestartWithinTheCatchUpWindowEditsTheCardAFinishedRunHasInsteadOfPostingAnother() {
+        rows.put(row(1L, UpdateStatus.DONE, RunStage.DONE, NOW.minus(Duration.ofMinutes(4))));
+        feed.tick();
+        restarted().start();
+
+        assertEquals(1, board.posted.size(), "the catch-up posted a run that already had its card");
+    }
+
+    @Test
+    void aFailedRunWhoseAlertTookItsCardGetsNoCardBackFromARestart() {
+        rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW.minus(Duration.ofMinutes(4))));
+        feed.tick();
+        assertEquals("msg-1", card(feed, 1L));
+        restarted().start();
+
+        assertEquals(1, board.posted.size(), "the card the alert took came back");
+        assertEquals(List.of(), board.edited);
+    }
+
+    @Test
+    void anAlertAfterARestartTakesThePlaceOfTheCardTheBotPostedBeforeIt() {
+        rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
+        feed.tick();
+        final UpdateFeed after = restarted();
+        rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
+
+        assertEquals("msg-1", card(after, 1L), "the alert would stand beside the card it replaces");
+    }
+
+    @Test
+    void aRedeliveredAlertIsToldItsRunsAlertWasPostedAcrossARestartToo() {
+        rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
+        feed.tick();
+        assertEquals("msg-1", card(feed, 1L));
+
+        assertTrue(feed.failedCard(1L).again(), "a second delivery would post a second alert");
+        assertTrue(restarted().failedCard(1L).again(), "a second delivery after a restart would post a second alert");
     }
 
     @Test
@@ -413,7 +329,7 @@ class UpdateFeedTest {
         board.unanswered.removeFirst().run();
         runQueued();
         assertEquals(1, board.edited.size(), "no signal follows the answer, so the card kept its first stage");
-        assertEquals("msg-1", feed.failedCard(1L), "the alert found no card to take the place of");
+        assertEquals("msg-1", card(feed, 1L), "the alert found no card to take the place of");
     }
 
     @Test
@@ -421,10 +337,10 @@ class UpdateFeedTest {
         rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
         feed.tick();
         rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
-        assertEquals("msg-1", feed.failedCard(1L), "the card of a run still followed was not handed over");
+        assertEquals("msg-1", card(feed, 1L), "the card of a run still followed was not handed over");
         feed.tick();
         assertEquals(List.of(), board.edited, "the card the alert took was drawn again");
-        assertNull(feed.failedCard(1L), "handed over once");
+        assertTrue(feed.failedCard(1L).again(), "handed over once");
     }
 
     @Test
@@ -434,13 +350,13 @@ class UpdateFeedTest {
         feed.tick();
         rows.put(row(1L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
         feed.tick();
-        assertNull(feed.failedCard(1L), "there is no message id to hand over yet");
+        assertNull(card(feed, 1L), "there is no message id to hand over yet");
         board.unanswered.removeFirst().run();
         runQueued();
         assertEquals(List.of("msg-1"), board.deleted, "the card stayed beside the alert that came first");
         // A run shown only once it failed has its alert before the pass that would post its first card.
         rows.put(row(2L, UpdateStatus.FAILED, RunStage.FAILED, NOW));
-        assertNull(feed.failedCard(2L), "there is no card yet");
+        assertNull(card(feed, 2L), "there is no card yet");
         feed.tick();
         assertEquals(1, board.posted.size(), "a card was posted after the alert of its run");
     }
@@ -653,7 +569,7 @@ class UpdateFeedTest {
 
     @Test
     void withoutStewardsAddressTheCardCarriesNoLink() {
-        final UpdateFeed unlinked = new UpdateFeed(rows, board, documents, "", queued::add);
+        final UpdateFeed unlinked = new UpdateFeed(rows, board, cards, documents, "", queued::add);
         rows.put(row(7L, UpdateStatus.DONE, RunStage.DONE, NOW));
         unlinked.tick();
 

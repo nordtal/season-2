@@ -234,7 +234,17 @@ class ItemDefinitionsTest {
         imported(export.resolve("lamp.json"))
         imported(export.resolve("lamp.json"))
         files().use { it.write("nordtal:other", model(apple)) }
-        val existing = assertThrows<FieldRefusal> { files().use { it.import(export.resolve("lamp.json"), "nordtal:item/lamp", "nordtal:other", "model") } }
+        val existing =
+            assertThrows<FieldRefusal> {
+                files().use {
+                    it.import(
+                        export.resolve("lamp.json"),
+                        "nordtal:item/lamp",
+                        "nordtal:other",
+                        "model",
+                    )
+                }
+            }
 
         assertEquals(
             "Texture 0 of lamp.json is glow, which is neither beside it as glow.png nor in the pack or the client jar.",

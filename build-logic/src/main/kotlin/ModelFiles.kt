@@ -33,7 +33,8 @@ class ModelFiles(
         val file = file(model)
 
         @Suppress("UNCHECKED_CAST")
-        val json = OxfmtJson.read(file) as? MutableMap<String, Any?> ?: throw IllegalArgumentException("The model $model is no JSON object.")
+        val json =
+            OxfmtJson.read(file) as? MutableMap<String, Any?> ?: throw IllegalArgumentException("The model $model is no JSON object.")
 
         @Suppress("UNCHECKED_CAST")
         val textures = json["textures"] as? MutableMap<String, Any?> ?: OxfmtJson.Object().also { json["textures"] = it }
@@ -66,12 +67,25 @@ class ModelFiles(
 
     /** The model file of [model] in the pack, refused when only the client jar or nothing holds it. */
     private fun file(model: String): File {
-        val path = runCatching { Identifier.resource(model, "models", ".json") }.getOrElse { throw FieldRefusal("model", it.message.orEmpty()) }
+        val path =
+            runCatching {
+                Identifier.resource(
+                    model,
+                    "models",
+                    ".json",
+                )
+            }.getOrElse { throw FieldRefusal("model", it.message.orEmpty()) }
         val file = assets.resolve(path)
         if (file.isFile) return file
         throw FieldRefusal(
             "model",
-            if (files.read(path) != null) "$model is only in the client jar. Import a model of the pack to change it." else "The pack has no model $model.",
+            if (files.read(path) !=
+                null
+            ) {
+                "$model is only in the client jar. Import a model of the pack to change it."
+            } else {
+                "The pack has no model $model."
+            },
         )
     }
 
@@ -104,7 +118,14 @@ class ModelFiles(
             return given
         }
         val id = given.removeSuffix(".png").let { if (':' in it) it else "minecraft:$it" }
-        val path = runCatching { Identifier.resource(id, "textures", ".png") }.getOrElse { throw FieldRefusal("texture", it.message.orEmpty()) }
+        val path =
+            runCatching {
+                Identifier.resource(
+                    id,
+                    "textures",
+                    ".png",
+                )
+            }.getOrElse { throw FieldRefusal("texture", it.message.orEmpty()) }
         if (files.sprite(id)) return id
         if (id.startsWith("minecraft:")) throw FieldRefusal("texture", "$id is in neither the pack nor the client jar.")
         if (width !in 1..4096 || height !in 1..4096) {
@@ -151,7 +172,11 @@ class ModelFiles(
     }
 
     private fun faces(json: Map<String, Any?>): List<Map<*, *>> =
-        (json["elements"] as? List<*>).orEmpty().flatMap { ((it as? Map<*, *>)?.get("faces") as? Map<*, *>).orEmpty().values }.filterIsInstance<Map<*, *>>()
+        (json["elements"] as? List<*>)
+            .orEmpty()
+            .flatMap {
+                ((it as? Map<*, *>)?.get("faces") as? Map<*, *>).orEmpty().values
+            }.filterIsInstance<Map<*, *>>()
 
     /**
      * Writes the model [model] of the pack or the client jar to [to] as a Blockbench project of the format Java Block/Item
@@ -165,16 +190,34 @@ class ModelFiles(
         val elements = chain.firstNotNullOfOrNull { it["elements"] as? List<*> }
         if (elements.isNullOrEmpty()) throw FieldRefusal("model", "$model and its parents draw no elements that Blockbench could edit.")
         val keys = linkedMapOf<String, String>()
-        chain.reversed().forEach { json -> (json["textures"] as? Map<*, *>)?.forEach { (k, v) -> (v as? String)?.let { keys[k as String] = it } } }
+        chain.reversed().forEach { json ->
+            (json["textures"] as? Map<*, *>)?.forEach { (k, v) ->
+                (v as? String)?.let {
+                    keys[k as String] =
+                        it
+                }
+            }
+        }
         val textures =
             keys.keys.mapNotNull { key -> resolve(keys, key)?.let { key to it } }.groupBy({ it.second }, { it.first }).map { (id, named) ->
-                val png = files.read(Identifier.resource(id, "textures", ".png"))
-                    ?: throw FieldRefusal("model", "Texture $id of $model is a sprite without a PNG, which Blockbench cannot embed.")
+                val png =
+                    files.read(Identifier.resource(id, "textures", ".png"))
+                        ?: throw FieldRefusal("model", "Texture $id of $model is a sprite without a PNG, which Blockbench cannot embed.")
                 val mcmeta = files.read(Identifier.resource(id, "textures", ".png.mcmeta"))
-                Blockbench.Embedded(id, named.firstOrNull { it != "particle" } ?: named.first(), "particle" in named, png, size(png, id), mcmeta)
+                Blockbench.Embedded(
+                    id,
+                    named.firstOrNull { it != "particle" } ?: named.first(),
+                    "particle" in named,
+                    png,
+                    size(png, id),
+                    mcmeta,
+                )
             }
         textures.groupBy { it.id.substringAfterLast('/').substringAfter(':') }.values.firstOrNull { it.size > 1 }?.let { same ->
-            throw FieldRefusal("model", "${same[0].id} and ${same[1].id} of $model share a file name, which a Blockbench import cannot tell apart.")
+            throw FieldRefusal(
+                "model",
+                "${same[0].id} and ${same[1].id} of $model share a file name, which a Blockbench import cannot tell apart.",
+            )
         }
         faces(chain.firstNotNullOf { it["elements"] as? List<*> }.let { mapOf("elements" to it) })
             .mapNotNull { (it["texture"] as? String)?.removePrefix("#") }

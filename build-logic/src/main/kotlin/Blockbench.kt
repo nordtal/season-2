@@ -113,7 +113,9 @@ object Blockbench {
             val kept = index in used || elements.isEmpty()
             if (particle) textures["particle"] = reference
             if (kept) textures[source["id"].toString()] = reference
-            if (particle || kept) images[reference] = image(source, reference, file, width, height).let { Texture(it.name, it.png, it.mcmeta, link(source)) }
+            if (!particle && !kept) return@forEachIndexed
+            val image = image(source, reference, file, width, height)
+            images[reference] = Texture(image.name, image.png, image.mcmeta, link(source))
         }
         if (textures.isNotEmpty()) model["textures"] = textures
         if (elements.isNotEmpty()) model["elements"] = elements

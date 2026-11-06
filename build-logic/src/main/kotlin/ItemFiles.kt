@@ -196,13 +196,14 @@ class ItemFiles(
         val pending = linkedMapOf<File, ByteArray?>(target to ByteArray(0))
         val definition = definition(item)
         // An import onto the node that draws the model already writes it again, with the textures it names in the pack
-        val node = at.split('/').filter { it.isNotEmpty() }.fold<String, Any?>(definition) { n, key ->
-            when (n) {
-                is Map<*, *> -> n[key]
-                is List<*> -> key.toIntOrNull()?.let { n.getOrNull(it) }
-                else -> null
-            }
-        } as? Map<*, *>
+        val node =
+            at.split('/').filter { it.isNotEmpty() }.fold<String, Any?>(definition) { n, key ->
+                when (n) {
+                    is Map<*, *> -> n[key]
+                    is List<*> -> key.toIntOrNull()?.let { n.getOrNull(it) }
+                    else -> null
+                }
+            } as? Map<*, *>
         val drawn = node?.takeIf { it["type"] == "minecraft:model" || it["type"] == "model" }?.get("model")
         val again = drawn is String && full(drawn) == full(id) && target.isFile
         val owned = if (again) owned(target) else emptyMap()
@@ -253,9 +254,13 @@ class ItemFiles(
             image.mcmeta?.let { pending[File(png.path + ".mcmeta")] = it }
         }
         // A texture of its own that the model no longer names goes, with its .mcmeta and art/ source
-        val kept = textures.values.filterIsInstance<String>().filterNot { it.startsWith("#") }.mapNotNull { reference ->
-            runCatching { assets.resolve(Identifier.resource(full(reference), "textures", ".png")) }.getOrNull()
-        }.toSet()
+        val kept =
+            textures.values
+                .filterIsInstance<String>()
+                .filterNot { it.startsWith("#") }
+                .mapNotNull { reference ->
+                    runCatching { assets.resolve(Identifier.resource(full(reference), "textures", ".png")) }.getOrNull()
+                }.toSet()
         for (png in owned.keys) {
             if (png in kept || png in pending) continue
             sources(png).forEach { pending[it] = null }

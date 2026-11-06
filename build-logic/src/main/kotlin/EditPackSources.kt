@@ -255,7 +255,9 @@ abstract class EditPackSources : VanillaClientTask() {
 
                     "export" -> {
                         val model = text("model")
-                        val to = options["to"]?.let(::File) ?: pack.resolve("build/blockbench/${model.substringAfterLast('/').substringAfter(':')}.bbmodel")
+                        val to =
+                            options["to"]?.let(::File)
+                                ?: pack.resolve("build/blockbench/${model.substringAfterLast('/').substringAfter(':')}.bbmodel")
                         listOf(ItemFiles(pack, ::jar).use { ModelFiles(pack, it).export(model, to) })
                     }
 

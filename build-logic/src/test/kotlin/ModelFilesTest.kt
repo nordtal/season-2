@@ -58,7 +58,7 @@ class ModelFilesTest {
     private val model get() = assets.resolve("nordtal/models/item/station_rail.json")
 
     /** The station rail as the pack holds it, drawn by the item `nordtal:station_rail` */
-    private fun station(textures: String = """"particle": "minecraft:block/gold_block", "bar": "minecraft:block/gold_block", "plate": "minecraft:block/lapis_block""""): File {
+    private fun station(textures: String = STATION_TEXTURES): File {
         model.parentFile.mkdirs()
         model.writeText(
             """{ "parent": "block/cube", "textures": { $textures },
@@ -136,8 +136,15 @@ class ModelFilesTest {
         edited("plate", to = "deck")
 
         val json = OxfmtJson.read(model) as Map<*, *>
-        assertEquals(mapOf("particle" to "#deck", "bar" to "minecraft:block/gold_block", "deck" to "minecraft:block/lapis_block"), json["textures"])
-        val faces = (json["elements"] as List<*>).flatMap { ((it as Map<*, *>)["faces"] as Map<*, *>).values }.map { (it as Map<*, *>)["texture"] }
+        assertEquals(
+            mapOf("particle" to "#deck", "bar" to "minecraft:block/gold_block", "deck" to "minecraft:block/lapis_block"),
+            json["textures"],
+        )
+        val faces =
+            (json["elements"] as List<*>)
+                .flatMap {
+                    ((it as Map<*, *>)["faces"] as Map<*, *>).values
+                }.map { (it as Map<*, *>)["texture"] }
         assertEquals(listOf("#deck", "#deck", "#bar"), faces)
         assertEquals("to", assertThrows<FieldRefusal> { edited("deck", to = "bar") }.field)
     }
@@ -171,7 +178,10 @@ class ModelFilesTest {
         assertEquals("model", refusal.field)
     }
 
-    private fun exported(to: File = directory.resolve("export/station_rail.bbmodel")): File = files().use { ModelFiles(pack, it).export(rail, to) }
+    private fun exported(to: File = directory.resolve("export/station_rail.bbmodel")): File =
+        files().use {
+            ModelFiles(pack, it).export(rail, to)
+        }
 
     private fun imported(project: File) = files().use { it.import(project, rail, "nordtal:station_rail", "model") }
 
@@ -207,10 +217,11 @@ class ModelFilesTest {
     ): File {
         @Suppress("UNCHECKED_CAST")
         val project = JsonSlurper().parse(file) as MutableMap<String, Any?>
-        (project["textures"] as List<*>).map {
-            @Suppress("UNCHECKED_CAST")
-            it as MutableMap<String, Any?>
-        }.single { it["id"] == key }["source"] = "data:image/png;base64," + Base64.getEncoder().encodeToString(png(16, 16, rgb))
+        (project["textures"] as List<*>)
+            .map {
+                @Suppress("UNCHECKED_CAST")
+                it as MutableMap<String, Any?>
+            }.single { it["id"] == key }["source"] = "data:image/png;base64," + Base64.getEncoder().encodeToString(png(16, 16, rgb))
         return file.apply { writeText(JsonOutput.toJson(project)) }
     }
 
@@ -251,7 +262,12 @@ class ModelFilesTest {
             val texture = it as MutableMap<String, Any?>
             val bytes = Base64.getDecoder().decode((texture["source"] as String).substringAfter(","))
             val image = ImageIO.read(bytes.inputStream())
-            val again = BufferedImage(image.width, image.height, BufferedImage.TYPE_INT_ARGB).apply { createGraphics().drawImage(image, 0, 0, null) }
+            val again =
+                BufferedImage(
+                    image.width,
+                    image.height,
+                    BufferedImage.TYPE_INT_ARGB,
+                ).apply { createGraphics().drawImage(image, 0, 0, null) }
             val png = ByteArrayOutputStream().also { out -> ImageIO.write(again, "png", out) }.toByteArray()
             texture["source"] = "data:image/png;base64," + Base64.getEncoder().encodeToString(png)
         }
@@ -304,10 +320,13 @@ class ModelFilesTest {
                 (it as MutableMap<String, Any?>)["texture"] = 0
             }
         }
-        project["textures"] = listOf(textures[plate].also {
-            @Suppress("UNCHECKED_CAST")
-            (it as MutableMap<String, Any?>)["particle"] = true
-        })
+        project["textures"] =
+            listOf(
+                textures[plate].also {
+                    @Suppress("UNCHECKED_CAST")
+                    (it as MutableMap<String, Any?>)["particle"] = true
+                },
+            )
         val file = directory.resolve("export/station_rail.bbmodel").apply { writeText(JsonOutput.toJson(project)) }
 
         val written = imported(file)
@@ -327,5 +346,10 @@ class ModelFilesTest {
         station(""""plate": "minecraft:block/lapis_block"""")
 
         assertTrue("#bar" in assertThrows<FieldRefusal> { exported() }.message!!)
+    }
+
+    private companion object {
+        const val STATION_TEXTURES =
+            """"particle": "minecraft:block/gold_block", "bar": "minecraft:block/gold_block", "plate": "minecraft:block/lapis_block""""
     }
 }

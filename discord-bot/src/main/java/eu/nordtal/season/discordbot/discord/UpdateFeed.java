@@ -99,6 +99,12 @@ public final class UpdateFeed {
             @Takes({"admin/*", "database/*"}) @Example("admin/run.moved")
             List<MessageRef> changes) {}
 
+    /** A service whose steps moved and saved nothing, so its line names no artefact. */
+    record Quiet(
+            @Example(Mark.PREVIEW) String mark,
+            @Example("proxy") String service,
+            @Takes("admin/run.step-kind") MessageRef state) {}
+
     record Failure(
             @Example("smp") String service,
 
@@ -116,13 +122,17 @@ public final class UpdateFeed {
                     "Admin channel",
                     Run.class,
                     Slot.list("services", Service.class),
+                    Slot.list("quiet", Quiet.class).optional(),
                     Slot.list("why", Failure.class),
                     Slot.list("reasons", Reason.class).optional(),
                     Slot.button("open").optional())
             .titled("Update run")
             .inEnglishOnly();
 
-    private record Drawn(String messageId, @Nullable RunRecord showing) {}
+    private record Drawn(String messageId, @Nullable Shown showing) {}
+
+    /** What a card shows of a run: its stage and steps, and whether it finished, which adds how long it took. */
+    private record Shown(RunRecord record, boolean finished) {}
 
     private final UpdateDirectory updates;
     private final Board board;
@@ -358,7 +368,7 @@ public final class UpdateFeed {
         }
         board.post(card(request), messageId -> {
             keep(id, messageId);
-            final @Nullable RunRecord showing = over ? null : shownOf(request);
+            final @Nullable Shown showing = over ? null : shownOf(request);
             final boolean taken;
             synchronized (handing) {
                 posting.remove(id);
@@ -467,7 +477,7 @@ public final class UpdateFeed {
             }
             final UpdateRequest request = row.get();
             final Drawn drawn = entry.getValue();
-            final RunRecord showing = shownOf(request);
+            final Shown showing = shownOf(request);
             // Discord rate-limits edits. A card an alert took in the meantime is not drawn again.
             if (!Objects.equals(drawn.showing(), showing)
                     && drawing.replace(id, drawn, new Drawn(drawn.messageId(), showing))) {
@@ -493,9 +503,10 @@ public final class UpdateFeed {
                 stewardUrl.isBlank() ? null : stewardUrl + request.page());
     }
 
-    /** What a card shows of a run: its steps, with the stage of the row it was read with. */
-    private RunRecord shownOf(final UpdateRequest request) {
-        return new RunRecord(request.stage(), updates.recordOf(request.id()).steps());
+    /** What a card shows of a run: its steps, with the stage and the finish of the row it was read with. */
+    private Shown shownOf(final UpdateRequest request) {
+        return new Shown(
+                new RunRecord(request.stage(), updates.recordOf(request.id()).steps()), request.finished() != null);
     }
 
     /** Returns the stage of a run. A row no statement gave one yet is resolving. */
@@ -520,10 +531,12 @@ public final class UpdateFeed {
         final List<Failure> why = new ArrayList<>();
         final List<Reason> reasons = new ArrayList<>();
         for (final RunStep.Row step : record.steps()) {
-            if (step.service() != null) {
-                byService
-                        .computeIfAbsent(step.service(), service -> new ArrayList<>())
-                        .add(step);
+            // The database dump belongs to no service, so it is a line under the archive it saved.
+            final @Nullable String service = step.service() != null
+                    ? step.service()
+                    : step.saved().isEmpty() ? null : step.saved().getFirst().volume();
+            if (service != null) {
+                byService.computeIfAbsent(service, name -> new ArrayList<>()).add(step);
             }
             // Only a failed run says why, but a missing secret is said in any run, since only the host adds it.
             final boolean failedIt = stage == RunStage.FAILED && step.outcome() == RunStep.Outcome.FAILED;
@@ -536,6 +549,9 @@ public final class UpdateFeed {
                 }
             }
         }
+        final List<Service> lines = byService.entrySet().stream()
+                .map(service -> line(service.getKey(), service.getValue()))
+                .toList();
         final Instant requested = request.requested();
         final Instant finished = request.finished();
         final DiscordId asker = request.actor().person();
@@ -549,8 +565,13 @@ public final class UpdateFeed {
                         finished != null && requested != null ? Duration.between(requested, finished) : null),
                 Map.of(
                         "services",
-                        DocumentRenderer.FilledList.of(byService.entrySet().stream()
-                                .map(service -> line(service.getKey(), service.getValue()))
+                        DocumentRenderer.FilledList.of(lines.stream()
+                                .filter(line -> !line.changes().isEmpty())
+                                .toList()),
+                        "quiet",
+                        DocumentRenderer.FilledList.of(lines.stream()
+                                .filter(line -> line.changes().isEmpty())
+                                .map(line -> new Quiet(line.mark(), line.service(), line.state()))
                                 .toList()),
                         "why",
                         DocumentRenderer.FilledList.of(why),
@@ -561,7 +582,7 @@ public final class UpdateFeed {
                 Locales.DEFAULT);
     }
 
-    /** One service: the worst of its steps as mark, its latest step, and the artefacts of the latest step with any. */
+    /** One service: its worst mark, its latest step, and what its latest step with any moved or saved. */
     private static Service line(final String service, final List<RunStep.Row> steps) {
         final RunStep.Row latest = steps.getLast();
         final List<MessageRef> changes = steps.reversed().stream()
@@ -570,6 +591,10 @@ public final class UpdateFeed {
                 .filter(step -> step.reason() != RunStep.Reason.MISSING_SECRET)
                 .findFirst()
                 .map(step -> step.changes().stream().map(RunLines::change).toList())
+                .or(() -> steps.reversed().stream()
+                        .filter(step -> !step.saved().isEmpty())
+                        .findFirst()
+                        .map(step -> step.saved().stream().map(RunLines::saved).toList()))
                 .orElse(List.of());
         return new Service(marker(steps).symbol(), service, TEXTS.run().stepKind(latest.step()), changes);
     }

@@ -10,6 +10,12 @@
 -- another entry opens relies on
 local forkApi = 8
 
+-- The install lines of the README of nordtal/designer, which also update
+local installLines = {
+  macos="curl -fsSL https://raw.githubusercontent.com/nordtal/designer/main/install.sh | bash",
+  windows="irm https://raw.githubusercontent.com/nordtal/designer/main/install.ps1 | iex",
+}
+
 local ctl, listener, outdated
 
 local function write(path, text)
@@ -36,32 +42,26 @@ function init(plugin)
   local function join(...)
     return (fs.normalizePath(fs.joinPath(...)))
   end
-  -- An older app may have no plugin.require(), so the status that asks
-  -- for an update loads the strings' module itself
+  -- An app before fork API 4 has no plugin.require(), so the status
+  -- that asks for an update loads the strings' module itself. Any later
+  -- app requires it, since a chunk that dofile() loads isn't trusted
+  -- and its reading of the strings would raise the security alert.
   local old = (app.forkApiVersion or 0) < forkApi
-  local language = old and dofile(join(plugin.path, "language.lua")) or plugin.require("language")
+  local language = plugin.require and plugin.require("language") or dofile(join(plugin.path, "language.lua"))
   local tr = language.load(plugin.path, app.preferences.general.language, read, join)
   if old then
     -- One status in place of the Nordtal tab, like the bootstrap's
-    -- failures: it can't be closed, and Try Again checks the app again
-    local function status()
-      if outdated then
-        outdated:close()
-        outdated = nil
-      end
-      if (app.forkApiVersion or 0) >= forkApi then
-        init(plugin)
-        return
-      end
-      outdated = Dialog{ notitlebar=true }
-      outdated:label{ text=tr("update.text") }
-      outdated:newrow()
-      outdated:label{ text=tr("update.install") }
-      outdated:button{ text=tr("update.try_again"), focus=true, onclick=function() status() end }
-      outdated:button{ text=tr("update.quit"), onclick=function() app.command.Exit() end }
-      outdated:show{ wait=false }
-    end
-    status()
+    -- failures, but it can't be closed and offers only Quit, since the
+    -- app's version changes only with a restart. The install line is
+    -- an entry, so it can be copied.
+    local windows = app.os and app.os.windows
+    outdated = Dialog{ notitlebar=true }
+    outdated:label{ text=tr(windows and "update.text_windows" or "update.text") }
+    outdated:newrow()
+    outdated:entry{ text=windows and installLines.windows or installLines.macos }
+    outdated:newrow()
+    outdated:button{ text=tr("update.quit"), focus=true, onclick=function() app.command.Exit() end }
+    outdated:show{ wait=false }
     return
   end
 

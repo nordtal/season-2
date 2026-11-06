@@ -714,12 +714,16 @@ object Drafts {
 
     /**
      * The id of the draft that the changed file [path] belongs to: its texture's, or its own path. A file that a deleted
-     * item drew goes with that item, as [deletedItem] finds it.
+     * item drew goes with that item, as [deletedItem] finds it; any other deleted model or item is a draft of its own,
+     * so it never joins a texture that stays.
      */
     internal fun idOf(
         pack: File,
         path: String,
-    ): String = pack.resolve(path).takeIf { !it.exists() }?.let { deletedItem(pack, path) } ?: ownId(pack, path)
+    ): String {
+        if (pack.resolve(path).exists()) return ownId(pack, path)
+        return deletedItem(pack, path) ?: ownId(pack, path, committed = false)
+    }
 
     /**
      * The id of the deleted items that drew the deleted file [path] as the last commit has them, through their models, the
@@ -793,10 +797,14 @@ object Drafts {
         }.getOrNull()
     }
 
-    /** The id of the draft of [path] by the file alone: its texture's, or its own path */
+    /**
+     * The id of the draft of [path] by the file alone: its texture's, or its own path. A deleted file is read as the last
+     * commit has it only when [committed].
+     */
     private fun ownId(
         pack: File,
         path: String,
+        committed: Boolean = true,
     ): String {
         Regex(
             """src/assets/([^/]+)/textures/(.+\.png)(\.mcmeta)?""",
@@ -804,6 +812,7 @@ object Drafts {
         Regex(
             """art/assets/([^/]+)/textures/(.+)\.aseprite""",
         ).matchEntire(path)?.let { return "${it.groupValues[1]}:${it.groupValues[2]}.png" }
+        if (!committed && !pack.resolve(path).isFile) return path
         val json = readJson(pack, path) as? Map<*, *> ?: return path
         Regex("""src/assets/([^/]+)/models/.+\.json""").matchEntire(path)?.let {
             val textures = json["textures"] as? Map<*, *>

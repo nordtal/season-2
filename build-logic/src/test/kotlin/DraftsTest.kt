@@ -272,4 +272,33 @@ class DraftsTest {
             drafts(clone),
         )
     }
+
+    @Test
+    fun aModelThatAnItemEditRemovedIsADraftOfItsOwnAndNotOfItsKeptTexture() {
+        val clone = DraftClone(root, "star@FE000")
+        val assets = clone.pack.resolve("src/assets/nordtal")
+        clone.pngFile("star").copyTo(assets.resolve("textures/item/shared.png").apply { parentFile.mkdirs() })
+        assets.resolve("models/item/old.json").apply { parentFile.mkdirs() }.writeText(
+            """{ "parent": "minecraft:item/generated", "textures": { "layer0": "nordtal:item/shared" } }""",
+        )
+        assets.resolve("items/wand.json").apply { parentFile.mkdirs() }.writeText(
+            """{ "model": { "type": "minecraft:model", "model": "nordtal:item/old" } }""",
+        )
+        clone.commitAll("feat: wand")
+        clone.git(clone.clone, "push", "-q", "origin", "main")
+
+        clone.pngFile("star").copyTo(assets.resolve("textures/item/wand.png"))
+        assets.resolve("models/item/wand.json").writeText(
+            """{ "parent": "minecraft:item/generated", "textures": { "layer0": "nordtal:item/wand" } }""",
+        )
+        assets.resolve("items/wand.json").writeText(
+            """{ "model": { "type": "minecraft:model", "model": "nordtal:item/wand" } }""",
+        )
+        assets.resolve("models/item/old.json").delete()
+
+        assertEquals(
+            listOf("nordtal:item/wand.png", "src/assets/nordtal/models/item/old.json"),
+            drafts(clone).map { it.first() },
+        )
+    }
 }

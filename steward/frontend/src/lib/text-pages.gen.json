@@ -987,6 +987,7 @@
     "steward.settings.incomplete": ["services"],
     "steward.settings.invalid-fields": ["services"],
     "steward.settings.keep-it": ["services"],
+    "steward.settings.list-full": ["services"],
     "steward.settings.no-colour": ["services","updates","backups","translations"],
     "steward.settings.no-entries": ["services"],
     "steward.settings.no-files": ["services"],

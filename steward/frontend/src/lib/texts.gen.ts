@@ -2352,6 +2352,9 @@ export type TextArgs = {
     count: Arg["number"]
   }
   "steward.settings.keep-it": Record<string, never>
+  "steward.settings.list-full": {
+    most: Arg["number"]
+  }
   "steward.settings.no-colour": Record<string, never>
   "steward.settings.no-entries": Record<string, never>
   "steward.settings.no-files": Record<string, never>

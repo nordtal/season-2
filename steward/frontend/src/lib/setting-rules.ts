@@ -255,3 +255,8 @@ export function controlOf(schema: RuleNode, breach: Breach): string {
   }
   return parts.join(".")
 }
+
+/** Returns the most entries a list's rules allow, when they set a most. */
+export function mostEntries(rules: readonly ConfigRule[] | undefined): number | undefined {
+  return rules?.find((rule) => rule.rule === "MOST_ENTRIES")?.limit
+}

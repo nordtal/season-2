@@ -565,4 +565,35 @@ class PublishTest {
 
         assertEquals(listOf("nordtal:badges/star.png" to null), ids(clone))
     }
+
+    @Test
+    fun aRefusedPackCheckNamesWhatWentWrongInItsBuild() {
+        val report =
+            """
+            `sh gradlew -q :resource-pack:check` failed with exit code 1 in /tmp/tree:
+            FAILURE: Build failed with an exception.
+
+            * What went wrong:
+            Execution failed for task ':resource-pack:checkPack' (registered by plugin 'nordtal.resource-pack').
+            > The resource pack has 1 problem(s):
+                - nordtal/textures/badge.png: the image is empty, so glyph U+FE005 would show as a gap.
+
+            * Try:
+            > Run with --stacktrace option to get the stack trace.
+
+            BUILD FAILED in 1s
+            """.trimIndent()
+
+        assertEquals(
+            "The resource pack has 1 problem(s):\n    - nordtal/textures/badge.png: the image is empty, so glyph U+FE005 would show as a gap.",
+            wentWrong(report),
+        )
+    }
+
+    @Test
+    fun aRefusedPackCheckWithoutAGradleReportStaysAsItFailed() {
+        val failure = "`sh gradlew -q :resource-pack:check` failed with exit code 127 in /tmp/tree:\nsh: gradlew: not found"
+
+        assertEquals(null, wentWrong(failure))
+    }
 }

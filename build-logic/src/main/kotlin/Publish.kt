@@ -372,16 +372,37 @@ private const val PULL = "nordtal-designer-pull"
 /** The message of the stash that keeps the edits made while a pull stopped halfway. */
 private const val EDITS = "nordtal-designer-edits"
 
-/** Runs `:resource-pack:check` with the Gradle wrapper of the work tree [root]. */
+/**
+ * Runs `:resource-pack:check` with the Gradle wrapper of the work tree [root]. Its failure says what went wrong in that
+ * build, without the command and the rest of Gradle's report, so a refusal names the pack's problem.
+ */
 private fun checkPack(root: File) {
     val windows = System.getProperty("os.name").startsWith("Windows")
-    if (windows) {
-        run(
-            "cmd",
-            root,
-            listOf("/c", "gradlew.bat", "-q", ":resource-pack:check"),
-        )
-    } else {
-        run("sh", root, listOf("gradlew", "-q", ":resource-pack:check"))
+    try {
+        if (windows) {
+            run(
+                "cmd",
+                root,
+                listOf("/c", "gradlew.bat", "-q", ":resource-pack:check"),
+            )
+        } else {
+            run("sh", root, listOf("gradlew", "-q", ":resource-pack:check"))
+        }
+    } catch (failure: GradleException) {
+        throw wentWrong(failure.message.orEmpty())?.let { GradleException(it, failure) } ?: failure
     }
 }
+
+/**
+ * The lines under "What went wrong" in the Gradle [report] of a nested build, without the one that names the failed
+ * task and with each cause's `> ` taken off, or null when the report has none.
+ */
+internal fun wentWrong(report: String): String? =
+    report
+        .lines()
+        .dropWhile { !it.startsWith("* What went wrong:") }
+        .drop(1)
+        .takeWhile { !it.startsWith("* ") }
+        .filter { it.isNotBlank() && !it.startsWith("Execution failed for task ") }
+        .joinToString("\n") { it.removePrefix("> ") }
+        .takeIf { it.isNotEmpty() }

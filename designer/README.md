@@ -7,8 +7,8 @@ of the Nordtal tab: it shows the install line of `nordtal/designer` to run again
 offers only **Quit**, since the app's version changes only with a restart.
 
 The Nordtal tab holds the embedded editor below the Minecraft bar. The bar ends in the status line.
-The tab's side panel holds the tree of the resource pack above the properties panel of the selected
-entry, with a splitter between them. The main window docks the side panel left of the colour bar
+The tab's side panel holds the **Publish** button above the tree of the resource pack, and the tree
+above the properties panel of the selected entry, with a splitter between them. The main window docks the side panel left of the colour bar
 while the tab is active. The side panel keeps the width and the splitter's place the designer drags
 them to. The editor takes the rest of the width. A longer node of the tree scrolls. The plugin runs
 `:resource-pack:describePack` with the clone's Gradle wrapper and builds the tree from

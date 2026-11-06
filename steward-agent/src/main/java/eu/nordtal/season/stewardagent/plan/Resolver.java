@@ -185,14 +185,14 @@ public final class Resolver {
     private static List<UpdatePlan.Retiring> retired(final Installation installed, final Set<String> claimed) {
         final List<UpdatePlan.Retiring> found = new ArrayList<>();
         for (final Retired gone : Retired.on(installed.service())) {
-            if (claimed.contains(gone.prefix())) {
+            if (claimed.stream().anyMatch(gone::owns)) {
                 continue;
             }
             final List<String> files = new ArrayList<>();
-            installed.plugins().stream()
-                    .filter(jar -> gone.prefix().equals(jar.prefix()))
-                    .forEach(jar -> files.add(jar.fileName()));
-            claimed.add(gone.prefix());
+            installed.plugins().stream().filter(jar -> gone.owns(jar.prefix())).forEach(jar -> {
+                files.add(jar.fileName());
+                claimed.add(jar.prefix());
+            });
             final Path folder =
                     installed.directory().resolve(Installation.PLUGINS).resolve(gone.folder());
             if (Files.isDirectory(folder, LinkOption.NOFOLLOW_LINKS)) {

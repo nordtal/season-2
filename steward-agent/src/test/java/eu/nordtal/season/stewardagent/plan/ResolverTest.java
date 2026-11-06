@@ -31,6 +31,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -413,6 +414,21 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         assertEquals(List.of(new UpdatePlan.Retiring("smp", "coreprotect", List.of("CoreProtect"))), plan.retiring());
+    }
+
+    @Test
+    void aRetiredPluginsJarIsFoundUnderEveryNameItWasPublishedUnder() throws IOException {
+        installCurrentEverything();
+        write("smp", "plugins/coreprotect-22.4.jar");
+        write("smp", "plugins/CoreProtect-23.0.jar");
+
+        final UpdatePlan plan = resolve();
+
+        assertEquals(1, plan.retiring().size());
+        assertEquals(
+                Set.of("coreprotect-22.4.jar", "CoreProtect-23.0.jar"),
+                Set.copyOf(plan.retiring().get(0).files()));
+        assertEquals(List.of(), plan.unclaimed());
     }
 
     @Test

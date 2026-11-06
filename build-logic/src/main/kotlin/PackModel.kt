@@ -317,23 +317,38 @@ object PackModel {
         }
 
     /**
-     * The texture that a `minecraft:model` item draws: `layer0` of its model as [read] gives it, or its first texture.
-     * It is null for any other item type, a model outside the pack, a model without a texture, or a texture that is no
-     * identifier, so that no path of the model leads out of the pack.
+     * The texture that a `minecraft:model` item draws: the texture of its model as [read] gives it that [modelTexture]
+     * picks. It is null for any other item type and a model outside the pack.
      */
     internal fun itemTexture(
         model: Map<*, *>?,
         assets: File,
         read: (File) -> Any? = { file -> file.takeIf { it.isFile }?.let { json(it) } },
+        held: (File) -> Boolean = { it.isFile },
     ): String? {
         if (model?.get("type") != "minecraft:model") return null
         val reference = model["model"] as? String ?: return null
         val file = assets.resolve(runCatching { Identifier.resource(reference, "models", ".json") }.getOrNull() ?: return null)
-        val textures = (read(file) as? Map<*, *>)?.get("textures") as? Map<*, *>
-        val id = (textures?.get("layer0") ?: textures?.values?.firstOrNull()) as? String ?: return null
-        val texture = (if (':' in id) id else "minecraft:$id") + ".png"
-        return texture.takeIf { Identifier.problem(it) == null }
+        return modelTexture((read(file) as? Map<*, *>)?.get("textures") as? Map<*, *>, assets, held)
     }
+
+    /**
+     * The first of a model's [textures], `layer0` before the others, that is an identifier and whose PNG under [assets]
+     * the pack holds as [held] says, or null. A texture of vanilla's that the pack does not hold is no texture to open,
+     * and no path of the model leads out of the pack.
+     */
+    internal fun modelTexture(
+        textures: Map<*, *>?,
+        assets: File,
+        held: (File) -> Boolean = { it.isFile },
+    ): String? =
+        (listOf(textures?.get("layer0")) + textures.orEmpty().filterKeys { it != "layer0" }.values)
+            .filterIsInstance<String>()
+            .map { id -> (if (':' in id) id else "minecraft:$id") + ".png" }
+            .firstOrNull { texture ->
+                Identifier.problem(texture) == null &&
+                    held(assets.resolve(Identifier.resource(texture.removeSuffix(".png"), "textures", ".png")))
+            }
 
     /** The textures under `assets/minecraft/textures`, one category per folder. */
     private fun overrides(

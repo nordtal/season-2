@@ -238,6 +238,30 @@ class PackModelTest {
     }
 
     @Test
+    fun anItemOpensTheFirstTextureOfItsModelThatThePackHolds() {
+        allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
+        for ((name, textures) in listOf(
+            "rail" to """{"particle": "minecraft:block/gold_block", "plate": "nordtal:item/plate"}""",
+            "vanilla" to """{"layer0": "minecraft:block/gold_block", "bar": "block/lapis_block"}""",
+        )) {
+            file("src/assets/nordtal/items/$name.json")
+                .writeText("""{"model": {"type": "minecraft:model", "model": "nordtal:item/$name"}}""")
+            file("src/assets/nordtal/models/item/$name.json").writeText("""{"textures": $textures}""")
+        }
+        png("src/assets/nordtal/textures/item/plate.png", 16, 16)
+        file("src/assets/minecraft/lang/en_us.json").writeText("""{ "item.nordtal.vanilla": "Vanilla" }""")
+
+        val model = model()
+        val entries = model.list("items").flatMap { it.list("entries") }
+
+        assertEquals(
+            listOf("nordtal:rail" to "nordtal:item/plate.png", "nordtal:vanilla" to null),
+            entries.map { it["id"] to (it["texture"] as Map<*, *>?)?.get("id") },
+        )
+        assertEquals("src/assets/nordtal/items/vanilla.json", only(model.list("texts"))["owner"])
+    }
+
+    @Test
     fun anItemTextureThatIsNoIdentifierIsLeftOut() {
         allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
         for ((name, layer) in listOf("up" to "nordtal:../../../../Library/foo", "absolute" to "/tmp/foo")) {

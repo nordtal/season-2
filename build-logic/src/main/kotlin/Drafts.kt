@@ -852,6 +852,12 @@ object Drafts {
         }.getOrNull()
     }
 
+    /** Whether the last commit of [pack] holds the file [relative]. */
+    private fun inHead(
+        pack: File,
+        relative: String,
+    ): Boolean = runCatching { git(pack, listOf("cat-file", "-e", "HEAD:./$relative")) }.isSuccess
+
     /**
      * The id of the draft of [path] by the file alone: its texture's, or its own path. A deleted file is read as the last
      * commit has it only when [committed].
@@ -869,15 +875,16 @@ object Drafts {
         ).matchEntire(path)?.let { return "${it.groupValues[1]}:${it.groupValues[2]}.png" }
         if (!committed && !pack.resolve(path).isFile) return path
         val json = readJson(pack, path) as? Map<*, *> ?: return path
-        Regex("""src/assets/([^/]+)/models/.+\.json""").matchEntire(path)?.let {
-            val textures = json["textures"] as? Map<*, *>
-            val texture = (textures?.get("layer0") ?: textures?.values?.firstOrNull()) as? String ?: return path
-            return (if (':' in texture) texture else "minecraft:$texture") + ".png"
+        val assets = pack.resolve("src/assets")
+        // A deleted file is read as the last commit has it, and so are the textures it draws.
+        val deleted = !pack.resolve(path).isFile
+        val held = { file: File -> file.isFile || (deleted && inHead(pack, file.relativeTo(pack).invariantSeparatorsPath)) }
+        if (Regex("""src/assets/([^/]+)/models/.+\.json""").matches(path)) {
+            return PackModel.modelTexture(json["textures"] as? Map<*, *>, assets, held) ?: path
         }
         if (Regex("""src/assets/[^/]+/items/.+\.json""").matches(path)) {
-            val assets = pack.resolve("src/assets")
             val read = { file: File -> readJson(pack, file.relativeTo(pack).invariantSeparatorsPath) }
-            return PackModel.itemTexture(json["model"] as? Map<*, *>, assets, read) ?: path
+            return PackModel.itemTexture(json["model"] as? Map<*, *>, assets, read, held) ?: path
         }
         return path
     }

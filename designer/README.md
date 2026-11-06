@@ -7,21 +7,22 @@ of the Nordtal tab: it shows the install line of `nordtal/designer` to run again
 offers only **Quit**, since the app's version changes only with a restart.
 
 The Nordtal tab holds the embedded editor below the Minecraft bar. The bar ends in the status line.
-The tab's side panel holds the tree of the resource pack above the properties panel of the selected
-entry, with a splitter between them. The main window docks the side panel left of the colour bar
-while the tab is active. The side panel keeps the width and the splitter's place the designer drags
-them to. The editor takes the rest of the width. A longer node of the tree scrolls. The plugin runs
-`:resource-pack:describePack` with the clone's Gradle wrapper and builds the tree from
-`build/pack-model.json`. Every task starts as `java -jar gradle/wrapper/gradle-wrapper.jar` on the
-JDK of the bootstrap's `JAVA_HOME`, so no shell and no batch file reads an option. A task that
-cannot start shows why in the status line. A click on an entry opens its texture in the editor,
-zoomed to fit, unless its PNG lies outside `resource-pack/src/` or its source outside
-`resource-pack/art/`. Then the editor stays empty and the tab says why. When the sprite leaves the
-editor without the tab, such as with **File > Close**, the tree selects nothing, so a click opens
-the entry again. Each save of that sprite writes its `.aseprite` source under `resource-pack/art/`
-and its PNG: the first frame for a glyph or an item, every frame for a vanilla override. A click on
-another entry saves the sprite first when it has unsaved changes, and keeps it open when that save
-fails. **View > Nordtal Tree on the Right** docks the side panel right of the tools.
+The tab's side panel holds the **Publish** button above the tree of the resource pack, and the tree
+above the properties panel of the selected entry, with a splitter between them. The main window
+docks the side panel left of the colour bar while the tab is active. The side panel keeps the width
+and the splitter's place the designer drags them to. The editor takes the rest of the width. A
+longer node of the tree scrolls. The plugin runs `:resource-pack:describePack` with the clone's
+Gradle wrapper and builds the tree from `build/pack-model.json`. Every task starts as `java -jar
+gradle/wrapper/gradle-wrapper.jar` on the JDK of the bootstrap's `JAVA_HOME`, so no shell and no
+batch file reads an option. A task that cannot start shows why in the status line. A click on an
+entry opens its texture in the editor, zoomed to fit, unless its PNG lies outside
+`resource-pack/src/` or its source outside `resource-pack/art/`. Then the editor stays empty and
+the tab says why. When the sprite leaves the editor without the tab, such as with **File > Close**,
+the tree selects nothing, so a click opens the entry again. Each save of that sprite writes its
+`.aseprite` source under `resource-pack/art/` and its PNG: the first frame for a glyph or an item,
+every frame for a vanilla override. A click on another entry saves the sprite first when it has
+unsaved changes, and keeps it open when that save fails. **View > Nordtal Tree on the Right** docks
+the side panel right of the tools.
 
 The tree's **Textures** lists every PNG under `src/assets/<namespace>/textures/` outside `minecraft`
 that no glyph, sheet or item of the tree shows, by namespace and folder, so a texture that nothing
@@ -86,9 +87,11 @@ save. A sprite that the tab built from the frames of a PNG has no unsaved change
 changes it. The tree's **Texts** lists each key of the pack's language files, and its properties
 show the asset that owns the key, one value per language that `editText` writes, and **Delete
 Text**. **Add Text** on **Texts** asks for a key, a language and a value. The properties panel of a
-draft has **Discard Changes**, which runs `discardDraft` once confirmed. **File > Publish...** lists
-every draft with a check, and a title that names the drafts chosen until it is edited. **Discard
-Chosen...** discards the chosen drafts once confirmed. **Publish** writes the title to
+draft has **Discard Changes**, which runs `discardDraft` once confirmed. **Publish** above the tree
+shows the number of drafts and is disabled while there are none. It opens the same dialog as
+**File > Publish...**, which lists every draft with a check, and a title that names the drafts
+chosen until it is edited. **Discard Chosen...** discards the chosen drafts once confirmed. The
+dialog's **Publish** writes the title to
 `resource-pack/build/publish-message.txt` and runs `.githooks/commit-msg` on it through `git hook
 run` with the bootstrap's git. A refusal of the hook shows in the dialog over at most six lines, and
 the dialog stays open. The last line ends with `...` when the refusal is longer. An accepted title

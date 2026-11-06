@@ -328,7 +328,7 @@ describe("the Nordtal tab", function()
 
   it("puts the Minecraft bar above the editor, and the tree above a splitter and the properties in the side panel", function()
     local t = setUp()
-    assert.same({ "canvas", "editor", "panel", "tree", "splitter", "canvas" }, kinds(t.dialogs[1]))
+    assert.same({ "canvas", "editor", "panel", "button", "tree", "splitter", "canvas" }, kinds(t.dialogs[1]))
     assert.equal("bar", t.dialogs[1].widgets[1].args.id)
     assert.equal("properties", t.dialogs[1].widgets[#t.dialogs[1].widgets].args.id)
     -- A canvas grows with the window unless told otherwise, and the bar keeps one line
@@ -348,7 +348,7 @@ describe("the Nordtal tab", function()
 
   it("docks the side panel on the right when the setting says so", function()
     local t = setUp({ treeSide="right" })
-    assert.same({ "canvas", "editor", "panel", "tree", "splitter", "canvas" }, kinds(t.dialogs[1]))
+    assert.same({ "canvas", "editor", "panel", "button", "tree", "splitter", "canvas" }, kinds(t.dialogs[1]))
     assert.equal("right", t.dialogs[1].handlers.nordtal_pack.side)
   end)
 
@@ -1640,6 +1640,41 @@ describe("the Nordtal tab", function()
     local dlg = loaded(t)
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     assert.is_falsy(table.concat(texts(dlg), "\n"):find("properties.discard", 1, true))
+  end)
+
+  it("shows the number of drafts on the Publish button above the tree, which is disabled while there are none", function()
+    local t = setUp()
+    local dlg = t.dialogs[1]
+    assert.equal("publish.button 0", dlg.handlers.publish.text)
+    assert.is_false(dlg.handlers.publish.enabled)
+    loaded(t)
+    assert.equal("publish.button 0", dlg.handlers.publish.text)
+    assert.is_false(dlg.handlers.publish.enabled)
+    local drafted = setUp(nil, draftModel)
+    loaded(drafted)
+    assert.equal("publish.button 2", drafted.dialogs[1].handlers.publish.text)
+    assert.is_true(drafted.dialogs[1].handlers.publish.enabled)
+    -- A read that finds the drafts gone disables the button again
+    local m = dkjson.decode(draftModel)
+    m.drafts = {}
+    drafted.world.model = dkjson.encode(m)
+    synced(drafted)
+    drafted.ctl.reload()
+    local read = drafted.started[#drafted.started]
+    read.isRunning = false
+    read.args.onexit(0)
+    assert.equal("publish.button 0", drafted.dialogs[1].handlers.publish.text)
+    assert.is_false(drafted.dialogs[1].handlers.publish.enabled)
+  end)
+
+  it("opens the publish dialog from the Publish button", function()
+    local t = setUp(nil, draftModel)
+    local dlg = loaded(t)
+    synced(t)
+    local form
+    t.dialogs.answer = function(d) form = d end
+    dlg.handlers.publish.onclick()
+    assert.equal("check", form.widgets[1].kind)
   end)
 
   it("publishes the chosen drafts once the commit hook accepts the title, then reads the pack", function()

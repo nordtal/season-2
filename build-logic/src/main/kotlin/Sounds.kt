@@ -19,7 +19,7 @@ object Sounds {
     private val OGG = Regex("""src/assets/([^/]+)/sounds/(.+)\.ogg""")
     private const val OWN = "sound "
 
-    /** The fields of a sound in an event's `sounds` list besides its `name`, with the rule each value keeps. */
+    /** The fields of a sound in an event's `sounds` list besides its `name`, each checked by [problem]. */
     private val FIELDS = setOf("volume", "pitch", "weight", "stream", "attenuation_distance", "preload", "type")
 
     /** Whether [path], relative to the pack, is a `sounds.json`. */
@@ -166,6 +166,12 @@ object Sounds {
         if (namespace == "minecraft") {
             throw FieldRefusal("sound", "$event is a vanilla sound event. Override it instead, or create it in the namespace nordtal.")
         }
+        if (!EVENT.matches(event.substringAfter(':'))) {
+            throw FieldRefusal(
+                "sound",
+                "A sound event is words of a to z, 0 to 9, _ and - with dots between them, such as nordtal:ui.click.",
+            )
+        }
         if (event in events(pack)) throw FieldRefusal("sound", "The pack has the sound event $event already.")
         return change(pack, event, ogg(file)) { _, sound -> OxfmtJson.Object().also { it["sounds"] = array(listOfNotNull(sound)) } }
     }
@@ -274,8 +280,16 @@ object Sounds {
                         if (it["subtitle"] == null) it.remove("subtitle")
                     } else {
                         it.remove("replace")
+                        it.remove("subtitle")
+                        val copied = names(vanilla().events()[event].orEmpty()).toSet()
+                        (it["sounds"] as MutableList<Any?>).removeAll { sound ->
+                            names(mapOf("sounds" to listOf(sound))).any(copied::contains)
+                        }
                     }
                 }
+            }.let { written ->
+                val key = entry["subtitle"] as String?
+                if (replace == "true" || key == null) written else written + subtitleText(pack, event, key)
             }
         }
         val values =
@@ -295,8 +309,14 @@ object Sounds {
         }
     }
 
+    private val EVENT = Regex("""[a-z0-9_-]+(\.[a-z0-9_-]+)*""")
+    private val NAME = Regex("""([a-z0-9_.-]+:)?[a-z0-9_.-]+(/[a-z0-9_.-]+)*""")
+
+    /** Whether [name] is a sound name the client resolves, such as `nordtal:ui/click` or `random/anvil_land`. */
+    fun isName(name: String): Boolean = NAME.matches(name)
+
     /** Why [value] is no value of the sound field [field], or null where it is one. */
-    private fun problem(
+    fun problem(
         field: String,
         value: Any?,
     ): String? {
@@ -344,13 +364,30 @@ object Sounds {
         if (delete) {
             key ?: throw FieldRefusal("sound", "$event has no subtitle.")
             val written = change(pack, event, null) { root, _ -> root.also { it.remove("subtitle") } }
-            val shared = events.any { (other, e) -> other != event && e["subtitle"] == key }
-            val texts = if (shared || Texts.work(pack).values.none { key in it }) emptyList() else Texts.edit(pack, key, null, null, true)
-            return written + texts
+            return written + subtitleText(pack, event, key)
         }
-        val subtitle = key ?: "subtitles.${event.substringBefore(':')}.${event.substringAfter(':')}"
+        if (event.startsWith("minecraft:") && entry["replace"] != true) {
+            throw FieldRefusal(
+                "sound",
+                "The client shows vanilla's subtitle for $event unless it replaces vanilla's sounds. Set -Preplace=true first.",
+            )
+        }
+        // A key that no language file of the pack holds is vanilla's, which other events share, so the pack takes its own.
+        val own = "subtitles.${event.substringBefore(':')}.${event.substringAfter(':').replace('/', '.')}"
+        val subtitle = key?.takeIf { it == own || Texts.work(pack).values.any { texts -> it in texts } } ?: own
         val texts = Texts.edit(pack, subtitle, language, value, false)
-        return texts + if (key == null) change(pack, event, null) { root, _ -> root.also { it["subtitle"] = subtitle } } else emptyList()
+        return texts +
+            if (subtitle != key) change(pack, event, null) { root, _ -> root.also { it["subtitle"] = subtitle } } else emptyList()
+    }
+
+    /** Deletes the text of the subtitle [key] that [event] named, where the pack holds it and no other event names it. */
+    private fun subtitleText(
+        pack: File,
+        event: String,
+        key: String,
+    ): List<File> {
+        val shared = events(pack).any { (other, e) -> other != event && e["subtitle"] == key }
+        return if (shared || Texts.work(pack).values.none { key in it }) emptyList() else Texts.edit(pack, key, null, null, true)
     }
 
     /**
@@ -364,16 +401,14 @@ object Sounds {
         val events = events(pack)
         val entry = events[event] ?: throw FieldRefusal("sound", "The pack has no sound event $event.")
         val key = entry["subtitle"] as String?
-        val shared = key != null && events.any { (other, e) -> other != event && e["subtitle"] == key }
-        val texts =
-            if (key == null || shared ||
-                Texts.work(pack).values.none { key in it }
-            ) {
-                emptyList()
-            } else {
-                Texts.edit(pack, key, null, null, true)
+        val texts = key?.let { subtitleText(pack, event, it) }.orEmpty()
+        val committed = at(pack, "HEAD").keys
+        val left =
+            work(pack).mapValues { (_, values) -> values - event }.filter { (path, values) ->
+                values.isNotEmpty() ||
+                    path in committed
             }
-        val written = put(pack, work(pack).mapValues { (_, values) -> values - event }, setOf(event))
+        val written = put(pack, left, setOf(event))
         return written + unused(pack, names(entry)) + texts
     }
 

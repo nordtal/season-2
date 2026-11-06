@@ -244,26 +244,9 @@ object PackRules {
                 ?: return listOf("$where is neither a name nor an object.")
         val findings = mutableListOf<String>()
         val name = fields["name"] as? String
-        if (name == null || name.isEmpty() || name.any { it.isWhitespace() }) return listOf("$where needs a name without spaces.")
-        (fields.keys - setOf("name", "volume", "pitch", "weight", "stream", "attenuation_distance", "preload", "type")).forEach {
-            findings += "$where has the unknown field $it."
-        }
-        for (field in listOf("volume", "pitch")) {
-            if (field in fields &&
-                (fields[field] as? Number)?.toDouble()?.let { it > 0 } != true
-            ) {
-                findings += "$where: $field must be a number above 0."
-            }
-        }
-        for (field in listOf("weight", "attenuation_distance")) {
-            val value = fields[field]
-            if (field in fields && (value !is Int || value < 1)) findings += "$where: $field must be a whole number from 1."
-        }
-        for (field in listOf("stream", "preload")) {
-            if (field in fields && fields[field] !is Boolean) findings += "$where: $field must be true or false."
-        }
+        if (name == null || !Sounds.isName(name)) return listOf("$where needs a name such as nordtal:ui/click, in lower case.")
+        (fields - "name").forEach { (field, value) -> Sounds.problem(field.toString(), value)?.let { findings += "$where: $field $it." } }
         val type = fields["type"] ?: "file"
-        if (type != "file" && type != "event") findings += "$where: type must be file or event."
         val namespace = if (':' in name) name.substringBefore(':') else "minecraft"
         if (type == "file" && namespace != "minecraft" && !assets.resolve("$namespace/sounds/${name.substringAfter(':')}.ogg").isFile) {
             findings += "$where names $name, but the pack has no $namespace/sounds/${name.substringAfter(':')}.ogg."

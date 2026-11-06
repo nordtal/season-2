@@ -232,6 +232,58 @@ class SoundsTest {
     }
 
     @Test
+    fun aSubtitleOfAVanillaEventNeedsReplaceAndTakesAKeyOfThePacksOwn() {
+        val clone = clone()
+        Sounds.override(clone.pack, ::vanilla, "minecraft:block.anvil.land", false, tone.absolutePath)
+
+        val refusal =
+            assertThrows<FieldRefusal> { Sounds.subtitle(clone.pack, "minecraft:block.anvil.land", "en_us", "Clang", false) }
+        assertEquals("sound", refusal.field)
+
+        Sounds.edit(clone.pack, ::vanilla, "minecraft:block.anvil.land", null, null, null, null, false, "true")
+        assertEquals("subtitles.block.anvil.land", (soundsJson(clone, "minecraft")["block.anvil.land"] as Map<*, *>)["subtitle"])
+        Sounds.subtitle(clone.pack, "minecraft:block.anvil.land", "en_us", "Clang", false)
+
+        assertEquals(
+            "subtitles.minecraft.block.anvil.land",
+            (soundsJson(clone, "minecraft")["block.anvil.land"] as Map<*, *>)["subtitle"],
+        )
+        assertEquals(
+            mapOf("src/assets/minecraft/lang/en_us.json" to mapOf("subtitles.minecraft.block.anvil.land" to "Clang")),
+            Texts.work(clone.pack),
+        )
+    }
+
+    @Test
+    fun anOverrideThatStopsReplacingDropsVanillasCopiesAndItsSubtitle() {
+        val clone = clone()
+        Sounds.override(clone.pack, ::vanilla, "minecraft:block.anvil.land", true, null)
+        Sounds.edit(clone.pack, ::vanilla, "minecraft:block.anvil.land", null, null, tone.absolutePath, null, false, null)
+        Sounds.subtitle(clone.pack, "minecraft:block.anvil.land", "en_us", "Clang", false)
+
+        Sounds.edit(clone.pack, ::vanilla, "minecraft:block.anvil.land", null, null, null, null, false, "false")
+
+        assertEquals(
+            mapOf("block.anvil.land" to mapOf("sounds" to listOf(mapOf("name" to "minecraft:nordtal/block/anvil/land")))),
+            soundsJson(clone, "minecraft"),
+        )
+        assertEquals(emptyMap<String, Any>(), Texts.work(clone.pack))
+    }
+
+    @Test
+    fun anEventNameIsDottedWordsAndTheLastNewEventTakesItsFileAlong() {
+        val clone = clone()
+        for (event in listOf("nordtal:ui/click", "nordtal:ui..click", "nordtal:.click")) {
+            assertEquals("sound", assertThrows<FieldRefusal> { Sounds.create(clone.pack, event, tone.absolutePath) }.field, event)
+        }
+        Sounds.create(clone.pack, "nordtal:ui.click", tone.absolutePath)
+
+        Sounds.delete(clone.pack, "nordtal:ui.click")
+
+        assertFalse(clone.pack.resolve("src/assets/nordtal/sounds.json").exists())
+    }
+
+    @Test
     fun aSoundEventIsOneDraftWithItsFilesAndSubtitleAndADiscardTakesItBack() {
         val clone = clone()
         Sounds.create(clone.pack, "nordtal:ui.close", tone.absolutePath)
@@ -384,7 +436,7 @@ class SoundsTest {
         tone.copyTo(assets.resolve("nordtal/sounds/ok.ogg"))
         assets.resolve("nordtal/sounds/bad.ogg").writeText("ID3")
         assets.resolve("nordtal/sounds.json").writeText(
-            """{"a": {"sounds": ["nordtal:ok", {"name": "nordtal:gone", "volume": 0, "weight": 1.5}]}, "b": {"sounds": [], "replace": "yes"}}""",
+            """{"a": {"sounds": ["nordtal:ok", {"name": "nordtal:gone", "volume": 0, "weight": 1.5}]}, "b": {"sounds": [], "replace": "yes"}, "c": {"sounds": ["Nordtal:Up"]}}""",
         )
 
         assertEquals(
@@ -394,6 +446,7 @@ class SoundsTest {
                 "nordtal/sounds.json: sound 1 of a: weight must be a whole number from 1.",
                 "nordtal/sounds.json: sound 1 of a names nordtal:gone, but the pack has no nordtal/sounds/gone.ogg.",
                 "nordtal/sounds.json: replace of b must be true or false.",
+                "nordtal/sounds.json: sound 0 of c needs a name such as nordtal:ui/click, in lower case.",
             ),
             PackRules.findings(assets),
         )

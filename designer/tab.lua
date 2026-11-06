@@ -16,7 +16,8 @@
 -- A click on a value of the panel asks for a new one in a form, and
 -- OK runs the task that writes it. The tasks run one at a time, and
 -- after them the tab reads the pack again. ctl.create() opens the
--- wizard for a new texture, which opens in the editor once created.
+-- wizard for a new texture, which opens in the editor once created,
+-- and ctl.createSound() the wizard for a new sound event.
 --
 -- A selected item reads its definition, whose models, cases, entries
 -- and tints the tree then shows below the item's node. The panel edits
@@ -154,7 +155,9 @@ function tab.open(context)
       end
       return list
     end
-    for _, row in ipairs(properties.rows(info, tr, { coupled=preferences.coupled })) do
+    local own = modules.sounds.handles(info) and modules.sounds.rows(info, tr)
+      or properties.rows(info, tr, { coupled=preferences.coupled })
+    for _, row in ipairs(own) do
       if row.key == "coupled" then
         table.insert(list, { text=tr("properties.coupled"), value=row.value, field=row.field, kind="switch" })
       elseif row.key == "delete" or row.button then
@@ -884,6 +887,53 @@ function tab.open(context)
     end)
   end
 
+  -- Plays a sound of the event of info: playSound writes it as a WAV,
+  -- which the operating system's player plays. A player that cannot
+  -- start or fails hands over to the next.
+  local function play(info)
+    setStatus(tr("status.playing"))
+    enqueue(task({ "playSound", modules.sounds.play(info) }), function(ok, err, out)
+      if not ok then
+        setStatus(tr("status.refused") .. " " .. table.concat(modules.pack.refusal(err), " "))
+        return
+      end
+      local players = modules.sounds.players(api.os, out[#out] or "")
+      local function try(i)
+        local cmd = players[i]
+        if not cmd then
+          setStatus(tr("status.not_played"))
+          return
+        end
+        local process = api.Process{ cmd=cmd, onexit=function(code)
+          if code ~= 0 then try(i + 1) end
+        end }
+        local started = pcall(process.start, process)
+        if started then setStatus(nil) else try(i + 1) end
+      end
+      try(1)
+    end, function() end)
+  end
+
+  -- Takes the action of a row of a sound event or of one of its
+  -- sounds: plays it, or asks for the change and runs its task
+  local function editSound(info, field)
+    if field == "newSound" then
+      ctl.createSound()
+      return
+    elseif field == "play" then
+      play(info)
+      return
+    elseif field == "delete" then
+      local yes = api.alert{ title=tr("sounds.delete"), text=modules.sounds.confirm(info, tr),
+                             buttons={ tr("sounds.delete"), tr("edit.cancel") } }
+      if yes == 1 then write(modules.sounds.jobs(info, field, {})) end
+      return
+    end
+    local data = ask(modules.sounds.form(info, field, tr))
+    local job = data and modules.sounds.jobs(info, field, data)
+    if job then write(job) end
+  end
+
   -- Shows text in the status line once the pack was read again
   local function reloadThen(text)
     ctl.reload()
@@ -1053,6 +1103,10 @@ function tab.open(context)
     end
     if type(field) == "table" then
       editDefinition(field)
+      return
+    end
+    if modules.sounds.handles(info) and field ~= "discard" and field ~= "resolve" and field ~= "github" then
+      editSound(info, field)
       return
     end
     if field == "coupled" then
@@ -1248,11 +1302,14 @@ function tab.open(context)
     end
   end
 
-  -- Opens the wizard for a new texture. Its tasks run in the queue,
-  -- and what it created opens once the pack was read again.
-  function ctl.create()
+  -- Opens the wizard for a new texture, or with kinds for those
+  -- kinds only, under title. Its tasks run in the queue, and what it
+  -- created opens once the pack was read again.
+  function ctl.create(kinds, title)
     modules.wizard.open{
       api=api,
+      kinds=kinds,
+      title=title,
       tr=tr,
       model=model or {},
       labels=labels,
@@ -1295,6 +1352,11 @@ function tab.open(context)
         pump()
       end,
     }
+  end
+
+  -- Opens the wizard for a new sound event or an override of vanilla's
+  function ctl.createSound()
+    ctl.create(modules.wizard.soundKinds, tr("new.sound_dialog"))
   end
 
   -- Selects no entry, so that a click on the last one opens it again.

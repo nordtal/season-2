@@ -82,6 +82,7 @@ function init(plugin)
       alert=app.alert,
       tip=function(text) app.tip{ text=text, duration=5 } end,
       windows=app.os.windows,
+      os=app.os.macos and "macos" or app.os.windows and "windows" or "linux",
       join=join,
       read=read,
       write=write,
@@ -108,6 +109,7 @@ function init(plugin)
       drafts=plugin.require("drafts"),
       conflicts=plugin.require("conflicts"),
       minecraft=plugin.require("minecraft"),
+      sounds=plugin.require("sounds"),
     },
     bootstrap=plugin.bootstrap,
     preferences=plugin.preferences,
@@ -120,6 +122,13 @@ function init(plugin)
     title=tr("command.new_texture"),
     group="file_new",
     onclick=function() ctl.create() end,
+  }
+
+  plugin:newCommand{
+    id="NordtalNewSound",
+    title=tr("command.new_sound"),
+    group="file_new",
+    onclick=function() ctl.createSound() end,
   }
 
   plugin:newCommand{

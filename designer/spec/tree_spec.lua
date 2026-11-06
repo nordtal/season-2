@@ -43,7 +43,13 @@ local model = {
     { key="item.nordtal.wand", values={ en_us="Wand" }, owner="src/assets/nordtal/items/wand.json" },
     { key="menu.title", values={ de_de="Pause", en_us="Pause" }, draft="text menu.title" },
   },
-  drafts = { { id="text menu.title", label="menu.title", state="changed", files={}, keys={ "menu.title" } } },
+  sounds = {
+    { id="minecraft:block.anvil.land", replace=true, sounds={ { name="minecraft:random/anvil_land" } } },
+    { id="nordtal:ui.ping", subtitle="subtitles.nordtal.ui.ping", subtitles={ en_us="Ping" }, draft="sound nordtal:ui.ping",
+      sounds={ { name="nordtal:ui/ping", file="src/assets/nordtal/sounds/ui/ping.ogg" }, { name="nordtal:ui/pong" } } },
+  },
+  drafts = { { id="text menu.title", label="menu.title", state="changed", files={}, keys={ "menu.title" } },
+             { id="sound nordtal:ui.ping", label="nordtal:ui.ping", state="added", files={} } },
 }
 
 local function texts(nodes)
@@ -68,7 +74,32 @@ describe("tree", function()
       { "<tree.overrides>", { { "gui/sprites/boss_bar", { { "white_background" } } } } },
       { "<tree.textures>", { { "nordtal:gui", { { "frame" } } } } },
       { "<tree.texts>", { { "item.nordtal.wand" }, { "menu.title" } } },
+      { "<tree.sounds>", { { "minecraft:block.anvil.land", { { "random/anvil_land" } } },
+                           { "nordtal:ui.ping", { { "ui/ping" }, { "ui/pong" } } } } },
     }, texts(nodes))
+  end)
+
+  it("indexes a sound event with the pack's languages and each of its sounds with its event and place", function()
+    local nodes, index = tree.build(model, tr, drafts.marks(model))
+    local root = nodes[6]
+    assert.equal("sounds", index[root.id].kind)
+    local ping = root.children[2]
+    assert.equal("sound/nordtal:ui.ping", ping.id)
+    assert.equal("sound", index[ping.id].kind)
+    assert.same({ "de_de", "en_us" }, index[ping.id].languages)
+    local pong = index[ping.children[2].id]
+    assert.equal("sound_file", pong.kind)
+    assert.equal("nordtal:ui/pong", pong.entry.name)
+    assert.equal("nordtal:ui.ping", pong.event.id)
+    assert.equal(1, pong.at)
+  end)
+
+  it("marks a sound event that is a draft and counts it on the sounds root", function()
+    local nodes = tree.build(model, tr, drafts.marks(model))
+    local root = nodes[6]
+    assert.equal("(1)", root.badge)
+    assert.is_nil(root.children[1].icon)
+    assert.equal(tree.draftIcon, root.children[2].icon)
   end)
 
   it("marks a text that is a draft and counts it on the texts root", function()

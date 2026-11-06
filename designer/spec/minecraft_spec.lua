@@ -23,6 +23,15 @@ describe("minecraft", function()
     assert.same({ "/setblock ^ ^ ^2 minecraft:stone keep" }, minecraft.commands({ op="block", block="minecraft:stone" }, encode))
   end)
 
+  it("plays a sound event in the client, or as /playsound to copy", function()
+    assert.same({ "/playsound nordtal:ui.ping master @s" }, minecraft.commands({ op="sound", sound="nordtal:ui.ping" }, encode))
+    local event = { id="nordtal:ui.ping", sounds={ { name="nordtal:ui/ping" } } }
+    local play = { { label="minecraft.play_sound nordtal:ui.ping", requests={ { op="sound", sound="nordtal:ui.ping" } } } }
+    assert.same(play, (minecraft.previews({ kind="sound", entry=event }, nil, nil, tr)))
+    assert.same(play, (minecraft.previews({ kind="sound_file", entry=event.sounds[1], event=event, at=0 }, nil, nil, tr)))
+    assert.same({}, (minecraft.previews({ kind="sounds" }, nil, nil, tr)))
+  end)
+
   it("writes a text that is a bare string as an object, which Aseprite's json.encode writes", function()
     local function tables(value) return type(value) == "table" and encode(value) or nil end
     assert.same({ '/tellraw @s {"text":"a"}' }, minecraft.commands({ op="chat", text="a" }, tables))

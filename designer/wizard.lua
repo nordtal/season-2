@@ -3,10 +3,12 @@
 -- refusal shows below the field it names, and the dialog stays open.
 -- A vanilla override is chosen in a browser of the client jar's
 -- textures, and a vanilla item in one of its item definitions that
--- the pack does not override yet.
+-- the pack does not override yet. The same wizard creates a sound
+-- event from an audio file, or overrides one of the client's.
 --
--- wizard.open{ api, tr, model, labels, run, listing, created } shows
--- it. api holds Dialog, Rectangle and screen, which gives the window's
+-- wizard.open{ api, tr, model, labels, run, listing, created, kinds,
+-- title } shows it, with the kinds of kinds under title, or else those
+-- of a texture. api holds Dialog, Rectangle and screen, which gives the window's
 -- width and height. labels(dialog, id, count, text, add) shows text in
 -- the labels id1 to id<count> of the dialog. run(job, done) runs a
 -- { task, options } and calls done(ok, reason, out) with the lines of
@@ -17,6 +19,7 @@
 local wizard = {}
 
 wizard.kinds = { "glyph", "block", "sheet", "item", "texture", "vanilla_item", "override" }
+wizard.soundKinds = { "sound", "vanilla_sound" }
 
 -- The kinds chosen in a browser of the client jar: the option of the
 -- task that names the choice and the strings of the browser
@@ -25,6 +28,8 @@ local browsers = {
              none="new.chosen_none", required="new.required_texture" },
   vanilla_item={ option="item", count="new.count_items", more="new.count_items_more", chosen="new.chosen_item",
                  none="new.chosen_none_item", required="new.required_item" },
+  vanilla_sound={ option="sound", count="new.count_sounds", more="new.count_sounds_more", chosen="new.chosen_sound",
+                  none="new.chosen_none_sound", required="new.required_sound", separator="." },
 }
 
 -- The fields of each kind but those of a browser, in the order the dialog
@@ -36,6 +41,7 @@ wizard.fields = {
   sheet={ "font", "title", "namespace", "path", "constants", "width", "height", "ascent" },
   item={ "namespace", "path", "width", "height" },
   texture={ "namespace", "path", "width", "height" },
+  sound={ "namespace", "path", "file" },
 }
 
 -- The text a field starts with
@@ -45,12 +51,14 @@ local defaults = {
   sheet={ namespace="nordtal" },
   item={ namespace="nordtal", width="16", height="16" },
   texture={ namespace="nordtal", width="16", height="16" },
+  sound={ namespace="nordtal" },
 }
 
 -- editItem without a change writes a vanilla item's definition into
 -- the pack as the jar has it
 local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyphSheet", item="createItem",
-                texture="createTexture", vanilla_item="editItem", override="copyVanillaTexture" }
+                texture="createTexture", vanilla_item="editItem", override="copyVanillaTexture",
+                sound="createSound", vanilla_sound="overrideSound" }
 
 -- How many entries a group shows before it splits by first letter,
 -- and how many each letter shows
@@ -102,7 +110,9 @@ function wizard.job(kind, values)
     if field ~= "namespace" and field ~= "path" and value ~= "" then options[field] = value end
   end
   if path ~= "" then
-    if kind == "item" then
+    if kind == "sound" then
+      options.sound = namespace .. ":" .. path
+    elseif kind == "item" then
       options.item = namespace .. ":" .. path
     else
       options.texture = namespace .. ":" .. path .. (path:match("%.png$") and "" or ".png")
@@ -117,7 +127,7 @@ function wizard.refused(out)
   for _, line in ipairs(out or {}) do
     local field = line:match("^refused (%S+)$")
     if field then
-      return (field == "texture" or field == "item") and "path" or field
+      return (field == "texture" or field == "item" or field == "sound") and "path" or field
     end
   end
 end
@@ -129,7 +139,9 @@ function wizard.absent(out, job)
     local option = line:match("^refused (%S+)$")
     if option then
       -- The id's namespace and path are one option, passed whenever the path is filled
-      if option == "namespace" or option == "path" then return job[2].texture == nil and job[2].item == nil end
+      if option == "namespace" or option == "path" or option == "sound" then
+        return job[2].texture == nil and job[2].item == nil and job[2].sound == nil
+      end
       return job[2][option] == nil
     end
   end
@@ -142,6 +154,8 @@ function wizard.target(index, job)
   for id, info in pairs(index or {}) do
     if task == "createGlyphBlock" then
       if info.kind == "block" and info.entry.title == options.title and info.font.font == options.font then return id end
+    elseif options.sound then
+      if info.kind == "sound" and info.entry.id == options.sound then return id end
     elseif options.item then
       if info.kind == "item" and info.entry.id == options.item then return id end
     elseif info.kind ~= "cell" and info.kind ~= "item" and info.texture and info.texture.id == options.texture then
@@ -157,12 +171,19 @@ function wizard.isChoice(id)
 end
 
 -- The ids that the browser of kind offers from the listing of the
--- client jar: every texture, or every item that the model's pack does
--- not hold
+-- client jar: every texture, or every item or sound event that the
+-- model's pack does not hold
 function wizard.choices(kind, listing, model)
   local out = {}
   if kind == "override" then
     for _, texture in ipairs(listing.textures or {}) do table.insert(out, texture.id) end
+    return out
+  elseif kind == "vanilla_sound" then
+    local held = {}
+    for _, event in ipairs(model.sounds or {}) do held[event.id] = true end
+    for _, event in ipairs(listing.sounds or {}) do
+      if not held[event.id] then table.insert(out, event.id) end
+    end
     return out
   end
   local held = {}
@@ -199,8 +220,11 @@ end
 -- The nodes of the ids that hold every word of query, grouped by
 -- folder with the ids outside a folder after them, how many match and
 -- how many the nodes show. Every folder shows; only a letter of more
--- than most entries is cut, as lettered says.
-function wizard.matches(ids, query, most)
+-- than most entries is cut, as lettered says. A folder ends at the
+-- last separator, / unless one is given, such as the . of a sound
+-- event.
+function wizard.matches(ids, query, most, separator)
+  local split = "^(.*)" .. (separator == "." and "%." or "/") .. "([^" .. (separator == "." and "." or "/") .. "]+)$"
   local words = {}
   for word in query:lower():gmatch("%S+") do table.insert(words, word) end
   local expanded = #words > 0 or nil
@@ -215,7 +239,7 @@ function wizard.matches(ids, query, most)
     if matched then
       count = count + 1
       local path = id:match("^[^:]+:(.*)$") or id
-      local folder, name = path:match("^(.*)/([^/]+)$")
+      local folder, name = path:match(split)
       name = (name or path):gsub("%.png$", "")
       if not folder then
         table.insert(loose, { id=id, text=name })
@@ -251,7 +275,8 @@ end
 
 function wizard.open(context)
   local api, tr, model = context.api, context.tr, context.model
-  local kind, values, refusal = "glyph", {}, nil
+  local kinds = context.kinds or wizard.kinds
+  local kind, values, refusal = kinds[1], {}, nil
   -- The listing of the client jar, whether it is being read, why it
   -- could not be read, and the id chosen in the browser of each kind
   local listing, reading, unread, chosen = nil, false, nil, {}
@@ -261,7 +286,7 @@ function wizard.open(context)
   local closed = false
 
   local labels, byLabel = {}, {}
-  for _, k in ipairs(wizard.kinds) do
+  for _, k in ipairs(kinds) do
     local label = tr("new.kind_" .. k)
     table.insert(labels, label)
     byLabel[label] = k
@@ -322,6 +347,11 @@ function wizard.open(context)
       return
     end
     local browser = browsers[kind]
+    -- Without a connection the listing holds no sounds and says why
+    if kind == "vanilla_sound" and listing.soundsProblem then
+      reason({ listing.soundsProblem })
+      return
+    end
     local ids = wizard.choices(kind, listing, model)
     local function counted(n, shown)
       return shown < n and tr(browser.more, shown, n) or tr(browser.count, n)
@@ -331,12 +361,12 @@ function wizard.open(context)
     local function hint(add)
       context.labels(dlg, "chosen", hintLines, chosen[kind] and tr(browser.chosen, chosen[kind]) or tr(browser.none), add)
     end
-    local nodes, count, shown = wizard.matches(ids, values.search or "", limit)
+    local nodes, count, shown = wizard.matches(ids, values.search or "", limit, browser.separator)
     -- A search under another kind can hide the chosen id
     if chosen[kind] and not wizard.holds(nodes, chosen[kind]) then chosen[kind] = nil end
     dlg:entry{ id="search", label=tr("new.search"), text=values.search or "", onchange=function()
       values.search = dlg.data.search
-      local found, n, visible = wizard.matches(ids, values.search, limit)
+      local found, n, visible = wizard.matches(ids, values.search, limit, browser.separator)
       dlg:modify{ id="choices", nodes=found }
       dlg:modify{ id="count", text=counted(n, visible) }
       -- Create creates only an id that the list shows
@@ -378,6 +408,9 @@ function wizard.open(context)
             dlg:modify{ id="block", options=blocks, option=blocks[1] }
           end
         end }
+      elseif field == "file" then
+        dlg:file{ id="file", label=tr("new.file"), open=true, filename=values.file or "",
+                  filetypes={ "ogg", "oga", "wav", "mp3", "flac", "m4a", "aiff" } }
       elseif field == "block" then
         local blocks = wizard.blocks(model, values.font)
         dlg:combobox{ id="block", label=tr("new.block"), options=blocks, option=values.block or blocks[1] }
@@ -398,7 +431,7 @@ function wizard.open(context)
     dlg = nil
     if old then old:close() end
     local this
-    this = api.Dialog{ title=tr("new.dialog"), onclose=function()
+    this = api.Dialog{ title=context.title or tr("new.dialog"), onclose=function()
       if dlg == this then closed = true end
     end }
     dlg = this

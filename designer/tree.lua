@@ -12,7 +12,7 @@ tree.conflictIcon = "warning_box"
 tree.unsavedBadge = "*"
 
 -- The nodes for Dialog:tree{} and an index from each node's id to
--- { kind, entry, texture, font, block }, with the marks that mark(info)
+-- { kind, entry, texture, font, block, event, at }, with the marks that mark(info)
 -- gives as icons and badges, as the README says. It raises an error
 -- that names the place of a cell whose code is no code point.
 function tree.build(model, tr, mark)
@@ -117,12 +117,26 @@ function tree.build(model, tr, mark)
     table.insert(texts, node("text/" .. text.key, text.key, { kind="text", entry=text, languages=model.languages }))
   end
 
+  -- A sound event lists its sounds, each by the name after its namespace
+  local sounds = {}
+  for _, event in ipairs(model.sounds or {}) do
+    local children = {}
+    for i, sound in ipairs(event.sounds or {}) do
+      local name = tostring(sound.name)
+      table.insert(children, node("sound_file/" .. event.id .. "/" .. i, name:match(":(.+)$") or name,
+        { kind="sound_file", entry=sound, event=event, at=i - 1 }))
+    end
+    table.insert(sounds, node("sound/" .. event.id, event.id,
+      { kind="sound", entry=event, languages=model.languages }, children))
+  end
+
   local nodes = {
     node("glyphs", tr("tree.glyphs"), { kind="root" }, fonts),
     node("items", tr("tree.items"), { kind="root" }, items),
     node("overrides", tr("tree.overrides"), { kind="root" }, overrides),
     node("textures", tr("tree.textures"), { kind="root" }, own),
     node("texts", tr("tree.texts"), { kind="texts", languages=model.languages }, texts),
+    node("sounds", tr("tree.sounds"), { kind="sounds" }, sounds),
   }
   -- The badge without unsaved changes, which unsaved() falls back to
   local function keep(list)

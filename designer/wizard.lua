@@ -1,4 +1,4 @@
--- The wizard that creates a texture: it asks for the kind first and
+-- The wizard that creates a texture or a font: it asks for the kind first and
 -- then for the options of the kind's task, which checks them. A
 -- refusal shows below the field it names, and the dialog stays open.
 -- A vanilla override is chosen in a browser of the client jar's
@@ -18,7 +18,7 @@
 
 local wizard = {}
 
-wizard.kinds = { "glyph", "block", "sheet", "item", "texture", "vanilla_item", "override" }
+wizard.kinds = { "glyph", "block", "sheet", "font", "item", "texture", "vanilla_item", "override" }
 wizard.soundKinds = { "sound", "vanilla_sound" }
 
 -- The audio files the file field offers. The task refuses each but
@@ -43,6 +43,7 @@ wizard.fields = {
   glyph={ "font", "block", "namespace", "path", "name", "constant", "width", "height", "ascent" },
   block={ "font", "title", "size", "height", "ascent" },
   sheet={ "font", "title", "namespace", "path", "constants", "width", "height", "ascent" },
+  font={ "namespace", "path", "constant", "about" },
   item={ "namespace", "path", "width", "height" },
   texture={ "namespace", "path", "width", "height" },
   sound={ "namespace", "path", "file" },
@@ -56,6 +57,7 @@ local defaults = {
   glyph={ namespace="nordtal" },
   block={ size="16" },
   sheet={ namespace="nordtal" },
+  font={ namespace="nordtal" },
   item={ namespace="nordtal", width="16", height="16" },
   texture={ namespace="nordtal", width="16", height="16" },
   sound={ namespace="nordtal" },
@@ -64,7 +66,7 @@ local defaults = {
 
 -- editItem without a change writes a vanilla item's definition into
 -- the pack as the jar has it
-local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyphSheet", item="createItem",
+local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyphSheet", font="createFont", item="createItem",
                 texture="createTexture", vanilla_item="editItem", override="copyVanillaTexture",
                 sound="createSound", vanilla_sound="overrideSound" }
 
@@ -126,6 +128,8 @@ function wizard.job(kind, values)
       options.sound = namespace .. ":" .. path
     elseif kind == "item" then
       options.item = namespace .. ":" .. path
+    elseif kind == "font" then
+      options.font = namespace .. ":" .. path
     else
       options.texture = namespace .. ":" .. path .. (path:match("%.png$") and "" or ".png")
     end
@@ -152,6 +156,7 @@ function wizard.absent(out, job)
     if option then
       -- The id's namespace and path are one option, passed whenever the path is filled
       if option == "namespace" or option == "path" or option == "sound" then
+        if job[1] == "createFont" then return job[2].font == nil end
         return job[2].texture == nil and job[2].item == nil and job[2].sound == nil
       end
       return job[2][option] == nil
@@ -164,7 +169,9 @@ end
 function wizard.target(index, job)
   local task, options = job[1], job[2]
   for id, info in pairs(index or {}) do
-    if task == "createGlyphBlock" then
+    if task == "createFont" then
+      if info.kind == "font" and info.entry.font == options.font then return id end
+    elseif task == "createGlyphBlock" then
       if info.kind == "block" and info.entry.title == options.title and info.font.font == options.font then return id end
     elseif options.sound then
       if info.kind == "sound" and info.entry.id == options.sound then return id end

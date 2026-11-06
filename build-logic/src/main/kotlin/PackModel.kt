@@ -190,14 +190,15 @@ object PackModel {
                 "range" to range,
                 "status" to block.status,
                 "about" to block.about,
+                "height" to block.height,
+                "ascent" to block.ascent,
                 *drafts.of(block.texture ?: Drafts.blockId(font, range ?: block.title)),
             )
         if (block.texture == null) {
             entry["glyphs"] = block.glyphs.map { glyph(it, block, root, drafts) }
             return entry
         }
-        entry["height"] = block.height
-        entry["ascent"] = block.ascent
+        entry["characters"] = block.chars != null
         entry["texture"] = texture(block.texture, root, drafts)
         entry["cells"] =
             (block.chars?.let { chars(it) } ?: block.glyphs.mapIndexed { column, glyph -> cell(0, column, glyph, block) })

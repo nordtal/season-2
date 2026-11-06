@@ -151,9 +151,9 @@ object NewTextures {
     }
 
     /**
-     * Applies [change] to `glyphs.json`, checks the result, and writes it and a transparent [png] of [width] by [height]
-     * and deletes [remove], all or none. A result that [GlyphAllocation] refuses is a [FieldRefusal] of the field [refused]
-     * when one is given.
+     * Applies [change] to `glyphs.json`, checks the result, and writes it, a transparent [png] of [width] by [height] and
+     * the files of [write], and deletes [remove], all or none. A result that [GlyphAllocation] refuses is a [FieldRefusal]
+     * of the field [refused] when one is given.
      */
     internal fun edit(
         pack: File,
@@ -162,6 +162,7 @@ object NewTextures {
         height: Int,
         remove: List<File> = emptyList(),
         refused: String? = null,
+        write: Map<File, ByteArray> = emptyMap(),
         change: (OxfmtJson.Object) -> Unit,
     ): List<File> {
         png?.let { checkSize(width, height) }
@@ -180,9 +181,9 @@ object NewTextures {
         }
         AtomicFiles.write(
             mapOf(allocation to text.toByteArray()) + listOfNotNull(png).associateWith { transparent(width, height) } +
-                remove.associateWith { null },
+                write + remove.associateWith { null },
         )
-        return listOfNotNull(allocation, png) + remove
+        return listOfNotNull(allocation, png) + write.keys + remove
     }
 
     private fun newBlock(

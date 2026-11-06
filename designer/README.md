@@ -33,8 +33,16 @@ The properties panel shows each value it edits in a sunken box. The mouse wheel 
 panel, and a panel taller than its room shows a scroll bar along its right edge. A click on a box asks
 for the new value in a form. OK runs the resource pack's task that writes it:
 `renameGlyph` for a name, `editGlyph` for status, display height, ascent and about, `scaleTexture`
-for the scaling of a GUI sprite. The Delete button below asks first and runs `deleteGlyph` for a glyph,
-`deleteTexture` for a vanilla override or a texture without a glyph and `deleteItem` for an item.
+for the scaling of a GUI sprite, `editFont` for a font's constant and about, and `editGlyphBlock` for
+a block's or sheet's title, status, display height, ascent and about. The Delete button below asks
+first and runs `deleteGlyph` for a glyph, `deleteTexture` for a vanilla override or a texture without
+a glyph, `deleteItem` for an item, `deleteGlyphBlock` for a block or sheet and `deleteFont` for a font.
+The font `minecraft:default` and a sheet of ordinary characters have no Delete button, and the default
+font has no constant to edit. The rows, pitch, numbering, spaces and lists of a font stay read only and
+are changed in `glyphs.json`. **Add Cells** on a sheet asks for the constants of the new cells and runs
+`addSheetCells`, which widens the PNG by one cell each on the right. The tab then widens the open
+sprite to match and saves it, so its source keeps the new cells. While the sheet's sprite is not in
+the editor, the status line says so and no cell is added.
 The tasks run one at a time, and a click while one runs says that a change is being written. The tab
 reads the pack again after them. A refused task shows its reason at the top of the properties panel,
 with each place that still uses the entry.
@@ -77,8 +85,9 @@ the system chose for `.bbmodel` files. **Import Model...** then proposes that pr
 file keeps the name of a model of the pack, that model's ID, so the import writes the model and its
 own textures again in place.
 
-**File > New Texture...** opens a dialog that asks for the kind first: glyph, glyph block, sheet, item,
-texture, vanilla item or vanilla override. It then shows the options of the kind's task in
+**File > New Texture...** opens a dialog that asks for the kind first: glyph, glyph block, sheet, font,
+item, texture, vanilla item or vanilla override. A font has no texture: once `createFont` succeeded,
+the tab selects it in the tree. It then shows the options of the kind's task in
 `resource-pack/README.md`, with font and block to choose and namespace and path for the id. Create runs the task, which checks every
 value. A refusal shows below the field it names, and the dialog stays open with what was typed. Once
 the task succeeded, the tab reads the pack again and opens the new texture in the editor. A vanilla

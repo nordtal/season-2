@@ -72,6 +72,7 @@ class PackModelTest {
             text.list("cells").map { listOf(it["row"], it["column"], it["code"]) },
         )
         assertFalse("glyphs" in icons)
+        assertEquals(listOf(false, true), listOf(icons["characters"], text["characters"]))
     }
 
     @Test
@@ -88,6 +89,7 @@ class PackModelTest {
         val block = only(only(fonts()).list("blocks"))
 
         assertEquals("placeholder", block["status"])
+        assertEquals(listOf(8, 7), listOf(block["height"], block["ascent"]))
         assertEquals(listOf(null, "keep"), block.list("glyphs").map { it["status"] })
         assertEquals(listOf("placeholder", "keep"), block.list("glyphs").map { it["effectiveStatus"] })
     }

@@ -87,8 +87,8 @@ it is relative to this directory, and every code point is capital hex without `U
 ```
 statuses      the statuses a glyph or block can have
 fonts[]       font, rows, constant, about, draft, review, blocks[]
-  blocks[]    kind "block": title, range, status, about, draft, review, glyphs[]
-              kind "sheet": title, range, status, about, draft, review, height, ascent, texture, cells[]
+  blocks[]    kind "block": title, range, status, about, height, ascent, draft, review, glyphs[]
+              kind "sheet": title, range, status, about, height, ascent, draft, review, characters, texture, cells[]
   glyphs[]    code, constant, name, list, status, effectiveStatus, height, ascent, about, texture
   cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, draft, review, model (the type of the root model), texture
@@ -214,6 +214,47 @@ fails with the reason when it refuses.
   main has not taken, and otherwise moves behind the last glyph of its block on both sides. A cell of a
   sheet is its code point, so a renamed cell keeps its place. A new block that overlaps a block of main
   moves to the first free run with its glyphs.
+
+## Changing fonts, blocks and sheets
+
+Six tasks create, change and delete a font, and change and delete a block or sheet, which `block`
+names by its `title` in its `font`. Each writes nothing until `glyphs.json` passes every rule below,
+and fails with the reason when it refuses.
+
+```bash
+./gradlew -q :resource-pack:createFont -Pfont=nordtal:signs -Pconstant=FONT_SIGNS -Pabout='Shop signs'
+./gradlew -q :resource-pack:editFont -Pfont=nordtal:signs -Pconstant=FONT_SHOP_SIGNS
+./gradlew -q :resource-pack:editGlyphBlock -Pfont=nordtal:bossbar -Pblock=Arrows -Ptitle='Bearing arrows' -Pstatus=keep
+./gradlew -q :resource-pack:addSheetCells -Pfont=nordtal:bossbar -Pblock=Arrows -Pconstants=ARROW_UP,ARROW_DOWN
+./gradlew -q :resource-pack:deleteGlyphBlock -Pfont=nordtal:bossbar -Pblock=Arrows
+./gradlew -q :resource-pack:deleteFont -Pfont=nordtal:signs
+```
+
+| task               | options                                                         | prints                                                       |
+| ------------------ | --------------------------------------------------------------- | ------------------------------------------------------------ |
+| `createFont`       | `font`, `constant`; `about`                                     | the absolute path of `glyphs.json`                           |
+| `editFont`         | `font`; `constant`, `about`                                     | the absolute path of `glyphs.json`                           |
+| `editGlyphBlock`   | `font`, `block`; `title`, `status`, `height`, `ascent`, `about` | the absolute path of `glyphs.json`                           |
+| `addSheetCells`    | `font`, `block`, `constants`                                    | the absolute paths of `glyphs.json` and the sheet's PNG      |
+| `deleteGlyphBlock` | `font`, `block`                                                 | the absolute paths of `glyphs.json` and each file it removed |
+| `deleteFont`       | `font`                                                          | the absolute paths of `glyphs.json` and each file it removed |
+
+- A new font comes after every other font, without blocks, and shares the numbering of every font
+  without `numbering`. Its id has a namespace other than `minecraft`, and it refuses at `namespace`, `path` or `constant` as the
+  tasks under _New textures_ do. `rows`, `pitch`, `numbering`, `spaces` and `lists` of a font are
+  changed in `glyphs.json` only.
+- An edit sets each option it is given, and an empty `status` or `about` removes it. A font's new
+  constant is refused while code uses the old one, and `minecraft:default` has none. A glyph without
+  its own `height` or `ascent` takes the block's new one.
+- New cells follow the last cell of the sheet, one per constant, and the PNG grows by one cell width per
+  new cell on the right, in transparent columns. Nordtal Designer adds cells only to the sheet open in its
+  editor, and widens its `.aseprite` source too.
+- A delete removes the block or font with every glyph, and the PNG under `src/` and the `.aseprite` under
+  `art/` of each texture that no other glyph, sheet or item model draws. A list that loses its last
+  glyph goes too. It refuses while code uses a constant, a name or such a list, as a glyph's delete
+  does, and a font's delete also while code uses its constant or holds its id in quotes, outside
+  `glyphs.json` and Markdown. `minecraft:default` and a sheet of ordinary characters stay, since code
+  writes them as plain text.
 
 ## Deleting textures and items
 

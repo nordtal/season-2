@@ -43,6 +43,10 @@ function properties.confirm(info, tr)
     return lines
   elseif info.kind == "item" then
     return { tr("properties.delete_question", info.entry.id), tr("properties.delete_item_note") }
+  elseif info.kind == "font" then
+    return { tr("properties.delete_question", info.entry.font), tr("properties.delete_font_note") }
+  elseif info.kind == "block" or info.kind == "sheet" then
+    return { tr("properties.delete_question", info.entry.title), tr("properties.delete_block_note") }
   end
   local text = tr("properties.delete_confirm", properties.label(info))
   return text
@@ -93,9 +97,13 @@ function properties.rows(info, tr, context)
 
   local e, kind, t = info.entry, info.kind, info.texture
   local editable = (kind == "glyph" or kind == "cell") and properties.label(info) ~= nil
+  -- The font of ordinary text and a sheet of ordinary characters stay,
+  -- since code writes them as plain text
+  local ordinary = (kind == "font" and e.font == properties.text_font) or (kind == "sheet" and e.characters == true)
   -- A texture without a glyph is deleted with its own task, an item
   -- with its models and textures
   local deletable = editable or (kind == "override" and t ~= nil) or kind == "item"
+    or ((kind == "font" or kind == "block" or kind == "sheet") and not ordinary)
   local function pixels(field)
     local s = t and size(info)
     if s and s.width then
@@ -114,15 +122,24 @@ function properties.rows(info, tr, context)
   end
   if kind == "font" then
     add("font", e.font)
-    add("constant", e.constant)
-    add("about", e.about)
+    add("rows", e.rows)
+    if e.font == properties.text_font then
+      add("constant", e.constant)
+    else
+      table.insert(list, { key="constant", value=shown(e.constant or ""), field="constant" })
+    end
+    table.insert(list, { key="about", value=e.about or "", field="about" })
   elseif kind == "block" or kind == "sheet" then
-    add("block", e.title)
+    add("block", e.title, "title")
     add("range", e.range)
-    add("status", e.status)
-    add("height", e.height)
-    add("ascent", e.ascent)
-    add("about", e.about)
+    table.insert(list, { key="status", value=e.status or tr("properties.unjudged"), field="status" })
+    for _, key in ipairs({ "height", "ascent" }) do
+      table.insert(list, { key=key, value=e[key] and shown(e[key]) or tr("properties.per_glyph"), field=key })
+    end
+    table.insert(list, { key="about", value=e.about or "", field="about" })
+    if kind == "sheet" and not ordinary then
+      table.insert(list, { key="add_cells", value=tr("properties.add_cells"), field="addCells", button=true })
+    end
   elseif kind == "glyph" or kind == "cell" then
     local glyph = kind == "glyph"
     add("block", info.block.title)
@@ -213,8 +230,17 @@ function properties.form(info, field, tr, lists)
     local title = tr("properties.delete_text")
     return { title=title, widgets={ { kind="label", id="confirm", text=tr("properties.delete_text_confirm", e.key) } } }
   end
+  if field == "addCells" then
+    local title = tr("properties.add_cells")
+    return { title=title, widgets={ { kind="entry", id="constants", label=tr("properties.constants"), text="" } } }
+  end
   local title = tr("properties." .. field)
-  if field == "status" then
+  if field == "status" and (info.kind == "block" or info.kind == "sheet") then
+    local options = { tr("properties.unjudged") }
+    for _, status in ipairs(lists.statuses or {}) do table.insert(options, status) end
+    return { title=title, widgets={
+      { kind="combobox", id="value", label=title, options=options, option=e.status or options[1] } } }
+  elseif field == "status" then
     local options = { fromBlock(info, tr) }
     for _, status in ipairs(lists.statuses or {}) do table.insert(options, status) end
     return { title=title, widgets={
@@ -270,6 +296,12 @@ function properties.jobs(info, field, data, tr, old)
     return { "deleteTexture", { texture=t.id } }
   elseif field == "delete" and info.kind == "item" then
     return { "deleteItem", { item=e.id } }
+  elseif info.kind == "font" then
+    local job = properties.fontJob(e, field, value)
+    return job
+  elseif info.kind == "block" or info.kind == "sheet" then
+    local job = properties.blockJob(info, field, data, tr)
+    return job
   end
   local glyph = properties.label(info)
   if field == "name" or field == "constant" then
@@ -308,6 +340,68 @@ function properties.jobs(info, field, data, tr, old)
     return { "scaleTexture", options }
   end
   return nil
+end
+
+-- The id of the font of ordinary text, which has no constant and stays
+properties.text_font = "minecraft:default"
+
+-- The task that writes field of the font e from value
+function properties.fontJob(e, field, value)
+  if field == "delete" then
+    return { "deleteFont", { font=e.font } }
+  elseif field == "constant" or field == "about" then
+    if value == nil or value == (e[field] or "") then return nil end
+    return { "editFont", { font=e.font, [field]=value } }
+  end
+  return nil
+end
+
+local function trim(text)
+  return (tostring(text or ""):match("^%s*(.-)%s*$"))
+end
+
+-- The task that writes field of the block or sheet of info from the
+-- values data of its form
+function properties.blockJob(info, field, data, tr)
+  local e = info.entry
+  local options = { font=info.font.font, block=e.title }
+  local value = data.value
+  if field == "delete" then
+    return { "deleteGlyphBlock", options }
+  elseif field == "addCells" then
+    local constants = {}
+    for constant in tostring(data.constants or ""):gmatch("[^,%s]+") do table.insert(constants, constant) end
+    if #constants == 0 then return nil end
+    options.constants = table.concat(constants, ",")
+    return { "addSheetCells", options }
+  elseif field == "title" then
+    value = trim(value)
+    if value == "" or value == e.title then return nil end
+    options.title = value
+  elseif field == "status" then
+    if value == tr("properties.unjudged") then value = "" end
+    if value == nil or value == (e.status or "") then return nil end
+    options.status = value
+  elseif field == "height" or field == "ascent" then
+    value = int(value)
+    if value == nil or value == int(e[field]) then return nil end
+    options[field] = value
+  elseif field == "about" then
+    if value == nil or value == (e.about or "") then return nil end
+    options.about = value
+  else
+    return nil
+  end
+  return { "editGlyphBlock", options }
+end
+
+-- The width of the sheet of info once job, an addSheetCells, added
+-- its cells: one cell's width more per new cell
+function properties.widened(info, job)
+  local width, cells = int(info.texture.width), #(info.entry.cells or {})
+  local added = select(2, job[2].constants:gsub("[^,]+", ""))
+  if cells == 0 then return width end
+  return width + width // cells * added
 end
 
 -- Whether the texture of info keeps its frames in one column with an

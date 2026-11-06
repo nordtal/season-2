@@ -207,6 +207,81 @@ describe("an edit of a property", function()
   end)
 end)
 
+describe("a font, a block and a sheet", function()
+  local function font(fields)
+    local entry = { font="nordtal:hud", constant="FONT_HUD", about="The HUD." }
+    for k, v in pairs(fields or {}) do entry[k] = v end
+    return { kind="font", entry=entry, font=entry }
+  end
+
+  local function block(fields)
+    local entry = { kind="block", title="Arrows", range="FE040-FE04F", status="keep", height=8, ascent=7, glyphs={} }
+    for k, v in pairs(fields or {}) do entry[k] = v end
+    return { kind="block", entry=entry, font={ font="nordtal:hud" }, block=entry }
+  end
+
+  local function sheet(fields)
+    local texture = { id="nordtal:hud/arrows.png", width=12, height=5 }
+    local entry = { kind="sheet", title="Arrows", range="FE040-FE04F", height=5, ascent=4, characters=false,
+                    texture=texture, cells={ { code="FE040" }, { code="FE041" } } }
+    for k, v in pairs(fields or {}) do entry[k] = v end
+    return { kind="sheet", entry=entry, texture=texture, font={ font="nordtal:hud" }, block=entry }
+  end
+
+  it("edits the constant and about of a font and deletes it", function()
+    assert.same({ "font=nordtal:hud", "constant=FONT_HUD*", "about=The HUD.*", "delete=properties.delete*" }, shown(font()))
+    assert.same({ "editFont", { font="nordtal:hud", constant="FONT_BAR" } },
+      properties.jobs(font(), "constant", { value="FONT_BAR" }, tr))
+    assert.same({ "editFont", { font="nordtal:hud", about="" } }, properties.jobs(font(), "about", { value="" }, tr))
+    assert.is_nil(properties.jobs(font(), "about", { value="The HUD." }, tr))
+    assert.same({ "deleteFont", { font="nordtal:hud" } }, properties.jobs(font(), "delete", {}, tr))
+    assert.same({ "properties.delete_question nordtal:hud", "properties.delete_font_note" }, properties.confirm(font(), tr))
+  end)
+
+  it("keeps the font of ordinary text, which has no constant, and shows the row fonts of a font", function()
+    assert.same({ "font=minecraft:default", "about=*" }, shown(font({ font="minecraft:default", constant=false, about=false })))
+    assert.same({ "font=nordtal:gui_r{row}", "rows=6", "constant=FONT_HUD*", "about=The HUD.*", "delete=properties.delete*" },
+      shown(font({ font="nordtal:gui_r{row}", rows=6 })))
+  end)
+
+  it("edits the title, status, height, ascent and about of a block and deletes it", function()
+    assert.same({ "font=nordtal:hud", "block=Arrows*", "range=FE040-FE04F", "status=keep*", "height=8*", "ascent=7*", "about=*",
+                  "delete=properties.delete*" }, shown(block()))
+    assert.same({ "status=properties.unjudged*", "height=properties.per_glyph*" },
+      { shown(block({ status=false, height=false }))[4], shown(block({ status=false, height=false }))[5] })
+    local job = function(field, data) return properties.jobs(block(), field, data, tr) end
+    assert.same({ "editGlyphBlock", { font="nordtal:hud", block="Arrows", title="Bearings" } }, job("title", { value=" Bearings " }))
+    assert.is_nil(job("title", { value="" }))
+    assert.same({ "editGlyphBlock", { font="nordtal:hud", block="Arrows", status="" } },
+      job("status", { value="properties.unjudged" }))
+    assert.same({ "editGlyphBlock", { font="nordtal:hud", block="Arrows", height=9 } }, job("height", { value=9.0 }))
+    assert.is_nil(job("ascent", { value=7.0 }))
+    assert.same({ "editGlyphBlock", { font="nordtal:hud", block="Arrows", about="Arrows." } }, job("about", { value="Arrows." }))
+    assert.same({ "deleteGlyphBlock", { font="nordtal:hud", block="Arrows" } }, job("delete", {}))
+    assert.same({ "properties.delete_question Arrows", "properties.delete_block_note" }, properties.confirm(block(), tr))
+  end)
+
+  it("asks for the status of a block with unjudged first", function()
+    local form = properties.form(block({ status=false }), "status", tr, lists)
+    assert.same({ "properties.unjudged", "keep", "final candidate", "placeholder" }, form.widgets[1].options)
+    assert.equal("properties.unjudged", form.widgets[1].option)
+  end)
+
+  it("adds cells to a sheet, one cell's width each, but none to a sheet of ordinary characters", function()
+    local rows = table.concat(shown(sheet()), "\n")
+    assert.is_truthy(rows:find("add_cells=properties.add_cells*", 1, true))
+    assert.is_truthy(rows:find("delete=properties.delete*", 1, true))
+    local job = properties.jobs(sheet(), "addCells", { constants="ARROW_UP, ARROW_DOWN,," }, tr)
+    assert.same({ "addSheetCells", { font="nordtal:hud", block="Arrows", constants="ARROW_UP,ARROW_DOWN" } }, job)
+    assert.equal(24, properties.widened(sheet(), job))
+    assert.is_nil(properties.jobs(sheet(), "addCells", { constants=" " }, tr))
+    local letters = table.concat(shown(sheet({ characters=true })), "\n")
+    assert.is_falsy(letters:find("add_cells", 1, true))
+    assert.is_falsy(letters:find("delete", 1, true))
+    assert.is_truthy(letters:find("block=Arrows*", 1, true))
+  end)
+end)
+
 describe("a save of a texture", function()
   it("scales the display height of a glyph whose pixel height changed, as the switch says", function()
     assert.same({ "resizeGlyph", { glyph="star", from=7, coupled=true } },

@@ -1,6 +1,7 @@
 package eu.nordtal.season.smp.welcome;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.smp.stage.Cinematic;
@@ -27,5 +28,19 @@ class SeasonWelcomeTest {
                 new Cinematic.Effect("minecraft:blindness", 0),
                 SeasonWelcome.cinematic().effect(),
                 "without blindness the pictures are not the only thing on the screen");
+    }
+
+    @Test
+    void aSpawnOutsideTheBorderIsRefused() {
+        assertFalse(
+                SeasonWelcome.within(100, 200, 20, 100, 211),
+                "a first join outside the border kills the player in the same tick");
+        assertFalse(SeasonWelcome.within(100, 200, 20, -3000, 200), "far outside on x");
+    }
+
+    @Test
+    void aSpawnInsideTheBorderIsKept() {
+        assertTrue(SeasonWelcome.within(100, 200, 20, 96.5, 205.5), "inside");
+        assertTrue(SeasonWelcome.within(100, 200, 20, 110, 190), "on the edge");
     }
 }

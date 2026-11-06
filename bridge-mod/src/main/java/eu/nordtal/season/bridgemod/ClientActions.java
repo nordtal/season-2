@@ -22,6 +22,7 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.commands.arguments.item.ItemParser;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
@@ -33,6 +34,10 @@ import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.SlotAccess;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ContainerInput;
@@ -41,7 +46,10 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.RailBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.RailShape;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.jspecify.annotations.Nullable;
@@ -57,9 +65,14 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
 
     private static final int NO_CONTAINER = -1;
 
+    /** The first id of an entity the bridge adds; a server counts its entities up from 1, so none meets it. */
+    private static final int FIRST_ENTITY = -1_000_000;
+
     private final Minecraft minecraft;
     private final Map<BlockPos, BlockState> replaced = new HashMap<>();
     private @Nullable ClientLevel replacedIn;
+    private final Map<BlockPos, Integer> displays = new HashMap<>();
+    private int nextEntity = FIRST_ENTITY;
     private boolean bossBarShown;
 
     ClientActions(final Minecraft minecraft) {
@@ -89,16 +102,19 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
             case Request.BossBar bar -> bossBar(hud, bar);
             case Request.Chest chest -> chest(chest);
             case Request.Give give -> give(give);
-            case Request.Block block -> block(block);
+            case Request.Block block -> place(position(block.pos()), blockState(block.block()));
             case Request.Sound sound -> sound(sound);
+            case Request.Rail rail -> rail(rail);
             case Request.Clear _ -> {
                 removeBossBar(hud);
                 hud.clearTitles();
                 final ClientLevel level = minecraft.level;
                 if (level != null && level.equals(replacedIn)) {
                     replaced.forEach((pos, state) -> level.setBlock(pos, state, Block.UPDATE_ALL));
+                    displays.values().forEach(id -> level.removeEntity(id, Entity.RemovalReason.DISCARDED));
                 }
                 replaced.clear();
+                displays.clear();
                 replacedIn = null;
             }
             case Request.Reload _ -> throw new IllegalStateException("A reload runs through apply.");
@@ -182,27 +198,69 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
         }
     }
 
-    private void block(final Request.Block block) {
-        final ClientLevel level = minecraft.level;
-        if (level == null) {
-            throw new IllegalArgumentException("block needs a world.");
-        }
-        final BlockState state;
+    private BlockState blockState(final String block) {
         try {
-            state = BlockStateParser.parseForBlock(
-                            connection().registryAccess().lookupOrThrow(Registries.BLOCK), block.block(), false)
+            return BlockStateParser.parseForBlock(
+                            connection().registryAccess().lookupOrThrow(Registries.BLOCK), block, false)
                     .blockState();
         } catch (CommandSyntaxException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
         }
+    }
+
+    /**
+     * Puts {@code state} at {@code pos} and keeps the block it replaced, which `clear` puts back.
+     * A display that the bridge showed there goes.
+     */
+    private ClientLevel place(final BlockPos pos, final BlockState state) {
+        final ClientLevel level = minecraft.level;
+        if (level == null) {
+            throw new IllegalArgumentException("This request needs a world.");
+        }
         if (!level.equals(replacedIn)) {
-            // A new world or dimension has new blocks, so the old ones are not put back there.
+            // A new world or dimension has new blocks and entities, so the old ones are not put back there.
             replaced.clear();
+            displays.clear();
             replacedIn = level;
         }
-        final BlockPos pos = position(block.pos());
+        final Integer shown = displays.remove(pos);
+        if (shown != null) {
+            level.removeEntity(shown, Entity.RemovalReason.DISCARDED);
+        }
         replaced.putIfAbsent(pos, level.getBlockState(pos));
         level.setBlock(pos, state, Block.UPDATE_ALL);
+        return level;
+    }
+
+    /** Places a straight rail and the item on it as an item display, the way the server draws a station rail. */
+    private void rail(final Request.Rail rail) {
+        final ItemStack stack = stack(connection().registryAccess(), rail.item(), 1);
+        final RailShape shape = shape(rail.axis(), player().getDirection());
+        final BlockPos pos = position(rail.pos());
+        final ClientLevel level = place(pos, Blocks.RAIL.defaultBlockState().setValue(RailBlock.SHAPE, shape));
+        final Display.ItemDisplay display = new Display.ItemDisplay(EntityTypes.ITEM_DISPLAY, level);
+        final SlotAccess slot = display.getSlot(0);
+        if (slot == null) {
+            throw new IllegalStateException("An item display has no slot for its item.");
+        }
+        slot.set(stack);
+        display.setId(nextEntity--);
+        display.snapTo(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, yaw(shape), 0);
+        level.addEntity(display);
+        displays.put(pos, display.getId());
+    }
+
+    /** The shape of a straight rail along {@code axis}, or along the way {@code facing} looks when it is null. */
+    static RailShape shape(final @Nullable String axis, final Direction facing) {
+        if (axis != null) {
+            return axis.equals("east_west") ? RailShape.EAST_WEST : RailShape.NORTH_SOUTH;
+        }
+        return facing.getAxis() == Direction.Axis.X ? RailShape.EAST_WEST : RailShape.NORTH_SOUTH;
+    }
+
+    /** The yaw the server gives the display of a station rail of {@code shape}. */
+    static float yaw(final RailShape shape) {
+        return shape == RailShape.EAST_WEST ? 90f : 0f;
     }
 
     private BlockPos position(final Request.@Nullable Position pos) {
@@ -212,7 +270,7 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
         if (minecraft.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
             return hit.getBlockPos().relative(hit.getDirection());
         }
-        throw new IllegalArgumentException("block needs 'pos' or a block under the crosshair.");
+        throw new IllegalArgumentException("This request needs 'pos' or a block under the crosshair.");
     }
 
     private Component component(final JsonElement json) {

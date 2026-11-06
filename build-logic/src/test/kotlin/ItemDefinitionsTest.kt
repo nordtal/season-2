@@ -225,14 +225,26 @@ class ItemDefinitionsTest {
     }
 
     @Test
-    fun anImportRefusesATextureItCannotFindAndAFileThatExists() {
+    fun anImportRefusesATextureItCannotFindAndAFileThatExistsUnlessItDrawsItThere() {
         val export = directory.resolve("export").apply { mkdirs() }
         export.resolve("lamp.json").writeText("""{ "textures": { "0": "glow" } }""")
 
         val missing = assertThrows<IllegalArgumentException> { imported(export.resolve("lamp.json")) }
         export.resolve("glow.png").writeText("png")
         imported(export.resolve("lamp.json"))
-        val existing = assertThrows<FieldRefusal> { imported(export.resolve("lamp.json")) }
+        imported(export.resolve("lamp.json"))
+        files().use { it.write("nordtal:other", model(apple)) }
+        val existing =
+            assertThrows<FieldRefusal> {
+                files().use {
+                    it.import(
+                        export.resolve("lamp.json"),
+                        "nordtal:item/lamp",
+                        "nordtal:other",
+                        "model",
+                    )
+                }
+            }
 
         assertEquals(
             "Texture 0 of lamp.json is glow, which is neither beside it as glow.png nor in the pack or the client jar.",
@@ -670,10 +682,12 @@ class ItemDefinitionsTest {
             listOf(
                 mapOf(
                     "model" to "nordtal:item/wand",
+                    "pack" to true,
                     "textures" to
                         listOf(
                             mapOf(
                                 "key" to "layer0",
+                                "own" to true,
                                 "texture" to
                                     mapOf(
                                         "id" to "nordtal:item/wand.png",
@@ -693,7 +707,8 @@ class ItemDefinitionsTest {
                 ),
                 mapOf(
                     "model" to "minecraft:item/apple",
-                    "textures" to listOf(mapOf("key" to "layer0", "texture" to mapOf("id" to "minecraft:item/apple.png"))),
+                    "pack" to false,
+                    "textures" to listOf(mapOf("key" to "layer0", "own" to true, "texture" to mapOf("id" to "minecraft:item/apple.png"))),
                 ),
             ),
             models,

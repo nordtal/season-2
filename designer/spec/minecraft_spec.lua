@@ -21,6 +21,12 @@ describe("minecraft", function()
     assert.same({ "/give @s chest[custom_name=" .. json .. "]" }, minecraft.commands({ op="chest", text=star }, encode))
     assert.same({ "/give @s minecraft:apple" }, minecraft.commands({ op="give", item="minecraft:apple" }, encode))
     assert.same({ "/setblock ^ ^ ^2 minecraft:stone keep" }, minecraft.commands({ op="block", block="minecraft:stone" }, encode))
+    assert.same({
+      "/execute positioned ^ ^ ^2 align xyz run setblock ~ ~ ~ minecraft:rail keep",
+      '/execute positioned ^ ^ ^2 align xyz run summon minecraft:item_display ~0.5 ~0.5 ~0.5 {Tags:["nordtal_preview"]}',
+      '/execute positioned ^ ^ ^2 align xyz positioned ~0.5 ~0.5 ~0.5 run item replace entity'
+        .. ' @n[type=minecraft:item_display,tag=nordtal_preview,distance=..0.1] contents with minecraft:rail[item_model="nordtal:station_rail"]',
+    }, minecraft.commands({ op="rail", item='minecraft:rail[item_model="nordtal:station_rail"]' }, encode))
   end)
 
   it("plays a sound event in the client, or as /playsound to copy", function()
@@ -66,7 +72,17 @@ describe("minecraft", function()
     assert.same({
       { label="minecraft.give strings[0]=lit", requests={ { op="give", item="a" } } },
       { label="minecraft.give_plain", requests={ { op="give", item="b" } } },
+      { label="minecraft.rail", requests={ { op="rail", item="a" } } },
     }, (minecraft.previews({ kind="item", entry={ id="nordtal:lamp" } }, nil, definition, tr)))
+    definition.item = "minecraft:apple"
+    assert.same({ "minecraft.give strings[0]=lit", "minecraft.give_plain" }, (function()
+      local labels = {}
+      for _, p in ipairs((minecraft.previews({ kind="item", entry={ id="minecraft:apple" } }, nil, definition, tr))) do
+        table.insert(labels, p.label)
+      end
+      return labels
+    end)())
+    definition.item = "nordtal:lamp"
     assert.same({}, (minecraft.previews({ kind="item", entry={ id="nordtal:other" } }, nil, definition, tr)))
 
     assert.same({ { label="minecraft.place minecraft:stone", requests={ { op="block", block="minecraft:stone" } } } },

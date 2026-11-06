@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import net.minecraft.SharedConstants;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentInitializers.PendingComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -13,6 +14,7 @@ import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.entity.EntityEquipment;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.level.block.state.properties.RailShape;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,5 +45,15 @@ class ClientActionsTest {
         final IllegalArgumentException refused = assertThrows(
                 IllegalArgumentException.class, () -> ClientActions.stack(registries, "minecraft:ender_pearl", 17));
         assertTrue(String.valueOf(refused.getMessage()).contains("16"), refused.getMessage());
+    }
+
+    @Test
+    void aRailRunsAlongItsAxisOrTheWayThePlayerLooksAndItsItemTurnsAsTheServerTurnsIt() {
+        assertEquals(RailShape.EAST_WEST, ClientActions.shape(null, Direction.WEST));
+        assertEquals(RailShape.NORTH_SOUTH, ClientActions.shape(null, Direction.SOUTH));
+        assertEquals(RailShape.NORTH_SOUTH, ClientActions.shape("north_south", Direction.EAST));
+        assertEquals(RailShape.EAST_WEST, ClientActions.shape("east_west", Direction.NORTH));
+        assertEquals(90f, ClientActions.yaw(RailShape.EAST_WEST));
+        assertEquals(0f, ClientActions.yaw(RailShape.NORTH_SOUTH));
     }
 }

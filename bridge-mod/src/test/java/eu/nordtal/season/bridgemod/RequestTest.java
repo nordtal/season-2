@@ -44,6 +44,11 @@ class RequestTest {
         assertEquals(new Request.Sound("nordtal:bell", 1, 1), of("{\"op\":\"sound\",\"sound\":\"nordtal:bell\"}"));
         assertEquals(new Request.Sound("minecraft:block.anvil.land", 0.5f, 2), of("""
                 {"op":"sound","sound":"minecraft:block.anvil.land","volume":0.5,"pitch":2}"""));
+        assertEquals(
+                new Request.Rail("minecraft:rail", null, null), of("{\"op\":\"rail\",\"item\":\"minecraft:rail\"}"));
+        assertEquals(
+                new Request.Rail("minecraft:rail", new Request.Position(1, 2, 3), "east_west"),
+                of("{\"op\":\"rail\",\"item\":\"minecraft:rail\",\"pos\":[1,2,3],\"axis\":\"EAST_WEST\"}"));
         assertEquals(new Request.Clear(), of("{\"op\":\"clear\"}"));
     }
 
@@ -65,6 +70,9 @@ class RequestTest {
                 "{'op':'sound'}|sound needs 'sound'.",
                 "{'op':'sound','sound':'a','pitch':3}|sound needs 'pitch' from 0.5 to 2.",
                 "{'op':'sound','sound':'a','volume':1.5}|sound needs 'volume' from 0 to 1.",
+                "{'op':'rail'}|rail needs 'item'.",
+                "{'op':'rail','item':'a','pos':[1,2]}|rail needs 'pos' as [x, y, z].",
+                "{'op':'rail','item':'a','axis':'up'}|rail takes the axis north_south or east_west, not 'up'.",
             })
     void aWrongRequestSaysWhatIsWrong(final String json, final String message) {
         assertEquals(message, refusal(json.replace('\'', '"')));

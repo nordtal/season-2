@@ -293,7 +293,7 @@ object NewTextures {
             throw FieldRefusal(field, e.message ?: "$field is refused.", e)
         }
 
-    private fun transparent(
+    internal fun transparent(
         width: Int,
         height: Int,
     ): ByteArray {

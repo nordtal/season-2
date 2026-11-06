@@ -16,10 +16,18 @@ const previewState = process.env.STEWARD_PREVIEW_STATE
 function previewCookie(): string | undefined {
   if (previewState === undefined) return undefined
   try {
-    const state = JSON.parse(readFileSync(previewState, "utf8")) as {
-      cookies: { name: string; value: string }[]
-    }
-    return state.cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ")
+    const state: unknown = JSON.parse(readFileSync(previewState, "utf8"))
+    if (typeof state !== "object" || state === null || !("cookies" in state)) return undefined
+    const { cookies } = state
+    if (!Array.isArray(cookies)) return undefined
+    return cookies
+      .map((cookie: unknown) =>
+        typeof cookie === "object" && cookie !== null && "name" in cookie && "value" in cookie
+          ? `${String(cookie.name)}=${String(cookie.value)}`
+          : "",
+      )
+      .filter((pair) => pair !== "")
+      .join("; ")
   } catch {
     return undefined
   }

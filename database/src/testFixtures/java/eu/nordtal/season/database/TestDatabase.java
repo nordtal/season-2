@@ -19,8 +19,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 /**
  * A database with the schema applied, for any test that needs PostgreSQL.
  *
- * One server serves the whole test JVM and migrates once; every {@link #fresh()} is a new database cloned from it. The
- * server is a container Testcontainers starts, or the one {@value #HOST} names, as the Steward UI stack does.
+ * One server, a container or the one {@value #HOST} names, migrates once; {@link #fresh()} clones it.
  */
 public final class TestDatabase {
 
@@ -31,8 +30,9 @@ public final class TestDatabase {
     private static final String TEMPLATE = "schema";
 
     /**
-     * The variable naming a running server to use instead of a container, with {@code NORDTAL_TEST_POSTGRES_PORT},
-     * {@code _USER} and {@code _PASSWORD} beside it. Each start drops what an earlier one left there.
+     * The variable that names a running server to use instead of a container; each start drops what the last one left.
+     *
+     * {@code NORDTAL_TEST_POSTGRES_PORT}, {@code _USER} and {@code _PASSWORD} go beside it.
      */
     public static final String HOST = "NORDTAL_TEST_POSTGRES_HOST";
 
@@ -239,8 +239,17 @@ public final class TestDatabase {
             try {
                 return container
                         .execInContainer(
-                                "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", role.roleName(), "-d", database,
-                                "-c", sql)
+                                "psql",
+                                "-X",
+                                "-q",
+                                "-v",
+                                "ON_ERROR_STOP=1",
+                                "-U",
+                                role.roleName(),
+                                "-d",
+                                database,
+                                "-c",
+                                sql)
                         .getStderr();
             } catch (final java.io.IOException | InterruptedException failure) {
                 throw new IllegalStateException("psql did not run in the test container", failure);
@@ -287,8 +296,17 @@ public final class TestDatabase {
         @Override
         public void restore(final java.nio.file.Path dump, final String database) {
             final ProcessBuilder command = new ProcessBuilder(
-                            "pg_restore", "--exit-on-error", "-h", host, "-p", Integer.toString(port), "-U", username,
-                            "-d", database, dump.toString())
+                            "pg_restore",
+                            "--exit-on-error",
+                            "-h",
+                            host,
+                            "-p",
+                            Integer.toString(port),
+                            "-U",
+                            username,
+                            "-d",
+                            database,
+                            dump.toString())
                     .redirectErrorStream(true);
             command.environment().put("PGPASSWORD", password);
             try {

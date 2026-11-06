@@ -13,8 +13,8 @@ final class SettingLabels {
 
     /** The abbreviations that a label writes in capitals. */
     private static final Set<String> ACRONYMS = Set.of(
-            "api", "db", "gui", "http", "https", "id", "ip", "json", "jvm", "motd", "mspt", "pvp", "smp", "sql", "tps",
-            "ttl", "ui", "url", "uri", "uuid", "xp");
+            "api", "db", "gui", "http", "https", "id", "ip", "json", "jvm", "motd", "mspt", "npc", "pvp", "smp", "sql",
+            "tps", "ttl", "ui", "url", "uri", "uuid", "xp");
 
     /**
      * Returns the label of a key.

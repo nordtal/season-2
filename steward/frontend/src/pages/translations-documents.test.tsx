@@ -313,8 +313,8 @@ describe("an open document", { timeout: 15_000 }, () => {
     await waitFor(() => expect(saved).toHaveLength(1))
     expect(saved[0][0]).toBe("discord/contribution")
     expect(JSON.stringify(saved[0][1])).toContain('"en":"Support"')
-    expect(await within(screen.getByRole("article", { name: "Contribution" })).findByText("Changed")).toBeTruthy()
-    expect(within(screen.getByRole("button", { name: "Contribution" })).getByText("Changed")).toBeTruthy()
+    expect(await within(screen.getByRole("article", { name: "Contribution" })).findByText("changed")).toBeTruthy()
+    expect(within(screen.getByRole("button", { name: "Contribution" })).getByText("changed")).toBeTruthy()
   })
 
   it("sends the draft as it stands to the admin as a direct message", async () => {
@@ -684,8 +684,8 @@ describe("an open document", { timeout: 15_000 }, () => {
 
     const editor = await openContribution()
     const card = screen.getByRole("article", { name: "Contribution" })
-    expect(within(card).getByText("Changed")).toBeTruthy()
-    expect(within(card).getByText("Release changed")).toBeTruthy()
+    expect(within(card).getByText("changed")).toBeTruthy()
+    expect(within(card).getByText("release changed")).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Packaged" })).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Saved" })).toBeTruthy()
   })

@@ -33,10 +33,10 @@ export type TreeBranch<L> = {
 export type TreeNode<L> = TreeLeaf<L> | TreeBranch<L>
 
 /**
- * `farm-world` reads "Farm world" and `serverUuid` reads "Server UUID", for a section that nothing named.
+ * `farm-world` reads "Farm world" and `serverUuid` reads "Server UUID", for a section that nothing named. `keepBrands` keeps `bStats`.
  */
-export function humanise(segment: string): string {
-  return sentenceOf(segment.split(/[-_.\s]+/)) || segment
+export function humanise(segment: string, keepBrands = false): string {
+  return sentenceOf(segment.split(/[-_.\s]+/), keepBrands) || segment
 }
 
 class Builder<L> {
@@ -217,7 +217,7 @@ export type PluginFileLeaf = { file: PluginFile; label: string; alone: boolean }
 
 /** Returns what a plugin is listed by: its name, else its data folder made readable. */
 export function pluginLabel(file: PluginFile): string {
-  return file.name ?? humanise(file.plugin)
+  return file.name ?? humanise(file.plugin, true)
 }
 
 /** Returns the id a plugin file is selected, drafted and named in `?file=` by. */

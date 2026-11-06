@@ -34,11 +34,16 @@ export function StatusBadge({
     <Badge
       variant="outline"
       /**
-       * `max-w-full` and `truncate` make a long badge in a table card end in an ellipsis and not in a silent cut.
+       * `max-w-full` and the span around a plain text make a long badge in a table card end in an ellipsis and not
+       * in a silent cut: an ellipsis needs a box of its own, which the badge's flex box does not give its text.
        */
-      className={cn("max-w-full truncate font-medium", TONES[tone], className)}
+      className={cn("max-w-full font-medium", TONES[tone], className)}
     >
-      {children}
+      {typeof children === "string" ? (
+        <span className="min-w-0 overflow-hidden text-ellipsis">{children}</span>
+      ) : (
+        children
+      )}
     </Badge>
   )
   if (!tipContent) return badge

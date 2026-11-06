@@ -169,7 +169,7 @@ describe("PersonPage - one person on an address of their own", () => {
     draw(<PersonPage />, `/access/${ALLY}`)
 
     const panel = assertElement((await screen.findByText("Inventories")).closest("section"), "the inventories panel")
-    expect(await within(panel).findByText("Stored")).toBeTruthy()
+    expect(await within(panel).findByText("stored")).toBeTruthy()
     expect(within(panel).getByText("Level 7")).toBeTruthy()
     fireEvent.click(within(panel).getByRole("button", { name: "12 minecraft:oak_log" }))
     fireEvent.click(await screen.findByRole("button", { name: "Remove" }))

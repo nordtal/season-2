@@ -10,6 +10,7 @@ import {
   humanise,
   leafCount,
   messageName,
+  pluginLabel,
   textsTree,
   type TreeNode,
 } from "@/lib/settings-tree"
@@ -88,6 +89,12 @@ describe("humanise", () => {
     expect(humanise("identity")).toBe("Identity")
     expect(humanise("ENABLED")).toBe("Enabled")
     expect(humanise("discordSRV")).toBe("Discord SRV")
+  })
+
+  it("lists a plugin folder that no jar names by its brand-cased name", () => {
+    expect(
+      pluginLabel({ service: "smp", plugin: "bStats", path: "config.yml", size: 0, readable: true, writable: true }),
+    ).toBe("bStats")
   })
 })
 

@@ -117,18 +117,26 @@ describe("ReferencePicker", () => {
     expect(screen.queryByRole("combobox", { name: "Tag" })).toBeNull()
   })
 
-  it("picks one value, and clears it with none", async () => {
-    const onChange = draw({ to: "DISCORD_CHANNEL", optional: false }, [], false)
+  it("picks one value, and clears an optional one with none", async () => {
+    const onChange = draw({ to: "DISCORD_CHANNEL", optional: true }, [], false)
 
     fireEvent.click(screen.getByRole("button", { name: "none" }))
     fireEvent.click(await screen.findByRole("option", { name: /^admin-log/ }))
     expect(onChange).toHaveBeenLastCalledWith(["11"])
 
     cleanup()
-    const cleared = draw({ to: "DISCORD_CHANNEL", optional: false }, ["11"], false)
+    const cleared = draw({ to: "DISCORD_CHANNEL", optional: true }, ["11"], false)
     fireEvent.click(screen.getByRole("button", { name: /admin-log/ }))
     fireEvent.click(await screen.findByRole("option", { name: "none" }))
     expect(cleared).toHaveBeenLastCalledWith([])
+  })
+
+  it("offers no none for a required value", async () => {
+    draw({ to: "DISCORD_CHANNEL", optional: false }, ["11"], false)
+
+    fireEvent.click(screen.getByRole("button", { name: /admin-log/ }))
+    await screen.findByRole("option", { name: /^admin-log/ })
+    expect(screen.queryByRole("option", { name: "none" })).toBeNull()
   })
 
   it("picks a world from those the setting's own server reported, and marks a stored name it did not", async () => {

@@ -31,6 +31,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -383,6 +384,62 @@ class ResolverTest {
                 List.of(new Work.Finding("smp", RunStep.Outcome.WARNING, RunStep.Reason.UNCLAIMED)),
                 Work.of(plan).about("smp"),
                 Told.plan(plan));
+    }
+
+    @Test
+    void aRetiredPluginsJarAndFolderAreWorkForItsServerAndNoUnclaimedJar() throws IOException {
+        installCurrentEverything();
+        write("smp", "plugins/CoreProtect-CE-24.1.jar");
+        write("smp", "plugins/CoreProtect/config.yml");
+
+        final UpdatePlan plan = resolve();
+
+        assertEquals(List.of(), plan.unclaimed(), Told.plan(plan));
+        assertEquals(
+                List.of(new UpdatePlan.Retiring(
+                        "smp", "coreprotect", List.of("CoreProtect-CE-24.1.jar", "CoreProtect"))),
+                plan.retiring());
+        assertEquals(
+                List.of(new RunStep.Change("coreprotect", null, null, null)),
+                Work.of(plan).of("smp"));
+        assertEquals(List.of(), Work.of(plan).about("smp"), "deleting it is work, not a warning");
+        assertTrue(plan.hasWork());
+    }
+
+    @Test
+    void aRetiredPluginsFolderAloneIsStillDeleted() throws IOException {
+        installCurrentEverything();
+        write("smp", "plugins/CoreProtect/database.db");
+
+        final UpdatePlan plan = resolve();
+
+        assertEquals(List.of(new UpdatePlan.Retiring("smp", "coreprotect", List.of("CoreProtect"))), plan.retiring());
+    }
+
+    @Test
+    void aRetiredPluginsJarIsFoundUnderEveryNameItWasPublishedUnder() throws IOException {
+        installCurrentEverything();
+        write("smp", "plugins/coreprotect-22.4.jar");
+        write("smp", "plugins/CoreProtect-23.0.jar");
+
+        final UpdatePlan plan = resolve();
+
+        assertEquals(1, plan.retiring().size());
+        assertEquals(
+                Set.of("coreprotect-22.4.jar", "CoreProtect-23.0.jar"),
+                Set.copyOf(plan.retiring().get(0).files()));
+        assertEquals(List.of(), plan.unclaimed());
+    }
+
+    @Test
+    void aServerWithoutARetiredPluginHasNothingToDelete() throws IOException {
+        installCurrentEverything();
+        write("limbo", "plugins/CoreProtect-CE-24.1.jar");
+
+        final UpdatePlan plan = resolve();
+
+        assertEquals(List.of(), plan.retiring(), "only smp ever ran it");
+        assertEquals(List.of(new UpdatePlan.Unclaimed("limbo", "CoreProtect-CE-24.1.jar")), plan.unclaimed());
     }
 
     @Test

@@ -81,6 +81,14 @@ public record Work(Map<String, List<RunStep.Change>> services, List<Finding> fin
             }
         }
 
+        for (final UpdatePlan.Retiring gone : plan.retiring()) {
+            // Deleting is work, so the run stops the server; the step names the plugin alone.
+            if (plan.blocker(gone.service()) == null) {
+                work.computeIfAbsent(gone.service(), key -> new ArrayList<>())
+                        .add(new RunStep.Change(gone.artifact(), null, null, null));
+            }
+        }
+
         for (final UpdatePlan.Unclaimed left : plan.unclaimed()) {
             // Loud rather than tidy: a claimless jar is usually a renamed plugin, loaded twice.
             findings.add(new Finding(left.service(), RunStep.Outcome.WARNING, RunStep.Reason.UNCLAIMED));

@@ -230,6 +230,43 @@ class ApplierTest {
     }
 
     @Test
+    void aRetiredPluginsJarAndDataFolderAreDeletedEvenWithNothingElseToInstall() throws IOException {
+        install("smp", "plugins/smp-0.1.0.jar");
+        install("smp", "plugins/CoreProtect-CE-24.1.jar");
+        install("smp", "plugins/CoreProtect/config.yml");
+        install("smp", "plugins/CoreProtect/database.db");
+        final UpdatePlan.Retiring gone =
+                new UpdatePlan.Retiring("smp", "coreprotect", List.of("CoreProtect-CE-24.1.jar", "CoreProtect"));
+
+        final ApplyResult result = apply(
+                new Fake(),
+                plan(List.of(gone), new Change("smp", "smp", Change.Status.UP_TO_DATE, "smp-0.1.0.jar", null, null)));
+
+        assertFalse(Files.exists(volumes.resolve("smp/plugins/CoreProtect-CE-24.1.jar")));
+        assertFalse(Files.exists(volumes.resolve("smp/plugins/CoreProtect")));
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/smp-0.1.0.jar")));
+        final ApplyResult.Outcome outcome = outcome(result, "smp", "coreprotect");
+        assertEquals(ApplyResult.Status.DONE, outcome.status());
+        assertEquals("removed CoreProtect-CE-24.1.jar, CoreProtect", outcome.detail());
+        assertEquals(null, outcome.file(), "nothing was installed, so the plugin directory records nothing");
+    }
+
+    @Test
+    void aRetiredPluginStaysOnAServerThatCouldNotBeChecked() throws IOException {
+        install("smp", "plugins/CoreProtect-CE-24.1.jar");
+        final UpdatePlan.Retiring gone =
+                new UpdatePlan.Retiring("smp", "coreprotect", List.of("CoreProtect-CE-24.1.jar"));
+
+        apply(
+                new Fake(),
+                plan(
+                        List.of(gone),
+                        Change.unresolved("smp", "packetevents", TEXTS.report().words("Modrinth: connect timed out"))));
+
+        assertTrue(Files.exists(volumes.resolve("smp/plugins/CoreProtect-CE-24.1.jar")));
+    }
+
+    @Test
     void anArtefactWithNoBuildForThisVersionDoesNotHoldItsServerBack() throws IOException {
         install("smp", "plugins/smp-0.1.0.jar");
 
@@ -479,8 +516,18 @@ class ApplierTest {
     }
 
     private static UpdatePlan plan(final Change... changes) {
+        return plan(List.of(), changes);
+    }
+
+    private static UpdatePlan plan(final List<UpdatePlan.Retiring> retiring, final Change... changes) {
         return new UpdatePlan(
-                Instant.parse("2026-09-01T18:00:00Z"), "v0.2.0", false, List.of(changes), List.of(), List.of());
+                Instant.parse("2026-09-01T18:00:00Z"),
+                "v0.2.0",
+                false,
+                List.of(changes),
+                List.of(),
+                List.of(),
+                retiring);
     }
 
     private static Change outdated(

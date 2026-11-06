@@ -379,6 +379,7 @@ Simple Voice Chat needs UDP 25565 open next to TCP and no configuration. No serv
   `prism` of the stack's database, which smp's role owns and Prism migrates itself. The entrypoint
   writes `plugins/prism/storage.conf` from smp's database settings at every start, and Steward does
   not list that file, because it holds the password.
+  An update run deletes CoreProtect's jar and its data folder from smp, and nothing of its log is kept.
 - **Terralith and Dungeons and Taverns:** the entrypoint fetches them from `SMP_DATAPACK_URLS` before
   the first start, and `smp` refuses to start without them. The entrypoint owns the `datapacks/`
   folder of the world. On start it removes every zip there that the variable does not name.

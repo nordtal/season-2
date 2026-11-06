@@ -15,6 +15,8 @@ import eu.nordtal.season.stewardagent.source.Modrinth;
 import eu.nordtal.season.stewardagent.source.PaperFill;
 import eu.nordtal.season.stewardagent.source.RemoteFile;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -97,8 +99,9 @@ public final class Resolver {
 
         final List<Change> changes = new ArrayList<>();
         final List<UpdatePlan.Unclaimed> unclaimed = new ArrayList<>();
+        final List<UpdatePlan.Retiring> retiring = new ArrayList<>();
         final Path root = Path.of(config.volumesRoot());
-        compareServices(services, root, newest, failures, unsupported, unreleased, changes, unclaimed);
+        compareServices(services, root, newest, failures, unsupported, unreleased, changes, unclaimed, retiring);
 
         changes.add(resolvePack(newest, failures, unreleased));
 
@@ -108,7 +111,8 @@ public final class Resolver {
                 season != null && season.prerelease(),
                 List.copyOf(changes),
                 List.copyOf(unclaimed),
-                List.copyOf(notes));
+                List.copyOf(notes),
+                List.copyOf(retiring));
     }
 
     /** The rows of {@code service_plugin}, or none when the database cannot be read. */
@@ -148,7 +152,8 @@ public final class Resolver {
             final Map<String, MessageRef> unsupported,
             final Set<String> unreleased,
             final List<Change> changes,
-            final List<UpdatePlan.Unclaimed> unclaimed) {
+            final List<UpdatePlan.Unclaimed> unclaimed,
+            final List<UpdatePlan.Retiring> retiring) {
         for (final Topology.Service service : services) {
             final Installation installed = scan(service.name(), root.resolve(service.name()));
 
@@ -164,6 +169,7 @@ public final class Resolver {
             }
 
             if (installed.mounted()) {
+                retiring.addAll(retired(installed, claimed));
                 for (final Installation.Jar jar : installed.plugins()) {
                     if (jar.prefix() != null && !claimed.contains(jar.prefix())) {
                         unclaimed.add(new UpdatePlan.Unclaimed(service.name(), jar.fileName()));
@@ -171,6 +177,32 @@ public final class Resolver {
                 }
             }
         }
+    }
+
+    /**
+     * Finds the files of the service's retired plugins and claims their jars. A row that claims the prefix keeps it.
+     */
+    private static List<UpdatePlan.Retiring> retired(final Installation installed, final Set<String> claimed) {
+        final List<UpdatePlan.Retiring> found = new ArrayList<>();
+        for (final Retired gone : Retired.on(installed.service())) {
+            if (claimed.stream().anyMatch(gone::owns)) {
+                continue;
+            }
+            final List<String> files = new ArrayList<>();
+            installed.plugins().stream().filter(jar -> gone.owns(jar.prefix())).forEach(jar -> {
+                files.add(jar.fileName());
+                claimed.add(jar.prefix());
+            });
+            final Path folder =
+                    installed.directory().resolve(Installation.PLUGINS).resolve(gone.folder());
+            if (Files.isDirectory(folder, LinkOption.NOFOLLOW_LINKS)) {
+                files.add(gone.folder());
+            }
+            if (!files.isEmpty()) {
+                found.add(new UpdatePlan.Retiring(installed.service(), gone.artifact(), files));
+            }
+        }
+        return found;
     }
 
     /** Asks Modrinth once per artefact id for every added plugin. */

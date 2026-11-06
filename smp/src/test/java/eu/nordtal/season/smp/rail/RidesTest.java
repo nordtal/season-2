@@ -40,6 +40,7 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Rail;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.minecart.RideableMinecart;
+import org.bukkit.event.vehicle.VehicleEntityCollisionEvent;
 import org.bukkit.event.vehicle.VehicleExitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -93,6 +94,7 @@ class RidesTest {
     /** A cart with its rider, as the fakes keep them. */
     private final class Rider {
         private final UUID id = UUID.randomUUID();
+        private final UUID playerId = UUID.randomUUID();
         private Location at;
         private @Nullable RideableMinecart vehicle;
         private boolean valid = true;
@@ -125,6 +127,7 @@ class RidesTest {
                     default -> throw new UnsupportedOperationException("Cart." + method.getName());
                 });
         private final Player player = fake(Player.class, (_, method, args) -> switch (method.getName()) {
+            case "getUniqueId" -> playerId;
             case "isOnline" -> true;
             case "isDead" -> false;
             case "getVehicle" -> vehicle;
@@ -383,6 +386,21 @@ class RidesTest {
         assertFalse(rider.valid);
         assertEquals(List.of(), stranded);
         assertEveryChunkLetGo();
+    }
+
+    @Test
+    void theRiderOfADrivenCartNeitherPushesNorIsPushedByACartStandingOnTheTrack() {
+        track.eastWest(0, 40, 64, 0);
+        stations(at(0, 64, 0), at(40, 64, 0));
+        final Rider rider = drive(at(0, 64, 0), 2);
+        final Rider standing = new Rider(at(20, 64, 0));
+        standing.vehicle = null;
+        tick(30);
+
+        final VehicleEntityCollisionEvent push = new VehicleEntityCollisionEvent(standing.cart, rider.player);
+        rides.onCollision(push);
+
+        assertTrue(push.isCancelled(), "the standing cart is not pushed by the rider");
     }
 
     @Test

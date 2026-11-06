@@ -178,6 +178,11 @@ public final class Rides implements Listener {
         return rides.containsKey(entity.getUniqueId());
     }
 
+    private boolean ridesDriven(final Entity entity) {
+        final @Nullable Entity vehicle = entity.getVehicle();
+        return vehicle != null && driven(vehicle);
+    }
+
     private RailGraph graphUnder(final Ride ride) {
         return networks.graph(ride.world.getName(), railUnder(ride.cart))
                 .orElseGet(() -> new RailGraph(List.of(), List.of(), List.of()));
@@ -629,10 +634,14 @@ public final class Rides implements Listener {
         return riding ? Leaving.ON_TRACK : Leaving.POCKET;
     }
 
-    /** A driven cart passes through other carts, mobs and players, and neither pushes nor is pushed. */
+    /**
+     * A driven cart passes through other carts, mobs and players, and neither pushes nor is pushed.
+     * Its rider counts as the cart: vanilla lets a riding player push a cart it overlaps, and at speed the pushes on
+     * the way in and out of a standing cart no longer cancel out.
+     */
     @EventHandler(ignoreCancelled = true)
     public void onCollision(final VehicleEntityCollisionEvent event) {
-        if (driven(event.getVehicle()) || driven(event.getEntity())) {
+        if (driven(event.getVehicle()) || driven(event.getEntity()) || ridesDriven(event.getEntity())) {
             event.setCancelled(true);
         }
     }

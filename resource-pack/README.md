@@ -288,7 +288,8 @@ absolute path of every file it wrote or deleted.
 
 - Only Ogg Vorbis files are taken: Minecraft plays no other format, and Audacity exports one with
   *Export Audio*, format *Ogg Vorbis*. `checkPack` flags an `.ogg` under `src/assets/` that is none.
-- `createSound` refuses the namespace `minecraft` and an event the pack has. It copies the file to
+- `createSound` refuses the namespace `minecraft`, an event the pack has, and an event that is not
+  words of `a` to `z`, `0` to `9`, `_` and `-` with dots between them. It copies the file to
   `sounds/<event, dots as slashes>.ogg`.
 - `overrideSound` overrides a `minecraft:` event of the season's client. With `replace`, the event
   plays the pack's sounds alone: it starts as a copy of vanilla's sounds and subtitle, or with the
@@ -300,8 +301,11 @@ absolute path of every file it wrote or deleted.
   for `minecraft:` events only. `volume` and `pitch` are numbers above 0, `weight` and
   `attenuation_distance` whole numbers from 1, `stream` and `preload` booleans, and `type` is `file`
   or `event`. The client caps the volume at 1 and holds the pitch between 0.5 and 2.
-- A subtitle is a key of the language files, `subtitles.<namespace>.<event>` unless the event names
-  another, and its text belongs to the event's draft. `deleteSound` deletes the event, each file only
+- A subtitle is a key of the language files, and its text belongs to the event's draft. The key is
+  `subtitles.<namespace>.<event>` unless the event names one that the pack's language files hold, so
+  a text never changes a vanilla key that other events share. The client shows vanilla's subtitle
+  for a `minecraft:` event that keeps vanilla's sounds, so `subtitleSound` refuses one, and
+  `-Preplace=false` drops the event's subtitle and the copies of vanilla's sounds. `deleteSound` deletes the event, each file only
   it names and its subtitle text where no other event names that.
 - `playSound` decodes the sound `at`, or the first, to `build/sounds/` as a WAV at its volume and
   pitch, for the operating system's own player. It takes the pack's event, else vanilla's, and the

@@ -55,18 +55,18 @@ describe("ServiceHead - the number row", () => {
 
   it("draws Disk when steward measured one, and says how old an old one is", () => {
     const old = new Date(Date.now() - 4 * 60 * 1000).toISOString()
-    draw(<ServiceHead name="smp" service={service({ diskBytes: 564e6, diskMeasuredAt: old })} />)
+    draw(<ServiceHead name="smp" service={service({ diskBytes: 564 * 2 ** 20, diskMeasuredAt: old })} />)
 
     expect(screen.queryByText("Disk")).not.toBeNull()
-    expect(screen.queryByText(/^564(\.0)? MB$/)).not.toBeNull()
+    expect(screen.queryByText(/^564(\.0)? MiB$/)).not.toBeNull()
     expect(screen.queryByText(/4 min/)).not.toBeNull()
   })
 
   it("says nothing about the age of a fresh measurement", () => {
     const fresh = new Date(Date.now() - 30 * 1000).toISOString()
-    draw(<ServiceHead name="smp" service={service({ diskBytes: 564e6, diskMeasuredAt: fresh })} />)
+    draw(<ServiceHead name="smp" service={service({ diskBytes: 564 * 2 ** 20, diskMeasuredAt: fresh })} />)
 
-    expect(screen.queryByText(/^564(\.0)? MB$/)).not.toBeNull()
+    expect(screen.queryByText(/^564(\.0)? MiB$/)).not.toBeNull()
     expect(screen.queryByText(/ago/)).toBeNull()
   })
 

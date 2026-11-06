@@ -108,10 +108,10 @@ abstract class CopyVanillaTexture : VanillaClientTask() {
 }
 
 /**
- * Writes [ItemSprites] of the pack's [assets] over the client jar to `nordtal/menu/item-sprites.properties` in [resources],
- * the table that a plugin draws an item's texture in a text from.
+ * Writes [ItemSprites] of the pack's [assets] over the client jar to `nordtal/menu/item-sprites.properties` in
+ * [resources], the table a plugin draws an item's texture in a text from. It is cacheable although the jar is
+ * internal, because Mojang never changes the client jar of a released version.
  */
-// Cacheable although the jar is internal: Mojang never changes the client jar of a released version.
 @CacheableTask
 abstract class WriteItemSprites : VanillaClientTask() {
     @get:InputDirectory

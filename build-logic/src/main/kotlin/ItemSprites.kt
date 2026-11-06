@@ -34,11 +34,17 @@ object ItemSprites {
                     .filter { it.isFile }
                     .map { "assets/" + it.relativeTo(assets).invariantSeparatorsPath }
                     .toList()
-            val jarred = zip.entries().asSequence().map { it.name }.toList()
+            val jarred =
+                zip
+                    .entries()
+                    .asSequence()
+                    .map { it.name }
+                    .toList()
             val fromJar = { path: String -> zip.getEntry(path)?.let { entry -> zip.getInputStream(entry).use { it.readBytes() } } }
             val fromPack = { path: String -> assets.resolve(path.removePrefix("assets/")).takeIf { it.isFile }?.readBytes() }
             val atlases =
-                jarred.filter { it.matches(ATLAS) }.map { it to fromJar(it) } + packed.filter { it.matches(ATLAS) }.map { it to fromPack(it) }
+                jarred.filter { it.matches(ATLAS) }.map { it to fromJar(it) } +
+                    packed.filter { it.matches(ATLAS) }.map { it to fromPack(it) }
             of((jarred + packed).toSortedSet(), { fromPack(it) ?: fromJar(it) }, atlases)
         }
 
@@ -129,11 +135,15 @@ object ItemSprites {
                 val prefix = source["prefix"] as? String ?: ""
                 if (directory != null && path.startsWith("$directory/")) "$namespace:$prefix${path.removePrefix("$directory/")}" else null
             }
+
             "single" -> {
                 val resource = (source["resource"] as? String)?.let(::full)
                 if (resource == "$namespace:$path") (source["sprite"] as? String)?.let(::full) ?: resource else null
             }
-            else -> null
+
+            else -> {
+                null
+            }
         }
 
     private fun parse(bytes: ByteArray?): Map<*, *>? = bytes?.let { runCatching { JsonSlurper().parse(it) }.getOrNull() as? Map<*, *> }

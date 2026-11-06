@@ -16,13 +16,16 @@ class ItemSpritesTest {
     /** A client jar shaped like the one of 26.3: items in `minecraft:items`, blocks in `minecraft:blocks`. */
     private val files =
         mapOf(
-            "assets/minecraft/atlases/items.json" to """{"sources": [{"type": "minecraft:directory", "prefix": "item/", "source": "item"}]}""",
-            "assets/minecraft/atlases/blocks.json" to """{"sources": [{"type": "minecraft:directory", "prefix": "block/", "source": "block"}]}""",
+            "assets/minecraft/atlases/items.json" to
+                """{"sources": [{"type": "minecraft:directory", "prefix": "item/", "source": "item"}]}""",
+            "assets/minecraft/atlases/blocks.json" to
+                """{"sources": [{"type": "minecraft:directory", "prefix": "block/", "source": "block"}]}""",
             "assets/minecraft/models/item/generated.json" to """{"parent": "builtin/generated"}""",
             "assets/minecraft/models/block/cube_all.json" to """{"textures": {"particle": "#all"}}""",
             "assets/minecraft/models/block/cube_column.json" to """{"textures": {"particle": "#side"}}""",
             "assets/minecraft/items/diamond.json" to model("minecraft:item/diamond"),
-            "assets/minecraft/models/item/diamond.json" to """{"parent": "item/generated", "textures": {"layer0": "minecraft:item/diamond"}}""",
+            "assets/minecraft/models/item/diamond.json" to
+                """{"parent": "item/generated", "textures": {"layer0": "minecraft:item/diamond"}}""",
             "assets/minecraft/items/stone.json" to model("minecraft:block/stone"),
             "assets/minecraft/models/block/stone.json" to """{"parent": "block/cube_all", "textures": {"all": "block/stone"}}""",
             "assets/minecraft/items/oak_log.json" to model("minecraft:block/oak_log"),
@@ -30,7 +33,8 @@ class ItemSpritesTest {
                 """{"parent": "block/cube_column", "textures": {"end": "block/oak_log_top", "side": "block/oak_log"}}""",
             "assets/minecraft/items/oak_leaves.json" to
                 """{"model": {"type": "minecraft:model", "model": "minecraft:block/stone", "tints": [{"type": "minecraft:constant", "value": -1}]}}""",
-            "assets/minecraft/items/chest.json" to """{"model": {"type": "minecraft:special", "base": "minecraft:item/chest", "model": {}}}""",
+            "assets/minecraft/items/chest.json" to
+                """{"model": {"type": "minecraft:special", "base": "minecraft:item/chest", "model": {}}}""",
             "assets/minecraft/items/barrier.json" to model("minecraft:item/barrier"),
             "assets/minecraft/models/item/barrier.json" to """{"textures": {"layer0": "minecraft:item/barrier"}}""",
             "assets/minecraft/items/painting.json" to model("minecraft:item/painting"),
@@ -92,7 +96,11 @@ class ItemSpritesTest {
     @Test
     fun anItemOfThePackDrawsATextureOfThePackFromAnAtlasThePackAddsTo() {
         assets.resolve("nordtal/items/relic.json").apply { parentFile.mkdirs() }.writeText(model("nordtal:item/relic"))
-        assets.resolve("nordtal/models/item/relic.json").apply { parentFile.mkdirs() }.writeText("""{"textures": {"layer0": "nordtal:relic"}}""")
+        assets
+            .resolve(
+                "nordtal/models/item/relic.json",
+            ).apply { parentFile.mkdirs() }
+            .writeText("""{"textures": {"layer0": "nordtal:relic"}}""")
         assets.resolve("nordtal/textures/relic.png").apply { parentFile.mkdirs() }.writeBytes(png)
         assets
             .resolve("minecraft/atlases/items.json")

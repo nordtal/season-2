@@ -230,14 +230,14 @@ and fails with the reason when it refuses.
 ./gradlew -q :resource-pack:deleteFont -Pfont=nordtal:signs
 ```
 
-| task               | options                                                        | prints                                                       |
-| ------------------ | -------------------------------------------------------------- | ------------------------------------------------------------ |
-| `createFont`       | `font`, `constant`; `about`                                    | the absolute path of `glyphs.json`                           |
-| `editFont`         | `font`; `constant`, `about`                                    | the absolute path of `glyphs.json`                           |
+| task               | options                                                         | prints                                                       |
+| ------------------ | --------------------------------------------------------------- | ------------------------------------------------------------ |
+| `createFont`       | `font`, `constant`; `about`                                     | the absolute path of `glyphs.json`                           |
+| `editFont`         | `font`; `constant`, `about`                                     | the absolute path of `glyphs.json`                           |
 | `editGlyphBlock`   | `font`, `block`; `title`, `status`, `height`, `ascent`, `about` | the absolute path of `glyphs.json`                           |
-| `addSheetCells`    | `font`, `block`, `constants`                                   | the absolute paths of `glyphs.json` and the sheet's PNG      |
-| `deleteGlyphBlock` | `font`, `block`                                                | the absolute paths of `glyphs.json` and each file it removed |
-| `deleteFont`       | `font`                                                         | the absolute paths of `glyphs.json` and each file it removed |
+| `addSheetCells`    | `font`, `block`, `constants`                                    | the absolute paths of `glyphs.json` and the sheet's PNG      |
+| `deleteGlyphBlock` | `font`, `block`                                                 | the absolute paths of `glyphs.json` and each file it removed |
+| `deleteFont`       | `font`                                                          | the absolute paths of `glyphs.json` and each file it removed |
 
 - A new font comes after every other font, without blocks, and shares the numbering of every font
   without `numbering`. Its id has a namespace other than `minecraft`, and it refuses at `namespace`, `path` or `constant` as the

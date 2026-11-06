@@ -1113,6 +1113,31 @@ function tab.open(context)
   -- Edits field of the selected entry, or takes an action of the
   -- Minecraft bar or of a preview, which needs no entry and queues its
   -- tasks
+  -- Adds the cells of job to the sheet of info. The sprite of the
+  -- sheet in the editor is saved first, and once the task widened the
+  -- PNG it takes the new width and is saved again, so its source
+  -- grows with the PNG.
+  local function addCells(info, job, sprite)
+    if not job then
+      return
+    end
+    local record = sprite and opened[sprite.filename]
+    local paths = modules.pack.paths(clone, info.texture, api.join)
+    if record and not (paths and record.paths.png == paths.png) then
+      record = nil
+    end
+    if record and unsaved(sprite, record) and not save(sprite, record) then
+      return
+    end
+    local width = properties.widened(info, job)
+    write(job, function()
+      if record and sprite.width < width then
+        sprite.width = width
+        save(sprite, record)
+      end
+    end)
+  end
+
   function ctl.edit(field)
     if type(field) == "table" and field.minecraft then
       minecraftAction(field)
@@ -1177,6 +1202,10 @@ function tab.open(context)
       return
     end
     local sprite = dlg.data.editor
+    if field == "addCells" then
+      addCells(info, properties.jobs(info, field, data, tr), sprite)
+      return
+    end
     local job = properties.jobs(info, field, data, tr, sprite)
     if job and job.resize then
       local size = job.resize

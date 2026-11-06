@@ -89,7 +89,7 @@ abstract class GenerateGlyphs : DefaultTask() {
                     val lower = row * font.pitch
                     if (block.texture != null) {
                         val chars = block.chars ?: listOf(block.glyphs.joinToString("") { Character.toString(it.codePoint) })
-                        providers += bitmap(block.texture, block.ascent - lower, block.height, chars)
+                        providers += bitmap(block.texture, block.ascent!! - lower, block.height!!, chars)
                     } else {
                         block.glyphs.forEach {
                             providers += bitmap(it.texture, it.ascent - lower, it.height, listOf(Character.toString(it.codePoint)))

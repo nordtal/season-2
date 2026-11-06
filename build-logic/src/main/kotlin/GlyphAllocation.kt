@@ -40,15 +40,16 @@ class GlyphAllocation private constructor(
      * A run of code points, [range], with one title. The block reserves the code points that it does not use.
      *
      * A block with a [texture] is one sheet. Its glyphs are the cells of one row, or [chars] lists its rows of
-     * ordinary characters, which have no range.
+     * ordinary characters, which have no range. [height] and [ascent] are the defaults of its glyphs, or null where the
+     * block sets none.
      */
     class Block(
         val range: IntRange?,
         val title: String,
         val about: String?,
         val texture: String?,
-        val height: Int,
-        val ascent: Int,
+        val height: Int?,
+        val ascent: Int?,
         val status: String?,
         val chars: List<String>?,
         val glyphs: List<Glyph>,
@@ -156,7 +157,7 @@ class GlyphAllocation private constructor(
             chars?.map { it.codePointCount(0, it.length) }?.distinct()?.let {
                 if (it.size > 1) block.problem("every row of 'chars' has the same number of cells")
             }
-            return Block(range, title, block.string("about"), texture, height ?: 0, ascent ?: 0, status, chars, glyphs)
+            return Block(range, title, block.string("about"), texture, height, ascent, status, chars, glyphs)
         }
 
         private fun readGlyph(

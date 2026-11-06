@@ -68,14 +68,14 @@ object GlyphEdits {
     }
 
     /** Every texture that `glyphs.json` draws, a sheet's once per block and a glyph's once per glyph. */
-    private fun textures(root: Map<*, *>): List<String> =
+    internal fun textures(root: Map<*, *>): List<String> =
         fonts(root).flatMap { it["blocks"] as List<*> }.map { it as Map<*, *> }.flatMap { block ->
             listOfNotNull(block["texture"] as String?) +
                 (block["glyphs"] as List<*>?).orEmpty().mapNotNull { (it as Map<*, *>)["texture"] as String? }
         }
 
     /** The textures that the pack's models name, such as `nordtal:item/wand`, with `minecraft` where a name has no namespace. */
-    private fun modelTextures(pack: File): Set<String> =
+    internal fun modelTextures(pack: File): Set<String> =
         pack
             .resolve("src/assets")
             .listFiles()
@@ -248,38 +248,63 @@ object GlyphEdits {
 
     private fun code(glyph: Map<*, *>) = (glyph["code"] as String).toInt(16)
 
-    /**
-     * The places in the repository's files, tracked or not yet, that use [found]: `Glyphs.CONSTANT` in Java or Kotlin, the bare
-     * `CONSTANT` in a file that imports it or every glyph statically, or `<glyph:name>`. A tag that code builds at runtime is
-     * not found.
-     */
     private fun refuseUsed(
         repository: File,
         found: Found,
+    ) = refuseUsed(repository, found.label, listOfNotNull(found.glyph["constant"] as String?), listOfNotNull(found.glyph["name"] as String?))
+
+    /**
+     * Refuses while the repository's files, tracked or not yet, use one of [constants], [names] or [fonts], and lists each
+     * place under [label]. A use is `Glyphs.CONSTANT` in Java or Kotlin, the bare `CONSTANT` in a file that imports it or
+     * every glyph statically, `<glyph:name>`, or a font id in quotes outside `glyphs.json` and Markdown. A tag that code
+     * builds at runtime is not found.
+     */
+    internal fun refuseUsed(
+        repository: File,
+        label: String,
+        constants: Collection<String>,
+        names: Collection<String>,
+        fonts: Collection<String> = emptyList(),
     ) {
-        val name = found.glyph["constant"] as String?
-        val constant = name?.let { Regex("""\bGlyphs\.${Regex.escape(it)}\b""") }
-        val imported = name?.let { Regex("""^\s*import\s+(static\s+)?[\w.]*\bGlyphs\.(${Regex.escape(it)}\b|\*)""", RegexOption.MULTILINE) }
-        val bare = name?.let { Regex("""\b${Regex.escape(it)}\b""") }
-        val tag = (found.glyph["name"] as String?)?.let { "<glyph:$it>" }
+        val alternatives = constants.joinToString("|") { Regex.escape(it) }
+        val qualified = Regex("""\bGlyphs\.($alternatives)\b""").takeIf { constants.isNotEmpty() }
+        val tags = names.map { "<glyph:$it>" }
+        val ids = fonts.map { "\"$it\"" }
         val places =
             trackedFiles(repository, emptyList(), untracked = true).flatMap { path ->
                 val code = path.endsWith(".java") || path.endsWith(".kt")
-                val text = if (code || tag != null) readText(repository.resolve(path)) else null
-                val uses = if (code && text != null && imported?.containsMatchIn(text) == true) bare else constant
+                val quoted = ids.isNotEmpty() && !path.endsWith(".md") && !path.endsWith("/glyphs.json") && path != "glyphs.json"
+                val text = if ((code && qualified != null) || tags.isNotEmpty() || quoted) readText(repository.resolve(path)) else null
+                val bare = if (code && text != null) imported(text, constants) else null
                 text
                     .orEmpty()
                     .lineSequence()
                     .withIndex()
                     .filter { (_, line) ->
-                        (code && uses?.containsMatchIn(line) == true) || (tag != null && tag in line)
+                        (code && (qualified?.containsMatchIn(line) == true || bare?.containsMatchIn(line) == true)) ||
+                            tags.any { it in line } ||
+                            (quoted && ids.any { it in line })
                     }.map { "$path:${it.index + 1}" }
                     .toList()
             }
         check(places.isEmpty()) {
-            "${found.label} is still used in ${places.size} place${if (places.size == 1) "" else "s"}:\n" +
+            "$label is still used in ${places.size} place${if (places.size == 1) "" else "s"}:\n" +
                 places.joinToString("\n") { "    $it" }
         }
+    }
+
+    /** The bare uses of those of [constants] that [text] imports, one by one or with every glyph, or null for none. */
+    private fun imported(
+        text: String,
+        constants: Collection<String>,
+    ): Regex? {
+        val every = Regex("""^\s*import\s+(static\s+)?[\w.]*\bGlyphs\.\*""", RegexOption.MULTILINE).containsMatchIn(text)
+        val chosen =
+            constants.filter {
+                every ||
+                    Regex("""^\s*import\s+(static\s+)?[\w.]*\bGlyphs\.${Regex.escape(it)}\b""", RegexOption.MULTILINE).containsMatchIn(text)
+            }
+        return chosen.takeIf { it.isNotEmpty() }?.let { list -> Regex("""\b(${list.joinToString("|") { Regex.escape(it) }})\b""") }
     }
 
     private fun entries(root: Map<*, *>): List<Pair<OxfmtJson.Object, OxfmtJson.Object>> =
@@ -295,7 +320,7 @@ object GlyphEdits {
             ?: throw IllegalArgumentException("glyphs.json has no glyph named $glyph or with the constant $glyph.")
 
     /** The PNG of [texture] under `src/` and its `.aseprite` source under `art/`. */
-    private fun sources(
+    internal fun sources(
         pack: File,
         texture: String,
     ): List<File> {

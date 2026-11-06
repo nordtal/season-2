@@ -21,7 +21,8 @@ import java.io.File
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class EditPackSources : VanillaClientTask() {
     /**
-     * `glyph`, `block`, `sheet`, `item`, `texture`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`,
+     * `glyph`, `block`, `sheet`, `font`, `item`, `texture`, `rename`, `edit`, `resize`, `delete`, `editFont`, `editBlock`,
+     * `cells`, `deleteBlock`, `deleteFont`, `codePoints`, `animate`, `scaling`,
      * `readItem`, `writeItem`, `editItem`, `import`, `text`, `sound`, `overrideSound`, `editSound`, `subtitle`, `deleteSound`,
      * `play`, `discard`, `resolve`, `conflict`, `publish` or `sync`.
      */
@@ -145,6 +146,39 @@ abstract class EditPackSources : VanillaClientTask() {
                             number("ascent") ?: text("ascent").toInt(),
                             options["range"],
                         )
+                    }
+
+                    "font" -> {
+                        FontEdits.createFont(pack, text("font"), text("constant"), options["about"])
+                    }
+
+                    "editFont" -> {
+                        FontEdits.editFont(pack, repository, text("font"), options["constant"], options["about"])
+                    }
+
+                    "editBlock" -> {
+                        FontEdits.editBlock(
+                            pack,
+                            text("font"),
+                            text("block"),
+                            options["title"],
+                            options["status"],
+                            number("height"),
+                            number("ascent"),
+                            options["about"],
+                        )
+                    }
+
+                    "cells" -> {
+                        FontEdits.addCells(pack, text("font"), text("block"), text("constants").split(',').map { it.trim() })
+                    }
+
+                    "deleteBlock" -> {
+                        FontEdits.deleteBlock(pack, repository, text("font"), text("block"))
+                    }
+
+                    "deleteFont" -> {
+                        FontEdits.deleteFont(pack, repository, text("font"))
                     }
 
                     "item" -> {

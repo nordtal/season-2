@@ -43,6 +43,7 @@ describe("the new-texture wizard", function()
     assert.same({ "font", "block", "namespace", "path", "name", "constant", "width", "height", "ascent" }, wizard.fields.glyph)
     assert.same({ "font", "title", "size", "height", "ascent" }, wizard.fields.block)
     assert.same({ "font", "title", "namespace", "path", "constants", "width", "height", "ascent" }, wizard.fields.sheet)
+    assert.same({ "namespace", "path", "constant", "about" }, wizard.fields.font)
     assert.same({ "namespace", "path", "width", "height" }, wizard.fields.item)
     assert.same({ "namespace", "path", "width", "height" }, wizard.fields.texture)
   end)
@@ -164,6 +165,18 @@ describe("the new-texture wizard", function()
     d.data.path, d.data.file = "ui.ping", "/tmp/ping.ogg"
     d.handlers.create.onclick()
     assert.same({ "createSound", { sound="nordtal:ui.ping", file="/tmp/ping.ogg" } }, jobs[2])
+  end)
+
+  it("creates a font from its id, constant and about", function()
+    assert.same({ "createFont", { font="nordtal:signs", constant="FONT_SIGNS" } },
+      wizard.job("font", { namespace="nordtal", path=" signs ", constant="FONT_SIGNS", about="", font="minecraft:default" }))
+    assert.same({ "createFont", { about="Shop signs" } }, wizard.job("font", { namespace="nordtal", path="", about="Shop signs" }))
+    -- A refusal of the font's id is the task's while the path is filled
+    assert.is_false(wizard.absent({ "refused path" }, { "createFont", { font="nordtal:hud" } }))
+    assert.is_true(wizard.absent({ "refused font" }, { "createFont", {} }))
+    local index = { ["font/nordtal:signs"]={ kind="font", entry={ font="nordtal:signs" }, font={ font="nordtal:signs" } },
+                    ["block/nordtal:signs/1"]={ kind="block", entry={ title="Signs" }, font={ font="nordtal:signs" } } }
+    assert.equal("font/nordtal:signs", wizard.target(index, { "createFont", { font="nordtal:signs" } }))
   end)
 
   it("leaves out an id whose path is empty, so the task asks for it", function()

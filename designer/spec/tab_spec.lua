@@ -756,6 +756,33 @@ describe("the Nordtal tab", function()
     assert.equal(3, #t.started)
   end)
 
+  it("adds cells to a sheet, then widens its open sprite by a cell each and saves it", function()
+    local arrows = "/c/resource-pack/src/assets/nordtal/textures/hud/arrows.png"
+    local arrowsSource = "/c/resource-pack/art/assets/nordtal/textures/hud/arrows.aseprite"
+    local sheetModel = dkjson.encode({ fonts={ { font="nordtal:hud", constant="FONT_HUD", blocks={
+      { kind="sheet", title="Arrows", range="FE040-FE04F", height=5, ascent=4, characters=false,
+        texture={ id="nordtal:hud/arrows.png", png="src/assets/nordtal/textures/hud/arrows.png",
+                  aseprite="art/assets/nordtal/textures/hud/arrows.aseprite", asepriteExists=true, width=14, height=7 },
+        cells={ { code="FE040", constant="ARROW_LEFT" }, { code="FE041", constant="ARROW_RIGHT" } } } } } },
+      items={}, overrides={} })
+    local t = setUp(nil, sheetModel)
+    t.world.files = { [arrowsSource]=true }
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="sheet/nordtal:hud/1" })
+    local sprite = t.open[#t.open]
+    sprite.width = 14
+    t.dialogs.answer = function(d) d.data = { ok=true, constants="ARROW_UP ARROW_DOWN" } end
+    click(dlg, "properties.add_cells")
+    local p = t.started[#t.started]
+    assert.equal(":resource-pack:addSheetCells -Pblock=Arrows -Pconstants=ARROW_UP,ARROW_DOWN -Pfont=nordtal:hud", run(p))
+    assert.equal(14, sprite.width)
+    p.isRunning = false
+    p.args.onexit(0)
+    -- The task widened the PNG; the sprite and its source follow it
+    assert.equal(28, sprite.width)
+    assert.same({ { "saveAs", arrowsSource }, { "png", arrows } }, { t.log[#t.log - 1], t.log[#t.log] })
+  end)
+
   it("asks before a pixel size that loses or doubles rows, and resizes only once confirmed", function()
     local t = setUp()
     local dlg = loaded(t)
@@ -1095,8 +1122,8 @@ describe("the Nordtal tab", function()
     assert.same({ "combobox kind", "combobox font", "combobox block", "entry namespace", "entry path", "entry name",
                   "entry constant", "entry width", "entry height", "entry ascent", "button create", "button cancel" },
       layout(w))
-    assert.same({ "new.kind_glyph", "new.kind_block", "new.kind_sheet", "new.kind_item", "new.kind_texture",
-                  "new.kind_vanilla_item", "new.kind_override" },
+    assert.same({ "new.kind_glyph", "new.kind_block", "new.kind_sheet", "new.kind_font", "new.kind_item",
+                  "new.kind_texture", "new.kind_vanilla_item", "new.kind_override" },
       w.handlers.kind.options)
     assert.same({ "minecraft:default" }, w.handlers.font.options)
     assert.same({ "Player badges" }, w.handlers.block.options)

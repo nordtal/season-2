@@ -101,8 +101,12 @@ describe("sounds", function()
     assert.same({ kind="entry", id="value", label="en_us", text="Ping" }, form.widgets[1])
     assert.same({ "subtitleSound", { sound="nordtal:ui.ping", language="de_de", value="Pling" } },
       sounds.jobs(event(ping), "subtitle:de_de", { value="Pling" }))
-    assert.same({ "subtitleSound", { sound="nordtal:ui.ping", delete=true } },
+    -- Another language still has a text, so only this one is emptied
+    assert.same({ "subtitleSound", { sound="nordtal:ui.ping", language="en_us", value="" } },
       sounds.jobs(event(ping), "subtitle:en_us", { value="" }))
+    local alone = { id=ping.id, subtitles={ en_us="Ping", de_de="" }, sounds=ping.sounds }
+    assert.same({ "subtitleSound", { sound="nordtal:ui.ping", delete=true } },
+      sounds.jobs(event(alone), "subtitle:en_us", { value="" }))
     assert.is_nil(sounds.jobs(event(ping), "subtitle:en_us", { value="Ping" }))
     assert.is_nil(sounds.jobs(event(ping), "subtitle:de_de", { value="" }))
   end)
@@ -142,6 +146,10 @@ describe("sounds", function()
     assert.equal('{"weight":"lots \\"of\\""}', fields("field:weight", 'lots "of"')[2].fields)
     assert.is_nil(fields("field:volume", "0.5"))
     assert.is_nil(fields("field:pitch", ""))
+    assert.equal('{"volume":0.25}', fields("field:volume", ".25")[2].fields)
+    assert.equal('{"weight":5}', fields("field:weight", "5.")[2].fields)
+    assert.equal('{"pitch":"0x10"}', fields("field:pitch", "0x10")[2].fields)
+    assert.equal('{"volume":"1e3"}', fields("field:volume", "1e3")[2].fields)
   end)
 
   it("streams a sound with a check, and clears the field once it is off", function()
@@ -150,6 +158,8 @@ describe("sounds", function()
     assert.equal('{"stream":null}', sounds.jobs(sound(ping, 0), "field:stream", { value=false })[2].fields)
     assert.is_nil(sounds.jobs(sound(ping, 0), "field:stream", { value=true }))
     assert.equal('{"stream":true}', sounds.jobs(sound(anvil, 0), "field:stream", { value=true })[2].fields)
+    local off = { id=ping.id, sounds={ { name="nordtal:ui/ping", stream=false } } }
+    assert.equal('{"stream":true}', sounds.jobs(sound(off, 0), "field:stream", { value=true })[2].fields)
   end)
 
   it("plays an event's first sound, or the sound chosen", function()

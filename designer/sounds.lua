@@ -6,9 +6,8 @@
 
 local sounds = {}
 
--- The file types the file dialog offers. The task refuses each but
--- Ogg Vorbis and says how to convert, so the others are offered too.
-sounds.filetypes = { "ogg", "oga", "wav", "mp3", "flac", "m4a", "aiff" }
+-- The file types the file dialog offers, as the wizard's
+sounds.filetypes = require("wizard").filetypes
 
 -- The fields of a sound that the panel edits, in display order, and
 -- what each holds: a number with decimals, a whole number or a switch
@@ -182,9 +181,11 @@ local function value(name, text)
   if text == "" then
     return "null"
   end
-  -- A text that is no number goes as a JSON string, which the task refuses with its rule
-  if tonumber(text) then
-    return text
+  -- A number as JSON writes it, so .5 goes as 0.5. A text that is no
+  -- number goes as a JSON string, which the task refuses with its rule.
+  local number = text:gsub("^(%-?)%.", "%10."):gsub("%.$", "")
+  if number:match("^%-?%d+$") or number:match("^%-?%d+%.%d+$") then
+    return number
   end
   return '"' .. text:gsub('[\\"]', "\\%0") .. '"'
 end
@@ -199,7 +200,14 @@ function sounds.jobs(info, field, data)
   local language = field:match("^subtitle:(.+)$")
   if language then
     if data.value == ((e.subtitles or {})[language] or "") then return nil end
+    -- An empty box deletes the subtitle only where no other language
+    -- has a text, and else empties this language's, as the texts do
     if data.value == "" then
+      for other, text in pairs(e.subtitles or {}) do
+        if other ~= language and text ~= "" then
+          return { "subtitleSound", { sound=e.id, language=language, value="" } }
+        end
+      end
       return { "subtitleSound", { sound=e.id, delete=true } }
     end
     return { "subtitleSound", { sound=e.id, language=language, value=data.value } }
@@ -220,7 +228,12 @@ function sounds.jobs(info, field, data)
   if not name then return nil end
   local s = info.entry
   local new = value(name, data.value)
-  local old = s[name] == nil and "null" or value(name, name == "stream" and s[name] == true or shown(s[name]))
+  local old
+  if name == "stream" then
+    old = value(name, s.stream == true)
+  else
+    old = s[name] == nil and "null" or value(name, shown(s[name]))
+  end
   if new == old then return nil end
   return { "editSound", { sound=e.id, at=info.at, fields='{"' .. name .. '":' .. new .. "}" } }
 end

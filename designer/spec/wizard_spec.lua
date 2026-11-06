@@ -74,8 +74,10 @@ describe("the new-texture wizard", function()
     assert.same({ "createSound", { sound="nordtal:ui.ping", file="/tmp/ping.ogg" } },
       wizard.job("sound", { namespace="nordtal", path=" ui.ping ", file="/tmp/ping.ogg" }))
     assert.same({ "createSound", {} }, wizard.job("sound", { namespace="nordtal", path="", file="" }))
-    assert.same({ "overrideSound", { sound="minecraft:block.anvil.land" } },
-      wizard.job("vanilla_sound", { sound="minecraft:block.anvil.land", search="anvil" }))
+    assert.same({ "overrideSound", { sound="minecraft:block.anvil.land", replace="true" } },
+      wizard.job("vanilla_sound", { sound="minecraft:block.anvil.land", search="anvil", file="" }))
+    assert.same({ "overrideSound", { sound="minecraft:block.anvil.land", replace="false", file="/tmp/a.ogg" } },
+      wizard.job("vanilla_sound", { sound="minecraft:block.anvil.land", replace=false, file=" /tmp/a.ogg " }))
     assert.equal("path", wizard.refused({ "refused sound" }))
     assert.is_true(wizard.absent({ "refused sound" }, wizard.job("sound", { namespace="nordtal", path="" })))
     assert.is_false(wizard.absent({ "refused sound" }, wizard.job("sound", { namespace="nordtal", path="Ping" })))
@@ -116,6 +118,34 @@ describe("the new-texture wizard", function()
     assert.is_true(table.concat(dialogs[#dialogs]:labels(), " "):find("offline", 1, true) ~= nil)
   end)
 
+  it("asks an override whether it replaces Minecraft's sounds, and a file where it keeps them", function()
+    local Dialog, dialogs = fake()
+    local jobs = {}
+    wizard.open{ api={ Dialog=Dialog }, tr=tr, model={}, kinds=wizard.soundKinds,
+                 labels=function(dialog, id, count, text, add) panel.labels(dialog, id, count, text, add, 48, utf8.len) end,
+                 run=function(job) table.insert(jobs, job) end, created=function() end,
+                 listing=function(done) done({ textures={}, items={}, sounds={ { id="minecraft:block.anvil.land" } } }) end }
+    local d = dialogs[#dialogs]
+    d.data.kind = "new.kind_vanilla_sound"
+    d.handlers.kind.onchange()
+    d = dialogs[#dialogs]
+    assert.equal("check", d.kinds.replace)
+    assert.is_true(d.data.replace)
+    assert.equal("ogg", d.handlers.file.filetypes[1])
+    d.handlers.choices.onchange({ node="minecraft:block.anvil.land" })
+    d.data.replace, d.data.file = false, "/home/me/.ogg"
+    d.handlers.create.onclick()
+    assert.same({}, jobs)
+    d = dialogs[#dialogs]
+    assert.is_false(d.data.replace)
+    local labels = table.concat(d:labels(), " ")
+    assert.is_truthy(labels:find("new.required_keep", 1, true))
+    assert.is_falsy(labels:find("new.required_keep.*new.required_keep"))
+    d.data.file = "/tmp/a.ogg"
+    d.handlers.create.onclick()
+    assert.same({ { "overrideSound", { sound="minecraft:block.anvil.land", replace="false", file="/tmp/a.ogg" } } }, jobs)
+  end)
+
   it("asks a new sound event for its file in a file box that opens audio files", function()
     local Dialog, dialogs = fake()
     local jobs = {}
@@ -127,9 +157,13 @@ describe("the new-texture wizard", function()
     assert.equal("file", d.kinds.file)
     assert.is_true(file.open)
     assert.equal("ogg", file.filetypes[1])
+    d.data.path, d.data.file = "ui.ping", "C:\\Users\\me\\"
+    d.handlers.create.onclick()
+    assert.same({ { "createSound", { sound="nordtal:ui.ping" } } }, jobs)
+    d = dialogs[#dialogs]
     d.data.path, d.data.file = "ui.ping", "/tmp/ping.ogg"
     d.handlers.create.onclick()
-    assert.same({ { "createSound", { sound="nordtal:ui.ping", file="/tmp/ping.ogg" } } }, jobs)
+    assert.same({ "createSound", { sound="nordtal:ui.ping", file="/tmp/ping.ogg" } }, jobs[2])
   end)
 
   it("leaves out an id whose path is empty, so the task asks for it", function()

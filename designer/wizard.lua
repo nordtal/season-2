@@ -21,6 +21,10 @@ local wizard = {}
 wizard.kinds = { "glyph", "block", "sheet", "item", "texture", "vanilla_item", "override" }
 wizard.soundKinds = { "sound", "vanilla_sound" }
 
+-- The audio files the file field offers. The task refuses each but
+-- Ogg Vorbis and says how to convert, so the others are offered too.
+wizard.filetypes = { "ogg", "oga", "wav", "mp3", "flac", "m4a", "aiff" }
+
 -- The kinds chosen in a browser of the client jar: the option of the
 -- task that names the choice and the strings of the browser
 local browsers = {
@@ -42,6 +46,9 @@ wizard.fields = {
   item={ "namespace", "path", "width", "height" },
   texture={ "namespace", "path", "width", "height" },
   sound={ "namespace", "path", "file" },
+  -- Below the browser: whether the override replaces vanilla's sounds,
+  -- and the file it starts from, which keeping vanilla's sounds needs
+  vanilla_sound={ "replace", "file" },
 }
 
 -- The text a field starts with
@@ -52,6 +59,7 @@ local defaults = {
   item={ namespace="nordtal", width="16", height="16" },
   texture={ namespace="nordtal", width="16", height="16" },
   sound={ namespace="nordtal" },
+  vanilla_sound={},
 }
 
 -- editItem without a change writes a vanilla item's definition into
@@ -102,6 +110,10 @@ function wizard.job(kind, values)
   local browser = browsers[kind]
   if browser then
     options[browser.option] = values[browser.option]
+    if kind == "vanilla_sound" then
+      options.replace = values.replace == false and "false" or "true"
+      if trim(values.file) ~= "" then options.file = trim(values.file) end
+    end
     return { tasks[kind], options }
   end
   local namespace, path = trim(values.namespace), trim(values.path)
@@ -296,7 +308,13 @@ function wizard.open(context)
   local function keep()
     if not dlg then return end
     for key, value in pairs(dlg.data) do
-      if type(value) == "string" then values[key] = value end
+      -- An empty file box gives the working folder, or a file in it
+      -- named only by the first file type, such as ".../.ogg"
+      if key == "file" and type(value) == "string" then
+        local name = value:match("[^/\\]*$")
+        if name == "" or name:match("^%.%w+$") then value = "" end
+      end
+      if type(value) == "string" or key == "replace" then values[key] = value end
     end
   end
 
@@ -318,6 +336,12 @@ function wizard.open(context)
         return
       end
       values[browser.option] = chosen[kind]
+      -- Keeping vanilla's sounds adds the pack's to them, so it needs a file
+      if kind == "vanilla_sound" and values.replace == false and trim(values.file) == "" then
+        refusal = { field="file", lines={ tr("new.required_keep") } }
+        build()
+        return
+      end
     end
     local job = wizard.job(kind, values)
     dlg:modify{ id="create", enabled=false }
@@ -388,7 +412,12 @@ function wizard.open(context)
     dlg:label{ id="count", text=counted(count, shown) }
     dlg:newrow()
     hint(true)
-    reason(refusal and refusal.lines)
+    -- A refusal of a field below the browser shows at that field
+    local below = false
+    for _, field in ipairs(wizard.fields[kind] or {}) do
+      if refusal and refusal.field == field then below = true end
+    end
+    reason(refusal and not below and refusal.lines or nil)
   end
 
   local function fields()
@@ -409,8 +438,9 @@ function wizard.open(context)
           end
         end }
       elseif field == "file" then
-        dlg:file{ id="file", label=tr("new.file"), open=true, filename=values.file or "",
-                  filetypes={ "ogg", "oga", "wav", "mp3", "flac", "m4a", "aiff" } }
+        dlg:file{ id="file", label=tr("new.file"), open=true, filename=values.file or "", filetypes=wizard.filetypes }
+      elseif field == "replace" then
+        dlg:check{ id="replace", text=tr("new.replace_sound"), selected=values.replace ~= false }
       elseif field == "block" then
         local blocks = wizard.blocks(model, values.font)
         dlg:combobox{ id="block", label=tr("new.block"), options=blocks, option=values.block or blocks[1] }
@@ -443,7 +473,12 @@ function wizard.open(context)
     end }
     dlg:newrow()
     local own = {}
-    if browsers[kind] then browse() else own = fields() end
+    if browsers[kind] then
+      browse()
+      if wizard.fields[kind] then own = fields() end
+    else
+      own = fields()
+    end
     if refusal and not browsers[kind] and not own[refusal.field] then reason(refusal.lines) end
     dlg:separator()
     dlg:button{ id="create", text=tr("new.create"), focus=true, onclick=create }

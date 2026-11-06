@@ -336,7 +336,7 @@ function JournalRow({
           {concerns ? <Entity id={concerns} kind="discord" /> : null}
           {!concerns && entry.mcUuid ? <Entity id={entry.mcUuid} kind="minecraft" /> : null}
           {Object.keys(entry.line.args ?? {}).length > 0 ? (
-            <span className="text-sm break-words text-muted-foreground">{message(entry.line)}</span>
+            <span className="min-w-0 text-sm wrap-anywhere text-muted-foreground">{message(entry.line)}</span>
           ) : null}
         </div>
       ) : null}

@@ -267,7 +267,7 @@ describe("ServicePage - a run that is open", () => {
     )
     draw("/services/smp")
 
-    expect(await screen.findByText("Stopping")).toBeTruthy()
+    expect(await screen.findByText("stopping")).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull()
   })
 

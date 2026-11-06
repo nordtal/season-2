@@ -187,7 +187,11 @@ function PersonPeriods({ person, now }: { person: Person; now: number }) {
                 waiting: <Skeleton className="h-5 w-24 rounded-full" />,
                 render: (row) => {
                   const state = grantTone(row, now)
-                  return <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
+                  return (
+                    <StatusBadge tone={state.tone} tipContent={row.revoked ? state.label : undefined}>
+                      {state.label}
+                    </StatusBadge>
+                  )
                 },
               },
               {

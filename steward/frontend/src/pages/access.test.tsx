@@ -58,7 +58,7 @@ describe("AccessPage - the guild column", () => {
     draw(<AccessPage />)
 
     await screen.findAllByText("Ally")
-    expect(screen.queryByText("Member")).toBeNull()
+    expect(screen.queryByText("member")).toBeNull()
   })
 
   it("still marks somebody who left the guild", async () => {

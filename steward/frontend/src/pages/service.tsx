@@ -238,7 +238,7 @@ function ServiceActions({
 
   return (
     <div className="flex items-center gap-2">
-      {/* A run for this service alone. With nothing to install it ends at "Nothing to do". */}
+      {/* A run for this service alone. With nothing to install it ends at "nothing to do". */}
       <AskButton
         kind="UPDATE"
         services={[name]}

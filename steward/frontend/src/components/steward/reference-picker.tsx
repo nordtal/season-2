@@ -304,7 +304,7 @@ export function ReferencePicker({
           icons={icons}
           selected={new Set(values.map((value) => known(value)?.id ?? value))}
           multi={multi}
-          clearable={!multi && values.some((value) => value !== "")}
+          clearable={!multi && reference.optional && values.some((value) => value !== "")}
           action={action === undefined ? undefined : <PickerClose value={() => setOpen(false)}>{action}</PickerClose>}
           onPick={pick}
           onAddAll={(ids) => onChange([...values, ...ids.filter((candidate) => !values.includes(candidate))])}

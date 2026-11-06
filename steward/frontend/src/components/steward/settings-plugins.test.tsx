@@ -64,7 +64,7 @@ describe("the plugins' files on the settings page", () => {
     draw(<Settings service="smp" />)
 
     await screen.findByRole("button", { name: "CoreProtect" })
-    expect(navRows()).toEqual(["Wheel", "B stats", "Chunky", "CoreProtect", "LuckPerms"])
+    expect(navRows()).toEqual(["Wheel", "bStats", "Chunky", "CoreProtect", "LuckPerms"])
     const nav = screen.getByRole("navigation", { name: "Files" })
     expect(Array.from(nav.querySelectorAll("h2")).map((node) => node.textContent)).toEqual([
       "Applies on save",
@@ -90,7 +90,7 @@ describe("the plugins' files on the settings page", () => {
 
     expect(navRows()).toEqual([
       "Wheel",
-      "B stats",
+      "bStats",
       "Chunky",
       "CoreProtect",
       "LuckPerms",
@@ -120,7 +120,7 @@ describe("the plugins' files on the settings page", () => {
     await screen.findByRole("button", { name: "CoreProtect" })
     arrive?.()
     await screen.findByRole("button", { name: "Wheel" })
-    expect(navRows()).toEqual(["Wheel", "B stats", "Chunky", "CoreProtect", "LuckPerms"])
+    expect(navRows()).toEqual(["Wheel", "bStats", "Chunky", "CoreProtect", "LuckPerms"])
   })
 
   it("opens a file that Steward can rewrite as a form, and any other as its text with a draft", async () => {

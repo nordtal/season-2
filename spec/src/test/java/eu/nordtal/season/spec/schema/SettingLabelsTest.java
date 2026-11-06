@@ -18,6 +18,7 @@ class SettingLabelsTest {
         assertEquals("Server UUID", SettingLabels.of("serverUuid"));
         assertEquals("Base URL", SettingLabels.of("base-url"));
         assertEquals("Guild ID", SettingLabels.of("guild-id"));
+        assertEquals("NPC name", SettingLabels.of("npc-name"));
         assertEquals("HTTP server", SettingLabels.of("HTTPServer"));
         assertEquals("Discord SRV", SettingLabels.of("discordSRV"));
     }

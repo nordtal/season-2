@@ -1,7 +1,7 @@
 import { t } from "@/lib/texts"
 
 /**
- * Abbreviations that stay upper case, the same list as Steward's `Labels.of` and the spec module's `SettingLabels.of`.
+ * Abbreviations that stay upper case, the same list as the spec module's `SettingLabels.of`.
  */
 const ACRONYMS = new Set([
   "api",
@@ -15,6 +15,7 @@ const ACRONYMS = new Set([
   "jvm",
   "motd",
   "mspt",
+  "npc",
   "pvp",
   "smp",
   "sql",
@@ -57,11 +58,16 @@ export function sentenceOf(parts: string[], keepBrands = false): string {
   return brandFirst ? joined : joined.charAt(0).toUpperCase() + joined.slice(1)
 }
 
-/** Returns "smp config" as "SMP Config". */
+/** Short words that title case keeps lower case after the first word, as in "Deaths and Graves". */
+const MINOR_WORDS = new Set(["a", "an", "and", "at", "by", "for", "in", "of", "on", "or", "the", "to"])
+
+/** Returns "smp config" as "SMP Config", and "deaths and graves" as "Deaths and Graves". */
 function capitalCase(sentence: string): string {
   return sentence
     .split(" ")
-    .map((word) => (BRAND.test(word) ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+    .map((word, index) =>
+      BRAND.test(word) || (index > 0 && MINOR_WORDS.has(word)) ? word : word.charAt(0).toUpperCase() + word.slice(1),
+    )
     .join(" ")
 }
 

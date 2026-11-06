@@ -288,7 +288,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     await waitFor(() => expect(row.textContent).toContain("access-de"))
     const other = screen.getByRole("button", { name: "Donation" })
     expect(other.textContent).toContain("Give")
-    expect(within(other).getByText("Not translated")).toBeTruthy()
+    expect(within(other).getByText("not translated")).toBeTruthy()
   })
 
   it("saves the edited document at once and marks it changed in the list", async () => {
@@ -313,8 +313,8 @@ describe("an open document", { timeout: 15_000 }, () => {
     await waitFor(() => expect(saved).toHaveLength(1))
     expect(saved[0][0]).toBe("discord/contribution")
     expect(JSON.stringify(saved[0][1])).toContain('"en":"Support"')
-    expect(await within(screen.getByRole("article", { name: "Contribution" })).findByText("Changed")).toBeTruthy()
-    expect(within(screen.getByRole("button", { name: "Contribution" })).getByText("Changed")).toBeTruthy()
+    expect(await within(screen.getByRole("article", { name: "Contribution" })).findByText("changed")).toBeTruthy()
+    expect(within(screen.getByRole("button", { name: "Contribution" })).getByText("changed")).toBeTruthy()
   })
 
   it("sends the draft as it stands to the admin as a direct message", async () => {
@@ -422,7 +422,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     const editor = await openContribution()
     fireEvent.click(within(editor).getByRole("button", { name: "Versions" }))
     // The newest save is live; the older one and the packaged one are offered.
-    expect(await within(editor).findByText("Live")).toBeTruthy()
+    expect(await within(editor).findByText("live")).toBeTruthy()
     const restores = within(editor).getAllByRole("button", { name: "Restore" })
     expect(restores).toHaveLength(2)
 
@@ -684,8 +684,8 @@ describe("an open document", { timeout: 15_000 }, () => {
 
     const editor = await openContribution()
     const card = screen.getByRole("article", { name: "Contribution" })
-    expect(within(card).getByText("Changed")).toBeTruthy()
-    expect(within(card).getByText("Release changed")).toBeTruthy()
+    expect(within(card).getByText("changed")).toBeTruthy()
+    expect(within(card).getByText("release changed")).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Packaged" })).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Saved" })).toBeTruthy()
   })

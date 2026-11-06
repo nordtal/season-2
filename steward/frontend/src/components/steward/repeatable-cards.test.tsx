@@ -130,6 +130,17 @@ describe("RepeatableCards", () => {
     expect(tags.map((input) => input.value)).toEqual(["en", "de"])
   })
 
+  it("titles a card by its name, and one without a name by its place", () => {
+    const entry = sectionsEntry([
+      [field({ key: "name", value: "Central Europe" }), field({ key: "zone", value: "Europe/Berlin" })],
+      [field({ key: "name", value: "" }), field({ key: "zone", value: "Europe/London" })],
+    ])
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
+
+    expect(screen.getByText("Central Europe", { selector: "span" })).toBeTruthy()
+    expect(screen.getByText("Entry 2")).toBeTruthy()
+  })
+
   it("adds a blank card at the end, built from the template", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]])
     const onChange = vi.fn<(value: SectionValues[]) => void>()

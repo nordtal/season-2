@@ -8,6 +8,9 @@ describe("file names", () => {
     expect(fileTitle("journeymap/journeymap-server.toml")).toBe("Journeymap Server")
     expect(fileTitle("bStats/config.yml")).toBe("bStats Config")
     expect(fileTitle("spark/config.json")).toBe("Spark Config")
+    expect(fileTitle("npc")).toBe("NPC")
+    expect(fileTitle("deaths-and-graves")).toBe("Deaths and Graves")
+    expect(fileTitle("language-and-time")).toBe("Language and Time")
   })
 })
 

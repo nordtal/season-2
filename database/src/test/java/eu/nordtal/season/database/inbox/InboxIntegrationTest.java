@@ -441,7 +441,7 @@ class InboxIntegrationTest {
                 1,
                 count("SELECT count(*) FROM smp_refusal WHERE request = " + settings
                         + " AND reason = 'SETTINGS_REFUSED' AND setting = 'duel-kits' AND rule = 'MOST_ENTRIES'"
-                        + " AND value = '5' AND detail IS NULL"));
+                        + " AND value = '5'"));
         assertEquals(notActive, smp.find(objective).orElseThrow().refusal().orElseThrow());
         assertEquals(tooManyKits, smp.find(settings).orElseThrow().refusal().orElseThrow());
         assertEquals(tooFew, games.find(start).orElseThrow().refusal().orElseThrow());

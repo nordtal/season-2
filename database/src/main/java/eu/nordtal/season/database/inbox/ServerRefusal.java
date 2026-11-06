@@ -104,12 +104,11 @@ public enum ServerRefusal implements RefusalReason {
                 args[3] == null ? null : String.valueOf(args[3]));
     }
 
-    /** Returns the rule as the server named it or its column holds it, and {@code VALID} where none is named. */
+    /** Returns the rule as the server named it or its column holds it. */
     private static SettingRule rule(final @Nullable Object value) {
-        if (value == null) {
-            return SettingRule.VALID;
-        }
-        return value instanceof final SettingRule rule ? rule : SettingRule.valueOf(String.valueOf(value));
+        return value instanceof final SettingRule rule
+                ? rule
+                : SettingRule.valueOf(String.valueOf(Objects.requireNonNull(value, "rule")));
     }
 
     private static long count(final @Nullable Object value) {

@@ -15,6 +15,9 @@ dependencies {
     // Lets `the<LibrariesForLibs>()` resolve inside precompiled script plugins.
     implementation(files(libs.javaClass.superclass.protectionDomain.codeSource.location))
 
+    // playSound decodes Ogg Vorbis, which the JDK cannot.
+    implementation(libs.jorbis)
+
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

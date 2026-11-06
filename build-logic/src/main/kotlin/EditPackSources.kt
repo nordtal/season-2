@@ -15,13 +15,15 @@ import java.io.File
 /**
  * Reads or makes one change of [kind] to the pack's sources with the [options] that `resource-pack/README.md` lists per kind,
  * prints what it changed, and fails with the reason when it refuses. A [FieldRefusal] first prints `refused` and the option's
- * name, a [FieldsNeeded] `needs`, a field and its kind per line. Only the item kinds read the client jar.
+ * name, a [FieldsNeeded] `needs`, a field and its kind per line. Only the item kinds read the client jar, and only the
+ * sound kinds the asset index.
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
 abstract class EditPackSources : VanillaClientTask() {
     /**
      * `glyph`, `block`, `sheet`, `item`, `texture`, `rename`, `edit`, `resize`, `delete`, `codePoints`, `animate`, `scaling`,
-     * `readItem`, `writeItem`, `editItem`, `import`, `text`, `discard`, `resolve`, `conflict`, `publish` or `sync`.
+     * `readItem`, `writeItem`, `editItem`, `import`, `text`, `sound`, `overrideSound`, `editSound`, `subtitle`, `deleteSound`,
+     * `play`, `discard`, `resolve`, `conflict`, `publish` or `sync`.
      */
     @get:Input
     abstract val kind: Property<String>
@@ -81,6 +83,9 @@ abstract class EditPackSources : VanillaClientTask() {
                 "language",
                 "value",
                 "delete",
+                "sound",
+                "file",
+                "replace",
             )
     }
 
@@ -235,6 +240,42 @@ abstract class EditPackSources : VanillaClientTask() {
 
                     "text" -> {
                         Texts.edit(pack, text("key"), options["language"], options["value"], options["delete"] == "true")
+                    }
+
+                    "sound" -> {
+                        Sounds.create(pack, text("sound"), text("file"))
+                    }
+
+                    "overrideSound" -> {
+                        val replace = options["replace"] ?: "true"
+                        if (replace != "true" && replace != "false") throw FieldRefusal("replace", "Set -Preplace to true or false.")
+                        Sounds.override(pack, ::sounds, text("sound"), replace == "true", options["file"])
+                    }
+
+                    "editSound" -> {
+                        Sounds.edit(
+                            pack,
+                            ::sounds,
+                            text("sound"),
+                            number("at"),
+                            options["fields"],
+                            options["file"],
+                            options["name"],
+                            options["remove"] == "true",
+                            options["replace"],
+                        )
+                    }
+
+                    "subtitle" -> {
+                        Sounds.subtitle(pack, text("sound"), options["language"], options["value"], options["delete"] == "true")
+                    }
+
+                    "deleteSound" -> {
+                        Sounds.delete(pack, text("sound"))
+                    }
+
+                    "play" -> {
+                        listOf(Sounds.play(pack, ::sounds, text("sound"), number("at")))
                     }
 
                     "discard" -> {

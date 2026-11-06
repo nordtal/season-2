@@ -18,6 +18,7 @@ import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.commands.arguments.item.ItemParser;
 import net.minecraft.core.BlockPos;
@@ -27,7 +28,9 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.network.protocol.game.ClientboundBossEventPacket;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerBossEvent;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -87,6 +90,7 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
             case Request.Chest chest -> chest(chest);
             case Request.Give give -> give(give);
             case Request.Block block -> block(block);
+            case Request.Sound sound -> sound(sound);
             case Request.Clear _ -> {
                 removeBossBar(hud);
                 hud.clearTitles();
@@ -99,6 +103,17 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
             }
             case Request.Reload _ -> throw new IllegalStateException("A reload runs through apply.");
         }
+    }
+
+    private void sound(final Request.Sound sound) {
+        final Identifier id = Identifier.tryParse(sound.sound());
+        if (id == null || minecraft.getSoundManager().getSoundEvent(id) == null) {
+            throw new IllegalArgumentException("The loaded packs have no sound event '" + sound.sound() + "'.");
+        }
+        minecraft
+                .getSoundManager()
+                .play(SimpleSoundInstance.forUI(
+                        SoundEvent.createVariableRangeEvent(id), sound.pitch(), sound.volume()));
     }
 
     private void bossBar(final Hud hud, final Request.BossBar bar) {

@@ -97,7 +97,9 @@ textures[]    category (namespace or namespace:folder), entries[] as in override
 texture       id, png, aseprite, asepriteExists, draft, review, width, height
 languages     the languages of the pack's language files, such as en_us
 texts[]       key, values (language to text), owner, draft, review
-drafts[]      id, label, state, files, keys, review, conflict: files, fields[]: name, clone, main
+sounds[]      id, replace, subtitle, subtitles (language to text), draft, review, sounds[]
+  sounds[]    name (with its namespace), file, and the fields of the entry: volume, pitch, weight, stream, ...
+drafts[]      id, label, state, files, keys, sounds, review, conflict: files, fields[]: name, clone, main
 reviews[]     number, url, decision, checks, comments[]: author, body, path, url
 ```
 
@@ -117,6 +119,9 @@ or block of the longest `item.<namespace>.<path>` or `block.<namespace>.<path>` 
 followed by a dot in it, where the pack holds that asset. A text's `draft` is the draft that holds
 its key, and its `review` that of its owner. `keys` of a draft are the keys of the language files
 that it holds.
+`sounds` lists every event of the pack's `sounds.json` files. `file` of a sound is the pack's `.ogg`,
+or null for a sound of Minecraft or an event. A subtitle's text is part of its event's draft, so it
+is no text of its own. `sounds` of a draft are the events that it holds.
 `draft` is the id of the draft that a texture, block, font or item is, as `drafts` names it, which the
 next section describes, or null where it is none. An item without a texture is the draft of its file.
 The file of an item with a texture is part of its texture's draft. `review` is the number of the pull request that holds the texture, block,
@@ -258,6 +263,55 @@ and a file that ends up empty is deleted only when the last commit lacks it too.
   An empty `value` sets the key to an empty text.
 - `-Pdelete=true` removes the key from every language file, and refuses a key that none holds.
 
+## Sounds
+
+A sound event is an entry of a namespace's `src/assets/<namespace>/sounds.json`, and its own sounds are
+Ogg Vorbis files under that namespace's `sounds/`. The tasks below write both, and each prints the
+absolute path of every file it wrote or deleted.
+
+```bash
+./gradlew -q :resource-pack:createSound -Psound=nordtal:ui.click -Pfile=/path/to/click.ogg
+./gradlew -q :resource-pack:overrideSound -Psound=minecraft:block.anvil.land -Preplace=false -Pfile=/path/to/clang.ogg
+./gradlew -q :resource-pack:editSound -Psound=nordtal:ui.click -Pat=0 -Pfields='{"volume":0.5,"pitch":null}'
+./gradlew -q :resource-pack:subtitleSound -Psound=nordtal:ui.click -Planguage=en_us -Pvalue=Click
+./gradlew -q :resource-pack:playSound -Psound=nordtal:ui.click -Pat=0
+```
+
+| task            | options                                                                                  | prints                        |
+| --------------- | ---------------------------------------------------------------------------------------- | ----------------------------- |
+| `createSound`   | `sound`, `file`                                                                          | each file it wrote            |
+| `overrideSound` | `sound`; `replace` (true by default), `file`                                             | each file it wrote            |
+| `editSound`     | `sound`; one of `file`, `name`, `remove` (true) with `at`, `fields` with `at`, `replace` | each file it wrote or deleted |
+| `subtitleSound` | `sound`; `language`, `value`, `delete` (true)                                            | each file it wrote or deleted |
+| `deleteSound`   | `sound`                                                                                  | each file it wrote or deleted |
+| `playSound`     | `sound`; `at`                                                                            | the WAV it wrote              |
+
+- Only Ogg Vorbis files are taken: Minecraft plays no other format, and Audacity exports one with
+  _Export Audio_, format _Ogg Vorbis_. `checkPack` flags an `.ogg` under `src/assets/` that is none.
+- `createSound` refuses the namespace `minecraft`, an event the pack has, and an event that is not
+  words of `a` to `z`, `0` to `9`, `_` and `-` with dots between them. It copies the file to
+  `sounds/<event, dots as slashes>.ogg`.
+- `overrideSound` overrides a `minecraft:` event of the season's client. With `replace`, the event
+  plays the pack's sounds alone: it starts as a copy of vanilla's sounds and subtitle, or with the
+  `file` alone where one is given. Without, the `file` plays beside vanilla's sounds. Its own files go
+  under `sounds/nordtal/` of `minecraft`, so they never take the place of a vanilla file.
+- `editSound` changes one thing: `file` adds an Ogg Vorbis file as a sound, `name` adds a sound
+  Minecraft or the pack holds, `remove` removes the sound `at` and its file where no other event names
+  it, `fields`, a JSON object, sets the fields of the sound `at`, and a null clears one. `replace` is
+  for `minecraft:` events only. `volume` and `pitch` are numbers above 0, `weight` and
+  `attenuation_distance` whole numbers from 1, `stream` and `preload` booleans, and `type` is `file`
+  or `event`. The client caps the volume at 1 and holds the pitch between 0.5 and 2.
+- A subtitle is a key of the language files, and its text belongs to the event's draft. The key is
+  `subtitles.<namespace>.<event>` unless the event names one that the pack's language files hold, so
+  a text never changes a vanilla key that other events share. The client shows vanilla's subtitle
+  for a `minecraft:` event that keeps vanilla's sounds, so `subtitleSound` refuses one, and
+  `-Preplace=false` drops the event's subtitle and the copies of vanilla's sounds.
+- `deleteSound` deletes the event, each file only it names and its subtitle text where no other
+  event names that.
+- `playSound` decodes the sound `at`, or the first, to `build/sounds/` as a WAV at its volume and
+  pitch, for the operating system's own player. It takes the pack's event, else vanilla's, and the
+  pack's file, else vanilla's.
+
 ## Drafts and publishing
 
 A draft is one change of the clone that is in no pull request yet. A texture's draft holds its PNG,
@@ -265,8 +319,8 @@ its `.png.mcmeta`, its `.aseprite` source, the item models and definitions that 
 entries in `glyphs.json`. The fields of a font or a block in `glyphs.json` are a draft of their own,
 and so is every other changed file. A text of a language file is part of its owner's draft, and a
 text of its own is a draft of its own, so a draft holds keys rather than whole language files. A
-draft's `id` is its texture's id, `font <font>`, `block <font> <range or title>`, `text <key>` or the
-file's path. Its `state` is `added`, `changed` or `deleted`, and `review`
+draft's `id` is its texture's id, `font <font>`, `block <font> <range or title>`, `text <key>`, `sound <event>` or
+the file's path. Its `state` is `added`, `changed` or `deleted`, and `review`
 is the number of the pull request that holds an older version of it. A draft that equals its version
 in a pull request or on `origin/main` is not listed.
 
@@ -549,9 +603,14 @@ against the SHA-1 of Mojang's version manifest and keeps in `~/.gradle/caches/fa
 of its result, one file per line.
 
 ```bash
-./gradlew -q :resource-pack:listVanillaAssets       # build/vanilla-assets.json: textures (id, width, height, mcmeta), items
+./gradlew -q :resource-pack:listVanillaAssets       # build/vanilla-assets.json: textures (id, width, height, mcmeta), items, sounds (id, subtitle, sounds)
 ./gradlew -q :resource-pack:copyVanillaTexture -Ptexture=minecraft:block/stone.png
 ```
+
+Minecraft's sounds are not in the client jar but in the asset index of the version. `:bridge-mod`
+hands its id, URL and SHA-1 from the version manifest to these tasks, which download the index and
+each `.ogg` once into `~/.gradle/caches/nordtal/assets` and check each against its SHA-1. Without a
+connection `listVanillaAssets` lists no sounds and says why in `soundsProblem`.
 
 `copyVanillaTexture` writes the PNG and its `.mcmeta` to `src/assets/minecraft/textures` and refuses
 a texture that exists there already.

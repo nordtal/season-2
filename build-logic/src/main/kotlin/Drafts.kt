@@ -6,8 +6,9 @@ import java.io.File
 
 /**
  * The drafts of a clone's pack: changes against the last commit that no pull request holds yet. A draft is one texture
- * with its source, `.mcmeta`, model, item definition, entries in `glyphs.json` and the [Texts] that belong to it; a
- * font's or block's fields, a text that belongs to no asset and any other file are drafts of their own.
+ * with its source, `.mcmeta`, model, item definition, entries in `glyphs.json` and the [Texts] that belong to it, or one
+ * sound event of [Sounds] with its files and subtitle; a font's or block's fields, a text that belongs to no asset and any
+ * other file are drafts of their own.
  */
 object Drafts {
     private const val GLYPHS = "glyphs.json"
@@ -16,8 +17,9 @@ object Drafts {
     private const val MAIN = "origin/main"
 
     /**
-     * One draft. [id] is its texture's id, `font <font>`, `block <font> <range>`, `text <key>` or a file path. [state]
-     * is `added`, `changed` or `deleted`, [files] its files except the language files, whose changed [keys] it holds.
+     * One draft. [id] is its texture's id, `font <font>`, `block <font> <range>`, `text <key>`, `sound <event>` or a file
+     * path. [state] is `added`, `changed` or `deleted`, [files] its files except the language files, whose changed [keys]
+     * it holds, and the `sounds.json` files, whose changed [sounds] it holds.
      * [review] is the pull request that holds an older version of it, and [conflict] what main changed too.
      */
     data class Draft(
@@ -28,6 +30,7 @@ object Drafts {
         val review: Int?,
         val conflict: Conflict? = null,
         val keys: List<String> = emptyList(),
+        val sounds: List<String> = emptyList(),
     )
 
     /**
@@ -109,8 +112,12 @@ object Drafts {
         val ids = sortedMapOf<String, MutableList<String>>()
         changedIds(head, work).forEach { ids.getOrPut(it) { mutableListOf() } }
         for (path in changedFiles(pack) - GLYPHS) {
-            if (!Texts.isText(path)) ids.getOrPut(idOf(pack, path)) { mutableListOf() } += path
+            if (!Texts.isText(path) && !Sounds.isSounds(path)) ids.getOrPut(idOf(pack, path)) { mutableListOf() } += path
         }
+        val headSounds = Sounds.at(pack, "HEAD")
+        val workSounds = Sounds.work(pack)
+        val changedEvents = Texts.changedKeys(headSounds, workSounds)
+        changedEvents.forEach { ids.getOrPut(Sounds.id(it)) { mutableListOf() } }
         val headTexts = Texts.at(pack, "HEAD")
         val workTexts = Texts.work(pack)
         val owner = Texts.owner(pack)
@@ -127,13 +134,19 @@ object Drafts {
         val trees = mutableMapOf<String, Map<String, String>>()
         val roots = mutableMapOf<String, Map<*, *>?>()
         val texts = mutableMapOf<String, TextFiles>()
+        val sounds = mutableMapOf<String, TextFiles>()
 
         fun textsAt(ref: String) = texts.getOrPut(ref) { Texts.at(pack, ref) }
+
+        fun soundsAt(ref: String) = sounds.getOrPut(ref) { Sounds.at(pack, ref) }
         return ids.mapNotNull { (id, files) ->
             files.sort()
             val own = keys[id].orEmpty()
+            val events = setOfNotNull(Sounds.event(id)).intersect(changedEvents)
 
-            fun same(ref: String) = same(pack, ref, id, files, workParts) && Texts.same(textsAt(ref), workTexts, own)
+            fun same(ref: String) =
+                same(pack, ref, id, files, workParts) && Texts.same(textsAt(ref), workTexts, own) &&
+                    Texts.same(soundsAt(ref), workSounds, events)
             val review = reviews.lastOrNull { id in it.drafts }
             if (review != null && same(review.commit)) return@mapNotNull null
             if (main != null && same(main)) return@mapNotNull null
@@ -148,18 +161,32 @@ object Drafts {
                     val merge =
                         merge(roots.getOrPut(base) { glyphs(pack, base) }, work, roots.getOrPut(m) { glyphs(pack, m) }, id)
                     val fields = if (own.isEmpty()) emptyList() else Texts.merge(textsAt(base), workTexts, textsAt(m), own).second
-                    Conflict(changed + listOfNotNull(GLYPHS.takeIf { merge.whole }), merge.fields + fields)
+                    val sounded =
+                        if (events.isEmpty()) {
+                            emptyList()
+                        } else {
+                            Sounds
+                                .merge(
+                                    soundsAt(base),
+                                    workSounds,
+                                    soundsAt(m),
+                                    events,
+                                ).second
+                        }
+                    Conflict(changed + listOfNotNull(GLYPHS.takeIf { merge.whole }), merge.fields + fields + sounded)
                         .takeIf { it.files.isNotEmpty() || it.fields.isNotEmpty() }
                 }
             // An asset of which only texts changed is still there
-            val texted = files.isEmpty() && id !in headParts && id !in workParts && Texts.ownKey(id) == null
-            val before = texted || id in headParts || files.any { it in committed } || own.any { key -> headTexts.values.any { key in it } }
+            val texted = files.isEmpty() && events.isEmpty() && id !in headParts && id !in workParts && Texts.ownKey(id) == null
+            val before =
+                texted || id in headParts || files.any { it in committed } || own.any { key -> headTexts.values.any { key in it } } ||
+                    events.any { event -> headSounds.values.any { event in it } }
             val after =
                 texted || id in workParts || files.any { pack.resolve(it).exists() } ||
-                    own.any { key -> workTexts.values.any { key in it } }
+                    own.any { key -> workTexts.values.any { key in it } } || events.any { event -> workSounds.values.any { event in it } }
             Draft(
                 id,
-                workParts[id]?.label ?: headParts[id]?.label ?: Texts.ownKey(id) ?: label(id),
+                workParts[id]?.label ?: headParts[id]?.label ?: Texts.ownKey(id) ?: Sounds.event(id) ?: label(id),
                 if (!before) {
                     "added"
                 } else if (!after) {
@@ -171,6 +198,7 @@ object Drafts {
                 review?.number,
                 conflict,
                 own.toList(),
+                events.toList(),
             )
         }
     }
@@ -182,7 +210,7 @@ object Drafts {
     internal fun files(
         pack: File,
         ids: Set<String>,
-    ): List<String> = (changedFiles(pack) - GLYPHS).filter { !Texts.isText(it) && idOf(pack, it) in ids }
+    ): List<String> = (changedFiles(pack) - GLYPHS).filter { !Texts.isText(it) && !Sounds.isSounds(it) && idOf(pack, it) in ids }
 
     /**
      * Restores the files, entries and texts of the draft [id] in [pack] to the last commit, or to its pull request when
@@ -203,8 +231,9 @@ object Drafts {
                 emptyList()
             }
         val texts = if (draft.keys.isEmpty()) emptyList() else Texts.put(pack, Texts.at(pack, ref), draft.keys.toSet())
+        val sounds = if (draft.sounds.isEmpty()) emptyList() else Sounds.put(pack, Sounds.at(pack, ref), draft.sounds.toSet())
         forget(pack, setOf(id))
-        return files + edited + texts
+        return files + edited + texts + sounds
     }
 
     /** Writes [files] of [pack] as [ref] holds them, or deletes those it lacks, and returns them. */
@@ -251,9 +280,24 @@ object Drafts {
                 val merged = Texts.merge(base?.let { Texts.at(pack, it) }.orEmpty(), Texts.work(pack), Texts.at(pack, main), keys, fields)
                 Texts.put(pack, merged.first, keys)
             }
+        val events = draft.sounds.toSet()
+        val sounds =
+            if (events.isEmpty()) {
+                emptyList()
+            } else {
+                val merged =
+                    Sounds.merge(
+                        base?.let { Sounds.at(pack, it) }.orEmpty(),
+                        Sounds.work(pack),
+                        Sounds.at(pack, main),
+                        events,
+                        fields,
+                    )
+                Sounds.put(pack, merged.first, events)
+            }
         val written = if (keep == "main") keepYours(pack, draft.files) + restore(pack, main, draft.files) else emptyList()
         writeBases(pack, bases(pack) + (id to main))
-        return edited + texts + written
+        return edited + texts + sounds + written
     }
 
     /** Copies each of [files] that [pack] holds to `build/conflict/yours/` and returns the copies. */
@@ -371,6 +415,16 @@ object Drafts {
             }
             val main = Texts.at(target, "HEAD")
             Texts.put(target, Texts.merge(base(pack, draft.id)?.let { Texts.at(pack, it) } ?: main, texts, main, keys).first, keys)
+        }
+        val sounds = Sounds.work(pack)
+        for (draft in drafts.filter { it.sounds.isNotEmpty() }) {
+            val events = draft.sounds.toSet()
+            if (!merge) {
+                Sounds.put(target, sounds, events)
+                continue
+            }
+            val main = Sounds.at(target, "HEAD")
+            Sounds.put(target, Sounds.merge(base(pack, draft.id)?.let { Sounds.at(pack, it) } ?: main, sounds, main, events).first, events)
         }
         val work = pack.resolve(GLYPHS).takeIf { it.isFile }?.let { OxfmtJson.read(it) as Map<*, *> }
         val main = glyphs(target, "HEAD")
@@ -713,7 +767,7 @@ object Drafts {
     ) = glyph["texture"] as String? ?: "$font ${glyph["code"]}"
 
     /**
-     * The id of the draft that the changed file [path] belongs to: its texture's, or its own path. A file that a deleted
+     * The id of the draft that the changed file [path] belongs to: its texture's, its sound event's, or its own path. A file that a deleted
      * item drew goes with that item, as [deletedItem] finds it; any other deleted model or item is a draft of its own,
      * so it never joins a texture that stays.
      */
@@ -721,6 +775,7 @@ object Drafts {
         pack: File,
         path: String,
     ): String {
+        if (path.endsWith(".ogg")) return Sounds.idOf(pack, path) ?: path
         if (pack.resolve(path).exists()) return ownId(pack, path)
         return deletedItem(pack, path) ?: ownId(pack, path, committed = false)
     }

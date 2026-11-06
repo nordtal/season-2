@@ -35,6 +35,7 @@ object PackModel {
                     .toSortedSet()
                     .toList(),
             "texts" to texts(root, listed, drafts),
+            "sounds" to sounds(root, drafts),
             "drafts" to
                 listed.map {
                     linkedMapOf(
@@ -43,6 +44,7 @@ object PackModel {
                         "state" to it.state,
                         "files" to it.files,
                         "keys" to it.keys,
+                        "sounds" to it.sounds,
                         "review" to it.review,
                         "conflict" to
                             it.conflict?.let { conflict ->
@@ -104,6 +106,49 @@ object PackModel {
                 "owner" to id.takeIf { Texts.ownKey(it) == null },
                 "draft" to draftOf[key],
                 "review" to drafts.reviews[id],
+            )
+        }
+    }
+
+    /**
+     * Each sound event of the pack, sorted by id: its `subtitle` key with that text in each language, whether it
+     * `replace`s vanilla's sounds, and each of its `sounds` with its fields, its `name` with the namespace and the `file`
+     * of the pack that holds it, or null for a sound of Minecraft or an event. It is marked with its draft.
+     */
+    private fun sounds(
+        root: File,
+        drafts: Marks,
+    ): List<Map<String, Any?>> {
+        val texts = Texts.work(root)
+        return Sounds.events(root).map { (id, event) ->
+            val subtitle = event["subtitle"] as String?
+            linkedMapOf(
+                "id" to id,
+                "replace" to (event["replace"] == true),
+                "subtitle" to subtitle,
+                "subtitles" to
+                    subtitle?.let { key ->
+                        texts.entries
+                            .mapNotNull { (path, values) -> values[key]?.let { Texts.language(path) to it } }
+                            .toMap()
+                            .toSortedMap()
+                    },
+                "sounds" to
+                    (event["sounds"] as? List<*>).orEmpty().map { sound ->
+                        val fields = linkedMapOf<String, Any?>()
+                        if (sound is Map<*, *>) {
+                            sound.forEach { (key, value) -> fields[key.toString()] = value }
+                        } else {
+                            fields["name"] =
+                                sound.toString()
+                        }
+                        val name = fields["name"].toString().let { if (':' in it) it else "minecraft:$it" }
+                        fields["name"] = name
+                        val file = "src/assets/${name.substringBefore(':')}/sounds/${name.substringAfter(':')}.ogg"
+                        fields["file"] = file.takeIf { fields["type"] != "event" && root.resolve(it).isFile }
+                        fields
+                    },
+                *drafts.of(Sounds.id(id)),
             )
         }
     }

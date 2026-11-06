@@ -227,9 +227,16 @@ val minecraftVersion = MinecraftVersion.of(the<LibrariesForLibs>().versions.pape
 val vanillaClientJar = configurations.dependencyScope("vanillaClient")
 val vanillaClientFiles = configurations.resolvable("vanillaClientFiles") { extendsFrom(vanillaClientJar.get()) }
 dependencies { "vanillaClient"(project(":bridge-mod", "vanillaClient")) }
+// The sounds are not in the jar but in the version's asset index, which :bridge-mod names from the same manifest.
+val vanillaAssetIndex = configurations.dependencyScope("vanillaAssetIndex")
+val vanillaAssetIndexFiles = configurations.resolvable("vanillaAssetIndexFiles") { extendsFrom(vanillaAssetIndex.get()) }
+dependencies { "vanillaAssetIndex"(project(":bridge-mod", "vanillaAssetIndex")) }
+val vanillaAssetCache = File(gradle.gradleUserHomeDir, "caches/nordtal/assets")
 val vanillaClient: VanillaClientTask.() -> Unit = {
     version.set(minecraftVersion)
     client.from(vanillaClientFiles)
+    assetIndex.from(vanillaAssetIndexFiles)
+    assetCache.set(vanillaAssetCache)
 }
 
 tasks.register<ListVanillaAssets>("listVanillaAssets") {
@@ -244,7 +251,7 @@ tasks.register<CopyVanillaTexture>("copyVanillaTexture") {
     assets.set(packSource.dir("assets"))
 }
 
-// Nordtal Designer creates and changes textures with these. The README lists the -P options and the output of each.
+// Nordtal Designer creates and changes textures, items, texts and sounds with these. The README lists the -P options and the output of each.
 val sourceEdits =
     mapOf(
         "createGlyph" to "glyph",
@@ -269,6 +276,12 @@ val sourceEdits =
         "discardDraft" to "discard",
         "resolveConflict" to "resolve",
         "readConflict" to "conflict",
+        "createSound" to "sound",
+        "overrideSound" to "overrideSound",
+        "editSound" to "editSound",
+        "subtitleSound" to "subtitle",
+        "deleteSound" to "deleteSound",
+        "playSound" to "play",
         "publishDrafts" to "publish",
         "syncReviews" to "sync",
     )

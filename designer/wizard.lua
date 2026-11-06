@@ -360,21 +360,22 @@ function wizard.open(context)
     end)
   end
 
+  -- Shows the browser of kind, and gives whether it holds choices
   local function browse()
     if unread then
       reason(unread)
-      return
+      return false
     end
     if not listing then
       dlg:label{ text=tr("new.reading") }
       dlg:newrow()
-      return
+      return false
     end
     local browser = browsers[kind]
     -- Without a connection the listing holds no sounds and says why
     if kind == "vanilla_sound" and listing.soundsProblem then
       reason({ listing.soundsProblem })
-      return
+      return false
     end
     local ids = wizard.choices(kind, listing, model)
     local function counted(n, shown)
@@ -417,7 +418,9 @@ function wizard.open(context)
     for _, field in ipairs(wizard.fields[kind] or {}) do
       if refusal and refusal.field == field then below = true end
     end
-    reason(refusal and not below and refusal.lines or nil)
+    -- The labels of one refusal are added once, as the tree clears them by id
+    if not below then reason(refusal and refusal.lines) end
+    return true
   end
 
   local function fields()
@@ -474,8 +477,7 @@ function wizard.open(context)
     dlg:newrow()
     local own = {}
     if browsers[kind] then
-      browse()
-      if wizard.fields[kind] then own = fields() end
+      if browse() and wizard.fields[kind] then own = fields() end
     else
       own = fields()
     end

@@ -6,8 +6,10 @@
 
 local sounds = {}
 
--- The file types the file dialog offers, as the wizard's
-sounds.filetypes = require("wizard").filetypes
+-- The file types the file dialog offers, as the wizard's. The task
+-- refuses each but Ogg Vorbis and says how to convert, so the others
+-- are offered too.
+sounds.filetypes = { "ogg", "oga", "wav", "mp3", "flac", "m4a", "aiff" }
 
 -- The fields of a sound that the panel edits, in display order, and
 -- what each holds: a number with decimals, a whole number or a switch
@@ -183,8 +185,9 @@ local function value(name, text)
   end
   -- A number as JSON writes it, so .5 goes as 0.5. A text that is no
   -- number goes as a JSON string, which the task refuses with its rule.
-  local number = text:gsub("^(%-?)%.", "%10."):gsub("%.$", "")
-  if number:match("^%-?%d+$") or number:match("^%-?%d+%.%d+$") then
+  local number = text:gsub("^(%-?)%.(%d)", "%10.%2"):gsub("(%d)%.$", "%1")
+  if number:match("^%-?0$") or number:match("^%-?[1-9]%d*$") or number:match("^%-?0%.%d+$")
+    or number:match("^%-?[1-9]%d*%.%d+$") then
     return number
   end
   return '"' .. text:gsub('[\\"]', "\\%0") .. '"'

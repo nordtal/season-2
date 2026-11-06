@@ -136,16 +136,25 @@ public final class AdminLog {
     }
 
     /**
+     * What the alert of a failed run finds of the run's card.
+     *
+     * @param messageId the card the alert takes the place of, or {@code null} for none
+     * @param again whether an alert of the run was posted before, so this one is a redelivery
+     */
+    public record RunCard(@Nullable String messageId, boolean again) {
+
+        public static final RunCard NONE = new RunCard(null, false);
+    }
+
+    /**
      * Posts the alert the request names in place of the card of the failed run it reports, or as its answer.
-     * Returns false when there is nothing to post or no channel.
+     * Returns false when there is nothing to post or no channel. An alert of a run that had one is not posted again.
      *
      * @param role the admin role's id, or {@code null} while the guild has none
-     * @param runCards hands over the card of a failed run once, or {@code null}
+     * @param runCards hands over the card of a failed run once
      */
     public boolean postAlert(
-            final BotRequest.PostAlert request,
-            final @Nullable String role,
-            final LongFunction<@Nullable String> runCards) {
+            final BotRequest.PostAlert request, final @Nullable String role, final LongFunction<RunCard> runCards) {
         final RaisedAlert raised = alerts.alert(request.entry()).orElse(null);
         if (raised == null) {
             log.warn("There is no alert {} to post", request.entry());
@@ -155,10 +164,20 @@ public final class AdminLog {
         final String link = stewardUrl.isBlank() ? null : stewardUrl + alert.path();
         final String pinged = request.mention() ? role : null;
         final DocumentRenderer.Drawn card = card(documents, alert, pinged, link);
-        final String runCard =
-                alert.detail() instanceof final JournalDetail.RunFailed failed ? runCards.apply(failed.run()) : null;
         final MessageChannel channel = channel();
-        if (runCard == null || channel == null) {
+        if (channel == null) {
+            return send(card, pinged);
+        }
+        // Read only once there is a channel, since handing a card over records that the alert was posted.
+        final RunCard taken = alert.detail() instanceof final JournalDetail.RunFailed failed
+                ? runCards.apply(failed.run())
+                : RunCard.NONE;
+        if (taken.again()) {
+            log.info("The alert {} of a run was posted before; it is not posted again", request.entry());
+            return true;
+        }
+        final String runCard = taken.messageId();
+        if (runCard == null) {
             return send(card, pinged);
         }
         channel.deleteMessageById(runCard).queue(gone -> send(card, pinged), failure -> {

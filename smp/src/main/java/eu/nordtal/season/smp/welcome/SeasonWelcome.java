@@ -19,6 +19,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.WorldBorder;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -100,8 +101,22 @@ public final class SeasonWelcome {
                             + "' - if that was renamed, nordtal-spawn: world has to be renamed with it.");
             return;
         }
-        player.teleport(LandingSite.safeAt(
-                world, new Location(world, spawn.x(), spawn.y(), spawn.z(), spawn.yaw(), spawn.pitch())));
+        final Location landing = LandingSite.safeAt(
+                world, new Location(world, spawn.x(), spawn.y(), spawn.z(), spawn.yaw(), spawn.pitch()));
+        final Optional<Location> target = insideBorder(world.getWorldBorder(), landing);
+        if (target.isEmpty()) {
+            plugin.getLogger()
+                    .warning("nordtal-spawn lies outside the world border, where the border would kill " + name
+                            + " at once, so they were left where the server spawned them. Move nordtal-spawn"
+                            + " inside the border.");
+            return;
+        }
+        player.teleport(target.get());
+    }
+
+    /** Returns the landing, or empty when it lies outside the border. */
+    static Optional<Location> insideBorder(final WorldBorder border, final Location landing) {
+        return border.isInside(landing) ? Optional.of(landing) : Optional.empty();
     }
 
     /** Returns the cinematic. The {@link Feedback#STAGING} sound is blank. */

@@ -60,37 +60,64 @@ object OxfmtJson {
     /** [value] in the layout of the pack's files under `src/assets`: four spaces of indent and one member per line. */
     fun asset(value: Any?): String = format(expanded(value), "    ")
 
-    /**
-     * [value] in the layout of [like], as [read] gave it, so that [format] changes only the lines of what differs. A key
-     * of an object keeps its place in [like], with a new key after them; a member keeps the lines and empty lines it had,
-     * and a number equal to the one in [like] its spelling. A new member of an object whose members are all objects, or of
-     * an array, takes the layout of a member beside it; anything else new is laid out as [asset] does.
-     */
-    fun shaped(
+    /** [value] laid out as [asset] does, but in the layout of [like], the file it replaces, where they share members. */
+    fun asset(
         value: Any?,
         like: Any?,
+    ): String = format(shaped(value, like, emptyList<Any?>()), "    ")
+
+    /**
+     * [value] in the layout of [like], as [read] gave it: keys in its order, lines, empty lines and number spellings.
+     * A new member takes its layout from one beside it: a member of the same array, the same key of one, or any object
+     * of an object of objects. [kin] are the members of the array that holds [like].
+     */
+    private fun shaped(
+        value: Any?,
+        like: Any?,
+        kin: List<*>,
     ): Any? =
         when (value) {
             is Map<*, *> -> {
                 val old = like as? Map<*, *>
-                val sibling = old?.values?.takeIf { members -> members.isNotEmpty() && members.all { it is Map<*, *> } }?.first()
+                val objects = old?.values?.takeIf { members -> members.isNotEmpty() && members.all { it is Map<*, *> } }
+                val keys = old?.keys?.filter { it in value }.orEmpty().toMutableList()
+                // A new key goes before the next key that follows it in [value] and has a place already
+                value.keys.filter { old?.containsKey(it) != true }.forEach { key ->
+                    val after = value.keys.toList().let { it.subList(it.indexOf(key) + 1, it.size) }.firstOrNull { it in keys }
+                    keys.add(if (after == null) keys.size else keys.indexOf(after), key)
+                }
                 Object((like as? Object)?.expanded ?: (like !is Map<*, *>)).also { copy ->
-                    val keys = old?.keys?.filter { it in value }.orEmpty() + value.keys.filter { old?.containsKey(it) != true }
                     keys.forEach { key ->
-                        val member = value[key]
-                        copy[key as String] = shaped(member, if (old?.containsKey(key) == true) old[key] else sibling)
-                        if (key in ((like as? Object)?.spaced ?: emptySet<String>()) && old?.containsKey(key) == true) copy.spaced += key
+                        val template =
+                            if (old?.containsKey(key) == true) {
+                                old[key]
+                            } else {
+                                objects?.first() ?: kin.firstNotNullOfOrNull { (it as? Map<*, *>)?.get(key) }
+                            }
+                        copy[key as String] = shaped(value[key], template, emptyList<Any?>())
+                        if (old?.containsKey(key) == true && key in (like as? Object)?.spaced.orEmpty()) copy.spaced += key
                     }
                     (like as? Object)?.spellings?.let(copy.spellings::putAll)
                 }
             }
 
             is List<*> -> {
-                val old = like as? List<*>
+                val old = (like as? List<*>).orEmpty()
+                val used = mutableSetOf<Int>()
+                var next = 0
                 Array().also { copy ->
-                    value.forEachIndexed { i, member ->
-                        copy += shaped(member, if (old != null && i < old.size) old[i] else old?.lastOrNull())
-                        if (old != null && i < old.size && i in ((like as? Array)?.spaced ?: emptySet<Int>())) copy.spaced += i
+                    value.forEach { member ->
+                        // A member keeps the layout of an equal one, else of the one after the last it matched
+                        val free = old.indices.filter { it !in used }
+                        val match =
+                            free.firstOrNull { it >= next && old[it] == member } ?: free.firstOrNull { old[it] == member }
+                                ?: next.takeIf { it < old.size && it !in used }
+                        match?.let {
+                            used += it
+                            next = it + 1
+                        }
+                        if (match != null && match in (like as? Array)?.spaced.orEmpty()) copy.spaced += copy.size
+                        copy += shaped(member, match?.let(old::get) ?: old.lastOrNull(), old)
                     }
                     (like as? Array)?.spellings?.let(copy.spellings::putAll)
                 }

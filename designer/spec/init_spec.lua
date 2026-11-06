@@ -4,7 +4,7 @@ local fake = require("spec.fake_dialog")
 -- with an app of the fork's API version, and calls init(plugin).
 -- Returns the dialogs it showed, the modules it required and the
 -- commands it ran.
-local function start(version)
+local function start(version, os, noRequire)
   local Dialog, _, shown = fake()
   local required, ran = {}, {}
   local app = {
@@ -15,7 +15,7 @@ local function start(version)
     command=setmetatable({}, { __index=function(_, name) return function() table.insert(ran, name) end end }),
     events={ on=function() return 1 end, off=function() end },
     window={ width=1000, height=700 },
-    os={ windows=false },
+    os=os or { windows=false },
   }
   local env = setmetatable({ app=app, Dialog=Dialog, json=require("dkjson") }, { __index=_G })
   assert(loadfile("init.lua", "t", env))()
@@ -25,48 +25,51 @@ local function start(version)
     if name == "language" then return require("language") end
     return { open=function() return { close=function() end } end }
   end
+  if noRequire then plugin.require = nil end
   env.init(plugin)
   return shown, required, ran, env
 end
 
 describe("the plugin's start", function()
-  it("shows one status that asks for an update on an app older than fork API 8, and opens no tab", function()
-    local shown, required, ran, env = start(7)
+  it("shows one status on an app older than fork API 8 that offers only Quit, and opens no tab", function()
+    local shown, required, ran = start(7)
     assert.equal(1, #shown)
     local status = shown[1]
     assert.is_true(status.args.notitlebar)
-    assert.same({ "This plugin needs a newer Nordtal Designer.",
-                  "Run the install line from the README of nordtal/designer again, then restart the app." },
+    assert.same({ "Nordtal Designer needs an update: run this line in Terminal, then start the app again." },
                 status:labels())
-    local buttons = {}
+    local entries, buttons = {}, {}
     for _, w in ipairs(status.widgets) do
+      if w.kind == "entry" then table.insert(entries, w.args) end
       if w.kind == "button" then table.insert(buttons, w.args) end
     end
-    assert.equal(2, #buttons)
-    assert.equal("Try Again", buttons[1].text)
-    assert.equal("Quit", buttons[2].text)
-    assert.same({}, required)
+    assert.same({ "curl -fsSL https://raw.githubusercontent.com/nordtal/designer/main/install.sh | bash" },
+                { entries[1].text })
+    assert.equal(1, #entries)
+    assert.equal(1, #buttons)
+    assert.equal("Quit", buttons[1].text)
+    -- The strings come through plugin.require(), whose chunks the app trusts
+    assert.same({ "language" }, required)
 
-    -- Try Again checks the app again and shows the status in place of the first
     buttons[1].onclick()
-    assert.equal(2, #shown)
-    assert.is_true(status.closed)
-    assert.is_false(shown[2].closed)
-    assert.same({}, required)
-
-    -- Quit quits, and Try Again opens the tab once the app offers the version
-    local again
-    for _, w in ipairs(shown[2].widgets) do
-      if w.kind == "button" and w.args.text == "Quit" then w.args.onclick() end
-      if w.kind == "button" and w.args.text == "Try Again" then again = w.args.onclick end
-    end
     assert.same({ "Exit" }, ran)
-    env.app.forkApiVersion = 8
-    again()
-    assert.is_true(shown[2].closed)
-    assert.equal(2, #shown)
-    assert.same({ "language", "tab" }, { required[1], required[2] })
-    env.exit()
+  end)
+
+  it("loads the strings itself on an app without plugin.require()", function()
+    local shown = start(3, nil, true)
+    assert.same({ "Nordtal Designer needs an update: run this line in Terminal, then start the app again." },
+                shown[1]:labels())
+  end)
+
+  it("gives the PowerShell line on Windows", function()
+    local shown = start(7, { windows=true })
+    local text
+    for _, w in ipairs(shown[1].widgets) do
+      if w.kind == "entry" then text = w.args.text end
+    end
+    assert.equal("irm https://raw.githubusercontent.com/nordtal/designer/main/install.ps1 | iex", text)
+    assert.same({ "Nordtal Designer needs an update: run this line in PowerShell, then start the app again." },
+                shown[1]:labels())
   end)
 
   it("opens the Nordtal tab without a status on fork API 8", function()

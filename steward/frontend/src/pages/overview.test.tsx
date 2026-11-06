@@ -46,7 +46,7 @@ function backup(hoursAgo: number) {
   return {
     name: "nordtal-s2_mc-smp-20260912T044500Z.tar.zst",
     bytes: 1_500_000_000,
-    human: "1.5 GB",
+    human: "1.4 GiB",
     modified: new Date(Date.now() - hoursAgo * HOUR).toISOString(),
     partial: false,
     offsite: true,
@@ -57,7 +57,7 @@ function dump(hoursAgo: number) {
   return {
     name: "nordtal-20260912T024500Z.dump",
     bytes: 40_000_000,
-    human: "40 MB",
+    human: "38.1 MiB",
     modified: new Date(Date.now() - hoursAgo * HOUR).toISOString(),
     partial: false,
   }

@@ -1,5 +1,5 @@
 /**
- * Formats every number this interface prints, in one locale and one base. Bytes are base 1000, matching `df` and `statvfs`.
+ * Formats every number this interface prints, in one locale and one base. Bytes are binary, as every server text says them.
  */
 
 /** `en-GB`, for the 24-hour clock and the day-first dates that the logs use. */
@@ -39,20 +39,20 @@ function formatsOf(locale: string): Formats {
 /** What every place that has no value shows. */
 export const NO_VALUE = "\u2013"
 
-const UNITS = ["B", "kB", "MB", "GB", "TB", "PB"] as const
+const UNITS = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"] as const
 
 export function bytes(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return NO_VALUE
-  if (value < 1000) return `${NUMBER.format(Math.round(value))} B`
+  if (value < 1024) return `${NUMBER.format(Math.round(value))} B`
   let scaled = value
   let unit = 0
-  while (scaled >= 1000 && unit < UNITS.length - 1) {
-    scaled /= 1000
+  while (scaled >= 1024 && unit < UNITS.length - 1) {
+    scaled /= 1024
     unit += 1
   }
-  /** The carry is checked on the rounded value, so 999 999 prints as "1.0 MB". */
-  if (Math.round(scaled * 10) >= 10_000 && unit < UNITS.length - 1) {
-    scaled /= 1000
+  /** The carry is checked on the rounded value, so 1 048 575 prints as "1.0 MiB". */
+  if (Math.round(scaled * 10) >= 10_240 && unit < UNITS.length - 1) {
+    scaled /= 1024
     unit += 1
   }
   return `${ONE_DECIMAL.format(scaled)} ${UNITS[unit]}`

@@ -22,27 +22,27 @@ const NOTHING = "\u2013"
 const NOT_A_NUMBER = [null, undefined, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]
 
 describe("bytes", () => {
-  it("prints a count below a kilobyte as bytes, with no decimal at all", () => {
+  it("prints a count below a kibibyte as bytes, with no decimal at all", () => {
     expect(bytes(0)).toBe("0 B")
     expect(bytes(512)).toBe("512 B")
-    expect(bytes(999)).toBe("999 B")
+    expect(bytes(1023)).toBe("1,023 B")
   })
 
-  it("treats a kilobyte as a thousand bytes, because that is what df on this host says", () => {
-    expect(bytes(1000)).toBe("1.0 kB")
-    expect(bytes(1024)).toBe("1.0 kB")
-    expect(bytes(1500)).toBe("1.5 kB")
+  it("treats a kibibyte as 1024 bytes, the binary unit every server text uses", () => {
+    expect(bytes(1000)).toBe("1,000 B")
+    expect(bytes(1024)).toBe("1.0 KiB")
+    expect(bytes(1536)).toBe("1.5 KiB")
   })
 
-  it("climbs one unit per factor of a thousand and names the unit it stopped at", () => {
-    expect(bytes(2_500_000)).toBe("2.5 MB")
-    expect(bytes(3_400_000_000)).toBe("3.4 GB")
-    expect(bytes(1_000_000_000_000)).toBe("1.0 TB")
+  it("climbs one unit per factor of 1024 and names the unit it stopped at", () => {
+    expect(bytes(2.5 * 2 ** 20)).toBe("2.5 MiB")
+    expect(bytes(3_400_000_000)).toBe("3.2 GiB")
+    expect(bytes(2 ** 40)).toBe("1.0 TiB")
   })
 
-  it("stops at petabytes rather than walking off the end of the unit list", () => {
-    expect(bytes(1e15)).toBe("1.0 PB")
-    expect(bytes(1e18)).toBe("1,000.0 PB")
+  it("stops at pebibytes rather than walking off the end of the unit list", () => {
+    expect(bytes(2 ** 50)).toBe("1.0 PiB")
+    expect(bytes(2 ** 60)).toBe("1,024.0 PiB")
   })
 
   it("shows a dash for anything that is not a number, including both infinities", () => {
@@ -50,9 +50,9 @@ describe("bytes", () => {
   })
 
   it("never prints a thousand of one unit, because that is the next unit", () => {
-    /** Scaling looks at the rounded value, so 999 999 B is a megabyte and not "1,000.0 kB". */
-    expect(bytes(999_999)).toBe("1.0 MB")
-    expect(bytes(999_999_999)).toBe("1.0 GB")
+    /** Scaling looks at the rounded value, so 1 048 575 B is a mebibyte and not "1,024.0 KiB". */
+    expect(bytes(2 ** 20 - 1)).toBe("1.0 MiB")
+    expect(bytes(2 ** 30 - 1)).toBe("1.0 GiB")
   })
 })
 

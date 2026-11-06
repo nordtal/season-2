@@ -141,7 +141,7 @@ function backup(over: Record<string, unknown> = {}) {
   return {
     name: "nordtal-s2_mc-smp-20260917T044500Z.tar.zst",
     bytes: 1_500_000_000,
-    human: "1.5 GB",
+    human: "1.4 GiB",
     modified: "2026-09-17T04:45:00Z",
     partial: false,
     offsite: true,

@@ -103,21 +103,11 @@ object OxfmtJson {
 
             is List<*> -> {
                 val old = (like as? List<*>).orEmpty()
-                val used = mutableSetOf<Int>()
-                var next = 0
+                val slots = slots(value, old)
                 Array().also { copy ->
-                    value.forEach { member ->
-                        // A member keeps the layout of an equal one, else of the one after the last it matched
-                        val free = old.indices.filter { it !in used }
-                        val match =
-                            free.firstOrNull { it >= next && old[it] == member } ?: free.firstOrNull { old[it] == member }
-                                ?: next.takeIf { it < old.size && it !in used }
-                        match?.let {
-                            used += it
-                            next = it + 1
-                        }
-                        if (match != null && match in (like as? Array)?.spaced.orEmpty()) copy.spaced += copy.size
-                        copy += shaped(member, match?.let(old::get) ?: old.lastOrNull(), old)
+                    value.forEachIndexed { i, member ->
+                        if (slots[i]?.let { it in (like as? Array)?.spaced.orEmpty() } == true) copy.spaced += i
+                        copy += shaped(member, slots[i]?.let(old::get) ?: old.lastOrNull(), old)
                     }
                     (like as? Array)?.spellings?.let(copy.spellings::putAll)
                 }
@@ -130,6 +120,43 @@ object OxfmtJson {
             else -> {
                 value
             }
+        }
+
+    /**
+     * The index in [old] whose layout each member of [value] keeps, or null. An object or array keeps that of an equal one,
+     * else of a free one between those of its neighbours; a scalar keeps that of its own index.
+     */
+    private fun slots(
+        value: List<*>,
+        old: List<*>,
+    ): List<Int?> {
+        val slots = MutableList<Int?>(value.size) { null }
+        val used = mutableSetOf<Int>()
+        value.forEachIndexed { i, member ->
+            if (member !is Map<*, *> && member !is List<*>) {
+                slots[i] = i.takeIf { it < old.size }
+                return@forEachIndexed
+            }
+            slots[i] = old.indices.firstOrNull { it !in used && same(old[it], member) }?.also { used += it }
+        }
+        value.indices.filter { slots[it] == null && (value[it] is Map<*, *> || value[it] is List<*>) }.forEach { i ->
+            val after = (i - 1 downTo 0).firstNotNullOfOrNull { slots[it] } ?: -1
+            val before = (i + 1 until value.size).firstNotNullOfOrNull { slots[it] } ?: old.size
+            slots[i] = (after + 1 until before).firstOrNull { it !in used }?.also { used += it }
+        }
+        return slots
+    }
+
+    /** Whether [a] and [b] hold the same JSON, a number equal to another however it is spelled. */
+    private fun same(
+        a: Any?,
+        b: Any?,
+    ): Boolean =
+        when {
+            a is Number && b is Number -> BigDecimal(a.toString()).compareTo(BigDecimal(b.toString())) == 0
+            a is Map<*, *> && b is Map<*, *> -> a.keys == b.keys && a.all { (key, member) -> same(member, b[key]) }
+            a is List<*> && b is List<*> -> a.size == b.size && a.indices.all { same(a[it], b[it]) }
+            else -> a == b
         }
 
     private fun expanded(value: Any?): Any? =

@@ -282,6 +282,36 @@ class ModelFilesTest {
     }
 
     @Test
+    fun aCubeAddedInFrontLeavesTheLinesOfTheOthers() {
+        model.writeText(laidOut().replaceFirst("\n            \"faces\"", "\n\n            \"faces\""))
+        val before = model.readText().lines()
+
+        reimported { project ->
+            @Suppress("UNCHECKED_CAST")
+            val elements = project["elements"] as MutableList<Any?>
+            @Suppress("UNCHECKED_CAST")
+            val cube = JsonSlurper().parseText(JsonOutput.toJson(elements[1])) as MutableMap<String, Any?>
+            cube["from"] = listOf(12, 1, 0)
+            cube["to"] = listOf(14, 2, 16)
+            elements.add(0, cube)
+        }
+
+        val after = model.readText().lines()
+        assertEquals(before.take(8), after.take(8))
+        assertEquals(before.drop(8), after.takeLast(before.size - 8))
+    }
+
+    @Test
+    fun aReimportKeepsEachNumberAsItWasSpelled() {
+        model.writeText(laidOut().replace("[16, 1, 16]", "[16.0, 1, 16]"))
+        val before = model.readText()
+
+        imported(exported())
+
+        assertEquals(before, model.readText())
+    }
+
+    @Test
     fun aFaceAddedInBlockbenchIsOneLineLikeTheFacesBesideIt() {
         val before = laidOut().lines()
 

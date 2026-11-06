@@ -1,6 +1,7 @@
 package eu.nordtal.season.smp.rail;
 
 import java.time.Clock;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -258,15 +259,20 @@ public final class RailNetworks {
                 .orElse(List.of(station));
     }
 
-    /** Names {@code station} as {@code typed} when the rules allow it; empty when the station is gone. */
-    Optional<StationNames.Verdict> rename(final StationRow station, final String typed) {
+    /**
+     * Names {@code station} as {@code typed} when the rules allow it; empty when the station is gone.
+     * The spawn station counts as each of {@code spawnNames}.
+     */
+    Optional<StationNames.Verdict> rename(
+            final StationRow station, final String typed, final Collection<String> spawnNames) {
         final WorldNetworks networks = networks(station.world());
         final Optional<StationRow> current =
                 networks.station(station.pos()).filter(row -> row.id().equals(station.id()));
         if (current.isEmpty()) {
             return Optional.empty();
         }
-        final StationNames.Verdict verdict = StationNames.judgeTyped(typed, station.id(), network(current.get()));
+        final StationNames.Verdict verdict =
+                StationNames.judgeTyped(typed, station.id(), network(current.get()), spawnNames);
         if (verdict == StationNames.Verdict.ACCEPTED) {
             final StationRow named = current.get().renamed(typed.strip(), clock.instant());
             networks.addStation(named);

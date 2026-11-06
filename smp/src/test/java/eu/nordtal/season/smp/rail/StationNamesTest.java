@@ -44,16 +44,30 @@ class StationNamesTest {
     @Test
     void aTypedNameIsStrippedBeforeTheRulesJudgeIt() {
         assertEquals(
-                Verdict.ACCEPTED, StationNames.judgeTyped("  " + "a".repeat(32) + "  ", new UUID(0, 1), List.of()));
-        assertEquals(Verdict.EMPTY, StationNames.judgeTyped("   ", new UUID(0, 1), List.of()));
+                Verdict.ACCEPTED,
+                StationNames.judgeTyped("  " + "a".repeat(32) + "  ", new UUID(0, 1), List.of(), List.of()));
+        assertEquals(Verdict.EMPTY, StationNames.judgeTyped("   ", new UUID(0, 1), List.of(), List.of()));
     }
 
     @Test
     void aStationMayTakeItsOwnNameInAnotherCaseButNotAnotherStationsName() {
         final List<StationRow> network = List.of(row(1, "Spawn"), row(2, "Mine"));
 
-        assertEquals(Verdict.ACCEPTED, StationNames.judgeTyped("SPAWN", new UUID(0, 1), network));
-        assertEquals(Verdict.TAKEN, StationNames.judgeTyped(" mine ", new UUID(0, 1), network));
+        assertEquals(Verdict.ACCEPTED, StationNames.judgeTyped("SPAWN", new UUID(0, 1), network, List.of()));
+        assertEquals(Verdict.TAKEN, StationNames.judgeTyped(" mine ", new UUID(0, 1), network, List.of()));
+    }
+
+    @Test
+    void aStationOnTheSpawnStationsRailsCannotTakeANameTheSpawnStationIsShownBy() {
+        final StationRow spawn = new StationRow(new UUID(0, 9), "nordtal", 0, 64, 0, "EAST_WEST", null, null, null);
+        final List<StationRow> network = List.of(row(1, "Mine"), spawn);
+        final List<String> spawnNames = List.of("Spawnpunkt", "Spawn");
+
+        assertEquals(Verdict.TAKEN, StationNames.judgeTyped(" spawn ", new UUID(0, 1), network, spawnNames));
+        assertEquals(Verdict.TAKEN, StationNames.judgeTyped("SPAWNPUNKT", new UUID(0, 1), network, spawnNames));
+        assertEquals(
+                Verdict.ACCEPTED,
+                StationNames.judgeTyped("Spawn", new UUID(0, 1), List.of(row(1, "Mine")), spawnNames));
     }
 
     @Test

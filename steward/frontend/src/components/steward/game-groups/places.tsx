@@ -5,12 +5,14 @@ import type { ConfigEntry } from "@/lib/api"
 import { type Choice, choiceFor, worldIcon } from "@/lib/references"
 import { ScalarControl } from "@/components/steward/config-controls"
 import { Empty } from "@/components/steward/query-state"
+import { Hint } from "@/components/steward/status"
 import { Mark, useChoices } from "@/components/steward/reference-picker"
 import { type SectionValues, blankSection, notSaved } from "@/components/steward/repeatable-cards"
 import { AREA, type PlaceShape, placeShape, text } from "@/components/steward/game-groups/model"
 import { NumberInput } from "@/components/steward/game-groups/parts"
 import { EntryDialog, Labelled } from "@/components/steward/game-groups/tiles"
 import { Button } from "@/components/ui/button"
+import { mostEntries } from "@/lib/setting-rules"
 import { t } from "@/lib/texts"
 
 /** The fields of one place by key, its values by key, and how a value changes. */
@@ -312,6 +314,8 @@ export function PlaceList({
       onChange(value.map((section, at) => (at === index ? { ...section, [key]: next } : section))),
   })
   const open = chosen !== null && chosen < value.length ? chosen : null
+  const most = mostEntries(entry.rules)
+  const full = most !== undefined && value.length >= most
 
   return (
     <div className="flex flex-col gap-2">
@@ -327,24 +331,26 @@ export function PlaceList({
         </ul>
       )}
       <div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={() => {
-            // A new area starts in the world of the one before it, which is where the next one usually is.
-            const before = value.at(-1)
-            const blank = blankSection(fields)
-            const made = before === undefined ? blank : { ...blank, world: text(before, "world") }
-            onChange([...value, made])
-            setAdded({ index: value.length, values: made })
-            choose(value.length)
-          }}
-        >
-          <PlusIcon aria-hidden />
-          {t(shape === "area" ? "steward.game.area" : "steward.game.block")}
-        </Button>
+        <Hint tip={full ? t("steward.settings.list-full", { most }) : undefined}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled || full}
+            onClick={() => {
+              // A new area starts in the world of the one before it, which is where the next one usually is.
+              const before = value.at(-1)
+              const blank = blankSection(fields)
+              const made = before === undefined ? blank : { ...blank, world: text(before, "world") }
+              onChange([...value, made])
+              setAdded({ index: value.length, values: made })
+              choose(value.length)
+            }}
+          >
+            <PlusIcon aria-hidden />
+            {t(shape === "area" ? "steward.game.area" : "steward.game.block")}
+          </Button>
+        </Hint>
       </div>
       {open !== null ? (
         <PlaceDialog

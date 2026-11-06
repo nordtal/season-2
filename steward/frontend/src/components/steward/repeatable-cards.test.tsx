@@ -154,6 +154,20 @@ describe("RepeatableCards", () => {
     ])
   })
 
+  it("disables the add button once the list holds the most entries its rule allows", () => {
+    const entry = {
+      ...sectionsEntry([[field({ key: "tag", value: "en" }), field({ key: "role" })]]),
+      rules: [{ rule: "MOST_ENTRIES" as const, limit: 1 }],
+    }
+    const onChange = vi.fn<(value: SectionValues[]) => void>()
+    render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
+
+    const add = asButton(screen.getByRole("button", { name: /Add entry/ }))
+    expect(add.disabled).toBe(true)
+    fireEvent.click(add)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it("removes only from the drafted value - it is on the caller to decide when that reaches the file", () => {
     const entry = sectionsEntry([
       [field({ key: "tag", value: "en" }), field({ key: "role" })],

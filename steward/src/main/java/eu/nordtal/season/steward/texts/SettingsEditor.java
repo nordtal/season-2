@@ -130,6 +130,9 @@ public interface SettingsEditor {
     @Name("Add entry")
     MessageRef addEntry();
 
+    @Name("List full")
+    MessageRef listFull(@Arg("most") @Example("1") int most);
+
     @Name("Pick a colour")
     MessageRef pickColour();
 

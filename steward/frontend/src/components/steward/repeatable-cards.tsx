@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { FieldLabelIcon, TERM_ICON } from "@/components/steward/term-icons"
 import { Textarea } from "@/components/ui/textarea"
+import { mostEntries } from "@/lib/setting-rules"
 import { t } from "@/lib/texts"
 import { Empty } from "@/components/steward/query-state"
 import { useBreach } from "@/components/steward/breach-context"
@@ -120,6 +121,8 @@ export function RepeatableCards({
   const [pendingRemoval, setPendingRemoval] = useState<number | null>(null)
   const listExplanation = explanationOf(entry)
   const breach = useBreach(entry.path)
+  const most = mostEntries(entry.rules)
+  const full = most !== undefined && value.length >= most
 
   const protectedIndex = entry.protectedEntry
     ? value.findIndex((section) => textOf(section, entry.protectedEntry!.field) === entry.protectedEntry!.value)
@@ -278,17 +281,19 @@ export function RepeatableCards({
       })}
       <FieldProblem id={`${entry.path}-breach`} problem={breach} />
       <div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          aria-label={within ? t("steward.settings.add-to", { what: within }) : undefined}
-          onClick={() => onChange([...value, blankSection(template)])}
-        >
-          <PlusIcon aria-hidden />
-          {t("steward.settings.add-entry")}
-        </Button>
+        <Hint tip={full ? t("steward.settings.list-full", { most }) : undefined}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled || full}
+            aria-label={within ? t("steward.settings.add-to", { what: within }) : undefined}
+            onClick={() => onChange([...value, blankSection(template)])}
+          >
+            <PlusIcon aria-hidden />
+            {t("steward.settings.add-entry")}
+          </Button>
+        </Hint>
       </div>
 
       {/* Removing only changes the draft. Nothing is written to the file until Save. */}

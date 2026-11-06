@@ -357,6 +357,23 @@ describe("game group editors", { timeout: 15_000 }, () => {
     })
   })
 
+  it("disables the add button of a block list that holds the most entries its rule allows", async () => {
+    const full: ConfigDocument = {
+      ...WHEEL,
+      entries: WHEEL.entries.map((item) =>
+        item.key === "wheel-blocks" ? { ...item, rules: [{ rule: "MOST_ENTRIES", limit: 1 }] } : item,
+      ),
+    }
+    backend(full)
+    draw(<WheelEditor file="smp/wheel" document={full} target={null} />)
+
+    await screen.findByRole("button", { name: "Block 1" })
+    const add = screen.getByRole("button", { name: "Block" })
+    expect(add).toHaveProperty("disabled", true)
+    fireEvent.click(add)
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
   it("shows each prize's chance on its tile and edits amount and weight in its dialog, never the item", async () => {
     backend(WHEEL)
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)

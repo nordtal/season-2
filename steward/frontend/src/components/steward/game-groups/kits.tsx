@@ -15,6 +15,7 @@ import { AddPicker, NumberInput, RemoveButton } from "@/components/steward/game-
 import { TakeInButton } from "@/components/steward/game-groups/take-in"
 import { EntryDialog, Labelled, Tile, Tiles } from "@/components/steward/game-groups/tiles"
 import { Button } from "@/components/ui/button"
+import { mostEntries } from "@/lib/setting-rules"
 import { t } from "@/lib/texts"
 
 /** The loadout items a kit's tile shows; the rest are counted. */
@@ -100,7 +101,7 @@ export function KitList({
   const loadout = field(entry, "loadout")!
   const icons = useItems(icon.refers!)
   const items = useItems(field(loadout, "item")!.refers!)
-  const most = entry.rules?.find((rule) => rule.rule === "MOST_ENTRIES")?.limit
+  const most = mostEntries(entry.rules)
   const full = most !== undefined && value.length >= most
   const required = entry.rules?.some((rule) => rule.rule === "REQUIRED") ?? false
   const name = (index: number) =>

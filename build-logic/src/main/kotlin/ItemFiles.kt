@@ -232,22 +232,105 @@ class ItemFiles(
             "The item $item has nothing at $at."
         }
         val replaced = before - ItemDefinitions.models(definition).map(::full).toSet()
-        pending.putAll(unused(replaced, item, definition, pending))
+        val file = assets.resolve(Identifier.resource(item, "items", ".json"))
+        pending.putAll(unused(replaced, pending + (file to OxfmtJson.asset(definition).toByteArray())))
         return store(item, definition, pending)
     }
 
     /**
-     * Deletions, each a file mapped to null: each model of [replaced] that nothing of the pack draws once [item] is
-     * [definition] and [pending] is written, and each of its textures that nothing else names, with its `.mcmeta` and
-     * `art/` source. Files in `minecraft` stay, since the client jar may draw them.
+     * Deletes the texture [id], such as `nordtal:item/wand` or `minecraft:block/stone.png`, from the pack: its PNG, its
+     * `.mcmeta` and its `art/` source. Refused while a file of the pack names it, each listed as a path of [repository] and
+     * a line, unless it overrides a texture of the client jar, which shows again. Returns every file deleted.
      */
-    private fun unused(
-        replaced: Set<String>,
-        item: String,
-        definition: Any?,
-        pending: Map<File, ByteArray?>,
-    ): Map<File, ByteArray?> {
-        // Every JSON of the pack as it will be, and glyphs.json, whose glyphs draw textures too
+    fun deleteTexture(
+        id: String,
+        repository: File,
+    ): List<File> {
+        val texture = full(id.removeSuffix(".png"))
+        val png = assets.resolve(Identifier.resource(texture, "textures", ".png"))
+        if (!png.isFile) throw FieldRefusal("texture", "$texture is no texture of the pack.")
+        val relative = png.relativeTo(assets).invariantSeparatorsPath
+        if (!texture.startsWith("minecraft:") || zip.getEntry("assets/$relative") == null) {
+            val places =
+                texts().flatMap { (file, text) ->
+                    text
+                        .lineSequence()
+                        .withIndex()
+                        .filter { (_, line) -> names(line, texture) }
+                        .map { "${file.relativeTo(repository).invariantSeparatorsPath}:${it.index + 1}" }
+                        .toList()
+                }
+            check(places.isEmpty()) { used(texture, places) }
+        }
+        val deletions = sources(png)
+        AtomicFiles.write(deletions.associateWith { null })
+        return deletions
+    }
+
+    /**
+     * Deletes the item [id] with each model, parent model and texture of the pack that nothing else draws, as [unused] finds
+     * them. An item outside `minecraft` is refused while main code of [repository] names it, as [uses] finds it, each
+     * listed as a path and a line. Returns every file deleted.
+     */
+    fun deleteItem(
+        id: String,
+        repository: File,
+    ): List<File> {
+        val file = assets.resolve(Identifier.resource(id, "items", ".json"))
+        if (!file.isFile) throw FieldRefusal("item", "The item $id is not in the pack.")
+        val item = full(id)
+        if (!item.startsWith("minecraft:")) {
+            val uses = uses(item)
+            val places =
+                trackedFiles(repository, emptyList(), untracked = true)
+                    .filterNot { repository.resolve(it).startsWith(assets) || EXAMPLES.containsMatchIn(it) }
+                    .flatMap { path ->
+                        readText(repository.resolve(path))
+                            .orEmpty()
+                            .lineSequence()
+                            .withIndex()
+                            .filter { (_, line) -> uses.containsMatchIn(line) }
+                            .map { "$path:${it.index + 1}" }
+                            .toList()
+                    }
+            check(places.isEmpty()) { used("The item $item", places) }
+        }
+        // The models it draws and each parent of those that the pack holds
+        val models = linkedSetOf<String>()
+        var next = ItemDefinitions.models(OxfmtJson.read(file)).map(::full)
+        while (next.isNotEmpty()) {
+            next =
+                next
+                    .filter { models.add(it) }
+                    .mapNotNull { model ->
+                        val json = runCatching { assets.resolve(Identifier.resource(model, "models", ".json")) }.getOrNull()
+                        (json?.takeIf { it.isFile }?.let { OxfmtJson.read(it) } as? Map<*, *>)?.get("parent") as? String
+                    }.map(::full)
+        }
+        val deletions = linkedMapOf<File, ByteArray?>(file to null)
+        deletions.putAll(unused(models, deletions))
+        AtomicFiles.write(deletions)
+        return deletions.keys.toList()
+    }
+
+    /**
+     * The uses of the item [id] in a line: its id as a word, or `Key.key` or `new NamespacedKey` with its namespace and
+     * path, the forms in which code gives an item its model.
+     */
+    private fun uses(id: String): Regex {
+        val (namespace, path) = id.split(':', limit = 2)
+        val key = """(Key\.key|NamespacedKey)\(\s*"${Regex.escape(namespace)}"\s*,\s*"${Regex.escape(path)}"\s*\)"""
+        return Regex("""(?<![\w:/.-])${Regex.escape(id)}(?![\w:/-]|\.\w)|$key""")
+    }
+
+    /** The refusal of a delete of [label], which [places] still use */
+    private fun used(
+        label: String,
+        places: List<String>,
+    ) = "$label is still used in ${places.size} place${if (places.size == 1) "" else "s"}:\n" + places.joinToString("\n") { "    $it" }
+
+    /** Each JSON file of the pack's assets and `glyphs.json`, whose glyphs draw textures too, with its text */
+    private fun texts(): MutableMap<File, String> {
         val texts =
             assets
                 .walkTopDown()
@@ -255,8 +338,35 @@ class ItemFiles(
                 .associateWith { it.readText() }
                 .toMutableMap()
         pack.resolve("glyphs.json").takeIf { it.isFile }?.let { texts[it] = it.readText() }
-        texts[assets.resolve(Identifier.resource(item, "items", ".json"))] = OxfmtJson.asset(definition)
-        pending.forEach { (file, bytes) -> if (bytes != null && file.extension == "json") texts[file] = bytes.decodeToString() }
+        return texts
+    }
+
+    /** The texture [png] of the pack and, of its `.mcmeta` and `art/` source, each that exists */
+    private fun sources(png: File): List<File> {
+        val path = png.relativeTo(assets).invariantSeparatorsPath.removeSuffix(".png")
+        return listOf(png) + listOf(File(png.path + ".mcmeta"), pack.resolve("art/assets/$path.aseprite")).filter { it.isFile }
+    }
+
+    /**
+     * Deletions, each a file mapped to null: each model of [replaced] that nothing of the pack draws once [pending], new
+     * files and null for each file deleted, is written, and each of its textures that nothing else names, with its
+     * `.mcmeta` and `art/` source. Files in `minecraft` stay, since the client jar may draw them.
+     */
+    private fun unused(
+        replaced: Set<String>,
+        pending: Map<File, ByteArray?>,
+    ): Map<File, ByteArray?> {
+        // Every JSON of the pack as it will be
+        val texts = texts()
+        pending.forEach { (file, bytes) ->
+            if (file.extension == "json") {
+                if (bytes == null) {
+                    texts.remove(file)
+                } else {
+                    texts[file] = bytes.decodeToString()
+                }
+            }
+        }
         val gone =
             replaced
                 .filter { !it.startsWith("minecraft:") }
@@ -280,10 +390,7 @@ class ItemFiles(
                 if (texture.startsWith("minecraft:")) continue
                 val png = runCatching { assets.resolve(Identifier.resource(texture, "textures", ".png")) }.getOrNull() ?: continue
                 if (!png.isFile || png in deletions || named(texture)) continue
-                deletions[png] = null
-                File(png.path + ".mcmeta").takeIf { it.isFile }?.let { deletions[it] = null }
-                val path = png.relativeTo(assets).invariantSeparatorsPath.removeSuffix(".png")
-                pack.resolve("art/assets/$path.aseprite").takeIf { it.isFile }?.let { deletions[it] = null }
+                sources(png).forEach { deletions[it] = null }
             }
         }
         return deletions
@@ -337,5 +444,8 @@ class ItemFiles(
 
     private companion object {
         val ATLAS = Regex("""assets/[^/]+/atlases/[^/]+\.json""")
+
+        /** The files in which an item id is an example rather than a use: documents and tests */
+        val EXAMPLES = Regex("""\.md$|(^|/)src/test/|\.(test|spec)\.[jt]sx?$|(^|/)spec/[^/]+_spec\.lua$""")
     }
 }

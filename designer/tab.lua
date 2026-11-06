@@ -150,6 +150,7 @@ function tab.open(context)
         for _, row in ipairs(modules.drafts.rows(model, info, tr)) do
           table.insert(list, row)
         end
+        table.insert(list, { text=tr("properties.delete"), field="delete", kind="button" })
       end
       return list
     end
@@ -1081,7 +1082,7 @@ function tab.open(context)
       return
     end
     if field == "delete" then
-      local yes = api.alert{ title=tr("properties.delete"), text=tr("properties.delete_confirm", properties.label(info)),
+      local yes = api.alert{ title=tr("properties.delete"), text=properties.confirm(info, tr),
                              buttons={ tr("properties.delete"), tr("edit.cancel") } }
       if yes ~= 1 then
         return

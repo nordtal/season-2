@@ -271,18 +271,19 @@ object PackModel {
         }
 
     /**
-     * The texture that a `minecraft:model` item draws: `layer0` of its model in the pack, or the model's first texture.
+     * The texture that a `minecraft:model` item draws: `layer0` of its model as [read] gives it, or its first texture.
      * It is null for any other item type, a model outside the pack, a model without a texture, or a texture that is no
      * identifier, so that no path of the model leads out of the pack.
      */
     internal fun itemTexture(
         model: Map<*, *>?,
         assets: File,
+        read: (File) -> Any? = { file -> file.takeIf { it.isFile }?.let { json(it) } },
     ): String? {
         if (model?.get("type") != "minecraft:model") return null
         val reference = model["model"] as? String ?: return null
         val file = assets.resolve(runCatching { Identifier.resource(reference, "models", ".json") }.getOrNull() ?: return null)
-        val textures = (file.takeIf { it.isFile }?.let { json(it) } as? Map<*, *>)?.get("textures") as? Map<*, *>
+        val textures = (read(file) as? Map<*, *>)?.get("textures") as? Map<*, *>
         val id = (textures?.get("layer0") ?: textures?.values?.firstOrNull()) as? String ?: return null
         val texture = (if (':' in id) id else "minecraft:$id") + ".png"
         return texture.takeIf { Identifier.problem(it) == null }

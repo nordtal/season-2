@@ -221,6 +221,14 @@ abstract class EditPackSources : VanillaClientTask() {
                         )
                     }
 
+                    "deleteTexture" -> {
+                        ItemFiles(pack, ::jar).use { it.deleteTexture(text("texture"), repository) }
+                    }
+
+                    "deleteItem" -> {
+                        ItemFiles(pack, ::jar).use { it.deleteItem(text("item"), repository) }
+                    }
+
                     "import" -> {
                         ItemFiles(pack, ::jar).use { it.import(File(text("model")), text("id"), text("item"), options["at"] ?: "") }
                     }

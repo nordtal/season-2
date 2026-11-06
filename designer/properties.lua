@@ -25,6 +25,24 @@ function properties.label(info)
   return (e.name or nil) or (e.constant or nil)
 end
 
+-- The question that confirms the delete of info: for an override or
+-- an item, the question and what goes with it as lines of their own,
+-- since a long id would push one line past the window
+function properties.confirm(info, tr)
+  if info.kind == "override" then
+    local lines = { tr("properties.delete_question", info.texture.id), tr("properties.delete_texture_note") }
+    -- An override of Minecraft's texture gives the jar's back
+    if info.texture.id:find("^minecraft:") then
+      table.insert(lines, tr("properties.delete_override_note"))
+    end
+    return lines
+  elseif info.kind == "item" then
+    return { tr("properties.delete_question", info.entry.id), tr("properties.delete_item_note") }
+  end
+  local text = tr("properties.delete_confirm", properties.label(info))
+  return text
+end
+
 -- The size { width, height } of the sprite of info: one frame of an
 -- animated texture whose model splits its PNG into frames, else the
 -- PNG's. The tab writes the sprite's size into the texture and removes
@@ -70,6 +88,9 @@ function properties.rows(info, tr, context)
 
   local e, kind, t = info.entry, info.kind, info.texture
   local editable = (kind == "glyph" or kind == "cell") and properties.label(info) ~= nil
+  -- A texture without a glyph is deleted with its own task, an item
+  -- with its models and textures
+  local deletable = editable or (kind == "override" and t ~= nil) or kind == "item"
   local function pixels(field)
     local s = t and size(info)
     if s and s.width then
@@ -151,7 +172,7 @@ function properties.rows(info, tr, context)
     end
     files()
   end
-  if editable then
+  if deletable then
     table.insert(list, { key="delete", value=tr("properties.delete"), field="delete" })
   end
   return list
@@ -240,6 +261,10 @@ function properties.jobs(info, field, data, tr, old)
     return { "editText", { key=data.key, language=data.language, value=data.value or "" } }
   elseif field == "deleteText" then
     return { "editText", { key=e.key, delete=true } }
+  elseif field == "delete" and info.kind == "override" then
+    return { "deleteTexture", { texture=t.id } }
+  elseif field == "delete" and info.kind == "item" then
+    return { "deleteItem", { item=e.id } }
   end
   local glyph = properties.label(info)
   if field == "name" or field == "constant" then

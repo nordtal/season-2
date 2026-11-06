@@ -274,6 +274,43 @@ class DraftsTest {
     }
 
     @Test
+    fun anItemAndAModelThatDrawOnlyVanillaTexturesAreDraftsOfTheirOwnFiles() {
+        val clone = DraftClone(root, "star@FE000")
+        val assets = clone.pack.resolve("src/assets/nordtal")
+        val model = assets.resolve("models/item/rail.json").apply { parentFile.mkdirs() }
+        model.writeText("""{ "textures": { "particle": "minecraft:block/gold_block" } }""")
+        assets.resolve("items/rail.json").apply { parentFile.mkdirs() }.writeText(
+            """{ "model": { "type": "minecraft:model", "model": "nordtal:item/rail" } }""",
+        )
+
+        assertEquals(
+            listOf("src/assets/nordtal/items/rail.json", "src/assets/nordtal/models/item/rail.json"),
+            drafts(clone).map { it.first() },
+        )
+    }
+
+    @Test
+    fun aKeptItemIsADraftOfTheTextureThatTheDesignerShowsWhileItsFirstTextureIsDeleted() {
+        val clone = DraftClone(root, "star@FE000")
+        val assets = clone.pack.resolve("src/assets/nordtal")
+        for (name in listOf("a", "b")) clone.pngFile("star").copyTo(assets.resolve("textures/item/$name.png").apply { parentFile.mkdirs() })
+        assets.resolve("models/item/wand.json").apply { parentFile.mkdirs() }.writeText(
+            """{ "textures": { "layer0": "nordtal:item/a", "layer1": "nordtal:item/b" } }""",
+        )
+        val item = assets.resolve("items/wand.json").apply { parentFile.mkdirs() }
+        item.writeText("""{ "model": { "type": "minecraft:model", "model": "nordtal:item/wand" } }""")
+        clone.commitAll("feat: wand")
+        clone.git(clone.clone, "push", "-q", "origin", "main")
+
+        assets.resolve("textures/item/a.png").delete()
+        item.writeText("""{ "model": { "type": "minecraft:model", "model": "nordtal:item/wand" }, "oversized_in_gui": true }""")
+
+        assertEquals(listOf("nordtal:item/a.png", "nordtal:item/b.png"), drafts(clone).map { it.first() })
+        val texture = PackModel.itemTexture(mapOf("type" to "minecraft:model", "model" to "nordtal:item/wand"), clone.pack.resolve("src/assets"))
+        assertEquals("nordtal:item/b.png", texture)
+    }
+
+    @Test
     fun aModelThatAnItemEditRemovedIsADraftOfItsOwnAndNotOfItsKeptTexture() {
         val clone = DraftClone(root, "star@FE000")
         val assets = clone.pack.resolve("src/assets/nordtal")

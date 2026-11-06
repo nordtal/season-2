@@ -251,7 +251,12 @@ object GlyphEdits {
     private fun refuseUsed(
         repository: File,
         found: Found,
-    ) = refuseUsed(repository, found.label, listOfNotNull(found.glyph["constant"] as String?), listOfNotNull(found.glyph["name"] as String?))
+    ) = refuseUsed(
+        repository,
+        found.label,
+        listOfNotNull(found.glyph["constant"] as String?),
+        listOfNotNull(found.glyph["name"] as String?),
+    )
 
     /**
      * Refuses while the repository's files use one of [constants], [names] or [fonts], and lists each place under [label]:

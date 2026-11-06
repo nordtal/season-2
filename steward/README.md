@@ -221,6 +221,9 @@ applies at the next reading.
 ./gradlew :steward:preview    # Serve the real interface on http://localhost:18180 over stand-ins and a scratch database.
 ```
 
+[`ui-stack/`](ui-stack/README.md) runs the same preview behind Vite's hot reload as one `docker compose` stack, for
+work on the interface with Docker alone.
+
 `preview` signs in as an invented admin whose key counts as just held. `--args="--dump FILE"` first
 restores a `pg_dump`. Preview writes the session cookie to `build/preview/state.json` as Playwright's
 `storageState`. The stand-in agent reads Steward's own jar, so the Translations page lists Steward's texts;

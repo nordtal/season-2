@@ -245,6 +245,7 @@ class ModelFilesTest {
     @Test
     fun aReimportChangesOnlyTheLineOfWhatWasEdited() {
         val before = laidOut().lines()
+
         @Suppress("UNCHECKED_CAST")
         val project = JsonSlurper().parse(exported()) as MutableMap<String, Any?>
         val north = (((project["elements"] as List<*>)[1] as Map<*, *>)["faces"] as Map<*, *>)["north"]
@@ -289,6 +290,7 @@ class ModelFilesTest {
         reimported { project ->
             @Suppress("UNCHECKED_CAST")
             val elements = project["elements"] as MutableList<Any?>
+
             @Suppress("UNCHECKED_CAST")
             val cube = JsonSlurper().parseText(JsonOutput.toJson(elements[1])) as MutableMap<String, Any?>
             cube["from"] = listOf(12, 1, 0)
@@ -309,6 +311,7 @@ class ModelFilesTest {
         reimported { project ->
             @Suppress("UNCHECKED_CAST")
             val elements = project["elements"] as MutableList<Any?>
+
             @Suppress("UNCHECKED_CAST")
             val up = ((elements[0] as Map<*, *>)["faces"] as Map<*, *>)["up"] as MutableMap<String, Any?>
             up["uv"] = listOf(0, 0, 8, 16)

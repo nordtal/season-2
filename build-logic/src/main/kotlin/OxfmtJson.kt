@@ -80,10 +80,19 @@ object OxfmtJson {
             is Map<*, *> -> {
                 val old = like as? Map<*, *>
                 val objects = old?.values?.takeIf { members -> members.isNotEmpty() && members.all { it is Map<*, *> } }
-                val keys = old?.keys?.filter { it in value }.orEmpty().toMutableList()
+                val keys =
+                    old
+                        ?.keys
+                        ?.filter { it in value }
+                        .orEmpty()
+                        .toMutableList()
                 // A new key goes before the next key that follows it in [value] and has a place already
                 value.keys.filter { old?.containsKey(it) != true }.forEach { key ->
-                    val after = value.keys.toList().let { it.subList(it.indexOf(key) + 1, it.size) }.firstOrNull { it in keys }
+                    val after =
+                        value.keys
+                            .toList()
+                            .let { it.subList(it.indexOf(key) + 1, it.size) }
+                            .firstOrNull { it in keys }
                     keys.add(if (after == null) keys.size else keys.indexOf(after), key)
                 }
                 Object((like as? Object)?.expanded ?: (like !is Map<*, *>)).also { copy ->

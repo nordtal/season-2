@@ -44,12 +44,12 @@ describe("a document in English only", { timeout: 15_000 }, () => {
     fireEvent.click(await screen.findByRole("button", { name: /^Discord/ }))
     const row = await screen.findByRole("button", { name: "Update run" })
     expect(within(row).getByText("English only")).toBeTruthy()
-    expect(within(row).queryByText("Not translated")).toBeNull()
+    expect(within(row).queryByText("not translated")).toBeNull()
 
     fireEvent.click(row)
     const card = await screen.findByRole("article", { name: "Update run" })
     expect(within(card).getByText("English only")).toBeTruthy()
-    expect(within(card).queryByText("Not translated")).toBeNull()
+    expect(within(card).queryByText("not translated")).toBeNull()
     // The open item offers no language to switch to.
     expect(within(card).queryByRole("tab", { name: "DE" })).toBeNull()
     expect(await within(card).findByText("drawn in en")).toBeTruthy()

@@ -288,7 +288,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     await waitFor(() => expect(row.textContent).toContain("access-de"))
     const other = screen.getByRole("button", { name: "Donation" })
     expect(other.textContent).toContain("Give")
-    expect(within(other).getByText("Not translated")).toBeTruthy()
+    expect(within(other).getByText("not translated")).toBeTruthy()
   })
 
   it("saves the edited document at once and marks it changed in the list", async () => {
@@ -422,7 +422,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     const editor = await openContribution()
     fireEvent.click(within(editor).getByRole("button", { name: "Versions" }))
     // The newest save is live; the older one and the packaged one are offered.
-    expect(await within(editor).findByText("Live")).toBeTruthy()
+    expect(await within(editor).findByText("live")).toBeTruthy()
     const restores = within(editor).getAllByRole("button", { name: "Restore" })
     expect(restores).toHaveLength(2)
 

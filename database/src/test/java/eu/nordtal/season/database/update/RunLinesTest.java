@@ -99,6 +99,13 @@ class RunLinesTest {
                         new RunStep.Change("voicechat", null, null, null)))));
     }
 
+    @Test
+    void aVersionWithNothingAfterItReadsAsRemoved() {
+        assertEquals(
+                List.of("coreprotect 24.1, removed"),
+                english(resolve(List.of(new RunStep.Change("coreprotect", "24.1", null, null)))));
+    }
+
     private static RunStep.Row resolve(final List<RunStep.Change> changes) {
         return new RunStep.Row(
                 1,

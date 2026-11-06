@@ -1,12 +1,14 @@
 package eu.nordtal.season.stewardagent.plan;
 
 import eu.nordtal.season.database.update.RunStep;
+import eu.nordtal.season.internalapi.agent.JarName;
 import eu.nordtal.season.messages.MessageRef;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -82,10 +84,15 @@ public record Work(Map<String, List<RunStep.Change>> services, List<Finding> fin
         }
 
         for (final UpdatePlan.Retiring gone : plan.retiring()) {
-            // Deleting is work, so the run stops the server; the step names the plugin alone.
+            // Deleting is work, so the run stops the server; a version with nothing after it reads as removed.
             if (plan.blocker(gone.service()) == null) {
+                final @Nullable String version = gone.files().stream()
+                        .map(JarName::versionOf)
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse(null);
                 work.computeIfAbsent(gone.service(), key -> new ArrayList<>())
-                        .add(new RunStep.Change(gone.artifact(), null, null, null));
+                        .add(new RunStep.Change(gone.artifact(), version, null, null));
             }
         }
 

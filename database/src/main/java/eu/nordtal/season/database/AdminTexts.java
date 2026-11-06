@@ -366,6 +366,12 @@ public interface AdminTexts {
         MessageRef unchanged(
                 @Arg("artefact") @Example("schema") String artefact, @Arg("version") @Example("95") String version);
 
+        @Name("An artefact removed at a version")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef removed(
+                @Arg("artefact") @Example("coreprotect") String artefact,
+                @Arg("version") @Example("24.1") String version);
+
         @Name("An artefact and its one version")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef version(

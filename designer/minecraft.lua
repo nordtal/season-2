@@ -45,6 +45,14 @@ function minecraft.commands(request, encode)
     return { "/setblock ^ ^ ^2 " .. request.block .. " keep" }
   elseif op == "sound" then
     return { "/playsound " .. request.sound .. " master @s" }
+  elseif op == "rail" then
+    -- The server's station rail: an item display at the middle of a rail
+    local block = "/execute positioned ^ ^ ^2 align xyz "
+    local at = block .. "run "
+    return { at .. "setblock ~ ~ ~ minecraft:rail keep",
+             at .. "summon minecraft:item_display ~0.5 ~0.5 ~0.5 {Tags:[\"nordtal_preview\"]}",
+             block .. "positioned ~0.5 ~0.5 ~0.5 run item replace entity @n[type=minecraft:item_display,tag=nordtal_preview,distance=..0.1] contents with "
+               .. request.item }
   end
   return {}
 end
@@ -73,6 +81,11 @@ function minecraft.previews(info, rendered, definition, tr)
   elseif (kind == "item" and definition and info.entry.id == definition.item or kind == "definition" and definition) then
     for _, state in ipairs(definition.states or {}) do
       add(state.label ~= "" and tr("minecraft.give", state.label) or tr("minecraft.give_plain"), { op="give", item=state.give })
+    end
+    -- An item of the pack can be drawn as the server draws a station rail
+    local first = (definition.states or {})[1]
+    if first and tostring(definition.item):find("^nordtal:") then
+      add(tr("minecraft.rail"), { op="rail", item=first.give })
     end
   elseif kind == "sound" or kind == "sound_file" then
     -- The client plays an event, one of its sounds by weight

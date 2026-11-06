@@ -106,8 +106,66 @@ describe("the item definition editor", function()
   it("shows a case's condition, its model and the textures of that model", function()
     assert.same({
       "when=\"gui\"*", "items.type=model*", "model=nordtal:item/lamp_gui*", "[items.add tints]", "transformation=*",
-      "#layer0=nordtal:item/lamp_gui.png*", "[items.import]", "[items.remove]",
+      "#layer0=nordtal:item/lamp_gui.png*", "[items.blockbench]", "[items.import]", "[items.remove]",
     }, shown(items.rows(read(), "model/cases/0", "case", tr)))
+  end)
+
+  it("edits the texture keys of a model of the pack: sets, renames, removes and adds them", function()
+    local r = read()
+    r.models[1].pack = true
+    r.models[1].textures[1].own = true
+    local rows = items.rows(r, "model/cases/0", "case", tr)
+    assert.same({ "#layer0=nordtal:item/lamp_gui.png*", "[items.add_key]", "[items.blockbench]" },
+      { shown(rows)[6], shown(rows)[7], shown(rows)[8] })
+    local key = field(rows, "#layer0")
+    local form = items.form(r, key, {}, tr)
+    assert.same({ "#layer0", "layer0", "nordtal:item/lamp_gui" }, { form.title, form.widgets[1].text, form.widgets[2].text })
+    assert.same({ "open", "remove" }, { form.buttons[1].id, form.buttons[2].id })
+    assert.is_nil(items.form(r, key, { key="layer0" }, tr))
+
+    local function job(data) return items.job(r, key, data, decode) end
+    assert.is_nil(job({ key="layer0", texture="nordtal:item/lamp_gui" }))
+    assert.is_nil(job({ key="layer0", texture="x", open=true }))
+    assert.same({ "editModel", { model="nordtal:item/lamp_gui", key="layer0", texture="minecraft:block/stone" } },
+      job({ key=" layer0 ", texture="minecraft:block/stone " }))
+    assert.same({ "editModel", { model="nordtal:item/lamp_gui", key="layer0", to="glow" } },
+      job({ key="glow", texture="nordtal:item/lamp_gui" }))
+    assert.same({ "editModel", { model="nordtal:item/lamp_gui", key="layer0", delete=true } }, job({ remove=true }))
+
+    local add = field(rows, "items.add_key")
+    assert.same({ "items.add_key_title", "", "" },
+      { items.form(r, add, {}, tr).title, items.form(r, add, {}, tr).widgets[1].text, items.form(r, add, {}, tr).widgets[2].text })
+    assert.same({}, items.form(r, add, {}, tr).buttons)
+    assert.is_nil(items.job(r, add, { key="rim", texture="" }, decode))
+    assert.same({ "editModel", { model="nordtal:item/lamp_gui", key="rim", texture="#layer0", add=true } },
+      items.job(r, add, { key="rim", texture="#layer0" }, decode))
+  end)
+
+  it("offers no removal of a key that a parent sets and no editor for a texture of the client jar", function()
+    local r = read()
+    r.models[1].pack = true
+    r.models[1].textures[1] = { key="layer0", own=false, texture={ id="minecraft:item/stick.png" } }
+    local form = items.form(r, field(items.rows(r, "model/cases/0", "case", tr), "#layer0"), {}, tr)
+    assert.same({}, form.buttons)
+    assert.equal("minecraft:item/stick", form.widgets[2].text)
+  end)
+
+  it("exports the drawn model for Blockbench and imports the project back onto it", function()
+    local r = read()
+    local rows = items.rows(r, "model/cases/0", "case", tr)
+    local export = field(rows, "items.blockbench")
+    assert.is_nil(items.form(r, export, {}, tr))
+    assert.same({ "exportBlockbench", { model="nordtal:item/lamp_gui", to="/c/lamp_gui.bbmodel" } },
+      items.job(r, export, { to="/c/lamp_gui.bbmodel" }, decode))
+    assert.equal("lamp_gui.bbmodel", items.bbmodel("nordtal:item/lamp_gui"))
+    assert.equal("file:///Users/a%20b/lamp_gui.bbmodel", items.fileUrl("/Users/a b/lamp_gui.bbmodel"))
+    assert.equal("file:///C:/Users/a%20b/lamp_gui.bbmodel", items.fileUrl("C:\\Users\\a b\\lamp_gui.bbmodel"))
+
+    local import = field(rows, "items.import")
+    assert.equal("/c/lamp_gui.bbmodel", items.form(r, import, { exported="/c/lamp_gui.bbmodel" }, tr).widgets[1].filename)
+    assert.equal("nordtal:item/lamp_gui", items.form(r, import, { file="/c/Lamp_Gui.bbmodel" }, tr).widgets[1].text)
+    assert.equal("nordtal:item/torch", items.form(r, field(items.rows(r, "model/fallback/on_true", "model", tr), "items.import"),
+      { file="/c/torch.bbmodel" }, tr).widgets[1].text)
   end)
 
   it("shows a texture that only the client jar has without opening it", function()

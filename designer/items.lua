@@ -45,6 +45,10 @@ local function members(list)
   return "{" .. table.concat(out, ",") .. "}"
 end
 
+local function trim(value)
+  return (tostring(value or ""):gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
 local function short(id)
   return (tostring(id):gsub("^minecraft:", ""))
 end
@@ -199,13 +203,15 @@ local function modelOf(read, at, part)
   return type(model) == "table" and model or nil, path
 end
 
+-- The textures of the node's model and the model as readItem
+-- describes it, { model, pack, textures }
 local function texturesOf(read, at, part)
   local model = modelOf(read, at, part)
   model = model and model.type == "minecraft:model" and model or nil
   for _, described in ipairs(model and read.models or {}) do
-    if described.model == model.model then return described.textures or {} end
+    if described.model == model.model then return described.textures or {}, described end
   end
-  return {}
+  return {}, nil
 end
 
 -- The textures of the node's model that the pack holds, which the
@@ -257,13 +263,25 @@ function items.rows(read, at, part, tr)
       end
     end
   end
-  for _, t in ipairs(texturesOf(read, at, part)) do
-    row("#" .. t.key, t.texture.id, t.texture.png and { op="texture", entry=t } or nil)
+  -- A key of a model of the pack is edited, one of the client jar only opens
+  local textures, described = texturesOf(read, at, part)
+  local editable = described and described.pack
+  for _, t in ipairs(textures) do
+    local action = editable and { op="key", model=described.model, key=t.key, own=t.own, entry=t }
+      or t.texture.png and { op="texture", entry=t } or nil
+    row("#" .. t.key, t.texture.id, action)
+  end
+  if editable then
+    button(tr("items.add_key"), { op="key", model=described.model })
   end
   -- An import replaces a model that draws one model or nothing
   local model, modelAt = modelOf(read, at, part)
+  local drawn = model and model.type == "minecraft:model" and type(model.model) == "string" and model.model or nil
+  if drawn then
+    button(tr("items.blockbench"), { op="blockbench", model=drawn })
+  end
   if model and (model.type == "minecraft:model" or model.type == "minecraft:empty") then
-    button(tr("items.import"), { op="import", at=modelAt })
+    button(tr("items.import"), { op="import", at=modelAt, model=drawn })
   end
   if removable(read, at, part) then
     button(tr("items.remove"), { op="remove", at=at })
@@ -350,15 +368,34 @@ function items.form(read, action, data, tr)
   elseif action.op == "import" then
     if data.file == nil then
       return { title=tr("items.import_title"), widgets={
-        { kind="file", id="file", label=tr("items.file"), open=true, filetypes={ "json", "bbmodel" } } } }
+        { kind="file", id="file", label=tr("items.file"), open=true, filetypes={ "json", "bbmodel" },
+          filename=data.exported } } }
     end
     -- The model is named after the file, in the pack's own namespace,
-    -- so that no import hides a model of the client jar
+    -- so that no import hides a model of the client jar. A file named
+    -- after the drawn model of the pack writes that model again.
     local name = data.file:match("([^/\\]+)%.%w+$")
     if data.id == nil and name then
+      local drawn = action.model and not action.model:find("^minecraft:") and action.model:find(":") and action.model
+      local again = drawn and drawn:match("([^/:]+)$") == name:lower()
       return { title=tr("items.import_title"), widgets={
-        { kind="entry", id="id", label=tr("items.model"), text="nordtal:item/" .. name:lower() } } }
+        { kind="entry", id="id", label=tr("items.model"), text=again and drawn or "nordtal:item/" .. name:lower() } } }
     end
+  elseif action.op == "key" then
+    if data.key ~= nil then return nil end
+    local current = action.entry and action.entry.texture.id:gsub("%.png$", "") or ""
+    local buttons = {}
+    if action.entry and action.entry.texture.png then
+      table.insert(buttons, { id="open", text=tr("items.open_texture") })
+    end
+    if action.entry and action.own then
+      table.insert(buttons, { id="remove", text=tr("items.remove_key") })
+    end
+    return { title=action.entry and "#" .. action.key or tr("items.add_key_title"), widgets={
+      { kind="entry", id="key", label=tr("items.key"), text=action.key or "" },
+      { kind="entry", id="texture", label=tr("items.texture"), text=current },
+      { kind="label", id="hint", text=tr("items.texture_hint") },
+    }, buttons=buttons }
   end
   return nil
 end
@@ -411,8 +448,37 @@ function items.job(read, action, data, decode)
   elseif action.op == "import" then
     if (data.file or "") == "" or (data.id or "") == "" then return nil end
     return { "importBlockbench", { model=data.file, id=data.id, item=read.item, at=action.at } }
+  elseif action.op == "blockbench" then
+    return { "exportBlockbench", { model=action.model, to=data.to } }
+  elseif action.op == "key" then
+    if data.open then return nil end
+    if data.remove then
+      return { "editModel", { model=action.model, key=action.key, delete=true } }
+    end
+    local key, texture = trim(data.key), trim(data.texture)
+    if not action.entry then
+      if key == "" or texture == "" then return nil end
+      return { "editModel", { model=action.model, key=key, texture=texture, add=true } }
+    end
+    local options = { model=action.model, key=action.key }
+    if texture ~= "" and texture ~= action.entry.texture.id:gsub("%.png$", "") then options.texture = texture end
+    if key ~= "" and key ~= action.key then options.to = key end
+    if not options.texture and not options.to then return nil end
+    return { "editModel", options }
   end
   return nil
+end
+
+-- The file name that exportBlockbench writes the model id as
+function items.bbmodel(id)
+  return id:match("([^/:]+)$") .. ".bbmodel"
+end
+
+-- The file: URL of an absolute path, which the system opens with the
+-- application it chose for the file's kind
+function items.fileUrl(path)
+  local encoded = path:gsub("\\", "/"):gsub("[^%w%-%._~/:]", function(c) return string.format("%%%02X", c:byte()) end)
+  return "file://" .. (encoded:sub(1, 1) == "/" and "" or "/") .. encoded
 end
 
 return items

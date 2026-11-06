@@ -35,11 +35,17 @@ sealed interface Request {
 
     /** Plays a sound event of the loaded packs to the player alone, at a volume up to 1 and a pitch from 0.5 to 2. */
     record Sound(String sound, float volume, float pitch) implements Request {}
+    /**
+     * Places a rail with an item on it as the server draws a station rail, in the client only.
+     * The item is written as `/give` writes it. The rail runs along the axis, or the way the player looks without one.
+     */
+    record Rail(
+            String item, @Nullable Position pos, @Nullable String axis) implements Request {}
 
     /** A block position in the world. */
     record Position(int x, int y, int z) {}
 
-    /** Removes the boss bar, the title and every block the bridge placed. */
+    /** Removes the boss bar, the title and every block and item the bridge placed. */
     record Clear() implements Request {}
 
     /** Reads the request named by `op`, or throws an IllegalArgumentException that says what is wrong. */
@@ -66,6 +72,7 @@ sealed interface Request {
             case "sound" ->
                 new Sound(string(json, "sound"), (float) number(json, "volume", 1, 0, 1), (float)
                         number(json, "pitch", 1, 0.5, 2));
+            case "rail" -> new Rail(string(json, "item"), position(json), axis(json));
             case "clear" -> new Clear();
             default -> throw new IllegalArgumentException("The bridge knows no op '" + op + "'.");
         };
@@ -114,17 +121,29 @@ sealed interface Request {
         }
         final JsonElement value = json.get("pos");
         if (!value.isJsonArray() || value.getAsJsonArray().size() != 3) {
-            throw new IllegalArgumentException("block needs 'pos' as [x, y, z].");
+            throw new IllegalArgumentException(op(json) + " needs 'pos' as [x, y, z].");
         }
         final int[] axes = new int[3];
         for (int i = 0; i < 3; i++) {
             final JsonElement axis = value.getAsJsonArray().get(i);
             if (!(axis instanceof JsonPrimitive primitive) || !primitive.isNumber()) {
-                throw new IllegalArgumentException("block needs 'pos' as [x, y, z].");
+                throw new IllegalArgumentException(op(json) + " needs 'pos' as [x, y, z].");
             }
             axes[i] = primitive.getAsInt();
         }
         return new Position(axes[0], axes[1], axes[2]);
+    }
+
+    private static @Nullable String axis(final JsonObject json) {
+        if (!json.has("axis")) {
+            return null;
+        }
+        final String axis = optionalString(json, "axis", "");
+        if (!axis.equals("north_south") && !axis.equals("east_west")) {
+            throw new IllegalArgumentException(
+                    op(json) + " takes the axis north_south or east_west, not '" + axis + "'.");
+        }
+        return axis;
     }
 
     private static String op(final JsonObject json) {

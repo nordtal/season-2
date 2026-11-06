@@ -423,8 +423,9 @@ of indent, and removes a file left empty.
 
 ## Item definitions
 
-Four tasks read, write and edit item definitions under `assets/<namespace>/items/`, for Nordtal items
-and overrides of vanilla items, and import a Blockbench model into one of them. Each
+Six tasks read, write and edit item definitions under `assets/<namespace>/items/`, for Nordtal items
+and overrides of vanilla items, edit the texture keys of a model, and take a model to Blockbench and
+back into one of them. Each
 reads the client jar of the season's Minecraft version, which _Vanilla overrides_ describes, for what the pack
 does not hold, and opens it only then. Paths are absolute. A written file has four spaces of indent
 and one member per line, like the pack's other files.
@@ -434,14 +435,18 @@ and one member per line, like the pack's other files.
 ./gradlew -q :resource-pack:writeItem -Pitem=nordtal:lamp -Pdefinition=/tmp/lamp.json
 ./gradlew -q :resource-pack:editItem -Pitem=nordtal:lamp -Pat=model -Padd=cases '-Pfields={"when":"gui"}'
 ./gradlew -q :resource-pack:importBlockbench -Pmodel=/tmp/lamp.bbmodel -Pid=nordtal:item/lamp -Pitem=nordtal:lamp -Pat=model
+./gradlew -q :resource-pack:editModel -Pmodel=nordtal:item/station_rail -Pkey=bar -Ptexture=nordtal:block/station_rail_bar
+./gradlew -q :resource-pack:exportBlockbench -Pmodel=nordtal:item/station_rail
 ```
 
-| task               | options                                 | prints                                                                                              |
-| ------------------ | --------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `readItem`         | `item`                                  | one line of JSON: the definition, where it comes from, its problems, `types`, `models` and `states` |
-| `writeItem`        | `item`, `definition`                    | the absolute path of the definition it wrote                                                        |
-| `editItem`         | `item`, `at`, `fields`, `add`, `remove` | the absolute path of the definition it wrote                                                        |
-| `importBlockbench` | `model`, `id`, `item`, `at`             | the absolute path of the model, of each texture and of the definition it wrote, and of each removal |
+| task               | options                                                                           | prints                                                                                              |
+| ------------------ | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `readItem`         | `item`                                                                            | one line of JSON: the definition, where it comes from, its problems, `types`, `models` and `states` |
+| `writeItem`        | `item`, `definition`                                                              | the absolute path of the definition it wrote                                                        |
+| `editItem`         | `item`, `at`, `fields`, `add`, `remove`                                           | the absolute path of the definition it wrote                                                        |
+| `importBlockbench` | `model`, `id`, `item`, `at`                                                       | the absolute path of the model, of each texture and of the definition it wrote, and of each removal |
+| `editModel`        | `model`, `key`; `texture`, `to`, `delete` (true), `add` (true), `width`, `height` | the absolute path of the model and of a texture it wrote                                            |
+| `exportBlockbench` | `model`; `to`                                                                     | the absolute path of the project it wrote                                                           |
 
 The line of `readItem` holds `item`, `source` (`pack`, or `vanilla` for a definition only the jar
 has), `file` (the path in the pack, or null), `definition`, `problems` (a list of strings, empty when
@@ -451,7 +456,8 @@ the rules below know, with the fields of each, for an editor to offer. A field i
 (`model`, `special`, `property`) or a list (`models`, `cases`, `entries`, `tints`). `types.kinds` maps
 each value kind to the JSON type it holds, each list kind to the kind of its elements and each typed
 kind to its table of types. `models` lists each model that the definition draws with its textures and
-their parents' textures. A texture whose PNG the pack holds has the fields of an override in the pack
+their parents' textures, and `pack`, true when the pack holds the model's file. A texture's `own` is
+true when the model sets the key itself, false when a parent sets it. A texture whose PNG the pack holds has the fields of an override in the pack
 model (`texture`, `mcmeta`, `animation`, `frames`), any other only its `id`. A texture is a draft
 when its id is one of the pack model's `drafts`.
 `states` lists the states a `/give` shows, each as `label` and `give`, the item with its components.
@@ -496,12 +502,33 @@ Without `fields`, `add` and `remove`, it writes the definition unchanged, which 
   under `textures/` under its name in lower case, and its reference is rewritten to the namespace of
   `id`. A reference that the pack or the jar resolves, such as `block/stone`, stays. A file that the
   pack or the jar holds already is refused, so an import never hides a vanilla model or texture.
+- An import onto the object at `at` that draws the model `id` already writes that model again. A
+  texture the project holds with the same pixels stays the id it came from, in the pack or the jar.
+  A texture of the model's own, one in the pack outside `minecraft` that nothing else of the pack
+  names, is written over in place when it changed, its `.mcmeta` stays, and its source under `art/`
+  goes, since it holds the old pixels. One that the project no longer names goes with its `.mcmeta`
+  and source. Any other changed texture is a new file, as above.
 - A model of the pack that the item drew at `at` before goes when nothing of the pack draws it any
   more, neither an item, a model's `parent` nor a block state. Each of its textures goes with it,
   with its `.mcmeta` and its source under `art/`, when no other JSON of the pack and no glyph of
   `glyphs.json` names it. What something else uses stays, and so does every file in `minecraft`,
   which the client jar may draw. The new model, its textures, the definition and these removals
   are written all or none.
+- `editModel` changes the texture `key` of the pack's model `model`: `texture` sets it to a texture
+  id, where `block/stone` reads as `minecraft:block/stone`, or to `#other`, another key of the model.
+  `to` renames it in each face and key that draws it, and `-Pdelete=true` removes it. With
+  `-Padd=true` a key the model or a parent sets already is refused. A key is
+  letters, digits and `_`. A texture outside `minecraft` that neither the pack nor the jar holds is
+  written as a transparent PNG of `width` by `height`, 16 by 16 by default, with the model in one run.
+  A model only the jar holds, a key that a parent sets for a rename or a removal, a key that a face
+  still draws for a removal, two keys that name each other and a missing texture in `minecraft` are
+  refused with `refused` and the field's name.
+- `exportBlockbench` writes the model `model` of the pack or the jar to `to`, by default
+  `build/blockbench/<name>.bbmodel`, as a project of the format Java Block/Item. It holds the
+  elements of the model or of its nearest parent that has some, and each texture that a key resolves
+  to, embedded once with its folder and namespace, so that `importBlockbench` reads it back as the
+  same model. A model without elements, a texture without a PNG, two textures of one file name and a
+  face whose key names no texture are refused.
 - Every item definition of the client jar passes these rules and is written back unchanged, keys in
   their order, which a test checks against the jar. Without the jar in the cache and without the
   network, that test is skipped.

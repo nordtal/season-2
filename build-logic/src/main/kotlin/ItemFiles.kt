@@ -3,6 +3,7 @@ package eu.nordtal.season.build
 import groovy.json.JsonSlurper
 import java.io.File
 import java.util.zip.ZipFile
+import javax.imageio.ImageIO
 
 /**
  * Reads and writes the item definitions of the pack at [pack], and imports Blockbench models into it. A reference
@@ -81,7 +82,11 @@ class ItemFiles(
             "definition" to definition,
             "problems" to ItemDefinitions.problems(definition) + ItemDefinitions.missing(definition, ::read, ::sprite),
             "types" to ItemDefinitions.types,
-            "models" to ItemDefinitions.models(definition).map { linkedMapOf("model" to it, "textures" to textures(it, drafts)) },
+            "models" to
+                ItemDefinitions.models(definition).map {
+                    val own = runCatching { assets.resolve(Identifier.resource(it, "models", ".json")).isFile }.getOrDefault(false)
+                    linkedMapOf("model" to it, "pack" to own, "textures" to textures(it, drafts))
+                },
             "states" to ItemStates.of(full(id), definition),
         )
     }
@@ -94,14 +99,14 @@ class ItemFiles(
         model: String,
         drafts: Set<String>,
     ): List<Map<String, Any?>> =
-        ItemDefinitions.textures(model, ::read, mutableListOf()).distinctBy { it.key }.map { (_, key, texture) ->
+        ItemDefinitions.textures(model, ::read, mutableListOf()).distinctBy { it.key }.map { (from, key, texture) ->
             val png = runCatching { Identifier.resource(texture, "textures", ".png") }.getOrNull()?.let { assets.resolve(it) }
             val id = "${full(texture)}.png"
             if (png?.isFile == true) {
                 val described = PackModel.texture(id, pack, PackModel.Marks(drafts))
-                linkedMapOf("key" to key, "texture" to described) + PackModel.animation(png, pack, described)
+                linkedMapOf("key" to key, "own" to (from == model), "texture" to described) + PackModel.animation(png, pack, described)
             } else {
-                linkedMapOf("key" to key, "texture" to mapOf("id" to id))
+                linkedMapOf("key" to key, "own" to (from == model), "texture" to mapOf("id" to id))
             }
         }
 
@@ -189,6 +194,19 @@ class ItemFiles(
             }
         val target = assets.resolve("$namespace/models/$path.json")
         val pending = linkedMapOf<File, ByteArray?>(target to ByteArray(0))
+        val definition = definition(item)
+        // An import onto the node that draws the model already writes it again, with the textures it names in the pack
+        val node = at.split('/').filter { it.isNotEmpty() }.fold<String, Any?>(definition) { n, key ->
+            when (n) {
+                is Map<*, *> -> n[key]
+                is List<*> -> key.toIntOrNull()?.let { n.getOrNull(it) }
+                else -> null
+            }
+        } as? Map<*, *>
+        val drawn = node?.takeIf { it["type"] == "minecraft:model" || it["type"] == "model" }?.get("model")
+        val again = drawn is String && full(drawn) == full(id) && target.isFile
+        val owned = if (again) owned(target) else emptyMap()
+        val replaceable = if (again) owned.keys + target else emptySet()
 
         @Suppress("UNCHECKED_CAST")
         val textures = model["textures"] as? MutableMap<String, Any?> ?: mutableMapOf()
@@ -197,6 +215,22 @@ class ItemFiles(
             val reference = value as? String ?: continue
             if (reference.startsWith("#")) continue
             val image = images[reference]
+            val link = (image?.link ?: reference).let(::full)
+            val linked = runCatching { Identifier.resource(link, "textures", ".png") }.getOrNull()
+            if (image != null && linked != null && read(linked)?.let { samePixels(it, image.png) } == true) {
+                // A texture that Blockbench left as it was stays the texture it came from
+                textures[key] = link
+                continue
+            }
+            val own = linked?.let { assets.resolve(it) }?.takeIf { it in owned }
+            if (image != null && own != null) {
+                textures[key] = link
+                pending[own] = image.png
+                val mcmeta = File(own.path + ".mcmeta")
+                if (!mcmeta.isFile) image.mcmeta?.let { pending[mcmeta] = it }
+                owned[own]?.let { pending[it] = null }
+                continue
+            }
             if (image == null) {
                 val beside = name(reference) + ".png"
                 require(sprite(reference)) {
@@ -218,7 +252,16 @@ class ItemFiles(
             pending[png] = image.png
             image.mcmeta?.let { pending[File(png.path + ".mcmeta")] = it }
         }
+        // A texture of its own that the model no longer names goes, with its .mcmeta and art/ source
+        val kept = textures.values.filterIsInstance<String>().filterNot { it.startsWith("#") }.mapNotNull { reference ->
+            runCatching { assets.resolve(Identifier.resource(full(reference), "textures", ".png")) }.getOrNull()
+        }.toSet()
+        for (png in owned.keys) {
+            if (png in kept || png in pending) continue
+            sources(png).forEach { pending[it] = null }
+        }
         for (file in pending.keys) {
+            if (file in replaceable || pending[file] == null) continue
             val relative = file.relativeTo(assets).invariantSeparatorsPath
             if (file.exists()) throw FieldRefusal("id", "${file.relativeTo(pack).invariantSeparatorsPath} exists already.")
             if (read(relative) != null) {
@@ -226,7 +269,6 @@ class ItemFiles(
             }
         }
         pending[target] = OxfmtJson.asset(model).toByteArray()
-        val definition = definition(item)
         val before = ItemDefinitions.models(definition).map(::full).toSet()
         require(ItemDefinitions.edit(definition, at, mapOf("type" to "minecraft:model", "model" to id), null, false)) {
             "The item $item has nothing at $at."
@@ -235,6 +277,28 @@ class ItemFiles(
         val file = assets.resolve(Identifier.resource(item, "items", ".json"))
         pending.putAll(unused(replaced, pending + (file to OxfmtJson.asset(definition).toByteArray())))
         return store(item, definition, pending)
+    }
+
+    /**
+     * The PNGs of the pack outside `minecraft` that the model [file] names and nothing else of the pack names, each with
+     * its `art/` source when it has one. An import of the model again writes them back in place, and the source goes,
+     * since it holds the old pixels.
+     */
+    private fun owned(file: File): Map<File, File?> {
+        val textures = ((OxfmtJson.read(file) as? Map<*, *>)?.get("textures") as? Map<*, *>).orEmpty().values.filterIsInstance<String>()
+        val others = texts().filterKeys { it != file }.values
+        return textures
+            .filterNot { it.startsWith("#") }
+            .map(::full)
+            .filterNot { it.startsWith("minecraft:") }
+            .filterNot { id -> others.any { names(it, id) } }
+            .mapNotNull { runCatching { Identifier.resource(it, "textures", ".png") }.getOrNull() }
+            .map { assets.resolve(it) }
+            .filter { it.isFile }
+            .associateWith { png ->
+                val path = png.relativeTo(assets).invariantSeparatorsPath.removeSuffix(".png")
+                pack.resolve("art/assets/$path.aseprite").takeIf { it.isFile }
+            }
     }
 
     /**
@@ -409,6 +473,28 @@ class ItemFiles(
             "blockstates" -> models.filter { names(text, it) }
             else -> emptyList()
         }
+    }
+
+    /**
+     * Whether the PNGs [a] and [b] show the same pixels. A pixel that is fully transparent counts as the same whatever
+     * its colour, since an editor that saves the image again may drop it.
+     */
+    private fun samePixels(
+        a: ByteArray,
+        b: ByteArray,
+    ): Boolean {
+        if (a.contentEquals(b)) return true
+        val first = runCatching { ImageIO.read(a.inputStream()) }.getOrNull() ?: return false
+        val second = runCatching { ImageIO.read(b.inputStream()) }.getOrNull() ?: return false
+        if (first.width != second.width || first.height != second.height) return false
+        for (y in 0 until first.height) {
+            for (x in 0 until first.width) {
+                val p = first.getRGB(x, y)
+                val q = second.getRGB(x, y)
+                if (p != q && (p ushr 24 != 0 || q ushr 24 != 0)) return false
+            }
+        }
+        return true
     }
 
     /** Whether [text], a JSON file, names [id] as a string, also by its PNG and, in `minecraft`, without the namespace */

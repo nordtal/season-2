@@ -104,6 +104,8 @@ function tab.open(context)
   local reopen
   -- What the status says once the pack was read again, in place of nothing
   local notice
+  -- The project that exportBlockbench last wrote for each model id
+  local exported = {}
   -- The Minecraft instance as describeInstance printed it, the
   -- connection to its bridge mod with the port and token it was made
   -- for, and whether an installPack waits in the queue
@@ -819,7 +821,7 @@ function tab.open(context)
     return true
   end
 
-  -- Asks for the values of a form { title, widgets }, nil when cancelled.
+  -- Asks for the values of a form { title, widgets, buttons }, nil when cancelled.
   -- The dialog is wide enough to show a value such as a model's id whole.
   local function ask(form)
     local d = api.Dialog{ title=form.title }
@@ -831,11 +833,17 @@ function tab.open(context)
       d[w.kind](d, args)
     end
     d:button{ id="ok", text=tr("edit.ok"), focus=true }
+    -- A form's own buttons close it like OK, and its data holds the one pressed
+    for _, b in ipairs(form.buttons or {}) do
+      d:button{ id=b.id, text=b.text }
+    end
     d:button{ id="cancel", text=tr("edit.cancel") }
     fit(d, formWidth)
     d:show()
     local data = d.data
-    return data.ok and data or nil
+    local pressed = data.ok
+    for _, b in ipairs(form.buttons or {}) do pressed = pressed or data[b.id] end
+    return pressed and data or nil
   end
 
   -- The texture entry e of a definition's model as the info that a
@@ -855,6 +863,10 @@ function tab.open(context)
       return
     end
     data = data or {}
+    if action.op == "import" and action.model then data.exported = data.exported or exported[action.model] end
+    if action.op == "blockbench" then
+      data.to = api.join(clone, "resource-pack", "build", "blockbench", modules.items.bbmodel(action.model))
+    end
     while true do
       local form = modules.items.form(definition, action, data, tr)
       if not form then break end
@@ -862,11 +874,24 @@ function tab.open(context)
       if not answer then return end
       for key, value in pairs(answer) do data[key] = value end
     end
+    if action.op == "key" and data.open and action.entry then
+      open(selected, action.entry.texture, action.entry.frames, definitionTexture(action.entry))
+      return
+    end
     local job = modules.items.job(definition, action, data, api.decode)
     if not job then
       return
     end
     local id, item = selected, definition.item
+    if action.op == "blockbench" then
+      -- Blockbench opens the project, and its import writes the model back
+      write(job, function()
+        exported[action.model] = data.to
+        api.launch(modules.items.fileUrl(data.to))
+        notice = tr("status.blockbench", data.to)
+      end, nil, true)
+      return
+    end
     write(job, function()
       dropRemoved()
       -- The item's own node shows the texture that the pack describes,

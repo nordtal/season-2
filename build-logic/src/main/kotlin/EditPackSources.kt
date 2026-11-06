@@ -238,6 +238,27 @@ abstract class EditPackSources : VanillaClientTask() {
                         ItemFiles(pack, ::jar).use { it.import(File(text("model")), text("id"), text("item"), options["at"] ?: "") }
                     }
 
+                    "model" -> {
+                        ItemFiles(pack, ::jar).use {
+                            ModelFiles(pack, it).editTexture(
+                                text("model"),
+                                text("key"),
+                                options["texture"],
+                                options["to"],
+                                options["delete"] == "true",
+                                number("width") ?: 16,
+                                number("height") ?: 16,
+                                options["add"] == "true",
+                            )
+                        }
+                    }
+
+                    "export" -> {
+                        val model = text("model")
+                        val to = options["to"]?.let(::File) ?: pack.resolve("build/blockbench/${model.substringAfterLast('/').substringAfter(':')}.bbmodel")
+                        listOf(ItemFiles(pack, ::jar).use { ModelFiles(pack, it).export(model, to) })
+                    }
+
                     "text" -> {
                         Texts.edit(pack, text("key"), options["language"], options["value"], options["delete"] == "true")
                     }

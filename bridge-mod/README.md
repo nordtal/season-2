@@ -2,9 +2,9 @@
 
 A Fabric mod that runs only in the client. The Nordtal Designer reaches it over a WebSocket on
 `127.0.0.1` to reload the resource packs and to show a texture in chat, the actionbar, the title, a
-boss bar, a chest title, the hand or a block placed in the client only. It works in singleplayer and
-on servers, and it needs Fabric Loader but not the Fabric API. Every release attaches it as
-`nordtal-bridge-<version>.jar`.
+boss bar, a chest title, the hand, or a block or a station rail placed in the client only. It works
+in singleplayer and on servers, and it needs Fabric Loader but not the Fabric API. Every release
+attaches it as `nordtal-bridge-<version>.jar`.
 
 | File             | What it does                                                           |
 | ---------------- | ---------------------------------------------------------------------- |
@@ -47,22 +47,26 @@ A wrong token, or any frame before the hello, gets a reply with `"ok": false` an
 status 1008. A connection without a hello after 5 seconds is closed with status 1008 as well. A reply comes once the client has carried the request out; for `reload` that is once the
 packs are reloaded. A text component (`text`, `subtitle`) is the JSON that `/tellraw` takes.
 
-| `op`        | Fields                                                              | What the client does                                                                       |
-| ----------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `reload`    |                                                                     | Reloads every resource pack.                                                               |
-| `chat`      | `text`                                                              | Adds the component to the chat.                                                            |
-| `actionbar` | `text`                                                              | Shows the component above the hotbar.                                                      |
-| `title`     | `text`, `subtitle` optional                                         | Shows the title with the default times.                                                    |
-| `bossbar`   | `text` (absent removes), `color`, `overlay`, `progress`             | Shows the mod's one boss bar; `white`, `progress` and 1 by default.                        |
-| `chest`     | `text`, `rows` from 1 to 6, 3 by default                            | Opens an empty chest under the title, in the client only; it ignores every click.          |
-| `give`      | `item` as `/give` writes it, `count` from 1 to 99                   | Puts the item into the selected hotbar slot, in creative mode and up to its stack size.    |
-| `block`     | `block` as `/setblock` writes it, `pos` as `[x, y, z]`              | Places the block state in the client only; without `pos`, on the face under the crosshair. |
-| `sound`     | `sound` as an event id, `volume` from 0 to 1, `pitch` from 0.5 to 2 | Plays the event of the loaded packs to the player alone; 1 and 1 by default.               |
-| `clear`     |                                                                     | Removes the boss bar and the title, and puts back every block it placed in this world.     |
+| `op`        | Fields                                                              | What the client does                                                                          |
+| ----------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `reload`    |                                                                     | Reloads every resource pack.                                                                  |
+| `chat`      | `text`                                                              | Adds the component to the chat.                                                               |
+| `actionbar` | `text`                                                              | Shows the component above the hotbar.                                                         |
+| `title`     | `text`, `subtitle` optional                                         | Shows the title with the default times.                                                       |
+| `bossbar`   | `text` (absent removes), `color`, `overlay`, `progress`             | Shows the mod's one boss bar; `white`, `progress` and 1 by default.                           |
+| `chest`     | `text`, `rows` from 1 to 6, 3 by default                            | Opens an empty chest under the title, in the client only; it ignores every click.             |
+| `give`      | `item` as `/give` writes it, `count` from 1 to 99                   | Puts the item into the selected hotbar slot, in creative mode and up to its stack size.       |
+| `block`     | `block` as `/setblock` writes it, `pos` as `[x, y, z]`              | Places the block state in the client only; without `pos`, on the face under the crosshair.    |
+| `rail`      | `item` as `/give` writes it, `pos`, `axis` optional                 | Places a rail with the item on it as the server draws a station rail, in the client only.     |
+| `sound`     | `sound` as an event id, `volume` from 0 to 1, `pitch` from 0.5 to 2 | Plays the event of the loaded packs to the player alone; 1 and 1 by default.                  |
+| `clear`     |                                                                     | Removes the boss bar and the title, and every block and item display it placed in this world. |
 
 `color` is one of `pink`, `blue`, `red`, `green`, `yellow`, `purple` and `white`, and `overlay` one
 of `progress`, `notched_6`, `notched_10`, `notched_12` and `notched_20`. A server sends its own
-state of a block again when the chunk reloads, which ends a client block.
+state of a block again when the chunk reloads, which ends a client block. `axis` of `rail` is
+`north_south` or `east_west`, by default the way the player looks. The item shows on an item display
+at the middle of the block, turned by 90 degrees along `east_west`, and `pos` works as for `block`. A
+rail or block placed there again takes the place of that display.
 
 ## Testing
 

@@ -1537,6 +1537,59 @@ describe("the Nordtal tab", function()
     assert.equal(":resource-pack:readItem -Pitem=nordtal:lamp", run(t.started[#t.started]))
   end)
 
+  it("exports a case's model for Blockbench, opens it there and offers the project to the import", function()
+    local t = setUp(nil, lampModel)
+    local dlg = lamp(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    click(dlg, "items.blockbench")
+    local export = t.started[#t.started]
+    local file = "/c/resource-pack/build/blockbench/star.bbmodel"
+    assert.equal(":resource-pack:exportBlockbench -Pmodel=nordtal:item/star -Pto=" .. file, run(export))
+    export.isRunning = false
+    export.args.onexit(0)
+    local launched
+    for _, entry in ipairs(t.log) do
+      if entry[1] == "launch" then launched = entry[2] end
+    end
+    assert.equal("file://" .. file, launched)
+    while t.started[#t.started].isRunning do
+      local pending = t.started[#t.started]
+      pending.isRunning = false
+      pending.args.onexit(0)
+    end
+    assert.equal("status.blockbench " .. file, status(dlg))
+    local form
+    t.dialogs.answer = function(d) form = d end
+    click(dlg, "items.import")
+    assert.equal(file, form.widgets[1].args.filename)
+  end)
+
+  it("opens a key of a model of the pack in a form whose button opens its texture in the editor", function()
+    local read = dkjson.decode(lampRead)
+    read.models[1].pack = true
+    read.models[1].textures[1].own = true
+    local t = setUp(nil, lampModel)
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp" })
+    local p = t.started[#t.started]
+    p.args.onstdout(dkjson.encode(read))
+    p.isRunning = false
+    p.args.onexit(0)
+    dlg.handlers.tree.onchange({ node="item/nordtal:lamp#model/cases/0" })
+    local started = #t.started
+    dlg:modify{ id="editor", sprite=false }
+    local form
+    t.dialogs.answer = function(d) form = d d.data = { open=true, key="layer0", texture="nordtal:badges/star" } end
+    click(dlg, "nordtal:badges/star.png")
+    assert.equal("#layer0", form.args.title)
+    assert.equal(started, #t.started)
+    assert.equal(star, dlg.data.editor.filename)
+    t.dialogs.answer = function(d) d.data = { ok=true, key="layer0", texture="minecraft:block/stone" } end
+    click(dlg, "nordtal:badges/star.png")
+    assert.equal(":resource-pack:editModel -Pkey=layer0 -Pmodel=nordtal:item/star -Ptexture=minecraft:block/stone",
+      run(t.started[#t.started]))
+  end)
+
   it("opens the imported model's texture once the pack was read again after an import on the item's node", function()
     local item = function(texture)
       return dkjson.encode({ fonts={}, overrides={}, items={ { category="nordtal", entries={

@@ -66,6 +66,17 @@ the format Java Block/Item or for a model that Blockbench exported as JSON. The 
 and its textures and makes the node draw it in one run. The model ID it proposes lies in the
 namespace `nordtal`. An item that the pack overrides from the client jar is edited the same way.
 
+A model of the pack lists its texture keys as rows that edit them. A click on one opens a form with
+the key and its texture. OK runs `editModel`, which sets the texture, renames the key, or both. A
+texture ID of the pack that does not exist yet becomes a transparent 16x16 texture in the same run,
+and the tree shows it. **Open in Editor** opens the key's texture when the pack holds its PNG, and
+**Remove Key** removes a key the model sets itself. **Add Texture Key...** adds a key. A model of the
+client jar shows its keys, and a click on one whose PNG the pack holds opens it in the editor. **Edit in Blockbench**
+runs `exportBlockbench` for the model a node draws and opens the project with the application that
+the system chose for `.bbmodel` files. **Import Model...** then proposes that project and, when the
+file keeps the name of a model of the pack, that model's ID, so the import writes the model and its
+own textures again in place.
+
 **File > New Texture...** opens a dialog that asks for the kind first: glyph, glyph block, sheet, item,
 texture, vanilla item or vanilla override. It then shows the options of the kind's task in
 `resource-pack/README.md`, with font and block to choose and namespace and path for the id. Create runs the task, which checks every
@@ -157,9 +168,10 @@ replaces vanilla's sounds or keeps them, and keeping them needs a file of the pa
 
 The properties panel lists the previews of the selected entry. A glyph or a cell runs `renderGlyphPreviews`
 first, with **Show Previews**, and then offers itself alone in each place the bridge mod shows text,
-and the menu, HUD line or board that its font draws. An item offers a give of each of its `states`, an
-override under `block` or `item` the block or item of its name, and a sound event or one of its sounds
-a play of the event. With Fabric, a click sends the
+and the menu, HUD line or board that its font draws. An item offers a give of each of its `states`, and
+an item of `nordtal` also **On a rail**, its first state on a rail as the server draws a station rail.
+An override under `block` or `item` offers the block or item of its name, and a sound event or one of
+its sounds a play of the event. With Fabric, a click sends the
 preview to the bridge mod. Without Fabric, each preview is a list of vanilla commands, and a click
 copies one. A text of the properties panel wraps only at a space or after the last of a run of punctuation
 marks. It never wraps at an underscore or at a full stop between two letters or digits, and it

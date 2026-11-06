@@ -1602,6 +1602,7 @@ export type TextArgs = {
     count: Arg["number"]
     to: Arg["text"]
   }
+  "steward.operations.players-none": Record<string, never>
   "steward.operations.requested-by": Record<string, never>
   "steward.operations.run": {
     id: Arg["text"]

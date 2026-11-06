@@ -130,7 +130,10 @@ const FACTS: Record<StageKey, (steps: RailStep[]) => Pill[]> = {
   },
   PLAYERS: (steps) => {
     const moves = steps.flatMap((step) => step.players ?? [])
-    if (moves.length === 0) return []
+    if (moves.length === 0) {
+      const done = steps.some((step) => step.step === "PLAYERS_MOVED" && step.outcome === "DONE")
+      return done ? [{ text: t("steward.operations.players-none") }] : []
+    }
     const moved = new Map<string, number>()
     for (const move of moves) moved.set(move.to, (moved.get(move.to) ?? 0) + move.moved)
     const back = moves.reduce((total, move) => total + move.returned, 0)

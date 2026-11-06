@@ -570,6 +570,7 @@
     "steward.operations.now": ["services","updates","backups"],
     "steward.operations.players-back": ["services","updates","backups"],
     "steward.operations.players-moved": ["services","updates","backups"],
+    "steward.operations.players-none": ["services","updates","backups"],
     "steward.operations.requested-by": ["updates","backups"],
     "steward.operations.run": ["every"],
     "steward.operations.saved": ["updates"],

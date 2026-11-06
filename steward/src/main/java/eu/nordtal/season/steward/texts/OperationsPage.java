@@ -115,6 +115,9 @@ public interface OperationsPage {
     @Name("Players back")
     MessageRef playersBack(@Arg("count") @Example("3") int count);
 
+    @Name("No one to move")
+    MessageRef playersNone();
+
     @Name("Standby up")
     MessageRef standbyUp(@Arg("time") @Example("04:00") String time);
 

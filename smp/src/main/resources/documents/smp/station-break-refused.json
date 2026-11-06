@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<bad>This {@terms.station-rail, n=1} is not yours.</bad> <muted>Only the player who placed it, or an admin, can break it.</muted>",
+            "de": "<bad>Diese {@terms.station-rail, n=1} gehört dir nicht.</bad> <muted>Abbauen kann sie nur, wer sie gesetzt hat, oder ein Admin.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

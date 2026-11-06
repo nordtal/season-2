@@ -1,10 +1,15 @@
 package eu.nordtal.season.smp.rail;
 
 import com.destroystokyo.paper.event.block.BlockDestroyEvent;
+import eu.nordtal.season.messagerendering.Lines;
+import eu.nordtal.season.messagerendering.MessageRenderer;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import java.util.List;
+import java.util.Optional;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -32,18 +37,32 @@ import org.jspecify.annotations.Nullable;
 /**
  * Places, protects and removes station rails, and tells the networks when a rail may have changed or a chunk loaded.
  * Only the placer and admins break a station rail or the block under it; nothing else does, and nobody breaks the
- * spawn station.
+ * spawn station. A refused break says who may break it.
  */
 public final class StationRailListener implements Listener {
+
+    static final DocumentSpec<DocumentSpec.None> BREAK_REFUSED = DocumentSpec.game(
+                    "smp", "station-break-refused", "Rails", DocumentSpec.Shape.ACTION_BAR)
+            .titled("Station rail of another player");
+
+    static final DocumentSpec<DocumentSpec.None> SPAWN_UNBREAKABLE = DocumentSpec.game(
+                    "smp", "station-spawn-unbreakable", "Rails", DocumentSpec.Shape.ACTION_BAR)
+            .titled("Spawn station rail");
 
     private final RailNetworks networks;
     private final Identities identities;
     private final SmpSounds sounds;
+    private final MessageRenderer renderer;
 
-    public StationRailListener(final RailNetworks networks, final Identities identities, final SmpSounds sounds) {
+    public StationRailListener(
+            final RailNetworks networks,
+            final Identities identities,
+            final SmpSounds sounds,
+            final MessageRenderer renderer) {
         this.networks = networks;
         this.identities = identities;
         this.sounds = sounds;
+        this.renderer = renderer;
     }
 
     @EventHandler
@@ -102,6 +121,8 @@ public final class StationRailListener implements Listener {
         final Player player = event.getPlayer();
         if (!mayBreak(player, station)) {
             event.setCancelled(true);
+            player.sendActionBar(Lines.joined(renderer.format(
+                    identities.languageOf(player.getUniqueId()), Sent.of(refusal(networks.station(station))))));
             sounds.play(player, Feedback.REFUSED);
             return;
         }
@@ -117,6 +138,11 @@ public final class StationRailListener implements Listener {
                             networks.item().create());
         }
         networks.remove(station);
+    }
+
+    /** Returns what a player who may not break the station rail of {@code row} is told. */
+    static DocumentSpec<DocumentSpec.None> refusal(final Optional<StationRow> row) {
+        return row.filter(StationRow::spawn).isPresent() ? SPAWN_UNBREAKABLE : BREAK_REFUSED;
     }
 
     private boolean mayBreak(final Player player, final Block station) {

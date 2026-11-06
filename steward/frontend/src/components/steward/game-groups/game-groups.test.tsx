@@ -368,8 +368,8 @@ describe("game group editors", { timeout: 15_000 }, () => {
     draw(<WheelEditor file="smp/wheel" document={full} target={null} />)
 
     await screen.findByRole("button", { name: "Block 1" })
-    const add = screen.getByRole("button", { name: "Block" }) as HTMLButtonElement
-    expect(add.disabled).toBe(true)
+    const add = screen.getByRole("button", { name: "Block" })
+    expect(add).toHaveProperty("disabled", true)
     fireEvent.click(add)
     expect(screen.queryByRole("dialog")).toBeNull()
   })

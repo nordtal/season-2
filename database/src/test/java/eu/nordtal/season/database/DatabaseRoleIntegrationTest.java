@@ -87,9 +87,7 @@ class DatabaseRoleIntegrationTest {
                 may(DatabaseRole.LIMBO, "SELECT count(*) FROM smp_player"),
                 may(DatabaseRole.HUNGER_GAMES, "SELECT count(*) FROM smp_player"),
                 mayNot(DatabaseRole.LIMBO, "INSERT INTO discord_user (discord_id) VALUES ('1')"),
-                may(
-                        DatabaseRole.SMP,
-                        "INSERT INTO smp_poi (name, world, x, y, z, created_by) VALUES ('a', 'w', 0, 0, 0, '1')"),
+                may(DatabaseRole.SMP, "UPDATE smp_player SET aura = 0 WHERE false"),
                 mayNot(DatabaseRole.SMP, "INSERT INTO hg_event (game_id, type) VALUES (gen_random_uuid(), 'x')"),
                 mayNot(DatabaseRole.SMP, "SELECT count(*) FROM hg_game"),
                 may(DatabaseRole.HUNGER_GAMES, "INSERT INTO hg_event (game_id, type) VALUES (gen_random_uuid(), 'x')"),

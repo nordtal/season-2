@@ -330,6 +330,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V115__the_season_phase_s_journal_entries_and_refusal_leave.sql",
                 "00b03f8021790b4847bec37e866507b3c48bd714ad4924848e56d6518b114a25");
+        FROZEN.put(
+                "V116__the_smp_s_saved_places_leave.sql",
+                "f11d612776650e2abde8d6cf31f1361097f4976edc65efca364862728340c87c");
     }
 
     @Test

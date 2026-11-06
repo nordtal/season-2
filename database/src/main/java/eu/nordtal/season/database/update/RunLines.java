@@ -55,12 +55,7 @@ public final class RunLines {
                     .offsite(step.offsite().snapshot(), size(step.offsite().bytesAdded())));
         }
         for (final RunStep.Archive archive : step.saved()) {
-            lines.add(TEXTS.run()
-                    .archiveSaved(
-                            archive.file(),
-                            size(archive.bytes()),
-                            Duration.ofMillis(archive.tookMillis()),
-                            archive.stopVerified()));
+            lines.add(saved(archive));
         }
         final Map<RunStep.PruneRule, Long> pruned = new EnumMap<>(RunStep.PruneRule.class);
         for (final RunStep.Archive archive : step.pruned()) {
@@ -70,6 +65,16 @@ public final class RunLines {
         }
         pruned.forEach((rule, count) -> lines.add(TEXTS.run().archivesPruned(count, rule)));
         return List.copyOf(lines);
+    }
+
+    /** Returns an archive a step saved, as its file, its size and how long it took. */
+    public static MessageRef saved(final RunStep.Archive archive) {
+        return TEXTS.run()
+                .archiveSaved(
+                        archive.file(),
+                        size(archive.bytes()),
+                        Duration.ofMillis(archive.tookMillis()),
+                        archive.stopVerified());
     }
 
     /** A fingerprint, as the resource pack reports its SHA-1. */

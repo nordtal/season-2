@@ -46,6 +46,12 @@
               "text": {
                 "en": "{mark} **{service}** *{state}* {changes}"
               }
+            },
+            {
+              "list": "quiet",
+              "text": {
+                "en": "{mark} **{service}** *{state}*"
+              }
             }
           ]
         },

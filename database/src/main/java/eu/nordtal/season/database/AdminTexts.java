@@ -343,7 +343,7 @@ public interface AdminTexts {
                 @Arg("added") @Example("120 MiB") MessageRef added);
 
         @Name("An archive a step saved")
-        @Shown(Display.STEWARD)
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef archiveSaved(
                 @Arg("file") @Example("nordtal-20261020-0400.dump") String file,
                 @Arg("size") @Example("1.2 GiB") MessageRef size,

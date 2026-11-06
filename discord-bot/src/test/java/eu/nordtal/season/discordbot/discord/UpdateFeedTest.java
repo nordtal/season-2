@@ -187,6 +187,66 @@ class UpdateFeedTest {
     }
 
     @Test
+    void aRunWhoseStageSettlesBeforeItsFinishIsEditedOnceMoreWithHowLongItTook() {
+        rows.put(row(1L, UpdateStatus.RUNNING, RunStage.VERIFYING, null));
+        feed.tick();
+        rows.put(row(1L, UpdateStatus.RUNNING, RunStage.DONE, null));
+        feed.tick();
+        rows.put(row(1L, UpdateStatus.DONE, RunStage.DONE, NOW.plusSeconds(150)));
+        feed.tick();
+
+        assertEquals(2, board.edited.size(), "the finish is an edit of its own, with nothing else changed");
+        assertTrue(
+                names(board.edited.getLast().card()).contains("Duration"),
+                "the last card says how long the run took: "
+                        + lines(board.edited.getLast().card()));
+    }
+
+    @Test
+    void aBackupNamesTheArchiveOfEachVolumeAndTheDatabaseDumpAndNoServiceReadsNothing() {
+        final RunStep.Row dump = saving(RunStep.Kind.DUMP_DATABASE, null, "database", "nordtal-20261106T034501Z.dump");
+        final RunStep.Row volume =
+                saving(RunStep.Kind.SAVE_VOLUME, "mc-smp", "mc-smp", "mc-smp-20261106T034612Z.tar.zst");
+        final DocumentRenderer.Drawn card = card(
+                row(1L, UpdateStatus.DONE, RunStage.DONE, NOW),
+                documents,
+                dump,
+                step(RunStep.Kind.STOP, "smp", RunStep.Outcome.DONE, null),
+                volume,
+                step(RunStep.Kind.START, "smp", RunStep.Outcome.DONE, null));
+
+        final String shown = field(card, "Services");
+        assertTrue(shown.contains("**database** *Dump the database* nordtal-20261106T034501Z.dump, 25.6 MiB"), shown);
+        assertTrue(shown.contains("**mc-smp** *Save a volume* mc-smp-20261106T034612Z.tar.zst, 4.2 GiB"), shown);
+        assertTrue(shown.contains("**smp** *Start*\n") || shown.endsWith("**smp** *Start*"), shown);
+        assertFalse(shown.contains("nothing"), "a service that moved no artefact says nothing about it: " + shown);
+    }
+
+    /** A step that saved one archive of the given volume. */
+    private static RunStep.Row saving(
+            final RunStep.Kind kind, final @Nullable String service, final String volume, final String file) {
+        final RunStep.Row bare = step(kind, service, RunStep.Outcome.DONE, null);
+        return new RunStep.Row(
+                bare.seq(),
+                kind,
+                service,
+                null,
+                null,
+                RunStep.Outcome.DONE,
+                null,
+                null,
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                List.of(new RunStep.Archive(
+                        volume, file, file.endsWith(".dump") ? 26_866_514L : 4_482_615_688L, 6_000L, true, null)),
+                List.of());
+    }
+
+    @Test
     void anUnchangedRunIsNotReSentBecauseDiscordRateLimitsEdits() {
         rows.put(row(1L, UpdateStatus.RUNNING, RunStage.INSTALLING, null));
         feed.tick();

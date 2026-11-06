@@ -245,7 +245,17 @@ object PackRules {
         val findings = mutableListOf<String>()
         val name = fields["name"] as? String
         if (name == null || !Sounds.isName(name)) return listOf("$where needs a name such as nordtal:ui/click, in lower case.")
-        (fields - "name").forEach { (field, value) -> Sounds.problem(field.toString(), value)?.let { findings += "$where: $field $it." } }
+        (fields - "name").forEach { (field, value) ->
+            (
+                if (value ==
+                    null
+                ) {
+                    "must not be null"
+                } else {
+                    Sounds.problem(field.toString(), value)
+                }
+            )?.let { findings += "$where: $field $it." }
+        }
         val type = fields["type"] ?: "file"
         val namespace = if (':' in name) name.substringBefore(':') else "minecraft"
         if (type == "file" && namespace != "minecraft" && !assets.resolve("$namespace/sounds/${name.substringAfter(':')}.ogg").isFile) {

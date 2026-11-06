@@ -436,7 +436,7 @@ class SoundsTest {
         tone.copyTo(assets.resolve("nordtal/sounds/ok.ogg"))
         assets.resolve("nordtal/sounds/bad.ogg").writeText("ID3")
         assets.resolve("nordtal/sounds.json").writeText(
-            """{"a": {"sounds": ["nordtal:ok", {"name": "nordtal:gone", "volume": 0, "weight": 1.5}]}, "b": {"sounds": [], "replace": "yes"}, "c": {"sounds": ["Nordtal:Up"]}}""",
+            """{"a": {"sounds": ["nordtal:ok", {"name": "nordtal:gone", "volume": 0, "weight": 1.5}]}, "b": {"sounds": [], "replace": "yes"}, "c": {"sounds": ["Nordtal:Up", {"name": "nordtal:ok", "pitch": null}]}}""",
         )
 
         assertEquals(
@@ -447,6 +447,7 @@ class SoundsTest {
                 "nordtal/sounds.json: sound 1 of a names nordtal:gone, but the pack has no nordtal/sounds/gone.ogg.",
                 "nordtal/sounds.json: replace of b must be true or false.",
                 "nordtal/sounds.json: sound 0 of c needs a name such as nordtal:ui/click, in lower case.",
+                "nordtal/sounds.json: sound 1 of c: pitch must not be null.",
             ),
             PackRules.findings(assets),
         )

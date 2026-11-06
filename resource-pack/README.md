@@ -305,8 +305,9 @@ absolute path of every file it wrote or deleted.
   `subtitles.<namespace>.<event>` unless the event names one that the pack's language files hold, so
   a text never changes a vanilla key that other events share. The client shows vanilla's subtitle
   for a `minecraft:` event that keeps vanilla's sounds, so `subtitleSound` refuses one, and
-  `-Preplace=false` drops the event's subtitle and the copies of vanilla's sounds. `deleteSound` deletes the event, each file only
-  it names and its subtitle text where no other event names that.
+  `-Preplace=false` drops the event's subtitle and the copies of vanilla's sounds.
+- `deleteSound` deletes the event, each file only it names and its subtitle text where no other
+  event names that.
 - `playSound` decodes the sound `at`, or the first, to `build/sounds/` as a WAV at its volume and
   pitch, for the operating system's own player. It takes the pack's event, else vanilla's, and the
   pack's file, else vanilla's.

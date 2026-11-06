@@ -349,7 +349,8 @@ object Sounds {
 
     /**
      * Sets the subtitle text of [event] in [language] to [value], or with [delete] removes the subtitle and, where no
-     * other event names it, its text. The event's subtitle key stays, or is `subtitles.<namespace>.<event>` where it has none.
+     * other event names it, its text. The key is `subtitles.<namespace>.<event>` unless the event names one that the
+     * pack's language files hold.
      */
     fun subtitle(
         pack: File,

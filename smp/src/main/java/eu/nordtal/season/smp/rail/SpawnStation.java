@@ -4,6 +4,7 @@ import eu.nordtal.season.smp.config.StationBlockSpec;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -17,8 +18,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Keeps the spawn station at the block the settings name, and moves or removes it when the setting changes.
- * It puts it back when it is gone. A step waits until its chunk and the chunk's entities are loaded, holding the
- * chunk loaded meanwhile, so the station's model goes with it.
+ * It puts it back when it is gone. A step waits until its chunk and entities are loaded, holding the chunk meanwhile,
+ * so the station's model goes with it. A block that cannot carry a rail is logged once and its chunk stays held.
  */
 public final class SpawnStation {
 
@@ -37,16 +38,43 @@ public final class SpawnStation {
 
     private record Held(World world, long chunk) {}
 
+    /** Logs why the spawn station is not placed, again only when the reason changes or a step went through. */
+    static final class Unplaced {
+
+        private final Consumer<String> log;
+        private @Nullable String said;
+
+        Unplaced(final Consumer<String> log) {
+            this.log = log;
+        }
+
+        void because(final String reason) {
+            if (!reason.equals(said)) {
+                log.accept(reason);
+                said = reason;
+            }
+        }
+
+        void clear() {
+            said = null;
+        }
+    }
+
     private final RailNetworks networks;
     private final ChunkTickets tickets;
     private final Supplier<Optional<Target>> target;
+    private final Unplaced unplaced;
     private @Nullable Held held;
 
     public SpawnStation(
-            final RailNetworks networks, final ChunkTickets tickets, final Supplier<Optional<Target>> target) {
+            final RailNetworks networks,
+            final ChunkTickets tickets,
+            final Supplier<Optional<Target>> target,
+            final Consumer<String> log) {
         this.networks = networks;
         this.tickets = tickets;
         this.target = target;
+        this.unplaced = new Unplaced(log);
     }
 
     /**
@@ -72,7 +100,12 @@ public final class SpawnStation {
         if (!networks.restored()) {
             return;
         }
-        next(target.get(), networks.spawns(), this::broken).ifPresentOrElse(this::take, this::letGo);
+        next(target.get(), networks.spawns(), this::broken).ifPresentOrElse(this::take, this::idle);
+    }
+
+    private void idle() {
+        unplaced.clear();
+        letGo();
     }
 
     /**
@@ -116,6 +149,8 @@ public final class SpawnStation {
         if (world == null) {
             if (step instanceof Step.Remove remove) {
                 networks.removeUnloaded(remove.station());
+            } else {
+                unplaced.because("the spawn station is not placed: there is no world called " + name + ".");
             }
             letGo();
             return;
@@ -137,7 +172,10 @@ public final class SpawnStation {
             }
             case Step.Place _ -> {
                 if (!Material.RAIL.createBlockData().isSupported(block)) {
-                    break;
+                    unplaced.because("the spawn station is not placed: the block under " + name + " " + pos.x() + " "
+                            + pos.y() + " " + pos.z() + " cannot carry a rail.");
+                    hold(world, chunkX, chunkZ);
+                    return;
                 }
                 if (block.getType() != Material.RAIL) {
                     block.setType(Material.RAIL, false);
@@ -148,6 +186,7 @@ public final class SpawnStation {
                 networks.place(block, null, axis(pos, at -> StationRailListener.shapeAt(block, at), axis));
             }
         }
+        unplaced.clear();
         letGo();
     }
 

@@ -293,7 +293,8 @@ final class SmpStart {
         final SpawnStation spawn = new SpawnStation(
                 rails,
                 tickets,
-                () -> SpawnStation.target(plugin.railSettings.get().spawnStation()));
+                () -> SpawnStation.target(plugin.railSettings.get().spawnStation()),
+                plugin.getLogger()::warning);
         scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), spawn::tick);
         final Rides rides = new Rides(scheduler, rails, tickets, plugin.railSettings::get, plugin.sounds);
         rides.whenSwitched(effects::junctionSwitched);

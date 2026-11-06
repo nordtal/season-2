@@ -4,6 +4,7 @@ import static eu.nordtal.season.smp.rail.Track.at;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import eu.nordtal.season.smp.config.StationBlockSpec;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -85,6 +86,18 @@ class SpawnStationTest {
                 Map.of(at(1, 64, 0), RailShape.EAST_WEST, at(0, 64, 1), RailShape.NORTH_SOUTH);
         assertEquals(RailShape.EAST_WEST, SpawnStation.axis(here, cross::get, RailShape.EAST_WEST));
         assertEquals(RailShape.NORTH_SOUTH, SpawnStation.axis(here, cross::get, RailShape.NORTH_SOUTH));
+    }
+
+    @Test
+    void aReasonTheSpawnStationWaitsForIsLoggedOnceUntilAStepGoesThrough() {
+        final List<String> logged = new ArrayList<>();
+        final SpawnStation.Unplaced unplaced = new SpawnStation.Unplaced(logged::add);
+        unplaced.because("no rail");
+        unplaced.because("no rail");
+        unplaced.because("no world");
+        unplaced.clear();
+        unplaced.because("no world");
+        assertEquals(List.of("no rail", "no world", "no world"), logged);
     }
 
     @Test

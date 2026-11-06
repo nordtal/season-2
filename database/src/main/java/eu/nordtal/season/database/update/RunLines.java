@@ -75,7 +75,7 @@ public final class RunLines {
     /** A fingerprint, as the resource pack reports its SHA-1. */
     private static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{32,64}", Pattern.CASE_INSENSITIVE);
 
-    /** Returns a change as its versions, one that stayed the same as unchanged, else as its image, else as its name. */
+    /** Returns a change as its versions, the same or none after as unchanged or removed, else its image or name. */
     public static MessageRef change(final RunStep.Change change) {
         if (change.from() != null && change.from().equals(change.to())) {
             return TEXTS.run().unchanged(change.artefact(), shown(change.from()));
@@ -87,7 +87,7 @@ public final class RunLines {
             return TEXTS.run().version(change.artefact(), change.to());
         }
         if (change.from() != null) {
-            return TEXTS.run().version(change.artefact(), change.from());
+            return TEXTS.run().removed(change.artefact(), shown(change.from()));
         }
         return change.image() != null
                 ? TEXTS.run().image(change.artefact(), change.image())

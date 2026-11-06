@@ -16,9 +16,9 @@ final class Installed {
     private Installed() {}
 
     /**
-     * Writes one install step per service the apply touched and one for the pack.
+     * Writes one install step per service the apply changed something of, and one for a changed pack.
      *
-     * Each step names the artefacts with the versions the plan moved them from and to.
+     * Each step names the artefacts it changed, with the versions the plan moved them from and to.
      */
     static void record(
             final Steps record, final Work planned, final ApplyResult result, final Collection<String> services) {
@@ -30,8 +30,16 @@ final class Installed {
             }
         }
         bySource.forEach((service, outcomes) -> {
+            // What was already right, or has no build for this Minecraft version, changed nothing.
+            final List<ApplyResult.Outcome> changed = outcomes.stream()
+                    .filter(outcome -> outcome.status() != ApplyResult.Status.UNCHANGED
+                            && outcome.status() != ApplyResult.Status.UNSUPPORTED)
+                    .toList();
+            if (changed.isEmpty()) {
+                return;
+            }
             final Steps.Step step = record.begin(RunStep.Kind.INSTALL, service);
-            for (final ApplyResult.Outcome outcome : outcomes) {
+            for (final ApplyResult.Outcome outcome : changed) {
                 final RunStep.Change moved = service == null
                         ? null
                         : planned.of(service).stream()
@@ -45,7 +53,7 @@ final class Installed {
                         null);
             }
             // A skipped file did not go in either.
-            if (outcomes.stream()
+            if (changed.stream()
                     .anyMatch(outcome -> outcome.status() == ApplyResult.Status.FAILED
                             || outcome.status() == ApplyResult.Status.SKIPPED)) {
                 step.failed(RunStep.Reason.TOOL_FAILED);

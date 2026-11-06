@@ -614,6 +614,10 @@ export type TextArgs = {
   "run.reason": {
     reason: Arg["choice"]
   }
+  "run.removed": {
+    artefact: Arg["text"]
+    version: Arg["text"]
+  }
   "run.room": {
     needed: Arg["message"]
     free: Arg["message"]

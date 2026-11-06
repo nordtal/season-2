@@ -400,7 +400,7 @@ class ResolverTest {
                         "smp", "coreprotect", List.of("CoreProtect-CE-24.1.jar", "CoreProtect"))),
                 plan.retiring());
         assertEquals(
-                List.of(new RunStep.Change("coreprotect", null, null, null)),
+                List.of(new RunStep.Change("coreprotect", "24.1", null, null)),
                 Work.of(plan).of("smp"));
         assertEquals(List.of(), Work.of(plan).about("smp"), "deleting it is work, not a warning");
         assertTrue(plan.hasWork());

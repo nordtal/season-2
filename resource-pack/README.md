@@ -77,6 +77,10 @@ Steward raises the pack alert when the URL stops answering.
   client's rule, and ship in the jar of `:pack-rendering`. `BossBarAdvancesTest` and `MenuFontTest`
   derive the widths again independently.
 - `manifest.json` and one PNG per named glyph, which Steward's translation editor lists.
+- `nordtal/menu/item-sprites.properties`, written by `writeItemSprites` from `src/` and the client jar, ships in the jar
+  of `:pack-rendering`. It names the atlas sprite of each item that a text draws before the item's name: the `layer0`,
+  else the `particle`, of an item whose definition is one `minecraft:model` without tints, where that texture lies in an
+  atlas. Every other item, such as a chest, a leaf or a compass, shows its name alone.
 
 ## The pack model
 

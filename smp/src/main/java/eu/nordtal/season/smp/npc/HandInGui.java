@@ -8,6 +8,7 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.GameContent;
+import eu.nordtal.season.packrendering.menu.ItemSprites;
 import eu.nordtal.season.papercommon.game.GameKeys;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.menu.Menu;
@@ -86,8 +87,12 @@ public final class HandInGui extends Menu {
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, button));
     }
 
+    /** Returns a line per item, its texture before its name where the pack's atlases draw it, else its name alone. */
     static List<Wanted> wanted(final java.util.Collection<String> items) {
-        return items.stream().map(GameKeys::item).map(Wanted::new).toList();
+        return items.stream()
+                .map(name -> new Wanted(GameKeys.item(name)
+                        .drawn(ItemSprites.of(GameKeys.key(name)).orElse(null))))
+                .toList();
     }
 
     /** Returns the material of the first wanted item. {@link TrackNames} validates the names. */

@@ -273,7 +273,8 @@ class ItemFiles(
                 throw FieldRefusal("id", "${relative.replaceFirst('/', ':')} is in the client jar, which the import would hide.")
             }
         }
-        pending[target] = OxfmtJson.asset(model).toByteArray()
+        // A model imported again keeps the layout of its file, so that only the lines of what changed differ
+        pending[target] = (if (again) OxfmtJson.asset(model, OxfmtJson.read(target)) else OxfmtJson.asset(model)).toByteArray()
         val before = ItemDefinitions.models(definition).map(::full).toSet()
         require(ItemDefinitions.edit(definition, at, mapOf("type" to "minecraft:model", "model" to id), null, false)) {
             "The item $item has nothing at $at."

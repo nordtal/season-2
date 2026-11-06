@@ -548,7 +548,9 @@ Without `fields`, `add` and `remove`, it writes the definition unchanged, which 
   A texture of the model's own, one in the pack outside `minecraft` that nothing else of the pack
   names, is written over in place when it changed, its `.mcmeta` stays, and its source under `art/`
   goes, since it holds the old pixels. One that the project no longer names goes with its `.mcmeta`
-  and source. Any other changed texture is a new file, as above.
+  and source. Any other changed texture is a new file, as above. The model keeps the layout of its
+  file: keys in their order, each object on the lines it had and each number as it was spelled, so
+  only the lines of what changed differ.
 - A model of the pack that the item drew at `at` before goes when nothing of the pack draws it any
   more, neither an item, a model's `parent` nor a block state. Each of its textures goes with it,
   with its `.mcmeta` and its source under `art/`, when no other JSON of the pack and no glyph of

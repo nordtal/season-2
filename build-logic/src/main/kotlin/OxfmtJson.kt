@@ -60,6 +60,137 @@ object OxfmtJson {
     /** [value] in the layout of the pack's files under `src/assets`: four spaces of indent and one member per line. */
     fun asset(value: Any?): String = format(expanded(value), "    ")
 
+    /** [value] laid out as [asset] does, but in the layout of [like], the file it replaces, where they share members. */
+    fun asset(
+        value: Any?,
+        like: Any?,
+    ): String = format(shaped(value, like, emptyList<Any?>()), "    ")
+
+    /**
+     * [value] in the layout of [like], as [read] gave it: keys in its order, lines, empty lines and number spellings.
+     * A new member takes its layout from one beside it: a member of the same array, the same key of one, or any object
+     * of an object of objects. [kin] are the members of the array that holds [like].
+     */
+    private fun shaped(
+        value: Any?,
+        like: Any?,
+        kin: List<*>,
+    ): Any? =
+        when (value) {
+            is Map<*, *> -> {
+                val old = like as? Map<*, *>
+                val objects = old?.values?.takeIf { members -> members.isNotEmpty() && members.all { it is Map<*, *> } }
+                val keys =
+                    old
+                        ?.keys
+                        ?.filter { it in value }
+                        .orEmpty()
+                        .toMutableList()
+                // A new key goes before the next key that follows it in [value] and has a place already
+                value.keys.filter { old?.containsKey(it) != true }.forEach { key ->
+                    val after =
+                        value.keys
+                            .toList()
+                            .let { it.subList(it.indexOf(key) + 1, it.size) }
+                            .firstOrNull { it in keys }
+                    keys.add(if (after == null) keys.size else keys.indexOf(after), key)
+                }
+                Object((like as? Object)?.expanded ?: (like !is Map<*, *>)).also { copy ->
+                    keys.forEach { key ->
+                        val template =
+                            if (old?.containsKey(key) == true) {
+                                old[key]
+                            } else {
+                                objects?.first() ?: kin.firstNotNullOfOrNull { (it as? Map<*, *>)?.get(key) }
+                            }
+                        copy[key as String] = shaped(value[key], template, emptyList<Any?>())
+                        if (old?.containsKey(key) == true && key in (like as? Object)?.spaced.orEmpty()) copy.spaced += key
+                    }
+                    (like as? Object)?.spellings?.let(copy.spellings::putAll)
+                }
+            }
+
+            is List<*> -> {
+                val old = (like as? List<*>).orEmpty()
+                val slots = slots(value, old)
+                Array().also { copy ->
+                    value.forEachIndexed { i, member ->
+                        if (slots[i]?.let { it in (like as? Array)?.spaced.orEmpty() } == true) copy.spaced += i
+                        copy += shaped(member, slots[i]?.let(old::get) ?: old.lastOrNull(), old)
+                    }
+                    (like as? Array)?.spellings?.let(copy.spellings::putAll)
+                }
+            }
+
+            is Number -> {
+                if (like is Number && BigDecimal(like.toString()).compareTo(BigDecimal(value.toString())) == 0) like else value
+            }
+
+            else -> {
+                value
+            }
+        }
+
+    /**
+     * The index in [old] whose layout each member of [value] keeps, or null. An object or array keeps that of an equal one,
+     * else of the most alike free one between those of its neighbours; a scalar keeps that of its own index.
+     */
+    private fun slots(
+        value: List<*>,
+        old: List<*>,
+    ): List<Int?> {
+        val slots = MutableList<Int?>(value.size) { null }
+        val used = mutableSetOf<Int>()
+        value.forEachIndexed { i, member ->
+            slots[i] =
+                if (member !is Map<*, *> && member !is List<*>) {
+                    i.takeIf { it < old.size && it !in used }
+                } else {
+                    old.indices.firstOrNull { it !in used && same(old[it], member) }
+                }?.also { used += it }
+        }
+        val matched = slots.toList()
+        val open = value.indices.filter { slots[it] == null && (value[it] is Map<*, *> || value[it] is List<*>) }
+        // Each pair of a member and a free index between its neighbours' matches, the most alike first
+        val pairs =
+            open
+                .flatMap { i ->
+                    val after = (i - 1 downTo 0).firstNotNullOfOrNull { matched[it] } ?: -1
+                    val before = (i + 1 until value.size).firstNotNullOfOrNull { matched[it] } ?: old.size
+                    (after + 1 until before).filter { it !in used }.map { Triple(i, it, alike(value[i], old[it])) }
+                }.sortedByDescending { it.third }
+        pairs.forEach { (i, j, _) ->
+            if (slots[i] == null && j !in used) {
+                slots[i] = j
+                used += j
+            }
+        }
+        return slots
+    }
+
+    /** How many members of [a] and [b] are the same at the same key or index. */
+    private fun alike(
+        a: Any?,
+        b: Any?,
+    ): Int =
+        when {
+            a is Map<*, *> && b is Map<*, *> -> a.count { (key, member) -> b.containsKey(key) && same(member, b[key]) }
+            a is List<*> && b is List<*> -> a.indices.count { it < b.size && same(a[it], b[it]) }
+            else -> 0
+        }
+
+    /** Whether [a] and [b] hold the same JSON, a number equal to another however it is spelled. */
+    private fun same(
+        a: Any?,
+        b: Any?,
+    ): Boolean =
+        when {
+            a is Number && b is Number -> BigDecimal(a.toString()).compareTo(BigDecimal(b.toString())) == 0
+            a is Map<*, *> && b is Map<*, *> -> a.keys == b.keys && a.all { (key, member) -> same(member, b[key]) }
+            a is List<*> && b is List<*> -> a.size == b.size && a.indices.all { same(a[it], b[it]) }
+            else -> a == b
+        }
+
     private fun expanded(value: Any?): Any? =
         when (value) {
             is Map<*, *> -> Object().also { copy -> value.forEach { (key, member) -> copy[key as String] = expanded(member) } }

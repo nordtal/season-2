@@ -196,6 +196,169 @@ class ModelFilesTest {
         assertEquals(listOf("models"), assets.resolve("nordtal").list()!!.filter { it != "items" })
     }
 
+    /** The station rail in the layout of a file of the pack, its faces in an order and with keys in an order of its own */
+    private fun laidOut(): String {
+        station()
+        model.writeText(
+            """
+            {
+                "parent": "block/cube",
+                "textures": {
+                    "particle": "minecraft:block/gold_block",
+                    "bar": "minecraft:block/gold_block",
+                    "plate": "minecraft:block/lapis_block"
+                },
+                "elements": [
+                    {
+                        "from": [0, 0, 0],
+                        "to": [16, 1, 16],
+                        "faces": {
+                            "up": { "uv": [0, 0, 16, 16], "texture": "#plate" },
+                            "down": { "uv": [0, 0, 16, 16], "texture": "#plate", "cullface": "down" }
+                        }
+                    },
+                    {
+                        "from": [2, 1, 0],
+                        "to": [4, 2, 16],
+                        "rotation": { "angle": 22.5, "axis": "y", "origin": [8, 8, 8] },
+                        "faces": {
+                            "up": { "uv": [0, 0, 2, 16], "rotation": 90, "texture": "#bar", "tintindex": 0 },
+                            "north": { "texture": "#bar", "uv": [2, 14, 4, 15] }
+                        }
+                    }
+                ]
+            }
+            """.trimIndent() + "\n",
+        )
+        return model.readText()
+    }
+
+    @Test
+    fun aReimportOfAnUnchangedModelLeavesItsFileByteForByte() {
+        val before = laidOut()
+
+        imported(exported())
+
+        assertEquals(before, model.readText())
+    }
+
+    @Test
+    fun aReimportChangesOnlyTheLineOfWhatWasEdited() {
+        val before = laidOut().lines()
+
+        @Suppress("UNCHECKED_CAST")
+        val project = JsonSlurper().parse(exported()) as MutableMap<String, Any?>
+        val north = (((project["elements"] as List<*>)[1] as Map<*, *>)["faces"] as Map<*, *>)["north"]
+        @Suppress("UNCHECKED_CAST")
+        (north as MutableMap<String, Any?>)["uv"] = listOf(3, 14, 5, 15)
+
+        imported(directory.resolve("export/station_rail.bbmodel").apply { writeText(JsonOutput.toJson(project)) })
+
+        val after = model.readText().lines()
+        assertEquals(before.size, after.size)
+        assertEquals(
+            listOf("""                "north": { "texture": "#bar", "uv": [3, 14, 5, 15] }"""),
+            after.filterIndexed { i, line -> line != before[i] },
+        )
+    }
+
+    /** The station rail exported as a project, changed by [edit] as in Blockbench, and imported again */
+    private fun reimported(edit: (MutableMap<String, Any?>) -> Unit) {
+        @Suppress("UNCHECKED_CAST")
+        val project = JsonSlurper().parse(exported()) as MutableMap<String, Any?>
+        edit(project)
+        imported(directory.resolve("export/station_rail.bbmodel").apply { writeText(JsonOutput.toJson(project)) })
+    }
+
+    @Test
+    fun aReimportWithoutTheFirstElementLeavesTheLinesOfTheOthers() {
+        val before = laidOut().lines()
+
+        reimported { (it["elements"] as MutableList<*>).removeAt(0) }
+
+        // The plate is drawn no more, so its key goes too
+        val expected = before.filterIndexed { i, _ -> i !in 8..15 && i != 5 }.toMutableList()
+        expected[4] = expected[4].removeSuffix(",")
+        assertEquals(expected, model.readText().lines())
+    }
+
+    @Test
+    fun aCubeAddedInFrontLeavesTheLinesOfTheOthers() {
+        model.writeText(laidOut().replaceFirst("\n            \"faces\"", "\n\n            \"faces\""))
+        val before = model.readText().lines()
+
+        reimported { project ->
+            @Suppress("UNCHECKED_CAST")
+            val elements = project["elements"] as MutableList<Any?>
+
+            @Suppress("UNCHECKED_CAST")
+            val cube = JsonSlurper().parseText(JsonOutput.toJson(elements[1])) as MutableMap<String, Any?>
+            cube["from"] = listOf(12, 1, 0)
+            cube["to"] = listOf(14, 2, 16)
+            elements.add(0, cube)
+        }
+
+        val after = model.readText().lines()
+        assertEquals(before.take(8), after.take(8))
+        assertEquals(before.drop(8), after.takeLast(before.size - 8))
+    }
+
+    @Test
+    fun aCubeAddedInFrontOfAnEditedOneLeavesTheEditedOnesOtherLines() {
+        model.writeText(laidOut().replaceFirst("\n            \"faces\"", "\n\n            \"faces\""))
+        val before = model.readText().lines()
+
+        reimported { project ->
+            @Suppress("UNCHECKED_CAST")
+            val elements = project["elements"] as MutableList<Any?>
+
+            @Suppress("UNCHECKED_CAST")
+            val up = ((elements[0] as Map<*, *>)["faces"] as Map<*, *>)["up"] as MutableMap<String, Any?>
+            up["uv"] = listOf(0, 0, 8, 16)
+            @Suppress("UNCHECKED_CAST")
+            val cube = JsonSlurper().parseText(JsonOutput.toJson(elements[1])) as MutableMap<String, Any?>
+            cube["from"] = listOf(12, 1, 0)
+            cube["to"] = listOf(14, 2, 16)
+            elements.add(0, cube)
+        }
+
+        val after = model.readText().lines()
+        val edited =
+            before.drop(8).map {
+                it.replace(""""up": { "uv": [0, 0, 16, 16]""", """"up": { "uv": [0, 0, 8, 16]""")
+            }
+        assertEquals(1, edited.zip(before.drop(8)).count { (a, b) -> a != b })
+        assertEquals(before.take(8), after.take(8))
+        assertEquals(edited, after.takeLast(before.size - 8))
+    }
+
+    @Test
+    fun aReimportKeepsEachNumberAsItWasSpelled() {
+        model.writeText(laidOut().replace("[16, 1, 16]", "[16.0, 1, 16]"))
+        val before = model.readText()
+
+        imported(exported())
+
+        assertEquals(before, model.readText())
+    }
+
+    @Test
+    fun aFaceAddedInBlockbenchIsOneLineLikeTheFacesBesideIt() {
+        val before = laidOut().lines()
+
+        reimported { project ->
+            val bar = (project["textures"] as List<*>).indexOfFirst { (it as Map<*, *>)["id"] == "bar" }
+            val south = (((project["elements"] as List<*>)[1] as Map<*, *>)["faces"] as Map<*, *>)["south"]
+            @Suppress("UNCHECKED_CAST")
+            (south as MutableMap<String, Any?>)["texture"] = bar
+            south["uv"] = listOf(2, 14, 4, 15)
+        }
+
+        val after = model.readText().lines()
+        assertEquals(listOf("""                "south": { "uv": [2, 14, 4, 15], "texture": "#bar" },"""), after.filter { it !in before })
+        assertEquals(before, after.filter { it in before })
+    }
+
     @Test
     fun anExportEmbedsEachTextureOnceWithTheParticleFlag() {
         station()

@@ -19,6 +19,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.WorldBorder;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -100,8 +101,35 @@ public final class SeasonWelcome {
                             + "' - if that was renamed, nordtal-spawn: world has to be renamed with it.");
             return;
         }
-        player.teleport(LandingSite.safeAt(
-                world, new Location(world, spawn.x(), spawn.y(), spawn.z(), spawn.yaw(), spawn.pitch())));
+        final WorldBorder border = world.getWorldBorder();
+        final Location centre = border.getCenter();
+        final String where = "nordtal-spawn (" + spawn.x() + " " + spawn.z() + ")";
+        final String bounds =
+                "the world border (" + border.getSize() + " wide around " + centre.getX() + " " + centre.getZ() + ")";
+        if (!within(centre.getX(), centre.getZ(), border.getSize(), spawn.x(), spawn.z())) {
+            plugin.getLogger()
+                    .warning(where + " lies outside " + bounds + ", which would kill " + name
+                            + " at once, so they were left where the server spawned them. Move nordtal-spawn"
+                            + " inside the border.");
+            return;
+        }
+        final Location landing = LandingSite.safeAt(
+                world, new Location(world, spawn.x(), spawn.y(), spawn.z(), spawn.yaw(), spawn.pitch()));
+        if (!within(centre.getX(), centre.getZ(), border.getSize(), landing.getX(), landing.getZ())) {
+            plugin.getLogger()
+                    .warning(where + " is not a safe landing, and the safe one found near it lies outside " + bounds
+                            + ", so " + name + " was left where the server spawned them. Clear a spot at"
+                            + " nordtal-spawn.");
+            return;
+        }
+        player.teleport(landing);
+    }
+
+    /** Whether a point lies within a square border of this centre and width, edge included. */
+    static boolean within(
+            final double centreX, final double centreZ, final double size, final double x, final double z) {
+        final double half = size / 2;
+        return Math.abs(x - centreX) <= half && Math.abs(z - centreZ) <= half;
     }
 
     /** Returns the cinematic. The {@link Feedback#STAGING} sound is blank. */

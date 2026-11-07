@@ -10,7 +10,10 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,6 +61,13 @@ public final class FakeDaemon implements AutoCloseable {
         }
     }
 
+    /**
+     * The containers of a whole stack, listed and inspected with their own figures.
+     *
+     * Any here replace smp as the only container. The list has to be filled before the first request.
+     */
+    public final List<Resident> residents = new CopyOnWriteArrayList<>();
+
     private final Path socket;
     private final ServerSocketChannel server;
     private final Thread acceptor;
@@ -102,6 +112,9 @@ public final class FakeDaemon implements AutoCloseable {
 
     private void route(final SocketChannel client, final String method, final String path, final String body)
             throws IOException {
+        if (!residents.isEmpty() && routeResident(client, method, path, body)) {
+            return;
+        }
         if (path.startsWith("/containers/json")) {
             if (broken.get()) {
                 json(client, 500, "{\"message\":\"the daemon is not answering\"}");
@@ -156,10 +169,220 @@ public final class FakeDaemon implements AutoCloseable {
         }
     }
 
-    private java.util.Optional<Stopped> stoppedAt(final String path) {
+    private Optional<Stopped> stoppedAt(final String path) {
         return stopped.stream()
                 .filter(one -> path.equals("/containers/" + one.id() + "/json"))
                 .findFirst();
+    }
+
+    /** Answers what a resident container's routes ask, or reports that the request is not about one. */
+    private boolean routeResident(final SocketChannel client, final String method, final String path, final String body)
+            throws IOException {
+        if (path.startsWith("/containers/json")) {
+            if (broken.get()) {
+                json(client, 500, "{\"message\":\"the daemon is not answering\"}");
+                return true;
+            }
+            final StringBuilder list = new StringBuilder("[");
+            for (final Resident one : residents) {
+                list.append(list.length() > 1 ? "," : "").append(listed(one));
+            }
+            json(client, 200, list.append(']').toString());
+            return true;
+        }
+        if (path.equals("/system/df")) {
+            json(client, 200, DISK_USAGE);
+            return true;
+        }
+        final String[] parts = path.split("[/?]", -1);
+        if (parts.length >= 4 && parts[1].equals("containers")) {
+            final Optional<Resident> found =
+                    residents.stream().filter(one -> one.id().equals(parts[2])).findFirst();
+            if (found.isEmpty()) {
+                return false;
+            }
+            return routeContainer(client, method, path, body, found.get(), parts[3]);
+        }
+        if (parts.length >= 4 && parts[1].equals("images") && parts[parts.length - 1].equals("json")) {
+            return image(
+                    client,
+                    java.net.URLDecoder.decode(path.substring(8, path.indexOf("/json")), StandardCharsets.UTF_8));
+        }
+        if (parts.length >= 3 && parts[1].equals("distribution")) {
+            final String reference = java.net.URLDecoder.decode(
+                    path.substring("/distribution/".length(), path.lastIndexOf("/json")), StandardCharsets.UTF_8);
+            final Optional<Resident> found = residents.stream()
+                    .filter(one -> one.image().equals(reference))
+                    .findFirst();
+            json(
+                    client,
+                    200,
+                    found.map(one -> "{\"Descriptor\":{\"digest\":\"sha256:" + one.digest() + "\"}}")
+                            .orElse("{}"));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean routeContainer(
+            final SocketChannel client,
+            final String method,
+            final String path,
+            final String body,
+            final Resident one,
+            final String action)
+            throws IOException {
+        switch (action) {
+            case "json" -> json(client, 200, inspected(one));
+            case "stats" -> json(client, 200, stats(one));
+            case "logs" -> {
+                if (path.contains("follow=1")) {
+                    follow(client, one);
+                } else {
+                    final byte[] lines = logOf(one).getBytes(StandardCharsets.UTF_8);
+                    write(
+                            client,
+                            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " + lines.length
+                                    + "\r\n\r\n");
+                    client.write(ByteBuffer.wrap(lines));
+                }
+            }
+            case "exec" -> {
+                if (!method.equals("POST")) {
+                    return false;
+                }
+                execs.add(body);
+                json(client, 201, "{\"Id\":\"e1\"}");
+            }
+            default -> {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean image(final SocketChannel client, final String reference) throws IOException {
+        final Optional<Resident> found = residents.stream()
+                .filter(one -> one.imageId().equals(reference) || one.image().equals(reference))
+                .findFirst();
+        if (found.isEmpty()) {
+            return false;
+        }
+        json(
+                client,
+                200,
+                "{\"RepoDigests\":[\"" + found.get().repository() + "@sha256:"
+                        + found.get().digest() + "\"]}");
+        return true;
+    }
+
+    private static String listed(final Resident one) {
+        return """
+                {"Id":"%s","Names":["/%s-%s-1"],"Image":"%s","ImageID":"%s","State":"%s","Status":"%s",
+                 "Labels":{"com.docker.compose.project":"%s","com.docker.compose.service":"%s"}}
+                """.formatted(
+                        one.id(),
+                        PROJECT,
+                        one.service(),
+                        one.image(),
+                        one.imageId(),
+                        one.running() ? "running" : "exited",
+                        one.status(),
+                        PROJECT,
+                        one.service());
+    }
+
+    private static String inspected(final Resident one) {
+        final Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        final Instant started = now.minus(one.startedAgo());
+        final String finished = one.running()
+                ? "0001-01-01T00:00:00Z"
+                : now.minus(one.endedAgo()).toString();
+        final String health = one.health().isEmpty() ? "" : ",\"Health\":{\"Status\":\"" + one.health() + "\"}";
+        return """
+                {"Id":"%s","Name":"/%s-%s-1","Image":"%s","RestartCount":0,
+                 "Config":{"Image":"%s","Tty":true},
+                 "State":{"Status":"%s","StartedAt":"%s","ExitCode":%d,"FinishedAt":"%s"%s}}
+                """.formatted(
+                        one.id(),
+                        PROJECT,
+                        one.service(),
+                        one.imageId(),
+                        one.image(),
+                        one.running() ? "running" : "exited",
+                        started,
+                        one.running() ? 0 : one.exitCode(),
+                        finished,
+                        health);
+    }
+
+    /** Docker's formula needs a delta, so the previous sample is a fixed step behind by the share asked for. */
+    private static String stats(final Resident one) {
+        final long cpus = 6;
+        final long system = 1_000_000_000L;
+        final long used = Math.round(one.cpuPercent() / 100.0 / cpus * system);
+        return """
+                {"memory_stats":{"usage":%d,"limit":%d},
+                 "cpu_stats":{"cpu_usage":{"total_usage":%d},"system_cpu_usage":%d,"online_cpus":%d},
+                 "precpu_stats":{"cpu_usage":{"total_usage":0},"system_cpu_usage":0}}
+                """.formatted(one.memoryBytes(), MEMORY_LIMIT, used, system, cpus);
+    }
+
+    /** What Docker holds on the host: about 9 GB of images, 19 GB of volumes and 0.2 GB written by containers. */
+    private static final String DISK_USAGE = """
+            {"Images":[{"Size":9200000000}],"Volumes":[{"UsageData":{"Size":18700000000}}],"Containers":[{"SizeRw":200000000}]}
+            """;
+
+    /** The host's memory, which Docker reports as the limit of a container without one. */
+    private static final long MEMORY_LIMIT = 25_199_894_528L;
+
+    /** The resident's log lines, stamped every few seconds back from now. */
+    private static String logOf(final Resident one) {
+        final StringBuilder text = new StringBuilder();
+        final Instant now = Instant.now();
+        final int count = one.log().size();
+        for (int i = 0; i < count; i++) {
+            text.append(now.minusSeconds((count - i) * 9L))
+                    .append(' ')
+                    .append(one.log().get(i))
+                    .append('\n');
+        }
+        return text.toString();
+    }
+
+    /** A resident's follow: its log, then a line every few seconds for as long as the reader stays. */
+    private void follow(final SocketChannel client, final Resident one) throws IOException {
+        follows.incrementAndGet();
+        final AtomicBoolean hungUp = new AtomicBoolean();
+        Thread.ofVirtual().name("fake-daemon-hangup").start(() -> {
+            try {
+                final ByteBuffer buffer = ByteBuffer.allocate(1);
+                while (client.read(buffer) != -1) {
+                    buffer.clear();
+                }
+            } catch (final IOException closed) {
+                // Same thing.
+            }
+            hungUp.set(true);
+        });
+        try {
+            write(client, "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n");
+            write(client, logOf(one));
+            int next = 0;
+            while (!hungUp.get() && !one.log().isEmpty()) {
+                Thread.sleep(3000);
+                if (chatty.get()) {
+                    write(
+                            client,
+                            Instant.now() + " "
+                                    + one.log().get(next++ % one.log().size()) + "\n");
+                }
+            }
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } finally {
+            follows.decrementAndGet();
+        }
     }
 
     /**

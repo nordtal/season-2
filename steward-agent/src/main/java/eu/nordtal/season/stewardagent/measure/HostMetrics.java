@@ -27,7 +27,7 @@ public final class HostMetrics {
     private static final String DISK = "/";
 
     private final Path procRoot;
-    private final Path diskPath;
+    private final Disk disk;
 
     private long previousTotalJiffies = -1;
 
@@ -44,8 +44,36 @@ public final class HostMetrics {
      * @param diskPath any path on the filesystem to measure
      */
     public HostMetrics(final Path procRoot, final Path diskPath) {
+        this(procRoot, () -> filesystemOf(diskPath));
+    }
+
+    /**
+     * Reads the given files and asks {@code disk} for the filesystem, for a host that has no filesystem to measure.
+     *
+     * @param procRoot a directory holding {@code loadavg}, {@code stat} and {@code meminfo} in the kernel's format
+     */
+    public HostMetrics(final Path procRoot, final Disk disk) {
         this.procRoot = procRoot;
-        this.diskPath = diskPath;
+        this.disk = disk;
+    }
+
+    /**
+     * The size, use and free space of one filesystem, in bytes, as {@link HostSnapshot} names them.
+     */
+    public record Space(long total, long used, long free) {}
+
+    /** Where the filesystem is measured. */
+    @FunctionalInterface
+    public interface Disk {
+
+        Space read() throws IOException;
+    }
+
+    private static Space filesystemOf(final Path path) throws IOException {
+        // getUsableSpace(), not getUnallocatedSpace(): a non-root process cannot write into the root reserve.
+        final FileStore store = Files.getFileStore(path);
+        final long total = store.getTotalSpace();
+        return new Space(total, total - store.getUnallocatedSpace(), store.getUsableSpace());
     }
 
     /**
@@ -63,11 +91,7 @@ public final class HostMetrics {
         previousTotalJiffies = cpu.total();
         previousIdleJiffies = cpu.idle();
 
-        // getUsableSpace(), not getUnallocatedSpace(): a non-root process cannot write into the root reserve.
-        final FileStore store = Files.getFileStore(diskPath);
-        final long diskTotal = store.getTotalSpace();
-        final long diskUsed = diskTotal - store.getUnallocatedSpace();
-        final long diskFree = store.getUsableSpace();
+        final Space space = disk.read();
 
         return new HostSnapshot(
                 load.one(),
@@ -80,9 +104,9 @@ public final class HostMetrics {
                 memory.free(),
                 memory.swapTotal(),
                 memory.swapFree(),
-                diskTotal,
-                diskUsed,
-                diskFree);
+                space.total(),
+                space.used(),
+                space.free());
     }
 
     private record Load(double one, double five, double fifteen) {}

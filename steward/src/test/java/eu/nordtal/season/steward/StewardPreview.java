@@ -229,8 +229,10 @@ public final class StewardPreview {
     }
 
     /**
-     * Writes every admin with a linked Minecraft account as connected to smp, as often as the proxy writes, so the
-     * views of who is online fill from a dump. A fresh database has no linked admin, and nobody is online there.
+     * Writes every admin with a linked Minecraft account as connected to smp.
+     *
+     * It writes as often as the proxy does, so the views of who is online fill from a dump. A fresh database has no
+     * linked admin, and nobody is online there.
      */
     private static void keepAdminsOnline(final TestDatabase postgres, final ProcessScheduler scheduler) {
         final List<OnlineRoster.Presence> admins = new java.util.ArrayList<>();

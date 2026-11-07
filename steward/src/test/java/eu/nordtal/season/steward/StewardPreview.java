@@ -31,8 +31,8 @@ import eu.nordtal.season.steward.config.WebSpec;
 import eu.nordtal.season.steward.data.Data;
 import eu.nordtal.season.steward.stack.StackApi;
 import eu.nordtal.season.stewardagent.AgentStandIn;
+import eu.nordtal.season.stewardagent.FakeHost;
 import eu.nordtal.season.stewardagent.config.AgentSettings;
-import eu.nordtal.season.stewardagent.docker.FakeDaemon;
 import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.PluginFiles;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
@@ -70,32 +70,6 @@ public final class StewardPreview {
     private static final String ADMIN_NAME = "Preview";
 
     private static final String DUMP_OWNER = "nordtal";
-
-    /**
-     * The services of compose.yml that the navigation lists, beside the stand-in's smp, so the whole list shows.
-     *
-     * A one-shot that ran and a standby at rest among them. Each other carries the section label that lists it in the
-     * navigation, as compose.yml does.
-     */
-    private static final com.google.gson.JsonObject RESTING =
-            com.google.gson.JsonParser.parseString("""
-                    {"migrate": {"image": "ghcr.io/nordtal/steward-agent:latest", "restart": "no"},
-                     "caddy": {"image": "ghcr.io/nordtal/caddy:latest", "labels": {"eu.nordtal.section": "Entry"}},
-                     "proxy": {"image": "ghcr.io/nordtal/minecraft:latest", "labels": {"eu.nordtal.section": "Entry"}},
-                     "proxy-standby": {"image": "ghcr.io/nordtal/minecraft:latest", "restart": "unless-stopped",
-                       "labels": {"eu.nordtal.standby-of": "proxy"}},
-                     "limbo": {"image": "ghcr.io/nordtal/minecraft:latest", "labels": {"eu.nordtal.section": "Paper"}},
-                     "hunger-games": {"image": "ghcr.io/nordtal/minecraft:latest",
-                       "labels": {"eu.nordtal.section": "Paper"}},
-                     "discord-bot": {"image": "ghcr.io/nordtal/discord-bot:latest",
-                       "labels": {"eu.nordtal.section": "Discord"}},
-                     "steward": {"image": "ghcr.io/nordtal/steward:latest", "labels": {"eu.nordtal.section": "Steward"}},
-                     "steward-agent": {"image": "ghcr.io/nordtal/steward-agent:latest",
-                       "labels": {"eu.nordtal.section": "Steward"}},
-                     "steward-bunq": {"image": "ghcr.io/nordtal/steward-bunq:latest",
-                       "labels": {"eu.nordtal.section": "Steward"}},
-                     "postgres": {"image": "postgres:17-alpine", "labels": {"eu.nordtal.section": "Database"}}}
-                    """).getAsJsonObject();
 
     private static final String PREVIEW_TOTP_KEY = previewTotpKey();
 
@@ -174,13 +148,7 @@ public final class StewardPreview {
                     started,
                     new ProcessScheduler(
                             "steward-preview", failure -> System.err.println("A task failed: " + failure)));
-            final AgentStandIn agent = push(
-                    started,
-                    new AgentStandIn(
-                            scratch,
-                            0,
-                            cfg -> standInRoutes(cfg, scratch.resolve("volumes")),
-                            servicesOf(options.jars())));
+            final AgentStandIn agent = startAgent(started, scratch, options);
             final StandInDiscord discord = push(started, new StandInDiscord());
             furnish(agent);
             furnishWhatIsNeverListed(agent.volumes.resolve("smp/plugins"));
@@ -216,6 +184,24 @@ public final class StewardPreview {
         } catch (final Exception e) {
             throw closedAfter(started, e);
         }
+    }
+
+    /** Starts the stand-in agent over the live stack's host, containers, volumes and backups. */
+    private static AgentStandIn startAgent(
+            final Deque<AutoCloseable> started, final Path scratch, final Options options) throws IOException {
+        final FakeHost host = push(started, new FakeHost(scratch.resolve("proc"), LiveStack.HOST));
+        final AgentStandIn agent = push(
+                started,
+                new AgentStandIn(
+                        scratch,
+                        0,
+                        cfg -> standInRoutes(cfg, scratch.resolve("volumes")),
+                        servicesOf(options.jars(), scratch.resolve("sources")),
+                        LiveStack.residents(),
+                        host.metrics()));
+        LiveStack.fillVolumes(agent.volumes);
+        LiveStack.writeBackups(agent.backups, Clock.systemUTC().instant());
+        return agent;
     }
 
     /** Closes what a failed start had started and returns its failure, with any failure to close added. */
@@ -256,6 +242,8 @@ public final class StewardPreview {
                 Topology.SMP,
                 admins.size(),
                 Topology.LIMBO,
+                0,
+                "limbo-standby",
                 0,
                 Topology.HUNGER_GAMES,
                 0);
@@ -308,14 +296,8 @@ public final class StewardPreview {
                 .load(Group.of("distances", DistancesSpec.class));
     }
 
-    /** Gives the stand-in agent the stopped containers and the jars that the preview shows. */
+    /** Gives the stand-in agent the jars and plugin files that the preview shows. */
     private static void furnish(final AgentStandIn agent) throws IOException {
-        agent.daemon.stopped.add(new FakeDaemon.Stopped("migrate", 0, "2026-10-06T01:00:09Z"));
-        agent.daemon.stopped.add(new FakeDaemon.Stopped("proxy-standby", 143, "2026-10-06T01:20:00Z"));
-        eu.nordtal.season.stewardagent.PluginJars.write(
-                agent.volumes.resolve("smp/plugins/smp-0.17.0.jar"),
-                "{\"id\": \"smp\", \"local\": true}",
-                java.util.Map.of());
         // smp's descriptor sits where the agent reads it, so Steward draws each group with the editor smp's jar names.
         eu.nordtal.season.stewardagent.PluginJars.write(
                 agent.configs.resolve("smp/smp.jar"),
@@ -414,7 +396,37 @@ public final class StewardPreview {
                     AgentWire.PluginGroup.ADDED,
                     "https://cdn.modrinth.com/data/Vebnzrzj/90943902cc650e95b167265b8f2d7c893f82c8f4_96.webp"),
             plugin("Chunky", AgentWire.PluginGroup.ADDED, null),
-            plugin("smp", AgentWire.PluginGroup.NORDTAL, null));
+            nordtal("smp", "0.80.0"));
+
+    private static AgentWire.Plugin nordtal(final String name, final String version) {
+        return new AgentWire.Plugin(
+                name,
+                AgentWire.PluginGroup.NORDTAL,
+                null,
+                true,
+                false,
+                name,
+                name + "-" + version + ".jar",
+                version,
+                "v" + version,
+                name,
+                name,
+                null,
+                null,
+                null,
+                null,
+                null);
+    }
+
+    /** smp's plugin list, and for any other server the one plugin of its own. */
+    private static AgentWire.Plugins pluginsOf(final String service) {
+        final List<AgentWire.Plugin> own = switch (service) {
+            case Topology.SMP -> PLUGINS;
+            case Topology.HUNGER_GAMES -> List.of(nordtal(service, "0.74.1"));
+            default -> List.of(nordtal(service, "0.80.0"));
+        };
+        return new AgentWire.Plugins(service, service.equals(Topology.PROXY) ? "velocity" : "paper", "26.3", true, own);
+    }
 
     private static AgentWire.Plugin plugin(
             final String name,
@@ -424,35 +436,34 @@ public final class StewardPreview {
                 name, group, null, true, true, null, null, "1.0.0", null, name, null, null, null, null, icon, null);
     }
 
-    /** What the stand-in agent answers for the plan: smp behind the release, its server jar and the pack current. */
+    /** What the stand-in agent answers for the plan: every jar, the server builds and the pack on the live release. */
     private static final UpdatePlan PLAN = new UpdatePlan(
             Clock.systemUTC().instant(),
-            "v0.18.0",
+            "v0.80.0",
             false,
             List.of(
-                    new Change(
-                            Topology.SMP,
-                            Topology.SMP,
-                            Change.Status.OUTDATED,
-                            "smp-0.17.0.jar",
-                            remote(Topology.SMP, "0.18.0", "smp-0.18.0.jar"),
-                            null),
-                    new Change(
-                            Topology.SMP,
-                            Topology.PAPER,
-                            Change.Status.UP_TO_DATE,
-                            "paper-1.21.10-130.jar",
-                            remote(Topology.PAPER, "1.21.10-130", "paper-1.21.10-130.jar"),
-                            null),
-                    new Change(
-                            null,
-                            Topology.RESOURCE_PACK,
-                            Change.Status.UP_TO_DATE,
-                            "3f2a9c1",
-                            remote(Topology.RESOURCE_PACK, "v0.18.0", "nordtal-pack.zip"),
-                            null)),
+                    current(Topology.SMP, Topology.SMP, "0.80.0", "smp-0.80.0.jar"),
+                    current(Topology.SMP, Topology.PAPER, "26.3-41", "paper-26.3-41.jar"),
+                    current(Topology.SMP, Topology.PACKETEVENTS, "2.10.1", "packetevents-spigot-2.10.1.jar"),
+                    current(Topology.LIMBO, Topology.LIMBO, "0.80.0", "limbo-0.80.0.jar"),
+                    current(Topology.LIMBO, Topology.PAPER, "26.3-41", "paper-26.3-41.jar"),
+                    current(Topology.HUNGER_GAMES, Topology.HUNGER_GAMES, "0.74.1", "hunger-games-0.74.1.jar"),
+                    current(Topology.HUNGER_GAMES, Topology.PAPER, "26.3-41", "paper-26.3-41.jar"),
+                    current(Topology.PROXY, Topology.PROXY, "0.80.0", "proxy-0.80.0.jar"),
+                    current(Topology.PROXY, Topology.VELOCITY, "4.0.0-51", "velocity-4.0.0-51.jar"),
+                    current(null, Topology.DISCORD_BOT, "0.80.0", "discord-bot-0.80.0.jar"),
+                    current(null, Topology.RESOURCE_PACK, "v0.80.0", "nordtal-pack.zip")),
             List.of(),
             List.of());
+
+    private static Change current(
+            final @org.jspecify.annotations.Nullable String service,
+            final String artifact,
+            final String version,
+            final String fileName) {
+        return new Change(
+                service, artifact, Change.Status.UP_TO_DATE, fileName, remote(artifact, version, fileName), null);
+    }
 
     private static RemoteFile remote(final String artifact, final String version, final String fileName) {
         return new RemoteFile(artifact, version, fileName, URI.create("https://example.invalid/" + fileName), null);
@@ -461,20 +472,18 @@ public final class StewardPreview {
     /** Serves {@link #PLAN} and the plugin files of {@code volumes}, which {@link #furnish} fills. */
     private static void standInRoutes(final io.javalin.config.JavalinConfig cfg, final Path volumes) {
         cfg.routes.get(AgentWire.PLAN, ctx -> ctx.json(PlanView.of(PLAN)));
-        final PluginFiles files =
-                new PluginFiles(service -> new AgentWire.Plugins(service, "paper", "1.21.10", true, PLUGINS), volumes);
+        cfg.routes.get(AgentWire.PLUGINS, ctx -> ctx.json(pluginsOf(ctx.pathParam("name"))));
+        final PluginFiles files = new PluginFiles(StewardPreview::pluginsOf, volumes);
         cfg.routes.get(AgentWire.PLUGIN_FILES, files::list);
         cfg.routes.get(AgentWire.PLUGIN_FILE, files::read);
         cfg.routes.post(AgentWire.PLUGIN_FILE, files::save);
     }
 
-    /** {@link #RESTING}, smp with its section label, and each service of {@code jars} that compose.yml lacks. */
-    private static JsonObject servicesOf(final @org.jspecify.annotations.Nullable Path jars) throws IOException {
-        final JsonObject services = RESTING.deepCopy();
+    /** {@link LiveStack#services}, and each service of {@code jars} that compose.yml lacks. */
+    private static JsonObject servicesOf(final @org.jspecify.annotations.Nullable Path jars, final Path sources)
+            throws IOException {
+        final JsonObject services = LiveStack.services(sources);
         final JsonObject named = JsonParser.parseString(AgentStandIn.SERVICES).getAsJsonObject();
-        final JsonObject smp = named.getAsJsonObject("smp").deepCopy();
-        smp.getAsJsonObject("labels").addProperty("eu.nordtal.section", "Paper");
-        services.add("smp", smp);
         if (jars == null) {
             return services;
         }

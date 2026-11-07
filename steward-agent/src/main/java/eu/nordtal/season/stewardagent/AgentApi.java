@@ -48,8 +48,25 @@ public final class AgentApi implements AutoCloseable {
             final Paths paths,
             final Clock clock,
             final Scheduler scheduler) {
+        this(docker, project, definitions, hashes, paths, clock, scheduler, new HostMetrics());
+    }
+
+    /**
+     * Wires the routes with a host other than the machine this process runs on.
+     *
+     * @param host where the host's numbers are read from
+     */
+    public AgentApi(
+            final Docker docker,
+            final String project,
+            final ComposeTopology.Definitions definitions,
+            final Containers.Definitions hashes,
+            final Paths paths,
+            final Clock clock,
+            final Scheduler scheduler,
+            final HostMetrics host) {
         this.topology = new ComposeTopology(definitions, paths.backupSources().toString(), clock);
-        this.sampler = new Sampler(docker, new HostMetrics(), project, clock, scheduler);
+        this.sampler = new Sampler(docker, host, project, clock, scheduler);
         this.logs = new LogStreams(docker, project, paths.volumesRoot(), clock, scheduler);
         this.routes = new AgentRoutes(
                 docker,

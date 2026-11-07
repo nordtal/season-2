@@ -10,6 +10,8 @@ import eu.nordtal.season.stewardagent.docker.Containers;
 import eu.nordtal.season.stewardagent.docker.Docker;
 import eu.nordtal.season.stewardagent.docker.DockerSocket;
 import eu.nordtal.season.stewardagent.docker.FakeDaemon;
+import eu.nordtal.season.stewardagent.docker.Resident;
+import eu.nordtal.season.stewardagent.measure.HostMetrics;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
 import java.io.IOException;
@@ -17,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -49,6 +52,9 @@ public final class AgentStandIn implements AutoCloseable {
     /** Where archives are listed from and downloaded out of. */
     public final Path backups;
 
+    /** Where the archives' volumes are mounted, one directory named for each. */
+    public final Path sources;
+
     /** One directory per service, where the message bundles' jars are looked for. */
     public final Path configs;
 
@@ -74,11 +80,29 @@ public final class AgentStandIn implements AutoCloseable {
      */
     public AgentStandIn(final Path scratch, final int port, final Consumer<JavalinConfig> more, final JsonObject extra)
             throws IOException {
+        this(scratch, port, more, extra, List.of(), new HostMetrics());
+    }
+
+    /**
+     * The same as a whole stack: these containers instead of smp alone, over this host's numbers.
+     *
+     * @param residents every container the daemon has, running or not
+     * @param host where the agent reads the machine's numbers
+     */
+    public AgentStandIn(
+            final Path scratch,
+            final int port,
+            final Consumer<JavalinConfig> more,
+            final JsonObject extra,
+            final List<Resident> residents,
+            final HostMetrics host)
+            throws IOException {
         this.daemon = new FakeDaemon(scratch);
+        this.daemon.residents.addAll(residents);
         this.backups = Files.createDirectories(scratch.resolve("backups"));
         this.configs = Files.createDirectories(scratch.resolve("configs"));
         this.volumes = Files.createDirectories(scratch.resolve("volumes"));
-        final Path sources = Files.createDirectories(scratch.resolve("sources"));
+        this.sources = Files.createDirectories(scratch.resolve("sources"));
         final JsonObject services =
                 JsonParser.parseString(SERVICES.formatted(sources)).getAsJsonObject();
         extra.entrySet().forEach(service -> services.add(service.getKey(), service.getValue()));
@@ -89,7 +113,8 @@ public final class AgentStandIn implements AutoCloseable {
                 Containers.Definitions.NONE,
                 new AgentApi.Paths(volumes, configs, sources, backups),
                 Clock.systemUTC(),
-                TestScheduler.SHARED);
+                TestScheduler.SHARED,
+                host);
         api.start();
         final String prefix = "NORDTAL_STEWARD_AGENT_";
         this.server = new InternalServer(

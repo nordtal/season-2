@@ -6,8 +6,12 @@ import com.google.gson.JsonParser;
 import eu.nordtal.season.common.time.ProcessScheduler;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
+import eu.nordtal.season.database.access.AccessReader;
 import eu.nordtal.season.database.access.AdminTree;
+import eu.nordtal.season.database.access.Person;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.database.online.OnlineDirectory;
+import eu.nordtal.season.database.online.OnlineRoster;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.internalapi.agent.AgentWire;
@@ -205,6 +209,7 @@ public final class StewardPreview {
             final SignalHub signals = push(started, signalsOf(asSteward(postgres)));
             web.listen(signals);
             signals.start();
+            keepAdminsOnline(postgres, scheduler);
             final String session = signInAdmin(data, discord, config.publicUrl(), scheduler);
             writeState(options.state(), session);
             return new Running(config.publicUrl(), session, agent.volumes, started);
@@ -221,6 +226,43 @@ public final class StewardPreview {
             failure.addSuppressed(alsoFailed);
         }
         return failure;
+    }
+
+    /**
+     * Writes every admin with a linked Minecraft account as connected to smp.
+     *
+     * It writes as often as the proxy does, so the views of who is online fill from a dump. A fresh database has no
+     * linked admin, and nobody is online there.
+     */
+    private static void keepAdminsOnline(final TestDatabase postgres, final ProcessScheduler scheduler) {
+        final List<OnlineRoster.Presence> admins = new java.util.ArrayList<>();
+        for (final Person person : AccessReader.using(postgres.dataSourceAs(DatabaseRole.STEWARD), Clock.systemUTC())
+                .people(Integer.MAX_VALUE)) {
+            final java.util.UUID uuid = person.minecraftUuid();
+            final String name = person.mcName();
+            if (person.admin() && uuid != null && name != null) {
+                admins.add(new OnlineRoster.Presence(uuid, name, Topology.SMP));
+            }
+        }
+        if (admins.isEmpty()) {
+            return;
+        }
+        final javax.sql.DataSource proxy = postgres.dataSourceAs(DatabaseRole.PROXY);
+        final OnlineDirectory counts = OnlineDirectory.using(proxy, Clock.systemUTC());
+        final OnlineRoster roster = OnlineRoster.using(proxy, Clock.systemUTC());
+        final java.util.Map<String, Integer> perSubject = java.util.Map.of(
+                Topology.PROXY,
+                admins.size(),
+                Topology.SMP,
+                admins.size(),
+                Topology.LIMBO,
+                0,
+                Topology.HUNGER_GAMES,
+                0);
+        scheduler.every(Duration.ZERO, OnlineDirectory.WRITE_INTERVAL, () -> {
+            roster.replace(admins);
+            counts.write(perSubject);
+        });
     }
 
     /** Admits the invented admin, signs in and returns the session, whose key counts as just held while this runs. */

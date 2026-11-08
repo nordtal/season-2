@@ -7,6 +7,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.JsonOps;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -63,7 +64,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.jspecify.annotations.Nullable;
 
-/** Carries each request out on the client thread; the future fails with a message the reply passes on. */
+/** Carries each request out on the client thread; the future fails with a message or yields fields for the reply. */
 final class ClientActions implements Function<Request, CompletableFuture<?>> {
 
     private static final UUID BOSS_BAR = UUID.nameUUIDFromBytes("nordtal-bridge".getBytes(StandardCharsets.UTF_8));
@@ -166,15 +167,18 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
         return saved;
     }
 
-    /** A file in {@code folder} that does not exist yet, named after the time as F2 names its screenshots. */
+    /** Creates an empty file in {@code folder} that no other screenshot has, named after the time as F2 names its. */
     static Path screenshotFile(final Path folder) throws IOException {
         Files.createDirectories(folder);
         final String name = Util.getFilenameFormattedDateTime();
-        Path file = folder.resolve(name + ".png");
-        for (int count = 2; Files.exists(file); count++) {
-            file = folder.resolve(name + "_" + count + ".png");
+        for (int count = 1; ; count++) {
+            final Path file = folder.resolve(count == 1 ? name + ".png" : name + "_" + count + ".png");
+            try {
+                return Files.createFile(file);
+            } catch (FileAlreadyExistsException taken) {
+                // the next count
+            }
         }
-        return file;
     }
 
     private void sound(final Request.Sound sound) {

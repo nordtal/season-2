@@ -4,7 +4,8 @@ A Fabric mod that runs only in the client. The Nordtal Designer reaches it over 
 `127.0.0.1` to reload the resource packs and to show a texture in chat, the actionbar, the title, a
 boss bar, a chest title, a dialog, the hand, or a block or a station rail placed in the client only.
 It also saves screenshots of what the client shows. It works in singleplayer and on servers, and it
-needs Fabric Loader but not the Fabric API. Every release attaches it as `nordtal-bridge-<version>.jar`.
+needs Fabric Loader but not the Fabric API. Every release attaches it as
+`nordtal-bridge-<version>.jar`.
 
 | File             | What it does                                                           |
 | ---------------- | ---------------------------------------------------------------------- |
@@ -60,8 +61,8 @@ component (`text`, `subtitle`) is the JSON that `/tellraw` takes.
 | `block`      | `block` as `/setblock` writes it, `pos` as `[x, y, z]`              | Places the block state in the client only; without `pos`, on the face under the crosshair.    |
 | `rail`       | `item` as `/give` writes it, `pos`, `axis` optional                 | Places a rail with the item on it as the server draws a station rail, in the client only.     |
 | `sound`      | `sound` as an event id, `volume` from 0 to 1, `pitch` from 0.5 to 2 | Plays the event of the loaded packs to the player alone; 1 and 1 by default.                  |
-| `dialog`     | `dialog` as `/dialog show` takes it, in JSON: an object or an id    | Shows the dialog as the server's show-dialog packet does, and redraws an open one.            |
-| `screenshot` |                                                                     | Saves the frame the client shows into `screenshots/`, named as F2 names it.                   |
+| `dialog`     | `dialog` as `/dialog show` takes it, in JSON: an object or an id    | Shows the dialog as the server's show-dialog packet does, and replaces an open one.           |
+| `screenshot` |                                                                     | Saves the last frame the client drew into `screenshots/`, named as F2 names it.               |
 | `clear`      |                                                                     | Removes the boss bar and the title, and every block and item display it placed in this world. |
 
 `color` is one of `pink`, `blue`, `red`, `green`, `yellow`, `purple` and `white`, and `overlay` one
@@ -71,10 +72,14 @@ state of a block again when the chunk reloads, which ends a client block. `axis`
 at the middle of the block, turned by 90 degrees along `east_west`, and `pos` works as for `block`. A
 rail or block placed there again takes the place of that display.
 
+A dialog's buttons act as a server's dialog's do: a `run_command` or `custom` action reaches the
+server the client is connected to. `screenshot` saves the frame drawn last before it runs, so a tool
+waits for the reply of the request before it and gives the client a frame to draw the change.
+
 ## Testing
 
 `sh gradlew :bridge-mod:test` runs the protocol, the settings and the server against the JDK's
-WebSocket client, and the chest's menu and the item of `give` against the game's registries, without
-a client. In a client, write the settings file into
+WebSocket client, and the chest's menu, the item of `give` and the dialog of `dialog` against the
+game's registries, without a client. In a client, write the settings file into
 `bridge-mod/run/config/`, start `sh gradlew :bridge-mod:runClient`, and send frames with any
 WebSocket client, such as `websocat ws://127.0.0.1:29415/`.

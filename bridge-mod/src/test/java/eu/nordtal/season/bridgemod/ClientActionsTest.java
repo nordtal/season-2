@@ -2,6 +2,7 @@ package eu.nordtal.season.bridgemod;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,6 +17,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentInitializers.PendingComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.registries.VanillaRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.server.dialog.Dialog;
 import net.minecraft.server.dialog.NoticeDialog;
@@ -63,7 +65,7 @@ class ClientActionsTest {
                  "body":{"type":"minecraft:plain_message","contents":"b","width":280}}"""));
         assertTrue(inline.value() instanceof NoticeDialog, inline.value().toString());
         assertTrue(ClientActions.dialog(registries, JsonParser.parseString("\"minecraft:server_links\""))
-                .is(net.minecraft.resources.Identifier.withDefaultNamespace("server_links")));
+                .is(Identifier.withDefaultNamespace("server_links")));
         final IllegalArgumentException refused = assertThrows(
                 IllegalArgumentException.class,
                 () -> ClientActions.dialog(registries, JsonParser.parseString("{\"type\":\"minecraft:notice\"}")));
@@ -71,11 +73,11 @@ class ClientActionsTest {
     }
 
     @Test
-    void aScreenshotNeverTakesTheFileOfAnEarlierOne(@TempDir final Path folder) throws IOException {
+    void aScreenshotNeverTakesTheFileOfAnEarlierOneThatIsNotWrittenYet(@TempDir final Path folder) throws IOException {
         final Path first = ClientActions.screenshotFile(folder.resolve("screenshots"));
-        Files.createFile(first);
         final Path second = ClientActions.screenshotFile(folder.resolve("screenshots"));
-        assertFalse(Files.exists(second), second.toString());
+        assertNotEquals(first, second);
+        assertTrue(Files.exists(first) && Files.exists(second), first + " " + second);
         assertTrue(second.getFileName().toString().endsWith(".png"), second.toString());
     }
 

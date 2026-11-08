@@ -12,7 +12,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One connection's conversation: a hello with the token first, then one reply per request.
- * Every reply echoes the request's `id`. A wrong token or anything but a hello first closes the connection.
+ * Every reply echoes the request's `id`, and a request whose future yields a JSON object adds its fields.
+ * A wrong token or anything but a hello first closes the connection.
  */
 final class Session {
 
@@ -56,8 +57,9 @@ final class Session {
             return CompletableFuture.completedFuture(error(id, String.valueOf(e.getMessage())));
         }
         return client.apply(request)
-                .handle((_, failure) ->
-                        failure == null ? new Reply(reply(id, true, null), false) : error(id, message(failure)));
+                .handle((result, failure) -> failure == null
+                        ? new Reply(reply(id, true, null, result instanceof JsonObject fields ? fields : null), false)
+                        : error(id, message(failure)));
     }
 
     private Reply hello(final @Nullable JsonElement id, final JsonObject json) {
@@ -69,18 +71,22 @@ final class Session {
             return refuse(id, "The token does not match the one in config/" + BridgeSettings.FILE + ".");
         }
         authenticated = true;
-        return new Reply(reply(id, true, null), false);
+        return new Reply(reply(id, true, null, null), false);
     }
 
     private Reply refuse(final @Nullable JsonElement id, final String message) {
-        return new Reply(reply(id, false, message), !authenticated);
+        return new Reply(reply(id, false, message, null), !authenticated);
     }
 
     private static Reply error(final @Nullable JsonElement id, final String message) {
-        return new Reply(reply(id, false, message), false);
+        return new Reply(reply(id, false, message, null), false);
     }
 
-    private static String reply(final @Nullable JsonElement id, final boolean ok, final @Nullable String error) {
+    private static String reply(
+            final @Nullable JsonElement id,
+            final boolean ok,
+            final @Nullable String error,
+            final @Nullable JsonObject fields) {
         final JsonObject reply = new JsonObject();
         if (id != null) {
             reply.add("id", id);
@@ -88,6 +94,9 @@ final class Session {
         reply.addProperty("ok", ok);
         if (error != null) {
             reply.addProperty("error", error);
+        }
+        if (fields != null) {
+            fields.entrySet().forEach(field -> reply.add(field.getKey(), field.getValue()));
         }
         return reply.toString();
     }

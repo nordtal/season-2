@@ -1,10 +1,14 @@
 package eu.nordtal.season.bridgemod;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.JsonOps;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,6 +17,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -23,15 +28,19 @@ import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.commands.arguments.item.ItemParser;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
+import net.minecraft.network.protocol.common.ClientboundShowDialogPacket;
 import net.minecraft.network.protocol.game.ClientboundBossEventPacket;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.dialog.Dialog;
 import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.util.Util;
 import net.minecraft.world.BossEvent;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.Display;
@@ -85,6 +94,9 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
             return CompletableFuture.completedFuture(null)
                     .thenComposeAsync(_ -> minecraft.reloadResourcePacks(), minecraft);
         }
+        if (request instanceof Request.Screenshot) {
+            return CompletableFuture.completedFuture(null).thenComposeAsync(_ -> screenshot(), minecraft);
+        }
         return minecraft.submit(() -> run(request));
     }
 
@@ -105,6 +117,11 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
             case Request.Block block -> place(position(block.pos()), blockState(block.block()));
             case Request.Sound sound -> sound(sound);
             case Request.Rail rail -> rail(rail);
+            case Request.Dialog dialog -> {
+                final ClientPacketListener connection = connection();
+                connection.handleShowDialog(
+                        new ClientboundShowDialogPacket(dialog(connection.registryAccess(), dialog.dialog())));
+            }
             case Request.Clear _ -> {
                 removeBossBar(hud);
                 hud.clearTitles();
@@ -118,7 +135,46 @@ final class ClientActions implements Function<Request, CompletableFuture<?>> {
                 replacedIn = null;
             }
             case Request.Reload _ -> throw new IllegalStateException("A reload runs through apply.");
+            case Request.Screenshot _ -> throw new IllegalStateException("A screenshot runs through apply.");
         }
+    }
+
+    /** Reads a dialog, or the id of one in the registry, as `/dialog show` reads it. */
+    static Holder<Dialog> dialog(final HolderLookup.Provider registries, final JsonElement json) {
+        return Dialog.CODEC
+                .parse(registries.createSerializationContext(JsonOps.INSTANCE), json)
+                .getOrThrow(IllegalArgumentException::new);
+    }
+
+    /** Saves the frame into the screenshots folder as F2 does and yields the reply's {@code file}. */
+    private CompletableFuture<JsonObject> screenshot() {
+        final CompletableFuture<JsonObject> saved = new CompletableFuture<>();
+        Screenshot.takeScreenshot(
+                minecraft.gameRenderer.mainRenderTarget(),
+                image -> Util.ioPool().execute(() -> {
+                    try (image) {
+                        final Path file =
+                                screenshotFile(minecraft.gameDirectory.toPath().resolve(Screenshot.SCREENSHOT_DIR));
+                        image.writeToFile(file);
+                        final JsonObject reply = new JsonObject();
+                        reply.addProperty("file", file.toAbsolutePath().toString());
+                        saved.complete(reply);
+                    } catch (Exception e) {
+                        saved.completeExceptionally(e);
+                    }
+                }));
+        return saved;
+    }
+
+    /** A file in {@code folder} that does not exist yet, named after the time as F2 names its screenshots. */
+    static Path screenshotFile(final Path folder) throws IOException {
+        Files.createDirectories(folder);
+        final String name = Util.getFilenameFormattedDateTime();
+        Path file = folder.resolve(name + ".png");
+        for (int count = 2; Files.exists(file); count++) {
+            file = folder.resolve(name + "_" + count + ".png");
+        }
+        return file;
     }
 
     private void sound(final Request.Sound sound) {

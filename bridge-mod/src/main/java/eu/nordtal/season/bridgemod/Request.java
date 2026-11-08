@@ -45,6 +45,15 @@ sealed interface Request {
     /** A block position in the world. */
     record Position(int x, int y, int z) {}
 
+    /**
+     * Shows a dialog, written as the JSON form of what `/dialog show` takes, as the server's show-dialog packet does.
+     * A dialog shown over an open one replaces it.
+     */
+    record Dialog(JsonElement dialog) implements Request {}
+
+    /** Saves the frame the client shows into its screenshots folder. */
+    record Screenshot() implements Request {}
+
     /** Removes the boss bar, the title and every block and item the bridge placed. */
     record Clear() implements Request {}
 
@@ -73,6 +82,8 @@ sealed interface Request {
                 new Sound(string(json, "sound"), (float) number(json, "volume", 1, 0, 1), (float)
                         number(json, "pitch", 1, 0.5, 2));
             case "rail" -> new Rail(string(json, "item"), position(json), axis(json));
+            case "dialog" -> new Dialog(required(json, "dialog"));
+            case "screenshot" -> new Screenshot();
             case "clear" -> new Clear();
             default -> throw new IllegalArgumentException("The bridge knows no op '" + op + "'.");
         };

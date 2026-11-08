@@ -5,18 +5,26 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonParser;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentInitializers.PendingComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.registries.VanillaRegistries;
 import net.minecraft.server.Bootstrap;
+import net.minecraft.server.dialog.Dialog;
+import net.minecraft.server.dialog.NoticeDialog;
 import net.minecraft.world.entity.EntityEquipment;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.level.block.state.properties.RailShape;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -45,6 +53,30 @@ class ClientActionsTest {
         final IllegalArgumentException refused = assertThrows(
                 IllegalArgumentException.class, () -> ClientActions.stack(registries, "minecraft:ender_pearl", 17));
         assertTrue(String.valueOf(refused.getMessage()).contains("16"), refused.getMessage());
+    }
+
+    @Test
+    void aDialogIsReadInlineOrByItsIdAndAWrongOneSaysWhatIsWrong() {
+        final HolderLookup.Provider registries = VanillaRegistries.createWorldLookup();
+        final Holder<Dialog> inline = ClientActions.dialog(registries, JsonParser.parseString("""
+                {"type":"minecraft:notice","title":"a","after_action":"none","pause":false,
+                 "body":{"type":"minecraft:plain_message","contents":"b","width":280}}"""));
+        assertTrue(inline.value() instanceof NoticeDialog, inline.value().toString());
+        assertTrue(ClientActions.dialog(registries, JsonParser.parseString("\"minecraft:server_links\""))
+                .is(net.minecraft.resources.Identifier.withDefaultNamespace("server_links")));
+        final IllegalArgumentException refused = assertThrows(
+                IllegalArgumentException.class,
+                () -> ClientActions.dialog(registries, JsonParser.parseString("{\"type\":\"minecraft:notice\"}")));
+        assertTrue(String.valueOf(refused.getMessage()).contains("title"), refused.getMessage());
+    }
+
+    @Test
+    void aScreenshotNeverTakesTheFileOfAnEarlierOne(@TempDir final Path folder) throws IOException {
+        final Path first = ClientActions.screenshotFile(folder.resolve("screenshots"));
+        Files.createFile(first);
+        final Path second = ClientActions.screenshotFile(folder.resolve("screenshots"));
+        assertFalse(Files.exists(second), second.toString());
+        assertTrue(second.getFileName().toString().endsWith(".png"), second.toString());
     }
 
     @Test

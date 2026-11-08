@@ -74,7 +74,8 @@ rail or block placed there again takes the place of that display.
 
 A dialog's buttons act as a server's dialog's do: a `run_command` or `custom` action reaches the
 server the client is connected to. `screenshot` saves the frame drawn last before it runs, so a tool
-waits for the reply of the request before it and gives the client a frame to draw the change.
+waits for the reply of the request before it, and then about 100 ms for the client to draw the
+change.
 
 ## Testing
 

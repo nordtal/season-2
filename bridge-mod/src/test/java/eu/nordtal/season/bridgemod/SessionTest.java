@@ -2,6 +2,7 @@ package eu.nordtal.season.bridgemod;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.gson.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -15,6 +16,11 @@ class SessionTest {
             return CompletableFuture.failedFuture(new IllegalArgumentException("give needs creative mode."));
         }
         carriedOut.add(request);
+        if (request instanceof Request.Screenshot) {
+            final JsonObject saved = new JsonObject();
+            saved.addProperty("file", "/run/screenshots/a.png");
+            return CompletableFuture.completedFuture(saved);
+        }
         return CompletableFuture.completedFuture(null);
     });
 
@@ -28,6 +34,14 @@ class SessionTest {
                 new Session.Reply("{\"id\":1,\"ok\":true}", false), receive("{'id':1,'op':'hello','token':'secret'}"));
         assertEquals(new Session.Reply("{\"id\":\"r\",\"ok\":true}", false), receive("{'id':'r','op':'reload'}"));
         assertEquals(List.of(new Request.Reload()), carriedOut);
+    }
+
+    @Test
+    void aRequestThatYieldsFieldsAddsThemToItsReply() {
+        receive("{'op':'hello','token':'secret'}");
+        assertEquals(
+                new Session.Reply("{\"id\":4,\"ok\":true,\"file\":\"/run/screenshots/a.png\"}", false),
+                receive("{'id':4,'op':'screenshot'}"));
     }
 
     @Test

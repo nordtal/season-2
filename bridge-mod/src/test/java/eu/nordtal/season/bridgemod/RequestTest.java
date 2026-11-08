@@ -49,6 +49,10 @@ class RequestTest {
         assertEquals(
                 new Request.Rail("minecraft:rail", new Request.Position(1, 2, 3), "east_west"),
                 of("{\"op\":\"rail\",\"item\":\"minecraft:rail\",\"pos\":[1,2,3],\"axis\":\"EAST_WEST\"}"));
+        assertEquals(
+                new Request.Dialog(JsonParser.parseString("{\"type\":\"minecraft:notice\",\"title\":\"a\"}")),
+                of("{\"op\":\"dialog\",\"dialog\":{\"type\":\"minecraft:notice\",\"title\":\"a\"}}"));
+        assertEquals(new Request.Screenshot(), of("{\"op\":\"screenshot\"}"));
         assertEquals(new Request.Clear(), of("{\"op\":\"clear\"}"));
     }
 
@@ -73,6 +77,7 @@ class RequestTest {
                 "{'op':'rail'}|rail needs 'item'.",
                 "{'op':'rail','item':'a','pos':[1,2]}|rail needs 'pos' as [x, y, z].",
                 "{'op':'rail','item':'a','axis':'up'}|rail takes the axis north_south or east_west, not 'up'.",
+                "{'op':'dialog'}|dialog needs 'dialog'.",
             })
     void aWrongRequestSaysWhatIsWrong(final String json, final String message) {
         assertEquals(message, refusal(json.replace('\'', '"')));

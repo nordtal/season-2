@@ -9,8 +9,9 @@ The text rules of the agent-kit hold for every text written for this project, in
 player, a Discord member or an admin reads: message bundles, Discord messages and Steward's interface.
 This repository adds the rules for those texts:
 
-- **A text in the game says only what made it appear**: what happened, or what a control does. A refusal
-  names the fact that blocks the player, as `Diesen Bahnhof gibt es schon.` does. The text says what the
+- **A text in the game says only what made it appear**: what happened, what a control does, or the state
+  a display shows, as a grave's hologram shows `Verschwindet in 4m`. A refusal names the fact that
+  blocks the player, as `Diesen Bahnhof gibt es schon.` does. The text says what the
   player does next only where the screen does not show it. A control that does here what it does in
   vanilla counts as shown, such as a shift-click that puts an item into the open menu. The text never
   explains itself or why the game behaves as it does. The text explains the system or a rule only to a

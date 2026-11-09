@@ -9,8 +9,19 @@ The text rules of the agent-kit hold for every text written for this project, in
 player, a Discord member or an admin reads: message bundles, Discord messages and Steward's interface.
 This repository adds the rules for those texts:
 
-- **A player text names game terms only**, never a component, and says what happens and what the
-  player does next, never why.
+- **A text in the game says only what made it appear**: what happened, or what a control does. A refusal
+  names the fact that blocks the player, as `Diesen Bahnhof gibt es schon.` does. The text says what the
+  player does next only where the screen does not show it. A control that does here what it does in
+  vanilla counts as shown, such as a shift-click that puts an item into the open menu. The text never
+  explains itself or why the game behaves as it does. The text explains the system or a rule only to a
+  player who asked for it, as the answer to `/rules` does. The rule holds for every text a player or an
+  admin reads in the game (`Display.Surface.GAME`), such as chat, titles, the action bar, menus,
+  tooltips and holograms. A player text outside the game says what happens and what the player does
+  next, never why. Every player text names game terms only, never a component.
+  - Fails: `Das Ziel "Holzstämme" ist geschafft. Wer geholfen hat, bekommt Extra-Spins.`
+  - Passes: `Das Ziel "Holzstämme" ist geschafft.`
+  - Fails: `Gewinn hineinlegen` with the line `Klicke hier mit einem Gegenstand oder klicke einen in deinem Inventar mit Shift an. Er wird ganz kopiert und du behältst ihn.`
+  - Passes: `Gewinn hineinlegen` with the line `Kopiert den Gegenstand nach Steward.`
 - **German addresses the player as _du_** and is written, not translated.
   - Fails: `Verbinde dich erneut, um es noch einmal zu versuchen.`
   - Passes: `Verbinde dich neu.`

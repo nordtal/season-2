@@ -132,14 +132,21 @@ abstract class GenerateGlyphs : DefaultTask() {
 
     /** The bitmap providers of vanilla's `include/default` font, in its order: the sheets that every letter comes from. */
     private fun letterSheets(): List<LetterSheet> {
-        val directory = vanilla.orNull?.asFile ?: throw GradleException("a font sets 'letters' or 'silent', but the build has no vanilla fonts")
+        val directory =
+            vanilla.orNull?.asFile ?: throw GradleException("a font sets 'letters' or 'silent', but the build has no vanilla fonts")
 
         @Suppress("UNCHECKED_CAST")
-        val providers = (JsonSlurper().parse(directory.resolve("minecraft/font/include/default.json")) as Map<String, Any?>)["providers"]
-            as List<Map<String, Any?>>
+        val providers =
+            (JsonSlurper().parse(directory.resolve("minecraft/font/include/default.json")) as Map<String, Any?>)["providers"]
+                as List<Map<String, Any?>>
         return providers.filter { it["type"] == "bitmap" }.map {
             @Suppress("UNCHECKED_CAST")
-            LetterSheet(it["file"] as String, (it["ascent"] as Number).toInt(), (it["height"] as Number? ?: 8).toInt(), it["chars"] as List<String>)
+            LetterSheet(
+                it["file"] as String,
+                (it["ascent"] as Number).toInt(),
+                (it["height"] as Number? ?: 8).toInt(),
+                it["chars"] as List<String>,
+            )
         }
     }
 

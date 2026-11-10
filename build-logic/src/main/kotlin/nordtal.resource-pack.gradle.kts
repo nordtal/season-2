@@ -7,8 +7,8 @@ import eu.nordtal.season.build.CheckNoTrackerIds
 import eu.nordtal.season.build.CheckPack
 import eu.nordtal.season.build.CheckSourcesTracked
 import eu.nordtal.season.build.CopyVanillaTexture
-import eu.nordtal.season.build.DrawChestPanels
 import eu.nordtal.season.build.DescribePack
+import eu.nordtal.season.build.DrawChestPanels
 import eu.nordtal.season.build.EditMinecraftInstance
 import eu.nordtal.season.build.EditPackSources
 import eu.nordtal.season.build.ExtractVanillaFonts

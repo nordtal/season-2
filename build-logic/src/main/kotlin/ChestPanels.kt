@@ -53,7 +53,11 @@ abstract class DrawChestPanels : VanillaClientTask() {
     fun draw() {
         val root = textures.get().asFile
         root.deleteRecursively()
-        val vanilla = ZipFile(jar()).use { zip -> zip.getInputStream(zip.getEntry(GENERIC_54)).use { ImageIO.read(it) } }
+        val vanilla =
+            ZipFile(jar()).use { zip ->
+                val entry = zip.getEntry(GENERIC_54) ?: throw IllegalStateException("the client jar has no $GENERIC_54")
+                zip.getInputStream(entry).use { ImageIO.read(it) }
+            }
         val directory = root.resolve("assets/nordtal/textures/ui/kit").apply { mkdirs() }
         for (rows in 1..6) {
             for (plain in listOf(false, true)) {
@@ -78,7 +82,11 @@ abstract class DrawChestPanels : VanillaClientTask() {
             val top = g.PAD + g.TOP
             val height = g.BOTTOM + 18 * rows - g.TOP + 1
             window(vanilla, image, top, g.WIDTH, height)
-            fun slot(x: Int, y: Int) = copy(vanilla, 7, 17, image, x, g.PAD + y, 18, 18)
+
+            fun slot(
+                x: Int,
+                y: Int,
+            ) = copy(vanilla, 7, 17, image, x, g.PAD + y, 18, 18)
             for (column in 0 until 9) {
                 for (row in 0 until 3) slot(7 + 18 * column, 30 + 18 * rows + 18 * row)
                 slot(7 + 18 * column, 88 + 18 * rows)
@@ -99,8 +107,22 @@ abstract class DrawChestPanels : VanillaClientTask() {
             val vh = 222
             for (y in 0 until height) {
                 for (x in 0 until width) {
-                    val sx = if (x < EDGE) x else if (x >= width - EDGE) vw - (width - x) else 10
-                    val sy = if (y < EDGE) y else if (y >= height - EDGE) vh - (height - y) else 10
+                    val sx =
+                        if (x < EDGE) {
+                            x
+                        } else if (x >= width - EDGE) {
+                            vw - (width - x)
+                        } else {
+                            10
+                        }
+                    val sy =
+                        if (y < EDGE) {
+                            y
+                        } else if (y >= height - EDGE) {
+                            vh - (height - y)
+                        } else {
+                            10
+                        }
                     image.setRGB(x, top + y, vanilla.getRGB(sx, sy))
                 }
             }

@@ -117,8 +117,19 @@ class GlyphAllocation private constructor(
 
         private fun readFont(node: Node): Font {
             node.allow(
-                "font", "rows", "pitch", "shifts", "letters", "silent", "references", "constant", "numbering", "about", "spaces",
-                "blocks", "lists",
+                "font",
+                "rows",
+                "pitch",
+                "shifts",
+                "letters",
+                "silent",
+                "references",
+                "constant",
+                "numbering",
+                "about",
+                "spaces",
+                "blocks",
+                "lists",
             )
             val id = node.string("font", required = true) ?: ""
             val font = node.named(id)
@@ -153,7 +164,10 @@ class GlyphAllocation private constructor(
                 ownNumbering = numbering == "own",
                 about = font.string("about"),
                 spaces = font.objects("spaces").map { readSpace(it) },
-                blocks = font.objects("blocks", required = !font.boolean("letters") && !font.boolean("silent") && !font.has("spaces")).map { readBlock(it) },
+                blocks =
+                    font.objects("blocks", required = !font.boolean("letters") && !font.boolean("silent") && !font.has("spaces")).map {
+                        readBlock(it)
+                    },
                 lists =
                     font.objects("lists").map {
                         it.allow("constant", "about")

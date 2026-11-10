@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.SmpTexts;
@@ -26,7 +27,7 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Opens the objective menu when a player clicks the NPC and credits the items of a confirmed hand-in.
+ * Opens the objective dialog when a player clicks the NPC and credits the items of a confirmed hand-in.
  *
  * The credit runs off the main thread. Its result is applied on the main thread.
  */
@@ -34,9 +35,6 @@ public final class NpcListener implements Listener {
 
     record Accepted(@Example("16") long amount) {}
 
-    static final DocumentSpec<DocumentSpec.None> NO_OBJECTIVE = DocumentSpec.game(
-                    "smp", "objectives-none", "Spawn NPC", DocumentSpec.Shape.CHAT)
-            .titled("No current objective");
     static final DocumentSpec<Accepted> ACCEPTED = DocumentSpec.game(
                     "smp", "hand-in-accepted", "Spawn NPC", DocumentSpec.Shape.CHAT, Accepted.class)
             .titled("Items handed in");
@@ -59,6 +57,7 @@ public final class NpcListener implements Listener {
 
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;
+    private final Dialogs dialogs;
     private final SmpSounds sounds;
 
     public NpcListener(
@@ -70,6 +69,7 @@ public final class NpcListener implements Listener {
             final Identities identities,
             final MessageRenderer renderer,
             final AppliedDocuments documents,
+            final Dialogs dialogs,
             final SmpSounds sounds) {
         this.plugin = plugin;
         this.npc = npc;
@@ -79,6 +79,7 @@ public final class NpcListener implements Listener {
         this.identities = identities;
         this.renderer = renderer;
         this.documents = documents;
+        this.dialogs = dialogs;
         this.sounds = sounds;
     }
 
@@ -98,14 +99,16 @@ public final class NpcListener implements Listener {
         final Milestone milestone =
                 activeKey == null ? null : track.get().milestone(activeKey).orElse(null);
         if (milestone == null) {
-            player.sendMessage(renderer.format(locale, Sent.of(NO_OBJECTIVE)));
-            sounds.play(player, Feedback.REFUSED);
+            final MilestoneTrack shown = track.get();
+            final boolean all =
+                    shown.size() > 0 && shown.next(season.completedKeys()).isEmpty();
+            player.showDialog(ObjectiveDialog.empty(renderer, documents, locale, all));
             return;
         }
         show(player, locale, milestone, active.objectives());
     }
 
-    /** Reads the player's share from the database off the main thread, then opens the menu on the main thread. */
+    /** Reads the player's share from the database off the main thread, then opens the dialog on the main thread. */
     private void show(
             final Player player, final Locale locale, final Milestone milestone, final List<ObjectiveRow> rows) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
@@ -116,7 +119,8 @@ public final class NpcListener implements Listener {
 
             PaperScheduler.of(plugin).onMain(() -> {
                 if (player.isOnline()) {
-                    new ObjectiveGui(renderer, documents, locale, milestone, rows, share, this::confirm).open(player);
+                    new ObjectiveDialog(renderer, documents, dialogs, locale, milestone, rows, share, this::confirm)
+                            .show(player, 0);
                 }
             });
         });

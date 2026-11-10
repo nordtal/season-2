@@ -20,9 +20,7 @@ import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 
 /**
@@ -34,8 +32,6 @@ final class PreviewDialog {
 
     record Line(@Example("owner") String slot, @Example("2") int line) {}
 
-    record Pager(@Example("1") int page, @Example("4") int pages) {}
-
     static final DocumentSpec<DocumentSpec.None> DOCUMENT = DocumentSpec.menu(
                     "paper-common",
                     "draft-preview",
@@ -43,7 +39,7 @@ final class PreviewDialog {
                     DocumentSpec.None.class,
                     1,
                     Slot.label("line", Line.class),
-                    Slot.label("pager", Pager.class))
+                    Slot.label("pager", Paging.Page.class))
             .titled("Draft preview");
 
     /** One row: a line of an item or a label, and its slot as the row's value. */
@@ -63,7 +59,7 @@ final class PreviewDialog {
     PreviewDialog(final Dialogs dialogs, final GameDocument drafted, final List<Part> parts, final GameDocument words) {
         this.dialogs = dialogs;
         this.words = words;
-        this.name = plain(drafted.title());
+        this.name = Dialogs.plain(drafted.title());
         this.rows = rows(drafted, parts, words);
         this.paging = Paging.of(rows.size(), EACH);
     }
@@ -83,7 +79,8 @@ final class PreviewDialog {
             lines.addAll(drawn.lore());
             for (int index = 0; index < lines.size(); index++) {
                 rows.add(new Row(
-                        plain(lines.get(index)), index == 0 ? slot : words.label("line", new Line(slot, index + 1))));
+                        Dialogs.plain(lines.get(index)),
+                        index == 0 ? slot : words.label("line", new Line(slot, index + 1))));
             }
         }
         return List.copyOf(rows);
@@ -100,20 +97,13 @@ final class PreviewDialog {
             body.add(Dialogs.line(line(row), ROW));
         }
         if (paging.paged()) {
-            final int shown = paging.clamp(page);
-            final BodyLine.Press next =
-                    new BodyLine.Press(send.click(player -> show(player, paging.next(shown))), null);
-            final BodyLine.Press previous =
-                    new BodyLine.Press(send.click(player -> show(player, paging.previous(shown))), null);
-            final String said = words.label("pager", new Pager(shown + 1, paging.pages()));
+            final String said = words.label("pager", paging.page(page));
             body.add(Dialogs.line(
-                    BodyLine.start()
-                            .pager(shown + 1, paging.pages(), next, previous, said)
-                            .build(),
-                    BodyLine.pagerWidth(shown + 1, paging.pages())));
+                    send.pager(BodyLine.start(), paging, page, said, this::show).build(),
+                    Dialogs.pagerWidth(paging, page)));
         }
         final Component title = DialogTitle.of(DialogPanel.DRAFT_PREVIEW_150, TOP)
-                .header(Symbol.EYE, name, List.of(Mark.text(plain(words.title()), Colours.SOFT)))
+                .header(Symbol.EYE, name, List.of(Mark.text(Dialogs.plain(words.title()), Colours.SOFT)))
                 .build();
         return Dialog.create(builder ->
                 builder.empty().base(Dialogs.base(title).body(body).build()).type(Dialogs.bodyOnly()));
@@ -132,9 +122,5 @@ final class PreviewDialog {
         return BodyLine.start()
                 .button(whole, part -> part.words(row.text()).row(ROW, null, null, row.text(), row.slot(), Look.NORMAL))
                 .build();
-    }
-
-    private static String plain(final Component component) {
-        return Objects.requireNonNull(PlainTextComponentSerializer.plainText().serialize(component));
     }
 }

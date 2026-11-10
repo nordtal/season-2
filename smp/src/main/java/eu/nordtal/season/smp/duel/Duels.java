@@ -8,6 +8,7 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.TakenItems;
@@ -61,9 +62,6 @@ public final class Duels implements Arenas {
     /** The beat at zero seconds is the start of the fight. */
     record Countdown(@Example("5") long seconds) {}
 
-    static final DocumentSpec<DocumentSpec.None> WAITING = DocumentSpec.game(
-                    "smp", "duel-waiting", "Duels", DocumentSpec.Shape.CHAT)
-            .titled("Waiting for an opponent");
     static final DocumentSpec<Countdown> COUNTDOWN_LINE = DocumentSpec.game(
                     "smp", "duel-countdown", "Duels", DocumentSpec.Shape.CHAT, Countdown.class)
             .titled("Duel countdown");
@@ -104,6 +102,7 @@ public final class Duels implements Arenas {
             final Identities identities,
             final MessageRenderer renderer,
             final AppliedDocuments documents,
+            final Dialogs dialogs,
             final SmpSounds sounds,
             final WorldEffects effects,
             final Clock clock) {
@@ -116,7 +115,8 @@ public final class Duels implements Arenas {
         this.sounds = sounds;
         this.effects = effects;
         this.copy = new ArenaCopy(plugin);
-        this.negotiation = new Negotiation(plugin, this, config, identities, renderer, documents, sounds, clock);
+        this.negotiation =
+                new Negotiation(plugin, this, config, identities, renderer, documents, dialogs, sounds, clock);
     }
 
     /** {@code discordIds} is read at the start, because the identity cache forgets a player on quit. */
@@ -163,6 +163,11 @@ public final class Duels implements Arenas {
 
     public void moved(final PlayerMoveEvent event) {
         negotiation.moved(event);
+    }
+
+    /** A player sent a chat line or a command. */
+    public void typed(final Player player) {
+        negotiation.typed(player);
     }
 
     public void quit(final Player player) {

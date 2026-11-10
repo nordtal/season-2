@@ -1,6 +1,7 @@
 package eu.nordtal.season.papercommon.dialog;
 
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.packrendering.ui.BodyLine;
 import io.papermc.paper.dialog.DialogResponseView;
 import io.papermc.paper.registry.RegistryKey;
 import io.papermc.paper.registry.data.dialog.DialogBase;
@@ -17,11 +18,13 @@ import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 
 /**
  * The clicks of Nordtal's dialogs: each send of a dialog carries one token, and its first click spends it.
- * An answered click plays the select sound and runs on the main thread, where the server redraws or closes the dialog.
+ * An answered click runs on the main thread, where the server redraws or closes the dialog. A drawn button's click
+ * plays the select sound there; a native button plays its own on the client.
  */
 public final class Dialogs {
 
@@ -66,6 +69,16 @@ public final class Dialogs {
         return DialogBody.plainMessage(line, art + RING);
     }
 
+    /** Returns {@code text} as the plain words a drawn header or row takes. */
+    public static String plain(final Component text) {
+        return Objects.requireNonNull(PlainTextComponentSerializer.plainText().serialize(text));
+    }
+
+    /** The width of the pager of {@code paging} at {@code page}, counted from 0. */
+    public static int pagerWidth(final Paging paging, final int page) {
+        return BodyLine.pagerWidth(paging.clamp(page) + 1, paging.pages());
+    }
+
     /** One send: every click it carries shares its token. */
     public final class Send {
 
@@ -75,20 +88,42 @@ public final class Dialogs {
 
         /** The click of a drawn button, which answers {@code answer} with the player who clicked. */
         public ClickEvent click(final Consumer<Player> answer) {
-            return ClickEvent.callback(audience -> answer(audience, () -> answer.accept((Player) audience)), ONCE);
+            return ClickEvent.callback(audience -> answer(audience, true, player -> answer.accept(player)), ONCE);
+        }
+
+        /**
+         * Draws the pager of {@code paging} at {@code page} on {@code line}.
+         *
+         * Each arrow answers {@code turn} with its page; {@code words} are what the narrator says.
+         */
+        public BodyLine pager(
+                final BodyLine line,
+                final Paging paging,
+                final int page,
+                final String words,
+                final BiConsumer<Player, Integer> turn) {
+            final int shown = paging.clamp(page);
+            return line.pager(
+                    shown + 1,
+                    paging.pages(),
+                    new BodyLine.Press(click(player -> turn.accept(player, paging.next(shown))), null),
+                    new BodyLine.Press(click(player -> turn.accept(player, paging.previous(shown))), null),
+                    words);
         }
 
         /** The action of a native button, which answers {@code answer} with the player and what the inputs hold. */
         public DialogAction action(final BiConsumer<Player, DialogResponseView> answer) {
             return DialogAction.customClick(
-                    (response, audience) -> answer(audience, () -> answer.accept((Player) audience, response)), ONCE);
+                    (response, audience) -> answer(audience, false, player -> answer.accept(player, response)), ONCE);
         }
 
-        private void answer(final Audience audience, final Runnable work) {
+        private void answer(final Audience audience, final boolean sound, final Consumer<Player> work) {
             if (audience instanceof final Player player) {
                 answer(() -> {
-                    chime.accept(player, Feedback.SELECT);
-                    work.run();
+                    if (sound) {
+                        chime.accept(player, Feedback.SELECT);
+                    }
+                    work.accept(player);
                 });
             }
         }

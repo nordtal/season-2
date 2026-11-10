@@ -1,9 +1,13 @@
 package eu.nordtal.season.papercommon.dialog;
 
+import eu.nordtal.season.messages.value.Example;
 import java.util.List;
 
 /** The pages of a dialog's list: at least one, next wraps to the first after the last and previous the other way. */
 public record Paging(int pages, int each) {
+
+    /** The values of a pager's narrator words: the shown page, counted from 1, of {@code pages}. */
+    public record Page(@Example("1") int page, @Example("4") int pages) {}
 
     public Paging {
         if (pages < 1 || each < 1) {
@@ -32,6 +36,11 @@ public record Paging(int pages, int each) {
 
     public int previous(final int page) {
         return (clamp(page) + pages - 1) % pages;
+    }
+
+    /** The narrator words' values for {@code page}, counted from 0. */
+    public Page page(final int page) {
+        return new Page(clamp(page) + 1, pages);
     }
 
     /** Returns the entries of {@code page}, counted from 0. */

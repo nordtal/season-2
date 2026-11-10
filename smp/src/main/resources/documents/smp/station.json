@@ -13,32 +13,6 @@
       ]
     },
     {
-      "type": "ITEM",
-      "slot": "heading",
-      "lines": [
-        {
-          "when": "named",
-          "text": {
-            "en": "<emphasis>{name}</emphasis>",
-            "de": "<emphasis>{name}</emphasis>"
-          }
-        },
-        {
-          "when": "!named",
-          "text": {
-            "en": "<emphasis>Unnamed {@terms.station, n=1}</emphasis>",
-            "de": "<emphasis>{@terms.station, n=1} ohne Namen</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>Right-click these rails with a minecart in your inventory to pick a {@terms.station, n=1}.</muted>",
-            "de": "<muted>Klick mit einer Lore im Inventar rechts auf diese Schienen, um einen {@terms.station, n=1} zu wählen.</muted>"
-          }
-        }
-      ]
-    },
-    {
       "type": "LABEL",
       "slot": "unnamed",
       "lines": [
@@ -46,56 +20,6 @@
           "text": {
             "en": "Unnamed {@terms.station, n=1}",
             "de": "{@terms.station, n=1} ohne Namen"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ITEM",
-      "slot": "name",
-      "lines": [
-        {
-          "when": "!named",
-          "text": {
-            "en": "<emphasis>Name this {@terms.station, n=1}</emphasis>",
-            "de": "<emphasis>Diesen {@terms.station, n=1} benennen</emphasis>"
-          }
-        },
-        {
-          "when": "named",
-          "text": {
-            "en": "<emphasis>Rename this {@terms.station, n=1}</emphasis>",
-            "de": "<emphasis>Diesen {@terms.station, n=1} umbenennen</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>Opens a field for the name.</muted>",
-            "de": "<muted>Öffnet ein Feld für den Namen.</muted>"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "name-button",
-      "lines": [
-        {
-          "text": {
-            "en": "Name",
-            "de": "Benennen"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "rename-button",
-      "lines": [
-        {
-          "text": {
-            "en": "Rename",
-            "de": "Umbenennen"
           }
         }
       ]
@@ -113,82 +37,20 @@
       ]
     },
     {
-      "type": "ITEM",
-      "slot": "visibility",
+      "type": "LABEL",
+      "slot": "hint",
       "lines": [
         {
-          "when": "!hidden",
           "text": {
-            "en": "<emphasis>Hide this {@terms.station, n=1}</emphasis>",
-            "de": "<emphasis>Diesen {@terms.station, n=1} verbergen</emphasis>"
-          }
-        },
-        {
-          "when": "hidden",
-          "text": {
-            "en": "<emphasis>Show this {@terms.station, n=1}</emphasis>",
-            "de": "<emphasis>Diesen {@terms.station, n=1} zeigen</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>A hidden {@terms.station, n=1} is not shown on the map. Riders still find it when they sit down in a minecart.</muted>",
-            "de": "<muted>Ein verborgener {@terms.station, n=1} wird nicht auf der Karte gezeigt. Wer sich in eine Lore setzt, findet ihn trotzdem.</muted>"
+            "en": "With a minecart in your inventory: right-click these rails to ride.",
+            "de": "Mit einer Lore im Inventar: Rechtsklick auf diese Schienen, um zu fahren."
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "hide-button",
-      "lines": [
-        {
-          "text": {
-            "en": "Hide",
-            "de": "Verbergen"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "show-button",
-      "lines": [
-        {
-          "text": {
-            "en": "Show",
-            "de": "Zeigen"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "dialog-title",
-      "lines": [
-        {
-          "text": {
-            "en": "Name the {@terms.station, n=1}",
-            "de": "{@terms.station, n=1} benennen"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "dialog-rules",
-      "lines": [
-        {
-          "text": {
-            "en": "At most {most} characters. No other {@terms.station, n=1} on these rails may have the same name.",
-            "de": "Höchstens {most} Zeichen. Kein anderer {@terms.station, n=1} an diesen Schienen darf denselben Namen haben."
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "dialog-field",
+      "slot": "field",
       "lines": [
         {
           "text": {
@@ -200,7 +62,19 @@
     },
     {
       "type": "LABEL",
-      "slot": "dialog-save",
+      "slot": "show",
+      "lines": [
+        {
+          "text": {
+            "en": "Show on the map",
+            "de": "Auf der Karte zeigen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "save",
       "lines": [
         {
           "text": {
@@ -212,24 +86,12 @@
     },
     {
       "type": "LABEL",
-      "slot": "dialog-cancel",
-      "lines": [
-        {
-          "text": {
-            "en": "Cancel",
-            "de": "Abbrechen"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
       "slot": "name-empty",
       "lines": [
         {
           "text": {
-            "en": "Type a name first.",
-            "de": "Gib zuerst einen Namen ein."
+            "en": "Type a name.",
+            "de": "Gib einen Namen ein."
           }
         }
       ]
@@ -240,8 +102,8 @@
       "lines": [
         {
           "text": {
-            "en": "{typed} is longer than {most} characters. Pick a shorter name.",
-            "de": "{typed} ist länger als {most} Zeichen. Wähl einen kürzeren Namen."
+            "en": "At most {most} characters.",
+            "de": "Höchstens {most} Zeichen."
           }
         }
       ]
@@ -252,8 +114,8 @@
       "lines": [
         {
           "text": {
-            "en": "Another {@terms.station, n=1} on these rails is already called {typed}. Pick another name.",
-            "de": "Ein anderer {@terms.station, n=1} an diesen Schienen heißt schon {typed}. Wähl einen anderen Namen."
+            "en": "This {@terms.station, n=1} already exists.",
+            "de": "Diesen {@terms.station, n=1} gibt es schon."
           }
         }
       ]

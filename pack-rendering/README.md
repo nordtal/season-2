@@ -1,7 +1,8 @@
 # pack-rendering
 
 `pack-rendering` draws from the resource pack: the glyph constants in `Glyphs`, the `<glyph:name>`
-tag, the boss bar and tab list layers in `hud`, the chest menu title in `menu` and the frame of a
+tag, the boss bar and tab list layers in `hud`, the chest menus, dialogs and tooltips in `ui`, the
+earlier chest menu title in `menu` and the frame of a
 Text Display board in `board`. Only the Minecraft plugins depend on it.
 
 `:resource-pack`'s `generateGlyphs` writes `Glyphs` and the advance tables of the boss bar and the
@@ -10,6 +11,24 @@ copies `Glyphs` into this module's build directory before compiling, because Che
 Prone skip generated sources there.
 
 `LanguageFlags` chooses the flag of a language.
+
+## The ui kit
+
+`ui` composes the redesign's surfaces from the ui fonts that `resource-pack/README.md` describes.
+`Pen` draws one line left to right: art, letters, symbols and moves, every piece without a shadow.
+On it stand:
+
+| class         | draws                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------- |
+| `ChestTitle`  | a chest window's title: the panel, the header with its marks, slot frames, plates and labels   |
+| `DialogTitle` | a dialog's title: a `DialogPanel` from the Panels table and its header, net width 250          |
+| `BodyLine`    | a dialog body line: plates, rows, the star, the pager, a card with its bar, the primary button |
+| `Tooltip`     | a hover text in the `nordtal:panel` style, with the cover over a native widget's box           |
+| `Pill`        | a label pill around a short text                                                               |
+
+`Letters` measures and cuts text in vanilla's letters, `Colours` holds the ink and soft colours,
+`Look` the three plate looks and `Symbol` the 7 × 7 symbols. `MenuTitle`, `MenuFont` and
+`SlotGeometry` in `menu` draw the earlier menus and stay until those menus move to `ui`.
 
 The test fixtures publish `FontFile` and `PackAdvances`, which read the pack's fonts as the client
 does.

@@ -47,8 +47,22 @@ class ResourcePackTest {
                     row -> FontFile.load(Glyphs.FONT_GUI_ROWS.get(row), ASSETS + "/nordtal/font/gui_r" + row + ".json"))
             .toList();
 
-    private static final List<FontFile> FONTS = Stream.concat(
-                    Stream.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT), GUI_ROW_FONTS.stream())
+    /** The ui fonts, each family once per shift. */
+    private static final List<FontFile> UI_FONTS = Stream.of(
+                    Stream.of(
+                            Glyphs.FONT_UI_SPACE, Glyphs.FONT_UI_PANEL, Glyphs.FONT_UI_TOOLTIP, Glyphs.FONT_UI_SILENT),
+                    Glyphs.FONT_UI_TEXT.values().stream(),
+                    Glyphs.FONT_UI_ART.values().stream(),
+                    Glyphs.FONT_UI_DIALOG.values().stream())
+            .flatMap(ids -> ids)
+            .map(id -> FontFile.load(id, ASSETS + "/" + id.replace(":", "/font/") + ".json"))
+            .toList();
+
+    private static final List<FontFile> FONTS = Stream.of(
+                    Stream.of(DEFAULT_FONT, BOARD_FONT, BOSSBAR_FONT, GUI_FONT),
+                    GUI_ROW_FONTS.stream(),
+                    UI_FONTS.stream())
+            .flatMap(fonts -> fonts)
             .toList();
 
     /** The documents whose text is drawn inside a boss bar, as {@code GameHud} and {@code SmpHud} use them. */
@@ -237,17 +251,18 @@ class ResourcePackTest {
     }
 
     @Test
-    void theVanillaSlotHighlightSpritesAreFullyTransparent() {
-        // Both hover layers must be blank, or the other one shows.
-        for (final String sprite : List.of("slot_highlight_back", "slot_highlight_front")) {
-            final Path path =
-                    RepositoryRoot.resolve(ASSETS + "/minecraft/textures/gui/sprites/container/" + sprite + ".png");
-            final BufferedImage image = read(path);
+    void theHiddenVanillaChestWindowAndWarningButtonAreFullyTransparent() {
+        // The chest title draws the whole window, and the dialog's warning button only shows its tooltip.
+        for (final String sprite : List.of(
+                "gui/container/generic_54",
+                "gui/sprites/dialog/warning_button",
+                "gui/sprites/dialog/warning_button_disabled",
+                "gui/sprites/dialog/warning_button_highlighted")) {
+            final BufferedImage image = read(RepositoryRoot.resolve(ASSETS + "/minecraft/textures/" + sprite + ".png"));
             assertTrue(
                     !hasPixels(image, 0, 0, image.getWidth(), image.getHeight()),
-                    sprite + ".png has to be fully transparent: the hover square is gone everywhere a"
-                            + " slot exists, chests included, and a pixel in either layer puts it"
-                            + " back.");
+                    sprite + ".png has to be fully transparent: a pixel here puts the vanilla part back"
+                            + " on screen behind Nordtal's.");
         }
     }
 
@@ -261,7 +276,8 @@ class ResourcePackTest {
         try (Stream<Path> walk = Files.walk(textures)) {
             walk.filter(path -> path.toString().endsWith(".png")).forEach(path -> {
                 final String relative = RepositoryRoot.relative(textures, path);
-                if (!referenced.contains("nordtal:" + relative)) {
+                // A gui sprite, such as a tooltip style's, is reached through the gui atlas, not a font.
+                if (!relative.startsWith("gui/sprites/") && !referenced.contains("nordtal:" + relative)) {
                     orphans.add("nordtal:" + relative);
                 }
             });
@@ -277,8 +293,10 @@ class ResourcePackTest {
     }
 
     /** The vanilla screens the pack rewords, the only text the client's own language decides. */
-    private static final List<String> LANG_FILES =
-            List.of(ASSETS + "/minecraft/lang/en_us.json", ASSETS + "/minecraft/lang/de_de.json");
+    private static final List<String> LANG_FILES = Stream.of(
+                    "en_us", "en_gb", "en_ca", "en_au", "en_nz", "de_de", "de_at", "de_ch")
+            .map(lang -> ASSETS + "/minecraft/lang/" + lang + ".json")
+            .toList();
 
     @Test
     void everyGlyphAVanillaLangOverrideDrawsIsOneThePackDeclares() {

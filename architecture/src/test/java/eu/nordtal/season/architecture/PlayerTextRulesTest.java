@@ -19,6 +19,7 @@ import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,8 @@ class PlayerTextRulesTest {
     private static final String BOSS_BAR_WIDTH = "eu.nordtal.season.packrendering.hud.BossBarWidth";
     private static final String GLYPHS = "eu.nordtal.season.packrendering.Glyphs";
     private static final String MENU_TITLE = "eu.nordtal.season.packrendering.menu.MenuTitle";
+    private static final String CHEST_TITLE = "eu.nordtal.season.packrendering.ui.ChestTitle";
+    private static final Set<String> TITLES = Set.of(MENU_TITLE, CHEST_TITLE);
     private static final String MENU = "eu.nordtal.season.papercommon.menu.Menu";
 
     /** The classes that compose a component by hand, and why that is not a message going around the renderer. */
@@ -67,6 +70,9 @@ class PlayerTextRulesTest {
             Map.entry("eu.nordtal.season.smp.welcome.SeasonWelcome", "the opening frames, pictures and not sentences"),
             Map.entry("eu.nordtal.season.hungergames.body.PlayerBodies", "a disconnected player's name on their body"),
             Map.entry("eu.nordtal.season.hungergames.player.ArenaComposition", "a flag glyph and a player name"),
+            Map.entry(
+                    "eu.nordtal.season.papercommon.menu.BlankItem",
+                    "tooltip lines already rendered, broken at the tooltip's width"),
             Map.entry(
                     "eu.nordtal.season.papercommon.command.PaperUser",
                     "replyLiteral, text that is already the answer"));
@@ -241,9 +247,9 @@ class PlayerTextRulesTest {
                 .check(classes);
     }
 
-    /** A menu whose title skips MenuTitle opens as a plain vanilla window, and nothing about that fails. */
+    /** A menu whose title skips MenuTitle and ChestTitle opens as a vanilla window, and nothing about that fails. */
     @Test
-    void everyMenuTakesItsTitleFromMenuTitle() {
+    void everyMenuTakesItsTitleFromMenuTitleOrChestTitle() {
         classes()
                 .that()
                 .resideInAnyPackage(PLAYER_CODE)
@@ -326,10 +332,10 @@ class PlayerTextRulesTest {
     }
 
     /**
-     * Every code unit that frames a menu also takes a component from MenuTitle, or from a panel built on it.
+     * Every code unit that frames a menu takes a component from MenuTitle or ChestTitle, or from a panel built on one.
      */
     private static ArchCondition<JavaClass> openOnlyFramedMenus() {
-        return new ArchCondition<>("open no inventory without a MenuTitle") {
+        return new ArchCondition<>("open no inventory without a MenuTitle or ChestTitle") {
             @Override
             public void check(final JavaClass type, final ConditionEvents events) {
                 for (final JavaCodeUnit unit : type.getCodeUnits()) {
@@ -340,14 +346,15 @@ class PlayerTextRulesTest {
                                             .getRawReturnType()
                                             .getName()
                                             .equals(COMPONENT)
-                                    && (call.getTargetOwner().getName().equals(MENU_TITLE)
+                                    && (TITLES.contains(call.getTargetOwner().getName())
                                             || call.getTargetOwner().getAccessesFromSelf().stream()
-                                                    .anyMatch(access -> access.getTargetOwner()
-                                                            .getName()
-                                                            .equals(MENU_TITLE))));
+                                                    .anyMatch(access -> TITLES.contains(access.getTargetOwner()
+                                                            .getName()))));
                     if (opens && !framed) {
                         events.add(SimpleConditionEvent.violated(
-                                unit, unit.getFullName() + " opens an inventory whose title is not MenuTitle's"));
+                                unit,
+                                unit.getFullName()
+                                        + " opens an inventory whose title is neither MenuTitle's nor ChestTitle's"));
                     }
                 }
             }

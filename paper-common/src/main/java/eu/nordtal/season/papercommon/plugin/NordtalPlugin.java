@@ -501,7 +501,16 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 here.sendMessage(renderer.format(locale, InventoryEditor.KEPT.with(new InventoryEditor.Kept(count))));
             }
         };
-        return switch (modeStates.open(admin, player, container, document.title(), kept)) {
+        // The name a player was last seen with, here or by the server; one never seen is named by their id.
+        String name = identities.of(player).name();
+        if (name == null) {
+            name = getServer().getOfflinePlayer(player.value()).getName();
+        }
+        if (name == null) {
+            name = player.value().toString();
+        }
+        final String word = PlainTextComponentSerializer.plainText().serialize(document.title());
+        return switch (modeStates.open(admin, player, container, name, word, kept)) {
             case OPENED -> Answer.done(Sent.of(Replies.EDITOR_OPENED));
             case ADMIN_AWAY -> Answer.refused(ServerRefusal.NOT_HERE.with());
             case NOT_EDITABLE -> Answer.refused(ServerRefusal.NOT_EDITABLE.with());

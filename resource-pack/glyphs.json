@@ -1040,62 +1040,6 @@
               "about": "The same wash, on the lower card row."
             },
             {
-              "code": "FE204",
-              "constant": "GUI_HANDIN_TRAY",
-              "texture": "nordtal:ui/gui/handin_tray.png",
-              "height": 54,
-              "ascent": -4,
-              "about": "The hand-in screen's tray, 162 by 54: one sunken surface over three chest rows, because any cell accepts items."
-            },
-            {
-              "code": "FE205",
-              "list": "GUI_GRAVE_SLAB",
-              "texture": "nordtal:ui/gui/grave_slab_1.png",
-              "height": 18,
-              "ascent": -4,
-              "about": "The grave's slab for 1 row: a recess per slot, because each stack is taken on its own."
-            },
-            {
-              "code": "FE206",
-              "list": "GUI_GRAVE_SLAB",
-              "texture": "nordtal:ui/gui/grave_slab_2.png",
-              "height": 36,
-              "ascent": -4,
-              "about": "The grave's slab for 2 rows: a recess per slot, because each stack is taken on its own."
-            },
-            {
-              "code": "FE207",
-              "list": "GUI_GRAVE_SLAB",
-              "texture": "nordtal:ui/gui/grave_slab_3.png",
-              "height": 54,
-              "ascent": -4,
-              "about": "The grave's slab for 3 rows: a recess per slot, because each stack is taken on its own."
-            },
-            {
-              "code": "FE208",
-              "list": "GUI_GRAVE_SLAB",
-              "texture": "nordtal:ui/gui/grave_slab_4.png",
-              "height": 72,
-              "ascent": -4,
-              "about": "The grave's slab for 4 rows: a recess per slot, because each stack is taken on its own."
-            },
-            {
-              "code": "FE209",
-              "list": "GUI_GRAVE_SLAB",
-              "texture": "nordtal:ui/gui/grave_slab_5.png",
-              "height": 90,
-              "ascent": -4,
-              "about": "The grave's slab for 5 rows: a recess per slot, because each stack is taken on its own."
-            },
-            {
-              "code": "FE20A",
-              "constant": "GUI_WHEEL_RING",
-              "texture": "nordtal:ui/gui/wheel_ring.png",
-              "height": 222,
-              "ascent": 13,
-              "about": "The wheel's panel, 176 by 222: a band round twelve prize cells on rows 1 to 5, a hub, a white frame on the winning cell and a pointer above it on row 0."
-            },
-            {
               "code": "FE210",
               "list": "GUI_BAR_FILL_TOP",
               "texture": "nordtal:ui/gui/bar_fill_1.png",
@@ -1199,10 +1143,6 @@
         {
           "constant": "GUI_PANELS_PLAIN",
           "about": "The six panels without recesses, one row first, indexed by row count minus one."
-        },
-        {
-          "constant": "GUI_GRAVE_SLAB",
-          "about": "The grave's slab, one glyph per row count from one to five; five is the most, because a player carries at most forty-one stacks and row six is the footer."
         },
         {
           "constant": "GUI_BAR_FILL_TOP",

@@ -19,21 +19,19 @@ import org.junit.jupiter.api.Test;
 class MenuLayoutsTest {
 
     @Test
-    void theWheelPlacesItsHubBesideTheRingAndItsAgainButtonUnderTheRules() {
+    void theWheelPlacesItsAgainPlateBesideTheRingOnItsMiddleRow() {
         final DocumentDeclaration wheel = menu("wheel");
 
         assertEquals(6, wheel.rows());
-        assertEquals(List.of(29, 23, 24, 25, 26, 32, 33, 34, 35, 41, 42, 43, 44), at(wheel, "hub"));
-        assertEquals(List.of(50, 51, 52, 53), at(wheel, "again"));
+        assertEquals(List.of(32, 33, 34, 35), at(wheel, "again"));
     }
 
     @Test
-    void theHandInPlacesItsSampleAndItsConfirmButtonUnderTheTray() {
+    void theHandInPlacesItsSampleInTheActionRowUnderTheSlots() {
         final DocumentDeclaration handIn = menu("hand-in");
 
         assertEquals(4, handIn.rows());
         assertEquals(List.of(27), at(handIn, "sample"));
-        assertEquals(List.of(33, 34, 35), at(handIn, "confirm"));
     }
 
     @Test
@@ -42,8 +40,6 @@ class MenuLayoutsTest {
 
         assertEquals(3, grave.rows());
         assertEquals(List.of(18), at(grave, "owner"));
-        assertEquals(List.of(19, 20, 21, 22), at(grave, "experience"));
-        assertEquals(List.of(23, 24, 25, 26), at(grave, "take-all"));
     }
 
     @Test

@@ -18,6 +18,7 @@ import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -37,6 +38,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Takes in the item an admin's player puts into a window, which Steward makes a wheel prize or a kit's piece of, whole.
  * The request stays running while the window is open and is settled with the item, or empty when it closed so.
+ * The window stays open after an item, so the next request of its purpose takes the next item in it.
  */
 public final class ItemTakeIn {
 
@@ -49,6 +51,9 @@ public final class ItemTakeIn {
     private final Identities identities;
     // The windows open now, by their request. The main thread writes it, the hub's thread reads it.
     private final Map<Long, Shown> open = new ConcurrentHashMap<>();
+
+    // The window each player was shown last, which takes the next item of its purpose while it stays open. Main thread.
+    private final Map<UUID, TakeInWindow> last = new HashMap<>();
 
     private record Shown(UUID player, TakeInWindow window) {}
 
@@ -85,12 +90,20 @@ public final class ItemTakeIn {
             if (here == null) {
                 return false;
             }
-            final TakeInWindow window = new TakeInWindow(document, stack -> answer(request, stack));
+            final TakeInWindow current = last.get(here.getUniqueId());
+            if (current != null && current.showsTo(here) && current.purpose() == purpose && !current.waiting()) {
+                // The window open since the last item takes the next one, and keeps showing that item's copy.
+                current.await(stack -> answer(request, stack));
+                open.put(request, new Shown(here.getUniqueId(), current));
+                return true;
+            }
+            final TakeInWindow window = new TakeInWindow(purpose, document, stack -> answer(request, stack));
             window.open(here);
             if (!window.showsTo(here)) {
                 return false;
             }
             open.put(request, new Shown(here.getUniqueId(), window));
+            last.put(here.getUniqueId(), window);
             return true;
         });
         return shown ? Answer.open() : Answer.refused(ServerRefusal.NOT_HERE.with());

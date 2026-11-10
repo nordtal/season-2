@@ -7,7 +7,7 @@
           "style": "TITLE",
           "text": {
             "en": "Put in a kit item",
-            "de": "Kit-Gegenstand hineinlegen"
+            "de": "Kit-Item hineinlegen"
           }
         }
       ]
@@ -18,14 +18,26 @@
       "lines": [
         {
           "text": {
-            "en": "<emphasis>Put in the item</emphasis>",
-            "de": "<emphasis>Gegenstand hineinlegen</emphasis>"
+            "en": "Put in a kit item",
+            "de": "Kit-Item hineinlegen"
           }
         },
         {
           "text": {
-            "en": "<muted>Click here with an item, or shift-click one in your inventory. It is copied whole into the kit and you keep it.</muted>",
-            "de": "<muted>Klicke hier mit einem Gegenstand oder klicke einen in deinem Inventar mit Shift an. Er wird ganz ins Kit kopiert und du behältst ihn.</muted>"
+            "en": "Imports an item into Steward.",
+            "de": "Importiert ein Item in Steward."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "imported",
+      "lines": [
+        {
+          "text": {
+            "en": "Imported into Steward",
+            "de": "In Steward importiert"
           }
         }
       ]

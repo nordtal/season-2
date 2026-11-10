@@ -31,6 +31,8 @@ class CompositionTest {
                     .plate(1, rows - 1, 7, Look.PRIMARY)
                     .label(1, rows - 1, 7, Symbol.TICK, "Abgeben", Look.PRIMARY)
                     .row(0, 0, 9, "Spawn", "120 m", Look.NORMAL)
+                    .symbol(44, 0, Symbol.POINTER, Colours.INK)
+                    .centred(5, rows - 1, 4, "Noch 2 Spins", Colours.SOFT)
                     .build();
             assertEquals(0, Advances.of(title), rows + " rows");
         }

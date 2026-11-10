@@ -14,12 +14,12 @@ class GraveDiedAtLoreTest {
 
     @Test
     void english() {
-        assertEquals(List.of("Somebody", "Died Sep 17, 2026 at 100 64 -200"), owner(Locale.ENGLISH));
+        assertEquals(List.of("Somebody", "Died Sep 17, 2026", "at 100 64 -200"), owner(Locale.ENGLISH));
     }
 
     @Test
     void german() {
-        assertEquals(List.of("Jemand", "Gestorben am 17.09.2026 bei 100 64 -200"), owner(Locale.GERMAN));
+        assertEquals(List.of("Jemand", "Gestorben am 17.09.2026", "bei 100 64 -200"), owner(Locale.GERMAN));
     }
 
     private static List<String> owner(final Locale locale) {

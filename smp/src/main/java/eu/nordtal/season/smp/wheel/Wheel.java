@@ -17,6 +17,7 @@ import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.TooltipDisplay;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -211,13 +212,20 @@ public final class Wheel {
         return name == null ? GameContent.of(materialKey) : GameLines.of(name);
     }
 
-    /** A prize whose item does not resolve gets a barrier. */
+    /**
+     * Returns the prize icons, each a display copy without a tooltip, since the chat line names the prize won.
+     * A prize whose item does not resolve gets a barrier.
+     */
     private static List<ItemStack> icons(final List<WheelPrizeSpec> pool) {
         final List<ItemStack> out = new ArrayList<>(pool.size());
         for (final WheelPrizeSpec prize : pool) {
             final ItemStack item = itemOf(prize);
-            out.add((item == null ? new ItemStack(Material.BARRIER) : item)
-                    .asQuantity(Math.max(1, Math.min(64, prize.amount()))));
+            final ItemStack icon = (item == null ? new ItemStack(Material.BARRIER) : item)
+                    .asQuantity(Math.max(1, Math.min(64, prize.amount())));
+            icon.setData(
+                    DataComponentTypes.TOOLTIP_DISPLAY,
+                    TooltipDisplay.tooltipDisplay().hideTooltip(true).build());
+            out.add(icon);
         }
         return out;
     }

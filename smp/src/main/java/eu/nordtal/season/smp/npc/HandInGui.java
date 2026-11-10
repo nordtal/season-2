@@ -22,6 +22,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -43,9 +45,10 @@ public final class HandInGui extends Menu {
                     Window.class,
                     HandInPanel.ROWS,
                     Slot.item("sample").at(List.of(HandInPanel.SAMPLE_SLOT)),
-                    Slot.item("confirm").at(HandInPanel.CONFIRM_SLOTS),
                     Slot.list("wanted", Wanted.class),
                     Slot.label("still-needed"),
+                    Slot.label("not-counted"),
+                    Slot.label("finished"),
                     Slot.label("confirm-button"))
             .titled("Hand in");
 
@@ -53,9 +56,14 @@ public final class HandInGui extends Menu {
 
     private final Inventory inventory;
     private final Objective objective;
-    private final long stillNeeded;
     private final Set<String> wanted;
     private final BiConsumer<Player, HandInGui> confirm;
+    private final GameDocument document;
+    private final String name;
+    private long stillNeeded;
+    private HandIn.Header header = HandIn.Header.NEEDED;
+    // Set from a hand-in that took items until its credit is known, so a second click waits for it.
+    private boolean crediting;
 
     /** @param confirm runs when the player presses confirm */
     public HandInGui(
@@ -71,19 +79,21 @@ public final class HandInGui extends Menu {
         this.stillNeeded = Math.max(0L, target - amount);
         this.wanted = new LinkedHashSet<>(objective.items() == null ? List.of() : objective.items());
 
-        final GameDocument document =
+        this.document =
                 new GameDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new Window(stillNeeded));
+        this.name = PlainTextComponentSerializer.plainText().serialize(document.title());
         this.inventory = frame(
                 HandInPanel.ROWS,
-                HandInPanel.title(document.title(), document.label("still-needed"), document.label("confirm-button")));
+                HandInPanel.title(name, mark(), document.label("confirm-button"), header == HandIn.Header.FINISHED));
 
-        final Map<String, List<? extends Record>> lists = Map.of("wanted", wanted(wanted));
-        // Shows the first wanted material as a sample item.
+        // The sample names what is wanted in Nordtal's tooltip, so its lines carry no item sprite.
+        final List<Wanted> names =
+                wanted.stream().map(item -> new Wanted(GameKeys.item(item))).toList();
+        final GameDocument.Drawn sample = document.item("sample", null, Map.of("wanted", names));
         sample().ifPresent(material -> inventory.setItem(
-                HandInPanel.SAMPLE_SLOT,
-                BlankItem.described(new ItemStack(material), document.item("sample", null, lists))));
+                HandInPanel.SAMPLE_SLOT, BlankItem.styled(new ItemStack(material), sample.name(), sample.lore())));
 
-        final ItemStack button = BlankItem.of(document.item("confirm", null, lists));
+        final ItemStack button = BlankItem.silent();
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, button));
     }
 
@@ -115,10 +125,53 @@ public final class HandInGui extends Menu {
 
     @Override
     protected MenuClick click(final Player player, final int slot) {
-        if (HandInPanel.CONFIRM_SLOTS.contains(slot)) {
+        if (HandInPanel.CONFIRM_SLOTS.contains(slot) && header != HandIn.Header.FINISHED && !crediting) {
             confirm.accept(player, this);
         }
         return MenuClick.nothing();
+    }
+
+    /** Answers a hand-in that took nothing: the header says so when the window holds items. */
+    public void refuse(final Player player) {
+        show(player, mark(), HandIn.refused(offered().isEmpty()));
+    }
+
+    /** Marks the items {@link #apply} took as waiting for their credit. */
+    public void crediting() {
+        crediting = true;
+    }
+
+    /** Lets the next click hand in again, after a credit that failed. */
+    public void uncredited() {
+        crediting = false;
+    }
+
+    /** Shows what the credit of a hand-in that took {@code accepted} made of it: {@code paid} counted. */
+    public void credited(final Player player, final long paid, final long accepted) {
+        crediting = false;
+        final String before = mark();
+        stillNeeded = Math.max(0L, stillNeeded - Math.max(0L, paid));
+        show(player, before, HandIn.credited(paid, accepted, stillNeeded));
+    }
+
+    /** Redraws the header for {@code next}, through a reopen only when its words change from {@code before}. */
+    private void show(final Player player, final String before, final HandIn.Header next) {
+        header = next;
+        if (!mark().equals(before)) {
+            retitle(player, title());
+        }
+    }
+
+    private String mark() {
+        return switch (header) {
+            case NEEDED -> document.label("still-needed", new Window(stillNeeded));
+            case NOT_COUNTED -> document.label("not-counted");
+            case FINISHED -> document.label("finished");
+        };
+    }
+
+    private Component title() {
+        return HandInPanel.title(name, mark(), document.label("confirm-button"), header == HandIn.Header.FINISHED);
     }
 
     @Override
@@ -177,6 +230,57 @@ public final class HandInGui extends Menu {
             }
         }
         return taken;
+    }
+
+    /**
+     * Puts the last {@code unpaid} items of {@code taken} into the deposit slots, as the credit did not count them.
+     * What those slots cannot hold, or all of it once the window is closed, goes to the player.
+     */
+    public void putBack(final Player player, final List<ItemStack> taken, final long unpaid) {
+        final List<Integer> back =
+                unpaid(taken.stream().map(ItemStack::getAmount).toList(), unpaid);
+        for (int index = 0; index < taken.size(); index++) {
+            if (back.get(index) > 0) {
+                final ItemStack stack = taken.get(index).clone();
+                stack.setAmount(back.get(index));
+                if (showsTo(player)) {
+                    deposit(stack);
+                }
+                if (stack.getAmount() > 0) {
+                    give(player, stack);
+                }
+            }
+        }
+    }
+
+    /** Moves as much of {@code stack} as fits into the deposit slots, and leaves the rest in it. */
+    private void deposit(final ItemStack stack) {
+        for (int slot = 0; slot < DEPOSIT_SLOTS && stack.getAmount() > 0; slot++) {
+            final ItemStack held = inventory.getItem(slot);
+            if (held == null || held.isEmpty()) {
+                inventory.setItem(slot, stack.clone());
+                stack.setAmount(0);
+            } else if (held.isSimilar(stack)) {
+                final int moved = Math.min(stack.getAmount(), held.getMaxStackSize() - held.getAmount());
+                if (moved > 0) {
+                    held.setAmount(held.getAmount() + moved);
+                    inventory.setItem(slot, held);
+                    stack.setAmount(stack.getAmount() - moved);
+                }
+            }
+        }
+    }
+
+    /** Returns how many of each of {@code amounts} go back, so that {@code unpaid} go back from the last stack on. */
+    static List<Integer> unpaid(final List<Integer> amounts, final long unpaid) {
+        final Integer[] back = new Integer[amounts.size()];
+        long left = Math.max(0L, unpaid);
+        for (int index = amounts.size() - 1; index >= 0; index--) {
+            final int amount = (int) Math.min(left, amounts.get(index));
+            back[index] = amount;
+            left -= amount;
+        }
+        return List.of(back);
     }
 
     /** Gives the player the stacks that {@link #apply} removed. */

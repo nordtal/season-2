@@ -112,4 +112,18 @@ class HandInTest {
         assertEquals(result.accepted(), taken(result));
         assertEquals(50, result.accepted(), "and never more than the objective still needs");
     }
+
+    @Test
+    void aHandInThatTookNothingSaysSoOnlyWhenTheWindowHeldItems() {
+        assertEquals(HandIn.Header.NOT_COUNTED, HandIn.refused(false));
+        assertEquals(HandIn.Header.NEEDED, HandIn.refused(true));
+    }
+
+    @Test
+    void aCreditShowsWhatIsLeftUntilTheObjectiveIsFinished() {
+        assertEquals(HandIn.Header.NEEDED, HandIn.credited(64, 64, 96));
+        assertEquals(HandIn.Header.FINISHED, HandIn.credited(160, 160, 0), "the last items");
+        assertEquals(HandIn.Header.FINISHED, HandIn.credited(10, 64, 0), "capped at the target");
+        assertEquals(HandIn.Header.FINISHED, HandIn.credited(0, 64, 96), "finished by others meanwhile");
+    }
 }

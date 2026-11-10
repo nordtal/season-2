@@ -1,14 +1,17 @@
 package eu.nordtal.season.smp.npc;
 
-import eu.nordtal.season.packrendering.Glyphs;
-import eu.nordtal.season.packrendering.menu.MenuFont;
-import eu.nordtal.season.packrendering.menu.MenuTitle;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
-import eu.nordtal.season.papercommon.menu.MenuPalette;
+import eu.nordtal.season.packrendering.ui.BodyLine;
+import eu.nordtal.season.packrendering.ui.ChestTitle;
+import eu.nordtal.season.packrendering.ui.Colours;
+import eu.nordtal.season.packrendering.ui.Look;
+import eu.nordtal.season.packrendering.ui.Mark;
+import eu.nordtal.season.packrendering.ui.Symbol;
+import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 
-/** Draws the deposit screen: one tray over the deposit slots and one confirm button. */
+/** Draws the deposit screen: three rows of slots, then the sample in cell 0 and the hand-in plate over cells 5 to 8. */
 public final class HandInPanel {
 
     public static final int ROWS = 4;
@@ -19,27 +22,16 @@ public final class HandInPanel {
 
     public static final int FOOTER_ROW = ROWS - 1;
 
-    /** The distance in pixels between a drawn element and the slot cells it covers. */
-    public static final int INSET = 2;
-
-    /** The tray starts at the corner of the first slot cell and has no inset. */
-    public static final int TRAY_X = SlotGeometry.ORIGIN_X;
-
-    public static final int TRAY_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH;
-    public static final int TRAY_HEIGHT = DEPOSIT_ROWS * SlotGeometry.PITCH;
-
     /** The slot that shows a sample item of the wanted material. A player cannot take it. */
     public static final int SAMPLE_SLOT = SlotGeometry.slot(0, FOOTER_ROW);
 
-    /** The x position of the needed amount. It equals the x of the experience line in {@code GravePanel}. */
-    private static final int NEEDED_X = SlotGeometry.x(1) + INSET;
+    /** The first cell of the hand-in plate. */
+    public static final int CONFIRM_COLUMN = 5;
 
-    public static final int CONFIRM_X = SlotGeometry.x(6) + INSET;
-    public static final int CONFIRM_WIDTH = 3 * SlotGeometry.PITCH - 2 * INSET;
+    private static final int CONFIRM_CELLS = SlotGeometry.COLUMNS - CONFIRM_COLUMN;
 
-    /** The three slots under the confirm button. All three have the same tooltip and the same click. */
-    public static final List<Integer> CONFIRM_SLOTS = List.of(
-            SlotGeometry.slot(6, FOOTER_ROW), SlotGeometry.slot(7, FOOTER_ROW), SlotGeometry.slot(8, FOOTER_ROW));
+    /** The slots under the hand-in plate. All of them take the same click. */
+    public static final List<Integer> CONFIRM_SLOTS = confirmSlots();
 
     private HandInPanel() {}
 
@@ -50,18 +42,30 @@ public final class HandInPanel {
     /**
      * Draws the screen into the inventory title.
      *
-     * @param title  the translated window title
-     * @param needed the text beside the sample, for example {@code 808 left}
-     * @param button the label of the confirm button, shortened to fit its plate
+     * @param name the screen's name
+     * @param mark the header's mark: what is still needed, that nothing counts, or that the objective is finished
+     * @param button the label of the hand-in plate
+     * @param finished whether the plate is off, because the objective is finished
      */
-    public static Component title(final Component title, final String needed, final String button) {
-        final MenuTitle.Canvas canvas = MenuTitle.onPlain(ROWS);
+    public static Component title(final String name, final String mark, final String button, final boolean finished) {
+        final ChestTitle title =
+                ChestTitle.of(ROWS).header(Symbol.HANDIN, name, List.of(Mark.text(mark, Colours.SOFT)));
+        for (int row = 0; row < DEPOSIT_ROWS; row++) {
+            for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
+                title.slot(column, row);
+            }
+        }
+        final Look look = finished ? Look.DISABLED : Look.PRIMARY;
+        title.plate(CONFIRM_COLUMN, FOOTER_ROW, CONFIRM_CELLS, look)
+                .label(CONFIRM_COLUMN, FOOTER_ROW, CONFIRM_CELLS, null, button, look);
+        return title.build(BodyLine.silent(name + " " + mark));
+    }
 
-        canvas.overlay(Glyphs.GUI_HANDIN_TRAY, TRAY_X, TRAY_WIDTH);
-        canvas.rowText(MenuFont.fit(needed, CONFIRM_X - 4 - NEEDED_X), FOOTER_ROW, NEEDED_X, MenuPalette.INK);
-
-        canvas.rowButton(Glyphs.GUI_ROW_BUTTON_CONFIRM, FOOTER_ROW, CONFIRM_X, CONFIRM_WIDTH, button, MenuPalette.INK);
-
-        return canvas.build(title);
+    private static List<Integer> confirmSlots() {
+        final List<Integer> slots = new ArrayList<>(CONFIRM_CELLS);
+        for (int column = CONFIRM_COLUMN; column < SlotGeometry.COLUMNS; column++) {
+            slots.add(SlotGeometry.slot(column, FOOTER_ROW));
+        }
+        return List.copyOf(slots);
     }
 }

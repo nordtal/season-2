@@ -1,36 +1,31 @@
 package eu.nordtal.season.smp.grave;
 
-import eu.nordtal.season.packrendering.Glyphs;
-import eu.nordtal.season.packrendering.menu.MenuFont;
-import eu.nordtal.season.packrendering.menu.MenuTitle;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
-import eu.nordtal.season.papercommon.menu.MenuPalette;
+import eu.nordtal.season.packrendering.ui.BodyLine;
+import eu.nordtal.season.packrendering.ui.ChestTitle;
+import eu.nordtal.season.packrendering.ui.Colours;
+import eu.nordtal.season.packrendering.ui.Look;
+import eu.nordtal.season.packrendering.ui.Mark;
+import eu.nordtal.season.packrendering.ui.Symbol;
 import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Draws the grave window.
- *
- * Every footer slot must hold an item. {@link Graves} reads only the content slots.
+ * Draws the grave window: a slot frame on every content cell, and the action row right under them.
+ * The row holds the dead player's head in cell 0 and "take all" over cells 4 to 8. {@link Graves} reads only the
+ * content slots.
  */
 public final class GravePanel {
 
-    /** The maximum number of content rows. A player holds at most 41 stacks. */
-    public static final int MAX_CONTENT_ROWS = MenuTitle.MAX_ROWS - 1;
+    /** The maximum number of content rows. A player holds at most 41 stacks, so a grave never pages. */
+    public static final int MAX_CONTENT_ROWS = ChestTitle.MAX_ROWS - 1;
 
-    /** The distance in pixels between a drawn element and the slot cells it covers. */
-    public static final int INSET = 2;
+    /** The first cell of the take-all plate. */
+    public static final int TAKE_ALL_COLUMN = 4;
 
-    /** The slab starts at the corner of the first slot cell and has no inset. */
-    public static final int SLAB_X = SlotGeometry.ORIGIN_X;
-
-    public static final int SLAB_WIDTH = SlotGeometry.COLUMNS * SlotGeometry.PITCH;
-
-    private static final int EXPERIENCE_X = SlotGeometry.x(1) + INSET;
-
-    public static final int TAKE_X = SlotGeometry.x(5) + INSET;
-    public static final int TAKE_WIDTH = 4 * SlotGeometry.PITCH - 2 * INSET;
+    private static final int TAKE_ALL_CELLS = SlotGeometry.COLUMNS - TAKE_ALL_COLUMN;
 
     private GravePanel() {}
 
@@ -60,17 +55,9 @@ public final class GravePanel {
         return SlotGeometry.slot(0, footerRow(contentRows));
     }
 
-    public static List<Integer> experienceSlots(final int contentRows) {
-        final List<Integer> slots = new ArrayList<>(4);
-        for (int column = 1; column <= 4; column++) {
-            slots.add(SlotGeometry.slot(column, footerRow(contentRows)));
-        }
-        return List.copyOf(slots);
-    }
-
     public static List<Integer> takeAllSlots(final int contentRows) {
-        final List<Integer> slots = new ArrayList<>(4);
-        for (int column = 5; column <= 8; column++) {
+        final List<Integer> slots = new ArrayList<>(TAKE_ALL_CELLS);
+        for (int column = TAKE_ALL_COLUMN; column < SlotGeometry.COLUMNS; column++) {
             slots.add(SlotGeometry.slot(column, footerRow(contentRows)));
         }
         return List.copyOf(slots);
@@ -79,25 +66,26 @@ public final class GravePanel {
     /**
      * Draws the window into the inventory title.
      *
-     * @param title       the translated window title
-     * @param contentRows the value of {@link #contentRows(int)}
-     * @param experience  the text beside the head, for example {@code +120 XP}. A blank text draws nothing.
-     * @param takeAll     the label of the take-all button
+     * @param name the window's name
+     * @param experience the header's mark, such as {@code +120 XP}, or null for a grave without experience
+     * @param takeAll the label of the take-all plate
      */
     public static Component title(
-            final Component title, final int contentRows, final String experience, final String takeAll) {
+            final String name, final int contentRows, final @Nullable String experience, final String takeAll) {
         if (contentRows < 1 || contentRows > MAX_CONTENT_ROWS) {
             throw new IllegalArgumentException(
                     "a grave holds 1 to " + MAX_CONTENT_ROWS + " rows of items, not " + contentRows);
         }
+        final List<Mark> marks = experience == null ? List.of() : List.of(Mark.text(experience, Colours.SOFT));
+        final ChestTitle title = ChestTitle.of(rows(contentRows)).header(Symbol.GRAVE, name, marks);
+        for (int row = 0; row < contentRows; row++) {
+            for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
+                title.slot(column, row);
+            }
+        }
         final int footer = footerRow(contentRows);
-        final MenuTitle.Canvas canvas = MenuTitle.onPlain(rows(contentRows));
-
-        canvas.overlay(Glyphs.GUI_GRAVE_SLAB.get(contentRows - 1), SLAB_X, SLAB_WIDTH);
-        canvas.rowText(MenuFont.fit(experience, TAKE_X - 4 - EXPERIENCE_X), footer, EXPERIENCE_X, MenuPalette.INK);
-
-        canvas.rowButton(Glyphs.GUI_ROW_BUTTON_TAKE, footer, TAKE_X, TAKE_WIDTH, takeAll, MenuPalette.INK);
-
-        return canvas.build(title);
+        title.plate(TAKE_ALL_COLUMN, footer, TAKE_ALL_CELLS, Look.PRIMARY)
+                .label(TAKE_ALL_COLUMN, footer, TAKE_ALL_CELLS, null, takeAll, Look.PRIMARY);
+        return title.build(BodyLine.silent(experience == null ? name : name + " " + experience));
     }
 }

@@ -24,6 +24,12 @@ public abstract class Menu implements InventoryHolder {
     /** Set until the open of a menu that {@link #replaceWith} showed. */
     private boolean quiet;
 
+    /** The drawn title {@link #retitle} gave this window, which every later open shows. */
+    private @Nullable Component title;
+
+    /** Set while {@link #retitle} reopens this window, so its close is no close. */
+    private boolean reopening;
+
     /** Creates this menu's window once, from the constructor of the subclass. */
     protected final Inventory frame(final int rows, final Component title) {
         if (inventory != null) {
@@ -63,8 +69,35 @@ public abstract class Menu implements InventoryHolder {
         }
     }
 
+    /**
+     * Shows this window to {@code player} again under {@code next}, without sounds and without {@link #closed}.
+     * The client then draws the new title; the items stay, and a stack on the cursor goes back to the inventory.
+     */
+    protected final void retitle(final Player player, final Component next) {
+        title = next;
+        if (!showsTo(player)) {
+            return;
+        }
+        reopening = true;
+        quiet = true;
+        try {
+            player.openInventory(getInventory());
+        } finally {
+            reopening = false;
+        }
+        if (!showsTo(player)) {
+            quiet = false;
+        }
+    }
+
+    /** Returns the title {@link #retitle} gave, or null while the window keeps the one it was framed with. */
+    final @Nullable Component retitled() {
+        return title;
+    }
+
+    /** Returns whether this window's close is part of a replacement or a reopen, which plays nothing. */
     final boolean replaced() {
-        return replaced;
+        return replaced || reopening;
     }
 
     /** Returns whether this open is quiet, and clears it. */

@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -400,8 +401,8 @@ public final class Graves {
                 this,
                 row.id(),
                 contentRows,
-                document.title(),
-                row.experience() > 0 ? document.label("experience-line") : "",
+                PlainTextComponentSerializer.plainText().serialize(document.title()),
+                row.experience() > 0 ? document.label("experience-line") : null,
                 document.label("take-all-button"));
         final Inventory window = menu.getInventory();
 
@@ -412,10 +413,7 @@ public final class Graves {
 
         window.setItem(GravePanel.headSlot(contentRows), head(row, document));
 
-        final ItemStack experience = BlankItem.of(document.item("experience"));
-        GravePanel.experienceSlots(contentRows).forEach(slot -> window.setItem(slot, experience));
-
-        final ItemStack takeAll = BlankItem.of(document.item("take-all"));
+        final ItemStack takeAll = BlankItem.silent();
         GravePanel.takeAllSlots(contentRows).forEach(slot -> window.setItem(slot, takeAll));
 
         return menu;

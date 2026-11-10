@@ -29,7 +29,6 @@ import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import net.kyori.adventure.text.Component;
 import org.bukkit.GameMode;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.HumanEntity;
@@ -310,13 +309,16 @@ public final class ModeStates implements Listener {
      * Opens an editor of a player's Survival {@code container} for an admin here. Called off the main thread.
      * It shows the live inventory of a player who holds the state here, else the stored state.
      *
+     * @param name the player's name in the editor's header
+     * @param word the container's word beside it
      * @param kept tells the admin how many slots changed meanwhile, so that nothing was written
      */
     public Opened open(
             final PlayerId admin,
             final PlayerId player,
             final Container container,
-            final Component title,
+            final String name,
+            final String word,
             final IntConsumer kept) {
         if (!Boolean.TRUE.equals(onMain(() -> plugin.getServer().getPlayer(admin.value()) != null))) {
             return Opened.ADMIN_AWAY;
@@ -346,7 +348,7 @@ public final class ModeStates implements Listener {
                     ? Snapshot.copy(contents(here, container).getContents())
                     : stacks(Objects.requireNonNull(stored, "stored"));
             final InventoryEditor editor =
-                    new InventoryEditor(this, admin, player, container, title, shown, stored, kept);
+                    new InventoryEditor(this, admin, player, container, name, word, shown, stored, kept);
             editor.open(viewer);
             if (!editor.showsTo(viewer)) {
                 return Opened.NOT_EDITABLE;

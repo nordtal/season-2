@@ -9,7 +9,6 @@ import eu.nordtal.season.papercommon.menu.MenuClick;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.jspecify.annotations.Nullable;
@@ -38,9 +37,7 @@ final class GraveWindow extends Menu {
                     Window.class,
                     GravePanel.rows(EXAMPLE_ROWS),
                     Slot.item("owner", Owner.class).at(List.of(GravePanel.headSlot(EXAMPLE_ROWS))),
-                    Slot.item("experience").at(GravePanel.experienceSlots(EXAMPLE_ROWS)),
                     Slot.label("experience-line"),
-                    Slot.item("take-all").at(GravePanel.takeAllSlots(EXAMPLE_ROWS)),
                     Slot.label("take-all-button"))
             .titled("Grave");
 
@@ -49,18 +46,18 @@ final class GraveWindow extends Menu {
     private final int contentRows;
     private final Inventory inventory;
 
-    /** @param experience the text beside the head, blank for none */
+    /** @param experience the header's mark, null for none */
     GraveWindow(
             final Graves graves,
             final UUID graveId,
             final int contentRows,
-            final Component title,
-            final String experience,
+            final String name,
+            final @Nullable String experience,
             final String takeAll) {
         this.graves = graves;
         this.graveId = graveId;
         this.contentRows = contentRows;
-        this.inventory = frame(GravePanel.rows(contentRows), GravePanel.title(title, contentRows, experience, takeAll));
+        this.inventory = frame(GravePanel.rows(contentRows), GravePanel.title(name, contentRows, experience, takeAll));
     }
 
     UUID graveId() {

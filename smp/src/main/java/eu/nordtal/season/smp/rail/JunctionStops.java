@@ -1,28 +1,26 @@
 package eu.nordtal.season.smp.rail;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Stops a driven cart before each junction set the wrong way and switches it once the cart stands.
- * The cart sets off after a short pause, so the rider sees the switch. A junction set right is passed without a
- * stop, and none is switched under a moving cart. Distances are along the cart's {@link RidePath}, in blocks.
+ * Crawls a driven cart up to each junction set the wrong way and switches it in front of the cart.
+ * A contested junction, or one whose switch must still wait, stops the cart two blocks before it.
+ * Distances are along the cart's {@link RidePath}, in blocks.
  */
 final class JunctionStops {
 
-    /** How many ticks a cart stands after a switch before it sets off. */
-    static final int PAUSE = 10;
+    /** How many ticks must pass between two switches. */
+    static final int SWITCH_INTERVAL = 10;
 
-    /** How far beyond its stop a standing cart switches the next junctions set the wrong way along with it. */
-    static final double TOGETHER = 8;
+    /** How far before a junction a cart stops when it cannot switch it yet. */
+    static final double STOP_BEFORE = 2;
 
-    /** How close to its stop a cart counts as standing there, against rounding. */
+    /** How close to a switch point a cart counts as reaching it, against rounding. */
     private static final double AT = 1e-6;
 
     /** The junctions as they lie in the world, and which cart holds each. */
@@ -41,32 +39,37 @@ final class JunctionStops {
         void set(RailPos rail, RailShape wanted);
     }
 
+    /** Where the cart may ride, and the speed it must reach there in blocks per tick. */
+    record Limit(double at, double speed) {}
+
     private final Set<Integer> claimed = new HashSet<>();
-    private int pause;
+    private int interval;
     private @Nullable RailPos waitingFor;
 
-    /** Returns the junction the cart stands before because another cart holds it, or null when it waits for none. */
+    /** Returns the junction the cart waits for because another cart holds it, or null when it waits for none. */
     @Nullable
     RailPos waitingFor() {
         return waitingFor;
     }
 
     /**
-     * Returns the distance up to which the cart may ride this tick, and switches junctions once it stands.
-     * It stops {@code before} the nearest junction set the wrong way that it can still brake for, then waits.
+     * Returns how far the cart may ride this tick and which speed it reaches there.
+     * A junction that cannot be slowed for yet still switches before the cart rides onto it.
      *
      * @param switches the shape the route wants of each junction, by its index on the path
      * @param speed    the speed the cart had on its last tick; zero for a cart that stands
      * @param reach    the distance up to which the junctions are read
-     * @param before   how far before a junction set the wrong way the cart stops
+     * @param before   how far before a junction set the wrong way it switches
+     * @param crawl    the speed reached at the switch point, in blocks per tick
      */
-    double limit(
+    Limit limit(
             final RidePath path,
             final Map<Integer, RailShape> switches,
             final double along,
             final double speed,
             final double reach,
             final double before,
+            final double crawl,
             final RidePath.Motion motion,
             final Junctions junctions) {
         final int on = path.railAt(along);
@@ -85,44 +88,44 @@ final class JunctionStops {
             }
         }
         waitingFor = null;
-        if (pause > 0) {
-            pause--;
-            return along;
+        if (interval > 0) {
+            interval--;
         }
-        final List<Map.Entry<Integer, RailShape>> wrong = new ArrayList<>();
-        for (final Map.Entry<Integer, RailShape> junction : switches.entrySet()) {
+        final var ordered = switches.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                .toList();
+        for (final Map.Entry<Integer, RailShape> junction : ordered) {
             final int index = junction.getKey();
-            final double left = path.start(index) - before - along;
-            // A moving cart rides over a junction it can no longer brake for, rather than brake harder.
-            final boolean passing = index < on || !motion.brakes(speed, left);
-            if (!passing
-                    && path.start(index) <= reach
-                    && junctions.wrong(path.rails().get(index), junction.getValue())) {
-                wrong.add(junction);
+            final double start = path.start(index);
+            if (index < on || (index == on && speed > 0) || start > reach) {
+                continue;
             }
-        }
-        if (wrong.isEmpty()) {
-            return Double.POSITIVE_INFINITY;
-        }
-        wrong.sort(Map.Entry.comparingByKey(Comparator.naturalOrder()));
-        final int first = wrong.getFirst().getKey();
-        final double stop = path.start(first) - before;
-        if (speed > 0 || along < stop - AT) {
-            return Math.max(along, stop);
-        }
-        if (!take(path, first, junctions)) {
-            // A junction another cart holds is waited for, so two carts never switch it back and forth.
-            waitingFor = path.rails().get(first);
-            return Math.max(along, stop);
-        }
-        for (final Map.Entry<Integer, RailShape> junction : wrong) {
-            final int index = junction.getKey();
-            if (path.start(index) - before <= stop + TOGETHER && take(path, index, junctions)) {
-                junctions.set(path.rails().get(index), junction.getValue());
+            final RailPos rail = path.rails().get(index);
+            if (!junctions.wrong(rail, junction.getValue())) {
+                continue;
             }
+            if (!take(path, index, junctions)) {
+                waitingFor = rail;
+                return stop(along, start);
+            }
+            final double switchAt = start - before;
+            final boolean late = !motion.brakes(speed, switchAt - along, crawl);
+            final double next = path.next(along, speed, switchAt, motion, crawl);
+            final boolean reached = late || along >= switchAt - AT || along + next >= switchAt - AT;
+            if (interval > 0) {
+                return reached ? stop(along, start) : new Limit(switchAt, crawl);
+            }
+            if (!reached) {
+                return new Limit(switchAt, crawl);
+            }
+            junctions.set(rail, junction.getValue());
+            interval = SWITCH_INTERVAL;
         }
-        pause = PAUSE;
-        return along;
+        return new Limit(Double.POSITIVE_INFINITY, 0);
+    }
+
+    private static Limit stop(final double along, final double junction) {
+        return new Limit(Math.max(along, junction - STOP_BEFORE), 0);
     }
 
     private boolean take(final RidePath path, final int index, final Junctions junctions) {

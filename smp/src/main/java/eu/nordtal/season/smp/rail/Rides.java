@@ -267,10 +267,13 @@ public final class Rides implements Listener {
         }
     }
 
-    /** Returns how far {@code ride} may go before a junction set the wrong way, at the stop distance set now. */
-    private double junctionStop(final Ride ride, final RidePath path, final double reach, final RidePath.Motion now) {
-        final double before = settings.get().junctionStop();
-        return ride.stops.limit(path, ride.switches, ride.along, ride.speed, reach, before, now, ride.junctions);
+    /** Returns the junction movement limit and target speed of {@code ride}, from the settings now. */
+    private JunctionStops.Limit junctionLimit(
+            final Ride ride, final RidePath path, final double reach, final RidePath.Motion now) {
+        final RailsSpec rails = settings.get();
+        final double crawl = Math.min(now.top(), rails.crawlSpeed() / RidePath.TICKS_PER_SECOND);
+        return ride.stops.limit(
+                path, ride.switches, ride.along, ride.speed, reach, rails.junctionSwitch(), crawl, now, ride.junctions);
     }
 
     /** Moves {@code ride} one tick on, and returns false once it ended. */
@@ -290,9 +293,10 @@ public final class Rides implements Listener {
         }
         final Lookout lookout = look(ride, path, now);
         final double reach = Math.min(lookout.clear(), ride.along + now.stopping(now.top()) + LOOKOUT);
-        final double stop = junctionStop(ride, path, reach, now);
-        final double limit = Math.max(ride.along, Math.min(stop, Math.min(ride.end, lookout.clear())));
-        ride.speed = Math.min(path.next(ride.along, ride.speed, limit, now), limit - ride.along);
+        final JunctionStops.Limit junction = junctionLimit(ride, path, reach, now);
+        final double limit = Math.max(ride.along, Math.min(junction.at(), Math.min(ride.end, lookout.clear())));
+        final double target = junction.at() <= limit ? junction.speed() : 0;
+        ride.speed = Math.min(path.next(ride.along, ride.speed, limit, now, target), limit - ride.along);
         ride.along += ride.speed;
         move(ride, path);
         watch.moved(ride.rider, path.length() - ride.along);
@@ -303,7 +307,7 @@ public final class Rides implements Listener {
         if (ride.standingPlanDue && plan(ride, true)) {
             return true;
         }
-        if (!ride.standingPlanDue && stop < Math.min(ride.end, lookout.clear())) {
+        if (!ride.standingPlanDue && junction.at() < Math.min(ride.end, lookout.clear())) {
             // A junction set the wrong way held too long strands the cart, unless a cart that still rides holds it.
             if (!heldByRider(ride) && ++ride.waited > PATIENCE) {
                 strand(ride);

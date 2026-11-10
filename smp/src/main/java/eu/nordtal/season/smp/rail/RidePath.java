@@ -5,8 +5,8 @@ import java.util.List;
 
 /**
  * The line a driven cart follows over a route's rails, and the speed it may have along it.
- * The top speed holds everywhere, curves included; a cart brakes only for where it must stand still. A curve
- * is cut diagonally as vanilla does. Distances are in blocks and speeds in blocks per tick.
+ * The top speed holds everywhere, curves included. A cart brakes for a crawl or a stop ahead. A curve is cut
+ * diagonally as vanilla does. Distances are in blocks and speeds in blocks per tick.
  */
 final class RidePath {
 

@@ -30,7 +30,7 @@
       "lines": [
         {
           "text": {
-            "en": "Add to favorites",
+            "en": "Add to favourites",
             "de": "Zu den Favoriten hinzufügen"
           }
         }
@@ -42,7 +42,7 @@
       "lines": [
         {
           "text": {
-            "en": "Remove from favorites",
+            "en": "Remove from favourites",
             "de": "Aus den Favoriten entfernen"
           }
         }
@@ -54,7 +54,7 @@
       "lines": [
         {
           "text": {
-            "en": "favorite",
+            "en": "favourite",
             "de": "Favorit"
           }
         }

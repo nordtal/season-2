@@ -21,4 +21,9 @@ class ObjectiveDialogTest {
         assertEquals(Symbol.SWORDS, ObjectiveDialog.symbol(objective(ObjectiveType.STATISTIC, "KILL_ENTITY")));
         assertEquals(Symbol.PICKAXE, ObjectiveDialog.symbol(objective(ObjectiveType.STATISTIC, "MINE_BLOCK")));
     }
+
+    @Test
+    void theShareLeavesRoomForThePager() {
+        assertEquals("De…", ObjectiveDialog.shareText("Dein Anteil: 999 von 999 Extra-Spins", 20));
+    }
 }

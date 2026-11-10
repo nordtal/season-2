@@ -114,8 +114,8 @@
       "lines": [
         {
           "text": {
-            "en": "Hand-in, counts: {items}; your part {percent}%",
-            "de": "Abgabe, zählt: {items}; dein Beitrag {percent} %"
+            "en": "Hand-in, counts: {items}. Your part {percent}%",
+            "de": "Abgabe, zählt: {items}. Dein Beitrag {percent} %"
           }
         }
       ]

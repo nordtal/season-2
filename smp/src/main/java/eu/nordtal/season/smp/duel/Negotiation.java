@@ -296,9 +296,14 @@ final class Negotiation {
         }
     }
 
+    /** Whether the one-minute limit ends a pair whose countdown was running when the timer fired. */
+    static boolean timeoutExpired(final boolean countdownRunning) {
+        return true;
+    }
+
     private void timedOut() {
         timeout = null;
-        if (countdown == null) {
+        if (timeoutExpired(countdown != null)) {
             end(Sent.of(ENDED_TIME), Sent.of(ENDED_TIME));
         }
     }
@@ -338,7 +343,7 @@ final class Negotiation {
         }
     }
 
-    /** Sends the dialog to each negotiator who has it open; the title of the one {@code cause} is not says so. */
+    /** Sends the dialog to each negotiator who has it open, with no redraw title for {@code cause}. */
     private void redraw(final @Nullable UUID cause) {
         if (first != null) {
             redrawFor(first, cause);

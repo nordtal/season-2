@@ -239,6 +239,11 @@ public final class ObjectiveDialog {
         new HandInGui(renderer, documents, locale, objective, row.amount(), row.target(), confirm).open(player);
     }
 
+    /** Fits the share into {@code room} beside its symbol. */
+    static String shareText(final String text, final int room) {
+        return Letters.cut(text, room);
+    }
+
     /** The wheel and the player's share, which shows what they put in, and the pager at the right end. */
     private Component shareLine(final Paging paging, final int page, final Dialogs.Send send) {
         final boolean none = share.empty();
@@ -246,11 +251,13 @@ public final class ObjectiveDialog {
                 ? document.label("share-none")
                 : document.label("share", new ShareLine(share.spins(), share.budget()));
         final @Nullable Component tooltip = none ? null : shareTooltip();
+        final int room = paging.paged() ? WIDTH - Dialogs.pagerWidth(paging, page) - Symbol.BEFORE_TEXT : WIDTH;
+        final String shown = shareText(text, room);
         final BodyLine line = BodyLine.start()
                 .button(
                         new BodyLine.Press(null, tooltip),
                         part -> part.symbol(Symbol.WHEEL, none ? Colours.SOFT : Colours.ACCENT)
-                                .text(text, Colours.SOFT));
+                                .text(shown, Colours.SOFT));
         if (paging.paged()) {
             line.at(WIDTH - Dialogs.pagerWidth(paging, page));
             send.pager(line, paging, page, document.label("pager", paging.page(page)), this::show);

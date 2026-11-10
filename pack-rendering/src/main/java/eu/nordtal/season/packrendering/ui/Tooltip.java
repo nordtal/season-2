@@ -73,18 +73,25 @@ public final class Tooltip {
 
     /** Returns the hover component for {@code rows}, the first {@code titleRows} of them the title. */
     public static Component hover(final List<Row> rows, final int titleRows) {
-        if (rows.isEmpty() || rows.size() > MAX_ROWS) {
-            throw new IllegalArgumentException("a tooltip box holds 1 to " + MAX_ROWS + " rows, not " + rows.size());
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("a tooltip box holds at least one row");
+        }
+        final List<Row> shown = new ArrayList<>(rows.subList(0, Math.min(rows.size(), MAX_ROWS)));
+        if (rows.size() > MAX_ROWS) {
+            final Row last = shown.getLast();
+            final String cut = Letters.cut(last.text(), WRAP - Letters.visibleWidth("…"));
+            shown.set(shown.size() - 1, new Row(cut.equals(last.text()) ? cut + "…" : cut, last.colour()));
         }
         final int width =
-                rows.stream().mapToInt(row -> Letters.width(row.text())).max().orElse(0);
-        final boolean gap = titleRows < rows.size();
+                shown.stream().mapToInt(row -> Letters.width(row.text())).max().orElse(0);
+        final boolean gap = titleRows < shown.size();
         final Pen first = Pen.start();
-        cover(first, width, boxHeight(rows.size(), gap));
+        cover(first, width, boxHeight(shown.size(), gap));
         Component hover = Component.empty()
-                .append(first.text(0, rows.get(0).text(), rows.get(0).colour()).build());
-        for (int index = 1; index < rows.size(); index++) {
-            final Row row = rows.get(index);
+                .append(first.text(0, shown.get(0).text(), shown.get(0).colour())
+                        .build());
+        for (int index = 1; index < shown.size(); index++) {
+            final Row row = shown.get(index);
             final int shift = index < titleRows ? 0 : LOWER;
             hover = hover.append(Component.newline())
                     .append(Pen.start().text(shift, row.text(), row.colour()).build());

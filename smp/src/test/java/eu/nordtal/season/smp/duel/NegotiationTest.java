@@ -17,4 +17,9 @@ class NegotiationTest {
     void aPairInDifferentWorldsEnds() {
         assertTrue(Negotiation.apart(false, 0));
     }
+
+    @Test
+    void aTimeoutEndsEvenWhenTheCountdownWasRunning() {
+        assertTrue(Negotiation.timeoutExpired(true));
+    }
 }

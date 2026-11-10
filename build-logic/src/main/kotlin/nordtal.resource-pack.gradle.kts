@@ -7,9 +7,11 @@ import eu.nordtal.season.build.CheckNoTrackerIds
 import eu.nordtal.season.build.CheckPack
 import eu.nordtal.season.build.CheckSourcesTracked
 import eu.nordtal.season.build.CopyVanillaTexture
+import eu.nordtal.season.build.DrawChestPanels
 import eu.nordtal.season.build.DescribePack
 import eu.nordtal.season.build.EditMinecraftInstance
 import eu.nordtal.season.build.EditPackSources
+import eu.nordtal.season.build.ExtractVanillaFonts
 import eu.nordtal.season.build.GenerateGlyphs
 import eu.nordtal.season.build.InstallPack
 import eu.nordtal.season.build.ListVanillaAssets
@@ -39,6 +41,8 @@ val generateGlyphs =
         // The paths where BossBarAdvances and MenuFont read the tables.
         advanceTables.put("nordtal:bossbar", "nordtal/hud/bossbar-advances.properties")
         advanceTables.put("nordtal:gui_r0", "nordtal/menu/gui-row-advances.properties")
+        // The table that Letters reads: vanilla's letters, the symbols and the spaces, as every ui text font draws them.
+        advanceTables.put("nordtal:ui_text_0", "nordtal/ui/letter-advances.properties")
         fontDirectory.set(generatedGlyphs.map { it.dir("pack") })
         javaDirectory.set(generatedGlyphs.map { it.dir("java") })
         resourceDirectory.set(generatedGlyphs.map { it.dir("resources") })
@@ -56,6 +60,8 @@ configurations.consumable("glyphManifest") {
     outgoing.artifact(generateGlyphs.flatMap { it.manifestDirectory })
 }
 
+val drawChestPanels = tasks.register<DrawChestPanels>("drawChestPanels")
+
 // The pack as the client receives it. Everything that reads the pack reads this and never src/.
 val assembledPack = layout.buildDirectory.dir("pack")
 val assemblePack =
@@ -64,6 +70,7 @@ val assemblePack =
         description = "Assembles src/ and the generated fonts into the resource pack."
         from(packSource)
         from(generateGlyphs.flatMap { it.fontDirectory })
+        from(drawChestPanels.flatMap { it.textures })
         into(assembledPack)
     }
 
@@ -238,6 +245,20 @@ val vanillaClient: VanillaClientTask.() -> Unit = {
     client.from(vanillaClientFiles)
     assetIndex.from(vanillaAssetIndexFiles)
     assetCache.set(vanillaAssetCache)
+}
+
+// Vanilla's letter fonts, which the text fonts of glyphs.json point at and the build measures.
+val extractVanillaFonts =
+    tasks.register<ExtractVanillaFonts>("extractVanillaFonts") {
+        vanillaClient()
+        fonts.set(layout.buildDirectory.dir("vanilla-fonts"))
+    }
+generateGlyphs.configure { vanilla.set(extractVanillaFonts.flatMap { it.fonts }) }
+
+// The chest window panels, drawn on every build from ChestPanelGeometry, so moving the panel is one number.
+drawChestPanels.configure {
+    vanillaClient()
+    textures.set(layout.buildDirectory.dir("generated/chest-panels"))
 }
 
 // The atlas sprite of each item, for :pack-rendering, which ships the table that a menu draws an item's texture from.

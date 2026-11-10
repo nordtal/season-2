@@ -132,3 +132,42 @@ abstract class WriteItemSprites : VanillaClientTask() {
         file.writeText(ItemSprites.properties(ItemSprites.of(assets.get().asFile, jar())))
     }
 }
+
+/**
+ * Copies vanilla's letter fonts from the client jar into [fonts]: `minecraft/font/include/default.json` and
+ * `space.json` and every sheet that `default.json` names, under `minecraft/textures/`. The pack's text fonts point
+ * at these sheets and the build measures their letters, as [GenerateGlyphs] describes. It is cacheable although the
+ * jar is internal, because Mojang never changes the client jar of a released version.
+ */
+@CacheableTask
+abstract class ExtractVanillaFonts : VanillaClientTask() {
+    @get:OutputDirectory
+    abstract val fonts: DirectoryProperty
+
+    init {
+        description = "Copies vanilla's letter fonts and their sheets out of the client jar."
+    }
+
+    @TaskAction
+    fun extract() {
+        val root = fonts.get().asFile
+        root.deleteRecursively()
+        java.util.zip.ZipFile(jar()).use { zip ->
+            fun copy(path: String) {
+                val entry = zip.getEntry("assets/$path") ?: throw IllegalStateException("The client jar has no assets/$path.")
+                val target = root.resolve(path)
+                target.parentFile.mkdirs()
+                zip.getInputStream(entry).use { input -> target.outputStream().use { input.copyTo(it) } }
+            }
+            listOf("default", "space").forEach { copy("minecraft/font/include/$it.json") }
+
+            @Suppress("UNCHECKED_CAST")
+            val providers =
+                (groovy.json.JsonSlurper().parse(root.resolve("minecraft/font/include/default.json")) as Map<String, Any?>)["providers"]
+                    as List<Map<String, Any?>>
+            providers.mapNotNull { it["file"] as String? }.distinct().forEach { id ->
+                copy("${id.substringBefore(':', "minecraft")}/textures/${id.substringAfter(':')}")
+            }
+        }
+    }
+}

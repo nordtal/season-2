@@ -16,8 +16,10 @@ object PackRules {
         listOf(
             "minecraft/textures/gui/sprites/boss_bar/white_background.png",
             "minecraft/textures/gui/sprites/boss_bar/white_progress.png",
-            "minecraft/textures/gui/sprites/container/slot_highlight_back.png",
-            "minecraft/textures/gui/sprites/container/slot_highlight_front.png",
+            "minecraft/textures/gui/container/generic_54.png",
+            "minecraft/textures/gui/sprites/dialog/warning_button.png",
+            "minecraft/textures/gui/sprites/dialog/warning_button_disabled.png",
+            "minecraft/textures/gui/sprites/dialog/warning_button_highlighted.png",
         )
 
     fun findings(assets: File): List<String> {
@@ -142,6 +144,8 @@ object PackRules {
         }
         val file = texture(assets, id)
         val texture = name(assets, file)
+        // A vanilla sheet that the pack does not override, such as vanilla's letters, is the client's own.
+        if (!file.isFile && id.substringBefore(':', "minecraft") == "minecraft") return emptyList()
         if (!file.isFile) return listOf("$texture is missing, and ${name(assets, font)} needs it.")
         val image = images[file] ?: return emptyList()
         val grid = chars.map { (it as String).codePoints().toArray() }

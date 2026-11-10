@@ -1,6 +1,7 @@
 package eu.nordtal.season.build
 
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
@@ -11,6 +12,7 @@ import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -35,6 +37,15 @@ abstract class GenerateGlyphs : DefaultTask() {
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val assets: DirectoryProperty
+
+    /**
+     * Vanilla's letter fonts and their sheets, as [ExtractVanillaFonts] writes them: the fonts under `minecraft/font/include` and
+     * their sheets under `minecraft/textures/font`. A font that sets `letters` or `silent` reads them.
+     */
+    @get:Optional
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val vanilla: DirectoryProperty
 
     @get:Input
     abstract val className: Property<String>
@@ -78,15 +89,21 @@ abstract class GenerateGlyphs : DefaultTask() {
         val root = fresh(fontDirectory.get().asFile)
         val written = LinkedHashMap<String, File>()
         for (font in glyphs.fonts) {
-            font.ids.forEachIndexed { row, id ->
+            for ((id, lower) in font.variants) {
                 val providers = mutableListOf<Map<String, Any>>()
+                font.references.forEach { providers += linkedMapOf("type" to "reference", "id" to it) }
                 if (font.spaces.isNotEmpty()) {
                     val advances = LinkedHashMap<String, Int>()
                     font.spaces.forEach { advances[Character.toString(it.codePoint)] = it.advance }
                     providers += linkedMapOf("type" to "space", "advances" to advances)
                 }
+                if (font.silent) providers += silent()
+                if (font.letters) {
+                    letterSheets().forEach { sheet ->
+                        providers += bitmap(sheet.file, sheet.ascent - lower, sheet.height, sheet.chars)
+                    }
+                }
                 for (block in font.blocks) {
-                    val lower = row * font.pitch
                     if (block.texture != null) {
                         val chars = block.chars ?: listOf(block.glyphs.joinToString("") { Character.toString(it.codePoint) })
                         providers += bitmap(block.texture, block.ascent!! - lower, block.height!!, chars)
@@ -105,6 +122,37 @@ abstract class GenerateGlyphs : DefaultTask() {
         return written
     }
 
+    /** One bitmap provider of vanilla's `include/default` font. */
+    private class LetterSheet(
+        val file: String,
+        val ascent: Int,
+        val height: Int,
+        val chars: List<String>,
+    )
+
+    /** The bitmap providers of vanilla's `include/default` font, in its order: the sheets that every letter comes from. */
+    private fun letterSheets(): List<LetterSheet> {
+        val directory = vanilla.orNull?.asFile ?: throw GradleException("a font sets 'letters' or 'silent', but the build has no vanilla fonts")
+
+        @Suppress("UNCHECKED_CAST")
+        val providers = (JsonSlurper().parse(directory.resolve("minecraft/font/include/default.json")) as Map<String, Any?>)["providers"]
+            as List<Map<String, Any?>>
+        return providers.filter { it["type"] == "bitmap" }.map {
+            @Suppress("UNCHECKED_CAST")
+            LetterSheet(it["file"] as String, (it["ascent"] as Number).toInt(), (it["height"] as Number? ?: 8).toInt(), it["chars"] as List<String>)
+        }
+    }
+
+    /** A space provider that gives every vanilla letter and the ordinary space an advance of 0, so a text takes no room and draws nothing. */
+    private fun silent(): Map<String, Any> {
+        val advances = sortedMapOf<String, Int>()
+        advances[" "] = 0
+        letterSheets().forEach { sheet ->
+            sheet.chars.forEach { row -> row.codePoints().filter { it != 0 }.forEach { advances[Character.toString(it)] = 0 } }
+        }
+        return linkedMapOf("type" to "space", "advances" to advances)
+    }
+
     private fun bitmap(
         texture: String,
         ascent: Int,
@@ -116,7 +164,7 @@ abstract class GenerateGlyphs : DefaultTask() {
         val root = fresh(resourceDirectory.get().asFile)
         for ((id, resource) in advanceTables.get()) {
             val font = fonts[id] ?: throw GradleException("an advance table is asked for font $id, which glyphs.json does not declare")
-            val table = GlyphAdvances.of(font, assets.get().asFile)
+            val table = GlyphAdvances.of(font, assets.get().asFile, fontDirectory.get().asFile, vanilla.orNull?.asFile)
             val lines =
                 listOf(
                     "# Generated from resource-pack ${fontPath(id).removePrefix("assets/")} by the build - do not edit.",
@@ -173,7 +221,10 @@ abstract class GenerateGlyphs : DefaultTask() {
             java.line("    // === ${font.id} ===")
             font.constant?.let { constant ->
                 java.line()
-                if (font.rows == null) {
+                if (font.shifts != null) {
+                    java.doc("    ", "The font ids of {@code ${font.id}} by their shift. ${font.about.orEmpty()}".trim())
+                    java.map(constant, font.variants.map { (id, shift) -> "$shift" to "\"$id\"" })
+                } else if (font.rows == null) {
                     java.doc("    ", "The font id {@code ${font.id}}. ${font.about.orEmpty()}".trim())
                     java.line("    public static final String $constant = \"${font.id}\";")
                 } else {
@@ -263,6 +314,16 @@ abstract class GenerateGlyphs : DefaultTask() {
         ) {
             line("    public static final List<$type> $constant = List.of(")
             items.forEachIndexed { index, item -> line("            $item" + if (index == items.lastIndex) ");" else ",") }
+        }
+
+        fun map(
+            constant: String,
+            entries: List<Pair<String, String>>,
+        ) {
+            line("    public static final Map<Integer, String> $constant = Map.ofEntries(")
+            entries.forEachIndexed { index, (key, value) ->
+                line("            Map.entry($key, $value)" + if (index == entries.lastIndex) ");" else ",")
+            }
         }
 
         fun text() = out.toString()

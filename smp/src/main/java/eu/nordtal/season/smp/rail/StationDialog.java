@@ -1,66 +1,129 @@
 package eu.nordtal.season.smp.rail;
 
+import eu.nordtal.season.messagerendering.GameDocument;
+import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Slot;
+import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.packrendering.ui.BodyLine;
+import eu.nordtal.season.packrendering.ui.Colours;
+import eu.nordtal.season.packrendering.ui.DialogPanel;
+import eu.nordtal.season.packrendering.ui.DialogTitle;
+import eu.nordtal.season.packrendering.ui.Symbol;
+import eu.nordtal.season.papercommon.dialog.Dialogs;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.ActionButton;
-import io.papermc.paper.registry.data.dialog.DialogBase;
-import io.papermc.paper.registry.data.dialog.action.DialogAction;
-import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
-import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.Objects;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickCallback;
+import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
-/** Builds the dialog that names a station, from the labels of the station document. */
+/**
+ * The dialog of a station rail: a visitor reads its name and how to ride from it.
+ *
+ * Its placer and admins name it and choose whether the map shows it; the spawn's name is fixed by the translations.
+ */
 final class StationDialog {
 
-    /** The labels the dialog shows, each already rendered for its viewer. */
-    record Texts(String title, @Nullable String refusal, String rules, String field, String save, String cancel) {}
+    record Most(@Example("32") long most) {}
 
-    private static final String FIELD = "name";
+    static final DocumentSpec<DocumentSpec.None> DOCUMENT = DocumentSpec.menu(
+                    "smp",
+                    "station",
+                    "Menus",
+                    DocumentSpec.None.class,
+                    1,
+                    Slot.label("unnamed"),
+                    Slot.label("spawn"),
+                    Slot.label("hint"),
+                    Slot.label("field"),
+                    Slot.label("show"),
+                    Slot.label("save"),
+                    Slot.label("name-empty"),
+                    Slot.label("name-too-long", Most.class),
+                    Slot.label("name-taken"))
+            .titled("Station");
 
-    /** How long a naming dialog left open still takes its answer. */
-    private static final Duration ANSWERED_WITHIN = Duration.ofMinutes(10);
+    /** What the save answers: the typed name and whether the map shows the station. */
+    interface Saved {
+        void save(Player player, String typed, boolean shown);
+    }
+
+    static final String FIELD = "name";
+    static final String SHOWN = "shown";
+
+    /** The field's frame and the panel's content: the widest part. */
+    static final int WIDTH = 184;
+
+    private static final int FIELD_WIDTH = 180;
+    private static final int SAVE_WIDTH = 100;
+    private static final int TEXT_TOP = 50;
+    private static final int FRAME_TOP = 43;
+    private static final int FRAME_Y = 61;
+    private static final int REFUSAL_Y = 150;
 
     private StationDialog() {}
 
-    /** Returns the dialog; {@code answered} gets the typed name off the main thread. */
-    static Dialog of(final Texts texts, final String initial, final Consumer<String> answered) {
-        final List<DialogBody> body = new ArrayList<>();
-        final String refusal = texts.refusal();
-        if (refusal != null) {
-            body.add(DialogBody.plainMessage(Component.text(refusal)));
-        }
-        body.add(DialogBody.plainMessage(Component.text(texts.rules())));
-        final DialogInput field = DialogInput.text(FIELD, Component.text(texts.field()))
-                .maxLength(StationNames.MAX_LENGTH)
-                .initial(initial)
-                .width(250)
+    /** The visitor's dialog: the station's name, or that it has none, over how to ride from it. */
+    static Dialog visitor(final GameDocument document, final @Nullable String name) {
+        final Component title = DialogTitle.of(DialogPanel.STATION_78, TEXT_TOP)
+                .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of())
                 .build();
-        final ActionButton save = ActionButton.builder(Component.text(texts.save()))
-                .action(DialogAction.customClick(
-                        (response, _) -> {
-                            final @Nullable String answer = response.getText(FIELD);
-                            answered.accept(answer == null ? "" : answer);
-                        },
-                        ClickCallback.Options.builder()
-                                .uses(1)
-                                .lifetime(ANSWERED_WITHIN)
-                                .build()))
-                .build();
-        final ActionButton cancel =
-                ActionButton.builder(Component.text(texts.cancel())).build();
+        final String shown = name == null ? document.label("unnamed") : name;
         return Dialog.create(builder -> builder.empty()
-                .base(DialogBase.builder(Component.text(texts.title()))
-                        .canCloseWithEscape(true)
-                        .afterAction(DialogBase.DialogAfterAction.CLOSE)
-                        .body(body)
-                        .inputs(List.of(field))
+                .base(Dialogs.base(title)
+                        .body(List.of(
+                                Dialogs.line(
+                                        BodyLine.textLine()
+                                                .text(shown, Colours.INK)
+                                                .build(),
+                                        WIDTH),
+                                Dialogs.line(BodyLine.paragraph(document.label("hint"), WIDTH, Colours.SOFT), WIDTH)))
                         .build())
-                .type(DialogType.confirmation(save, cancel)));
+                .type(Dialogs.bodyOnly()));
+    }
+
+    /**
+     * The placer's dialog: the field holds {@code typed} and the checkbox {@code shown}.
+     *
+     * A refused save's {@code refusal} is drawn by the title under the button, so the narrator reads it there.
+     */
+    static Dialog placer(
+            final GameDocument document,
+            final String typed,
+            final boolean shown,
+            final @Nullable String refusal,
+            final Dialogs.Send send,
+            final Saved saved) {
+        final DialogTitle drawn = DialogTitle.of(
+                        refusal == null ? DialogPanel.STATION_104 : DialogPanel.STATION_122, FRAME_TOP)
+                .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of())
+                .fieldFrame(DialogTitle.MARGIN, FRAME_Y);
+        if (refusal != null) {
+            drawn.text(DialogTitle.MARGIN, REFUSAL_Y, refusal, Colours.REFUSAL);
+        }
+        final ActionButton save = ActionButton.builder(Component.text(document.label("save")))
+                .width(SAVE_WIDTH)
+                .action(send.action((player, response) -> saved.save(
+                        player,
+                        Objects.requireNonNullElse(response.getText(FIELD), ""),
+                        Boolean.TRUE.equals(response.getBoolean(SHOWN)))))
+                .build();
+        return Dialog.create(builder -> builder.empty()
+                .base(Dialogs.base(drawn.build())
+                        .inputs(List.of(
+                                DialogInput.text(FIELD, Component.text(document.label("field")))
+                                        .labelVisible(false)
+                                        .width(FIELD_WIDTH)
+                                        .maxLength(StationNames.MAX_LENGTH)
+                                        .initial(typed)
+                                        .build(),
+                                DialogInput.bool(SHOWN, Component.text(document.label("show")))
+                                        .initial(shown)
+                                        .build()))
+                        .build())
+                .type(DialogType.multiAction(List.of(save)).columns(1).build()));
     }
 }

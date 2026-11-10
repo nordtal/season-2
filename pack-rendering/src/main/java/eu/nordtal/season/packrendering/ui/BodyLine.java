@@ -1,6 +1,7 @@
 package eu.nordtal.season.packrendering.ui;
 
 import eu.nordtal.season.packrendering.Glyphs;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import net.kyori.adventure.key.Key;
@@ -47,7 +48,8 @@ public final class BodyLine {
     }
 
     /** A drawn part's click and the tooltip the mouse shows over it, each if it has one. */
-    public record Press(@Nullable ClickEvent click, @Nullable Component tooltip) {}
+    public record Press(
+            @Nullable ClickEvent click, @Nullable Component tooltip) {}
 
     /** Starts an empty plate line. */
     public static BodyLine start() {
@@ -62,6 +64,21 @@ public final class BodyLine {
     /** Returns {@code words} for a narrator only: they take no room and draw nothing. */
     public static Component silent(final String words) {
         return Component.text(words).font(Key.key(Glyphs.FONT_UI_SILENT));
+    }
+
+    /**
+     * Returns {@code text} wrapped at {@code width} as one text line, each row left-aligned in {@code colour}.
+     * A plain_message centres each row, so every row is padded to the full width.
+     */
+    public static Component paragraph(final String text, final int width, final TextColor colour) {
+        final List<Component> rows = new ArrayList<>();
+        for (final String row : Letters.wrap(text, width)) {
+            if (!rows.isEmpty()) {
+                rows.add(Component.newline());
+            }
+            rows.add(textLine().text(row, colour).at(width).build());
+        }
+        return Component.empty().children(rows);
     }
 
     /** Returns the label of a native button in the primary look: the 98 x 18 plate with {@code label} centred on it. */

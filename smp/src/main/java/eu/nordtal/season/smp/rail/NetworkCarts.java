@@ -122,7 +122,7 @@ public final class NetworkCarts implements Listener {
 
             @Override
             public void openRide(final Player rider) {
-                menus.ride(rider, 0).ifPresent(menu -> menu.open(rider));
+                menus.openRide(rider);
             }
         };
         final Tell tell = new Tell() {

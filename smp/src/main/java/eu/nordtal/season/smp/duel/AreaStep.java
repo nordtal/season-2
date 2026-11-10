@@ -4,20 +4,20 @@ package eu.nordtal.season.smp.duel;
 enum AreaStep {
     /** Nothing changes for the player. */
     NONE,
-    /** A negotiating player stepped off and leaves the negotiation. */
+    /** A player waiting alone stepped off and leaves the negotiation; a pair ends only further apart. */
     LEAVE,
     /** The area is held: the step is undone and the player pushed back. */
     REFUSE,
     /** The player stands alone on the area and waits for a second one. */
     WAIT,
-    /** The player is the second one, and both windows open. */
+    /** The player is the second one, and both dialogs open. */
     JOIN;
 
     /**
      * @param wasOn      the player stood on the area before the move
      * @param on         the player stands on the area after the move
      * @param negotiates the player is one of the two on the area
-     * @param left       the player closed the window and has not stepped off since
+     * @param left       the player's pair ended here and they have not stepped off since
      * @param fights     the player fights the running duel
      * @param held       two players negotiate or a duel runs
      * @param waiting    a first player waits on the area
@@ -31,7 +31,7 @@ enum AreaStep {
             final boolean held,
             final boolean waiting) {
         if (!on) {
-            return negotiates ? LEAVE : NONE;
+            return negotiates && !held ? LEAVE : NONE;
         }
         if (negotiates || left || fights) {
             return NONE;

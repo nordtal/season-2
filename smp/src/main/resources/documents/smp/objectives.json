@@ -6,132 +6,140 @@
         {
           "style": "TITLE",
           "text": {
-            "en": "Current {@terms.objective, n=1}",
-            "de": "Aktuelles {@terms.objective, n=1}"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ITEM",
-      "slot": "heading",
-      "lines": [
-        {
-          "text": {
-            "en": "<emphasis>{milestone.name}</emphasis>",
-            "de": "<emphasis>{milestone.name}</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>{done} of {total} {@terms.objective, n=total} finished.</muted>",
-            "de": "<muted>{done} von {total} {@terms.objective, n=total, case=dative} geschafft.</muted>"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ITEM",
-      "slot": "objective",
-      "lines": [
-        {
-          "when": "finished",
-          "text": {
-            "en": "<good>{objective}</good>",
-            "de": "<good>{objective}</good>"
-          }
-        },
-        {
-          "when": "!finished",
-          "text": {
-            "en": "<emphasis>{objective}</emphasis>",
-            "de": "<emphasis>{objective}</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>{bar} {amount}/{target}</muted>",
-            "de": "<muted>{bar} {amount}/{target}</muted>"
-          }
-        },
-        {
-          "when": "shared",
-          "text": {
-            "en": "<faint>Your share: {percent} %. Finished now, it gives you {gives} of {pool} {@terms.extra-spin, n=pool}.</faint>",
-            "de": "<faint>Dein Anteil: {percent} %. Wäre es jetzt fertig, bekämst du {gives} von {pool} {@terms.extra-spin, n=pool}.</faint>"
-          }
-        },
-        {
-          "when": "finished",
-          "text": {
-            "en": "<good>Finished.</good>",
-            "de": "<good>Geschafft.</good>"
-          }
-        },
-        {
-          "when": "handIn",
-          "text": {
-            "en": "<accent>Click to hand items in.</accent>",
-            "de": "<accent>Klicken, um Items abzugeben.</accent>"
-          }
-        },
-        {
-          "list": "wanted",
-          "text": {
-            "en": "<faint>{item}</faint>",
-            "de": "<faint>{item}</faint>"
-          }
-        },
-        {
-          "when": "counted",
-          "text": {
-            "en": "<faint>This one counts itself.</faint>",
-            "de": "<faint>Das hier zählt sich selbst.</faint>"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ITEM",
-      "slot": "share",
-      "lines": [
-        {
-          "text": {
-            "en": "<emphasis>What you have put in</emphasis>",
-            "de": "<emphasis>Was du beigetragen hast</emphasis>"
-          }
-        },
-        {
-          "when": "!contributed",
-          "text": {
-            "en": "<muted>Hand in items or work on a statistic. Your share appears here.</muted>",
-            "de": "<muted>Gib Items ab oder arbeite an einer Statistik. Dein Anteil steht dann hier.</muted>"
-          }
-        },
-        {
-          "list": "shares",
-          "text": {
-            "en": "<muted>{objective} <emphasis>{percent} %</emphasis></muted>",
-            "de": "<muted>{objective} <emphasis>{percent} %</emphasis></muted>"
-          }
-        },
-        {
-          "when": "contributed",
-          "text": {
-            "en": "<muted>If these {@terms.objective, n=2} finished now, you would get <emphasis>{spins}</emphasis> of their <emphasis>{budget} {@terms.extra-spin, n=budget}</emphasis>.</muted>",
-            "de": "<muted>Wären diese {@terms.objective, n=2} jetzt fertig, bekämst du <emphasis>{spins}</emphasis> von ihren <emphasis>{budget} {@terms.extra-spin, n=budget}</emphasis>.</muted>"
+            "en": "Milestone",
+            "de": "{@terms.milestone, n=1}"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "share-line",
+      "slot": "summary",
       "lines": [
         {
           "text": {
-            "en": "{spins} of {budget} {@terms.extra-spin, n=budget}",
-            "de": "{spins} von {budget} {@terms.extra-spin, n=budget}"
+            "en": "{done} of {total} {@terms.objective, n=total} finished",
+            "de": "{done} von {total} {@terms.objective, n=total, case=dative} geschafft"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "count",
+      "lines": [
+        {
+          "text": {
+            "en": "{amount}/{target}",
+            "de": "{amount}/{target}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "finished",
+      "lines": [
+        {
+          "text": {
+            "en": "Finished",
+            "de": "Geschafft"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "counts",
+      "lines": [
+        {
+          "text": {
+            "en": "Counts: {items}",
+            "de": "Zählt: {items}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "part",
+      "lines": [
+        {
+          "text": {
+            "en": "Your part: {percent}%",
+            "de": "Dein Beitrag: {percent} %"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "hand-in-hint",
+      "lines": [
+        {
+          "text": {
+            "en": "Click to hand items in.",
+            "de": "Klicken, um Items abzugeben."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "counted",
+      "lines": [
+        {
+          "text": {
+            "en": "Counted automatically",
+            "de": "Wird automatisch gezählt."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "hand-in-words",
+      "lines": [
+        {
+          "text": {
+            "en": "Hand-in, counts: {items}",
+            "de": "Abgabe, zählt: {items}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "hand-in-words-shared",
+      "lines": [
+        {
+          "text": {
+            "en": "Hand-in, counts: {items}; your part {percent}%",
+            "de": "Abgabe, zählt: {items}; dein Beitrag {percent} %"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "counted-words",
+      "lines": [
+        {
+          "text": {
+            "en": "counted automatically",
+            "de": "wird automatisch gezählt"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "share",
+      "lines": [
+        {
+          "text": {
+            "en": "Your share: {spins} of {budget} {@terms.extra-spin, n=budget}",
+            "de": "Dein Anteil: {spins} von {budget} {@terms.extra-spin, n=budget}"
           }
         }
       ]
@@ -142,32 +150,68 @@
       "lines": [
         {
           "text": {
-            "en": "Not contributed yet",
+            "en": "Nothing put in yet",
             "de": "Noch nichts beigetragen"
           }
         }
       ]
     },
     {
-      "type": "ITEM",
-      "slot": "previous-page",
+      "type": "LABEL",
+      "slot": "share-title",
       "lines": [
         {
           "text": {
-            "en": "<muted>Previous {@terms.objective, n=2}</muted>",
-            "de": "<muted>Vorherige {@terms.objective, n=2}</muted>"
+            "en": "Your part",
+            "de": "Dein Beitrag"
           }
         }
       ]
     },
     {
-      "type": "ITEM",
-      "slot": "next-page",
+      "type": "LABEL",
+      "slot": "share-row",
       "lines": [
         {
           "text": {
-            "en": "<muted>More {@terms.objective, n=2}</muted>",
-            "de": "<muted>Weitere {@terms.objective, n=2}</muted>"
+            "en": "{objective} {percent}%",
+            "de": "{objective} {percent} %"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "none",
+      "lines": [
+        {
+          "text": {
+            "en": "No milestone right now",
+            "de": "Gerade läuft kein {@terms.milestone, n=1}."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "all",
+      "lines": [
+        {
+          "text": {
+            "en": "Every milestone is finished.",
+            "de": "Alle {@terms.milestone, n=2} sind geschafft."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "pager",
+      "lines": [
+        {
+          "text": {
+            "en": "next page, previous page, page {page} of {pages}",
+            "de": "Nächste Seite, vorherige Seite, Seite {page} von {pages}"
           }
         }
       ]

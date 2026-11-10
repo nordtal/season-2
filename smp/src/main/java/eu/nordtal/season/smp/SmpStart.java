@@ -168,6 +168,7 @@ final class SmpStart {
                 plugin.identities(),
                 plugin.renderer(),
                 plugin.documents(),
+                plugin.dialogs(),
                 plugin.sounds,
                 effects,
                 plugin.clock());
@@ -242,6 +243,7 @@ final class SmpStart {
                                 plugin.identities(),
                                 plugin.renderer(),
                                 plugin.documents(),
+                                plugin.dialogs(),
                                 plugin.sounds),
                         plugin);
         plugin.getServer().getPluginManager().registerEvents(new NpcProtection(npc), plugin);
@@ -316,6 +318,7 @@ final class SmpStart {
                 plugin.identities(),
                 plugin.sounds,
                 scheduler,
+                plugin.dialogs(),
                 () -> plugin.railSettings.get().stationWidth());
         plugin.getServer().getPluginManager().registerEvents(menus, plugin);
         plugin.getServer()

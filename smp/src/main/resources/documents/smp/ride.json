@@ -13,31 +13,6 @@
       ]
     },
     {
-      "type": "ITEM",
-      "slot": "station",
-      "lines": [
-        {
-          "text": {
-            "en": "<emphasis>{name}</emphasis>",
-            "de": "<emphasis>{name}</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>{distance} m along the rails</muted>",
-            "de": "<muted>{distance} m über die Schienen</muted>"
-          }
-        },
-        {
-          "when": "favourite",
-          "text": {
-            "en": "<muted>One of your favourites.</muted>",
-            "de": "<muted>Einer deiner Favoriten.</muted>"
-          }
-        }
-      ]
-    },
-    {
       "type": "LABEL",
       "slot": "distance",
       "lines": [
@@ -50,27 +25,37 @@
       ]
     },
     {
-      "type": "ITEM",
+      "type": "LABEL",
+      "slot": "add",
+      "lines": [
+        {
+          "text": {
+            "en": "Add to favourites",
+            "de": "Zu den Favoriten hinzufügen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "remove",
+      "lines": [
+        {
+          "text": {
+            "en": "Remove from favourites",
+            "de": "Aus den Favoriten entfernen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
       "slot": "favourite",
       "lines": [
         {
-          "when": "!favourite",
           "text": {
-            "en": "<emphasis>Add to favourites</emphasis>",
-            "de": "<emphasis>Zu den Favoriten hinzufügen</emphasis>"
-          }
-        },
-        {
-          "when": "favourite",
-          "text": {
-            "en": "<emphasis>Remove from favourites</emphasis>",
-            "de": "<emphasis>Aus den Favoriten entfernen</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>Favourites come first in this list.</muted>",
-            "de": "<muted>Favoriten stehen in dieser Liste oben.</muted>"
+            "en": "favourite",
+            "de": "Favorit"
           }
         }
       ]
@@ -81,44 +66,20 @@
       "lines": [
         {
           "text": {
-            "en": "No other {@terms.station, n=1} on these rails.",
-            "de": "Kein anderer {@terms.station, n=1} an diesen Schienen."
-          }
-        }
-      ]
-    },
-    {
-      "type": "ITEM",
-      "slot": "previous-page",
-      "lines": [
-        {
-          "text": {
-            "en": "<muted>Previous page</muted>",
-            "de": "<muted>Vorherige Seite</muted>"
+            "en": "No other {@terms.station, n=1} on this line",
+            "de": "Kein anderer {@terms.station, n=1} auf dieser Strecke"
           }
         }
       ]
     },
     {
       "type": "LABEL",
-      "slot": "page",
+      "slot": "pager",
       "lines": [
         {
           "text": {
-            "en": "{page}/{pages}",
-            "de": "{page}/{pages}"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ITEM",
-      "slot": "next-page",
-      "lines": [
-        {
-          "text": {
-            "en": "<muted>Next page</muted>",
-            "de": "<muted>Nächste Seite</muted>"
+            "en": "next page, previous page, page {page} of {pages}",
+            "de": "Nächste Seite, vorherige Seite, Seite {page} von {pages}"
           }
         }
       ]

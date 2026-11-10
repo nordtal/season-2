@@ -43,43 +43,6 @@ class MenuLayoutsTest {
     }
 
     @Test
-    void theObjectivesDeclareFourCardsBetweenTwoPagesAsTheirExample() {
-        final DocumentDeclaration objective = menu("objectives");
-
-        assertEquals(6, objective.rows());
-        assertEquals(IntStream.range(0, 9).boxed().toList(), at(objective, "heading"));
-        assertEquals(
-                List.of(
-                        9, 10, 11, 12, 18, 19, 20, 21, 14, 15, 16, 17, 23, 24, 25, 26, 27, 28, 29, 30, 36, 37, 38, 39,
-                        32, 33, 34, 35, 41, 42, 43, 44),
-                at(objective, "objective"));
-        assertEquals(IntStream.range(45, 54).boxed().toList(), at(objective, "share"));
-        assertEquals(List.of(52), at(objective, "previous-page"));
-        assertEquals(List.of(53), at(objective, "next-page"));
-    }
-
-    @Test
-    void theRideMenuDeclaresAFullPageWithItsStarsAndPageButtons() {
-        final DocumentDeclaration ride = menu("ride");
-
-        assertEquals(6, ride.rows());
-        assertEquals(List.of(8, 17, 26, 35, 44), at(ride, "favourite"));
-        assertEquals(40, at(ride, "station").size());
-        assertEquals(List.of(51), at(ride, "previous-page"));
-        assertEquals(List.of(53), at(ride, "next-page"));
-    }
-
-    @Test
-    void theStationMenuPutsItsNameAndVisibilityButtonsSideBySideUnderTheHeading() {
-        final DocumentDeclaration station = menu("station");
-
-        assertEquals(2, station.rows());
-        assertEquals(IntStream.range(0, 9).boxed().toList(), at(station, "heading"));
-        assertEquals(List.of(10, 11, 12, 13), at(station, "name"));
-        assertEquals(List.of(14, 15, 16), at(station, "visibility"));
-    }
-
-    @Test
     void theWheelPrizeTakeInIsOneRowThatAnItemIsPutInAnywhere() {
         final DocumentDeclaration takeIn = menu("wheel-take-in");
 

@@ -25,6 +25,11 @@ public final class DialogTitle {
     public static final List<Integer> TOPS = List.of(49, 50, 43, 64);
 
     private static final int HEADER_ROW = 280;
+    private static final int FIELD_FRAME = 184;
+
+    /** The frame glyph's top stands this far above its font's text row. */
+    private static final int FRAME_ABOVE = 2;
+
     private static final int NAME_TO_MARK = 8;
 
     private final Pen pen = Pen.start();
@@ -78,6 +83,18 @@ public final class DialogTitle {
     /** Draws {@code text} at panel + {@code x} with its capitals at screen y {@code y}. */
     public DialogTitle text(final int x, final int y, final String text, final TextColor colour) {
         pen.moveTo(left + x).text(y - TITLE_ROW, text, colour);
+        return this;
+    }
+
+    /** Draws the station field's 184 x 24 frame at panel + {@code x}, its top at screen y {@code y}. */
+    public DialogTitle fieldFrame(final int x, final int y) {
+        pen.moveTo(left + x).art(Pen.artFont(y - TITLE_ROW + FRAME_ABOVE), Glyphs.UI_FIELD_FRAME, FIELD_FRAME);
+        return this;
+    }
+
+    /** Adds {@code words} for the narrator, which it reads with the title, such as what a redraw changed. */
+    public DialogTitle words(final String words) {
+        pen.append(BodyLine.silent(words), 0);
         return this;
     }
 

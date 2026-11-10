@@ -9,6 +9,7 @@ API that a facility wraps anywhere else.
 | `PaperScheduler`  | A `Scheduler` for off-thread work, with `onMain`, `onMainAfter` and `onMainEvery`. |
 | `hud()`           | The boss bar `HudLine`s of each player, rendered four times a second.              |
 | `Menu`, `Menus`   | Chest inventory windows with a `MenuTitle`.                                        |
+| `dialogs()`       | The clicks of a drawn dialog: each answered once on the main thread, with a sound. |
 | `ContainerTitles` | The drawn chest panel in the title of every chest window that is not a `Menu`.     |
 | `GameDataExport`  | The server's registries as its row of `game_catalogue`.                            |
 | `CommandTrees`    | The server's commands as its row of `command_tree`.                                |
@@ -65,8 +66,8 @@ warning.
   reads all held identities again in one query, and `whenChanged` receives each one that differs.
 - `Previews` shows a title, subtitle or action bar if the key is one, and a chat line otherwise. It
   reads a key of a bundle that the plugin does not load as MiniMessage. A drafted game document is
-  shown whole, every value at its example: a menu opens read-only (`PreviewMenu`, its items and labels
-  in the document's order), a tab list half replaces the half the player sees, a boss bar stays ten
+  shown whole, every value at its example: a menu opens as a read-only dialog
+  (`PreviewDialog`, a row for each line of its items and labels in the document's order), a tab list half replaces the half the player sees, a boss bar stays ten
   seconds as the first line of the plugin's `Hud`, a title shows its subtitle, and a chat text, kick
   screen, server list or hologram arrives as chat lines.
 - `renderer()` draws names as the plugin passes them to `composeNames` in `enable()`. A text writes

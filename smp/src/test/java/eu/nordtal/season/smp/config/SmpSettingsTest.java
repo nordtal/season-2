@@ -109,14 +109,14 @@ class SmpSettingsTest {
     }
 
     @Test
-    void aSixthKitIsRefusedSinceTheWindowHasFiveRows() {
-        final List<Map<String, Object>> kits = IntStream.range(0, 6)
+    void aFifthKitIsRefusedSinceTheDialogHasFourRows() {
+        final List<Map<String, Object>> kits = IntStream.range(0, 5)
                 .mapToObj(index -> Map.<String, Object>of("name", "Kit " + index))
                 .toList();
         final Exception refused =
                 assertThrows(Exception.class, () -> store.checked("smp", DUELS, Map.of("duel-kits", kits)));
 
-        assertTrue(refused.getMessage().contains("more than 5"), refused.getMessage());
+        assertTrue(refused.getMessage().contains("more than 4"), refused.getMessage());
     }
 
     @Test
@@ -140,8 +140,8 @@ class SmpSettingsTest {
     }
 
     @Test
-    void aTrialOfASixthKitNamesTheSettingAndTheRuleItBroke() {
-        final List<Map<String, Object>> kits = IntStream.range(0, 6)
+    void aTrialOfAFifthKitNamesTheSettingAndTheRuleItBroke() {
+        final List<Map<String, Object>> kits = IntStream.range(0, 5)
                 .mapToObj(index -> Map.<String, Object>of("name", "Kit " + index))
                 .toList();
         final SettingsException refused = assertThrows(
@@ -153,7 +153,7 @@ class SmpSettingsTest {
 
         final SettingRefused named = SettingRefused.of(refused, "duels");
         assertEquals(
-                Arrays.asList("duel-kits", SettingRule.MOST_ENTRIES, "5"),
+                Arrays.asList("duel-kits", SettingRule.MOST_ENTRIES, "4"),
                 Arrays.asList(named.setting(), named.rule(), named.value()),
                 "Steward words the refusal from the setting, the rule and its value");
     }

@@ -19,14 +19,15 @@ class AreaStepTest {
     }
 
     @Test
-    void aNegotiatingPlayerLeavesBySteppingOff() {
-        assertEquals(AreaStep.LEAVE, AreaStep.of(true, false, true, false, false, true, false));
+    void aWaitingPlayerLeavesBySteppingOffButAPairStays() {
+        assertEquals(AreaStep.LEAVE, AreaStep.of(true, false, true, false, false, false, true));
+        assertEquals(AreaStep.NONE, AreaStep.of(true, false, true, false, false, true, false));
         assertEquals(AreaStep.NONE, AreaStep.of(true, false, false, false, false, true, false));
         assertEquals(AreaStep.NONE, AreaStep.of(true, true, true, false, false, true, false));
     }
 
     @Test
-    void aPlayerWhoClosedTheWindowOrFightsIsNeitherRefusedNorSeated() {
+    void aPlayerWhosePairEndedOrWhoFightsIsNeitherRefusedNorSeated() {
         assertEquals(AreaStep.NONE, AreaStep.of(false, true, false, true, false, false, false));
         assertEquals(AreaStep.NONE, AreaStep.of(false, true, false, false, true, true, false));
     }

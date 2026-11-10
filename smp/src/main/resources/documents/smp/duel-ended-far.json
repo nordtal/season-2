@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<warn>Duel over:</warn> <muted>too far apart</muted>",
+            "de": "<warn>Duell beendet:</warn> <muted>zu weit auseinander</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

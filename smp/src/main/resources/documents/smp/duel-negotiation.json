@@ -13,19 +13,25 @@
       ]
     },
     {
-      "type": "ITEM",
-      "slot": "kit",
+      "type": "LABEL",
+      "slot": "pick-hint",
       "lines": [
         {
           "text": {
-            "en": "<emphasis>{kit}</emphasis>",
-            "de": "<emphasis>{kit}</emphasis>"
+            "en": "Click to pick this kit.",
+            "de": "Klicken, um dieses Kit zu wählen."
           }
-        },
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "mine",
+      "lines": [
         {
           "text": {
-            "en": "<muted>Click to fight with this kit. The duel starts once you both picked the same.</muted>",
-            "de": "<muted>Klicken, um mit diesem Kit zu kämpfen. Das Duell beginnt, sobald ihr beide dasselbe gewählt habt.</muted>"
+            "en": "your pick",
+            "de": "Deine Wahl"
           }
         }
       ]
@@ -37,7 +43,7 @@
         {
           "text": {
             "en": "Waiting for an opponent",
-            "de": "Warte auf einen Gegner"
+            "de": "Warten auf einen Gegner"
           }
         }
       ]
@@ -48,8 +54,8 @@
       "lines": [
         {
           "text": {
-            "en": "Pick a kit",
-            "de": "Wähle ein Kit"
+            "en": "Pick a kit.",
+            "de": "Wähle ein Kit."
           }
         }
       ]
@@ -61,7 +67,7 @@
         {
           "text": {
             "en": "Waiting for {opponent.name}",
-            "de": "Warte auf {opponent.name}"
+            "de": "Warten auf {opponent.name}"
           }
         }
       ]
@@ -72,8 +78,8 @@
       "lines": [
         {
           "text": {
-            "en": "{opponent.name} picked another kit",
-            "de": "{opponent.name} will ein anderes Kit"
+            "en": "{opponent.name} picked another kit.",
+            "de": "{opponent.name} will ein anderes Kit."
           }
         }
       ]
@@ -84,8 +90,20 @@
       "lines": [
         {
           "text": {
-            "en": "Starting",
-            "de": "Gleich geht es los"
+            "en": "Starting soon.",
+            "de": "Gleich geht es los."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "redrawn",
+      "lines": [
+        {
+          "text": {
+            "en": "Duel: {status}",
+            "de": "Duell: {status}"
           }
         }
       ]

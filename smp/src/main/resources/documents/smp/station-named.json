@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>This {@terms.station, n=1} is now called</good> <emphasis>{name}</emphasis><muted>.</muted>",
-            "de": "<good>Dieser {@terms.station, n=1} heißt jetzt</good> <emphasis>{name}</emphasis><muted>.</muted>"
+            "en": "<good>Station</good> <emphasis>“{name}”</emphasis> <good>saved</good>",
+            "de": "<good>{@terms.station, n=1}</good> <emphasis>„{name}“</emphasis> <good>gespeichert</good>"
           }
         }
       ]

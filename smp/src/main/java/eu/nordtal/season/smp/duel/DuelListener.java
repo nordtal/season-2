@@ -82,4 +82,17 @@ public final class DuelListener implements Listener {
     public void onQuit(final PlayerQuitEvent event) {
         duels.quit(event.getPlayer());
     }
+
+    /** A chat line means the dialog is closed. The chat event runs off the main thread. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChat(final io.papermc.paper.event.player.AsyncChatEvent event) {
+        final Player player = event.getPlayer();
+        PaperScheduler.of(plugin).onMain(() -> duels.typed(player));
+    }
+
+    /** A command means the dialog is closed. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onCommand(final org.bukkit.event.player.PlayerCommandPreprocessEvent event) {
+        duels.typed(event.getPlayer());
+    }
 }

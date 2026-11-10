@@ -51,6 +51,7 @@ import eu.nordtal.season.papercommon.command.CommandFilter;
 import eu.nordtal.season.papercommon.command.CommandTrees;
 import eu.nordtal.season.papercommon.command.PaperUser;
 import eu.nordtal.season.papercommon.command.Replies;
+import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.game.GameDataExport;
 import eu.nordtal.season.papercommon.hud.Hud;
 import eu.nordtal.season.papercommon.menu.ContainerTitles;
@@ -136,6 +137,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
     private MessageRenderer renderer;
     private AppliedDocuments documents;
     private Previews previews;
+    private Dialogs dialogs;
     private HikariDataSource pool;
     private Jdbi jdbi;
     private AccessReader access;
@@ -220,6 +222,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         renderer = MessageRenderer.of(
                         messages, (name, reader) -> names.draw(name, reader), identities.cards(this::prestige))
                 .reading(documents);
+        dialogs = new Dialogs(PaperScheduler.of(this).mainThread(), chime()::play);
         previews = newPreviews();
         hud = new Hud(this, identities);
         listen(hud);
@@ -460,7 +463,9 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 getServer()::getPlayer,
                 renderer,
                 service -> ToneColours.parse(Colours.current(store, service), unreadable -> {}),
-                PaperScheduler.of(this).mainThread());
+                PaperScheduler.of(this).mainThread(),
+                documents,
+                dialogs);
     }
 
     protected final Answer preview(final PlayerId player, final DocumentPreview preview) {
@@ -711,6 +716,11 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     public final Hud hud() {
         return hud;
+    }
+
+    /** Returns the drawn dialogs' clicks: each answered once, with the click sound. */
+    public final Dialogs dialogs() {
+        return dialogs;
     }
 
     public final AdminWatch adminWatch() {

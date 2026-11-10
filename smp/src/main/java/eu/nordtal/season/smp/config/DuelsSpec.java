@@ -67,13 +67,13 @@ public interface DuelsSpec {
         return 10;
     }
 
-    /** The negotiation window has five kit rows. */
+    /** The negotiation dialog has four kit rows. */
     @Order(38)
     @Name("Duel kits")
     @Key("duel-kits")
     @Required
-    @Entries(most = 5)
-    @Explain("One to five kits: the negotiation window has a row for each.")
+    @Entries(most = 4)
+    @Explain("One to four kits: the negotiation dialog has a row for each.")
     default List<DuelKitSpec> duelKits() {
         return DefaultSmp.DUEL_KITS;
     }

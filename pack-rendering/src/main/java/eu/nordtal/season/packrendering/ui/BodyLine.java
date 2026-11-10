@@ -1,8 +1,6 @@
 package eu.nordtal.season.packrendering.ui;
 
 import eu.nordtal.season.packrendering.Glyphs;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.Consumer;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
@@ -13,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Composes one dialog body line from left to right: plates, rows, the star, the pager, cards and texts.
- * A plate line's art starts on its text row, its labels at plate + 5, and a second, empty row makes its box 26 high.
+ * A plate line's art starts on its text row and its labels stand at plate + 5; its box is 26 high, as a text line's.
  * A text line has one row, its capitals 1 px under the text row. A line's net width is its art's width.
  */
 public final class BodyLine {
@@ -64,21 +62,6 @@ public final class BodyLine {
     /** Returns {@code words} for a narrator only: they take no room and draw nothing. */
     public static Component silent(final String words) {
         return Component.text(words).font(Key.key(Glyphs.FONT_UI_SILENT));
-    }
-
-    /**
-     * Returns {@code text} wrapped at {@code width} as one text line, each row left-aligned in {@code colour}.
-     * A plain_message centres each row, so every row is padded to the full width.
-     */
-    public static Component paragraph(final String text, final int width, final TextColor colour) {
-        final List<Component> rows = new ArrayList<>();
-        for (final String row : Letters.wrap(text, width)) {
-            if (!rows.isEmpty()) {
-                rows.add(Component.newline());
-            }
-            rows.add(textLine().text(row, colour).at(width).build());
-        }
-        return Component.empty().children(rows);
     }
 
     /** Returns the label of a native button in the primary look: the 98 x 18 plate with {@code label} centred on it. */
@@ -206,16 +189,17 @@ public final class BodyLine {
 
     /**
      * Draws the pager: previous, {@code page}/{@code pages} in soft, next, 3 px apart.
-     * Next is drawn first, so it is the line's first click and Enter turns the page. {@code words} lead it for the
+     * Next is drawn first, so it is the line's first click and Enter turns the page. {@code words} follow it for the
      * narrator.
      */
     public BodyLine pager(final int page, final int pages, final Press next, final Press previous, final String words) {
         final String label = page + "/" + pages;
         final int x = pen.x();
         final int nextX = x + pagerWidth(page, pages) - PLATE;
-        words(words);
         pen.moveTo(nextX);
         button(next, line -> line.symbolPlate(Symbol.RIGHT, Look.NORMAL.ink(), Look.NORMAL));
+        // After the first art: the client wraps a line at a space in words that lead it.
+        words(words);
         pen.moveTo(x);
         button(previous, line -> line.symbolPlate(Symbol.LEFT, Look.NORMAL.ink(), Look.NORMAL));
         pen.move(SIDE_GAP).text(LABEL, label, Look.NORMAL.soft());
@@ -282,11 +266,6 @@ public final class BodyLine {
 
     /** Returns the line, as wide as its art. */
     public Component build() {
-        final Component line = pen.build();
-        if (textShift == TEXT_LINE) {
-            return line;
-        }
-        // The second row makes the plain_message's box 26 high, so the plate stands at box + 4.
-        return Component.empty().children(List.of(line, Component.newline(), silent(" ")));
+        return pen.build();
     }
 }

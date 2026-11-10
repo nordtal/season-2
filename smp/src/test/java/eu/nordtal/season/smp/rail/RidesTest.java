@@ -425,6 +425,34 @@ class RidesTest {
     }
 
     @Test
+    void aBrokenRouteStopBeforeAWrongJunctionStillBrakesAtTheAcceleration() {
+        track.eastWest(0, 60, 64, 0).northSouth(40, 64, -5, -1);
+        stations(at(0, 64, 0), at(60, 64, 0));
+        final Rider rider = drive(at(0, 64, 0), 2);
+        tick(20);
+        double last = rider.x();
+        tick();
+        double speed = rider.x() - last;
+        track.rail(40, 64, 0, RailShape.NORTH_SOUTH);
+        held.removeStation(at(60, 64, 0));
+        changed(at(60, 64, 0));
+
+        for (int count = 0; count < 200 && !ended(rider); count++) {
+            last = rider.x();
+            tick();
+            final double next = rider.x() - last;
+            assertTrue(
+                    Math.abs(next - speed) <= new RailsSpec() {}.acceleration() / 400 + 1e-9,
+                    "the speed changed by " + (next - speed) + " at tick " + count);
+            speed = next;
+        }
+
+        assertTrue(ended(rider), "the cart stopped and stranded its rider");
+        assertEquals(RailShape.NORTH_SOUTH, track.rails().get(at(40, 64, 0)), "the junction stayed wrong");
+        assertEquals(List.of(rider.player), stranded);
+    }
+
+    @Test
     void aCartPlansAgainWhileMovingWhenItsNetworkChanges() {
         track.eastWest(0, 60, 64, 0);
         stations(at(0, 64, 0), at(60, 64, 0));

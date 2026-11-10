@@ -295,7 +295,8 @@ public final class Rides implements Listener {
         final double reach = Math.min(lookout.clear(), ride.along + now.stopping(now.top()) + LOOKOUT);
         final JunctionStops.Limit junction = junctionLimit(ride, path, reach, now);
         final double limit = Math.max(ride.along, Math.min(junction.at(), Math.min(ride.end, lookout.clear())));
-        ride.speed = Math.min(path.next(ride.along, ride.speed, limit, now, junction.speed()), limit - ride.along);
+        final double target = junction.at() <= limit ? junction.speed() : 0;
+        ride.speed = Math.min(path.next(ride.along, ride.speed, limit, now, target), limit - ride.along);
         ride.along += ride.speed;
         move(ride, path);
         watch.moved(ride.rider, path.length() - ride.along);

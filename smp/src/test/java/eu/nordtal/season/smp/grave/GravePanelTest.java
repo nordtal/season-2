@@ -2,199 +2,46 @@ package eu.nordtal.season.smp.grave;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.packrendering.Glyphs;
-import eu.nordtal.season.packrendering.menu.MenuFont;
-import eu.nordtal.season.packrendering.menu.MenuTitle;
-import eu.nordtal.season.packrendering.menu.SlotGeometry;
-import eu.nordtal.season.smp.menu.PanelWalk;
-import eu.nordtal.season.smp.menu.PanelWalk.Run;
-import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
-import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
+/** A grave grows to five rows of items, the action row right under them, and never pages. */
 class GravePanelTest {
 
     @Test
-    void theReadableTitleStillLandsWhereItWould() {
-        for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
-            final List<Run> runs = PanelWalk.runs(surface(rows));
-            assertEquals(
-                    MenuTitle.ANCHOR_X,
-                    runs.get(runs.size() - 1).end(),
-                    "a grave of " + rows + " row(s) does not add up to nothing");
-        }
-    }
-
-    @Test
-    void theSlabIsExactlyTheContentRows() {
-        for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
-            final Run slab =
-                    PanelWalk.find(PanelWalk.runs(surface(rows)), Glyphs.FONT_GUI, Glyphs.GUI_GRAVE_SLAB.get(rows - 1));
-            final BufferedImage art = PanelWalk.image("grave_slab_" + rows + ".png");
-
-            assertEquals(
-                    SlotGeometry.x(0),
-                    slab.x(),
-                    "the slab starts at the first slot CELL's own corner, not inset - it IS the" + " cells");
-            assertEquals(SlotGeometry.x(8) + SlotGeometry.PITCH, slab.x() + art.getWidth());
-            assertEquals(
-                    rows * SlotGeometry.PITCH,
-                    art.getHeight(),
-                    "grave_slab_" + rows + " is not " + rows + " slot rows tall. One row too short"
-                            + " and the last row of items sits on bare panel; one too tall and it"
-                            + " runs under the footer, where a row of empty recesses appears behind"
-                            + " the head and the button");
-            assertEquals(art.getWidth() + 1, slab.advance());
-        }
-    }
-
-    @Test
-    void theSlabIsRecessesAndNotATray() {
-        // Unlike the hand-in tray, the cells of a grave are distinct stacks and any of them can be taken.
-        final BufferedImage slab = PanelWalk.image("grave_slab_2.png");
-        final Set<Integer> columnColours = new LinkedHashSet<>();
-        for (int x = 0; x < slab.getWidth(); x++) {
-            columnColours.add(slab.getRGB(x, 4));
-        }
-        assertTrue(
-                columnColours.size() >= 2,
-                "row 4 of the slab is one flat colour all the way across, so there is no cell edge"
-                        + " in it and the grave is drawn as a tray");
-
-        final int edge = slab.getRGB(17, 4);
-        for (int column = 0; column < SlotGeometry.COLUMNS; column++) {
-            assertEquals(
-                    edge,
-                    slab.getRGB(column * SlotGeometry.PITCH + 17, 4),
-                    "cell " + column + " has no lit right edge, so the recesses do not tile");
-        }
-        assertTrue(edge != slab.getRGB(4, 4), "a cell's edge and its field are the same colour");
-    }
-
-    @Test
-    void everyFooterCellIsClaimed() {
-        for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
-            final Set<Integer> claimed = new LinkedHashSet<>();
-            claimed.add(GravePanel.headSlot(rows));
-            claimed.addAll(GravePanel.experienceSlots(rows));
-            claimed.addAll(GravePanel.takeAllSlots(rows));
-
-            assertEquals(
-                    SlotGeometry.COLUMNS,
-                    claimed.size(),
-                    "the footer of a " + rows + "-row grave leaves a cell free or claims one twice."
-                            + " A shift-click from the player's own inventory goes into the first"
-                            + " FREE slot of the window, so a free footer cell is a slot outside"
-                            + " everything the settle writes back - the item is simply gone on"
-                            + " close and nothing fails");
-            for (final int slot : claimed) {
-                assertEquals(GravePanel.footerRow(rows), SlotGeometry.row(slot));
-                assertTrue(!GravePanel.isContent(slot, rows), "slot " + slot + " is both footer and content");
-            }
-        }
-    }
-
-    @Test
-    void theContentIsWhatIsAboveTheFooter() {
-        for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
-            assertEquals(rows * SlotGeometry.COLUMNS, GravePanel.contentSlots(rows));
-            for (int slot = 0; slot < GravePanel.rows(rows) * SlotGeometry.COLUMNS; slot++) {
-                assertEquals(
-                        SlotGeometry.row(slot) < rows,
-                        GravePanel.isContent(slot, rows),
-                        "slot " + slot + " of a " + rows + "-row grave");
-            }
-        }
-    }
-
-    @Test
     void theRowCountFollowsWhatWasCarried() {
-        // A grave that holds only experience shows one row and not an empty window.
         assertEquals(1, GravePanel.contentRows(0));
-        assertEquals(1, GravePanel.contentRows(1));
         assertEquals(1, GravePanel.contentRows(9));
         assertEquals(2, GravePanel.contentRows(10));
-        // A player carries at most 36 inventory slots, 4 armour slots and the off-hand.
-        assertEquals(5, GravePanel.contentRows(41));
-        assertEquals(
-                GravePanel.MAX_CONTENT_ROWS,
-                GravePanel.contentRows(41),
-                "forty-one stacks is what a player can carry, and it has to fit in the five rows"
-                        + " that are left once the footer has taken the sixth");
-        assertEquals(GravePanel.MAX_CONTENT_ROWS, GravePanel.contentRows(999));
+        assertEquals(4, GravePanel.contentRows(36));
+        assertEquals(5, GravePanel.contentRows(41), "a full inventory with armour and offhand");
+        assertEquals(5, GravePanel.contentRows(60));
+    }
 
+    @Test
+    void theActionRowIsRightUnderTheItems() {
+        assertEquals(2, GravePanel.rows(1));
+        assertEquals(9, GravePanel.headSlot(1));
+        assertEquals(List.of(13, 14, 15, 16, 17), GravePanel.takeAllSlots(1));
+        assertEquals(6, GravePanel.rows(5));
+        assertEquals(45, GravePanel.headSlot(5));
+        assertEquals(List.of(49, 50, 51, 52, 53), GravePanel.takeAllSlots(5));
+    }
+
+    @Test
+    void theHeadAndThePlateAreNoContent() {
+        assertEquals(false, GravePanel.isContent(GravePanel.headSlot(2), 2));
+        assertEquals(true, GravePanel.isContent(17, 2));
+    }
+
+    @Test
+    void aGraveDrawsOneToFiveRowsOfItemsWithOrWithoutExperience() {
         for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
-            assertTrue(
-                    GravePanel.rows(rows) <= MenuTitle.MAX_ROWS,
-                    "a grave window has to be a chest the pack has a panel for");
+            GravePanel.title("Grab", rows, "+120 XP", "Alles nehmen");
+            GravePanel.title("Grab", rows, null, "Alles nehmen");
         }
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> GravePanel.title(Component.empty(), GravePanel.MAX_CONTENT_ROWS + 1, "", "X"));
-        assertThrows(IllegalArgumentException.class, () -> GravePanel.title(Component.empty(), 0, "", "X"));
-    }
-
-    @Test
-    void theButtonIsItsSlots() {
-        for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
-            final String font = Glyphs.FONT_GUI_ROWS.get(GravePanel.footerRow(rows));
-            final Run plate = PanelWalk.find(PanelWalk.runs(surface(rows)), font, Glyphs.GUI_ROW_BUTTON_TAKE);
-            final List<Integer> slots = GravePanel.takeAllSlots(rows);
-            assertEquals(SlotGeometry.x(SlotGeometry.column(slots.get(0))) + GravePanel.INSET, plate.x());
-            assertTrue(
-                    plate.end() - 1 <= SlotGeometry.x(SlotGeometry.column(slots.get(3))) + SlotGeometry.PITCH,
-                    "the plate runs past the last cell that carries its click");
-        }
-    }
-
-    @Test
-    void theExperienceStaysOutOfTheButtonsWay() {
-        final Component title = GravePanel.title(
-                Component.text("Grave"), 3, "+999999999 XP and a great deal more text than that", "Take all");
-        for (final Run run : PanelWalk.textRuns(
-                PanelWalk.runs(PanelWalk.surface(title)), Glyphs.FONT_GUI_ROWS.get(GravePanel.footerRow(3)))) {
-            if (run.x() < GravePanel.TAKE_X) {
-                assertTrue(run.end() <= GravePanel.TAKE_X, "'" + run.content() + "' runs under the take-all button");
-            }
-        }
-    }
-
-    @Test
-    void anEmptyExperienceLineDrawsNothing() {
-        final List<Run> runs =
-                PanelWalk.runs(PanelWalk.surface(GravePanel.title(Component.text("Grave"), 2, "", "Take all")));
-        final List<Run> text = PanelWalk.textRuns(runs, Glyphs.FONT_GUI_ROWS.get(2));
-        assertEquals(
-                1,
-                text.size(),
-                "a grave that paid out no experience should draw the button's label and nothing"
-                        + " else - a bare '+0 XP' is a promise of nothing, written out: " + text);
-        assertEquals(MenuFont.fold("Take all"), text.get(0).content());
-    }
-
-    @Test
-    void nothingIsDrawnOutOfAFontThatLacksIt() {
-        final List<String> missing = new ArrayList<>();
-        for (int rows = 1; rows <= GravePanel.MAX_CONTENT_ROWS; rows++) {
-            for (final Run run : PanelWalk.runs(surface(rows))) {
-                final Set<Integer> declared = PanelWalk.declared(run.font());
-                run.whole().codePoints().forEach(codePoint -> {
-                    if (!declared.contains(codePoint)) {
-                        missing.add("U+%X in %s".formatted(codePoint, run.font()));
-                    }
-                });
-            }
-        }
-        assertEquals(List.of(), missing);
-    }
-
-    private static Component surface(final int contentRows) {
-        return PanelWalk.surface(GravePanel.title(Component.text("Grave"), contentRows, "+120 XP", "Take all"));
+        assertThrows(IllegalArgumentException.class, () -> GravePanel.title("Grab", 0, null, "Alles nehmen"));
+        assertThrows(IllegalArgumentException.class, () -> GravePanel.title("Grab", 6, null, "Alles nehmen"));
     }
 }

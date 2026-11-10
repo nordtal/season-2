@@ -2,6 +2,7 @@ package eu.nordtal.season.papercommon.menu;
 
 import eu.nordtal.season.messages.feedback.Feedback;
 import java.util.function.BiConsumer;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -56,6 +57,17 @@ public final class Menus implements Listener {
                 && event.getRawSlots().stream()
                         .anyMatch(slot -> slot < event.getInventory().getSize() && !menu.leavesFree(slot))) {
             event.setCancelled(true);
+        }
+    }
+
+    /** Gives a reopened window the title its menu drew last. */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onRetitle(final InventoryOpenEvent event) {
+        if (event.getInventory().getHolder() instanceof Menu menu) {
+            final Component title = menu.retitled();
+            if (title != null) {
+                event.titleOverride(title);
+            }
         }
     }
 

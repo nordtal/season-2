@@ -22,6 +22,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -43,9 +45,10 @@ public final class HandInGui extends Menu {
                     Window.class,
                     HandInPanel.ROWS,
                     Slot.item("sample").at(List.of(HandInPanel.SAMPLE_SLOT)),
-                    Slot.item("confirm").at(HandInPanel.CONFIRM_SLOTS),
                     Slot.list("wanted", Wanted.class),
                     Slot.label("still-needed"),
+                    Slot.label("not-counted"),
+                    Slot.label("finished"),
                     Slot.label("confirm-button"))
             .titled("Hand in");
 
@@ -53,9 +56,14 @@ public final class HandInGui extends Menu {
 
     private final Inventory inventory;
     private final Objective objective;
-    private final long stillNeeded;
     private final Set<String> wanted;
     private final BiConsumer<Player, HandInGui> confirm;
+    private final GameDocument document;
+    private final String name;
+    private long stillNeeded;
+    private HandIn.Header header = HandIn.Header.NEEDED;
+    // Set from a hand-in that took items until its credit is known, so a second click waits for it.
+    private boolean crediting;
 
     /** @param confirm runs when the player presses confirm */
     public HandInGui(
@@ -71,19 +79,19 @@ public final class HandInGui extends Menu {
         this.stillNeeded = Math.max(0L, target - amount);
         this.wanted = new LinkedHashSet<>(objective.items() == null ? List.of() : objective.items());
 
-        final GameDocument document =
+        this.document =
                 new GameDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new Window(stillNeeded));
-        this.inventory = frame(
-                HandInPanel.ROWS,
-                HandInPanel.title(document.title(), document.label("still-needed"), document.label("confirm-button")));
+        this.name = PlainTextComponentSerializer.plainText().serialize(document.title());
+        this.inventory = frame(HandInPanel.ROWS, title());
 
-        final Map<String, List<? extends Record>> lists = Map.of("wanted", wanted(wanted));
-        // Shows the first wanted material as a sample item.
+        // The sample names what is wanted in Nordtal's tooltip, so its lines carry no item sprite.
+        final List<Wanted> names =
+                wanted.stream().map(item -> new Wanted(GameKeys.item(item))).toList();
+        final GameDocument.Drawn sample = document.item("sample", null, Map.of("wanted", names));
         sample().ifPresent(material -> inventory.setItem(
-                HandInPanel.SAMPLE_SLOT,
-                BlankItem.described(new ItemStack(material), document.item("sample", null, lists))));
+                HandInPanel.SAMPLE_SLOT, BlankItem.styled(new ItemStack(material), sample.name(), sample.lore())));
 
-        final ItemStack button = BlankItem.of(document.item("confirm", null, lists));
+        final ItemStack button = BlankItem.silent();
         HandInPanel.CONFIRM_SLOTS.forEach(slot -> inventory.setItem(slot, button));
     }
 
@@ -115,10 +123,48 @@ public final class HandInGui extends Menu {
 
     @Override
     protected MenuClick click(final Player player, final int slot) {
-        if (HandInPanel.CONFIRM_SLOTS.contains(slot)) {
+        if (HandInPanel.CONFIRM_SLOTS.contains(slot) && header != HandIn.Header.FINISHED && !crediting) {
             confirm.accept(player, this);
         }
         return MenuClick.nothing();
+    }
+
+    /** Answers a hand-in that took nothing: the header says so when the window holds items. */
+    public void refuse(final Player player) {
+        show(player, HandIn.refused(offered().isEmpty()));
+    }
+
+    /** Marks the items {@link #apply} took as waiting for their credit. */
+    public void crediting() {
+        crediting = true;
+    }
+
+    /** Shows what the credit of a hand-in that took {@code accepted} made of it: {@code paid} counted. */
+    public void credited(final Player player, final long paid, final long accepted) {
+        crediting = false;
+        stillNeeded = Math.max(0L, stillNeeded - Math.max(0L, paid));
+        show(player, HandIn.credited(paid, accepted, stillNeeded));
+    }
+
+    /** Redraws the header for {@code next}, through a reopen only when its words change. */
+    private void show(final Player player, final HandIn.Header next) {
+        final String before = mark();
+        header = next;
+        if (!mark().equals(before)) {
+            retitle(player, title());
+        }
+    }
+
+    private String mark() {
+        return switch (header) {
+            case NEEDED -> document.label("still-needed", new Window(stillNeeded));
+            case NOT_COUNTED -> document.label("not-counted");
+            case FINISHED -> document.label("finished");
+        };
+    }
+
+    private Component title() {
+        return HandInPanel.title(name, mark(), document.label("confirm-button"), header == HandIn.Header.FINISHED);
     }
 
     @Override

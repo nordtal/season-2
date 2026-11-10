@@ -6,8 +6,12 @@ import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Stack;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.value.Example;
-import eu.nordtal.season.packrendering.menu.MenuTitle;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
+import eu.nordtal.season.packrendering.ui.BodyLine;
+import eu.nordtal.season.packrendering.ui.ChestTitle;
+import eu.nordtal.season.packrendering.ui.Colours;
+import eu.nordtal.season.packrendering.ui.Mark;
+import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.papercommon.menu.Menu;
 import eu.nordtal.season.papercommon.menu.MenuClick;
 import java.util.ArrayList;
@@ -79,7 +83,7 @@ public final class InventoryEditor extends Menu {
         this.shown = Collections.unmodifiableList(new ArrayList<>(shown));
         this.stored = stored;
         this.kept = kept;
-        this.window = frame(rows(container), MenuTitle.of(rows(container), title));
+        this.window = frame(rows(container), title);
         for (int view = 0; view < window.getSize(); view++) {
             final int slot = slotOf(container, view);
             final ItemStack stack = slot < 0 ? null : shown.get(slot);
@@ -87,6 +91,21 @@ public final class InventoryEditor extends Menu {
                 window.setItem(view, stack.clone());
             }
         }
+    }
+
+    /**
+     * Returns the title of an editor over {@code player}'s {@code container}, with the container's word as the mark.
+     * The name is cut where it would meet the mark, and every cell that shows a slot of the container has its frame.
+     */
+    public static Component title(final Container container, final String player, final String word) {
+        final ChestTitle title =
+                ChestTitle.of(rows(container)).header(Symbol.CHEST, player, List.of(Mark.text(word, Colours.SOFT)));
+        for (int view = 0; view < rows(container) * SlotGeometry.COLUMNS; view++) {
+            if (slotOf(container, view) >= 0) {
+                title.slot(view % SlotGeometry.COLUMNS, view / SlotGeometry.COLUMNS);
+            }
+        }
+        return title.build(BodyLine.silent(player + " " + word));
     }
 
     /** Returns the rows of the window over {@code container}. */

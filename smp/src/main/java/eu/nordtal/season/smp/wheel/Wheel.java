@@ -9,6 +9,7 @@ import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.GameContent;
+import eu.nordtal.season.packrendering.ui.Tooltip;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.SmpTexts;
@@ -211,13 +212,18 @@ public final class Wheel {
         return name == null ? GameContent.of(materialKey) : GameLines.of(name);
     }
 
-    /** A prize whose item does not resolve gets a barrier. */
+    /**
+     * Returns the prize icons, each a display copy with Nordtal's tooltip.
+     * A prize whose item does not resolve gets a barrier.
+     */
     private static List<ItemStack> icons(final List<WheelPrizeSpec> pool) {
         final List<ItemStack> out = new ArrayList<>(pool.size());
         for (final WheelPrizeSpec prize : pool) {
             final ItemStack item = itemOf(prize);
-            out.add((item == null ? new ItemStack(Material.BARRIER) : item)
-                    .asQuantity(Math.max(1, Math.min(64, prize.amount()))));
+            final ItemStack icon = (item == null ? new ItemStack(Material.BARRIER) : item)
+                    .asQuantity(Math.max(1, Math.min(64, prize.amount())));
+            icon.setData(DataComponentTypes.TOOLTIP_STYLE, Tooltip.STYLE);
+            out.add(icon);
         }
         return out;
     }

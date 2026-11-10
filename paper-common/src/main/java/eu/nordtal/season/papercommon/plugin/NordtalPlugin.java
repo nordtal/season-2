@@ -99,6 +99,7 @@ import java.util.function.Function;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
@@ -501,7 +502,17 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 here.sendMessage(renderer.format(locale, InventoryEditor.KEPT.with(new InventoryEditor.Kept(count))));
             }
         };
-        return switch (modeStates.open(admin, player, container, document.title(), kept)) {
+        // The name a player was last seen with; one never seen here is named by their id.
+        String name = identities.of(player).name();
+        if (name == null) {
+            name = identities.load(player).name();
+        }
+        if (name == null) {
+            name = player.value().toString();
+        }
+        final Component title = InventoryEditor.title(
+                container, name, PlainTextComponentSerializer.plainText().serialize(document.title()));
+        return switch (modeStates.open(admin, player, container, title, kept)) {
             case OPENED -> Answer.done(Sent.of(Replies.EDITOR_OPENED));
             case ADMIN_AWAY -> Answer.refused(ServerRefusal.NOT_HERE.with());
             case NOT_EDITABLE -> Answer.refused(ServerRefusal.NOT_EDITABLE.with());

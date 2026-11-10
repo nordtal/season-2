@@ -6,7 +6,6 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
-import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.SmpTexts;
@@ -32,22 +31,9 @@ import org.bukkit.plugin.Plugin;
  */
 public final class NpcListener implements Listener {
 
-    record Accepted(@Example("16") long amount) {}
-
     static final DocumentSpec<DocumentSpec.None> NO_OBJECTIVE = DocumentSpec.game(
                     "smp", "objectives-none", "Spawn NPC", DocumentSpec.Shape.CHAT)
             .titled("No current objective");
-    static final DocumentSpec<Accepted> ACCEPTED = DocumentSpec.game(
-                    "smp", "hand-in-accepted", "Spawn NPC", DocumentSpec.Shape.CHAT, Accepted.class)
-            .titled("Items handed in");
-    /** Closing the window without confirming gives everything back, which is why nothing was taken here. */
-    static final DocumentSpec<DocumentSpec.None> NOTHING_WANTED = DocumentSpec.game(
-                    "smp", "hand-in-nothing-wanted", "Spawn NPC", DocumentSpec.Shape.CHAT)
-            .titled("Items not wanted");
-
-    static final DocumentSpec<DocumentSpec.None> NOTHING_CREDITED = DocumentSpec.game(
-                    "smp", "hand-in-nothing-credited", "Spawn NPC", DocumentSpec.Shape.CHAT)
-            .titled("Objective already finished");
 
     private final Plugin plugin;
     private final SpawnNpc npc;
@@ -134,13 +120,14 @@ public final class NpcListener implements Listener {
 
         final HandIn.Result result = HandIn.sort(gui.offered(), gui.wanted(), gui.stillNeeded());
         if (result.accepted() <= 0) {
-            player.sendMessage(renderer.format(locale, Sent.of(NOTHING_WANTED)));
-            sounds.play(player, Feedback.REFUSED);
+            sounds.play(player, Feedback.LOSS);
+            gui.refuse(player);
             return;
         }
 
         // The items are kept until the credit result is known, because the credit may be 0.
         final java.util.List<org.bukkit.inventory.ItemStack> taken = gui.apply(result);
+        gui.crediting();
         final String objectiveKey = gui.objective().key();
         final long accepted = result.accepted();
 
@@ -156,40 +143,36 @@ public final class NpcListener implements Listener {
                 credited = 0;
             }
             final long paid = credited;
-            PaperScheduler.of(plugin).onMain(() -> applyCreditResult(player, locale, gui, taken, objectiveKey, paid));
+            PaperScheduler.of(plugin).onMain(() -> applyCreditResult(player, gui, taken, objectiveKey, accepted, paid));
         });
     }
 
-    /** Sends the credit result to the player and returns the taken items if nothing was credited. Main thread only. */
+    /**
+     * Shows the credit result in the window and returns the taken items if nothing was credited. Main thread only.
+     * Nothing credited means the objective finished while the screen was open.
+     */
     private void applyCreditResult(
             final Player player,
-            final Locale locale,
             final HandInGui gui,
             final java.util.List<org.bukkit.inventory.ItemStack> taken,
             final String objectiveKey,
+            final long accepted,
             final long paid) {
-        if (paid <= 0) {
-            // The objective finished while the screen was open.
-            if (!player.isOnline()) {
+        if (!player.isOnline()) {
+            if (paid <= 0) {
                 // An offline player cannot receive the items.
                 plugin.getLogger()
                         .severe(player.getName() + " left while a hand-in on "
                                 + objectiveKey + " was in flight, it credited nothing, and these"
                                 + " items could not be returned: " + describe(taken));
-                return;
             }
+            return;
+        }
+        if (paid <= 0) {
             gui.giveBack(player, taken);
-            player.sendMessage(renderer.format(locale, Sent.of(NOTHING_CREDITED)));
-            sounds.play(player, Feedback.REFUSED);
-            player.closeInventory();
-            return;
         }
-        if (!player.isOnline()) {
-            return;
-        }
-        player.sendMessage(renderer.format(locale, ACCEPTED.with(new Accepted(paid))));
-        sounds.play(player, Feedback.SMALL_SUCCESS);
-        player.closeInventory();
+        sounds.play(player, paid <= 0 ? Feedback.LOSS : Feedback.SMALL_SUCCESS);
+        gui.credited(player, paid, accepted);
     }
 
     private static String describe(final java.util.List<org.bukkit.inventory.ItemStack> stacks) {

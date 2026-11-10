@@ -13,24 +13,6 @@
       ]
     },
     {
-      "type": "ITEM",
-      "slot": "hub",
-      "lines": [
-        {
-          "text": {
-            "en": "<emphasis>Spins left: {spins}</emphasis>",
-            "de": "<emphasis>{@terms.spin, n=2} übrig: {spins}</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>A bigger contribution to an {@terms.objective, n=1} gives more {@terms.spin, n=2}.</muted>",
-            "de": "<muted>Ein größerer Beitrag zu einem {@terms.objective, n=1} gibt mehr {@terms.spin, n=2}.</muted>"
-          }
-        }
-      ]
-    },
-    {
       "type": "LABEL",
       "slot": "spins-left",
       "lines": [
@@ -44,24 +26,12 @@
     },
     {
       "type": "LABEL",
-      "slot": "rule-top",
+      "slot": "no-spins-left",
       "lines": [
         {
           "text": {
-            "en": "More put in",
-            "de": "Mehr Beitrag"
-          }
-        }
-      ]
-    },
-    {
-      "type": "LABEL",
-      "slot": "rule-bottom",
-      "lines": [
-        {
-          "text": {
-            "en": "more {@terms.spin, n=2}",
-            "de": "mehr {@terms.spin, n=2}"
+            "en": "No {@terms.spin, n=2} left",
+            "de": "Keine {@terms.spin, n=2}"
           }
         }
       ]
@@ -71,45 +41,38 @@
       "slot": "again",
       "lines": [
         {
-          "when": "state=waiting",
+          "when": "state=ready",
           "text": {
-            "en": "<muted>Spin again</muted>",
-            "de": "<muted>Nochmal drehen</muted>"
-          }
-        },
-        {
-          "when": "state=waiting",
-          "text": {
-            "en": "<faint>Wait for this one to finish.</faint>",
-            "de": "<faint>Warte, bis der {@terms.spin, n=1} endet.</faint>"
+            "en": "Spin again",
+            "de": "Nochmal drehen"
           }
         },
         {
           "when": "state=ready",
           "text": {
-            "en": "<emphasis>Spin again</emphasis>",
-            "de": "<emphasis>Nochmal drehen</emphasis>"
+            "en": "Costs one {@terms.spin, n=1}.",
+            "de": "Kostet einen {@terms.spin, n=1}."
           }
         },
         {
-          "when": "state=ready",
+          "when": "state=waiting",
           "text": {
-            "en": "<muted>Costs one {@terms.spin, n=1}.</muted>",
-            "de": "<muted>Kostet einen {@terms.spin, n=1}.</muted>"
+            "en": "Spin again",
+            "de": "Nochmal drehen"
+          }
+        },
+        {
+          "when": "state=waiting",
+          "text": {
+            "en": "Costs one {@terms.spin, n=1}.",
+            "de": "Kostet einen {@terms.spin, n=1}."
           }
         },
         {
           "when": "state=none",
           "text": {
-            "en": "<muted>Spin again</muted>",
-            "de": "<muted>Nochmal drehen</muted>"
-          }
-        },
-        {
-          "when": "state=none",
-          "text": {
-            "en": "<faint>That was your last {@terms.spin, n=1}. You get one free {@terms.spin, n=1} every day.</faint>",
-            "de": "<faint>Das war dein letzter {@terms.spin, n=1}. Du bekommst jeden Tag einen {@terms.spin, n=1} gratis.</faint>"
+            "en": "More tomorrow",
+            "de": "Ab morgen wieder"
           }
         }
       ]

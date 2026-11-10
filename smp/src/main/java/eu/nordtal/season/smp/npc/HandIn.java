@@ -23,7 +23,32 @@ public final class HandIn {
         }
     }
 
+    /** What the deposit's header says beside its name. */
+    public enum Header {
+        /** What is still needed. */
+        NEEDED,
+        /** That nothing in the window counts, until the next hand-in. */
+        NOT_COUNTED,
+        /** That the objective is finished: the hand-in plate is off. */
+        FINISHED
+    }
+
     private HandIn() {}
+
+    /** Returns the header after a hand-in that took nothing: the window held only items that do not count, or none. */
+    public static Header refused(final boolean emptyWindow) {
+        return emptyWindow ? Header.NEEDED : Header.NOT_COUNTED;
+    }
+
+    /**
+     * Returns the header after the credit of a hand-in that took {@code accepted}, of which {@code paid} counted.
+     * Nothing paid, less paid than taken or nothing left to need means the objective is finished.
+     *
+     * @param left what the objective still needs after the credit
+     */
+    public static Header credited(final long paid, final long accepted, final long left) {
+        return paid <= 0 || paid < accepted || left <= 0 ? Header.FINISHED : Header.NEEDED;
+    }
 
     /**
      * Takes only wanted items, and never more than {@code stillNeeded} in total.

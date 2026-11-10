@@ -123,6 +123,20 @@ public final class ChestTitle {
         return this;
     }
 
+    /** Draws {@code symbol} with its first column at window x {@code x} on the label row of content row {@code row}. */
+    public ChestTitle symbol(final int x, final int row, final Symbol symbol, final TextColor colour) {
+        pen.moveTo(local(x)).symbol(textShift(row), symbol, colour);
+        return this;
+    }
+
+    /** Draws {@code text} centred over {@code cells} cells from {@code column} on {@code row}, with no plate. */
+    public ChestTitle centred(
+            final int column, final int row, final int cells, final String text, final TextColor colour) {
+        final int width = plateWidth(cells);
+        final String fitted = Letters.cut(text, width);
+        return text(plateX(column) + (width - Letters.visibleWidth(fitted) + 1) / 2, row, fitted, colour);
+    }
+
     /** Returns the title: the window, then {@code readable}, which the client draws at the anchor. */
     public Component build(final Component readable) {
         return Component.empty().append(pen.build(0)).append(readable);

@@ -18,14 +18,26 @@
       "lines": [
         {
           "text": {
-            "en": "<emphasis>Put in the prize</emphasis>",
-            "de": "<emphasis>Gewinn hineinlegen</emphasis>"
+            "en": "Put in a wheel prize",
+            "de": "Radgewinn hineinlegen"
           }
         },
         {
           "text": {
-            "en": "<muted>Click here with an item, or shift-click one in your inventory. It is copied whole and you keep it.</muted>",
-            "de": "<muted>Klicke hier mit einem Gegenstand oder klicke einen in deinem Inventar mit Shift an. Er wird ganz kopiert und du behältst ihn.</muted>"
+            "en": "Imports an item into Steward.",
+            "de": "Importiert ein Item in Steward."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "imported",
+      "lines": [
+        {
+          "text": {
+            "en": "Imported into Steward",
+            "de": "In Steward importiert"
           }
         }
       ]

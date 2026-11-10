@@ -6,7 +6,7 @@
         {
           "style": "TITLE",
           "text": {
-            "en": "Hand in",
+            "en": "Hand-in",
             "de": "Abgabe"
           }
         }
@@ -18,21 +18,15 @@
       "lines": [
         {
           "text": {
-            "en": "<emphasis>What is wanted</emphasis>",
-            "de": "<emphasis>Was gesucht wird</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>Still needed: <emphasis>{amount}</emphasis> of:</muted>",
-            "de": "<muted>Noch gebraucht: <emphasis>{amount}</emphasis> von:</muted>"
+            "en": "Wanted",
+            "de": "Gesucht"
           }
         },
         {
           "list": "wanted",
           "text": {
-            "en": "<faint>{item}</faint>",
-            "de": "<faint>{item}</faint>"
+            "en": "{item}",
+            "de": "{item}"
           }
         }
       ]
@@ -43,33 +37,32 @@
       "lines": [
         {
           "text": {
-            "en": "{amount} still needed",
+            "en": "{amount} to go",
             "de": "Noch {amount}"
           }
         }
       ]
     },
     {
-      "type": "ITEM",
-      "slot": "confirm",
+      "type": "LABEL",
+      "slot": "not-counted",
       "lines": [
         {
           "text": {
-            "en": "Hand in what is in this window",
-            "de": "Abgeben, was in diesem Fenster liegt"
+            "en": "Doesn't count",
+            "de": "Zählt nicht"
           }
-        },
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "finished",
+      "lines": [
         {
           "text": {
-            "en": "<muted>Still needed: <emphasis>{amount}</emphasis> of:</muted>",
-            "de": "<muted>Noch gebraucht: <emphasis>{amount}</emphasis> von:</muted>"
-          }
-        },
-        {
-          "list": "wanted",
-          "text": {
-            "en": "<faint>{item}</faint>",
-            "de": "<faint>{item}</faint>"
+            "en": "Finished",
+            "de": "Geschafft"
           }
         }
       ]

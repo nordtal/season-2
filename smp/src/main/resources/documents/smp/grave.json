@@ -32,26 +32,14 @@
         },
         {
           "text": {
-            "en": "<muted>Died {at, instant, date} at {x, number, plain} {y, number, plain} {z, number, plain}</muted>",
-            "de": "<muted>Gestorben am {at, instant, date} bei {x, number, plain} {y, number, plain} {z, number, plain}</muted>"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ITEM",
-      "slot": "experience",
-      "lines": [
-        {
-          "text": {
-            "en": "<emphasis>Experience</emphasis>",
-            "de": "<emphasis>Erfahrung</emphasis>"
+            "en": "<muted>Died {at, instant, date}</muted>",
+            "de": "<muted>Gestorben am {at, instant, date}</muted>"
           }
         },
         {
           "text": {
-            "en": "<muted>You get <emphasis>{experience}</emphasis> when the last item is taken.</muted>",
-            "de": "<muted>Du bekommst <emphasis>{experience}</emphasis>, sobald das letzte Item genommen ist.</muted>"
+            "en": "<muted>at {x, number, plain} {y, number, plain} {z, number, plain}</muted>",
+            "de": "<muted>bei {x, number, plain} {y, number, plain} {z, number, plain}</muted>"
           }
         }
       ]
@@ -64,24 +52,6 @@
           "text": {
             "en": "+{experience} XP",
             "de": "+{experience} XP"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ITEM",
-      "slot": "take-all",
-      "lines": [
-        {
-          "text": {
-            "en": "<emphasis>Take everything</emphasis>",
-            "de": "<emphasis>Alles nehmen</emphasis>"
-          }
-        },
-        {
-          "text": {
-            "en": "<muted>Moves everything into your inventory. What does not fit drops at your feet.</muted>",
-            "de": "<muted>Legt alles in dein Inventar. Was nicht passt, fällt vor dich.</muted>"
           }
         }
       ]

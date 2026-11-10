@@ -4,10 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
+import eu.nordtal.season.packrendering.Glyphs;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
 /** Which slot of a player's container each slot of the editor's window shows. */
@@ -73,5 +77,47 @@ class InventoryEditorTest {
                         List.of(Map.entry("diamond", 64), Map.entry("gold", 5)),
                         List.of(Map.entry("diamond", 24), Map.entry("gold", 5), Map.entry("dirt", 5))),
                 "40 diamonds taken out, 5 gold moved and 5 dirt put in");
+    }
+
+    @Test
+    void aSixteenLetterNameFitsBesideInventarAndIsCutBesideEndertruhe() {
+        final String name = "Abcdefghijklmnop";
+
+        assertTrue(drawn(InventoryEditor.title(Container.INVENTORY, name, "Inventar"))
+                .contains(name));
+        final String ender = drawn(InventoryEditor.title(Container.ENDER_CHEST, name, "Endertruhe"));
+        assertTrue(ender.contains("…"), ender);
+        assertTrue(!ender.contains(name), ender);
+    }
+
+    @Test
+    void theNarratorGetsTheWholeNameOfACutTitle() {
+        final Component title = InventoryEditor.title(Container.ENDER_CHEST, "Abcdefghijklmnop", "Endertruhe");
+
+        assertTrue(silent(title).contains("Abcdefghijklmnop Endertruhe"));
+    }
+
+    /** Returns the letters the title draws, without the words only the narrator reads. */
+    private static String drawn(final Component component) {
+        final StringBuilder out = new StringBuilder();
+        if (component instanceof final TextComponent text && !silentFont(component)) {
+            out.append(text.content());
+        }
+        component.children().forEach(child -> out.append(drawn(child)));
+        return out.toString();
+    }
+
+    private static String silent(final Component component) {
+        final StringBuilder out = new StringBuilder();
+        if (component instanceof final TextComponent text && silentFont(component)) {
+            out.append(text.content());
+        }
+        component.children().forEach(child -> out.append(silent(child)));
+        return out.toString();
+    }
+
+    private static boolean silentFont(final Component component) {
+        final Key font = component.font();
+        return font != null && font.asString().equals(Glyphs.FONT_UI_SILENT);
     }
 }

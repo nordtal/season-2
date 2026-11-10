@@ -37,6 +37,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Takes in the item an admin's player puts into a window, which Steward makes a wheel prize or a kit's piece of, whole.
  * The request stays running while the window is open and is settled with the item, or empty when it closed so.
+ * The window stays open after an item, so the next request of its purpose takes the next item in it.
  */
 public final class ItemTakeIn {
 
@@ -85,7 +86,15 @@ public final class ItemTakeIn {
             if (here == null) {
                 return false;
             }
-            final TakeInWindow window = new TakeInWindow(document, stack -> answer(request, stack));
+            if (here.getOpenInventory().getTopInventory().getHolder() instanceof TakeInWindow current
+                    && current.purpose() == purpose
+                    && !current.waiting()) {
+                // The window open since the last item takes the next one, and keeps showing that item's copy.
+                current.await(stack -> answer(request, stack));
+                open.put(request, new Shown(here.getUniqueId(), current));
+                return true;
+            }
+            final TakeInWindow window = new TakeInWindow(purpose, document, stack -> answer(request, stack));
             window.open(here);
             if (!window.showsTo(here)) {
                 return false;

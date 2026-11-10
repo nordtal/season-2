@@ -11,6 +11,10 @@ import javax.imageio.ImageIO
  * Every finding is a sentence for the person who drew the file.
  */
 object PackRules {
+    /** The sheets of vanilla's `include/default.json`, which the client has and the pack never copies. */
+    private val VANILLA_LETTER_SHEETS =
+        setOf("minecraft:font/ascii.png", "minecraft:font/accented.png", "minecraft:font/nonlatin_european.png")
+
     /** The sprites that hide a vanilla element and therefore have no visible pixel. */
     private val TRANSPARENT =
         listOf(
@@ -144,8 +148,8 @@ object PackRules {
         }
         val file = texture(assets, id)
         val texture = name(assets, file)
-        // A vanilla sheet that the pack does not override, such as vanilla's letters, is the client's own.
-        if (!file.isFile && id.substringBefore(':', "minecraft") == "minecraft") return emptyList()
+        // Vanilla's letter sheets, which the ui text fonts draw, are the client's own.
+        if (!file.isFile && id in VANILLA_LETTER_SHEETS) return emptyList()
         if (!file.isFile) return listOf("$texture is missing, and ${name(assets, font)} needs it.")
         val image = images[file] ?: return emptyList()
         val grid = chars.map { (it as String).codePoints().toArray() }

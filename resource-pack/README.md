@@ -682,7 +682,8 @@ composes them, and nothing else names them.
 - **`nordtal:ui_panel`:** the chest panel for 1 to 6 rows, with the player's slot frames only
   (`UI_CHEST_PANELS`) or with every content slot (`UI_CHEST_PANELS_PLAIN`, for placed containers).
 - **`nordtal:ui_dialog_{shift}`:** the dialog panels, one list per panel size, in tiles of at most
-  256 columns. The shift is the panel's top: 42, 48 or 49.
+  256 columns. The shift is the panel's top: 49 over a first plate line, 50 over a first text line, 43 over a
+  frame 2 px above its line and 64 for the wheel.
 - **`nordtal:ui_tooltip`:** the covers that hide a native tooltip's box, one sheet per box height.
   `minecraft:default` holds one more cover sheet for the language file's tooltip, which can name no font.
 - **`nordtal:ui_silent`:** every vanilla letter at advance 0, for a dialog body the narrator reads

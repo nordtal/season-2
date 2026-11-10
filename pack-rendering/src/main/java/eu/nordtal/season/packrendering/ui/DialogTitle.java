@@ -39,7 +39,7 @@ public final class DialogTitle {
         }
         this.panel = panel;
         this.top = top;
-        // The header row is the title, 10 px and the 20 px warning button, centred: the title starts at (W - 280) / 2.
+        // The title, 10 px and the 20 px warning button are centred: the title starts 140 left of the centre.
         this.left = HEADER_ROW / 2 - panel.width() / 2;
         int rest = panel.width();
         pen.moveTo(left);
@@ -55,7 +55,7 @@ public final class DialogTitle {
         return new DialogTitle(panel, top);
     }
 
-    /** Draws the header line at panel + 7: {@code symbol}, {@code name}, {@code marks} ending at panel + w - 8. */
+    /** Draws the header at panel + 7: {@code symbol}, {@code name}, {@code marks} ending 8 inside the right edge. */
     public DialogTitle header(final @Nullable Symbol symbol, final String name, final List<Mark> marks) {
         final int shift = top + MARGIN - TITLE_ROW;
         final int nameX = MARGIN + (symbol == null ? 0 : Symbol.BEFORE_TEXT);

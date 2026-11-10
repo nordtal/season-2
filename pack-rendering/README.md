@@ -2,7 +2,7 @@
 
 `pack-rendering` draws from the resource pack: the glyph constants in `Glyphs`, the `<glyph:name>`
 tag, the boss bar and tab list layers in `hud`, the chest menus, dialogs and tooltips in `ui`, the
-earlier chest menu title in `menu` and the frame of a
+chest menu title of the menus not yet in `ui` in `menu` and the frame of a
 Text Display board in `board`. Only the Minecraft plugins depend on it.
 
 `:resource-pack`'s `generateGlyphs` writes `Glyphs` and the advance tables of the boss bar and the
@@ -28,7 +28,7 @@ On it stand:
 
 `Letters` measures and cuts text in vanilla's letters, `Colours` holds the ink and soft colours,
 `Look` the three plate looks and `Symbol` the 7 × 7 symbols. `MenuTitle`, `MenuFont` and
-`SlotGeometry` in `menu` draw the earlier menus and stay until those menus move to `ui`.
+`SlotGeometry` in `menu` draw the menus not yet in `ui`.
 
 The test fixtures publish `FontFile` and `PackAdvances`, which read the pack's fonts as the client
 does.

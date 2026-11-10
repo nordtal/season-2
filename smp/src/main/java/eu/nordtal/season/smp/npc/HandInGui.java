@@ -133,7 +133,7 @@ public final class HandInGui extends Menu {
 
     /** Answers a hand-in that took nothing: the header says so when the window holds items. */
     public void refuse(final Player player) {
-        show(player, HandIn.refused(offered().isEmpty()));
+        show(player, mark(), HandIn.refused(offered().isEmpty()));
     }
 
     /** Marks the items {@link #apply} took as waiting for their credit. */
@@ -149,13 +149,13 @@ public final class HandInGui extends Menu {
     /** Shows what the credit of a hand-in that took {@code accepted} made of it: {@code paid} counted. */
     public void credited(final Player player, final long paid, final long accepted) {
         crediting = false;
+        final String before = mark();
         stillNeeded = Math.max(0L, stillNeeded - Math.max(0L, paid));
-        show(player, HandIn.credited(paid, accepted, stillNeeded));
+        show(player, before, HandIn.credited(paid, accepted, stillNeeded));
     }
 
-    /** Redraws the header for {@code next}, through a reopen only when its words change. */
-    private void show(final Player player, final HandIn.Header next) {
-        final String before = mark();
+    /** Redraws the header for {@code next}, through a reopen only when its words change from {@code before}. */
+    private void show(final Player player, final String before, final HandIn.Header next) {
         header = next;
         if (!mark().equals(before)) {
             retitle(player, title());

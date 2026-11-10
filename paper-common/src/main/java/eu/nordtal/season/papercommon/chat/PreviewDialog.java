@@ -120,7 +120,10 @@ final class PreviewDialog {
         }
         final BodyLine.Press whole = new BodyLine.Press(null, Tooltip.hover(row.slot(), row.text(), null));
         return BodyLine.start()
-                .button(whole, part -> part.words(row.text()).row(ROW, null, null, row.text(), row.slot(), Look.NORMAL))
+                .button(
+                        whole,
+                        part -> part.row(ROW, null, null, row.text(), row.slot(), Look.NORMAL)
+                                .words(row.text()))
                 .build();
     }
 }

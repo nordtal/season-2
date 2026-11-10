@@ -1,14 +1,17 @@
 package eu.nordtal.season.packrendering.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import eu.nordtal.season.packrendering.Glyphs;
 import java.util.ArrayList;
 import java.util.List;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /** Every composed line ends where its geometry says, measured against the assembled pack. */
@@ -65,40 +68,35 @@ class CompositionTest {
     private static final BodyLine.Press PREVIOUS =
             new BodyLine.Press(ClickEvent.suggestCommand("previous"), Component.text("back"));
 
-    /** The first row of a plate line, whose second row only makes its box two rows high. */
-    private static Component art(final Component line) {
-        return line.children().get(0);
-    }
-
     @Test
     void bodyLinesAreAsWideAsTheirArt() {
         assertEquals(
                 262,
-                Advances.of(art(BodyLine.start()
+                Advances.of(BodyLine.start()
                         .row(242, null, null, "Nordhafen", "8.925 m", Look.NORMAL)
                         .gap(BodyLine.SIDE_GAP)
                         .star(true)
-                        .build())));
+                        .build()));
         assertEquals(
                 BodyLine.pagerWidth(2, 5),
-                Advances.of(art(BodyLine.start()
+                Advances.of(BodyLine.start()
                         .pager(2, 5, NEXT, PREVIOUS, "Nächste Seite")
-                        .build())));
+                        .build()));
         assertEquals(
                 240,
-                Advances.of(art(BodyLine.start()
+                Advances.of(BodyLine.start()
                         .card(240, Symbol.PICKAXE, "Holzstämme", "1.200/20.000", 0.06, false, Look.NORMAL)
-                        .build())));
+                        .build()));
         assertEquals(
                 240,
-                Advances.of(art(BodyLine.start()
+                Advances.of(BodyLine.start()
                         .card(240, Symbol.PICKAXE, "Holzstämme", "Geschafft", 1, true, Look.NORMAL)
-                        .build())));
+                        .build()));
         assertEquals(
                 120,
-                Advances.of(art(BodyLine.start()
+                Advances.of(BodyLine.start()
                         .plate(120, null, "Fahren", Look.PRIMARY)
-                        .build())));
+                        .build()));
         assertEquals(98, Advances.of(BodyLine.primaryButton("Speichern")));
         assertEquals(
                 248,
@@ -108,13 +106,6 @@ class CompositionTest {
                         .text("3/7", Colours.SOFT)
                         .at(248)
                         .build()));
-    }
-
-    @Test
-    void aPlateLineHasTwoRowsAndATextLineOne() {
-        assertTrue(BodyLine.start().star(true).build().children().contains(Component.newline()));
-        assertFalse(BodyLine.textLine().text("Kupferberg", Colours.INK).build().children().stream()
-                .anyMatch(Component.newline()::equals));
     }
 
     @Test
@@ -129,7 +120,7 @@ class CompositionTest {
     @Test
     void aButtonCarriesItsClickAndTooltipOverWhatItDraws() {
         final Component line =
-                art(BodyLine.start().button(PREVIOUS, part -> part.star(false)).build());
+                BodyLine.start().button(PREVIOUS, part -> part.star(false)).build();
         final Component button = line.children().get(0);
 
         assertEquals(PREVIOUS.click(), button.clickEvent());
@@ -153,6 +144,29 @@ class CompositionTest {
             clicks.add(click);
         }
         component.children().forEach(child -> collectClicks(child, clicks));
+    }
+
+    @Test
+    void thePagersWordsFollowItsFirstArtSinceLeadingWordsWrapTheLine() {
+        final Component line = BodyLine.start()
+                .pager(1, 3, NEXT, PREVIOUS, "Nächste Seite, Seite 1 von 3")
+                .build();
+
+        assertNotEquals(Key.key(Glyphs.FONT_UI_SILENT), firstFont(line, Key.key("default")));
+    }
+
+    private static @Nullable Key firstFont(final Component component, final Key inherited) {
+        final Key font = component.font() == null ? inherited : component.font();
+        if (component instanceof TextComponent text && !text.content().isEmpty()) {
+            return font;
+        }
+        for (final Component child : component.children()) {
+            final Key found = firstFont(child, font);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     @Test

@@ -132,6 +132,7 @@ public final class NpcListener implements Listener {
         final long accepted = result.accepted();
 
         PaperScheduler.of(plugin).execute(() -> {
+            // Negative when the credit failed, which tells the window nothing about the objective.
             long credited;
             try {
                 credited = contributions.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
@@ -140,7 +141,7 @@ public final class NpcListener implements Listener {
                         .severe("the hand-in for " + player.getName() + " on "
                                 + objectiveKey + " could not be credited, giving the items back: "
                                 + failure.getMessage());
-                credited = 0;
+                credited = -1;
             }
             final long paid = credited;
             PaperScheduler.of(plugin).onMain(() -> applyCreditResult(player, gui, taken, objectiveKey, accepted, paid));
@@ -148,8 +149,9 @@ public final class NpcListener implements Listener {
     }
 
     /**
-     * Shows the credit result in the window and returns the taken items if nothing was credited. Main thread only.
-     * Nothing credited means the objective finished while the screen was open.
+     * Shows the credit result in the window and puts back the taken items that were not counted. Main thread only.
+     * Less counted than taken means the objective finished while the screen was open; a negative {@code paid} means
+     * the credit failed, and the window stays as it was.
      */
     private void applyCreditResult(
             final Player player,
@@ -159,19 +161,24 @@ public final class NpcListener implements Listener {
             final long accepted,
             final long paid) {
         if (!player.isOnline()) {
-            if (paid <= 0) {
+            if (paid < accepted) {
                 // An offline player cannot receive the items.
                 plugin.getLogger()
                         .severe(player.getName() + " left while a hand-in on "
-                                + objectiveKey + " was in flight, it credited nothing, and these"
-                                + " items could not be returned: " + describe(taken));
+                                + objectiveKey + " was in flight; it credited " + Math.max(0L, paid) + " of "
+                                + accepted + ", and the rest of these items could not be returned: "
+                                + describe(taken));
             }
             return;
         }
-        if (paid <= 0) {
+        if (paid < 0) {
             gui.giveBack(player, taken);
+            sounds.play(player, Feedback.LOSS);
+            gui.uncredited();
+            return;
         }
-        sounds.play(player, paid <= 0 ? Feedback.LOSS : Feedback.SMALL_SUCCESS);
+        gui.putBack(player, taken, accepted - paid);
+        sounds.play(player, paid == 0 ? Feedback.LOSS : Feedback.SMALL_SUCCESS);
         gui.credited(player, paid, accepted);
     }
 

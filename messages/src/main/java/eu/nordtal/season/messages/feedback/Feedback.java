@@ -6,7 +6,7 @@ package eu.nordtal.season.messages.feedback;
  */
 public enum Feedback {
 
-    /** An objective handed in or a little aura earned. */
+    /** An objective handed in, an item imported or a little aura earned. */
     SMALL_SUCCESS,
 
     /** A milestone you finished, a duel won or a wheel prize. */
@@ -15,7 +15,7 @@ public enum Feedback {
     /** Spawn protection, no spin left or a locked destination. */
     REFUSED,
 
-    /** A lost duel or aura lost to a death. */
+    /** A lost duel, aura lost to a death, or a hand-in that counted nothing. */
     LOSS,
 
     /** A menu, a grave or another surface opens. */

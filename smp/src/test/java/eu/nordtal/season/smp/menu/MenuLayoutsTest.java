@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 class MenuLayoutsTest {
 
     @Test
-    void theWheelPlacesItsAgainPlateBesideTheRingOnTheLastRow() {
+    void theWheelPlacesItsAgainPlateBesideTheRingOnItsMiddleRow() {
         final DocumentDeclaration wheel = menu("wheel");
 
         assertEquals(6, wheel.rows());

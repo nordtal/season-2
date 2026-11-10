@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -88,8 +87,9 @@ public final class WheelGui extends Menu {
 
         this.name = PlainTextComponentSerializer.plainText().serialize(document.title());
         this.spins = document.label(spinsLeft > 0 ? "spins-left" : "no-spins-left");
-        // The plate is off while the wheel turns, and comes on at rest when a spin is left.
-        this.inventory = frame(WheelPanel.ROWS, title(false));
+        // The title is never redrawn, so the plate is on for the whole turn when a spin is left.
+        this.inventory =
+                frame(WheelPanel.ROWS, WheelPanel.title(name, spins, document.label("again-button"), again != null));
 
         setAgain(State.WAITING);
         draw(0);
@@ -135,15 +135,8 @@ public final class WheelGui extends Menu {
         if (celebrate && player.isOnline()) {
             sounds.play(player, Feedback.BIG_SUCCESS);
             setAgain(again == null ? State.NONE : State.READY);
-            if (again != null) {
-                retitle(player, title(true));
-            }
         }
         payout.accept(player);
-    }
-
-    private Component title(final boolean on) {
-        return WheelPanel.title(name, spins, document.label("again-button"), on);
     }
 
     private void setAgain(final State state) {

@@ -9,7 +9,6 @@ import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.GameContent;
-import eu.nordtal.season.packrendering.ui.Tooltip;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.SmpTexts;
@@ -18,6 +17,7 @@ import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.TooltipDisplay;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -213,7 +213,7 @@ public final class Wheel {
     }
 
     /**
-     * Returns the prize icons, each a display copy with Nordtal's tooltip.
+     * Returns the prize icons, each a display copy without a tooltip, since the chat line names the prize won.
      * A prize whose item does not resolve gets a barrier.
      */
     private static List<ItemStack> icons(final List<WheelPrizeSpec> pool) {
@@ -222,7 +222,9 @@ public final class Wheel {
             final ItemStack item = itemOf(prize);
             final ItemStack icon = (item == null ? new ItemStack(Material.BARRIER) : item)
                     .asQuantity(Math.max(1, Math.min(64, prize.amount())));
-            icon.setData(DataComponentTypes.TOOLTIP_STYLE, Tooltip.STYLE);
+            icon.setData(
+                    DataComponentTypes.TOOLTIP_DISPLAY,
+                    TooltipDisplay.tooltipDisplay().hideTooltip(true).build());
             out.add(icon);
         }
         return out;

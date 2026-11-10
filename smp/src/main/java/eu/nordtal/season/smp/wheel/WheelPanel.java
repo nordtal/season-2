@@ -53,7 +53,7 @@ public final class WheelPanel {
      * @param name the wheel's name
      * @param spins the line that says how many spins are left after this one
      * @param again the label of the plate
-     * @param spinLeft whether the plate is on, because the wheel stands and a spin is left
+     * @param spinLeft whether the plate is on, because a spin is left
      */
     public static Component title(final String name, final String spins, final String again, final boolean spinLeft) {
         final ChestTitle title = ChestTitle.of(ROWS).header(Symbol.WHEEL, name, List.of());
@@ -70,7 +70,7 @@ public final class WheelPanel {
         final Look look = spinLeft ? Look.PRIMARY : Look.DISABLED;
         title.plate(SIDE_COLUMN, AGAIN_ROW, SIDE_CELLS, look)
                 .label(SIDE_COLUMN, AGAIN_ROW, SIDE_CELLS, null, again, look);
-        return title.build(BodyLine.silent(name + " " + spins));
+        return title.build(BodyLine.silent(name));
     }
 
     private static List<Integer> cellSlots() {

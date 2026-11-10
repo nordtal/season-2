@@ -139,6 +139,11 @@ public final class HandInGui extends Menu {
         crediting = true;
     }
 
+    /** Lets the next click hand in again, after a credit that failed. */
+    public void uncredited() {
+        crediting = false;
+    }
+
     /** Shows what the credit of a hand-in that took {@code accepted} made of it: {@code paid} counted. */
     public void credited(final Player player, final long paid, final long accepted) {
         crediting = false;
@@ -223,6 +228,57 @@ public final class HandInGui extends Menu {
             }
         }
         return taken;
+    }
+
+    /**
+     * Puts the last {@code unpaid} items of {@code taken} into the deposit slots, as the credit did not count them.
+     * What those slots cannot hold, or all of it once the window is closed, goes to the player.
+     */
+    public void putBack(final Player player, final List<ItemStack> taken, final long unpaid) {
+        final List<Integer> back =
+                unpaid(taken.stream().map(ItemStack::getAmount).toList(), unpaid);
+        for (int index = 0; index < taken.size(); index++) {
+            if (back.get(index) > 0) {
+                final ItemStack stack = taken.get(index).clone();
+                stack.setAmount(back.get(index));
+                if (showsTo(player)) {
+                    deposit(stack);
+                }
+                if (stack.getAmount() > 0) {
+                    give(player, stack);
+                }
+            }
+        }
+    }
+
+    /** Moves as much of {@code stack} as fits into the deposit slots, and leaves the rest in it. */
+    private void deposit(final ItemStack stack) {
+        for (int slot = 0; slot < DEPOSIT_SLOTS && stack.getAmount() > 0; slot++) {
+            final ItemStack held = inventory.getItem(slot);
+            if (held == null || held.isEmpty()) {
+                inventory.setItem(slot, stack.clone());
+                stack.setAmount(0);
+            } else if (held.isSimilar(stack)) {
+                final int moved = Math.min(stack.getAmount(), held.getMaxStackSize() - held.getAmount());
+                if (moved > 0) {
+                    held.setAmount(held.getAmount() + moved);
+                    inventory.setItem(slot, held);
+                    stack.setAmount(stack.getAmount() - moved);
+                }
+            }
+        }
+    }
+
+    /** Returns how many of each of {@code amounts} go back, so that {@code unpaid} go back from the last stack on. */
+    static List<Integer> unpaid(final List<Integer> amounts, final long unpaid) {
+        final Integer[] back = new Integer[amounts.size()];
+        long left = Math.max(0L, unpaid);
+        for (int index = amounts.size() - 1; index >= 0; index--) {
+            final int amount = (int) Math.min(left, amounts.get(index));
+            back[index] = amount;
+            left -= amount;
+        }
+        return List.of(back);
     }
 
     /** Gives the player the stacks that {@link #apply} removed. */

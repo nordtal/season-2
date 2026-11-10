@@ -31,6 +31,7 @@ dependencies {
 }
 
 messageSpec {
+    documentClasses.add("eu.nordtal.season.papercommon.chat.PreviewDialog")
     documentClasses.add("eu.nordtal.season.papercommon.chat.SystemLines")
     documentClasses.add("eu.nordtal.season.papercommon.command.CommandFilter")
     documentClasses.add("eu.nordtal.season.papercommon.command.Replies")

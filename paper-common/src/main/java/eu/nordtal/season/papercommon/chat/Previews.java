@@ -10,13 +10,14 @@ import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Palette;
 import eu.nordtal.season.messages.Viewer;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.Replies;
+import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.hud.Hud;
-import eu.nordtal.season.papercommon.menu.PreviewMenu;
 import eu.nordtal.season.papercommon.tab.TabList;
 import java.time.Duration;
 import java.util.List;
@@ -45,22 +46,29 @@ public final class Previews {
     private final MessageRenderer renderer;
     private final Function<String, Palette> colours;
     private final Scheduler main;
+    private final Documents.Source documents;
+    private final Dialogs dialogs;
 
     private final Map<UUID, List<Pill>> bars = new ConcurrentHashMap<>();
 
     /**
      * @param colours the palette of a service by name, as its settings name the colours
      * @param main runs on the server's main thread, where a window opens and a drafted boss bar ends
+     * @param documents the preview's own words, such as its draft mark
      */
     public Previews(
             final Function<UUID, @Nullable Player> online,
             final MessageRenderer renderer,
             final Function<String, Palette> colours,
-            final Scheduler main) {
+            final Scheduler main,
+            final Documents.Source documents,
+            final Dialogs dialogs) {
         this.online = Objects.requireNonNull(online, "online");
         this.renderer = Objects.requireNonNull(renderer, "renderer");
         this.colours = Objects.requireNonNull(colours, "colours");
         this.main = Objects.requireNonNull(main, "main");
+        this.documents = Objects.requireNonNull(documents, "documents");
+        this.dialogs = Objects.requireNonNull(dialogs, "dialogs");
     }
 
     /** Shows a key's text with the values an admin gave, the rest filled from the key's schema here. */
@@ -92,15 +100,21 @@ public final class Previews {
             return Answer.refused(ServerRefusal.NOT_HERE.with());
         }
         final Viewer viewer = Viewer.of(Locales.parse(language));
-        show(reader, GameDocument.example(renderer, drafted, viewer), drafted);
+        show(reader, GameDocument.example(renderer, drafted, viewer), drafted, viewer);
         return Answer.done(Sent.of(Replies.PREVIEW_SHOWN));
     }
 
     /** Shows the document where its shape is, every value at its example. Steward sends a Discord one to the bot. */
-    private void show(final Player reader, final GameDocument drawn, final Documents.Packaged document) {
+    private void show(
+            final Player reader, final GameDocument drawn, final Documents.Packaged document, final Viewer viewer) {
         switch (document.declaration().shape()) {
-            case MENU ->
-                main.execute(() -> new PreviewMenu(drawn, document.document().parts()).open(reader));
+            case MENU -> {
+                final GameDocument words = new GameDocument(
+                        renderer, documents.applied(PreviewDialog.DOCUMENT), viewer, new DocumentSpec.None());
+                final PreviewDialog dialog =
+                        new PreviewDialog(dialogs, drawn, document.document().parts(), words);
+                main.execute(() -> dialog.show(reader, 0));
+            }
             case TAB_LIST -> {
                 // The drafted half stands beside the half the player sees now.
                 if (document.declaration()

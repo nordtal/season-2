@@ -1,14 +1,19 @@
 package eu.nordtal.season.packrendering.ui;
 
 import eu.nordtal.season.packrendering.Glyphs;
+import java.util.List;
+import java.util.function.Consumer;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.TextColor;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Composes one dialog body line from left to right: plates, rows, the star, the pager, cards and the field frame.
- * The line's art starts on its text row; a plate's label stands at plate + 5. Its net width is its art's width.
+ * Composes one dialog body line from left to right: plates, rows, the star, the pager, cards and texts.
+ * A plate line's art starts on its text row, its labels at plate + 5, and a second, empty row makes its box 26 high.
+ * A text line has one row, its capitals 1 px under the text row. A line's net width is its art's width.
  */
 public final class BodyLine {
 
@@ -30,15 +35,28 @@ public final class BodyLine {
     private static final int LABEL = 5;
     private static final int TEXT_GAP = 8;
     private static final int PRIMARY_WIDTH = 98;
-    private static final int FIELD_WIDTH = 184;
+
+    /** A text line's capitals under its text row: box + 5, where a plain_message draws at box + 4. */
+    private static final int TEXT_LINE = 1;
 
     private final Pen pen = Pen.start();
+    private final int textShift;
 
-    private BodyLine() {}
+    private BodyLine(final int textShift) {
+        this.textShift = textShift;
+    }
 
-    /** Starts an empty line. */
+    /** A drawn part's click and the tooltip the mouse shows over it, each if it has one. */
+    public record Press(@Nullable ClickEvent click, @Nullable Component tooltip) {}
+
+    /** Starts an empty plate line. */
     public static BodyLine start() {
-        return new BodyLine();
+        return new BodyLine(LABEL);
+    }
+
+    /** Starts an empty text line: one row of text and symbols, no plate. */
+    public static BodyLine textLine() {
+        return new BodyLine(TEXT_LINE);
     }
 
     /** Returns {@code words} for a narrator only: they take no room and draw nothing. */
@@ -56,11 +74,46 @@ public final class BodyLine {
                 .build(PRIMARY_WIDTH);
     }
 
-    /** Returns the frame that stands 2 px around the station's text field, as the line before it. */
-    public static Component fieldFrame() {
-        return Pen.start()
-                .art(Pen.artFont(0), Glyphs.UI_FIELD_FRAME, FIELD_WIDTH)
-                .build();
+    /** Moves to {@code x} of the line, forward or back, without drawing. */
+    public BodyLine at(final int x) {
+        pen.moveTo(x);
+        return this;
+    }
+
+    /** Draws {@code text} on the line's label row. */
+    public BodyLine text(final String text, final TextColor colour) {
+        pen.text(textShift, text, colour);
+        return this;
+    }
+
+    /** Draws {@code symbol} on the line's label row, and moves {@link Symbol#BEFORE_TEXT} on. */
+    public BodyLine symbol(final Symbol symbol, final TextColor colour) {
+        pen.symbol(textShift, symbol, colour).move(Symbol.BEFORE_TEXT - Symbol.ADVANCE);
+        return this;
+    }
+
+    /** Adds {@code words} for the narrator, which take no room. */
+    public BodyLine words(final String words) {
+        pen.append(silent(words), 0);
+        return this;
+    }
+
+    /** Draws {@code part} as one button: a click on it runs {@code press}, and the mouse shows its tooltip. */
+    public BodyLine button(final Press press, final Consumer<BodyLine> part) {
+        final BodyLine inner = new BodyLine(textShift);
+        part.accept(inner);
+        final int width = inner.pen.x();
+        Component drawn = inner.pen.build();
+        final ClickEvent click = press.click();
+        if (click != null) {
+            drawn = drawn.clickEvent(click);
+        }
+        final Component tooltip = press.tooltip();
+        if (tooltip != null) {
+            drawn = drawn.hoverEvent(HoverEvent.showText(tooltip));
+        }
+        pen.append(drawn, width);
+        return this;
     }
 
     /** Leaves {@code pixels} clear. */
@@ -110,6 +163,13 @@ public final class BodyLine {
         return this;
     }
 
+    /** The room a row {@code width} wide leaves its name, after {@code symbol} and before {@code value}. */
+    public static int rowRoom(final int width, final boolean symbol, final @Nullable String value) {
+        final int nameX = PAD + (symbol ? Symbol.BEFORE_TEXT : 0);
+        final int right = width - 1 - PAD;
+        return value == null ? right - nameX + 1 : right - Letters.visibleWidth(value) + 1 - TEXT_GAP - nameX;
+    }
+
     /** Draws a 17 x 17 plate with {@code symbol} centred on it in {@code colour}. */
     public BodyLine symbolPlate(final Symbol symbol, final TextColor colour, final Look look) {
         final int x = pen.x();
@@ -127,12 +187,23 @@ public final class BodyLine {
                 : symbolPlate(Symbol.STAR_HOLLOW, Colours.SOFT, Look.NORMAL);
     }
 
-    /** Draws the pager: previous, {@code page}/{@code pages} in soft, next, 3 px apart. */
-    public BodyLine pager(final int page, final int pages) {
+    /**
+     * Draws the pager: previous, {@code page}/{@code pages} in soft, next, 3 px apart.
+     * Next is drawn first, so it is the line's first click and Enter turns the page. {@code words} lead it for the
+     * narrator.
+     */
+    public BodyLine pager(final int page, final int pages, final Press next, final Press previous, final String words) {
         final String label = page + "/" + pages;
-        symbolPlate(Symbol.LEFT, Look.NORMAL.ink(), Look.NORMAL).gap(SIDE_GAP);
-        pen.text(LABEL, label, Look.NORMAL.soft()).move(-1);
-        return gap(SIDE_GAP).symbolPlate(Symbol.RIGHT, Look.NORMAL.ink(), Look.NORMAL);
+        final int x = pen.x();
+        final int nextX = x + pagerWidth(page, pages) - PLATE;
+        words(words);
+        pen.moveTo(nextX);
+        button(next, line -> line.symbolPlate(Symbol.RIGHT, Look.NORMAL.ink(), Look.NORMAL));
+        pen.moveTo(x);
+        button(previous, line -> line.symbolPlate(Symbol.LEFT, Look.NORMAL.ink(), Look.NORMAL));
+        pen.move(SIDE_GAP).text(LABEL, label, Look.NORMAL.soft());
+        pen.moveTo(nextX + PLATE);
+        return this;
     }
 
     /** The width of the pager for {@code page} of {@code pages}. */
@@ -194,6 +265,11 @@ public final class BodyLine {
 
     /** Returns the line, as wide as its art. */
     public Component build() {
-        return pen.build();
+        final Component line = pen.build();
+        if (textShift == TEXT_LINE) {
+            return line;
+        }
+        // The second row makes the plain_message's box 26 high, so the plate stands at box + 4.
+        return Component.empty().children(List.of(line, Component.newline(), silent(" ")));
     }
 }

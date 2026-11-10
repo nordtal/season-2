@@ -82,7 +82,9 @@ public final class HandInGui extends Menu {
         this.document =
                 new GameDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new Window(stillNeeded));
         this.name = PlainTextComponentSerializer.plainText().serialize(document.title());
-        this.inventory = frame(HandInPanel.ROWS, title());
+        this.inventory = frame(
+                HandInPanel.ROWS,
+                HandInPanel.title(name, mark(), document.label("confirm-button"), header == HandIn.Header.FINISHED));
 
         // The sample names what is wanted in Nordtal's tooltip, so its lines carry no item sprite.
         final List<Wanted> names =

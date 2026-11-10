@@ -72,7 +72,8 @@ public final class InventoryEditor extends Menu {
             final PlayerId admin,
             final PlayerId player,
             final Container container,
-            final Component title,
+            final String name,
+            final String word,
             final List<@Nullable ItemStack> shown,
             final @Nullable List<@Nullable Stack> stored,
             final IntConsumer kept) {
@@ -83,7 +84,7 @@ public final class InventoryEditor extends Menu {
         this.shown = Collections.unmodifiableList(new ArrayList<>(shown));
         this.stored = stored;
         this.kept = kept;
-        this.window = frame(rows(container), title);
+        this.window = frame(rows(container), title(container, name, word));
         for (int view = 0; view < window.getSize(); view++) {
             final int slot = slotOf(container, view);
             final ItemStack stack = slot < 0 ? null : shown.get(slot);

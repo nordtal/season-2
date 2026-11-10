@@ -82,6 +82,11 @@ public final class BlankItem {
         return tooltip(stack, rows(name, lore));
     }
 
+    /** Gives {@code stack} Nordtal's tooltip with {@code name} and one rendered line of lore. */
+    public static ItemStack styled(final ItemStack stack, final Component name, final String lore) {
+        return styled(stack, name, List.of(Component.text(lore)));
+    }
+
     /** Returns the rows of Nordtal's tooltip for {@code name} and {@code lore}, each line broken and coloured. */
     static List<Component> rows(final Component name, final List<Component> lore) {
         final List<Component> rows = new ArrayList<>();

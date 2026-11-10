@@ -146,8 +146,7 @@ final class TakeInWindow extends Menu {
         }
         final ItemStack item = stack.asOne();
         end(item);
-        inventory.setItem(
-                COPY_SLOT, BlankItem.styled(item.clone(), item.effectiveName(), List.of(Component.text(imported))));
+        inventory.setItem(COPY_SLOT, BlankItem.styled(item.clone(), item.effectiveName(), imported));
         return new MenuClick(Feedback.SMALL_SUCCESS, false, null);
     }
 

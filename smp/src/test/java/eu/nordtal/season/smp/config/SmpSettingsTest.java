@@ -40,6 +40,7 @@ class SmpSettingsTest {
     private static final Group<SpawnSpec> SPAWN = Group.of("spawn", SpawnSpec.class);
     private static final Group<BoardsSpec> BOARDS = Group.of("boards", BoardsSpec.class);
     private static final Group<DuelsSpec> DUELS = Group.of("duels", DuelsSpec.class);
+    private static final Group<RailsSpec> RAILS = Group.of("rails", RailsSpec.class);
 
     /** Every smp group but the milestones, whose own tests cover them. */
     private static final List<Group<?>> GROUPS = List.of(
@@ -52,7 +53,7 @@ class SmpSettingsTest {
             Group.of("npc", NpcSpec.class),
             SPAWN,
             Group.of("deaths-and-graves", DeathsSpec.class),
-            Group.of("rails", RailsSpec.class),
+            RAILS,
             Group.of("sounds", SoundsSpec.class));
 
     private final MemorySettingStore store = new MemorySettingStore();
@@ -70,6 +71,19 @@ class SmpSettingsTest {
                 "smp", Group.of("milestones", MilestonesSpec.class).checkedBy(SmpSettings::checkMilestones), Map.of());
 
         assertFalse(milestones.milestones().isEmpty());
+    }
+
+    @Test
+    void theJunctionSettingsHoldTheirDefaultsAndRefuseValuesOutsideTheirRanges() throws Exception {
+        final RailsSpec defaults = store.checked("smp", RAILS, Map.of());
+
+        assertEquals(4, defaults.junctionSwitch());
+        assertEquals(3, defaults.crawlSpeed());
+        assertAll(
+                () -> assertRefused(RAILS, Map.of("junction-switch", 1), "junction-switch must be at least 2"),
+                () -> assertRefused(RAILS, Map.of("junction-switch", 17), "junction-switch must be at most 16"),
+                () -> assertRefused(RAILS, Map.of("crawl-speed", 0), "crawl-speed must be at least 1"),
+                () -> assertRefused(RAILS, Map.of("crawl-speed", 11), "crawl-speed must be at most 10"));
     }
 
     /** Steward writes every item it saves as a namespaced key, so a default in the other form shows as a change. */

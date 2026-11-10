@@ -451,7 +451,7 @@ class RidesTest {
     }
 
     @Test
-    void aCartStopsAsFarBeforeAWrongJunctionAsTheSettingsSayAndTheSwitchIsShownAtTheJunction() {
+    void aCartSwitchesAsFarBeforeAWrongJunctionAsTheSettingsSayAndTheSwitchIsShownAtTheJunction() {
         // A line from west to east, and a branch to the north from its middle.
         track.eastWest(-30, 30, 64, 0).northSouth(0, 64, -30, -1);
         stations(at(-30, 64, 0), at(30, 64, 0), at(0, 64, -30));
@@ -462,20 +462,39 @@ class RidesTest {
         // Changed while the cart already rides, as Steward changes it.
         spec = new RailsSpec() {
             @Override
-            public int junctionStop() {
+            public int junctionSwitch() {
                 return 7;
             }
         };
         tickUntil(() -> track.rails().get(at(0, 64, 0)) != RailShape.EAST_WEST);
 
         assertEquals(RailShape.NORTH_WEST, track.rails().get(at(0, 64, 0)));
-        assertEquals(-7, rider.x(), 0.6, "it stands seven blocks before the junction");
+        assertEquals(-7, rider.x(), 0.6, "it crawls seven blocks before the junction");
         assertEquals(
                 List.of(List.of(0.5, 64.5, 0.5)),
                 shown.stream()
                         .map(at -> List.of(at.getX(), at.getY(), at.getZ()))
                         .toList(),
                 "the switch is shown once, at the junction's centre");
+    }
+
+    @Test
+    void aTopSpeedBelowTheCrawlSettingCapsTheCartAtTheSwitch() {
+        track.eastWest(-30, 30, 64, 0).northSouth(0, 64, -30, -1);
+        stations(at(-30, 64, 0), at(30, 64, 0), at(0, 64, -30));
+        spec = new RailsSpec() {
+            @Override
+            public double topSpeed() {
+                return 2;
+            }
+        };
+        final Rider rider = drive(at(-30, 64, 0), 3);
+        tickUntil(() -> track.rails().get(at(0, 64, 0)) != RailShape.EAST_WEST);
+        final double switched = rider.x();
+
+        tick();
+
+        assertEquals(0.1, rider.x() - switched, 1e-9, "two blocks per second, not the crawl setting's three");
     }
 
     @Test

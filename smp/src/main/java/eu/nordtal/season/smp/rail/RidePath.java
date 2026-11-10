@@ -32,7 +32,13 @@ final class RidePath {
 
         /** Returns whether a cart at {@code speed} can still brake to a stop within {@code distance}. */
         boolean brakes(final double speed, final double distance) {
-            return speed <= 0 || distance >= stopping(speed) - acceleration / 2;
+            return brakes(speed, distance, 0);
+        }
+
+        /** Returns whether a cart at {@code speed} can still brake to {@code target} within {@code distance}. */
+        boolean brakes(final double speed, final double distance, final double target) {
+            return speed <= target
+                    || distance >= (speed * speed - target * target) / (2 * acceleration) - acceleration / 2;
         }
     }
 
@@ -122,17 +128,18 @@ final class RidePath {
         return new double[] {dx / length, dz / length};
     }
 
-    /**
-     * Returns the speed for the next tick of a cart at {@code distance} that rides at {@code speed} now.
-     * It speeds up towards the top speed and brakes in time to come to a stop at {@code end}, where it must stand
-     * still.
-     */
+    /** Returns the next speed of a cart that must stop at {@code end}. */
     double next(final double distance, final double speed, final double end, final Motion motion) {
+        return next(distance, speed, end, motion, 0);
+    }
+
+    /** Returns the next speed of a cart that reaches {@code target} at {@code end}. */
+    double next(final double distance, final double speed, final double end, final Motion motion, final double target) {
         final double left = Math.max(0, end - distance);
-        if (left <= motion.acceleration()) {
+        if (target == 0 && left <= motion.acceleration()) {
             return Math.min(left, speed + motion.acceleration());
         }
-        final double allowed = Math.min(motion.top(), reaching(0, left, motion.acceleration()));
+        final double allowed = Math.min(motion.top(), reaching(target, left, motion.acceleration()));
         return Math.max(0, Math.min(speed + motion.acceleration(), allowed));
     }
 

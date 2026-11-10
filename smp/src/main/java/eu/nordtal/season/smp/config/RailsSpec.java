@@ -44,12 +44,21 @@ public interface RailsSpec {
     }
 
     @Order(4)
-    @Name("Stop before a junction (blocks)")
-    @Key("junction-stop")
-    @Between(least = 1, most = 16)
-    @Explain("How far before a junction set the wrong way a minecart stops, while the junction is switched for it.")
-    default int junctionStop() {
-        return 2;
+    @Name("Switch before a junction (blocks)")
+    @Key("junction-switch")
+    @Between(least = 2, most = 16)
+    @Explain("How far before a junction set the wrong way a minecart switches it.")
+    default int junctionSwitch() {
+        return 4;
+    }
+
+    @Order(5)
+    @Name("Crawl speed at a junction (blocks per second)")
+    @Key("crawl-speed")
+    @Between(least = 1, most = 10)
+    @NoExplanationNeeded
+    default double crawlSpeed() {
+        return 3.0;
     }
 
     /** The spawn station stands at this block; without an entry there is none. */

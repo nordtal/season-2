@@ -12,11 +12,13 @@ import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.ActionButton;
+import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
 import java.util.List;
 import java.util.Objects;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.ShadowColor;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
@@ -80,7 +82,12 @@ final class StationDialog {
                                                 .text(shown, Colours.INK)
                                                 .build(),
                                         WIDTH),
-                                Dialogs.line(BodyLine.paragraph(document.label("hint"), WIDTH, Colours.SOFT), WIDTH)))
+                                // The client wraps the hint at the field's width and centres each row.
+                                DialogBody.plainMessage(
+                                        BodyLine.textLine()
+                                                .text(document.label("hint"), Colours.SOFT)
+                                                .build(),
+                                        WIDTH)))
                         .build())
                 .type(Dialogs.bodyOnly()));
     }
@@ -102,9 +109,9 @@ final class StationDialog {
                 .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of())
                 .fieldFrame(DialogTitle.MARGIN, FRAME_Y);
         if (refusal != null) {
-            drawn.text(DialogTitle.MARGIN, REFUSAL_Y, refusal, Colours.REFUSAL);
+            drawn.centred(REFUSAL_Y, refusal, Colours.REFUSAL);
         }
-        final ActionButton save = ActionButton.builder(Component.text(document.label("save")))
+        final ActionButton save = ActionButton.builder(BodyLine.primaryButton(document.label("save")))
                 .width(SAVE_WIDTH)
                 .action(send.action((player, response) -> saved.save(
                         player,
@@ -120,7 +127,10 @@ final class StationDialog {
                                         .maxLength(StationNames.MAX_LENGTH)
                                         .initial(typed)
                                         .build(),
-                                DialogInput.bool(SHOWN, Component.text(document.label("show")))
+                                DialogInput.bool(
+                                                SHOWN,
+                                                Component.text(document.label("show"), Colours.INK)
+                                                        .shadowColor(ShadowColor.none()))
                                         .initial(shown)
                                         .build()))
                         .build())

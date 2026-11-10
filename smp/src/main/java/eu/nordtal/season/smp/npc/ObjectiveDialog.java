@@ -180,7 +180,7 @@ public final class ObjectiveDialog {
                 .text(Letters.cut(name, countX - BodyLine.PAD - BodyLine.PAD), Colours.INK)
                 .at(countX)
                 .text(count, Colours.SOFT)
-                .at(WIDTH)
+                // Ends here: the client wraps a line whose pen ever passes its width.
                 .build();
     }
 

@@ -1,9 +1,14 @@
 package eu.nordtal.season.packrendering.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import org.junit.jupiter.api.Test;
 
 /** Every composed line ends where its geometry says, measured against the assembled pack. */
@@ -58,35 +63,98 @@ class CompositionTest {
         }
     }
 
+    private static final BodyLine.Press NEXT = new BodyLine.Press(ClickEvent.suggestCommand("next"), null);
+    private static final BodyLine.Press PREVIOUS =
+            new BodyLine.Press(ClickEvent.suggestCommand("previous"), Component.text("back"));
+
+    /** The first row of a plate line, whose second row only makes its box two rows high. */
+    private static Component art(final Component line) {
+        return line.children().get(0);
+    }
+
     @Test
     void bodyLinesAreAsWideAsTheirArt() {
         assertEquals(
                 262,
-                Advances.of(BodyLine.start()
+                Advances.of(art(BodyLine.start()
                         .row(242, null, null, "Nordhafen", "8.925 m", Look.NORMAL)
                         .gap(BodyLine.SIDE_GAP)
                         .star(true)
-                        .build()));
+                        .build())));
         assertEquals(
                 BodyLine.pagerWidth(2, 5),
-                Advances.of(BodyLine.start().pager(2, 5).build()));
+                Advances.of(art(BodyLine.start()
+                        .pager(2, 5, NEXT, PREVIOUS, "Nächste Seite")
+                        .build())));
         assertEquals(
                 240,
-                Advances.of(BodyLine.start()
+                Advances.of(art(BodyLine.start()
                         .card(240, Symbol.PICKAXE, "Holzstämme", "1.200/20.000", 0.06, false, Look.NORMAL)
-                        .build()));
+                        .build())));
         assertEquals(
                 240,
-                Advances.of(BodyLine.start()
+                Advances.of(art(BodyLine.start()
                         .card(240, Symbol.PICKAXE, "Holzstämme", "Geschafft", 1, true, Look.NORMAL)
-                        .build()));
+                        .build())));
         assertEquals(
                 120,
-                Advances.of(BodyLine.start()
+                Advances.of(art(BodyLine.start()
                         .plate(120, null, "Fahren", Look.PRIMARY)
-                        .build()));
+                        .build())));
         assertEquals(98, Advances.of(BodyLine.primaryButton("Speichern")));
-        assertEquals(184, Advances.of(BodyLine.fieldFrame()));
+        assertEquals(
+                248,
+                Advances.of(BodyLine.textLine()
+                        .text("Siedlung", Colours.INK)
+                        .at(200)
+                        .text("3/7", Colours.SOFT)
+                        .at(248)
+                        .build()));
+    }
+
+    @Test
+    void aPlateLineHasTwoRowsAndATextLineOne() {
+        assertTrue(BodyLine.start().star(true).build().children().contains(Component.newline()));
+        assertFalse(BodyLine.textLine().text("Kupferberg", Colours.INK).build().children().stream()
+                .anyMatch(Component.newline()::equals));
+    }
+
+    @Test
+    void thePagerDrawsNextFirstSoEnterTurnsThePage() {
+        final List<ClickEvent> clicks = new ArrayList<>();
+        collectClicks(
+                BodyLine.start().pager(1, 3, NEXT, PREVIOUS, "Nächste Seite").build(), clicks);
+
+        assertEquals(List.of(NEXT.click(), PREVIOUS.click()), clicks);
+    }
+
+    @Test
+    void aButtonCarriesItsClickAndTooltipOverWhatItDraws() {
+        final Component line =
+                art(BodyLine.start().button(PREVIOUS, part -> part.star(false)).build());
+        final Component button = line.children().get(0);
+
+        assertEquals(PREVIOUS.click(), button.clickEvent());
+        assertEquals(HoverEvent.showText(Component.text("back")), button.hoverEvent());
+        assertEquals(BodyLine.PLATE, Advances.of(line));
+    }
+
+    @Test
+    void aFieldFrameKeepsTheTitleTwoHundredFiftyWide() {
+        assertEquals(
+                DialogTitle.NET_WIDTH,
+                Advances.of(DialogTitle.of(DialogPanel.STATION_104, 43)
+                        .fieldFrame(7, 61)
+                        .words("Bahnhof: Gib einen Namen ein.")
+                        .build()));
+    }
+
+    private static void collectClicks(final Component component, final List<ClickEvent> clicks) {
+        final ClickEvent click = component.clickEvent();
+        if (click != null && !clicks.contains(click)) {
+            clicks.add(click);
+        }
+        component.children().forEach(child -> collectClicks(child, clicks));
     }
 
     @Test

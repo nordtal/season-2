@@ -18,6 +18,7 @@ import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
 import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.season.papercommon.command.Answer;
+import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.tab.TabList;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
@@ -88,7 +89,10 @@ class PreviewsTest {
             uuid -> uuid.equals(ALEX.value()) ? alex : null,
             RENDERER,
             service -> service.equals("proxy") ? PROXY : ToneColours.DEFAULTS,
-            main);
+            main,
+            spec -> Objects.requireNonNull(Documents.packaged(PreviewsTest.class.getClassLoader(), "paper-common")
+                    .get(spec.declaration().name())),
+            new Dialogs(Runnable::run, (player, feedback) -> {}));
 
     private static Documents.Packaged drafted(final DocumentSpec.Shape shape, final String name, final String parts) {
         return new Documents.Packaged(

@@ -1,0 +1,40 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Draft",
+            "de": "Entwurf"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "line",
+      "lines": [
+        {
+          "text": {
+            "en": "{slot}, line {line}",
+            "de": "{slot}, Zeile {line}"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "pager",
+      "lines": [
+        {
+          "text": {
+            "en": "Next page, previous page, page {page} of {pages}",
+            "de": "Nächste Seite, vorherige Seite, Seite {page} von {pages}"
+          }
+        }
+      ]
+    }
+  ]
+}

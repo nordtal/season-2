@@ -589,6 +589,10 @@ glyph or list becomes the doc comment of its constant.
 | ----- | ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | font  | `font`                       | the font id, such as `nordtal:board`; with `{row}` in it, one font per row                                    |
 | font  | `rows`, `pitch`              | the number of row fonts that `{row}` writes, counted from 0, and the pixels between one row and the next      |
+| font  | `shifts`                     | with `{shift}` in the font id, one font per number, each drawing every bitmap that many pixels lower          |
+| font  | `letters`                    | adds vanilla's letter sheets from `include/default.json`, lowered with the font, after the spaces             |
+| font  | `silent`                     | maps every vanilla letter to an empty advance of 0, so a text in the font takes no room and draws nothing     |
+| font  | `references`                 | font ids whose providers come first, written as `reference` providers                                         |
 | font  | `constant`                   | the Java constant of the font id, or of the list of row ids                                                   |
 | font  | `numbering`                  | `"own"` lets the code points of the font repeat those of another font                                         |
 | font  | `spaces`                     | the `space` provider: each entry has a `code`, an `advance` in pixels and an optional `constant`              |
@@ -631,7 +635,7 @@ a bundle as a `{parameter}` or as `<glyph:name>`.
   advance in decimal, negative advances included, so a line can draw over itself. A HUD line is one
   rounded pill per piece of information. No advance may be allocated onto an assigned character.
 - **`nordtal:gui`:** menu panels, drawn from the inventory title. A title holds a bitmap as large as
-  the window on a high `ascent`, over `generic_54.png`. A title needs **-8** to reach the left edge of
+  the window on a high `ascent`, over the emptied `generic_54.png`. A title needs **-8** to reach the left edge of
   the window and **-169** to go back from the 177 px advance of the panel. The positive spaces are the
   negative ones one bit higher, and every row font declares them too. A chest window is
   `114 + 18 × rows` pixels tall, hence six panels, and the drawable cell starts at **(7, 17)**.
@@ -661,6 +665,49 @@ them, except `ß`, and maps unknown characters to `?`, because a missing-glyph b
 | `0`   | `### #.# #.# #.# ###` | square, flat top and bottom, like `1 2 3 5 7`      |
 | `8`   | `### #.# .#. #.# ###` | square and waisted: two loops joined in the middle |
 
+### The ui fonts
+
+The ui fonts draw the chest menus, the dialogs, the tooltips and the pills. `eu.nordtal.season.packrendering.ui`
+composes them, and nothing else names them.
+
+- **`nordtal:ui_space`:** moves of -1 to -256 and +1 to +256 pixels. Every other ui font references
+  it, and `minecraft:default` does too, so a move joins the run of the piece before it.
+- **`nordtal:ui_text_{shift}`:** vanilla's letters `shift` pixels below the text row, with the 7 × 7
+  symbols of `ui/kit/symbols.png`. Each font references `minecraft:include/space`, so a space is 4
+  wide as in vanilla text and not the 3 of `nordtal:gui`. The build measures the letters into
+  `nordtal/ui/letter-advances.properties`, which `Letters` reads.
+- **`nordtal:ui_art_{shift}`:** the plates in three looks, the slot frame, the field frame, the
+  primary button, the progress bar and the label pill. Shifts 11 + 18r put a piece's top on content
+  row r's cell top in a chest window.
+- **`nordtal:ui_panel`:** the chest panel for 1 to 6 rows, with the player's slot frames only
+  (`UI_CHEST_PANELS`) or with every content slot (`UI_CHEST_PANELS_PLAIN`, for placed containers).
+- **`nordtal:ui_dialog_{shift}`:** the dialog panels, one list per panel size, in tiles of at most
+  256 columns. The shift is the panel's top: 49 over a first plate line, 50 over a first text line, 43 over a
+  frame 2 px above its line and 64 for the wheel.
+- **`nordtal:ui_tooltip`:** the covers that hide a native tooltip's box, one sheet per box height.
+  `minecraft:default` holds one more cover sheet for the language file's tooltip, which can name no font.
+- **`nordtal:ui_silent`:** every vanilla letter at advance 0, for a dialog body the narrator reads
+  but the screen does not show.
+
+The tooltip style `nordtal:panel` is the pair of sprites `nordtal/textures/gui/sprites/tooltip/panel_background.png`
+and `panel_frame.png`, nine-sliced by their `.mcmeta`.
+
+#### Plates of any width
+
+A plate is its left edge, runs of fill and its right edge. Each sheet of a look holds the two edges
+and fill runs of 1, 2, 4 to 256 columns. A bitmap advances its ink width + 1, so `Pen` follows each
+piece with a move of -1. The fill is two columns narrower than the plate, written greedily from 256
+down to 1, so any width from 2 up takes one run per 256 columns and at most 8 more. A label stands on the plate in a
+text font 5 pixels lower than the plate's art.
+
+#### The chest panels
+
+`drawChestPanels` draws the twelve chest panel textures into `build/generated/chest-panels` on every
+build, from vanilla's `generic_54.png` in the client jar, and `assemblePack` copies them into the
+pack. They are never committed. `ChestPanelGeometry` in `build-logic` holds where the panel sits
+against vanilla's window (window y 0 to 113 + 18 rows), so moving it is a change to one constant
+there. The header's row is `ChestTitle.CAPS_Y`, which must be a shift that `nordtal:ui_text_{shift}` has.
+
 ## Vanilla overrides
 
 | file                                                           | effect                                                                       |
@@ -669,6 +716,10 @@ them, except `ß`, and maps unknown characters to `?`, because a missing-glyph b
 | `minecraft/textures/gui/sprites/boss_bar/white_progress.png`   | makes the progress fill invisible                                            |
 | `minecraft/lang/en_us.json`                                    | sets `menu.returnToGame`, `menu.game` (the logo glyph) and `menu.disconnect` |
 | `minecraft/lang/de_de.json`                                    | sets the same three keys in German                                           |
+| `minecraft/textures/gui/container/generic_54.png`              | empties the chest window, so the title draws the whole panel                 |
+| `minecraft/textures/gui/sprites/dialog/warning_button*.png`    | empties the dialog's warning button in its three states                      |
+| `minecraft/textures/gui/sprites/widget/checkbox*.png`          | the four checkbox states at 17 px with the tick centred                      |
+| `minecraft/lang/en_*.json`, `de_*.json`                        | `menu.custom_screen_info.tooltip`, the Nordtal menu's tooltip, in 8 files    |
 
 A vanilla override starts as a copy from the client jar of the season's Minecraft version, the version
 of `paper` in the catalog. It is the jar that Fabric Loom downloads for `:bridge-mod` once, checks
@@ -689,7 +740,10 @@ connection `listVanillaAssets` lists no sounds and says why in `soundsProblem`.
 `copyVanillaTexture` writes the PNG and its `.mcmeta` to `src/assets/minecraft/textures` and refuses
 a texture that exists there already.
 
-`de_de.json` is the only place where the client language decides what a player sees, and it holds
-these three pause-menu strings only. `menu.game` names a glyph, so a language file is the one place
-besides `glyphs.json` that writes a code point by hand. `ResourcePackTest` parses the language files
-against the written `minecraft:default`.
+The language files are the only place where the client language decides what a player sees.
+`en_us.json` and `de_de.json` set the three pause-menu strings. All eight set
+`menu.custom_screen_info.tooltip`: a cover from `minecraft:default` that hides the native tooltip's
+box and draws the panel style, then the title and the text, wrapped at 158 into two rows.
+`menu.game` and the cover name glyphs, so a language file is the one place besides `glyphs.json`
+that writes a code point by hand. `ResourcePackTest` parses the language files against the written
+`minecraft:default`.

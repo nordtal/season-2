@@ -2,5 +2,6 @@
   "menu.returnToGame": "§9Weiter in Nordtal spielen",
   "menu.game": "\udbb8\udc21",
   "menu.disconnect": "§7Bis zum nächsten Mal!",
-  "item.nordtal.station_rail": "Bahnhofsschiene"
+  "item.nordtal.station_rail": "Bahnhofsschiene",
+  "menu.custom_screen_info.tooltip": "\udbbc\udc04\udbbc\udc02\udbb8\udc90\udbbc\udc01\udbb8\udc91\udbbc\udc01\udbb8\udc99\udbbc\udc01\udbb8\udc96\udbbc\udc01\udbb8\udc95\udbbc\udc01\udbb8\udc94\udbbc\udc01\udbb8\udc92\udbbc\udc01\udbb8\udc91\udbbc\udc01\udbb8\udc90\udbbc\udc01\udbbc\udd28\udbbc\udc16\udbbc\udc08\udbbc\udc02\udbbc\udc01Nordtal-Menü\n§7Klicken, um mehr zu erfahren."
 }

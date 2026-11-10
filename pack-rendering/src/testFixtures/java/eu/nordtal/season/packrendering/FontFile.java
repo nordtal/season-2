@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.common.RepositoryRoot;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -67,7 +68,25 @@ public final class FontFile {
                         advance.getKey().codePoints().forEach(font.spaced::add);
                     }
                 }
-                case "bitmap" -> font.bitmaps.add(Bitmap.of(provider));
+                case "bitmap" -> {
+                    final Bitmap bitmap = Bitmap.of(provider);
+                    // A vanilla sheet that the pack does not override, such as vanilla's letters, is the client's own.
+                    final boolean vanilla = !bitmap.textureId().contains(":")
+                            || bitmap.textureId().startsWith("minecraft:");
+                    if (!vanilla || Files.isRegularFile(bitmap.texture())) {
+                        font.bitmaps.add(bitmap);
+                    }
+                }
+                case "reference" -> {
+                    final String reference = provider.get("id").getAsString();
+                    // A vanilla font is the client's own; a pack font's providers count as this font's.
+                    if (!reference.startsWith("minecraft:")) {
+                        final String path = reference.replace(":", "/font/");
+                        final FontFile referenced = load(reference, ASSETS + "/" + path + ".json");
+                        font.spaced.addAll(referenced.spaced);
+                        font.bitmaps.addAll(referenced.bitmaps);
+                    }
+                }
                 default ->
                     throw new IllegalStateException(relative + " has a provider of unknown type "
                             + provider.get("type").getAsString());

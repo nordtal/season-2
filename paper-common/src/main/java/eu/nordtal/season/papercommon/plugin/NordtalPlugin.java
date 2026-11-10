@@ -53,6 +53,7 @@ import eu.nordtal.season.papercommon.command.PaperUser;
 import eu.nordtal.season.papercommon.command.Replies;
 import eu.nordtal.season.papercommon.game.GameDataExport;
 import eu.nordtal.season.papercommon.hud.Hud;
+import eu.nordtal.season.papercommon.menu.ContainerTitles;
 import eu.nordtal.season.papercommon.menu.Menus;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.player.InventoryEditor;
@@ -226,6 +227,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         hud.declare(previews::bossBar);
         menus = new Menus(chime()::play);
         listen(menus);
+        listen(new ContainerTitles());
 
         // ops.json survives a crash, so a join must find no admin left in it.
         final AdminOperators operators = BukkitOps.create();

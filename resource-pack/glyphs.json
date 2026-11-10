@@ -3,6 +3,7 @@
     {
       "font": "minecraft:default",
       "about": "Ordinary text: the tab list, chat, nametags and the Text Display boards. A message names a glyph here as <glyph:name>.",
+      "references": ["nordtal:ui_space"],
       "blocks": [
         {
           "range": "FE000-FE00F",
@@ -264,12 +265,36 @@
               "about": "In front of a line the whole server is told, such as a milestone, an objective or a restart, 7 by 7: a horn."
             }
           ]
+        },
+        {
+          "range": "FE090-FE09F",
+          "title": "Widget tooltip cover",
+          "about": "The box of a two-line tooltip that a lang text draws over a native widget's: outline, rim and fill runs of 1 to 128 columns, 30 high.",
+          "texture": "nordtal:ui/kit/cover_30.png",
+          "height": 30,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE090", "name": "cover-outline", "list": "UI_LANG_COVER" },
+            { "code": "FE091", "name": "cover-rim", "list": "UI_LANG_COVER" },
+            { "code": "FE092", "name": "cover-1", "list": "UI_LANG_COVER" },
+            { "code": "FE093", "name": "cover-2", "list": "UI_LANG_COVER" },
+            { "code": "FE094", "name": "cover-4", "list": "UI_LANG_COVER" },
+            { "code": "FE095", "name": "cover-8", "list": "UI_LANG_COVER" },
+            { "code": "FE096", "name": "cover-16", "list": "UI_LANG_COVER" },
+            { "code": "FE097", "name": "cover-32", "list": "UI_LANG_COVER" },
+            { "code": "FE098", "name": "cover-64", "list": "UI_LANG_COVER" },
+            { "code": "FE099", "name": "cover-128", "list": "UI_LANG_COVER" }
+          ]
         }
       ],
       "lists": [
         {
           "constant": "PRESTIGE_CRESTS",
           "about": "All thirteen prestige crests, tier 1 first, indexed by tier minus one."
+        },
+        {
+          "constant": "UI_LANG_COVER",
+          "about": "The widget tooltip cover: outline, rim and fill runs of 1 to 128 columns."
         }
       ]
     },
@@ -1286,11 +1311,7 @@
           "glyphs": [
             { "code": "FE110", "constant": "GUI_ROW_ICON_SPAWN", "about": "A house: a world's spawn." },
             { "code": "FE111", "constant": "GUI_ROW_ICON_DEATH", "about": "A skull: where you last died." },
-            {
-              "code": "FE112",
-              "constant": "GUI_ROW_ICON_POI",
-              "about": "A map pin: a place."
-            },
+            { "code": "FE112", "constant": "GUI_ROW_ICON_POI", "about": "A map pin: a place." },
             { "code": "FE113", "constant": "GUI_ROW_ICON_STOP", "about": "A cross: stop." },
             { "code": "FE114", "constant": "GUI_ROW_ICON_PREV", "about": "A left arrow: the previous page." },
             { "code": "FE115", "constant": "GUI_ROW_ICON_NEXT", "about": "A right arrow: the next page." },
@@ -1331,6 +1352,821 @@
           "chars": ["ABCDEFGH", "IJKLMNOP", "QRSTUVWX", "YZ012345", "6789.,:/", "-+%()!?'", "\"ÄÖÜß∙█░"]
         }
       ]
+    },
+    {
+      "font": "nordtal:ui_space",
+      "constant": "FONT_UI_SPACE",
+      "about": "The moves every ui font shares by reference: 1 to 256 pixels back or forward.",
+      "spaces": [
+        { "code": "FF001", "advance": -1, "constant": "UI_BACK_1" },
+        { "code": "FF801", "advance": 1, "constant": "UI_FORWARD_1" },
+        { "code": "FF002", "advance": -2, "constant": "UI_BACK_2" },
+        { "code": "FF802", "advance": 2, "constant": "UI_FORWARD_2" },
+        { "code": "FF004", "advance": -4, "constant": "UI_BACK_4" },
+        { "code": "FF804", "advance": 4, "constant": "UI_FORWARD_4" },
+        { "code": "FF008", "advance": -8, "constant": "UI_BACK_8" },
+        { "code": "FF808", "advance": 8, "constant": "UI_FORWARD_8" },
+        { "code": "FF016", "advance": -16, "constant": "UI_BACK_16" },
+        { "code": "FF816", "advance": 16, "constant": "UI_FORWARD_16" },
+        { "code": "FF032", "advance": -32, "constant": "UI_BACK_32" },
+        { "code": "FF832", "advance": 32, "constant": "UI_FORWARD_32" },
+        { "code": "FF064", "advance": -64, "constant": "UI_BACK_64" },
+        { "code": "FF864", "advance": 64, "constant": "UI_FORWARD_64" },
+        { "code": "FF128", "advance": -128, "constant": "UI_BACK_128" },
+        { "code": "FF928", "advance": 128, "constant": "UI_FORWARD_128" },
+        { "code": "FF256", "advance": -256, "constant": "UI_BACK_256" },
+        { "code": "FFA56", "advance": 256, "constant": "UI_FORWARD_256" }
+      ]
+    },
+    {
+      "font": "nordtal:ui_text_{shift}",
+      "shifts": [0, 2, 4, 5, 10, 16, 34, 37, 43, 44, 52, 58, 70, 88, 106, 137],
+      "constant": "FONT_UI_TEXT",
+      "letters": true,
+      "references": ["minecraft:include/space", "nordtal:ui_space"],
+      "about": "Vanilla's letters and the 7 x 7 symbols, drawn the shift's number of pixels lower than ordinary text, so a title or a body line places a label on any row.",
+      "blocks": [
+        {
+          "range": "FE300-FE33F",
+          "title": "Symbols",
+          "about": "The 7 x 7 symbols at the capitals' height. Each advances 8.",
+          "texture": "nordtal:ui/kit/symbols.png",
+          "height": 7,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE300", "constant": "UI_SYMBOL_STAR" },
+            { "code": "FE301", "constant": "UI_SYMBOL_STAR_HOLLOW" },
+            { "code": "FE302", "constant": "UI_SYMBOL_LEFT" },
+            { "code": "FE303", "constant": "UI_SYMBOL_RIGHT" },
+            { "code": "FE304", "constant": "UI_SYMBOL_TICK" },
+            { "code": "FE305", "constant": "UI_SYMBOL_PIN" },
+            { "code": "FE306", "constant": "UI_SYMBOL_RAIL" },
+            { "code": "FE307", "constant": "UI_SYMBOL_MEDAL" },
+            { "code": "FE308", "constant": "UI_SYMBOL_FLAG" },
+            { "code": "FE309", "constant": "UI_SYMBOL_WHEEL" },
+            { "code": "FE30A", "constant": "UI_SYMBOL_SWORDS" },
+            { "code": "FE30B", "constant": "UI_SYMBOL_SHIELD" },
+            { "code": "FE30C", "constant": "UI_SYMBOL_GRAVE" },
+            { "code": "FE30D", "constant": "UI_SYMBOL_HANDIN" },
+            { "code": "FE30E", "constant": "UI_SYMBOL_CHEST" },
+            { "code": "FE30F", "constant": "UI_SYMBOL_EYE" },
+            { "code": "FE310", "constant": "UI_SYMBOL_PICKAXE" },
+            { "code": "FE311", "constant": "UI_SYMBOL_BOX" },
+            { "code": "FE312", "constant": "UI_SYMBOL_XP" },
+            { "code": "FE313", "constant": "UI_SYMBOL_POINTER" },
+            { "code": "FE314", "constant": "UI_SYMBOL_HEART" },
+            { "code": "FE315", "constant": "UI_SYMBOL_BORDER" },
+            { "code": "FE316", "constant": "UI_SYMBOL_SKULL" },
+            { "code": "FE317", "constant": "UI_SYMBOL_ARROW0" },
+            { "code": "FE318", "constant": "UI_SYMBOL_ARROW1" },
+            { "code": "FE319", "constant": "UI_SYMBOL_ARROW2" },
+            { "code": "FE31A", "constant": "UI_SYMBOL_ARROW3" },
+            { "code": "FE31B", "constant": "UI_SYMBOL_ARROW4" },
+            { "code": "FE31C", "constant": "UI_SYMBOL_ARROW5" },
+            { "code": "FE31D", "constant": "UI_SYMBOL_ARROW6" },
+            { "code": "FE31E", "constant": "UI_SYMBOL_ARROW7" },
+            { "code": "FE31F", "constant": "UI_SYMBOL_ARROW8" },
+            { "code": "FE320", "constant": "UI_SYMBOL_ARROW9" },
+            { "code": "FE321", "constant": "UI_SYMBOL_ARROW10" },
+            { "code": "FE322", "constant": "UI_SYMBOL_ARROW11" },
+            { "code": "FE323", "constant": "UI_SYMBOL_ARROW12" },
+            { "code": "FE324", "constant": "UI_SYMBOL_ARROW13" },
+            { "code": "FE325", "constant": "UI_SYMBOL_ARROW14" },
+            { "code": "FE326", "constant": "UI_SYMBOL_ARROW15" }
+          ]
+        }
+      ]
+    },
+    {
+      "font": "nordtal:ui_art_{shift}",
+      "shifts": [0, 11, 29, 47, 65, 83, 101],
+      "constant": "FONT_UI_ART",
+      "references": ["nordtal:ui_space"],
+      "about": "Plates, frames, the bar and the pill. Shift 0 puts the art's top on a dialog line's text row; 11 + 18 r on chest content row r.",
+      "blocks": [
+        {
+          "range": "FE340-FE34F",
+          "title": "Plate",
+          "about": "A 17 high plate: its left column, its right column and body runs of 1 to 256 columns, which build any width.",
+          "texture": "nordtal:ui/kit/plate_normal.png",
+          "height": 17,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE340", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE341", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE342", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE343", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE344", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE345", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE346", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE347", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE348", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE349", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE34A", "list": "UI_PLATE_NORMAL" }
+          ]
+        },
+        {
+          "range": "FE350-FE35F",
+          "title": "Primary plate",
+          "about": "A 17 high plate: its left column, its right column and body runs of 1 to 256 columns, which build any width.",
+          "texture": "nordtal:ui/kit/plate_primary.png",
+          "height": 17,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE350", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE351", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE352", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE353", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE354", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE355", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE356", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE357", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE358", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE359", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE35A", "list": "UI_PLATE_PRIMARY" }
+          ]
+        },
+        {
+          "range": "FE360-FE36F",
+          "title": "Disabled plate",
+          "about": "A 17 high plate: its left column, its right column and body runs of 1 to 256 columns, which build any width.",
+          "texture": "nordtal:ui/kit/plate_disabled.png",
+          "height": 17,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE360", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE361", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE362", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE363", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE364", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE365", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE366", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE367", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE368", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE369", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE36A", "list": "UI_PLATE_DISABLED" }
+          ]
+        },
+        {
+          "range": "FE370-FE37F",
+          "title": "Pieces",
+          "glyphs": [
+            {
+              "code": "FE370",
+              "constant": "UI_SLOT",
+              "texture": "nordtal:ui/kit/slot.png",
+              "height": 18,
+              "ascent": 7,
+              "about": "Vanilla's 18 x 18 slot frame, for any content cell."
+            },
+            {
+              "code": "FE371",
+              "constant": "UI_FIELD_FRAME",
+              "texture": "nordtal:ui/kit/field_frame.png",
+              "height": 24,
+              "ascent": 9,
+              "about": "The 184 x 24 inset frame around the station's text field, 2 px above its line's text row."
+            },
+            {
+              "code": "FE372",
+              "constant": "UI_PRIMARY_BUTTON",
+              "texture": "nordtal:ui/kit/primary_button.png",
+              "height": 18,
+              "ascent": 12,
+              "about": "The 98 x 18 plate in the primary look that a native button carries as its label, 5 px above the label's text row."
+            }
+          ]
+        },
+        {
+          "range": "FE380-FE38F",
+          "title": "Progress bar",
+          "about": "The 48 x 3 track and runs of 1 to 32 columns of its fill, accent and done, 7 rows below the plate's top.",
+          "texture": "nordtal:ui/kit/bar.png",
+          "height": 10,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE380", "list": "UI_BAR_TRACK" },
+            { "code": "FE381", "list": "UI_BAR_FILL" },
+            { "code": "FE382", "list": "UI_BAR_FILL" },
+            { "code": "FE383", "list": "UI_BAR_FILL" },
+            { "code": "FE384", "list": "UI_BAR_FILL" },
+            { "code": "FE385", "list": "UI_BAR_FILL" },
+            { "code": "FE386", "list": "UI_BAR_FILL" },
+            { "code": "FE387", "list": "UI_BAR_DONE" },
+            { "code": "FE388", "list": "UI_BAR_DONE" },
+            { "code": "FE389", "list": "UI_BAR_DONE" },
+            { "code": "FE38A", "list": "UI_BAR_DONE" },
+            { "code": "FE38B", "list": "UI_BAR_DONE" },
+            { "code": "FE38C", "list": "UI_BAR_DONE" }
+          ]
+        },
+        {
+          "range": "FE390-FE39F",
+          "title": "Pill",
+          "about": "A 15 high pill in the chest window's look: its 5 px left end, its 5 px right end and middles of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/pill.png",
+          "height": 15,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE390", "list": "UI_PILL" },
+            { "code": "FE391", "list": "UI_PILL" },
+            { "code": "FE392", "list": "UI_PILL" },
+            { "code": "FE393", "list": "UI_PILL" },
+            { "code": "FE394", "list": "UI_PILL" },
+            { "code": "FE395", "list": "UI_PILL" },
+            { "code": "FE396", "list": "UI_PILL" },
+            { "code": "FE397", "list": "UI_PILL" },
+            { "code": "FE398", "list": "UI_PILL" },
+            { "code": "FE399", "list": "UI_PILL" }
+          ]
+        }
+      ],
+      "lists": [
+        { "constant": "UI_PLATE_NORMAL" },
+        { "constant": "UI_PLATE_PRIMARY" },
+        { "constant": "UI_PLATE_DISABLED" },
+        { "constant": "UI_BAR_TRACK" },
+        { "constant": "UI_BAR_FILL" },
+        { "constant": "UI_BAR_DONE" },
+        { "constant": "UI_PILL" }
+      ]
+    },
+    {
+      "font": "nordtal:ui_panel",
+      "constant": "FONT_UI_PANEL",
+      "references": ["nordtal:ui_space"],
+      "about": "The chest window for 1 to 6 rows, drawn from the title's anchor: bare, or with a frame on every content slot for a vanilla container. The build draws the textures from ChestPanelGeometry, 8 transparent rows above and below the window.",
+      "blocks": [
+        {
+          "range": "FE3A0-FE3AF",
+          "title": "Chest panels",
+          "glyphs": [
+            {
+              "code": "FE3A0",
+              "list": "UI_CHEST_PANELS",
+              "texture": "nordtal:ui/kit/chest_1.png",
+              "height": 148,
+              "ascent": 21
+            },
+            {
+              "code": "FE3A1",
+              "list": "UI_CHEST_PANELS",
+              "texture": "nordtal:ui/kit/chest_2.png",
+              "height": 166,
+              "ascent": 21
+            },
+            {
+              "code": "FE3A2",
+              "list": "UI_CHEST_PANELS",
+              "texture": "nordtal:ui/kit/chest_3.png",
+              "height": 184,
+              "ascent": 21
+            },
+            {
+              "code": "FE3A3",
+              "list": "UI_CHEST_PANELS",
+              "texture": "nordtal:ui/kit/chest_4.png",
+              "height": 202,
+              "ascent": 21
+            },
+            {
+              "code": "FE3A4",
+              "list": "UI_CHEST_PANELS",
+              "texture": "nordtal:ui/kit/chest_5.png",
+              "height": 220,
+              "ascent": 21
+            },
+            {
+              "code": "FE3A5",
+              "list": "UI_CHEST_PANELS",
+              "texture": "nordtal:ui/kit/chest_6.png",
+              "height": 238,
+              "ascent": 21
+            },
+            {
+              "code": "FE3A6",
+              "list": "UI_CHEST_PANELS_PLAIN",
+              "texture": "nordtal:ui/kit/chest_plain_1.png",
+              "height": 148,
+              "ascent": 21
+            },
+            {
+              "code": "FE3A7",
+              "list": "UI_CHEST_PANELS_PLAIN",
+              "texture": "nordtal:ui/kit/chest_plain_2.png",
+              "height": 166,
+              "ascent": 21
+            },
+            {
+              "code": "FE3A8",
+              "list": "UI_CHEST_PANELS_PLAIN",
+              "texture": "nordtal:ui/kit/chest_plain_3.png",
+              "height": 184,
+              "ascent": 21
+            },
+            {
+              "code": "FE3A9",
+              "list": "UI_CHEST_PANELS_PLAIN",
+              "texture": "nordtal:ui/kit/chest_plain_4.png",
+              "height": 202,
+              "ascent": 21
+            },
+            {
+              "code": "FE3AA",
+              "list": "UI_CHEST_PANELS_PLAIN",
+              "texture": "nordtal:ui/kit/chest_plain_5.png",
+              "height": 220,
+              "ascent": 21
+            },
+            {
+              "code": "FE3AB",
+              "list": "UI_CHEST_PANELS_PLAIN",
+              "texture": "nordtal:ui/kit/chest_plain_6.png",
+              "height": 238,
+              "ascent": 21
+            }
+          ]
+        }
+      ],
+      "lists": [{ "constant": "UI_CHEST_PANELS" }, { "constant": "UI_CHEST_PANELS_PLAIN" }]
+    },
+    {
+      "font": "nordtal:ui_dialog_{shift}",
+      "shifts": [43, 49, 50, 64],
+      "constant": "FONT_UI_DIALOG",
+      "references": ["nordtal:ui_space"],
+      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first plate line, 50 over a first text line, 43 over a frame 2 px above its line, 64 for the wheel.",
+      "blocks": [
+        {
+          "range": "FE3C0-FE3FF",
+          "title": "Dialog panels",
+          "glyphs": [
+            {
+              "code": "FE3C0",
+              "list": "UI_DIALOG_RIDE_LIST_150",
+              "texture": "nordtal:ui/kit/dialog_ride_list_150_0.png",
+              "height": 150,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C1",
+              "list": "UI_DIALOG_RIDE_LIST_150",
+              "texture": "nordtal:ui/kit/dialog_ride_list_150_1.png",
+              "height": 150,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C2",
+              "list": "UI_DIALOG_RIDE_LIST_114",
+              "texture": "nordtal:ui/kit/dialog_ride_list_114_0.png",
+              "height": 114,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C3",
+              "list": "UI_DIALOG_RIDE_LIST_114",
+              "texture": "nordtal:ui/kit/dialog_ride_list_114_1.png",
+              "height": 114,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C4",
+              "list": "UI_DIALOG_RIDE_LIST_33",
+              "texture": "nordtal:ui/kit/dialog_ride_list_33_0.png",
+              "height": 33,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C5",
+              "list": "UI_DIALOG_RIDE_LIST_33",
+              "texture": "nordtal:ui/kit/dialog_ride_list_33_1.png",
+              "height": 33,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C6",
+              "list": "UI_DIALOG_STATION_78",
+              "texture": "nordtal:ui/kit/dialog_station_78_0.png",
+              "height": 78,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C7",
+              "list": "UI_DIALOG_STATION_104",
+              "texture": "nordtal:ui/kit/dialog_station_104_0.png",
+              "height": 104,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C8",
+              "list": "UI_DIALOG_STATION_122",
+              "texture": "nordtal:ui/kit/dialog_station_122_0.png",
+              "height": 122,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C9",
+              "list": "UI_DIALOG_OBJECTIVES_176",
+              "texture": "nordtal:ui/kit/dialog_objectives_176_0.png",
+              "height": 176,
+              "ascent": 20
+            },
+            {
+              "code": "FE3CA",
+              "list": "UI_DIALOG_OBJECTIVES_176",
+              "texture": "nordtal:ui/kit/dialog_objectives_176_1.png",
+              "height": 176,
+              "ascent": 20
+            },
+            {
+              "code": "FE3CB",
+              "list": "UI_DIALOG_OBJECTIVES_33",
+              "texture": "nordtal:ui/kit/dialog_objectives_33_0.png",
+              "height": 33,
+              "ascent": 20
+            },
+            {
+              "code": "FE3CC",
+              "list": "UI_DIALOG_OBJECTIVES_33",
+              "texture": "nordtal:ui/kit/dialog_objectives_33_1.png",
+              "height": 33,
+              "ascent": 20
+            },
+            {
+              "code": "FE3CD",
+              "list": "UI_DIALOG_DUEL_178",
+              "texture": "nordtal:ui/kit/dialog_duel_178_0.png",
+              "height": 178,
+              "ascent": 20
+            },
+            {
+              "code": "FE3CE",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_150",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_150_0.png",
+              "height": 150,
+              "ascent": 20
+            },
+            {
+              "code": "FE3CF",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_150",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_150_1.png",
+              "height": 150,
+              "ascent": 20
+            },
+            {
+              "code": "FE3D0",
+              "list": "UI_DIALOG_WHEEL_137",
+              "texture": "nordtal:ui/kit/dialog_wheel_137_0.png",
+              "height": 137,
+              "ascent": 20
+            }
+          ]
+        }
+      ],
+      "lists": [
+        { "constant": "UI_DIALOG_RIDE_LIST_150" },
+        { "constant": "UI_DIALOG_RIDE_LIST_114" },
+        { "constant": "UI_DIALOG_RIDE_LIST_33" },
+        { "constant": "UI_DIALOG_STATION_78" },
+        { "constant": "UI_DIALOG_STATION_104" },
+        { "constant": "UI_DIALOG_STATION_122" },
+        { "constant": "UI_DIALOG_OBJECTIVES_176" },
+        { "constant": "UI_DIALOG_OBJECTIVES_33" },
+        { "constant": "UI_DIALOG_DUEL_178" },
+        { "constant": "UI_DIALOG_DRAFT_PREVIEW_150" },
+        { "constant": "UI_DIALOG_WHEEL_137" }
+      ]
+    },
+    {
+      "font": "nordtal:ui_tooltip",
+      "constant": "FONT_UI_TOOLTIP",
+      "references": ["nordtal:ui_space"],
+      "about": "The boxes a show_text hover draws over vanilla's tooltip, from the first line's text row: 20 high for one line, 10 n + 12 for n lines after a title, 10 n + 10 without.",
+      "blocks": [
+        {
+          "range": "FE400-FE40F",
+          "title": "Cover 20",
+          "about": "A tooltip box 20 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_20.png",
+          "height": 20,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE400", "list": "UI_COVER_20" },
+            { "code": "FE401", "list": "UI_COVER_20" },
+            { "code": "FE402", "list": "UI_COVER_20" },
+            { "code": "FE403", "list": "UI_COVER_20" },
+            { "code": "FE404", "list": "UI_COVER_20" },
+            { "code": "FE405", "list": "UI_COVER_20" },
+            { "code": "FE406", "list": "UI_COVER_20" },
+            { "code": "FE407", "list": "UI_COVER_20" },
+            { "code": "FE408", "list": "UI_COVER_20" },
+            { "code": "FE409", "list": "UI_COVER_20" }
+          ]
+        },
+        {
+          "range": "FE410-FE41F",
+          "title": "Cover 30",
+          "about": "A tooltip box 30 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_30.png",
+          "height": 30,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE410", "list": "UI_COVER_30" },
+            { "code": "FE411", "list": "UI_COVER_30" },
+            { "code": "FE412", "list": "UI_COVER_30" },
+            { "code": "FE413", "list": "UI_COVER_30" },
+            { "code": "FE414", "list": "UI_COVER_30" },
+            { "code": "FE415", "list": "UI_COVER_30" },
+            { "code": "FE416", "list": "UI_COVER_30" },
+            { "code": "FE417", "list": "UI_COVER_30" },
+            { "code": "FE418", "list": "UI_COVER_30" },
+            { "code": "FE419", "list": "UI_COVER_30" }
+          ]
+        },
+        {
+          "range": "FE420-FE42F",
+          "title": "Cover 32",
+          "about": "A tooltip box 32 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_32.png",
+          "height": 32,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE420", "list": "UI_COVER_32" },
+            { "code": "FE421", "list": "UI_COVER_32" },
+            { "code": "FE422", "list": "UI_COVER_32" },
+            { "code": "FE423", "list": "UI_COVER_32" },
+            { "code": "FE424", "list": "UI_COVER_32" },
+            { "code": "FE425", "list": "UI_COVER_32" },
+            { "code": "FE426", "list": "UI_COVER_32" },
+            { "code": "FE427", "list": "UI_COVER_32" },
+            { "code": "FE428", "list": "UI_COVER_32" },
+            { "code": "FE429", "list": "UI_COVER_32" }
+          ]
+        },
+        {
+          "range": "FE430-FE43F",
+          "title": "Cover 40",
+          "about": "A tooltip box 40 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_40.png",
+          "height": 40,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE430", "list": "UI_COVER_40" },
+            { "code": "FE431", "list": "UI_COVER_40" },
+            { "code": "FE432", "list": "UI_COVER_40" },
+            { "code": "FE433", "list": "UI_COVER_40" },
+            { "code": "FE434", "list": "UI_COVER_40" },
+            { "code": "FE435", "list": "UI_COVER_40" },
+            { "code": "FE436", "list": "UI_COVER_40" },
+            { "code": "FE437", "list": "UI_COVER_40" },
+            { "code": "FE438", "list": "UI_COVER_40" },
+            { "code": "FE439", "list": "UI_COVER_40" }
+          ]
+        },
+        {
+          "range": "FE440-FE44F",
+          "title": "Cover 42",
+          "about": "A tooltip box 42 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_42.png",
+          "height": 42,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE440", "list": "UI_COVER_42" },
+            { "code": "FE441", "list": "UI_COVER_42" },
+            { "code": "FE442", "list": "UI_COVER_42" },
+            { "code": "FE443", "list": "UI_COVER_42" },
+            { "code": "FE444", "list": "UI_COVER_42" },
+            { "code": "FE445", "list": "UI_COVER_42" },
+            { "code": "FE446", "list": "UI_COVER_42" },
+            { "code": "FE447", "list": "UI_COVER_42" },
+            { "code": "FE448", "list": "UI_COVER_42" },
+            { "code": "FE449", "list": "UI_COVER_42" }
+          ]
+        },
+        {
+          "range": "FE450-FE45F",
+          "title": "Cover 50",
+          "about": "A tooltip box 50 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_50.png",
+          "height": 50,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE450", "list": "UI_COVER_50" },
+            { "code": "FE451", "list": "UI_COVER_50" },
+            { "code": "FE452", "list": "UI_COVER_50" },
+            { "code": "FE453", "list": "UI_COVER_50" },
+            { "code": "FE454", "list": "UI_COVER_50" },
+            { "code": "FE455", "list": "UI_COVER_50" },
+            { "code": "FE456", "list": "UI_COVER_50" },
+            { "code": "FE457", "list": "UI_COVER_50" },
+            { "code": "FE458", "list": "UI_COVER_50" },
+            { "code": "FE459", "list": "UI_COVER_50" }
+          ]
+        },
+        {
+          "range": "FE460-FE46F",
+          "title": "Cover 52",
+          "about": "A tooltip box 52 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_52.png",
+          "height": 52,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE460", "list": "UI_COVER_52" },
+            { "code": "FE461", "list": "UI_COVER_52" },
+            { "code": "FE462", "list": "UI_COVER_52" },
+            { "code": "FE463", "list": "UI_COVER_52" },
+            { "code": "FE464", "list": "UI_COVER_52" },
+            { "code": "FE465", "list": "UI_COVER_52" },
+            { "code": "FE466", "list": "UI_COVER_52" },
+            { "code": "FE467", "list": "UI_COVER_52" },
+            { "code": "FE468", "list": "UI_COVER_52" },
+            { "code": "FE469", "list": "UI_COVER_52" }
+          ]
+        },
+        {
+          "range": "FE470-FE47F",
+          "title": "Cover 60",
+          "about": "A tooltip box 60 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_60.png",
+          "height": 60,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE470", "list": "UI_COVER_60" },
+            { "code": "FE471", "list": "UI_COVER_60" },
+            { "code": "FE472", "list": "UI_COVER_60" },
+            { "code": "FE473", "list": "UI_COVER_60" },
+            { "code": "FE474", "list": "UI_COVER_60" },
+            { "code": "FE475", "list": "UI_COVER_60" },
+            { "code": "FE476", "list": "UI_COVER_60" },
+            { "code": "FE477", "list": "UI_COVER_60" },
+            { "code": "FE478", "list": "UI_COVER_60" },
+            { "code": "FE479", "list": "UI_COVER_60" }
+          ]
+        },
+        {
+          "range": "FE480-FE48F",
+          "title": "Cover 62",
+          "about": "A tooltip box 62 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_62.png",
+          "height": 62,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE480", "list": "UI_COVER_62" },
+            { "code": "FE481", "list": "UI_COVER_62" },
+            { "code": "FE482", "list": "UI_COVER_62" },
+            { "code": "FE483", "list": "UI_COVER_62" },
+            { "code": "FE484", "list": "UI_COVER_62" },
+            { "code": "FE485", "list": "UI_COVER_62" },
+            { "code": "FE486", "list": "UI_COVER_62" },
+            { "code": "FE487", "list": "UI_COVER_62" },
+            { "code": "FE488", "list": "UI_COVER_62" },
+            { "code": "FE489", "list": "UI_COVER_62" }
+          ]
+        },
+        {
+          "range": "FE490-FE49F",
+          "title": "Cover 70",
+          "about": "A tooltip box 70 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_70.png",
+          "height": 70,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE490", "list": "UI_COVER_70" },
+            { "code": "FE491", "list": "UI_COVER_70" },
+            { "code": "FE492", "list": "UI_COVER_70" },
+            { "code": "FE493", "list": "UI_COVER_70" },
+            { "code": "FE494", "list": "UI_COVER_70" },
+            { "code": "FE495", "list": "UI_COVER_70" },
+            { "code": "FE496", "list": "UI_COVER_70" },
+            { "code": "FE497", "list": "UI_COVER_70" },
+            { "code": "FE498", "list": "UI_COVER_70" },
+            { "code": "FE499", "list": "UI_COVER_70" }
+          ]
+        },
+        {
+          "range": "FE4A0-FE4AF",
+          "title": "Cover 72",
+          "about": "A tooltip box 72 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_72.png",
+          "height": 72,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE4A0", "list": "UI_COVER_72" },
+            { "code": "FE4A1", "list": "UI_COVER_72" },
+            { "code": "FE4A2", "list": "UI_COVER_72" },
+            { "code": "FE4A3", "list": "UI_COVER_72" },
+            { "code": "FE4A4", "list": "UI_COVER_72" },
+            { "code": "FE4A5", "list": "UI_COVER_72" },
+            { "code": "FE4A6", "list": "UI_COVER_72" },
+            { "code": "FE4A7", "list": "UI_COVER_72" },
+            { "code": "FE4A8", "list": "UI_COVER_72" },
+            { "code": "FE4A9", "list": "UI_COVER_72" }
+          ]
+        },
+        {
+          "range": "FE4B0-FE4BF",
+          "title": "Cover 80",
+          "about": "A tooltip box 80 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_80.png",
+          "height": 80,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE4B0", "list": "UI_COVER_80" },
+            { "code": "FE4B1", "list": "UI_COVER_80" },
+            { "code": "FE4B2", "list": "UI_COVER_80" },
+            { "code": "FE4B3", "list": "UI_COVER_80" },
+            { "code": "FE4B4", "list": "UI_COVER_80" },
+            { "code": "FE4B5", "list": "UI_COVER_80" },
+            { "code": "FE4B6", "list": "UI_COVER_80" },
+            { "code": "FE4B7", "list": "UI_COVER_80" },
+            { "code": "FE4B8", "list": "UI_COVER_80" },
+            { "code": "FE4B9", "list": "UI_COVER_80" }
+          ]
+        },
+        {
+          "range": "FE4C0-FE4CF",
+          "title": "Cover 82",
+          "about": "A tooltip box 82 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_82.png",
+          "height": 82,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE4C0", "list": "UI_COVER_82" },
+            { "code": "FE4C1", "list": "UI_COVER_82" },
+            { "code": "FE4C2", "list": "UI_COVER_82" },
+            { "code": "FE4C3", "list": "UI_COVER_82" },
+            { "code": "FE4C4", "list": "UI_COVER_82" },
+            { "code": "FE4C5", "list": "UI_COVER_82" },
+            { "code": "FE4C6", "list": "UI_COVER_82" },
+            { "code": "FE4C7", "list": "UI_COVER_82" },
+            { "code": "FE4C8", "list": "UI_COVER_82" },
+            { "code": "FE4C9", "list": "UI_COVER_82" }
+          ]
+        },
+        {
+          "range": "FE4D0-FE4DF",
+          "title": "Cover 90",
+          "about": "A tooltip box 90 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_90.png",
+          "height": 90,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE4D0", "list": "UI_COVER_90" },
+            { "code": "FE4D1", "list": "UI_COVER_90" },
+            { "code": "FE4D2", "list": "UI_COVER_90" },
+            { "code": "FE4D3", "list": "UI_COVER_90" },
+            { "code": "FE4D4", "list": "UI_COVER_90" },
+            { "code": "FE4D5", "list": "UI_COVER_90" },
+            { "code": "FE4D6", "list": "UI_COVER_90" },
+            { "code": "FE4D7", "list": "UI_COVER_90" },
+            { "code": "FE4D8", "list": "UI_COVER_90" },
+            { "code": "FE4D9", "list": "UI_COVER_90" }
+          ]
+        },
+        {
+          "range": "FE4E0-FE4EF",
+          "title": "Cover 92",
+          "about": "A tooltip box 92 high: its outline column, its rim column and fill runs of 1 to 128 columns.",
+          "texture": "nordtal:ui/kit/cover_92.png",
+          "height": 92,
+          "ascent": 13,
+          "glyphs": [
+            { "code": "FE4E0", "list": "UI_COVER_92" },
+            { "code": "FE4E1", "list": "UI_COVER_92" },
+            { "code": "FE4E2", "list": "UI_COVER_92" },
+            { "code": "FE4E3", "list": "UI_COVER_92" },
+            { "code": "FE4E4", "list": "UI_COVER_92" },
+            { "code": "FE4E5", "list": "UI_COVER_92" },
+            { "code": "FE4E6", "list": "UI_COVER_92" },
+            { "code": "FE4E7", "list": "UI_COVER_92" },
+            { "code": "FE4E8", "list": "UI_COVER_92" },
+            { "code": "FE4E9", "list": "UI_COVER_92" }
+          ]
+        }
+      ],
+      "lists": [
+        { "constant": "UI_COVER_20" },
+        { "constant": "UI_COVER_30" },
+        { "constant": "UI_COVER_32" },
+        { "constant": "UI_COVER_40" },
+        { "constant": "UI_COVER_42" },
+        { "constant": "UI_COVER_50" },
+        { "constant": "UI_COVER_52" },
+        { "constant": "UI_COVER_60" },
+        { "constant": "UI_COVER_62" },
+        { "constant": "UI_COVER_70" },
+        { "constant": "UI_COVER_72" },
+        { "constant": "UI_COVER_80" },
+        { "constant": "UI_COVER_82" },
+        { "constant": "UI_COVER_90" },
+        { "constant": "UI_COVER_92" }
+      ]
+    },
+    {
+      "font": "nordtal:ui_silent",
+      "constant": "FONT_UI_SILENT",
+      "silent": true,
+      "about": "Every vanilla letter with an advance of 0 and nothing drawn: words a narrator reads that the screen does not show."
     }
   ]
 }

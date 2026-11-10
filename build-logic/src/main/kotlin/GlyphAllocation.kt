@@ -12,11 +12,20 @@ import java.io.File
 class GlyphAllocation private constructor(
     val fonts: List<Font>,
 ) {
-    /** One font file, or six when [rows] is set. `{row}` in [id] is the row, and each row sits [pitch] lower than the previous row. */
+    /**
+     * One font file, or one per row or shift. `{row}` in [id] is the row, and each row sits [pitch] lower than the
+     * previous row. `{shift}` in [id] is one of [shifts], and that font draws every bitmap that many pixels lower.
+     * [letters] adds vanilla's letter sheets, [silent] maps every vanilla letter to an empty advance of 0, and
+     * [references] names the fonts whose providers come first.
+     */
     class Font(
         val id: String,
         val rows: Int?,
         val pitch: Int,
+        val shifts: List<Int>?,
+        val letters: Boolean,
+        val silent: Boolean,
+        val references: List<String>,
         val constant: String?,
         val ownNumbering: Boolean,
         val about: String?,
@@ -24,7 +33,16 @@ class GlyphAllocation private constructor(
         val blocks: List<Block>,
         val lists: List<GlyphList>,
     ) {
-        val ids: List<String> get() = rows?.let { count -> (0 until count).map { id.replace(ROW, "$it") } } ?: listOf(id)
+        val ids: List<String> get() = variants.map { it.first }
+
+        /** Each font file of this entry with how many pixels lower it draws its bitmaps. */
+        val variants: List<Pair<String, Int>>
+            get() =
+                when {
+                    rows != null -> (0 until rows).map { id.replace(ROW, "$it") to it * pitch }
+                    shifts != null -> shifts.map { id.replace(SHIFT, "$it") to it }
+                    else -> listOf(id to 0)
+                }
 
         val glyphs: List<Glyph> get() = blocks.flatMap { it.glyphs }
     }
@@ -77,6 +95,7 @@ class GlyphAllocation private constructor(
         const val DEFAULT_FONT = "minecraft:default"
 
         private const val ROW = "{row}"
+        private const val SHIFT = "{shift}"
         val STATUSES = setOf("keep", "final candidate", "placeholder")
         val SUPPLEMENTARY_PRIVATE_USE_A = 0xF0000..0xFFFFD
         private val CONSTANT = Regex("""[A-Z][A-Z0-9_]*""")
@@ -97,25 +116,58 @@ class GlyphAllocation private constructor(
         }
 
         private fun readFont(node: Node): Font {
-            node.allow("font", "rows", "pitch", "constant", "numbering", "about", "spaces", "blocks", "lists")
+            node.allow(
+                "font",
+                "rows",
+                "pitch",
+                "shifts",
+                "letters",
+                "silent",
+                "references",
+                "constant",
+                "numbering",
+                "about",
+                "spaces",
+                "blocks",
+                "lists",
+            )
             val id = node.string("font", required = true) ?: ""
             val font = node.named(id)
             val rows = font.int("rows")
             val pitch = font.int("pitch")
-            Identifier.problem(id.replace(ROW, "0"))?.let { font.problem("'$id' is not a font id such as nordtal:board: $it") }
+            val shifts = font.ints("shifts")
+            Identifier.problem(id.replace(ROW, "0").replace(SHIFT, "0"))?.let {
+                font.problem("'$id' is not a font id such as nordtal:board: $it")
+            }
             if ((ROW in id) != (rows != null)) font.problem("'{row}' belongs in the id exactly when 'rows' is set")
             if ((pitch != null) != (rows != null)) font.problem("'pitch' is set exactly when 'rows' is")
+            if ((SHIFT in id) != (shifts != null)) font.problem("'{shift}' belongs in the id exactly when 'shifts' is set")
+            if (rows != null && shifts != null) font.problem("a font has 'rows' or 'shifts', not both")
+            if (shifts != null && (shifts.isEmpty() || shifts.any { it < 0 } || shifts.distinct().size != shifts.size)) {
+                font.problem("'shifts' lists distinct whole numbers of 0 or more")
+            }
+            val references = font.strings("references").orEmpty()
+            references.forEach { reference ->
+                Identifier.problem(reference)?.let { font.problem("reference '$reference' is not a font id: $it") }
+            }
             val numbering = font.string("numbering")
             if (numbering != null && numbering != "own") font.problem("'numbering' is either absent or \"own\"")
             return Font(
                 id = id,
                 rows = rows,
                 pitch = pitch ?: 0,
+                shifts = shifts,
+                letters = font.boolean("letters"),
+                silent = font.boolean("silent"),
+                references = references,
                 constant = font.string("constant"),
                 ownNumbering = numbering == "own",
                 about = font.string("about"),
                 spaces = font.objects("spaces").map { readSpace(it) },
-                blocks = font.objects("blocks", required = true).map { readBlock(it) },
+                blocks =
+                    font.objects("blocks", required = !font.boolean("letters") && !font.boolean("silent") && !font.has("spaces")).map {
+                        readBlock(it)
+                    },
                 lists =
                     font.objects("lists").map {
                         it.allow("constant", "about")
@@ -363,6 +415,20 @@ class GlyphAllocation private constructor(
             if (!CODE.matches(text)) problem("'$key' is a hex code point in capitals, such as FE004, not '$text'")
             return text.toIntOrNull(16)
         }
+
+        fun boolean(key: String): Boolean =
+            when (val value = map[key]) {
+                null -> false
+                is Boolean -> value
+                else -> false.also { problem("'$key' is true or false") }
+            }
+
+        fun ints(key: String): List<Int>? =
+            when (val value = map[key]) {
+                null -> null
+                is List<*> -> value.filterIsInstance<Int>().also { if (it.size != value.size) problem("'$key' holds a non-integer") }
+                else -> null.also { problem("'$key' is not a list") }
+            }
 
         fun strings(key: String): List<String>? =
             when (val value = map[key]) {

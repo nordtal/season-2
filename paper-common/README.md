@@ -3,20 +3,21 @@
 `paper-common` holds what every Nordtal Paper plugin shares. `:architecture` refuses the platform
 API that a facility wraps anywhere else.
 
-| facility         | purpose                                                                            |
-| ---------------- | ---------------------------------------------------------------------------------- |
-| `NordtalPlugin`  | The start and stop of smp, hunger-games and limbo.                                 |
-| `PaperScheduler` | A `Scheduler` for off-thread work, with `onMain`, `onMainAfter` and `onMainEvery`. |
-| `hud()`          | The boss bar `HudLine`s of each player, rendered four times a second.              |
-| `Menu`, `Menus`  | Chest inventory windows with a `MenuTitle`.                                        |
-| `GameDataExport` | The server's registries as its row of `game_catalogue`.                            |
-| `CommandTrees`   | The server's commands as its row of `command_tree`.                                |
-| `GameKeys`       | The reading of a setting that names an item, block, statistic or entity.           |
-| `WorldDistances` | The view and simulation distance of every world.                                   |
-| `Identities`     | The session cache of `PlayerIdentity` from `:database`.                            |
-| `ModeStates`     | Each player's Survival and Creative states, kept apart in `game_mode_state`.       |
-| `Previews`       | An admin's text or drafted document, shown to a player as the live one would be.   |
-| `renderer()`     | The message renderer for chat and replies.                                         |
+| facility          | purpose                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `NordtalPlugin`   | The start and stop of smp, hunger-games and limbo.                                 |
+| `PaperScheduler`  | A `Scheduler` for off-thread work, with `onMain`, `onMainAfter` and `onMainEvery`. |
+| `hud()`           | The boss bar `HudLine`s of each player, rendered four times a second.              |
+| `Menu`, `Menus`   | Chest inventory windows with a `MenuTitle`.                                        |
+| `ContainerTitles` | The drawn chest panel in the title of every chest window that is not a `Menu`.     |
+| `GameDataExport`  | The server's registries as its row of `game_catalogue`.                            |
+| `CommandTrees`    | The server's commands as its row of `command_tree`.                                |
+| `GameKeys`        | The reading of a setting that names an item, block, statistic or entity.           |
+| `WorldDistances`  | The view and simulation distance of every world.                                   |
+| `Identities`      | The session cache of `PlayerIdentity` from `:database`.                            |
+| `ModeStates`      | Each player's Survival and Creative states, kept apart in `game_mode_state`.       |
+| `Previews`        | An admin's text or drafted document, shown to a player as the live one would be.   |
+| `renderer()`      | The message renderer for chat and replies.                                         |
 
 ## The plugin base
 
@@ -41,6 +42,10 @@ warning.
 - A `Menu` title cannot be redrawn, so a page turn opens a next menu. `click` answers with a
   `MenuClick`: a sound, then a next menu or a close. `closed` runs on every close. `stopped` runs
   when the plugin stops, before `disable()`, because Paper disconnects players after the plugins stop.
+- The pack empties vanilla's chest art, so `ContainerTitles` draws the panel into every chest
+  window of 1 to 6 rows that no `Menu` holds: a placed chest, barrel, ender chest or chest minecart,
+  and a plugin's own chest window. It keeps the window's name, cuts a renamed one with "…" and
+  takes a large chest's name from either half.
 - `GameDataExport` runs on the first tick after the start. A failed write costs the pickers of
   Steward this server's entries.
 - `CommandTrees` reads the dispatcher on the main thread and writes the tree off it, only when the

@@ -42,9 +42,17 @@ public final class PackAdvances {
                 }
                 continue;
             }
-
-            final BufferedImage image =
-                    read(FontFile.texturePath(provider.get("file").getAsString()));
+            if ("reference".equals(provider.get("type").getAsString())) {
+                referenced(provider.get("id").getAsString()).forEach(table::putIfAbsent);
+                continue;
+            }
+            final java.nio.file.Path texture =
+                    FontFile.texturePath(provider.get("file").getAsString());
+            if (!java.nio.file.Files.isRegularFile(texture)) {
+                // A vanilla sheet that the pack does not override, such as vanilla's letters.
+                continue;
+            }
+            final BufferedImage image = read(texture);
             final int rows = provider.getAsJsonArray("chars").size();
             final int columns = provider.getAsJsonArray("chars")
                     .get(0)
@@ -75,6 +83,14 @@ public final class PackAdvances {
             }
         }
         return table;
+    }
+
+    /** The advances of the pack font {@code id}; vanilla's own fonts are the client's and count as none. */
+    private static Map<Integer, Integer> referenced(final String id) {
+        if (id.startsWith("minecraft:")) {
+            return Map.of();
+        }
+        return of(RepositoryRoot.packAssets() + "/" + id.replace(":", "/font/") + ".json");
     }
 
     /** The rightmost column of the cell with any alpha, relative to the cell, or -1. */

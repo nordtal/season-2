@@ -45,14 +45,32 @@ public final class Pill {
         final String font = Pen.artFont(0);
         final List<String> glyphs = Glyphs.UI_PILL;
         final Pen pen = Pen.start().art(font, glyphs.get(0), PAD);
-        pen.runs(font, glyphs.subList(2, glyphs.size()), content);
-        pen.art(font, glyphs.get(1), PAD);
+        body(pen, font, glyphs.subList(2, glyphs.size()), content);
+        pen.moveTo(PAD + content).art(font, glyphs.get(1), PAD);
         pen.moveTo(PAD);
         if (symbol != null) {
             pen.symbol(TEXT, symbol, Colours.INK).move(Symbol.BEFORE_TEXT - Symbol.ADVANCE);
         }
         runs.stream().filter(run -> !run.text().isEmpty()).forEach(run -> pen.text(TEXT, run.text(), run.colour()));
         return pen.build(content + 2 * PAD);
+    }
+
+    /**
+     * Draws the pill's middle, each piece over the last column of the one before and of the ends.
+     * Its columns are all alike, and in the world a display places each glyph at fractional pixels, where two glyphs
+     * that only touch leave a hairline of sky between them.
+     */
+    private static void body(final Pen pen, final String font, final List<String> middles, final int content) {
+        final int end = PAD + content + 1;
+        int x = PAD - 1;
+        while (true) {
+            final int length = Integer.highestOneBit(Math.min(end - x, 1 << (middles.size() - 1)));
+            pen.moveTo(x).art(font, middles.get(Integer.numberOfTrailingZeros(length)), length);
+            if (x + length >= end) {
+                return;
+            }
+            x += length - 1;
+        }
     }
 
     private static int content(final @Nullable Symbol symbol, final String text) {

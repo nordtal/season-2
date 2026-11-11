@@ -5,6 +5,7 @@ import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.packrendering.ui.Pill;
+import eu.nordtal.season.papercommon.hud.PillHologram;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.config.NpcSpec;
 import io.papermc.paper.datacomponent.item.ResolvableProfile;
@@ -98,7 +99,11 @@ public final class SpawnNpc {
 
     /** Draws the NPC's name on a grey pill without a symbol, in the language of each viewer. */
     static Function<UUID, Component> name(final Function<UUID, Locale> languageOf, final MessageRenderer renderer) {
-        return viewer -> Pill.of(renderer.plainLine(languageOf.apply(viewer), Sent.of(NAME)));
+        return viewer -> Pill.of(
+                null,
+                PillHologram.runs(
+                        renderer.format(languageOf.apply(viewer), Sent.of(NAME)),
+                        renderer.raw().environment().palette()));
     }
 
     public void remove() {

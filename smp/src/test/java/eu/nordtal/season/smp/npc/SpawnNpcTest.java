@@ -1,18 +1,21 @@
 package eu.nordtal.season.smp.npc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.packrendering.ui.Pill;
+import eu.nordtal.season.papercommon.hud.PillHologram;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
 
 class SpawnNpcTest {
@@ -27,7 +30,20 @@ class SpawnNpcTest {
         final Function<UUID, Component> name =
                 SpawnNpc.name(Map.of(ENGLISH, Locale.ENGLISH, GERMAN, Locale.GERMAN)::get, renderer);
 
-        assertEquals(Pill.of(renderer.plainLine(Locale.ENGLISH, Sent.of(SpawnNpc.NAME))), name.apply(ENGLISH));
-        assertEquals(Pill.of(renderer.plainLine(Locale.GERMAN, Sent.of(SpawnNpc.NAME))), name.apply(GERMAN));
+        assertEquals(pill(renderer, Locale.ENGLISH), name.apply(ENGLISH));
+        assertEquals(pill(renderer, Locale.GERMAN), name.apply(GERMAN));
+        assertFalse(
+                PlainTextComponentSerializer.plainText()
+                        .serialize(name.apply(ENGLISH))
+                        .contains("<"),
+                "the name's markup is formatted, never drawn");
+    }
+
+    private static Component pill(final MessageRenderer renderer, final Locale locale) {
+        return Pill.of(
+                null,
+                PillHologram.runs(
+                        renderer.format(locale, Sent.of(SpawnNpc.NAME)),
+                        renderer.raw().environment().palette()));
     }
 }

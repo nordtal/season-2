@@ -65,6 +65,7 @@ import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.state.SeasonState;
 import eu.nordtal.season.smp.takein.ItemTakeIn;
 import eu.nordtal.season.smp.wheel.SpinDao;
+import eu.nordtal.season.smp.wheel.Wheel;
 import eu.nordtal.season.smp.world.Datapacks;
 import eu.nordtal.season.smp.world.Worlds;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -141,6 +142,9 @@ public final class SmpPlugin extends NordtalPlugin {
 
     @Nullable
     Duels duels;
+
+    @Nullable
+    Wheel wheel;
 
     @Nullable
     SpawnNpc npc;
@@ -268,6 +272,7 @@ public final class SmpPlugin extends NordtalPlugin {
         final SmpStart.Activities activities = SmpStart.wireActivities(this, wired.effects());
         graves = activities.graves();
         duels = activities.duels();
+        wheel = activities.wheel();
         SmpStart.registerActivityListeners(this, activities);
         npc = SmpStart.wireNpc(this);
         SmpStart.restoreGravesAndRegisterWorld(this);
@@ -408,6 +413,10 @@ public final class SmpPlugin extends NordtalPlugin {
         final SpawnNpc figure = npc;
         if (figure != null) {
             quietly("npc.remove", figure::remove);
+        }
+        final Wheel turning = wheel;
+        if (turning != null) {
+            quietly("wheel.stop", turning::stop);
         }
         final Duels running = duels;
         if (running != null) {

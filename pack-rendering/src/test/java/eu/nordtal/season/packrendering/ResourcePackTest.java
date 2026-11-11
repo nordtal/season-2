@@ -276,8 +276,10 @@ class ResourcePackTest {
         try (Stream<Path> walk = Files.walk(textures)) {
             walk.filter(path -> path.toString().endsWith(".png")).forEach(path -> {
                 final String relative = RepositoryRoot.relative(textures, path);
-                // A gui sprite, such as a tooltip style's, is reached through the gui atlas, not a font.
-                if (!relative.startsWith("gui/sprites/") && !referenced.contains("nordtal:" + relative)) {
+                // A gui sprite is reached through the gui atlas and the wheel's art through its generated models.
+                if (!relative.startsWith("gui/sprites/")
+                        && !relative.startsWith("item/wheel/")
+                        && !referenced.contains("nordtal:" + relative)) {
                     orphans.add("nordtal:" + relative);
                 }
             });

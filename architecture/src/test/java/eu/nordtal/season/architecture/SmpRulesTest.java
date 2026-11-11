@@ -361,15 +361,14 @@ class SmpRulesTest {
                 .check(classes);
     }
 
-    /** A wheel still spinning at shutdown pays out through its one-shot latch, before the pool is gone. */
+    /** A wheel still turning at shutdown pays out through its one-shot latch, before the pool is gone. */
     @Test
     void aSpinStillRunningAtShutdownPaysOut() {
         classes()
-                .that(isListed("eu.nordtal.season.smp.wheel.WheelGui"))
-                .should(callFrom("stopped", "WheelGui#finish"))
-                .andShould(callFrom("closed", "WheelGui#finish"))
+                .that(isListed("eu.nordtal.season.smp.SmpPlugin"))
+                .should(callFrom("disable", "Wheel#stop"))
                 .because("Paper disables plugins before it disconnects players, and the spin is spent before the"
-                        + " first frame")
+                        + " turn starts")
                 .check(classes);
         classes()
                 .that(isListed(PLUGIN_BASE))

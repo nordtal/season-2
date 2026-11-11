@@ -128,6 +128,15 @@ public interface SoundsSpec {
         return DefaultSounds.SWITCH;
     }
 
+    /** A piece popping into its place: the prizes swapped onto the wheel before it turns. */
+    @Order(14)
+    @Name("Pop")
+    @Key("pop")
+    @NoExplanationNeeded
+    default SoundSpec pop() {
+        return DefaultSounds.POP;
+    }
+
     /** One sound: the key, how loud, how fast. */
     @ConfigSpec
     interface SoundSpec {

@@ -28,4 +28,16 @@ class DialogsTest {
         assertTrue(clicks.send().answer(() -> ran.add("redrawn")));
         assertEquals(List.of("first", "redrawn"), ran);
     }
+
+    @Test
+    void aClickWhileBusyIsIgnoredAndKeepsTheToken() {
+        final Dialogs.Send send = clicks.send();
+        final boolean[] busy = {true};
+
+        assertFalse(send.answerUnless(() -> busy[0], () -> ran.add("early")));
+        busy[0] = false;
+        assertTrue(send.answerUnless(() -> busy[0], () -> ran.add("spin")));
+        assertFalse(send.answerUnless(() -> busy[0], () -> ran.add("twice")));
+        assertEquals(List.of("spin"), ran);
+    }
 }

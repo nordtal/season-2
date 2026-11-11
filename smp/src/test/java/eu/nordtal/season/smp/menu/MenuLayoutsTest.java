@@ -19,14 +19,6 @@ import org.junit.jupiter.api.Test;
 class MenuLayoutsTest {
 
     @Test
-    void theWheelPlacesItsAgainPlateBesideTheRingOnItsMiddleRow() {
-        final DocumentDeclaration wheel = menu("wheel");
-
-        assertEquals(6, wheel.rows());
-        assertEquals(List.of(32, 33, 34, 35), at(wheel, "again"));
-    }
-
-    @Test
     void theHandInPlacesItsSampleInTheActionRowUnderTheSlots() {
         final DocumentDeclaration handIn = menu("hand-in");
 

@@ -28,6 +28,8 @@ public final class EntityNameTag {
     /** Wide enough that no name wraps. */
     private static final int LINE_WIDTH = 10000;
 
+    private static final int FULL_BRIGHTNESS = 15;
+
     private final Entity entity;
     private final Function<UUID, Component> text;
     private final TextDisplayWrapper display = new TextDisplayWrapper();
@@ -69,6 +71,8 @@ public final class EntityNameTag {
         this.display.setSeeThrough(true);
         this.display.setBackground(NO_BACKGROUND);
         this.display.setLineWidth(LINE_WIDTH);
+        // As every pill hologram: the same grey by day, by night and behind a wall.
+        this.display.setBrightness(FULL_BRIGHTNESS);
         this.display.setTranslation(config.getOffset());
         this.display.setScale(config.getScale());
         this.display.setText(this.text.apply(viewerId));

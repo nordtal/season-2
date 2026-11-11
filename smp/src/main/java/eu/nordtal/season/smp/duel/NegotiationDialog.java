@@ -97,9 +97,10 @@ final class NegotiationDialog {
             });
         });
         // The status stands centred under the kits, as a single row of a plain_message would.
-        column.gap(STATUS_GAP)
-                .text(line ->
-                        line.at((WIDTH - Letters.visibleWidth(status)) / 2).text(status, Colours.SOFT));
+        column.gap(STATUS_GAP).text(line -> {
+            final String shown = Letters.cut(status, WIDTH);
+            line.at((WIDTH - Letters.visibleWidth(shown)) / 2).text(shown, Colours.SOFT);
+        });
         final List<DialogBody> body = List.of(Dialogs.line(column.build(), WIDTH));
         final DialogTitle title = DialogTitle.of(DialogPanel.DUEL_124, column.panelTop())
                 .header(Symbol.SHIELD, Dialogs.plain(document.title()), List.of());

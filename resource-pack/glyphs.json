@@ -1420,7 +1420,7 @@
       "shifts": [-2, 0, 4, 8, 11, 17, 20, 24, 28, 29, 37, 40, 44, 47, 48, 50, 57, 60, 64, 65, 80, 83, 84, 101],
       "constant": "FONT_UI_ART",
       "references": ["nordtal:ui_space"],
-      "about": "Plates, frames, the bar and the pill. Shift 0 puts the art's top on a dialog line's text row; 11 + 18 r on chest content row r.",
+      "about": "Plates, frames, the bar and the pill. Shift 0 puts the art's top on a dialog line's text row; 11 + 18 r on chest content row r. A dialog column's rows take their shift from their place in it, and −2 raises the line after a column, its art 2 above its box's text row.",
       "blocks": [
         {
           "range": "FE340-FE34F",

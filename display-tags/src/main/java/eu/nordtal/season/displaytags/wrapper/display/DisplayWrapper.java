@@ -13,10 +13,18 @@ public class DisplayWrapper extends EntityWrapper {
 
     private static final int INDEX_SCALE = 12;
     private static final int INDEX_BILLBOARD_CONSTRAINTS = 15;
+    private static final int INDEX_BRIGHTNESS_OVERRIDE = 16;
+
+    /** No override: the display takes the light where it stands. */
+    private static final int WORLD_LIGHT = -1;
+
+    private static final int BLOCK_LIGHT_SHIFT = 4;
+    private static final int SKY_LIGHT_SHIFT = 20;
 
     private Vector translation = new Vector(0, 0, 0);
     private Vector scale = new Vector(1, 1, 1);
     private DisplayBillboard billboard = DisplayBillboard.FIXED;
+    private int brightness = WORLD_LIGHT;
 
     public DisplayWrapper(final EntityType type) {
         super(type);
@@ -30,6 +38,7 @@ public class DisplayWrapper extends EntityWrapper {
                 INDEX_TRANSLATION, EntityDataTypes.VECTOR3F, ConversionUtil.fromBukkitVector(this.translation)));
         data.add(new EntityData<>(INDEX_SCALE, EntityDataTypes.VECTOR3F, ConversionUtil.fromBukkitVector(this.scale)));
         data.add(new EntityData<>(INDEX_BILLBOARD_CONSTRAINTS, EntityDataTypes.BYTE, (byte) this.billboard.value));
+        data.add(new EntityData<>(INDEX_BRIGHTNESS_OVERRIDE, EntityDataTypes.INT, this.brightness));
 
         return data;
     }
@@ -56,5 +65,10 @@ public class DisplayWrapper extends EntityWrapper {
 
     public void setBillboard(final DisplayBillboard billboard) {
         this.billboard = billboard;
+    }
+
+    /** Draws the display at {@code light} (0 to 15) for block and sky light, whatever the light where it stands. */
+    public void setBrightness(final int light) {
+        this.brightness = light << BLOCK_LIGHT_SHIFT | light << SKY_LIGHT_SHIFT;
     }
 }

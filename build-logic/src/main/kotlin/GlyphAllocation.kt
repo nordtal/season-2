@@ -14,7 +14,8 @@ class GlyphAllocation private constructor(
 ) {
     /**
      * One font file, or one per row or shift. `{row}` in [id] is the row, and each row sits [pitch] lower than the
-     * previous row. `{shift}` in [id] is one of [shifts], and that font draws every bitmap that many pixels lower, or higher for a negative shift.
+     * previous row. `{shift}` in [id] is one of [shifts], and that font draws every bitmap that many pixels lower,
+     * or higher for a negative shift.
      * [letters] adds vanilla's letter sheets, [silent] maps every vanilla letter to an empty advance of 0, and
      * [references] names the fonts whose providers come first.
      */

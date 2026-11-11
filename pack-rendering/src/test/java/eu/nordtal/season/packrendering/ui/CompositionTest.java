@@ -198,6 +198,12 @@ class CompositionTest {
     void aPillIsItsContentAndTenWide() {
         assertEquals(Letters.visibleWidth("Händler") + 10, Advances.of(Pill.of("Händler")));
         assertEquals(Pill.width("Händler"), Advances.of(Pill.of("Händler")));
+        assertEquals(Pill.width(Symbol.RAIL, "Nordwacht"), Advances.of(Pill.of(Symbol.RAIL, "Nordwacht")));
+        assertEquals(
+                Pill.width(Symbol.GRAVE, "Verschwindet in 4 min"),
+                Advances.of(Pill.of(
+                        Symbol.GRAVE,
+                        List.of(new Pill.Run("Verschwindet in ", Colours.SOFT), new Pill.Run("4 min", Colours.INK)))));
     }
 
     @Test

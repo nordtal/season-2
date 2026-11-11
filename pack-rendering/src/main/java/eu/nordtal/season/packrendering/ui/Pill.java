@@ -61,6 +61,11 @@ public final class Pill {
 
     /** The width of the pill that holds {@code text}. */
     public static int width(final String text) {
-        return Letters.visibleWidth(text) + 2 * PAD;
+        return width(null, text);
+    }
+
+    /** The width of the pill that holds {@code symbol}, if one is given, and {@code text}. */
+    public static int width(final @Nullable Symbol symbol, final String text) {
+        return content(symbol, text) + 2 * PAD;
     }
 }

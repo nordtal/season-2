@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import org.bukkit.Location;
@@ -144,11 +145,38 @@ public final class Wheel {
                 return;
             }
             final String id = discordId.get().value();
-            final Runnable refund = free
-                    ? () -> offThread(() -> dao.restoreFreeSpin(DiscordId.of(id), previousFree, today))
-                    : () -> offThread(() -> dao.restoreEarnedSpin(DiscordId.of(id)));
-            award(player, locale, refund, Math.max(0, spins.available(today) - 1));
+            final Runnable refund = once(
+                    free
+                            ? () -> offThread(() -> dao.restoreFreeSpin(DiscordId.of(id), previousFree, today))
+                            : () -> offThread(() -> dao.restoreEarnedSpin(DiscordId.of(id))));
+            // Until the wheel shows, a shutdown puts the spin back.
+            turning.replace(uuid, refund);
+            final int spinsLeft = Math.max(0, spins.available(today) - 1);
+            guarded(uuid, refund, () -> award(player, locale, refund, spinsLeft));
         });
+    }
+
+    /**
+     * Runs {@code step} of a taken spin. If it throws, the spin is put back and the player can spin again.
+     */
+    private void guarded(final UUID uuid, final Runnable refund, final Runnable step) {
+        try {
+            step.run();
+        } catch (final RuntimeException e) {
+            turning.remove(uuid);
+            refund.run();
+            plugin.getLogger().log(Level.WARNING, "the wheel failed during a spin, which was put back", e);
+        }
+    }
+
+    /** {@code action}, run at most once however often it is called. */
+    private static Runnable once(final Runnable action) {
+        final AtomicBoolean ran = new AtomicBoolean();
+        return () -> {
+            if (ran.compareAndSet(false, true)) {
+                action.run();
+            }
+        };
     }
 
     /** Spends no spin. */
@@ -189,40 +217,48 @@ public final class Wheel {
         final int variant = variants.get(random.nextInt(variants.size()));
         final WheelPlan.Face before = faces.getOrDefault(player.getUniqueId(), WheelPlan.Face.random(pool, random));
         final WheelPlan plan = WheelPlan.of(before, prize, others(pool, index), variant);
+        final List<ItemStack> stacks = shown(plan);
+
+        PaperScheduler.of(plugin)
+                .onMain(() -> guarded(player.getUniqueId(), refund, () -> {
+                    if (!player.isOnline()) {
+                        turning.remove(player.getUniqueId());
+                        give(player, item, prize.amount(), locale, refund);
+                        return;
+                    }
+                    final WheelDialog.Texts texts = texts(locale, spinsLeft);
+                    final UUID id = player.getUniqueId();
+                    final ClickEvent again = spinsLeft > 0
+                            ? dialogs.send().clickUnless(() -> turning.containsKey(id), this::spin)
+                            : null;
+                    // The cooldown goes first, so the dialog's first frame already plays the spin.
+                    player.setCooldown(WheelDialog.GROUP, timetable.cooldown());
+                    player.showDialog(WheelDialog.of(plan, stacks, texts, locale.getLanguage(), spinsLeft > 0, again));
+                    faces.put(id, plan.after());
+                    final AtomicBoolean paid = new AtomicBoolean();
+                    final Runnable payout = () -> {
+                        if (paid.compareAndSet(false, true)) {
+                            turning.remove(id);
+                            give(player, item, prize.amount(), locale, refund);
+                        }
+                    };
+                    turning.put(id, payout);
+                    play(player, variant, () -> {
+                        if (player.isOnline() && !paid.get()) {
+                            sounds.play(player, Feedback.BIG_SUCCESS);
+                        }
+                        payout.run();
+                    });
+                }));
+    }
+
+    /** Each body's prize as an item; one whose item does not read shows as a barrier. */
+    private List<ItemStack> shown(final WheelPlan plan) {
         final List<ItemStack> stacks = new ArrayList<>(WheelPlan.PLACES);
         plan.bodies()
                 .forEach(shown -> stacks.add(
                         Objects.requireNonNullElseGet(itemOf(shown), () -> new ItemStack(Material.BARRIER))));
-
-        PaperScheduler.of(plugin).onMain(() -> {
-            if (!player.isOnline()) {
-                turning.remove(player.getUniqueId());
-                give(player, item, prize.amount(), locale, refund);
-                return;
-            }
-            final WheelDialog.Texts texts = texts(locale, spinsLeft);
-            final UUID id = player.getUniqueId();
-            final ClickEvent again =
-                    spinsLeft > 0 ? dialogs.send().clickUnless(() -> turning.containsKey(id), this::spin) : null;
-            // The cooldown goes first, so the dialog's first frame already plays the spin.
-            player.setCooldown(WheelDialog.GROUP, timetable.cooldown());
-            player.showDialog(WheelDialog.of(plan, stacks, texts, locale.getLanguage(), spinsLeft > 0, again));
-            faces.put(id, plan.after());
-            final AtomicBoolean paid = new AtomicBoolean();
-            final Runnable payout = () -> {
-                if (paid.compareAndSet(false, true)) {
-                    turning.remove(id);
-                    give(player, item, prize.amount(), locale, refund);
-                }
-            };
-            turning.put(id, payout);
-            play(player, variant, () -> {
-                if (player.isOnline() && !paid.get()) {
-                    sounds.play(player, Feedback.BIG_SUCCESS);
-                }
-                payout.run();
-            });
-        });
+        return stacks;
     }
 
     private WheelDialog.Texts texts(final Locale locale, final int spinsLeft) {
@@ -241,7 +277,10 @@ public final class Wheel {
                 document.label("again-none"));
     }
 
-    /** Pays out every spin still turning; Paper disables plugins before it disconnects players. */
+    /**
+     * Pays out every spin still turning and puts back every one taken but not shown yet.
+     * Paper disables plugins before it disconnects players.
+     */
     public void stop() {
         List.copyOf(turning.values()).forEach(Runnable::run);
         turning.clear();

@@ -8,9 +8,9 @@ import kotlin.math.floor
 import kotlin.math.sin
 
 /**
- * Where the wheel's parts sit, in GUI pixels. The dialog's body column holds [BODIES] item bodies 10 apart: 1 x 1 bodies
- * on the column's middle and body 5, the plate's row, a 100 x 1 item at the row's left and middle beside its 86 x 26
- * description. Every body draws over the same rectangle, so each part is placed from its body's own origin.
+ * Where the wheel's parts sit, in GUI pixels. The dialog's body column holds [BODIES] item bodies with a gap of 10, so
+ * 11 apart: 1 x 1 bodies on the column's middle and body 5, the plate's row, a 100 x 1 item at the row's left and middle
+ * beside its 86 x [PLATE_ROW_HEIGHT] description. Every body draws over the same rectangle, so each part is placed from its body's own origin.
  */
 internal object WheelLayout {
     const val BODIES = 14

@@ -32,7 +32,8 @@ public final class Dialogs {
     private static final ClickCallback.Options ONCE =
             ClickCallback.Options.builder().uses(1).build();
 
-    private static final ClickCallback.Options MANY =
+    /** A click ignored while busy must not use the callback up, or the click after it would find none. */
+    static final ClickCallback.Options KEPT_WHILE_BUSY =
             ClickCallback.Options.builder().uses(ClickCallback.UNLIMITED_USES).build();
 
     /** A body line's box is this much wider than its art. */
@@ -108,7 +109,7 @@ public final class Dialogs {
                             });
                         }
                     },
-                    MANY);
+                    KEPT_WHILE_BUSY);
         }
 
         /**

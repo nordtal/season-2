@@ -27,6 +27,7 @@ repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
     readsTree("smp/src/main/resources/documents/smp")
+    reads("resource-pack/wheel-prizes.json")
 }
 
 dependencies {

@@ -4,6 +4,7 @@ import eu.nordtal.season.packrendering.Glyphs;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
+import org.jspecify.annotations.Nullable;
 
 /** Composes a label pill: 15 high in the chest window's look, its text in ink 4 rows down, content + 10 wide. */
 public final class Pill {
@@ -25,13 +26,37 @@ public final class Pill {
 
     /** Returns a pill holding {@code text} in {@code colour}, its top on the text row. */
     public static Component of(final String text, final TextColor colour) {
-        final int content = Letters.visibleWidth(text);
+        return of(null, List.of(new Run(text, colour)));
+    }
+
+    /** Returns a pill holding {@code symbol} and {@code text} in ink, as a hologram names a kind of thing. */
+    public static Component of(final Symbol symbol, final String text) {
+        return of(symbol, List.of(new Run(text, Colours.INK)));
+    }
+
+    /** One stretch of a pill's text in its colour. */
+    public record Run(String text, TextColor colour) {}
+
+    /** Returns a pill holding {@code symbol}, if one is given, and {@code runs} after it. */
+    public static Component of(final @Nullable Symbol symbol, final List<Run> runs) {
+        final StringBuilder all = new StringBuilder();
+        runs.forEach(run -> all.append(run.text()));
+        final int content = content(symbol, all.toString());
         final String font = Pen.artFont(0);
         final List<String> glyphs = Glyphs.UI_PILL;
         final Pen pen = Pen.start().art(font, glyphs.get(0), PAD);
         pen.runs(font, glyphs.subList(2, glyphs.size()), content);
         pen.art(font, glyphs.get(1), PAD);
-        return pen.moveTo(PAD).text(TEXT, text, colour).build(width(text));
+        pen.moveTo(PAD);
+        if (symbol != null) {
+            pen.symbol(TEXT, symbol, Colours.INK).move(Symbol.BEFORE_TEXT - Symbol.ADVANCE);
+        }
+        runs.stream().filter(run -> !run.text().isEmpty()).forEach(run -> pen.text(TEXT, run.text(), run.colour()));
+        return pen.build(content + 2 * PAD);
+    }
+
+    private static int content(final @Nullable Symbol symbol, final String text) {
+        return (symbol == null ? 0 : Symbol.BEFORE_TEXT) + Letters.visibleWidth(text);
     }
 
     /** The width of the pill that holds {@code text}. */

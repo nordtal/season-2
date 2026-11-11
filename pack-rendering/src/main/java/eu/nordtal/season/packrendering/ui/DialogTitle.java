@@ -21,8 +21,8 @@ public final class DialogTitle {
     /** The panel's margin: from its edge to the header's capitals and to its content. */
     public static final int MARGIN = 7;
 
-    /** The panel tops the pack has a font for: over a first plate line, a first text line, a frame, the wheel. */
-    public static final List<Integer> TOPS = List.of(49, 50, 43, 64);
+    /** The panel tops the pack has a font for, as glyphs.json describes them. */
+    public static final List<Integer> TOPS = List.of(49, 50, 53, 55, 57, 43, 64);
 
     private static final int HEADER_ROW = 280;
     private static final int FIELD_FRAME = 184;

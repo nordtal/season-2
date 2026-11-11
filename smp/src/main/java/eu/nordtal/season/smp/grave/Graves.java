@@ -10,6 +10,9 @@ import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.packrendering.ui.Pill;
+import eu.nordtal.season.packrendering.ui.Symbol;
+import eu.nordtal.season.papercommon.hud.PillHologram;
 import eu.nordtal.season.papercommon.menu.BlankItem;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -237,8 +240,7 @@ public final class Graves {
         final Duration timeLeft = timeLeft(row);
         final TextDisplay hologram = world.spawn(at.clone().add(0, HOLOGRAM_HEIGHT, 0), TextDisplay.class, display -> {
             display.setPersistent(false);
-            display.setSeeThrough(true);
-            display.setBillboard(Display.Billboard.CENTER);
+            PillHologram.style(display);
             display.text(hologramText(row, timeLeft));
         });
         entities.add(hologram);
@@ -257,13 +259,19 @@ public final class Graves {
         return timeLeft.isNegative() ? Duration.ZERO : timeLeft;
     }
 
-    /** Returns the hologram text in the language of the dead player, or English if the owner is null. */
+    /**
+     * Returns the hologram's pill with the grave symbol.
+     * It is in the language of the dead player, or in English when the owner is unknown.
+     */
     private Component hologramText(final GraveRow row, final Duration timeLeft) {
         final Locale locale = row.ownerUuid() == null ? Locale.ENGLISH : identities.languageOf(row.ownerUuid());
         // Outside the final stretch the text shows whole minutes.
         final Duration shown =
                 timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0 ? timeLeft : timeLeft.truncatedTo(ChronoUnit.MINUTES);
-        return renderer.format(locale, HOLOGRAM.with(new Left(shown)));
+        final Component text = renderer.format(locale, HOLOGRAM.with(new Left(shown)));
+        return Pill.of(
+                Symbol.GRAVE,
+                PillHologram.runs(text, renderer.raw().environment().palette()));
     }
 
     private static long refreshInterval(final Duration timeLeft) {
@@ -419,7 +427,7 @@ public final class Graves {
         return menu;
     }
 
-    /** Returns the head of the dead player. Its lore holds the time and the place of death. */
+    /** Returns the head of the dead player in Nordtal's tooltip. Its lore holds the time and the place of death. */
     private static ItemStack head(final GraveRow row, final GameDocument document) {
         final ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         final UUID owner = row.ownerUuid();
@@ -431,11 +439,9 @@ public final class Graves {
             }
         });
         final PlayerContext player = owner == null || name == null ? null : PlayerContext.of(PlayerId.of(owner), name);
-        return BlankItem.described(
-                head,
-                document.item(
-                        "owner",
-                        new GraveWindow.Owner(player != null, player, row.created(), row.x(), row.y(), row.z())));
+        final GameDocument.Drawn drawn = document.item(
+                "owner", new GraveWindow.Owner(player != null, player, row.created(), row.x(), row.y(), row.z()));
+        return BlankItem.styled(head, drawn.name(), drawn.lore());
     }
 
     /** Moves the content items into the player's inventory and drops what does not fit. */

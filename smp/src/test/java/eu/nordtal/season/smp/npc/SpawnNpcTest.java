@@ -1,12 +1,12 @@
 package eu.nordtal.season.smp.npc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.packrendering.ui.Pill;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -27,8 +27,7 @@ class SpawnNpcTest {
         final Function<UUID, Component> name =
                 SpawnNpc.name(Map.of(ENGLISH, Locale.ENGLISH, GERMAN, Locale.GERMAN)::get, renderer);
 
-        assertEquals(renderer.format(Locale.ENGLISH, Sent.of(SpawnNpc.NAME)), name.apply(ENGLISH));
-        assertEquals(renderer.format(Locale.GERMAN, Sent.of(SpawnNpc.NAME)), name.apply(GERMAN));
-        assertNotEquals(Component.text("Nordtal"), name.apply(ENGLISH), "the text takes its formatting");
+        assertEquals(Pill.of(renderer.plainLine(Locale.ENGLISH, Sent.of(SpawnNpc.NAME))), name.apply(ENGLISH));
+        assertEquals(Pill.of(renderer.plainLine(Locale.GERMAN, Sent.of(SpawnNpc.NAME))), name.apply(GERMAN));
     }
 }

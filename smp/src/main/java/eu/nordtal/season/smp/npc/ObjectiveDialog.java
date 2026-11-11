@@ -7,6 +7,7 @@ import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
@@ -90,7 +91,7 @@ public final class ObjectiveDialog {
     /** The content: the widest card, and the share line with its symbol and the widest pager. */
     static final int WIDTH = 248;
 
-    private static final int TOP = 50;
+    private static final int TEXT_TOP = 50;
 
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;
@@ -132,7 +133,7 @@ public final class ObjectiveDialog {
             final MessageRenderer renderer, final AppliedDocuments documents, final Locale locale, final boolean all) {
         final GameDocument document = document(renderer, documents, locale);
         return Dialog.create(builder -> builder.empty()
-                .base(Dialogs.base(title(document, DialogPanel.OBJECTIVES_33))
+                .base(Dialogs.base(title(document, DialogPanel.OBJECTIVES_33, TEXT_TOP))
                         .body(List.of(Dialogs.line(
                                 BodyLine.textLine()
                                         .text(document.label(all ? "all" : "none"), Colours.SOFT)
@@ -142,8 +143,8 @@ public final class ObjectiveDialog {
                 .type(Dialogs.bodyOnly()));
     }
 
-    private static Component title(final GameDocument document, final DialogPanel panel) {
-        return DialogTitle.of(panel, TOP)
+    private static Component title(final GameDocument document, final DialogPanel panel, final int top) {
+        return DialogTitle.of(panel, top)
                 .header(Symbol.MEDAL, Dialogs.plain(document.title()), List.of())
                 .build();
     }
@@ -155,48 +156,50 @@ public final class ObjectiveDialog {
     private Dialog dialog(final int page) {
         final Dialogs.Send send = dialogs.send();
         final Paging paging = Paging.of(rows.size(), EACH);
-        final List<DialogBody> body = new ArrayList<>();
-        body.add(Dialogs.line(summary(), WIDTH));
+        final List<Card> cards = new ArrayList<>();
         for (final ObjectiveRow row : paging.slice(rows, page)) {
-            milestone
-                    .objective(row.key())
-                    .ifPresent(objective -> body.add(Dialogs.line(card(objective, row, send), WIDTH)));
+            milestone.objective(row.key()).ifPresent(objective -> cards.add(new Card(objective, row)));
         }
-        body.add(Dialogs.line(shareLine(paging, page, send), WIDTH));
+        final BodyColumn column = BodyColumn.of(WIDTH, true)
+                .text(this::summary)
+                .gap(BodyColumn.UNDER_TEXT - BodyColumn.TEXT)
+                .rows(cards.size(), EACH, index -> line -> card(line, cards.get(index), send));
+        final List<DialogBody> body =
+                List.of(Dialogs.line(column.build(), WIDTH), Dialogs.line(shareLine(paging, page, send), WIDTH));
         return Dialog.create(builder -> builder.empty()
-                .base(Dialogs.base(title(document, DialogPanel.OBJECTIVES_176))
+                .base(Dialogs.base(title(document, DialogPanel.OBJECTIVES_124, column.panelTop()))
                         .body(body)
                         .build())
                 .type(Dialogs.bodyOnly()));
     }
 
+    private record Card(Objective objective, ObjectiveRow row) {}
+
     /** The milestone's name at the left and how many objectives are finished at the right. */
-    private Component summary() {
+    private void summary(final BodyLine line) {
         final long done = rows.stream().filter(ObjectiveRow::completed).count();
         final String count = document.label("summary", new Summary(done, rows.size()));
         final int countX = WIDTH - Letters.visibleWidth(count);
         final String name = MilestoneNames.of(renderer, locale, milestone.key());
-        return BodyLine.textLine()
-                .text(Letters.cut(name, countX - BodyLine.PAD - BodyLine.PAD), Colours.INK)
+        line.text(Letters.cut(name, countX - BodyLine.PAD - BodyLine.PAD), Colours.INK)
                 .at(countX)
-                .text(count, Colours.SOFT)
-                // Ends here: the client wraps a line whose pen ever passes its width.
-                .build();
+                .text(count, Colours.SOFT);
     }
 
-    private Component card(final Objective objective, final ObjectiveRow row, final Dialogs.Send send) {
+    private void card(final BodyLine line, final Card card, final Dialogs.Send send) {
+        final Objective objective = card.objective();
+        final ObjectiveRow row = card.row();
         final String name = MilestoneNames.objective(renderer, locale, milestone.key(), objective.key());
         final boolean done = row.completed();
         final String count =
                 done ? document.label("finished") : document.label("count", new Count(row.amount(), row.target()));
         final Optional<OwnShare.Line> own = share.lines().stream()
-                .filter(line -> line.key().equals(objective.key()))
+                .filter(shared -> shared.key().equals(objective.key()))
                 .findFirst();
         final Symbol symbol = symbol(objective);
         if (done) {
-            return BodyLine.start()
-                    .card(WIDTH, symbol, name, count, row.ratio(), true, Look.NORMAL)
-                    .build();
+            line.card(WIDTH, symbol, name, count, row.ratio(), true, Look.NORMAL);
+            return;
         }
         final BodyLine.Press press;
         final String words;
@@ -206,23 +209,21 @@ public final class ObjectiveDialog {
                     .map(wanted -> wanted.item().english())
                     .collect(Collectors.joining(", "));
             final String counts = document.label("counts", new Counts(items));
-            final String text = own.map(line -> counts + "\n" + document.label("part", new Part(line.percent())))
+            final String text = own.map(entry -> counts + "\n" + document.label("part", new Part(entry.percent())))
                     .orElse(counts);
             press = new BodyLine.Press(
                     send.click(player -> openHandIn(player, objective, row)),
                     Tooltip.hover(name, text, document.label("hand-in-hint")));
-            words = own.map(line -> document.label("hand-in-words-shared", new HandInWords(items, line.percent())))
+            words = own.map(entry -> document.label("hand-in-words-shared", new HandInWords(items, entry.percent())))
                     .orElse(document.label("hand-in-words", new Counts(items)));
         } else {
             press = new BodyLine.Press(null, Tooltip.hover(name, document.label("counted"), null));
             words = document.label("counted-words");
         }
-        return BodyLine.start()
-                .button(
-                        press,
-                        line -> line.card(WIDTH, symbol, name, count, row.ratio(), false, Look.NORMAL)
-                                .words(words))
-                .build();
+        line.button(
+                press,
+                part -> part.card(WIDTH, symbol, name, count, row.ratio(), false, Look.NORMAL)
+                        .words(words));
     }
 
     /** A statistic that counts kills shows the swords, any other the pickaxe; an advancement shows its flag. */
@@ -253,7 +254,7 @@ public final class ObjectiveDialog {
         final @Nullable Component tooltip = none ? null : shareTooltip();
         final int room = paging.paged() ? WIDTH - Dialogs.pagerWidth(paging, page) - Symbol.BEFORE_TEXT : WIDTH;
         final String shown = shareText(text, room);
-        final BodyLine line = BodyLine.start()
+        final BodyLine line = BodyColumn.next()
                 .button(
                         new BodyLine.Press(null, tooltip),
                         part -> part.symbol(Symbol.WHEEL, none ? Colours.SOFT : Colours.ACCENT)

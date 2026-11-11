@@ -1,9 +1,9 @@
 package eu.nordtal.season.displaytags.nametag;
 
 import eu.nordtal.season.displaytags.DisplayTags;
-import eu.nordtal.season.displaytags.SeeThroughMode;
-import eu.nordtal.season.displaytags.Util;
 import eu.nordtal.season.displaytags.config.NameTagConfiguration;
+import eu.nordtal.season.displaytags.wrapper.display.DisplayBillboard;
+import eu.nordtal.season.displaytags.wrapper.display.TextAlignment;
 import eu.nordtal.season.displaytags.wrapper.display.TextDisplayWrapper;
 import java.util.List;
 import java.util.Objects;
@@ -18,10 +18,16 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 /**
- * The name tag above an entity that is not a player, with a text of its own for each viewer.
- * It takes the look of the player tags from the settings, and the entity's own name stays hidden.
+ * The name tag above an entity that is not a player, with a text of its own for each viewer, such as a drawn pill.
+ * It has no background or shadow and is seen through blocks; it takes its offset and scale from the settings.
  */
 public final class EntityNameTag {
+    /** A transparent background: the text draws its own. */
+    private static final int NO_BACKGROUND = 0;
+
+    /** Wide enough that no name wraps. */
+    private static final int LINE_WIDTH = 10000;
+
     private final Entity entity;
     private final Function<UUID, Component> text;
     private final TextDisplayWrapper display = new TextDisplayWrapper();
@@ -56,12 +62,13 @@ public final class EntityNameTag {
     // The text is set right before the metadata goes to one viewer, so each viewer gets their own.
     private void updateFor(final UUID viewerId) {
         final NameTagConfiguration config = DisplayTags.get().config();
-        this.display.setTextAlignment(config.getTextAlignment());
-        this.display.setBillboard(config.getBillboard());
-        this.display.setTextShadow(config.hasTextShadow());
-        // shortcut: no faint copy through blocks as player tags draw in VANILLA mode; add one if the NPC needs it.
-        this.display.setSeeThrough(config.getSeeThrough() == SeeThroughMode.ALWAYS);
-        this.display.setBackground(Util.parseDisplayBackground(config.getBackground()));
+        this.display.setTextAlignment(TextAlignment.CENTER);
+        this.display.setBillboard(DisplayBillboard.CENTER);
+        this.display.setTextShadow(false);
+        // A see-through display draws its letters after its pill without a depth test, so they never z-fight.
+        this.display.setSeeThrough(true);
+        this.display.setBackground(NO_BACKGROUND);
+        this.display.setLineWidth(LINE_WIDTH);
         this.display.setTranslation(config.getOffset());
         this.display.setScale(config.getScale());
         this.display.setText(this.text.apply(viewerId));

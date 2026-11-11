@@ -232,6 +232,7 @@ public final class Wheel {
                 Viewer.of(locale),
                 new WheelDialog.Window(spinsLeft));
         return new WheelDialog.Texts(
+                document.title(),
                 Dialogs.plain(document.title()),
                 document.label(spinsLeft > 0 ? "spins-left" : "no-spins-left"),
                 document.label("again-button"),

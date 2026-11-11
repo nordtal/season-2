@@ -72,7 +72,7 @@ final class WheelDialog {
     private WheelDialog() {}
 
     /** The words on the wheel, read from {@link #DOCUMENT} in the player's language. */
-    record Texts(String name, String spins, String again, String title, String cost, String none) {}
+    record Texts(Component heading, String name, String spins, String again, String title, String cost, String none) {}
 
     /** The dialog of {@code plan}, one of {@code prizes} per body; {@code click}, null without spins, spins again. */
     static Dialog of(
@@ -83,7 +83,7 @@ final class WheelDialog {
             final boolean spinLeft,
             final @Nullable ClickEvent click) {
         final List<DialogBody> bodies = new ArrayList<>(WheelPlan.PLACES + 2);
-        bodies.add(body(stack(new ItemStack(Material.PAPER), "disc", plan.disc())));
+        bodies.add(body(stack(named(texts.heading()), "disc", plan.disc())));
         for (int body = 0; body < WheelPlan.PLACES; body++) {
             final ItemStack stack = stack(prizes.get(body), "p" + body, plan.prize(body));
             bodies.add(
@@ -97,7 +97,7 @@ final class WheelDialog {
                                     .build()
                             : body(stack));
         }
-        bodies.add(body(stack(new ItemStack(Material.PAPER), "overlay", plan.overlay(language))));
+        bodies.add(body(stack(named(texts.heading()), "overlay", plan.overlay(language))));
         final Component title = DialogTitle.of(DialogPanel.WHEEL_137, TOP)
                 .header(Symbol.WHEEL, texts.name(), List.of())
                 .build();
@@ -130,6 +130,13 @@ final class WheelDialog {
                 .width(1)
                 .height(1)
                 .build();
+    }
+
+    /** A paper named {@code name}, so the narrator reads the wheel's name instead of the paper's. */
+    private static ItemStack named(final Component name) {
+        final ItemStack stack = new ItemStack(Material.PAPER);
+        stack.setData(DataComponentTypes.ITEM_NAME, name);
+        return stack;
     }
 
     /** One of {@code item}, drawn by the wheel model {@code model} from {@code strings}, in the wheel's group. */

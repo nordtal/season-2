@@ -32,12 +32,18 @@ internal object WheelLayout {
     val ANCHOR = intArrayOf(-2, -10, 98, 106)
     val OVERLAY_ANCHOR = intArrayOf(-2, -10, 184, 106)
 
-    /** Body [body]'s item origin from body 0's. */
+    /**
+     * The plate row's height: its description's padding 4 above and below three text lines, as the client lays it out
+     * (measured in the dev client, the same in every language and with no spin left).
+     */
+    const val PLATE_ROW_HEIGHT = 4 + 3 * 9 + 4
+
+    /** Body [body]'s item origin from body 0's; the plate row's 1-pixel item sits at its row's vertical middle. */
     fun origin(body: Int): IntArray =
         when {
             body < PLATE_ROW -> intArrayOf(0, 11 * body)
-            body == PLATE_ROW -> intArrayOf(-93, 11 * PLATE_ROW + 12)
-            else -> intArrayOf(0, 11 * PLATE_ROW + 26 + 10 + 11 * (body - PLATE_ROW - 1))
+            body == PLATE_ROW -> intArrayOf(-93, 11 * PLATE_ROW + (PLATE_ROW_HEIGHT - 1) / 2)
+            else -> intArrayOf(0, 11 * PLATE_ROW + PLATE_ROW_HEIGHT + 10 + 11 * (body - PLATE_ROW - 1))
         }
 
     /** The disc canvas's top-left from body [body]'s origin. */

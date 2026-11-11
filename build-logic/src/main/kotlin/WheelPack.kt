@@ -79,7 +79,7 @@ internal data class OverlayAt(
 
 /**
  * Every tick of one spin in turn variant [e]: the swap, then the turn. Cooldown tick t of [COOLDOWN] shows the swap
- * while t < [WheelTurn.SWAP_TICKS], then turn tick t - SWAP_TICKS; with no cooldown left each body shows its rest.
+ * while t < [WheelTurn.SWAP_TICKS], then turn tick t-SWAP_TICKS; with no cooldown left each body shows its rest.
  */
 internal class WheelSpin(
     private val e: Int,
@@ -388,7 +388,7 @@ internal class WheelPack(
         return json(mapOf("gui_light" to "front", "textures" to mapOf("t" to t, "particle" to t), "elements" to listOf(element))).toByteArray()
     }
 
-    /** A stack's count as vanilla draws it: digit k of n at x 17 - 6n + 6k, y 9, each 6 x 8 with its shadow. */
+    /** A stack's count as vanilla draws it: digit k of n at x 17-6n+6k, y 9, each 6 x 8 with its shadow. */
     private fun count(n: Int): ByteArray {
         val digits = n.toString()
         val textures = LinkedHashMap<String, Any?>()

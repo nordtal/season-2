@@ -145,7 +145,7 @@ object WheelTurn {
     private val curves = HashMap<Int, Pair<DoubleArray, DoubleArray>>()
 
     /**
-     * Times in ticks and angles of variant [e]: one speed curve v = v0 (1 - u)^4 + c (1 - u)^0.5 to rest 21 degrees past
+     * Times in ticks and angles of variant [e]: one speed curve v = v0 (1-u)^4 + c (1-u)^0.5 to rest 21 degrees past
      * the winner, passing it at 2 degrees a tick, slowed at each of the last four pegs, then a cosine back.
      */
     @Synchronized

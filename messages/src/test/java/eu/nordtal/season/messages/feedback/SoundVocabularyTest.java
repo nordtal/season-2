@@ -15,10 +15,10 @@ class SoundVocabularyTest {
     @Test
     void feedbackCarriesNothingButItsConstants() {
         assertEquals(
-                13,
+                14,
                 Feedback.values().length,
-                "ten categories, of which open/close is two constants, plus STAGING, RECLAIMED and SWITCH."
-                        + " A FOURTEENTH IS A DECISION FOR THE OWNER - a"
+                "ten categories, of which open/close is two constants, plus STAGING, RECLAIMED, SWITCH and POP."
+                        + " A FIFTEENTH IS A DECISION FOR THE OWNER - a"
                         + " vocabulary that grows to fit each new call site is not a vocabulary");
         // values/valueOf are the API of the enum, and $values is the array holder of javac, not always synthetic.
         assertEquals(

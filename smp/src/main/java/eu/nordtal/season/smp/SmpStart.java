@@ -2,6 +2,7 @@ package eu.nordtal.season.smp;
 
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.packrendering.wheel.WheelTimetable;
 import eu.nordtal.season.papercommon.chat.SystemLines;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.announce.Announcer;
@@ -184,6 +185,8 @@ final class SmpStart {
                 plugin.renderer(),
                 plugin.documents(),
                 plugin.sounds,
+                plugin.dialogs(),
+                WheelTimetable.load(),
                 plugin.clock());
         return new Activities(penalty, wheel, graves, duels);
     }

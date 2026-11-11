@@ -13,6 +13,7 @@ import eu.nordtal.season.build.EditMinecraftInstance
 import eu.nordtal.season.build.EditPackSources
 import eu.nordtal.season.build.ExtractVanillaFonts
 import eu.nordtal.season.build.GenerateGlyphs
+import eu.nordtal.season.build.GenerateWheel
 import eu.nordtal.season.build.InstallPack
 import eu.nordtal.season.build.ListVanillaAssets
 import eu.nordtal.season.build.MinecraftInstanceChooser
@@ -62,6 +63,9 @@ configurations.consumable("glyphManifest") {
 
 val drawChestPanels = tasks.register<DrawChestPanels>("drawChestPanels")
 
+// The wooden wheel's turn for the prizes in wheel-prizes.json, with as many turn variants as the budget allows.
+val generateWheel = tasks.register<GenerateWheel>("generateWheel")
+
 // The pack as the client receives it. Everything that reads the pack reads this and never src/.
 val assembledPack = layout.buildDirectory.dir("pack")
 val assemblePack =
@@ -71,6 +75,7 @@ val assemblePack =
         from(packSource)
         from(generateGlyphs.flatMap { it.fontDirectory })
         from(drawChestPanels.flatMap { it.textures })
+        from(generateWheel.flatMap { it.pack })
         into(assembledPack)
     }
 
@@ -259,6 +264,19 @@ generateGlyphs.configure { vanilla.set(extractVanillaFonts.flatMap { it.fonts })
 drawChestPanels.configure {
     vanillaClient()
     textures.set(layout.buildDirectory.dir("generated/chest-panels"))
+}
+
+generateWheel.configure {
+    vanillaClient()
+    prizes.set(layout.projectDirectory.file("wheel-prizes.json"))
+    // The off plate draws the plate's label from the wheel's own texts.
+    texts.set(rootProject.layout.projectDirectory.file("smp/src/main/resources/documents/smp/wheel.json"))
+    pack.set(layout.buildDirectory.dir("generated/wheel/pack"))
+    resources.set(layout.buildDirectory.dir("generated/wheel/resources"))
+}
+// For :pack-rendering, which ships the wheel's timetable to the plugin that spins it.
+configurations.consumable("wheelResources") {
+    outgoing.artifact(generateWheel.flatMap { it.resources })
 }
 
 // The atlas sprite of each item, for :pack-rendering, which ships the table that a menu draws an item's texture from.

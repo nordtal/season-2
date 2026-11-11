@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
+import net.kyori.adventure.text.event.ClickCallback;
 import org.junit.jupiter.api.Test;
 
 class DialogsTest {
@@ -27,5 +28,23 @@ class DialogsTest {
         assertTrue(clicks.send().answer(() -> ran.add("first")));
         assertTrue(clicks.send().answer(() -> ran.add("redrawn")));
         assertEquals(List.of("first", "redrawn"), ran);
+    }
+
+    @Test
+    void aClickWhileBusyIsIgnoredAndKeepsTheToken() {
+        final Dialogs.Send send = clicks.send();
+        final boolean[] busy = {true};
+
+        assertFalse(send.answerUnless(() -> busy[0], () -> ran.add("early")));
+        busy[0] = false;
+        assertTrue(send.answerUnless(() -> busy[0], () -> ran.add("spin")));
+        assertFalse(send.answerUnless(() -> busy[0], () -> ran.add("twice")));
+        assertEquals(List.of("spin"), ran);
+    }
+
+    /** The token is the send's own; Paper's callback must outlive the ignored clicks to carry the later one. */
+    @Test
+    void theCallbackOfAClickThatWaitsWhileBusyIsNotUsedUp() {
+        assertEquals(ClickCallback.UNLIMITED_USES, Dialogs.KEPT_WHILE_BUSY.uses());
     }
 }

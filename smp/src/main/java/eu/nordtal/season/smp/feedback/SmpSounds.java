@@ -66,6 +66,7 @@ public final class SmpSounds {
             case STAGING -> spec.staging();
             case RECLAIMED -> spec.reclaimed();
             case SWITCH -> spec.switched();
+            case POP -> spec.pop();
         };
     }
 

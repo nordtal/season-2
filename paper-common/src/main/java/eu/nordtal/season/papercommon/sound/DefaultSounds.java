@@ -37,6 +37,9 @@ final class DefaultSounds {
     /** A grindstone slowed down and lowered, so a junction sounds heavy as it moves. */
     static final SoundsSpec.SoundSpec SWITCH = sound("minecraft:block.grindstone.use", 0.65f);
 
+    /** An item picked up, raised, so the wheel's swap pops quick and light. */
+    static final SoundsSpec.SoundSpec POP = sound("minecraft:entity.item.pickup", 1.4f);
+
     private DefaultSounds() {}
 
     private static SoundsSpec.SoundSpec sound(final String key, final float pitch) {

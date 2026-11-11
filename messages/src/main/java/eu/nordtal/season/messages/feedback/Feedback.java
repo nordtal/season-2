@@ -43,5 +43,8 @@ public enum Feedback {
     RECLAIMED,
 
     /** A mechanism that moves by itself, such as a rail junction switched for a driven minecart. */
-    SWITCH
+    SWITCH,
+
+    /** A piece that pops into its place, such as a prize swapped onto the wheel before it turns. */
+    POP
 }

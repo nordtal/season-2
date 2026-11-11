@@ -37,47 +37,6 @@
       ]
     },
     {
-      "type": "ITEM",
-      "slot": "again",
-      "lines": [
-        {
-          "when": "state=ready",
-          "text": {
-            "en": "Spin again",
-            "de": "Nochmal drehen"
-          }
-        },
-        {
-          "when": "state=ready",
-          "text": {
-            "en": "Costs one {@terms.spin, n=1}.",
-            "de": "Kostet einen {@terms.spin, n=1}."
-          }
-        },
-        {
-          "when": "state=waiting",
-          "text": {
-            "en": "Spin again",
-            "de": "Nochmal drehen"
-          }
-        },
-        {
-          "when": "state=waiting",
-          "text": {
-            "en": "Costs one {@terms.spin, n=1}.",
-            "de": "Kostet einen {@terms.spin, n=1}."
-          }
-        },
-        {
-          "when": "state=none",
-          "text": {
-            "en": "More tomorrow",
-            "de": "Ab morgen wieder"
-          }
-        }
-      ]
-    },
-    {
       "type": "LABEL",
       "slot": "again-button",
       "lines": [
@@ -85,6 +44,42 @@
           "text": {
             "en": "Again",
             "de": "Nochmal"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "again-title",
+      "lines": [
+        {
+          "text": {
+            "en": "Spin again",
+            "de": "Nochmal drehen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "again-cost",
+      "lines": [
+        {
+          "text": {
+            "en": "Costs one {@terms.spin, n=1}.",
+            "de": "Kostet einen {@terms.spin, n=1}."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "again-none",
+      "lines": [
+        {
+          "text": {
+            "en": "No {@terms.spin, n=2} left",
+            "de": "Keine {@terms.spin, n=2} übrig"
           }
         }
       ]

@@ -61,6 +61,7 @@ public final class HungerGamesSounds {
             case STAGING -> spec.staging();
             case RECLAIMED -> spec.reclaimed();
             case SWITCH -> spec.switched();
+            case POP -> spec.pop();
         };
     }
 

@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
@@ -30,6 +31,10 @@ public final class Dialogs {
 
     private static final ClickCallback.Options ONCE =
             ClickCallback.Options.builder().uses(1).build();
+
+    /** A click ignored while busy must not use the callback up, or the click after it would find none. */
+    static final ClickCallback.Options KEPT_WHILE_BUSY =
+            ClickCallback.Options.builder().uses(ClickCallback.UNLIMITED_USES).build();
 
     /** A body line's box is this much wider than its art. */
     private static final int RING = 10;
@@ -92,6 +97,22 @@ public final class Dialogs {
         }
 
         /**
+         * The click of a drawn button that does nothing while {@code busy} holds and keeps the send's token for later.
+         */
+        public ClickEvent clickUnless(final BooleanSupplier busy, final Consumer<Player> answer) {
+            return ClickEvent.callback(
+                    audience -> {
+                        if (audience instanceof final Player player) {
+                            answerUnless(busy, () -> {
+                                chime.accept(player, Feedback.SELECT);
+                                answer.accept(player);
+                            });
+                        }
+                    },
+                    KEPT_WHILE_BUSY);
+        }
+
+        /**
          * Draws the pager of {@code paging} at {@code page} on {@code line}.
          *
          * Each arrow answers {@code turn} with its page; {@code words} are what the narrator says.
@@ -126,6 +147,11 @@ public final class Dialogs {
                     work.accept(player);
                 });
             }
+        }
+
+        /** Ignores the click while {@code busy} holds, keeping the token; otherwise answers it as {@link #answer}. */
+        boolean answerUnless(final BooleanSupplier busy, final Runnable work) {
+            return !busy.getAsBoolean() && answer(work);
         }
 
         /** Runs {@code work} on the main thread for the first click of this send, and returns whether it did. */

@@ -27,6 +27,7 @@ repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
     readsTree("smp/src/main/resources/documents/smp")
+    reads("resource-pack/wheel-prizes.json")
 }
 
 dependencies {
@@ -54,7 +55,7 @@ dependencies {
 
 messageSpec {
     specClasses.add("eu.nordtal.season.smp.SmpMessages")
-    documentClasses.add("eu.nordtal.season.smp.wheel.WheelGui")
+    documentClasses.add("eu.nordtal.season.smp.wheel.WheelDialog")
     documentClasses.add("eu.nordtal.season.smp.grave.GraveWindow")
     documentClasses.add("eu.nordtal.season.smp.npc.HandInGui")
     documentClasses.add("eu.nordtal.season.smp.npc.ObjectiveDialog")

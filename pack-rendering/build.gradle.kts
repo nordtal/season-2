@@ -16,6 +16,9 @@ val glyphResourceFiles = configurations.resolvable("glyphResourceFiles") { exten
 // The atlas sprite of each item, which :resource-pack writes from the pack and the client jar.
 val itemSprites = configurations.dependencyScope("itemSprites")
 val itemSpriteFiles = configurations.resolvable("itemSpriteFiles") { extendsFrom(itemSprites.get()) }
+// The wooden wheel's timetable, which :resource-pack writes with the wheel's turn.
+val wheelResources = configurations.dependencyScope("wheelResources")
+val wheelResourceFiles = configurations.resolvable("wheelResourceFiles") { extendsFrom(wheelResources.get()) }
 
 // Into this module's own build directory, which the conventions' checks recognise as generated code.
 val glyphSources =
@@ -65,6 +68,7 @@ tasks.register<JavaExec>("renderGlyphPreviews") {
 tasks.named<ProcessResources>("processResources") {
     from(glyphResourceFiles)
     from(itemSpriteFiles)
+    from(wheelResourceFiles)
 }
 
 // Files outside this module that the HUD and pack tests read.
@@ -80,6 +84,7 @@ dependencies {
     "glyphJava"(project(":resource-pack", "glyphJava"))
     "glyphResources"(project(":resource-pack", "glyphResources"))
     "itemSprites"(project(":resource-pack", "itemSprites"))
+    "wheelResources"(project(":resource-pack", "wheelResources"))
 
     // The assembled pack, which the tests read through the nordtal.pack system property.
     "resourcePack"(project(":resource-pack", "pack"))

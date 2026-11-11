@@ -19,43 +19,48 @@ internal object WheelMath {
         x: Double,
         y: Double,
         z: Double,
-    ): DoubleArray = identity().also {
-        it[3] = x
-        it[7] = y
-        it[11] = z
-    }
+    ): DoubleArray =
+        identity().also {
+            it[3] = x
+            it[7] = y
+            it[11] = z
+        }
 
     fun scale(
         x: Double,
         y: Double,
         z: Double,
-    ): DoubleArray = DoubleArray(16).also {
-        it[0] = x
-        it[5] = y
-        it[10] = z
-        it[15] = 1.0
-    }
+    ): DoubleArray =
+        DoubleArray(16).also {
+            it[0] = x
+            it[5] = y
+            it[10] = z
+            it[15] = 1.0
+        }
 
-    fun rotateX(a: Double): DoubleArray = identity().also {
-        it[5] = cos(a)
-        it[6] = -sin(a)
-        it[9] = sin(a)
-        it[10] = cos(a)
-    }
+    fun rotateX(a: Double): DoubleArray =
+        identity().also {
+            it[5] = cos(a)
+            it[6] = -sin(a)
+            it[9] = sin(a)
+            it[10] = cos(a)
+        }
 
-    fun rotateY(a: Double): DoubleArray = identity().also {
-        it[0] = cos(a)
-        it[2] = sin(a)
-        it[8] = -sin(a)
-        it[10] = cos(a)
-    }
+    fun rotateY(a: Double): DoubleArray =
+        identity().also {
+            it[0] = cos(a)
+            it[2] = sin(a)
+            it[8] = -sin(a)
+            it[10] = cos(a)
+        }
 
-    fun rotateZ(a: Double): DoubleArray = identity().also {
-        it[0] = cos(a)
-        it[1] = -sin(a)
-        it[4] = sin(a)
-        it[5] = cos(a)
-    }
+    fun rotateZ(a: Double): DoubleArray =
+        identity().also {
+            it[0] = cos(a)
+            it[1] = -sin(a)
+            it[4] = sin(a)
+            it[5] = cos(a)
+        }
 
     fun times(vararg ms: DoubleArray): DoubleArray = ms.reduce { a, b -> multiply(a, b) }
 
@@ -118,10 +123,22 @@ internal object WheelMath {
                 (q as List<*>).map { (it as Number).toDouble() }
             }
         return doubleArrayOf(
-            1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w), 0.0,
-            2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w), 0.0,
-            2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y), 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            1 - 2 * (y * y + z * z),
+            2 * (x * y - z * w),
+            2 * (x * z + y * w),
+            0.0,
+            2 * (x * y + z * w),
+            1 - 2 * (x * x + z * z),
+            2 * (y * z - x * w),
+            0.0,
+            2 * (x * z - y * w),
+            2 * (y * z + x * w),
+            1 - 2 * (x * x + y * y),
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
         )
     }
 
@@ -131,7 +148,12 @@ internal object WheelMath {
         val m = t as Map<*, *>
         val tr = (m["translation"] as List<*>).map { (it as Number).toDouble() }
         val sc = (m["scale"] as List<*>).map { (it as Number).toDouble() }
-        return times(translate(tr[0], tr[1], tr[2]), quaternion(m["left_rotation"]), scale(sc[0], sc[1], sc[2]), quaternion(m["right_rotation"]))
+        return times(
+            translate(tr[0], tr[1], tr[2]),
+            quaternion(m["left_rotation"]),
+            scale(sc[0], sc[1], sc[2]),
+            quaternion(m["right_rotation"]),
+        )
     }
 
     fun isIdentity(m: DoubleArray): Boolean = m.indices.all { Math.abs(m[it] - if (it % 5 == 0) 1.0 else 0.0) < 1e-6 }
@@ -151,12 +173,30 @@ internal object WheelMath {
         out: StringBuilder = StringBuilder(),
     ): StringBuilder {
         when (value) {
-            null -> out.append("null")
-            is String -> string(value, out)
-            is Raw -> out.append(value.text)
-            is BigDecimal -> out.append(value.toPlainString())
-            is Double -> out.append(number(value).let { if (it is BigDecimal) it.toPlainString() else it.toString() })
-            is Number, is Boolean -> out.append(value.toString())
+            null -> {
+                out.append("null")
+            }
+
+            is String -> {
+                string(value, out)
+            }
+
+            is Raw -> {
+                out.append(value.text)
+            }
+
+            is BigDecimal -> {
+                out.append(value.toPlainString())
+            }
+
+            is Double -> {
+                out.append(number(value).let { if (it is BigDecimal) it.toPlainString() else it.toString() })
+            }
+
+            is Number, is Boolean -> {
+                out.append(value.toString())
+            }
+
             is Map<*, *> -> {
                 out.append('{')
                 var first = true
@@ -169,6 +209,7 @@ internal object WheelMath {
                 }
                 out.append('}')
             }
+
             is List<*> -> {
                 out.append('[')
                 value.forEachIndexed { i, v ->
@@ -177,7 +218,10 @@ internal object WheelMath {
                 }
                 out.append(']')
             }
-            else -> throw IllegalArgumentException("no JSON for ${value::class}")
+
+            else -> {
+                throw IllegalArgumentException("no JSON for ${value::class}")
+            }
         }
         return out
     }

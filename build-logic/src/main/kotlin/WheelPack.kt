@@ -138,7 +138,15 @@ internal class WheelSpin(
             rest: K,
         ): List<Pair<Int, K>> {
             val out = ArrayList<Pair<Int, K>>()
-            pictures.forEachIndexed { t, k -> if (out.isNotEmpty() && out.last().second == k) out[out.size - 1] = t to k else out += t to k }
+            pictures.forEachIndexed { t, k ->
+                if (out.isNotEmpty() &&
+                    out.last().second == k
+                ) {
+                    out[out.size - 1] = t to k
+                } else {
+                    out += t to k
+                }
+            }
             while (out.isNotEmpty() && out.last().second == rest) out.removeAt(out.size - 1)
             return out
         }
@@ -166,7 +174,12 @@ internal class WheelPack(
     prizes: List<WheelPrize>,
     private val labels: Map<String, String>,
 ) {
-    private val amounts = prizes.map { it.amount }.filter { it > 1 }.distinct().sorted()
+    private val amounts =
+        prizes
+            .map { it.amount }
+            .filter { it > 1 }
+            .distinct()
+            .sorted()
     private val groups: List<Pair<DoubleArray, List<Pair<String, Map<String, Any?>>>>>
     private val mixed: List<Pair<String, Map<String, Any?>>>
 
@@ -174,7 +187,9 @@ internal class WheelPack(
         val byDisplay = LinkedHashMap<String, Pair<DoubleArray, MutableList<Pair<String, Map<String, Any?>>>>>()
         val split = ArrayList<Pair<String, Map<String, Any?>>>()
         for (key in prizes.map { it.key }.distinct()) {
-            val definition = vanilla.definition(key) ?: throw IllegalStateException("the wheel's prize list names minecraft:$key, which the client jar lacks")
+            val definition =
+                vanilla.definition(key)
+                    ?: throw IllegalStateException("the wheel's prize list names minecraft:$key, which the client jar lacks")
             val leaf = WheelVanilla.leaf(definition)
             val displays = WheelVanilla.refs(leaf).map { vanilla.display(it) }.distinctBy { tag(it) }
             when (displays.size) {
@@ -204,7 +219,11 @@ internal class WheelPack(
         z: Double,
     ): Map<String, Any?> {
         val c = WheelLayout.canvas(body)
-        return mapOf("type" to "minecraft:model", "model" to model(name), "transformation" to WheelMath.list(box(c[0] + x, c[1] + y, w, h, z)))
+        return mapOf(
+            "type" to "minecraft:model",
+            "model" to model(name),
+            "transformation" to WheelMath.list(box(c[0] + x, c[1] + y, w, h, z)),
+        )
     }
 
     private fun anchor(
@@ -299,7 +318,18 @@ internal class WheelPack(
         }
         if (at.plate) {
             val langs = labels.keys.toList()
-            val plates = langs.map { part("plate_off_$it", WheelLayout.PLATE[0], WheelLayout.PLATE[1], WheelLayout.PLATE_WIDTH, WheelLayout.PLATE_HEIGHT, body, 0.0) }
+            val plates =
+                langs.map {
+                    part(
+                        "plate_off_$it",
+                        WheelLayout.PLATE[0],
+                        WheelLayout.PLATE[1],
+                        WheelLayout.PLATE_WIDTH,
+                        WheelLayout.PLATE_HEIGHT,
+                        body,
+                        0.0,
+                    )
+                }
             models += select(LANGUAGE, langs.drop(1).mapIndexed { i, lang -> mapOf("when" to lang, "model" to plates[i + 1]) }, plates[0])
         }
         return json(mapOf("type" to "minecraft:composite", "models" to models))
@@ -314,8 +344,19 @@ internal class WheelPack(
         val memo = HashMap<K, Raw>()
         val raw = { k: K -> memo.getOrPut(k) { Raw(node(k)) } }
         val entries =
-            WheelSpin.runs(pictures, rest).map { (last, k) -> mapOf("threshold" to WheelSpin.threshold(last), "model" to raw(k)) }.reversed()
-        return json(mapOf("type" to "minecraft:range_dispatch", "property" to "minecraft:cooldown", "entries" to entries, "fallback" to raw(rest)))
+            WheelSpin
+                .runs(pictures, rest)
+                .map { (last, k) ->
+                    mapOf("threshold" to WheelSpin.threshold(last), "model" to raw(k))
+                }.reversed()
+        return json(
+            mapOf(
+                "type" to "minecraft:range_dispatch",
+                "property" to "minecraft:cooldown",
+                "entries" to entries,
+                "fallback" to raw(rest),
+            ),
+        )
     }
 
     /** Each body's turn per variant [e] (and the disc's per parity), written once and assembled for any variant count. */
@@ -339,23 +380,43 @@ internal class WheelPack(
         index: Int,
         offsets: List<Int>,
         of: Map<Int, String>,
-    ): Map<String, Any?> = select(index, offsets.drop(1).map { mapOf("when" to it.toString(), "model" to Raw(of.getValue(it))) }, Raw(of.getValue(offsets[0])))
+    ): Map<String, Any?> =
+        select(
+            index,
+            offsets.drop(1).map {
+                mapOf("when" to it.toString(), "model" to Raw(of.getValue(it)))
+            },
+            Raw(of.getValue(offsets[0])),
+        )
 
     private fun item(
         body: Int,
         node: Any?,
         rect: IntArray = WheelLayout.ANCHOR,
     ): ByteArray =
-        json(mapOf("model" to mapOf("type" to "minecraft:composite", "models" to listOf(node, anchor(body, rect))), "oversized_in_gui" to true))
-            .toByteArray()
+        json(
+            mapOf(
+                "model" to mapOf("type" to "minecraft:composite", "models" to listOf(node, anchor(body, rect))),
+                "oversized_in_gui" to true,
+            ),
+        ).toByteArray()
 
     /** The three body kinds' item definitions for the turn variants [offsets]. */
     fun items(offsets: List<Int>): Map<String, ByteArray> {
         val out = LinkedHashMap<String, ByteArray>()
-        val disc = select(1, listOf(mapOf("when" to "1", "model" to variants(0, offsets, turns.getValue("disc1")))), variants(0, offsets, turns.getValue("disc0")))
+        val disc =
+            select(
+                1,
+                listOf(mapOf("when" to "1", "model" to variants(0, offsets, turns.getValue("disc1")))),
+                variants(0, offsets, turns.getValue("disc0")),
+            )
         out["assets/nordtal/items/wheel/disc.json"] = item(0, disc)
-        for (b in 0 until WheelLayout.PLACES) out["assets/nordtal/items/wheel/p$b.json"] = item(1 + b, variants(1, offsets, turns.getValue("p$b")))
-        out["assets/nordtal/items/wheel/overlay.json"] = item(WheelLayout.BODIES - 1, variants(12, offsets, turns.getValue("overlay")), WheelLayout.OVERLAY_ANCHOR)
+        for (b in 0 until WheelLayout.PLACES) {
+            out["assets/nordtal/items/wheel/p$b.json"] =
+                item(1 + b, variants(1, offsets, turns.getValue("p$b")))
+        }
+        out["assets/nordtal/items/wheel/overlay.json"] =
+            item(WheelLayout.BODIES - 1, variants(12, offsets, turns.getValue("overlay")), WheelLayout.OVERLAY_ANCHOR)
         return out
     }
 
@@ -384,8 +445,15 @@ internal class WheelPack(
     ): ByteArray {
         val t = model(texture)
         val uv = if (mirrored) listOf(16, 0, 0, 16) else listOf(0, 0, 16, 16)
-        val element = mapOf("from" to listOf(0, 0, 8), "to" to listOf(16, 16, 8), "faces" to mapOf("south" to mapOf("uv" to uv, "texture" to "#t")))
-        return json(mapOf("gui_light" to "front", "textures" to mapOf("t" to t, "particle" to t), "elements" to listOf(element))).toByteArray()
+        val element =
+            mapOf(
+                "from" to listOf(0, 0, 8),
+                "to" to listOf(16, 16, 8),
+                "faces" to mapOf("south" to mapOf("uv" to uv, "texture" to "#t")),
+            )
+        return json(
+            mapOf("gui_light" to "front", "textures" to mapOf("t" to t, "particle" to t), "elements" to listOf(element)),
+        ).toByteArray()
     }
 
     /** A stack's count as vanilla draws it: digit k of n at x 17-6n+6k, y 9, each 6 x 8 with its shadow. */
@@ -396,7 +464,11 @@ internal class WheelPack(
             digits.mapIndexed { k, d ->
                 textures["d$d"] = model("digit_$d")
                 val x = 17 - 6 * digits.length + 6 * k
-                mapOf("from" to listOf(x, -1, 8), "to" to listOf(x + 6, 7, 8), "faces" to mapOf("south" to mapOf("uv" to listOf(0, 0, 16, 16), "texture" to "#d$d")))
+                mapOf(
+                    "from" to listOf(x, -1, 8),
+                    "to" to listOf(x + 6, 7, 8),
+                    "faces" to mapOf("south" to mapOf("uv" to listOf(0, 0, 16, 16), "texture" to "#d$d")),
+                )
             }
         textures["particle"] = model("digit_${digits[0]}")
         return json(mapOf("gui_light" to "front", "textures" to textures, "elements" to elements)).toByteArray()

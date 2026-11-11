@@ -55,6 +55,7 @@ internal class WheelVanilla(
         fun displayMatrix(gui: Map<*, *>?): DoubleArray {
             val shift = WheelMath.translate(-0.5, -0.5, -0.5)
             if (gui == null) return shift
+
             fun three(
                 key: String,
                 default: Double,
@@ -92,11 +93,20 @@ internal class WheelVanilla(
                             }
                         gui ?: node["fallback"] as? Map<*, *> ?: cases.firstOrNull()?.get("model") as? Map<*, *> ?: EMPTY
                     }
-                    "range_dispatch" ->
-                        node["fallback"] as? Map<*, *> ?: ((node["entries"] as List<*>).firstOrNull() as? Map<*, *>)?.get("model") as? Map<*, *>
+
+                    "range_dispatch" -> {
+                        node["fallback"] as? Map<*, *>
+                            ?: ((node["entries"] as List<*>).firstOrNull() as? Map<*, *>)?.get("model") as? Map<*, *>
                             ?: EMPTY
-                    "condition" -> node["on_false"] as Map<*, *>
-                    else -> null
+                    }
+
+                    "condition" -> {
+                        node["on_false"] as Map<*, *>
+                    }
+
+                    else -> {
+                        null
+                    }
                 }
             if (child != null) {
                 val reduced = leaf(child)
@@ -138,6 +148,7 @@ internal class WheelVanilla(
                     val local = WheelMath.times(WheelMath.inverse(above), local(vanilla.display(ref), move), above, own)
                     out["transformation"] = WheelMath.list(local)
                 }
+
                 "composite" -> {
                     val here = WheelMath.times(above, own)
                     out["models"] = (leaf["models"] as List<*>).map { moved(it as Map<*, *>, vanilla, move, here) }

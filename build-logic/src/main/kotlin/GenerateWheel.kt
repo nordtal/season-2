@@ -66,7 +66,17 @@ abstract class GenerateWheel : VanillaClientTask() {
             val parts = (JsonSlurper().parse(document) as Map<*, *>)["parts"] as List<*>
             val part = parts.map { it as Map<*, *> }.single { it["slot"] == "again-button" }
             val text = ((part["lines"] as List<*>).single() as Map<*, *>)["text"] as Map<*, *>
-            return text.entries.map { it.key as String to it.value as String }.sortedBy { if (it.first == "de") "" else it.first }.toMap(LinkedHashMap())
+            return text.entries
+                .map { it.key as String to it.value as String }
+                .sortedBy {
+                    if (it.first ==
+                        "de"
+                    ) {
+                        ""
+                    } else {
+                        it.first
+                    }
+                }.toMap(LinkedHashMap())
         }
     }
 }
@@ -118,7 +128,15 @@ internal object WheelArt {
         val width = glyphs.sumOf { it.second } - 1
         var pen = (image.width - width) / 2
         for ((rows, advance) in glyphs) {
-            for (y in rows.indices) for (x in rows[y].indices) if (rows[y][x] && pen + x < image.width && 5 + y < image.height) image.setRGB(pen + x, 5 + y, FAINT)
+            for (y in rows.indices) {
+                for (x in rows[y].indices) {
+                    if (rows[y][x] && pen + x < image.width &&
+                        5 + y < image.height
+                    ) {
+                        image.setRGB(pen + x, 5 + y, FAINT)
+                    }
+                }
+            }
             pen += advance
         }
         return image

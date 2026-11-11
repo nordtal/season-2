@@ -70,27 +70,33 @@ object WheelTurn {
     fun ticks(e: Int): List<Tick> {
         val (times, angles) = curve(e)
         val start = angles[0]
-        val true_ = DoubleArray(TICKS + 1) { interpolate(times, angles, it.toDouble()) - start }
-        val peak = true_.indices.maxBy { true_[it] }
+        val turned = DoubleArray(TICKS + 1) { interpolate(times, angles, it.toDouble()) - start }
+        val peak = turned.indices.maxBy { turned[it] }
         val out = ArrayList<Tick>(TICKS)
         var lastBlur: Int? = null
         for (i in 0 until TICKS) {
-            val speed = abs(true_[i + 1] - true_[i])
+            val speed = abs(turned[i + 1] - turned[i])
             if (speed > BLUR_ABOVE) {
-                val byAngle = (floor(mod(true_[i], 90.0) / 30.0).toInt()) % BLUR_TEXTURES
+                val byAngle = (floor(mod(turned[i], 90.0) / 30.0).toInt()) % BLUR_TEXTURES
                 val blur =
                     if (lastBlur == null) {
                         byAngle
                     } else {
                         val ahead = Math.floorMod(byAngle - lastBlur, BLUR_TEXTURES)
                         // The streaks only ever move on: a step that reads as backwards, or stands while the disc races, shows the next.
-                        if (ahead == BLUR_TEXTURES - 1 || (ahead == 0 && speed > BLUR_STEP_ABOVE)) (lastBlur + 1) % BLUR_TEXTURES else byAngle
+                        if (ahead == BLUR_TEXTURES - 1 ||
+                            (ahead == 0 && speed > BLUR_STEP_ABOVE)
+                        ) {
+                            (lastBlur + 1) % BLUR_TEXTURES
+                        } else {
+                            byAngle
+                        }
                     }
                 lastBlur = blur
                 val flutter = listOf(Pointer.TICK2, Pointer.TICK1, Pointer.TICK2)[blur]
-                out += Tick(blur, true_[i], flutter)
+                out += Tick(blur, turned[i], flutter)
             } else {
-                val angle = snapped(true_[i])
+                val angle = snapped(turned[i])
                 out += Tick(null, angle, pointerAt(angle, i > peak))
             }
         }

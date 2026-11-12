@@ -81,6 +81,19 @@ class TopologyStandbyTest {
                 ComposeFile.sourceOf(defined.mountEndingIn(":/data/plugins")),
                 ComposeFile.sourceOf(onSteward),
                 standby + ": the agent fills one directory and the container reads" + " another");
+
+        // The server jar lives in the data volume's .server, which the agent mirrors as it does plugins/.
+        final String dataOnSteward = compose.service(AgentWire.SERVICE).mounts().stream()
+                .filter(mount -> mount.endsWith(":/volumes/" + standby))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(AgentWire.SERVICE + " does not mount " + standby
+                        + "'s data volume, so its .server keeps the jar it first downloaded. The"
+                        + " standby then runs an older Minecraft than its service and refuses every"
+                        + " player moved onto it."));
+        assertEquals(
+                ComposeFile.sourceOf(defined.mountEndingIn(":/data")),
+                ComposeFile.sourceOf(dataOnSteward),
+                standby + ": the agent fills one data volume and the container reads another");
     }
 
     private void assertStandbyEnvironmentMatchesExceptWhereItMustDiffer(

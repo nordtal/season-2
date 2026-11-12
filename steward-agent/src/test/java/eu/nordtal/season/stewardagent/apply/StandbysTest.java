@@ -48,6 +48,28 @@ class StandbysTest {
     }
 
     @Test
+    void theStandbyRunsTheServerJarItsServiceRuns() throws IOException {
+        // The entrypoint runs the newest jar in .server, so a standby left on an older Minecraft refuses every player.
+        write("limbo/plugins/limbo-0.9.3.jar", "new");
+        write("limbo/.server/paper-26.3-249.jar", "26.3");
+        write("limbo-standby/.server/paper-26.2-129.jar", "26.2");
+
+        final List<ApplyResult.Outcome> outcomes =
+                Standbys.fill(volumes, List.of(Topology.LIMBO), DeclaredTopology.topology());
+
+        assertTrue(
+                outcomes.stream().allMatch(outcome -> outcome.status() == ApplyResult.Status.DONE), detail(outcomes));
+        assertEquals("26.3", read("limbo-standby/.server/paper-26.3-249.jar"));
+        assertFalse(
+                Files.exists(volumes.resolve("limbo-standby/.server/paper-26.2-129.jar")),
+                "the standby keeps a jar its service no longer runs");
+        assertTrue(
+                Standbys.fill(volumes, List.of(Topology.LIMBO), DeclaredTopology.topology()).stream()
+                        .allMatch(outcome -> outcome.status() == ApplyResult.Status.UNCHANGED),
+                "a second fill copies the server jar again");
+    }
+
+    @Test
     void aJarTheLiveServiceNoLongerHasIsRemovedFromTheStandby() throws IOException {
         write("limbo/plugins/limbo-0.9.3.jar", "new");
         write("limbo-standby/plugins/limbo-0.9.2.jar", "old");

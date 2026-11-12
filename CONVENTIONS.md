@@ -9,7 +9,8 @@ The agent-kit's skill [`wording`](https://github.com/tillhfm/agent-kit/tree/main
 standard for every text the season puts out, and a change that writes or touches one follows its steps,
 the cold read included. That covers the game (`Display.Surface.GAME`: chat, titles, the action bar,
 menus, tooltips and holograms), the Discord bot, Steward, system messages, logs and the output of the
-scripts in `deploy/` and `dev/`. This section holds only what is Nordtal's own:
+scripts in `deploy/` and `dev/`. This section holds Nordtal's own wording rules, and Design below its
+rules for separators, explanations of settings fields and the name Nordtal:
 
 - **German addresses the player as _du_.**
 - **A control that does here what it does in vanilla counts as shown**, such as a shift-click that puts
@@ -39,7 +40,7 @@ word.
 | joining a round of the Hunger Games | register, registration | anmelden, Anmeldung | registrieren, Registrierung |
 
 - **A glyph** is named by its `name` in `resource-pack/glyphs.json` (`<glyph:name>`), and a colour by
-  its `Tone` (`<good>`), as Design below and `messages/README.md` describe.
+  its `Tone` (`<good>`), as `messages/README.md` describes.
 
 ## Comments
 

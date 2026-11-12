@@ -16,7 +16,7 @@ import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.spec.Display;
-import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
+import eu.nordtal.season.packrendering.ui.Pill;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.tab.TabList;
@@ -188,7 +188,7 @@ class PreviewsTest {
         previews.show(ALEX, "en", drafted(DocumentSpec.Shape.BOSS_BAR, "b", """
                 {"type": "TEXT", "lines": [{"text": {"en": "Drafted"}}, {"text": {"en": "and below"}}]}"""));
 
-        assertEquals(List.of(Pill.of("Drafted and below")), previews.bossBar(alex, Locale.ENGLISH));
+        assertEquals(List.of(Pill.Content.of("Drafted and below")), previews.bossBar(alex, Locale.ENGLISH));
         assertEquals(List.of(Previews.BOSS_BAR), delays);
 
         onMain.forEach(Runnable::run);

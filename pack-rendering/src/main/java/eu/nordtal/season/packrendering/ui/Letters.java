@@ -32,6 +32,11 @@ public final class Letters {
         return TABLE.getOrDefault(codePoint, MISSING);
     }
 
+    /** Returns whether the ui text font carries {@code codePoint}, so it draws as more than a missing-glyph box. */
+    public static boolean covers(final int codePoint) {
+        return TABLE.containsKey(codePoint);
+    }
+
     /** Returns how far {@code text} moves the cursor, its last spacing column included. */
     public static int width(final String text) {
         return text.codePoints().map(Letters::advance).sum();

@@ -1,6 +1,6 @@
 package eu.nordtal.season.smp.rail;
 
-import eu.nordtal.season.packrendering.hud.BossBarAdvances;
+import eu.nordtal.season.packrendering.ui.Letters;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -83,8 +83,7 @@ final class RideDisplay {
     /** Returns {@code name} with each character the HUD font lacks drawn as a question mark instead of a box. */
     static String drawable(final String name) {
         final StringBuilder out = new StringBuilder();
-        name.codePoints()
-                .forEach(codePoint -> out.appendCodePoint(BossBarAdvances.covers(codePoint) ? codePoint : '?'));
+        name.codePoints().forEach(codePoint -> out.appendCodePoint(Letters.covers(codePoint) ? codePoint : '?'));
         return out.toString();
     }
 }

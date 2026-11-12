@@ -6,8 +6,6 @@ import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.board.BoardFrame;
-import eu.nordtal.season.packrendering.hud.BossBarLine;
-import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.season.packrendering.menu.MenuTitle;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import java.io.IOException;
@@ -65,7 +63,7 @@ public final class GlyphPreviews {
                 menu = MenuTitle.on(chestPanel(layout))
                         .rowArt(glyph, layout.row(), layout.x(), null)
                         .build(text);
-            case Glyphs.FONT_BOSSBAR -> hud = BossBarLine.render(List.of(Pill.of(glyph, layout.text())));
+            case Glyphs.FONT_BOSSBAR -> hud = alone(font, glyph, layout.row());
             case Glyphs.FONT_BOARD -> board = BoardFrame.render(layout.boardWidth(), text, List.of());
             case FONT_DEFAULT -> {
                 final Component line = Component.text(glyph + " " + layout.text());

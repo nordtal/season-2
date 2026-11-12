@@ -44,7 +44,6 @@ class PlayerTextRulesTest {
     private static final String SYSTEM_LINES = "eu.nordtal.season.papercommon.chat.SystemLines";
     private static final String BOSS_BAR = "net.kyori.adventure.bossbar.BossBar";
     private static final String BOSS_BAR_LINE = "eu.nordtal.season.packrendering.hud.BossBarLine";
-    private static final String BOSS_BAR_WIDTH = "eu.nordtal.season.packrendering.hud.BossBarWidth";
     private static final String GLYPHS = "eu.nordtal.season.packrendering.Glyphs";
     private static final String MENU_TITLE = "eu.nordtal.season.packrendering.menu.MenuTitle";
     private static final String CHEST_TITLE = "eu.nordtal.season.packrendering.ui.ChestTitle";
@@ -204,7 +203,7 @@ class PlayerTextRulesTest {
         }
     }
 
-    /** A boss bar name not built by BossBarLine resolves its glyphs against {@code minecraft:default}. */
+    /** A boss bar name not built by BossBarLine keeps the shadow that seams the pills of a HUD line. */
     @Test
     void onlyBossBarLineNamesABossBar() {
         noClasses()
@@ -213,22 +212,19 @@ class PlayerTextRulesTest {
                 .should()
                 .callMethodWhere(DescribedPredicate.describe(
                         "BossBar.name(...) or BossBar.bossBar(...)", PlayerTextRulesTest::namesABossBar))
-                .because("BossBarLine is the one place the bossbar font is named and the shadow turned off")
+                .because("BossBarLine is the one place a HUD line is drawn as pills and the shadow turned off")
                 .check(classes);
     }
 
-    /** The pill background is BossBarLine's; a second composition of it is the one that drifts. */
+    /** The pill and its ride bar are the kit's {@code Pill}; a second composition of either is the one that drifts. */
     @Test
     void nothingOutsideThePackRenderingComposesAPillBackground() {
         noClasses()
                 .that()
                 .resideOutsideOfPackage("eu.nordtal.season.packrendering..")
                 .should()
-                .accessTargetWhere(DescribedPredicate.describe(
-                        "a boss bar background glyph or BossBarWidth", PlayerTextRulesTest::isPillBackground))
-                .orShould()
-                .dependOnClassesThat()
-                .haveFullyQualifiedName(BOSS_BAR_WIDTH)
+                .accessTargetWhere(
+                        DescribedPredicate.describe("a pill or ride bar glyph", PlayerTextRulesTest::isPillBackground))
                 .check(classes);
     }
 
@@ -269,9 +265,9 @@ class PlayerTextRulesTest {
 
     private static boolean isPillBackground(final JavaAccess<?> access) {
         final String owner = access.getTargetOwner().getName();
-        final boolean tile =
-                owner.equals(GLYPHS) && access.getTarget().getName().startsWith("BOSSBAR_BG_");
-        return tile || owner.equals(BOSS_BAR_WIDTH);
+        final String name = access.getTarget().getName();
+        return owner.equals(GLYPHS)
+                && (name.startsWith("BOSSBAR_BG_") || name.startsWith("UI_PILL") || name.startsWith("UI_RIDE_"));
     }
 
     private static boolean takes(final List<JavaClass> parameters, final String type) {

@@ -13,7 +13,7 @@ import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Sent;
-import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
+import eu.nordtal.season.packrendering.ui.Pill;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.Replies;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
@@ -49,7 +49,7 @@ public final class Previews {
     private final Documents.Source documents;
     private final Dialogs dialogs;
 
-    private final Map<UUID, List<Pill>> bars = new ConcurrentHashMap<>();
+    private final Map<UUID, List<Pill.Content>> bars = new ConcurrentHashMap<>();
 
     /**
      * @param colours the palette of a service by name, as its settings name the colours
@@ -127,7 +127,7 @@ public final class Previews {
             }
             case BOSS_BAR -> {
                 final UUID id = reader.getUniqueId();
-                final List<Pill> pills = List.of(Pill.of(drawn.plainLine()));
+                final List<Pill.Content> pills = List.of(Pill.Content.of(drawn.plainLine()));
                 bars.put(id, pills);
                 main.after(BOSS_BAR, () -> bars.remove(id, pills));
             }
@@ -140,7 +140,7 @@ public final class Previews {
     }
 
     /** The drafted boss bar the player is shown, as the line the plugin's {@link Hud} draws last. */
-    public List<Pill> bossBar(final Player player, final Locale locale) {
+    public List<Pill.Content> bossBar(final Player player, final Locale locale) {
         return bars.getOrDefault(player.getUniqueId(), List.of());
     }
 

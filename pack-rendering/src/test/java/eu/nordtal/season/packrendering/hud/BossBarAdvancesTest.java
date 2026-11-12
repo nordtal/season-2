@@ -77,14 +77,17 @@ class BossBarAdvancesTest {
         assertEquals(BossBarAdvances.MISSING, BossBarAdvances.width(new String(Character.toChars(0x1F600))));
     }
 
+    /** A cap is four columns wide. */
+    private static final int CAP = 4;
+
     @Test
     void aCapsAndSegmentsAdvanceExactlyTheirDrawnWidthPlusOne() {
-        assertEquals(BossBarWidth.CAP + 1, BossBarAdvances.advance(Glyphs.BOSSBAR_BG_START.codePointAt(0)));
-        assertEquals(BossBarWidth.CAP + 1, BossBarAdvances.advance(Glyphs.BOSSBAR_BG_END.codePointAt(0)));
+        assertEquals(CAP + 1, BossBarAdvances.advance(Glyphs.BOSSBAR_BG_START.codePointAt(0)));
+        assertEquals(CAP + 1, BossBarAdvances.advance(Glyphs.BOSSBAR_BG_END.codePointAt(0)));
         assertEquals(
                 129,
                 BossBarAdvances.advance(Glyphs.BOSSBAR_BG_128.codePointAt(0)),
-                "a 128px segment advances 129: that trailing pixel is why BossBarWidth steps back"
+                "a 128px segment advances 129: that trailing pixel is why a composed pill steps back"
                         + " after every tile, and why the old bar had a seam at every boundary");
         assertEquals(-1, BossBarAdvances.advance(Glyphs.BOSSBAR_SPACE_MINUS_1.codePointAt(0)));
     }

@@ -8,10 +8,9 @@ import eu.nordtal.season.hungergames.loot.LootRefill;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.value.Example;
-import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.hud.Bearing;
-import eu.nordtal.season.packrendering.hud.BossBarLine;
-import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
+import eu.nordtal.season.packrendering.ui.Pill;
+import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.papercommon.hud.Hud;
 import java.time.Clock;
 import java.time.Duration;
@@ -22,6 +21,7 @@ import java.util.Objects;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.jspecify.annotations.Nullable;
 
 /** The three lines of the {@code Hud} during a game: players, loot and border. */
 public final class GameHud {
@@ -101,36 +101,38 @@ public final class GameHud {
         return shown && player.getWorld().equals(world);
     }
 
-    private List<Pill> playersLine(final Player player, final Locale locale) {
+    private List<Pill.Content> playersLine(final Player player, final Locale locale) {
         if (!showsTo(player)) {
             return List.of();
         }
         return List.of(
-                Pill.of(
-                        Glyphs.BOSSBAR_ICON_ALIVE,
-                        renderer.plainLine(locale, ALIVE.with(new Alive(wins.aliveCount())))),
-                Pill.of(withArrow(
-                        renderer.plainLine(locale, DEAD.with(new Dead(wins.deadCount(state.effectiveParticipants())))),
-                        nearestPlayerArrow(player))));
+                towards(
+                        Pill.Content.of(
+                                Symbol.HEART, renderer.plainLine(locale, ALIVE.with(new Alive(wins.aliveCount())))),
+                        nearestPlayerArrow(player)),
+                Pill.Content.of(
+                        Symbol.SKULL,
+                        renderer.plainLine(
+                                locale, DEAD.with(new Dead(wins.deadCount(state.effectiveParticipants()))))));
     }
 
-    private List<Pill> lootLine(final Player player, final Locale locale) {
+    private List<Pill.Content> lootLine(final Player player, final Locale locale) {
         if (!showsTo(player)) {
             return List.of();
         }
-        return List.of(Pill.of(Glyphs.BOSSBAR_ICON_LOOT_POINT, withArrow(lootText(locale), nearestLootArrow(player))));
+        return List.of(towards(Pill.Content.of(Symbol.CHEST, lootText(locale)), nearestLootArrow(player)));
     }
 
-    private List<Pill> borderLine(final Player player, final Locale locale) {
+    private List<Pill.Content> borderLine(final Player player, final Locale locale) {
         if (!showsTo(player)) {
             return List.of();
         }
-        return List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, borderText(locale)));
+        return List.of(Pill.Content.of(Symbol.BORDER, borderText(locale)));
     }
 
-    /** Appends the arrow to the text, or returns the text when the arrow is empty. */
-    private static String withArrow(final String text, final String arrow) {
-        return arrow.isEmpty() ? text : text + BossBarLine.ICON_GAP + arrow;
+    /** Ends the pill in the arrow, or leaves it as it is when there is nothing to point at. */
+    private static Pill.Content towards(final Pill.Content pill, final @Nullable Symbol arrow) {
+        return arrow == null ? pill : pill.then(arrow);
     }
 
     private String lootText(final Locale locale) {
@@ -151,7 +153,7 @@ public final class GameHud {
         return renderer.plainLine(locale, BORDER.with(new Border(left, Math.round(distance), true)));
     }
 
-    private String nearestPlayerArrow(final Player player) {
+    private @Nullable Symbol nearestPlayerArrow(final Player player) {
         final Location playerLocation = Objects.requireNonNull(player.getLocation());
         Player nearest = null;
         double nearestDistanceSquared = Double.MAX_VALUE;
@@ -167,7 +169,7 @@ public final class GameHud {
             }
         }
         if (nearest == null) {
-            return "";
+            return null;
         }
         final Location nearestLocation = Objects.requireNonNull(nearest.getLocation());
         final int index = Bearing.arrowIndex(
@@ -176,10 +178,10 @@ public final class GameHud {
                 playerLocation.getYaw(),
                 nearestLocation.getX(),
                 nearestLocation.getZ());
-        return Bearing.arrow(index);
+        return Symbol.arrow(index);
     }
 
-    private String nearestLootArrow(final Player player) {
+    private @Nullable Symbol nearestLootArrow(final Player player) {
         final Location playerLocation = Objects.requireNonNull(player.getLocation());
         HungerGamesSpec.LootPointSpec nearest = null;
         double nearestDistanceSquared = Double.MAX_VALUE;
@@ -197,10 +199,10 @@ public final class GameHud {
             }
         }
         if (nearest == null) {
-            return "";
+            return null;
         }
         final int index = Bearing.arrowIndex(
                 playerLocation.getX(), playerLocation.getZ(), playerLocation.getYaw(), nearest.x(), nearest.z());
-        return Bearing.arrow(index);
+        return Symbol.arrow(index);
     }
 }

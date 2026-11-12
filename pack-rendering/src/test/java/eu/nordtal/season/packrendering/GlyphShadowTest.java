@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import eu.nordtal.season.packrendering.board.BoardFrame;
 import eu.nordtal.season.packrendering.hud.BossBarLine;
 import eu.nordtal.season.packrendering.menu.MenuTitle;
+import eu.nordtal.season.packrendering.ui.Pen;
+import eu.nordtal.season.packrendering.ui.Pill;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.ComponentIteratorType;
@@ -66,8 +68,9 @@ class GlyphShadowTest {
     /** The rule {@code :architecture} enforces is that no renderer names a boss bar any other way. */
     @Test
     void aBossBarLineCarriesNoShadow() {
-        assertNoShadowOnFont(
-                BossBarLine.render(List.of(BossBarLine.Pill.of("x"))), Glyphs.FONT_BOSSBAR, "BossBarLine.render");
+        final Component line = BossBarLine.render(List.of(Pill.Content.bar(0.5, "x")));
+        assertNoShadowOnFont(line, Pen.artFont(0), "BossBarLine.render");
+        assertNoShadowOnFont(line, Pen.textFont(4), "BossBarLine.render");
     }
 
     @Test

@@ -2,7 +2,7 @@ package eu.nordtal.season.packrendering.hud;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
+import eu.nordtal.season.packrendering.ui.Pill;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import net.kyori.adventure.bossbar.BossBar;
@@ -23,12 +23,12 @@ class BossBarLineShowTest {
             }
         });
 
-        BossBarLine.show(bar, List.of(Pill.of("Waiting")));
-        BossBarLine.show(bar, List.of(Pill.of("Waiting")));
-        BossBarLine.show(bar, List.of(Pill.of("Waiting")));
+        BossBarLine.show(bar, List.of(Pill.Content.of("Waiting")));
+        BossBarLine.show(bar, List.of(Pill.Content.of("Waiting")));
+        BossBarLine.show(bar, List.of(Pill.Content.of("Waiting")));
         assertEquals(1, renames.get(), "a frame that draws the same line sends nothing");
 
-        BossBarLine.show(bar, List.of(Pill.of("Open")));
+        BossBarLine.show(bar, List.of(Pill.Content.of("Open")));
         assertEquals(2, renames.get(), "a changed line is sent");
     }
 }

@@ -74,7 +74,7 @@ class RideDisplayTest {
 
     @Test
     void aCharacterTheHudFontLacksIsDrawnAsAQuestionMark() {
-        assertEquals("Caf? Mühle", RideDisplay.drawable("Café Mühle"));
+        assertEquals("Café Mühle ?", RideDisplay.drawable("Café Mühle 東"));
         assertEquals("Harbour 2", RideDisplay.drawable("Harbour 2"));
     }
 }

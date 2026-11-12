@@ -17,6 +17,7 @@ import io.papermc.paper.dialog.Dialog;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntSupplier;
 import org.bukkit.Bukkit;
@@ -249,14 +250,31 @@ public final class StationMenus implements Listener {
         return dialog.isPresent();
     }
 
+    /**
+     * Returns whether the ride list holds a station to pick.
+     * It answers for a rider whose cart stands on a network with no ride driving it, and is empty for anyone else.
+     */
+    public Optional<Boolean> waiting(final Player player) {
+        if (!(player.getVehicle() instanceof RideableMinecart cart) || rides.driving(cart)) {
+            return Optional.empty();
+        }
+        return networkUnder(cart)
+                .map(ride -> !RideList.of(ride.graph(), ride.at(), ride.stations(), Set.of(), near.getAsInt(), "")
+                        .isEmpty());
+    }
+
+    private Optional<RailNetworks.Ride> networkUnder(final RideableMinecart cart) {
+        final Block at = cart.getLocation().getBlock();
+        final Block rail = Tag.RAILS.isTagged(at.getType()) ? at : at.getRelative(BlockFace.DOWN);
+        return networks.ride(rail);
+    }
+
     /** Returns the ride list at {@code page} for the cart {@code player} sits in, when it stands on a network. */
     private Optional<Dialog> ride(final Player player, final int page) {
         if (!(player.getVehicle() instanceof RideableMinecart cart)) {
             return Optional.empty();
         }
-        final Block at = cart.getLocation().getBlock();
-        final Block rail = Tag.RAILS.isTagged(at.getType()) ? at : at.getRelative(BlockFace.DOWN);
-        return networks.ride(rail)
+        return networkUnder(cart)
                 .map(ride -> RideDialog.of(
                         stationDocument(locale(player), RideDialog.DOCUMENT),
                         RideList.of(

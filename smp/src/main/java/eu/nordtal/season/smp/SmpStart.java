@@ -15,7 +15,6 @@ import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.grave.GraveDao;
 import eu.nordtal.season.smp.grave.GraveListener;
 import eu.nordtal.season.smp.grave.Graves;
-import eu.nordtal.season.smp.hud.SmpHud;
 import eu.nordtal.season.smp.npc.NpcListener;
 import eu.nordtal.season.smp.npc.NpcProtection;
 import eu.nordtal.season.smp.npc.SpawnNpc;
@@ -56,9 +55,7 @@ final class SmpStart {
 
     private SmpStart() {}
 
-    static Announcer declareHudAndStartAnnouncer(final SmpPlugin plugin) {
-        new SmpHud(plugin.worlds, plugin.season, plugin.renderer()).declareOn(plugin.hud());
-
+    static Announcer startAnnouncer(final SmpPlugin plugin) {
         // Sends one request with every language to the bot's inbox and does not wait.
         final Announcer announcer = new Announcer(
                 Inbox.over(plugin.pool(), BotRequest.TABLE),
@@ -304,10 +301,6 @@ final class SmpStart {
         final Rides rides = new Rides(scheduler, rails, tickets, plugin.railSettings::get, plugin.sounds);
         rides.whenSwitched(effects::junctionSwitched);
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rides::tick);
-        final RideFeedback feedback =
-                new RideFeedback(plugin.renderer(), plugin.identities(), plugin.sounds, plugin.clock());
-        rides.watch(feedback);
-        plugin.hud().declare(feedback);
         plugin.getServer().getPluginManager().registerEvents(rides, plugin);
         plugin.getServer()
                 .getPluginManager()
@@ -324,6 +317,11 @@ final class SmpStart {
                 plugin.dialogs(),
                 () -> plugin.railSettings.get().stationWidth());
         plugin.getServer().getPluginManager().registerEvents(menus, plugin);
+        final RideFeedback feedback =
+                new RideFeedback(plugin.renderer(), plugin.identities(), plugin.sounds, plugin.clock(), menus::waiting);
+        rides.watch(feedback);
+        plugin.hud().declare(feedback);
+        plugin.hud().declare(feedback::below);
         plugin.getServer()
                 .getPluginManager()
                 .registerEvents(

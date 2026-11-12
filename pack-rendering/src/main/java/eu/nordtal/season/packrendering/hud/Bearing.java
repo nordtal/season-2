@@ -1,26 +1,12 @@
 package eu.nordtal.season.packrendering.hud;
 
-import eu.nordtal.season.packrendering.Glyphs;
-
-/** Turns a position, a facing and a target into one of sixteen boss bar arrow indices. */
+/** Turns a position, a facing and a target into one of the sixteen compass arrows, {@code Symbol.arrow}. */
 public final class Bearing {
-
-    /** The advance of the widest arrow. */
-    private static final int WIDEST = Glyphs.BOSSBAR_ARROWS.stream()
-            .mapToInt(BossBarAdvances::width)
-            .max()
-            .orElseThrow();
 
     private Bearing() {}
 
-    /** Returns the arrow of {@code index}, padded to the widest arrow, so a pill keeps its width while it turns. */
-    public static String arrow(final int index) {
-        final String glyph = Glyphs.BOSSBAR_ARROWS.get(index);
-        return glyph + BossBarLine.right(WIDEST - BossBarAdvances.width(glyph));
-    }
-
     /**
-     * Returns the {@code Glyphs.BOSSBAR_ARROWS} index of a target, 0 straight ahead, clockwise.
+     * Returns the direction of a target in sixteenths of a turn, 0 straight ahead, clockwise.
      *
      * @param playerYawDegrees the player's yaw in Minecraft's convention
      */

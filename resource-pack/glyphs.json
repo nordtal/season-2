@@ -489,7 +489,7 @@
         {
           "range": "FE000-FE128",
           "title": "Bar background",
-          "about": "One rounded pill per piece of information: the left cap, a body of segments, the right cap. A segment's code point is its width in decimal, and the client adds a pixel after each, which BossBarWidth steps back over.",
+          "about": "One rounded pill per piece of information: the left cap, a body of segments, the right cap. A segment's code point is its width in decimal, and the client adds a pixel after each. Nothing draws it since the HUD moved to the UI kit's pills.",
           "height": 14,
           "ascent": 6,
           "glyphs": [
@@ -802,7 +802,7 @@
         {
           "range": "FEF30-FEF3F",
           "title": "Ride progress",
-          "about": "The progress bar of a ride: the empty track, then the ridden part over it from segments of the brand blue whose code point's last digit counts up with the width, composed by BossBarProgress.",
+          "about": "The progress bar of a ride: the empty track, then the ridden part over it from segments of the brand blue whose code point's last digit counts up with the width. Nothing draws it since the ride bar moved to the UI kit.",
           "height": 5,
           "ascent": 1,
           "status": "final candidate",
@@ -1522,6 +1522,24 @@
             { "code": "FE398", "list": "UI_PILL" },
             { "code": "FE399", "list": "UI_PILL" }
           ]
+        },
+        {
+          "range": "FE3B0-FE3BF",
+          "title": "Ride bar",
+          "about": "The HUD's ride bar, 5 rows below the pill's top: its 100 x 5 track, outlined, and runs of 1 to 64 columns of its fill inside the outline.",
+          "texture": "nordtal:ui/kit/ride_bar.png",
+          "height": 10,
+          "ascent": 7,
+          "glyphs": [
+            { "code": "FE3B0", "list": "UI_RIDE_TRACK" },
+            { "code": "FE3B1", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B2", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B3", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B4", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B5", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B6", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B7", "list": "UI_RIDE_FILL" }
+          ]
         }
       ],
       "lists": [
@@ -1531,7 +1549,9 @@
         { "constant": "UI_BAR_TRACK" },
         { "constant": "UI_BAR_FILL" },
         { "constant": "UI_BAR_DONE" },
-        { "constant": "UI_PILL" }
+        { "constant": "UI_PILL" },
+        { "constant": "UI_RIDE_TRACK" },
+        { "constant": "UI_RIDE_FILL" }
       ]
     },
     {

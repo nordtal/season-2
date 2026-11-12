@@ -7,6 +7,7 @@ import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.Line;
 import eu.nordtal.season.messages.document.Part;
+import eu.nordtal.season.packrendering.ui.Letters;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -65,12 +66,12 @@ class ResourcePackTest {
             .flatMap(fonts -> fonts)
             .toList();
 
-    /** The documents whose text is drawn inside a boss bar, as {@code GameHud} and {@code SmpHud} use them. */
+    /** The documents whose text is drawn inside a boss bar, as {@code GameHud} and {@code RideFeedback} use them. */
     private static final List<String> HUD_DOCUMENTS = Stream.concat(
                     Stream.of("alive", "dead", "loot", "border")
                             .map(name ->
                                     "hunger-games/src/main/resources/documents/hunger-games/hud-" + name + ".json"),
-                    Stream.of("hud-world", "hud-progress", "milestone-name")
+                    Stream.of("hud-ride-distance", "hud-ride-choose", "hud-ride-dismount")
                             .map(name -> "smp/src/main/resources/documents/smp/" + name + ".json"))
             .toList();
 
@@ -151,23 +152,18 @@ class ResourcePackTest {
     }
 
     @Test
-    void theBossbarFontCanWriteGerman() {
+    void theHudTextFontCanWriteGerman() {
         final List<String> missing = new ArrayList<>();
         for (final int codePoint : "äöüÄÖÜß".codePoints().toArray()) {
-            if (!BOSSBAR_FONT.covers(codePoint)) {
+            if (!Letters.covers(codePoint)) {
                 missing.add(new String(Character.toChars(codePoint)));
             }
         }
-        assertEquals(
-                List.of(),
-                missing,
-                "nordtal:bossbar carries its own ascii sheet, so a character the vanilla font has"
-                        + " is not a character this one has; every German HUD string is written"
-                        + " around the ones it lacks. Draw them into nordtal/textures/font/ascii.png");
+        assertEquals(List.of(), missing, "every German HUD string is written in the ui text font");
     }
 
     @Test
-    void everyCharacterABossBarLineCanContainIsInTheBossbarFont() {
+    void everyCharacterAHudLineCanContainIsInItsTextFont() {
         final Map<String, Set<Integer>> missing = new LinkedHashMap<>();
         for (final String document : HUD_DOCUMENTS) {
             for (final Part part :
@@ -183,15 +179,14 @@ class ResourcePackTest {
         assertEquals(
                 Map.of(),
                 missing,
-                "a boss bar line is rendered in nordtal:bossbar, whose ascii sheet is a subset of"
-                        + " the vanilla one - a character it does not carry reaches the player as a"
-                        + " missing-glyph box in the middle of the HUD. What a placeholder is"
-                        + " replaced with at runtime is not checkable from here.");
+                "a character the HUD's text font does not carry reaches the player as a missing-glyph box in the"
+                        + " middle of the HUD. What a placeholder is replaced with at runtime is not checkable"
+                        + " from here.");
     }
 
     private static void notCovered(final String text, final String where, final Map<String, Set<Integer>> missing) {
         text.codePoints().forEach(codePoint -> {
-            if (!BOSSBAR_FONT.covers(codePoint)) {
+            if (!Letters.covers(codePoint)) {
                 missing.computeIfAbsent(where, ignored -> new TreeSet<>()).add(codePoint);
             }
         });

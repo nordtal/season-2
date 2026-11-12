@@ -250,7 +250,7 @@ public final class SmpPlugin extends NordtalPlugin {
         aura = jdbi().onDemand(AuraDao.class);
         PaperScheduler.of(this).execute(this::loadSeasonState);
 
-        announcer = SmpStart.declareHudAndStartAnnouncer(this);
+        announcer = SmpStart.startAnnouncer(this);
 
         nameTags = DisplayTags.start(this, nameTagSettings.get());
         final SmpStart.Surfaces wired = SmpStart.wireEffectsAndSurfaces(this);

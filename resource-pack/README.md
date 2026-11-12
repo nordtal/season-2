@@ -633,7 +633,8 @@ a bundle as a `{parameter}` or as `<glyph:name>`.
   Only the client knows the width of a text line.
 - **`nordtal:bossbar`:** its spaces are a `space` provider. The low digits of a code point are its
   advance in decimal, negative advances included, so a line can draw over itself. A HUD line is one
-  rounded pill per piece of information. No advance may be allocated onto an assigned character.
+  rounded pill per piece of information. The HUD now draws in the UI kit's fonts, and nothing draws this
+  font any more. No advance may be allocated onto an assigned character.
 - **`nordtal:gui`:** menu panels, drawn from the inventory title. A title holds a bitmap as large as
   the window on a high `ascent`, over the emptied `generic_54.png`. A title needs **-8** to reach the left edge of
   the window and **-169** to go back from the 177 px advance of the panel. The positive spaces are the

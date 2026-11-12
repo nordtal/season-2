@@ -2,7 +2,7 @@ package eu.nordtal.season.papercommon.hud;
 
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.packrendering.hud.BossBarLine;
-import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
+import eu.nordtal.season.packrendering.ui.Pill;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Duration;
@@ -95,7 +95,7 @@ public final class Hud implements Listener {
         final Locale locale = identities.languageOf(player.getUniqueId());
         final @Nullable BossBar[] shown = bars.computeIfAbsent(player.getUniqueId(), key -> new BossBar[lines.size()]);
         for (int index = 0; index < lines.size(); index++) {
-            final List<Pill> pills = lines.get(index).render(player, locale);
+            final List<Pill.Content> pills = lines.get(index).render(player, locale);
             final BossBar bar = shown[index];
             if (pills.isEmpty()) {
                 if (bar != null) {

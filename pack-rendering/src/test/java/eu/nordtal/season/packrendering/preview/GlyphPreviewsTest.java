@@ -10,8 +10,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.board.BoardFrame;
-import eu.nordtal.season.packrendering.hud.BossBarLine;
-import eu.nordtal.season.packrendering.hud.BossBarLine.Pill;
 import eu.nordtal.season.packrendering.menu.MenuTitle;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -63,11 +61,14 @@ class GlyphPreviewsTest {
     }
 
     @Test
-    void aBossBarGlyphIsTheIconOfAHudPill() {
+    void aBossBarGlyphStandsAloneOnTheHudLine() {
         final JsonObject previews = GlyphPreviews.render("nordtal:bossbar", Glyphs.BOSSBAR_ICON_BORDER, 9, LAYOUT);
 
         assertEquals(
-                json(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, "Nordtal")))), previews.get("hud"));
+                json(Component.text(Glyphs.BOSSBAR_ICON_BORDER)
+                        .font(Key.key(Glyphs.FONT_BOSSBAR))
+                        .shadowColor(ShadowColor.none())),
+                previews.get("hud"));
         assertEquals(JsonNull.INSTANCE, previews.get("menu"));
         assertEquals(JsonNull.INSTANCE, previews.get("board"));
     }
@@ -111,7 +112,10 @@ class GlyphPreviewsTest {
         assertEquals("nordtal:bossbar", written.get("font").getAsString());
         assertEquals("FEF0C", written.get("code").getAsString());
         assertEquals(
-                json(BossBarLine.render(List.of(Pill.of(Glyphs.BOSSBAR_ICON_BORDER, "Nordtal")))), written.get("hud"));
+                json(Component.text(Glyphs.BOSSBAR_ICON_BORDER)
+                        .font(Key.key(Glyphs.FONT_BOSSBAR))
+                        .shadowColor(ShadowColor.none())),
+                written.get("hud"));
     }
 
     @Test

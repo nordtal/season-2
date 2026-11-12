@@ -36,8 +36,8 @@ does.
 ## Glyph previews
 
 `renderGlyphPreviews` draws one glyph in the places the plugins compose: the chest menu panel, the
-HUD line in the boss bar and the board. It calls `MenuTitle`, `BossBarLine` and `BoardFrame`, so a
-preview is what a player sees. Nordtal Designer runs it and hands each component to the bridge mod.
+HUD line in the boss bar and the board. It calls `MenuTitle` and `BoardFrame`, so a preview is
+what a player sees. Nordtal Designer runs it and hands each component to the bridge mod.
 
 ```bash
 sh gradlew :pack-rendering:renderGlyphPreviews -Pfont='nordtal:gui_r{row}' -Pcode=FE100 -Prow=1
@@ -62,10 +62,10 @@ Each component is Minecraft text-component JSON as Adventure's Gson serializer w
 names the font of a row glyph's row and has no shadow, except in `minecraft:default`. A place
 that the font never reaches is null:
 
-| font                 | menu                                         | hud                  | board                     |
-| -------------------- | -------------------------------------------- | -------------------- | ------------------------- |
-| `nordtal:gui`        | the panel if 176 wide, else drawn on it at x | null                 | null                      |
-| `nordtal:gui_r{row}` | drawn on its row at x                        | null                 | null                      |
-| `nordtal:bossbar`    | null                                         | the icon of one pill | null                      |
-| `nordtal:board`      | null                                         | null                 | the frame, with no lines  |
-| `minecraft:default`  | in the title before the text                 | null                 | in a line before the text |
+| font                 | menu                                         | hud             | board                     |
+| -------------------- | -------------------------------------------- | --------------- | ------------------------- |
+| `nordtal:gui`        | the panel if 176 wide, else drawn on it at x | null            | null                      |
+| `nordtal:gui_r{row}` | drawn on its row at x                        | null            | null                      |
+| `nordtal:bossbar`    | null                                         | the glyph alone | null                      |
+| `nordtal:board`      | null                                         | null            | the frame, with no lines  |
+| `minecraft:default`  | in the title before the text                 | null            | in a line before the text |

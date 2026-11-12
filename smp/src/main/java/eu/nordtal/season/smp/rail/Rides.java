@@ -141,6 +141,11 @@ public final class Rides implements Listener {
         this.watch = watching;
     }
 
+    /** Returns whether a ride drives {@code cart} now. */
+    boolean driving(final RideableMinecart cart) {
+        return rides.containsKey(cart.getUniqueId());
+    }
+
     /** Drives {@code cart} with {@code rider} in it to the station {@code station}; false when no way leads there. */
     boolean drive(final Player rider, final RideableMinecart cart, final UUID station) {
         final @Nullable Ride running = rides.get(cart.getUniqueId());

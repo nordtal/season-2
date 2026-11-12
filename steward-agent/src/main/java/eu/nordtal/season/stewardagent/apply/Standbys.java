@@ -15,9 +15,9 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Makes each standby's {@code plugins/} a copy of its service's, configs included and each plugin's scratch left out.
+ * Makes each standby's {@code plugins/} and server jars copies of its service's, each plugin's scratch left out.
  *
- * A standby that is not mounted is skipped.
+ * A standby that is not mounted is skipped, and so is a jar cache its service does not have.
  */
 @Slf4j
 public final class Standbys {
@@ -28,12 +28,12 @@ public final class Standbys {
     private Standbys() {}
 
     /**
-     * Mirrors {@code plugins/} onto the standby of every named service that has one.
+     * Mirrors {@code plugins/} and the server jar cache onto the standby of every named service that has one.
      *
      * @param volumesRoot where the services' volumes are mounted in this container
      * @param services the services this run touched; anything without a standby is ignored
      * @param topology which service has which standby
-     * @return one row per mounted standby, under its compose service name
+     * @return one row per mounted standby and directory, under the standby's compose service name
      */
     public static List<ApplyResult.Outcome> fill(
             final Path volumesRoot, final Collection<String> services, final AgentWire.Topology topology) {
@@ -64,21 +64,31 @@ public final class Standbys {
                                 + " start."));
                 continue;
             }
-            outcomes.add(mirror(source, target, standby));
+            outcomes.add(mirror(source, target, standby, Installation.PLUGINS));
+            // The entrypoint runs the newest jar cached, so a stale cache is an older Minecraft than the service's.
+            final Path jars = volumesRoot.resolve(service).resolve(Installation.SERVER_CACHE);
+            if (Files.isDirectory(jars)) {
+                outcomes.add(mirror(
+                        jars,
+                        volumesRoot.resolve(standby).resolve(Installation.SERVER_CACHE),
+                        standby,
+                        Installation.SERVER_CACHE));
+            }
         }
         return List.copyOf(outcomes);
     }
 
-    private static ApplyResult.Outcome mirror(final Path source, final Path target, final String standby) {
+    private static ApplyResult.Outcome mirror(
+            final Path source, final Path target, final String standby, final String directory) {
         final Tally tally = new Tally();
         try {
             Files.createDirectories(target);
             copyInto(source, target, 0, tally);
         } catch (final IOException failed) {
-            log.error("Could not fill {}'s plugins/ from {}: {}", standby, source, failed.getMessage());
+            log.error("Could not fill {}'s {} from {}: {}", standby, directory, source, failed.getMessage());
             return new ApplyResult.Outcome(
                     standby,
-                    Installation.PLUGINS,
+                    directory,
                     ApplyResult.Status.FAILED,
                     "could not be filled from " + source + ": " + failed.getMessage()
                             + ". Started for a swap, this service would come up on whatever is"
@@ -86,14 +96,11 @@ public final class Standbys {
         }
         if (tally.copied == 0 && tally.removed == 0) {
             return new ApplyResult.Outcome(
-                    standby,
-                    Installation.PLUGINS,
-                    ApplyResult.Status.UNCHANGED,
-                    "already the same " + tally.same + " file(s)");
+                    standby, directory, ApplyResult.Status.UNCHANGED, "already the same " + tally.same + " file(s)");
         }
         return new ApplyResult.Outcome(
                 standby,
-                Installation.PLUGINS,
+                directory,
                 ApplyResult.Status.DONE,
                 tally.copied + " file(s) copied"
                         + (tally.removed == 0 ? "" : ", " + tally.removed + " removed")

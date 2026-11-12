@@ -558,6 +558,10 @@ services:
       - ${LIMBO_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-plugins}:/volumes/limbo/plugins
       - ${HUNGER_GAMES_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-hunger-games-plugins}:/volumes/hunger-games/plugins
       - ${SMP_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-smp-plugins}:/volumes/smp/plugins
+      # Standby data volumes, whose .server the agent mirrors from the live service's, as it does
+      # plugins/ below; not backed up.
+      - ${PROXY_STANDBY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby}:/volumes/proxy-standby
+      - ${LIMBO_STANDBY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby}:/volumes/limbo-standby
       # Standby plugins/: copies of the live ones after every apply, not backed up.
       - ${PROXY_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-proxy-standby-plugins}:/volumes/proxy-standby/plugins
       - ${LIMBO_STANDBY_PLUGINS:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/mc-limbo-standby-plugins}:/volumes/limbo-standby/plugins

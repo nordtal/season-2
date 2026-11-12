@@ -263,6 +263,22 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             listed(unused, "0.27.0", role, "INSERT", "audit_log", "subject", "mc_uuid", "line", "reference", "days");
         }
         // The rebuilt Discord layout tables, which no proxy or limbo code read.
+        layoutTables(unused);
+        // A run's report, its request as JSON and the services it stops, which the proxy reads from run rows.
+        listed(unused, "0.56.0", "nordtal_proxy", "SELECT", "steward_inbox", "outcome", "payload", "moving");
+        // Refusal columns no server writes: a settings refusal's free text and a game start's season phase.
+        for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
+            listed(unused, "0.73.0", role, "SELECT", "smp_refusal", "detail");
+            listed(unused, "0.73.0", role, "SELECT", "hunger_games_refusal", "detail");
+            listed(unused, "0.74.0", role, "SELECT", "hunger_games_refusal", "phase");
+            // The season phase, which the launch date, maintenance and the game mode replaced.
+            listed(unused, "0.74.0", role, "SELECT", "season_phase", "id", "phase", "updated", "launch");
+            listed(unused, "0.74.0", role, "SELECT", "season_phase", "smp_start", "fresh_start");
+        }
+        return Map.copyOf(unused);
+    }
+
+    private static void layoutTables(final Map<String, String> unused) {
         for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
             listed(unused, "0.33.0", role, "SELECT", "layout_line", "bundle", "key", "layout", "line", "list", "part");
             listed(unused, "0.33.0", role, "SELECT", "layout_line", "style");
@@ -280,15 +296,6 @@ class MigrationsExpandBeforeTheyContractIntegrationTest {
             listed(unused, "0.33.0", role, "SELECT", "layout_row_element", "bundle", "element", "layout", "part");
             listed(unused, "0.33.0", role, "SELECT", "layout_row_element", "position");
         }
-        // A run's report, its request as JSON and the services it stops, which the proxy reads from run rows.
-        listed(unused, "0.56.0", "nordtal_proxy", "SELECT", "steward_inbox", "outcome", "payload", "moving");
-        // Refusal columns no server writes: a settings refusal's free text and a game start's season phase.
-        for (final String role : List.of("nordtal_proxy", "nordtal_limbo")) {
-            listed(unused, "0.73.0", role, "SELECT", "smp_refusal", "detail");
-            listed(unused, "0.73.0", role, "SELECT", "hunger_games_refusal", "detail");
-            listed(unused, "0.74.0", role, "SELECT", "hunger_games_refusal", "phase");
-        }
-        return Map.copyOf(unused);
     }
 
     private static void listed(

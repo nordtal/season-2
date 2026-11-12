@@ -62,10 +62,10 @@ Each component is Minecraft text-component JSON as Adventure's Gson serializer w
 names the font of a row glyph's row and has no shadow, except in `minecraft:default`. A place
 that the font never reaches is null:
 
-| font                 | menu                                         | hud                  | board                     |
-| -------------------- | -------------------------------------------- | -------------------- | ------------------------- |
-| `nordtal:gui`        | the panel if 176 wide, else drawn on it at x | null                 | null                      |
-| `nordtal:gui_r{row}` | drawn on its row at x                        | null                 | null                      |
-| `nordtal:bossbar`    | null                                         | the glyph alone      | null                      |
-| `nordtal:board`      | null                                         | null                 | the frame, with no lines  |
-| `minecraft:default`  | in the title before the text                 | null                 | in a line before the text |
+| font                 | menu                                         | hud             | board                     |
+| -------------------- | -------------------------------------------- | --------------- | ------------------------- |
+| `nordtal:gui`        | the panel if 176 wide, else drawn on it at x | null            | null                      |
+| `nordtal:gui_r{row}` | drawn on its row at x                        | null            | null                      |
+| `nordtal:bossbar`    | null                                         | the glyph alone | null                      |
+| `nordtal:board`      | null                                         | null            | the frame, with no lines  |
+| `minecraft:default`  | in the title before the text                 | null            | in a line before the text |

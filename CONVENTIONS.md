@@ -189,7 +189,8 @@ run `git config core.hooksPath .githooks` once per clone.
   the field's name and its input. Every other field carries `@NoExplanationNeeded`.
 - **No text symbol as a separator**, such as the middle dot, a pipe or a spaced hyphen: one value, two
   values set apart as two lines or two pills, or the second as an icon. A bundle or a document holds no pipe,
-  spaced hyphen, dash (escaped or not), double space or banner comment. _(the middle dot in Steward and
+  spaced hyphen, dash (escaped or not), double space or banner comment; a line of spaces alone, which
+  widens a tab list or a hologram, is a spacer, not a double space. _(the middle dot in Steward and
   all of it in the bundles and documents checked)_
 - **One icon per domain term.** A term Steward names (aura, spins, a service, a backup, the game mode, access, an alert
   level) is drawn with the icon `steward/frontend/src/components/steward/term-icons.tsx` gives it, wherever it

@@ -225,6 +225,7 @@ object OxfmtJson {
             if (!mustBreak(value) && column + flat.length + trailing <= WIDTH) return out.append(flat).let { }
 
             val inner = step.repeat(indent + 1)
+            if (filled(value)) return fill(value as List<*>, inner, indent, out)
             val members: List<Pair<String, Any?>> =
                 if (value is Map<*, *>) {
                     value.map { (key, member) -> string(key as String) + ": " to member }
@@ -245,6 +246,37 @@ object OxfmtJson {
                 if (!last) out.append(',')
             }
             out.append('\n').append(step.repeat(indent)).append(if (value is Map<*, *>) "}" else "]")
+        }
+
+        /** Whether oxfmt fills [value]'s lines when it breaks: an array of two or more numbers. */
+        private fun filled(value: Any?): Boolean = value is List<*> && value.size > 1 && value.all { it is Number }
+
+        /** Appends [numbers] broken as oxfmt fills them: as many to a line as fit, the next on a new line. */
+        private fun fill(
+            numbers: List<*>,
+            inner: String,
+            indent: Int,
+            out: StringBuilder,
+        ) {
+            out.append('[').append('\n').append(inner)
+            var column = inner.length
+            numbers.forEachIndexed { index, number ->
+                val text = scalar(number)
+                if (index > 0) {
+                    out.append(',')
+                    column++
+                    if (column + 1 + text.length <= WIDTH) {
+                        out.append(' ')
+                        column++
+                    } else {
+                        out.append('\n').append(inner)
+                        column = inner.length
+                    }
+                }
+                out.append(text)
+                column += text.length
+            }
+            out.append('\n').append(step.repeat(indent)).append(']')
         }
 
         /** Whether oxfmt breaks [value] whatever its width: an expanded object, or an array of objects or arrays with two or more members each. */

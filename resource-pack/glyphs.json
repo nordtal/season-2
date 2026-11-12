@@ -1320,7 +1320,10 @@
     },
     {
       "font": "nordtal:ui_text_{shift}",
-      "shifts": [0, 1, 2, 4, 5, 10, 16, 34, 37, 43, 44, 52, 58, 70, 88, 106, 137],
+      "shifts": [
+        0, 1, 2, 3, 4, 5, 6, 9, 10, 13, 16, 22, 25, 29, 33, 34, 37, 42, 43, 44, 45, 47, 49, 51, 52, 53, 58, 62, 65, 69,
+        70, 85, 88, 89, 91, 106, 137
+      ],
       "constant": "FONT_UI_TEXT",
       "letters": true,
       "references": ["minecraft:include/space", "nordtal:ui_space"],
@@ -1379,10 +1382,10 @@
     },
     {
       "font": "nordtal:ui_art_{shift}",
-      "shifts": [0, 11, 29, 47, 50, 65, 83, 101],
+      "shifts": [-2, 0, 4, 8, 11, 17, 20, 24, 28, 29, 37, 40, 44, 47, 48, 50, 57, 60, 64, 65, 80, 83, 84, 101],
       "constant": "FONT_UI_ART",
       "references": ["nordtal:ui_space"],
-      "about": "Plates, frames, the bar and the pill. Shift 0 puts the art's top on a dialog line's text row; 11 + 18 r on chest content row r.",
+      "about": "Plates, frames, the bar and the pill. Shift 0 puts the art's top on a dialog line's text row; 11 + 18 r on chest content row r. A dialog column's rows take their shift from their place in it, and −2 raises the line after a column, its art 2 above its box's text row.",
       "blocks": [
         {
           "range": "FE340-FE34F",
@@ -1632,10 +1635,10 @@
     },
     {
       "font": "nordtal:ui_dialog_{shift}",
-      "shifts": [43, 49, 50, 64],
+      "shifts": [43, 49, 50, 53, 55, 57, 64],
       "constant": "FONT_UI_DIALOG",
       "references": ["nordtal:ui_space"],
-      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first plate line, 50 over a first text line, 43 over a frame 2 px above its line, 64 for the wheel.",
+      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first line of plates or a column whose art starts at its box + 4, 50 over a first text line, 53, 55 and 57 over a column set at the foot of its box, 43 over a frame 2 px above its line, 64 for the wheel.",
       "blocks": [
         {
           "range": "FE3C0-FE3FF",
@@ -1643,118 +1646,216 @@
           "glyphs": [
             {
               "code": "FE3C0",
-              "list": "UI_DIALOG_RIDE_LIST_150",
-              "texture": "nordtal:ui/kit/dialog_ride_list_150_0.png",
-              "height": 150,
+              "list": "UI_DIALOG_RIDE_LIST_153",
+              "texture": "nordtal:ui/kit/dialog_ride_list_153_0.png",
+              "height": 153,
               "ascent": 20
             },
             {
               "code": "FE3C1",
-              "list": "UI_DIALOG_RIDE_LIST_150",
-              "texture": "nordtal:ui/kit/dialog_ride_list_150_1.png",
-              "height": 150,
+              "list": "UI_DIALOG_RIDE_LIST_153",
+              "texture": "nordtal:ui/kit/dialog_ride_list_153_1.png",
+              "height": 153,
               "ascent": 20
             },
             {
               "code": "FE3C2",
-              "list": "UI_DIALOG_RIDE_LIST_114",
-              "texture": "nordtal:ui/kit/dialog_ride_list_114_0.png",
-              "height": 114,
+              "list": "UI_DIALOG_RIDE_LIST_42",
+              "texture": "nordtal:ui/kit/dialog_ride_list_42_0.png",
+              "height": 42,
               "ascent": 20
             },
             {
               "code": "FE3C3",
-              "list": "UI_DIALOG_RIDE_LIST_114",
-              "texture": "nordtal:ui/kit/dialog_ride_list_114_1.png",
-              "height": 114,
+              "list": "UI_DIALOG_RIDE_LIST_42",
+              "texture": "nordtal:ui/kit/dialog_ride_list_42_1.png",
+              "height": 42,
               "ascent": 20
             },
             {
               "code": "FE3C4",
+              "list": "UI_DIALOG_RIDE_LIST_62",
+              "texture": "nordtal:ui/kit/dialog_ride_list_62_0.png",
+              "height": 62,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C5",
+              "list": "UI_DIALOG_RIDE_LIST_62",
+              "texture": "nordtal:ui/kit/dialog_ride_list_62_1.png",
+              "height": 62,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C6",
+              "list": "UI_DIALOG_RIDE_LIST_82",
+              "texture": "nordtal:ui/kit/dialog_ride_list_82_0.png",
+              "height": 82,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C7",
+              "list": "UI_DIALOG_RIDE_LIST_82",
+              "texture": "nordtal:ui/kit/dialog_ride_list_82_1.png",
+              "height": 82,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C8",
+              "list": "UI_DIALOG_RIDE_LIST_102",
+              "texture": "nordtal:ui/kit/dialog_ride_list_102_0.png",
+              "height": 102,
+              "ascent": 20
+            },
+            {
+              "code": "FE3C9",
+              "list": "UI_DIALOG_RIDE_LIST_102",
+              "texture": "nordtal:ui/kit/dialog_ride_list_102_1.png",
+              "height": 102,
+              "ascent": 20
+            },
+            {
+              "code": "FE3CA",
+              "list": "UI_DIALOG_RIDE_LIST_122",
+              "texture": "nordtal:ui/kit/dialog_ride_list_122_0.png",
+              "height": 122,
+              "ascent": 20
+            },
+            {
+              "code": "FE3CB",
+              "list": "UI_DIALOG_RIDE_LIST_122",
+              "texture": "nordtal:ui/kit/dialog_ride_list_122_1.png",
+              "height": 122,
+              "ascent": 20
+            },
+            {
+              "code": "FE3CC",
               "list": "UI_DIALOG_RIDE_LIST_33",
               "texture": "nordtal:ui/kit/dialog_ride_list_33_0.png",
               "height": 33,
               "ascent": 20
             },
             {
-              "code": "FE3C5",
+              "code": "FE3CD",
               "list": "UI_DIALOG_RIDE_LIST_33",
               "texture": "nordtal:ui/kit/dialog_ride_list_33_1.png",
               "height": 33,
               "ascent": 20
             },
             {
-              "code": "FE3C6",
+              "code": "FE3CE",
               "list": "UI_DIALOG_STATION_78",
               "texture": "nordtal:ui/kit/dialog_station_78_0.png",
               "height": 78,
               "ascent": 20
             },
             {
-              "code": "FE3C7",
+              "code": "FE3CF",
               "list": "UI_DIALOG_STATION_104",
               "texture": "nordtal:ui/kit/dialog_station_104_0.png",
               "height": 104,
               "ascent": 20
             },
             {
-              "code": "FE3C8",
+              "code": "FE3D0",
               "list": "UI_DIALOG_STATION_122",
               "texture": "nordtal:ui/kit/dialog_station_122_0.png",
               "height": 122,
               "ascent": 20
             },
             {
-              "code": "FE3C9",
-              "list": "UI_DIALOG_OBJECTIVES_176",
-              "texture": "nordtal:ui/kit/dialog_objectives_176_0.png",
-              "height": 176,
+              "code": "FE3D1",
+              "list": "UI_DIALOG_OBJECTIVES_124",
+              "texture": "nordtal:ui/kit/dialog_objectives_124_0.png",
+              "height": 124,
               "ascent": 20
             },
             {
-              "code": "FE3CA",
-              "list": "UI_DIALOG_OBJECTIVES_176",
-              "texture": "nordtal:ui/kit/dialog_objectives_176_1.png",
-              "height": 176,
+              "code": "FE3D2",
+              "list": "UI_DIALOG_OBJECTIVES_124",
+              "texture": "nordtal:ui/kit/dialog_objectives_124_1.png",
+              "height": 124,
               "ascent": 20
             },
             {
-              "code": "FE3CB",
+              "code": "FE3D3",
               "list": "UI_DIALOG_OBJECTIVES_33",
               "texture": "nordtal:ui/kit/dialog_objectives_33_0.png",
               "height": 33,
               "ascent": 20
             },
             {
-              "code": "FE3CC",
+              "code": "FE3D4",
               "list": "UI_DIALOG_OBJECTIVES_33",
               "texture": "nordtal:ui/kit/dialog_objectives_33_1.png",
               "height": 33,
               "ascent": 20
             },
             {
-              "code": "FE3CD",
-              "list": "UI_DIALOG_DUEL_178",
-              "texture": "nordtal:ui/kit/dialog_duel_178_0.png",
-              "height": 178,
+              "code": "FE3D5",
+              "list": "UI_DIALOG_DUEL_124",
+              "texture": "nordtal:ui/kit/dialog_duel_124_0.png",
+              "height": 124,
               "ascent": 20
             },
             {
-              "code": "FE3CE",
-              "list": "UI_DIALOG_DRAFT_PREVIEW_150",
-              "texture": "nordtal:ui/kit/dialog_draft_preview_150_0.png",
-              "height": 150,
+              "code": "FE3D6",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_113",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_113_0.png",
+              "height": 113,
               "ascent": 20
             },
             {
-              "code": "FE3CF",
-              "list": "UI_DIALOG_DRAFT_PREVIEW_150",
-              "texture": "nordtal:ui/kit/dialog_draft_preview_150_1.png",
-              "height": 150,
+              "code": "FE3D7",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_113",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_113_1.png",
+              "height": 113,
               "ascent": 20
             },
             {
-              "code": "FE3D0",
+              "code": "FE3D8",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_42",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_42_0.png",
+              "height": 42,
+              "ascent": 20
+            },
+            {
+              "code": "FE3D9",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_42",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_42_1.png",
+              "height": 42,
+              "ascent": 20
+            },
+            {
+              "code": "FE3DA",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_62",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_62_0.png",
+              "height": 62,
+              "ascent": 20
+            },
+            {
+              "code": "FE3DB",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_62",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_62_1.png",
+              "height": 62,
+              "ascent": 20
+            },
+            {
+              "code": "FE3DC",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_82",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_82_0.png",
+              "height": 82,
+              "ascent": 20
+            },
+            {
+              "code": "FE3DD",
+              "list": "UI_DIALOG_DRAFT_PREVIEW_82",
+              "texture": "nordtal:ui/kit/dialog_draft_preview_82_1.png",
+              "height": 82,
+              "ascent": 20
+            },
+            {
+              "code": "FE3DE",
               "list": "UI_DIALOG_WHEEL_137",
               "texture": "nordtal:ui/kit/dialog_wheel_137_0.png",
               "height": 137,
@@ -1764,16 +1865,23 @@
         }
       ],
       "lists": [
-        { "constant": "UI_DIALOG_RIDE_LIST_150" },
-        { "constant": "UI_DIALOG_RIDE_LIST_114" },
+        { "constant": "UI_DIALOG_RIDE_LIST_153" },
+        { "constant": "UI_DIALOG_RIDE_LIST_42" },
+        { "constant": "UI_DIALOG_RIDE_LIST_62" },
+        { "constant": "UI_DIALOG_RIDE_LIST_82" },
+        { "constant": "UI_DIALOG_RIDE_LIST_102" },
+        { "constant": "UI_DIALOG_RIDE_LIST_122" },
         { "constant": "UI_DIALOG_RIDE_LIST_33" },
         { "constant": "UI_DIALOG_STATION_78" },
         { "constant": "UI_DIALOG_STATION_104" },
         { "constant": "UI_DIALOG_STATION_122" },
-        { "constant": "UI_DIALOG_OBJECTIVES_176" },
+        { "constant": "UI_DIALOG_OBJECTIVES_124" },
         { "constant": "UI_DIALOG_OBJECTIVES_33" },
-        { "constant": "UI_DIALOG_DUEL_178" },
-        { "constant": "UI_DIALOG_DRAFT_PREVIEW_150" },
+        { "constant": "UI_DIALOG_DUEL_124" },
+        { "constant": "UI_DIALOG_DRAFT_PREVIEW_113" },
+        { "constant": "UI_DIALOG_DRAFT_PREVIEW_42" },
+        { "constant": "UI_DIALOG_DRAFT_PREVIEW_62" },
+        { "constant": "UI_DIALOG_DRAFT_PREVIEW_82" },
         { "constant": "UI_DIALOG_WHEEL_137" }
       ]
     },

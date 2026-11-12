@@ -1,15 +1,17 @@
 package eu.nordtal.season.smp.rail;
 
+import eu.nordtal.season.packrendering.ui.Pill;
+import eu.nordtal.season.packrendering.ui.Symbol;
+import eu.nordtal.season.papercommon.hud.PillHologram;
 import java.util.Optional;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 import org.jspecify.annotations.Nullable;
 
-/** Draws a station's name as a text display above its rail, never saved with the world. */
+/** Draws a station's name as a grey pill above its rail, never saved with the world. */
 final class StationHologramDrawing implements StationHolograms.Drawing<Optional<TextDisplay>> {
 
     /** How far above the station rail's block the name floats. */
@@ -25,21 +27,23 @@ final class StationHologramDrawing implements StationHolograms.Drawing<Optional<
             return Optional.empty();
         }
         final Location at = new Location(world, station.x() + 0.5, station.y() + HEIGHT, station.z() + 0.5);
-        // Unlike a grave's countdown, a name is not seen through blocks: towns and tunnels hold many stations.
+        // Seen through blocks like a grave's countdown; the short view range keeps a town's stations from crowding.
         return Optional.of(world.spawn(at, TextDisplay.class, display -> {
             display.setPersistent(false);
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setSeeThrough(false);
-            display.setShadowed(false);
-            display.setDefaultBackground(true);
+            PillHologram.style(display);
             display.setViewRange(VIEW_RANGE);
-            display.text(Component.text(name));
+            display.text(pill(name));
         }));
     }
 
     @Override
     public void retitle(final Optional<TextDisplay> hologram, final String name) {
-        hologram.ifPresent(display -> display.text(Component.text(name)));
+        hologram.ifPresent(display -> display.text(pill(name)));
+    }
+
+    /** The station's name on a grey pill after the rail symbol. */
+    static Component pill(final String name) {
+        return Pill.of(Symbol.RAIL, name);
     }
 
     @Override

@@ -5,6 +5,7 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Part;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
@@ -47,7 +48,6 @@ final class PreviewDialog {
 
     private static final int EACH = 3;
     private static final int ROW = 264;
-    private static final int TOP = 49;
 
     private final Dialogs dialogs;
     private final GameDocument words;
@@ -93,16 +93,21 @@ final class PreviewDialog {
     private Dialog dialog(final int page) {
         final Dialogs.Send send = dialogs.send();
         final List<DialogBody> body = new ArrayList<>();
-        for (final Row row : paging.slice(rows, page)) {
-            body.add(Dialogs.line(line(row), ROW));
-        }
+        final List<Row> shown = paging.slice(rows, page);
+        final BodyColumn column = BodyColumn.of(ROW, paging.paged())
+                .rows(shown.size(), paging.paged() ? EACH : 0, index -> line -> line(line, shown.get(index)));
+        body.add(Dialogs.line(column.build(), ROW));
         if (paging.paged()) {
             final String said = words.label("pager", paging.page(page));
             body.add(Dialogs.line(
-                    send.pager(BodyLine.start(), paging, page, said, this::show).build(),
+                    send.pager(BodyColumn.next(), paging, page, said, this::show)
+                            .build(),
                     Dialogs.pagerWidth(paging, page)));
         }
-        final Component title = DialogTitle.of(DialogPanel.DRAFT_PREVIEW_150, TOP)
+        final DialogPanel panel = paging.paged()
+                ? DialogPanel.DRAFT_PREVIEW_113
+                : DialogPanel.DRAFT_PREVIEW_ROWS.get(Math.max(1, shown.size()) - 1);
+        final Component title = DialogTitle.of(panel, column.panelTop())
                 .header(Symbol.EYE, name, List.of(Mark.text(Dialogs.plain(words.title()), Colours.SOFT)))
                 .build();
         return Dialog.create(builder ->
@@ -110,20 +115,17 @@ final class PreviewDialog {
     }
 
     /** A row cut with "…" shows its whole line as its tooltip, and the narrator says it whole. */
-    private static Component line(final Row row) {
+    private static void line(final BodyLine line, final Row row) {
         final boolean cut = !Letters.cut(row.text(), BodyLine.rowRoom(ROW, false, row.slot()))
                 .equals(row.text());
         if (!cut) {
-            return BodyLine.start()
-                    .row(ROW, null, null, row.text(), row.slot(), Look.NORMAL)
-                    .build();
+            line.row(ROW, null, null, row.text(), row.slot(), Look.NORMAL);
+            return;
         }
         final BodyLine.Press whole = new BodyLine.Press(null, Tooltip.hover(row.slot(), row.text(), null));
-        return BodyLine.start()
-                .button(
-                        whole,
-                        part -> part.row(ROW, null, null, row.text(), row.slot(), Look.NORMAL)
-                                .words(row.text()))
-                .build();
+        line.button(
+                whole,
+                part -> part.row(ROW, null, null, row.text(), row.slot(), Look.NORMAL)
+                        .words(row.text()));
     }
 }

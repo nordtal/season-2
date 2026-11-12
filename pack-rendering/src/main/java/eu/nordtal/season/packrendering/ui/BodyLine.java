@@ -10,9 +10,9 @@ import net.kyori.adventure.text.format.TextColor;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Composes one dialog body line from left to right: plates, rows, the star, the pager, cards and texts.
- * A plate line's art starts on its text row and its labels stand at plate + 5; its box is 26 high, as a text line's.
- * A text line has one row, its capitals 1 px under the text row. A line's net width is its art's width.
+ * Composes one dialog body line from left to right.
+ * A plate line's art starts on its text row or lower, as {@link BodyColumn} sets it; a text line's capitals stand 1
+ * px under its row.
  */
 public final class BodyLine {
 
@@ -39,9 +39,11 @@ public final class BodyLine {
     private static final int TEXT_LINE = 1;
 
     private final Pen pen = Pen.start();
+    private final int down;
     private final int textShift;
 
-    private BodyLine(final int textShift) {
+    private BodyLine(final int down, final int textShift) {
+        this.down = down;
         this.textShift = textShift;
     }
 
@@ -51,12 +53,27 @@ public final class BodyLine {
 
     /** Starts an empty plate line. */
     public static BodyLine start() {
-        return new BodyLine(LABEL);
+        return start(0);
+    }
+
+    /** Starts an empty plate line whose plates' tops stand {@code down} pixels below the text row. */
+    public static BodyLine start(final int down) {
+        return new BodyLine(down, down + LABEL);
     }
 
     /** Starts an empty text line: one row of text and symbols, no plate. */
     public static BodyLine textLine() {
-        return new BodyLine(TEXT_LINE);
+        return new BodyLine(0, TEXT_LINE);
+    }
+
+    /** Starts a row of text and symbols whose capitals stand {@code down} pixels below the text row. */
+    public static BodyLine textRow(final int down) {
+        return new BodyLine(down, down);
+    }
+
+    /** Returns where the next part starts, which is the line's width so far. */
+    public int width() {
+        return pen.x();
     }
 
     /** Returns {@code words} for a narrator only: they take no room and draw nothing. */
@@ -100,7 +117,7 @@ public final class BodyLine {
 
     /** Draws {@code part} as one button: a click on it runs {@code press}, and the mouse shows its tooltip. */
     public BodyLine button(final Press press, final Consumer<BodyLine> part) {
-        final BodyLine inner = new BodyLine(textShift);
+        final BodyLine inner = new BodyLine(down, textShift);
         part.accept(inner);
         final int width = inner.pen.x();
         Component drawn = inner.pen.build();
@@ -125,15 +142,15 @@ public final class BodyLine {
     /** Draws a button plate {@code width} wide with {@code label} centred, after {@code symbol} if one is given. */
     public BodyLine plate(final int width, final @Nullable Symbol symbol, final String label, final Look look) {
         final int x = pen.x();
-        pen.plate(0, look, width);
+        pen.plate(down, look, width);
         final int room = width - 2 * PAD - (symbol == null ? 0 : Symbol.BEFORE_TEXT);
         final String text = Letters.cut(label, room);
         int lx = x + (width - Letters.visibleWidth(text) - (symbol == null ? 0 : Symbol.BEFORE_TEXT) + 1) / 2;
         if (symbol != null) {
-            pen.moveTo(lx).symbol(LABEL, symbol, look.ink());
+            pen.moveTo(lx).symbol(down + LABEL, symbol, look.ink());
             lx += Symbol.BEFORE_TEXT;
         }
-        pen.moveTo(lx).text(LABEL, text, look.ink()).moveTo(x + width);
+        pen.moveTo(lx).text(down + LABEL, text, look.ink()).moveTo(x + width);
         return this;
     }
 
@@ -146,20 +163,22 @@ public final class BodyLine {
             final @Nullable String value,
             final Look look) {
         final int x = pen.x();
-        pen.plate(0, look, width);
+        pen.plate(down, look, width);
         final int right = x + width - 1 - PAD;
         int nameX = x + PAD;
         if (symbol != null) {
-            pen.moveTo(nameX).symbol(LABEL, symbol, symbolColour == null ? look.ink() : symbolColour);
+            pen.moveTo(nameX).symbol(down + LABEL, symbol, symbolColour == null ? look.ink() : symbolColour);
             nameX += Symbol.BEFORE_TEXT;
         }
         int room = right - nameX + 1;
         if (value != null) {
             final int valueX = right - Letters.visibleWidth(value) + 1;
-            pen.moveTo(valueX).text(LABEL, value, look.soft());
+            pen.moveTo(valueX).text(down + LABEL, value, look.soft());
             room = valueX - TEXT_GAP - nameX;
         }
-        pen.moveTo(nameX).text(LABEL, Letters.cut(name, room), look.ink()).moveTo(x + width);
+        pen.moveTo(nameX)
+                .text(down + LABEL, Letters.cut(name, room), look.ink())
+                .moveTo(x + width);
         return this;
     }
 
@@ -173,9 +192,9 @@ public final class BodyLine {
     /** Draws a 17 x 17 plate with {@code symbol} centred on it in {@code colour}. */
     public BodyLine symbolPlate(final Symbol symbol, final TextColor colour, final Look look) {
         final int x = pen.x();
-        pen.plate(0, look, PLATE)
+        pen.plate(down, look, PLATE)
                 .moveTo(x + LABEL)
-                .symbol(LABEL, symbol, colour)
+                .symbol(down + LABEL, symbol, colour)
                 .moveTo(x + PLATE);
         return this;
     }
@@ -202,14 +221,19 @@ public final class BodyLine {
         words(words);
         pen.moveTo(x);
         button(previous, line -> line.symbolPlate(Symbol.LEFT, Look.NORMAL.ink(), Look.NORMAL));
-        pen.move(SIDE_GAP).text(LABEL, label, Look.NORMAL.soft());
+        pen.move(SIDE_GAP).text(down + LABEL, label, Look.NORMAL.soft());
         pen.moveTo(nextX + PLATE);
         return this;
     }
 
-    /** The width of the pager for {@code page} of {@code pages}. */
+    /**
+     * The pager's width for {@code page} of {@code pages}, made even.
+     * A pixel after the label evens it, since the client centres a line on whole pixels and every content width is
+     * even.
+     */
     public static int pagerWidth(final int page, final int pages) {
-        return 2 * PLATE + 2 * SIDE_GAP + Letters.visibleWidth(page + "/" + pages);
+        final int width = 2 * PLATE + 2 * SIDE_GAP + Letters.visibleWidth(page + "/" + pages);
+        return width + width % 2;
     }
 
     /**
@@ -225,19 +249,19 @@ public final class BodyLine {
             final boolean done,
             final Look look) {
         final int x = pen.x();
-        pen.plate(0, look, width);
-        pen.moveTo(x + PAD).symbol(LABEL, symbol, !done && look == Look.NORMAL ? Colours.ACCENT : look.ink());
+        pen.plate(down, look, width);
+        pen.moveTo(x + PAD).symbol(down + LABEL, symbol, !done && look == Look.NORMAL ? Colours.ACCENT : look.ink());
         final int right = x + width - 1 - PAD;
         final int barX = right - Letters.visibleWidth(WIDEST_COUNT) - PAD - BAR + 1;
         final int nameX = x + PAD + Symbol.BEFORE_TEXT;
-        pen.moveTo(nameX).text(LABEL, Letters.cut(name, barX - PAD - nameX), look.ink());
+        pen.moveTo(nameX).text(down + LABEL, Letters.cut(name, barX - PAD - nameX), look.ink());
         final int countX = right - Letters.visibleWidth(count) + 1;
         if (done) {
-            pen.moveTo(countX - Symbol.BEFORE_TEXT).symbol(LABEL, Symbol.TICK, look.soft());
+            pen.moveTo(countX - Symbol.BEFORE_TEXT).symbol(down + LABEL, Symbol.TICK, look.soft());
         } else {
             bar(barX, progress);
         }
-        pen.moveTo(countX).text(LABEL, count, look.soft()).moveTo(x + width);
+        pen.moveTo(countX).text(down + LABEL, count, look.soft()).moveTo(x + width);
         return this;
     }
 
@@ -254,7 +278,7 @@ public final class BodyLine {
     }
 
     private void bar(final int x, final double progress) {
-        final String font = Pen.artFont(0);
+        final String font = Pen.artFont(down);
         pen.moveTo(x).art(font, Glyphs.UI_BAR_TRACK.get(0), BAR).moveTo(x);
         final double clamped = Math.min(Math.max(progress, 0), 1);
         int filled = (int) Math.round(BAR * clamped);

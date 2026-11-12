@@ -5,17 +5,18 @@ import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Example;
+import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
 import eu.nordtal.season.packrendering.ui.DialogTitle;
+import eu.nordtal.season.packrendering.ui.Letters;
 import eu.nordtal.season.packrendering.ui.Look;
 import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.packrendering.ui.Tooltip;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
@@ -51,7 +52,8 @@ final class NegotiationDialog {
     /** A kit row holds a kit's name and a 16-character opponent; the status line a 16-character name. */
     static final int WIDTH = 192;
 
-    private static final int TOP = 49;
+    /** From the last kit row to the status under it: as between two lines. */
+    private static final int STATUS_GAP = BodyColumn.LINE_GAP;
 
     /**
      * What one player sees.
@@ -76,32 +78,31 @@ final class NegotiationDialog {
             final View view,
             final Dialogs.Send send,
             final BiConsumer<Player, Integer> picked) {
-        final List<DialogBody> body = new ArrayList<>();
         final PlayerContext against = view.opponent();
         final @Nullable String opponent =
                 against == null ? null : against.name().name();
-        for (int index = 0; index < view.kits().size(); index++) {
-            final int kit = index;
-            final String name = view.kits().get(index);
-            final boolean mine = Integer.valueOf(index).equals(view.mine());
-            final @Nullable String theirs = Integer.valueOf(index).equals(view.theirs()) ? opponent : null;
+        final String status = status(document, view);
+        final BodyColumn column = BodyColumn.of(WIDTH, false).rows(view.kits().size(), KITS, kit -> line -> {
+            final String name = view.kits().get(kit);
+            final boolean mine = Integer.valueOf(kit).equals(view.mine());
+            final @Nullable String theirs = Integer.valueOf(kit).equals(view.theirs()) ? opponent : null;
             final BodyLine.Press press = new BodyLine.Press(
                     send.click(player -> picked.accept(player, kit)),
                     Tooltip.hover(name, null, document.label("pick-hint")));
-            body.add(Dialogs.line(
-                    BodyLine.start()
-                            .button(press, line -> {
-                                line.row(WIDTH, null, null, name, theirs, mine ? Look.PRIMARY : Look.NORMAL);
-                                if (mine) {
-                                    line.words(document.label("mine"));
-                                }
-                            })
-                            .build(),
-                    WIDTH));
-        }
-        final String status = status(document, view);
-        body.add(Dialogs.line(BodyLine.textLine().text(status, Colours.SOFT).build(), WIDTH));
-        final DialogTitle title = DialogTitle.of(DialogPanel.DUEL_178, TOP)
+            line.button(press, part -> {
+                part.row(WIDTH, null, null, name, theirs, mine ? Look.PRIMARY : Look.NORMAL);
+                if (mine) {
+                    part.words(document.label("mine"));
+                }
+            });
+        });
+        // The status stands centred under the kits, as a single row of a plain_message would.
+        column.gap(STATUS_GAP).text(line -> {
+            final String shown = Letters.cut(status, WIDTH);
+            line.at((WIDTH - Letters.visibleWidth(shown)) / 2).text(shown, Colours.SOFT);
+        });
+        final List<DialogBody> body = List.of(Dialogs.line(column.build(), WIDTH));
+        final DialogTitle title = DialogTitle.of(DialogPanel.DUEL_124, column.panelTop())
                 .header(Symbol.SHIELD, Dialogs.plain(document.title()), List.of());
         if (view.redrawn()) {
             title.words(document.label("redrawn", new Redrawn(status)));

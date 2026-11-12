@@ -71,6 +71,29 @@ class CompositionTest {
             new BodyLine.Press(ClickEvent.suggestCommand("previous"), Component.text("back"));
 
     @Test
+    void thePagerIsEvenSoItCentresOnAWholePixel() {
+        for (int pages = 1; pages <= 120; pages++) {
+            for (int page = 1; page <= pages; page++) {
+                assertEquals(0, BodyLine.pagerWidth(page, pages) % 2, page + "/" + pages);
+            }
+        }
+    }
+
+    @Test
+    void aColumnStandsItsRowsThreeApartAndEndsFourteenAboveTheNextLine() {
+        final BodyColumn followed = BodyColumn.of(262, true).rows(5, 5, index -> line -> line.gap(262));
+        assertEquals(5 * BodyLine.PLATE + 4 * BodyLine.SIDE_GAP, followed.height());
+        final int box = 9 * followed.rows() + 8;
+        final int nextArt = box + 10 + BodyColumn.AFTER;
+        assertEquals(BodyColumn.LINE_GAP, nextArt - followed.top() - followed.height());
+        final BodyColumn last =
+                BodyColumn.of(262, false).rows(1, 0, index -> line -> line.plate(262, null, "Fahren", Look.NORMAL));
+        assertEquals(4, last.top());
+        assertEquals(2, last.rows());
+        assertEquals(262, Advances.of(last.build()));
+    }
+
+    @Test
     void bodyLinesAreAsWideAsTheirArt() {
         assertEquals(
                 262,
@@ -175,6 +198,12 @@ class CompositionTest {
     void aPillIsItsContentAndTenWide() {
         assertEquals(Letters.visibleWidth("Händler") + 10, Advances.of(Pill.of("Händler")));
         assertEquals(Pill.width("Händler"), Advances.of(Pill.of("Händler")));
+        assertEquals(Pill.width(Symbol.RAIL, "Nordwacht"), Advances.of(Pill.of(Symbol.RAIL, "Nordwacht")));
+        assertEquals(
+                Pill.width(Symbol.GRAVE, "Verschwindet in 4 min"),
+                Advances.of(Pill.of(
+                        Symbol.GRAVE,
+                        List.of(new Pill.Run("Verschwindet in ", Colours.SOFT), new Pill.Run("4 min", Colours.INK)))));
     }
 
     @Test

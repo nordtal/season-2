@@ -14,7 +14,8 @@ class GlyphAllocation private constructor(
 ) {
     /**
      * One font file, or one per row or shift. `{row}` in [id] is the row, and each row sits [pitch] lower than the
-     * previous row. `{shift}` in [id] is one of [shifts], and that font draws every bitmap that many pixels lower.
+     * previous row. `{shift}` in [id] is one of [shifts], and that font draws every bitmap that many pixels lower,
+     * or higher for a negative shift.
      * [letters] adds vanilla's letter sheets, [silent] maps every vanilla letter to an empty advance of 0, and
      * [references] names the fonts whose providers come first.
      */
@@ -143,8 +144,8 @@ class GlyphAllocation private constructor(
             if ((pitch != null) != (rows != null)) font.problem("'pitch' is set exactly when 'rows' is")
             if ((SHIFT in id) != (shifts != null)) font.problem("'{shift}' belongs in the id exactly when 'shifts' is set")
             if (rows != null && shifts != null) font.problem("a font has 'rows' or 'shifts', not both")
-            if (shifts != null && (shifts.isEmpty() || shifts.any { it < 0 } || shifts.distinct().size != shifts.size)) {
-                font.problem("'shifts' lists distinct whole numbers of 0 or more")
+            if (shifts != null && (shifts.isEmpty() || shifts.distinct().size != shifts.size)) {
+                font.problem("'shifts' lists distinct whole numbers")
             }
             val references = font.strings("references").orEmpty()
             references.forEach { reference ->

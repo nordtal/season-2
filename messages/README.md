@@ -21,6 +21,9 @@ The shared vectors hold both to the same result.
 
 ## Writing a text
 
+What a text says follows Wording in `CONVENTIONS.md`: the agent-kit's skill `wording` and Nordtal's
+term list. This section holds how a text is written down.
+
 A value is `{role}` or `{role.attr}`, optionally with a kind and a style: `{left, duration, short}`.
 `{n, plural, one {# day} other {# days}}` and `{open, select, true {open} other {closed}}` are the
 only MessageFormat syntax a text may use. The kinds are a closed set:

@@ -10,6 +10,8 @@ public final class Typography {
     private static final Pattern TAG = Pattern.compile("<[^>]*>");
     private static final Pattern SPACED_HYPHEN = Pattern.compile("(^|\\s)-(\\s|$)");
     private static final Pattern DOUBLE_SPACE = Pattern.compile("\\s{2,}");
+    // A line of spaces alone widens a tab list or a hologram and aligns nothing.
+    private static final Pattern SPACER_LINE = Pattern.compile("(?<=^|<newline>|\\n) +(?=<newline>|\\n|$)");
     private static final Pattern DASH = Pattern.compile("[\\u2013\\u2014]");
 
     public static final String SEPARATOR =
@@ -27,7 +29,7 @@ public final class Typography {
         if (SPACED_HYPHEN.matcher(untagged).find() || untagged.indexOf('|') >= 0) {
             problems.add(SEPARATOR);
         }
-        if (DOUBLE_SPACE.matcher(text).find()) {
+        if (DOUBLE_SPACE.matcher(SPACER_LINE.matcher(text).replaceAll("")).find()) {
             problems.add(ALIGNED);
         }
         if (DASH.matcher(text).find()) {

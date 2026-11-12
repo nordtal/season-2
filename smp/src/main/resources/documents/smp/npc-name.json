@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<accent>Nordtal</accent>",
-            "de": "<accent>Nordtal</accent>"
+            "en": " <glyph:logo><newline><newline>                              <newline>",
+            "de": " <glyph:logo><newline><muted>Aufgaben</muted>"
           }
         }
       ]

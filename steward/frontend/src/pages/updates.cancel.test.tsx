@@ -194,7 +194,7 @@ describe("pressing it asks the backend at once", () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
-        "Run #79 was not cancelled",
+        "Failed to cancel run #79",
         expect.objectContaining({ description: expect.stringContaining("too late") }),
       )
     })

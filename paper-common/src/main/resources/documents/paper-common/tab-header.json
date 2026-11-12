@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<newline><glyph:logo-large><newline><brand>nordtal.eu</brand><newline><emphasis>Season {season.number}</emphasis><newline>",
-            "de": "<newline><glyph:logo-large><newline><brand>nordtal.eu</brand><newline><emphasis>{@terms.season} {season.number}</emphasis><newline>"
+            "en": "<newline><newline>                                                <newline><glyph:logo-large><newline><brand>nordtal.eu</brand><newline><emphasis>Season {season.number}</emphasis><newline>",
+            "de": "<newline><newline>                                                <newline><glyph:logo-large><newline><brand>nordtal.eu</brand><newline><emphasis>Saison {season.number}</emphasis><newline>"
           }
         }
       ]

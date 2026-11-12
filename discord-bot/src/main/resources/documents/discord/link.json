@@ -5,11 +5,15 @@
       "accent": "#4a63d8",
       "parts": [
         {
+          "type": "GALLERY",
+          "media": ["attachment://link.png"]
+        },
+        {
           "type": "TEXT",
           "lines": [
             {
               "text": {
-                "en": "Account link",
+                "en": "Link your Minecraft account",
                 "de": "Account-Verknüpfung"
               },
               "style": "TITLE"
@@ -21,16 +25,10 @@
           "lines": [
             {
               "text": {
-                "en": "Steps",
-                "de": "Schritte"
+                "en": "1. Connect to the Minecraft server at **`play.nordtal.eu`**\n",
+                "de": "Server betreten → Code kopieren → **{link.label}**"
               },
               "style": "HEADING"
-            },
-            {
-              "text": {
-                "en": "Join the server → copy the code → **{link.label}**",
-                "de": "Server betreten → Code kopieren → **{link.label}**"
-              }
             }
           ]
         },
@@ -39,22 +37,18 @@
           "lines": [
             {
               "text": {
-                "en": "Other account",
+                "en": "Already linked?",
                 "de": "Anderer Account"
               },
               "style": "HEADING"
             },
             {
               "text": {
-                "en": "/unlink → link again",
+                "en": "Use /unlink to be able to link to another account.",
                 "de": "/unlink → neu verknüpfen"
               }
             }
           ]
-        },
-        {
-          "type": "GALLERY",
-          "media": ["attachment://link.png"]
         }
       ]
     },

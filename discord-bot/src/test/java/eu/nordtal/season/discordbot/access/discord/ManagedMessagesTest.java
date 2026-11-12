@@ -47,9 +47,9 @@ class ManagedMessagesTest {
         final ActionRow row = (ActionRow) drawn.components().getLast();
 
         assertEquals(
-                "### Schritte\nServer betreten → Code kopieren → **"
+                "### Server betreten → Code kopieren → **"
                         + row.getButtons().getFirst().getLabel() + "**",
-                ((TextDisplay) box.getComponents().get(1)).getContent());
+                ((TextDisplay) box.getComponents().get(2)).getContent());
     }
 
     @Test

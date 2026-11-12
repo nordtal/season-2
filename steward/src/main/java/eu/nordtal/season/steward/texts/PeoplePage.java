@@ -211,7 +211,7 @@ public interface PeoplePage {
     MessageRef auraSet(@Arg("name") @Example("Alex") String name, @Arg("aura") @Example("250") int aura);
 
     @Name("Aura now")
-    MessageRef auraNow(@Arg("aura") @Example("250") int aura);
+    MessageRef auraNow();
 
     @Name("Spins title")
     MessageRef spinsTitle();
@@ -220,7 +220,7 @@ public interface PeoplePage {
     MessageRef spinsSet(@Arg("name") @Example("Alex") String name, @Arg("spins") @Example("3") int spins);
 
     @Name("Spins now")
-    MessageRef spinsNow(@Arg("spins") @Example("3") int spins);
+    MessageRef spinsNow();
 
     @Name("Hours")
     MessageRef hours();

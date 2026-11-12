@@ -46,7 +46,7 @@ describe("PersonIdentity - closed, the id is never drawn", () => {
 
     expect(document.body.textContent).not.toContain(DISCORD_ID)
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
-    expect(screen.getByText(/no discord name on record/i)).toBeTruthy()
+    expect(screen.getByText(/discord name unknown/i)).toBeTruthy()
   })
 
   it("draws nothing that matches an id or a uuid pattern at all, for a fully populated person", () => {
@@ -227,8 +227,8 @@ describe("PersonIdentity - nothing half-written, and no mark nobody can see", ()
     render(<PersonIdentity discordId={DISCORD_ID} />)
     fireEvent.click(screen.getByRole("button"))
 
-    expect(screen.getAllByText("no Discord name on record").length).toBeGreaterThan(0)
-    expect(screen.getByText(/never seen/i)).toBeTruthy()
+    expect(screen.getAllByText("Discord name unknown").length).toBeGreaterThan(0)
+    expect(screen.getByText(/never played before/i)).toBeTruthy()
   })
 })
 

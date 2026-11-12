@@ -1,45 +1,46 @@
 # Conventions
 
 These rules hold for every contributor, human or agent, on top of the text and code rules of the
-agent-kit; the last section lists what is specific to this repository. Every rule marked _(checked)_ fails `./gradlew check`, and warnings count as failures.
+agent-kit and its skill `wording`; the last section lists what is specific to this repository. Every rule marked _(checked)_ fails `./gradlew check`, and warnings count as failures.
 
 ## Wording
 
-The text rules of the agent-kit hold for every text written for this project, including every text a
-player, a Discord member or an admin reads: message bundles, Discord messages, Steward's interface,
-system messages and logs.
-This repository adds the rules for those texts:
+The agent-kit's skill [`wording`](https://github.com/tillhfm/agent-kit/tree/main/plugin/skills/wording) is the
+standard for every text the season puts out, and a change that writes or touches one follows its steps,
+the cold read included. That covers the game (`Display.Surface.GAME`: chat, titles, the action bar,
+menus, tooltips and holograms), the Discord bot, Steward, system messages, logs and the output of the
+scripts in `deploy/` and `dev/`. This section holds Nordtal's own wording rules, and Design below its
+rules for separators, explanations of settings fields and the name Nordtal:
 
-- **A text says only what made it appear**: what happened, what a control does, or the state a display
-  shows, as a grave's hologram shows `Verschwindet in 4m`. A refusal names the fact that blocks the
-  reader, as `Diesen Bahnhof gibt es schon.` does. The text says what the reader does next only where the
-  screen does not show it. A control that does here what it does in vanilla counts as shown, such as a
-  shift-click that puts an item into the open menu. The text never explains itself, the system, a rule or
-  why the season behaves as it does. It explains the system or a rule only to a reader who asked for it,
-  as the answer to `/rules` does. The rule holds for every text the season puts out: in the game
-  (`Display.Surface.GAME`), such as chat, titles, the action bar, menus, tooltips and holograms; in the
-  Discord bot; in Steward; in system messages; and in logs. Every text for a player names game terms only,
-  never a component.
-  - Fails: `Das Ziel "Holzstämme" ist geschafft. Wer geholfen hat, bekommt Extra-Spins.`
-  - Passes: `Das Ziel "Holzstämme" ist geschafft.`
-  - Fails: `Gewinn hineinlegen` with the line `Klicke hier mit einem Gegenstand oder klicke einen in deinem Inventar mit Shift an. Er wird ganz kopiert und du behältst ihn.`
-  - Passes: `Gewinn hineinlegen` with the line `Kopiert den Gegenstand nach Steward.`
-  - Fails: a log line `Cache miss for player 7f3a, reloading because entries expire after 5 minutes.`
-  - Passes: a log line `Cache miss for player 7f3a.`
-- **German addresses the player as _du_** and is written, not translated.
-  - Fails: `Verbinde dich erneut, um es noch einmal zu versuchen.`
-  - Passes: `Verbinde dich neu.`
-  - Fails: `Du wirst jetzt hinübergeschickt.`
-  - Passes: `Du kommst jetzt zurück.`
-- **A limited place wins over the full sentence**: a server-list line, a boss bar, a button. A value
-  spliced into another text (`{countdown}`) reads correctly in every text that uses it.
+- **German addresses the player as _du_.**
+- **A control that does here what it does in vanilla counts as shown**, such as a shift-click that puts
+  an item into the open menu, so a text names no step for it.
+- **A text for a player names game terms only**, never a component of the season.
 
-### Game terms
+### Term list
 
-The `terms` bundle of `messages` (`TermMessages`) holds the one name of each game term in English
-and German, and Steward's Translations page lists it with the building blocks. A text uses no other
-word for a term. A new term is declared there before a text uses it. `check` refuses a text that
-writes a word `TermMessages.SYNONYMS` lists for a term.
+A text names each thing by the one term this list gives it, in English and German, and by no other
+word.
+
+- **A game term** is a key of the `terms` bundle of `messages` (`TermMessages`), which holds its one
+  name in English and German. Steward's Translations page lists it with the building blocks. A new term
+  is declared there before a text uses it. `check` refuses a text that writes a word
+  `TermMessages.SYNONYMS` lists for a term.
+- **A thing of Minecraft or Discord** takes the word that the platform's own localisation uses, so a
+  text reads like the game or the client around it:
+
+| thing                               | English                | German              | never in German             |
+| ----------------------------------- | ---------------------- | ------------------- | --------------------------- |
+| an item                             | item                   | Gegenstand          | Item                        |
+| an account                          | account                | Konto               | Account                     |
+| a minecart                          | minecart               | Lore                | Minecart                    |
+| a Discord server                    | server                 | Server              | Gilde                       |
+| a Discord channel                   | channel                | Kanal               | Channel                     |
+| a Discord role                      | role                   | Rolle               |                             |
+| joining a round of the Hunger Games | register, registration | anmelden, Anmeldung | registrieren, Registrierung |
+
+- **A glyph** is named by its `name` in `resource-pack/glyphs.json` (`<glyph:name>`), and a colour by
+  its `Tone` (`<good>`), as `messages/README.md` describes.
 
 ## Comments
 

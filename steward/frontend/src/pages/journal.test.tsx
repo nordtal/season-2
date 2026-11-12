@@ -56,7 +56,7 @@ describe("JournalPage - profiles, never user ids", () => {
     draw(<JournalPage />)
 
     await screen.findByText("Revoked 1 grant of access.")
-    expect(await screen.findByText("no Discord name on record")).toBeTruthy()
+    expect(await screen.findByText("Discord name unknown")).toBeTruthy()
     // The id lives in the popover, next to a button that copies it.
     expect(IDENTIFIER_PATTERN.test(document.body.textContent ?? "")).toBe(false)
   })

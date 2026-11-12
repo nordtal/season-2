@@ -94,7 +94,7 @@ describe("Entity", () => {
   it("keeps an unknown Discord id readable without printing it", async () => {
     draw(<Entity id="300000000000000002" />)
 
-    expect(await screen.findByText("no Discord name on record")).toBeTruthy()
+    expect(await screen.findByText("Discord name unknown")).toBeTruthy()
     expect(document.body.textContent).not.toContain("300000000000000002")
   })
 
@@ -115,7 +115,7 @@ describe("Entity", () => {
   it("lets the caller name the kind when the shape is ambiguous", async () => {
     draw(<Entity id="smp" kind="discord" />)
 
-    expect(await screen.findByText("no Discord name on record")).toBeTruthy()
+    expect(await screen.findByText("Discord name unknown")).toBeTruthy()
   })
 })
 

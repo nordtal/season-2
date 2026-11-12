@@ -368,8 +368,7 @@ public interface StewardTexts {
             MessageRef sharedPartName(@Arg("name") @Example("Footer") String name);
 
             @Name("Shared part not saved")
-            MessageRef sharedPartUnknown(
-                    @Arg("document") @Example("rules") String document, @Arg("name") @Example("footer") String name);
+            MessageRef sharedPartUnknown(@Arg("name") @Example("footer") String name);
 
             @Name("Shared part still named")
             MessageRef sharedPartNamed(

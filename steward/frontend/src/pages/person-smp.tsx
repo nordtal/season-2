@@ -25,7 +25,7 @@ export function AuraDialog({
       id="aura"
       label={t("steward.people.aura")}
       title={t("steward.people.aura-title")}
-      hint={t("steward.people.aura-now", { aura: person.aura })}
+      hint={t("steward.people.aura-now")}
       start={person.aura}
       negative
       pending={write.isPending}
@@ -56,7 +56,7 @@ export function SpinsDialog({
       id="spins"
       label={t("steward.people.spins")}
       title={t("steward.people.spins-title")}
-      hint={t("steward.people.spins-now", { spins: person.spins })}
+      hint={t("steward.people.spins-now")}
       start={person.spins}
       pending={write.isPending}
       open={open}

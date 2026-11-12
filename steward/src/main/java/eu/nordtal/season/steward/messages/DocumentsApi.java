@@ -311,8 +311,8 @@ public final class DocumentsApi {
     public DocumentPreview preview(final Context ctx) {
         final DocumentDraft drafted = draftOf(ctx);
         final DocumentDeclaration declaration = drafted.declaration();
-        final DocumentDraft draft = new DocumentDraft(
-                declaration, resolved(declaration, drafted.document(), renderer(languages())), drafted.language());
+        final DocumentDraft draft =
+                new DocumentDraft(declaration, resolved(drafted.document(), renderer(languages())), drafted.language());
         final DocumentSpec.Shape shape = declaration.shape();
         if (!shape.game() && shape != DocumentSpec.Shape.MESSAGE && shape != DocumentSpec.Shape.PLAIN) {
             throw new RequestRefused(400, ANSWER.draftNotMessage(declaration.id()));
@@ -410,7 +410,7 @@ public final class DocumentsApi {
 
     private void check(final DocumentDeclaration declaration, final Document document) {
         final Renderer renderer = renderer(languages());
-        final Document drawn = resolved(declaration, document, renderer);
+        final Document drawn = resolved(document, renderer);
         final List<String> problems;
         try {
             problems = DocumentCheck.errors(declaration, drawn, MessageCheck.Mode.OVERRIDE, renderer::blocks);
@@ -557,11 +557,10 @@ public final class DocumentsApi {
     }
 
     /** Returns {@code document} with each shared part it names in its place, and refuses a name no part is saved as. */
-    private static Document resolved(
-            final DocumentDeclaration declaration, final Document document, final Renderer renderer) {
+    private static Document resolved(final Document document, final Renderer renderer) {
         for (final String name : document.sharedParts(renderer.shared())) {
             if (!renderer.shared().containsKey(name)) {
-                throw new RequestRefused(400, ANSWER.sharedPartUnknown(declaration.id(), name));
+                throw new RequestRefused(400, ANSWER.sharedPartUnknown(name));
             }
         }
         return document.resolved(renderer.shared());

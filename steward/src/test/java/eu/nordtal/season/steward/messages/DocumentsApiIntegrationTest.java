@@ -312,7 +312,7 @@ class DocumentsApiIntegrationTest {
                 "{\"type\":\"ROW\",\"items\":[{\"slot\":\"join\",\"label\":{\"en\":\"Join\",\"de\":\"join-de\"}}]}";
         final String naming = WELCOME.replace(row, "{\"type\":\"ROW\",\"shared\":\"buttons\"}");
         final String unsaved = send("PUT", "/api/documents/smp/welcome", naming.getBytes(UTF_8), 400);
-        assertTrue(unsaved.contains("names the shared part buttons, which is not saved"), unsaved);
+        assertTrue(unsaved.contains("Shared part \\\"buttons\\\" is missing."), unsaved);
         send("PUT", "/api/shared-parts/buttons", row.getBytes(UTF_8), 200);
         send("PUT", "/api/documents/smp/welcome", naming.getBytes(UTF_8), 200);
 

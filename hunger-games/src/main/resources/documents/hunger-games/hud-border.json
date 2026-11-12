@@ -6,7 +6,7 @@
         {
           "when": "shrinking",
           "text": {
-            "en": "Border: moves in {distance} m, {time, duration, clock} left",
+            "en": "Border: shrinks by {distance} m, {time, duration, clock} left",
             "de": "Grenze: rückt {distance} m vor, noch {time, duration, clock}"
           }
         },

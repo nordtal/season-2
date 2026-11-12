@@ -36,6 +36,9 @@ class RideFeedbackTest {
                 if (method.getName().equals("getUniqueId")) {
                     return RIDER;
                 }
+                if (method.getName().equals("sendActionBar")) {
+                    return null;
+                }
                 throw new UnsupportedOperationException(method.getName());
             });
 
@@ -68,11 +71,12 @@ class RideFeedbackTest {
     @Test
     void aRunningRideIsTheOnlyLine() {
         final RideFeedback feedback = feedback(Optional.of(true));
-        final RideDisplay.View view = new RideDisplay.View("Harbour", 0, 240);
+        feedback.planned(PLAYER, UUID.randomUUID(), "Harbour", 240);
 
-        final List<Pill.Content> line = feedback.ride(view, Locale.ENGLISH);
-
-        assertEquals(List.of(Pill.Content.of(Symbol.RAIL, "Harbour"), Pill.Content.bar(0, "240 m")), line);
+        assertEquals(
+                List.of(Pill.Content.of(Symbol.RAIL, "Harbour"), Pill.Content.bar(0, "240 m")),
+                feedback.render(PLAYER, Locale.ENGLISH));
+        assertEquals(List.of(), feedback.below(PLAYER, Locale.ENGLISH));
     }
 
     private static RideFeedback feedback(final Optional<Boolean> waiting) {

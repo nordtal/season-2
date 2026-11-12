@@ -115,7 +115,7 @@ public final class RideFeedback implements HudLine, RideWatch {
     }
 
     /** The station, a bar of the way done and the metres left. */
-    List<Pill.Content> ride(final RideDisplay.View view, final Locale locale) {
+    private List<Pill.Content> ride(final RideDisplay.View view, final Locale locale) {
         return List.of(
                 Pill.Content.of(Symbol.RAIL, view.station()),
                 Pill.Content.bar(view.done(), renderer.plainLine(locale, DISTANCE.with(new Left(view.metres())))));

@@ -489,7 +489,7 @@
         {
           "range": "FE000-FE128",
           "title": "Bar background",
-          "about": "One rounded pill per piece of information: the left cap, a body of segments, the right cap. A segment's code point is its width in decimal, and the client adds a pixel after each, which BossBarWidth steps back over.",
+          "about": "One rounded pill per piece of information: the left cap, a body of segments, the right cap. A segment's code point is its width in decimal, and the client adds a pixel after each. Nothing draws it since the HUD moved to the UI kit's pills.",
           "height": 14,
           "ascent": 6,
           "glyphs": [
@@ -802,7 +802,7 @@
         {
           "range": "FEF30-FEF3F",
           "title": "Ride progress",
-          "about": "The progress bar of a ride: the empty track, then the ridden part over it from segments of the brand blue whose code point's last digit counts up with the width, composed by BossBarProgress.",
+          "about": "The progress bar of a ride: the empty track, then the ridden part over it from segments of the brand blue whose code point's last digit counts up with the width. Nothing draws it since the ride bar moved to the UI kit.",
           "height": 5,
           "ascent": 1,
           "status": "final candidate",

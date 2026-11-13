@@ -8,7 +8,7 @@ offers only **Quit**, since the app's version changes only with a restart.
 
 The Nordtal tab holds the embedded editor below the Minecraft bar. The bar ends in the status line.
 The tab's side panel holds the **Publish** button above the tree of the resource pack, and the tree
-above the properties panel of the selected entry, with a splitter between them. The main window
+left of the properties panel of the selected entry, with a splitter between them. The main window
 docks the side panel left of the colour bar while the tab is active. The side panel keeps the width
 and the splitter's place the designer drags them to. The editor takes the rest of the width. A
 longer node of the tree scrolls. The plugin runs `:resource-pack:describePack` with the clone's
@@ -29,8 +29,15 @@ that no glyph, sheet or item of the tree shows, by namespace and folder, so a te
 draws yet can still be drawn, animated and published. Such a texture opens and saves like a vanilla
 override, with every frame, its animation and, for a GUI sprite, its scaling.
 
-The properties panel shows each value it edits in a sunken box. The mouse wheel scrolls the properties
-panel, and a panel taller than its room shows a scroll bar along its right edge. A click on a box asks
+The properties panel shows each value it edits in a sunken box. The mouse wheel and a trackpad scroll
+the tree and the properties panel alike, and a panel taller than its room shows the tree's scroll bar
+along its right edge, whose thumb drags. **Show in Finder** (**Show in Explorer** on Windows, **Open
+Folder** on Linux) shows the entry's file in the system's file manager, selected where the system can:
+a texture's PNG, an item's definition, a sound's Ogg file, and for an entry without a file of its own
+the file that names it. That is `glyphs.json` for a font, a glyph block or a glyph without a texture,
+the item's definition for a part of it, the language file that holds a text, in the designer's
+language first, and the event's `sounds.json` for a sound event or a sound of Minecraft or of an
+event. A text that no language file holds opens the folder of new language files. A click on a box asks
 for the new value in a form. OK runs the resource pack's task that writes it:
 `renameGlyph` for a name, `editGlyph` for status, display height, ascent and about, `scaleTexture`
 for the scaling of a GUI sprite, `editFont` for a font's constant and about, and `editGlyphBlock` for

@@ -71,7 +71,7 @@ local function floats(value)
   return copy
 end
 
-local function setUp(preferences, modelText)
+local function setUp(preferences, modelText, os)
   local Dialog, dialogs = fake()
   local started, log, open, timers, sockets, instanceRuns = {}, {}, {}, {}, {}, {}
   local world = { active=nil }
@@ -170,13 +170,18 @@ local function setUp(preferences, modelText)
     write=function(path, text) table.insert(log, { "write", path, text }) end,
     getenv=function() return "/bin" end,
     fitScreen=function() world.fitted = (world.fitted or 0) + 1 end,
+    os=os,
+    language="de",
+    listFiles=function(dir) return (world.dirs or {})[dir] or {} end,
+    isDirectory=function(dir) return (world.dirs or {})[dir] ~= nil end,
   }
   local ctl = tab.open{
     api=api,
     modules={ pack=require("pack"), tree=require("tree"), textures=require("textures"),
                panel=require("panel"), properties=require("properties"), items=require("items"),
                wizard=require("wizard"), drafts=require("drafts"), conflicts=require("conflicts"),
-               minecraft=require("minecraft"), sounds=require("sounds") },
+               minecraft=require("minecraft"), sounds=require("sounds"),
+               reveal=require("reveal") },
     bootstrap={ clone=clone, env={ JAVA_HOME="/jdk" }, git="/usr/bin/git", gh="/gh" },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
@@ -202,7 +207,7 @@ local function paint(dlg, id, height, width)
   local theme = { color={ text={ name="text", red=0, green=0, blue=0 }, separator_label="key",
                           face={ name="face", red=255, green=255, blue=255 }, status_bar_text="status",
                           disabled={ name="disabled" } },
-                  dimension={ mini_scrollbar_size=6 } }
+                  dimension={ scrollbar_size=6 } }
   local function name() return type(color) == "table" and (color.name or "tone") or tostring(color) end
   local gc = { width=width or 1000, height=height or 1000, theme=theme }
   setmetatable(gc, { __newindex=function(t, k, v) if k == "color" then color = v else rawset(t, k, v) end end })
@@ -215,7 +220,7 @@ local function paint(dlg, id, height, width)
   end
   function gc:drawThemeRect(part, rect)
     if id == "bar" then table.insert(out, part) end
-    if part:match("^mini_scrollbar") then at[part] = rect end
+    if part:match("^scrollbar") then at[part] = rect end
   end
   function gc:drawThemeImage(part) table.insert(out, part) end
   dlg.handlers[id].onpaint({ context=gc })
@@ -326,9 +331,12 @@ describe("the Nordtal tab", function()
     assert.equal(1, dlg.shown)
   end)
 
-  it("puts the Minecraft bar above the editor, and the tree above a splitter and the properties in the side panel", function()
+  it("puts the Minecraft bar above the editor, and the tree left of a splitter and the properties in the side panel", function()
     local t = setUp()
     assert.same({ "canvas", "editor", "panel", "button", "tree", "splitter", "canvas" }, kinds(t.dialogs[1]))
+    for _, w in ipairs(t.dialogs[1].widgets) do
+      if w.kind == "splitter" then assert.is_true(w.args.beside) end
+    end
     assert.equal("bar", t.dialogs[1].widgets[1].args.id)
     assert.equal("properties", t.dialogs[1].widgets[#t.dialogs[1].widgets].args.id)
     -- A canvas grows with the window unless told otherwise, and the bar keeps one line
@@ -339,7 +347,7 @@ describe("the Nordtal tab", function()
   it("gives the side panel a width of its own, which the tree and the properties fill", function()
     local t = setUp()
     local handlers = t.dialogs[1].handlers
-    assert.same({ id="nordtal_pack", side="left", width=150 }, handlers.nordtal_pack)
+    assert.same({ id="nordtal_side", side="left", width=420 }, handlers.nordtal_side)
     for _, id in ipairs({ "tree", "properties" }) do
       assert.is_nil(handlers[id].width)
       assert.is_nil(handlers[id].hexpand)
@@ -349,7 +357,7 @@ describe("the Nordtal tab", function()
   it("docks the side panel on the right when the setting says so", function()
     local t = setUp({ treeSide="right" })
     assert.same({ "canvas", "editor", "panel", "button", "tree", "splitter", "canvas" }, kinds(t.dialogs[1]))
-    assert.equal("right", t.dialogs[1].handlers.nordtal_pack.side)
+    assert.equal("right", t.dialogs[1].handlers.nordtal_side.side)
   end)
 
   it("moves the side panel to the other side in the same tab, which keeps the sprite", function()
@@ -360,7 +368,7 @@ describe("the Nordtal tab", function()
     local count = #t.dialogs
     t.ctl.setSide("right")
     assert.equal("right", preferences.treeSide)
-    assert.same({ id="nordtal_pack", side="right" }, dlg.modified[#dlg.modified])
+    assert.same({ id="nordtal_side", side="right" }, dlg.modified[#dlg.modified])
     assert.equal(count, #t.dialogs)
     assert.is_false(dlg.closed)
     assert.equal(t.open[1], dlg.data.editor)
@@ -375,7 +383,7 @@ describe("the Nordtal tab", function()
     t.timers[#t.timers].args.ontick()
     local second = t.dialogs[#t.dialogs]
     assert.is_true(first.closed)
-    assert.equal("right", second.handlers.nordtal_pack.side)
+    assert.equal("right", second.handlers.nordtal_side.side)
     assert.equal(t.open[1], second.data.editor)
     assert.equal("glyphs", second.handlers.tree.nodes[1].id)
     assert.equal("glyph/minecraft:default/F0000", second.data.tree)
@@ -935,17 +943,17 @@ describe("the Nordtal tab", function()
     local dlg = loaded(t)
     dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
     local _, at = texts(dlg, 20)
-    assert.same({ x=994, y=0, width=6, height=20 }, at.mini_scrollbar_bg)
-    local top = at.mini_scrollbar_thumb
+    assert.same({ x=994, y=0, width=6, height=20 }, at.scrollbar_bg)
+    local top = at.scrollbar_thumb
     assert.same({ 994, 0, 6 }, { top.x, top.y, top.width })
     assert.is_true(top.height >= 12 and top.height < 20)
     -- At the last row the thumb ends at the bar's end
     dlg.handlers.properties.onwheel({ deltaY=1000 })
     _, at = texts(dlg, 20)
-    assert.equal(20, at.mini_scrollbar_thumb.y + at.mini_scrollbar_thumb.height)
+    assert.equal(20, at.scrollbar_thumb.y + at.scrollbar_thumb.height)
     _, at = texts(dlg, 1000)
-    assert.is_nil(at.mini_scrollbar_bg)
-    assert.is_nil(at.mini_scrollbar_thumb)
+    assert.is_nil(at.scrollbar_bg)
+    assert.is_nil(at.scrollbar_thumb)
   end)
 
   it("deletes a glyph once the designer confirms it, and empties the editor", function()
@@ -2552,5 +2560,101 @@ describe("the Minecraft bar of the Nordtal tab", function()
     finish(t, 0, dkjson.encode(read))
     click(dlg, "minecraft.give_plain")
     assert.same({ op="give", item='minecraft:paper[item_model="nordtal:lamp"]', id=1 }, socket.sent[2])
+  end)
+
+  -- The last process the tab started, which is no Gradle run
+  local function lastCmd(t)
+    return t.started[#t.started].args.cmd
+  end
+
+  it("shows a texture's PNG selected in Finder, without waiting for a task", function()
+    local t = setUp(nil, nil, "macos")
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local out = texts(dlg)
+    -- The button sits before the one that deletes
+    local reveal, delete
+    for i, line in ipairs(out) do
+      if line == "  properties.reveal_macos" then reveal = i end
+      if line == "  properties.delete" then delete = i end
+    end
+    assert.is_true(reveal ~= nil and delete ~= nil and reveal < delete)
+    t.started[#t.started].isRunning = true
+    click(dlg, "properties.reveal_macos")
+    assert.same({ "/usr/bin/open", "-R", star }, lastCmd(t))
+  end)
+
+  it("selects the file in Explorer on Windows and opens its folder on Linux", function()
+    for os, cmd in pairs({ windows={ "explorer", "/select,", star },
+                           linux={ "xdg-open", "/c/resource-pack/src/assets/nordtal/textures/badges" } }) do
+      local t = setUp(nil, nil, os)
+      local dlg = loaded(t)
+      dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+      click(dlg, "properties.reveal_" .. os)
+      assert.same(cmd, lastCmd(t))
+    end
+  end)
+
+  it("shows the language file of the designer's language that holds a text", function()
+    local m = dkjson.decode(model)
+    m.languages = { "de_de", "en_us" }
+    m.texts = { { key="menu.title", values={ en_us="Pause", de_de="Pause" } } }
+    local t = setUp(nil, dkjson.encode(m), "macos")
+    local assets = "/c/resource-pack/src/assets"
+    t.world.dirs = { [assets]={ "nordtal", "minecraft", "README.md" }, [assets .. "/minecraft"]={}, [assets .. "/nordtal"]={} }
+    t.world.reads = { [assets .. "/minecraft/lang/de_de.json"]='{"menu.title":"Pause"}',
+                      [assets .. "/minecraft/lang/en_us.json"]='{"menu.title":"Pause"}' }
+    t.world.files = { [assets .. "/minecraft/lang/de_de.json"]=true }
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="text/menu.title" })
+    click(dlg, "properties.reveal_macos")
+    assert.same({ "/usr/bin/open", "-R", assets .. "/minecraft/lang/de_de.json" }, lastCmd(t))
+  end)
+
+  it("says so when the file manager does not start", function()
+    local t = setUp(nil, nil, "macos")
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    t.world.failStart = "no open"
+    click(dlg, "properties.reveal_macos")
+    assert.equal("status.not_revealed", status(dlg))
+  end)
+
+  it("scrolls the panel by a trackpad's points, and by three lines a step of the wheel", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local _, at = texts(dlg, 20)
+    assert.equal(4, at["properties.font"].y)
+    dlg.handlers.properties.onwheel({ deltaY=5, precise=true })
+    _, at = texts(dlg, 20)
+    assert.equal(-1, at["properties.font"].y)
+    dlg.handlers.properties.onwheel({ deltaY=1 })
+    _, at = texts(dlg, 20)
+    -- A line is the text's height of 1 and 2 below it
+    assert.equal(-1 - 3 * 3, at["properties.font"].y)
+  end)
+
+  it("drags the thumb of the panel's scroll bar, and pages on a press beside it", function()
+    local t = setUp()
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    local _, at = texts(dlg, 20)
+    local thumb = at.scrollbar_thumb
+    -- A press on the thumb edits nothing, and dragging it to the bar's end shows the last row
+    dlg.handlers.properties.onmousedown({ x=thumb.x + 1, y=thumb.y + 1 })
+    dlg.handlers.properties.onmousemove({ x=thumb.x + 1, y=thumb.y + 100 })
+    dlg.handlers.properties.onmouseup({})
+    _, at = texts(dlg, 20)
+    assert.equal(20, at.scrollbar_thumb.y + at.scrollbar_thumb.height)
+    -- A move after the release drags no more
+    dlg.handlers.properties.onmousemove({ x=thumb.x + 1, y=0 })
+    _, at = texts(dlg, 20)
+    assert.equal(20, at.scrollbar_thumb.y + at.scrollbar_thumb.height)
+    -- A press above the thumb scrolls a page up
+    local before = at["minecraft.render"].y
+    dlg.handlers.properties.onmousedown({ x=at.scrollbar_bg.x + 1, y=0 })
+    _, at = texts(dlg, 20)
+    assert.equal(before + 20, at["minecraft.render"].y)
   end)
 end)

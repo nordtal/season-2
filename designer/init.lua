@@ -5,10 +5,12 @@
 
 -- plugin.require() is in version 4 of the fork's API, the width of
 -- Dialog:tree{} in version 5, Dialog:panel{} in version 6,
--- Dialog:splitter{} in version 7, and in version 8 the bootstrap's
--- kiosk keeps every sprite in the Nordtal tab, which the save before
--- another entry opens relies on
-local forkApi = 8
+-- Dialog:splitter{} in version 7, in version 8 the bootstrap's kiosk
+-- keeps every sprite in the Nordtal tab, which the save before another
+-- entry opens relies on, and in version 9 the splitter puts the
+-- properties beside the tree, the tree scrolls with the mouse wheel and
+-- a wheel event says whether it comes from a trackpad
+local forkApi = 9
 
 -- The install lines of the README of nordtal/designer, which also update
 local installLines = {
@@ -94,7 +96,10 @@ function init(plugin)
       activeSprite=function() return app.sprite end,
       open=app.open,
       isFile=fs.isFile,
+      isDirectory=fs.isDirectory,
+      listFiles=fs.listFiles,
       filePath=fs.filePath,
+      language=app.preferences.general.language,
       makeAllDirectories=fs.makeAllDirectories,
       fitScreen=function() app.command.FitScreen() end,
     },
@@ -110,6 +115,7 @@ function init(plugin)
       conflicts=plugin.require("conflicts"),
       minecraft=plugin.require("minecraft"),
       sounds=plugin.require("sounds"),
+      reveal=plugin.require("reveal"),
     },
     bootstrap=plugin.bootstrap,
     preferences=plugin.preferences,

@@ -98,10 +98,10 @@ class OnboardingMessageTest {
                         List.of(Ids.ONBOARD + "en", Ids.ONBOARD + "de"),
                         buttons.stream().map(Button::getCustomId).toList()),
                 () -> assertEquals(
-                        List.of("Change", "Ändern"),
+                        List.of("Change language and region", "Sprache und Region ändern"),
                         buttons.stream().map(Button::getLabel).toList()),
                 () -> assertEquals(
-                        "## Sprache und Region\n### Ändern\n**Ändern** → Sprache und Region, jederzeit",
+                        "## Sprache und Region",
                         ((TextDisplay) ((Container) change.get(2))
                                         .getComponents()
                                         .getFirst())

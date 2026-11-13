@@ -122,7 +122,8 @@ public final class LinkFlow extends ListenerAdapter {
         final int remaining = limit.acquire(discordId);
         if (remaining < 0) {
             event.getHook()
-                    .editOriginal(reply(locale, new Sent<>(Replies.LINK_TOO_MANY, new Replies.Until(limit.retryAt(discordId)))))
+                    .editOriginal(reply(
+                            locale, new Sent<>(Replies.LINK_TOO_MANY, new Replies.Until(limit.retryAt(discordId)))))
                     .queue();
             return;
         }

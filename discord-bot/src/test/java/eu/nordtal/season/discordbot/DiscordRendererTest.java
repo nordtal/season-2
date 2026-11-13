@@ -73,7 +73,7 @@ class DiscordRendererTest {
                 new Replies.Donated(new DiscordMemberContext(DiscordId.of("123"), "Al_ex"), Money.euroCents(300));
 
         assertEquals("<@123> donated €3.00. Thank you.", text(Locale.ENGLISH, Replies.PUBLIC_DONATION, donated));
-        assertEquals("<@123> hat 3,00 € gespendet. Danke!", text(Locale.GERMAN, Replies.PUBLIC_DONATION, donated));
+        assertEquals("<@123> hat 3,00 € gespendet. Danke.", text(Locale.GERMAN, Replies.PUBLIC_DONATION, donated));
     }
 
     @Test

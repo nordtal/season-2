@@ -90,7 +90,7 @@ class PurchaseFlowTest {
         assertAll(
                 () -> assertEquals("""
                         **30 days of access** for €5.00.
-                        This includes a donation of €3.00. It gives you the permanent donor role.
+                        Includes a donation of €3.00 and the permanent donor role.
                         Total: **€8.00**""", ((TextDisplay) drawn.components().getFirst()).getContent()),
                 () -> assertEquals(
                         "Remove the donation",
@@ -133,7 +133,7 @@ class PurchaseFlowTest {
         assertTrue(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.GERMAN, RENDERER, () -> false));
 
         assertEquals(2, replies.size());
-        assertTrue(replies.getFirst().contains("has no launch date yet"), replies.getFirst());
+        assertTrue(replies.getFirst().contains("has no launch date"), replies.getFirst());
         assertTrue(replies.getLast().contains("hat noch keinen Starttermin"), replies.getLast());
         assertTrue(replies.stream().allMatch(reply -> reply.startsWith("ephemeral ")), replies.toString());
     }

@@ -34,7 +34,7 @@ class LinkFlowTest {
         final Label label = (Label) modal.getComponents().getFirst();
 
         assertAll(
-                () -> assertEquals("Link your account", modal.getTitle()),
+                () -> assertEquals("Link your Minecraft account", modal.getTitle()),
                 () -> assertEquals("link-modal", modal.getId()),
                 () -> assertEquals("Code", label.getLabel()),
                 () -> assertEquals(

@@ -1,5 +1,7 @@
 package eu.nordtal.season.displaytags;
 
+import eu.nordtal.season.papercommon.hud.PillHologram;
+
 public class Constants {
     /**
      * The ARGB background colour of a vanilla text display.
@@ -14,5 +16,5 @@ public class Constants {
      * The text opacity of a vanilla name tag that is not in view.
      * A text display drops its text for an opacity from 4 to 26.
      */
-    public static final int VANILLA_OCCLUDED_TEXT_OPACITY = 32;
+    public static final int VANILLA_OCCLUDED_TEXT_OPACITY = PillHologram.SEE_THROUGH_OPACITY;
 }

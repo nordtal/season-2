@@ -117,7 +117,7 @@ public final class Pill {
     /** Returns the HUD's pill that holds {@code content}, its top on the text row. */
     public static Component of(final Content content) {
         final int inner = content.width();
-        final Pen pen = frame(inner);
+        final Pen pen = frame(Pen.start(), inner);
         final @Nullable Double done = content.done();
         if (done != null) {
             final String font = Pen.artFont(0);
@@ -150,10 +150,18 @@ public final class Pill {
 
     /** Returns a pill holding {@code symbol}, if one is given, and {@code runs} after it. */
     public static Component of(final @Nullable Symbol symbol, final List<Run> runs) {
+        return of(symbol, runs, Pen.Layer.ALL);
+    }
+
+    /**
+     * Returns the {@code layer} of the pill holding {@code symbol}, if one is given, and {@code runs} after it.
+     * Its panel and its ink have the same advance and lie on each other as in the whole pill.
+     */
+    public static Component of(final @Nullable Symbol symbol, final List<Run> runs, final Pen.Layer layer) {
         final StringBuilder all = new StringBuilder();
         runs.forEach(run -> all.append(run.text()));
         final int content = content(symbol, all.toString());
-        final Pen pen = frame(content);
+        final Pen pen = frame(Pen.start(layer), content);
         if (symbol != null) {
             pen.symbol(TEXT, symbol, Colours.INK).move(Symbol.BEFORE_TEXT - Symbol.ADVANCE);
         }
@@ -162,10 +170,10 @@ public final class Pill {
     }
 
     /** Draws the pill around {@code content} columns, and returns the pen at the content's start. */
-    private static Pen frame(final int content) {
+    private static Pen frame(final Pen start, final int content) {
         final List<String> glyphs = Glyphs.UI_PILL;
         final String font = Pen.artFont(0);
-        final Pen pen = Pen.start().art(font, glyphs.get(0), PAD);
+        final Pen pen = start.art(font, glyphs.get(0), PAD);
         body(pen, font, glyphs.subList(2, glyphs.size()), content);
         pen.moveTo(PAD + content).art(font, glyphs.get(1), PAD);
         return pen.moveTo(PAD);

@@ -1,9 +1,9 @@
 package eu.nordtal.season.displaytags.nametag;
 
+import eu.nordtal.season.papercommon.hud.PillHologram;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.function.Function;
-import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
@@ -20,7 +20,7 @@ public interface NameTagManager {
     Collection<PlayerNameTag> getAll();
 
     /** Draws a name tag above {@code entity} whose text {@code text} renders for each viewer. */
-    EntityNameTag createEntityNameTag(Entity entity, Function<UUID, Component> text);
+    EntityNameTag createEntityNameTag(Entity entity, Function<UUID, PillHologram.Layers> text);
 
     void removeEntityNameTag(Entity entity);
 

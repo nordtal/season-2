@@ -7,14 +7,12 @@ import eu.nordtal.season.database.document.AppliedDocuments;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.document.Sent;
-import eu.nordtal.season.packrendering.ui.Pill;
 import eu.nordtal.season.papercommon.hud.PillHologram;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
 
@@ -27,20 +25,20 @@ class SpawnNpcTest {
     void eachViewerSeesTheNameTranslatedIntoTheirLanguage() {
         final MessageRenderer renderer = MessageRenderer.of(Messages.load("messages/database", Locale.ENGLISH))
                 .reading(new AppliedDocuments(SpawnNpcTest.class.getClassLoader(), Set.of("smp")));
-        final Function<UUID, Component> name =
+        final Function<UUID, PillHologram.Layers> name =
                 SpawnNpc.name(Map.of(ENGLISH, Locale.ENGLISH, GERMAN, Locale.GERMAN)::get, renderer);
 
         assertEquals(pill(renderer, Locale.ENGLISH), name.apply(ENGLISH));
         assertEquals(pill(renderer, Locale.GERMAN), name.apply(GERMAN));
         assertFalse(
                 PlainTextComponentSerializer.plainText()
-                        .serialize(name.apply(ENGLISH))
+                        .serialize(name.apply(ENGLISH).ink())
                         .contains("<"),
                 "the name's markup is formatted, never drawn");
     }
 
-    private static Component pill(final MessageRenderer renderer, final Locale locale) {
-        return Pill.of(
+    private static PillHologram.Layers pill(final MessageRenderer renderer, final Locale locale) {
+        return PillHologram.layers(
                 null,
                 PillHologram.runs(
                         renderer.format(locale, Sent.of(SpawnNpc.NAME)),

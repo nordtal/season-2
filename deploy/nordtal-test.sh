@@ -110,31 +110,6 @@ for wrong in "" "." "./.env" "env/.env" "~/.env"; do
 done
 ok "a relative path, a bare dot, a tilde and an empty string are all refused"
 
-case_begin "the name has to point at THIS host, entirely"
-ours=$'45.155.173.214\n2a01:4f8::1'
-
-[[ -z "$(addresses_not_ours "45.155.173.214" "$ours")" ]] \
-    || bad "the host's own address was reported as a stray"
-[[ -z "$(addresses_not_ours $'45.155.173.214\n2a01:4f8::1' "$ours")" ]] \
-    || bad "both of the host's addresses were not accepted"
-
-# A stale AAAA record fails the certificate even when IPv4 is right.
-strays="$(addresses_not_ours $'45.155.173.214\n2a01:dead::1' "$ours")"
-[[ "$strays" == "2a01:dead::1" ]] || bad "a stale AAAA beside a correct A was not reported: $strays"
-
-[[ "$(addresses_not_ours "203.0.113.9" "$ours")" == "203.0.113.9" ]] \
-    || bad "an address belonging to another host was not reported"
-ok "every resolved address has to be ours, not just one of them"
-
-case_begin "a name that resolves to nothing does not read as a match"
-# A name without an address is wrong. It is not an empty list of wrong addresses.
-for nothing in "" " " $'\n'; do
-    if [[ -z "$(addresses_not_ours "$nothing" "$ours")" ]]; then
-        bad "an empty resolution was accepted as pointing here"
-    fi
-done
-ok "no answer is reported, not passed over"
-
 # `up` pulls every image and replaces a local build under the same tag. at_risk_images compares the
 # local digest with the digest of the registry, because the containerd store also gives a local build a RepoDigest.
 case_begin "no local RepoDigests at all is RISK, whatever the registry says"
@@ -235,14 +210,6 @@ for wrong in "" "https://steward.nordtal.eu" "steward.nordtal.eu/" "steward" "st
 done
 ok "a name passes; a URL, a path, a bare label and a stray dot do not"
 
-for address in info@nordtal.eu a@b.c first.last+tag@sub.domain.org; do
-    looks_like_email "$address" || bad "the address $address was refused"
-done
-for wrong in "" "info" "info@" "@nordtal.eu" "info@nordtal" "in fo@nordtal.eu" "a@b@c.de"; do
-    if looks_like_email "$wrong"; then bad "«$wrong» was accepted as an e-mail address"; fi
-done
-ok "an address passes; a missing half, a missing dot and a space do not"
-
 # The transfer packet needs the port.
 for address in play.nordtal.eu:25565 nordtal.eu:25566 45.155.173.214:25565; do
     looks_like_public_address "$address" || bad "the address $address was refused"
@@ -288,7 +255,7 @@ ok "set_assignment hands the value to awk through the environment"
 case_begin "what a deployment demands of a person is the short list"
 # bunq is optional. Without it, the stack takes no payments.
 for name in COMPOSE_PROFILES POSTGRES_PASSWORD VELOCITY_FORWARDING_SECRET EULA NORDTAL_BOT_TOKEN \
-            NORDTAL_ACCESS_GUILD_ID STEWARD_HOST STEWARD_ACME_EMAIL \
+            NORDTAL_ACCESS_GUILD_ID STEWARD_HOST \
             STEWARD_ENV_FILE STEWARD_ENV_DIR STEWARD_ENV_FILE_NAME STEWARD_DISCORD_CLIENT_ID \
             STEWARD_DISCORD_CLIENT_SECRET; do
     contains "$name" "${REQUIRED[@]}" || bad "$name is not required and should be"

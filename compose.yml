@@ -103,7 +103,7 @@ x-database:
 
 # Steward's address: its web group's, the Discord redirect URI and the WebAuthn origin, and where the bot's run cards link.
 x-steward:
-  url: &steward-url ${STEWARD_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.dev.nordtal.eu}}
+  url: &steward-url ${STEWARD_PUBLIC_URL:-https://${STEWARD_HOST:?set STEWARD_HOST in .env - the name this interface answers on, e.g. steward.nordtal.eu}}
 
 services:
   postgres:
@@ -610,7 +610,7 @@ services:
       - ${NORDTAL_SECRETS_DIR:?set NORDTAL_SECRETS_DIR in .env - the directory of each service's own secrets, deploy/nordtal.sh writes it}/steward-bunq:/app/secrets:ro
     logging: *logging
 
-  # Caddy: HTTPS for the interface and the guard in front of the game port. The Caddyfile is inline
+  # Caddy: the web names behind the Cloudflare tunnel and the guard in front of the game port. The Caddyfile is inline
   # below; compose interpolates `${...}` inside it, so Caddy's `{$VAR}` syntax cannot be used.
   caddy:
     # Also in `mc`, because it guards the game port; a run renews it only once the rest is back.
@@ -624,16 +624,14 @@ services:
       # Caddy with the layer 4 app built in.
       context: ./deploy/caddy
     # Named by the hash of deploy/caddy, not the release: a release that leaves it alone keeps Caddy running.
-    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:3f8f98ea7eba
+    image: ${NORDTAL_IMAGES:-ghcr.io/nordtal}/caddy:2133a6485114
     restart: unless-stopped
     # `steward` for the interface, `default` for the proxies.
     networks: ["steward", "default"]
     # No depends_on: Caddy retries upstreams itself.
     ports:
-      - "${CADDY_BIND:-0.0.0.0}:80:80"
-      - "${CADDY_BIND:-0.0.0.0}:443:443"
-      # HTTP/3.
-      - "${CADDY_BIND:-0.0.0.0}:443:443/udp"
+      # Plain HTTP for the Cloudflare tunnel on this host, which holds the certificates.
+      - "${CADDY_BIND:-127.0.0.1}:80:80"
       # The game port, so a restart can fail over to the standby.
       - "${PROXY_BIND:-0.0.0.0}:${PROXY_PORT:-25565}:25565"
       # Voice chat.
@@ -645,7 +643,7 @@ services:
       - source: caddyfile
         target: /etc/caddy/Caddyfile
     volumes:
-      # Certificates and the ACME account key.
+      # Caddy's state; no site of it has a certificate.
       - ${CADDY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/caddy-data}:/data
       - ${CADDY_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/caddy-config}:/config
     healthcheck:
@@ -661,7 +659,13 @@ configs:
   caddyfile:
     content: |
       {
-      	email ${STEWARD_ACME_EMAIL:?set STEWARD_ACME_EMAIL in .env - where Let's Encrypt sends expiry warnings}
+      	# The Cloudflare tunnel arrives from a Docker gateway and names the browser's address and scheme. Every
+      	# container is trusted the same way; Steward reads no client address, and a forged scheme changes
+      	# only the forger's own cookie.
+      	servers :80 {
+      		trusted_proxies static private_ranges
+      		client_ip_headers Cf-Connecting-IP
+      	}
 
       	# The game port guard: prefers the live proxy and falls over to the standby. Velocity needs the
       	# PROXY header to see the player's address.
@@ -713,7 +717,8 @@ configs:
       	}
       }
 
-      ${STEWARD_HOST} {
+      # Every site is plain HTTP: Cloudflare terminates TLS and the tunnel forwards the Host header.
+      http://${STEWARD_HOST} {
       	encode zstd gzip
 
       	# Only a policy that restricts images has to name cdn.modrinth.com in img-src, and CaddyPolicyTest holds
@@ -732,12 +737,37 @@ configs:
       	}
       }
 
+      # The resource pack. Nothing serves it yet.
+      http://${PACK_HOST:-pack.nordtal.eu} {
+      	respond 404
+      }
+
+      (invite) {
+      	redir https://discord.gg/PX9N7FjVxr 302
+      }
+
+      # The website is the Discord invite, except for the icon that Discord's embeds show.
+      http://${WEBSITE_HOST:-nordtal.eu}, http://www.${WEBSITE_HOST:-nordtal.eu} {
+      	handle /icon.png {
+      		root * /srv/website
+      		file_server
+      	}
+      	handle {
+      		import invite
+      	}
+      }
+
+      # Any other name the tunnel sends here, such as one its wildcard catches, lands on the invite too.
+      http:// {
+      	import invite
+      }
+
 # Unused by default; deploy/dev.env.example points the local stack at these names.
 volumes:
   # Not backed up itself.
   steward-backups:
   postgres-data:
-  # Not backed up; losing it means a new certificate and Let's Encrypt's rate limit.
+  # Not backed up; Caddy keeps nothing in them that it cannot make again.
   caddy-data:
   caddy-config:
   # Never copied or backed up: bunq binds it to one device and IP.

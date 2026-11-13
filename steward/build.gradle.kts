@@ -68,6 +68,7 @@ repositoryRootTestInputs {
     reads("resource-pack/src/pack.png")
     reads("steward/frontend/public/icon.png")
     reads("steward/frontend/public/icon-512.png")
+    reads("deploy/caddy/website/icon.png")
     reads("steward/frontend/public/manifest.webmanifest")
     reads("steward/frontend/index.html")
 

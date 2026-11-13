@@ -105,7 +105,7 @@ public final class StewardSettings {
     static void requirePublicUrl(final @Nullable String url) {
         if (url == null || url.isBlank()) {
             throw new IllegalArgumentException("public-url is empty - it is the address this"
-                    + " interface answers on, e.g. https://steward.dev.nordtal.eu");
+                    + " interface answers on, e.g. https://steward.nordtal.eu");
         }
         if (url.endsWith("/")) {
             throw new IllegalArgumentException("public-url must not end with a slash, or the redirect URI would "

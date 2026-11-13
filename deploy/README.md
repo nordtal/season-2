@@ -37,14 +37,20 @@ the images `minecraft`, `steward`, `steward-agent`, `steward-bunq`, `discord-bot
    curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
    ```
 
-4. Upload the hand-built worlds (see [Limits, secret, worlds, console](#limits-secret-worlds-console)).
-5. Join with a real client. Nothing on the host tests the login path.
+4. In Cloudflare, give the host's tunnel a public hostname for `STEWARD_HOST`, `PACK_HOST`,
+   `WEBSITE_HOST` and `www.` in front of it, each with the service `http://127.0.0.1:80`. Caddy serves
+   them as plain HTTP and routes by the Host header. A wildcard `*.<domain>` to the same service, below
+   every other hostname of the tunnel, sends any name without a record of its own to the Discord invite;
+   its DNS record and that of each named host must be the tunnel's, not an old A record. Cloudflare's
+   free certificate covers one level below the domain only, so a name such as `steward.dev.nordtal.eu`
+   gets no certificate.
+5. Upload the hand-built worlds (see [Limits, secret, worlds, console](#limits-secret-worlds-console)).
+6. Join with a real client. Nothing on the host tests the login path.
 
-The installer asks for the values that only a person knows. These are `STEWARD_HOST`,
-`STEWARD_ACME_EMAIL`, the EULA, the bot token, the client id and secret of the Discord login and the
-guild, and optionally bunq and `NORDTAL_MOJANG_ASSETS`. The installer generates the secrets and waits
-until `STEWARD_HOST` resolves to this host. Then it pulls `steward-agent` at the newest release and
-starts the stack. A second run asks only for what is missing. With an existing `postgres-data` it
+The installer asks for the values that only a person knows. These are `STEWARD_HOST`, the EULA, the
+bot token, the client id and secret of the Discord login and the guild, and optionally bunq and
+`NORDTAL_MOJANG_ASSETS`. The installer generates the secrets. Then it pulls `steward-agent` at the
+newest release and starts the stack. A second run asks only for what is missing. With an existing `postgres-data` it
 asks for `POSTGRES_PASSWORD`. Each service logs in as a database role of its own, with the password
 `POSTGRES_<SERVICE>_PASSWORD`. `steward-agent` sets these passwords at every start.
 
@@ -355,8 +361,8 @@ up again on a new host from the backups.
 ## The firewall
 
 The nftables table `inet nordtal` is the host's filter. It also filters the forward hook that every
-published port passes. From outside it admits SSH, 80 and 443 (UDP too) and the game port, TCP and
-UDP. The standby port is open only while `proxy-standby` runs. `standby-port.sh` follows the events
+published port passes. From outside it admits SSH and the game port, TCP and UDP. The web names
+reach Caddy through the Cloudflare tunnel, which runs on the host and connects to `127.0.0.1:80`. The standby port is open only while `proxy-standby` runs. `standby-port.sh` follows the events
 of Docker and keeps the `standby` set of the table in step.
 
 ```bash

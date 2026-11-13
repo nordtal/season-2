@@ -17,7 +17,6 @@
 #   ./nordtal.sh --from PATH           read the answers from this file instead of asking
 #   ./nordtal.sh --env-file PATH       the path of the environment file on this host
 #                                      (default: /etc/nordtal/season-2.env)
-#   ./nordtal.sh --address IP          the public address of this host, for a host behind NAT
 #   ./nordtal.sh --no-self-update      run this file as it is, without fetching the copy of the release
 #
 # When steward-agent runs and is healthy, a deploy is an update run like any other: the script
@@ -66,10 +65,6 @@ DEFAULT_PROJECT="nordtal-s2"
 # Seconds to wait for GitHub before the run uses the copy that is already here.
 SELF_UPDATE_TIMEOUT=10
 
-# Seconds between two lookups of the name, and the interval of the message that nothing has changed.
-DNS_INTERVAL=15
-DNS_HEARTBEAT=8
-
 log()  { printf '\033[36m[nordtal]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[nordtal]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[nordtal]\033[0m %s\n' "$*" >&2; exit 1; }
@@ -100,7 +95,6 @@ REQUIRED=(
     NORDTAL_BOT_TOKEN
     NORDTAL_ACCESS_GUILD_ID
     STEWARD_HOST
-    STEWARD_ACME_EMAIL
     STEWARD_ENV_FILE
     STEWARD_ENV_DIR
     STEWARD_ENV_FILE_NAME
@@ -464,8 +458,6 @@ looks_like_host() {
     [[ "$1" =~ ^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$ ]]
 }
 
-looks_like_email() { [[ "$1" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]]; }
-
 looks_like_public_address() {
     local host="${1%:*}" port="${1##*:}"
     [[ "$1" == *:* ]] || return 1
@@ -517,7 +509,6 @@ answer_is_yes() {
 
 QUESTIONS=(
     STEWARD_HOST
-    STEWARD_ACME_EMAIL
     NETWORK_PUBLIC_ADDRESS
     EULA
     NORDTAL_BOT_TOKEN
@@ -532,7 +523,6 @@ QUESTIONS=(
 
 declare -A QUESTION_KIND=(
     [STEWARD_HOST]=plain
-    [STEWARD_ACME_EMAIL]=plain
     [NETWORK_PUBLIC_ADDRESS]=plain
     [EULA]=licence
     [NORDTAL_BOT_TOKEN]=secret
@@ -547,7 +537,6 @@ declare -A QUESTION_KIND=(
 
 declare -A QUESTION_CHECK=(
     [STEWARD_HOST]=looks_like_host
-    [STEWARD_ACME_EMAIL]=looks_like_email
     [NETWORK_PUBLIC_ADDRESS]=looks_like_public_address
     [EULA]=-
     [NORDTAL_BOT_TOKEN]=-
@@ -562,7 +551,6 @@ declare -A QUESTION_CHECK=(
 
 declare -A QUESTION_PROMPT=(
     [STEWARD_HOST]="What name will the interface answer on?"
-    [STEWARD_ACME_EMAIL]="Where should Let's Encrypt send certificate warnings?"
     [NETWORK_PUBLIC_ADDRESS]="What do players type into Minecraft to reach this network?"
     [EULA]="Do you accept the Minecraft EULA? (https://aka.ms/MinecraftEULA)"
     [NORDTAL_BOT_TOKEN]="The Discord bot token."
@@ -576,9 +564,8 @@ declare -A QUESTION_PROMPT=(
 )
 
 declare -A QUESTION_HINT=(
-    [STEWARD_HOST]="A host name, not a URL - e.g. steward.dev.nordtal.eu. Its A/AAAA records have to point here;
-        this script waits for that further down rather than deploying half a stack."
-    [STEWARD_ACME_EMAIL]="One address, seen by Let's Encrypt only. It is what gets a mail if a renewal ever stops working."
+    [STEWARD_HOST]="A host name, not a URL - e.g. steward.nordtal.eu. The Cloudflare tunnel of this host sends it to
+        http://127.0.0.1:80, where Caddy serves it."
     [NETWORK_PUBLIC_ADDRESS]="Host AND port, e.g. play.example.com:25565. The port is not optional even if a SRV record
         lets players leave it out: this is the address the proxy hands to a client when it moves it
         during an update, and nothing resolves a SRV record on that client's behalf."
@@ -643,18 +630,6 @@ menu_choice() {
     if [[ "$typed" =~ ^[0-9]+$ ]] && (( 10#$typed >= 1 && 10#$typed <= count )); then
         printf 'edit %s' "$(( 10#$typed ))"
     fi
-}
-
-addresses_not_ours() {
-    local resolved="$1" ours="$2" address
-    if [[ -z "${resolved//[[:space:]]/}" ]]; then
-        # A name without an address does not match.
-        printf '(nothing - the name does not resolve)\n'
-        return
-    fi
-    for address in $resolved; do
-        grep -qxF "$address" <<<"$ours" || printf '%s\n' "$address"
-    done
 }
 
 # The images on this host that a pull before `up` would replace. The function is pure, so the test
@@ -1221,7 +1196,6 @@ ARGV=("$@")
 
 FROM_FILE=""
 ENV_FILE=""
-ADDRESSES_GIVEN=""
 CHECK_ONLY=false
 BUILD_AGENT=false
 SELF_UPDATE=true
@@ -1240,7 +1214,6 @@ while (( $# > 0 )); do
     case "$1" in
         --from)             FROM_FILE="${2:?--from needs a path}"; shift 2 ;;
         --env-file)         ENV_FILE="${2:?--env-file needs a path}"; shift 2 ;;
-        --address)          ADDRESSES_GIVEN+="${2:?--address needs an address}"$'\n'; shift 2 ;;
         --check)            CHECK_ONLY=true; MENU=false; shift ;;
         --build)            BUILD_AGENT=true; MENU=false; shift ;;
         --deploy)           MENU=false; shift ;;
@@ -1674,46 +1647,7 @@ for entry in "${DATA_DIRS[@]}"; do
     mkdir -p "$directory" || die "Could not create $directory. Make $INSTALL_DIR writable and run this again."
 done
 
-# 5 · The name
-# Caddy requests a certificate for STEWARD_HOST on start, so the name must point to this host first.
-this_hosts_addresses() {
-    if [[ -n "$ADDRESSES_GIVEN" ]]; then
-        printf '%s' "$ADDRESSES_GIVEN"
-        return
-    fi
-    # Behind NAT this host has no public address. --address supplies it.
-    ip -o addr show scope global 2>/dev/null | awk '{ print $4 }' | cut -d/ -f1
-}
-
-resolve() {
-    # getent asks the same resolver as everything else on this host.
-    getent ahosts "$1" 2>/dev/null | awk '{ print $1 }' | sort -u
-}
-
-ours="$(this_hosts_addresses)"
-[[ -n "${ours//[[:space:]]/}" ]] || die "This host has no global address for $STEWARD_NAME to point at. If it is behind NAT, pass its public address with --address."
-
-attempt=0
-while true; do
-    resolved="$(resolve "$STEWARD_NAME")"
-    strays="$(addresses_not_ours "$resolved" "$ours")"
-    [[ -z "$strays" ]] && break
-
-    if (( attempt == 0 )) || [[ "$strays" != "${last_strays:-}" ]]; then
-        warn "name not pointing here, waiting: host=$STEWARD_NAME resolved=\"$(joined "$resolved")\" addresses=\"$(joined "$ours")\" delay=${DNS_INTERVAL}s"
-        last_strays="$strays"
-    elif (( attempt % DNS_HEARTBEAT == 0 )); then
-        warn "name still not pointing here: host=$STEWARD_NAME after=$(( attempt * DNS_INTERVAL / 60 ))m"
-    fi
-    if $CHECK_ONLY; then
-        die "--check stopped: $STEWARD_NAME does not point at this host. Point its A/AAAA records here and run this again."
-    fi
-    attempt=$(( attempt + 1 ))
-    sleep "$DNS_INTERVAL"
-done
-log "name points here: host=$STEWARD_NAME resolved=\"$(joined "$resolved")\""
-
-# 5a · Local builds that a pull would replace
+# 5 · Local builds that a pull would replace
 # The agent pulls every service before `up` and replaces a local build whose tag the registry has.
 # compose.yml comes from the local agent image. Without that image there is nothing to warn about.
 COMPOSE_CACHE=""
@@ -1818,7 +1752,7 @@ if $CHECK_ONLY; then
     exit 0
 fi
 
-# 5b · Mojang's assets
+# 5a · Mojang's assets
 # The script asks once per installation and keeps the answer in the env file. On yes, steward-agent
 # fetches the client jar of each Minecraft version from Mojang, draws the item icons that the pickers
 # of Steward show and deletes the jar. Only the icons stay, in the database. Without an answer, the

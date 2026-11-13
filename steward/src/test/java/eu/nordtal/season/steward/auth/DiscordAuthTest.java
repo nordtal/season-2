@@ -43,8 +43,8 @@ class DiscordAuthTest {
     void theRedirectUriIsWrittenDownNotGuessed() {
         // The redirect URI must not follow the Host header.
         assertEquals(
-                "https://steward.dev.nordtal.eu/auth/callback",
-                new DiscordAuth(new Values(), "https://steward.dev.nordtal.eu").redirectUri());
+                "https://steward.nordtal.eu/auth/callback",
+                new DiscordAuth(new Values(), "https://steward.nordtal.eu").redirectUri());
     }
 
     private static final List<String> GUIDANCE =

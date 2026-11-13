@@ -18,7 +18,9 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
 /**
- * Checks the frontend's icons against {@code resource-pack/src/pack.png}, which a Vite build cannot read.
+ * Checks the frontend's and the website's icons against {@code resource-pack/src/pack.png}.
+ *
+ * A Vite build cannot read the pack.
  *
  * The 512 icon repeats each pixel four times (nearest neighbour, like {@code ServerIcon}).
  */
@@ -27,6 +29,7 @@ class MarkIsTheServerIconTest {
     private static final String SOURCE = "resource-pack/src/pack.png";
     private static final String COPY = "steward/frontend/public/icon.png";
     private static final String BIG = "steward/frontend/public/icon-512.png";
+    private static final String WEBSITE = "deploy/caddy/website/icon.png";
     private static final String PAGE = "steward/frontend/index.html";
     private static final String MANIFEST = "steward/frontend/public/manifest.webmanifest";
 
@@ -40,6 +43,15 @@ class MarkIsTheServerIconTest {
                 COPY + " is no longer " + SOURCE + ". It is a copy because a Vite build cannot"
                         + " read across the repository - copy the file again rather than editing"
                         + " one of the two.");
+    }
+
+    @Test
+    void theWebsiteIconIsTheBigOne() throws IOException {
+        assertArrayEquals(
+                bytes(BIG),
+                bytes(WEBSITE),
+                WEBSITE + " is no longer " + BIG + ". It is a copy because Caddy's image is built from"
+                        + " deploy/caddy alone - copy the file again rather than editing one of the two.");
     }
 
     @Test

@@ -21,3 +21,6 @@ COPY --from=builder /usr/bin/caddy /usr/bin/caddy
 # Fails the build when the binary is a stock Caddy without the layer 4 modules.
 RUN caddy list-modules | grep -q '^layer4$' \
     && caddy list-modules | grep -q '^layer4.handlers.proxy$'
+
+# The website's icon, which Discord's embeds show. A copy of Steward's large icon.
+COPY website/ /srv/website/

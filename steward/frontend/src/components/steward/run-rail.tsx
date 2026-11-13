@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react"
 import { CaretDownIcon, CheckIcon, CircleIcon, CircleNotchIcon, MinusIcon } from "@/components/ui/icons"
+import type { RunStage } from "@/lib/api.gen"
 import { cn } from "@/lib/utils"
 
 import {
@@ -49,24 +50,24 @@ export function Mark({ verdict, className }: { verdict: Verdict; className?: str
 /**
  * A run as its stages, top to bottom: each with its mark, its name and its coarse facts as pills. A stage opens to its steps, one fact per line. A failed or warned stage starts open.
  */
-export function RunRail({ steps, ending }: { steps: RailStep[]; ending?: string }) {
+export function RunRail({ steps, at }: { steps: RailStep[]; at?: RunStage }) {
   const stages = stagesOf(steps)
   return (
     <ol className="flex flex-col">
       {stages.map((stage, index) => (
-        <StageRow key={stage.key} stage={stage} ending={ending} last={index === stages.length - 1} />
+        <StageRow key={stage.key} stage={stage} at={at} last={index === stages.length - 1} />
       ))}
     </ol>
   )
 }
 
-function StageRow({ stage, ending, last }: { stage: Stage; ending?: string; last: boolean }) {
+function StageRow({ stage, at, last }: { stage: Stage; at?: RunStage; last: boolean }) {
   return (
     <RailStage
       id={`stage-${stage.key}`}
       name={stageName(stage.key)}
       verdict={stage.verdict}
-      pills={pillsOf(stage, ending)}
+      pills={pillsOf(stage, at)}
       last={last}
     >
       <Steps steps={stage.steps} />

@@ -1,4 +1,5 @@
 import type { RunArchive, RunChange, RunImageRemoved, RunMove, RunOffsite } from "@/lib/api"
+import type { RunStage } from "@/lib/api.gen"
 import { bytes, time } from "@/lib/format"
 import { choice, type MessageRef, span, t } from "@/lib/texts"
 
@@ -84,13 +85,13 @@ const NAMED = 3
 /**
  * Returns a stage's coarse facts: what it acted on and counted, then why a step went wrong or was left out.
  *
- * @param ending the stage the run ended at, if it ended. Resolve says "nothing" only for a run that found nothing to do.
+ * @param at the stage the run is at. Resolve says "nothing" only for a run that found nothing to do.
  */
-export function pillsOf(stage: Stage, ending?: string): Pill[] {
+export function pillsOf(stage: Stage, at?: RunStage): Pill[] {
   const facts = FACTS[stage.key](stage.steps)
   const reasons = reasonsOf(stage.steps)
   if (facts.length === 0 && reasons.length === 0) {
-    const nothing = stage.key === "RESOLVE" ? ending === "NOTHING_TO_DO" : stage.verdict === "done"
+    const nothing = stage.key === "RESOLVE" ? at === "NOTHING_TO_DO" : stage.verdict === "done"
     if (nothing) return [{ text: t("steward.updates.nothing") }]
     if (stage.verdict === "skipped") return [{ text: t("run.outcome", { outcome: "skipped" }), tone: "idle" }]
   }
@@ -118,7 +119,11 @@ const FACTS: Record<StageKey, (steps: RailStep[]) => Pill[]> = {
     const release = steps.flatMap((step) => (step.service ? [] : (step.changes ?? []))).find(isRelease)
     if (release) return [{ text: changeText(release) }]
     // Without a release, the services it found a new version or image for, each as Install shows it.
-    return jumps(steps.filter((step) => (step.changes ?? []).some((change) => change.to !== undefined || change.image)))
+    return jumps(
+      steps.filter((step) =>
+        (step.changes ?? []).some((change) => change.to !== undefined || change.image === "PULLED"),
+      ),
+    )
   },
   STANDBY: (steps) =>
     [...new Set(steps.flatMap((step) => (step.service ? [step.service] : [])))].flatMap((standby) => {

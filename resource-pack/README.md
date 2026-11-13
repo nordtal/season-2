@@ -678,8 +678,8 @@ composes them, and nothing else names them.
   wide as in vanilla text and not the 3 of `nordtal:gui`. The build measures the letters into
   `nordtal/ui/letter-advances.properties`, which `Letters` reads.
 - **`nordtal:ui_art_{shift}`:** the plates in three looks, the slot frame, the field frame, the
-  primary button, the progress bar and the label pill. Shifts 11 + 18r put a piece's top on content
-  row r's cell top in a chest window.
+  primary button, the progress bar, the label pill in the chest window's look and the HUD's flat pill
+  with a 1 px rim. Shifts 11 + 18r put a piece's top on content row r's cell top in a chest window.
 - **`nordtal:ui_panel`:** the chest panel for 1 to 6 rows, with the player's slot frames only
   (`UI_CHEST_PANELS`) or with every content slot (`UI_CHEST_PANELS_PLAIN`, for placed containers).
 - **`nordtal:ui_dialog_{shift}`:** the dialog panels, one list per panel size, in tiles of at most

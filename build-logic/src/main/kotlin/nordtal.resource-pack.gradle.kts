@@ -155,6 +155,20 @@ configurations.consumable("pack") {
     outgoing.artifact(assembledPack) { builtBy(assemblePack) }
 }
 
+// The pack without the wheel, which steward-agent's image ships and draws the wheel into for the prizes it runs with.
+val packBaseDirectory = layout.buildDirectory.dir("pack-base")
+val assemblePackBase =
+    tasks.register<Sync>("assemblePackBase") {
+        description = "Assembles the pack without the wheel, for steward-agent's builds."
+        from(packSource)
+        from(generateGlyphs.flatMap { it.fontDirectory })
+        from(drawChestPanels.flatMap { it.textures })
+        into(packBaseDirectory)
+    }
+configurations.consumable("packBase") {
+    outgoing.artifact(packBaseDirectory) { builtBy(assemblePackBase) }
+}
+
 // The pack as the client receives it, from the same sources as assemblePack. Its bytes depend on them alone, so the
 // same version always has the same hash.
 val packZipName = "nordtal-resource-pack-$version.zip"

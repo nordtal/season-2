@@ -77,6 +77,9 @@ include("dev")
 // Packs src/ into the resource pack zip.
 include("resource-pack")
 
+// Builds the pack's wheel and zip from plain inputs, in the build and later live from the prize list.
+include("pack-builder")
+
 // The Fabric mod through which the Nordtal Designer reloads the pack and shows previews in a running client.
 include("bridge-mod")
 

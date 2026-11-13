@@ -167,6 +167,18 @@ class ArchitectureTest {
                 "eu.nordtal.season.packrendering..");
     }
 
+    /** The pack builder runs in the build and in steward-agent, so it stands on the JDK and Gson alone. */
+    @Test
+    void thePackBuilderDependsOnTheJdkAndGsonAlone() {
+        onlyOn(
+                "eu.nordtal.season.packbuilder..",
+                "java..",
+                "javax.imageio..",
+                "org.jspecify..",
+                "com.google.gson..",
+                "eu.nordtal.season.packbuilder..");
+    }
+
     /** The wire to the internal services: Javalin and the kernel, and nothing a service does behind it. */
     @Test
     void theInternalWireDependsOnJavalinAndTheKernelAlone() {

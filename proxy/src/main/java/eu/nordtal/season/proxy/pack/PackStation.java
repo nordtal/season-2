@@ -37,6 +37,12 @@ import org.slf4j.Logger;
  */
 public final class PackStation {
 
+    /** The answers that disconnect the player when they are about the newest offer. */
+    private static final Set<PlayerResourcePackStatusEvent.Status> KICKS = Set.of(
+            PlayerResourcePackStatusEvent.Status.DECLINED,
+            PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD,
+            PlayerResourcePackStatusEvent.Status.FAILED_RELOAD);
+
     private final ProxyServer proxy;
     private final Logger logger;
     private final SeasonRouting routing;
@@ -180,14 +186,14 @@ public final class PackStation {
     /** Records the applied pack and removes the one it replaced from the client. */
     private void applied(final Player player, final @Nullable UUID packId) {
         final UUID uuid = player.getUniqueId();
-        final Optional<String> offered = book.offeredSha1(uuid);
-        if (offered.isEmpty() || (packId != null && !packId.equals(PackOffer.idOf(offered.get())))) {
+        if (!book.answersNewestOffer(uuid, packId)) {
             logger.debug("resource pack applied that is not the newest offer: player={}", player.getUsername());
             return;
         }
-        book.packApplied(uuid, offered.get()).ifPresent(before -> {
+        final String offered = book.offeredSha1(uuid).orElseThrow();
+        book.packApplied(uuid, offered).ifPresent(before -> {
             player.removeResourcePacks(PackOffer.idOf(before));
-            logger.info("resource pack replaced: player={} sha1={}", player.getUsername(), offered.get());
+            logger.info("resource pack replaced: player={} sha1={}", player.getUsername(), offered);
         });
     }
 
@@ -199,6 +205,14 @@ public final class PackStation {
         final UUID uuid = player.getUniqueId();
         final Locale locale = localeOf(player);
 
+        // An answer about a pack a newer offer replaced keeps the player, as SUCCESSFUL and DISCARDED do.
+        if (KICKS.contains(event.getStatus()) && !book.answersNewestOffer(uuid, event.getPackId())) {
+            logger.debug(
+                    "answer about a replaced resource pack ignored: player={} status={}",
+                    player.getUsername(),
+                    event.getStatus());
+            return;
+        }
         switch (event.getStatus()) {
             case SUCCESSFUL -> {
                 applied(player, event.getPackId());

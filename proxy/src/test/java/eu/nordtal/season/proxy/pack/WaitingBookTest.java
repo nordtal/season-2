@@ -50,6 +50,23 @@ class WaitingBookTest {
                 .action();
     }
 
+    // the client's answers
+
+    @Test
+    void onlyAnAnswerAboutTheNewestOfferCounts() {
+        final WaitingBook book = book();
+        assertFalse(book.answersNewestOffer(player, PackOffer.idOf(PACK)), "nothing was offered yet");
+
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
+        book.claimOffer(player, NEXT_PACK);
+
+        assertFalse(
+                book.answersNewestOffer(player, PackOffer.idOf(PACK)), "a decline of the replaced pack must not kick");
+        assertTrue(book.answersNewestOffer(player, PackOffer.idOf(NEXT_PACK)));
+        assertTrue(book.answersNewestOffer(player, null), "a client that names no pack answers about the newest");
+    }
+
     // READY before the arrival
 
     @Test

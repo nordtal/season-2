@@ -155,6 +155,15 @@ public final class WaitingBook {
     }
 
     /**
+     * Returns whether the client's answer about {@code packId} is about the newest pack offered to the player.
+     * A client that names no pack answers about the newest.
+     */
+    public boolean answersNewestOffer(final UUID uuid, final @Nullable UUID packId) {
+        final Optional<String> offered = offeredSha1(uuid);
+        return offered.isPresent() && (packId == null || packId.equals(PackOffer.idOf(offered.get())));
+    }
+
+    /**
      * Records that an admin exempted the player from the pack.
      *
      * @return {@code true} the first time in the session

@@ -1,7 +1,6 @@
 package eu.nordtal.season.packrendering.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.packrendering.Glyphs;
@@ -59,14 +58,12 @@ class HudPillTest {
     }
 
     @Test
-    void theHudDrawsTheFlatPillAndAHologramKeepsTheBevelledOne() {
+    void theHudAndAHologramDrawTheSamePill() {
         final String hud = plain(Pill.of(Pill.Content.of(Symbol.RAIL, "Fjordmarkt")));
         final String hologram = plain(Pill.of(Symbol.RAIL, "Fjordmarkt"));
 
-        assertTrue(hud.contains(Glyphs.UI_HUD_PILL.get(0)), "the HUD's pill opens with its flat end");
-        assertFalse(hud.contains(Glyphs.UI_PILL.get(0)), "the HUD draws none of the bevelled pill");
-        assertTrue(hologram.contains(Glyphs.UI_PILL.get(0)), "a hologram's pill opens with its bevelled end");
-        assertFalse(hologram.contains(Glyphs.UI_HUD_PILL.get(0)), "a hologram draws none of the flat pill");
+        assertTrue(hud.startsWith(Glyphs.UI_PILL.get(0)), "the HUD's pill opens with the pill's end");
+        assertTrue(hologram.startsWith(Glyphs.UI_PILL.get(0)), "a hologram's pill opens with the pill's end");
     }
 
     private static String plain(final Component component) {

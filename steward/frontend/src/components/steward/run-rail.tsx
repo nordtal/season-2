@@ -49,24 +49,24 @@ export function Mark({ verdict, className }: { verdict: Verdict; className?: str
 /**
  * A run as its stages, top to bottom: each with its mark, its name and its coarse facts as pills. A stage opens to its steps, one fact per line. A failed or warned stage starts open.
  */
-export function RunRail({ steps }: { steps: RailStep[] }) {
+export function RunRail({ steps, ending }: { steps: RailStep[]; ending?: string }) {
   const stages = stagesOf(steps)
   return (
     <ol className="flex flex-col">
       {stages.map((stage, index) => (
-        <StageRow key={stage.key} stage={stage} last={index === stages.length - 1} />
+        <StageRow key={stage.key} stage={stage} ending={ending} last={index === stages.length - 1} />
       ))}
     </ol>
   )
 }
 
-function StageRow({ stage, last }: { stage: Stage; last: boolean }) {
+function StageRow({ stage, ending, last }: { stage: Stage; ending?: string; last: boolean }) {
   return (
     <RailStage
       id={`stage-${stage.key}`}
       name={stageName(stage.key)}
       verdict={stage.verdict}
-      pills={pillsOf(stage)}
+      pills={pillsOf(stage, ending)}
       last={last}
     >
       <Steps steps={stage.steps} />

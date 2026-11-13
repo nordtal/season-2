@@ -552,7 +552,7 @@ public final class UpdateFeed {
         final List<Service> lines = byService.entrySet().stream()
                 .map(service -> line(service.getKey(), service.getValue()))
                 .toList();
-        final Instant requested = request.requested();
+        final Instant started = request.started();
         final Instant finished = request.finished();
         final DiscordId asker = request.actor().person();
         return documents.render(
@@ -562,7 +562,7 @@ public final class UpdateFeed {
                         TEXTS.run().title(request.kind(), stage),
                         context ? request.actor().kind() : null,
                         context && asker != null ? Mention.of(asker) : null,
-                        finished != null && requested != null ? Duration.between(requested, finished) : null),
+                        finished != null && started != null ? Duration.between(started, finished) : null),
                 Map.of(
                         "services",
                         DocumentRenderer.FilledList.of(lines.stream()

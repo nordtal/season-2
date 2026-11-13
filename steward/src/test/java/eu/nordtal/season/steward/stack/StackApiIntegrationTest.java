@@ -15,6 +15,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Set;
@@ -218,6 +219,8 @@ class StackApiIntegrationTest {
 
     @Test
     void theHostsNumbersComeBack() throws Exception {
+        // The agent reads the host from /proc, which only Linux has.
+        assumeTrue(Files.isReadable(Path.of("/proc/meminfo")), "this host has no /proc, so the agent reads no numbers");
         final JsonObject host = GSON.fromJson(get("/api/host"), JsonObject.class);
 
         assertTrue(host.get("memoryTotalBytes").getAsLong() > 0);

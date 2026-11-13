@@ -20,6 +20,7 @@ import java.util.Optional;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.plugin.Plugin;
@@ -100,7 +101,8 @@ public final class AdvancementListener implements Listener {
                 .filter(award -> award.aura() > 0 || award.spins() > 0);
     }
 
-    @EventHandler
+    /** Runs before the chat's own announcement, which sends nothing once the message is gone. */
+    @EventHandler(priority = EventPriority.LOW)
     public void onAdvancement(final PlayerAdvancementDoneEvent event) {
         final Player player = event.getPlayer();
         final String key = event.getAdvancement().getKey().toString().toLowerCase(Locale.ROOT);

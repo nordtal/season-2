@@ -24,7 +24,7 @@ public interface PackSpec {
     @Order(2)
     @Name("URL")
     @Key("url")
-    @Explain("The releases/download URL, never its redirect, which expires within the hour.")
+    @Explain("steward-agent sets it after each pack build: the pack host and the zip's SHA-1.")
     default String url() {
         return "";
     }
@@ -32,7 +32,7 @@ public interface PackSpec {
     @Order(3)
     @Name("SHA-1")
     @Key("sha1")
-    @Explain("A mismatch fails every download on the network.")
+    @Explain("steward-agent sets it with the URL. A mismatch fails every download on the network.")
     default String sha1() {
         return "";
     }

@@ -9,6 +9,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -29,9 +31,14 @@ public final class WaitingBook {
         /** Whether {@link #entered} was called. */
         private boolean visited;
 
+        /** The time of the newest offer, for its timeout. */
         private @Nullable Instant offeredAt;
 
-        private boolean applied;
+        /** The SHA-1 of the newest pack offered to the player. */
+        private @Nullable String offeredSha1;
+
+        /** The SHA-1 of the pack the client last reported as applied. */
+        private @Nullable String appliedSha1;
 
         /** Whether an admin exempted the player from the pack. */
         private boolean exempt;
@@ -49,8 +56,8 @@ public final class WaitingBook {
         private int percent = -1;
     }
 
-    private final boolean packOffered;
-    private final Duration applyTimeout;
+    private final BooleanSupplier packOffered;
+    private final Supplier<Duration> applyTimeout;
     private final Duration readyGrace;
     private final ProxyRole role;
     private final Clock clock;
@@ -71,8 +78,23 @@ public final class WaitingBook {
             final ProxyRole role,
             final AccessQueue queue,
             final Clock clock) {
+        this(() -> packOffered, () -> applyTimeout, readyGrace, role, queue, clock);
+    }
+
+    /**
+     * Reads whether the pack is offered and its timeout at each decision, so a changed setting counts at once.
+     *
+     * @param readyGrace the time after which a player is released without {@code READY}
+     */
+    public WaitingBook(
+            final BooleanSupplier packOffered,
+            final Supplier<Duration> applyTimeout,
+            final Duration readyGrace,
+            final ProxyRole role,
+            final AccessQueue queue,
+            final Clock clock) {
         this.queue = Objects.requireNonNull(queue, "queue");
-        this.packOffered = packOffered;
+        this.packOffered = Objects.requireNonNull(packOffered, "packOffered");
         this.applyTimeout = Objects.requireNonNull(applyTimeout, "applyTimeout");
         this.readyGrace = Objects.requireNonNull(readyGrace, "readyGrace");
         this.role = Objects.requireNonNull(role, "role");
@@ -104,15 +126,31 @@ public final class WaitingBook {
         queue.leave(uuid);
     }
 
-    /** Returns {@code true} once per session. The caller sends the pack offer then. */
-    public boolean claimOffer(final UUID uuid) {
+    /**
+     * Returns {@code true} when the player is to be offered the pack {@code sha1}, and the caller sends it.
+     *
+     * That is when the player is not exempt and the pack is neither applied nor already waiting for an answer.
+     */
+    public boolean claimOffer(final UUID uuid, final String sha1) {
         final Session session = session(uuid);
         synchronized (session) {
-            if (session.offeredAt != null || session.applied || session.exempt) {
+            if (!PackHash.owed(session.exempt, session.appliedSha1, session.offeredSha1, sha1)) {
                 return false;
             }
+            session.offeredSha1 = sha1;
             session.offeredAt = clock.instant();
             return true;
+        }
+    }
+
+    /** Returns the SHA-1 of the newest pack offered to the player, if any. */
+    public Optional<String> offeredSha1(final UUID uuid) {
+        final Session session = sessions.get(uuid);
+        if (session == null) {
+            return Optional.empty();
+        }
+        synchronized (session) {
+            return Optional.ofNullable(session.offeredSha1);
         }
     }
 
@@ -130,11 +168,17 @@ public final class WaitingBook {
         }
     }
 
-    /** Records that the client applied the pack. */
-    public void packApplied(final UUID uuid) {
+    /**
+     * Records that the client applied the pack {@code sha1}.
+     *
+     * @return the pack applied before, if it was another one, so the caller removes it from the client
+     */
+    public Optional<String> packApplied(final UUID uuid, final String sha1) {
         final Session session = session(uuid);
         synchronized (session) {
-            session.applied = true;
+            final String before = session.appliedSha1;
+            session.appliedSha1 = sha1;
+            return before == null || before.equals(sha1) ? Optional.empty() : Optional.of(before);
         }
     }
 
@@ -266,7 +310,8 @@ public final class WaitingBook {
                 return WaitingDecision.idle();
             }
 
-            final boolean packSettled = !packOffered || session.exempt || session.applied;
+            final boolean packSettled = !packOffered.getAsBoolean()
+                    || PackHash.settled(session.exempt, session.appliedSha1, session.offeredSha1);
             if (!packSettled && timedOut(session)) {
                 session.waiting = false;
                 return WaitingDecision.timedOut();
@@ -323,7 +368,7 @@ public final class WaitingBook {
 
     private boolean timedOut(final Session session) {
         return session.offeredAt != null
-                && Duration.between(session.offeredAt, clock.instant()).compareTo(applyTimeout) >= 0;
+                && Duration.between(session.offeredAt, clock.instant()).compareTo(applyTimeout.get()) >= 0;
     }
 
     private Session session(final UUID uuid) {

@@ -49,8 +49,8 @@ class WheelPackTest {
                 List.of(new WheelPack.Prize("dirt", 2), new WheelPack.Prize("no_such_item", 3)),
                 Map.of("de", "Aus"));
 
-        final String prize =
-                new String(pack.items(List.of(0)).get("assets/nordtal/items/wheel/p0.json"), StandardCharsets.UTF_8);
+        final String prize = new String(
+                pack.items(List.of(0)).get("assets/nordtal/items/wheel/prizes.json"), StandardCharsets.UTF_8);
 
         assertTrue(prize.contains("\"dirt\""), prize);
         assertFalse(prize.contains("no_such_item"), prize);
@@ -74,8 +74,8 @@ class WheelPackTest {
                 List.of(new WheelPack.Prize("dirt", 2), new WheelPack.Prize("air", 3)),
                 Map.of("de", "Aus"));
 
-        final String prize =
-                new String(pack.items(List.of(0)).get("assets/nordtal/items/wheel/p0.json"), StandardCharsets.UTF_8);
+        final String prize = new String(
+                pack.items(List.of(0)).get("assets/nordtal/items/wheel/prizes.json"), StandardCharsets.UTF_8);
 
         assertFalse(prize.contains("\"air\""), prize);
         assertTrue(prize.contains("nordtal:item/wheel/unknown"), prize);

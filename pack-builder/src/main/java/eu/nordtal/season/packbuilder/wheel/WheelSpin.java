@@ -15,8 +15,14 @@ final class WheelSpin {
     /** One prize's picture: drawn at ({@code x}, {@code y}) on the disc canvas. */
     record PrizeAt(int x, int y) {}
 
-    /** The disc's picture: a frame, with or without the winner's mark. */
-    record DiscAt(int frame, boolean mark) {}
+    /** The disc's picture: a frame, blurred or sharp, with or without the winner's mark. */
+    record DiscAt(int frame, WheelTurn.Blur blur, boolean mark) {
+
+        /** A sharp frame. */
+        DiscAt(final int frame, final boolean mark) {
+            this(frame, WheelTurn.Blur.SHARP, mark);
+        }
+    }
 
     /** The overlay's picture: the pointer, each body's count where its prize shows, and the off plate. */
     record OverlayAt(WheelTurn.Pointer pointer, List<Optional<PrizeAt>> counts, boolean plate) {}
@@ -32,8 +38,30 @@ final class WheelSpin {
         this.turn = WheelTurn.ticks(e);
     }
 
-    PrizeAt prize(final int body, final int t) {
-        return t < turn.size() ? at(30.0 * body + turn.get(t).angle(), 0) : prizeRest(body);
+    /** Body {@code body}'s prize at tick {@code t}: none while the wheel turns too fast to show it. */
+    Optional<PrizeAt> prize(final int body, final int t) {
+        if (t >= turn.size()) {
+            return Optional.of(prizeRest(body));
+        }
+        final WheelTurn.Tick tick = turn.get(t);
+        return tick.prizes() ? Optional.of(at(30.0 * body + tick.angle(), 0)) : Optional.empty();
+    }
+
+    /** Every body's prize at tick {@code t}. */
+    List<Optional<PrizeAt>> prizes(final int t) {
+        final List<Optional<PrizeAt>> out = new ArrayList<>(WheelLayout.PLACES);
+        for (int b = 0; b < WheelLayout.PLACES; b++) {
+            out.add(prize(b, t));
+        }
+        return out;
+    }
+
+    List<Optional<PrizeAt>> prizesRest() {
+        final List<Optional<PrizeAt>> out = new ArrayList<>(WheelLayout.PLACES);
+        for (int b = 0; b < WheelLayout.PLACES; b++) {
+            out.add(Optional.of(prizeRest(b)));
+        }
+        return out;
     }
 
     PrizeAt prizeRest(final int body) {
@@ -41,9 +69,14 @@ final class WheelSpin {
     }
 
     DiscAt disc(final int parity, final int t) {
-        return t < turn.size()
-                ? new DiscAt(WheelTurn.discFrame(30.0 * parity + turn.get(t).angle()), false)
-                : discRest(parity);
+        if (t >= turn.size()) {
+            return discRest(parity);
+        }
+        final WheelTurn.Tick tick = turn.get(t);
+        final WheelTurn.Blur blur = tick.blur();
+        // The fully blurred disc looks the same at every angle.
+        final int frame = blur == WheelTurn.Blur.FULL ? 0 : WheelTurn.discFrame(30.0 * parity + tick.angle());
+        return new DiscAt(frame, blur, false);
     }
 
     DiscAt discRest(final int parity) {
@@ -54,11 +87,7 @@ final class WheelSpin {
         if (t >= turn.size()) {
             return overlayRest();
         }
-        final List<Optional<PrizeAt>> counts = new ArrayList<>();
-        for (int b = 0; b < WheelLayout.PLACES; b++) {
-            counts.add(Optional.of(prize(b, t)));
-        }
-        return new OverlayAt(turn.get(t).pointer(), counts, true);
+        return new OverlayAt(turn.get(t).pointer(), prizes(t), true);
     }
 
     OverlayAt overlayRest() {
@@ -84,6 +113,24 @@ final class WheelSpin {
     /** Body {@code body}'s prize while the wheel waits for the press: at its own place. */
     static PrizeAt waiting(final int body) {
         return at(30.0 * body, 0);
+    }
+
+    /** Every body's prize at tick {@code t} of the pop-in. */
+    static List<Optional<PrizeAt>> popIns(final int t) {
+        final List<Optional<PrizeAt>> out = new ArrayList<>(WheelLayout.PLACES);
+        for (int b = 0; b < WheelLayout.PLACES; b++) {
+            out.add(popIn(b, t));
+        }
+        return out;
+    }
+
+    /** Every body's prize while the wheel waits for the press. */
+    static List<Optional<PrizeAt>> waitings() {
+        final List<Optional<PrizeAt>> out = new ArrayList<>(WheelLayout.PLACES);
+        for (int b = 0; b < WheelLayout.PLACES; b++) {
+            out.add(Optional.of(waiting(b)));
+        }
+        return out;
     }
 
     static OverlayAt popInOverlay(final int t) {

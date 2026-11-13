@@ -29,23 +29,45 @@ class WheelTurnTest {
     }
 
     @Test
-    void theWheelNeverRunsFasterThanThreeFramesATickAndSlowsDownEvenly() {
+    void theWheelSpeedsUpThenOnlySlowsAndComesToItsPinWithinFiveToTenSeconds() {
         for (final int e : variants) {
-            final List<WheelTurn.Tick> ticks = WheelTurn.ticks(e);
-            for (int i = 1; i < ticks.size(); i++) {
-                assertTrue(
-                        ticks.get(i).angle() - ticks.get(i - 1).angle() <= WheelTurn.START_SPEED + 1e-9,
-                        "variant " + e + " at tick " + i);
+            for (int t = 1; t < WheelTurn.ACCELERATION; t++) {
+                assertTrue(WheelTurn.speed(e, t) > WheelTurn.speed(e, t - 1), "variant " + e + " lags at tick " + t);
             }
+            assertTrue(WheelTurn.speed(e, WheelTurn.ACCELERATION) <= WheelTurn.TOP_SPEED + 1e-9);
+            assertTrue(WheelTurn.speed(e, 40) >= 2.5 * WheelTurn.START_SPEED, "variant " + e + " spins very fast");
             final double dips = WheelTurn.distance(e) + WheelTurn.PIN - 120.0;
             final List<Double> speeds = new ArrayList<>();
-            for (int t = 0; t < WheelTurn.length(e) && WheelTurn.angle(e, t + 0.5) < dips; t++) {
+            int t = WheelTurn.ACCELERATION;
+            for (; WheelTurn.angle(e, t + 0.5) < dips; t++) {
                 speeds.add(WheelTurn.speed(e, t));
             }
             for (int i = 1; i < speeds.size(); i++) {
                 assertTrue(speeds.get(i) <= speeds.get(i - 1) + 1e-9, "variant " + e + " speeds up at tick " + i);
             }
-            assertTrue(WheelTurn.length(e) >= 160, "variant " + e + " turns long");
+            final double pin = WheelTurn.distance(e) + WheelTurn.PIN;
+            while (WheelTurn.angle(e, t) < pin - 1e-6) {
+                t++;
+            }
+            final int slowing = t - WheelTurn.ACCELERATION;
+            assertTrue(slowing >= 100 && slowing <= 200, "variant " + e + " slows for " + slowing + " ticks");
+        }
+    }
+
+    @Test
+    void theDiscBlursAndThePrizesHideOnlyWhereSharpFieldsWouldSeemToRunBack() {
+        for (final int e : variants) {
+            final List<WheelTurn.Tick> ticks = WheelTurn.ticks(e);
+            for (int t = 0; t < ticks.size(); t++) {
+                final double speed = WheelTurn.speed(e, t);
+                final WheelTurn.Tick tick = ticks.get(t);
+                assertEquals(speed <= WheelTurn.START_SPEED + 1e-9, tick.blur() == WheelTurn.Blur.SHARP, "tick " + t);
+                assertEquals(speed <= WheelTurn.PRIZE_SPEED + 1e-9, tick.prizes(), "tick " + t);
+                assertTrue(
+                        speed <= 2 * tick.blur().degrees() + WheelTurn.START_SPEED, "tick " + t + " blurs too little");
+            }
+            assertEquals(WheelTurn.Blur.SHARP, ticks.getFirst().blur());
+            assertTrue(ticks.stream().anyMatch(tick -> tick.blur() == WheelTurn.Blur.FULL));
         }
     }
 
@@ -56,9 +78,13 @@ class WheelTurnTest {
             for (int t = WheelTurn.SHARED - 5; t < WheelTurn.SHARED + 40; t++) {
                 slowing.add(WheelTurn.speed(e, t - 0.5) - WheelTurn.speed(e, t + 0.5));
             }
+            double around = 0.0;
+            for (int i = 1; i < 5; i++) {
+                around = Math.max(around, Math.abs(slowing.get(i) - slowing.get(i - 1)));
+            }
             for (int i = 1; i < slowing.size(); i++) {
                 assertTrue(
-                        Math.abs(slowing.get(i) - slowing.get(i - 1)) <= 0.002,
+                        Math.abs(slowing.get(i) - slowing.get(i - 1)) <= 2 * around + 0.002,
                         "variant " + e + " slowing jumps at tick " + (WheelTurn.SHARED - 5 + i));
             }
         }
@@ -88,7 +114,8 @@ class WheelTurnTest {
             final List<Integer> clicks = WheelTurn.clicks(e);
             assertEquals(List.copyOf(new TreeSet<>(clicks)), clicks);
             assertTrue(clicks.size() <= WheelTurn.TURNS * WheelLayout.PLACES + e + 1, "variant " + e);
-            assertTrue(clicks.size() >= WheelTurn.TURNS * WheelLayout.PLACES, "variant " + e);
+            // Above 30 degrees a tick, more than one peg passes in a tick; their clicks fall on one.
+            assertTrue(clicks.size() >= WheelTurn.length(e) / 3, "variant " + e);
             assertTrue(
                     clicks.getLast() < WheelTurn.length(e) - WheelTurn.SETTLE,
                     "variant " + e + " clicks while rocking back: " + clicks);

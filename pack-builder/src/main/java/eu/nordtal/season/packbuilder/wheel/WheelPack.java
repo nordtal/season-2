@@ -33,6 +33,10 @@ public final class WheelPack {
     static final String OPEN = "open";
 
     static final int PARITY = 1;
+
+    /** The key of a place whose prize the other prize body draws. */
+    static final String NONE = "-";
+
     static final int LANGUAGE = 13;
     private static final Map<String, Object> EMPTY = Map.of("type", "minecraft:empty");
 
@@ -105,8 +109,8 @@ public final class WheelPack {
     }
 
     /**
-     * Every amount above 1 on the list: the overlay repeats the count's select at each place and step, so an amount
-     * not on the list would only grow it.
+     * Every amount above 1 on the list.
+     * The overlay repeats the count's select at each place and step, so an amount not on the list would only grow it.
      */
     static List<Integer> amounts(final List<Prize> prizes) {
         final TreeSet<Integer> out = new TreeSet<>();
@@ -183,13 +187,23 @@ public final class WheelPack {
         return leafJson.computeIfAbsent(key, k -> new Json.Raw(Json.write(leaf)));
     }
 
-    /** A prize body's picture: one select on its key, each display group moved by its own L. */
-    private String prizeNode(final int body, final Optional<PrizeAt> picture) {
-        if (picture.isEmpty()) {
-            return Json.write(EMPTY);
+    /** A prize body's picture: every place's prize, each drawn from the key at its own index of the body's strings. */
+    private String prizesNode(final int body, final List<Optional<PrizeAt>> picture) {
+        final List<Object> models = new ArrayList<>();
+        for (int b = 0; b < picture.size(); b++) {
+            final Optional<PrizeAt> at = picture.get(b);
+            if (at.isPresent()) {
+                models.add(prizeNode(body, b, at.get()));
+            }
         }
-        final PrizeAt at = picture.get();
-        final int index = 0;
+        return Json.write(models.isEmpty() ? EMPTY : map("type", "minecraft:composite", "models", models));
+    }
+
+    /**
+     * One prize's picture: a select on the key at {@code index}, each display group moved by its own L.
+     * A place whose prize glints in the other prize body holds no key here, and so draws nothing.
+     */
+    private Map<String, Object> prizeNode(final int body, final int index, final PrizeAt at) {
         final double[] m = move(body, at.x(), at.y());
         final List<Map<String, Object>> cases = new ArrayList<>();
         for (final Group group : groups) {
@@ -215,29 +229,34 @@ public final class WheelPack {
         for (final Member member : mixed) {
             cases.add(map("when", member.key(), "model", vanilla.moved(member.leaf(), m, WheelMath.identity())));
         }
-        return Json.write(select(index, cases, part("unknown", at.x(), at.y(), 16, 16, body, 0.0), null));
+        cases.add(map("when", NONE, "model", EMPTY));
+        return select(index, cases, part("unknown", at.x(), at.y(), 16, 16, body, 0.0), null);
+    }
+
+    /** The disc's texture for {@code at}: a sharp or blurred frame, or the full blur, the same at every angle. */
+    static String discTexture(final DiscAt at) {
+        return switch (at.blur()) {
+            case SHARP -> String.format(Locale.ROOT, "disc_%02d", at.frame());
+            case FULL -> "disc_b60";
+            default -> String.format(Locale.ROOT, "disc_b%d_%02d", at.blur().degrees(), at.frame());
+        };
     }
 
     private static String discNode(final DiscAt at) {
+        final int body = WheelLayout.DISC_BODY;
+        final int size = WheelLayout.DISC;
         final List<Object> models = new ArrayList<>();
-        models.add(part("shadow", 0, 0, WheelLayout.DISC + 1, WheelLayout.DISC + 1, 0, -0.3));
-        models.add(part("stand", 0, 0, WheelLayout.DISC, 105, 0, -0.2));
-        models.add(part(
-                String.format(Locale.ROOT, "disc_%02d", at.frame()),
-                0,
-                0,
-                WheelLayout.DISC,
-                WheelLayout.DISC,
-                0,
-                -0.1));
+        models.add(part("shadow", 0, 0, size + 1, size + 1, body, -0.3));
+        models.add(part("stand", 0, 0, size, size + 9, body, -0.2));
+        models.add(part(discTexture(at), 0, 0, size, size, body, -0.1));
         if (at.mark()) {
-            models.add(part("winner", 0, 0, WheelLayout.DISC, WheelLayout.DISC, 0, 0.0));
+            models.add(part("winner", 0, 0, size, size, body, 0.0));
         }
         return Json.write(map("type", "minecraft:composite", "models", models));
     }
 
     private String overlayNode(final OverlayAt at) {
-        final int body = WheelLayout.BODIES - 1;
+        final int body = WheelLayout.OVERLAY_BODY;
         final List<Object> models = new ArrayList<>();
         models.add(part(at.pointer().texture(), WheelLayout.POINTER[0], WheelLayout.POINTER[1], 16, 16, body, 0.1));
         if (!countCases.isEmpty()) {
@@ -355,16 +374,17 @@ public final class WheelPack {
                         WheelPack::discNode));
     }
 
-    private Map<String, Object> prize(final int b, final List<Integer> offsets) {
+    /** The prizes' pictures from body {@code body}'s origin: the plain or the glinting prizes. */
+    private Map<String, Object> prizes(final List<Integer> offsets, final int body) {
         return body(
-                1,
+                WheelLayout.PLACES,
                 offsets,
-                new Pictures<Optional<PrizeAt>>(
-                        t -> WheelSpin.popIn(b, t),
-                        Optional.of(WheelSpin.waiting(b)),
-                        (s, t) -> Optional.of(s.prize(b, t)),
-                        s -> Optional.of(s.prizeRest(b)),
-                        at -> prizeNode(1 + b, at)));
+                new Pictures<List<Optional<PrizeAt>>>(
+                        WheelSpin::popIns,
+                        WheelSpin.waitings(),
+                        WheelSpin::prizes,
+                        WheelSpin::prizesRest,
+                        at -> prizesNode(body, at)));
     }
 
     private Map<String, Object> overlay(final List<Integer> offsets) {
@@ -387,18 +407,22 @@ public final class WheelPack {
                 true));
     }
 
-    /** The three body kinds' item definitions for the turn variants {@code offsets}. */
+    /** The body kinds' item definitions for the turn variants {@code offsets}; "none" draws nothing. */
     public Map<String, byte[]> items(final List<Integer> offsets) {
         final Map<String, byte[]> out = new LinkedHashMap<>();
         final Map<String, Object> disc =
                 select(PARITY, List.of(map("when", "1", "model", disc(1, offsets))), disc(0, offsets), null);
         out.put("assets/nordtal/items/wheel/disc.json", item(0, disc, WheelLayout.ANCHOR));
-        for (int b = 0; b < WheelLayout.PLACES; b++) {
-            out.put("assets/nordtal/items/wheel/p" + b + ".json", item(1 + b, prize(b, offsets), WheelLayout.ANCHOR));
-        }
+        out.put(
+                "assets/nordtal/items/wheel/prizes.json",
+                item(WheelLayout.PRIZES_BODY, prizes(offsets, WheelLayout.PRIZES_BODY), WheelLayout.ANCHOR));
+        out.put(
+                "assets/nordtal/items/wheel/prizes_foil.json",
+                item(WheelLayout.FOIL_BODY, prizes(offsets, WheelLayout.FOIL_BODY), WheelLayout.ANCHOR));
         out.put(
                 "assets/nordtal/items/wheel/overlay.json",
-                item(WheelLayout.BODIES - 1, overlay(offsets), WheelLayout.OVERLAY_ANCHOR));
+                item(WheelLayout.OVERLAY_BODY, overlay(offsets), WheelLayout.OVERLAY_ANCHOR));
+        out.put("assets/nordtal/items/wheel/none.json", Json.bytes(map("model", EMPTY)));
         return out;
     }
 
@@ -408,7 +432,11 @@ public final class WheelPack {
         final List<String> flats = new ArrayList<>();
         for (int i = 0; i < 16; i++) {
             flats.add(String.format(Locale.ROOT, "disc_%02d", i));
+            for (final WheelTurn.Blur blur : List.of(WheelTurn.Blur.B15, WheelTurn.Blur.B30)) {
+                flats.add(discTexture(new DiscAt(i, blur, false)));
+            }
         }
+        flats.add(discTexture(new DiscAt(0, WheelTurn.Blur.FULL, false)));
         flats.addAll(
                 List.of("shadow", "stand", "winner", "pointer", "pointer_tick1", "pointer_tick2", "anchor", "unknown"));
         labels.keySet().forEach(lang -> flats.add("plate_off_" + lang));
@@ -459,9 +487,8 @@ public final class WheelPack {
     }
 
     /**
-     * The plugin's timetable, in cooldown ticks.
-     * It holds the turn's cooldown, the pop-in's ticks and pops, the variants, and each variant's peg clicks and the
-     * tick it rests at.
+     * The plugin's timetable, in cooldown ticks: the cooldown, the pop-in, each variant's clicks and end.
+     * It also holds the dialog's rows: their sizes, the plate's place in its row's text and each prize's hover.
      */
     public static String timetable(final List<Integer> offsets) {
         final StringBuilder out = new StringBuilder();
@@ -483,6 +510,29 @@ public final class WheelPack {
         }
         for (final int e : offsets) {
             out.append("end.").append(e).append('=').append(WheelTurn.length(e)).append('\n');
+        }
+        out.append("heights=")
+                .append(joined(
+                        java.util.Arrays.stream(WheelLayout.HEIGHTS).boxed().toList()))
+                .append('\n');
+        out.append("row-width=").append(WheelLayout.ROW_WIDTH).append('\n');
+        out.append("item-width=").append(WheelLayout.ITEM_WIDTH).append('\n');
+        out.append("plate-item=").append(WheelLayout.PLATE_ITEM).append('\n');
+        out.append("lone-item=").append(WheelLayout.LONE_ITEM).append('\n');
+        out.append("plate-x=").append(WheelLayout.plateInText()).append('\n');
+        out.append("item-place=").append(WheelLayout.ITEM_PLACE).append('\n');
+        for (int place = 0; place < WheelLayout.PLACES; place++) {
+            if (place == WheelLayout.ITEM_PLACE) {
+                continue;
+            }
+            final int body = WheelLayout.hoverBody(place);
+            out.append("hover.")
+                    .append(place)
+                    .append('=')
+                    .append(body)
+                    .append(',')
+                    .append(WheelLayout.place(place)[0] - WheelLayout.textLeft(body))
+                    .append('\n');
         }
         return out.toString();
     }

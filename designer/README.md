@@ -173,7 +173,8 @@ Windows, and `paplay` or else `aplay` on Linux. **Delete Sound Event** runs `del
 confirmed, and an event's draft is discarded like any other. **File > New Sound...** and **New
 Sound...** on **Sounds** open the wizard for a sound event of its own from an audio file, or for an
 override of one of the client's sound events, chosen in a browser of its dotted words. The override
-replaces vanilla's sounds or keeps them, and keeping them needs a file of the pack's to add.
+replaces vanilla's sounds or keeps them, and keeping them needs a file of the pack's to add. An
+override that replaces them without a file starts from copies of vanilla's `.ogg` files in the pack.
 
 The properties panel lists the previews of the selected entry. A glyph or a cell runs `renderGlyphPreviews`
 first, with **Show Previews**, and then offers itself alone in each place the bridge mod shows text,

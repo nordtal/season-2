@@ -25,11 +25,14 @@ class SoundsTest {
         """{"block.anvil.land": {"sounds": [{"name": "random/anvil_land", "volume": 0.5}], "subtitle": "subtitles.block.anvil.land"}}"""
 
     /** Vanilla's sounds from an asset index with one event, whose one sound is the test tone, and a log of each download. */
-    private fun vanilla(downloads: MutableList<String> = mutableListOf()): VanillaSounds {
+    private fun vanilla(
+        downloads: MutableList<String> = mutableListOf(),
+        events: String = vanillaEvents,
+    ): VanillaSounds {
         fun sha1(bytes: ByteArray) = MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }
         val objects =
             mapOf(
-                "minecraft/sounds.json" to vanillaEvents.toByteArray(),
+                "minecraft/sounds.json" to events.toByteArray(),
                 "minecraft/sounds/random/anvil_land.ogg" to tone.readBytes(),
             )
         val index =
@@ -93,21 +96,67 @@ class SoundsTest {
     }
 
     @Test
-    fun anOverrideThatReplacesStartsFromVanillasSoundsAndSubtitle() {
+    fun anOverrideThatReplacesStartsFromCopiesOfVanillasSoundsAndItsSubtitle() {
         val clone = clone()
 
-        Sounds.override(clone.pack, ::vanilla, "minecraft:block.anvil.land", true, null)
+        val written = Sounds.override(clone.pack, ::vanilla, "minecraft:block.anvil.land", true, null)
 
+        val copy = clone.pack.resolve("src/assets/minecraft/sounds/nordtal/random/anvil_land.ogg")
+        assertEquals(listOf(clone.pack.resolve("src/assets/minecraft/sounds.json"), copy), written)
+        assertTrue(copy.readBytes().contentEquals(tone.readBytes()))
         assertEquals(
             mapOf(
                 "block.anvil.land" to
                     mapOf(
                         "replace" to true,
-                        "sounds" to listOf(mapOf("name" to "minecraft:random/anvil_land", "volume" to 0.5.toBigDecimal())),
+                        "sounds" to listOf(mapOf("name" to "minecraft:nordtal/random/anvil_land", "volume" to 0.5.toBigDecimal())),
                         "subtitle" to "subtitles.block.anvil.land",
                     ),
             ),
             soundsJson(clone, "minecraft"),
+        )
+    }
+
+    @Test
+    fun twoOverridesOfOneVanillaSoundEachTakeACopyOfTheirOwn() {
+        val clone = clone()
+        val events =
+            """{"block.anvil.land": {"sounds": ["random/anvil_land"]}, "block.anvil.fall": {"sounds": ["random/anvil_land"]}}"""
+
+        Sounds.override(clone.pack, { vanilla(events = events) }, "minecraft:block.anvil.land", true, null)
+        Sounds.override(clone.pack, { vanilla(events = events) }, "minecraft:block.anvil.fall", true, null)
+
+        val json = soundsJson(clone, "minecraft")
+        assertEquals(listOf("minecraft:nordtal/random/anvil_land"), (json["block.anvil.land"] as Map<*, *>)["sounds"])
+        assertEquals(listOf("minecraft:nordtal/random/anvil_land_2"), (json["block.anvil.fall"] as Map<*, *>)["sounds"])
+        assertTrue(clone.pack.resolve("src/assets/minecraft/sounds/nordtal/random/anvil_land_2.ogg").readBytes().contentEquals(tone.readBytes()))
+    }
+
+    @Test
+    fun anOverrideWhoseVanillaSoundIsMissingIsRefusedAndWritesNothing() {
+        val clone = clone()
+        val events = """{"block.anvil.land": {"sounds": ["random/anvil_land", "random/anvil_gone"]}}"""
+
+        val refusal =
+            assertThrows<FieldRefusal> {
+                Sounds.override(clone.pack, { vanilla(events = events) }, "minecraft:block.anvil.land", true, null)
+            }
+
+        assertEquals("sound", refusal.field)
+        assertFalse(clone.pack.resolve("src/assets/minecraft").exists())
+    }
+
+    @Test
+    fun anOverrideKeepsASoundThatPlaysAnotherEventAsItIs() {
+        val clone = clone()
+        val events = """{"block.anvil.land": {"sounds": [{"name": "block.anvil.fall", "type": "event"}]}}"""
+
+        val written = Sounds.override(clone.pack, { vanilla(events = events) }, "minecraft:block.anvil.land", true, null)
+
+        assertEquals(listOf(clone.pack.resolve("src/assets/minecraft/sounds.json")), written)
+        assertEquals(
+            listOf(mapOf("name" to "minecraft:block.anvil.fall", "type" to "event")),
+            (soundsJson(clone, "minecraft")["block.anvil.land"] as Map<*, *>)["sounds"],
         )
     }
 
@@ -267,7 +316,24 @@ class SoundsTest {
             mapOf("block.anvil.land" to mapOf("sounds" to listOf(mapOf("name" to "minecraft:nordtal/block/anvil/land")))),
             soundsJson(clone, "minecraft"),
         )
+        assertFalse(clone.pack.resolve("src/assets/minecraft/sounds/nordtal/random/anvil_land.ogg").exists())
         assertEquals(emptyMap<String, Any>(), Texts.work(clone.pack))
+    }
+
+    @Test
+    fun anOverrideThatStopsReplacingKeepsACopyThatWasChanged() {
+        val clone = clone()
+        Sounds.override(clone.pack, ::vanilla, "minecraft:block.anvil.land", true, null)
+        val copy = clone.pack.resolve("src/assets/minecraft/sounds/nordtal/random/anvil_land.ogg")
+        copy.writeBytes(copy.readBytes() + 0)
+
+        Sounds.edit(clone.pack, ::vanilla, "minecraft:block.anvil.land", null, null, null, null, false, "false")
+
+        assertEquals(
+            listOf(mapOf("name" to "minecraft:nordtal/random/anvil_land", "volume" to 0.5.toBigDecimal())),
+            (soundsJson(clone, "minecraft")["block.anvil.land"] as Map<*, *>)["sounds"],
+        )
+        assertTrue(copy.isFile)
     }
 
     @Test

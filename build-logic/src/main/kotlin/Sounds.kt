@@ -178,8 +178,10 @@ object Sounds {
 
     /**
      * Overrides the vanilla event [event] that [vanilla] lists. With [replace], the event plays only the pack's sounds and
-     * starts from vanilla's sounds and subtitle, or from [file] alone where one is given; without, [file] plays beside
-     * vanilla's sounds. Returns the files it wrote.
+     * starts from copies of vanilla's sounds and its subtitle, or from [file] alone where one is given; without, [file]
+     * plays beside vanilla's sounds. Each copy goes to `sounds/nordtal/<vanilla's path>` in vanilla's namespace, so it
+     * never hides a vanilla file that other events play. A sound that cannot be copied refuses the override and writes
+     * nothing. Returns the files it wrote.
      */
     fun override(
         pack: File,
@@ -194,27 +196,56 @@ object Sounds {
         val original = vanilla().events()[event] ?: throw FieldRefusal("sound", "Minecraft has no sound event $event.")
         if (!replace && file == null) throw FieldsNeeded(mapOf("file" to "sound"))
         val bytes = file?.let(::ogg)
-        return change(pack, event, bytes) { _, sound ->
+        val copies = linkedMapOf<File, ByteArray>()
+        val sounds =
+            if (bytes != null) {
+                null
+            } else {
+                val taken = taken(pack).toMutableSet()
+                (original["sounds"] as List<*>).map { s ->
+                    val fields = s as? Map<*, *>
+                    val name = qualified((fields?.get("name") ?: s).toString())
+                    if (fields?.get("type") == "event") return@map map(fields + ("name" to name))
+                    val copy = free(pack, copyOf(name), taken).also { taken += it }
+                    copies[file(pack, copy)] = vanillaBytes(vanilla, name)
+                    if (fields != null) map(fields + ("name" to copy)) else copy
+                }
+            }
+        return change(pack, event, bytes, copies) { _, sound ->
             OxfmtJson.Object().also { entry ->
                 if (replace) entry["replace"] = true
-                entry["sounds"] =
-                    array(
-                        if (sound != null) {
-                            listOf(sound)
-                        } else {
-                            (original["sounds"] as List<*>).map { s ->
-                                if (s is Map<*, *>) {
-                                    map(s + ("name" to qualified(s["name"].toString())))
-                                } else {
-                                    qualified(s.toString())
-                                }
-                            }
-                        },
-                    )
+                entry["sounds"] = array(sounds ?: listOf(sound))
                 if (replace) (original["subtitle"] as? String)?.let { entry["subtitle"] = it }
             }
         }
     }
+
+    /** The name a copy of the vanilla sound [name] starts from: `nordtal/` before its path, in its namespace. */
+    private fun copyOf(name: String) = "${name.substringBefore(':')}:nordtal/${name.substringAfter(':')}"
+
+    /** Whether the pack's sound [name] is a copy of the vanilla sound [vanilla] that still holds [bytes], vanilla's file. */
+    private fun unchangedCopy(
+        pack: File,
+        name: String,
+        vanilla: String,
+        bytes: () -> ByteArray?,
+    ): Boolean {
+        val base = copyOf(vanilla)
+        if (name != base && !Regex(Regex.escape(base) + "_[0-9]+").matches(name)) return false
+        val own = file(pack, name)
+        return own.isFile && bytes()?.contentEquals(own.readBytes()) == true
+    }
+
+    /** The bytes of the vanilla sound [name], or a refusal that says why it cannot be copied. */
+    private fun vanillaBytes(
+        vanilla: () -> VanillaSounds,
+        name: String,
+    ): ByteArray =
+        try {
+            vanilla().sound(name).readBytes()
+        } catch (e: IllegalStateException) {
+            throw FieldRefusal("sound", "Minecraft's sound $name cannot be copied: ${e.message}", e)
+        }
 
     /**
      * Changes one thing of the event [event]: with [file] it adds that Ogg Vorbis file as a sound, with [name] a sound
@@ -281,15 +312,21 @@ object Sounds {
                     } else {
                         it.remove("replace")
                         it.remove("subtitle")
+                        // Vanilla's sounds and the copies of them that nobody changed play as vanilla's again
                         val copied = names(vanilla().events()[event].orEmpty()).toSet()
+                        val held = mutableMapOf<String, ByteArray?>()
+                        fun bytes(name: String) = held.getOrPut(name) { runCatching { vanilla().sound(name).readBytes() }.getOrNull() }
                         (it["sounds"] as MutableList<Any?>).removeAll { sound ->
-                            names(mapOf("sounds" to listOf(sound))).any(copied::contains)
+                            names(mapOf("sounds" to listOf(sound))).any { name ->
+                                name in copied || copied.any { v -> unchangedCopy(pack, name, v) { bytes(v) } }
+                            }
                         }
                     }
                 }
             }.let { written ->
                 val key = entry["subtitle"] as String?
-                if (replace == "true" || key == null) written else written + subtitleText(pack, event, key)
+                val dropped = if (replace == "true") emptyList() else unused(pack, names(entry))
+                (if (replace == "true" || key == null) written else written + subtitleText(pack, event, key)) + dropped
             }
         }
         val values =
@@ -449,17 +486,12 @@ object Sounds {
         pack: File,
         event: String,
         bytes: ByteArray?,
+        copies: Map<File, ByteArray> = emptyMap(),
         entry: (OxfmtJson.Object, OxfmtJson.Object?) -> OxfmtJson.Object,
     ): List<File> {
         val (namespace, name) = parse(event)
         val folder = (if (namespace == "minecraft") "nordtal/" else "") + name.replace('.', '/')
-        val taken = own(pack) + events(pack).values.flatMap(::names)
-        val sound =
-            bytes?.let {
-                generateSequence(1) { it + 1 }
-                    .map { n -> "$namespace:$folder" + if (n == 1) "" else "_$n" }
-                    .first { it !in taken && !file(pack, it).exists() }
-            }
+        val sound = bytes?.let { free(pack, "$namespace:$folder", taken(pack)) }
         val file = pack.resolve(path(namespace))
         val root = read(file)
         val old = (root[name] as? Map<*, *>)?.let(::map) ?: OxfmtJson.Object()
@@ -467,9 +499,23 @@ object Sounds {
         root[name] = entry(old, sound?.let { map(mapOf("name" to it)) })
         val contents = linkedMapOf<File, ByteArray?>(file to OxfmtJson.format(root).toByteArray())
         if (sound != null) contents[file(pack, sound)] = bytes
+        contents.putAll(copies)
         AtomicFiles.write(contents)
         return contents.keys.toList()
     }
+
+    /** The names of the sounds that the pack holds or one of its events names. */
+    private fun taken(pack: File): Set<String> = own(pack) + events(pack).values.flatMap(::names)
+
+    /** [base], or with `_2` and up the first name after it that [taken] lacks and whose file does not exist. */
+    private fun free(
+        pack: File,
+        base: String,
+        taken: Set<String>,
+    ): String =
+        generateSequence(1) { it + 1 }
+            .map { n -> base + if (n == 1) "" else "_$n" }
+            .first { it !in taken && !file(pack, it).exists() }
 
     private fun parse(event: String): Pair<String, String> =
         try {

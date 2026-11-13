@@ -41,6 +41,7 @@ import eu.nordtal.season.stewardagent.run.UpdateServer;
 import eu.nordtal.season.stewardagent.schema.Schema;
 import eu.nordtal.season.stewardagent.topology.ComposeTopology;
 import io.javalin.Javalin;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -275,7 +276,7 @@ public final class StewardAgent {
      */
     private static int serve(
             final InternalServer server, final Compose compose, final Docker docker, final Scheduler scheduler)
-            throws java.io.IOException {
+            throws IOException {
         compose.assertEnvFileFresh();
         final Clock clock = NetworkTime.clock();
         final DatabaseSpec databaseConfig;
@@ -338,7 +339,7 @@ public final class StewardAgent {
         final int status;
         try {
             status = compose.migrate(log::info);
-        } catch (final java.io.IOException failure) {
+        } catch (final IOException failure) {
             throw new IllegalStateException("the migrate service did not run: " + failure.getMessage(), failure);
         }
         if (status != 0) {
@@ -414,6 +415,7 @@ public final class StewardAgent {
                 settings.listen(signals, () -> reload(runs));
                 pack.ifPresent(builds -> builds.listen(signals, documents));
                 signals.start();
+                pack.ifPresent(PackBuilds::catchUp);
                 icons.start();
                 Runtime.getRuntime().addShutdownHook(new Thread(loop::close, "steward-agent-shutdown"));
                 loop.serve();
@@ -447,10 +449,10 @@ public final class StewardAgent {
                     settings,
                     image,
                     shelf,
-                    server.setting("PACK_HOST", "pack.nordtal.eu"),
+                    server.setting("PACK_BASE_URL", "https://pack.nordtal.eu"),
                     scheduler,
                     clock));
-        } catch (final java.io.IOException failure) {
+        } catch (final IOException failure) {
             log.warn("pack shelf not usable, the pack is not built: path={} cause={}", shelf, failure.getMessage());
             return Optional.empty();
         }
@@ -512,7 +514,7 @@ public final class StewardAgent {
     private static void handOver(final Compose compose, final List<String> services) {
         try {
             compose.handOver(services, line -> log.info("hand-over output: line=\"{}\"", line));
-        } catch (final java.io.IOException failure) {
+        } catch (final IOException failure) {
             log.warn("volume hand-over failed: services={} cause={}", services, failure.getMessage());
         }
     }

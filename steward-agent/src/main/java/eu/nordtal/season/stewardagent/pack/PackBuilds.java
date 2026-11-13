@@ -16,12 +16,16 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -50,20 +54,24 @@ public final class PackBuilds {
     private final PackZipper zipper;
     private final Path facts;
     private final List<Path> roots;
-    private final String host;
+    private final String baseUrl;
     private final Clock clock;
 
     /** The inputs of the active pack, once known. */
     private volatile @Nullable PackInputs built;
     /** The inputs a waiting build was asked for, so the same change asks only once. */
     private volatile @Nullable PackInputs wanted;
+    /** The inputs of the build that runs now, so a change back during it still asks for a build. */
+    private volatile @Nullable PackInputs building;
 
     private @Nullable Debounce debounce;
+    /** The fingerprint of {@link #facts} and {@link #roots}, read once, since the image does not change. */
+    private @Nullable String image;
 
     /**
      * @param facts the vanilla facts zip the wheel reads
      * @param roots the pack's fixed folders, everything but the wheel
-     * @param host the name Caddy serves the shelf under
+     * @param baseUrl the address Caddy serves the shelf under, without a trailing slash
      */
     PackBuilds(
             final Source source,
@@ -73,7 +81,7 @@ public final class PackBuilds {
             final PackZipper zipper,
             final Path facts,
             final List<Path> roots,
-            final String host,
+            final String baseUrl,
             final Clock clock) {
         this.source = Objects.requireNonNull(source, "source");
         this.record = Objects.requireNonNull(record, "record");
@@ -82,7 +90,7 @@ public final class PackBuilds {
         this.zipper = Objects.requireNonNull(zipper, "zipper");
         this.facts = Objects.requireNonNull(facts, "facts");
         this.roots = List.copyOf(roots);
-        this.host = Objects.requireNonNull(host, "host");
+        this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -94,6 +102,8 @@ public final class PackBuilds {
     static final int KEEP = 5;
     /** The service whose texts the pack draws. */
     private static final String NAMESPACE = "smp";
+    /** The file on the shelf that names the image files the active pack was built from; Caddy serves only zips. */
+    static final String IMAGE_MARK = "image";
 
     private @Nullable AppliedDocuments documents;
 
@@ -109,7 +119,7 @@ public final class PackBuilds {
             final SettingStore settings,
             final Path image,
             final Path shelf,
-            final String host,
+            final String baseUrl,
             final Scheduler scheduler,
             final Clock clock)
             throws IOException {
@@ -126,7 +136,7 @@ public final class PackBuilds {
                 new ChildZipper(TIMEOUT),
                 image.resolve("vanilla-facts.zip"),
                 List.of(image.resolve("base")),
-                host,
+                baseUrl,
                 clock);
         builds.documents = documents;
         builds.debounceWith(new Debounce(scheduler, QUIET, scheduler.serial(), builds::build));
@@ -164,30 +174,48 @@ public final class PackBuilds {
 
     /** Returns the address the proxy sends for the pack {@code sha1}. */
     String url(final String sha1) {
-        return "https://" + host + "/" + sha1 + ".zip";
+        return baseUrl + "/" + sha1 + ".zip";
     }
 
     /**
-     * Settles the pack at the agent's start.
+     * Settles the pack at the agent's start, and never throws, so the agent starts without its pack.
      *
-     * It records an unfinished build as failed, then builds unless the proxy's pack is on the shelf already.
+     * It builds now unless the proxy's pack is on the shelf, and asks for one if the inputs or the image changed.
      */
     synchronized void start() {
-        record.abandon(clock.instant(), "the agent stopped during the build");
-        shelf.clearUnfinished();
-        final PackState state = PackState.read(settings);
-        final String sha1 = state.sha1();
-        if (sha1 == null || !shelf.has(sha1)) {
-            log.info("no pack of this agent is active, building one now: sha1={}", sha1);
-            build();
+        try {
+            record.abandon(clock.instant(), "the agent stopped during the build");
+        } catch (final RuntimeException unwritten) {
+            log.warn("unfinished pack builds not ended: cause={}", unwritten.getMessage());
+        }
+        try {
+            shelf.clearUnfinished();
+            final String sha1 = PackState.read(settings).sha1();
+            if (sha1 == null || !shelf.has(sha1)) {
+                log.info("no pack of this agent is active, building one now: sha1={}", sha1);
+                build();
+                return;
+            }
+            if (PackWriter.write(settings, url(sha1), sha1)) {
+                log.info("pack address set: url={}", url(sha1));
+            }
+            if (builtFromThisImage()) {
+                record.active()
+                        .filter(active -> sha1.equals(active.sha1()))
+                        .ifPresent(active -> built = new PackInputs(active.prizes(), "", active.label()));
+            } else {
+                log.info("the image's pack files changed since the active pack was built, building it anew");
+            }
+        } catch (final RuntimeException failure) {
+            log.warn("pack not settled at the start: cause={}", failure.getMessage());
             return;
         }
-        if (PackWriter.write(settings, url(sha1), sha1)) {
-            log.info("pack address set: url={}", url(sha1));
-        }
-        record.active()
-                .filter(active -> sha1.equals(active.sha1()))
-                .ifPresent(active -> built = new PackInputs(active.prizes(), "", active.label()));
+        requestIfChanged();
+    }
+
+    /** Asks for a build if the inputs changed before the hub ran, since a change then sent no signal to this agent. */
+    public void catchUp() {
+        requestIfChanged();
     }
 
     /** Asks for a build after the quiet time if the inputs draw another pack than the active one. */
@@ -200,8 +228,9 @@ public final class PackBuilds {
             return;
         }
         final PackInputs waiting = wanted;
-        final PackInputs active = built;
-        if (waiting != null ? waiting.drawsSame(now) : active != null && active.drawsSame(now)) {
+        final PackInputs running = building;
+        final PackInputs last = waiting != null ? waiting : running != null ? running : built;
+        if (last != null && last.drawsSame(now)) {
             return;
         }
         wanted = now;
@@ -223,12 +252,27 @@ public final class PackBuilds {
             inputs = source.read();
         } catch (final IOException | RuntimeException unreadable) {
             log.warn("pack inputs not read, the pack stays: cause={}", unreadable.getMessage());
-            return Optional.ofNullable(PackState.read(settings).sha1());
+            return active();
         }
         if (built != null && built.drawsSame(inputs)) {
-            return Optional.ofNullable(PackState.read(settings).sha1());
+            return active();
         }
-        final long id = record.start(clock.instant(), inputs.prizes(), inputs.label());
+        building = inputs;
+        try {
+            return build(inputs);
+        } finally {
+            building = null;
+        }
+    }
+
+    private Optional<String> build(final PackInputs inputs) {
+        final long id;
+        try {
+            id = record.start(clock.instant(), inputs.prizes(), inputs.label());
+        } catch (final RuntimeException unwritten) {
+            log.warn("pack build not started, its record was not written: cause={}", unwritten.getMessage());
+            return active();
+        }
         Path work = null;
         try {
             work = shelf.workspace();
@@ -240,19 +284,101 @@ public final class PackBuilds {
             final String sha1 = ReproducibleZip.sha1(bytes);
             shelf.put(zip, sha1);
             PackWriter.write(settings, url(sha1), sha1);
-            record.succeed(id, clock.instant(), sha1, bytes.length);
             built = inputs;
+            markImage();
             log.info("pack built: id={} sha1={} bytes={}", id, sha1, bytes.length);
+            succeed(id, sha1, bytes.length);
             prune(sha1);
             return Optional.of(sha1);
         } catch (final IOException | RuntimeException failure) {
             log.warn("pack build failed, the active pack stays: id={} cause={}", id, failure.getMessage());
-            record.fail(id, clock.instant(), String.valueOf(failure.getMessage()));
-            return Optional.ofNullable(PackState.read(settings).sha1());
+            try {
+                record.fail(id, clock.instant(), String.valueOf(failure.getMessage()));
+            } catch (final RuntimeException unwritten) {
+                log.warn("failed pack build not recorded: id={} cause={}", id, unwritten.getMessage());
+            }
+            return active();
         } finally {
             if (work != null) {
                 delete(work);
             }
+        }
+    }
+
+    /** Records the good build; the proxy offers the pack already, whether or not the record is written. */
+    private void succeed(final long id, final String sha1, final long size) {
+        try {
+            record.succeed(id, clock.instant(), sha1, size);
+        } catch (final RuntimeException unwritten) {
+            log.warn(
+                    "pack built and offered, but its record was not written: id={} cause={}",
+                    id,
+                    unwritten.getMessage());
+        }
+    }
+
+    /** Returns whether the active pack was built from this image's fixed files, as the mark on the shelf says. */
+    private boolean builtFromThisImage() {
+        try {
+            final Path mark = shelf.dir().resolve(IMAGE_MARK);
+            return Files.isRegularFile(mark) && Files.readString(mark).equals(image());
+        } catch (final IOException failure) {
+            log.warn("image of the active pack not read, building it anew: cause={}", failure.getMessage());
+            return false;
+        }
+    }
+
+    /** Notes on the shelf that the active pack was built from this image; without the note the next start builds. */
+    private void markImage() {
+        try {
+            Files.writeString(shelf.dir().resolve(IMAGE_MARK), image());
+        } catch (final IOException | RuntimeException failure) {
+            log.warn("image of the new pack not noted, the next start builds it again: cause={}", failure.getMessage());
+        }
+    }
+
+    private String image() throws IOException {
+        if (image == null) {
+            image = fingerprint(facts, roots);
+        }
+        return image;
+    }
+
+    /**
+     * Returns the SHA-1 over the facts zip and every file under {@code roots}, with its path.
+     *
+     * @param facts the facts zip; a missing one counts as empty
+     */
+    static String fingerprint(final Path facts, final List<Path> roots) throws IOException {
+        final MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-1");
+        } catch (final NoSuchAlgorithmException missing) {
+            throw new IllegalStateException(missing);
+        }
+        if (Files.isRegularFile(facts)) {
+            digest.update(Files.readAllBytes(facts));
+        }
+        for (final Path root : roots) {
+            final List<Path> files;
+            try (Stream<Path> walk = Files.walk(root)) {
+                files = walk.filter(Files::isRegularFile).sorted().toList();
+            }
+            for (final Path file : files) {
+                digest.update(("\0" + root.relativize(file) + "\0").getBytes(StandardCharsets.UTF_8));
+                digest.update(Files.readAllBytes(file));
+            }
+        }
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    /** Returns the SHA-1 the proxy offers now, empty if none or if the settings cannot be read. */
+    private Optional<String> active() {
+        try {
+            return Optional.ofNullable(PackState.read(settings).sha1());
+        } catch (final RuntimeException unreadable) {
+            log.warn("active pack not read: cause={}", unreadable.getMessage());
+            return Optional.empty();
         }
     }
 

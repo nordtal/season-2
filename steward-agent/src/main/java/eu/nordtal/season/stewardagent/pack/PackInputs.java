@@ -46,9 +46,9 @@ record PackInputs(String prizes, String texts, Map<String, String> label) {
         return new PackInputs(prizes(settings, shippedPrizes), texts, label(texts));
     }
 
-    /** Returns whether a build from {@code other} draws the same pack. */
+    /** Returns whether a build from {@code other} draws the same pack, however the prizes are spaced or ordered. */
     boolean drawsSame(final PackInputs other) {
-        return prizes.equals(other.prizes) && label.equals(other.label);
+        return label.equals(other.label) && JsonParser.parseString(prizes).equals(JsonParser.parseString(other.prizes));
     }
 
     /** The prize list: an admin's, else the defaults smp published, else the ones this release ships. */

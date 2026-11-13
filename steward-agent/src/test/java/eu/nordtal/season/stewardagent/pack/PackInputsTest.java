@@ -1,12 +1,15 @@
 package eu.nordtal.season.stewardagent.pack;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.settings.MemorySettingStore;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -45,5 +48,19 @@ class PackInputsTest {
     @Test
     void anSmpThatNeverStartedGetsTheReleasesPrizes() throws IOException {
         assertEquals("[{\"item\":\"stone\",\"amount\":64}]", PackInputs.prizes(settings, shipped()));
+    }
+
+    @Test
+    void thePrizesAsTheDatabaseSpellsThemDrawTheSamePack() {
+        final PackInputs built = new PackInputs("[{\"item\":\"diamond\",\"amount\":2}]", "{}", Map.of("de", "Drehen"));
+        final PackInputs stored =
+                new PackInputs("[{\"item\": \"diamond\", \"amount\": 2}]", "", Map.of("de", "Drehen"));
+        final PackInputs reordered =
+                new PackInputs("[{\"amount\": 2, \"item\": \"diamond\"}]", "", Map.of("de", "Drehen"));
+
+        assertTrue(stored.drawsSame(built));
+        assertTrue(reordered.drawsSame(built));
+        assertFalse(
+                built.drawsSame(new PackInputs("[{\"item\":\"diamond\",\"amount\":3}]", "{}", Map.of("de", "Drehen"))));
     }
 }

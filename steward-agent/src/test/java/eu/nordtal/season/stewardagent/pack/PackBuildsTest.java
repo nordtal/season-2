@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.time.ManualScheduler;
 import eu.nordtal.season.database.pack.PackBuildStore;
 import eu.nordtal.season.packbuilder.zip.ReproducibleZip;
 import eu.nordtal.season.settings.MemorySettingStore;
@@ -13,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -35,16 +37,19 @@ class PackBuildsTest {
     private final AtomicReference<PackInputs> inputs = new AtomicReference<>(
             new PackInputs("[{\"item\":\"diamond\",\"amount\":2}]", "{}", Map.of("de", "Drehen")));
     private final AtomicInteger zips = new AtomicInteger();
+    private final ManualScheduler scheduler = new ManualScheduler();
     private boolean failing;
+    private Runnable duringZip = () -> {};
 
     private PackBuilds builds() {
-        return new PackBuilds(
+        final PackBuilds builds = new PackBuilds(
                 inputs::get,
                 record,
                 settings,
                 new PackShelf(shelfDir, 5),
                 (facts, prizes, texts, zip, roots) -> {
                     zips.incrementAndGet();
+                    duringZip.run();
                     if (failing) {
                         throw new IOException("the pack builder exited with 1");
                     }
@@ -52,8 +57,149 @@ class PackBuildsTest {
                 },
                 shelfDir.resolve("facts.zip"),
                 List.of(),
-                "pack.example",
+                "https://pack.example",
                 Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"), ZoneOffset.UTC));
+        builds.debounceWith(new Debounce(scheduler, Duration.ofSeconds(30), scheduler, builds::build));
+        return builds;
+    }
+
+    private static PackInputs inputsOf(final String prizes) {
+        return new PackInputs(prizes, "{}", Map.of("de", "Drehen"));
+    }
+
+    /** The active build as the database returns it: jsonb spaces the prizes and orders their keys by length. */
+    private static PackBuildStore.PackBuild activeRow(final String sha1, final String prizes) {
+        return new PackBuildStore.PackBuild(
+                1,
+                PackBuildStore.State.ACTIVE,
+                Instant.EPOCH,
+                Instant.EPOCH,
+                prizes,
+                Map.of("de", "Drehen"),
+                sha1,
+                4L,
+                Duration.ZERO,
+                null);
+    }
+
+    private String shelved(final String sha1) throws IOException {
+        Files.writeString(shelfDir.resolve(sha1 + ".zip"), "pack");
+        settings.set("proxy", "pack", "sha1", sha1);
+        Files.writeString(
+                shelfDir.resolve(PackBuilds.IMAGE_MARK),
+                PackBuilds.fingerprint(shelfDir.resolve("facts.zip"), List.of()));
+        return sha1;
+    }
+
+    @Test
+    void aNewImageBuildsThePackAnewAfterTheStart() throws IOException {
+        final String sha1 = shelved("f".repeat(40));
+        record.active = Optional.of(activeRow(sha1, "[{\"item\": \"diamond\", \"amount\": 2}]"));
+        Files.writeString(shelfDir.resolve(PackBuilds.IMAGE_MARK), "the image before the update");
+
+        builds().start();
+        assertEquals(0, zips.get());
+        scheduler.runPending();
+
+        assertEquals(1, zips.get());
+        assertEquals(sha1Of(inputs.get().prizes()), PackState.read(settings).sha1());
+    }
+
+    @Test
+    void theFingerprintFollowsTheImageFiles() throws IOException {
+        final Path base = Files.createDirectories(shelfDir.resolve("base"));
+        Files.writeString(base.resolve("pack.mcmeta"), "{}");
+        final String before = PackBuilds.fingerprint(shelfDir.resolve("facts.zip"), List.of(base));
+
+        Files.writeString(base.resolve("pack.mcmeta"), "{\"pack\":{}}");
+
+        assertFalse(before.equals(PackBuilds.fingerprint(shelfDir.resolve("facts.zip"), List.of(base))));
+    }
+
+    @Test
+    void aRestartWithTheSamePrizesAsTheDatabaseSpellsThemBuildsNothing() throws IOException {
+        final String sha1 = shelved("c".repeat(40));
+        record.active = Optional.of(activeRow(sha1, "[{\"item\": \"diamond\", \"amount\": 2}]"));
+
+        final PackBuilds builds = builds();
+        builds.start();
+        builds.catchUp();
+        scheduler.runPending();
+
+        assertEquals(0, zips.get());
+        assertEquals(sha1, PackState.read(settings).sha1());
+    }
+
+    @Test
+    void aChangeBackDuringABuildEndsWithThePackOfTheChangeBack() {
+        final PackBuilds builds = builds();
+        final String first = builds.build().orElseThrow();
+        final PackInputs original = inputs.get();
+
+        inputs.set(inputsOf("[{\"item\":\"emerald\",\"amount\":1}]"));
+        builds.requestIfChanged();
+        duringZip = () -> {
+            duringZip = () -> {};
+            inputs.set(original);
+            builds.requestIfChanged();
+        };
+        scheduler.runPending();
+        scheduler.runPending();
+
+        assertEquals(first, PackState.read(settings).sha1());
+        assertEquals(3, zips.get());
+    }
+
+    @Test
+    void aChangeWhileTheAgentWasDownIsBuiltAfterTheStart() throws IOException {
+        final String sha1 = shelved("d".repeat(40));
+        record.active = Optional.of(activeRow(sha1, "[{\"item\": \"gold_ingot\", \"amount\": 5}]"));
+
+        builds().start();
+        assertEquals(0, zips.get());
+        scheduler.runPending();
+
+        assertEquals(1, zips.get());
+        assertEquals(sha1Of(inputs.get().prizes()), PackState.read(settings).sha1());
+    }
+
+    @Test
+    void aChangeBeforeTheHubRanIsBuiltAtTheCatchUp() throws IOException {
+        final String sha1 = shelved("e".repeat(40));
+        record.active = Optional.of(activeRow(sha1, "[{\"item\": \"diamond\", \"amount\": 2}]"));
+        final PackBuilds builds = builds();
+        builds.start();
+
+        inputs.set(inputsOf("[{\"item\":\"emerald\",\"amount\":1}]"));
+        builds.catchUp();
+        scheduler.runPending();
+
+        assertEquals(1, zips.get());
+        assertEquals(sha1Of(inputs.get().prizes()), PackState.read(settings).sha1());
+    }
+
+    @Test
+    void aRecordThatCannotBeWrittenNeitherStopsTheStartNorUndoesTheNewPack() {
+        record.broken = true;
+
+        builds().start();
+
+        assertEquals(1, zips.get());
+        final String sha1 = sha1Of(inputs.get().prizes());
+        assertEquals(sha1, PackState.read(settings).sha1());
+        assertFalse(record.calls.stream().anyMatch(call -> call.startsWith("fail")));
+    }
+
+    @Test
+    void aFailedBuildWhoseRecordCannotBeWrittenStillReturnsTheActivePack() {
+        final PackBuilds builds = builds();
+        final String first = builds.build().orElseThrow();
+
+        inputs.set(inputsOf("[{\"item\":\"emerald\",\"amount\":1}]"));
+        failing = true;
+        record.broken = true;
+
+        assertEquals(Optional.of(first), builds.build());
     }
 
     private static String sha1Of(final String prizes) {
@@ -69,6 +215,7 @@ class PackBuildsTest {
         assertTrue(Files.exists(shelfDir.resolve(expected + ".zip")));
         assertEquals(new PackState("https://pack.example/" + expected + ".zip", expected), PackState.read(settings));
         assertEquals(List.of("start", "succeed " + expected), record.calls);
+        assertTrue(Files.exists(shelfDir.resolve(PackBuilds.IMAGE_MARK)));
     }
 
     @Test
@@ -126,6 +273,16 @@ class PackBuildsTest {
     private static final class Recorded implements PackBuildStore {
 
         final List<String> calls = new ArrayList<>();
+        Optional<PackBuild> active = Optional.empty();
+        /** Whether every write but {@code start} fails, as on a database hiccup after the build began. */
+        boolean broken;
+
+        private void write(final String call) {
+            calls.add(call);
+            if (broken) {
+                throw new IllegalStateException("the database is gone: " + call);
+            }
+        }
 
         @Override
         public long start(final Instant started, final String prizes, final Map<String, String> label) {
@@ -135,22 +292,22 @@ class PackBuildsTest {
 
         @Override
         public void succeed(final long id, final Instant finished, final String sha1, final long sizeBytes) {
-            calls.add("succeed " + sha1);
+            write("succeed " + sha1);
         }
 
         @Override
         public void fail(final long id, final Instant finished, final String error) {
-            calls.add("fail " + error);
+            write("fail " + error);
         }
 
         @Override
         public void abandon(final Instant finished, final String error) {
-            calls.add("abandon");
+            write("abandon");
         }
 
         @Override
         public Optional<PackBuild> active() {
-            return Optional.empty();
+            return active;
         }
 
         @Override

@@ -7,8 +7,11 @@ import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import eu.nordtal.season.internalapi.agent.ServiceRuntime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
+import java.util.Set;
 
 /** A {@link ContainerOps} that answers from a map and records every call in {@link #calls}. */
 final class FakeContainers implements ContainerOps {
@@ -319,6 +322,41 @@ final class FakeContainers implements ContainerOps {
         return java.util.Optional.of(missingSecrets.getOrDefault(service, List.of()).stream()
                 .filter(names::contains)
                 .toList());
+    }
+
+    /** The protocol each service answers a status ping with. Absent means {@link #CURRENT_PROTOCOL}. */
+    private final Map<String, Integer> protocols = new LinkedHashMap<>();
+
+    /** Every service a run pinged, in order; not in {@link #calls}, which holds the stops and starts. */
+    final List<String> pinged = new ArrayList<>();
+
+    /** Services that do not answer a status ping. */
+    private final Set<String> unpinged = new LinkedHashSet<>();
+
+    /** What every running service answers unless a test says otherwise. */
+    static final int CURRENT_PROTOCOL = 777;
+
+    /** It answers a status ping with this protocol, as a server of another Minecraft version does. */
+    FakeContainers answersProtocol(final String service, final int protocol) {
+        protocols.put(service, protocol);
+        return this;
+    }
+
+    /** It is healthy but answers no status ping. */
+    FakeContainers answersNoPing(final String service) {
+        unpinged.add(service);
+        return this;
+    }
+
+    @Override
+    public OptionalInt protocol(final String containerId) {
+        // A recreated container's id carries a counter after it, as limbo-standby-container-2.
+        final String service = containerId.replaceFirst("-container(-\\d+)?$", "");
+        pinged.add(service);
+        if (unpinged.contains(service)) {
+            return OptionalInt.empty();
+        }
+        return OptionalInt.of(protocols.getOrDefault(service, CURRENT_PROTOCOL));
     }
 
     @Override

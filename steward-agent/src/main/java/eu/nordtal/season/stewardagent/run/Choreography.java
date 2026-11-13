@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +24,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Starts the standbys a run needs, waits for players to leave, and stops the standbys again.
  *
- * Standbys come up before any warning, so an unhealthy one aborts a run that has touched nothing.
+ * Standbys come up before any warning, so one that is unhealthy or speaks another protocol aborts an untouched run.
  */
 @Slf4j
 final class Choreography {
@@ -105,27 +106,45 @@ final class Choreography {
     }
 
     /**
-     * Waits until the standbys are healthy or the patience ends.
+     * Waits until the standbys are healthy and answer like their live services, or the patience ends.
      *
      * @return whether every standby came up
      */
     private boolean waitHealthy(final List<String> standbys) {
         final List<String> pending = new ArrayList<>(standbys);
         final Instant deadline = clock.now().plus(STANDBY_HEALTHY_WITHIN);
+        boolean mismatched = false;
+        final Set<String> silent = new LinkedHashSet<>();
         while (true) {
             final RuntimeResult seen = containers.runtime();
             if (seen.reached()) {
                 for (final String standby : List.copyOf(pending)) {
-                    if (seen.service(standby).map(ServiceRuntime::isBack).orElse(false)) {
-                        pending.remove(standby);
+                    if (!seen.service(standby).map(ServiceRuntime::isBack).orElse(false)) {
+                        continue;
+                    }
+                    final Answer answer = answersLikeItsService(standby, seen);
+                    if (answer == Answer.SILENT) {
+                        // Healthy but not answering yet; the patience below decides.
+                        silent.add(standby);
+                        continue;
+                    }
+                    silent.remove(standby);
+                    pending.remove(standby);
+                    if (answer == Answer.OTHER_PROTOCOL) {
+                        mismatched = true;
+                        cameUp(standby, RunStep.Outcome.FAILED, RunStep.Reason.PROTOCOL_MISMATCH);
+                    } else {
                         cameUp(standby, RunStep.Outcome.DONE, null);
                     }
                 }
             }
             if (pending.isEmpty()) {
-                return true;
+                return !mismatched;
             }
             if (!clock.now().isBefore(deadline)) {
+                if (!silent.isEmpty()) {
+                    log.warn("standby healthy but answered no status ping in time: standbys={}", silent);
+                }
                 pending.forEach(standby -> cameUp(standby, RunStep.Outcome.FAILED, RunStep.Reason.NOT_HEALTHY));
                 return false;
             }
@@ -134,6 +153,56 @@ final class Choreography {
                 return false;
             }
         }
+    }
+
+    /** How a standby answered a status ping, held against its live service's answer. */
+    private enum Answer {
+        SAME_PROTOCOL,
+        OTHER_PROTOCOL,
+        SILENT
+    }
+
+    /**
+     * Pings the standby and its live service. A client the live service takes must be able to land on the standby.
+     *
+     * A live service that does not answer, such as one that is stopped, leaves the standby's health as the check.
+     */
+    private Answer answersLikeItsService(final String standby, final RuntimeResult seen) {
+        final OptionalInt own = ping(standby, seen);
+        if (own.isEmpty()) {
+            return Answer.SILENT;
+        }
+        final String live = containers.topology().services().stream()
+                .filter(service -> service.name().equals(standby))
+                .map(AgentWire.Service::standbyOf)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+        final OptionalInt theirs = live == null ? OptionalInt.empty() : ping(live, seen);
+        if (theirs.isEmpty()) {
+            log.info(
+                    "standby protocol not compared, its service did not answer: standby={} protocol={}",
+                    standby,
+                    own.getAsInt());
+            return Answer.SAME_PROTOCOL;
+        }
+        if (own.getAsInt() != theirs.getAsInt()) {
+            log.warn(
+                    "standby answers another protocol than its service: standby={} protocol={} service={} expected={}",
+                    standby,
+                    own.getAsInt(),
+                    live,
+                    theirs.getAsInt());
+            return Answer.OTHER_PROTOCOL;
+        }
+        return Answer.SAME_PROTOCOL;
+    }
+
+    private OptionalInt ping(final String service, final RuntimeResult seen) {
+        return seen.service(service)
+                .filter(found -> found.containerId() != null && "running".equalsIgnoreCase(found.status()))
+                .map(found -> containers.protocol(Objects.requireNonNull(found.containerId())))
+                .orElseGet(OptionalInt::empty);
     }
 
     private void cameUp(final String standby, final RunStep.Outcome outcome, final RunStep.@Nullable Reason reason) {

@@ -100,6 +100,54 @@ class ChoreographyTest {
     }
 
     @Test
+    void aStandbyOfAnotherMinecraftVersionAbortsTheRunBeforeAnyCountdown() {
+        // A client of the live limbo could not join a standby that speaks another protocol.
+        final FakeContainers containers =
+                new FakeContainers().running("proxy", "limbo").answersProtocol("limbo-standby", 776);
+        final Choreography choreography = choreography(containers, Occupancy.NONE, driven());
+
+        final Choreography.Window window = choreography.open(List.of("limbo"));
+
+        assertFalse(window.opened(), "players must not be moved where their client cannot land");
+        assertEquals(
+                List.of("STANDBY_UP limbo-standby FAILED PROTOCOL_MISMATCH", "STANDBY_DOWN limbo-standby DONE"),
+                steps());
+        assertEquals(List.of("limbo-standby", "limbo"), containers.pinged, "the standby is held against its service");
+    }
+
+    @Test
+    void aStandbyThatAnswersLikeItsServiceComesUp() {
+        final FakeContainers containers = new FakeContainers().running("proxy", "limbo");
+        final Choreography choreography = choreography(containers, Occupancy.NONE, driven());
+
+        assertTrue(
+                choreography.open(List.of("limbo")).opened(), collected.rows().toString());
+        assertEquals(List.of("STANDBY_UP limbo-standby DONE"), steps());
+    }
+
+    @Test
+    void aHealthyStandbyThatNeverAnswersAPingIsNotHealthyInTime() {
+        final FakeContainers containers =
+                new FakeContainers().running("proxy", "limbo").answersNoPing("limbo-standby");
+        final Choreography choreography = choreography(containers, Occupancy.NONE, driven());
+
+        assertFalse(choreography.open(List.of("limbo")).opened());
+        assertEquals(
+                List.of("STANDBY_UP limbo-standby FAILED NOT_HEALTHY", "STANDBY_DOWN limbo-standby DONE"), steps());
+    }
+
+    @Test
+    void aLiveServiceThatDoesNotAnswerLeavesHealthAsTheCheck() {
+        final FakeContainers containers =
+                new FakeContainers().running("proxy", "limbo").answersNoPing("limbo");
+        final Choreography choreography = choreography(containers, Occupancy.NONE, driven());
+
+        assertTrue(
+                choreography.open(List.of("limbo")).opened(), collected.rows().toString());
+        assertEquals(List.of("STANDBY_UP limbo-standby DONE"), steps());
+    }
+
+    @Test
     void aRunThatNeedsNoStandbyOpensAnEmptyWindowAndCallsNothing() {
         final FakeContainers containers = new FakeContainers().running("smp");
         final Choreography choreography = new Choreography(containers, Occupancy.NONE, driven());

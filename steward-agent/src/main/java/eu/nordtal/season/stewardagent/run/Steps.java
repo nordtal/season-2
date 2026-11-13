@@ -7,6 +7,8 @@ import eu.nordtal.season.database.update.RunStep.Outcome;
 import eu.nordtal.season.database.update.RunStep.Reason;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
@@ -62,6 +64,16 @@ final class Steps {
         write(() -> recorder.endOpen(run, outcome, reason));
     }
 
+    /** Returns the moves of this run with how many came back, empty when they could not be read. */
+    Optional<List<RunStep.Move>> moves() {
+        try {
+            return Optional.of(recorder.moves(run));
+        } catch (final RuntimeException failure) {
+            log.warn("run moves not read: run={}", run, failure);
+            return Optional.empty();
+        }
+    }
+
     private void write(final Runnable statement) {
         try {
             statement.run();
@@ -84,6 +96,11 @@ final class Steps {
 
         void done() {
             end(Outcome.DONE, null);
+        }
+
+        /** Returns whether this step has a row, which a schema older than this code leaves out. */
+        boolean written() {
+            return id != 0;
         }
 
         void skipped(final Reason reason) {

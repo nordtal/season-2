@@ -1,6 +1,7 @@
 package eu.nordtal.season.database.update;
 
 import java.time.Duration;
+import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -77,4 +78,9 @@ public interface RunRecorder {
 
     /** Counts players back on the latest move between those two services. */
     default void returned(final String from, final String to, final int players) {}
+
+    /** Returns every move of the run with how many came back, none on a schema this code was not built for. */
+    default List<RunStep.Move> moves(final long run) {
+        return List.of();
+    }
 }

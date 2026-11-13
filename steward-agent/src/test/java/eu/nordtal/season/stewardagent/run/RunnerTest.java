@@ -54,6 +54,11 @@ class RunnerTest {
         }
     };
 
+    /** Runs on the third sleep while players back is open, as a proxy that counts a player back late. */
+    private Runnable lateReturn = () -> {};
+
+    private int lateIn = 3;
+
     private TestDatabase postgres;
     private Database database;
     private UpdateDirectory directory;
@@ -121,6 +126,60 @@ class RunnerTest {
                 steps(request.id()));
     }
 
+    @Test
+    void playersBackWarnsWhenFewerCameBackThanTheProxyMovedOut() {
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+        // The proxy moves three players to limbo as the countdown ends, and only two come back.
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 3);
+            } else if (call.equals("start:smp-container")) {
+                directory.recorder().returned("smp", "limbo", 2);
+            }
+        };
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), "a lost player needs a look, but the run did its work");
+        assertEquals("PLAYERS_BACK WARNING PLAYERS_LOST", steps(request.id()).getLast());
+    }
+
+    @Test
+    void aTakeDownWithPlayersOnLosesNobodySinceTheWaitingRoomKeepsThemOnPurpose() {
+        final UpdateRequest request = claimed(UpdateKind.DOWN, List.of("smp"));
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 2);
+            }
+        };
+
+        runner.run(request, progress::add);
+
+        assertEquals(
+                "PLAYERS_BACK DONE",
+                steps(request.id()).getLast(),
+                steps(request.id()).toString());
+    }
+
+    @Test
+    void playersBackWaitsForTheLastPlayerTheProxyCountsBackLate() {
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 2);
+            } else if (call.equals("start:smp-container")) {
+                directory.recorder().returned("smp", "limbo", 1);
+            }
+        };
+        // The second player lands a few seconds after the run starts counting.
+        lateReturn = () -> directory.recorder().returned("smp", "limbo", 1);
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status());
+        assertEquals("PLAYERS_BACK DONE", steps(request.id()).getLast());
+    }
+
     /**
      * A one-shot is a release ahead of the schema until its run migrates, so it writes no table the database lacks.
      *
@@ -151,6 +210,33 @@ class RunnerTest {
         final UpdateRequest after = claimed(UpdateKind.RESTART, List.of("smp"));
         assertEquals(UpdateStatus.DONE, runner.run(after, progress::add).status());
         assertFalse(steps(after.id()).isEmpty(), "once the schema has the tables, the run writes its rows again");
+    }
+
+    /** A run that migrates on its way wrote no moves before, so it cannot say that everyone came back. */
+    @Test
+    void playersBackIsUnknownWhenTheRunMigratedAfterTheMovesWentUnwritten() {
+        database.close();
+        final TestDatabase older = TestDatabase.empty();
+        older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "91");
+        open(older);
+        try (var connection = older.dataSource().getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("WITH asked AS (INSERT INTO steward_inbox (kind, actor_kind) VALUES ('RESTART', 'HOST')"
+                    + " RETURNING id) INSERT INTO run_service (run, service, moving, named) SELECT id, 'smp', false, true"
+                    + " FROM asked");
+        } catch (final java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
+        final UpdateRequest request = directory.claimNext().orElseThrow();
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
+            }
+        };
+
+        runner.run(request, progress::add);
+
+        assertEquals("PLAYERS_BACK WARNING PLAYERS_UNKNOWN", steps(request.id()).getLast(), steps().toString());
     }
 
     /** A one-shot's last act is the long-running agent at its own release, after every server is back. */
@@ -578,6 +664,9 @@ class RunnerTest {
             public boolean sleep(final Duration duration) {
                 now = now.plus(duration);
                 containers.settle();
+                if (lateIn > 0 && steps().contains("PLAYERS_BACK") && --lateIn == 0) {
+                    lateReturn.run();
+                }
                 return true;
             }
         };

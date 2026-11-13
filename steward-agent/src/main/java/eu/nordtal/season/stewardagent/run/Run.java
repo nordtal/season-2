@@ -9,19 +9,29 @@ import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The sequence every kind of run goes through. A kind only plans, see {@link Kinds}.
  *
  * Open the standbys, count down, evacuate, stop, carry out the kind's payload, start, verify, close and settle.
  */
+@Slf4j
 final class Run {
+
+    /** How long the players moved out may take to come back once the standbys are closed. */
+    private static final Duration RETURN_CAP = Duration.ofSeconds(30);
+
+    private static final Duration RETURN_POLL = Duration.ofSeconds(1);
 
     private final Runner runner;
     private final UpdateRun steps;
@@ -334,7 +344,7 @@ final class Run {
                 return startAgain(stopped);
             }
 
-            return finish(plan, stopped, done, choreography, players != null);
+            return finish(plan, stopped, done, choreography, players);
         } finally {
             choreography.close();
         }
@@ -346,12 +356,57 @@ final class Run {
         return Outcome.failed();
     }
 
+    /**
+     * Ends {@code returning} on whether every player the run moved out came back, waiting for the last of them.
+     *
+     * Players moved off a held service stay in the waiting room on purpose, so those moves are not counted.
+     */
+    private void countBack(final Steps.Step returning, final boolean counted) {
+        if (!counted) {
+            // A run from an older schema wrote no moves, so nothing says who should come back.
+            returning.warned(RunStep.Reason.PLAYERS_UNKNOWN);
+            return;
+        }
+        final Set<String> held;
+        try {
+            held = Set.copyOf(runner.held());
+        } catch (final RuntimeException unread) {
+            log.warn("service holds not read, players back not counted", unread);
+            returning.warned(RunStep.Reason.PLAYERS_UNKNOWN);
+            return;
+        }
+        final Instant deadline = runner.waiting.now().plus(RETURN_CAP);
+        while (true) {
+            final Optional<List<RunStep.Move>> moves = steps.record.moves();
+            if (moves.isEmpty()) {
+                returning.warned(RunStep.Reason.PLAYERS_UNKNOWN);
+                return;
+            }
+            final List<RunStep.Move> missing = moves.get().stream()
+                    .filter(move -> !held.contains(move.from()) && move.returned() < move.moved())
+                    .toList();
+            if (missing.isEmpty()) {
+                returning.done();
+                return;
+            }
+            if (!runner.waiting.now().isBefore(deadline)) {
+                log.warn("fewer players came back than moved out: moves={}", missing);
+                returning.warned(RunStep.Reason.PLAYERS_LOST);
+                return;
+            }
+            if (!runner.waiting.sleep(RETURN_POLL)) {
+                returning.warned(RunStep.Reason.INTERRUPTED);
+                return;
+            }
+        }
+    }
+
     private Outcome finish(
             final Plan plan,
             final UpdateRun.Stopped stopped,
             final Done done,
             final Choreography choreography,
-            final boolean moved) {
+            final Steps.@Nullable Step moved) {
         if (plan.startsAgain()) {
             final List<String> starting = new ArrayList<>(stopped.services());
             plan.alsoStarts().stream()
@@ -364,11 +419,11 @@ final class Run {
         }
 
         // The proxy counts the players back. The standbys give theirs back as they close.
-        final Steps.Step returning = moved ? steps.record.begin(RunStep.Kind.PLAYERS_BACK) : null;
+        final Steps.Step returning = moved != null ? steps.record.begin(RunStep.Kind.PLAYERS_BACK) : null;
         // The standbys close first, because caddy publishes their ports.
         choreography.close();
-        if (returning != null) {
-            returning.done();
+        if (moved != null && returning != null) {
+            countBack(returning, moved.written());
         }
         // This runs once the Minecraft services are healthy, with postgres last.
         ForeignImages.renewForeign(runner.containers, steps, plan.foreign(), plan.pulls(), runner.waiting);

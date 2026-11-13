@@ -143,7 +143,7 @@ function properties.rows(info, tr, context)
   elseif kind == "glyph" or kind == "cell" then
     local glyph = kind == "glyph"
     add("block", info.block.title)
-    add("title", e.title)
+    add("title", e.title, editable and "title")
     add("code", e.code)
     add("name", e.name, editable and "name")
     add("constant", e.constant, editable and not e.name and "constant" or nil)
@@ -319,6 +319,11 @@ function properties.jobs(info, field, data, tr, old)
   elseif field == "about" then
     if value == (e.about or "") then return nil end
     return { "editGlyph", { glyph=glyph, about=value } }
+  elseif field == "title" then
+    -- Every glyph keeps a title, so an empty one changes nothing
+    value = tostring(value or ""):match("^%s*(.-)%s*$")
+    if value == "" or value == e.title then return nil end
+    return { "editGlyph", { glyph=glyph, title=value } }
   elseif field == "delete" then
     return { "deleteGlyph", { glyph=glyph } }
   elseif field == "size" and old then

@@ -39,8 +39,9 @@ name of the installed bridge mod), `problem` (a sentence while `mods/` holds mor
 `mods/` of an instance with Fabric, deletes every other version of it there and writes its settings
 once. It stops before the copy when an old version cannot be deleted.
 
-A new glyph is an image plus one entry in `glyphs.json`: a free code point in its block, a constant,
-a texture and, in `minecraft:default`, a name. The next build names every rule that an entry breaks.
+A new glyph is an image plus one entry in `glyphs.json`: a free code point in its block, a title of
+at most 40 characters that tells a designer what the glyph is, such as `1 row`, a constant, a texture
+and, in `minecraft:default`, a name. The next build names every rule that an entry breaks.
 
 An admin chooses **Skip resource pack** on a user's row under Users in Steward to show that user the
 network with their own pack. **Enforce resource pack** undoes it.
@@ -100,12 +101,12 @@ statuses      the statuses a glyph or block can have
 fonts[]       font, rows, constant, about, draft, review, blocks[]
   blocks[]    kind "block": title, range, status, about, height, ascent, draft, review, glyphs[]
               kind "sheet": title, range, status, about, height, ascent, draft, review, characters, texture, cells[]
-  glyphs[]    code, constant, name, list, status, effectiveStatus, height, ascent, about, texture
-  cells[]     row, column, code, height, ascent, and for a glyph cell constant, list, status, effectiveStatus, about
+  glyphs[]    code, title, constant, name, list, status, effectiveStatus, height, ascent, about, texture
+  cells[]     row, column, code, height, ascent, and for a glyph cell title, constant, list, status, effectiveStatus, about
 items[]       category (the namespace), entries[]: id, file, draft, review, model (the type of the root model), texture
 overrides[]   category (the folder under textures/), entries[]: texture, mcmeta, animation, frames, scaling, guiSprite, block, item
 textures[]    category (namespace or namespace:folder), entries[] as in overrides[]: each PNG outside minecraft that no font or item shows
-texture       id, png, aseprite, asepriteExists, draft, review, width, height
+texture       id, png, pngExists, generated, aseprite, asepriteExists, draft, review, width, height
 languages     the languages of the pack's language files, such as en_us
 texts[]       key, values (language to text), owner, draft, review
 sounds[]      id, replace, subtitle, subtitles (language to text), draft, review, sounds[]
@@ -118,7 +119,9 @@ The `status` of a glyph or cell is its own value, null when it inherits the bloc
 `effectiveStatus` is the one that applies. The `height` and `ascent` of a cell are its block's. The
 `texture` of an item is the `layer0` of a `minecraft:model` in the pack, or null, also when it is no
 identifier.
-`width` and `height` of a texture are its pixels, or null while its PNG is missing. `animation` and `scaling` are the `animation` and
+`width` and `height` of a texture are its pixels, or null while its PNG is missing. A PNG that
+`src/` lacks and the build draws, such as a chest panel of `drawChestPanels`, is the drawn file under
+`build/generated/`, with `generated` true. `animation` and `scaling` are the `animation` and
 `gui.scaling` objects of the `.png.mcmeta`, or null. `block` and `item` are the `minecraft:` id of the
 PNG's name for an override under `block` or `item`, or null. `frames` lists each frame of the PNG once, as `x`, `y`,
 `width`, `height` in the PNG and `duration` in milliseconds, the time of the first entry of the animation's `frames`
@@ -156,18 +159,20 @@ the reason when it refuses. The app writes the `.aseprite` source itself.
 ./gradlew -q :resource-pack:createTexture -Ptexture=nordtal:gui/frame.png -Pwidth=24 -Pheight=12
 ```
 
-| task               | options                                                                       | writes                                                                |
-| ------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `createGlyph`      | `font`, `block`, `texture`, `width`, `height`; `name`, `constant`, `ascent`   | the glyph in `glyphs.json`, its PNG                                   |
-| `createGlyphBlock` | `font`, `title`; `range`, `size` (16), `height`, `ascent`                     | an empty block in `glyphs.json`                                       |
-| `createGlyphSheet` | `font`, `title`, `texture`, `constants`, `width`, `height`, `ascent`; `range` | the sheet and its cells in `glyphs.json`, its PNG of one row of cells |
-| `createItem`       | `item`; `width`, `height` (16)                                                | `items/`, a `minecraft:item/generated` model and its PNG              |
-| `createTexture`    | `texture`, `width`, `height`                                                  | a transparent PNG that nothing draws yet                              |
+| task               | options                                                                              | writes                                                                |
+| ------------------ | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `createGlyph`      | `font`, `block`, `texture`, `width`, `height`; `name`, `constant`, `ascent`, `title` | the glyph in `glyphs.json`, its PNG                                   |
+| `createGlyphBlock` | `font`, `title`; `range`, `size` (16), `height`, `ascent`                            | an empty block in `glyphs.json`                                       |
+| `createGlyphSheet` | `font`, `title`, `texture`, `constants`, `width`, `height`, `ascent`; `range`        | the sheet and its cells in `glyphs.json`, its PNG of one row of cells |
+| `createItem`       | `item`; `width`, `height` (16)                                                       | `items/`, a `minecraft:item/generated` model and its PNG              |
+| `createTexture`    | `texture`, `width`, `height`                                                         | a transparent PNG that nothing draws yet                              |
 
 A vanilla override is created with `copyVanillaTexture`, under _Vanilla overrides_.
 
 - `block` is a block's `title`. `width` and `height` are pixels, and `height` is also the display
-  height. `ascent` falls back to the block's. `constant` falls back to the `name` in capitals.
+  height. `ascent` falls back to the block's. `constant` falls back to the `name` in capitals, and
+  `title` to the name or constant in words, such as `Half moon`. A new sheet cell is titled after its
+  constant the same way.
 - A new glyph takes the code point after the last glyph of its block. It is provisional: a publish
   assigns the final one with `assignCodePoints`.
 - A new block or sheet takes the first run of `size` free code points, aligned to `size`, of the
@@ -196,13 +201,13 @@ fails with the reason when it refuses.
 ./gradlew -q :resource-pack:assignCodePoints
 ```
 
-| task               | options                                        | prints                                                        |
-| ------------------ | ---------------------------------------------- | ------------------------------------------------------------- |
-| `renameGlyph`      | `glyph`, `to`                                  | the absolute path of `glyphs.json`                            |
-| `editGlyph`        | `glyph`; `status`, `height`, `ascent`, `about` | the absolute path of `glyphs.json`                            |
-| `resizeGlyph`      | `glyph`, `from`; `coupled` (true)              | the absolute path of `glyphs.json`, or nothing when decoupled |
-| `deleteGlyph`      | `glyph`                                        | the absolute paths of `glyphs.json` and each file it removed  |
-| `assignCodePoints` | `main` (`origin/main`)                         | one line `font old new constant` per glyph that moved         |
+| task               | options                                                 | prints                                                        |
+| ------------------ | ------------------------------------------------------- | ------------------------------------------------------------- |
+| `renameGlyph`      | `glyph`, `to`                                           | the absolute path of `glyphs.json`                            |
+| `editGlyph`        | `glyph`; `title`, `status`, `height`, `ascent`, `about` | the absolute path of `glyphs.json`                            |
+| `resizeGlyph`      | `glyph`, `from`; `coupled` (true)                       | the absolute path of `glyphs.json`, or nothing when decoupled |
+| `deleteGlyph`      | `glyph`                                                 | the absolute paths of `glyphs.json` and each file it removed  |
+| `assignCodePoints` | `main` (`origin/main`)                                  | one line `font old new constant` per glyph that moved         |
 
 - A rename sets the `name` to `to` and the `constant` to the name in capitals. A glyph without a name,
   outside `minecraft:default`, takes `to` as its constant.

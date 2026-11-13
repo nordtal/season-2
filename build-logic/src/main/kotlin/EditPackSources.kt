@@ -119,6 +119,7 @@ abstract class EditPackSources : VanillaClientTask() {
                             number("width") ?: text("width").toInt(),
                             number("height") ?: text("height").toInt(),
                             number("ascent"),
+                            options["title"],
                         )
                     }
 
@@ -199,7 +200,15 @@ abstract class EditPackSources : VanillaClientTask() {
                     }
 
                     "edit" -> {
-                        GlyphEdits.edit(pack, text("glyph"), options["status"], number("height"), number("ascent"), options["about"])
+                        GlyphEdits.edit(
+                            pack,
+                            text("glyph"),
+                            options["status"],
+                            number("height"),
+                            number("ascent"),
+                            options["about"],
+                            options["title"],
+                        )
                     }
 
                     "animate" -> {

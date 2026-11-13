@@ -18,7 +18,7 @@ class PackModelTest {
         allocation(
             """
             {"fonts": [{"font": "minecraft:default", "blocks": [{"range": "FE000-FE00F", "title": "Badges", "glyphs": [
-              {"code": "FE001", "constant": "STAR", "name": "star", "texture": "nordtal:badges/star.png",
+              {"code": "FE001", "title": "Glyph", "constant": "STAR", "name": "star", "texture": "nordtal:badges/star.png",
                "height": 8, "ascent": 7, "status": "keep", "about": "A star."}]}]}]}
             """,
         )
@@ -81,7 +81,7 @@ class PackModelTest {
             """
             {"fonts": [{"font": "nordtal:gui_r{row}", "rows": 2, "pitch": 18, "constant": "ROWS", "blocks": [
               {"range": "FE110-FE11F", "title": "Icons", "texture": "nordtal:icons.png", "height": 8, "ascent": -9,
-               "glyphs": [{"code": "FE110", "constant": "SPAWN"}, {"code": "FE111", "constant": "DEATH", "status": "placeholder"}]},
+               "glyphs": [{"code": "FE110", "title": "Glyph", "constant": "SPAWN"}, {"code": "FE111", "title": "Glyph", "constant": "DEATH", "status": "placeholder"}]},
               {"title": "Text", "texture": "nordtal:text.png", "height": 5, "ascent": -10, "chars": ["AB", "C\u0000"]}]}]}
             """,
         )
@@ -113,8 +113,8 @@ class PackModelTest {
             """
             {"fonts": [{"font": "minecraft:default", "blocks": [{"range": "FE000-FE00F", "title": "Badges", "status": "placeholder",
               "height": 8, "ascent": 7, "glyphs": [
-              {"code": "FE001", "constant": "STAR", "name": "star", "texture": "nordtal:star.png"},
-              {"code": "FE002", "constant": "MOON", "name": "moon", "texture": "nordtal:moon.png", "status": "keep"}]}]}]}
+              {"code": "FE001", "title": "Glyph", "constant": "STAR", "name": "star", "texture": "nordtal:star.png"},
+              {"code": "FE002", "title": "Glyph", "constant": "MOON", "name": "moon", "texture": "nordtal:moon.png", "status": "keep"}]}]}]}
             """,
         )
 
@@ -132,7 +132,7 @@ class PackModelTest {
             """
             {"fonts": [{"font": "nordtal:bossbar", "blocks": [
               {"range": "FE110-FE11F", "title": "Icons", "texture": "nordtal:icons.png", "height": 8, "ascent": -9,
-               "status": "keep", "glyphs": [{"code": "FE110", "constant": "SPAWN"}, {"code": "FE111", "constant": "DEATH", "status": "placeholder"}]},
+               "status": "keep", "glyphs": [{"code": "FE110", "title": "Glyph", "constant": "SPAWN"}, {"code": "FE111", "title": "Glyph", "constant": "DEATH", "status": "placeholder"}]},
               {"title": "Text", "texture": "nordtal:text.png", "height": 5, "ascent": -10, "chars": ["A"]}]}]}
             """,
         )
@@ -189,9 +189,9 @@ class PackModelTest {
             """
             {"fonts": [{"font": "minecraft:default", "blocks": [
               {"range": "FE000-FE00F", "title": "Badges", "height": 7, "ascent": 7,
-               "glyphs": [{"code": "FE000", "constant": "STAR", "name": "star", "texture": "nordtal:badges/star.png"}]},
+               "glyphs": [{"code": "FE000", "title": "Glyph", "constant": "STAR", "name": "star", "texture": "nordtal:badges/star.png"}]},
               {"range": "FE010-FE01F", "title": "Arrows", "height": 5, "ascent": 4, "texture": "nordtal:hud/arrows.png",
-               "glyphs": [{"code": "FE010", "constant": "LEFT", "name": "left"}]}
+               "glyphs": [{"code": "FE010", "title": "Glyph", "constant": "LEFT", "name": "left"}]}
             ]}]}
             """,
         )

@@ -102,6 +102,9 @@ class GlyphAllocation private constructor(
         val SUPPLEMENTARY_PRIVATE_USE_A = 0xF0000..0xFFFFD
         private val CONSTANT = Regex("""[A-Z][A-Z0-9_]*""")
         private val NAME = Regex("""[a-z0-9]+(-[a-z0-9]+)*""")
+
+        /** The most characters of a glyph's title, which the designer's tree shows in one row. */
+        const val TITLE_LENGTH = 40
         private val CODE = Regex("""[0-9A-F]{2,5}""")
 
         fun read(file: File): GlyphAllocation {
@@ -237,7 +240,10 @@ class GlyphAllocation private constructor(
             val constant = glyph.string("constant")
             val list = glyph.string("list")
             if (constant == null && list == null) glyph.problem("a glyph has a 'constant', a 'list', or both")
-            return Glyph(code, constant, glyph.string("name"), glyph.string("title"), list, texture, height ?: 0, ascent ?: 0, status, glyph.string("about"))
+            val title = glyph.string("title", required = true)
+            if (title != null && title.isBlank()) glyph.problem("'title' is empty")
+            if (title != null && title.length > TITLE_LENGTH) glyph.problem("'title' is longer than $TITLE_LENGTH characters")
+            return Glyph(code, constant, glyph.string("name"), title, list, texture, height ?: 0, ascent ?: 0, status, glyph.string("about"))
         }
 
         private fun texture(

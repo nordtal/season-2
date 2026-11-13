@@ -11,7 +11,7 @@ import javax.imageio.ImageIO
  * code points their final ones. Every change goes through [NewTextures.edit], so `glyphs.json` keeps its layout and rules.
  */
 object GlyphEdits {
-    private val KEYS = listOf("code", "constant", "name", "list", "texture", "height", "ascent", "status", "about")
+    private val KEYS = listOf("code", "title", "constant", "name", "list", "texture", "height", "ascent", "status", "about")
 
     private class Found(
         val block: OxfmtJson.Object,
@@ -87,8 +87,9 @@ object GlyphEdits {
             .toSet()
 
     /**
-     * Sets the [status], display [height], [ascent] and [about] of [glyph] that are not null. An empty status or about
-     * removes it, and a height or ascent equal to the block's leaves the glyph without its own.
+     * Sets the [title], [status], display [height], [ascent] and [about] of [glyph] that are not null. An empty status or
+     * about removes it, an empty title is refused, and a height or ascent equal to the block's leaves the glyph without
+     * its own.
      */
     fun edit(
         pack: File,
@@ -97,9 +98,14 @@ object GlyphEdits {
         height: Int? = null,
         ascent: Int? = null,
         about: String? = null,
+        title: String? = null,
     ): List<File> =
-        NewTextures.edit(pack, null, 0, 0) { root ->
+        NewTextures.edit(pack, null, 0, 0, refused = title?.let { "title" }) { root ->
             val target = find(root, glyph)
+            if (title != null) {
+                if (title.isBlank()) throw FieldRefusal("title", "A glyph needs a title.")
+                target.glyph["title"] = title.trim()
+            }
             require((height == null && ascent == null) || target.block["texture"] == null) {
                 "${target.label} is a cell of the sheet ${target.block["title"]}, which sets the display height and ascent of every cell."
             }

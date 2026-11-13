@@ -16,13 +16,18 @@ Gradle wrapper and builds the tree from `build/pack-model.json`. Every task star
 gradle/wrapper/gradle-wrapper.jar` on the JDK of the bootstrap's `JAVA_HOME`, so no shell and no
 batch file reads an option. A task that cannot start shows why in the status line. A click on an
 entry opens its texture in the editor, zoomed to fit, unless its PNG lies outside
-`resource-pack/src/` or its source outside `resource-pack/art/`. Then the editor stays empty and
+`resource-pack/src/` or its source outside `resource-pack/art/`. A PNG that the build draws, such as
+a chest panel, opens from `resource-pack/build/generated/`; its properties say so, and a save of it
+is refused, since the next build draws it again. Then the editor stays empty and
 the tab says why. When the sprite leaves the editor without the tab, such as with **File > Close**,
 the tree selects nothing, so a click opens the entry again. Each save of that sprite writes its
 `.aseprite` source under `resource-pack/art/` and its PNG: the first frame for a glyph or an item,
 every frame for a vanilla override. A click on another entry saves the sprite first when it has
 unsaved changes, and keeps it open when that save fails. **View > Nordtal Tree on the Right** docks
 the side panel right of the tools.
+
+A glyph's node shows its title, such as `1 row`, and its code point as its badge. A glyph whose PNG
+exists nowhere says `no texture` before its code point. The properties panel edits the title.
 
 The tree's **Textures** lists every PNG under `src/assets/<namespace>/textures/` outside `minecraft`
 that no glyph, sheet or item of the tree shows, by namespace and folder, so a texture that nothing

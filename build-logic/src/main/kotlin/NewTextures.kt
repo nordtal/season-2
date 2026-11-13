@@ -33,6 +33,7 @@ object NewTextures {
         width: Int,
         height: Int,
         ascent: Int? = null,
+        title: String? = null,
     ): List<File> {
         val png = png(pack, texture)
         return edit(pack, png, width, height, refused = if (name != null) "name" else "constant") { root ->
@@ -47,6 +48,7 @@ object NewTextures {
             code ?: throw FieldRefusal("block", "Block $block of $font has no free code point left in ${target["range"]}.")
             val entry = OxfmtJson.Object()
             entry["code"] = "%X".format(code)
+            entry["title"] = title?.takeIf { it.isNotBlank() }?.trim() ?: titleOf(name ?: constant ?: "")
             entry["constant"] = constant ?: name?.let(::constantOf) ?: throw FieldRefusal("name", "A glyph needs a constant or a name.")
             name?.let { entry["name"] = it }
             entry["texture"] = texture
@@ -102,6 +104,7 @@ object NewTextures {
                         add(
                             linkedMapOf(
                                 "code" to "%X".format(first + index),
+                                "title" to titleOf(constant),
                                 "constant" to constant,
                             ),
                         )
@@ -217,6 +220,16 @@ object NewTextures {
         val index = blocks.indexOfFirst { other -> (other as Map<*, *>)["range"]?.let { parseRange(it as String).first > first } == true }
         blocks.add(if (index < 0) blocks.size else index, block)
     }
+
+    /** The title that follows from a glyph's name or constant, such as `Half moon` for `half-moon` or `HALF_MOON`. */
+    internal fun titleOf(label: String): String =
+        label
+            .lowercase()
+            .replace('-', ' ')
+            .replace('_', ' ')
+            .trim()
+            .replaceFirstChar { it.uppercase() }
+            .take(GlyphAllocation.TITLE_LENGTH)
 
     /** The Java constant that follows from a glyph's [name], such as `HALF_MOON` for `half-moon`. */
     internal fun constantOf(name: String) = name.uppercase().replace('-', '_')

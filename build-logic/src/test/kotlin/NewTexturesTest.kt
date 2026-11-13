@@ -35,6 +35,7 @@ class NewTexturesTest {
                       "glyphs": [
                         {
                           "code": "FE000",
+                          "title": "Glyph",
                           "constant": "STAR",
                           "name": "star",
                           "texture": "nordtal:badges/star.png"
@@ -47,7 +48,7 @@ class NewTexturesTest {
                       "texture": "nordtal:icons.png",
                       "height": 8,
                       "ascent": 7,
-                      "glyphs": [{ "code": "FE020", "constant": "SPAWN", "name": "spawn" }]
+                      "glyphs": [{ "code": "FE020", "title": "Glyph", "constant": "SPAWN", "name": "spawn" }]
                     }
                   ]
                 },
@@ -83,6 +84,7 @@ class NewTexturesTest {
                 """
                   {
                     "code": "FE001",
+                    "title": "Half moon",
                     "constant": "HALF_MOON",
                     "name": "half-moon",
                     "texture": "nordtal:badges/moon.png"
@@ -92,6 +94,28 @@ class NewTexturesTest {
             ),
             allocation.readText(),
         )
+    }
+
+    @Test
+    fun aNewGlyphTakesTheTitleItIsGivenOrOneThatFollowsFromItsNameOrConstant() {
+        fixture()
+
+        NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/moon.png", null, "half-moon", 9, 7)
+        NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/sun.png", null, "sun", 9, 7, title = "Sun, rising")
+        NewTextures.glyph(pack, "nordtal:hud", "Bars", "nordtal:hud/bar.png", "BAR_END_LEFT", null, 4, 4, ascent = 3)
+
+        val glyphs = GlyphAllocation.read(allocation).fonts.flatMap { it.glyphs }.filter { it.title != "Glyph" }.map { it.title }
+        assertEquals(listOf("Half moon", "Sun, rising", "Bar end left"), glyphs)
+    }
+
+    @Test
+    fun aNewSheetTitlesEachCellAfterItsConstant() {
+        fixture()
+
+        NewTextures.sheet(pack, "nordtal:hud", "Arrows", "nordtal:hud/arrows.png", listOf("ARROW_UP", "ARROW_DOWN"), 4, 4, 3)
+
+        val sheet = GlyphAllocation.read(allocation).fonts[1].blocks.single { it.title == "Arrows" }
+        assertEquals(listOf("Arrow up", "Arrow down"), sheet.glyphs.map { it.title })
     }
 
     @Test
@@ -350,7 +374,7 @@ class NewTexturesTest {
         val sheet = GlyphAllocation.read(allocation).fonts[1].blocks[0]
         assertEquals(listOf("nordtal:hud/arrows.png", 5, -4), listOf(sheet.texture, sheet.height, sheet.ascent))
         assertEquals(listOf(0xFE010, 0xFE011, 0xFE012), sheet.glyphs.map { it.codePoint })
-        assertTrue("""{ "code": "FE010", "constant": "LEFT" },""" in allocation.readText(), allocation.readText())
+        assertTrue("""{ "code": "FE010", "title": "Left", "constant": "LEFT" },""" in allocation.readText(), allocation.readText())
     }
 
     @Test

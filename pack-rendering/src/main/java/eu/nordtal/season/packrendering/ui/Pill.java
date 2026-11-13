@@ -12,7 +12,7 @@ public final class Pill {
     /** The pill's height. */
     public static final int HEIGHT = 15;
 
-    /** From a pill's end to its content: 3 px of edge and 2 clear. */
+    /** From a pill's end to its content: 3 px of edge and 2 clear, or the HUD's 1 px of rim and 4 clear. */
     public static final int PAD = 5;
 
     private static final int TEXT = 4;

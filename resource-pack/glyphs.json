@@ -1542,23 +1542,23 @@
           ]
         },
         {
-          "range": "FE500-FE50F",
+          "range": "FE4F0-FE4FF",
           "title": "HUD pill",
           "about": "The HUD's flat 15 high pill, its rim 1 px: its 5 px left end, its 5 px right end and middles of 1 to 128 columns, laid out as the pill's.",
           "texture": "nordtal:ui/kit/hud_pill.png",
           "height": 15,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE500", "list": "UI_HUD_PILL" },
-            { "code": "FE501", "list": "UI_HUD_PILL" },
-            { "code": "FE502", "list": "UI_HUD_PILL" },
-            { "code": "FE503", "list": "UI_HUD_PILL" },
-            { "code": "FE504", "list": "UI_HUD_PILL" },
-            { "code": "FE505", "list": "UI_HUD_PILL" },
-            { "code": "FE506", "list": "UI_HUD_PILL" },
-            { "code": "FE507", "list": "UI_HUD_PILL" },
-            { "code": "FE508", "list": "UI_HUD_PILL" },
-            { "code": "FE509", "list": "UI_HUD_PILL" }
+            { "code": "FE4F0", "list": "UI_HUD_PILL" },
+            { "code": "FE4F1", "list": "UI_HUD_PILL" },
+            { "code": "FE4F2", "list": "UI_HUD_PILL" },
+            { "code": "FE4F3", "list": "UI_HUD_PILL" },
+            { "code": "FE4F4", "list": "UI_HUD_PILL" },
+            { "code": "FE4F5", "list": "UI_HUD_PILL" },
+            { "code": "FE4F6", "list": "UI_HUD_PILL" },
+            { "code": "FE4F7", "list": "UI_HUD_PILL" },
+            { "code": "FE4F8", "list": "UI_HUD_PILL" },
+            { "code": "FE4F9", "list": "UI_HUD_PILL" }
           ]
         }
       ],

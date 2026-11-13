@@ -2,10 +2,8 @@ package eu.nordtal.season.stewardagent;
 
 import eu.nordtal.season.common.Platform;
 import eu.nordtal.season.common.time.Waiting;
-import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.plan.PluginFiles;
 import eu.nordtal.season.stewardagent.plan.PluginsApi;
@@ -30,20 +28,17 @@ final class RunRoutes {
 
     private final Supplier<RunSpec> config;
     private final PluginDirectory plugins;
-    private final SettingStore settings;
     private final PluginsApi pluginsApi;
     private final Supplier<AgentWire.Topology> topology;
 
     RunRoutes(
             final Supplier<RunSpec> config,
             final PluginDirectory plugins,
-            final Database database,
             final Clock clock,
             final Supplier<AgentWire.Topology> topology) {
         this.config = config;
         this.topology = topology;
         this.plugins = plugins;
-        this.settings = SettingStore.using(database.dataSource());
         final RunSpec now = config.get();
         this.pluginsApi = new PluginsApi(
                 () -> topology.get().servers(),
@@ -63,8 +58,7 @@ final class RunRoutes {
 
     void register(final JavalinConfig config) {
         config.routes.get(
-                AgentWire.PLAN,
-                ctx -> ctx.json(PlanView.of(Runs.resolve(this.config.get(), topology.get(), plugins, settings))));
+                AgentWire.PLAN, ctx -> ctx.json(PlanView.of(Runs.resolve(this.config.get(), topology.get(), plugins))));
         config.routes.get(AgentWire.PLUGINS, pluginsApi::list);
         config.routes.get(AgentWire.PLUGIN_SEARCH, pluginsApi::search);
         config.routes.post(AgentWire.PLUGINS, pluginsApi::add);

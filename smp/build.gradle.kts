@@ -48,6 +48,18 @@ configurations.consumable("wheelPrizes") {
     outgoing.artifact(layout.buildDirectory.file("generated/wheel-prizes/wheel-prizes.json")) { builtBy(writeWheelPrizes) }
 }
 
+// The wheel's text documents with their declarations, which steward-agent reads to draw the spin button's label.
+val wheelDocuments =
+    tasks.register<Sync>("wheelDocuments") {
+        description = "Stages smp's documents and their declarations for steward-agent's pack builds."
+        from(tasks.named("messageSchema")) { include("documents/smp/**") }
+        from(layout.projectDirectory.dir("src/main/resources")) { include("documents/smp/**") }
+        into(layout.buildDirectory.dir("wheel-documents"))
+    }
+configurations.consumable("wheelDocuments") {
+    outgoing.artifact(layout.buildDirectory.dir("wheel-documents")) { builtBy(wheelDocuments) }
+}
+
 dependencies {
     // The assembled resource pack. The menu tests measure fonts that exist only in it.
     "resourcePack"(project(":resource-pack", "pack"))

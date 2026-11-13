@@ -6,12 +6,14 @@ import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.ProcessScheduler;
 import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.common.time.Waiting;
+import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.game.GameDataStore;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.InboxTable;
 import eu.nordtal.season.database.inbox.Inboxes;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.internalapi.InternalServer;
 import eu.nordtal.season.internalapi.agent.AgentWire;
@@ -30,6 +32,7 @@ import eu.nordtal.season.stewardagent.docker.Containers;
 import eu.nordtal.season.stewardagent.docker.Docker;
 import eu.nordtal.season.stewardagent.docker.DockerSocket;
 import eu.nordtal.season.stewardagent.gamedata.GameAssets;
+import eu.nordtal.season.stewardagent.pack.PackBuilds;
 import eu.nordtal.season.stewardagent.plugin.PluginDirectory;
 import eu.nordtal.season.stewardagent.run.Bootstrap;
 import eu.nordtal.season.stewardagent.run.PluginRemoval;
@@ -38,6 +41,8 @@ import eu.nordtal.season.stewardagent.run.UpdateServer;
 import eu.nordtal.season.stewardagent.schema.Schema;
 import eu.nordtal.season.stewardagent.topology.ComposeTopology;
 import io.javalin.Javalin;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
@@ -271,7 +276,7 @@ public final class StewardAgent {
      */
     private static int serve(
             final InternalServer server, final Compose compose, final Docker docker, final Scheduler scheduler)
-            throws java.io.IOException {
+            throws IOException {
         compose.assertEnvFileFresh();
         final Clock clock = NetworkTime.clock();
         final DatabaseSpec databaseConfig;
@@ -334,7 +339,7 @@ public final class StewardAgent {
         final int status;
         try {
             status = compose.migrate(log::info);
-        } catch (final java.io.IOException failure) {
+        } catch (final IOException failure) {
             throw new IllegalStateException("the migrate service did not run: " + failure.getMessage(), failure);
         }
         if (status != 0) {
@@ -369,7 +374,7 @@ public final class StewardAgent {
         final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
         final AgentApi api =
                 new AgentApi(docker, project, compose::definitions, compose::hashes, paths, clock, scheduler);
-        final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, database, clock, api.topology()::read);
+        final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, clock, api.topology()::read);
         if (!docker.isReachable()) {
             log.warn("docker socket not answering");
         }
@@ -380,6 +385,11 @@ public final class StewardAgent {
             runRoutes.register(config);
         });
         try (api) {
+            // Before the bootstrap, so a fresh stack's proxy starts with a pack to offer.
+            final Optional<PackBuilds> pack =
+                    packBuilds(server, database, SettingStore.using(database.dataSource()), scheduler, clock);
+            final DocumentStore documents = DocumentStore.using(database.dataSource());
+            pack.ifPresent(builds -> builds.start(documents));
             if (runs.get().bootstrap()) {
                 Bootstrap.installMissing(
                         runs.get(), database, api.topology()::read, clock, services -> handOver(compose, services));
@@ -403,7 +413,9 @@ public final class StewardAgent {
                 loop.listen(signals);
                 icons.listen(signals);
                 settings.listen(signals, () -> reload(runs));
+                pack.ifPresent(builds -> builds.listen(signals, documents));
                 signals.start();
+                pack.ifPresent(PackBuilds::catchUp);
                 icons.start();
                 Runtime.getRuntime().addShutdownHook(new Thread(loop::close, "steward-agent-shutdown"));
                 loop.serve();
@@ -412,6 +424,38 @@ public final class StewardAgent {
             app.stop();
         }
         return 0;
+    }
+
+    /**
+     * Returns the pack builds, or empty when the image's pack folder or the shelf cannot be used.
+     *
+     * The agent then runs on with the pack the proxy has.
+     */
+    private static Optional<PackBuilds> packBuilds(
+            final InternalServer server,
+            final Database database,
+            final SettingStore settings,
+            final Scheduler scheduler,
+            final Clock clock) {
+        final Path image = Path.of(server.setting("PACK_IMAGE", "/app/pack"));
+        final Path shelf = Path.of(server.setting("PACK_DIR", "/pack"));
+        if (!Files.isDirectory(image)) {
+            log.warn("no pack inputs in the image, the pack is not built: path={}", image);
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(PackBuilds.fromImage(
+                    database.dataSource(),
+                    settings,
+                    image,
+                    shelf,
+                    server.setting("PACK_BASE_URL", "https://pack.nordtal.eu"),
+                    scheduler,
+                    clock));
+        } catch (final IOException failure) {
+            log.warn("pack shelf not usable, the pack is not built: path={} cause={}", shelf, failure.getMessage());
+            return Optional.empty();
+        }
     }
 
     private static GameAssets gameAssets(final Database database, final Setting<RunSpec> runs, final Clock clock) {
@@ -470,7 +514,7 @@ public final class StewardAgent {
     private static void handOver(final Compose compose, final List<String> services) {
         try {
             compose.handOver(services, line -> log.info("hand-over output: line=\"{}\"", line));
-        } catch (final java.io.IOException failure) {
+        } catch (final IOException failure) {
             log.warn("volume hand-over failed: services={} cause={}", services, failure.getMessage());
         }
     }

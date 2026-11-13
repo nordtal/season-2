@@ -59,7 +59,6 @@ import eu.nordtal.season.proxy.launch.LaunchCountdown;
 import eu.nordtal.season.proxy.online.OnlineWriter;
 import eu.nordtal.season.proxy.pack.AccessQueue;
 import eu.nordtal.season.proxy.pack.PackMessages;
-import eu.nordtal.season.proxy.pack.PackOffer;
 import eu.nordtal.season.proxy.pack.PackStation;
 import eu.nordtal.season.proxy.pack.WaitingBook;
 import eu.nordtal.season.proxy.ping.NetworkPing;
@@ -156,7 +155,7 @@ public final class ProxyPlugin {
             HikariDataSource pool,
             DatabaseSpec database,
             GateSpec gate,
-            PackSpec pack,
+            Setting<PackSpec> pack,
             NetworkSpec network,
             Messages messages,
             DatabaseSettings settings,
@@ -221,8 +220,9 @@ public final class ProxyPlugin {
         final DatabaseSettings settings =
                 DatabaseSettings.over(SettingStore.using(opened), "proxy", environment, logger);
         final GateSpec gate = settings.load(Group.of("gate", GateSpec.class)).get();
-        final PackSpec pack = settings.load(Group.of("pack", PackSpec.class).checkedBy(ProxySettings::checkPack))
-                .get();
+        final Setting<PackSpec> pack = settings.load(Group.of("pack", PackSpec.class)
+                .checkedBy(ProxySettings::checkPack)
+                .whileRunning());
         final NetworkSpec network = settings.load(
                         Group.of("network", NetworkSpec.class).whileRunning())
                 .get();
@@ -349,18 +349,12 @@ public final class ProxyPlugin {
 
     /** Creates the pack station. */
     private PackStation wirePackStation(final Shared shared) {
-        final PackSpec config = shared.loaded().pack();
+        final Setting<PackSpec> config = shared.loaded().pack();
         final PackMessages packMessages = new PackMessages(shared.renderer());
-        final PackOffer offer = config.enabled() ? new PackOffer(proxy, config, packMessages) : null;
-        if (offer == null) {
-            logger.warn("resource pack disabled");
-        } else {
-            logger.info(
-                    "resource pack configured: url={} sha1={} force={}", config.url(), config.sha1(), config.force());
-        }
+        logPack(config.get(), "resource pack configured");
         final WaitingBook book = new WaitingBook(
-                offer != null,
-                Duration.ofSeconds(config.applyTimeoutSeconds()),
+                () -> config.get().enabled(),
+                () -> Duration.ofSeconds(config.get().applyTimeoutSeconds()),
                 Duration.ofSeconds(shared.loaded().gate().limboReadyGraceSeconds()),
                 shared.role(),
                 new AccessQueue(
@@ -375,8 +369,7 @@ public final class ProxyPlugin {
                 shared.seasonWatch(),
                 shared.roster(),
                 packMessages,
-                config,
-                offer,
+                config::get,
                 book,
                 shared.backendHealth());
         packs.registerChannel();
@@ -686,6 +679,13 @@ public final class ProxyPlugin {
     private void reloadNetwork(final Loaded loaded) {
         final Setting<PrestigeSpec> prestigeSettings = loaded.prestigeSetting();
         try {
+            if (loaded.pack().reload()) {
+                logPack(loaded.pack().get(), "resource pack changed");
+            }
+        } catch (final SettingsException refused) {
+            logger.warn("resource pack setting refused, running pack kept: cause={}", refused.getMessage());
+        }
+        try {
             loaded.players().reload();
         } catch (final SettingsException refused) {
             logger.warn("network setting refused, running value kept: cause={}", refused.getMessage());
@@ -700,6 +700,14 @@ public final class ProxyPlugin {
             loaded.queue().reload();
         } catch (final SettingsException refused) {
             logger.warn("queue interval refused, running value kept: cause={}", refused.getMessage());
+        }
+    }
+
+    private void logPack(final PackSpec pack, final String event) {
+        if (pack.enabled()) {
+            logger.info("{}: url={} sha1={} force={}", event, pack.url(), pack.sha1(), pack.force());
+        } else {
+            logger.warn("resource pack disabled");
         }
     }
 

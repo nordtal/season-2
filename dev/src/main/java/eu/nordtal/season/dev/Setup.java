@@ -64,7 +64,8 @@ final class Setup {
             createDirectories(compose.pluginsDir(service));
             terminal.log("plugin directory ready: service=" + service + " dir=" + compose.pluginsDir(service));
         }
-        createDirectories(compose.packRoot());
+        // steward-agent builds the packs into it, and Caddy serves them.
+        createDirectories(compose.packDir());
         // Created here, because Docker would create them as root, and a developer could not write a secret there.
         for (final String service : SECRET_SERVICES) {
             createDirectories(compose.secretsDir(service));

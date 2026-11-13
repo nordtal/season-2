@@ -10,7 +10,6 @@ import eu.nordtal.season.common.Platform;
 import eu.nordtal.season.common.http.HttpFailure;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.stewardagent.Told;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
@@ -32,7 +31,6 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -40,19 +38,8 @@ import org.junit.jupiter.api.io.TempDir;
 /** Tests step 1 against recorded API responses and a volume tree on disk. */
 class ResolverTest {
 
-    /** The SHA-1 the release's .zip.sha1 asset is made to contain in these tests. */
-    private static final String PACK_SHA1 = "6f1ed002ab5595859014ebf0951522d9d0f2ee34";
-
-    private static final String PACK_URL =
-            "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip";
-    private static final String OLD_PACK_URL =
-            "https://github.com/nordtal/season-2/releases/download/v0.0.9/nordtal-resource-pack-0.0.9.zip";
-
     @TempDir
     Path volumes;
-
-    /** Where the proxy's pack is stored. {@code null} is a run without a database. */
-    private @Nullable MemorySettingStore settings = new MemorySettingStore();
 
     private FakeHttp http;
 
@@ -71,8 +58,7 @@ class ResolverTest {
                 .serving("/projects/paper/versions/" + Platform.MINECRAFT + "/builds", "fill-paper-26.2.json")
                 // Two calls for the proxy: the project list names Velocity's major, then its build list is read.
                 .serving("/projects/velocity", "fill-velocity-project.json")
-                .serving("/projects/velocity/versions/4.3.1/builds", "fill-velocity-4.3.1.json")
-                .answering(".zip.sha1", PACK_SHA1 + "\n");
+                .serving("/projects/velocity/versions/4.3.1/builds", "fill-velocity-4.3.1.json");
     }
 
     @Test
@@ -137,7 +123,6 @@ class ResolverTest {
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "packetevents"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "paper"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "velocity"));
-        assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "proxy", "resource-pack"));
     }
 
     @Test
@@ -351,7 +336,7 @@ class ResolverTest {
     }
 
     @Test
-    void aSeasonReleaseThatCannotBeReadNamesOneReasonOnAllSixRowsItFeeds() throws IOException {
+    void aSeasonReleaseThatCannotBeReadNamesOneReasonOnEveryRowItFeeds() throws IOException {
         installCurrentEverything();
         http.failing(
                 "/repos/nordtal/season-2/",
@@ -361,7 +346,6 @@ class ResolverTest {
         final UpdatePlan plan = resolve();
 
         assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "smp", "smp"));
-        assertEquals(Change.Status.UNRESOLVED, statusOf(plan, "proxy", "resource-pack"));
         assertEquals(Change.Status.UP_TO_DATE, statusOf(plan, "smp", "packetevents"));
         // A 404 is a repository with no published release, and the message says so.
         final Change change = changeFor(plan, "smp", "smp");
@@ -468,96 +452,14 @@ class ResolverTest {
     }
 
     @Test
-    void aPackWithAnotherHashIsOutdated() throws IOException {
+    void thePlanHoldsNoPackRowSinceTheAgentBuildsThePack() throws IOException {
         installCurrentEverything();
-        storePack("0000000000000000000000000000000000000000");
 
         final UpdatePlan plan = resolve();
 
-        final Change change = changeFor(plan, "proxy", "resource-pack");
-        assertEquals(Change.Status.OUTDATED, change.status());
-        assertNotNull(change.wanted());
-        assertNotNull(change.wanted().checksum());
-        assertEquals(PACK_SHA1, change.wanted().checksum().hex());
-        // Full hash on both sides: releases sharing a hex prefix must not read as a change from a value to itself.
-        assertEquals("0000000000000000000000000000000000000000", change.installed());
-    }
-
-    @Test
-    void aPackWithTheSameHashButAnOlderReleasesUrlIsOutdated() throws IOException {
-        installCurrentEverything();
-        // An unchanged pack still lives in the release that published it, which may be deleted.
-        storePack(OLD_PACK_URL, PACK_SHA1);
-
-        final UpdatePlan plan = resolve();
-
-        final Change change = changeFor(plan, "proxy", "resource-pack");
-        assertEquals(Change.Status.OUTDATED, change.status(), Told.plan(plan));
-        assertNotNull(change.wanted());
-        assertEquals(PACK_URL, change.wanted().url().toString());
-    }
-
-    @Test
-    void aProxyWithNoPackYetIsMissingNotACrash() throws IOException {
-        installCurrentEverything();
-        settings = new MemorySettingStore();
-
-        final Change change = changeFor(resolve(), "proxy", "resource-pack");
-
-        assertEquals(Change.Status.MISSING, change.status());
-        assertNotNull(change.reason());
-        assertEquals("report.proxy-without-pack", change.reason().key());
-        assertTrue(Told.english(change.reason()).contains("no pack yet"), Told.english(change.reason()));
-    }
-
-    @Test
-    void withoutADatabaseThePackIsUnknownNotMissing() throws IOException {
-        installCurrentEverything();
-        settings = null;
-
-        final Change change = changeFor(resolve(), "proxy", "resource-pack");
-
-        // MISSING would make a bootstrap install it, which needs the very database that is not there.
-        assertEquals(Change.Status.UNRESOLVED, change.status());
-        assertNotNull(change.reason());
-        assertTrue(Told.english(change.reason()).contains("no database"), Told.english(change.reason()));
-    }
-
-    @Test
-    void aReleaseWithoutAPackZipKeepsTheInstalledPackLikeASeasonJar() throws IOException {
-        installCurrentEverything();
-        // Neither asset ends in .zip or .zip.sha1 any more, so the release carries no pack.
-        http.answering(
-                "/repos/nordtal/season-2/releases",
-                FakeHttp.read("github-season-v0.1.0.json")
-                        .replace("nordtal-resource-pack-0.1.0.zip", "nordtal-resource-pack-0.1.0.txt"));
-
-        final UpdatePlan plan = resolve();
-        final Change pack = changeFor(plan, "proxy", "resource-pack");
-
-        assertEquals(Change.Status.NOT_IN_RELEASE, pack.status(), Told.plan(plan));
-        assertEquals(PACK_SHA1, pack.installed());
-        assertFalse(pack.status().isFailure(), Told.plan(plan));
-        assertEquals(
-                List.of(new Work.Finding("proxy", RunStep.Outcome.WARNING, RunStep.Reason.NOT_IN_RELEASE)),
-                Work.of(plan).about("proxy"),
-                "the missing pack is a warning of the run: " + Told.plan(plan));
-    }
-
-    @Test
-    void aReleaseWithoutAPackZipAndNoPackInstalledIsStillUnresolved() throws IOException {
-        installCurrentEverything();
-        settings = new MemorySettingStore();
-        http.answering(
-                "/repos/nordtal/season-2/releases",
-                FakeHttp.read("github-season-v0.1.0.json")
-                        .replace("nordtal-resource-pack-0.1.0.zip", "nordtal-resource-pack-0.1.0.txt"));
-
-        final Change pack = changeFor(resolve(), "proxy", "resource-pack");
-
-        assertEquals(Change.Status.UNRESOLVED, pack.status());
-        assertNotNull(pack.reason());
-        assertTrue(Told.english(pack.reason()).contains("has no pack zip"), Told.english(pack.reason()));
+        assertTrue(
+                plan.changes().stream().noneMatch(change -> "resource-pack".equals(change.artifact())),
+                Told.plan(plan));
     }
 
     @Test
@@ -695,7 +597,6 @@ class ResolverTest {
         write("smp", "plugins/packetevents-spigot-2.13.0.jar");
         write("smp", "plugins/voicechat-bukkit-2.6.23.jar");
         write("smp", ".server/paper-26.2-121.jar");
-        storePack(PACK_SHA1);
     }
 
     private void write(final String service, final String relative) throws IOException {
@@ -707,14 +608,6 @@ class ResolverTest {
     private void replace(final String service, final String from, final String to) throws IOException {
         Files.delete(volumes.resolve(service).resolve(from));
         write(service, to);
-    }
-
-    private void storePack(final String sha1) {
-        storePack(PACK_URL, sha1);
-    }
-
-    private void storePack(final String url, final String sha1) {
-        settings.set("proxy", "pack", "url", url).set("proxy", "pack", "sha1", sha1);
     }
 
     private List<String> tree() throws IOException {
@@ -731,8 +624,7 @@ class ResolverTest {
                         new PaperFill(http),
                         Clock.fixed(Instant.parse("2026-09-01T18:00:00Z"), ZoneOffset.UTC),
                         DeclaredTopology.topology().servers(),
-                        eu.nordtal.season.stewardagent.plugin.PluginDirectory.NONE,
-                        settings)
+                        eu.nordtal.season.stewardagent.plugin.PluginDirectory.NONE)
                 .resolve();
     }
 

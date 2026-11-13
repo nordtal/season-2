@@ -36,6 +36,8 @@ dependencies {
     implementation(libs.flyway.core)
     runtimeOnly(libs.flyway.postgresql)
     implementation(project(":settings"))
+    // The agent builds the resource pack in a child JVM from its own classpath.
+    implementation(project(":pack-builder"))
 
     runtimeOnly(libs.logback.classic)
 
@@ -55,7 +57,30 @@ dependencies {
     testAnnotationProcessor(libs.lombok)
 }
 
-// compose.yml is baked into the image beside the jar.
+// What the agent builds the resource pack from: the pack without the wheel, the vanilla facts, smp's default prizes
+// and smp's documents. The image never downloads the client jar.
+val packBase = configurations.dependencyScope("packBase")
+val packBaseFiles = configurations.resolvable("packBaseFiles") { extendsFrom(packBase.get()) }
+val vanillaFacts = configurations.dependencyScope("vanillaFacts")
+val vanillaFactsFiles = configurations.resolvable("vanillaFactsFiles") { extendsFrom(vanillaFacts.get()) }
+val wheelPrizes = configurations.dependencyScope("wheelPrizes")
+val wheelPrizeFiles = configurations.resolvable("wheelPrizeFiles") { extendsFrom(wheelPrizes.get()) }
+val wheelDocuments = configurations.dependencyScope("wheelDocuments")
+val wheelDocumentFiles = configurations.resolvable("wheelDocumentFiles") { extendsFrom(wheelDocuments.get()) }
+dependencies {
+    "packBase"(project(":resource-pack", "packBase"))
+    "vanillaFacts"(project(":resource-pack", "vanillaFacts"))
+    "wheelPrizes"(project(":smp", "wheelPrizes"))
+    "wheelDocuments"(project(":smp", "wheelDocuments"))
+}
+
+// compose.yml is baked into the image beside the jar, and the pack's inputs under pack/.
 tasks.named<Sync>("imageContext") {
     from(rootProject.layout.projectDirectory.file("compose.yml"))
+    into("pack/base") { from(packBaseFiles) }
+    into("pack") {
+        from(vanillaFactsFiles) { rename { "vanilla-facts.zip" } }
+        from(wheelPrizeFiles) { rename { "wheel-prizes.json" } }
+        from(wheelDocumentFiles)
+    }
 }

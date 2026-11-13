@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,10 @@ class WaitingBookTest {
     private static final SeasonHold PLAYABLE = SeasonHold.NONE;
     /** The server of the active mode; a retry window belongs to a backend, not to a player. */
     private static final String DESTINATION = "hunger-games";
+    /** The SHA-1 of the pack the proxy offers. */
+    private static final String PACK = "0123456789abcdef0123456789abcdef01234567";
+    /** The SHA-1 of the pack a build made after it. */
+    private static final String NEXT_PACK = "89abcdef0123456789abcdef0123456789abcdef";
 
     private final MutableClock clock = new MutableClock(Instant.parse("2026-09-03T00:09:58Z"));
     private final UUID player = UUID.randomUUID();
@@ -45,6 +50,23 @@ class WaitingBookTest {
                 .action();
     }
 
+    // the client's answers
+
+    @Test
+    void onlyAnAnswerAboutTheNewestOfferCounts() {
+        final WaitingBook book = book();
+        assertFalse(book.answersNewestOffer(player, PackOffer.idOf(PACK)), "nothing was offered yet");
+
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
+        book.claimOffer(player, NEXT_PACK);
+
+        assertFalse(
+                book.answersNewestOffer(player, PackOffer.idOf(PACK)), "a decline of the replaced pack must not kick");
+        assertTrue(book.answersNewestOffer(player, PackOffer.idOf(NEXT_PACK)));
+        assertTrue(book.answersNewestOffer(player, null), "a client that names no pack answers about the newest");
+    }
+
     // READY before the arrival
 
     @Test
@@ -54,8 +76,8 @@ class WaitingBookTest {
         // Velocity resumes reading the backend before dispatching ServerPostConnectEvent, so READY arrives first.
         assertTrue(book.ready(player), "a READY before the arrival must report itself as early");
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
 
         assertEquals(Action.RELEASE, decide(book), "the player must leave the waiting room, not sit in it for ever");
     }
@@ -65,8 +87,8 @@ class WaitingBookTest {
         // limbo repeats READY every second; a repeat after release must not log the early line.
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         assertFalse(book.ready(player), "a READY during the visit is on time");
         assertEquals(Action.RELEASE, decide(book));
         assertFalse(book.ready(player), "a READY after the release is late, not early");
@@ -76,7 +98,7 @@ class WaitingBookTest {
     @Test
     void everyOrderReleases() {
         final Consumer<WaitingBook> arrive = b -> b.entered(player);
-        final Consumer<WaitingBook> pack = b -> b.packApplied(player);
+        final Consumer<WaitingBook> pack = b -> b.packApplied(player, PACK);
         final Consumer<WaitingBook> ready = b -> b.ready(player);
 
         final List<List<Consumer<WaitingBook>>> orders = List.of(
@@ -108,7 +130,7 @@ class WaitingBookTest {
         book.entered(player);
         assertTrue(book.packExempt(player), "the first pass of a login is the one that is logged");
         assertFalse(book.packExempt(player), "and it is logged once, not on every re-check");
-        assertFalse(book.claimOffer(player), "an exempt player was sent the pack anyway");
+        assertFalse(book.claimOffer(player, PACK), "an exempt player was sent the pack anyway");
         book.ready(player);
         assertEquals(Action.RELEASE, decide(book), "an exempt player waited for a pack nobody sent them");
     }
@@ -127,7 +149,7 @@ class WaitingBookTest {
     void withoutTheExemptionThePackIsStillWaitedFor() {
         final WaitingBook book = book();
         book.entered(player);
-        assertTrue(book.claimOffer(player));
+        assertTrue(book.claimOffer(player, PACK));
         book.ready(player);
         assertEquals(Action.SHOW, decide(book), "a player nobody exempted was let through without the pack");
     }
@@ -145,8 +167,8 @@ class WaitingBookTest {
     void aLostReadyIsSurvivable() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
 
         assertEquals(Action.IDLE, decide(book), "the first look only starts the clock");
         clock.advance(READY_GRACE.minusSeconds(1));
@@ -161,8 +183,8 @@ class WaitingBookTest {
     void aLateReadyStillCounts() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         assertEquals(Action.IDLE, decide(book));
 
         clock.advance(Duration.ofSeconds(2));
@@ -178,8 +200,8 @@ class WaitingBookTest {
     void aNewReasonRestartsTheGrace() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         assertEquals(Action.IDLE, decide(book), "the clock starts here");
 
         clock.advance(Duration.ofSeconds(4));
@@ -201,8 +223,8 @@ class WaitingBookTest {
     void aPlayerIsReleasedOnce() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         book.ready(player);
 
         assertEquals(Action.RELEASE, decide(book));
@@ -218,7 +240,7 @@ class WaitingBookTest {
     void aPlayerIsTimedOutOnce() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
+        book.claimOffer(player, PACK);
         clock.advance(APPLY_TIMEOUT);
 
         assertEquals(Action.TIMED_OUT, decide(book));
@@ -231,7 +253,7 @@ class WaitingBookTest {
     void theSameTitleIsSentOnce() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
+        book.claimOffer(player, PACK);
 
         assertEquals(
                 WaitingDecision.show(WaitReason.PACK),
@@ -247,8 +269,8 @@ class WaitingBookTest {
     void anUpdatePercentIsSentEachTimeItChanges() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         assertEquals(
                 WaitingDecision.show(WaitReason.UPDATE),
                 book.decide(player, PLAYABLE, false, true, DESTINATION, true, false));
@@ -262,7 +284,7 @@ class WaitingBookTest {
     void aPercentBelongsToTheUpdateScreenOnly() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
+        book.claimOffer(player, PACK);
         assertEquals(Action.SHOW, decide(book));
 
         assertFalse(book.claimProgress(player, 10), "the pack screen has no number");
@@ -272,10 +294,10 @@ class WaitingBookTest {
     void aChangedTitleIsSent() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
+        book.claimOffer(player, PACK);
         assertEquals(Action.SHOW, decide(book));
 
-        book.packApplied(player);
+        book.packApplied(player, PACK);
         assertEquals(
                 WaitingDecision.show(WaitReason.MAINTENANCE),
                 book.decide(player, SeasonHold.MAINTENANCE, false, true, DESTINATION, false, false));
@@ -285,7 +307,7 @@ class WaitingBookTest {
     void leavingKeepsWhatIsTrueOfTheSession() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
+        book.claimOffer(player, PACK);
         assertEquals(Action.SHOW, decide(book));
 
         book.left(player);
@@ -294,9 +316,66 @@ class WaitingBookTest {
 
         book.entered(player);
         assertFalse(
-                book.claimOffer(player), "a player bounced back into the waiting room is not asked for the pack twice");
+                book.claimOffer(player, PACK),
+                "a player bounced back into the waiting room is not asked for the pack twice");
         assertEquals(
                 Action.SHOW, decide(book), "the second visit has to redraw: limbo shows whatever it was last told");
+    }
+
+    // a new pack
+
+    @Test
+    void aPlayerWhoAppliedAnOlderPackIsOfferedTheNewOneAtTheNextConnectAndWaitsForIt() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
+        book.left(player);
+
+        book.entered(player);
+        assertTrue(book.claimOffer(player, NEXT_PACK), "a player kept the old pack after a new one was built");
+        book.ready(player);
+        assertEquals(Action.SHOW, decide(book), "the player left before the new pack was applied");
+        clock.advance(APPLY_TIMEOUT);
+        assertEquals(Action.TIMED_OUT, decide(book), "the timeout runs against the new offer");
+    }
+
+    @Test
+    void applyingTheNewPackReleasesThePlayerAndNamesTheOldOneToRemove() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
+        book.left(player);
+        book.entered(player);
+        book.claimOffer(player, NEXT_PACK);
+
+        assertEquals(Optional.of(PACK), book.packApplied(player, NEXT_PACK));
+        book.ready(player);
+        assertEquals(Action.RELEASE, decide(book));
+        assertFalse(book.claimOffer(player, NEXT_PACK), "the applied pack was offered again");
+        assertEquals(Optional.empty(), book.packApplied(player, NEXT_PACK));
+    }
+
+    @Test
+    void anOfferThatWaitsForItsAnswerIsNotSentTwice() {
+        final WaitingBook book = book();
+        book.entered(player);
+        assertTrue(book.claimOffer(player, PACK));
+        book.left(player);
+        book.entered(player);
+        assertFalse(book.claimOffer(player, PACK), "the client was asked for the same pack while it loaded it");
+    }
+
+    @Test
+    void anOldPackAppliedLateDoesNotSettleANewerOffer() {
+        final WaitingBook book = book();
+        book.entered(player);
+        book.claimOffer(player, PACK);
+        book.claimOffer(player, NEXT_PACK);
+        book.packApplied(player, PACK);
+        book.ready(player);
+        assertEquals(Action.SHOW, decide(book), "the player left with the pack before the newest one");
     }
 
     // the pack switch
@@ -320,7 +399,7 @@ class WaitingBookTest {
     void theTimeoutOnlyAppliesToAnUnansweredOffer() {
         final WaitingBook timing = book();
         timing.entered(player);
-        timing.claimOffer(player);
+        timing.claimOffer(player, PACK);
         clock.advance(APPLY_TIMEOUT);
         assertEquals(Action.TIMED_OUT, decide(timing));
 
@@ -328,8 +407,8 @@ class WaitingBookTest {
         final WaitingBook applied =
                 new WaitingBook(true, APPLY_TIMEOUT, READY_GRACE, ProxyRole.LIVE, queue(second), second);
         applied.entered(player);
-        applied.claimOffer(player);
-        applied.packApplied(player);
+        applied.claimOffer(player, PACK);
+        applied.packApplied(player, PACK);
         applied.ready(player);
         second.advance(APPLY_TIMEOUT.multipliedBy(10));
         assertEquals(
@@ -344,8 +423,8 @@ class WaitingBookTest {
         // An admin must not be held under maintenance or released back into the room they stand in.
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         book.ready(player);
 
         assertEquals(
@@ -363,8 +442,8 @@ class WaitingBookTest {
     void aNonAdminStaysDuringMaintenance() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         book.ready(player);
 
         assertEquals(
@@ -377,8 +456,8 @@ class WaitingBookTest {
         // A registered backend that does not answer must hold the player, not release them into a failed connection.
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         book.ready(player);
         assertEquals(Action.RELEASE, decide(book));
 
@@ -399,8 +478,8 @@ class WaitingBookTest {
         // The window says the server did not take them, not that this player waits.
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         book.ready(player);
         assertEquals(Action.RELEASE, decide(book));
 
@@ -427,7 +506,7 @@ class WaitingBookTest {
     void disconnectingClearsTheSession() {
         final WaitingBook book = book();
         book.entered(player);
-        book.packApplied(player);
+        book.packApplied(player, PACK);
         assertEquals(1, book.size());
 
         book.forget(player);
@@ -443,7 +522,7 @@ class WaitingBookTest {
         final UUID other = UUID.randomUUID();
         for (final UUID uuid : List.of(player, other)) {
             book.entered(uuid);
-            book.packApplied(uuid);
+            book.packApplied(uuid, PACK);
             book.ready(uuid);
         }
 
@@ -473,7 +552,7 @@ class WaitingBookTest {
         final UUID other = UUID.randomUUID();
         for (final UUID uuid : List.of(player, other)) {
             book.entered(uuid);
-            book.packApplied(uuid);
+            book.packApplied(uuid, PACK);
             book.ready(uuid);
         }
         assertEquals(
@@ -493,7 +572,7 @@ class WaitingBookTest {
         final UUID other = UUID.randomUUID();
         for (final UUID uuid : List.of(player, other)) {
             book.entered(uuid);
-            book.packApplied(uuid);
+            book.packApplied(uuid, PACK);
             book.ready(uuid);
         }
         assertEquals(
@@ -515,7 +594,7 @@ class WaitingBookTest {
         final UUID admin = UUID.randomUUID();
         for (final UUID uuid : List.of(player, held, admin)) {
             book.entered(uuid);
-            book.packApplied(uuid);
+            book.packApplied(uuid, PACK);
             book.ready(uuid);
         }
         assertEquals(
@@ -546,8 +625,8 @@ class WaitingBookTest {
     void aModeSwitchHoldsAnAdminWithEverythingElseReady() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         book.ready(player);
 
         assertEquals(
@@ -564,8 +643,8 @@ class WaitingBookTest {
     void aPlayerHeldAgainWaitsUnderTheReasonAndIsReleasedOnceItEnds() {
         final WaitingBook book = book();
         book.entered(player);
-        book.claimOffer(player);
-        book.packApplied(player);
+        book.claimOffer(player, PACK);
+        book.packApplied(player, PACK);
         book.ready(player);
         assertEquals(Action.RELEASE, decide(book));
 

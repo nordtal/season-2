@@ -53,17 +53,19 @@ network with their own pack. **Enforce resource pack** undoes it.
 
 The task writes `build/distributions/nordtal-resource-pack-<version>.zip` and its `.sha1`. The build
 is reproducible, so a version always has the same hash. `pack.mcmeta` declares the formats **88** to
-**97** (Minecraft 26.2 and 26.3). Both files are attached to each GitHub release. The proxy offers the
-pack while the player waits in `limbo`. `dev pack` points a local stack at a fresh build.
+**97** (Minecraft 26.2 and 26.3). Both files are attached to each GitHub release, for installing the
+pack into a client by hand.
 
-The URL and the hash are the proxy's `pack` settings, and both are empty by default. The proxy
-fails closed while one is empty. An update run sets both to the assets of the installed release.
-Steward raises the pack alert when the URL stops answering.
+The pack the proxy offers is not that zip. steward-agent builds its own from the files its image
+ships and smp's wheel settings: at its start when the image or the wheel changed, and 30 seconds after
+an admin's last change of the wheel prizes or texts. Each build lands in `PACK_DIR` as `<sha1>.zip`,
+which Caddy serves under `PACK_BASE_URL` (`https://PACK_HOST` by default). Only a good build sets the
+proxy's `pack` settings, `url` and `sha1`; a failed one leaves the active pack, and Steward lists every
+build. The proxy offers the pack while the player waits in `limbo`, and fails closed while either
+setting is empty. Steward raises the pack alert when the URL stops answering.
 
-- The URL has the form `github.com/<owner>/<repo>/releases/download/<tag>/<file>`. The signed
-  `release-assets.githubusercontent.com` address expires within the hour.
-- Steward checks only that `sha1` has 40 hex characters. A wrong hash shows in the client as
-  `FAILED_DOWNLOAD`.
+The local stack works the same way: after a change under `src/`, `dev up` builds a new steward-agent
+image, which builds the pack at its start. A wrong hash shows in the client as `FAILED_DOWNLOAD`.
 
 ## What the build writes
 

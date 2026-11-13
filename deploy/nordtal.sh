@@ -120,6 +120,7 @@ DATA_DIRS=(
     "mc-limbo-plugins"
     "mc-hunger-games-plugins"
     "mc-smp-plugins"
+    "pack"
 )
 
 # Pure decisions. deploy/nordtal-test.sh runs them without Docker and without a network.
@@ -471,7 +472,7 @@ looks_like_profiles() {
 
 # The profiles of compose.yml that a selection may name. `standby` starts by name only.
 # nordtal-test.sh compares this list with the one of compose.yml.
-SELECTABLE_PROFILES=(db bot mc steward devpack)
+SELECTABLE_PROFILES=(db bot mc steward)
 
 unknown_profiles() {
     local profiles="$1" profile known

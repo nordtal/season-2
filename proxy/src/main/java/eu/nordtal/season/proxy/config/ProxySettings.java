@@ -24,8 +24,7 @@ public final class ProxySettings {
         Checks.requireText("sha1", config.sha1());
         if (!SHA1.matcher(config.sha1()).matches()) {
             throw new IllegalArgumentException(
-                    "sha1 must be the 40 hex characters of the pack zip's SHA-1 - the content of"
-                            + " the .sha1 file next to the release asset - was '" + config.sha1() + "'");
+                    "sha1 must be the 40 hex characters of the pack zip's SHA-1, was '" + config.sha1() + "'");
         }
     }
 }

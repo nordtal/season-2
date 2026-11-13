@@ -27,8 +27,22 @@ public final class PackOffer {
         this.config = Objects.requireNonNull(config, "config");
         this.messages = Objects.requireNonNull(messages, "messages");
         this.hash = decodeHex(config.sha1());
-        this.packId =
-                UUID.nameUUIDFromBytes(config.sha1().toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII));
+        this.packId = idOf(config.sha1());
+    }
+
+    /** Returns the pack id of the pack with the SHA-1 {@code sha1}, the same for every offer of that pack. */
+    public static UUID idOf(final String sha1) {
+        return UUID.nameUUIDFromBytes(sha1.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII));
+    }
+
+    /** Returns whether this offer is the one {@code spec} describes, so a changed setting makes a new one. */
+    public boolean offers(final PackSpec spec) {
+        return config.url().equals(spec.url()) && config.sha1().equals(spec.sha1()) && config.force() == spec.force();
+    }
+
+    /** Returns the SHA-1 of the offered pack. */
+    public String sha1() {
+        return config.sha1();
     }
 
     /** Returns the offer for the language. */

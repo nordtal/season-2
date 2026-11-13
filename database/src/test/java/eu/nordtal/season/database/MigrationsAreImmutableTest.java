@@ -342,6 +342,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V119__a_run_names_lost_players_and_a_standby_of_another_protocol.sql",
                 "1632e514a62534ee6e2a9242ac26c9f9882a9ec2ec9df6871ebc1b330dc6666b");
+        FROZEN.put(
+                "V120__steward_agent_records_each_pack_build.sql",
+                "89607d3a3b73bb3b4d7ff48d9e56d91dca9ebb9d4db5fea4561027a2afe2e162");
     }
 
     @Test

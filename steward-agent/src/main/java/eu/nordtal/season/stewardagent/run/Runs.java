@@ -2,7 +2,6 @@ package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.common.time.NetworkTime;
 import eu.nordtal.season.common.time.Waiting;
-import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.stewardagent.apply.Applier;
 import eu.nordtal.season.stewardagent.apply.ApplyResult;
@@ -30,13 +29,11 @@ public final class Runs {
      *
      * @param topology what compose.yml's labels say, which names the servers and their plugins
      * @param plugins the plugins an admin added, merged into the topology
-     * @param settings where the proxy's pack is read; {@code null} without a database, which leaves the pack unknown
      */
     public static UpdatePlan resolve(
             final RunSpec config,
             final AgentWire.Topology topology,
-            final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins,
-            final @Nullable SettingStore settings) {
+            final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins) {
         final Http http = SourceHttp.over(SourceHttp.client(
                 Duration.ofSeconds(config.httpTimeoutSeconds()),
                 config.githubToken(),
@@ -48,8 +45,7 @@ public final class Runs {
                         new PaperFill(http),
                         NetworkTime.clock(),
                         topology.servers(),
-                        plugins,
-                        settings)
+                        plugins)
                 .resolve();
     }
 
@@ -62,7 +58,6 @@ public final class Runs {
             final RunSpec config,
             final AgentWire.Topology topology,
             final UpdatePlan plan,
-            final SettingStore settings,
             final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins) {
         final ApplyResult result = new Applier(
                         config,
@@ -70,7 +65,6 @@ public final class Runs {
                                 Duration.ofSeconds(config.downloadTimeoutSeconds()),
                                 "",
                                 Waiting.on(NetworkTime.clock()))),
-                        settings,
                         topology)
                 .apply(plan);
         record(result, Release.ownVersion(), plugins);

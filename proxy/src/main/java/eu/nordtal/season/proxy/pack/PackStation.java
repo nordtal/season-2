@@ -37,18 +37,24 @@ import org.slf4j.Logger;
  */
 public final class PackStation {
 
+    /** The answers that disconnect the player when they are about the newest offer. */
+    private static final Set<PlayerResourcePackStatusEvent.Status> KICKS = Set.of(
+            PlayerResourcePackStatusEvent.Status.DECLINED,
+            PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD,
+            PlayerResourcePackStatusEvent.Status.FAILED_RELOAD);
+
     private final ProxyServer proxy;
     private final Logger logger;
     private final SeasonRouting routing;
     private final SeasonWatch seasons;
     private final LoginRoster roster;
     private final PackMessages messages;
-    private final PackSpec config;
+    private final Supplier<PackSpec> config;
     private final WaitingBook book;
     private final BackendHealth health;
 
-    /** The offer, {@code null} when {@code pack#enabled} is off. */
-    private final @Nullable PackOffer offer;
+    /** The offer of the pack the settings name, made again when they change. */
+    private volatile @Nullable PackOffer offer;
 
     private final MinecraftChannelIdentifier channel = MinecraftChannelIdentifier.from(LimboProtocol.CHANNEL);
 
@@ -76,8 +82,7 @@ public final class PackStation {
             final SeasonWatch seasons,
             final LoginRoster roster,
             final PackMessages messages,
-            final PackSpec config,
-            final @Nullable PackOffer offer,
+            final Supplier<PackSpec> config,
             final WaitingBook book,
             final BackendHealth health) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
@@ -89,7 +94,6 @@ public final class PackStation {
         this.config = Objects.requireNonNull(config, "config");
         this.book = Objects.requireNonNull(book, "book");
         this.health = Objects.requireNonNull(health, "health");
-        this.offer = offer;
     }
 
     /** Registers {@code nordtal:limbo}. */
@@ -150,7 +154,8 @@ public final class PackStation {
     }
 
     private void sendOfferIfNeeded(final Player player) {
-        if (offer == null) {
+        final PackSpec spec = config.get();
+        if (!spec.enabled()) {
             return;
         }
         if (roster.isPackExempt(player.getUniqueId())) {
@@ -159,11 +164,37 @@ public final class PackStation {
             }
             return;
         }
-        if (!book.claimOffer(player.getUniqueId())) {
+        final PackOffer current = offerOf(spec);
+        if (!book.claimOffer(player.getUniqueId(), current.sha1())) {
             return;
         }
-        player.sendResourcePackOffer(offer.forLocale(localeOf(player)));
-        logger.debug("resource pack offered: player={}", player.getUsername());
+        player.sendResourcePackOffer(current.forLocale(localeOf(player)));
+        logger.debug("resource pack offered: player={} sha1={}", player.getUsername(), current.sha1());
+    }
+
+    /** Returns the offer of the pack {@code spec} names, keeping the last one while the settings stay. */
+    private PackOffer offerOf(final PackSpec spec) {
+        final PackOffer last = offer;
+        if (last != null && last.offers(spec)) {
+            return last;
+        }
+        final PackOffer made = new PackOffer(proxy, spec, messages);
+        offer = made;
+        return made;
+    }
+
+    /** Records the applied pack and removes the one it replaced from the client. */
+    private void applied(final Player player, final @Nullable UUID packId) {
+        final UUID uuid = player.getUniqueId();
+        if (!book.answersNewestOffer(uuid, packId)) {
+            logger.debug("resource pack applied that is not the newest offer: player={}", player.getUsername());
+            return;
+        }
+        final String offered = book.offeredSha1(uuid).orElseThrow();
+        book.packApplied(uuid, offered).ifPresent(before -> {
+            player.removeResourcePacks(PackOffer.idOf(before));
+            logger.info("resource pack replaced: player={} sha1={}", player.getUsername(), offered);
+        });
     }
 
     // the client's answer
@@ -174,9 +205,17 @@ public final class PackStation {
         final UUID uuid = player.getUniqueId();
         final Locale locale = localeOf(player);
 
+        // An answer about a pack a newer offer replaced keeps the player, as SUCCESSFUL and DISCARDED do.
+        if (KICKS.contains(event.getStatus()) && !book.answersNewestOffer(uuid, event.getPackId())) {
+            logger.debug(
+                    "answer about a replaced resource pack ignored: player={} status={}",
+                    player.getUsername(),
+                    event.getStatus());
+            return;
+        }
         switch (event.getStatus()) {
             case SUCCESSFUL -> {
-                book.packApplied(uuid);
+                applied(player, event.getPackId());
                 evaluate(player);
             }
             case ACCEPTED, DOWNLOADED -> {}
@@ -193,7 +232,11 @@ public final class PackStation {
                 disconnect(player, messages.invalidUrl(locale));
             }
             case DISCARDED -> {
-                logger.warn("resource pack discarded: player={}", player.getUsername());
+                if (book.offeredSha1(uuid).map(PackOffer::idOf).equals(Optional.ofNullable(event.getPackId()))) {
+                    logger.warn("resource pack discarded: player={}", player.getUsername());
+                } else {
+                    logger.debug("replaced resource pack discarded: player={}", player.getUsername());
+                }
             }
         }
     }
@@ -317,7 +360,7 @@ public final class PackStation {
                 logger.warn(
                         "resource pack offer not answered: player={} seconds={}",
                         player.getUsername(),
-                        config.applyTimeoutSeconds());
+                        config.get().applyTimeoutSeconds());
                 disconnect(player, messages.timedOut(localeOf(player)));
             }
             case RELEASE -> {

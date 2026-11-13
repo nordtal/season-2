@@ -2,7 +2,6 @@ package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.season.SeasonDirectory;
-import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.ServiceHold;
@@ -53,16 +52,6 @@ public final class Runner implements RequestRunner {
      * Whether this is the one-shot a run was handed to, which recreates the long-running agent last.
      */
     final boolean oneShot;
-
-    /** Built on first use. */
-    private volatile @Nullable SettingStore settings;
-
-    SettingStore settings() {
-        if (settings == null) {
-            settings = SettingStore.using(database.dataSource());
-        }
-        return settings;
-    }
 
     /** Built on first use, because a run that stops nothing never asks. */
     private volatile @Nullable Occupancy occupancy;

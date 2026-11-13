@@ -51,15 +51,15 @@ class RunConfigurationsTest {
             final String command = parameters.group(1).replaceFirst(" .*", "");
             assertTrue(commands.contains(command), file.getFileName() + " runs '" + command + "', which dev has not");
         }
-        assertEquals(30, dev.size(), "the dev: folders hold thirty configurations; .run/README.md says so");
+        assertEquals(29, dev.size(), "the dev: folders hold twenty-nine configurations; .run/README.md says so");
     }
 
     @Test
     void theHelpNamesEveryCommand() {
         assertEquals(
                 Set.of(
-                        "init", "up", "deploy", "pack", "ui", "logs", "console", "mc", "psql", "ps", "stop", "down",
-                        "reset", "help"),
+                        "init", "up", "deploy", "ui", "logs", "console", "mc", "psql", "ps", "stop", "down", "reset",
+                        "help"),
                 helpCommands());
     }
 

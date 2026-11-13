@@ -1,7 +1,6 @@
 package eu.nordtal.season.stewardagent.apply;
 
 import eu.nordtal.season.database.DatabaseText;
-import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.JarName;
 import eu.nordtal.season.internalapi.agent.Topology;
@@ -11,7 +10,6 @@ import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.Installation;
 import eu.nordtal.season.stewardagent.plan.PluginsApi;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
-import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.Fetcher;
 import eu.nordtal.season.stewardagent.source.RemoteFile;
 import java.io.IOException;
@@ -41,18 +39,11 @@ public final class Applier {
     private final RunSpec config;
     private final Fetcher fetcher;
 
-    private final SettingStore settings;
-
     private final AgentWire.Topology topology;
 
-    public Applier(
-            final RunSpec config,
-            final Fetcher fetcher,
-            final SettingStore settings,
-            final AgentWire.Topology topology) {
+    public Applier(final RunSpec config, final Fetcher fetcher, final AgentWire.Topology topology) {
         this.config = config;
         this.fetcher = fetcher;
-        this.settings = settings;
         this.topology = topology;
     }
 
@@ -97,7 +88,6 @@ public final class Applier {
         final Change blocked = UpdatePlan.blocker(changes);
         if (blocked != null) {
             markServiceBlocked(service, changes, blocked, outcomes);
-            outcomes.addAll(applyPack(service, changes));
             return outcomes;
         }
 
@@ -106,7 +96,6 @@ public final class Applier {
         final List<Change> work = changes.stream()
                 .filter(change -> change.status().isWork())
                 .filter(change -> change.wanted() != null)
-                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
                 .toList();
 
         markUnsupportedOrUnchanged(service, changes, outcomes);
@@ -114,7 +103,6 @@ public final class Applier {
         retiring.forEach(gone -> outcomes.add(retire(volume, gone)));
 
         if (work.isEmpty()) {
-            outcomes.addAll(applyPack(service, changes));
             return outcomes;
         }
 
@@ -128,13 +116,11 @@ public final class Applier {
             work.forEach(change ->
                     outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.FAILED, why)));
             stagingByDestination.values().forEach(Applier::quietlyDelete);
-            outcomes.addAll(applyPack(service, changes));
             return outcomes;
         }
 
         outcomes.addAll(moveIntoPlace(service, volume, work, staged));
         stagingByDestination.values().forEach(Applier::quietlyDelete);
-        outcomes.addAll(applyPack(service, changes));
         return outcomes;
     }
 
@@ -145,11 +131,8 @@ public final class Applier {
             final List<ApplyResult.Outcome> outcomes) {
         final String why =
                 blocked.artifact() + " could not be checked" + why(blocked) + ", so nothing on this server was touched";
-        // A skipped service still gets a pack row, to say what is sent to the client.
-        changes.stream()
-                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
-                .forEach(change -> outcomes.add(
-                        new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
+        changes.forEach(change ->
+                outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
     }
 
     private static void markUnresolvedServerJarsSkipped(
@@ -171,7 +154,6 @@ public final class Applier {
         changes.stream()
                 .filter(change -> !change.status().isWork())
                 .filter(change -> !change.status().isFailure())
-                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
                 .forEach(change -> outcomes.add(
                         change.status() == Change.Status.UNSUPPORTED
                                 // Not UNCHANGED: nothing is there and nothing was attempted.
@@ -232,57 +214,6 @@ public final class Applier {
             }
         }
         return outcomes;
-    }
-
-    private List<ApplyResult.Outcome> applyPack(final String service, final List<Change> changes) {
-        final Change pack = changes.stream()
-                .filter(change -> change.artifact().equals(Topology.RESOURCE_PACK))
-                .findFirst()
-                .orElse(null);
-        if (pack == null) {
-            return List.of();
-        }
-
-        // "Could not be checked" is not "unchanged": the proxy keeps the previous pack.
-        if (pack.status().isFailure()) {
-            return List.of(new ApplyResult.Outcome(
-                    service,
-                    Topology.RESOURCE_PACK,
-                    ApplyResult.Status.SKIPPED,
-                    "could not be checked" + why(pack)
-                            + "; the proxy's pack was left alone, so the client is still sent "
-                            + (pack.installed() == null ? "whatever it already said" : pack.installed())
-                            + ". The jars beside it were not held back for it."));
-        }
-
-        if (!pack.status().isWork() || pack.wanted() == null) {
-            return List.of(new ApplyResult.Outcome(
-                    service, Topology.RESOURCE_PACK, ApplyResult.Status.UNCHANGED, pack.installed()));
-        }
-
-        final RemoteFile wanted = pack.wanted();
-        final Checksum sha1 = wanted.checksum();
-        if (sha1 == null || !"sha1".equals(sha1.algorithm())) {
-            return List.of(new ApplyResult.Outcome(
-                    service,
-                    Topology.RESOURCE_PACK,
-                    ApplyResult.Status.FAILED,
-                    "the release published no .sha1 for the pack; the client is sent both or neither"));
-        }
-
-        try {
-            final boolean written = PackWriter.write(settings, wanted.url().toString(), sha1.hex());
-            return List.of(new ApplyResult.Outcome(
-                    service,
-                    Topology.RESOURCE_PACK,
-                    written ? ApplyResult.Status.DONE : ApplyResult.Status.UNCHANGED,
-                    written
-                            ? "the proxy now sends " + wanted.fileName() + " (sha1 " + sha1.hex() + ")"
-                            : "the proxy already sent this"));
-        } catch (final RuntimeException failed) {
-            return List.of(new ApplyResult.Outcome(
-                    service, Topology.RESOURCE_PACK, ApplyResult.Status.FAILED, failed.getMessage()));
-        }
     }
 
     /** Returns the staging directory of one destination, created on first use and emptied first. */

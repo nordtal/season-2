@@ -2,7 +2,6 @@ package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.database.inbox.StewardRequest;
-import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateRequest;
@@ -44,20 +43,18 @@ public final class Bootstrap {
             final Clock clock,
             final Consumer<List<String>> handOver) {
         final Instant began = clock.instant();
-        final SettingStore settings = SettingStore.using(database.dataSource());
         final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
         Optional<RunStage> report;
         List<String> services = List.of();
         final CollectedSteps steps = new CollectedSteps();
         try {
             final AgentWire.Topology read = topology.get();
-            final UpdatePlan missing =
-                    Runs.resolve(config, read, plugins, settings).onlyMissing();
+            final UpdatePlan missing = Runs.resolve(config, read, plugins).onlyMissing();
             services = services(missing);
             report = report(
                     new Steps(steps, 1),
                     missing,
-                    handingOver(plan -> Runs.apply(config, read, plan, settings, plugins), handOver));
+                    handingOver(plan -> Runs.apply(config, read, plan, plugins), handOver));
         } catch (final RuntimeException failure) {
             log.error("start-up install resolved nothing, nothing installed", failure);
             new Steps(steps, 1).begin(RunStep.Kind.RESOLVE).failed(RunStep.Reason.UNEXPECTED);

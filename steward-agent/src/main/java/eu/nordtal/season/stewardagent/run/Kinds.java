@@ -63,7 +63,7 @@ final class Kinds {
         // Held services are removed first, since starting one to verify it is what the hold forbids.
         final List<String> holds = runner.held();
         final AgentWire.Topology topology = runner.topology();
-        final UpdatePlan plan = Runs.resolve(runner.config, topology, runner.plugins, runner.settings())
+        final UpdatePlan plan = Runs.resolve(runner.config, topology, runner.plugins)
                 .onlyServices(scope)
                 .withoutServices(holds);
         final Work planned = ForeignImages.withImages(Work.of(plan), images, topology, scope)
@@ -262,8 +262,7 @@ final class Kinds {
                 log.warn("migration not run: cause={}", migrated.message());
                 throw new Run.Abort();
             }
-            final ApplyResult result =
-                    Runs.apply(runner.config, runner.topology(), plan, runner.settings(), runner.plugins);
+            final ApplyResult result = Runs.apply(runner.config, runner.topology(), plan, runner.plugins);
             final List<String> installed = new ArrayList<>(state.services());
             installed.addAll(resting);
             Installed.record(record, planned, result, installed);
@@ -440,7 +439,7 @@ final class Kinds {
     /**
      * Creates the containers of the named services again, from the local image or a pulled one.
      *
-     * Ours are stopped and made again as they start; caddy, pack-host and postgres once the rest is back.
+     * Ours are stopped and made again as they start; caddy and postgres once the rest is back.
      */
     static Planned remake(final Runner runner, final UpdateRequest request, final boolean pull, final Steps record) {
         final List<String> scope = runner.directory.scopeOf(request.id());

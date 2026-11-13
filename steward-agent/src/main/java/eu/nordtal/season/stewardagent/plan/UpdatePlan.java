@@ -53,7 +53,7 @@ public record UpdatePlan(
     /**
      * Returns the row that makes a run leave {@code service} alone, or {@code null} when the run applies its work.
      *
-     * Any failure but the server jar or the pack blocks it; the applier, report and plugin list all read this.
+     * Any failure but the server jar blocks it; the applier, report and plugin list all read this.
      */
     public @Nullable Change blocker(final String service) {
         return blocker(changes.stream()
@@ -66,7 +66,6 @@ public record UpdatePlan(
                 .filter(change -> change.status().isFailure())
                 .filter(change -> !Topology.PAPER.equals(change.artifact()))
                 .filter(change -> !Topology.VELOCITY.equals(change.artifact()))
-                .filter(change -> !Topology.RESOURCE_PACK.equals(change.artifact()))
                 .findFirst()
                 .orElse(null);
     }
@@ -98,7 +97,7 @@ public record UpdatePlan(
     }
 
     /**
-     * Returns the plan for some of the services, without the resource pack.
+     * Returns the plan for some of the services, without a row that belongs to no service.
      *
      * @param services compose service names, empty returns the plan unchanged, because empty means the whole network
      */
@@ -111,7 +110,7 @@ public record UpdatePlan(
                 resolvedAt,
                 seasonTag,
                 seasonPrerelease,
-                // Drops the resource pack, and keeps null away from Set.copyOf's contains(), which throws.
+                // Drops a row without a service, and keeps null away from Set.copyOf's contains(), which throws.
                 changes.stream()
                         .filter(change -> change.service() != null && wanted.contains(change.service()))
                         .toList(),
@@ -134,7 +133,7 @@ public record UpdatePlan(
                 resolvedAt,
                 seasonTag,
                 seasonPrerelease,
-                // Same null check as onlyServices, here keeping the resource pack: it belongs to no service.
+                // Same null check as onlyServices, here keeping a row that belongs to no service.
                 changes.stream()
                         .filter(change -> change.service() == null || !gone.contains(change.service()))
                         .toList(),

@@ -88,9 +88,9 @@ final class LocalProject {
         return root.resolve(value).resolve(service).normalize();
     }
 
-    Path packRoot() {
+    Path packDir() {
         return root.resolve(
-                        env.value("PACK_ROOT").filter(value -> !value.isBlank()).orElse("./deploy/pack"))
+                        env.value("PACK_DIR").filter(value -> !value.isBlank()).orElse("./deploy/pack"))
                 .normalize();
     }
 

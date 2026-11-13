@@ -13,7 +13,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
@@ -93,6 +95,9 @@ public final class ProxySwap {
         this.settled = Objects.requireNonNull(settled, "settled");
         this.startedAt = this.clock.instant();
     }
+
+    /** The longest wait for a player's move into a waiting room before the transfer goes ahead. */
+    static final Duration MOVE_WAIT = Duration.ofSeconds(5);
 
     /** The time that the standby has to answer. */
     static final Duration STANDBY_ANSWERS_WITHIN = Duration.ofSeconds(1);
@@ -224,8 +229,23 @@ public final class ProxySwap {
                 target.getPort());
         for (final Player player : players) {
             seat(player);
-            settled.apply(player.getUniqueId()).whenComplete((_, _) -> transfer(player));
+            final var _ = afterMove(settled.apply(player.getUniqueId()), MOVE_WAIT, () -> transfer(player));
         }
+    }
+
+    /**
+     * Runs {@code then} once the move has ended, or after {@code limit} for a move that hangs.
+     *
+     * @return the end of {@code then}
+     */
+    static CompletableFuture<Void> afterMove(final CompletionStage<?> move, final Duration limit, final Runnable then) {
+        return move.toCompletableFuture()
+                .<@Nullable Void>thenApply(_ -> null)
+                .completeOnTimeout(null, limit.toMillis(), TimeUnit.MILLISECONDS)
+                .handle((_, _) -> {
+                    then.run();
+                    return null;
+                });
     }
 
     /** Stores the count of the transferred players. A failed write is logged. */

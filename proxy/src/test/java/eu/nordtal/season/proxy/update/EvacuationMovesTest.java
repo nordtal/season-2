@@ -111,12 +111,14 @@ class EvacuationMovesTest {
 
         assertEquals(1, scheduler.pending().size());
         assertEquals(Evacuation.RETRY, scheduler.pending().getFirst().delay());
+        assertFalse(evacuation.settled(player.getUniqueId()).isDone(), "the proxy swap waits for the next try too");
         scheduler.runPending();
 
         assertEquals(List.of("limbo", "limbo-standby"), asked, "the second try goes to the other waiting room");
         moves.getLast().complete(result(ConnectionRequestBuilder.Status.SUCCESS));
         assertEquals(1, counted.get(), "only the move that landed counts");
         assertEquals(1, told.size());
+        assertTrue(evacuation.settled(player.getUniqueId()).isDone());
     }
 
     @Test
@@ -129,6 +131,7 @@ class EvacuationMovesTest {
         scheduler.runPending();
 
         assertEquals(1, moves.size(), "the run no longer stops the player's server");
+        assertTrue(evacuation.settled(player.getUniqueId()).isDone(), "no try follows, so the swap may go ahead");
     }
 
     @Test
@@ -188,9 +191,11 @@ class EvacuationMovesTest {
         moves.getFirst().complete(result(ConnectionRequestBuilder.Status.CONNECTION_IN_PROGRESS));
 
         evacuation.check();
+        assertEquals(1, moves.size(), "the pass leaves the next try to the timer");
+        scheduler.runPending();
 
         assertEquals(0, told.size(), "Velocity's 'already connecting' never reaches the player");
-        assertEquals(2, moves.size(), "a move that did not happen is asked for again on the next pass");
+        assertEquals(2, moves.size(), "a move that did not happen is asked for again");
         assertEquals(0, counted.get());
     }
 

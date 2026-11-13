@@ -139,7 +139,7 @@ public final class Evacuation {
 
     /**
      * Returns the end of the player's move into the waiting room, already complete when no move is under way.
-     * It completes whether the move succeeded or failed.
+     * It completes once the move landed or no further try follows, and stays open while a try waits.
      */
     public CompletableFuture<Void> settled(final UUID player) {
         return inFlight.getOrDefault(player, CompletableFuture.completedFuture(null));
@@ -394,11 +394,16 @@ public final class Evacuation {
         }
     }
 
-    /** Tries the move again in {@link #retryRoom} while the run still stops the player's server. */
-    private synchronized void retry(final Player player, final String failed) {
+    /**
+     * Tries the move again in {@link #retryRoom} while the run still stops the player's server.
+     *
+     * @param waited the end of the failed move, held open until this try ends
+     */
+    private synchronized void retry(final Player player, final String failed, final CompletableFuture<Void> waited) {
         final Leg now = leg;
         final String on = serverOf(player);
         if (now == null || on == null || !player.isActive() || !moving.contains(on)) {
+            release(player, waited);
             return;
         }
         final String room = retryRoom(
@@ -411,9 +416,22 @@ public final class Evacuation {
                 room == null ? null : proxy.getServer(room).orElse(null);
         if (target == null) {
             logger.warn("player not moved, no waiting room left: player={} from={}", player.getUsername(), on);
+            release(player, waited);
             return;
         }
-        move(player, target, on, now);
+        final CompletableFuture<Void> ended = new CompletableFuture<>();
+        if (!inFlight.replace(player.getUniqueId(), waited, ended)) {
+            waited.complete(null);
+            return;
+        }
+        final var _ = ended.whenComplete((_, _) -> waited.complete(null));
+        connect(player, target, on, now, ended);
+    }
+
+    /** Ends the wait for the player's move. */
+    private void release(final Player player, final CompletableFuture<Void> ended) {
+        inFlight.remove(player.getUniqueId(), ended);
+        ended.complete(null);
     }
 
     /** Returns the server of the player, {@code null} while the player connects. */
@@ -434,6 +452,16 @@ public final class Evacuation {
         if (inFlight.putIfAbsent(player.getUniqueId(), ended) != null) {
             return;
         }
+        connect(player, room, from, now, ended);
+    }
+
+    /** Sends the connect whose end {@code ended} marks. */
+    private void connect(
+            final Player player,
+            final RegisteredServer room,
+            final String from,
+            final Leg now,
+            final CompletableFuture<Void> ended) {
         final String name = room.getServerInfo().getName();
         try {
             final var _ = player.createConnectionRequest(room)
@@ -463,6 +491,7 @@ public final class Evacuation {
             final ConnectionRequestBuilder.@Nullable Result result,
             final @Nullable Throwable failure,
             final CompletableFuture<Void> ended) {
+        boolean retried = false;
         try {
             if (failure == null && result != null && result.isSuccessful()) {
                 landed(player, room, from, now);
@@ -470,27 +499,29 @@ public final class Evacuation {
             }
             if (failure != null) {
                 logger.warn(
-                        "player not moved into waiting room, retried: player={} waiting_room={} seconds={}",
+                        "player not moved into waiting room, trying again: player={} waiting_room={} seconds={}",
                         player.getUsername(),
                         room,
                         RETRY.toSeconds(),
                         failure);
             } else {
                 logger.info(
-                        "player not moved into waiting room, retried: player={} waiting_room={} status={} seconds={}",
+                        "player not moved into waiting room, trying again: player={} waiting_room={} status={} seconds={}",
                         player.getUsername(),
                         room,
                         result == null ? null : result.getStatus(),
                         RETRY.toSeconds());
             }
             try {
-                final var _ = scheduler.after(RETRY, () -> retry(player, room));
+                final var _ = scheduler.after(RETRY, () -> retry(player, room, ended));
+                retried = true;
             } catch (final RejectedExecutionException stopped) {
                 logger.warn("move retry not scheduled: player={}", player.getUsername(), stopped);
             }
         } finally {
-            inFlight.remove(player.getUniqueId(), ended);
-            ended.complete(null);
+            if (!retried) {
+                release(player, ended);
+            }
         }
     }
 

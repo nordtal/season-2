@@ -98,6 +98,11 @@ final class Steps {
             end(Outcome.DONE, null);
         }
 
+        /** Returns whether this step has a row, which a schema older than this code leaves out. */
+        boolean written() {
+            return id != 0;
+        }
+
         void skipped(final Reason reason) {
             end(Outcome.SKIPPED, reason);
         }

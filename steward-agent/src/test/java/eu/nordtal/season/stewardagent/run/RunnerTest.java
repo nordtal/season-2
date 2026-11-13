@@ -212,6 +212,33 @@ class RunnerTest {
         assertFalse(steps(after.id()).isEmpty(), "once the schema has the tables, the run writes its rows again");
     }
 
+    /** A run that migrates on its way wrote no moves before, so it cannot say that everyone came back. */
+    @Test
+    void playersBackIsUnknownWhenTheRunMigratedAfterTheMovesWentUnwritten() {
+        database.close();
+        final TestDatabase older = TestDatabase.empty();
+        older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "91");
+        open(older);
+        try (var connection = older.dataSource().getConnection();
+                var statement = connection.createStatement()) {
+            statement.execute("WITH asked AS (INSERT INTO steward_inbox (kind, actor_kind) VALUES ('RESTART', 'HOST')"
+                    + " RETURNING id) INSERT INTO run_service (run, service, moving, named) SELECT id, 'smp', false, true"
+                    + " FROM asked");
+        } catch (final java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
+        final UpdateRequest request = directory.claimNext().orElseThrow();
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                older.migrate(DatabaseRole.placeholders(DatabaseRole.PREFIX), "latest");
+            }
+        };
+
+        runner.run(request, progress::add);
+
+        assertEquals("PLAYERS_BACK WARNING PLAYERS_UNKNOWN", steps(request.id()).getLast(), steps().toString());
+    }
+
     /** A one-shot's last act is the long-running agent at its own release, after every server is back. */
     @Test
     void aOneShotRenewsTheLongRunningAgentLastOfAll() {

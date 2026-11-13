@@ -1,17 +1,18 @@
 package eu.nordtal.season.build
 
 import kotlin.math.ceil
-import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.pow
+import kotlin.math.sin
 
 /**
  * The wheel's turn, tick by tick. It starts at [START_SPEED] and slows down evenly, the same in every variant for the
  * first [SHARED] ticks, so the pack writes that part once. Each variant then eases into its own even slowing onto the
  * pin at the far edge of the winning field, losing a little speed at each of the last pegs, rests [HOLD] ticks against
- * it with the pointer bent, and rocks back to the field's middle in [SETTLE] ticks. Angles are degrees clockwise from
- * where the turn starts, so the turn of variant e rests at [distance], 3 whole turns and e places on.
+ * it with the pointer bent, and springs back to the field's middle in [SETTLE] ticks, quick at first and easing in.
+ * Angles are degrees clockwise from where the turn starts, so the turn of variant e rests at [distance], 3 whole turns
+ * and e places on.
  */
 object WheelTurn {
     const val TURNS = 3
@@ -24,7 +25,7 @@ object WheelTurn {
 
     /** How far past the field's middle the pin stops the wheel, the ticks it rests there, and the ticks it rocks back. */
     const val PIN = 15.0
-    const val HOLD = 8
+    const val HOLD = 4
     const val SETTLE = 36
 
     /** The ticks between two pops when the dialog opens, and how far a popping prize is lifted on its tick and the next. */
@@ -108,7 +109,7 @@ object WheelTurn {
             t <= SHARED -> START_SPEED * t - DECELERATION * t * t / 2
             t <= m.end -> interpolate(m.times, m.angles, t)
             t <= m.end + HOLD -> pin
-            t <= m.end + HOLD + SETTLE -> distance(e) + PIN * (1 + cos(Math.PI * (t - m.end - HOLD) / SETTLE)) / 2
+            t <= m.end + HOLD + SETTLE -> distance(e) + PIN * (1 - sin(Math.PI / 2 * (t - m.end - HOLD) / SETTLE))
             else -> distance(e)
         }
     }

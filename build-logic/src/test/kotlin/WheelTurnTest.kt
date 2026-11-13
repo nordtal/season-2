@@ -38,7 +38,11 @@ class WheelTurnTest {
     @Test
     fun theSlowingNeverJumpsWhereTheVariantsPart() {
         for (e in variants) {
-            val slowing = (WheelTurn.SHARED - 5 until WheelTurn.SHARED + 40).map { WheelTurn.speed(e, it - 0.5) - WheelTurn.speed(e, it + 0.5) }
+            val slowing =
+                (WheelTurn.SHARED - 5 until WheelTurn.SHARED + 40).map {
+                    WheelTurn.speed(e, it - 0.5) -
+                        WheelTurn.speed(e, it + 0.5)
+                }
             for (i in 1 until slowing.size) {
                 assertTrue(abs(slowing[i] - slowing[i - 1]) <= 0.002, "variant $e slowing jumps at tick ${WheelTurn.SHARED - 5 + i}")
             }

@@ -381,24 +381,36 @@ internal class WheelPack(
         val own =
             offsets.associateWith { e ->
                 val s = WheelSpin(e)
-                range(WheelSpin.runs((WheelTurn.SHARED until cooldown).map { spin(s, it) }, rest(s), WheelTurn.SHARED), cooldown, raw, raw(rest(s)))
+                range(
+                    WheelSpin.runs((WheelTurn.SHARED until cooldown).map { spin(s, it) }, rest(s), WheelTurn.SHARED),
+                    cooldown,
+                    raw,
+                    raw(rest(s)),
+                )
             }
-        val variants = select(index, offsets.drop(1).map { mapOf("when" to it.toString(), "model" to own.getValue(it)) }, own.getValue(offsets[0]))
+        val variants =
+            select(index, offsets.drop(1).map { mapOf("when" to it.toString(), "model" to own.getValue(it)) }, own.getValue(offsets[0]))
         return select(index, listOf(mapOf("when" to OPEN, "model" to open)), range(shared, cooldown, raw, variants))
     }
 
     private fun disc(
         parity: Int,
         offsets: List<Int>,
-    ) = body(0, offsets, { WheelSpin.waitingDisc(parity) }, WheelSpin.waitingDisc(parity), { s, t -> s.disc(parity, t) }, { it.discRest(parity) }, ::discNode)
+    ) = body(0, offsets, {
+        WheelSpin.waitingDisc(parity)
+    }, WheelSpin.waitingDisc(parity), { s, t -> s.disc(parity, t) }, { it.discRest(parity) }, ::discNode)
 
     private fun prize(
         b: Int,
         offsets: List<Int>,
-    ) = body(1, offsets, { WheelSpin.popIn(b, it) }, WheelSpin.waiting(b), { s, t -> s.prize(b, t) }, { it.prizeRest(b) }) { prizeNode(1 + b, it) }
+    ) = body(1, offsets, {
+        WheelSpin.popIn(b, it)
+    }, WheelSpin.waiting(b), { s, t -> s.prize(b, t) }, { it.prizeRest(b) }) { prizeNode(1 + b, it) }
 
     private fun overlay(offsets: List<Int>) =
-        body(WheelLayout.PLACES, offsets, WheelSpin::popInOverlay, WheelSpin.waitingOverlay(), { s, t -> s.overlay(t) }, { it.overlayRest() }, ::overlayNode)
+        body(WheelLayout.PLACES, offsets, WheelSpin::popInOverlay, WheelSpin.waitingOverlay(), { s, t -> s.overlay(t) }, {
+            it.overlayRest()
+        }, ::overlayNode)
 
     private fun item(
         body: Int,

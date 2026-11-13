@@ -3,50 +3,92 @@ package eu.nordtal.season.build
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.abs
 
 class WheelTurnTest {
     private val variants = WheelSpin.offsets(WheelLayout.PLACES)
 
     @Test
-    fun theBlurStreaksOnlyEverMoveOn() {
-        for (e in variants) {
-            val blurs = WheelTurn.ticks(e).mapNotNull { it.blur }
-            for (i in 1 until blurs.size) {
-                val step = Math.floorMod(blurs[i] - blurs[i - 1], WheelTurn.BLUR_TEXTURES)
-                assertTrue(step != WheelTurn.BLUR_TEXTURES - 1, "variant $e steps back at blur tick $i: $blurs")
-            }
-        }
-    }
-
-    @Test
-    fun theTurnStartsBlurredAndEndsSharpOnTheWinner() {
+    fun everyVariantSharesTheStartAndRestsOnItsWinner() {
+        val first = WheelTurn.ticks(variants[0]).take(WheelTurn.SHARED)
         for (e in variants) {
             val ticks = WheelTurn.ticks(e)
-            assertEquals(WheelTurn.TICKS, ticks.size)
-            assertTrue(ticks.take(10).any { it.blur != null }, "variant $e starts fast")
-            assertTrue(ticks.takeLast(WheelTurn.SETTLE).all { it.blur == null }, "variant $e settles sharp")
+            assertEquals(first, ticks.take(WheelTurn.SHARED), "variant $e")
+            assertEquals(WheelTurn.length(e), ticks.size)
+            assertTrue(ticks.size <= WheelTurn.COOLDOWN)
             assertEquals(WheelTurn.discFrame(WheelTurn.distance(e)), WheelTurn.discFrame(ticks.last().angle), "variant $e")
         }
     }
 
     @Test
-    fun aPegClicksAtMostOnceATickAndThePegPastTheWinnerClicksTwice() {
+    fun theWheelNeverRunsFasterThanThreeFramesATickAndSlowsDownEvenly() {
         for (e in variants) {
-            val clicks = WheelTurn.clicks(e)
-            assertEquals(clicks.sorted().distinct(), clicks)
-            // Three whole turns and e places forward, one peg past the winner, and back over it; a fast tick that
-            // passes two pegs clicks once.
-            assertTrue(clicks.size <= WheelTurn.TURNS * WheelLayout.PLACES + e + 2, "variant $e")
-            assertTrue(clicks.size >= WheelTurn.TURNS * WheelLayout.PLACES, "variant $e")
-            assertTrue(clicks.takeLast(2).all { it > WheelTurn.TICKS / 2 }, "variant $e ends on the pegs: $clicks")
+            val angles = WheelTurn.ticks(e).map { it.angle }
+            for (i in 1 until angles.size) {
+                assertTrue(angles[i] - angles[i - 1] <= WheelTurn.START_SPEED + 1e-9, "variant $e at tick $i")
+            }
+            val dips = WheelTurn.distance(e) + WheelTurn.PIN - 120.0
+            val beforeDips = (0 until WheelTurn.length(e)).takeWhile { WheelTurn.angle(e, it + 0.5) < dips }
+            val speeds = beforeDips.map { WheelTurn.speed(e, it.toDouble()) }
+            for (i in 1 until speeds.size) assertTrue(speeds[i] <= speeds[i - 1] + 1e-9, "variant $e speeds up at tick $i")
+            assertTrue(WheelTurn.length(e) >= 160, "variant $e turns long")
         }
     }
 
     @Test
-    fun theRollBackMirrorsThePointer() {
+    fun theSlowingNeverJumpsWhereTheVariantsPart() {
         for (e in variants) {
-            val back = WheelTurn.ticks(e).takeLast(WheelTurn.SETTLE).map { it.pointer }
-            assertTrue(back.none { it == WheelTurn.Pointer.TICK1 || it == WheelTurn.Pointer.TICK2 }, "variant $e: $back")
+            val slowing =
+                (WheelTurn.SHARED - 5 until WheelTurn.SHARED + 40).map {
+                    WheelTurn.speed(e, it - 0.5) -
+                        WheelTurn.speed(e, it + 0.5)
+                }
+            for (i in 1 until slowing.size) {
+                assertTrue(abs(slowing[i] - slowing[i - 1]) <= 0.002, "variant $e slowing jumps at tick ${WheelTurn.SHARED - 5 + i}")
+            }
+        }
+    }
+
+    @Test
+    fun thePointerStopsAgainstTheFarPinAndTheWheelRocksBackWithoutCrossingIt() {
+        for (e in variants) {
+            val ticks = WheelTurn.ticks(e)
+            val pin = WheelTurn.distance(e) + WheelTurn.PIN
+            assertTrue(ticks.all { it.angle <= pin + 1e-9 }, "variant $e passes the pin")
+            val top = ticks.indexOfFirst { it.angle >= pin - 1e-9 }
+            assertEquals(WheelTurn.Pointer.TICK1, ticks[top].pointer, "variant $e bends on the pin")
+            val back = ticks.drop(top)
+            for (i in 1 until back.size) assertTrue(back[i].angle <= back[i - 1].angle + 1e-9, "variant $e rocks forward again")
+            assertEquals(WheelTurn.Pointer.REST, ticks.last().pointer)
+        }
+    }
+
+    @Test
+    fun aPegClicksAtMostOnceATickAndTheFarPinOnce() {
+        for (e in variants) {
+            val clicks = WheelTurn.clicks(e)
+            assertEquals(clicks.sorted().distinct(), clicks)
+            assertTrue(clicks.size <= WheelTurn.TURNS * WheelLayout.PLACES + e + 1, "variant $e")
+            assertTrue(clicks.size >= WheelTurn.TURNS * WheelLayout.PLACES, "variant $e")
+            assertTrue(clicks.last() < WheelTurn.length(e) - WheelTurn.SETTLE, "variant $e clicks while rocking back: $clicks")
+        }
+    }
+
+    @Test
+    fun thePrizesPopInFasterThanBefore() {
+        assertTrue(WheelTurn.OPEN_TICKS <= 25)
+        assertEquals(null, WheelSpin.popIn(11, 0))
+        assertEquals(WheelSpin.waiting(11), WheelSpin.popIn(11, WheelTurn.OPEN_TICKS))
+    }
+
+    @Test
+    fun aTurnedWheelPlacesItsPrizesAsTheSameWheelAtRest() {
+        for (e in 0 until WheelLayout.PLACES) {
+            for (b in 0 until WheelLayout.PLACES) {
+                val turned = WheelSpin(e).prizeRest(b)
+                val rest = WheelSpin.waiting((b + e) % WheelLayout.PLACES)
+                assertEquals(rest, turned, "variant $e body $b")
+            }
         }
     }
 
@@ -58,9 +100,9 @@ class WheelTurnTest {
 
     @Test
     fun aRunShowsFromHalfwayIntoItsLastTickAndTheRestIsTheFallback() {
-        val runs = WheelSpin.runs(listOf("a", "a", "b", "r", "r"), "r")
-        assertEquals(listOf(1 to "a", 2 to "b"), runs)
-        assertEquals((WheelSpin.COOLDOWN - 1.5) / WheelSpin.COOLDOWN, (WheelSpin.threshold(1) as Number).toDouble(), 1e-4)
+        val runs = WheelSpin.runs(listOf("a", "a", "b", "r", "r"), "r", 5)
+        assertEquals(listOf(6 to "a", 7 to "b"), runs)
+        assertEquals((200 - 1.5) / 200, (WheelSpin.threshold(1, 200) as Number).toDouble(), 1e-4)
     }
 
     @Test

@@ -14,7 +14,8 @@ class WheelTimetableTest {
     void readsTheVariantsWithTheirClicks() {
         final Properties properties = new Properties();
         properties.setProperty("cooldown", "199");
-        properties.setProperty("swap", "49");
+        properties.setProperty("open", "24");
+        properties.setProperty("end.0", "180");
         properties.setProperty("pops", "0, 3,6");
         properties.setProperty("variants", "0,5");
         properties.setProperty("clicks.0", "50,51");
@@ -25,6 +26,9 @@ class WheelTimetableTest {
         assertEquals(List.of(0, 5), timetable.variants());
         assertEquals(List.of(50, 51), timetable.clicks().get(0));
         assertEquals(List.of(), timetable.clicks().get(5));
+        assertEquals(24, timetable.open());
+        assertEquals(180, timetable.end(0));
+        assertEquals(199, timetable.end(5));
     }
 
     @Test
@@ -41,7 +45,8 @@ class WheelTimetableTest {
         timetable
                 .clicks()
                 .values()
-                .forEach(clicks -> clicks.forEach(tick ->
-                        assertTrue(tick >= timetable.swap() && tick < timetable.cooldown(), "click at " + tick)));
+                .forEach(clicks -> clicks.forEach(
+                        tick -> assertTrue(tick > 0 && tick < timetable.cooldown(), "click at " + tick)));
+        timetable.variants().forEach(variant -> assertTrue(timetable.end(variant) <= timetable.cooldown()));
     }
 }

@@ -1,16 +1,29 @@
 package eu.nordtal.season.smp.wheel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class WheelPlanTest {
 
     private static WheelPrizeSpec prize(final String item, final int amount) {
+        return prize(item, amount, 1);
+    }
+
+    private static WheelPrizeSpec prize(final String item, final int amount, final int weight) {
         return new WheelPrizeSpec() {
+            @Override
+            public int weight() {
+                return weight;
+            }
+
             @Override
             public String item() {
                 return item;
@@ -31,32 +44,63 @@ class WheelPlanTest {
         return out;
     }
 
-    private final WheelPlan.Face before = new WheelPlan.Face(numbered("minecraft:dirt"), 1);
-    private final WheelPrizeSpec winner = prize("minecraft:diamond", 16);
+    private final WheelPlan.Face face = new WheelPlan.Face(numbered("minecraft:dirt"), 1);
 
     @Test
-    void theWinnerStopsUnderThePointerInEveryVariant() {
+    void theBodyThatStopsUnderThePointerWinsAndTheFaceTurnsWithIt() {
         for (int variant = 0; variant < WheelPlan.PLACES; variant++) {
-            final WheelPlan plan =
-                    WheelPlan.of(before, winner, numbered("minecraft:stone").subList(0, 11), variant);
-            assertEquals(winner, plan.bodies().get(WheelPlan.winnerBody(variant)));
-            assertEquals(winner, plan.after().places().get(0), "variant " + variant);
+            final WheelPlan plan = WheelPlan.turning(face, variant);
+            assertEquals(plan.bodies().get(WheelPlan.winnerBody(variant)), plan.winner());
+            assertEquals(plan.winner(), plan.after().places().get(0), "variant " + variant);
             assertEquals((1 + variant) % 2, plan.after().parity());
+            assertEquals(Set.copyOf(face.places()), Set.copyOf(plan.after().places()), "the prizes stay");
         }
     }
 
     @Test
-    void theStringsNameEachBodysPrizeAndWhatItsPlaceShowedBefore() {
-        final WheelPlan plan =
-                WheelPlan.of(before, winner, numbered("minecraft:stone").subList(0, 11), 3);
+    void theWaitingWheelPlaysThePopInAndKeepsItsFace() {
+        final WheelPlan plan = WheelPlan.waiting(face);
+        assertEquals(List.of("open", "1"), plan.disc());
+        assertEquals(List.of("dirt", "open"), plan.prize(3));
+        assertEquals(face, plan.after());
+    }
+
+    @Test
+    void theStringsNameEachBodysPrizeTheVariantAndTheLanguage() {
+        final WheelPlan plan = WheelPlan.turning(face, 3);
         assertEquals(List.of("3", "1"), plan.disc());
-        assertEquals(List.of("stone", "3", "dirt"), plan.prize(0));
-        assertEquals(List.of("diamond", "3", "dirt"), plan.prize(9));
+        assertEquals(List.of("dirt", "3"), plan.prize(0));
         final List<String> overlay = plan.overlay("de");
-        assertEquals(2 * WheelPlan.PLACES + 2, overlay.size());
-        assertEquals("16", overlay.get(9));
+        assertEquals(WheelPlan.PLACES + 2, overlay.size());
+        assertEquals("10", overlay.get(9));
         assertEquals("3", overlay.get(12));
-        assertEquals("1", overlay.get(13));
-        assertEquals("de", overlay.get(25));
+        assertEquals("de", overlay.get(13));
+    }
+
+    @Test
+    void aNewFaceShowsEachPrizeOfThePoolBeforeAnyTwice() {
+        final List<WheelPrizeSpec> pool = numbered("minecraft:stone").subList(0, 5);
+        final WheelPlan.Face drawn = WheelPlan.Face.random(pool, new Random(7));
+        assertEquals(WheelPlan.PLACES, drawn.places().size());
+        assertEquals(Set.copyOf(pool), Set.copyOf(drawn.places().subList(0, 5)));
+        assertTrue(drawn.drawnFrom(pool));
+        assertFalse(drawn.drawnFrom(pool.subList(0, 4)), "a prize that left the pool draws a new face");
+    }
+
+    @Test
+    void theDrawLandsOnlyOnPlacesAVariantReachesAndFollowsTheWeights() {
+        final List<WheelPrizeSpec> places = new ArrayList<>(numbered("minecraft:stone"));
+        places.set(WheelPlan.winnerBody(4), prize("minecraft:diamond", 1, 1000));
+        final WheelPlan.Face weighted = new WheelPlan.Face(places, 0);
+        final Random random = new Random(1);
+        int diamonds = 0;
+        for (int i = 0; i < 2000; i++) {
+            final int variant = weighted.draw(places, List.of(0, 4, 8), random);
+            assertTrue(List.of(0, 4, 8).contains(variant));
+            if (variant == 4) {
+                diamonds++;
+            }
+        }
+        assertTrue(diamonds > 1900, "the weight of 1000 against 1 and 1 wins most draws: " + diamonds);
     }
 }

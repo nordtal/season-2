@@ -44,37 +44,45 @@ final class WheelDialog {
                     1,
                     Slot.label("spins-left"),
                     Slot.label("no-spins-left"),
-                    Slot.label("again-button"),
-                    Slot.label("again-title"),
-                    Slot.label("again-cost"),
-                    Slot.label("again-none"))
+                    Slot.label("spin-button"),
+                    Slot.label("spin-title"),
+                    Slot.label("spin-cost"),
+                    Slot.label("spin-none"))
             .titled("Wheel of Fortune");
 
     /** The item group whose cooldown plays the spin. */
     static final Key GROUP = Key.key("nordtal", "wheel");
 
     /** The panel's top, which the header draws from. */
-    private static final int TOP = 64;
+    private static final int TOP = 62;
+
+    /** The panel's one margin around the header, the wheel and the plate. */
+    private static final int MARGIN = 9;
 
     /** The prize body that carries the plate's row. */
     private static final int PLATE_BODY = 4;
 
-    private static final int PLATE_ITEM = 100;
+    /**
+     * The width of the plate body's item, centred where the wheel needs it.
+     * Its description starts half the extra width further right, which moves the plate to its margin.
+     */
+    private static final int PLATE_ITEM = 106;
+
     private static final int DESCRIPTION = 86;
     private static final int PLATE_WIDTH = 75;
 
-    /** The plate's left from the description's text, so it stands at the panel's left + 114. */
+    /** The plate's left from the description's text; any further and the description wraps the plate. */
     private static final int PLATE_X = 1;
 
-    /** The spins line's ui text font under its text row, the description's second. */
-    private static final int SPINS_SHIFT = 16;
+    /** The spins line's ui text font under its text row, inside the client's hover outline. */
+    private static final int SPINS_SHIFT = 13;
 
     private WheelDialog() {}
 
     /** The words on the wheel, read from {@link #DOCUMENT} in the player's language. */
-    record Texts(Component heading, String name, String spins, String again, String title, String cost, String none) {}
+    record Texts(Component heading, String name, String spins, String button, String title, String cost, String none) {}
 
-    /** The dialog of {@code plan}, one of {@code prizes} per body; {@code click}, null without spins, spins again. */
+    /** The dialog of {@code plan}, one of {@code prizes} per body; {@code click} spins, null without spins left. */
     static Dialog of(
             final WheelPlan plan,
             final List<ItemStack> prizes,
@@ -98,8 +106,8 @@ final class WheelDialog {
                             : body(stack));
         }
         bodies.add(body(stack(named(texts.heading()), "overlay", plan.overlay(language))));
-        final Component title = DialogTitle.of(DialogPanel.WHEEL_137, TOP)
-                .header(Symbol.WHEEL, texts.name(), List.of())
+        final Component title = DialogTitle.of(DialogPanel.WHEEL_141, TOP)
+                .header(Symbol.WHEEL, texts.name(), List.of(), MARGIN)
                 .build();
         return Dialog.create(builder ->
                 builder.empty().base(Dialogs.base(title).body(bodies).build()).type(Dialogs.bodyOnly()));
@@ -113,13 +121,14 @@ final class WheelDialog {
                 .at(PLATE_X)
                 .button(
                         new BodyLine.Press(click, hover),
-                        line -> line.plate(PLATE_WIDTH, null, texts.again(), spinLeft ? Look.PRIMARY : Look.DISABLED))
+                        line -> line.plate(PLATE_WIDTH, null, texts.button(), spinLeft ? Look.PRIMARY : Look.DISABLED))
                 .build();
         final String spins = Letters.cut(texts.spins(), PLATE_WIDTH);
         final Component line = Pen.start()
                 .moveTo(PLATE_X + (PLATE_WIDTH - Letters.visibleWidth(spins) + 1) / 2)
                 .text(SPINS_SHIFT, spins, Colours.SOFT)
-                .build();
+                // The dialog centres each line, so both end with the plate.
+                .build(PLATE_X + PLATE_WIDTH);
         return Component.textOfChildren(plate, Component.newline(), line);
     }
 

@@ -27,7 +27,7 @@ abstract class GenerateWheel : VanillaClientTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val prizes: RegularFileProperty
 
-    /** The wheel's text document, whose `again-button` label the off plate draws in each language. */
+    /** The wheel's text document, whose `spin-button` label the off plate draws in each language. */
     @get:InputFile
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val texts: RegularFileProperty
@@ -61,10 +61,10 @@ abstract class GenerateWheel : VanillaClientTask() {
     }
 
     companion object {
-        /** The `again-button` label per language, German first: the off plate's fallback. */
+        /** The `spin-button` label per language, German first: the off plate's fallback. */
         fun labels(document: File): Map<String, String> {
             val parts = (JsonSlurper().parse(document) as Map<*, *>)["parts"] as List<*>
-            val part = parts.map { it as Map<*, *> }.single { it["slot"] == "again-button" }
+            val part = parts.map { it as Map<*, *> }.single { it["slot"] == "spin-button" }
             val text = ((part["lines"] as List<*>).single() as Map<*, *>)["text"] as Map<*, *>
             return text.entries
                 .map { it.key as String to it.value as String }

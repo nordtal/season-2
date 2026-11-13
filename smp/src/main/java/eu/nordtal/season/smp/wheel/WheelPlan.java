@@ -2,91 +2,147 @@ package eu.nordtal.season.smp.wheel;
 
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
 /**
- * One spin's arrangement of the 12 prizes on the wheel.
- * Body b starts at place b, place 0 under the pointer, and stops at (b + variant) mod 12.
+ * What the wheel shows of a player's face: waiting for the press, or turning in one variant.
+ * Body b shows the prize at place b, place 0 under the pointer, and a turn stops it at (b + variant) mod 12.
  *
- * @param variant the turn variant: how many places past whole turns the wheel stops
- * @param bodies the prize of each body, body 0 first
- * @param before what the wheel showed before this spin
+ * @param variant the turn variant, how many places past whole turns the wheel stops, or {@link #WAITING}
+ * @param face the prizes on the wheel before this turn
  */
-record WheelPlan(int variant, List<WheelPrizeSpec> bodies, Face before) {
+record WheelPlan(int variant, Face face) {
 
     static final int PLACES = 12;
 
+    /** The variant of a wheel that waits for the press, whose prizes pop in. */
+    static final int WAITING = -1;
+
+    /** The variant string the pack plays the pop-in for. */
+    static final String OPEN = "open";
+
     /**
-     * What the wheel shows at rest: the prize at each place, place 0 first, and the parity of the disc's grain.
+     * The prizes at each place, place 0 first, and the parity of the disc's grain.
      * The grain stands at its frame 0 or 8, so the next turn starts from the grain the last one stopped on.
      */
     record Face(List<WheelPrizeSpec> places, int parity) {
 
         Face {
             places = List.copyOf(places);
+            if (places.size() != PLACES) {
+                throw new IllegalArgumentException("the wheel shows " + PLACES + " prizes");
+            }
         }
 
-        /** A face for a player who has not seen the wheel since the server started: prizes drawn at random. */
+        /** A new face: the prizes of {@code pool} in random places, each before any shows twice. */
         static Face random(final List<WheelPrizeSpec> pool, final Random random) {
+            if (pool.isEmpty()) {
+                throw new IllegalArgumentException("the wheel has no prizes");
+            }
             final List<WheelPrizeSpec> places = new ArrayList<>(PLACES);
-            for (int place = 0; place < PLACES; place++) {
-                places.add(pool.get(random.nextInt(pool.size())));
+            while (places.size() < PLACES) {
+                final List<WheelPrizeSpec> round = new ArrayList<>(pool);
+                Collections.shuffle(round, random);
+                places.addAll(round.subList(0, Math.min(round.size(), PLACES - places.size())));
             }
             return new Face(places, 0);
+        }
+
+        /** Whether every prize on the face is still in {@code pool}, so the face may show again. */
+        boolean drawnFrom(final List<WheelPrizeSpec> pool) {
+            return places.stream().allMatch(place -> pool.stream().anyMatch(prize -> same(place, prize)));
+        }
+
+        /**
+         * The variant that turns, drawn by the weight in {@code pool} of the prize it stops under the pointer.
+         * Only the places one of {@code variants} reaches can win.
+         */
+        int draw(final List<WheelPrizeSpec> pool, final List<Integer> variants, final Random random) {
+            final List<Integer> weights = new ArrayList<>(variants.size());
+            variants.forEach(variant -> weights.add(weightOf(places.get(winnerBody(variant)), pool)));
+            return variants.get(PrizeDraw.draw(weights, random));
+        }
+
+        private static int weightOf(final WheelPrizeSpec place, final List<WheelPrizeSpec> pool) {
+            return pool.stream()
+                    .filter(prize -> same(place, prize))
+                    .mapToInt(WheelPrizeSpec::weight)
+                    .findFirst()
+                    .orElse(place.weight());
+        }
+
+        static boolean same(final WheelPrizeSpec a, final WheelPrizeSpec b) {
+            return a.item().equals(b.item())
+                    && a.amount() == b.amount()
+                    && a.data().equals(b.data());
         }
     }
 
     WheelPlan {
-        bodies = List.copyOf(bodies);
-        if (bodies.size() != PLACES || before.places().size() != PLACES) {
-            throw new IllegalArgumentException("the wheel shows " + PLACES + " prizes");
+        if (variant < WAITING || variant >= PLACES) {
+            throw new IllegalArgumentException("the wheel has no variant " + variant);
         }
     }
 
-    /** Puts {@code winner} into the body that stops under the pointer and {@code others}, 11 of them, into the rest. */
-    static WheelPlan of(
-            final Face before, final WheelPrizeSpec winner, final List<WheelPrizeSpec> others, final int variant) {
-        final List<WheelPrizeSpec> bodies = new ArrayList<>(others);
-        bodies.add(winnerBody(variant), winner);
-        return new WheelPlan(variant, bodies, before);
+    /** The face waiting for the press, its prizes popping in. */
+    static WheelPlan waiting(final Face face) {
+        return new WheelPlan(WAITING, face);
     }
 
-    /** The body whose prize stops under the pointer. */
+    /** The face turning in {@code variant}. */
+    static WheelPlan turning(final Face face, final int variant) {
+        return new WheelPlan(variant, face);
+    }
+
+    /** The body whose prize stops under the pointer in {@code variant}. */
     static int winnerBody(final int variant) {
         return Math.floorMod(-variant, PLACES);
     }
 
-    /** What the wheel shows once this turn has stopped. */
+    List<WheelPrizeSpec> bodies() {
+        return face.places();
+    }
+
+    /** The prize this turn stops under the pointer. */
+    WheelPrizeSpec winner() {
+        return face.places().get(winnerBody(variant));
+    }
+
+    /** What the wheel shows once this turn has stopped: the same prizes, turned. */
     Face after() {
+        if (variant == WAITING) {
+            return face;
+        }
         final WheelPrizeSpec[] places = new WheelPrizeSpec[PLACES];
         for (int body = 0; body < PLACES; body++) {
-            places[(body + variant) % PLACES] = bodies.get(body);
+            places[(body + variant) % PLACES] = face.places().get(body);
         }
-        return new Face(List.of(places), (before.parity() + variant) % 2);
+        return new Face(List.of(places), (face.parity() + variant) % 2);
     }
 
     /** The disc's custom model data strings: the variant and the grain's parity. */
     List<String> disc() {
-        return List.of(String.valueOf(variant), String.valueOf(before.parity()));
+        return List.of(variantString(), String.valueOf(face.parity()));
     }
 
-    /** Prize body {@code body}'s strings: its prize, the variant, and the prize its place showed before. */
+    /** Prize body {@code body}'s strings: its prize and the variant. */
     List<String> prize(final int body) {
-        return List.of(
-                key(bodies.get(body)),
-                String.valueOf(variant),
-                key(before.places().get(body)));
+        return List.of(key(face.places().get(body)), variantString());
     }
 
-    /** The overlay's strings: each body's count, the variant, each place's count before, and {@code language}. */
+    /** The overlay's strings: each body's count, the variant and {@code language}. */
     List<String> overlay(final String language) {
-        final List<String> out = new ArrayList<>(2 * PLACES + 2);
-        bodies.forEach(prize -> out.add(String.valueOf(prize.amount())));
-        out.add(String.valueOf(variant));
-        before.places().forEach(prize -> out.add(String.valueOf(prize.amount())));
+        final List<String> out = new ArrayList<>(PLACES + 2);
+        face.places().forEach(prize -> out.add(String.valueOf(prize.amount())));
+        out.add(variantString());
         out.add(language);
         return out;
+    }
+
+    private String variantString() {
+        return variant == WAITING ? OPEN : String.valueOf(variant);
     }
 
     /** The key the pack's turn selects a prize by: its item id without {@code minecraft:}. */

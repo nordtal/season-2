@@ -34,6 +34,6 @@ public final class WheelListener implements Listener {
             return;
         }
         event.setCancelled(true);
-        wheel.spin(event.getPlayer());
+        wheel.open(event.getPlayer());
     }
 }

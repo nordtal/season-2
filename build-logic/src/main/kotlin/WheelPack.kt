@@ -19,12 +19,15 @@ internal object WheelLayout {
     private const val RADIUS = 34.0
     private const val PLATE_ROW = 5
 
-    /** The disc canvas's top-left from body 0's origin. */
-    val CANVAS = intArrayOf(-93, 26)
+    /** The plate row's 100-pixel item starts this far left of the column's middle, as the client lays it out. */
+    private const val ROW_LEFT = -93
+
+    /** The disc canvas's top-left from body 0's origin: the wheel stands at the panel's margin of 9. */
+    val CANVAS = intArrayOf(-90, 26)
     val POINTER = intArrayOf(40, -8)
 
     /** The off plate's top-left on the disc canvas, and its size. */
-    val PLATE = intArrayOf(107, 33)
+    val PLATE = intArrayOf(108, 33)
     const val PLATE_WIDTH = 75
     const val PLATE_HEIGHT = 17
 
@@ -42,7 +45,7 @@ internal object WheelLayout {
     fun origin(body: Int): IntArray =
         when {
             body < PLATE_ROW -> intArrayOf(0, 11 * body)
-            body == PLATE_ROW -> intArrayOf(-93, 11 * PLATE_ROW + (PLATE_ROW_HEIGHT - 1) / 2)
+            body == PLATE_ROW -> intArrayOf(ROW_LEFT, 11 * PLATE_ROW + (PLATE_ROW_HEIGHT - 1) / 2)
             else -> intArrayOf(0, 11 * PLATE_ROW + PLATE_ROW_HEIGHT + 10 + 11 * (body - PLATE_ROW - 1))
         }
 
@@ -56,16 +59,14 @@ internal object WheelLayout {
     }
 }
 
-/** One prize's picture: drawn at ([x], [y]) on the disc canvas, from the new key or the [old] one. */
+/** One prize's picture: drawn at ([x], [y]) on the disc canvas. */
 internal data class PrizeAt(
     val x: Int,
     val y: Int,
-    val old: Boolean,
 )
 
-/** The disc's picture: a blurred texture, or a sharp frame with or without the winner's mark. */
+/** The disc's picture: a frame, with or without the winner's mark. */
 internal data class DiscAt(
-    val blur: Int?,
     val frame: Int,
     val mark: Boolean,
 )
@@ -78,8 +79,8 @@ internal data class OverlayAt(
 )
 
 /**
- * Every tick of one spin in turn variant [e]: the swap, then the turn. Cooldown tick t of [COOLDOWN] shows the swap
- * while t < [WheelTurn.SWAP_TICKS], then turn tick t-SWAP_TICKS; with no cooldown left each body shows its rest.
+ * Every tick of one turn in variant [e], from the press: tick t of the turn's cooldown [WheelTurn.COOLDOWN] shows the
+ * turn until the variant rests, then its rest. The companion holds the pop-in that plays when the dialog opens.
  */
 internal class WheelSpin(
     private val e: Int,
@@ -89,70 +90,88 @@ internal class WheelSpin(
     fun prize(
         body: Int,
         t: Int,
-    ): PrizeAt? {
-        if (t >= WheelTurn.SWAP_TICKS) {
-            val tick = turn[t - WheelTurn.SWAP_TICKS]
-            if (tick.blur != null) return null
-            return at(30.0 * body + tick.angle, 0, false)
-        }
-        val pop = WheelTurn.SWAP_STEP * body
-        return when {
-            t < pop -> at(30.0 * body, 0, true)
-            t - pop < WheelTurn.POP_HOP.size -> at(30.0 * body, WheelTurn.POP_HOP[t - pop], false)
-            else -> at(30.0 * body, 0, false)
-        }
-    }
+    ): PrizeAt = if (t < turn.size) at(30.0 * body + turn[t].angle, 0) else prizeRest(body)
 
-    fun prizeRest(body: Int): PrizeAt = at(30.0 * body + WheelTurn.distance(e), 0, false)
+    fun prizeRest(body: Int): PrizeAt = at(30.0 * body + WheelTurn.distance(e), 0)
 
     fun disc(
         parity: Int,
         t: Int,
-    ): DiscAt {
-        if (t < WheelTurn.SWAP_TICKS) return DiscAt(null, WheelTurn.discFrame(30.0 * parity), false)
-        val tick = turn[t - WheelTurn.SWAP_TICKS]
-        return if (tick.blur != null) DiscAt(tick.blur, 0, false) else DiscAt(null, WheelTurn.discFrame(30.0 * parity + tick.angle), false)
-    }
+    ): DiscAt = if (t < turn.size) DiscAt(WheelTurn.discFrame(30.0 * parity + turn[t].angle), false) else discRest(parity)
 
-    fun discRest(parity: Int): DiscAt = DiscAt(null, WheelTurn.discFrame(30.0 * parity + WheelTurn.distance(e)), true)
+    fun discRest(parity: Int): DiscAt = DiscAt(WheelTurn.discFrame(30.0 * parity + WheelTurn.distance(e)), true)
 
-    fun overlay(t: Int): OverlayAt {
-        val pointer = if (t < WheelTurn.SWAP_TICKS) WheelTurn.Pointer.REST else turn[t - WheelTurn.SWAP_TICKS].pointer
-        return OverlayAt(pointer, (0 until WheelLayout.PLACES).map { prize(it, t) }, true)
-    }
+    fun overlay(t: Int): OverlayAt =
+        if (t < turn.size) {
+            OverlayAt(turn[t].pointer, (0 until WheelLayout.PLACES).map { prize(it, t) }, true)
+        } else {
+            overlayRest()
+        }
 
     fun overlayRest(): OverlayAt = OverlayAt(WheelTurn.Pointer.REST, (0 until WheelLayout.PLACES).map { prizeRest(it) }, false)
 
-    private fun at(
-        angle: Double,
-        hop: Int,
-        old: Boolean,
-    ): PrizeAt = WheelLayout.upright(angle).let { PrizeAt(it[0], it[1] - hop, old) }
-
     companion object {
-        const val COOLDOWN = WheelTurn.SWAP_TICKS + WheelTurn.TICKS
+        /** Body [body]'s prize at tick [t] of the pop-in: none before its pop, then lifted, then at its place. */
+        fun popIn(
+            body: Int,
+            t: Int,
+        ): PrizeAt? {
+            val pop = WheelTurn.POP_STEP * body
+            return when {
+                t < pop -> null
+                t - pop < WheelTurn.POP_HOP.size -> at(30.0 * body, WheelTurn.POP_HOP[t - pop])
+                else -> waiting(body)
+            }
+        }
 
-        /** The runs of equal pictures as (last tick, picture), without the trailing ones that equal [rest]. */
+        /** Body [body]'s prize while the wheel waits for the press: at its own place. */
+        fun waiting(body: Int): PrizeAt = at(30.0 * body, 0)
+
+        fun popInOverlay(t: Int): OverlayAt = OverlayAt(WheelTurn.Pointer.REST, (0 until WheelLayout.PLACES).map { popIn(it, t) }, false)
+
+        fun waitingOverlay(): OverlayAt = OverlayAt(WheelTurn.Pointer.REST, (0 until WheelLayout.PLACES).map { waiting(it) }, false)
+
+        fun waitingDisc(parity: Int): DiscAt = DiscAt(WheelTurn.discFrame(30.0 * parity), false)
+
+        private fun at(
+            angle: Double,
+            hop: Int,
+        ): PrizeAt = WheelLayout.upright(angle).let { PrizeAt(it[0], it[1] - hop) }
+
+        /** The runs of equal pictures as (last tick, picture), the first picture at tick [from]. */
         fun <K> runs(
             pictures: List<K>,
-            rest: K,
+            from: Int = 0,
         ): List<Pair<Int, K>> {
             val out = ArrayList<Pair<Int, K>>()
-            pictures.forEachIndexed { t, k ->
+            pictures.forEachIndexed { i, k ->
                 if (out.isNotEmpty() &&
                     out.last().second == k
                 ) {
-                    out[out.size - 1] = t to k
+                    out[out.size - 1] = from + i to k
                 } else {
-                    out += t to k
+                    out += from + i to k
                 }
             }
+            return out
+        }
+
+        /** [runs] without the trailing ones that equal [rest]. */
+        fun <K> runs(
+            pictures: List<K>,
+            rest: K,
+            from: Int = 0,
+        ): List<Pair<Int, K>> {
+            val out = ArrayList(runs(pictures, from))
             while (out.isNotEmpty() && out.last().second == rest) out.removeAt(out.size - 1)
             return out
         }
 
-        /** The cooldown fraction from which a run that ends at tick [last] shows: halfway into its last tick. */
-        fun threshold(last: Int): Any = WheelMath.number((COOLDOWN - last - 0.5) / COOLDOWN)
+        /** The fraction of a [cooldown] from which a run that ends at tick [last] shows: halfway into its last tick. */
+        fun threshold(
+            last: Int,
+            cooldown: Int,
+        ): Any = WheelMath.number((cooldown - last - 0.5) / cooldown)
 
         /** The turn variants of [count]: their end places spread over the 12 as evenly as whole places allow. */
         fun offsets(count: Int): List<Int> = (0 until count).map { floor(it * WheelLayout.PLACES.toDouble() / count + 0.5).toInt() }
@@ -266,7 +285,7 @@ internal class WheelPack(
         at: PrizeAt?,
     ): String {
         if (at == null) return json(EMPTY)
-        val index = if (at.old) 2 else 0
+        val index = 0
         val m = move(body, at.x, at.y)
         val cases = ArrayList<Map<String, Any?>>()
         for ((display, members) in groups) {
@@ -289,8 +308,7 @@ internal class WheelPack(
         val models = ArrayList<Any?>()
         models += part("shadow", 0, 0, WheelLayout.DISC + 1, WheelLayout.DISC + 1, 0, -0.3)
         models += part("stand", 0, 0, WheelLayout.DISC, 105, 0, -0.2)
-        val face = if (at.blur != null) "disc_blur_%02d".format(at.blur) else "disc_%02d".format(at.frame)
-        models += part(face, 0, 0, WheelLayout.DISC, WheelLayout.DISC, 0, -0.1)
+        models += part("disc_%02d".format(at.frame), 0, 0, WheelLayout.DISC, WheelLayout.DISC, 0, -0.1)
         if (at.mark) models += part("winner", 0, 0, WheelLayout.DISC, WheelLayout.DISC, 0, 0.0)
         return json(mapOf("type" to "minecraft:composite", "models" to models))
     }
@@ -301,19 +319,11 @@ internal class WheelPack(
 
     private fun overlayNode(at: OverlayAt): String {
         val body = WheelLayout.BODIES - 1
-        val pointer =
-            when (at.pointer) {
-                WheelTurn.Pointer.REST -> "pointer"
-                WheelTurn.Pointer.TICK1 -> "pointer_tick1"
-                WheelTurn.Pointer.TICK2 -> "pointer_tick2"
-                WheelTurn.Pointer.TICK1_BACK -> "pointer_tick1_back"
-                WheelTurn.Pointer.TICK2_BACK -> "pointer_tick2_back"
-            }
         val models = ArrayList<Any?>()
-        models += part(pointer, WheelLayout.POINTER[0], WheelLayout.POINTER[1], 16, 16, body, 0.1)
+        models += part(at.pointer.texture, WheelLayout.POINTER[0], WheelLayout.POINTER[1], 16, 16, body, 0.1)
         if (countCases.isNotEmpty()) {
             at.counts.forEachIndexed { b, c ->
-                if (c != null) models += select(if (c.old) 13 + b else b, countCases, EMPTY, move(body, c.x, c.y))
+                if (c != null) models += select(b, countCases, EMPTY, move(body, c.x, c.y))
             }
         }
         if (at.plate) {
@@ -335,59 +345,72 @@ internal class WheelPack(
         return json(mapOf("type" to "minecraft:composite", "models" to models))
     }
 
-    /** One body's turn in one variant: a range on the cooldown over its pictures, its rest as the fallback. */
-    private fun <K> turn(
-        pictures: List<K>,
-        rest: K,
-        node: (K) -> String,
-    ): String {
-        val memo = HashMap<K, Raw>()
-        val raw = { k: K -> memo.getOrPut(k) { Raw(node(k)) } }
-        val entries =
-            WheelSpin
-                .runs(pictures, rest)
-                .map { (last, k) ->
-                    mapOf("threshold" to WheelSpin.threshold(last), "model" to raw(k))
-                }.reversed()
-        return json(
-            mapOf(
-                "type" to "minecraft:range_dispatch",
-                "property" to "minecraft:cooldown",
-                "entries" to entries,
-                "fallback" to raw(rest),
-            ),
+    /** A range on the cooldown of [cooldown] ticks over [runs], with [fallback] once the last has passed. */
+    private fun <K> range(
+        runs: List<Pair<Int, K>>,
+        cooldown: Int,
+        raw: (K) -> Raw,
+        fallback: Any?,
+    ): Map<String, Any?> =
+        mapOf(
+            "type" to "minecraft:range_dispatch",
+            "property" to "minecraft:cooldown",
+            "entries" to runs.map { (last, k) -> mapOf("threshold" to WheelSpin.threshold(last, cooldown), "model" to raw(k)) }.reversed(),
+            "fallback" to fallback,
         )
-    }
 
-    /** Each body's turn per variant [e] (and the disc's per parity), written once and assembled for any variant count. */
-    private val turns: Map<String, Map<Int, String>> by lazy {
-        val out = LinkedHashMap<String, MutableMap<Int, String>>()
-        for (e in 0 until WheelLayout.PLACES) {
-            val spin = WheelSpin(e)
-            val ticks = 0 until WheelSpin.COOLDOWN
-            for (parity in 0..1) {
-                out.getOrPut("disc$parity") { HashMap() }[e] = turn(ticks.map { spin.disc(parity, it) }, spin.discRest(parity), ::discNode)
-            }
-            for (b in 0 until WheelLayout.PLACES) {
-                out.getOrPut("p$b") { HashMap() }[e] = turn(ticks.map { spin.prize(b, it) }, spin.prizeRest(b)) { prizeNode(1 + b, it) }
-            }
-            out.getOrPut("overlay") { HashMap() }[e] = turn(ticks.map { spin.overlay(it) }, spin.overlayRest(), ::overlayNode)
-        }
-        out
-    }
-
-    private fun variants(
+    /**
+     * One body's pictures for the variants [offsets], chosen by the variant string at [index]: "open" plays the pop-in
+     * and waits; a variant plays the shared start, then its own ticks, and rests.
+     */
+    private fun <K> body(
         index: Int,
         offsets: List<Int>,
-        of: Map<Int, String>,
-    ): Map<String, Any?> =
-        select(
-            index,
-            offsets.drop(1).map {
-                mapOf("when" to it.toString(), "model" to Raw(of.getValue(it)))
-            },
-            Raw(of.getValue(offsets[0])),
-        )
+        popIn: (Int) -> K,
+        waiting: K,
+        spin: (WheelSpin, Int) -> K,
+        rest: (WheelSpin) -> K,
+        node: (K) -> String,
+    ): Map<String, Any?> {
+        val memo = HashMap<K, Raw>()
+        val raw = { k: K -> memo.getOrPut(k) { Raw(node(k)) } }
+        val open = range(WheelSpin.runs((0 until WheelTurn.OPEN_TICKS).map(popIn), waiting), WheelTurn.OPEN_TICKS, raw, raw(waiting))
+        val cooldown = WheelTurn.COOLDOWN
+        val first = WheelSpin(offsets[0])
+        val shared = WheelSpin.runs((0 until WheelTurn.SHARED).map { spin(first, it) })
+        val own =
+            offsets.associateWith { e ->
+                val s = WheelSpin(e)
+                range(
+                    WheelSpin.runs((WheelTurn.SHARED until cooldown).map { spin(s, it) }, rest(s), WheelTurn.SHARED),
+                    cooldown,
+                    raw,
+                    raw(rest(s)),
+                )
+            }
+        val variants =
+            select(index, offsets.drop(1).map { mapOf("when" to it.toString(), "model" to own.getValue(it)) }, own.getValue(offsets[0]))
+        return select(index, listOf(mapOf("when" to OPEN, "model" to open)), range(shared, cooldown, raw, variants))
+    }
+
+    private fun disc(
+        parity: Int,
+        offsets: List<Int>,
+    ) = body(0, offsets, {
+        WheelSpin.waitingDisc(parity)
+    }, WheelSpin.waitingDisc(parity), { s, t -> s.disc(parity, t) }, { it.discRest(parity) }, ::discNode)
+
+    private fun prize(
+        b: Int,
+        offsets: List<Int>,
+    ) = body(1, offsets, {
+        WheelSpin.popIn(b, it)
+    }, WheelSpin.waiting(b), { s, t -> s.prize(b, t) }, { it.prizeRest(b) }) { prizeNode(1 + b, it) }
+
+    private fun overlay(offsets: List<Int>) =
+        body(WheelLayout.PLACES, offsets, WheelSpin::popInOverlay, WheelSpin.waitingOverlay(), { s, t -> s.overlay(t) }, {
+            it.overlayRest()
+        }, ::overlayNode)
 
     private fun item(
         body: Int,
@@ -404,19 +427,12 @@ internal class WheelPack(
     /** The three body kinds' item definitions for the turn variants [offsets]. */
     fun items(offsets: List<Int>): Map<String, ByteArray> {
         val out = LinkedHashMap<String, ByteArray>()
-        val disc =
-            select(
-                1,
-                listOf(mapOf("when" to "1", "model" to variants(0, offsets, turns.getValue("disc1")))),
-                variants(0, offsets, turns.getValue("disc0")),
-            )
+        val disc = select(PARITY, listOf(mapOf("when" to "1", "model" to disc(1, offsets))), disc(0, offsets))
         out["assets/nordtal/items/wheel/disc.json"] = item(0, disc)
         for (b in 0 until WheelLayout.PLACES) {
-            out["assets/nordtal/items/wheel/p$b.json"] =
-                item(1 + b, variants(1, offsets, turns.getValue("p$b")))
+            out["assets/nordtal/items/wheel/p$b.json"] = item(1 + b, prize(b, offsets))
         }
-        out["assets/nordtal/items/wheel/overlay.json"] =
-            item(WheelLayout.BODIES - 1, variants(12, offsets, turns.getValue("overlay")), WheelLayout.OVERLAY_ANCHOR)
+        out["assets/nordtal/items/wheel/overlay.json"] = item(WheelLayout.BODIES - 1, overlay(offsets), WheelLayout.OVERLAY_ANCHOR)
         return out
     }
 
@@ -424,11 +440,10 @@ internal class WheelPack(
     fun statics(): Map<String, ByteArray> {
         val out = LinkedHashMap<String, ByteArray>()
         val flats =
-            (0 until 16).map { "disc_%02d".format(it) } + (0 until WheelTurn.BLUR_TEXTURES).map { "disc_blur_%02d".format(it) } +
+            (0 until 16).map { "disc_%02d".format(it) } +
                 listOf("shadow", "stand", "winner", "pointer", "pointer_tick1", "pointer_tick2", "anchor", "unknown") +
                 labels.keys.map { "plate_off_$it" }
-        for (name in flats) out["assets/nordtal/models/item/wheel/$name.json"] = flat(if (name == "anchor") "clear" else name, false)
-        for (name in listOf("pointer_tick1", "pointer_tick2")) out["assets/nordtal/models/item/wheel/${name}_back.json"] = flat(name, true)
+        for (name in flats) out["assets/nordtal/models/item/wheel/$name.json"] = flat(if (name == "anchor") "clear" else name)
         for (n in amounts) out["assets/nordtal/models/item/wheel/count_$n.json"] = count(n)
         val ascii = vanilla.ascii()
         val textures = "assets/nordtal/textures/item/wheel"
@@ -439,12 +454,9 @@ internal class WheelPack(
         return out
     }
 
-    private fun flat(
-        texture: String,
-        mirrored: Boolean,
-    ): ByteArray {
+    private fun flat(texture: String): ByteArray {
         val t = model(texture)
-        val uv = if (mirrored) listOf(16, 0, 0, 16) else listOf(0, 0, 16, 16)
+        val uv = listOf(0, 0, 16, 16)
         val element =
             mapOf(
                 "from" to listOf(0, 0, 8),
@@ -498,15 +510,19 @@ internal class WheelPack(
         /** The client's load estimate in ms for raw size S in MB: 17.56 S + 0.0772 S², fitted on the prototype's packs. */
         fun loadMs(): Double = (raw / 1e6).let { 17.56 * it + 0.0772 * it * it }
 
-        /** The plugin's timetable: cooldown, swap, pop ticks, variants and each variant's peg clicks, in cooldown ticks. */
+        /**
+         * The plugin's timetable: the turn's cooldown, the pop-in's ticks and pops, the variants, and each variant's peg
+         * clicks and the tick it rests at, in cooldown ticks.
+         */
         fun properties(): String {
             val lines = ArrayList<String>()
             lines += "# Written by the build from the wheel's turn; the plugin reads it."
-            lines += "cooldown=${WheelSpin.COOLDOWN}"
-            lines += "swap=${WheelTurn.SWAP_TICKS}"
-            lines += "pops=" + (0 until WheelLayout.PLACES).joinToString(",") { (WheelTurn.SWAP_STEP * it).toString() }
+            lines += "cooldown=${WheelTurn.COOLDOWN}"
+            lines += "open=${WheelTurn.OPEN_TICKS}"
+            lines += "pops=" + (0 until WheelLayout.PLACES).joinToString(",") { (WheelTurn.POP_STEP * it).toString() }
             lines += "variants=" + offsets.joinToString(",")
-            for (e in offsets) lines += "clicks.$e=" + WheelTurn.clicks(e).joinToString(",") { (WheelTurn.SWAP_TICKS + it).toString() }
+            for (e in offsets) lines += "clicks.$e=" + WheelTurn.clicks(e).joinToString(",")
+            for (e in offsets) lines += "end.$e=" + WheelTurn.length(e)
             lines += "raw=$raw"
             lines += "zipped=$zipped"
             lines += "load=" + loadMs().toLong()
@@ -515,7 +531,10 @@ internal class WheelPack(
     }
 
     companion object {
-        const val LANGUAGE = 25
+        /** The variant string's value while the dialog waits for the press. */
+        const val OPEN = "open"
+        const val PARITY = 1
+        const val LANGUAGE = 13
         const val MIN_VARIANTS = 4
         const val MAX_ZIPPED = 5_000_000L
         const val MAX_LOAD_MS = 1000.0

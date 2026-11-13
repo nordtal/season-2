@@ -217,7 +217,7 @@ describe("RepeatableCards", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" })]], [])
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
-    screen.getByText(/no card fits/i)
+    screen.getByText(/its entries have different fields/i)
     expect(screen.queryByRole("button", { name: /Add entry/ })).toBeNull()
   })
 })

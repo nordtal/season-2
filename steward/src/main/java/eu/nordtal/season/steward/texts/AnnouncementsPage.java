@@ -33,14 +33,8 @@ public interface AnnouncementsPage {
     @Name("Empty")
     MessageRef empty();
 
-    @Name("Empty note")
-    MessageRef emptyNote();
-
     @Name("None open")
     MessageRef noneOpen();
-
-    @Name("None open note")
-    MessageRef noneOpenNote();
 
     @Name("Draft")
     MessageRef draft();

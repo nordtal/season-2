@@ -233,9 +233,7 @@ class WebAuthnKeyTest extends WebTestSupport {
         assertEquals(200, finishAssertion(browser, answer).statusCode());
         final HttpResponse<String> replayed = finishAssertion(browser, answer);
         assertEquals(400, replayed.statusCode(), replayed.body());
-        assertTrue(
-                replayed.body().contains("finished already") || replayed.body().contains("another browser"),
-                replayed.body());
+        assertTrue(replayed.body().contains("no longer open"), replayed.body());
     }
 
     @Test
@@ -292,8 +290,7 @@ class WebAuthnKeyTest extends WebTestSupport {
         // `retryable` tells the interface to open the dialog and retry instead of drawing a red box.
         assertTrue(body.get("retryable").getAsBoolean(), refused.body());
         assertEquals(
-                "Steward needs your security key for this. Your last hold has expired.",
-                body.get("error").getAsString());
+                "Your last security key hold has expired.", body.get("error").getAsString());
 
         holdTheKey(browser, authenticator);
         assertEquals(202, post(browser, "/api/updates", "{\"kind\":\"UPDATE\"}").statusCode());

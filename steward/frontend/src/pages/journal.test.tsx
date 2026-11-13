@@ -81,7 +81,7 @@ describe("JournalPage - profiles, never user ids", () => {
     )
     draw(<JournalPage />)
 
-    await screen.findByText('Typed "list" into the console of smp.')
+    await screen.findByText("Typed “list” into the console of smp.")
     expect((await screen.findAllByText("Host"))[0].closest("[data-entity='unknown']")).toBeNull()
   })
 

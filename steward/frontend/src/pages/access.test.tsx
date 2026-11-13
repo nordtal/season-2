@@ -153,7 +153,7 @@ describe("AccessPage - a person is one element", () => {
       "Access",
       "Playtime",
       "Aura",
-      "Spins",
+      "Extra spins",
       "Last seen",
       "",
     ])
@@ -330,8 +330,8 @@ describe("AccessPage - aura and spins in the list, and settable", () => {
     )
     draw(<AccessPage />)
 
-    await clickRowAction(/^spins$/i)
-    const spins = within(await screen.findByRole("alertdialog")).getByLabelText(/^spins$/i)
+    await clickRowAction(/^extra spins$/i)
+    const spins = within(await screen.findByRole("alertdialog")).getByLabelText(/^extra spins$/i)
     for (const refused of ["-1", "1.5", ""]) {
       fireEvent.change(spins, { target: { value: refused } })
       expect(asButton(screen.getByRole("button", { name: /^save$/i })).disabled).toBe(true)
@@ -361,7 +361,7 @@ describe("AccessPage - unlink as a row action", () => {
     const actions = await openActions("Ally")
     fireEvent.click(within(actions).getByRole("button", { name: /unlink/i }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Unlink" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Unlink Minecraft account" }))
 
     await waitFor(() => {
       const call = fetched.mock.calls.find(([url]) => url === "/api/access/unlink")
@@ -385,8 +385,8 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    expect(await actionsOf("bob")).not.toContain("Unlink")
-    expect(await actionsOf("Ally")).toContain("Unlink")
+    expect(await actionsOf("bob")).not.toContain("Unlink Minecraft account")
+    expect(await actionsOf("Ally")).toContain("Unlink Minecraft account")
   })
 
   it("offers no Periods, which are on the person's page rather than behind a dialog", async () => {
@@ -400,8 +400,8 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     vi.stubGlobal("fetch", backend())
     draw(<AccessPage />)
 
-    expect(await actionsOf("bob")).not.toContain("Revoke")
-    expect(await actionsOf("Ally")).toContain("Revoke")
+    expect(await actionsOf("bob")).not.toContain("Revoke access")
+    expect(await actionsOf("Ally")).toContain("Revoke access")
   })
 
   it("always offers Grant access, because more access can always be given", async () => {

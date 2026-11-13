@@ -52,7 +52,7 @@ class LogFollowTest extends WebTestSupport {
 
             // The route checks the session once, at connect, and a follow outlives that check by hours.
             assertTrue(
-                    waitForALineSaying(lines, "this session ended"),
+                    waitForALineSaying(lines, "your session ended"),
                     "the logs kept arriving after the session had been thrown away");
         }
         assertTrue(theFollowsConnectionClosed(whileFollowing), "the daemon's end was left open");

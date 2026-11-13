@@ -212,7 +212,7 @@ describe("RouterTab - the date editor", () => {
     fireEvent.change(screen.getByLabelText("Launch date"), {
       target: { value: localInput(new Date(Date.now() - DAY)) },
     })
-    expect(screen.getByText(/^Not in the past\. Earliest is now/)).toBeTruthy()
+    expect(screen.getByText(/^The date is in the past\. Earliest is now/)).toBeTruthy()
     expect(button("Save").disabled).toBe(true)
   })
 

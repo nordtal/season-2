@@ -35,17 +35,14 @@
         function reloadOnce(what) {
           if (alreadyReloaded()) {
             show(
-              "Steward could not load " +
-                what +
-                ", even after reloading once. Saving this " +
-                "page to the home screen again usually fixes it.",
+              "Steward could not load " + what + ", even after reloading once. Add this page to the home screen again.",
             )
             return
           }
           try {
             window.sessionStorage.setItem(RELOAD_KEY, "1")
           } catch (storageError) {
-            show("Steward could not load " + what + ". Reload this page to try again.")
+            show("Steward could not load " + what + ".")
             return
           }
           window.location.reload()
@@ -66,14 +63,14 @@
               return
             }
             // Reloading a bundle that loaded fine and then threw would not fix anything, so this only reports.
-            show("Steward hit an error before it could start: " + (event.message || "no message was given") + ".")
+            show("Steward did not start: " + (event.message || "the error has no message") + ".")
           },
           true,
         )
 
         window.addEventListener("unhandledrejection", function (event) {
           var reason = event.reason && event.reason.message ? event.reason.message : event.reason
-          show("Steward hit an error before it could start: " + reason + ".")
+          show("Steward did not start: " + reason + ".")
         })
       })()
     </script>
@@ -142,7 +139,7 @@
             font-size: 1rem;
           "
         >
-          Reload
+          Reload page
         </button>
       </div>
     </div>

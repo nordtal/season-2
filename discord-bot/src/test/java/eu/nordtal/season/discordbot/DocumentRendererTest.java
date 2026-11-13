@@ -94,7 +94,10 @@ class DocumentRendererTest {
                 .preview(packaged("admin-alert"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
         assertTrue(drawn.contains("🛑 smp is not running"), drawn);
-        assertTrue(drawn.contains("smp restarted 3 times since it was started."), drawn);
+        assertTrue(
+                drawn.contains(
+                        "smp exited and Docker restarted it 3 times since it was started, the last time within the hour."),
+                drawn);
         assertFalse(drawn.contains("admin/alert."), drawn);
     }
 

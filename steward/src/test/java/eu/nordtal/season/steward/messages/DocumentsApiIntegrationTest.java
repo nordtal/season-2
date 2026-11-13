@@ -302,7 +302,7 @@ class DocumentsApiIntegrationTest {
                         .getAsString());
 
         final String refused = send("DELETE", "/api/shared-parts/greeting", new byte[0], 400);
-        assertTrue(refused.contains("smp/welcome names the shared part greeting"), refused);
+        assertTrue(refused.contains("smp/welcome still names the shared part greeting"), refused);
         assertEquals(1, store.sharedParts().size());
     }
 
@@ -312,7 +312,7 @@ class DocumentsApiIntegrationTest {
                 "{\"type\":\"ROW\",\"items\":[{\"slot\":\"join\",\"label\":{\"en\":\"Join\",\"de\":\"join-de\"}}]}";
         final String naming = WELCOME.replace(row, "{\"type\":\"ROW\",\"shared\":\"buttons\"}");
         final String unsaved = send("PUT", "/api/documents/smp/welcome", naming.getBytes(UTF_8), 400);
-        assertTrue(unsaved.contains("Shared part \\\"buttons\\\" is missing."), unsaved);
+        assertTrue(unsaved.contains("Shared part “buttons” is missing."), unsaved);
         send("PUT", "/api/shared-parts/buttons", row.getBytes(UTF_8), 200);
         send("PUT", "/api/documents/smp/welcome", naming.getBytes(UTF_8), 200);
 
@@ -531,7 +531,7 @@ class DocumentsApiIntegrationTest {
         modal.getAsJsonObject("declaration").addProperty("shape", "MODAL");
 
         assertTrue(send("POST", "/api/document-preview", withoutJoin.toString().getBytes(UTF_8), 400)
-                .contains("Nothing was sent"));
+                .contains("not sent:"));
         assertTrue(send("POST", "/api/document-preview", modal.toString().getBytes(UTF_8), 400)
                 .contains("is not a message"));
     }

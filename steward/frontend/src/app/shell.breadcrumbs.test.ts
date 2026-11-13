@@ -48,7 +48,7 @@ describe("breadcrumbsFor", () => {
     const people = [ally]
     expect(breadcrumbsFor("/access/123", people).at(-1)).toEqual({ label: "Ally", href: "/access/123" })
     expect(breadcrumbsFor("/access/123").at(-1)?.label).toBe("123")
-    expect(breadcrumbsFor("/access/456", people).at(-1)?.label).toBe("Nobody by this id")
+    expect(breadcrumbsFor("/access/456", people).at(-1)?.label).toBe("No user with this ID")
   })
 
   it("decodes a segment that a person should read", () => {

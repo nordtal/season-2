@@ -47,7 +47,7 @@ public interface OperationsPage {
             @Arg("ask") @Example("Update") String ask, @Arg("services") @Example("smp,proxy") List<String> services);
 
     @Name("Now")
-    MessageRef now();
+    MessageRef now(@Arg("kind") UpdateKind kind);
 
     @Name("Entered")
     MessageRef entered(@Arg("kind") @Example("Update") String kind, @Arg("run") @Example("42") long run);
@@ -61,7 +61,7 @@ public interface OperationsPage {
     @Name("Not cancelled")
     MessageRef notCancelled(@Arg("run") @Example("42") long run);
 
-    @Name("Cancel")
+    @Name("Cancel run")
     MessageRef cancel();
 
     @Name("A run's title")

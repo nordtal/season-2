@@ -103,9 +103,9 @@ function draw() {
   )
 }
 
-/** Returns the Cancel on a run's row, not the "Cancel" of every dialog's footer. */
+/** Returns the Cancel run on a run's row, not the "Cancel" of every dialog's footer. */
 function cancelButtons() {
-  return screen.queryAllByRole("button", { name: /^cancel$/i })
+  return screen.queryAllByRole("button", { name: /^cancel run$/i })
 }
 
 afterEach(() => {

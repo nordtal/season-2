@@ -55,7 +55,7 @@ public interface WebSpec {
     AvatarSpec avatars();
 
     @Order(6)
-    @Name("Passkeys")
+    @Name("Security keys")
     @Key("webauthn")
     @NoExplanationNeeded
     WebAuthnSpec webauthn();
@@ -150,9 +150,9 @@ public interface WebSpec {
         }
 
         @Order(3)
-        @Name("Guild ID")
+        @Name("Server ID")
         @Key("guild-id")
-        @Explain("Decides who may sign in to Steward, apart from the bot's guild.")
+        @Explain("Decides who may sign in to Steward, apart from the bot's server.")
         default String guildId() {
             return "";
         }

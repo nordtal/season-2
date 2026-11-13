@@ -224,7 +224,7 @@ describe("ServicePage - a run that is open", () => {
 
     expect(await screen.findByRole("link", { name: "Take down #41" })).toBeTruthy()
     expect(screen.getByText("smp, limbo")).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Cancel run" })).toBeTruthy()
     await waitFor(() => {
       for (const name of ["Update", "Take down", "Recreate"]) {
         expect(asButton(screen.getByRole("button", { name })).disabled).toBe(true)
@@ -241,7 +241,7 @@ describe("ServicePage - a run that is open", () => {
     expect(asButton(screen.getByRole("button", { name: "Take down" })).disabled).toBe(true)
     expect(asButton(screen.getByRole("button", { name: "Recreate" })).disabled).toBe(false)
     expect(screen.queryByRole("link", { name: /#41/ })).toBeNull()
-    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Cancel run" })).toBeNull()
   })
 
   it("is shown on every page when it covers the whole network", async () => {
@@ -268,7 +268,7 @@ describe("ServicePage - a run that is open", () => {
     draw("/services/smp")
 
     expect(await screen.findByText("stopping")).toBeTruthy()
-    expect(screen.queryByRole("button", { name: "Cancel" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Cancel run" })).toBeNull()
   })
 
   it("leaves the actions alone when no run is open", async () => {

@@ -200,7 +200,7 @@ class MessageCheckTest {
     @Test
     void anotherWordForAGameTermIsRefusedInABundleAndAWarningInAnOverride() {
         assertEquals(
-                List.of("write the game term waiting-room as the terms bundle names it, not Lobby"),
+                List.of("Lobby is another word for the game term waiting-room: write {@terms.waiting-room}"),
                 packaged("{winner.name} waits in the Lobby {n}"));
         refused(packaged("{winner.name} {n} <hover:show_text:'Staffel 2'>here</hover>"), "season");
         assertEquals(

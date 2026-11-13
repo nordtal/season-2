@@ -79,10 +79,10 @@ describe("PersonPage - one person on an address of their own", () => {
     draw(<PersonPage />, `/access/${ALLY}`)
 
     await screen.findByRole("heading", { level: 1, name: "Ally" })
-    const face = assertElement(screen.getByText("Guild").parentElement, "the guild figure")
+    const face = assertElement(screen.getByText("Discord server").parentElement, "the guild figure")
     fireEvent.click(assertElement(within(face).getByText("Ally").closest("button"), "the Ally trigger button"))
 
-    const field = await screen.findByLabelText("Discord-ID")
+    const field = await screen.findByLabelText("Discord ID")
     if (!(field instanceof HTMLInputElement)) throw new Error("expected an <input>")
     expect(field.value).toBe(ALLY)
   })
@@ -124,7 +124,7 @@ describe("PersonPage - one person on an address of their own", () => {
 
     await screen.findByRole("heading", { level: 1, name: "Ally" })
     expect(screen.queryByRole("button", { name: /^Actions for/ })).toBeNull()
-    fireEvent.click(screen.getByRole("button", { name: "Revoke" }))
+    fireEvent.click(screen.getByRole("button", { name: "Revoke access" }))
     expect(await screen.findByText("Revoke access?")).toBeTruthy()
   })
 
@@ -133,14 +133,14 @@ describe("PersonPage - one person on an address of their own", () => {
     draw(<PersonPage />, `/access/${BOB}`)
 
     expect(await screen.findByText("No payment request yet")).toBeTruthy()
-    expect(await screen.findByText("Nothing written about them yet")).toBeTruthy()
+    expect(await screen.findByText("No entries yet")).toBeTruthy()
   })
 
   it("says nobody has this id rather than drawing an empty person", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<PersonPage />, "/access/999999999999999999")
 
-    expect(await screen.findByText("Nobody by this id")).toBeTruthy()
+    expect(await screen.findByText("No user with this ID")).toBeTruthy()
     expect(screen.queryByText("Periods")).toBeNull()
   })
 
@@ -171,7 +171,7 @@ describe("PersonPage - one person on an address of their own", () => {
     const panel = assertElement((await screen.findByText("Inventories")).closest("section"), "the inventories panel")
     expect(await within(panel).findByText("stored")).toBeTruthy()
     expect(within(panel).getByText("Level 7")).toBeTruthy()
-    fireEvent.click(within(panel).getByRole("button", { name: "12 minecraft:oak_log" }))
+    fireEvent.click(within(panel).getByRole("button", { name: "12 × minecraft:oak_log" }))
     fireEvent.click(await screen.findByRole("button", { name: "Remove" }))
 
     await vi.waitFor(() =>

@@ -139,8 +139,8 @@ class StackAlertsTest {
                 "smp", "running", "starting", StackReading.Purpose.SERVES, null, false, 3, NOW.minusSeconds(40)));
         assertEquals(List.of("smp restarts"), titles(looping));
         assertEquals(
-                List.of("smp restarted 3 times since it was started. Its server exited and Docker started it again"
-                        + " within the last hour. Its log says why."),
+                List.of(
+                        "smp exited and Docker restarted it 3 times since it was started, the last time within the hour."),
                 AdminPlain.of(looping.getFirst().lines()));
         assertEquals(Alert.Level.WARN, looping.getFirst().level());
         assertEquals(
@@ -337,8 +337,8 @@ class StackAlertsTest {
                 titles(of(List.of(service("smp", "running")), null, freshBackups(), host(85, 10))));
         assertEquals(
                 List.of(
-                        List.of("The disk is 85 % full. The threshold is 85 %."),
-                        List.of("Memory is 90 % used. The threshold is 90 %.")),
+                        List.of("The disk is 85% full. The threshold is 85%."),
+                        List.of("Memory is 90% used. The threshold is 90%.")),
                 of(List.of(service("smp", "running")), null, freshBackups(), host(85, 10)).stream()
                         .map(alert -> AdminPlain.of(alert.lines()))
                         .toList());

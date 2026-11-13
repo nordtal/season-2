@@ -11,7 +11,7 @@ import java.util.function.BooleanSupplier;
 /** Relays the log follow of steward-agent to the browser as server-sent events while the session is valid. */
 public final class LogFollows implements AutoCloseable {
 
-    private static final String SIGNED_OUT = "this session ended - sign in again to keep watching";
+    private static final String SIGNED_OUT = "The log stopped: your session ended. Sign in again.";
 
     private final AgentClient agent;
     private final Follows follows;

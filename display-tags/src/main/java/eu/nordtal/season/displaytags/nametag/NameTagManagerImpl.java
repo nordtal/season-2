@@ -1,12 +1,12 @@
 package eu.nordtal.season.displaytags.nametag;
 
+import eu.nordtal.season.papercommon.hud.PillHologram;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
-import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
@@ -57,7 +57,7 @@ public class NameTagManagerImpl implements NameTagManager {
     }
 
     @Override
-    public EntityNameTag createEntityNameTag(final Entity entity, final Function<UUID, Component> text) {
+    public EntityNameTag createEntityNameTag(final Entity entity, final Function<UUID, PillHologram.Layers> text) {
         this.removeEntityNameTag(entity);
         final EntityNameTag tag = new EntityNameTag(entity, text);
         this.entityTags.put(entity.getUniqueId(), tag);

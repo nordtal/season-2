@@ -1,6 +1,7 @@
 package eu.nordtal.season.packrendering.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.packrendering.Glyphs;
@@ -64,6 +65,22 @@ class HudPillTest {
 
         assertTrue(hud.startsWith(Glyphs.UI_PILL.get(0)), "the HUD's pill opens with the pill's end");
         assertTrue(hologram.startsWith(Glyphs.UI_PILL.get(0)), "a hologram's pill opens with the pill's end");
+    }
+
+    @Test
+    void aPillsPanelAndInkAreDrawnApartWithTheWholePillsAdvance() {
+        final List<Pill.Run> runs = List.of(new Pill.Run("Nordwacht", Colours.INK));
+        final Component whole = Pill.of(Symbol.RAIL, runs, Pen.Layer.ALL);
+        final String panel = plain(Pill.of(Symbol.RAIL, runs, Pen.Layer.ART));
+        final String ink = plain(Pill.of(Symbol.RAIL, runs, Pen.Layer.INK));
+
+        assertEquals(Pill.of(Symbol.RAIL, runs), whole);
+        assertEquals(Advances.of(whole), Advances.of(Pill.of(Symbol.RAIL, runs, Pen.Layer.ART)));
+        assertEquals(Advances.of(whole), Advances.of(Pill.of(Symbol.RAIL, runs, Pen.Layer.INK)));
+        assertTrue(panel.startsWith(Glyphs.UI_PILL.get(0)), "the panel opens with the pill's end");
+        assertFalse(panel.contains("Nordwacht") || panel.contains(Symbol.RAIL.glyph()), "the panel holds no ink");
+        assertTrue(ink.contains("Nordwacht") && ink.contains(Symbol.RAIL.glyph()), "the ink holds the symbol and text");
+        assertTrue(Glyphs.UI_PILL.stream().noneMatch(ink::contains), "the ink holds no part of the panel");
     }
 
     private static String plain(final Component component) {

@@ -10,7 +10,6 @@ import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.messages.value.Example;
-import eu.nordtal.season.packrendering.ui.Pill;
 import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.papercommon.hud.PillHologram;
 import eu.nordtal.season.papercommon.menu.BlankItem;
@@ -41,7 +40,6 @@ import org.bukkit.entity.Display;
 import org.bukkit.entity.Interaction;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
@@ -84,7 +82,7 @@ public final class Graves {
     private final Map<UUID, GraveRow> open = new HashMap<>();
 
     /** Maps a grave id to its countdown hologram. It has no entry if decay is off. */
-    private final Map<UUID, TextDisplay> holograms = new HashMap<>();
+    private final Map<UUID, PillHologram> holograms = new HashMap<>();
 
     /** Maps a grave id to the epoch millisecond at which {@link #tickHolograms()} next updates its hologram. */
     private final Map<UUID, Long> nextHologramUpdate = new HashMap<>();
@@ -186,7 +184,7 @@ public final class Graves {
     /** Spawns the chest, the skull, the {@link Interaction} and, if decay is on, the hologram of {@code row}. */
     private void draw(final GraveRow row, final Location at) {
         final World world = at.getWorld();
-        final List<org.bukkit.entity.Entity> entities = new ArrayList<>(4);
+        final List<org.bukkit.entity.Entity> entities = new ArrayList<>();
 
         // A BlockDisplay is drawn from its corner, so the translation moves it by half a block.
         final BlockDisplay chest = world.spawn(at, BlockDisplay.class, display -> {
@@ -222,7 +220,7 @@ public final class Graves {
         });
         entities.add(click);
 
-        spawnHologramIfDecaying(row, at, world, entities);
+        spawnHologramIfDecaying(row, at, entities);
         blockOf(world, row.x(), row.y(), row.z())
                 .filter(block -> GraveBarrier.placesInto(there(block)))
                 .ifPresent(block -> block.setType(Material.BARRIER));
@@ -233,17 +231,14 @@ public final class Graves {
     }
 
     private void spawnHologramIfDecaying(
-            final GraveRow row, final Location at, final World world, final List<org.bukkit.entity.Entity> entities) {
+            final GraveRow row, final Location at, final List<org.bukkit.entity.Entity> entities) {
         if (config.graveMaxAgeHours() <= 0) {
             return;
         }
         final Duration timeLeft = timeLeft(row);
-        final TextDisplay hologram = world.spawn(at.clone().add(0, HOLOGRAM_HEIGHT, 0), TextDisplay.class, display -> {
-            display.setPersistent(false);
-            PillHologram.style(display);
-            display.text(hologramText(row, timeLeft));
-        });
-        entities.add(hologram);
+        final PillHologram hologram =
+                PillHologram.spawn(at.clone().add(0, HOLOGRAM_HEIGHT, 0), hologramText(row, timeLeft), display -> {});
+        entities.addAll(hologram.entities());
         holograms.put(row.id(), hologram);
         nextHologramUpdate.put(row.id(), clock.millis() + refreshInterval(timeLeft));
     }
@@ -263,13 +258,13 @@ public final class Graves {
      * Returns the hologram's pill with the grave symbol.
      * It is in the language of the dead player, or in English when the owner is unknown.
      */
-    private Component hologramText(final GraveRow row, final Duration timeLeft) {
+    private PillHologram.Layers hologramText(final GraveRow row, final Duration timeLeft) {
         final Locale locale = row.ownerUuid() == null ? Locale.ENGLISH : identities.languageOf(row.ownerUuid());
         // Outside the final stretch the text shows whole minutes.
         final Duration shown =
                 timeLeft.compareTo(HOLOGRAM_FINAL_STRETCH) < 0 ? timeLeft : timeLeft.truncatedTo(ChronoUnit.MINUTES);
         final Component text = renderer.format(locale, HOLOGRAM.with(new Left(shown)));
-        return Pill.of(
+        return PillHologram.layers(
                 Symbol.GRAVE,
                 PillHologram.runs(text, renderer.raw().environment().palette()));
     }
@@ -286,7 +281,7 @@ public final class Graves {
             return;
         }
         final long now = clock.millis();
-        for (final Map.Entry<UUID, TextDisplay> entry : holograms.entrySet()) {
+        for (final Map.Entry<UUID, PillHologram> entry : holograms.entrySet()) {
             final UUID graveId = entry.getKey();
             final Long dueAt = nextHologramUpdate.get(graveId);
             if (dueAt != null && now < dueAt) {

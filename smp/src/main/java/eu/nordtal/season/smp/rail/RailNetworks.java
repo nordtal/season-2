@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.rail;
 
+import eu.nordtal.season.papercommon.hud.PillHologram;
 import java.time.Clock;
 import java.util.Collection;
 import java.util.HashMap;
@@ -24,7 +25,6 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Rail;
 import org.bukkit.entity.ItemDisplay;
-import org.bukkit.entity.TextDisplay;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
@@ -51,7 +51,7 @@ public final class RailNetworks {
     private final StationMarks marks;
     private final StationRailItem item;
     private final NamespacedKey displayKey;
-    private final StationHolograms<Optional<TextDisplay>> holograms =
+    private final StationHolograms<Optional<PillHologram>> holograms =
             new StationHolograms<>(new StationHologramDrawing());
     private final Map<String, WorldNetworks> worlds = new HashMap<>();
     private final Map<String, Set<RailPos>> changed = new LinkedHashMap<>();

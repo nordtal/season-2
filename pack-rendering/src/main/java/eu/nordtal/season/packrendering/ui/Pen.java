@@ -18,6 +18,18 @@ public final class Pen {
 
     private static final int[] RUNS = {256, 128, 64, 32, 16, 8, 4, 2, 1};
 
+    /** Which pieces a pen draws. A piece it leaves out is moved over, so the others keep their places. */
+    public enum Layer {
+        /** Everything. */
+        ALL,
+        /** Art alone, such as a pill's panel. */
+        ART,
+        /** Letters and symbols alone. */
+        INK
+    }
+
+    private final Layer layer;
+
     private final List<Component> parts = new ArrayList<>();
     private final StringBuilder run = new StringBuilder();
     private @Nullable String runFont;
@@ -25,11 +37,18 @@ public final class Pen {
     private int x;
     private int pending;
 
-    private Pen() {}
+    private Pen(final Layer layer) {
+        this.layer = layer;
+    }
 
     /** Returns a pen at x 0. */
     public static Pen start() {
-        return new Pen();
+        return new Pen(Layer.ALL);
+    }
+
+    /** Returns a pen at x 0 that draws only {@code layer}. */
+    public static Pen start(final Layer layer) {
+        return new Pen(layer);
     }
 
     /** Returns where the next piece starts. */
@@ -50,18 +69,27 @@ public final class Pen {
 
     /** Draws {@code glyph} of {@code font}, whose ink is {@code width} columns, and moves {@code width} on. */
     public Pen art(final String font, final String glyph, final int width) {
+        if (layer == Layer.INK) {
+            return move(width);
+        }
         put(font, Colours.ART, glyph, width + 1);
         return move(-1);
     }
 
     /** Draws {@code text} in the ui text font {@code shift} pixels below the text row, and moves by its advance. */
     public Pen text(final int shift, final String text, final TextColor colour) {
+        if (layer == Layer.ART) {
+            return move(Letters.width(text));
+        }
         put(textFont(shift), colour, text, Letters.width(text));
         return this;
     }
 
     /** Draws {@code symbol} in the ui text font {@code shift} pixels below the text row, and moves 8 on. */
     public Pen symbol(final int shift, final Symbol symbol, final TextColor colour) {
+        if (layer == Layer.ART) {
+            return move(Symbol.ADVANCE);
+        }
         put(textFont(shift), colour, symbol.glyph(), Symbol.ADVANCE);
         return this;
     }

@@ -4,7 +4,6 @@ import eu.nordtal.season.displaytags.nametag.NameTagManager;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
-import eu.nordtal.season.packrendering.ui.Pill;
 import eu.nordtal.season.papercommon.hud.PillHologram;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.config.NpcSpec;
@@ -13,7 +12,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -31,7 +29,7 @@ public final class SpawnNpc {
     private final Plugin plugin;
     private final NpcSpec config;
     private final NameTagManager nameTags;
-    private final Function<UUID, Component> name;
+    private final Function<UUID, PillHologram.Layers> name;
     private @Nullable UUID spawned;
 
     public SpawnNpc(
@@ -97,8 +95,9 @@ public final class SpawnNpc {
     }
 
     /** Draws the NPC's name on a grey pill without a symbol, in the language of each viewer. */
-    static Function<UUID, Component> name(final Function<UUID, Locale> languageOf, final MessageRenderer renderer) {
-        return viewer -> Pill.of(
+    static Function<UUID, PillHologram.Layers> name(
+            final Function<UUID, Locale> languageOf, final MessageRenderer renderer) {
+        return viewer -> PillHologram.layers(
                 null,
                 PillHologram.runs(
                         renderer.format(languageOf.apply(viewer), Sent.of(NAME)),

@@ -91,7 +91,7 @@ public final class Wheel {
     /** Ends a player's turn on the spot: stops its clicks and pays as a turn that ran to its end. Closing calls it. */
     private final Map<UUID, Runnable> ending = new ConcurrentHashMap<>();
 
-    /** The pop-in's sounds that still play, per player, which a spin stops. */
+    /** The pop-in's sounds that still play, per player, which a spin or a close stops. */
     private final Map<UUID, Scheduler.Task> popping = new ConcurrentHashMap<>();
 
     private final Clock clock;
@@ -181,7 +181,7 @@ public final class Wheel {
 
     /**
      * Stops the player's wheel: the pop-in's sounds end, and a turning wheel stops and pays its prize straight away.
-     * Callable from the main thread; the dialog's close calls it.
+     * Callable from the main thread; the dialog's close calls it, and so does anything else that closes the dialog.
      */
     public void close(final Player player) {
         final UUID id = player.getUniqueId();
@@ -330,30 +330,19 @@ public final class Wheel {
             final Runnable refund) {
         final UUID id = player.getUniqueId();
         final WheelPlan.Face before = faces.put(id, plan.after());
-        final AtomicBoolean paid = new AtomicBoolean();
-        final Runnable payout = () -> {
-            if (paid.compareAndSet(false, true)) {
-                ending.remove(id);
-                turning.remove(id);
-                // A spin that goes back leaves the wheel as it was before it.
-                if (!player.isOnline() && before != null) {
-                    faces.put(id, before);
-                }
-                give(player, item, amount, locale, refund);
+        final WheelTurn once = new WheelTurn(() -> sounds.play(player, Feedback.BIG_SUCCESS), () -> {
+            ending.remove(id);
+            turning.remove(id);
+            // A spin that goes back leaves the wheel as it was before it.
+            if (!player.isOnline() && before != null) {
+                faces.put(id, before);
             }
-        };
-        turning.put(id, payout);
-        final Runnable end = () -> {
-            if (player.isOnline() && !paid.get()) {
-                sounds.play(player, Feedback.BIG_SUCCESS);
-            }
-            payout.run();
-        };
-        final Scheduler.Task clicks = turn(player, plan.variant(), end);
-        ending.put(id, () -> {
-            clicks.cancel();
-            end.run();
+            give(player, item, amount, locale, refund);
         });
+        turning.put(id, () -> once.end(false));
+        final Runnable end = () -> once.end(player.isOnline());
+        once.clicks(turn(player, plan.variant(), end)::cancel);
+        ending.put(id, end);
     }
 
     /** Plays the clicks of {@code variant}'s turn, then {@code end} once the wheel rests. */

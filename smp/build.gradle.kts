@@ -27,7 +27,25 @@ repositoryRootTestInputs {
     reads("compose.yml")
     reads("deploy/minecraft/entrypoint.sh")
     readsTree("smp/src/main/resources/documents/smp")
-    reads("resource-pack/wheel-prizes.json")
+}
+
+// The default wheel prizes for the pack's wheel, written from DefaultSmp on the plugin's classpath without Paper.
+val prizeList =
+    sourceSets.create("prizeList") {
+        compileClasspath += sourceSets.main.get().output + sourceSets.main.get().compileClasspath
+        runtimeClasspath += sourceSets.main.get().output + sourceSets.main.get().runtimeClasspath
+    }
+val writeWheelPrizes =
+    tasks.register<JavaExec>("writeWheelPrizes") {
+        description = "Writes the default wheel prizes for the resource pack's wheel."
+        classpath = prizeList.runtimeClasspath
+        mainClass.set("eu.nordtal.season.smp.config.WheelPrizeList")
+        val list = layout.buildDirectory.file("generated/wheel-prizes/wheel-prizes.json")
+        outputs.file(list).withPropertyName("list")
+        argumentProviders.add(CommandLineArgumentProvider { listOf(list.get().asFile.path) })
+    }
+configurations.consumable("wheelPrizes") {
+    outgoing.artifact(layout.buildDirectory.file("generated/wheel-prizes/wheel-prizes.json")) { builtBy(writeWheelPrizes) }
 }
 
 dependencies {
@@ -51,6 +69,9 @@ dependencies {
     testImplementation(testFixtures(project(":database")))
     testImplementation(testFixtures(project(":settings")))
     testImplementation(libs.postgresql.driver)
+
+    // Paper provides Gson to the plugin, so the prize list brings its own.
+    "prizeListImplementation"(libs.gson)
 }
 
 messageSpec {

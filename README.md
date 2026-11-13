@@ -125,6 +125,7 @@ jars of the services.
 | `settings`          | library         | Loading of every process's settings.                                                      |
 | `spec`              | library         | Settings groups as spec interfaces, and the schema of Steward's forms.                    |
 | `resource-pack`     | assets          | The pack, its glyph allocation, and the zip + SHA-1 of a release.                         |
+| `pack-builder`      | library         | Writes the pack's wheel and the reproducible pack zip. Depends only on the JDK and Gson.  |
 | `bridge-mod`        | Fabric mod      | Client mod through which the Nordtal Designer reloads the pack and shows previews.        |
 | `designer`          | Aseprite plugin | The Nordtal tab of Nordtal Designer: pack tree, embedded editor and properties.           |
 | `architecture`      | tests           | ArchUnit rules over every module: dependencies and wiring.                                |

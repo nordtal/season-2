@@ -10,6 +10,7 @@ val checkedModules =
         ":message-rendering",
         ":discord-rendering",
         ":pack-rendering",
+        ":pack-builder",
         ":limbo-protocol",
         ":settings",
         ":spec",

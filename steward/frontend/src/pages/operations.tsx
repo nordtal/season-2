@@ -311,7 +311,7 @@ function RunDetail({ run, children }: { run?: Run; children?: ReactNode }) {
         ) : run.steps.length === 0 ? (
           <Empty title={t("steward.operations.nothing-written")} />
         ) : (
-          <RunRail steps={run.steps} />
+          <RunRail steps={run.steps} at={run.stage} />
         )}
       </Panel>
 

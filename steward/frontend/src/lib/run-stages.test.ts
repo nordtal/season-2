@@ -64,6 +64,27 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
     ).toEqual([["release 0.63.2 → 0.64.0"], ["smp 1.0 → 1.1", "proxy"]])
   })
 
+  it("names on resolve the services it found changes for as install does when no release changed, and nothing only for a run with nothing to do", () => {
+    const found = stagesOf([
+      step({ step: "RESOLVE" }),
+      step({ step: "RESOLVE", service: "smp", changes: [{ artefact: "smp", from: "248", to: "249" }] }),
+      step({ step: "RESOLVE", service: "limbo", changes: [{ artefact: "paper", from: "248", to: "249" }] }),
+      step({ step: "RESOLVE", service: "proxy", changes: [{ artefact: "image", image: "PULLED" }] }),
+      step({ step: "RESOLVE", service: "bot", outcome: "WARNING", reason: "MISSING_SECRET", changes: [] }),
+    ])
+    expect(found.map((stage) => pillsOf(stage, "DONE"))).toEqual([
+      [
+        { text: "smp 248 → 249", services: true },
+        { text: "limbo", services: true },
+        { text: "proxy", services: true },
+        { text: "a secret is missing, ./nordtal.sh update on the host adds it", tone: "warn" },
+      ],
+    ])
+    const [idle] = stagesOf([step({ step: "RESOLVE" })])
+    expect(pillsOf(idle, "NOTHING_TO_DO")).toEqual([{ text: "nothing" }])
+    expect(pillsOf(idle, "DONE")).toEqual([])
+  })
+
   it("counts players moved and back, archives saved with their size, and archives pruned", () => {
     expect(
       texts([
@@ -104,7 +125,10 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
       step({ step: "CLEANUP" }),
       step({ step: "OFFSITE_COPY", outcome: "SKIPPED", reason: "NO_REPOSITORY" }),
     ])
-    expect(stages.map(pillsOf)).toEqual([[{ text: "nothing" }], [{ text: "no offsite repository", tone: "idle" }]])
+    expect(stages.map((stage) => pillsOf(stage))).toEqual([
+      [{ text: "nothing" }],
+      [{ text: "no offsite repository", tone: "idle" }],
+    ])
   })
 
   it("says no one was to move when the players step found nobody, and leaves a failed one to its reason", () => {

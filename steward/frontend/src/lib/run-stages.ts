@@ -1,4 +1,5 @@
 import type { RunArchive, RunChange, RunImageRemoved, RunMove, RunOffsite } from "@/lib/api"
+import type { RunStage } from "@/lib/api.gen"
 import { bytes, time } from "@/lib/format"
 import { choice, type MessageRef, span, t } from "@/lib/texts"
 
@@ -81,12 +82,17 @@ export function stageName(key: StageKey): string {
 /** The most services a pill row names one by one before it counts them. */
 const NAMED = 3
 
-/** Returns a stage's coarse facts: what it acted on and counted, then why a step went wrong or was left out. */
-export function pillsOf(stage: Stage): Pill[] {
+/**
+ * Returns a stage's coarse facts: what it acted on and counted, then why a step went wrong or was left out.
+ *
+ * @param at the stage the run is at. Resolve says "nothing" only for a run that found nothing to do.
+ */
+export function pillsOf(stage: Stage, at?: RunStage): Pill[] {
   const facts = FACTS[stage.key](stage.steps)
   const reasons = reasonsOf(stage.steps)
   if (facts.length === 0 && reasons.length === 0) {
-    if (stage.verdict === "done") return [{ text: t("steward.updates.nothing") }]
+    const nothing = stage.key === "RESOLVE" ? at === "NOTHING_TO_DO" : stage.verdict === "done"
+    if (nothing) return [{ text: t("steward.updates.nothing") }]
     if (stage.verdict === "skipped") return [{ text: t("run.outcome", { outcome: "skipped" }), tone: "idle" }]
   }
   return [...facts, ...reasons]
@@ -111,7 +117,13 @@ function reasonsOf(steps: RailStep[]): Pill[] {
 const FACTS: Record<StageKey, (steps: RailStep[]) => Pill[]> = {
   RESOLVE: (steps) => {
     const release = steps.flatMap((step) => (step.service ? [] : (step.changes ?? []))).find(isRelease)
-    return release ? [{ text: changeText(release) }] : []
+    if (release) return [{ text: changeText(release) }]
+    // Without a release, the services it found a new version or image for, each as Install shows it.
+    return jumps(
+      steps.filter((step) =>
+        (step.changes ?? []).some((change) => change.to !== undefined || change.image === "PULLED"),
+      ),
+    )
   },
   STANDBY: (steps) =>
     [...new Set(steps.flatMap((step) => (step.service ? [step.service] : [])))].flatMap((standby) => {
@@ -159,16 +171,7 @@ const FACTS: Record<StageKey, (steps: RailStep[]) => Pill[]> = {
   },
   MIGRATE: (steps) =>
     steps.flatMap((step) => step.changes ?? []).flatMap((change) => (change.to ? [{ text: changeText(change) }] : [])),
-  INSTALL: (steps) => {
-    const jumps = new Map<string, Pill>()
-    for (const step of steps) {
-      if (!step.service) continue
-      const own = (step.changes ?? []).find((change) => change.artefact === step.service && change.to)
-      if (own) jumps.set(step.service, { text: changeText(own), services: true })
-      else if (!jumps.has(step.service)) jumps.set(step.service, { text: step.service, services: true })
-    }
-    return [...jumps.values()]
-  },
+  INSTALL: (steps) => jumps(steps),
   RESTORE: (steps) => services(steps),
   STARTING: (steps) => services(steps),
   CLEANUP: (steps) => {
@@ -184,6 +187,18 @@ const FACTS: Record<StageKey, (steps: RailStep[]) => Pill[]> = {
     steps.flatMap((step) =>
       step.offsite ? [{ text: t("steward.operations.added", { size: bytes(step.offsite.bytesAdded) }) }] : [],
     ),
+}
+
+/** Gives each service of the steps its own version jump once, else its name. */
+function jumps(steps: RailStep[]): Pill[] {
+  const found = new Map<string, Pill>()
+  for (const step of steps) {
+    if (!step.service) continue
+    const own = (step.changes ?? []).find((change) => change.artefact === step.service && change.to)
+    if (own) found.set(step.service, { text: changeText(own), services: true })
+    else if (!found.has(step.service)) found.set(step.service, { text: step.service, services: true })
+  }
+  return [...found.values()]
 }
 
 /** Names the services of the steps, or counts them past a few. */

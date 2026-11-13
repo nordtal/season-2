@@ -509,6 +509,30 @@ class UpdateFeedTest {
     }
 
     @Test
+    void theDurationCountsFromTheStartNotTheRequest() {
+        final Instant started = NOW.minus(Duration.ofSeconds(129));
+        final UpdateRequest waited = new UpdateRequest(
+                1L,
+                UpdateKind.UPDATE,
+                UpdateStatus.DONE,
+                OWNER,
+                started.minus(Duration.ofMinutes(10)),
+                started,
+                null,
+                List.of(),
+                started,
+                NOW,
+                RunStage.DONE);
+        final UpdateRequest never = new UpdateRequest(
+                2L, UpdateKind.UPDATE, UpdateStatus.CANCELLED, OWNER, NOW, NOW, null, List.of(), null, NOW, null);
+
+        assertTrue(
+                card(waited, documents).text().lines().anyMatch("**Duration** 2m 9s"::equals),
+                card(waited, documents).text());
+        assertFalse(names(card(never, documents)).contains("Duration"), "a run that never started took no time");
+    }
+
+    @Test
     void aSuccessfulRunShowsNoReasonsWhateverItsStepsSay() {
         final DocumentRenderer.Drawn card = card(
                 row(1L, UpdateStatus.DONE, RunStage.DONE, NOW),

@@ -532,7 +532,11 @@ services:
       SECRETS_REVISION: ${SECRETS_REVISION_STEWARD_AGENT:-}
       # The installer's one question: whether Mojang's client jar may be fetched to draw item icons.
       NORDTAL_STEWARD_AGENT_MOJANG_ASSETS: ${NORDTAL_MOJANG_ASSETS:-false}
+      # The name Caddy serves the built packs under, which the proxy's pack address names.
+      NORDTAL_STEWARD_AGENT_PACK_HOST: ${PACK_HOST:-pack.nordtal.eu}
     volumes:
+      # The packs the agent builds, as <sha1>.zip; Caddy serves them read-only.
+      - ${PACK_DIR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/pack}:/pack
       # `:ro` cannot restrict the API behind the socket.
       - /var/run/docker.sock:/var/run/docker.sock
       # A directory, not the file: a file bind would keep the pre-rotation inode.
@@ -646,6 +650,8 @@ services:
       # Caddy's state; no site of it has a certificate.
       - ${CADDY_DATA:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/caddy-data}:/data
       - ${CADDY_CONFIG:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/caddy-config}:/config
+      # The packs steward-agent builds.
+      - ${PACK_DIR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/pack}:/srv/pack:ro
     healthcheck:
       # The admin API; the image has wget, not curl.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
@@ -737,9 +743,17 @@ configs:
       	}
       }
 
-      # The resource pack. Nothing serves it yet.
+      # The resource packs steward-agent builds, each named by its SHA-1, so a file never changes and caches for good.
       http://${PACK_HOST:-pack.nordtal.eu} {
-      	respond 404
+      	@pack path_regexp ^/[0-9a-f]{40}\.zip$$
+      	handle @pack {
+      		root * /srv/pack
+      		header Cache-Control "public, max-age=31536000, immutable"
+      		file_server
+      	}
+      	handle {
+      		respond 404
+      	}
       }
 
       (invite) {
@@ -786,6 +800,8 @@ volumes:
   mc-proxy-standby-plugins:
   mc-limbo-standby:
   mc-limbo-standby-plugins:
+  # steward-agent builds the packs again from its image, so not backed up.
+  pack:
 
 # `default` holds the Minecraft services and the bot; `steward` holds steward and Caddy. Postgres is
 # on both, so no plugin can reach steward. `agent` and `bank` each join steward to one service that

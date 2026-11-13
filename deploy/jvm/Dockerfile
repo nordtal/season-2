@@ -45,6 +45,8 @@ COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/docker-compose \
      /usr/local/libexec/docker/cli-plugins/docker-compose
 COPY steward-agent/build/image/compose.yml /app/compose.yml
+# What the agent builds the resource pack from: the pack without the wheel, the vanilla facts and smp's wheel inputs.
+COPY steward-agent/build/image/pack /app/pack
 ENV NORDTAL_STEWARD_AGENT_COMPOSE_FILE=/app/compose.yml \
     NORDTAL_STEWARD_AGENT_ENV_FILE=/app/env/.env \
     NORDTAL_STEWARD_AGENT_PROJECT_DIRECTORY=/app \

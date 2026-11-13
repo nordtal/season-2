@@ -120,6 +120,7 @@ DATA_DIRS=(
     "mc-limbo-plugins"
     "mc-hunger-games-plugins"
     "mc-smp-plugins"
+    "pack"
 )
 
 # Pure decisions. deploy/nordtal-test.sh runs them without Docker and without a network.

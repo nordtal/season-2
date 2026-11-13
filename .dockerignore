@@ -7,4 +7,5 @@
 !steward/build/image/app.jar
 !steward-agent/build/image/app.jar
 !steward-agent/build/image/compose.yml
+!steward-agent/build/image/pack
 !steward-bunq/build/image/app.jar

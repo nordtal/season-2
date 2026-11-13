@@ -104,8 +104,7 @@ final class LocalStack implements ContainerOps {
     /**
      * A Minecraft status ping from inside the server's own container, since steward-agent is on none of its networks.
      *
-     * Inline rather than a script of the image, because a standby may still run the image of the release before.
-     * Velocity behind Caddy expects a PROXY header first; protocol -1 asks for none in particular.
+     * Inline, since a standby may run the image of the release before. Velocity behind Caddy expects a PROXY header.
      */
     static final String STATUS_PING = """
             port=${SERVER_PORT:-25565}

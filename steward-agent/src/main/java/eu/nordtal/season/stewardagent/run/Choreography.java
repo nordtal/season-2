@@ -24,8 +24,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Starts the standbys a run needs, waits for players to leave, and stops the standbys again.
  *
- * Standbys come up before any warning, so an unhealthy one, or one a client of its live service could not join,
- * aborts a run that has touched nothing.
+ * Standbys come up before any warning, so one that is unhealthy or speaks another protocol aborts an untouched run.
  */
 @Slf4j
 final class Choreography {
@@ -115,6 +114,7 @@ final class Choreography {
         final List<String> pending = new ArrayList<>(standbys);
         final Instant deadline = clock.now().plus(STANDBY_HEALTHY_WITHIN);
         boolean mismatched = false;
+        final Set<String> silent = new LinkedHashSet<>();
         while (true) {
             final RuntimeResult seen = containers.runtime();
             if (seen.reached()) {
@@ -125,8 +125,10 @@ final class Choreography {
                     final Answer answer = answersLikeItsService(standby, seen);
                     if (answer == Answer.SILENT) {
                         // Healthy but not answering yet; the patience below decides.
+                        silent.add(standby);
                         continue;
                     }
+                    silent.remove(standby);
                     pending.remove(standby);
                     if (answer == Answer.OTHER_PROTOCOL) {
                         mismatched = true;
@@ -140,6 +142,9 @@ final class Choreography {
                 return !mismatched;
             }
             if (!clock.now().isBefore(deadline)) {
+                if (!silent.isEmpty()) {
+                    log.warn("standby healthy but answered no status ping in time: standbys={}", silent);
+                }
                 pending.forEach(standby -> cameUp(standby, RunStep.Outcome.FAILED, RunStep.Reason.NOT_HEALTHY));
                 return false;
             }
@@ -175,13 +180,19 @@ final class Choreography {
                 .orElse(null);
         final OptionalInt theirs = live == null ? OptionalInt.empty() : ping(live, seen);
         if (theirs.isEmpty()) {
-            log.info("standby protocol not compared, its service did not answer: standby={} protocol={}", standby,
+            log.info(
+                    "standby protocol not compared, its service did not answer: standby={} protocol={}",
+                    standby,
                     own.getAsInt());
             return Answer.SAME_PROTOCOL;
         }
         if (own.getAsInt() != theirs.getAsInt()) {
-            log.warn("standby answers another protocol than its service: standby={} protocol={} service={} expected={}",
-                    standby, own.getAsInt(), live, theirs.getAsInt());
+            log.warn(
+                    "standby answers another protocol than its service: standby={} protocol={} service={} expected={}",
+                    standby,
+                    own.getAsInt(),
+                    live,
+                    theirs.getAsInt());
             return Answer.OTHER_PROTOCOL;
         }
         return Answer.SAME_PROTOCOL;

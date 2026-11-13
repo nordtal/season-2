@@ -339,6 +339,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V118__the_season_phase_s_tables_leave.sql",
                 "b316e42fed20f30531ebcbd55a682bfce68eefbd2f0207c61d4654e566a52db2");
+        FROZEN.put(
+                "V119__a_run_names_lost_players_and_a_standby_of_another_protocol.sql",
+                "1632e514a62534ee6e2a9242ac26c9f9882a9ec2ec9df6871ebc1b330dc6666b");
     }
 
     @Test

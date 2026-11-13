@@ -36,7 +36,9 @@ final class StatusAnswer {
                 return OptionalInt.empty();
             }
             final JsonObject version = status.getAsJsonObject().getAsJsonObject("version");
-            if (version == null || !version.has("protocol") || !version.get("protocol").isJsonPrimitive()) {
+            if (version == null
+                    || !version.has("protocol")
+                    || !version.get("protocol").isJsonPrimitive()) {
                 return OptionalInt.empty();
             }
             return OptionalInt.of(version.get("protocol").getAsInt());

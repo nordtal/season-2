@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 final class Run {
 
     /** How long the players moved out may take to come back once the standbys are closed. */
-    static final Duration RETURN_CAP = Duration.ofSeconds(30);
+    private static final Duration RETURN_CAP = Duration.ofSeconds(30);
 
     private static final Duration RETURN_POLL = Duration.ofSeconds(1);
 
@@ -355,8 +355,13 @@ final class Run {
         return Outcome.failed();
     }
 
-    /** Ends {@code returning} on whether every player the run moved out came back, waiting for the last of them. */
+    /**
+     * Ends {@code returning} on whether every player the run moved out came back, waiting for the last of them.
+     *
+     * Players moved off a held service stay in the waiting room on purpose, so those moves are not counted.
+     */
     private void countBack(final Steps.Step returning) {
+        final Set<String> held = Set.copyOf(runner.held());
         final Instant deadline = runner.waiting.now().plus(RETURN_CAP);
         while (true) {
             final Optional<List<RunStep.Move>> moves = steps.record.moves();
@@ -365,7 +370,7 @@ final class Run {
                 return;
             }
             final List<RunStep.Move> missing = moves.get().stream()
-                    .filter(move -> move.returned() < move.moved())
+                    .filter(move -> !held.contains(move.from()) && move.returned() < move.moved())
                     .toList();
             if (missing.isEmpty()) {
                 returning.done();

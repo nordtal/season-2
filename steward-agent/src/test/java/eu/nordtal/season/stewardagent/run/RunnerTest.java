@@ -145,6 +145,23 @@ class RunnerTest {
     }
 
     @Test
+    void aTakeDownWithPlayersOnLosesNobodySinceTheWaitingRoomKeepsThemOnPurpose() {
+        final UpdateRequest request = claimed(UpdateKind.DOWN, List.of("smp"));
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 2);
+            }
+        };
+
+        runner.run(request, progress::add);
+
+        assertEquals(
+                "PLAYERS_BACK DONE",
+                steps(request.id()).getLast(),
+                steps(request.id()).toString());
+    }
+
+    @Test
     void playersBackWaitsForTheLastPlayerTheProxyCountsBackLate() {
         final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
         containers.watcher = call -> {

@@ -120,7 +120,8 @@ class ChoreographyTest {
         final FakeContainers containers = new FakeContainers().running("proxy", "limbo");
         final Choreography choreography = choreography(containers, Occupancy.NONE, driven());
 
-        assertTrue(choreography.open(List.of("limbo")).opened(), collected.rows().toString());
+        assertTrue(
+                choreography.open(List.of("limbo")).opened(), collected.rows().toString());
         assertEquals(List.of("STANDBY_UP limbo-standby DONE"), steps());
     }
 
@@ -137,10 +138,12 @@ class ChoreographyTest {
 
     @Test
     void aLiveServiceThatDoesNotAnswerLeavesHealthAsTheCheck() {
-        final FakeContainers containers = new FakeContainers().running("proxy", "limbo").answersNoPing("limbo");
+        final FakeContainers containers =
+                new FakeContainers().running("proxy", "limbo").answersNoPing("limbo");
         final Choreography choreography = choreography(containers, Occupancy.NONE, driven());
 
-        assertTrue(choreography.open(List.of("limbo")).opened(), collected.rows().toString());
+        assertTrue(
+                choreography.open(List.of("limbo")).opened(), collected.rows().toString());
         assertEquals(List.of("STANDBY_UP limbo-standby DONE"), steps());
     }
 

@@ -7,8 +7,11 @@ import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import eu.nordtal.season.internalapi.agent.ServiceRuntime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
+import java.util.Set;
 
 /** A {@link ContainerOps} that answers from a map and records every call in {@link #calls}. */
 final class FakeContainers implements ContainerOps {
@@ -328,7 +331,7 @@ final class FakeContainers implements ContainerOps {
     final List<String> pinged = new ArrayList<>();
 
     /** Services that do not answer a status ping. */
-    private final java.util.Set<String> unpinged = new java.util.LinkedHashSet<>();
+    private final Set<String> unpinged = new LinkedHashSet<>();
 
     /** What every running service answers unless a test says otherwise. */
     static final int CURRENT_PROTOCOL = 777;
@@ -346,13 +349,14 @@ final class FakeContainers implements ContainerOps {
     }
 
     @Override
-    public java.util.OptionalInt protocol(final String containerId) {
-        final String service = service(containerId);
+    public OptionalInt protocol(final String containerId) {
+        // A recreated container's id carries a counter after it, as limbo-standby-container-2.
+        final String service = containerId.replaceFirst("-container(-\\d+)?$", "");
         pinged.add(service);
         if (unpinged.contains(service)) {
-            return java.util.OptionalInt.empty();
+            return OptionalInt.empty();
         }
-        return java.util.OptionalInt.of(protocols.getOrDefault(service, CURRENT_PROTOCOL));
+        return OptionalInt.of(protocols.getOrDefault(service, CURRENT_PROTOCOL));
     }
 
     @Override

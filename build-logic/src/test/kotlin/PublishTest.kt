@@ -84,7 +84,10 @@ class PublishTest {
         publish(clone).publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
 
         val published = NewTextures.fonts(OxfmtJson.read(checked.single().first) as Map<*, *>).associateBy { it["font"] }
-        assertEquals(json["fonts"].let { (it as List<*>).takeLast(2) }, listOf(published["nordtal:ui_space"], published["nordtal:ui_silent"]))
+        assertEquals(
+            json["fonts"].let { (it as List<*>).takeLast(2) },
+            listOf(published["nordtal:ui_space"], published["nordtal:ui_silent"]),
+        )
     }
 
     @Test

@@ -265,9 +265,11 @@ object FontEdits {
         root: Map<*, *>,
         font: String,
         title: String,
-    ): OxfmtJson.Object =
-        (NewTextures.font(root, font)["blocks"] as List<*>?).orEmpty().firstOrNull { (it as Map<*, *>)["title"] == title } as OxfmtJson.Object?
+    ): OxfmtJson.Object {
+        val blocks = (NewTextures.font(root, font)["blocks"] as List<*>?).orEmpty()
+        return blocks.firstOrNull { (it as Map<*, *>)["title"] == title } as OxfmtJson.Object?
             ?: throw FieldRefusal("block", "The font $font has no block $title.")
+    }
 
     /** Puts the keys of [entry] in the order of [keys], as `glyphs.json` writes them. */
     private fun order(

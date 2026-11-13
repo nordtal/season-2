@@ -158,7 +158,7 @@ public final class Homecoming {
         try {
             runs.returned(from, to, players);
         } catch (final RuntimeException failure) {
-            logger.warn("returned players not recorded: count={} from={} to={}", players, to, from, failure);
+            logger.warn("returned players not recorded: count={} from={} to={}", players, from, to, failure);
         }
     }
 

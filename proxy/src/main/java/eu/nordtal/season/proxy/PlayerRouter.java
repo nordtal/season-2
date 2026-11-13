@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -61,6 +62,9 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
     private final eu.nordtal.season.proxy.update.Homecoming homecoming;
 
     private final Clock clock;
+
+    /** Whether an update run stops the server. */
+    private volatile Predicate<String> stopping = server -> false;
 
     public PlayerRouter(
             final Scheduler scheduler,
@@ -95,6 +99,11 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
         this.homecoming = Objects.requireNonNull(homecoming, "homecoming");
     }
 
+    /** Sets the check for a server that an update run stops, which no login is sent to. */
+    public void whenStopping(final Predicate<String> stopping) {
+        this.stopping = Objects.requireNonNull(stopping, "stopping");
+    }
+
     /**
      * Sets {@code limbo} as the initial server of every admitted login.
      * It reads {@link SeasonWatch#state()} and {@link LoginRoster}.
@@ -104,7 +113,8 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
         final SeasonState season = seasons.state();
         final Player player = event.getPlayer();
         final UUID uuid = player.getUniqueId();
-        final RouteDecision decision = routing.decideInitial(season, roster.isAdmin(uuid), registeredServerNames());
+        final RouteDecision decision =
+                routing.decideInitial(season, roster.isAdmin(uuid), registeredServerNames(), stopping);
 
         switch (decision.action()) {
             case CONNECT -> {

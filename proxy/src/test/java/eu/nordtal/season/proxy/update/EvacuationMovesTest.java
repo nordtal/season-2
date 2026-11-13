@@ -1,6 +1,7 @@
 package eu.nordtal.season.proxy.update;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
@@ -10,6 +11,7 @@ import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.server.ServerInfo;
 import eu.nordtal.season.common.id.Actor;
+import eu.nordtal.season.common.time.ManualScheduler;
 import eu.nordtal.season.database.update.RunRecorder;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
@@ -25,7 +27,9 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,13 +38,22 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-/** A player on a stopped server is asked to move once, told why once, and never shown Velocity's own refusal. */
+/**
+ * A player on a stopped server is asked to move once, counted and told why once the move lands.
+ * A failed move is tried again in the other waiting room, and Velocity's own refusal never shows.
+ */
 class EvacuationMovesTest {
 
     private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
 
     private final RegisteredServer limbo = server("limbo");
+    private final RegisteredServer standby = server("limbo-standby");
     private final RegisteredServer smp = server("smp");
+
+    private final ManualScheduler scheduler = new ManualScheduler();
+
+    /** The waiting room of each move the player asked for. */
+    private final List<String> asked = new ArrayList<>();
 
     /** The one move the player asked for, which completes only when the test says. */
     private final List<CompletableFuture<ConnectionRequestBuilder.Result>> moves = new ArrayList<>();
@@ -48,6 +61,9 @@ class EvacuationMovesTest {
     private final List<Component> told = new ArrayList<>();
     private final AtomicInteger counted = new AtomicInteger();
     private final Player player = player(UUID.randomUUID());
+
+    /** Whether the run is still under way. */
+    private boolean running = true;
 
     /** Whether the steps hold a name this build does not know, as a newer agent writes. */
     private boolean unreadableSteps;
@@ -58,6 +74,7 @@ class EvacuationMovesTest {
     private Evacuation evacuation(final Instant started) {
         return new Evacuation(
                 proxy(),
+                scheduler,
                 LoggerFactory.getLogger(EvacuationMovesTest.class),
                 updates(),
                 SERVERS,
@@ -78,7 +95,59 @@ class EvacuationMovesTest {
         evacuation.check();
 
         assertEquals(1, moves.size(), "a second request makes Velocity answer 'already connecting'");
+        assertEquals(0, counted.get(), "a move counts once the player is in the waiting room");
+        assertFalse(evacuation.settled(player.getUniqueId()).isDone(), "the proxy swap waits for this move");
+
+        moves.getFirst().complete(result(ConnectionRequestBuilder.Status.SUCCESS));
+
         assertEquals(1, counted.get(), "the player is counted as moved once");
+        assertTrue(evacuation.settled(player.getUniqueId()).isDone());
+    }
+
+    @Test
+    void aFailedMoveIsTriedAgainInTheOtherWaitingRoom() {
+        evacuation.check();
+        moves.getFirst().complete(result(ConnectionRequestBuilder.Status.SERVER_DISCONNECTED));
+
+        assertEquals(1, scheduler.pending().size());
+        assertEquals(Evacuation.RETRY, scheduler.pending().getFirst().delay());
+        scheduler.runPending();
+
+        assertEquals(List.of("limbo", "limbo-standby"), asked, "the second try goes to the other waiting room");
+        moves.getLast().complete(result(ConnectionRequestBuilder.Status.SUCCESS));
+        assertEquals(1, counted.get(), "only the move that landed counts");
+        assertEquals(1, told.size());
+    }
+
+    @Test
+    void aRetryAfterTheRunEndedMovesNobody() {
+        evacuation.check();
+        moves.getFirst().complete(result(ConnectionRequestBuilder.Status.SERVER_DISCONNECTED));
+        running = false;
+        evacuation.check();
+
+        scheduler.runPending();
+
+        assertEquals(1, moves.size(), "the run no longer stops the player's server");
+    }
+
+    @Test
+    void theRetryRoomIsTheOtherOneWhileTheRunLeavesItRunning() {
+        final Map<String, Boolean> registered = Map.of("limbo", true, "limbo-standby", true);
+        assertEquals(
+                "limbo-standby",
+                Evacuation.retryRoom("limbo", Set.of("smp"), "limbo", "limbo-standby", registered::get));
+        assertEquals(
+                "limbo",
+                Evacuation.retryRoom("limbo-standby", Set.of("smp"), "limbo", "limbo-standby", registered::get));
+        assertEquals(
+                "limbo",
+                Evacuation.retryRoom("limbo", Set.of("smp"), "limbo", "limbo-standby", room -> room.equals("limbo")),
+                "without a standby the same room is tried again");
+        assertEquals(
+                "limbo-standby",
+                Evacuation.retryRoom("limbo-standby", Set.of("limbo"), "limbo", "limbo-standby", registered::get),
+                "a room the run stops is never a target");
     }
 
     @Test
@@ -103,7 +172,12 @@ class EvacuationMovesTest {
         evacuation.check();
         evacuation.check();
 
-        assertEquals(1, told.size(), "one line, at the move");
+        assertEquals(0, told.size(), "nothing while the move is under way");
+        moves.getFirst().complete(result(ConnectionRequestBuilder.Status.SUCCESS));
+        evacuation.check();
+        moves.getLast().complete(result(ConnectionRequestBuilder.Status.SUCCESS));
+
+        assertEquals(1, told.size(), "one line, once the move landed");
         final String line = PlainTextComponentSerializer.plainText().serialize(told.getFirst());
         assertTrue(line.contains("SMP") && line.contains("waiting room"), line);
     }
@@ -115,9 +189,9 @@ class EvacuationMovesTest {
 
         evacuation.check();
 
-        assertEquals(1, told.size(), "Velocity's 'already connecting' never reaches the player");
+        assertEquals(0, told.size(), "Velocity's 'already connecting' never reaches the player");
         assertEquals(2, moves.size(), "a move that did not happen is asked for again on the next pass");
-        assertEquals(1, counted.get());
+        assertEquals(0, counted.get());
     }
 
     private ConnectionRequestBuilder.Result result(final ConnectionRequestBuilder.Status status) {
@@ -141,7 +215,9 @@ class EvacuationMovesTest {
 
     private ProxyServer proxy() {
         return fake(ProxyServer.class, (method, arguments) -> switch (method) {
-            case "getServer" -> Optional.of("limbo".equals(arguments[0]) ? limbo : smp);
+            case "getServer" ->
+                Optional.ofNullable(Map.of("limbo", limbo, "limbo-standby", standby, "smp", smp)
+                        .get((String) arguments[0]));
             case "getAllPlayers" -> List.of(player);
             default -> throw new UnsupportedOperationException(method);
         });
@@ -168,7 +244,7 @@ class EvacuationMovesTest {
         };
         return fake(UpdateDirectory.class, (method, arguments) -> switch (method) {
             case "holds" -> List.of();
-            case "running" -> Optional.of(running);
+            case "running" -> this.running ? Optional.of(running) : Optional.empty();
             case "lastStartedSwitch" -> Optional.empty();
             case "recorder" -> recorder;
             case "stepsOf" -> {
@@ -186,25 +262,29 @@ class EvacuationMovesTest {
             case "getServerInfo" -> smp.getServerInfo();
             default -> throw new UnsupportedOperationException(method);
         });
-        final ConnectionRequestBuilder request =
-                fake(ConnectionRequestBuilder.class, (method, arguments) -> switch (method) {
-                    case "connect" -> {
-                        final CompletableFuture<ConnectionRequestBuilder.Result> move = new CompletableFuture<>();
-                        moves.add(move);
-                        yield move;
-                    }
-                    // Velocity sends its own text to the player on every failure of these.
-                    default -> throw new UnsupportedOperationException(method);
-                });
         return fake(Player.class, (method, arguments) -> switch (method) {
             case "getUniqueId" -> uuid;
             case "getUsername" -> "somebody";
             case "getCurrentServer" -> Optional.of(on);
-            case "createConnectionRequest" -> request;
+            case "isActive" -> true;
+            case "createConnectionRequest" -> request((RegisteredServer) arguments[0]);
             case "sendMessage" -> {
                 told.add((Component) arguments[0]);
                 yield null;
             }
+            default -> throw new UnsupportedOperationException(method);
+        });
+    }
+
+    private ConnectionRequestBuilder request(final RegisteredServer room) {
+        asked.add(room.getServerInfo().getName());
+        return fake(ConnectionRequestBuilder.class, (method, arguments) -> switch (method) {
+            case "connect" -> {
+                final CompletableFuture<ConnectionRequestBuilder.Result> move = new CompletableFuture<>();
+                moves.add(move);
+                yield move;
+            }
+            // Velocity sends its own text to the player on every failure of these.
             default -> throw new UnsupportedOperationException(method);
         });
     }

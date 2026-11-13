@@ -4,6 +4,7 @@ import com.velocitypowered.api.proxy.ConnectionRequestBuilder;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
+import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.RunProgress;
 import eu.nordtal.season.database.update.RunStep;
@@ -13,8 +14,8 @@ import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.proxy.NetworkServers;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -23,18 +24,32 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
  * Moves the players of a server that an update run stops to the waiting room when the countdown reaches zero.
+ * A move counts once it lands; a failed one is tried again after {@link #RETRY}, in the other room if it runs.
  * The sweep of the waiting room sends them back. A mode switch holds every player there until its target is up.
  */
 public final class Evacuation {
 
+    /** The wait before a failed move is tried again. */
+    static final Duration RETRY = Duration.ofSeconds(2);
+
+    /**
+     * The run that moves the players, and where a mode switch takes them.
+     *
+     * @param switchTo the server a mode switch makes active, {@code null} for another run
+     */
+    private record Leg(long run, @Nullable String switchTo) {}
+
     private final ProxyServer proxy;
+    private final Scheduler scheduler;
     private final Logger logger;
     private final UpdateDirectory updates;
     private final NetworkServers servers;
@@ -52,8 +67,11 @@ public final class Evacuation {
     /** The servers that an admin keeps stopped. */
     private volatile Set<String> held = Set.of();
 
-    /** The players whose move to the waiting room Velocity has not answered yet. */
-    private final Set<UUID> inFlight = ConcurrentHashMap.newKeySet();
+    /** The players whose move to the waiting room Velocity has not answered yet, each with its end. */
+    private final Map<UUID, CompletableFuture<Void>> inFlight = new ConcurrentHashMap<>();
+
+    /** The run whose moves are under way, {@code null} while no run moves anyone. */
+    private volatile @Nullable Leg leg;
 
     /** How far the run that moves players is, held at its highest. */
     private volatile OptionalInt progress = OptionalInt.empty();
@@ -78,12 +96,14 @@ public final class Evacuation {
 
     public Evacuation(
             final ProxyServer proxy,
+            final Scheduler scheduler,
             final Logger logger,
             final UpdateDirectory updates,
             final NetworkServers servers,
             final Homecoming homecoming,
             final Clock clock) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
+        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.updates = Objects.requireNonNull(updates, "updates");
         this.servers = Objects.requireNonNull(servers, "servers");
@@ -117,6 +137,14 @@ public final class Evacuation {
         return progress;
     }
 
+    /**
+     * Returns the end of the player's move into the waiting room, already complete when no move is under way.
+     * It completes whether the move succeeded or failed.
+     */
+    public CompletableFuture<Void> settled(final UUID player) {
+        return inFlight.getOrDefault(player, CompletableFuture.completedFuture(null));
+    }
+
     /** Returns whether an admin keeps the server stopped. */
     public boolean isHeld(final String server) {
         return server != null && held.contains(server);
@@ -140,6 +168,7 @@ public final class Evacuation {
         final Set<String> next = notYetReplaced(imminent(running), steps);
         if (next.isEmpty()) {
             moving = Set.of();
+            leg = null;
             progress = OptionalInt.empty();
             warnedAboutWaitingRoom = false;
             return;
@@ -160,6 +189,7 @@ public final class Evacuation {
                         servers.limboStandby());
             }
             moving = Set.of();
+            leg = null;
             progress = OptionalInt.empty();
             return;
         }
@@ -169,9 +199,12 @@ public final class Evacuation {
         track(run, steps);
         if (startedByTheRun(started, run)) {
             // The proxy this one replaced moved the players already; the rooms may be gone by now.
+            leg = null;
             return;
         }
-        evacuate(next, room, run.id(), run.kind() == UpdateKind.SWITCH_MODE ? targetOf(run) : null);
+        final Leg now = new Leg(run.id(), run.kind() == UpdateKind.SWITCH_MODE ? targetOf(run) : null);
+        leg = now;
+        evacuate(next, room, now);
     }
 
     /** Updates {@link #switching} from the newest switch run and runs {@link #whenReleased} when the hold ends. */
@@ -237,6 +270,28 @@ public final class Evacuation {
         }
         if (!next.contains(standby) && registered.test(standby)) {
             return standby;
+        }
+        return null;
+    }
+
+    /**
+     * Returns the waiting room for the next try after a failed move into {@code failed}.
+     * That is the other room when the run leaves it running, otherwise {@code failed} again, otherwise {@code null}.
+     *
+     * @param next the servers that the run stops
+     * @param registered whether the proxy has a server of this name
+     */
+    static @Nullable String retryRoom(
+            final String failed,
+            final Set<String> next,
+            final String limbo,
+            final String standby,
+            final Predicate<String> registered) {
+        final String other = failed.equals(limbo) ? standby : limbo;
+        for (final String room : List.of(other, failed)) {
+            if (!next.contains(room) && registered.test(room)) {
+                return room;
+            }
         }
         return null;
     }
@@ -324,81 +379,128 @@ public final class Evacuation {
         }
     }
 
-    /**
-     * Moves every player on one of the servers to the waiting room.
-     *
-     * @param switchTo the server a mode switch makes active, {@code null} for another run
-     */
-    private void evacuate(
-            final Set<String> backends, final String waitingRoom, final long run, final @Nullable String switchTo) {
+    /** Moves every player on one of the servers to the waiting room. */
+    private void evacuate(final Set<String> backends, final String waitingRoom, final Leg now) {
         final RegisteredServer limbo = proxy.getServer(waitingRoom).orElse(null);
         if (limbo == null) {
             logger.error("waiting room missing, nobody moved: services=\"{}\" waiting_room={}", backends, waitingRoom);
             return;
         }
-
-        final Map<String, Integer> off = new HashMap<>();
         for (final Player player : proxy.getAllPlayers()) {
-            final String on = player.getCurrentServer()
-                    .map(connection -> connection.getServerInfo().getName())
-                    .orElse(null);
-            if (on == null || !backends.contains(on)) {
-                continue;
+            final String on = serverOf(player);
+            if (on != null && backends.contains(on)) {
+                move(player, limbo, on, now);
             }
-            if (homecoming.movedOut(run, player, on, switchTo)) {
-                off.merge(on, 1, Integer::sum);
-            }
-            move(player, limbo);
         }
-        if (!off.isEmpty()) {
-            logger.info(
-                    "players moved off before update: services=\"{}\" waiting_room={} moved=\"{}\"",
-                    backends,
-                    waitingRoom,
-                    off);
+    }
+
+    /** Tries the move again in {@link #retryRoom} while the run still stops the player's server. */
+    private synchronized void retry(final Player player, final String failed) {
+        final Leg now = leg;
+        final String on = serverOf(player);
+        if (now == null || on == null || !player.isActive() || !moving.contains(on)) {
+            return;
         }
-        off.forEach((from, players) -> moved(run, from, waitingRoom, players));
+        final String room = retryRoom(
+                failed,
+                moving,
+                servers.limbo(),
+                servers.limboStandby(),
+                name -> proxy.getServer(name).isPresent());
+        final RegisteredServer target =
+                room == null ? null : proxy.getServer(room).orElse(null);
+        if (target == null) {
+            logger.warn("player not moved, no waiting room left: player={} from={}", player.getUsername(), on);
+            return;
+        }
+        move(player, target, on, now);
+    }
+
+    /** Returns the server of the player, {@code null} while the player connects. */
+    private static @Nullable String serverOf(final Player player) {
+        return player.getCurrentServer()
+                .map(connection -> connection.getServerInfo().getName())
+                .orElse(null);
     }
 
     /**
      * Asks Velocity to move the player unless a move is already under way.
-     * Velocity counts the player on the old server until the move completes, and refuses a second request with its
-     * own red text, which {@code connect()} keeps from the player where {@code fireAndForget()} would send it.
+     * Velocity refuses a second request with its own red text, which {@code connect()} keeps from the player.
+     *
+     * @param from the server the run stops under the player
      */
-    private void move(final Player player, final RegisteredServer room) {
-        final UUID uuid = player.getUniqueId();
-        if (!inFlight.add(uuid)) {
+    private void move(final Player player, final RegisteredServer room, final String from, final Leg now) {
+        final CompletableFuture<Void> ended = new CompletableFuture<>();
+        if (inFlight.putIfAbsent(player.getUniqueId(), ended) != null) {
             return;
         }
         final String name = room.getServerInfo().getName();
         try {
             final var _ = player.createConnectionRequest(room)
                     .connect()
-                    .whenComplete((result, failure) -> moveEnded(player, name, result, failure));
+                    .whenComplete((result, failure) ->
+                            offNetwork(() -> moveEnded(player, name, from, now, result, failure, ended)));
         } catch (final RuntimeException failure) {
-            moveEnded(player, name, null, failure);
+            moveEnded(player, name, from, now, null, failure, ended);
         }
     }
 
-    /** Lets the next pass ask again for a player whose move did not happen. */
+    /** Runs the work on the scheduler, away from Velocity's network thread, or here once the scheduler stopped. */
+    private void offNetwork(final Runnable work) {
+        try {
+            scheduler.execute(work);
+        } catch (final RejectedExecutionException stopped) {
+            work.run();
+        }
+    }
+
+    /** Counts a player who landed, and tries again after {@link #RETRY} for one who did not. */
     private void moveEnded(
             final Player player,
             final String room,
+            final String from,
+            final Leg now,
             final ConnectionRequestBuilder.@Nullable Result result,
-            final @Nullable Throwable failure) {
-        inFlight.remove(player.getUniqueId());
-        if (failure != null) {
-            logger.warn(
-                    "player not moved into waiting room: player={} waiting_room={}",
-                    player.getUsername(),
-                    room,
-                    failure);
-        } else if (result != null && !result.isSuccessful()) {
-            logger.info(
-                    "player not moved into waiting room, retried next pass: player={} waiting_room={} status={}",
-                    player.getUsername(),
-                    room,
-                    result.getStatus());
+            final @Nullable Throwable failure,
+            final CompletableFuture<Void> ended) {
+        try {
+            if (failure == null && result != null && result.isSuccessful()) {
+                landed(player, room, from, now);
+                return;
+            }
+            if (failure != null) {
+                logger.warn(
+                        "player not moved into waiting room, retried: player={} waiting_room={} seconds={}",
+                        player.getUsername(),
+                        room,
+                        RETRY.toSeconds(),
+                        failure);
+            } else {
+                logger.info(
+                        "player not moved into waiting room, retried: player={} waiting_room={} status={} seconds={}",
+                        player.getUsername(),
+                        room,
+                        result == null ? null : result.getStatus(),
+                        RETRY.toSeconds());
+            }
+            try {
+                final var _ = scheduler.after(RETRY, () -> retry(player, room));
+            } catch (final RejectedExecutionException stopped) {
+                logger.warn("move retry not scheduled: player={}", player.getUsername(), stopped);
+            }
+        } finally {
+            inFlight.remove(player.getUniqueId(), ended);
+            ended.complete(null);
         }
+    }
+
+    /** Tells the player why the run moved them and counts the move, once per run. */
+    private void landed(final Player player, final String room, final String from, final Leg now) {
+        if (!homecoming.movedOut(now.run(), player, from, now.switchTo())) {
+            return;
+        }
+        logger.info(
+                "player moved into waiting room: player={} from={} waiting_room={}", player.getUsername(), from, room);
+        moved(now.run(), from, room, 1);
     }
 }

@@ -4,9 +4,17 @@
       "type": "TEXT",
       "lines": [
         {
+          "when": "reason=arena-busy",
           "text": {
-            "en": "<warn>The duel cannot start right now.</warn> <muted>Try again later.</muted>",
-            "de": "<warn>Das Duell kann gerade nicht beginnen.</warn> <muted>Versuch es später noch einmal.</muted>"
+            "en": "<warn>No duel possible: another duel is under way.</warn>",
+            "de": "<warn>Kein Duell möglich: Es läuft schon ein Duell.</warn>"
+          }
+        },
+        {
+          "when": "reason=arena-not-ready",
+          "text": {
+            "en": "<warn>No duel possible: the arena is not ready.</warn>",
+            "de": "<warn>Kein Duell möglich: Die Arena ist nicht bereit.</warn>"
           }
         }
       ]

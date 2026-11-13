@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>The aura is set to {aura}. The change is recorded.</good>",
-            "de": "<good>Die Aura ist auf {aura} gesetzt. Die Änderung ist gespeichert.</good>"
+            "en": "<good>The aura is now {aura}.</good>",
+            "de": "<good>Die Aura ist jetzt {aura}.</good>"
           }
         }
       ]

@@ -13,8 +13,8 @@
         {
           "when": "counted",
           "text": {
-            "en": "<accent>Update running · {percent, number, plain} %</accent>",
-            "de": "<accent>Update läuft · {percent, number, plain} %</accent>"
+            "en": "<accent>Update running: {percent, number, plain}%</accent>",
+            "de": "<accent>Update läuft: {percent, number, plain} %</accent>"
           }
         },
         {

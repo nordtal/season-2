@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": " <glyph:logo><newline><newline>                              <newline>",
-            "de": " <glyph:logo><newline><muted>Aufgaben</muted>"
+            "en": " <glyph:logo><newline><muted>Objectives</muted>",
+            "de": " <glyph:logo><newline><muted>Ziele</muted>"
           }
         }
       ]

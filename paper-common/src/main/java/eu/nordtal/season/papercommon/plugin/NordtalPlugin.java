@@ -572,7 +572,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
             return action.get();
         } catch (final RuntimeException failure) {
             getLogger().log(Level.WARNING, "an admin action failed", failure);
-            return Answer.failed(Sent.of(Replies.FAILED));
+            return Answer.failed(Replies.FAILED.with(Replies.Failure.of(failure)));
         }
     }
 

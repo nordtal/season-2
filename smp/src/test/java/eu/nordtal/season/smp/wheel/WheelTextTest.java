@@ -48,7 +48,7 @@ class WheelTextTest {
                     .serialize(RENDERER.format(
                             locale,
                             Wheel.WON.with(new Wheel.Won(1, Wheel.named(name, null, "item.minecraft.diamond_sword")))));
-            assertTrue(line.contains("1x Old Faithful"), locale + ": the custom name is missing in " + line);
+            assertTrue(line.contains("1 × Old Faithful"), locale + ": the custom name is missing in " + line);
             assertFalse(line.contains("Diamond Sword"), locale + ": the material is named in " + line);
         }
     }
@@ -77,10 +77,10 @@ class WheelTextTest {
 
     @Test
     void theSpinsLeftNameTheirCountThroughTheTerm() {
-        assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(0))).endsWith("Come back tomorrow."));
+        assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(0))).equals("No spins left today."));
         assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(1))).endsWith("Still waiting: 1 extra spin."));
         assertTrue(plain(Wheel.NONE.with(new Wheel.NoSpin(4))).endsWith("Still waiting: 4 extra spins."));
-        assertEquals("You have no spins right now.", plain(Wheel.AVAILABLE.with(new Wheel.Available(0))));
+        assertEquals("You have no spins.", plain(Wheel.AVAILABLE.with(new Wheel.Available(0))));
         assertEquals("You have 1 spin.", plain(Wheel.AVAILABLE.with(new Wheel.Available(1))));
         assertEquals("You have 5 spins.", plain(Wheel.AVAILABLE.with(new Wheel.Available(5))));
     }

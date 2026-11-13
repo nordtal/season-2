@@ -10,6 +10,7 @@ import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -45,8 +46,11 @@ final class Negotiation {
                     "smp", "duel-area-held", "Duels", DocumentSpec.Shape.CHAT)
             .titled("Negotiation area taken");
 
-    static final DocumentSpec<DocumentSpec.None> UNAVAILABLE = DocumentSpec.game(
-                    "smp", "duel-unavailable", "Duels", DocumentSpec.Shape.CHAT)
+    /** @param reason why the duel cannot start */
+    record Unavailable(@Example("arena-busy") Duels.Blocked reason) {}
+
+    static final DocumentSpec<Unavailable> UNAVAILABLE = DocumentSpec.game(
+                    "smp", "duel-unavailable", "Duels", DocumentSpec.Shape.CHAT, Unavailable.class)
             .titled("Duel unavailable");
 
     static final DocumentSpec<DocumentSpec.None> ENDED_FAR = DocumentSpec.game(
@@ -326,9 +330,11 @@ final class Negotiation {
         if (fighter == null || other == null || kit == null) {
             return;
         }
-        if (!duels.begin(fighter, other, shownKits().get(kit))) {
-            tell(fighter, Sent.of(UNAVAILABLE), Feedback.REFUSED);
-            tell(other, Sent.of(UNAVAILABLE), Feedback.REFUSED);
+        final Duels.@Nullable Blocked blocked =
+                duels.begin(fighter, other, shownKits().get(kit));
+        if (blocked != null) {
+            tell(fighter, UNAVAILABLE.with(new Unavailable(blocked)), Feedback.REFUSED);
+            tell(other, UNAVAILABLE.with(new Unavailable(blocked)), Feedback.REFUSED);
         }
     }
 

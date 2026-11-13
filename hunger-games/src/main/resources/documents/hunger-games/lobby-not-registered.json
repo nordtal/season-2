@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "<bad>You are not registered for the {@terms.hunger-games}.</bad> <muted>Register in Discord first.</muted>",
-            "de": "<bad>Du bist nicht für die {@terms.hunger-games} registriert.</bad> <muted>Registriere dich zuerst in Discord.</muted>"
+            "de": "<bad>Du bist nicht für die {@terms.hunger-games} angemeldet.</bad> <muted>Melde dich zuerst in Discord an.</muted>"
           }
         }
       ]

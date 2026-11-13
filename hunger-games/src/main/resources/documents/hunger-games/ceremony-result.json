@@ -19,8 +19,8 @@
         {
           "when": "outcome=won",
           "text": {
-            "en": "<accent><glyph:announce></accent> <accent><bold><emphasis>{winner.name}</emphasis> has won the {@terms.hunger-games}!</bold></accent>",
-            "de": "<accent><glyph:announce></accent> <accent><bold><emphasis>{winner.name}</emphasis> hat die {@terms.hunger-games} gewonnen!</bold></accent>"
+            "en": "<accent><glyph:announce></accent> <accent><bold><emphasis>{winner.name}</emphasis> has won the {@terms.hunger-games}.</bold></accent>",
+            "de": "<accent><glyph:announce></accent> <accent><bold><emphasis>{winner.name}</emphasis> hat die {@terms.hunger-games} gewonnen.</bold></accent>"
           }
         },
         {

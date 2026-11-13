@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>{@values.occasion} is cancelled.</good> <muted>Nothing happens.</muted>",
-            "de": "<good>{@values.occasion} ist abgesagt.</good> <muted>Es passiert nichts.</muted>"
+            "en": "<good>{@values.occasion} is cancelled.</good>",
+            "de": "<good>{@values.occasion} ist abgesagt.</good>"
           }
         }
       ]

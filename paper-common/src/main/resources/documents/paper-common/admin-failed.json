@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>That failed. Nothing was changed. The log says why.</bad>",
-            "de": "<bad>Das ist fehlgeschlagen. Es wurde nichts geändert. Das Log nennt den Grund.</bad>"
+            "en": "<bad>Failed: {cause}. Nothing changed.</bad>",
+            "de": "<bad>Fehlgeschlagen: {cause}. Nichts geändert.</bad>"
           }
         }
       ]

@@ -78,8 +78,8 @@
       "lines": [
         {
           "text": {
-            "en": "Save",
-            "de": "Speichern"
+            "en": "Save station",
+            "de": "Bahnhof speichern"
           }
         }
       ]
@@ -114,8 +114,8 @@
       "lines": [
         {
           "text": {
-            "en": "This {@terms.station, n=1} already exists.",
-            "de": "Diesen {@terms.station, n=1} gibt es schon."
+            "en": "A {@terms.station, n=1} with this name already exists.",
+            "de": "Es gibt schon einen {@terms.station, n=1} mit diesem Namen."
           }
         }
       ]

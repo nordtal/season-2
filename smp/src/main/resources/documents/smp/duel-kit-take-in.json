@@ -7,7 +7,7 @@
           "style": "TITLE",
           "text": {
             "en": "Put in a kit item",
-            "de": "Kit-Item hineinlegen"
+            "de": "Kit-Gegenstand hineinlegen"
           }
         }
       ]
@@ -19,13 +19,13 @@
         {
           "text": {
             "en": "Put in a kit item",
-            "de": "Kit-Item hineinlegen"
+            "de": "Kit-Gegenstand hineinlegen"
           }
         },
         {
           "text": {
             "en": "Imports an item into Steward.",
-            "de": "Importiert ein Item in Steward."
+            "de": "Importiert einen Gegenstand in Steward."
           }
         }
       ]

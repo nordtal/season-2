@@ -12,22 +12,22 @@
         {
           "when": "command=msg",
           "text": {
-            "en": "<muted>This command sends a private message to a {@terms.player, n=1} on the {@terms.network}.</muted>",
-            "de": "<muted>Dieser Befehl schickt einem {@terms.player, n=1} im {@terms.network} eine private Nachricht.</muted>"
+            "en": "<muted>Sends a private message to a {@terms.player, n=1} on the {@terms.network}.</muted>",
+            "de": "<muted>Schickt einem {@terms.player, n=1} im {@terms.network} eine private Nachricht.</muted>"
           }
         },
         {
           "when": "command=whisper",
           "text": {
-            "en": "<muted>This command does the same as /msg.</muted>",
-            "de": "<muted>Dieser Befehl macht dasselbe wie /msg.</muted>"
+            "en": "<muted>Does the same as /msg.</muted>",
+            "de": "<muted>Macht dasselbe wie /msg.</muted>"
           }
         },
         {
           "when": "command=r",
           "text": {
-            "en": "<muted>This command answers the {@terms.player, n=1} who wrote to you last or whom you wrote to last.</muted>",
-            "de": "<muted>Dieser Befehl antwortet dem {@terms.player, n=1}, der dir zuletzt geschrieben hat oder dem du zuletzt geschrieben hast.</muted>"
+            "en": "<muted>Answers the {@terms.player, n=1} who last wrote to you or whom you last wrote to.</muted>",
+            "de": "<muted>Antwortet dem {@terms.player, n=1}, der dir zuletzt geschrieben hat oder dem du zuletzt geschrieben hast.</muted>"
           }
         }
       ]

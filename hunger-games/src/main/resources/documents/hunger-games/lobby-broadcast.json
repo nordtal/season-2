@@ -17,8 +17,8 @@
         },
         {
           "text": {
-            "en": "<muted>The {@terms.hunger-games} start when all {@terms.team, n=2} are ready. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} ready.</muted> <click:run_command:'/hg ready'><good>[I have read the rules and I am ready]</good></click>",
-            "de": "<muted>Die {@terms.hunger-games} starten, sobald alle {@terms.team, n=2} bereit sind. <emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} bereit.</muted> <click:run_command:'/hg ready'><good>[Ich habe die Regeln gelesen und bin bereit]</good></click>"
+            "en": "<muted><emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} ready.</muted> <click:run_command:'/hg ready'><good>[Accept rules and get ready]</good></click>",
+            "de": "<muted><emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} bereit.</muted> <click:run_command:'/hg ready'><good>[Regeln annehmen und bereit melden]</good></click>"
           }
         }
       ]

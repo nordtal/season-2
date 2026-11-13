@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>You need the resource pack to play here.</bad> <muted>Join again and accept it.</muted>",
-            "de": "<bad>Ohne das Resource-Pack kannst du hier nicht spielen.</bad> <muted>Verbinde dich neu und nimm es an.</muted>"
+            "en": "<bad>You declined the resource pack.</bad> <muted>Join again and accept it.</muted>",
+            "de": "<bad>Du hast das Ressourcenpaket abgelehnt.</bad> <muted>Verbinde dich neu und nimm es an.</muted>"
           }
         }
       ]

@@ -27,8 +27,8 @@
         {
           "when": "countdown=imminent",
           "text": {
-            "en": "<muted>The {@terms.network} opens in <emphasis>any moment now</emphasis>.</muted>",
-            "de": "<muted>Das {@terms.network} öffnet in <emphasis>jedem Moment</emphasis>.</muted>"
+            "en": "<muted>The {@terms.network} opens <emphasis>any moment now</emphasis>.</muted>",
+            "de": "<muted>Das {@terms.network} öffnet <emphasis>jeden Moment</emphasis>.</muted>"
           }
         },
         {

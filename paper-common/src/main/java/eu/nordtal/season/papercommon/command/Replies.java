@@ -9,10 +9,22 @@ public final class Replies {
     public record Typed(
             @Example("/smp milestone unlock nether") String command) {}
 
+    /** @param cause what went wrong, from the failure's own message */
+    public record Failure(
+            @Example("the database did not answer") String cause) {
+
+        /** Returns the failure of {@code failure}: its message, or its type's name when it has none. */
+        public static Failure of(final Throwable failure) {
+            final String message = failure.getMessage();
+            return new Failure(
+                    message == null || message.isBlank() ? failure.getClass().getSimpleName() : message);
+        }
+    }
+
     public static final DocumentSpec<Typed> CONFIRM =
             reply("admin-confirm", "Admin", Typed.class).titled("Confirmation needed");
-    public static final DocumentSpec<DocumentSpec.None> FAILED =
-            reply("admin-failed", "Admin", DocumentSpec.None.class).titled("Admin command failed");
+    public static final DocumentSpec<Failure> FAILED =
+            reply("admin-failed", "Admin", Failure.class).titled("Admin command failed");
     /** Steward shows it, never the game. */
     public static final DocumentSpec<DocumentSpec.None> PREVIEW_SHOWN =
             reply("preview-shown", "Admin", DocumentSpec.None.class).titled("Preview shown");

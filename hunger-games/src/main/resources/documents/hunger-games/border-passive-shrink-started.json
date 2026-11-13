@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>Nothing has happened for a while.</warn> <muted>The border starts to shrink slowly.</muted>",
-            "de": "<warn>Lange ist nichts passiert.</warn> <muted>Die Grenze schrumpft jetzt langsam.</muted>"
+            "en": "<warn>The border starts to shrink slowly.</warn> <muted>Nothing has happened for a while.</muted>",
+            "de": "<warn>Die Grenze schrumpft jetzt langsam.</warn> <muted>Lange ist nichts passiert.</muted>"
           }
         }
       ]

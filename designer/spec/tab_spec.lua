@@ -449,6 +449,31 @@ describe("the Nordtal tab", function()
     assert.is_truthy(shown:find("properties.size\n  properties.pixels 7 7\n", 1, true))
   end)
 
+  it("opens a texture the build draws, says that its changes are not kept, and refuses its save", function()
+    local m = dkjson.decode(model)
+    table.insert(m.fonts, { font="nordtal:ui_panel", blocks={ { kind="block", title="Chest panels", glyphs={
+      { code="FE3A0", title="1 row", list="PANELS", height=148, ascent=21,
+        texture={ id="nordtal:ui/kit/chest_1.png", png="build/generated/chest-panels/assets/nordtal/textures/ui/kit/chest_1.png",
+                  pngExists=true, generated=true, aseprite="art/assets/nordtal/textures/ui/kit/chest_1.aseprite",
+                  asepriteExists=false, width=176, height=148 } } } } } })
+    local t = setUp(nil, dkjson.encode(m))
+    t.world.files = { ["/c/resource-pack/build/generated/chest-panels/assets/nordtal/textures/ui/kit/chest_1.png"]=true }
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="glyph/nordtal:ui_panel/FE3A0" })
+    assert.equal("/c/resource-pack/build/generated/chest-panels/assets/nordtal/textures/ui/kit/chest_1.png", t.open[1].filename)
+    assert.equal(t.open[1], dlg.data.editor)
+    local shown = table.concat(texts(dlg), "\n")
+    assert.is_truthy(shown:find("properties.title\n  1 row\n", 1, true))
+    assert.is_truthy(shown:find("properties.source\n  properties.generated\n", 1, true))
+
+    t.world.active = t.open[1]
+    local stopped = false
+    t.ctl.onBeforeCommand({ name="SaveFile", stopPropagation=function() stopped = true end })
+    assert.is_true(stopped)
+    assert.same({}, t.log)
+    assert.equal("status.generated", status(dlg))
+  end)
+
   it("writes the source and the PNG when the embedded sprite is saved", function()
     local t = setUp()
     local dlg = loaded(t)

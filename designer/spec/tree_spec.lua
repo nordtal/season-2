@@ -131,6 +131,35 @@ describe("tree", function()
     assert.is_true(nodes[2].expanded)
   end)
 
+  it("shows a glyph's title in place of its name and its code point once, as the badge", function()
+    local titled = { kind="block", title="Chest panels", range="FE3A0-FE3AF", glyphs={
+      { code="FE3A0", title="1 row", list="PANELS", texture=texture("ui/kit/chest_1.png") },
+      { code="FE3A1", list="PANELS", texture=texture("ui/kit/chest_2.png") },
+    } }
+    local nodes = tree.build({ fonts={ { font="nordtal:ui_panel", blocks={ titled } } } }, tr, function() end)
+    local block = nodes[1].children[1].children[1]
+    assert.same({ "1 row", "FE3A1" }, { block.children[1].text, block.children[2].text })
+    assert.same({ "FE3A0", "FE3A1" }, { block.children[1].badge, block.children[2].badge })
+  end)
+
+  it("says in the badge that a glyph has no texture file, beside its code point", function()
+    local absent = texture("ui/kit/chest_1.png")
+    absent.pngExists = false
+    local nodes = tree.build({ fonts={ { font="nordtal:ui_panel", blocks={ { kind="block", title="Chest panels", glyphs={
+      { code="FE3A0", title="1 row", list="PANELS", texture=absent },
+      { code="FE3A1", title="2 rows", list="PANELS", texture=texture("ui/kit/chest_2.png") },
+    } } } } } }, tr, function() end)
+    local block = nodes[1].children[1].children[1]
+    assert.same({ "<tree.no_texture> FE3A0", "FE3A1" }, { block.children[1].badge, block.children[2].badge })
+  end)
+
+  it("shows a cell's title in place of its constant", function()
+    local sheet = { kind="sheet", title="Pill", range="FE390-FE39F", texture=texture("ui/kit/pill.png"),
+                    cells={ { row=0, column=0, code="FE390", title="Left end", list="PILL" } } }
+    local nodes = tree.build({ fonts={ { font="nordtal:ui_art", blocks={ sheet } } } }, tr, function() end)
+    assert.equal("Left end", nodes[1].children[1].children[1].children[1].text)
+  end)
+
   it("indexes each node with what it shows and the texture a click opens", function()
     local nodes, index = tree.build(model, tr, drafts.marks(model))
     local font = nodes[1].children[2]

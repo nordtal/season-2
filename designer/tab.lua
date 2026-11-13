@@ -844,6 +844,11 @@ function tab.open(context)
     local info = record.info or index and index[record.id]
     local texture = info and info.texture or record.texture
     local column = info and properties.animated(info)
+    -- The build draws it again from its own source, so a save would be lost
+    if texture.generated then
+      setStatus(tr("status.generated"))
+      return false
+    end
     local ok, err = pcall(modules.textures.save, sprite, texture, record.paths, api, column)
     if not ok then
       setStatus(tr("status.save_failed") .. " " .. tostring(err))

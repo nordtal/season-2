@@ -78,6 +78,7 @@ class GlyphAllocation private constructor(
         val codePoint: Int,
         val constant: String?,
         val name: String?,
+        val title: String?,
         val list: String?,
         val texture: String,
         val height: Int,
@@ -219,7 +220,7 @@ class GlyphAllocation private constructor(
             blockHeight: Int?,
             blockAscent: Int?,
         ): Glyph {
-            node.allow("code", "constant", "name", "list", "texture", "height", "ascent", "status", "about")
+            node.allow("code", "title", "constant", "name", "list", "texture", "height", "ascent", "status", "about")
             val code = node.code("code") ?: 0
             val glyph = node.named("%X".format(code))
             if (code !in SUPPLEMENTARY_PRIVATE_USE_A) glyph.problem("a glyph lies in Supplementary Private Use Area-A")
@@ -236,7 +237,7 @@ class GlyphAllocation private constructor(
             val constant = glyph.string("constant")
             val list = glyph.string("list")
             if (constant == null && list == null) glyph.problem("a glyph has a 'constant', a 'list', or both")
-            return Glyph(code, constant, glyph.string("name"), list, texture, height ?: 0, ascent ?: 0, status, glyph.string("about"))
+            return Glyph(code, constant, glyph.string("name"), glyph.string("title"), list, texture, height ?: 0, ascent ?: 0, status, glyph.string("about"))
         }
 
         private fun texture(

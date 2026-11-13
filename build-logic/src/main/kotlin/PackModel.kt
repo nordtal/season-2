@@ -17,11 +17,12 @@ object PackModel {
         root: File,
         listed: List<Drafts.Draft> = emptyList(),
         reviews: List<Drafts.Review> = emptyList(),
+        generated: List<File> = emptyList(),
     ): Map<String, Any?> {
         val drafts = Marks(listed.map { it.id }.toSet(), reviews.flatMap { review -> review.drafts.map { it to review.number } }.toMap())
         val assets = root.resolve("src/assets")
         return linkedMapOf(
-            "fonts" to allocation.fonts.map { font(it, root, drafts) },
+            "fonts" to allocation.fonts.map { font(it, root, drafts, generated) },
             "items" to items(assets, root, drafts),
             "overrides" to overrides(assets, root, drafts),
             "textures" to textures(allocation, assets, root, drafts),
@@ -166,6 +167,7 @@ object PackModel {
         font: GlyphAllocation.Font,
         root: File,
         drafts: Marks,
+        generated: List<File>,
     ): Map<String, Any?> =
         linkedMapOf(
             "font" to font.id,
@@ -173,7 +175,7 @@ object PackModel {
             "constant" to font.constant,
             "about" to font.about,
             *drafts.of("font ${font.id}"),
-            "blocks" to font.blocks.map { block(it, font.id, root, drafts) },
+            "blocks" to font.blocks.map { block(it, font.id, root, drafts, generated) },
         )
 
     private fun block(
@@ -181,6 +183,7 @@ object PackModel {
         font: String,
         root: File,
         drafts: Marks,
+        generated: List<File>,
     ): Map<String, Any?> {
         val range = block.range?.let { "%X-%X".format(it.first, it.last) }
         val entry =
@@ -195,11 +198,11 @@ object PackModel {
                 *drafts.of(block.texture ?: Drafts.blockId(font, range ?: block.title)),
             )
         if (block.texture == null) {
-            entry["glyphs"] = block.glyphs.map { glyph(it, block, root, drafts) }
+            entry["glyphs"] = block.glyphs.map { glyph(it, block, root, drafts, generated) }
             return entry
         }
         entry["characters"] = block.chars != null
-        entry["texture"] = texture(block.texture, root, drafts)
+        entry["texture"] = texture(block.texture, root, drafts, generated)
         entry["cells"] =
             (block.chars?.let { chars(it) } ?: block.glyphs.mapIndexed { column, glyph -> cell(0, column, glyph, block) })
                 .onEach {
@@ -214,9 +217,11 @@ object PackModel {
         block: GlyphAllocation.Block,
         root: File,
         drafts: Marks,
+        generated: List<File>,
     ): Map<String, Any?> =
         linkedMapOf(
             "code" to "%X".format(glyph.codePoint),
+            "title" to glyph.title,
             "constant" to glyph.constant,
             "name" to glyph.name,
             "list" to glyph.list,
@@ -225,7 +230,7 @@ object PackModel {
             "height" to glyph.height,
             "ascent" to glyph.ascent,
             "about" to glyph.about,
-            "texture" to texture(glyph.texture, root, drafts),
+            "texture" to texture(glyph.texture, root, drafts, generated),
         )
 
     private fun cell(
@@ -238,6 +243,7 @@ object PackModel {
             "row" to row,
             "column" to column,
             "code" to "%X".format(glyph.codePoint),
+            "title" to glyph.title,
             "constant" to glyph.constant,
             "list" to glyph.list,
             "status" to glyph.status,
@@ -253,18 +259,28 @@ object PackModel {
             }
         }
 
-    /** A texture by its id, such as `nordtal:badges/star.png`: its PNG, its `.aseprite` source under `art/` and its size. */
+    /**
+     * A texture by its id, such as `nordtal:badges/star.png`: its PNG, its `.aseprite` source under `art/` and its size.
+     * A PNG that `src/` lacks and the build draws into one of the [generated] folders, each holding `assets/`, is that
+     * drawn file, marked `generated`.
+     */
     internal fun texture(
         id: String,
         root: File,
         drafts: Marks,
+        generated: List<File> = emptyList(),
     ): Map<String, Any?> {
-        val png = GlyphAdvances.texture(root.resolve("src/assets"), id)
-        val aseprite = root.resolve("art").resolve(png.relativeTo(root.resolve("src")).path.removeSuffix(".png") + ".aseprite")
+        val source = GlyphAdvances.texture(root.resolve("src/assets"), id)
+        val drawn =
+            if (source.isFile) null else generated.map { GlyphAdvances.texture(it.resolve("assets"), id) }.firstOrNull { it.isFile }
+        val png = drawn ?: source
+        val aseprite = root.resolve("art").resolve(source.relativeTo(root.resolve("src")).path.removeSuffix(".png") + ".aseprite")
         val image = if (png.isFile) runCatching { ImageIO.read(png) }.getOrNull() else null
         return linkedMapOf(
             "id" to id,
             "png" to png.relativeTo(root).invariantSeparatorsPath,
+            "pngExists" to png.isFile,
+            "generated" to (drawn != null),
             "aseprite" to aseprite.relativeTo(root).invariantSeparatorsPath,
             "asepriteExists" to aseprite.isFile,
             *drafts.of(id),

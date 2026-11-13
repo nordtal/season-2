@@ -113,7 +113,7 @@ function properties.rows(info, tr, context)
   local function files()
     if t then
       add("png", t.png)
-      add("source", t.asepriteExists and t.aseprite or tr("properties.no_source"))
+      add("source", t.generated and tr("properties.generated") or t.asepriteExists and t.aseprite or tr("properties.no_source"))
     end
   end
 
@@ -143,6 +143,7 @@ function properties.rows(info, tr, context)
   elseif kind == "glyph" or kind == "cell" then
     local glyph = kind == "glyph"
     add("block", info.block.title)
+    add("title", e.title)
     add("code", e.code)
     add("name", e.name, editable and "name")
     add("constant", e.constant, editable and not e.name and "constant" or nil)

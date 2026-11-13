@@ -44,6 +44,38 @@ class PackModelTest {
     }
 
     @Test
+    fun aGlyphWhosePngTheBuildDrawsNamesTheDrawnFile() {
+        allocation(
+            """
+            {"fonts": [{"font": "nordtal:ui_panel", "lists": [{"constant": "PANELS"}], "blocks": [{"range": "FE3A0-FE3AF", "title": "Chest panels", "glyphs": [
+              {"code": "FE3A0", "list": "PANELS", "title": "1 row", "texture": "nordtal:ui/kit/chest_1.png", "height": 148, "ascent": 21},
+              {"code": "FE3A1", "list": "PANELS", "title": "2 rows", "texture": "nordtal:ui/kit/chest_2.png", "height": 166, "ascent": 21}]}]}]}
+            """,
+        )
+        png("build/generated/chest-panels/assets/nordtal/textures/ui/kit/chest_1.png", 176, 148)
+
+        val model = PackModel.of(GlyphAllocation.read(pack.resolve("glyphs.json")), pack, generated = listOf(pack.resolve("build/generated/chest-panels")))
+        val (drawn, absent) = only(only(model.list("fonts")).list("blocks")).list("glyphs").map { it.map("texture") }
+
+        assertEquals("build/generated/chest-panels/assets/nordtal/textures/ui/kit/chest_1.png", drawn["png"])
+        assertEquals(listOf(true, true, 176, 148), listOf(drawn["pngExists"], drawn["generated"], drawn["width"], drawn["height"]))
+        assertEquals("src/assets/nordtal/textures/ui/kit/chest_2.png", absent["png"])
+        assertEquals(listOf(false, false), listOf(absent["pngExists"], absent["generated"]))
+    }
+
+    @Test
+    fun aGlyphCarriesItsTitle() {
+        allocation(
+            """
+            {"fonts": [{"font": "nordtal:ui_panel", "lists": [{"constant": "PANELS"}], "blocks": [{"range": "FE3A0-FE3AF", "title": "Chest panels", "glyphs": [
+              {"code": "FE3A0", "list": "PANELS", "title": "1 row", "texture": "nordtal:ui/kit/chest_1.png", "height": 148, "ascent": 21}]}]}]}
+            """,
+        )
+
+        assertEquals("1 row", only(only(only(fonts()).list("blocks")).list("glyphs"))["title"])
+    }
+
+    @Test
     fun aSheetIsOneEntryWithItsCells() {
         allocation(
             """

@@ -3,6 +3,7 @@ package eu.nordtal.season.build
 import groovy.json.JsonOutput
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.InputDirectory
@@ -40,6 +41,11 @@ abstract class DescribePack : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val art: DirectoryProperty
 
+    /** The folders the build draws textures into, each holding `assets/`, for a PNG that `src/` lacks. */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val generated: ConfigurableFileCollection
+
     @get:OutputFile
     abstract val model: RegularFileProperty
 
@@ -62,7 +68,13 @@ abstract class DescribePack : DefaultTask() {
         file.writeText(
             JsonOutput.prettyPrint(
                 JsonOutput.toJson(
-                    PackModel.of(glyphs, root.get().asFile, Drafts.list(root.get().asFile), Drafts.reviews(root.get().asFile)),
+                    PackModel.of(
+                        glyphs,
+                        root.get().asFile,
+                        Drafts.list(root.get().asFile),
+                        Drafts.reviews(root.get().asFile),
+                        generated.files.toList(),
+                    ),
                 ),
             ) +
                 "\n",

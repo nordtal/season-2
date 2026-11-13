@@ -42,12 +42,12 @@ function tree.build(model, tr, mark)
   end
 
   local function glyphText(glyph)
-    return glyph.name or glyph.constant or glyph.code
+    return glyph.title or glyph.name or glyph.constant or glyph.code
   end
 
   local function cellText(cell, font, block)
-    if cell.constant then
-      return cell.constant
+    if cell.title or cell.constant then
+      return cell.title or cell.constant
     end
     local code = tonumber(cell.code, 16)
     if not code or code > 0x10FFFF then
@@ -71,7 +71,9 @@ function tree.build(model, tr, mark)
         for _, glyph in ipairs(block.glyphs or {}) do
           local n = node("glyph/" .. font.font .. "/" .. glyph.code, glyphText(glyph),
             { kind="glyph", entry=glyph, texture=glyph.texture, font=font, block=block })
-          n.badge = n.badge or glyph.code
+          -- A glyph without a file says so, since the editor can show nothing
+          local absent = glyph.texture and glyph.texture.pngExists == false
+          n.badge = n.badge or (absent and tr("tree.no_texture") .. " " .. glyph.code or glyph.code)
           table.insert(children, n)
         end
       end

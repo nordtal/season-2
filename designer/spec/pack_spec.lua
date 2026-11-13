@@ -219,6 +219,26 @@ describe("pack", function()
                   aseprite="/c/resource-pack/art/assets/nordtal/textures/a.aseprite" }, paths)
   end)
 
+  it("gives the drawn PNG of a texture the build draws, which lies under resource-pack/build/generated", function()
+    local paths = pack.paths("/c", { png="build/generated/chest-panels/assets/nordtal/textures/a.png",
+                                     aseprite="art/assets/nordtal/textures/a.aseprite", generated=true }, join)
+    assert.same({ png="/c/resource-pack/build/generated/chest-panels/assets/nordtal/textures/a.png",
+                  aseprite="/c/resource-pack/art/assets/nordtal/textures/a.aseprite" }, paths)
+  end)
+
+  it("refuses a drawn PNG outside resource-pack/build/generated, and one under it that the build does not draw", function()
+    local art = "art/assets/a.aseprite"
+    for _, case in ipairs({
+      { png="build/generated/a.png", aseprite=art, refused="/c/resource-pack/build/generated/a.png" },
+      { png="build/generated/../../src/a.png", aseprite=art, generated=true, refused="/c/resource-pack/src/a.png" },
+      { png="build/pack/a.png", aseprite=art, generated=true, refused="/c/resource-pack/build/pack/a.png" },
+    }) do
+      local paths, refused = pack.paths("/c", case, join)
+      assert.is_nil(paths)
+      assert.equal(case.refused, refused)
+    end
+  end)
+
   it("refuses a PNG outside resource-pack/src and a source outside resource-pack/art", function()
     local art = "art/assets/a.aseprite"
     for _, case in ipairs({

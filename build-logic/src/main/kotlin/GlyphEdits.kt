@@ -69,7 +69,7 @@ object GlyphEdits {
 
     /** Every texture that `glyphs.json` draws, a sheet's once per block and a glyph's once per glyph. */
     internal fun textures(root: Map<*, *>): List<String> =
-        fonts(root).flatMap { it["blocks"] as List<*> }.map { it as Map<*, *> }.flatMap { block ->
+        fonts(root).flatMap { (it["blocks"] as List<*>?).orEmpty() }.map { it as Map<*, *> }.flatMap { block ->
             listOfNotNull(block["texture"] as String?) +
                 (block["glyphs"] as List<*>?).orEmpty().mapNotNull { (it as Map<*, *>)["texture"] as String? }
         }
@@ -187,20 +187,20 @@ object GlyphEdits {
             val mainFont =
                 fonts(main).firstOrNull { it["font"] == id }
                     ?: mapOf("font" to id, "numbering" to font["numbering"], "blocks" to emptyList<Any>())
-            val blocks = font["blocks"] as MutableList<Any?>
+            val blocks = font["blocks"] as MutableList<Any?>? ?: continue
             val committed =
                 head
                     ?.let(::fonts)
                     .orEmpty()
                     .firstOrNull { it["font"] == id }
-                    ?.let { it["blocks"] as List<*> }
+                    ?.let { it["blocks"] as List<*>? }
                     .orEmpty()
                     .mapNotNull { (it as Map<*, *>)["range"] }
                     .toSet()
             for (block in blocks.toList().map { it as MutableMap<String, Any?> }) {
                 val glyphs = (block["glyphs"] as MutableList<*>?)?.map { it as MutableMap<String, Any?> } ?: continue
                 val mainBlock =
-                    (mainFont["blocks"] as List<*>).map { it as Map<*, *> }.firstOrNull {
+                    (mainFont["blocks"] as List<*>?).orEmpty().map { it as Map<*, *> }.firstOrNull {
                         it["range"] == block["range"] &&
                             (it["title"] == block["title"] || block["range"] in committed)
                     }
@@ -317,7 +317,7 @@ object GlyphEdits {
     }
 
     private fun entries(root: Map<*, *>): List<Pair<OxfmtJson.Object, OxfmtJson.Object>> =
-        fonts(root).flatMap { font -> (font["blocks"] as List<*>).map { it as OxfmtJson.Object } }.flatMap { block ->
+        fonts(root).flatMap { font -> (font["blocks"] as List<*>?).orEmpty().map { it as OxfmtJson.Object } }.flatMap { block ->
             (block["glyphs"] as List<*>?).orEmpty().map { block to it as OxfmtJson.Object }
         }
 

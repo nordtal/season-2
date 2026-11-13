@@ -61,6 +61,33 @@ class PublishTest {
     }
 
     @Test
+    fun aDraftBesideFontsWithoutBlocksIsListedAndPublishedWithoutChangingThem() {
+        val clone = DraftClone(root, "star@FE000")
+        val glyphs = clone.pack.resolve("glyphs.json")
+        val json = OxfmtJson.read(glyphs) as OxfmtJson.Object
+        (json["fonts"] as MutableList<Any?>).addAll(
+            OxfmtJson.read(
+                """
+                [
+                  { "font": "nordtal:ui_space", "spaces": [{ "code": "FF001", "advance": -1, "constant": "UI_BACK_1" }] },
+                  { "font": "nordtal:ui_silent", "silent": true }
+                ]
+                """,
+            ) as List<*>,
+        )
+        glyphs.writeText(OxfmtJson.format(json))
+        clone.commitAll("feat: fonts without blocks")
+        clone.git(clone.clone, "push", "-q", "origin", "main")
+        clone.png("star", 0xFFFFFFFF.toInt())
+
+        assertEquals(listOf("nordtal:badges/star.png" to null), ids(clone))
+        publish(clone).publish(listOf("nordtal:badges/star.png"), "feat(resource-pack): the star is white")
+
+        val published = NewTextures.fonts(OxfmtJson.read(checked.single().first) as Map<*, *>).associateBy { it["font"] }
+        assertEquals(json["fonts"].let { (it as List<*>).takeLast(2) }, listOf(published["nordtal:ui_space"], published["nordtal:ui_silent"]))
+    }
+
+    @Test
     fun aFurtherPublishOfAChangeInReviewAddsACommitToItsPullRequest() {
         val clone = DraftClone(root, "star@FE000")
         clone.png("star", 0xFFFFFFFF.toInt())

@@ -288,6 +288,46 @@ class NewTexturesTest {
         assertEquals(listOf(7, 7), listOf(blocks[1].height, blocks[1].ascent))
     }
 
+    /** Adds a font of spaces, which has no blocks and shares the numbering of the others. */
+    private fun spacesFont() {
+        val root = OxfmtJson.read(allocation) as OxfmtJson.Object
+        (root["fonts"] as MutableList<Any?>).addAll(
+            OxfmtJson.read("""[{ "font": "nordtal:ui_space", "spaces": [{ "code": "FF001", "advance": -1 }] }]""") as List<*>,
+        )
+        allocation.writeText(OxfmtJson.format(root))
+    }
+
+    @Test
+    fun aBlockIsAllocatedBesideAFontWithoutBlocks() {
+        fixture()
+        spacesFont()
+
+        NewTextures.block(pack, "minecraft:default", "Flags")
+
+        val blocks = GlyphAllocation.read(allocation).fonts[0].blocks
+        assertEquals(0xFE010..0xFE01F, blocks.single { it.title == "Flags" }.range)
+    }
+
+    @Test
+    fun aFontWithoutBlocksTakesNoBlockOrSheet() {
+        fixture()
+        spacesFont()
+        val before = allocation.readText()
+
+        val refusals =
+            listOf(
+                assertThrows<FieldRefusal> { NewTextures.block(pack, "nordtal:ui_space", "Flags") },
+                assertThrows<FieldRefusal> {
+                    NewTextures.sheet(pack, "nordtal:ui_space", "Flags", "nordtal:flags.png", listOf("FLAG"), 8, 8, 7)
+                },
+            )
+
+        assertEquals(listOf("font", "font"), refusals.map { it.field })
+        assertEquals("The font nordtal:ui_space has no glyph blocks, so it takes none.", refusals[0].message)
+        assertEquals(before, allocation.readText())
+        assertFalse(pack.resolve("src/assets/nordtal/textures/flags.png").exists())
+    }
+
     @Test
     fun aBlockRefusesATitleThatExists() {
         fixture()

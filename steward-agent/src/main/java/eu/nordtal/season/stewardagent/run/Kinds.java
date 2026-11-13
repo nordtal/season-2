@@ -439,7 +439,7 @@ final class Kinds {
     /**
      * Creates the containers of the named services again, from the local image or a pulled one.
      *
-     * Ours are stopped and made again as they start; caddy, pack-host and postgres once the rest is back.
+     * Ours are stopped and made again as they start; caddy and postgres once the rest is back.
      */
     static Planned remake(final Runner runner, final UpdateRequest request, final boolean pull, final Steps record) {
         final List<String> scope = runner.directory.scopeOf(request.id());

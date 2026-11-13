@@ -47,7 +47,7 @@ steward-agent status ID
 flowchart LR
     row["steward_inbox row"] --> plan --> standbys["open standbys"] --> count["count down"] --> evac["move players away"]
     evac --> stop --> payload["do the request's work"] --> start --> verify --> close["close standbys"]
-    close --> renew["recreate caddy, pack-host, postgres"] --> settle["finish the row"]
+    close --> renew["recreate caddy, postgres"] --> settle["finish the row"]
 ```
 
 A standby is a service that stands in for another one, such as `proxy-standby`. Every kind of run
@@ -70,7 +70,7 @@ step is done. A failure after the write leaves the mode on the target and the pl
 failure before it starts the old server again, and the proxy sends the players back. A switch to the
 active mode runs only after a failed switch: it stops nothing and starts the target.
 
-The agent recreates caddy, pack-host and postgres last, after the standbys have stopped. Caddy
+The agent recreates caddy and postgres last, after the standbys have stopped. Caddy
 publishes the standbys' ports.
 
 A run is its rows: `run_step` with an outcome and a reason code per step, and a fact table per kind
@@ -107,13 +107,19 @@ The container writes its output to `steward-backups/runs/<id>.log` and keeps the
 
 | what                                                 | source                                                         |
 | ---------------------------------------------------- | -------------------------------------------------------------- |
-| the season-2 jars, the resource pack and its `.sha1` | `/releases/latest` of the GitHub repository `nordtal/season-2` |
+| the season-2 jars                                    | `/releases/latest` of the GitHub repository `nordtal/season-2` |
 | PacketEvents                                         | Modrinth v2, filtered by the Minecraft version and `paper`     |
 | Paper and Velocity                                   | PaperMC Fill v3, the newest `STABLE` build                     |
 | what is installed                                    | the volumes under `volumes-root`                               |
-| the resource pack the proxy offers                   | the `url` and `sha1` of the proxy's `pack` settings            |
+| the resource pack the proxy offers                   | the agent's own builds, see below                              |
 
 The agent checks every jar against the sha256 `digest` of its release asset.
+
+The agent builds the resource pack itself (`pack/`), from the image's `pack/` folder and smp's wheel
+prizes and texts: at its start when the image or the wheel changed since the active pack, and 30
+seconds after the last change of the wheel. A build writes `<sha1>.zip` into `PACK_DIR`, which Caddy
+serves under `PACK_BASE_URL`, and then the proxy's `pack` settings. A failed build changes neither,
+and `pack_build` records every build for Steward.
 
 ## Guarantees
 

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.google.gson.JsonParser;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.pack.PackBuildStore.PackBuild;
@@ -42,7 +43,8 @@ class PackBuildStoreIntegrationTest {
         assertEquals(99L, active.sizeBytes());
         assertEquals(Duration.ofSeconds(2), active.duration());
         assertEquals(LABEL, active.label());
-        assertEquals(PRIZES.replace(" ", ""), active.prizes().replace(" ", ""));
+        // jsonb spaces the text and orders the keys anew, so the prizes come back equal as JSON, not as text.
+        assertEquals(JsonParser.parseString(PRIZES), JsonParser.parseString(active.prizes()));
     }
 
     @Test

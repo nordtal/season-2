@@ -194,7 +194,7 @@ class HostMetricsTest {
 
     @Test
     void theDiskHalfIsTheFilestoresWithUsedMeasuredAgainstUnallocated() throws IOException {
-        // The numbers move on a live filesystem, so the snapshot lies between two live reads.
+        // The numbers move on a live filesystem and can move back, so the snapshot lies within slack of two live reads.
         final FileStore before = Files.getFileStore(disk);
         final long usedBefore = before.getTotalSpace() - before.getUnallocatedSpace();
         final long freeBefore = before.getUsableSpace();
@@ -216,10 +216,15 @@ class HostMetricsTest {
                 "used + free may fall short of total by the root reserve, but never exceed it");
     }
 
+    /** A write and its delete can both land between the two reads, so the reading gets this much room. */
+    private static final long DISK_SLACK_BYTES = 64L * 1024 * 1024;
+
     private static void assertBetween(final long a, final long b, final long actual, final String what) {
+        final long low = Math.min(a, b) - DISK_SLACK_BYTES;
+        final long high = Math.max(a, b) + DISK_SLACK_BYTES;
         assertTrue(
-                actual >= Math.min(a, b) && actual <= Math.max(a, b),
-                what + " was " + actual + ", outside the [" + Math.min(a, b) + ", " + Math.max(a, b)
-                        + "] the filesystem reported on either side of the reading");
+                actual >= low && actual <= high,
+                what + " was " + actual + ", outside the [" + low + ", " + high
+                        + "] around what the filesystem reported on either side of the reading");
     }
 }

@@ -124,7 +124,8 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
   })
 
   it("leaves no timer running once it is gone, so nothing fires once the page is gone", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
+    // Only timeouts are faked: jsdom runs its animation frames on an interval of its own, which is not the page's.
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ["setTimeout", "clearTimeout"] })
     const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)
     vi.stubGlobal("navigator", { clipboard: { writeText } })
 

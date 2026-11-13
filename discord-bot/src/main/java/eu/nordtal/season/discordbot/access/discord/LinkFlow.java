@@ -106,7 +106,7 @@ public final class LinkFlow extends ListenerAdapter {
             try {
                 redeem(event, locale, code);
             } catch (final RuntimeException exception) {
-                log.error("Redeeming a link code failed", exception);
+                log.error("link code not redeemed: member={}", event.getUser().getId(), exception);
                 admin.alert(new Alert(
                         JournalAction.LINK_FAILED,
                         Alert.Level.DOWN,
@@ -204,7 +204,7 @@ public final class LinkFlow extends ListenerAdapter {
     }
 
     private void lockedOut(final User user) {
-        log.warn("{} has used up its link-code attempts for this hour", user.getId());
+        log.warn("link code attempts used up: member={}", user.getId());
         admin.record(lockedOut(DiscordId.of(user.getId())));
     }
 

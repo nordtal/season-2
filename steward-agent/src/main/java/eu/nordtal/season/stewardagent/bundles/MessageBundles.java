@@ -85,7 +85,7 @@ public final class MessageBundles {
                     .anyMatch(entry -> BUNDLE_ENTRY.matcher(entry.getName()).matches()
                             || DOCUMENTS_ENTRY.matcher(entry.getName()).matches());
         } catch (final IOException e) {
-            LOG.warn("{} cannot be opened to look for message bundles: {}", jar, e.toString());
+            LOG.warn("jar not opened for message bundles: file={} cause={}", jar, e.toString());
             return false;
         }
     }
@@ -223,7 +223,7 @@ public final class MessageBundles {
                     });
                 } catch (final RuntimeException e) {
                     LOG.warn(
-                            "{}: the documents of {} are not readable, so they are left out: {}",
+                            "message documents unreadable, left out: file={} namespace={} cause={}",
                             location.jar(),
                             namespace,
                             e.toString());
@@ -256,7 +256,7 @@ public final class MessageBundles {
             return answer;
         } catch (final RuntimeException e) {
             LOG.warn(
-                    "{}: {} is not a message schema steward can read, so its names are left out: {}",
+                    "message schema unreadable, names left out: file={} entry={} cause={}",
                     location.jar(),
                     name,
                     e.toString());

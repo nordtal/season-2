@@ -143,9 +143,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
             try {
                 setting.reload();
             } catch (final SettingsException refused) {
-                log.warn(
-                        "The onboarding settings were changed but refused, so the last ones stay: {}",
-                        refused.getMessage());
+                log.warn("onboarding settings refused, last ones kept: cause={}", refused.getMessage());
                 return;
             }
             choices = Choices.of(languages, setting.get());
@@ -189,9 +187,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     @Override
     public void onRoleDelete(final RoleDeleteEvent event) {
         if (ours(event.getGuild()) && roles.isStored(event.getRole().getId())) {
-            log.warn(
-                    "The role {} the bot uses was deleted; it is found or created again",
-                    event.getRole().getName());
+            log.warn("bot role deleted: role=\"{}\"", event.getRole().getName());
             lane.execute(this::sweep);
         }
     }
@@ -249,7 +245,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
             }
         }
         if (settled > 0) {
-            log.info("Settled the language, region or lock of {} member(s)", settled);
+            log.info("member onboarding settled: count={}", settled);
         }
     }
 
@@ -303,9 +299,13 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
                             : guild.removeRoleFromMember(UserSnowflake.fromId(memberId), role))
                     .complete();
             alerts.clear(kind.name());
-            log.info("{} the role {} {} {}", given ? "Gave" : "Took", role.getName(), given ? "to" : "from", memberId);
+            log.info(
+                    "role changed: role=\"{}\" member={} change={}",
+                    role.getName(),
+                    memberId,
+                    given ? "given" : "taken");
         } catch (final RuntimeException failure) {
-            log.warn("Could not change the role {} of {}: {}", role.getName(), memberId, failure.toString());
+            log.warn("role not changed: role=\"{}\" member={} cause={}", role.getName(), memberId, failure.toString());
             alerts.raise(kind.name(), GuildRoles.notChanged(kind, given, DiscordId.of(memberId), failure));
         }
     }
@@ -388,7 +388,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     private @Nullable Guild guild() {
         final Guild guild = jda.getGuildById(guildId);
         if (guild == null) {
-            log.error("Guild {} is not available; the onboarding was not kept", guildId);
+            log.error("guild not available, onboarding not kept: guild={}", guildId);
         }
         return guild;
     }

@@ -97,7 +97,7 @@ public final class DisconnectBodies implements Listener {
         PaperScheduler.of(plugin).onMain(this::refreshTabList);
 
         if (state.isRunning()) {
-            LOGGER.info("Player {} disconnected mid-game - spawning a body to take their place", player.getName());
+            LOGGER.info("player left mid-game, body spawned: player={}", player.getName());
             bodies.spawn(player, Objects.requireNonNull(player.getLocation()));
         }
     }

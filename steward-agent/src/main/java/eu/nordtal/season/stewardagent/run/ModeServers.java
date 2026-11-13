@@ -40,7 +40,7 @@ final class ModeServers {
             final SeasonState state = season.state();
             return SeasonState.UNREAD.equals(state) ? Optional.empty() : Optional.of(state.mode());
         } catch (final RuntimeException unread) {
-            log.warn("Could not read the game mode, so no server is taken for resting", unread);
+            log.warn("game mode unreadable, no server rested", unread);
             return Optional.empty();
         }
     }
@@ -77,7 +77,7 @@ final class ModeServers {
     static void reconcile(final Runner runner) {
         try {
             if (runner.directory.handedTo().isPresent()) {
-                log.info("A one-shot carries out a run, so the game servers are left as they are");
+                log.info("game servers not changed, one-shot running");
                 return;
             }
             final SeasonMode mode = active(runner.season()).orElse(null);
@@ -87,19 +87,17 @@ final class ModeServers {
             final RuntimeResult runtime =
                     settled(runner.containers, runner.waiting, mode.other().server());
             if (!runtime.reached()) {
-                log.warn(
-                        "The runtime is unreachable, so the game servers are left as they are: {}",
-                        Runner.unreachableMessage(runtime));
+                log.warn("runtime unreachable, game servers not changed: cause={}", Runner.unreachableMessage(runtime));
                 return;
             }
             rest(runner.containers, runtime, mode.other().server());
             if (runner.directory.isHeld(mode.server())) {
-                log.info("{} is held down, so it stays stopped although it is the active mode", mode.server());
+                log.info("held server kept stopped: service={}", mode.server());
                 return;
             }
             wake(runner.containers, runtime, mode.server());
         } catch (final RuntimeException failure) {
-            log.error("Could not let only the active mode's server run", failure);
+            log.error("mode servers not arranged", failure);
         }
     }
 
@@ -125,9 +123,9 @@ final class ModeServers {
         }
         final RedeployResult stopped = containers.stop(id);
         if (stopped.triggered()) {
-            log.info("Stopped {}, which rests while it is not the active mode", inactive);
+            log.info("inactive mode server stopped: service={}", inactive);
         } else {
-            log.warn("Could not stop {}, which is not the active mode: {}", inactive, stopped.message());
+            log.warn("inactive mode server not stopped: service={} cause={}", inactive, stopped.message());
         }
     }
 
@@ -137,14 +135,14 @@ final class ModeServers {
         }
         final String id = containerOf(runtime, active);
         if (id == null) {
-            log.warn("{} is the active mode and has no container to start", active);
+            log.warn("active mode server without container: service={}", active);
             return;
         }
         final RedeployResult started = containers.start(id);
         if (started.triggered()) {
-            log.info("Started {}, the active mode's server", active);
+            log.info("active mode server started: service={}", active);
         } else {
-            log.warn("Could not start {}, the active mode's server: {}", active, started.message());
+            log.warn("active mode server not started: service={} cause={}", active, started.message());
         }
     }
 

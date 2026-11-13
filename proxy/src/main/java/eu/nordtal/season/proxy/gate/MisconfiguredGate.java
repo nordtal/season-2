@@ -59,12 +59,7 @@ public final class MisconfiguredGate {
     Component refuse(final UUID mcUuid, final String username) {
         final long count = refused.incrementAndGet();
         if (count == 1 || count % REPEAT_LOG_EVERY == 0) {
-            logger.error(
-                    "Refused {} ({}) - proxy is misconfigured, so NOBODY is being "
-                            + "let in. Fix the configuration and restart the proxy. ({} refused so far)",
-                    mcUuid,
-                    username,
-                    count);
+            logger.error("login refused, proxy misconfigured: uuid={} player={} count={}", mcUuid, username, count);
         }
         return screen;
     }

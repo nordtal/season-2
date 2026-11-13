@@ -39,7 +39,7 @@ public final class LocalJars {
         try {
             installation = Installation.scan(service, volumesRoot.resolve(service));
         } catch (final IOException e) {
-            LOG.debug("{}'s volume could not be listed for local jars: {}", service, e.getMessage());
+            LOG.debug("volume not listed for local jars: service={} cause={}", service, e.getMessage());
             return List.of();
         }
         final List<String> local = new ArrayList<>();

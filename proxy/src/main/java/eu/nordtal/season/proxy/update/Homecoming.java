@@ -105,7 +105,7 @@ public final class Homecoming {
             player.sendMessage(renderer.format(
                     locale, switchTo == null ? MOVED_OUT.with(named(from)) : SWITCH_MOVED_OUT.with(named(switchTo))));
         } catch (final RuntimeException failure) {
-            logger.warn("Could not tell {} why they are moved off '{}'", player.getUsername(), from, failure);
+            logger.warn("move notice not sent: player={} from={}", player.getUsername(), from, failure);
         }
         return true;
     }
@@ -149,11 +149,7 @@ public final class Homecoming {
             player.sendMessage(
                     renderer.format(locale, move.switching() ? SWITCH_READY.with(named) : WAITING_ROOM.with(named)));
         } catch (final RuntimeException failure) {
-            logger.warn(
-                    "Could not tell {} that they are being moved back to '{}'",
-                    player.getUsername(),
-                    destination,
-                    failure);
+            logger.warn("return notice not sent: player={} to={}", player.getUsername(), destination, failure);
         }
     }
 
@@ -162,7 +158,7 @@ public final class Homecoming {
         try {
             runs.returned(from, to, players);
         } catch (final RuntimeException failure) {
-            logger.warn("Could not count {} player(s) back from '{}' to '{}'", players, to, from, failure);
+            logger.warn("returned players not recorded: count={} from={} to={}", players, to, from, failure);
         }
     }
 
@@ -176,7 +172,7 @@ public final class Homecoming {
             try {
                 tell(player, announcement);
             } catch (final RuntimeException failure) {
-                logger.warn("Could not tell {} that the network is back", player.getUsername(), failure);
+                logger.warn("network back notice not sent: player={}", player.getUsername(), failure);
             }
         }
     }
@@ -203,9 +199,7 @@ public final class Homecoming {
                 }
             }
             case CANCELLED, FAILED ->
-                logger.warn(
-                        "The standby was asked to announce {}, which is" + " not something a return can be",
-                        announcement.kind());
+                logger.warn("announcement kind not a return, ignored: kind={}", announcement.kind());
         }
     }
 

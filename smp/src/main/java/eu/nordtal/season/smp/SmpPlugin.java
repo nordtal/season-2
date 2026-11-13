@@ -285,7 +285,9 @@ public final class SmpPlugin extends NordtalPlugin {
         final ItemTakeIn takeIn = new ItemTakeIn(this, pool(), renderer(), documents(), identities());
         takeIn.watch(hub());
         answerRequests(takeIn);
-        getLogger().info(track.size() + " milestones, " + protectedAreas.all().size() + " protected boxes");
+        getLogger()
+                .info("track loaded: milestones=" + track.size() + " protected_areas="
+                        + protectedAreas.all().size());
     }
 
     /** Carries out what Steward asks of smp, each request by its kind. */
@@ -319,10 +321,10 @@ public final class SmpPlugin extends NordtalPlugin {
 
     private void loadMilestoneTrack() {
         final Milestones.Result milestonesResult = Milestones.read(milestoneSettings.get());
-        final String refusal =
-                milestonesRefusal(milestonesResult, problem -> getLogger().severe("milestones: " + problem));
+        final String refusal = milestonesRefusal(
+                milestonesResult, problem -> getLogger().severe("milestone track problem found: problem=" + problem));
         if (refusal != null) {
-            throw fatal("smp is not starting: " + refusal + ", see the problems just logged.");
+            throw fatal("smp not starting, milestones refused: cause=" + refusal);
         }
         track = Objects.requireNonNull(milestonesResult.track());
     }
@@ -378,26 +380,20 @@ public final class SmpPlugin extends NordtalPlugin {
     private Worlds bootstrapWorlds(final WorldsSpec config, final SpawnSpec spawn) {
         final Datapacks.Result packs = Datapacks.check(config.requiredDatapacks());
         if (!packs.ok()) {
-            throw fatal("smp is not starting: " + packs.describe() + ". Datapacks are read once at server "
-                    + "start, so installing them now would not change any terrain - put them in the "
-                    + "level-name world's datapacks/ folder and restart.");
+            throw fatal("smp not starting, datapacks missing: cause=" + packs.describe());
         }
 
         final Worlds candidate = new Worlds(config, borderSettings.get());
         final World nordtal = candidate.bootstrap().orElse(null);
         if (nordtal == null) {
-            throw fatal("smp is not starting: the world '" + config.worldNordtal() + "' does not exist. "
-                    + "It carries the built spawn, so an empty replacement would hide a broken "
-                    + "deployment behind a world nobody recognises.");
+            throw fatal("smp not starting, world missing: world=" + config.worldNordtal());
         }
 
         // A missing first-join world is a warning, not a refusal.
         if (Bukkit.getWorld(spawn.nordtalSpawn().world()) == null) {
             getLogger()
-                    .warning("nordtal-spawn names the world '"
-                            + spawn.nordtalSpawn().world() + "', which does not exist on this server. "
-                            + "First joins will not be moved anywhere. The build world is called '"
-                            + config.worldNordtal() + "'.");
+                    .warning("nordtal-spawn world missing: world="
+                            + spawn.nordtalSpawn().world());
         }
         candidate.applyFixedBorders();
         return candidate;
@@ -487,7 +483,7 @@ public final class SmpPlugin extends NordtalPlugin {
             try {
                 admin.showAccess(console, id, name);
             } catch (final RuntimeException failure) {
-                getLogger().log(java.util.logging.Level.WARNING, "/smp access could not read " + name, failure);
+                getLogger().log(java.util.logging.Level.WARNING, "access not read: player=" + name, failure);
                 tell(sender, Answer.failed(Replies.FAILED.with(Replies.Failure.of(failure))));
             }
         });
@@ -506,7 +502,7 @@ public final class SmpPlugin extends NordtalPlugin {
     /** Starts the track over if Steward asked for a reset that is not applied yet. */
     void startTrackOverIfDue() {
         if (trackRows.startOverIfDue() > 0) {
-            getLogger().info("the track started over: every milestone is locked and every objective is empty");
+            getLogger().info("milestone track reset");
         }
     }
 
@@ -528,7 +524,7 @@ public final class SmpPlugin extends NordtalPlugin {
             Objects.requireNonNull(boards).setLeaderboard(aura.topAura(10));
         } catch (final RuntimeException exception) {
             // The surfaces keep their last data.
-            getLogger().warning("could not refresh the boards and HUD: " + exception);
+            getLogger().warning("boards and HUD not refreshed: cause=" + exception);
         }
     }
 
@@ -541,8 +537,8 @@ public final class SmpPlugin extends NordtalPlugin {
                         .filter(row -> row.amount() >= row.target())
                         .forEach(row -> {
                             getLogger()
-                                    .info("objective '" + row.key() + "' is already at " + row.amount()
-                                            + " of its new target " + row.target() + " - completing it now");
+                                    .info("objective at new target, completed: key=" + row.key() + " amount="
+                                            + row.amount() + " target=" + row.target());
                             engine.finishObjective(milestoneKey, row, null);
                         }));
     }
@@ -603,8 +599,8 @@ public final class SmpPlugin extends NordtalPlugin {
                 problems.addAll(TrackNames.validate(candidate, TrackNames.Server.running()));
             }
             if (!problems.isEmpty() || candidate == null) {
-                getLogger().severe("the milestone track was NOT reloaded, the running track is unchanged:");
-                problems.forEach(problem -> getLogger().severe("  " + problem));
+                getLogger().severe("milestone track not reloaded, running track kept");
+                problems.forEach(problem -> getLogger().severe("milestone track problem found: problem=" + problem));
                 trackProblems =
                         problems.stream().map(TrackValidation.Problem::toString).toList();
             } else {
@@ -614,12 +610,10 @@ public final class SmpPlugin extends NordtalPlugin {
                 track = candidate;
                 completeWhateverTheNewTargetsAlreadyReach();
                 PaperScheduler.of(this).execute(this::loadSeasonState);
-                getLogger().info("the milestone track was reloaded: " + track.size() + " milestones");
+                getLogger().info("milestone track reloaded: milestones=" + track.size());
             }
         } catch (final SettingsException | RuntimeException exception) {
-            getLogger()
-                    .severe("the milestone track could not be reloaded, the running one is " + "unchanged: "
-                            + exception.getMessage());
+            getLogger().severe("milestone track not reloaded, running track kept: cause=" + exception.getMessage());
         }
     }
 
@@ -648,7 +642,7 @@ public final class SmpPlugin extends NordtalPlugin {
         if (trackRows.activeMilestoneKey().isEmpty()) {
             now.next(completed).ifPresent(next -> {
                 if (trackRows.activateAfter(next.key(), completed.size()) > 0) {
-                    getLogger().info("milestone " + next.key() + " is now active");
+                    getLogger().info("milestone activated: milestone=" + next.key());
                 }
             });
         }
@@ -660,9 +654,8 @@ public final class SmpPlugin extends NordtalPlugin {
                 worlds.expandNordtal(diameter, false);
             }
             getLogger()
-                    .info("season state: " + completed.size() + " milestones complete, unlocks "
-                            + season.unlocked() + ", Nordtal's border "
-                            + (diameter > 0 ? String.valueOf(diameter) : "untouched"));
+                    .info("season state loaded: completed=" + completed.size() + " unlocks=\"" + season.unlocked()
+                            + "\" border=" + (diameter > 0 ? String.valueOf(diameter) : "untouched"));
         });
     }
 }

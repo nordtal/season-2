@@ -105,16 +105,15 @@ while (( $# > 0 )); do
         --env-file)        ENV_FILE="${2:?--env-file needs a path}"; shift 2 ;;
         --backups-volume)  BACKUPS_VOLUME="${2:?--backups-volume needs a name}"; shift 2 ;;
         -h|--help)         sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        -*)                die "unknown argument: $1 (try --help)" ;;
-        *)                 [[ -z "$ARCHIVE" ]] || die "one archive at a time."; ARCHIVE="$1"; shift ;;
+        -*)                die "Unknown argument: $1. --help lists the arguments." ;;
+        *)                 [[ -z "$ARCHIVE" ]] || die "More than one archive named. Name one archive per run."; ARCHIVE="$1"; shift ;;
     esac
 done
 
 cd "$ROOT"
 
-command -v docker >/dev/null 2>&1 || die "no docker on this host."
-docker info >/dev/null 2>&1 || die "this user cannot talk to the docker daemon. The volumes belong
-       to Docker, so this needs root."
+command -v docker >/dev/null 2>&1 || die "No docker on this host. Install Docker and run this again."
+docker info >/dev/null 2>&1 || die "This user cannot reach the docker daemon. Run this again as root."
 
 # The project name, which prefixes every volume.
 PROJECT=""
@@ -148,24 +147,20 @@ source_for() {
 BACKUPS_VOLUME="${BACKUPS_VOLUME:-${PROJECT}${BACKUPS_SUFFIX}}"
 BACKUPS_SOURCE="$(source_for "$BACKUPS_VOLUME" || true)"
 [[ -n "$BACKUPS_SOURCE" ]] \
-    || die "there is no $BACKUPS_VOLUME on this host - neither a directory under
-       '${NORDTAL_DIR:-(no NORDTAL_DIR in $ENV_FILE)}' nor a Docker volume - so there are no
-       archives to restore from. --backups-volume names another one; --env-file points at the
-       environment file whose COMPOSE_PROJECT_NAME decides the prefix (this run used '$PROJECT')."
+    || die "No archives found: project $PROJECT has no $BACKUPS_VOLUME, neither under ${NORDTAL_DIR:-a NORDTAL_DIR} nor as a Docker volume. Name the volume with --backups-volume, or the environment file with --env-file."
 
 # The image that wrote the archives, so that tar and zstd match. The container of the agent of the
 # project names it, running or not, because images are tagged by release.
 TOOLS="${STEWARD_AGENT_IMAGE:-$(docker ps -a --filter "label=com.docker.compose.project=$PROJECT" \
     --filter label=com.docker.compose.service=steward-agent --format '{{.Image}}' | sed -n '1p')}"
-[[ -n "$TOOLS" ]] || die "project '$PROJECT' has no steward-agent container, so nothing says which
-       release's image wrote these archives. Name one: STEWARD_AGENT_IMAGE=ghcr.io/nordtal/steward-agent:<version>"
+[[ -n "$TOOLS" ]] || die "No image to read the archives with: project $PROJECT has no steward-agent container. Name one with STEWARD_AGENT_IMAGE=ghcr.io/nordtal/steward-agent:<version>."
 in_backups() {
     docker run --rm --entrypoint sh \
         -v "$BACKUPS_SOURCE:/backups:ro" "$TOOLS" -c "$1"
 }
 
 if $LIST_ONLY; then
-    log "archives in $BACKUPS_SOURCE:"
+    log "archives listed: dir=$BACKUPS_SOURCE"
     in_backups 'ls -lh /backups 2>/dev/null || echo "(empty)"'
     # Prints every `.unverified` mark, because a mark can be a reason to pick another archive.
     in_backups 'for m in /backups/*.unverified; do
@@ -177,29 +172,21 @@ if $LIST_ONLY; then
     exit 0
 fi
 
-[[ -n "$ARCHIVE" ]] || die "name an archive. \`--list\` shows what is there, and
-       /operations/restore in the interface builds this whole command for you."
-[[ "$ARCHIVE" != */* ]] || die "an archive is a file name, not a path: '$ARCHIVE'. Everything is
-       read out of $BACKUPS_SOURCE, and a path here would be read inside the container that does
-       the reading rather than on this host."
+[[ -n "$ARCHIVE" ]] || die "No archive named. Run with --list to see the archives, or copy the command from /operations/restore in Steward."
+[[ "$ARCHIVE" != */* ]] || die "$ARCHIVE is a path. Name the archive by its file name alone."
 
 kind="$(archive_kind "$ARCHIVE")"
 case "$kind" in
     partial)
-        die "'$ARCHIVE' is a .partial file. steward writes every archive under that name and
-       renames it only after reading it back, so this one is a backup that was interrupted - there
-       is nothing complete in it to restore." ;;
+        die "$ARCHIVE is an interrupted backup and holds nothing complete. Run with --list and pick another archive." ;;
     mark)
-        die "'$ARCHIVE' is the mark beside an archive, not the archive. It names the run that took
-       the backup it belongs to and the services whose stop nobody could confirm; read it with \`--list\` and then
-       name '${ARCHIVE%.unverified}' if you still want it." ;;
+        die "$ARCHIVE is the mark beside an archive. Name ${ARCHIVE%.unverified} to restore that archive." ;;
     unknown)
-        die "'$ARCHIVE' is not a name this deployment writes. A volume archive is
-       <volume>-<YYYYMMDDTHHMMSSZ>.tar.zst and a database dump is nordtal-<stamp>.dump." ;;
+        die "$ARCHIVE is not an archive name of this deployment. Name a <volume>-<YYYYMMDDTHHMMSSZ>.tar.zst or nordtal-<stamp>.dump file." ;;
 esac
 
 in_backups "test -f '/backups/$ARCHIVE'" \
-    || die "there is no $ARCHIVE in $BACKUPS_VOLUME. \`--list\` shows what is there."
+    || die "There is no $ARCHIVE in $BACKUPS_VOLUME. Run with --list to see the archives."
 
 if [[ "$kind" == database ]]; then
     # The dump never overwrites the live database. It lands beside it under its own name.
@@ -207,26 +194,21 @@ if [[ "$kind" == database ]]; then
     # sed -n 1p, as in stamp_of.
     container="$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" \
         --filter "label=com.docker.compose.service=postgres" | sed -n '1p')"
-    [[ -n "$container" ]] || die "postgres is not running in project '$PROJECT'. A dump is restored
-       BY the database server, so it has to be up - this is the one restore that needs the stack
-       working rather than broken."
+    [[ -n "$container" ]] || die "Postgres is not running in project $PROJECT. Start it with docker compose --env-file $ENV_FILE up -d postgres and run this again."
 
     target="restore_$stamp"
-    log "restoring $ARCHIVE into a NEW database '$target' beside the live one"
+    log "database restore started: file=$ARCHIVE database=$target"
     docker exec "$container" sh -c \
         "createdb -U \"\$POSTGRES_USER\" '$target'" \
-        || die "could not create '$target'. If it already exists, a previous run made it - drop it
-       or restore under another name."
+        || die "Database $target could not be created. If an earlier run made it, drop it with docker exec $container dropdb -U \"\$POSTGRES_USER\" $target and run this again."
     # The copy is for reading, so the script applies no roles and grants of the dump.
     docker exec "$container" sh -c \
         "pg_restore -U \"\$POSTGRES_USER\" -d '$target' --no-owner --no-privileges '/backups/$ARCHIVE'" \
-        || warn "pg_restore reported errors. The database '$target' exists and may be incomplete;
-       look at it before trusting it."
+        || warn "pg_restore reported errors, database may be incomplete: database=$target"
 
-    log "done. Nothing that was running has changed."
+    log "database restored beside the live one: database=$target"
     log "  look inside it:   docker exec -it $container psql -U \"\$POSTGRES_USER\" -d $target"
     log "  throw it away:    docker exec $container dropdb -U \"\$POSTGRES_USER\" $target"
-    log "Promoting it over the live database is deliberately not something this script does."
     exit 0
 fi
 
@@ -236,13 +218,10 @@ TARGET="$(source_for "$VOLUME" || true)"
 if [[ -z "$TARGET" ]]; then
     # When neither exists, the script creates and names the directory, because a typo looks the same.
     TARGET="$(directory_for "$VOLUME" "$PROJECT" "$NORDTAL_DIR" || true)"
-    [[ -n "$TARGET" ]] || die "'$VOLUME' is neither a directory in this installation nor a volume
-       on this host, and there is no NORDTAL_DIR in $ENV_FILE to build a directory from. If this
-       archive belongs to another deployment, restore it there."
-    warn "there is no '$TARGET' yet; it will be created."
+    [[ -n "$TARGET" ]] || die "$VOLUME is neither a directory of this installation nor a Docker volume, and $ENV_FILE has no NORDTAL_DIR. Restore this archive on the host of its deployment."
+    warn "directory missing: dir=$TARGET"
     if [[ "$VOLUME" != "$PROJECT"_* ]]; then
-        warn "and '$VOLUME' does not start with '${PROJECT}_', so nothing in this deployment"
-        warn "mounts it - check the archive name before answering the question below."
+        warn "volume outside this project, mounted by nothing: volume=$VOLUME project=$PROJECT"
     fi
     mkdir -p "$TARGET"
 fi
@@ -270,56 +249,51 @@ warn "  archive:    $ARCHIVE  ($size)"
 warn "  volume:     $VOLUME"
 warn "  restoring:  $TARGET"
 warn "  stopping:   ${running[*]:-nothing is running on it}"
-warn "  everything in that volume is deleted first. What is in the archive takes its place,"
-warn "  and anything created since $(stamp_of "$ARCHIVE") - built houses, edited configs - is gone."
+warn "  everything in it is deleted, and whatever changed since $(stamp_of "$ARCHIVE") is lost."
 if [[ -n "$mark" ]]; then
     printf '\n'
     warn "  THIS ARCHIVE IS MARKED UNVERIFIED:"
     while IFS= read -r line; do
         warn "    $line"
     done <<<"$mark"
-    warn "  It is readable - that was checked when it was written and is checked again below. What"
-    warn "  nobody knows is whether the server had finished saving when it was taken."
+    warn "  It is readable. Whether the server had finished saving is not known."
 fi
 printf '\n'
 printf 'Type the volume name to confirm: '
 read -r typed
 restore_confirmed "$VOLUME" "$typed" \
-    || die "that is not '$VOLUME'. Nothing has been touched."
+    || die "Not restored: the name typed is not $VOLUME, and nothing was touched. Run this again to restore."
 
 # The script verifies the archive before it empties the volume. `zstd -t` checks the frames, and the
 # traversal by tar checks that the archive is complete. They are two commands, not one pipeline.
-log "reading $ARCHIVE through before anything is touched"
+log "archive check started: file=$ARCHIVE"
 in_backups "zstd -t '/backups/$ARCHIVE'" \
-    || die "'$ARCHIVE' is not a complete zstd archive - it is truncated or corrupt. Nothing has been
-       touched. \`--list\` shows what else is there."
+    || die "$ARCHIVE is truncated or corrupt, and nothing was touched. Run with --list and pick another archive."
 in_backups "zstd -dc '/backups/$ARCHIVE' | tar -tf - >/dev/null" \
-    || die "'$ARCHIVE' decompresses but does not hold a complete tar archive. Nothing has been
-       touched. \`--list\` shows what else is there."
+    || die "$ARCHIVE holds no complete tar archive, and nothing was touched. Run with --list and pick another archive."
 
 if (( ${#running[@]} > 0 )); then
-    log "stopping ${running[*]}"
+    log "containers stopping: containers=\"${running[*]}\""
     docker stop "${running[@]}" >/dev/null
 fi
 
 # `find -mindepth 1 -delete` instead of a glob, which would leave dotfiles behind.
-log "replacing $TARGET from $ARCHIVE"
+log "volume replace started: dir=$TARGET file=$ARCHIVE"
 docker run --rm --entrypoint sh \
     -v "$BACKUPS_SOURCE:/backups:ro" \
     -v "$TARGET:/dst" \
     "$TOOLS" -c "set -e
         find /dst -mindepth 1 -delete
         zstd -dc '/backups/$ARCHIVE' | tar -xf - -C /dst" \
-    || die "the restore failed. '$TARGET' has been emptied and may be partly filled - do NOT start
-       the stack on it. Run this again with the same archive, or with an older one."
+    || die "Restore failed: $TARGET is emptied and may be partly filled. Do not start the stack on it; run this again with the same archive or an older one."
 
 if (( ${#running[@]} > 0 )); then
-    log "starting ${running[*]} again"
+    log "containers starting again: containers=\"${running[*]}\""
     docker start "${running[@]}" >/dev/null
 fi
 
-log "done. $TARGET now holds what $ARCHIVE held."
+log "volume restored: dir=$TARGET file=$ARCHIVE"
 if (( ${#holders[@]} > ${#running[@]} )); then
-    log "these mount it and were not running, so they were left alone: ${holders[*]}"
+    log "stopped holders left stopped: containers=\"${holders[*]}\""
 fi
-log "Watch one come back before you trust it: docker compose --env-file $ENV_FILE ps"
+log "Check that the containers come back: docker compose --env-file $ENV_FILE ps"

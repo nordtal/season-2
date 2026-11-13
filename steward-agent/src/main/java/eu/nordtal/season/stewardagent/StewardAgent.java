@@ -72,7 +72,7 @@ public final class StewardAgent {
                 project == null || project.isBlank() ? Deployment.PROJECT : project);
 
         final ProcessScheduler scheduler =
-                new ProcessScheduler(Compose.SELF, failure -> log.error("A task of steward-agent failed", failure));
+                new ProcessScheduler(Compose.SELF, failure -> log.error("steward-agent task failed", failure));
         final Docker docker = new Docker(new DockerSocket(
                 Path.of(server.setting("DOCKER_SOCKET", DockerSocket.DEFAULT_SOCKET.toString())),
                 Duration.ofSeconds(30),
@@ -174,7 +174,7 @@ public final class StewardAgent {
         try {
             databaseConfig = AgentSettings.database().get();
         } catch (final SettingsException broken) {
-            log.error("Refusing to touch the database on settings that cannot be read: {}", broken.getMessage());
+            log.error("settings unreadable, database not touched: cause={}", broken.getMessage());
             return 1;
         }
         final Database opened = DatabaseWaiting.openDatabase(
@@ -186,7 +186,7 @@ public final class StewardAgent {
             Schema.migrate(database, Schema.passwords(System.getenv()));
             return 0;
         } catch (final RuntimeException failure) {
-            log.error("The database schema could not be applied, so nothing that logs in will start.", failure);
+            log.error("database schema not applied", failure);
             return 1;
         }
     }
@@ -213,7 +213,7 @@ public final class StewardAgent {
         try {
             databaseConfig = AgentSettings.database().get();
         } catch (final SettingsException broken) {
-            log.error("Refusing to touch the database on settings that cannot be read: {}", broken.getMessage());
+            log.error("settings unreadable, database not touched: cause={}", broken.getMessage());
             return 1;
         }
         final Database opened = DatabaseWaiting.openDatabase(databaseConfig, compose.oneShotName(), Waiting.on(clock));
@@ -225,7 +225,7 @@ public final class StewardAgent {
             try {
                 runs = AgentSettings.runs(AgentSettings.stored(database.dataSource(), log));
             } catch (final SettingsException broken) {
-                log.error("Refusing to carry out a run on settings that cannot be read: {}", broken.getMessage());
+                log.error("settings unreadable, run not carried out: cause={}", broken.getMessage());
                 return 1;
             }
             final UpdateDirectory updates = Schema.updates(database);
@@ -278,7 +278,7 @@ public final class StewardAgent {
         try {
             databaseConfig = AgentSettings.database().get();
         } catch (final SettingsException broken) {
-            log.error("Refusing to touch the database on settings that cannot be read: {}", broken.getMessage());
+            log.error("settings unreadable, database not touched: cause={}", broken.getMessage());
             return 1;
         }
         final Database opened = DatabaseWaiting.openDatabase(databaseConfig, Compose.SELF, Waiting.on(clock));
@@ -292,7 +292,7 @@ public final class StewardAgent {
             try {
                 runs = AgentSettings.runs(settings);
             } catch (final SettingsException broken) {
-                log.error("Refusing to carry out runs on settings that cannot be read: {}", broken.getMessage());
+                log.error("settings unreadable, runs not carried out: cause={}", broken.getMessage());
                 return 1;
             }
             return serveWithDatabase(
@@ -313,10 +313,11 @@ public final class StewardAgent {
             try {
                 final int gone = Inbox.over(database.dataSource(), table).purge(REQUEST_RETENTION);
                 if (gone > 0) {
-                    log.info("Removed {} settled requests from {} older than {}.", gone, table, REQUEST_RETENTION);
+                    log.info(
+                            "settled requests removed: count={} table={} retention={}", gone, table, REQUEST_RETENTION);
                 }
             } catch (final RuntimeException failure) {
-                log.warn("Could not clear out old requests from {}; they stay where they are.", table, failure);
+                log.warn("old requests not removed: table={}", table, failure);
             }
         }
     }
@@ -370,7 +371,7 @@ public final class StewardAgent {
                 new AgentApi(docker, project, compose::definitions, compose::hashes, paths, clock, scheduler);
         final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, database, clock, api.topology()::read);
         if (!docker.isReachable()) {
-            log.warn("No docker socket answers, so every container route answers that the daemon is not answering.");
+            log.warn("docker socket not answering");
         }
         api.start();
         // The agent refuses to start without its secret.
@@ -384,7 +385,7 @@ public final class StewardAgent {
                         runs.get(), database, api.topology()::read, clock, services -> handOver(compose, services));
             }
             if (!Readiness.onDefaultPath(clock, log::warn).keepBeating(scheduler)) {
-                log.error("Could not write the readiness marker, so the rest of the stack will not start.");
+                log.error("readiness marker not written");
             }
             final UpdateDirectory updates = Schema.updates(database);
             final Runner runner = runner(server, compose, docker, clock, database, runs, updates, runRoutes.removal());
@@ -462,15 +463,15 @@ public final class StewardAgent {
         try {
             runs.reload();
         } catch (final SettingsException broken) {
-            log.warn("The runs settings were changed but refused, so the last ones stay: {}", broken.getMessage());
+            log.warn("runs settings refused, last ones kept: cause={}", broken.getMessage());
         }
     }
 
     private static void handOver(final Compose compose, final List<String> services) {
         try {
-            compose.handOver(services, line -> log.info("[hand-over] {}", line));
+            compose.handOver(services, line -> log.info("hand-over output: line=\"{}\"", line));
         } catch (final java.io.IOException failure) {
-            log.warn("could not hand {}'s volumes to their users: {}", services, failure.getMessage());
+            log.warn("volume hand-over failed: services={} cause={}", services, failure.getMessage());
         }
     }
 }

@@ -129,7 +129,7 @@ public final class SmpAdmin {
             return Answer.refused(ServerRefusal.NO_SUCH_OBJECTIVE.with(key));
         }
         track.finishObjective(active.get(), row.get());
-        logger.info("an admin completed objective " + active.get() + "/" + key);
+        logger.info("objective completed by admin: milestone=" + active.get() + " key=" + key);
         return Answer.done(OBJECTIVE_COMPLETED.with(new Objective(key, new MilestoneContext(active.get()))));
     }
 
@@ -142,21 +142,22 @@ public final class SmpAdmin {
             return Answer.refused(ServerRefusal.MILESTONE_NOT_ACTIVE.with(key, active.get()));
         }
         track.unlockMilestone(key);
-        logger.info("an admin unlocked milestone " + key);
+        logger.info("milestone unlocked by admin: milestone=" + key);
         return Answer.done(MILESTONE_UNLOCKED.with(new Milestone(key)));
     }
 
     /** Sets the aura of {@code person} and records the difference as a change by {@code actor}. */
     public Answer setAura(final DiscordId person, final int value, final Actor actor) {
         final int delta = aura.setAura(person, value, new AuraCause.Admin(actor));
-        logger.info(actor + " set the aura of " + person.value() + " to " + value + ", a change of " + delta);
+        logger.info("aura set by admin: member=" + person.value() + " aura=" + value + " delta=" + delta + " actor=\""
+                + actor + "\"");
         return Answer.done(AURA_SET.with(new AuraSet(value)));
     }
 
     /** Sets the extra spins {@code person} has left. */
     public Answer setSpins(final DiscordId person, final int value) {
         spins.setSpins(person, value);
-        logger.info("the extra spins of " + person.value() + " are set to " + value);
+        logger.info("extra spins set by admin: member=" + person.value() + " spins=" + value);
         return Answer.done(SPINS_SET.with(new SpinsSet(value)));
     }
 

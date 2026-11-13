@@ -103,7 +103,7 @@ public final class AccessApi {
                         Actor.person(DiscordId.of(who.id())));
         switch (booking) {
             case Bookings.Booking.Booked booked -> {
-                log.info("{} booked {} by hand", who.name(), reference);
+                log.info("payment booked by hand: actor={} reference={}", who.name(), reference);
                 ctx.json(new Settled(
                         SettleOutcome.BOOKED,
                         booked.told().days(),
@@ -137,7 +137,7 @@ public final class AccessApi {
         final DiscordAuth.Account who = accounts.apply(ctx);
         final Request<BotRequest> written =
                 data.bot().submit(request, Actor.person(DiscordId.of(who.id())), Schedule.within(CommandApi.PATIENCE));
-        log.info("{} asked the bot for {}", who.name(), request);
+        log.info("bot request submitted: actor={} request={} payload=\"{}\"", who.name(), written.id(), request);
 
         ctx.status(202)
                 .json(new GameActions.CommandAsked(

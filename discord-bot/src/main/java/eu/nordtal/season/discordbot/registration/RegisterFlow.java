@@ -129,7 +129,7 @@ public final class RegisterFlow extends ListenerAdapter {
             try {
                 register(event, locale, typed.strip());
             } catch (final RuntimeException exception) {
-                log.error("Registering a {} team failed", teams.game().key(), exception);
+                log.error("team not registered: game={}", teams.game().key(), exception);
                 event.getHook()
                         .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
                         .queue();
@@ -188,7 +188,7 @@ public final class RegisterFlow extends ListenerAdapter {
             try {
                 invite(event, locale, partner);
             } catch (final RuntimeException exception) {
-                log.error("Inviting a {} partner failed", teams.game().key(), exception);
+                log.error("team invite not sent: game={}", teams.game().key(), exception);
                 event.getHook()
                         .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
                         .queue();
@@ -233,16 +233,15 @@ public final class RegisterFlow extends ListenerAdapter {
                         channel -> channel.sendMessage(invitation.create())
                                 .queue(
                                         ok -> log.debug(
-                                                "Sent a {} invite DM to {}",
+                                                "team invite sent: game={} member={}",
                                                 teams.game().key(),
                                                 partner.getId()),
                                         failure -> log.info(
-                                                "Could not DM {} about an invite ({}); they will "
-                                                        + "only find out if the owner tells them",
+                                                "team invite not delivered: member={} cause={}",
                                                 partner.getId(),
                                                 failure.toString())),
                         failure -> log.info(
-                                "Could not open a DM with {} for an invite ({})", partner.getId(), failure.toString()));
+                                "team invite not delivered: member={} cause={}", partner.getId(), failure.toString()));
     }
 
     private MessageEditData reply(final Locale locale, final Sent<?> text) {
@@ -259,7 +258,7 @@ public final class RegisterFlow extends ListenerAdapter {
                         : teams.decline(memberId, event.getUser().getId());
                 report(event, locale, accept, result);
             } catch (final RuntimeException exception) {
-                log.error("Answering a {} invite failed", teams.game().key(), exception);
+                log.error("team invite answer failed: game={}", teams.game().key(), exception);
                 event.getHook()
                         .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
                         .queue();
@@ -294,11 +293,13 @@ public final class RegisterFlow extends ListenerAdapter {
                                     .queue(
                                             ok -> {},
                                             failure -> log.info(
-                                                    "Could not DM team owner {} about an invite answer ({})",
+                                                    "team invite answer not delivered: member={} cause={}",
                                                     ownerId,
                                                     failure.toString())),
                             failure -> log.info(
-                                    "Could not open a DM with team owner {} ({})", ownerId, failure.toString()));
+                                    "team invite answer not delivered: member={} cause={}",
+                                    ownerId,
+                                    failure.toString()));
         });
     }
 }

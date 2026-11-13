@@ -41,8 +41,7 @@ public final class ToneColours implements Palette {
             }
             final TextColor colour = TextColor.fromHexString(hex.trim());
             if (colour == null) {
-                problems.accept("the colour for " + tone + " is '" + hex + "', which is not a hex"
-                        + " colour (it has to look like #8ba888); using the default "
+                problems.accept("tone colour invalid, default used: tone=" + tone + " value=\"" + hex + "\" default="
                         + fallback.asHexString());
                 parsed.put(tone, fallback);
             } else {

@@ -64,7 +64,7 @@ final class PluginNames implements SettingsDocument.Names {
                 }
             }
         } catch (final RuntimeException unreachable) {
-            LOG.warn("the texts of {} could not be read, so its choices show their values", service, unreachable);
+            LOG.warn("plugin texts unreadable, values shown: service={}", service, unreachable);
             return Map.of();
         }
         final Map<String, String> overridden = overridden(entries);

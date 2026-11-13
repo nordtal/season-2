@@ -31,7 +31,7 @@ final class Processes {
             return start(command, true).waitFor();
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new Failure(String.join(" ", command) + " was interrupted");
+            throw new Failure(String.join(" ", command) + " was interrupted. Run it again.");
         }
     }
 
@@ -45,10 +45,11 @@ final class Processes {
             process.waitFor();
             return out.strip();
         } catch (final IOException e) {
-            throw new Failure("cannot run " + command.getFirst() + ": " + e.getMessage());
+            throw new Failure("Could not run " + command.getFirst() + ": " + e.getMessage()
+                    + ". Check that it is installed and on the PATH.");
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new Failure(String.join(" ", command) + " was interrupted");
+            throw new Failure(String.join(" ", command) + " was interrupted. Run it again.");
         }
     }
 
@@ -63,14 +64,14 @@ final class Processes {
             }
             return builder.start();
         } catch (final IOException e) {
-            throw new Failure("cannot run " + command.getFirst() + ": " + e.getMessage()
-                    + (command.getFirst().equals("docker") ? ". Is Docker installed and on the PATH?" : ""));
+            throw new Failure("Could not run " + command.getFirst() + ": " + e.getMessage()
+                    + ". Check that it is installed and on the PATH.");
         }
     }
 
     static void require(final int status, final String what) {
         if (status != 0) {
-            throw new Failure(what + " failed (exit " + status + ")");
+            throw new Failure(what + " failed with exit code " + status + ". Check its output above.");
         }
     }
 

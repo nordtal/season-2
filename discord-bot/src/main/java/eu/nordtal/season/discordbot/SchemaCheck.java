@@ -36,6 +36,6 @@ final class SchemaCheck {
                             + "Flyway said: " + invalid.getMessage(),
                     invalid);
         }
-        log.info("Database schema validated - it matches the migrations in this jar");
+        log.info("database schema validated");
     }
 }

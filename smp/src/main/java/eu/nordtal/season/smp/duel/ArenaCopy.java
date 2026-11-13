@@ -48,7 +48,7 @@ final class ArenaCopy {
             restore();
         }
         if (file.exists()) {
-            plugin.getLogger().warning("the duel arena copy " + file + " is still not placed back; no duel is fought");
+            plugin.getLogger().warning("duel arena copy not placed back, duel refused: file=" + file);
             return false;
         }
         final Structure structure = Bukkit.getStructureManager().createStructure();
@@ -68,7 +68,7 @@ final class ArenaCopy {
             Bukkit.getStructureManager().saveStructure(file, structure);
             return true;
         } catch (final IOException e) {
-            plugin.getLogger().log(Level.WARNING, "the duel arena could not be saved to " + file, e);
+            plugin.getLogger().log(Level.WARNING, "duel arena not saved: file=" + file, e);
             return false;
         }
     }
@@ -82,7 +82,7 @@ final class ArenaCopy {
         try {
             structure = Bukkit.getStructureManager().loadStructure(file);
         } catch (final IOException e) {
-            plugin.getLogger().log(Level.WARNING, "the duel arena copy " + file + " could not be read", e);
+            plugin.getLogger().log(Level.WARNING, "duel arena copy unreadable: file=" + file, e);
             return;
         }
         final @Nullable String worldName =
@@ -91,8 +91,7 @@ final class ArenaCopy {
                 structure.getPersistentDataContainer().get(originKey, PersistentDataType.INTEGER_ARRAY);
         final World world = worldName == null ? null : Bukkit.getWorld(worldName);
         if (world == null || corners == null || corners.length != 6) {
-            plugin.getLogger()
-                    .warning("the duel arena copy " + file + " names no loaded world; it is kept for the next start");
+            plugin.getLogger().warning("duel arena copy names no loaded world, copy kept: file=" + file);
             return;
         }
         structure.place(
@@ -110,7 +109,7 @@ final class ArenaCopy {
                 .filter(entity -> entity instanceof Item || entity instanceof AbstractArrow)
                 .forEach(org.bukkit.entity.Entity::remove);
         if (!file.delete()) {
-            plugin.getLogger().warning("the duel arena copy " + file + " was placed back but could not be deleted");
+            plugin.getLogger().warning("duel arena copy placed back, not deleted: file=" + file);
         }
     }
 }

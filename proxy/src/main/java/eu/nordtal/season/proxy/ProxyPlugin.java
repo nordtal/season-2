@@ -201,7 +201,8 @@ public final class ProxyPlugin {
     @Subscribe
     public void onProxyInitialize(final ProxyInitializeEvent event) {
         logger.info(
-                "proxy enabled, {} backends registered", proxy.getAllServers().size());
+                "proxy enabled, backends registered: count={}",
+                proxy.getAllServers().size());
         try {
             start(load());
         } catch (final SettingsException | RuntimeException failure) {
@@ -271,12 +272,11 @@ public final class ProxyPlugin {
      * as up only once it can place a player.
      */
     private void holdUntilWaitingRoom(final NetworkServers servers) {
-        logger.info("Opening the port once '{}' or '{}' answers", servers.limbo(), servers.limboStandby());
+        logger.info("port opening held: waiting_room={} standby_room={}", servers.limbo(), servers.limboStandby());
         if (WaitingRooms.answering(proxy, servers, Waiting.on(clock), WaitingRooms.AT_START)
                 .isEmpty()) {
             logger.warn(
-                    "Neither '{}' nor '{}' answered within {}s; opening the port anyway, and a player who arrives now"
-                            + " waits for it on arrival",
+                    "no waiting room answered, port opened: waiting_room={} standby_room={} seconds={}",
                     servers.limbo(),
                     servers.limboStandby(),
                     WaitingRooms.AT_START.toSeconds());
@@ -338,14 +338,11 @@ public final class ProxyPlugin {
         try {
             parked = new ParkedSeats(swaps.takeAllSeats(), clock.instant());
         } catch (final RuntimeException failure) {
-            logger.warn(
-                    "Could not read where players were standing before the last proxy swap; "
-                            + "everybody will be routed by the season",
-                    failure);
+            logger.warn("swap seats unreadable, players routed by season", failure);
             return new ParkedSeats(List.of(), clock.instant());
         }
         if (parked.size() > 0) {
-            logger.info("Came back from a proxy swap: {} player(s) have a seat waiting", parked.size());
+            logger.info("swap seats found: count={}", parked.size());
         }
         return parked;
     }
@@ -356,17 +353,10 @@ public final class ProxyPlugin {
         final PackMessages packMessages = new PackMessages(shared.renderer());
         final PackOffer offer = config.enabled() ? new PackOffer(proxy, config, packMessages) : null;
         if (offer == null) {
-            logger.warn(
-                    "pack#enabled is false: NO RESOURCE PACK IS OFFERED. Players still pass "
-                            + "through '{}', but every glyph in the tab list, the nametags, the boards and "
-                            + "the HUD will render as a missing-glyph box.",
-                    shared.servers().limbo());
+            logger.warn("resource pack disabled");
         } else {
             logger.info(
-                    "Offering the resource pack from {} (sha1 {}, forced: {})",
-                    config.url(),
-                    config.sha1(),
-                    config.force());
+                    "resource pack configured: url={} sha1={} force={}", config.url(), config.sha1(), config.force());
         }
         final WaitingBook book = new WaitingBook(
                 offer != null,
@@ -576,24 +566,17 @@ public final class ProxyPlugin {
         final InetSocketAddress standbyAddress = shared.standbyAddress();
         if (shared.role().isStandby()) {
             logger.info(
-                    "THIS IS THE STANDBY PROXY. Arrivals are held in '{}' and transferred back "
-                            + "to {} as soon as {} answers again; no player counts are written "
-                            + "from here.",
+                    "standby proxy enabled: standby_room={} public_address={} live_address={}",
                     shared.servers().limboStandby(),
-                    publicAddress == null
-                            ? "nowhere - network#public-address is empty"
-                            : publicAddress.getHostString() + ":" + publicAddress.getPort(),
+                    publicAddress == null ? "none" : publicAddress.getHostString() + ":" + publicAddress.getPort(),
                     shared.loaded().network().liveAddress());
         } else if (swap.isArmed() && standbyAddress != null) {
             logger.info(
-                    "An update that moves this proxy will park everybody on {}:{} instead of " + "disconnecting them",
+                    "proxy swap armed: standby_address={}:{}",
                     standbyAddress.getHostString(),
                     standbyAddress.getPort());
         } else {
-            logger.warn("network#public-address is empty or carries no port, so an update that "
-                    + "moves this proxy will DISCONNECT every connected player. That is the old "
-                    + "behaviour and a valid choice; set it to the host:port players type to swap "
-                    + "proxies instead.");
+            logger.warn("public address missing, proxy swap off");
         }
     }
 
@@ -609,7 +592,7 @@ public final class ProxyPlugin {
                                 shared.renderer(),
                                 logger,
                                 ProxySounds.defaults(logger::warn)));
-        logger.info("Players who are not admins may use: {}", players.commandAllowlist());
+        logger.info("command allowlist loaded: commands=\"{}\"", players.commandAllowlist());
         final PrivateMessages privateMessages = new PrivateMessages(proxy, shared.roster(), shared.renderer(), logger);
         proxy.getEventManager().register(this, privateMessages);
         final InfoTexts infoTexts =
@@ -671,7 +654,7 @@ public final class ProxyPlugin {
     private void refreshAdmins(final Shared shared, final PlayerRouter router) {
         final int changed = shared.roster().refreshAdmins(shared.access().admins());
         if (changed > 0) {
-            logger.info("The admin flag changed for {} connected player(s); re-routing", changed);
+            logger.info("admin flags changed, players re-routed: count={}", changed);
             router.rerouteAll(shared.seasonWatch().state());
         }
     }
@@ -682,20 +665,18 @@ public final class ProxyPlugin {
         final PlayersSpec players = shared.loaded().players().get();
         final SeasonState season = shared.seasonWatch().state();
         logger.info(
-                "Access login gate is up in {} (query timeout {}s, fallback cache window "
-                        + "{}m, play time flushed every "
-                        + "{}s, waiting room '{}' swept every {}s)",
+                "login gate up: season=\"{}\" query_timeout_seconds={} fallback_window_minutes={}"
+                        + " playtime_flush_seconds={} waiting_room={} sweep_seconds={}",
                 season,
                 shared.loaded().database().queryTimeoutSeconds(),
                 gate.fallbackCacheWindowMinutes(),
                 gate.playtimeFlushIntervalSeconds(),
                 shared.servers().limbo(),
                 gate.limboSweepIntervalSeconds());
-        logger.info("The network takes {} players, enforced here alone.", players.maxPlayers());
+        logger.info("player limit set: max_players={}", players.maxPlayers());
         if (season.opening(clock.instant()) != SeasonOpening.LAUNCHED) {
             logger.info(
-                    "The network has not opened yet: only admins get in, everybody else is shown "
-                            + "the countdown ({}).",
+                    "network not open, admins only: countdown=\"{}\"",
                     shared.renderer()
                             .plainLine(Locale.ENGLISH, LaunchCountdown.line(season.launch(), clock.instant())));
         }
@@ -707,18 +688,18 @@ public final class ProxyPlugin {
         try {
             loaded.players().reload();
         } catch (final SettingsException refused) {
-            logger.warn("A network setting was not taken, the running one stays: {}", refused.getMessage());
+            logger.warn("network setting refused, running value kept: cause={}", refused.getMessage());
         }
         try {
             prestigeSettings.reload();
             prestige = NetworkSettings.prestige(prestigeSettings.get());
         } catch (final SettingsException refused) {
-            logger.warn("The prestige tiers were not taken, the running ones stay: {}", refused.getMessage());
+            logger.warn("prestige tiers refused, running tiers kept: cause={}", refused.getMessage());
         }
         try {
             loaded.queue().reload();
         } catch (final SettingsException refused) {
-            logger.warn("The queue interval was not taken, the running one stays: {}", refused.getMessage());
+            logger.warn("queue interval refused, running value kept: cause={}", refused.getMessage());
         }
     }
 
@@ -736,9 +717,7 @@ public final class ProxyPlugin {
 
     /** Registers a login handler that refuses every login. */
     private void failClosed(final Exception failure) {
-        logger.error("proxy could not start, so NOBODY will be let onto this network. "
-                + "Fix the configuration and restart the proxy.");
-        logger.error("{}", failure.getMessage(), failure);
+        logger.error("proxy not started, every login refused", failure);
 
         try {
             final Messages shown = messages != null
@@ -753,11 +732,7 @@ public final class ProxyPlugin {
                                             .reading(new AppliedDocuments(
                                                     getClass().getClassLoader(), Set.of("proxy")))));
         } catch (final RuntimeException broken) {
-            logger.error(
-                    "proxy cannot even load its own packaged messages, so it cannot "
-                            + "put up a refusal screen. Stopping the proxy - that is the only way left to "
-                            + "refuse everybody.",
-                    broken);
+            logger.error("packaged messages unreadable, proxy stopped", broken);
             closeResources();
             proxy.shutdown();
             return;
@@ -769,7 +744,7 @@ public final class ProxyPlugin {
     @Subscribe
     public void onProxyShutdown(final ProxyShutdownEvent event) {
         if (playtime != null) {
-            logger.info("Flushed play time for {} players on shutdown", playtime.flushAll());
+            logger.info("play time flushed on shutdown: count={}", playtime.flushAll());
         }
         closeResources();
     }

@@ -67,7 +67,7 @@ public final class Refreshed<T> {
             fresh = read.get();
         } catch (RuntimeException failed) {
             log.warn(
-                    "could not refresh a cached answer - the one from {} stays on the page: {}",
+                    "cached answer not refreshed, old one kept: refreshed_at={} cause={}",
                     refreshedAt(),
                     failed.toString());
         }

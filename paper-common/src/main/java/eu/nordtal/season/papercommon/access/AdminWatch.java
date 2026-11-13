@@ -57,7 +57,7 @@ public final class AdminWatch implements AutoCloseable {
             admins = access.adminMinecraftAccounts();
         } catch (final RuntimeException failure) {
             // The operators who already hold the flag stay.
-            logger.warn("Could not read the admin roster; operators are unchanged until the next signal", failure);
+            logger.warn("admin roster unreadable, operators unchanged", failure);
             return;
         }
 
@@ -65,7 +65,7 @@ public final class AdminWatch implements AutoCloseable {
             PaperScheduler.of(plugin).onMain(() -> apply(admins));
         } catch (final RejectedExecutionException shuttingDown) {
             // The next enable sweeps it.
-            logger.debug("Dropped an admin refresh because the plugin is no longer enabled");
+            logger.debug("admin refresh dropped, plugin disabled");
         }
     }
 
@@ -86,7 +86,7 @@ public final class AdminWatch implements AutoCloseable {
             gained.removeAll(before);
             final Set<UUID> lost = new HashSet<>(before);
             lost.removeAll(after);
-            logger.info("The admin roster changed: {} gained operator, {} lost it", gained.size(), lost.size());
+            logger.info("admin roster changed: gained={} lost={}", gained.size(), lost.size());
         }
     }
 

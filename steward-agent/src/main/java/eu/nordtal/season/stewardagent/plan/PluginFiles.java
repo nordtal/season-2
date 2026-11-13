@@ -135,7 +135,11 @@ public final class PluginFiles {
                 throw new UncheckedIOException("could not write " + name, failed);
             }
         }
-        log.info("{} saved {} on {}", save.by(), name, found.file().service());
+        log.info(
+                "plugin file saved: actor={} file={} service={}",
+                save.by(),
+                name,
+                found.file().service());
         final AgentWire.PluginFile file = found.file();
         ctx.json(new AgentWire.PluginFileSaved(
                 new AgentWire.PluginFile(

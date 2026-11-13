@@ -74,11 +74,12 @@ log()  { printf '\033[36m[nordtal]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[nordtal]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[nordtal]\033[0m %s\n' "$*" >&2; exit 1; }
 
+# The lines of $1 as one line, a space between two, for a field value.
+joined() { awk 'NF { printf "%s%s", sep, $0; sep = " " }' <<<"$1"; }
+
 # The question table needs associative arrays (bash 4). macOS ships bash 3.2.
 if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 ]]; then
-    die "this needs bash 4 or newer and found ${BASH_VERSION:-an unknown version} at ${BASH:-bash}.
-       macOS ships bash 3.2 and cannot be talked out of it. Install a current one and make sure it
-       comes first in PATH:  brew install bash"
+    die "This needs bash 4 or newer and found ${BASH_VERSION:-an unknown version} at ${BASH:-bash}. Install a current bash (brew install bash) and put it first in PATH."
 fi
 
 # The variables that the environment file must hold before the stack starts. A variable that is
@@ -365,25 +366,20 @@ settle_service_secrets() {
     if [[ -z "${dir//[[:space:]]/}" ]]; then
         dir="$(default_secrets_dir "$env_file")"
         set_assignment "$env_file" NORDTAL_SECRETS_DIR "$dir"
-        log "NORDTAL_SECRETS_DIR = $dir (default)"
+        log "default written: key=NORDTAL_SECRETS_DIR value=$dir"
     fi
-    secrets_dir_ok "$env_file" "$dir" || die "NORDTAL_SECRETS_DIR in $env_file is '$dir', which is not an
-       absolute path outside $(dirname "$env_file"). steward-agent mounts that directory whole, so a
-       secret kept there is a secret the agent reads."
-    [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "each service's own secrets file under $dir belongs to the uid
-       that service runs as, and only root can hand it over. Run this as root. Nothing was moved."
+    secrets_dir_ok "$env_file" "$dir" || die "NORDTAL_SECRETS_DIR in $env_file is $dir, which steward-agent can read. Set it to an absolute path outside $(dirname "$env_file") and run this again."
+    [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "Secrets not moved: only root can hand each service's file under $dir to its uid. Run this again as root."
     MOVED_SECRETS=()
     move_service_secrets "$env_file" "$dir" "$keep"
     if (( ${#MOVED_SECRETS[@]} > 0 )) && [[ "$keep" == keep ]]; then
-        log "copied ${MOVED_SECRETS[*]} into each service's own file under $dir; $env_file keeps them
-       until the running steward-agent reads them there"
+        log "secrets copied, shared file kept: keys=\"${MOVED_SECRETS[*]}\" file=$env_file dir=$dir"
     elif (( ${#MOVED_SECRETS[@]} > 0 )); then
-        log "moved ${MOVED_SECRETS[*]} out of $env_file into each service's own file under $dir"
+        log "secrets moved: keys=\"${MOVED_SECRETS[*]}\" file=$env_file dir=$dir"
     fi
     local copy
     while IFS= read -r copy; do
-        warn "$copy holds $(tr '\n' ' ' <<<"$(stale_service_secrets "$copy")")as well, and steward-agent
-       reads every file in $(dirname "$env_file"). Move that copy somewhere the agent does not mount."
+        warn "secrets in a file steward-agent reads: file=$copy keys=\"$(joined "$(stale_service_secrets "$copy")")\""
     done < <(stale_copies "$env_file")
 }
 
@@ -502,8 +498,7 @@ warn_unknown_profiles() {
     local profiles unknown
     profiles="$(env_value "$1" COMPOSE_PROFILES)"
     unknown="$(unknown_profiles "$profiles")"
-    [[ -z "$unknown" ]] || warn "COMPOSE_PROFILES in $1 names $(tr '\n' ' ' <<<"$unknown")which compose.yml does
-       not define as a profile to select, so it selects nothing. The profiles are: ${SELECTABLE_PROFILES[*]}."
+    [[ -z "$unknown" ]] || warn "unknown compose profiles ignored: file=$1 profiles=\"$(joined "$unknown")\" known=\"${SELECTABLE_PROFILES[*]}\""
 }
 
 mojang_assets_answered() {
@@ -775,17 +770,16 @@ ask_for() {
 
     existing="$(value_of "$ENV_FILE" "$name")"
     if [[ -z "$force" && -n "${existing//[[:space:]]/}" && "$existing" != *REPLACE_ME* ]]; then
-        log "$name is already set (left alone)"
+        log "value kept: key=$name"
         return 0
     fi
 
     if $CHECK_ONLY; then
-        warn "$name is not set; a real run would ask for it"
+        warn "value missing, not asked: key=$name"
         return 0
     fi
 
-    [[ -t 0 ]] || die "$name is not in $ENV_FILE and there is no terminal to ask on. Run this from a
-       shell, or pass --from with a file that already carries it. Nothing has been deployed."
+    [[ -t 0 ]] || die "Not deployed: $name is not in $ENV_FILE, and there is no terminal to ask on. Run this from a shell, or pass --from with a file that holds it."
 
     while true; do
         printf '\n\033[36m[nordtal]\033[0m %s\n' "$prompt" >&2
@@ -805,7 +799,7 @@ ask_for() {
         if [[ "$kind" == licence ]]; then
             answer_is_yes "$value" || return 1
             assign "$ENV_FILE" "$name" true
-            log "$name accepted and recorded"
+            log "licence accepted: key=$name"
             return 0
         fi
         value="${value#"${value%%[![:space:]]*}"}"
@@ -814,22 +808,22 @@ ask_for() {
         if [[ -z "$value" ]]; then
             case "$kind" in
                 optional-plain|optional-secret)
-                    log "$name left empty - the feature that needs it is simply not served"
+                    log "optional value left empty: key=$name"
                     return 1
                     ;;
                 *)
-                    warn "that one cannot be left empty."
+                    warn "An answer is required."
                     continue
                     ;;
             esac
         fi
         if [[ "$check" != "-" ]] && ! "$check" "$value"; then
             # The prompt does not repeat the value, which may be a secret.
-            warn "that does not look like it can be right. Try again."
+            warn "Not a valid answer for $name. Try again."
             continue
         fi
         assign "$ENV_FILE" "$name" "$value"
-        log "$name written to $(home_of "$ENV_FILE" "$name")"
+        log "value written: key=$name file=$(home_of "$ENV_FILE" "$name")"
         return 0
     done
 }
@@ -838,9 +832,9 @@ default_for() {
     local name="$1" value="$2" existing
     existing="$(env_value "$ENV_FILE" "$name")"
     [[ -n "${existing//[[:space:]]/}" ]] && return 0
-    $CHECK_ONLY && { warn "$name is not set; a real run would write the default"; return 0; }
+    $CHECK_ONLY && { warn "default missing, not written: key=$name"; return 0; }
     set_assignment "$ENV_FILE" "$name" "$value"
-    log "$name = $value (default)"
+    log "default written: key=$name value=$value"
 }
 
 ask_question() {
@@ -855,16 +849,16 @@ set_secret() {
     local name="$1" bytes="${2:-32}" value
     value="$(value_of "$ENV_FILE" "$name")"
     if [[ -n "${value//[[:space:]]/}" && "$value" != *REPLACE_ME* ]]; then
-        log "$name is already set (left alone)"
+        log "value kept: key=$name"
         return
     fi
     if $CHECK_ONLY; then
-        warn "$name is empty; a real run would generate one"
+        warn "secret missing, not generated: key=$name"
         return
     fi
     value="$(openssl rand -hex "$bytes")"
     assign "$ENV_FILE" "$name" "$value"
-    log "$name generated ($bytes random bytes, hex)"
+    log "secret generated: key=$name bytes=$bytes"
 }
 
 # Generates every missing secret except POSTGRES_PASSWORD, on a deploy and on an update. A release
@@ -942,7 +936,7 @@ parse_update_args() {
             --backup)   UPDATE_KIND=BACKUP;  kinds=$(( kinds + 1 )); shift ;;
             --down)     UPDATE_KIND=DOWN;    kinds=$(( kinds + 1 ))
                         UPDATE_SCOPE="${2:-}"
-                        [[ -n "$UPDATE_SCOPE" ]] || die "update --down needs a service to stop"
+                        [[ -n "$UPDATE_SCOPE" ]] || die "update --down needs a service, as in: ./nordtal.sh update --down smp"
                         shift 2 ;;
             # A bare `--start` releases every hold. A flag after it is not a service.
             --start)    UPDATE_KIND=START;   kinds=$(( kinds + 1 ))
@@ -951,26 +945,25 @@ parse_update_args() {
                         else
                             shift
                         fi ;;
-            --in)       UPDATE_DELAY="${2:-}"; shift 2 || die "update --in needs a number of minutes" ;;
+            --in)       UPDATE_DELAY="${2:-}"; shift 2 || die "update --in needs a number of minutes, as in: --in 10" ;;
             --no-wait)  UPDATE_WAIT=false; shift ;;
-            --timeout)  UPDATE_TIMEOUT="${2:-}"; shift 2 || die "update --timeout needs seconds" ;;
-            --env-file) UPDATE_ENV_FILE="${2:-}"; shift 2 || die "update --env-file needs a path" ;;
+            --timeout)  UPDATE_TIMEOUT="${2:-}"; shift 2 || die "update --timeout needs a number of seconds, as in: --timeout 3600" ;;
+            --env-file) UPDATE_ENV_FILE="${2:-}"; shift 2 || die "update --env-file needs a path, as in: --env-file /etc/nordtal/season-2.env" ;;
             --replace-local) UPDATE_REPLACE_LOCAL=true; shift ;;
-            *)          die "unknown argument to \`update\`: $1" ;;
+            *)          die "Unknown argument to update: $1. ./nordtal.sh --help lists them." ;;
         esac
     done
 
-    (( kinds <= 1 )) || die "update takes one of --restart, --backup, --down or --start, not several"
+    (( kinds <= 1 )) || die "update takes one of --restart, --backup, --down or --start. Name one."
     [[ "$UPDATE_REPLACE_LOCAL" == false || "$UPDATE_KIND" == UPDATE ]] \
-        || die "update --replace-local is for an update only, the one run that replaces a build"
-    [[ "$UPDATE_DELAY" =~ ^[0-9]+$ ]] || die "update --in takes whole minutes, got: $UPDATE_DELAY"
-    (( UPDATE_DELAY <= 1440 )) || die "update --in is capped at a day (1440 minutes)"
-    [[ "$UPDATE_TIMEOUT" =~ ^[0-9]+$ ]] || die "update --timeout takes seconds, got: $UPDATE_TIMEOUT"
-    [[ -n "$UPDATE_ENV_FILE" ]] || die "update --env-file needs a path"
+        || die "update --replace-local goes with a plain update only. Run it without --restart, --backup, --down or --start."
+    [[ "$UPDATE_DELAY" =~ ^[0-9]+$ ]] || die "update --in takes whole minutes, not $UPDATE_DELAY."
+    (( UPDATE_DELAY <= 1440 )) || die "update --in takes at most 1440 minutes (a day)."
+    [[ "$UPDATE_TIMEOUT" =~ ^[0-9]+$ ]] || die "update --timeout takes whole seconds, not $UPDATE_TIMEOUT."
+    [[ -n "$UPDATE_ENV_FILE" ]] || die "update --env-file needs a path, as in: --env-file /etc/nordtal/season-2.env"
     if [[ -n "$UPDATE_SCOPE" ]]; then
         update_scope_ok "$UPDATE_SCOPE" \
-            || die "'$UPDATE_SCOPE' is not a service name: lowercase, digits and dashes, commas
-       between several. That is the shape the database itself enforces."
+            || die "$UPDATE_SCOPE is not a service name. Use lowercase letters, digits and dashes, with commas between several."
     fi
 }
 
@@ -1025,13 +1018,13 @@ renew_file() {
     local file="$1" release="${2:-}" candidate
     [[ -n "$release" ]] || release="$(newest_release)"
     if [[ -z "$release" ]]; then
-        warn "GitHub did not say which release is the newest, so $file stays as it is"
+        warn "newest release unknown, file not renewed: file=$file"
         return 1
     fi
     candidate="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.XXXXXX")"
     if ! fetch_url "$(self_url_for "$release")" "$candidate" || ! looks_like_this_script "$candidate"; then
         rm -f "$candidate"
-        warn "release $release's copy of this script could not be fetched, so $file stays as it is"
+        warn "release copy not fetched, file not renewed: file=$file release=$release"
         return 1
     fi
     if [[ "$(fingerprint "$candidate")" == "$(fingerprint "$file")" ]]; then
@@ -1041,11 +1034,11 @@ renew_file() {
     # A rename leaves no half-written script after an interrupted copy.
     if ! install -m 755 "$candidate" "$file.new" || ! mv -f "$file.new" "$file"; then
         rm -f "$candidate" "$file.new"
-        warn "could not write $file, so it stays as it is"
+        warn "file not writable, not renewed: file=$file"
         return 1
     fi
     rm -f "$candidate"
-    log "$file is now release $release's copy ($(fingerprint "$file"))"
+    log "file renewed: file=$file release=$release fingerprint=$(fingerprint "$file")"
 }
 
 # container does not run or its image has no version tag.
@@ -1063,7 +1056,7 @@ renew_to_installed() {
     local file="$1" container="$2" release
     release="$(agent_release "$container")"
     if [[ -z "$release" ]]; then
-        warn "$container does not say which release it runs, so $file stays as it is"
+        warn "agent release unknown, file not renewed: container=$container file=$file"
         return 1
     fi
     renew_file "$file" "$release"
@@ -1085,7 +1078,7 @@ update_wait() {
     local id="$1" container="$2"
     local waited=0 silent=0 answer status steps said="" code
 
-    log "waiting; Ctrl-C stops WATCHING and never the run itself"
+    log "run watched: request=$id"
     while :; do
         # The status and a tab before the stage, then one line per step. No output means the row is gone.
         code=0
@@ -1095,17 +1088,16 @@ update_wait() {
         status="${answer%%$'\t'*}"
 
         if [[ -z "$status" ]]; then
-            (( silent > 0 )) || warn "steward-agent does not answer, which a run that recreates it also causes; asking
-       again for up to ${UPDATE_GAP}s"
+            (( silent > 0 )) || warn "steward-agent not answering, asking again: request=$id seconds=${UPDATE_GAP}"
             (( silent += UPDATE_POLL ))
             (( silent <= UPDATE_GAP )) \
-                || die "request $id is no longer in steward_inbox, or steward-agent has not answered for ${UPDATE_GAP}s."
+                || die "Run status unknown: request $id is gone from steward_inbox, or steward-agent has not answered for ${UPDATE_GAP}s. Steward shows the run under /operations."
         else
-            (( silent == 0 )) || log "steward-agent answers again"
+            (( silent == 0 )) || log "steward-agent answering again: request=$id"
             silent=0
         fi
         if [[ -n "$status" && "$status" != "$said" ]]; then
-            log "request $id is $status"
+            log "request status changed: request=$id status=$status"
             said="$status"
         fi
         if update_is_over "$status"; then
@@ -1118,9 +1110,7 @@ update_wait() {
         (( waited += UPDATE_POLL ))
         if (( waited > UPDATE_TIMEOUT )); then
             # Only the waiting stops. The run continues.
-            warn "request $id is still $status after ${UPDATE_TIMEOUT}s. The run continues without
-       this command watching it; ./nordtal.sh update --no-wait prints ids, and the interface shows
-       the run under /operations."
+            warn "Watch ended: request $id is still $status after ${UPDATE_TIMEOUT}s, and the run goes on. Steward shows it under /operations."
             return 2
         fi
         sleep "$UPDATE_POLL"
@@ -1139,8 +1129,7 @@ cmd_update() {
     parse_update_args "$@"
 
     [[ -f "$UPDATE_ENV_FILE" ]] \
-        || die "$UPDATE_ENV_FILE is not there, so this host has no deployment to update.
-       If the environment file is somewhere else: ./nordtal.sh update --env-file PATH"
+        || die "No deployment to update: $UPDATE_ENV_FILE is missing. If the environment file lives elsewhere, name it with --env-file PATH."
 
     warn_unknown_profiles "$UPDATE_ENV_FILE"
 
@@ -1152,8 +1141,7 @@ cmd_update() {
 
     # `docker ps` and never `docker inspect` on a container with secrets. A here-string, not a pipe.
     grep -qxF "$container" <<<"$(docker ps --format '{{.Names}}')" \
-        || die "$container is not running, so there is nobody to ask for a run.
-       \`docker compose -p $project ps\` says what is up."
+        || die "No run requested: $container is not running. ./nordtal.sh --deploy brings the stack up again."
 
     # The file of each service is written before the run, because the release of the run mounts it.
     # The shared file keeps the lines while the compose.yml of the running agent still reads them
@@ -1177,15 +1165,13 @@ cmd_update() {
 
     # The run stopped before it moved anything, because it would have replaced a build made on this host.
     if [[ ! -t 0 ]]; then
-        die "request $id stopped before replacing the builds made on this host that its steps name.
-       Nothing was stopped. There is no terminal here to ask, so once they may go:
-       ./nordtal.sh update --replace-local"
+        die "Request $id stopped before replacing builds made on this host, and nothing was stopped. To let a run replace them: ./nordtal.sh update --replace-local"
     fi
     printf '\n\033[36m[nordtal]\033[0m %s\n' "Ask again, and let the run replace the builds named above?" >&2
     printf '        %s\n        > ' "Whatever they carry that no release has is lost. [y/N]" >&2
     local replace_answer
     read -r replace_answer
-    answer_is_yes "$replace_answer" || die "not asking again. Nothing was stopped and the local builds stay."
+    answer_is_yes "$replace_answer" || die "Not asked again: nothing was stopped, and the local builds stay."
     UPDATE_REPLACE_LOCAL=true
     id="$(update_submit "$container")" || exit 1
     update_wait "$id" "$container" || return $?
@@ -1207,12 +1193,12 @@ update_submit() {
     mapfile -t words < <(update_request_words "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY" "$UPDATE_REPLACE_LOCAL")
     # The agent prints the id on stdout and a refusal, such as an open run, on stderr.
     id="$(docker exec "$container" "${words[@]}" | sed -n '1p' | tr -d '[:space:]')" \
-        || die "steward-agent refused the request; its reason is above"
-    [[ "$id" =~ ^[0-9]+$ ]] || die "steward-agent did not answer with a request id (got: '$id')"
+        || die "steward-agent refused the request. Its reason is above."
+    [[ "$id" =~ ^[0-9]+$ ]] || die "steward-agent answered '$id' instead of a request id. docker logs $container says why."
 
     local when=""
-    (( UPDATE_DELAY > 0 )) && when=", not before $UPDATE_DELAY minute(s) from now"
-    log "request $id: $UPDATE_KIND${UPDATE_SCOPE:+ $UPDATE_SCOPE}$when" >&2
+    (( UPDATE_DELAY > 0 )) && when=" delay=${UPDATE_DELAY}m"
+    log "run requested: request=$id kind=$UPDATE_KIND${UPDATE_SCOPE:+ services=$UPDATE_SCOPE}$when" >&2
     printf '%s\n' "$id"
 }
 
@@ -1260,7 +1246,7 @@ while (( $# > 0 )); do
         --deploy)           MENU=false; shift ;;
         --no-self-update)   SELF_UPDATE=false; shift ;;
         -h|--help)          usage; exit 0 ;;
-        *)                  die "unknown argument: $1 (try --help)" ;;
+        *)                  die "Unknown argument: $1. ./nordtal.sh --help lists them." ;;
     esac
 done
 
@@ -1277,9 +1263,7 @@ resolve_release() {
         return 0
     fi
     RELEASE="$(newest_release)"
-    [[ -n "$RELEASE" ]] || die "GitHub did not say which release is the newest ($RELEASES_API), and
-       nothing else may decide what this host runs. Try again once it answers, or name the release
-       yourself: NORDTAL_RELEASE=0.11.0 ./nordtal.sh"
+    [[ -n "$RELEASE" ]] || die "No release to install: GitHub did not name the newest release ($RELEASES_API). Run this again once it answers, or name one: NORDTAL_RELEASE=0.11.0 ./nordtal.sh"
     RELEASE_NAMED=false
 }
 RELEASE=""
@@ -1288,18 +1272,18 @@ resolve_release
 # For the renewed copy. It takes GitHub's answer for no one's choice and does not ask again.
 export NORDTAL_RELEASE="$RELEASE" NORDTAL_RELEASE_NAMED="$RELEASE_NAMED"
 SELF_URL="$(self_url_for "$RELEASE")"
-log "release $RELEASE"
+log "release resolved: release=$RELEASE"
 
 ORIGIN="${NORDTAL_SH_ORIGIN:-}"
 SELF_TEMP=""
 
 renew_self() {
     if ! $SELF_UPDATE; then
-        ORIGIN="${ORIGIN:-this copy, as it is (--no-self-update)}"
+        ORIGIN="${ORIGIN:-local copy, --no-self-update}"
         return 0
     fi
     if from_a_checkout; then
-        ORIGIN="a checkout, which is never replaced by the published version"
+        ORIGIN="checkout"
         return 0
     fi
 
@@ -1308,31 +1292,27 @@ renew_self() {
     if ! fetch_url "$SELF_URL" "$candidate" || ! looks_like_this_script "$candidate"; then
         rm -f "$candidate"
         # Without a network the run continues, unless the script is piped: then there is no copy to run.
-        running_from_a_file || die "this script was piped into bash and $SELF_URL could not be
-       fetched, so there is no file to run and nothing has been changed. Download it by hand and
-       run that: the installation is whatever directory you run it in."
-        warn "$SELF_URL could not be fetched, so nothing was renewed - this run uses the copy that
-       is already here. That copy can be older than the deployment it is about to make."
-        ORIGIN="the copy that was already here - GitHub could not be reached"
+        running_from_a_file || die "Nothing was changed: this script was piped into bash, and $SELF_URL could not be fetched. Download nordtal.sh by hand and run it in the installation directory."
+        warn "release copy not fetched, local copy used: url=$SELF_URL"
+        ORIGIN="local copy, github unreachable"
         return 0
     fi
 
     if running_from_a_file \
         && [[ "$(fingerprint "$candidate")" == "$(fingerprint "${BASH_SOURCE[0]}")" ]]; then
         rm -f "$candidate"
-        ORIGIN="this copy, which is release $RELEASE's"
+        ORIGIN="release copy"
         return 0
     fi
 
     # The copy runs from a temporary file and installs itself after the directory question.
     chmod 755 "$candidate"
-    export NORDTAL_SH_ORIGIN="$SELF_URL, fetched for this run"
+    export NORDTAL_SH_ORIGIN="$SELF_URL"
     export NORDTAL_SH_TEMP="$candidate"
     if running_from_a_file; then
-        log "release $RELEASE carries another version of this file ($(fingerprint "$candidate"));
-       running that one instead of this one ($(fingerprint "${BASH_SOURCE[0]}"))"
+        log "release copy differs, running it: release=$RELEASE from=$(fingerprint "${BASH_SOURCE[0]}") to=$(fingerprint "$candidate")"
     else
-        log "fetched release $RELEASE's copy; running that"
+        log "release copy fetched, running it: release=$RELEASE"
     fi
     if [[ ! -t 0 ]] && (exec </dev/tty) 2>/dev/null; then
         # Piped: stdin is the script, so the new copy asks on the terminal.
@@ -1343,9 +1323,9 @@ renew_self() {
 renew_self
 SELF_TEMP="${NORDTAL_SH_TEMP:-}"
 if running_from_a_file; then
-    log "running $SELF_NAME $(fingerprint "${BASH_SOURCE[0]}") - ${ORIGIN:-this copy}"
+    log "script running: file=$SELF_NAME fingerprint=$(fingerprint "${BASH_SOURCE[0]}") origin=\"${ORIGIN:-local copy}\""
 else
-    log "running from a pipe - ${ORIGIN:-no file to fingerprint}"
+    log "script running from pipe: origin=\"${ORIGIN:-pipe}\""
 fi
 
 install_self() {
@@ -1353,9 +1333,8 @@ install_self() {
     local source; source="$(self_path)"
     if [[ "$source" != "$INSTALLED" ]]; then
         install -m 755 "$source" "$INSTALLED" \
-            || die "could not write $INSTALLED. The installation directory has to be writable - it
-       is where every world and every database in this deployment is about to live."
-        log "this script is now $INSTALLED - run it again to change a setting or to deploy"
+            || die "Could not write $INSTALLED. Make the installation directory writable and run this again."
+        log "script installed: file=$INSTALLED"
     fi
     # Deleting the file that bash reads is safe: the open file survives its name.
     [[ -n "$SELF_TEMP" && -f "$SELF_TEMP" && "$SELF_TEMP" != "$INSTALLED" ]] && rm -f "$SELF_TEMP"
@@ -1371,16 +1350,12 @@ fi
 
 declared_dir="$(env_value "$ENV_FILE" NORDTAL_DIR)"
 if [[ -n "${declared_dir//[[:space:]]/}" && "$declared_dir" != "$INSTALL_DIR" ]]; then
-    die "$ENV_FILE already describes an installation, and it is at
-       '$declared_dir' - not here ('$INSTALL_DIR'). Run ./nordtal.sh in that directory, or pass
-       --env-file to point this one at an environment file of its own. Nothing has been changed."
+    die "$ENV_FILE belongs to the installation in $declared_dir, not to $INSTALL_DIR, and nothing was changed. Run ./nordtal.sh there, or name an environment file of its own with --env-file."
 fi
 
 if [[ -z "${declared_dir//[[:space:]]/}" ]]; then
     $CHECK_ONLY || {
-        [[ -t 0 ]] || die "there is nothing at $ENV_FILE that says this directory is an
-       installation, and there is no terminal to ask on. A first install is a question somebody has
-       to answer; run this from a shell. Nothing has been changed."
+        [[ -t 0 ]] || die "Not installed: $ENV_FILE names no installation here, and there is no terminal to ask on. Run this from a shell. Nothing was changed."
         printf '\n\033[36m[nordtal]\033[0m %s\n' "Install nordtal season 2 into this directory?" >&2
         printf '        %s\n' "$INSTALL_DIR" >&2
         printf '        %s\n' "Everything this deployment keeps becomes a directory in there: four worlds," >&2
@@ -1388,58 +1363,50 @@ if [[ -z "${declared_dir//[[:space:]]/}" ]]; then
         printf '        %s\n' "secrets do not - they go to $ENV_FILE, mode 600." >&2
         printf '        %s\n        > ' "[y/N]" >&2
         read -r here_answer
-        answer_is_yes "$here_answer" || die "not installing here, and nothing has been changed. Run
-       this again from the directory the installation should live in - that directory is the only
-       thing this question decides."
+        answer_is_yes "$here_answer" || die "Not installed, and nothing was changed. Run this again from the directory the installation should live in."
     }
 fi
 
 $CHECK_ONLY || install_self
 
 command -v docker >/dev/null 2>&1 \
-    || die "no docker on this host. Everything below needs a daemon; nothing here installs one."
+    || die "No docker on this host. Install Docker and run this again."
 docker compose version >/dev/null 2>&1 \
-    || die "docker is here but \`docker compose\` is not. The compose plugin is a separate package."
+    || die "docker compose is missing. Install the Docker Compose plugin and run this again."
 docker info >/dev/null 2>&1 \
-    || die "docker is installed and this user cannot talk to the daemon. Run this as root, or as a
-       member of the docker group - which is root with extra steps, and is the trade this host has
-       already made by running a stack at all."
-log "docker $(docker version --format '{{.Server.Version}}'), compose $(docker compose version --short)"
+    || die "This user cannot reach the docker daemon. Run this as root or as a member of the docker group."
+log "docker found: version=$(docker version --format '{{.Server.Version}}') compose=$(docker compose version --short)"
 
 # 2 · The environment file
 # It holds every secret. Compose interpolates it and steward-agent mounts it read-only.
-is_absolute "$ENV_FILE" || die "--env-file has to be absolute, and '$ENV_FILE' is not. compose
-       resolves a relative path against steward-agent's project directory, which is inside its
-       image - so a relative path here points at a file that does not exist."
+is_absolute "$ENV_FILE" || die "--env-file needs an absolute path, and $ENV_FILE is not one. Pass the full path."
 
 if [[ ! -f "$ENV_FILE" ]]; then
     if [[ -z "$FROM_FILE" && -f "$INSTALL_DIR/.env" ]]; then
         FROM_FILE="$INSTALL_DIR/.env"
     fi
     if [[ -n "$FROM_FILE" ]]; then
-        [[ -f "$FROM_FILE" ]] || die "--from $FROM_FILE does not exist."
+        [[ -f "$FROM_FILE" ]] || die "There is no $FROM_FILE. Name an existing file with --from."
         $CHECK_ONLY || {
             install -D -m 600 "$FROM_FILE" "$ENV_FILE"
             # The old file stays as the way back.
-            cmp -s "$FROM_FILE" "$ENV_FILE" || die "the copy of the environment file does not match its
-       source. Nothing further has been done."
-            log "environment file copied to $ENV_FILE (mode 600); $FROM_FILE is left alone"
+            cmp -s "$FROM_FILE" "$ENV_FILE" || die "The copy at $ENV_FILE does not match $FROM_FILE, and nothing further was done. Check the disk and run this again."
+            log "environment file copied: from=$FROM_FILE to=$ENV_FILE"
         }
     else
         # A new host starts with an empty file, which the questions below fill.
         $CHECK_ONLY || {
             install -D -m 600 /dev/null "$ENV_FILE"
-            log "no environment file yet - created $ENV_FILE (mode 600)"
+            log "environment file created: file=$ENV_FILE"
         }
     fi
 else
     $CHECK_ONLY || {
         chmod 600 "$ENV_FILE"
-        log "environment file already at $ENV_FILE"
+        log "environment file found: file=$ENV_FILE"
     }
 fi
-[[ -f "$ENV_FILE" ]] || die "no environment file at $ENV_FILE - and --check changes nothing, so it
-       was not going to appear. Run without --check, or put it there yourself."
+[[ -f "$ENV_FILE" ]] || die "No environment file at $ENV_FILE, and --check creates none. Run without --check, or put the file there."
 IMAGES="$(images_prefix "$ENV_FILE")"
 AGENT_IMAGE="$IMAGES/steward-agent:$RELEASE"
 
@@ -1463,10 +1430,9 @@ default_for STEWARD_ENV_FILE_NAME "$(basename "$ENV_FILE")"
 # mounts, before anything is asked. --check only reports which are still in the shared file.
 if $CHECK_ONLY; then
     stale="$(stale_service_secrets "$ENV_FILE")"
-    [[ -z "$stale" ]] || die "$ENV_FILE still holds $(tr '\n' ' ' <<<"$stale")which only one service
-       reads and steward-agent must not. A real run moves them into each service's own file."
+    [[ -z "$stale" ]] || die "--check stopped: $ENV_FILE still holds $(joined "$stale"). Run without --check to move them into each service's own file."
     [[ -n "$(env_value "$ENV_FILE" NORDTAL_SECRETS_DIR)" ]] \
-        || warn "NORDTAL_SECRETS_DIR is not set; a real run would write the default"
+        || warn "default missing, not written: key=NORDTAL_SECRETS_DIR"
 else
     # A running agent may still read them from the shared file. Without a running agent, the compose.yml of this release deploys.
     agent="$(env_value "$ENV_FILE" COMPOSE_PROJECT_NAME)"
@@ -1485,8 +1451,7 @@ for question in "${QUESTIONS[@]}"; do
     esac
     if [[ "$question" == EULA ]]; then
         # A refused licence ends the run.
-        ask_question EULA || die "the EULA was not accepted, so there is nothing to deploy.
-       Nothing has been changed beyond the environment file this script has been filling in."
+        ask_question EULA || die "Not deployed: the Minecraft EULA was not accepted. Run this again to accept it."
         continue
     fi
     ask_question "$question"
@@ -1504,11 +1469,7 @@ fi
 # key is bound to the context of the container that registered it.
 for stale in NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
     if [[ -n "$(env_value "$ENV_FILE" "$stale")" ]]; then
-        warn "$ENV_FILE still has $stale. Nothing reads it - bunq lives in
-       steward-bunq and the names are NORDTAL_STEWARD_BUNQ_API_KEY and
-       NORDTAL_STEWARD_BUNQ_ACCOUNT_ID. Delete the old line once the new one is in, and read
-       steward-bunq's first log line after the next deploy: it says 'bunq is ON' or 'bunq is
-       OFF' in one sentence, and that sentence is the only confirmation there is."
+        warn "outdated bunq key ignored: file=$ENV_FILE key=$stale to=${stale/NORDTAL_BOT_/NORDTAL_STEWARD_}"
     fi
 done
 
@@ -1533,7 +1494,7 @@ show_menu() {
     done
     printf '\n'
     printf '    d  %s\n' "deploy" >&2
-    printf '    q  %s\n' "quit, changing nothing further" >&2
+    printf '    q  %s\n' "quit without changes" >&2
 }
 
 if $MENU; then
@@ -1543,7 +1504,7 @@ if $MENU; then
         read -r typed
         case "$(menu_choice "$typed" "${#QUESTIONS[@]}")" in
             quit)
-                log "nothing was deployed. Run ./nordtal.sh again when you want to."
+                log "menu left, nothing deployed"
                 exit 0
                 ;;
             deploy)
@@ -1561,7 +1522,7 @@ if $MENU; then
                 fi
                 ;;
             *)
-                warn "that is not one of them: a number from the list, d to deploy, q to stop."
+                warn "Type a number from the list, d or q."
                 ;;
         esac
     done
@@ -1578,18 +1539,15 @@ existing="$(deployed_projects "$(docker volume ls --format '{{.Name}}')" \
     "$(docker ps -a --filter label=com.docker.compose.service=steward-agent --format '{{.Label "com.docker.compose.project"}}')")"
 case "$(deployment_kind "$PROJECT" "$existing" "$INSTALL_DIR")" in
     second)
-        die "this host already carries a deployment under the project name(s)
-       '$(tr '\n' ' ' <<<"$existing")', and this run would deploy '$PROJECT'. That would not fail -
-       it would start a SECOND stack beside the one holding the worlds. Set COMPOSE_PROJECT_NAME in
-       $ENV_FILE to the existing name, or remove the old deployment first."
+        die "Not deployed: this host already runs the deployment $(joined "$existing"), and this run would start a second one, $PROJECT. Set COMPOSE_PROJECT_NAME in $ENV_FILE to the existing name, or remove the old deployment first."
         ;;
     adopt)
         ADOPTING=true
-        log "adopting the existing deployment '$PROJECT' - its data is kept"
+        log "existing deployment adopted, data kept: project=$PROJECT"
         ;;
     *)
         ADOPTING=false
-        log "this is a first deployment; project '$PROJECT'"
+        log "first deployment started: project=$PROJECT"
         ;;
 esac
 
@@ -1598,37 +1556,26 @@ esac
 if $ADOPTING && ! $CHECK_ONLY; then
     if docker volume inspect "${PROJECT}_postgres-data" >/dev/null 2>&1 \
         && [[ ! -d "$INSTALL_DIR/postgres-data" ]]; then
-        warn "this host carries the volumes of an earlier installation (${PROJECT}_postgres-data
-       among them), and this deployment does not mount them any more: every volume is a directory
-       under $INSTALL_DIR now. Nothing here deletes them - they stay on the disk and
-       `docker volume ls` still lists them - but the stack will come up on empty directories: a new
-       database, new worlds, no plugin configuration."
+        warn "old volumes found, not mounted: volume=${PROJECT}_postgres-data dir=$INSTALL_DIR"
         if [[ -t 0 ]]; then
             printf '\n\033[36m[nordtal]\033[0m %s\n' "Continue, and start this deployment on empty directories?" >&2
             printf '        %s\n        > ' "The old volumes are left alone; nothing here copies them across. [y/N]" >&2
             read -r empty_answer
-            answer_is_yes "$empty_answer" || die "not continuing. Nothing has been stopped and
-       nothing has been deleted."
+            answer_is_yes "$empty_answer" || die "Not continued: nothing was stopped or deleted."
         else
-            die "there is no terminal to ask on, and this would start the stack on empty
-       directories beside volumes that hold the previous installation. Run this from a shell.
-       Nothing has been changed."
+            die "Not deployed: the stack would start on empty directories beside the old volumes, and there is no terminal to ask on. Run this from a shell. Nothing was changed."
         fi
     fi
 fi
 
 # 4 · The generated secrets
 # Postgres reads POSTGRES_PASSWORD only on an empty data directory. An adopted host is asked for it.
-command -v openssl >/dev/null 2>&1 || die "no openssl on this host, and the generated secrets have to
-       come from somewhere. Install it, or put every one GENERATED lists into $ENV_FILE yourself -
-       and not the same value twice."
+command -v openssl >/dev/null 2>&1 || die "No openssl on this host. Install it, or write every secret that GENERATED lists into $ENV_FILE yourself, each one different."
 
 if [[ -z "$(env_value "$ENV_FILE" POSTGRES_PASSWORD)" ]] && $ADOPTING && ! $CHECK_ONLY; then
     ask_for POSTGRES_PASSWORD secret - \
         "The password of the database that is already on this host." \
-        "'$PROJECT' already has a database here, so postgres will not take a new password: it reads
-        POSTGRES_PASSWORD only when it initialises an empty data directory. Generating one here
-        would leave every service unable to log in to a database that is working fine."
+        "'$PROJECT' already has a database here, and it keeps the password it was created with."
 else
     set_secret POSTGRES_PASSWORD 24
 fi
@@ -1644,48 +1591,39 @@ generate_vapid_keys() {
     priv="$(value_of "$ENV_FILE" STEWARD_WEB_PUSH_PRIVATE_KEY)"
 
     if [[ -n "${pub//[[:space:]]/}" && -n "${priv//[[:space:]]/}" ]]; then
-        log "STEWARD_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY are already set (left alone)"
+        log "vapid keypair kept"
         return
     fi
     if $CHECK_ONLY; then
-        warn "the Web Push VAPID keypair is not set; a real run would generate one"
+        warn "vapid keypair missing, not generated"
         return
     fi
     if [[ -n "${pub//[[:space:]]/}" || -n "${priv//[[:space:]]/}" ]]; then
-        warn "exactly one half of the Web Push VAPID keypair is set - WebPushSpec
-       reads that as broken, not as 'not configured', so a fresh pair replaces both halves."
+        warn "vapid keypair incomplete"
     fi
 
-    local fallback="web-push stays unconfigured for now - the subscribe button is simply not
-       drawn. Generate a pair once the stack is up with \`docker exec ${PROJECT}-steward-1
-       steward generate-vapid-keys\`, paste the two lines into STEWARD_WEB_PUSH_PUBLIC_KEY
-       and STEWARD_WEB_PUSH_PRIVATE_KEY in $ENV_FILE, and run this again: it moves the private
-       key into steward's own file, and the deploy recreates steward so it reads both."
-
     if ! docker image inspect "$image" >/dev/null 2>&1; then
-        log "pulling $image to mint a Web Push VAPID keypair (no database and no config needed for
-       that one command - see steward's Steward.java)"
+        log "vapid image pull started: image=$image"
         if ! docker pull "$image" >/dev/null 2>&1; then
-            warn "could not pull $image, so no VAPID keypair was generated. $fallback"
+            warn "vapid keypair not generated, web push off: image=$image cause=pull failed"
             return
         fi
     fi
 
     output="$(docker run --rm "$image" generate-vapid-keys 2>/dev/null)" || {
-        warn "$image did not answer 'generate-vapid-keys' as expected, so no VAPID keypair was
-       generated. $fallback"
+        warn "vapid keypair not generated, web push off: image=$image cause=generate-vapid-keys failed"
         return
     }
     pub="$(sed -n '1p' <<<"$output")"
     priv="$(sed -n '2p' <<<"$output")"
     if [[ -z "$pub" || -z "$priv" ]]; then
-        warn "generate-vapid-keys did not print two lines, so no VAPID keypair was generated. $fallback"
+        warn "vapid keypair not generated, web push off: image=$image cause=generate-vapid-keys printed no keypair"
         return
     fi
 
     set_assignment "$ENV_FILE" STEWARD_WEB_PUSH_PUBLIC_KEY "$pub"
     assign "$ENV_FILE" STEWARD_WEB_PUSH_PRIVATE_KEY "$priv"
-    log "STEWARD_WEB_PUSH_PUBLIC_KEY / _PRIVATE_KEY generated (a fresh VAPID keypair)"
+    log "vapid keypair generated"
 }
 generate_vapid_keys
 
@@ -1693,69 +1631,47 @@ generate_vapid_keys
 # This check fires only when the script failed to write a value that it asked for or generated.
 missing="$(env_missing "$ENV_FILE" "${REQUIRED[@]}")"
 if [[ -n "$missing" ]]; then
-    warn "these are still missing from $ENV_FILE, or still say REPLACE_ME:"
-    printf '         %s\n' $missing >&2
-    $CHECK_ONLY && die "--check does not ask and does not generate, so this is the list a real run
-       would work through."
-    die "that should not be possible - everything above is either asked for or generated. Nothing
-       has been deployed."
+    warn "required values missing: file=$ENV_FILE keys=\"$(joined "$missing")\""
+    $CHECK_ONLY && die "--check stopped: the values above are missing. Run without --check to ask for or generate them."
+    die "Not deployed: the values above are missing from $ENV_FILE. Set them and run this again."
 fi
 
 leftovers="$(env_replace_me_lines "$ENV_FILE")"
 if [[ -n "$leftovers" ]]; then
-    warn "REPLACE_ME is still in $ENV_FILE at line(s): $(tr '\n' ' ' <<<"$leftovers")"
-    die "those are inside a value this script does not read one key at a time - a language table
-       carried over from an older deployment, most likely. Every id in it is validated at start-up
-       and REPLACE_ME fails that check by name."
+    warn "REPLACE_ME left in file: file=$ENV_FILE lines=\"$(joined "$leftovers")\""
+    die "Not deployed: $ENV_FILE still holds REPLACE_ME on the lines above. Replace each with its value and run this again."
 fi
 
 profiles="$(env_value "$ENV_FILE" COMPOSE_PROFILES)"
-profiles_include "$profiles" steward || die "COMPOSE_PROFILES in $ENV_FILE is '$profiles', which does
-       not include 'steward'. steward-bunq would never start, and Caddy, the interface's only way
-       in, only while 'mc' is selected."
+profiles_include "$profiles" steward || die "COMPOSE_PROFILES in $ENV_FILE is $profiles and lacks steward. Add steward and run this again."
 warn_unknown_profiles "$ENV_FILE"
 
 declared_env_file="$(env_value "$ENV_FILE" STEWARD_ENV_FILE)"
-[[ "$declared_env_file" == "$ENV_FILE" ]] || die "STEWARD_ENV_FILE inside the file says
-       '$declared_env_file', and the file is at '$ENV_FILE'. That value is what compose.yml mounts
-       into steward-agent, so the agent would mount a different file than the one this
-       deployment is configured from - or nothing at all."
+[[ "$declared_env_file" == "$ENV_FILE" ]] || die "STEWARD_ENV_FILE in $ENV_FILE says $declared_env_file. Set it to $ENV_FILE and run this again."
 
 # The derived directory and name must match the file. Otherwise steward-agent mounts the wrong one.
 declared_env_dir="$(env_value "$ENV_FILE" STEWARD_ENV_DIR)"
-[[ "$declared_env_dir" == "$(dirname "$ENV_FILE")" ]] || die "STEWARD_ENV_DIR inside the file says
-       '$declared_env_dir', and the file is at '$ENV_FILE' (directory '$(dirname "$ENV_FILE")').
-       That value is what compose.yml mounts into steward-agent as a directory, so a stale
-       STEWARD_ENV_DIR would mount the wrong directory entirely."
+[[ "$declared_env_dir" == "$(dirname "$ENV_FILE")" ]] || die "STEWARD_ENV_DIR in $ENV_FILE says $declared_env_dir. Set it to $(dirname "$ENV_FILE") and run this again."
 declared_dir="$(env_value "$ENV_FILE" NORDTAL_DIR)"
-[[ "$declared_dir" == "$INSTALL_DIR" ]] || die "NORDTAL_DIR inside the file says '$declared_dir',
-       and this run is in '$INSTALL_DIR'. That value is what every volume in compose.yml hangs off,
-       so the deployment would read its worlds and its database from somewhere other than the
-       directory this run is installing into."
-is_absolute "$declared_dir" || die "NORDTAL_DIR inside the file is '$declared_dir', which is not an
-       absolute path. steward-agent runs compose from /app inside its own image, so a relative
-       bind resolves against a directory that exists only in there."
+[[ "$declared_dir" == "$INSTALL_DIR" ]] || die "NORDTAL_DIR in $ENV_FILE says $declared_dir, but this run is in $INSTALL_DIR. Run ./nordtal.sh in $declared_dir, or correct NORDTAL_DIR."
+is_absolute "$declared_dir" || die "NORDTAL_DIR in $ENV_FILE is $declared_dir, which is not an absolute path. Set it to the full path and run this again."
 
 declared_env_file_name="$(env_value "$ENV_FILE" STEWARD_ENV_FILE_NAME)"
-[[ "$declared_env_file_name" == "$(basename "$ENV_FILE")" ]] || die "STEWARD_ENV_FILE_NAME inside
-       the file says '$declared_env_file_name', and the file is named '$(basename "$ENV_FILE")'.
-       steward-agent looks for exactly this name inside the mounted directory."
+[[ "$declared_env_file_name" == "$(basename "$ENV_FILE")" ]] || die "STEWARD_ENV_FILE_NAME in $ENV_FILE says $declared_env_file_name. Set it to $(basename "$ENV_FILE") and run this again."
 
-log "every required value is set; the interface will answer on $STEWARD_NAME"
+log "required values set: url=https://$STEWARD_NAME"
 
 # 4c · The data directories
 # Docker would create a missing directory as well. Here the run ends before anything starts when a
 # directory cannot be created. Existing directories stay as they are.
-log "the installation directory: $INSTALL_DIR"
+log "installation directory used: dir=$INSTALL_DIR"
 for entry in "${DATA_DIRS[@]}"; do
     directory="$INSTALL_DIR/$entry"
     if [[ -d "$directory" ]]; then
         continue
     fi
-    $CHECK_ONLY && { warn "$directory does not exist; a real run would create it"; continue; }
-    mkdir -p "$directory" || die "could not create $directory. Every world, every database and
-       every backup this deployment has is about to live under $INSTALL_DIR, so a directory that
-       cannot be created there is the end of the run."
+    $CHECK_ONLY && { warn "directory missing, not created: dir=$directory"; continue; }
+    mkdir -p "$directory" || die "Could not create $directory. Make $INSTALL_DIR writable and run this again."
 done
 
 # 5 · The name
@@ -1775,9 +1691,7 @@ resolve() {
 }
 
 ours="$(this_hosts_addresses)"
-[[ -n "${ours//[[:space:]]/}" ]] || die "this host has no globally scoped address, so there is
-       nothing for $STEWARD_NAME to point at. If it is behind NAT, pass --address with the public
-       address that reaches it."
+[[ -n "${ours//[[:space:]]/}" ]] || die "This host has no global address for $STEWARD_NAME to point at. If it is behind NAT, pass its public address with --address."
 
 attempt=0
 while true; do
@@ -1786,22 +1700,18 @@ while true; do
     [[ -z "$strays" ]] && break
 
     if (( attempt == 0 )) || [[ "$strays" != "${last_strays:-}" ]]; then
-        warn "$STEWARD_NAME does not point at this host yet."
-        warn "  it resolves to:   $(tr '\n' ' ' <<<"${resolved:-nothing}")"
-        warn "  this host is:     $(tr '\n' ' ' <<<"$ours")"
-        warn "  not ours:         $(tr '\n' ' ' <<<"$strays")"
-        warn "  waiting. Add or correct the record; this checks again every ${DNS_INTERVAL}s."
+        warn "name not pointing here, waiting: host=$STEWARD_NAME resolved=\"$(joined "$resolved")\" addresses=\"$(joined "$ours")\" delay=${DNS_INTERVAL}s"
         last_strays="$strays"
     elif (( attempt % DNS_HEARTBEAT == 0 )); then
-        warn "still waiting for $STEWARD_NAME ($(( attempt * DNS_INTERVAL / 60 )) min)"
+        warn "name still not pointing here: host=$STEWARD_NAME after=$(( attempt * DNS_INTERVAL / 60 ))m"
     fi
     if $CHECK_ONLY; then
-        die "the name does not point here, and --check does not wait."
+        die "--check stopped: $STEWARD_NAME does not point at this host. Point its A/AAAA records here and run this again."
     fi
     attempt=$(( attempt + 1 ))
     sleep "$DNS_INTERVAL"
 done
-log "$STEWARD_NAME resolves to this host ($(tr '\n' ' ' <<<"$resolved"))"
+log "name points here: host=$STEWARD_NAME resolved=\"$(joined "$resolved")\""
 
 # 5a · Local builds that a pull would replace
 # The agent pulls every service before `up` and replaces a local build whose tag the registry has.
@@ -1834,22 +1744,15 @@ compose_config_json() {
 images_at_risk() {
     local json pairs image
     command -v jq >/dev/null 2>&1 || {
-        warn "no jq here, so §5a cannot tell a locally built image from a pulled one. If anything on"
-        warn "this host was shipped with \`compose build\` and no release, \`up\` below replaces it silently."
+        warn "no jq, local images not checked"
         return 0
     }
     docker buildx version >/dev/null 2>&1 || {
-        warn "no docker buildx here, so §5a cannot ask the registry what it currently serves under each"
-        warn "tag. A locally built image on this host's image store may carry a RepoDigest regardless"
-        warn "of whether anything was ever pushed - without buildx that alone cannot be told apart from"
-        warn "a real one, so §5a stays silent rather than guess. If anything here was shipped with"
-        warn "\`compose build\` and no release, \`up\` below replaces it silently."
+        warn "no docker buildx, local images not checked"
         return 0
     }
     json="$(compose_config_json)" || {
-        warn "no copy of $AGENT_IMAGE on this host yet, so there is no compose.yml of release"
-        warn "$RELEASE to read the image list out of. Its images are pinned to $RELEASE, so a local"
-        warn "build is at risk only if it carries that tag."
+        warn "agent image missing, local images not checked: image=$AGENT_IMAGE"
         return 0
     }
     [[ -n "$json" ]] || return 0
@@ -1885,41 +1788,33 @@ if [[ -n "$at_risk" ]]; then
     done <<<"$at_risk"
 
     if [[ -n "$unknown" ]]; then
-        warn "the registry could not be asked about these - neither cleared nor flagged, just unknown:"
         while IFS=$'\t' read -r image services; do
             [[ -n "$image" ]] || continue
-            warn "  $image  (used by: $services)"
+            warn "registry not answering, image state unknown: image=$image services=$services"
         done <<<"$unknown"
     fi
 
     if [[ -n "$risk" ]]; then
-        warn "these images are on this host, and \`up\` below would replace them with whatever the"
-        warn "registry currently serves under the same tag:"
         while IFS=$'\t' read -r image services; do
             [[ -n "$image" ]] || continue
-            warn "  $image  (used by: $services)"
+            warn "local image differs from registry: image=$image services=$services"
         done <<<"$risk"
         if $CHECK_ONLY; then
-            warn "a real run would ask before continuing (or refuse without a terminal); --check stops here."
+            warn "local images question skipped: cause=--check"
         elif [[ -t 0 ]]; then
             printf '\n\033[36m[nordtal]\033[0m %s\n' "Continue, and let the registry overwrite the images listed above?" >&2
             printf '        %s\n        > ' "Anything shipped on them without a release is lost the moment this pulls. [y/N]" >&2
             read -r keep_local_answer
-            answer_is_yes "$keep_local_answer" || die "not continuing. Nothing has been pulled and nothing
-       has been stopped. Retag or remove the images above first if they should not be asked about
-       again, or answer yes here once you mean to let the registry replace them."
-            log "continuing - the images listed above will be replaced by whatever the registry answers with"
+            answer_is_yes "$keep_local_answer" || die "Not continued: nothing was pulled or stopped. Retag or remove the images above, or answer yes to let the registry replace them."
+            log "local image replacement accepted"
         else
-            die "the images above are built on this host, and \`up\` would silently replace them with
-       whatever the registry currently serves - there is no terminal here to ask first. Run this from
-       a shell, or retag/remove the images above if the registry copy is meant to win. Nothing has
-       been pulled or stopped."
+            die "Not deployed: a pull would replace the local images above, and there is no terminal to ask on. Run this from a shell, or retag or remove them. Nothing was pulled or stopped."
         fi
     fi
 fi
 
 if $CHECK_ONLY; then
-    log "--check: everything that can be checked without changing anything is in order."
+    log "check passed, nothing changed"
     exit 0
 fi
 
@@ -1935,13 +1830,13 @@ if ! mojang_assets_answered "$ENV_FILE"; then
         read -r mojang_answer
         if answer_is_yes "$mojang_answer"; then
             set_assignment "$ENV_FILE" NORDTAL_MOJANG_ASSETS true
-            log "NORDTAL_MOJANG_ASSETS=true - steward-agent draws the icons of each version a server runs"
+            log "mojang assets allowed: key=NORDTAL_MOJANG_ASSETS value=true"
         else
             set_assignment "$ENV_FILE" NORDTAL_MOJANG_ASSETS false
-            log "NORDTAL_MOJANG_ASSETS=false - Steward shows names without icons; set it to true in $ENV_FILE to change that"
+            log "mojang assets declined: key=NORDTAL_MOJANG_ASSETS value=false"
         fi
     else
-        log "NORDTAL_MOJANG_ASSETS is not in $ENV_FILE and there is no terminal to ask on, so Steward shows names without icons"
+        log "mojang assets not asked, no terminal: key=NORDTAL_MOJANG_ASSETS file=$ENV_FILE"
     fi
 fi
 
@@ -1955,18 +1850,13 @@ if $BUILD_AGENT; then
     elif running_from_a_file && from_a_checkout; then
         checkout="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     fi
-    [[ -n "$checkout" ]] || die "--build builds $AGENT_IMAGE from a checkout of nordtal/season-2,
-       and this run is not in one. Run it from a checkout, or drop --build and let it pull the
-       published image."
-    log "building $AGENT_IMAGE from $checkout"
+    [[ -n "$checkout" ]] || die "--build needs a checkout of nordtal/season-2, and this run is not in one. Run it from a checkout, or drop --build to pull the published image."
+    log "agent image build started: image=$AGENT_IMAGE dir=$checkout"
     sh "$checkout/gradlew" :steward-agent:build
     docker build -f "$checkout/deploy/jvm/Dockerfile" --build-arg MODULE=steward-agent -t "$AGENT_IMAGE" "$checkout"
 else
-    log "pulling $AGENT_IMAGE"
-    docker pull "$AGENT_IMAGE" || die "could not pull $AGENT_IMAGE. A registry that answers
-       'denied' means the same thing as one that answers 'not found': either the release that
-       carries this image has not been published yet, or the package is still private. --build
-       builds it from this checkout instead, and needs a JDK."
+    log "agent image pull started: image=$AGENT_IMAGE"
+    docker pull "$AGENT_IMAGE" || die "Could not pull $AGENT_IMAGE: release $RELEASE is not published yet, or its package is private. Publish it, or build it here with --build (needs a JDK)."
 fi
 
 # 7 · The deployment itself
@@ -1978,11 +1868,11 @@ grep -qxF "${PROJECT}-steward-agent-1" \
     <<<"$(docker ps --filter health=healthy --format '{{.Names}}')" && agent_healthy=true
 if [[ "$(deploy_by "$BUILD_AGENT" "$agent_healthy")" == request ]]; then
     if [[ "$RELEASE_NAMED" == true ]]; then
-        warn "NORDTAL_RELEASE names $RELEASE, and an update run always installs the newest release."
+        warn "NORDTAL_RELEASE ignored, update run installs the newest release: release=$RELEASE"
     fi
-    log "steward-agent runs here, so this deploy is an update run; Steward shows it as well"
+    log "steward-agent running, deploy sent as update run"
     if cmd_update --env-file "$ENV_FILE"; then
-        log "done. The interface is at https://$STEWARD_NAME"
+        log "deployed: url=https://$STEWARD_NAME"
         exit 0
     else
         exit $?
@@ -1996,7 +1886,7 @@ fi
 # the file itself, because a value in its environment would outrank the file.
 images_env=()
 [[ -z "${NORDTAL_IMAGES:-}" ]] || images_env=(-e "NORDTAL_IMAGES=$IMAGES")
-log "deploying release $RELEASE - this pulls every image before it stops anything"
+log "deploy started: release=$RELEASE"
 docker run --rm \
     --name "${PROJECT}-setup" \
     -e "COMPOSE_PROJECT_NAME=$PROJECT" \
@@ -2006,10 +1896,6 @@ docker run --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$(dirname "$ENV_FILE"):/app/env:ro" \
     "$AGENT_IMAGE" up \
-    || die "the deployment failed, above. Nothing was stopped if the failure was a pull; if it was
-       an up, 'docker compose -p $PROJECT ps' says what is running now."
+    || die "Not deployed: the step above failed. docker compose -p $PROJECT ps shows what runs."
 
-log "done. The interface is at https://$STEWARD_NAME - the first certificate takes a few seconds."
-log "If it does not answer: \`docker logs ${PROJECT}-caddy-1\` says whether Let's Encrypt did."
-log "The installation is $INSTALL_DIR - the worlds, the database and the backups are directories"
-log "in there, and \`./nordtal.sh\` is how a setting is changed or a new release deployed."
+log "deployed: release=$RELEASE url=https://$STEWARD_NAME dir=$INSTALL_DIR"

@@ -88,16 +88,13 @@ public final class PlayerStage implements CinematicStage {
         try {
             final PotionEffectType resolved = Registry.MOB_EFFECT.get(Key.key(type));
             if (resolved == null) {
-                plugin.getLogger()
-                        .warning("a staged moment asked for the potion effect '" + type
-                                + "', which this server does not know - it runs without the effect");
+                plugin.getLogger().warning("staged potion effect unknown, left out: effect=" + type);
             }
             return resolved;
         } catch (final RuntimeException failure) {
             plugin.getLogger()
-                    .warning("a staged moment asked for the potion effect '" + type
-                            + "', which is not a namespaced key (" + failure + ") - it runs without the"
-                            + " effect");
+                    .warning("staged potion effect not a namespaced key, left out: effect=" + type + " cause="
+                            + failure);
             return null;
         }
     }

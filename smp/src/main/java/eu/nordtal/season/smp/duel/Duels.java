@@ -220,8 +220,7 @@ public final class Duels implements Arenas {
         final Location startFirst = position(config.fighterStartFirst());
         final Location startSecond = position(config.fighterStartSecond());
         if (world == null || startFirst == null || startSecond == null) {
-            plugin.getLogger()
-                    .warning("the duel arena or a fighter start names a world that is not loaded; no duel is fought");
+            plugin.getLogger().warning("duel world not loaded, duel refused");
             return Blocked.ARENA_NOT_READY;
         }
         if (!copy.save(world, arena)) {
@@ -279,8 +278,7 @@ public final class Duels implements Arenas {
         SavedState.clear(player);
         if (!player.teleport(at)) {
             plugin.getLogger()
-                    .warning(player.getName() + " could not be moved into the duel arena; "
-                            + "the duel is called off rather than fought outside it");
+                    .warning("fighter not moved into duel arena, duel called off: player=" + player.getName());
             return false;
         }
         player.setGameMode(GameMode.ADVENTURE);
@@ -294,10 +292,7 @@ public final class Duels implements Arenas {
         for (final DuelLoadoutItemSpec entry : loadout) {
             final ItemStack one = TakenItems.one(entry.item(), entry.data());
             if (one == null) {
-                plugin.getLogger()
-                        .warning("a duel loadout names '" + entry.item()
-                                + "', which is not a material or whose item data does not read"
-                                + " - that piece is missing from the fight");
+                plugin.getLogger().warning("duel loadout item unreadable, item left out: item=" + entry.item());
                 continue;
             }
             final ItemStack stack = one.asQuantity(Math.max(1, entry.amount()));

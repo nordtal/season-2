@@ -122,7 +122,7 @@ public final class DatabaseDump {
                     took(started),
                     "the restore was rolled back, so the database is as it was: " + errorLine(restored.output()));
         }
-        log.info("database restored from {}", dump);
+        log.info("database restored: file={}", dump);
         return SnapshotResult.saved(Snapshots.DATABASE, Math.max(0, sizeOf(containerId, path)), took(started), path);
     }
 
@@ -190,7 +190,7 @@ public final class DatabaseDump {
                     "the dump was written and verified but could not be named: " + firstLine(renamed.output()));
         }
 
-        log.info("database dumped to {} ({})", finalPath, ByteSize.of(bytes));
+        log.info("database dumped: file={} size={}", finalPath, ByteSize.of(bytes));
         return SnapshotResult.saved(Snapshots.DATABASE, bytes, took(started), finalPath);
     }
 
@@ -214,7 +214,7 @@ public final class DatabaseDump {
     private void remove(final String containerId, final String path) {
         final Docker.ExecResult removed = run(containerId, "rm -f " + quote(path));
         if (!removed.ok()) {
-            log.warn("could not remove the partial dump {}: {}", path, firstLine(removed.output()));
+            log.warn("partial dump not removed: file={} cause={}", path, firstLine(removed.output()));
         }
     }
 

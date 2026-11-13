@@ -148,7 +148,7 @@ public final class SignalHub implements AutoCloseable {
         while (running) {
             try (Notifications notifications = connector.listen(channels)) {
                 current.set(notifications);
-                logger.info("{} is listening on {}", name, channels);
+                logger.info("signal hub listening: hub={} listen_channels=\"{}\"", name, channels);
                 while (running) {
                     // A change made while disconnected is never announced again.
                     refreshAll(registered);
@@ -159,7 +159,7 @@ public final class SignalHub implements AutoCloseable {
                     break;
                 }
                 logger.warn(
-                        "{} lost its connection; retrying in {}s, with nothing re-read until then",
+                        "signal hub connection lost, retry scheduled: hub={} seconds={}",
                         name,
                         reconnectBackoff.toSeconds(),
                         exception);
@@ -170,7 +170,11 @@ public final class SignalHub implements AutoCloseable {
                 if (!running) {
                     break;
                 }
-                logger.error("{} failed unexpectedly; retrying in {}s", name, reconnectBackoff.toSeconds(), exception);
+                logger.error(
+                        "signal hub failed, retry scheduled: hub={} seconds={}",
+                        name,
+                        reconnectBackoff.toSeconds(),
+                        exception);
                 if (!sleepBeforeRetry()) {
                     break;
                 }
@@ -178,7 +182,7 @@ public final class SignalHub implements AutoCloseable {
                 current.set(null);
             }
         }
-        logger.info("{} has stopped", name);
+        logger.info("signal hub stopped: hub={}", name);
     }
 
     private synchronized List<Refresh> registered() {
@@ -190,7 +194,7 @@ public final class SignalHub implements AutoCloseable {
             try {
                 refresh.task().run();
             } catch (final RuntimeException failure) {
-                logger.warn("Could not refresh {}; the hub tries again on the next signal", refresh.what(), failure);
+                logger.warn("signal hub refresh failed: refresh=\"{}\"", refresh.what(), failure);
             }
         }
     }

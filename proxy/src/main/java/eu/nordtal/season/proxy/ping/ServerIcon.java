@@ -28,11 +28,7 @@ public final class ServerIcon {
             }
             return Optional.of(Favicon.create(file));
         } catch (final IOException | RuntimeException failure) {
-            logger.warn(
-                    "No server icon: {} could not be read as a 64x64 PNG ({}). The server browser "
-                            + "shows the MOTD without one until it is replaced.",
-                    file,
-                    failure.toString());
+            logger.warn("server icon unreadable: file={} cause={}", file, failure.toString());
             return Optional.empty();
         }
     }

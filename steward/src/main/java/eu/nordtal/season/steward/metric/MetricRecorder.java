@@ -51,9 +51,9 @@ public final class MetricRecorder implements AutoCloseable {
 
     private void copyQuietly() {
         try {
-            log.debug("wrote {} metric samples", copy());
+            log.debug("metric samples written: count={}", copy());
         } catch (final RuntimeException e) {
-            log.debug("the agent's samples could not be copied; the next round will try again", e);
+            log.debug("agent samples not copied", e);
         }
     }
 
@@ -105,8 +105,7 @@ public final class MetricRecorder implements AutoCloseable {
         final int written = attempt("compacting", () -> metrics.compact(boundary));
         final int forgotten = attempt("forgetting", () -> metrics.forget(boundary));
         if (written > 0 || forgotten > 0) {
-            log.info(
-                    "compacted {} hours of samples and forgot {} raw rows older than {}", written, forgotten, boundary);
+            log.info("metric samples compacted: hours={} forgotten={} before={}", written, forgotten, boundary);
         }
     }
 
@@ -115,7 +114,7 @@ public final class MetricRecorder implements AutoCloseable {
         try {
             return work.getAsInt();
         } catch (final RuntimeException e) {
-            log.warn("{} the metric table failed; the hours left will be tried again in an hour", what, e);
+            log.warn("metric table step failed: step={}", what, e);
             return 0;
         }
     }

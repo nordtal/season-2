@@ -64,9 +64,7 @@ public final class Readiness {
             return true;
         } catch (final IOException | RuntimeException failure) {
             if (complained.compareAndSet(false, true)) {
-                complaints.accept("Could not write the readiness marker " + marker + " (" + failure
-                        + "). This process is running, but its container will report unhealthy until"
-                        + " the marker can be written again.");
+                complaints.accept("readiness marker not written: file=" + marker + " cause=" + failure);
             }
             return false;
         }

@@ -288,7 +288,7 @@ public final class Compose {
             if (code != 0) {
                 output.accept("handing " + service + "'s volumes to "
                         + owner.get().uid() + ":" + owner.get().gid() + " exited " + code + "; starting it anyway");
-                log.warn("handing {}'s volumes to its user exited {}", service, code);
+                log.warn("volume hand-over failed: service={} exit_code={}", service, code);
             }
         }
     }
@@ -362,7 +362,7 @@ public final class Compose {
         if (image.isPresent() && isHere.test(image.get())) {
             output.accept("pull failed for " + service + ", but " + image.get()
                     + " is on this host - continuing with the local image");
-            log.warn("pull failed for {}; using the local image {}", service, image.get());
+            log.warn("pull failed, local image used: service={} image={}", service, image.get());
             return PullOutcome.LOCAL_IMAGE_KEPT;
         }
         return PullOutcome.FAILED;
@@ -506,7 +506,7 @@ public final class Compose {
     }
 
     private int run(final List<String> command, final Consumer<String> output) throws IOException {
-        log.info("$ {}", String.join(" ", command));
+        log.info("command started: command=\"{}\"", String.join(" ", command));
         final ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true);
         final Map<String, String> inherited = new HashMap<>(builder.environment());
         builder.environment().clear();

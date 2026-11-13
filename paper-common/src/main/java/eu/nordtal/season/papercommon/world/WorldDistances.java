@@ -48,7 +48,7 @@ public final class WorldDistances implements Listener {
             world.setSimulationDistance(simulation);
         }
         logger.info(
-                "World '{}' runs with view distance {} and simulation distance {}",
+                "world distances set: world={} view_distance={} simulation_distance={}",
                 world.getName(),
                 world.getViewDistance(),
                 world.getSimulationDistance());

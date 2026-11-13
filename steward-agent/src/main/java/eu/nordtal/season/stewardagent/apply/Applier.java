@@ -123,7 +123,7 @@ public final class Applier {
         try {
             staged = stageWork(volume, work, stagingByDestination);
         } catch (final IOException failed) {
-            log.warn("Staging {} failed: {}", service, failed.getMessage());
+            log.warn("staging failed: service={} cause={}", service, failed.getMessage());
             final String why = "download failed (" + failed.getMessage() + "); nothing on this server was moved";
             work.forEach(change ->
                     outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.FAILED, why)));
@@ -369,7 +369,7 @@ public final class Applier {
             deleteRecursively(directory);
         } catch (final IOException leftBehind) {
             // The jars are in place, and the next run empties the directory before use.
-            log.warn("Could not clean up {}: {}", directory, leftBehind.getMessage());
+            log.warn("directory not cleaned up: dir={} cause={}", directory, leftBehind.getMessage());
         }
     }
 

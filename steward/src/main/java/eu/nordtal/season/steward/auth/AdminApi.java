@@ -38,7 +38,7 @@ public final class AdminApi {
         switch (outcome) {
             case GRANTED -> {
                 Journaling.line(ctx, DiscordId.of(target), null);
-                log.info("{} made {} an admin", who.name(), target);
+                log.info("admin granted: actor={} member={}", who.name(), target);
                 ctx.json(new Granted(outcome));
             }
             case ACTOR_NOT_ADMIN -> throw new RequestRefused(403, ANSWER.notAdmin());
@@ -58,7 +58,7 @@ public final class AdminApi {
                 final List<String> below =
                         revocation.removed().subList(1, revocation.removed().size());
                 Journaling.line(ctx, DiscordId.of(target), new JournalDetail.AdminRevoked(below));
-                log.info("{} revoked admin from {}", who.name(), revocation.removed());
+                log.info("admin revoked: actor={} members=\"{}\"", who.name(), revocation.removed());
                 ctx.json(revocation);
             }
             case ACTOR_NOT_ADMIN -> throw new RequestRefused(403, ANSWER.notAdmin());

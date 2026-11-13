@@ -244,7 +244,7 @@ public final class Docker {
             final JsonObject descriptor = json.getAsJsonObject("Descriptor");
             return Optional.ofNullable(descriptor == null ? null : string(descriptor, "digest"));
         } catch (DockerException e) {
-            log.debug("no registry digest for {}", imageRef, e);
+            log.debug("registry digest missing: image={}", imageRef, e);
             return Optional.empty();
         }
     }
@@ -265,7 +265,7 @@ public final class Docker {
             digests.forEach(element -> all.add(element.getAsString()));
             return all;
         } catch (DockerException e) {
-            log.debug("no repo digests for {}", imageId, e);
+            log.debug("repo digests missing: image={}", imageId, e);
             return List.of();
         }
     }
@@ -299,7 +299,7 @@ public final class Docker {
                     && !identity.getAsJsonArray("Build").isEmpty();
             return Optional.of(new ImageIdentity(all, builtLocally));
         } catch (DockerException e) {
-            log.debug("no image record for {}", imageRef, e);
+            log.debug("image record missing: image={}", imageRef, e);
             return Optional.empty();
         }
     }

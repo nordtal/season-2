@@ -85,7 +85,7 @@ final class Kinds {
         final List<String> replacedLocal =
                 LocalBuilds.replaced(images, plan, planned, foreign, standing == Release.Standing.NEWER, scope, holds);
         if (standing != Release.Standing.OLDER && !replacedLocal.isEmpty() && !replacesLocal(runner, request)) {
-            log.info("Request {} would replace the local builds of {}, so it is refused", request.id(), replacedLocal);
+            log.info("local builds kept, request refused: request={} services={}", request.id(), replacedLocal);
             resolving.failed(RunStep.Reason.REFUSED_LOCAL_BUILD);
             return failed();
         }
@@ -156,7 +156,7 @@ final class Kinds {
                             cleanup.cacheFreed(pruned.cacheBytes());
                             cleanup.done();
                         } else {
-                            log.warn("Could not remove the unused images: {}", pruned.failure());
+                            log.warn("unused images not removed: cause={}", pruned.failure());
                             cleanup.warned(RunStep.Reason.REFUSED);
                         }
                     },
@@ -228,14 +228,14 @@ final class Kinds {
         final RedeployResult started = runner.containers.handOver(request.id(), release);
         UpdateRun.endBy(handing, started);
         if (!started.triggered()) {
-            log.warn(
-                    "Request {}: the one-shot at release {} did not start: {}",
-                    request.id(),
-                    release,
-                    started.message());
+            log.warn("one-shot not started: request={} release={} cause={}", request.id(), release, started.message());
             return failed();
         }
-        log.info("Request {} is handed to {} at release {}", request.id(), runner.containers.oneShot(), release);
+        log.info(
+                "request handed to one-shot: request={} container={} release={}",
+                request.id(),
+                runner.containers.oneShot(),
+                release);
         return Planned.outcome(Outcome.handedOver());
     }
 
@@ -259,7 +259,7 @@ final class Kinds {
             migrating.change(SCHEMA, schema, Schema.version(runner.database), null);
             UpdateRun.endBy(migrating, migrated);
             if (!migrated.triggered()) {
-                log.warn("The migration did not run: {}", migrated.message());
+                log.warn("migration not run: cause={}", migrated.message());
                 throw new Run.Abort();
             }
             final ApplyResult result =
@@ -307,7 +307,7 @@ final class Kinds {
         try {
             topology = runner.containers.topology();
         } catch (final RuntimeException unread) {
-            log.warn("The backup could not read what it saves", unread);
+            log.warn("backup sources unreadable", unread);
             record.ended(RunStep.Kind.SCOPE, null, RunStep.Outcome.FAILED, RunStep.Reason.UNEXPECTED);
             return failed();
         }
@@ -518,7 +518,7 @@ final class Kinds {
                     removing.done();
                 }
             } catch (final RuntimeException refused) {
-                log.warn("Could not remove {} from {}", artifact, service, refused);
+                log.warn("artifact not removed: artifact={} service={}", artifact, service, refused);
                 removing.failed(RunStep.Reason.REFUSED);
                 return new Run.Done(true);
             }

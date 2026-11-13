@@ -247,7 +247,7 @@ public final class DockerSocket {
         try {
             channel.close();
         } catch (IOException e) {
-            log.debug("closing the docker socket after {}", what, e);
+            log.debug("docker socket not closed: call={}", what, e);
         }
     }
 

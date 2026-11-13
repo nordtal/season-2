@@ -180,7 +180,7 @@ public final class OffsiteCopy {
                                         : two));
             }
         } catch (final IOException unreadable) {
-            log.warn("could not list {}", backups, unreadable);
+            log.warn("backups not listed: dir={}", backups, unreadable);
             return List.of();
         }
         return newest.values().stream()
@@ -207,7 +207,7 @@ public final class OffsiteCopy {
     }
 
     private static Optional<SnapshotResult> failed(final long startedAt, final String why) {
-        log.warn("offsite copy: {}", why);
+        log.warn("offsite copy failed: cause={}", why);
         return Optional.of(SnapshotResult.failed(Snapshots.OFFSITE, since(startedAt), why));
     }
 
@@ -228,7 +228,7 @@ public final class OffsiteCopy {
                         ? Optional.of("the repository did not answer: " + config.describe())
                         : Optional.empty();
             }
-            log.info("creating the offsite repository {}", target.repository());
+            log.info("offsite repository creation started: repository={}", target.repository());
             final Pipeline.Result created = run("init");
             return created.failed()
                     ? Optional.of("creating the repository failed: " + created.describe())

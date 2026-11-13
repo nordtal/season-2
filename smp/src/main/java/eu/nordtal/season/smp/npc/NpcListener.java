@@ -140,9 +140,8 @@ public final class NpcListener implements Listener {
                 credited = contributions.credit(discordId.get(), objectiveKey, accepted, player.getUniqueId());
             } catch (final RuntimeException failure) {
                 plugin.getLogger()
-                        .severe("the hand-in for " + player.getName() + " on "
-                                + objectiveKey + " could not be credited, giving the items back: "
-                                + failure.getMessage());
+                        .severe("hand-in not credited, items returned: player=" + player.getName() + " key="
+                                + objectiveKey + " cause=" + failure.getMessage());
                 credited = -1;
             }
             final long paid = credited;
@@ -166,10 +165,9 @@ public final class NpcListener implements Listener {
             if (paid < accepted) {
                 // An offline player cannot receive the items.
                 plugin.getLogger()
-                        .severe(player.getName() + " left while a hand-in on "
-                                + objectiveKey + " was in flight; it credited " + Math.max(0L, paid) + " of "
-                                + accepted + ", and the rest of these items could not be returned: "
-                                + describe(taken));
+                        .severe("hand-in player gone, items not returned: player=" + player.getName() + " key="
+                                + objectiveKey + " credited=" + Math.max(0L, paid) + " accepted=" + accepted
+                                + " items=\"" + describe(taken) + "\"");
             }
             return;
         }

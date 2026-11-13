@@ -59,12 +59,12 @@ public final class Bootstrap {
                     missing,
                     handingOver(plan -> Runs.apply(config, read, plan, settings, plugins), handOver));
         } catch (final RuntimeException failure) {
-            log.error("Start-up install: nothing could be resolved, so nothing was installed", failure);
+            log.error("start-up install resolved nothing, nothing installed", failure);
             new Steps(steps, 1).begin(RunStep.Kind.RESOLVE).failed(RunStep.Reason.UNEXPECTED);
             report = Optional.of(RunStage.FAILED);
         }
         if (report.isEmpty()) {
-            log.info("Start-up install: every volume already holds what belongs in it, so there is no run to write");
+            log.info("start-up install not needed, no run written");
             return;
         }
         final RunStage written = report.get();
@@ -77,9 +77,9 @@ public final class Bootstrap {
                             written == RunStage.FAILED ? UpdateStatus.FAILED : UpdateStatus.DONE,
                             Duration.between(began, clock.instant()));
             steps.into(new Steps(Schema.updates(database).recorder(), run.id()));
-            log.info("Start-up install written as run {}, {}", run.id(), written);
+            log.info("start-up install written: run={} stage={}", run.id(), written);
         } catch (final RuntimeException failure) {
-            log.error("Start-up install ended {}, and its run could not be written", written, failure);
+            log.error("start-up install run not written: stage={}", written, failure);
         }
     }
 
@@ -127,7 +127,7 @@ public final class Bootstrap {
         try {
             result = apply.apply(missing);
         } catch (final RuntimeException failure) {
-            log.error("Start-up install: the install failed part way through", failure);
+            log.error("start-up install failed", failure);
             record.begin(RunStep.Kind.INSTALL).failed(RunStep.Reason.UNEXPECTED);
             return Optional.of(RunStage.FAILED);
         }

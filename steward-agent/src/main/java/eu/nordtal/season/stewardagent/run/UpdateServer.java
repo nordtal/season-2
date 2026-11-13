@@ -70,7 +70,7 @@ public final class UpdateServer implements AutoCloseable {
 
     /** Runs until {@link #close()} and blocks the calling thread. */
     public void serve() {
-        log.info("Serving update requests");
+        log.info("update server started");
         while (running) {
             try {
                 drain();
@@ -83,7 +83,7 @@ public final class UpdateServer implements AutoCloseable {
                 return;
             } catch (final RuntimeException failure) {
                 // A bug in the loop must not leave a container that is up and deaf.
-                log.error("The update loop threw; it carries on at the next wake-up", failure);
+                log.error("update loop failed", failure);
                 try {
                     doorbell.await(longestWait);
                 } catch (final InterruptedException interrupted) {
@@ -117,7 +117,7 @@ public final class UpdateServer implements AutoCloseable {
     private Optional<UpdateRequest> claimNext() {
         final Optional<String> oneShot = directory.handedTo();
         if (oneShot.isPresent()) {
-            log.debug("{} carries out a run, so nothing is claimed until it settles it", oneShot.get());
+            log.debug("one-shot running, nothing claimed: container={}", oneShot.get());
             return Optional.empty();
         }
         return directory.claimNext();
@@ -135,7 +135,7 @@ public final class UpdateServer implements AutoCloseable {
                 .filter(request ->
                         directory.runnerOf(id).filter(oneShot::equals).isPresent());
         if (handed.isEmpty()) {
-            log.error("Request {} is not a run handed to {}, so nothing was carried out", id, oneShot);
+            log.error("request not handed to one-shot, nothing carried out: request={} container={}", id, oneShot);
             return false;
         }
         carryOut(handed.get());
@@ -143,40 +143,34 @@ public final class UpdateServer implements AutoCloseable {
     }
 
     private void carryOut(final UpdateRequest request) {
-        log.info("Running request {}: {} asked for by {}", request.id(), request.kind(), request.actor());
+        log.info("request started: request={} kind={} actor={}", request.id(), request.kind(), request.actor());
         // Every stage the run reaches redraws the Discord card and the chat line.
         final Outcome outcome = runner.run(request, stage -> {
             // A progress write must never decide the run, or a stopped service would stay stopped.
             try {
                 if (!directory.progress(request.id(), stage)) {
                     // No longer RUNNING, cancelled or settled elsewhere; the run carries on regardless.
-                    log.warn(
-                            "Request {} is no longer RUNNING, so its progress was not"
-                                    + " recorded; the run itself continues",
-                            request.id());
+                    log.warn("request no longer running, progress not recorded: request={}", request.id());
                 }
             } catch (final RuntimeException failure) {
-                log.warn("Could not record progress for request {}; the run continues", request.id(), failure);
+                log.warn("request progress not recorded: request={}", request.id(), failure);
             }
         });
 
         if (outcome.isHandedOver()) {
             // The one-shot settles the row. Until then the row keeps every other run out.
-            log.info("Request {} is carried out by the one-shot it was handed to", request.id());
+            log.info("request carried out by one-shot: request={}", request.id());
             return;
         }
         if (outcome.stage() == RunStage.CANCELLED) {
-            log.info("Request {} was cancelled during its countdown", request.id());
+            log.info("request cancelled during countdown: request={}", request.id());
             return;
         }
         // Empty when the row is no longer RUNNING, ordinarily a stopped countdown, so nothing is overwritten.
         if (directory.finish(request.id(), outcome.stage()).isEmpty()) {
-            log.info(
-                    "Request {} was settled by somebody else while it ran - most likely"
-                            + " cancelled during its countdown - so its stage was not written",
-                    request.id());
+            log.info("request settled elsewhere, stage not written: request={}", request.id());
         } else {
-            log.info("Request {} finished as {}", request.id(), outcome.status());
+            log.info("request finished: request={} status={}", request.id(), outcome.status());
         }
     }
 
@@ -199,11 +193,11 @@ public final class UpdateServer implements AutoCloseable {
         try {
             final int settled = directory.settleOrphans(stillRunning);
             if (settled > 0) {
-                log.info("Settled {} request(s) no steward-agent carries out any more", settled);
+                log.info("abandoned requests settled: count={}", settled);
             }
         } catch (final RuntimeException failure) {
             // The stale rows are cosmetic, and refusing to start over them is worse.
-            log.error("Could not settle the requests left open by the previous instance", failure);
+            log.error("abandoned requests not settled", failure);
         }
     }
 

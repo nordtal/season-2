@@ -103,7 +103,7 @@ public final class PluginDescriptors {
                     }
                 }
             } catch (final IOException e) {
-                LOG.warn("{} could not be listed for descriptors: {}", directory, e.getMessage());
+                LOG.warn("directory not listed for descriptors: dir={} cause={}", directory, e.getMessage());
             }
         }
         final String image = service.name() + "@" + service.image();
@@ -114,7 +114,7 @@ public final class PluginDescriptors {
                 jar = images.jarOf(service.name());
             } catch (final RuntimeException unreachable) {
                 // The daemon not answering says nothing about the image, so it is asked again next time.
-                LOG.debug("{}'s image could not be asked for its jar: {}", service.name(), unreachable.getMessage());
+                LOG.debug("image jar not read: service={} cause={}", service.name(), unreachable.getMessage());
                 return found;
             }
             final Raw raw = jar == null ? null : jars.of(jar);
@@ -140,7 +140,7 @@ public final class PluginDescriptors {
             }
             final String id = text(json, "id");
             if (id == null) {
-                LOG.warn("{}: {} names no id and is left out", jar, ENTRY);
+                LOG.warn("descriptor without id, jar left out: file={} entry={}", jar, ENTRY);
                 return null;
             }
             final Map<String, String> editors = new LinkedHashMap<>();
@@ -158,7 +158,7 @@ public final class PluginDescriptors {
                     json.get("local") instanceof JsonPrimitive flag && flag.isBoolean() && flag.getAsBoolean();
             return new Raw(id, Map.copyOf(editors), followsMessages, local);
         } catch (final IOException | JsonParseException | IllegalStateException e) {
-            LOG.warn("{} could not be read for its descriptor: {}", jar, e.getMessage());
+            LOG.warn("descriptor unreadable: file={} cause={}", jar, e.getMessage());
             return null;
         }
     }

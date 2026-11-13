@@ -154,8 +154,7 @@ public final class StatusChannels {
         final GuildChannel channel = jda.getGuildChannelById(channelId);
         if (channel == null) {
             log.error(
-                    "Status channel {} for '{}' does not exist or the bot cannot see it;"
-                            + " it would have been named \"{}\"",
+                    "status channel not found: channel={} language={} channel_name=\"{}\"",
                     channelId,
                     language.tag(),
                     name);
@@ -167,16 +166,18 @@ public final class StatusChannels {
         attempts.put(channelId, sent);
         channel.getManager()
                 .setName(name)
-                .queue(success -> log.debug("Status channel for '{}' is now \"{}\"", language.tag(), name), failure -> {
-                    // Forget the name and keep the time, so the rename is retried.
-                    attempts.replace(channelId, sent, new Rename(null, sent.at()));
-                    log.warn(
-                            "Could not rename the status channel for '{}' to \"{}\"; it will be"
-                                    + " retried once the cooldown is up",
-                            language.tag(),
-                            name,
-                            failure);
-                });
+                .queue(
+                        success -> log.debug(
+                                "status channel renamed: language={} channel_name=\"{}\"", language.tag(), name),
+                        failure -> {
+                            // Forget the name and keep the time, so the rename is retried.
+                            attempts.replace(channelId, sent, new Rename(null, sent.at()));
+                            log.warn(
+                                    "status channel not renamed: language={} channel_name=\"{}\"",
+                                    language.tag(),
+                                    name,
+                                    failure);
+                        });
     }
 
     /** The scheduler a tick at the launch waits on, and the lane it runs on. */

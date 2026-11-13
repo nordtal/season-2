@@ -175,7 +175,7 @@ final class Choreography {
                 return Left.EMPTY;
             }
             if (!now.isBefore(deadline)) {
-                log.warn("Stopping with players still on {} and no count from {}", occupied, unknown);
+                log.warn("wait for empty servers ended with players on: occupied={} uncounted={}", occupied, unknown);
                 return new Left(occupied.isEmpty() ? RunStep.Reason.PLAYERS_UNKNOWN : RunStep.Reason.PLAYERS_STAYED);
             }
             if (!clock.sleep(EMPTY_POLL)) {
@@ -217,7 +217,7 @@ final class Choreography {
             } else if (waited.interrupted()) {
                 down.warned(RunStep.Reason.INTERRUPTED);
             } else {
-                log.warn("Stopped the standby {} with {} players still on it", standby, waited.players());
+                log.warn("standby stopped with players on: service={} count={}", standby, waited.players());
                 down.warned(RunStep.Reason.PLAYERS_STAYED);
             }
         }

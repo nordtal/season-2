@@ -73,18 +73,14 @@ public final class Payments {
         try {
             work.run();
         } catch (final RuntimeException failure) {
-            log.error(
-                    "The payment pass failed while {}; the rest of the pass continues and the"
-                            + " next one starts from the table again",
-                    what,
-                    failure);
+            log.error("payment pass step failed: step=\"{}\"", what, failure);
         }
     }
 
     private void expireOverdue() {
         for (final PaymentRequest request : requests.dueForExpiry()) {
             if (requests.closeAndRequestCancel(request.id(), PaymentRequestStatus.EXPIRED, Actor.STEWARD)) {
-                log.info("Request {} expired unpaid", request.reference());
+                log.info("payment request expired unpaid: reference={}", request.reference());
             }
         }
     }
@@ -109,20 +105,26 @@ public final class Payments {
         } catch (final Bank.TabRefused refused) {
             // The payer sees a text for the refusal code. The words of bunq stay in this log.
             log.warn(
-                    "bunq refused a tab for {} ({}): {}", request.reference(), refused.refusal(), refused.getMessage());
+                    "bunq tab refused: reference={} refusal={} cause={}",
+                    request.reference(),
+                    refused.refusal(),
+                    refused.getMessage());
             // The refusal code is the request's own, so the row keeps nothing.
             requests.failTab(request.id(), refused.refusal());
             return Outcome.failed(null);
         }
 
         if (requests.attachTab(request.id(), tab.id(), tab.shareUrl())) {
-            log.info("Created bunq.me tab {} for {}", tab.id(), request.reference());
+            log.info("bunq tab created: tab={} reference={}", tab.id(), request.reference());
             return Outcome.done(new BankRequest.OpenTab.Answer(tab.id()));
         }
 
         // The request closed after it was read, so the new tab is cancelled.
-        log.warn("Request {} closed while its tab was being created; cancelling tab {}", request.reference(), tab.id());
         bunq.cancelTab(tab.id());
+        log.warn(
+                "payment request closed during tab creation, tab cancelled: reference={} tab={}",
+                request.reference(),
+                tab.id());
         return Outcome.done(new BankRequest.OpenTab.Answer(tab.id()));
     }
 
@@ -135,11 +137,7 @@ public final class Payments {
 
         // cancelTab returns false for an already cancelled tab, so the cancel is recorded anyway.
         if (requests.recordCancelled(request.id())) {
-            log.info(
-                    "Cancelled bunq.me tab {} for {}{}",
-                    tabId,
-                    request.reference(),
-                    accepted ? "" : " (bunq had already closed it)");
+            log.info("bunq tab cancelled: tab={} reference={} accepted={}", tabId, request.reference(), accepted);
         }
         return Outcome.done(new BankRequest.CancelTab.Answer(tabId));
     }
@@ -167,7 +165,7 @@ public final class Payments {
             final Matcher matcher = PaymentRequests.REFERENCE_PATTERN.matcher(
                     payment.description().toUpperCase(Locale.ROOT));
             if (!matcher.find()) {
-                log.debug("Payment {} carries no NT- reference; ignoring it", paymentId);
+                log.debug("payment without reference ignored: payment={}", paymentId);
                 continue;
             }
 
@@ -202,9 +200,7 @@ public final class Payments {
                     Actor.STEWARD);
         } catch (final UnableToExecuteStatementException clash) {
             log.error(
-                    "Payment {} is already claimed by another request, so {} was not given it."
-                            + " That should be impossible - it means two requests were matched to one"
-                            + " payment.",
+                    "payment already claimed, not booked: payment={} reference={}",
                     paymentId,
                     request.reference(),
                     clash);
@@ -214,7 +210,7 @@ public final class Payments {
         switch (booking) {
             case Bookings.Booking.Booked booked ->
                 log.info(
-                        "Payment {} ({} cents) booked to {} by {}: {} days",
+                        "payment booked: payment={} cents={} reference={} match={} days={}",
                         paymentId,
                         cents,
                         request.reference(),
@@ -236,7 +232,7 @@ public final class Payments {
     /** Raises an alert once per bank payment. */
     private void needsALook(final PaymentFlagged flagged) {
         if (alerts.raiseOnce(new Alert(JournalAction.PAYMENT_NEEDS_LOOK, Alert.Level.DOWN, flagged), Actor.STEWARD)) {
-            log.warn("Payment {} needs a look: {}", flagged.bankPayment(), flagged.problem());
+            log.warn("payment needs a look: payment={} problem=\"{}\"", flagged.bankPayment(), flagged.problem());
         }
     }
 

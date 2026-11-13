@@ -397,7 +397,7 @@ public final class PluginsApi {
                 by));
 
         log.info(
-                "{} {} added {} ({}) to {} - it installs with the next run as {}",
+                "plugin added: actor={} actor_id={} artifact={} project={} service={} file={}",
                 by.kind(),
                 Objects.requireNonNullElse(by.id(), ""),
                 addition.slug(),
@@ -507,10 +507,10 @@ public final class PluginsApi {
 
         plugins.remove(service.name(), artifact);
         log.info(
-                "{} was removed from {} - deleted: {}",
+                "plugin removed: artifact={} service={} deleted=\"{}\"",
                 artifact,
                 service.name(),
-                deleted.isEmpty() ? "nothing, it had not been installed yet" : String.join(", ", deleted));
+                String.join(", ", deleted));
         return List.copyOf(deleted);
     }
 
@@ -543,7 +543,7 @@ public final class PluginsApi {
             return Installation.scan(service, volumesRoot.resolve(service));
         } catch (final IOException failed) {
             // The same reading Resolver takes: an unlistable directory is a mount problem, not an empty server.
-            log.warn("Could not read {}'s volume: {}", service, failed.getMessage());
+            log.warn("volume unreadable: service={} cause={}", service, failed.getMessage());
             return Installation.absent(service, volumesRoot.resolve(service));
         }
     }

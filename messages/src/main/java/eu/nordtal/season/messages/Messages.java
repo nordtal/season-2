@@ -328,11 +328,7 @@ public final class Messages {
             if (any) {
                 composed.put(language, Map.copyOf(merged));
             } else if (!language.equals(Locales.tag(Locales.DEFAULT))) {
-                LOGGER.warn(
-                        "No message bundle {}.properties in any of {} - {} falls back to English",
-                        language,
-                        bundles,
-                        language);
+                LOGGER.warn("message bundle missing, english used: language={} bundles=\"{}\"", language, bundles);
             }
         }
         return Map.copyOf(composed);
@@ -351,12 +347,7 @@ public final class Messages {
         if (!row.staleOver(packaged)) {
             return true;
         }
-        LOGGER.warn(
-                "The override of {}/{} in {} was written over a packaged text this release changed, so the packaged"
-                        + " text shows until an admin takes the override over again",
-                bundle,
-                key,
-                language);
+        LOGGER.warn("override stale, packaged text used: bundle={} key={} language={}", bundle, key, language);
         return false;
     }
 
@@ -369,7 +360,7 @@ public final class Messages {
             final List<String> errors = MessageCheck.errors(text, declaration, MessageCheck.Mode.OVERRIDE);
             if (!errors.isEmpty()) {
                 LOGGER.warn(
-                        "The override of {}/{} in {} is refused, so the packaged text shows: {}",
+                        "override refused, packaged text used: bundle={} key={} language={} cause={}",
                         bundle,
                         key,
                         language,
@@ -388,7 +379,11 @@ public final class Messages {
                 parsed.add(MessageText.parse(text, markup));
             } catch (final MessageSyntaxException e) {
                 // Only a jar built around the check gets here.
-                LOGGER.warn("The text of {}/{} cannot be read and shows as written: {}", bundle, key, e.getMessage());
+                LOGGER.warn(
+                        "message text unreadable, shown as written: bundle={} key={} cause={}",
+                        bundle,
+                        key,
+                        e.getMessage());
                 parsed.add(MessageText.verbatim(text, markup));
             }
         }
@@ -472,7 +467,7 @@ public final class Messages {
         }
         if (variants == null) {
             if (reported.add(key)) {
-                LOGGER.warn("Missing message key '{}' in bundle(s) {} - falling back to the key itself", key, bundles);
+                LOGGER.warn("message key missing, key shown: key={} bundles=\"{}\"", key, bundles);
             }
             return MessageText.verbatim(key, false);
         }
@@ -596,7 +591,7 @@ public final class Messages {
 
     private void reportMissingValue(final String key, final String name) {
         if (reported.add(key + "{" + name + "}")) {
-            LOGGER.warn("{} was rendered without a value for {{}}, so its replacement word shows", key, name);
+            LOGGER.warn("message value missing, replacement word shown: key={} placeholder={}", key, name);
         }
     }
 

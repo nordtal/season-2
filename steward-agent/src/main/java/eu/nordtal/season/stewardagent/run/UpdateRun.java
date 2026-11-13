@@ -300,7 +300,7 @@ final class UpdateRun {
         if (!last.isEmpty() && last.getLast().contains(REFUSED)) {
             final String line = last.getLast();
             log.warn(
-                    "{} refused to start: {}",
+                    "service refused to start: service={} cause={}",
                     state.service(),
                     line.substring(line.indexOf(REFUSED) + REFUSED.length()));
             return RunStep.Reason.REFUSED;
@@ -312,10 +312,10 @@ final class UpdateRun {
         final List<String> lines = containers.lastLines(id, RESTART_LINES);
         final String why = lines.reversed().stream()
                 .filter(line ->
-                        line.contains("FATAL") || line.contains("is not starting") || line.contains("server exited"))
+                        line.contains("FATAL") || line.contains("not starting") || line.contains("server exited"))
                 .findFirst()
                 .orElse(lines.isEmpty() ? "its log could not be read" : lines.getLast());
-        log.warn("{} restarted while it started: {}", state.service(), why.strip());
+        log.warn("service restarted while starting: service={} cause={}", state.service(), why.strip());
         return RunStep.Reason.NOT_HEALTHY;
     }
 

@@ -62,7 +62,7 @@ public final class LoginGate {
             state = access.accessState(uuid);
         } catch (final RuntimeException exception) {
             logger.error(
-                    "Could not reach the access database for {} ({}); falling back to the " + "last-known-state cache",
+                    "access database unreachable, cache used: uuid={} player={}",
                     uuid,
                     player.getUsername(),
                     exception);
@@ -84,7 +84,11 @@ public final class LoginGate {
         switch (outcome) {
             case ALLOW -> {}
             case FULL -> {
-                logger.info("Refused {} - the network is full ({} of {})", state.minecraftAccount(), online, maximum);
+                logger.info(
+                        "login refused, network full: uuid={} online={} max_players={}",
+                        state.minecraftAccount(),
+                        online,
+                        maximum);
                 event.setResult(ComponentResult.denied(messages.full(state.locale(), online, maximum)));
             }
             case NOT_LINKED ->
@@ -107,7 +111,7 @@ public final class LoginGate {
         try {
             access.setMinecraftName(uuid, username);
         } catch (final RuntimeException exception) {
-            logger.warn("Could not cache the Minecraft name for {} ({})", uuid, username, exception);
+            logger.warn("minecraft name not cached: uuid={} player={}", uuid, username, exception);
         }
     }
 
@@ -122,7 +126,7 @@ public final class LoginGate {
             final LinkCode code = access.issueLinkCode(uuid, Duration.ofMinutes(config.linkCodeTtlMinutes()));
             event.setResult(ComponentResult.denied(messages.notLinked(code.code(), launch, now)));
         } catch (final RuntimeException exception) {
-            logger.error("Could not issue a link code for {} ({})", uuid, player.getUsername(), exception);
+            logger.error("link code not issued: uuid={} player={}", uuid, player.getUsername(), exception);
             event.setResult(ComponentResult.denied(messages.trouble(Locale.ENGLISH)));
         }
     }

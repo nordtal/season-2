@@ -53,7 +53,8 @@ public final class LimboChannel implements PluginMessageListener {
         final Optional<LimboProtocol.Message> decoded = LimboProtocol.decode(message);
         if (decoded.isEmpty()) {
             plugin.getLogger()
-                    .warning("Dropped an unreadable " + LimboProtocol.CHANNEL + " message for " + player.getName());
+                    .warning("unreadable plugin message dropped: plugin_channel=" + LimboProtocol.CHANNEL + " player="
+                            + player.getName());
             return;
         }
         if (decoded.get().type() != LimboProtocol.Type.READY) {
@@ -62,6 +63,8 @@ public final class LimboChannel implements PluginMessageListener {
             return;
         }
 
-        plugin.getLogger().warning("Ignored a READY on " + LimboProtocol.CHANNEL + ", which only this server sends");
+        plugin.getLogger()
+                .warning("unexpected plugin message ignored: type=READY plugin_channel=" + LimboProtocol.CHANNEL
+                        + " player=" + player.getName());
     }
 }

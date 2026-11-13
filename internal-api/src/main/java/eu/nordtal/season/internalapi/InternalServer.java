@@ -58,7 +58,7 @@ public final class InternalServer {
     public Javalin start(final int defaultPort, final Consumer<JavalinConfig> routes) {
         final int port = Integer.parseInt(setting("PORT", String.valueOf(defaultPort)));
         final Javalin server = create(setting("TOKEN", ""), routes).start(port);
-        log.info("{} listening on {}", service, port);
+        log.info("internal server listening: service={} port={}", service, port);
         return server;
     }
 

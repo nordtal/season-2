@@ -121,7 +121,7 @@ public final class LootRefill {
             final Block block = location.getBlock();
             if (!(block.getState() instanceof Chest chest)) {
                 LOGGER.warn(
-                        "Loot point '{}' at {} is not a chest (found {}) - skipping refill",
+                        "loot point not a chest, refill skipped: point=\"{}\" location=\"{}\" block={}",
                         point.label(),
                         location,
                         block.getType());
@@ -133,11 +133,7 @@ public final class LootRefill {
             for (final String materialName : tier.items()) {
                 final Material material = GameKeys.material(materialName).orElse(null);
                 if (material == null) {
-                    LOGGER.warn(
-                            "Refill tier at {} minutes has unknown material '{}' - already "
-                                    + "validated at load, this should be unreachable",
-                            tier.delayMinutes(),
-                            materialName);
+                    LOGGER.warn("refill material unknown: minutes={} material={}", tier.delayMinutes(), materialName);
                     continue;
                 }
                 inventory.addItem(new ItemStack(material));

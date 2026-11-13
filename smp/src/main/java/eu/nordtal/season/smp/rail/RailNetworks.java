@@ -116,10 +116,10 @@ public final class RailNetworks {
         restored = true;
         worlds.forEach((world, networks) -> reconcileHolograms(world));
         plugin.getLogger()
-                .info("restored "
+                .info("station rails restored: count="
                         + worlds.values().stream()
                                 .mapToInt(w -> w.stations().size())
-                                .sum() + " station rail(s)");
+                                .sum());
     }
 
     /** Hands {@code networks} to {@code world} as if the store held them, and reads them again on the next ticks. */

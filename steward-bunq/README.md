@@ -7,7 +7,7 @@ pays, whether it is late and what access it buys.
 It reads `NORDTAL_STEWARD_BUNQ_API_KEY` and `NORDTAL_STEWARD_BUNQ_ACCOUNT_ID` from its own
 `secrets.env`, which steward-agent never mounts (see
 [`deploy/README.md`](../deploy/README.md#first-deployment)). Without them it starts, answers
-`configured: false` on `/api/account` and `503` on every other bank route, and logs `bunq is OFF`.
+`configured: false` on `/api/account` and `503` on every other bank route, and logs `bunq off`.
 
 Only `GET /api/health` needs no token. A bank error is a `502` with bunq's own words as the body.
 

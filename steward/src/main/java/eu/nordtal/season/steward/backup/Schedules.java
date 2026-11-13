@@ -42,7 +42,7 @@ public final class Schedules implements AutoCloseable {
                 config.backup().days(),
                 wall));
         if (backup == null) {
-            log.info("backup.at is empty, so there is no nightly backup. Nothing else is affected.");
+            log.info("backup schedule empty: key=backup.at");
         }
         update = start(NightlyClock.from(
                 directory,
@@ -51,8 +51,7 @@ public final class Schedules implements AutoCloseable {
                 config.update().days(),
                 wall));
         if (update == null) {
-            log.info("update.at is empty, so nothing updates on a schedule. An admin can still"
-                    + " ask for an update at any time.");
+            log.info("update schedule empty: key=update.at");
         }
     }
 

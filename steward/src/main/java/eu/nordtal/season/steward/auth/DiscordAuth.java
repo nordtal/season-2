@@ -128,7 +128,7 @@ public final class DiscordAuth {
                 ? member.get("nick").getAsString()
                 : user.get("username").getAsString();
 
-        log.info("Discord confirmed {} ({})", name, id);
+        log.info("discord sign-in confirmed: actor={} member={}", name, id);
         return Outcome.signedIn(new Account(id, name));
     }
 
@@ -153,7 +153,7 @@ public final class DiscordAuth {
     private JsonObject getJson(final String path, final String accessToken) {
         final Reply response = send(() -> web.bearer(accessToken).get(URI.create(api + path)));
         if (response.status() != 200) {
-            log.warn("Discord answered {} for {}", response.status(), path);
+            log.warn("discord api refused: status={} path={}", response.status(), path);
             throw new AuthException(response.status(), REFUSED.discordAnswered(response.status()));
         }
         return Json.decode(response.body(), JsonObject.class);

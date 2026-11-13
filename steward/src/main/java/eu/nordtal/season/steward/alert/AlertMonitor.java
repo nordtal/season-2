@@ -86,7 +86,7 @@ public final class AlertMonitor {
         } catch (final RuntimeException unreadable) {
             final Snapshot before = snapshot;
             snapshot = new Snapshot(before.checkedAt(), String.valueOf(unreadable.getMessage()), before.alerts());
-            log.warn("Could not read the stack for the alerts this round: {}", unreadable.getMessage());
+            log.warn("stack unreadable for alerts: cause={}", unreadable.getMessage());
             return;
         }
         snapshot = new Snapshot(clock.instant(), null, now);
@@ -110,7 +110,7 @@ public final class AlertMonitor {
         try {
             return book.open();
         } catch (final RuntimeException failure) {
-            log.warn("Could not read the open alerts from the journal, so the baseline waits a round", failure);
+            log.warn("open alerts unreadable, baseline deferred", failure);
             return null;
         }
     }
@@ -121,7 +121,7 @@ public final class AlertMonitor {
         try {
             finished = runs.finishedWithin(RUN_WINDOW);
         } catch (final RuntimeException failure) {
-            log.warn("Could not read the finished runs for the alerts", failure);
+            log.warn("finished runs unreadable for alerts", failure);
             return;
         }
         for (final UpdateRequest run : finished) {
@@ -131,10 +131,10 @@ public final class AlertMonitor {
             final Alert alert = runFailed(run);
             try {
                 if (book.raiseOnce(alert, Actor.STEWARD)) {
-                    log.info("Run {} failed, so it was raised as an alert.", run.id());
+                    log.info("failed run raised as alert: run={}", run.id());
                 }
             } catch (final RuntimeException failure) {
-                log.warn("Could not raise the failed run {}", run.id(), failure);
+                log.warn("failed run not raised as alert: run={}", run.id(), failure);
             }
         }
     }
@@ -150,9 +150,13 @@ public final class AlertMonitor {
     private void raise(final Alert alert) {
         try {
             book.raise(alert, Actor.STEWARD);
-            log.info("{} is now {}: {}", alert.type().key(), alert.level().key(), alert.subject());
+            log.info(
+                    "alert level changed: type={} level={} subject=\"{}\"",
+                    alert.type().key(),
+                    alert.level().key(),
+                    alert.subject());
         } catch (final RuntimeException failure) {
-            log.warn("Could not raise the alert of {} on {}", alert.type().key(), alert.subject(), failure);
+            log.warn("alert not raised: type={} subject=\"{}\"", alert.type().key(), alert.subject(), failure);
         }
     }
 

@@ -176,7 +176,7 @@ public final class Runner implements RequestRunner {
             // Read before anything is planned, so a run that cannot stop a server never moves a jar.
             final RuntimeResult runtime = steps.check();
             if (!runtime.reached()) {
-                log.warn("Request {}: the runtime is unreachable: {}", request.id(), unreachableMessage(runtime));
+                log.warn("runtime unreachable: request={} cause={}", request.id(), unreachableMessage(runtime));
                 record.ended(RunStep.Kind.RUNTIME, null, RunStep.Outcome.FAILED, RunStep.Reason.UNREACHABLE);
                 return Outcome.failed();
             }
@@ -190,7 +190,7 @@ public final class Runner implements RequestRunner {
             }
             return new Run(this, steps, runtime, progress).carryOut(request, Objects.requireNonNull(planned.plan()));
         } catch (final RuntimeException failure) {
-            log.error("Request {} ({}) failed", request.id(), request.kind(), failure);
+            log.error("request failed: request={} kind={}", request.id(), request.kind(), failure);
             record.endOpen(RunStep.Outcome.FAILED, RunStep.Reason.UNEXPECTED);
             return Outcome.failed();
         }
@@ -227,7 +227,7 @@ public final class Runner implements RequestRunner {
         final Optional<UpdateRequest> counting = directory.startCountdown(id, length, moving);
         if (counting.isEmpty()) {
             // A run that is no longer RUNNING after the claim was cancelled.
-            log.info("Request {} is no longer running, so no countdown was started", id);
+            log.info("request no longer running, countdown not started: request={}", id);
             countdown.skipped(RunStep.Reason.CANCELLED);
             return null;
         }
@@ -237,7 +237,7 @@ public final class Runner implements RequestRunner {
         while (waiting.now().isBefore(due)) {
             final Duration left = Duration.between(waiting.now(), due);
             if (!waiting.sleep(left.compareTo(COUNTDOWN_TICK) < 0 ? left : COUNTDOWN_TICK)) {
-                log.warn("The countdown for request {} was interrupted; nothing was stopped", id);
+                log.warn("countdown interrupted, nothing stopped: request={}", id);
                 countdown.skipped(RunStep.Reason.INTERRUPTED);
                 return null;
             }
@@ -247,7 +247,7 @@ public final class Runner implements RequestRunner {
                     .map(row -> row.status() == UpdateStatus.RUNNING)
                     .orElse(false);
             if (!stillRunning) {
-                log.info("Request {} was cancelled during its countdown; nothing was stopped", id);
+                log.info("request cancelled during countdown, nothing stopped: request={}", id);
                 countdown.skipped(RunStep.Reason.CANCELLED);
                 return null;
             }
@@ -257,7 +257,7 @@ public final class Runner implements RequestRunner {
         final Steps.Step players = record.begin(RunStep.Kind.PLAYERS_MOVED);
         // A cancel at zero either takes the row or is refused by SKIP LOCKED.
         if (!directory.commitCountdown(id)) {
-            log.info("Request {} was cancelled as its countdown ran out; nothing was stopped", id);
+            log.info("request cancelled at countdown end, nothing stopped: request={}", id);
             players.skipped(RunStep.Reason.CANCELLED);
             return null;
         }

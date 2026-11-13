@@ -68,7 +68,7 @@ public final class GuildState extends ListenerAdapter {
         access.clearGuildProfile(DiscordId.of(event.getUser().getId()));
         if (access.unlink(DiscordId.of(event.getUser().getId()))) {
             log.info(
-                    "{} left the guild; their Minecraft account link was removed",
+                    "member left guild, account link removed: member={}",
                     event.getUser().getId());
         }
     }
@@ -99,7 +99,7 @@ public final class GuildState extends ListenerAdapter {
     public void reconcile() {
         final Guild guild = jda.getGuildById(config.guildId());
         if (guild == null) {
-            log.error("Guild {} is not available; guild state was not reconciled", config.guildId());
+            log.error("guild not available, guild state not reconciled: guild={}", config.guildId());
             return;
         }
 
@@ -114,20 +114,18 @@ public final class GuildState extends ListenerAdapter {
         final Removal removal = dropStaleAccounts(sweep.seen(), mayUnlink);
 
         log.info(
-                "Reconciled guild state: {} member(s), {} known account(s) no longer present," + " {} link(s) removed",
+                "guild state reconciled: members={} left={} unlinked={}",
                 sweep.seen().size(),
                 removal.left(),
                 removal.unlinked());
         if (!mayUnlink && removal.left() > 0) {
             log.warn(
-                    "Account links and admin grants were left in place for those {} account(s): the member cache"
-                            + " holds {} of {} member(s) and the ban list {} read. Deleting on an"
-                            + " incomplete picture would unlink the whole guild; the next reconcile that"
-                            + " sees everything will do it.",
+                    "member list incomplete, links and admin grants of left accounts kept:"
+                            + " left={} cached={} expected={} ban_list_read={}",
                     removal.left(),
                     sweep.cached(),
                     expected,
-                    banListRead ? "was" : "was not");
+                    banListRead);
         }
     }
 
@@ -159,7 +157,7 @@ public final class GuildState extends ListenerAdapter {
             });
             return true;
         } catch (final RuntimeException exception) {
-            log.error("Could not read the ban list; banned users may still be marked as members", exception);
+            log.error("ban list unreadable", exception);
             return false;
         }
     }
@@ -204,10 +202,7 @@ public final class GuildState extends ListenerAdapter {
         final java.util.Set<String> dropped = admins.dropWithBranch(discordId);
         if (!dropped.isEmpty()) {
             log.info(
-                    "{} is no longer in the guild; {} admin(s) dropped with them: {}",
-                    discordId,
-                    dropped.size(),
-                    dropped);
+                    "admins dropped with member: member={} count={} admins=\"{}\"", discordId, dropped.size(), dropped);
         }
     }
 

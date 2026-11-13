@@ -28,14 +28,14 @@ public class NameTagScheduler {
             }
         });
 
-        this.plugin.getLogger().info("Started the Name Tag Scheduler.");
+        this.plugin.getLogger().info("name tag scheduler started");
     }
 
     public void end() {
         if (this.task != null) {
             this.task.cancel();
             this.task = null;
-            this.plugin.getLogger().info("Stopped the Name Tag Scheduler.");
+            this.plugin.getLogger().info("name tag scheduler stopped");
         }
     }
 }

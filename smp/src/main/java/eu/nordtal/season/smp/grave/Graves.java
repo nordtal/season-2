@@ -131,7 +131,7 @@ public final class Graves {
             }
             draw(row, new Location(world, row.x() + 0.5, row.y(), row.z() + 0.5));
         }
-        plugin.getLogger().info("restored " + open.size() + " grave(s)");
+        plugin.getLogger().info("graves restored: count=" + open.size());
     }
 
     /**
@@ -365,8 +365,7 @@ public final class Graves {
                             new Location(world, grave.x() + 0.5, grave.y() + 0.5, grave.z() + 0.5), Feedback.RECLAIMED);
                 }
             }
-            plugin.getLogger()
-                    .info("expired " + gone.size() + " grave(s) older than " + hours + "h, contents included");
+            plugin.getLogger().info("graves expired with contents: count=" + gone.size() + " hours=" + hours);
         });
     }
 

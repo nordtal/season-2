@@ -101,7 +101,7 @@ public final class Purchases {
      */
     public void close(final PaymentRequest request, final PaymentRequestStatus status) {
         if (requests.closeAndRequestCancel(request.id(), status, Actor.person(request.discordId()))) {
-            log.info("Request {} is now {}", request.reference(), status);
+            log.info("payment request closed: reference={} status={}", request.reference(), status);
         }
     }
 }

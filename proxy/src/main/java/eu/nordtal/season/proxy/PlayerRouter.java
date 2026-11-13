@@ -113,8 +113,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
                 proxy.getServer(server).ifPresent(event::setInitialServer);
                 if (!routing.servers().isWaitingRoom(server)) {
                     logger.warn(
-                            "No '{}' server is registered, so admin {} is connected straight to "
-                                    + "'{}' in {} - WITHOUT the resource pack",
+                            "waiting room missing, admin connected without resource pack: waiting_room={} player={} server={} season=\"{}\"",
                             routing.servers().limbo(),
                             player.getUsername(),
                             server,
@@ -122,15 +121,11 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
                 }
             }
             case STAY ->
-                logger.warn(
-                        "Routing answered STAY for {} at login in {}, which leaves the choice to velocity.toml",
-                        player.getUsername(),
-                        season);
+                logger.warn("login route left to velocity: player={} season=\"{}\"", player.getUsername(), season);
             default -> {
                 event.setInitialServer(null);
                 logger.error(
-                        "No '{}' server is registered on this proxy, so {} cannot be put in the "
-                                + "waiting room in {} and is being disconnected instead",
+                        "waiting room missing, player disconnected: waiting_room={} player={} season=\"{}\"",
                         routing.servers().limbo(),
                         player.getUsername(),
                         season);
@@ -156,7 +151,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             decision = routing.decideRelease(state, available, now);
         } catch (final RuntimeException exception) {
             logger.warn(
-                    "Could not re-check {} ({}) on leaving the waiting room; routing by the last known season",
+                    "access not re-checked on release, last season used: uuid={} player={}",
                     uuid,
                     player.getUsername(),
                     exception);
@@ -174,17 +169,14 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
                 connect(player, destination, locale, cause -> packs.releaseFailed(player, cause));
             }
             case STAY -> {
-                logger.info("{} leaves the waiting room into maintenance, so they wait again", player.getUsername());
+                logger.info("player held again for maintenance: player={}", player.getUsername());
                 packs.holdAgain(player);
                 scheduler.execute(() -> {
                     final boolean _ = seasons.refresh();
                 });
             }
             default -> {
-                logger.info(
-                        "{} leaves the waiting room and the gate refuses them: {}",
-                        player.getUsername(),
-                        decision.action());
+                logger.info("player refused on release: player={} action={}", player.getUsername(), decision.action());
                 player.disconnect(reasonFor(decision, locale, state, now));
             }
         }
@@ -201,7 +193,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             return;
         }
         logger.info(
-                "Season changed {} -> {}: re-routing {} connected players",
+                "season changed, re-route scheduled: from=\"{}\" to=\"{}\" count={}",
                 previous,
                 current,
                 proxy.getAllPlayers().size());
@@ -224,7 +216,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             }
         }
         logger.info(
-                "Re-route for {} finished: {} of {} players moved or disconnected",
+                "re-route finished: season=\"{}\" acted={} count={}",
                 season,
                 acted,
                 proxy.getAllPlayers().size());
@@ -239,7 +231,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             state = access.accessState(uuid);
         } catch (final RuntimeException exception) {
             logger.warn(
-                    "Could not re-check {} ({}) while re-routing for a season change; leaving them where they are",
+                    "access not re-checked on season change, player left in place: uuid={} player={}",
                     uuid,
                     player.getUsername(),
                     exception);
@@ -273,7 +265,10 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
                                 available),
                         state.locale());
             default -> {
-                logger.info("Disconnecting {} on the season change: {}", player.getUsername(), decision.action());
+                logger.info(
+                        "player disconnected on season change: player={} action={}",
+                        player.getUsername(),
+                        decision.action());
                 player.disconnect(reasonFor(decision, state.locale(), state, now));
                 yield true;
             }
@@ -299,7 +294,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
     /** Connects the player unless the player is on the server. */
     private boolean connect(final Player player, final String server, final Locale locale) {
         return connect(player, server, locale, cause -> {
-            logger.error("Re-routing {} to '{}' failed: {}", player.getUsername(), server, cause);
+            logger.error("re-route failed: player={} server={} cause={}", player.getUsername(), server, cause);
             player.disconnect(messages.noServer(locale));
         });
     }
@@ -322,7 +317,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
 
         final RegisteredServer target = proxy.getServer(server).orElse(null);
         if (target == null) {
-            logger.error("'{}' disappeared from this proxy while re-routing {}", server, player.getUsername());
+            logger.error("server gone during re-route: server={} player={}", server, player.getUsername());
             player.disconnect(messages.noServer(locale));
             return true;
         }

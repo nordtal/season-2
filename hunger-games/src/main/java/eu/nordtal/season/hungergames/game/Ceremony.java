@@ -84,9 +84,7 @@ public final class Ceremony {
             announce(player, decision);
         }
         LOGGER.info(
-                "hunger-games game {} decided - winner member id: {}",
-                gameId,
-                decision.outcome().winnerMemberId());
+                "game decided: game={} member={}", gameId, decision.outcome().winnerMemberId());
     }
 
     /** Sends the lines to the player. The winner gets {@code BIG_SUCCESS}, every other player {@code NETWORK_EVENT}. */

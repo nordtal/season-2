@@ -32,22 +32,19 @@ public final class Watermark {
 
         // Written even with an override, so removing it falls back to the first start.
         if (dao.writeIfAbsent(now.atOffset(ZoneOffset.UTC)) == 1) {
-            log.info(
-                    "No payment watermark was stored; this start is the cut-off: {}. "
-                            + "Payments created before it are ignored forever.",
-                    now);
+            log.info("payment watermark stored: watermark={}", now);
         }
 
         if (configured != null && !configured.isBlank()) {
             final Instant override = Instant.parse(configured.trim());
-            log.info("Using the payment watermark from the access group: {}", override);
+            log.info("payment watermark override used: watermark={}", override);
             return override;
         }
 
         final Instant watermark = stored(jdbi)
                 .orElseThrow(() -> new IllegalStateException("The payment watermark could not be read back after"
                         + " being written. Refusing to poll bunq without a cut-off."));
-        log.info("Payment watermark: {}", watermark);
+        log.info("payment watermark read: watermark={}", watermark);
         return watermark;
     }
 

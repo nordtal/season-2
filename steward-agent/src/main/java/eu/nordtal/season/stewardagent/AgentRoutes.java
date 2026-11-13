@@ -101,11 +101,11 @@ final class AgentRoutes {
     /** Maps a daemon failure and a compose failure to 502 and a refused request to 400. */
     static void refusals(final JavalinConfig config) {
         config.routes.exception(DockerException.class, (failure, ctx) -> {
-            log.warn("the Docker daemon did not answer: {}", failure.getMessage());
+            log.warn("docker daemon not answering: cause={}", failure.getMessage());
             ctx.status(502).json(new AgentWire.Refusal(String.valueOf(failure.getMessage()), "docker"));
         });
         config.routes.exception(UncheckedIOException.class, (failure, ctx) -> {
-            log.warn("compose could not be asked: {}", failure.getMessage());
+            log.warn("compose not answering: cause={}", failure.getMessage());
             ctx.status(502).json(new AgentWire.Refusal(String.valueOf(failure.getMessage()), "compose"));
         });
         config.routes.exception(

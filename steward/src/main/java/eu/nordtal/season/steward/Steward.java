@@ -70,8 +70,7 @@ public final class Steward {
             // An unknown subcommand must not serve.
             default -> {
                 log.error(
-                        "`{}` is not one of steward's commands: serve, {} and {}. A run is asked for in the"
-                                + " interface or with `steward-agent request`.",
+                        "`{}` is not a steward command. Use serve, {} or {}.",
                         command(args),
                         FORGET,
                         Web.GENERATE_VAPID_KEYS);
@@ -93,7 +92,7 @@ public final class Steward {
         // The scheduler closes before the database, so no timed work reads a closed pool.
         try (Database database = opened;
                 ProcessScheduler scheduler =
-                        new ProcessScheduler("steward", failure -> log.error("A task of Steward failed", failure))) {
+                        new ProcessScheduler("steward", failure -> log.error("task failed", failure))) {
             final Configs configs = configsOf(databaseConfig, database);
             if (configs == null) {
                 return 1;
@@ -148,7 +147,7 @@ public final class Steward {
                     NetworkSettings.languages(languageAndTime),
                     tiers);
         } catch (final SettingsException broken) {
-            log.error("Refusing to serve on settings that cannot be read: {}", broken.getMessage());
+            log.error("settings unreadable, steward not started: cause={}", broken.getMessage());
             return null;
         }
     }
@@ -157,9 +156,7 @@ public final class Steward {
         final StewardSpec config = configs.config();
         final AgentClient agent = agentOf(config);
         if (config.agent().token().isBlank()) {
-            log.warn("agent.token is empty in the steward group, so this container cannot ask"
-                    + " steward-agent for anything: no container page, no log and no plugin list."
-                    + " The setup script writes that secret.");
+            log.warn("agent token empty: key=agent.token group=steward");
         }
         try (MetricRecorder recorder =
                 new MetricRecorder(agent::samples, MetricDirectory.using(database.dataSource()), CLOCK)) {
@@ -206,9 +203,7 @@ public final class Steward {
         final WebSpec webConfig = configs.web();
         final StewardSpec config = configs.config();
         if (webConfig.webPush().publicKey().isBlank()) {
-            log.warn("web-push has no VAPID keypair yet, so the alerts cannot reach a phone's"
-                    + " lock screen. Run `steward " + Web.GENERATE_VAPID_KEYS + "` and paste both"
-                    + " lines it prints into the web group's web-push section.");
+            log.warn("vapid keypair missing: group=web");
         }
         final AlertsSpec alerts = configs.alerts().get();
         final Web web = new Web(
@@ -265,7 +260,7 @@ public final class Steward {
             final SeasonState state = data.season().state();
             return state.equals(SeasonState.UNREAD) ? Optional.empty() : Optional.of(state.mode());
         } catch (final RuntimeException unreadable) {
-            log.warn("The game mode cannot be read, so no server reads as resting: {}", unreadable.getMessage());
+            log.warn("game mode unreadable, no server resting: cause={}", unreadable.getMessage());
             return Optional.empty();
         }
     }
@@ -275,12 +270,12 @@ public final class Steward {
         try {
             configs.alerts().reload();
         } catch (final SettingsException broken) {
-            log.warn("The alert thresholds were changed but refused, so the last ones stay: {}", broken.getMessage());
+            log.warn("alert thresholds refused, last ones kept: cause={}", broken.getMessage());
         }
         try {
             configs.handle().reload();
         } catch (final SettingsException broken) {
-            log.warn("The steward settings were changed but refused, so the last ones stay: {}", broken.getMessage());
+            log.warn("steward settings refused, last ones kept: cause={}", broken.getMessage());
             return;
         }
         schedules.arm();
@@ -328,10 +323,7 @@ public final class Steward {
     private static void markReady(final Scheduler scheduler) {
         final Readiness readiness = Readiness.onDefaultPath(CLOCK, log::warn);
         if (!readiness.keepBeating(scheduler)) {
-            log.error(
-                    "Could not write the readiness marker {}. The rest of the stack will not"
-                            + " start, because its healthcheck reads this file.",
-                    readiness.marker());
+            log.error("readiness marker not written: file={}", readiness.marker());
         }
     }
 
@@ -344,7 +336,7 @@ public final class Steward {
         try {
             return StewardSettings.database().get();
         } catch (final SettingsException broken) {
-            log.error("Refusing to touch the database on settings that cannot be read: {}", broken.getMessage());
+            log.error("settings unreadable, database not touched: cause={}", broken.getMessage());
             return null;
         }
     }

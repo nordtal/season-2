@@ -67,7 +67,7 @@ final class JarIdentity {
                     project = Optional.ofNullable(modrinth.projectOfFile(hash));
                     projectOfHash.put(hash, project);
                 } catch (final IOException unreachable) {
-                    log.warn("Could not ask Modrinth about {}: {}", jar.fileName(), unreachable.getMessage());
+                    log.warn("modrinth not answering: file={} cause={}", jar.fileName(), unreachable.getMessage());
                     continue;
                 }
             }
@@ -106,7 +106,7 @@ final class JarIdentity {
                 }
             } catch (final IOException unreachable) {
                 // A cached name that is a day old stays valid. Only a project never fetched is lost.
-                log.warn("Could not read {} Modrinth project(s): {}", stale.size(), unreachable.getMessage());
+                log.warn("modrinth projects not read: count={} cause={}", stale.size(), unreachable.getMessage());
             }
         }
         final Map<String, Modrinth.Project> answer = new LinkedHashMap<>();
@@ -138,7 +138,7 @@ final class JarIdentity {
             in.transferTo(OutputStream.nullOutputStream());
             return HexFormat.of().formatHex(in.getMessageDigest().digest());
         } catch (final IOException | NoSuchAlgorithmException unreadable) {
-            log.warn("Could not hash {}: {}", jar.path(), unreadable.getMessage());
+            log.warn("jar not hashed: path={} cause={}", jar.path(), unreadable.getMessage());
             return null;
         }
     }

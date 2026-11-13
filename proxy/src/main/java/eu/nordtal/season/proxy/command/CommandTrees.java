@@ -112,11 +112,11 @@ public final class CommandTrees {
         try {
             final CommandTree tree = reader.get();
             if (writer.write(tree)) {
-                logger.info("Published the command tree, {} nodes", tree.nodes().size());
+                logger.info("command tree published: count={}", tree.nodes().size());
             }
             problem = null;
         } catch (final RuntimeException failed) {
-            final String said = "The command tree could not be published: " + failed.getMessage();
+            final String said = "command tree not published: cause=" + failed.getMessage();
             if (!said.equals(problem)) {
                 logger.warn(said);
             }

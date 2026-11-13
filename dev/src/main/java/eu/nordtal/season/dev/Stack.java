@@ -45,12 +45,12 @@ final class Stack {
         build(ResetGuard.SERVICES);
         processes.gradle(":imageContexts");
         // The images are built and never pulled, and before the plugins, which the Minecraft image installs.
-        terminal.log("building every image of ours the selected profiles use");
+        terminal.log("images building");
         compose.run("build");
         ResetGuard.SERVICES.forEach(this::install);
         compose.run("up", "-d");
-        terminal.log("up. First start downloads Paper, Velocity and the third-party plugins; give it a few");
-        terminal.log("minutes and watch with: dev logs");
+        terminal.log("stack started");
+        terminal.log("The first start takes a few minutes. Follow it with: dev logs");
     }
 
     void deploy(final List<String> modules) {
@@ -58,14 +58,14 @@ final class Stack {
         for (final String module : chosen) {
             if (!ResetGuard.known(module)) {
                 throw new Processes.Failure(
-                        "unknown module '" + module + "'. One of: " + String.join(" ", ResetGuard.SERVICES));
+                        "Unknown module " + module + ". Name one of: " + String.join(" ", ResetGuard.SERVICES));
             }
         }
         compose.requireEnv();
         build(chosen);
         chosen.forEach(this::install);
         // restart keeps the old environment of the container. `up` applies an edit of the env file.
-        terminal.log("restarting: " + String.join(" ", chosen));
+        terminal.log("services restarting: service=\"" + String.join(" ", chosen) + "\"");
         final List<String> restart = new ArrayList<>(List.of("restart"));
         restart.addAll(chosen);
         compose.run(restart.toArray(String[]::new));
@@ -78,7 +78,8 @@ final class Stack {
         final String name = "nordtal-resource-pack-" + Repository.version(root) + ".zip";
         final Path zip = root.resolve("resource-pack/build/distributions").resolve(name);
         if (!Files.isRegularFile(zip)) {
-            throw new Processes.Failure(zip + " was not built");
+            throw new Processes.Failure(
+                    zip + " is missing after the build. Run sh gradlew :resource-pack:packZip and check its output.");
         }
         final String sha1 = sha1(zip);
         final String url = "http://localhost:" + compose.valueOr("PACK_PORT", "8080") + "/" + name;
@@ -96,9 +97,9 @@ final class Stack {
                         storePack(url, sha1))
                 != 0) {
             throw new Processes.Failure(
-                    "the database refused the pack - has steward started once, so the" + " tables exist?");
+                    "The database refused the pack. Start steward once with dev up, then run dev pack again.");
         }
-        terminal.log("the proxy now sends " + url + " (" + sha1 + ")");
+        terminal.log("proxy pack set: url=" + url + " sha1=" + sha1);
         compose.run("restart", "proxy");
     }
 
@@ -131,16 +132,14 @@ final class Stack {
         final String stewardPort = compose.valueOr("STEWARD_PORT", "8080");
         if (packPort.equals(stewardPort)) {
             throw new Processes.Failure("PACK_PORT and STEWARD_PORT are both " + stewardPort + " in "
-                    + LocalProject.ENV_FILE + ", and the resource pack host and the interface cannot both have it. Set"
-                    + " PACK_PORT=8081 - the pack URL is written by 'dev pack', which reads that value, so nothing"
-                    + " else has to change.");
+                    + LocalProject.ENV_FILE + ". Set PACK_PORT=8081 there and run dev ui again.");
         }
-        terminal.log("bringing up the stack (" + compose.valueOr("COMPOSE_PROFILES", "") + ")");
+        terminal.log("stack starting: profiles=\"" + compose.valueOr("COMPOSE_PROFILES", "") + "\"");
         compose.run("up", "-d");
-        terminal.log("and the two services the interface is");
+        terminal.log("interface services starting: service=\"steward steward-agent\"");
         compose.run("up", "-d", "steward", "steward-agent");
-        terminal.log("the interface is on http://localhost:5173 - the container itself is on 127.0.0.1:" + stewardPort);
-        terminal.log("Stopping this stops Vite and LEAVES THE CONTAINERS RUNNING. The counter-command is: dev stop");
+        terminal.log("interface starting: url=http://localhost:5173 container_url=http://127.0.0.1:" + stewardPort);
+        terminal.log("Stopping this leaves the containers running. Stop them with: dev stop");
         processes.gradle(":steward:viteDev");
     }
 
@@ -151,7 +150,7 @@ final class Stack {
      */
     void console(final String service) {
         final Process logs = processes.start(compose.command("logs", "-f", "--tail", "30", service), false);
-        terminal.log("typing a line sends it to " + service + "'s console; end the input (Ctrl-D) to leave");
+        terminal.log("Each line you type goes to the console of " + service + ". Ctrl-D leaves.");
         try {
             for (Optional<String> line = terminal.readLine(); line.isPresent(); line = terminal.readLine()) {
                 final String command = line.get().strip();
@@ -170,14 +169,13 @@ final class Stack {
 
     void reset(final String service) {
         if (!ResetGuard.known(service)) {
-            throw new Processes.Failure("usage: dev reset <service>, one of: " + String.join(" ", ResetGuard.SERVICES)
-                    + ". A service has to be named: this deletes that server's volume, which on smp is Nordtal - a"
-                    + " hand-built world that is in no repository and in no release.");
+            throw new Processes.Failure("Name the service to reset: dev reset <service>, one of: "
+                    + String.join(" ", ResetGuard.SERVICES) + ".");
         }
         terminal.print("This deletes the " + service + " container AND its volume: world, .server cache, logs.\n"
                 + "plugins/ is a directory on the host and survives.\nType the service name to confirm: ");
         if (!ResetGuard.confirmed(service, terminal.readLine().orElse(""))) {
-            throw new Processes.Failure("not confirmed; nothing was deleted");
+            throw new Processes.Failure("Reset cancelled: the name did not match. Nothing was deleted.");
         }
         // `compose rm -v` removes only anonymous volumes, so the command removes the world volume by name.
         final List<String> volumes =
@@ -195,18 +193,17 @@ final class Stack {
                     "label=com.docker.compose.volume=mc-" + service))));
         }
         if (volumes.isEmpty()) {
-            terminal.log("no mc-" + service + " volume was there; the container is gone");
+            terminal.log("container removed, no volume found: service=" + service + " volume=mc-" + service);
         } else if (volumes.size() > 1) {
-            throw new Processes.Failure("more than one mc-" + service + " volume exists on this machine, so this"
-                    + " cannot tell which one belongs to this project. Delete it by name with docker volume rm: "
-                    + String.join(" ", volumes));
+            throw new Processes.Failure("Reset stopped: more than one mc-" + service + " volume exists. Delete the one"
+                    + " of this project with docker volume rm: " + String.join(" ", volumes));
         } else {
             Processes.require(
                     processes.run(List.of("docker", "volume", "rm", volumes.getFirst())),
                     "docker volume rm " + volumes.getFirst());
-            terminal.log("removed volume " + volumes.getFirst());
+            terminal.log("volume removed: volume=" + volumes.getFirst());
         }
-        terminal.log(service + " is reset. The next 'dev up' recreates it from an empty volume.");
+        terminal.log(service + " is reset. Run dev up to start it on an empty volume.");
     }
 
     private Optional<String> worldVolume(final String service) {
@@ -224,7 +221,7 @@ final class Stack {
     }
 
     private void build(final List<String> modules) {
-        terminal.log("building: " + String.join(" ", modules));
+        terminal.log("modules building: module=\"" + String.join(" ", modules) + "\"");
         processes.gradle(
                 modules.stream().map(module -> ":" + module + ":shadowJar").toArray(String[]::new));
     }
@@ -237,7 +234,8 @@ final class Stack {
     private void install(final String module) {
         final Path jar = Repository.jar(root, module);
         if (!Files.isRegularFile(jar)) {
-            throw new Processes.Failure(jar + " was not built");
+            throw new Processes.Failure(jar + " is missing after the build. Run sh gradlew :" + module
+                    + ":shadowJar and check its output.");
         }
         final Path target = compose.pluginsDir(module);
         try {
@@ -247,7 +245,7 @@ final class Stack {
             throw new UncheckedIOException("cannot create " + target, e);
         }
         compose.run(installArguments(module, jar.toAbsolutePath()).toArray(String[]::new));
-        terminal.log("installed " + jar.getFileName() + " into " + target);
+        terminal.log("jar installed: file=" + jar.getFileName() + " dir=" + target);
     }
 
     /**

@@ -137,7 +137,7 @@ public final class Inbox<P> {
         final Inbox<P> inbox = over(dataSource, table);
         final int orphans = inbox.settleOrphans(null);
         if (orphans > 0) {
-            log.warn("{} request(s) in {} were left running by the last start of {}", orphans, table, consumer);
+            log.warn("orphaned requests marked failed: count={} table={} consumer=\"{}\"", orphans, table, consumer);
         }
         return inbox;
     }
@@ -610,7 +610,7 @@ public final class Inbox<P> {
         try {
             final int expired = expireDue();
             if (expired > 0) {
-                log.warn("{} request(s) in {} were never claimed in time and have been given up on", expired, table);
+                log.warn("unclaimed requests expired: count={} table={}", expired, table);
             }
             int handled = 0;
             for (Optional<Request<P>> claimed = claim(); claimed.isPresent(); claimed = claim()) {
@@ -628,14 +628,14 @@ public final class Inbox<P> {
         try {
             outcome = handler.handle(request);
         } catch (final RuntimeException failure) {
-            log.error("{} request {} ({}) failed", table, request.id(), request.kind(), failure);
+            log.error("request failed: table={} request={} kind={}", table, request.id(), request.kind(), failure);
             outcome = Outcome.failed(null);
         }
         if (outcome instanceof Outcome.Open) {
             return;
         }
         if (settle(request.id(), outcome).isEmpty()) {
-            log.warn("{} request {} was no longer running when it was settled", table, request.id());
+            log.warn("request no longer running, not settled: table={} request={}", table, request.id());
         }
     }
 

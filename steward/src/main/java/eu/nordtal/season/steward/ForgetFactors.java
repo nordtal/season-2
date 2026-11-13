@@ -30,16 +30,14 @@ final class ForgetFactors {
     static int run(final String[] args, final @Nullable DatabaseSpec databaseConfig, final Clock clock) {
         if (args.length != 2 || args[1].isBlank()) {
             System.err.println("Usage: forget-factors <discord-id>");
-            System.err.println(
-                    "Clears the security keys, the authenticator app and the sessions of one account, so that"
-                            + " its next sign-in starts at the setup page.");
+            System.err.println("Clears the security keys, the authenticator app and the sessions of one account.");
             return 2;
         }
         final DiscordId discordId = DiscordId.of(args[1].trim());
         // Anything but digits would run a DELETE that matches nothing.
         if (!discordId.value().chars().allMatch(Character::isDigit)) {
-            System.err.println("`" + discordId + "` is not a Discord id - those are digits only."
-                    + " Take it from the journal or from the account list.");
+            System.err.println("`" + discordId + "` is not a Discord id: it has digits only."
+                    + " Take the id from the journal or from the account list.");
             return 2;
         }
         if (databaseConfig == null) {
@@ -56,8 +54,7 @@ final class ForgetFactors {
             final boolean app = new Authenticators(data.dataSource(), null, clock).forget(discordId) > 0;
             final int signedOut = new Sessions(data.dataSource(), Duration.ofDays(1)).endAllOf(discordId);
             if (keys == 0 && !app && signedOut == 0) {
-                System.out.println("Nothing to forget: " + discordId + " has no security key, no"
-                        + " authenticator app and no session. Its next sign-in already starts at the setup page.");
+                System.out.println("nothing to forget: member=" + discordId);
                 return 0;
             }
             // Written after the deletes, so a row never claims something that did not happen.
@@ -67,9 +64,8 @@ final class ForgetFactors {
                             Actor.HOST,
                             discordId,
                             new JournalDetail.FactorsForgotten(keys, app, signedOut)));
-            System.out.println("Cleared " + keys + " security key(s), " + (app ? "the" : "no")
-                    + " authenticator app and " + signedOut + " session(s) of " + discordId + ".");
-            System.out.println("Its next sign-in will ask for Discord and then for a new second factor.");
+            System.out.println("second factors cleared: member=" + discordId + " keys=" + keys + " app=" + app
+                    + " sessions=" + signedOut);
             return 0;
         }
     }

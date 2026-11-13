@@ -202,7 +202,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
         } catch (final Fatal fatal) {
             // fatal() already logged the reason.
         } catch (final RuntimeException failure) {
-            final RuntimeException _ = fatal(getName() + " is not starting: " + failure.getMessage());
+            final RuntimeException _ =
+                    fatal("plugin not starting: plugin=" + getName() + " cause=" + failure.getMessage());
         }
     }
 
@@ -264,7 +265,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
         // The marker is written last, off the main thread, so a frozen server lets it go stale.
         final var _ = Readiness.onDefaultPath(clock, getLogger()::warning).keepBeating(PaperScheduler.of(this));
-        getLogger().info(getName() + " enabled");
+        getLogger().info("plugin enabled: plugin=" + getName());
     }
 
     /**
@@ -278,7 +279,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
                 try {
                     GameDataStore.using(pool).publish(getName(), catalogue);
                 } catch (final RuntimeException failed) {
-                    getLogger().warning("The game data could not be published: " + failed.getMessage());
+                    getLogger().warning("game data not published: cause=" + failed.getMessage());
                 }
             });
         });
@@ -400,7 +401,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         if (pool != null) {
             quietly("pool.close", pool::close);
         }
-        getLogger().info(getName() + " disabled");
+        getLogger().info("plugin disabled: plugin=" + getName());
     }
 
     /**
@@ -435,7 +436,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
             problems.add("the prestige tiers: " + failure.getMessage());
         }
         problems.addAll(reloadOwn());
-        problems.forEach(problem -> getLogger().severe("not reloaded, the running values stay: " + problem));
+        problems.forEach(problem -> getLogger().severe("settings not reloaded, running values kept: cause=" + problem));
         return List.copyOf(problems);
     }
 
@@ -561,7 +562,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
             case Answer.Open open -> Outcome.open();
             case Answer.Refused refused -> Outcome.refused(refused.refusal());
             case Answer.Failed failed -> {
-                getLogger().warning("a request failed: " + english(failed.message()));
+                getLogger().warning("request failed: cause=" + english(failed.message()));
                 yield Outcome.failed(null);
             }
         };
@@ -571,7 +572,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         try {
             return action.get();
         } catch (final RuntimeException failure) {
-            getLogger().log(Level.WARNING, "an admin action failed", failure);
+            getLogger().log(Level.WARNING, "admin action failed", failure);
             return Answer.failed(Replies.FAILED.with(Replies.Failure.of(failure)));
         }
     }
@@ -603,7 +604,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     /** Refuses with the setting and the rule, which Steward words, and logs the check's own sentence. */
     private Answer refusedSettings(final SettingRefused refusal) {
-        getLogger().info("a change to the settings would keep this server from starting: " + refusal.getMessage());
+        getLogger().info("settings change refused: cause=" + refusal.getMessage());
         return Answer.refused(
                 ServerRefusal.SETTINGS_REFUSED.with(getName(), refusal.setting(), refusal.rule(), refusal.value()));
     }
@@ -626,7 +627,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
             }
             return loaded;
         } catch (final SettingsException refused) {
-            throw fatal(getName() + " is not starting because its settings could not be read: " + refused.getMessage());
+            throw fatal(
+                    "plugin not starting, settings unreadable: plugin=" + getName() + " cause=" + refused.getMessage());
         }
     }
 
@@ -642,9 +644,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
             try {
                 Files.writeString(Path.of(refused), message);
             } catch (final IOException | RuntimeException unwritten) {
-                getLogger()
-                        .warning("the refusal could not be written to " + refused + ", so the container restarts: "
-                                + unwritten.getMessage());
+                getLogger().warning("start refusal not written: file=" + refused + " cause=" + unwritten.getMessage());
             }
         }
         getServer().getPluginManager().disablePlugin(this);

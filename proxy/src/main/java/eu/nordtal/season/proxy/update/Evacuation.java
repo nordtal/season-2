@@ -131,7 +131,7 @@ public final class Evacuation {
             running = updates.running();
             lastSwitch = updates.lastStartedSwitch();
         } catch (final RuntimeException failure) {
-            logger.warn("Could not read the update row; nobody was moved this pass", failure);
+            logger.warn("update row unreadable, nobody moved", failure);
             return;
         }
         final List<RunProgress.Step> steps = steps(running);
@@ -154,10 +154,8 @@ public final class Evacuation {
             if (!warnedAboutWaitingRoom) {
                 warnedAboutWaitingRoom = true;
                 logger.warn(
-                        "The update moves '{}' itself and no '{}' is registered on this proxy,"
-                                + " so there is nowhere to put anybody: nobody is being evacuated"
-                                + " and every connected player will be disconnected when the"
-                                + " servers stop. The countdown is all the warning they get.",
+                        "waiting room moved by update, no standby room registered, nobody moved: waiting_room={}"
+                                + " standby_room={}",
                         servers.limbo(),
                         servers.limboStandby());
             }
@@ -195,14 +193,14 @@ public final class Evacuation {
         }
         switching = now;
         if (before && !now) {
-            logger.info("The mode switch holds nobody any more; releasing the waiting room");
+            logger.info("mode switch over, waiting room released");
             try {
                 whenReleased.run();
             } catch (final RuntimeException failure) {
-                logger.warn("Could not release the waiting room after the mode switch", failure);
+                logger.warn("waiting room not released after mode switch", failure);
             }
         } else if (!before && now) {
-            logger.info("Mode switch run {} holds every player in the waiting room", run == null ? -1 : run.id());
+            logger.info("mode switch holding players: run={}", run == null ? -1 : run.id());
         }
     }
 
@@ -215,7 +213,7 @@ public final class Evacuation {
         try {
             request = updates.requestOf(run.id());
         } catch (final RuntimeException failure) {
-            logger.warn("Could not read the target of mode switch run {}", run.id(), failure);
+            logger.warn("mode switch target unreadable: run={}", run.id(), failure);
             return null;
         }
         targetRun = run.id();
@@ -305,7 +303,7 @@ public final class Evacuation {
         try {
             return running.map(updates::stepsOf).orElseGet(List::of);
         } catch (final RuntimeException failure) {
-            logger.warn("Could not read the steps of the run; every moving service counts", failure);
+            logger.warn("run steps unreadable, every moving service counted", failure);
             return List.of();
         }
     }
@@ -322,7 +320,7 @@ public final class Evacuation {
         try {
             updates.recorder().moved(run, from, room, players);
         } catch (final RuntimeException failure) {
-            logger.warn("Could not count the {} player(s) moved off '{}'", players, from, failure);
+            logger.warn("moved players not recorded: count={} from={}", players, from, failure);
         }
     }
 
@@ -335,11 +333,7 @@ public final class Evacuation {
             final Set<String> backends, final String waitingRoom, final long run, final @Nullable String switchTo) {
         final RegisteredServer limbo = proxy.getServer(waitingRoom).orElse(null);
         if (limbo == null) {
-            logger.error(
-                    "The update moves {} and there is no '{}' registered on this proxy, so"
-                            + " nobody can be moved out of the way",
-                    backends,
-                    waitingRoom);
+            logger.error("waiting room missing, nobody moved: services=\"{}\" waiting_room={}", backends, waitingRoom);
             return;
         }
 
@@ -357,7 +351,11 @@ public final class Evacuation {
             move(player, limbo);
         }
         if (!off.isEmpty()) {
-            logger.info("Moving players off {} into '{}' before the update stops them: {}", backends, waitingRoom, off);
+            logger.info(
+                    "players moved off before update: services=\"{}\" waiting_room={} moved=\"{}\"",
+                    backends,
+                    waitingRoom,
+                    off);
         }
         off.forEach((from, players) -> moved(run, from, waitingRoom, players));
     }
@@ -390,10 +388,14 @@ public final class Evacuation {
             final @Nullable Throwable failure) {
         inFlight.remove(player.getUniqueId());
         if (failure != null) {
-            logger.warn("Could not move {} into '{}' before the update", player.getUsername(), room, failure);
+            logger.warn(
+                    "player not moved into waiting room: player={} waiting_room={}",
+                    player.getUsername(),
+                    room,
+                    failure);
         } else if (result != null && !result.isSuccessful()) {
             logger.info(
-                    "{} was not moved into '{}' ({}); asking again on the next pass",
+                    "player not moved into waiting room, retried next pass: player={} waiting_room={} status={}",
                     player.getUsername(),
                     room,
                     result.getStatus());

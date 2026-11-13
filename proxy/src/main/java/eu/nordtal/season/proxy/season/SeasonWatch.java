@@ -66,7 +66,7 @@ public final class SeasonWatch {
         try {
             current = seasons.state();
         } catch (final RuntimeException exception) {
-            logger.warn("Could not read the season state; staying on the last known one ({})", state(), exception);
+            logger.warn("season state unreadable, last state kept: season=\"{}\"", state(), exception);
             return false;
         }
         final Instant now = clock.instant();
@@ -78,10 +78,14 @@ public final class SeasonWatch {
         }
         final SeasonState previous = before == null ? null : before.state();
         if (before == null) {
-            logger.info("Season state is {} ({})", current, next.opening());
+            logger.info("season state read: season=\"{}\" opening={}", current, next.opening());
         } else {
             logger.warn(
-                    "Season state changed: {} ({}) -> {} ({})", previous, before.opening(), current, next.opening());
+                    "season state changed: from=\"{}\" from_opening={} to=\"{}\" to_opening={}",
+                    previous,
+                    before.opening(),
+                    current,
+                    next.opening());
         }
         notifyListener(previous, current);
         return true;
@@ -136,7 +140,7 @@ public final class SeasonWatch {
         try {
             listener.seasonChanged(previous, current);
         } catch (final RuntimeException exception) {
-            logger.error("A season change listener failed for {} -> {}", previous, current, exception);
+            logger.error("season change listener failed: from=\"{}\" to=\"{}\"", previous, current, exception);
         }
     }
 }

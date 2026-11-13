@@ -50,7 +50,7 @@ abstract class InstallPack : DefaultTask() {
             from(pack)
             into(target)
         }
-        logger.lifecycle("Installed the pack into $target")
+        logger.lifecycle("pack installed: dir=$target")
         logger.lifecycle(enable(instance))
         logger.lifecycle("In Minecraft, press F3+T to load the new version.")
     }

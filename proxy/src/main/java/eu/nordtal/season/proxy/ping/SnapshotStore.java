@@ -66,9 +66,7 @@ public final class SnapshotStore {
                 current.set(snapshot);
             }
         } catch (final RuntimeException failure) {
-            logger.warn(
-                    "Could not refresh the MOTD snapshot; the server browser keeps showing the " + "previous numbers",
-                    failure);
+            logger.warn("motd snapshot not refreshed", failure);
         }
     }
 }

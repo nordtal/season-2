@@ -240,8 +240,8 @@ public final class ObjectiveEngine implements Contributions {
         final Milestone milestone = track.get().milestone(milestoneKey).orElse(null);
         if (milestone == null) {
             plugin.getLogger()
-                    .warning("objective '" + objective.key() + "' completed under milestone '" + milestoneKey
-                            + "', which the track no longer declares - no aura was paid");
+                    .warning("objective completed under undeclared milestone, no aura paid: milestone=" + milestoneKey
+                            + " key=" + objective.key());
             return null;
         }
         final Objective definition = milestone.objective(objective.key()).orElse(null);
@@ -268,8 +268,8 @@ public final class ObjectiveEngine implements Contributions {
             plugin.getLogger()
                     .log(
                             Level.SEVERE,
-                            "objective " + finished.milestoneKey() + "/" + finished.objectiveKey()
-                                    + " is finished and paid, but its milestone was not checked; unlock it by hand",
+                            "objective paid, milestone not checked: milestone=" + finished.milestoneKey() + " key="
+                                    + finished.objectiveKey(),
                             failure);
         }
     }
@@ -301,8 +301,8 @@ public final class ObjectiveEngine implements Contributions {
             prizes.grant(DiscordId.of(share.contributorId()), share.total());
         }
         plugin.getLogger()
-                .info("objective " + milestoneKey + "/" + objective.key() + " paid " + contributions.size()
-                        + " contributor(s) " + sum(auraShares) + " aura and " + sum(spinShares) + " spins");
+                .info("objective paid: milestone=" + milestoneKey + " key=" + objective.key() + " count="
+                        + contributions.size() + " aura=" + sum(auraShares) + " spins=" + sum(spinShares));
     }
 
     private static int sum(final List<Payout.Share> shares) {

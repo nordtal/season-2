@@ -34,10 +34,10 @@ set_property() {
         grep -qxF "${key}=${value}" "$file" && return 0
         tmp="${file}.tmp"
         sed "s|^${key}=.*|${key}=${value}|" "$file" > "$tmp" && mv "$tmp" "$file"
-        log "${file##*/}: ${key} set to ${value}"
+        log "property set: file=${file##*/} key=${key} value=${value}"
     else
         printf '%s=%s\n' "$key" "$value" >> "$file"
-        log "${file##*/}: ${key}=${value} added"
+        log "property added: file=${file##*/} key=${key} value=${value}"
     fi
 }
 
@@ -52,18 +52,18 @@ adopt_paper_default_world() {
     # -print -quit stops at the first entry.
     if [[ -d "$playerdata" ]] \
         && [[ -n "$(find "$playerdata" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
-        warn "this volume's world is called 'world' (Paper's default, from before this image wrote level-name) and LEVEL_NAME says '${LEVEL_NAME}' - but somebody has played in it, so it is not being thrown away automatically."
+        warn "default world played in, not removed: from=world to=${LEVEL_NAME}"
         return 1
     fi
 
-    warn "this volume carries level-name=world, Paper's default from before this image wrote the key, while LEVEL_NAME says '${LEVEL_NAME}'. No player has ever logged out in it, so it is being removed and the name corrected - the alternative is a container that refuses to start forever over a value nobody chose."
+    warn "unplayed default world adopted: from=world to=${LEVEL_NAME}"
     rm -rf "${DATA:?}/world"
     for dimension in world_nether world_the_end; do
         [[ -d "$DATA/$dimension" ]] || continue
         rm -rf "${DATA:?}/$dimension"
-        log "removed /data/${dimension} - a dimension of the world just deleted"
+        log "default world dimension removed: dir=/data/${dimension}"
     done
-    log "removed /data/world; '${LEVEL_NAME}' will be generated fresh"
+    log "default world removed: dir=/data/world"
     return 0
 }
 
@@ -77,17 +77,7 @@ seed_level_settings() {
     # `sed -n 1p` instead of `head -n1`: an early exit makes the pipeline return 141 under pipefail.
     [[ -f "$file" ]] && current=$(sed -n 's/^level-name=//p' "$file" | sed -n '1p')
     if [[ -n "$current" && "$current" != "$LEVEL_NAME" ]] && ! adopt_paper_default_world "$current"; then
-        die "this volume's server.properties says level-name=${current}, but LEVEL_NAME is '${LEVEL_NAME}'.
-
-Refusing to start. Changing it would not move the existing world: Paper would generate an empty '${LEVEL_NAME}' beside '${current}' and run the season on that, while the world with everything in it sat untouched in the same volume.
-
-Two ways out, and only you can pick:
-  - the world in this volume is the right one -> set LEVEL_NAME=${current} for this service
-  - '${LEVEL_NAME}' really is meant to be a new, empty world -> remove /data/${current} from the volume first, with the server stopped. If the whole volume is disposable, that is
-
-        docker compose stop <service>
-        docker volume rm nordtal-s2_mc-<service>
-        docker compose up -d <service>"
+        die "Not started: server.properties says level-name=${current}, but LEVEL_NAME is ${LEVEL_NAME}. Set LEVEL_NAME=${current}, or remove /data/${current} with the server stopped to start an empty world."
     fi
     set_property "$file" level-name "$LEVEL_NAME"
 
@@ -99,7 +89,7 @@ Two ways out, and only you can pick:
         # `sed -n 1p` instead of `head -n1`, as above.
         [[ -f "$file" ]] && current=$(sed -n 's/^level-seed=//p' "$file" | sed -n '1p')
         if [[ "$current" != "$LEVEL_SEED" ]]; then
-            warn "world '${LEVEL_NAME}' already exists and was generated with ${current:-a seed nothing recorded}, not with LEVEL_SEED=${LEVEL_SEED}. Terrain is never re-rolled, so this is a note, not a fault - but .env and this volume do not describe the same world."
+            warn "world seed differs from LEVEL_SEED, world kept: world=${LEVEL_NAME} seed=${current:-unknown} level_seed=${LEVEL_SEED}"
         fi
         return 0
     fi
@@ -133,23 +123,23 @@ fetch_datapacks() {
         named["$file"]=1
 
         if [[ -f "$dest" ]]; then
-            log "datapack cached: ${file}"
+            log "datapack cached: file=\"${file}\""
             continue
         fi
 
-        log "fetching datapack ${file}"
+        log "datapack fetch started: file=\"${file}\""
         tmp="${dest}.partial"
         curl -fsSL --max-time 300 -o "$tmp" "$url" \
-            || { rm -f "$tmp"; die "could not fetch datapack ${file} from ${url}. Refusing to start: a world generated without its datapacks is vanilla terrain permanently."; }
+            || { rm -f "$tmp"; die "Not started: datapack ${file} could not be fetched from ${url}. Check that the URL answers, then start the container again."; }
 
         if [[ -n "$sha" ]]; then
             actual="$(sha512sum "$tmp" | cut -d' ' -f1)"
             if [[ "$actual" != "$sha" ]]; then
                 rm -f "$tmp"
-                die "datapack ${file} does not match its pinned sha512 (wanted ${sha}, got ${actual}). Refusing to start rather than generating tomorrow's farm world from a different pack version than Nordtal."
+                die "Not started: datapack ${file} does not match its pinned sha512 (wanted ${sha}, got ${actual})."
             fi
         else
-            log "WARNING: ${file} has no pinned checksum - a silent version change would not be noticed"
+            log "datapack checksum not pinned: file=\"${file}\""
         fi
 
         mv "$tmp" "$dest"
@@ -159,7 +149,7 @@ fetch_datapacks() {
     for old in "$dir"/*.zip; do
         [[ -n "${named["${old##*/}"]:-}" ]] && continue
         rm -f "$old"
-        log "removed datapack ${old##*/}: DATAPACK_URLS does not name it"
+        log "unnamed datapack removed: file=\"${old##*/}\""
     done
     shopt -u nullglob
 }
@@ -175,7 +165,7 @@ prepare_backend() {
     # Paper reads PAPER_VELOCITY_SECRET from the environment and writes it into paper-global.yml on
     # first load, so rotating the secret means editing both. The function seeds only the enable switch.
     if [[ -f "$global" ]]; then
-        log "config/paper-global.yml exists - not touched. Modern forwarding has to be enabled in it (proxies.velocity.enabled: true)."
+        log "existing file not touched: file=config/paper-global.yml"
     else
         mkdir -p "$(dirname "$global")"
         cat > "$global" <<'YAML'
@@ -187,7 +177,7 @@ proxies:
     enabled: true
     online-mode: true
 YAML
-        log "seeded config/paper-global.yml with Velocity modern forwarding enabled"
+        log "velocity forwarding enabled, file seeded: file=config/paper-global.yml"
     fi
 
     # An eye of ender flies only to a stronghold Paper locates, and every stronghold lies beyond the
@@ -195,11 +185,11 @@ YAML
     local world="$DATA/config/paper-world-defaults.yml" key=locate-structures-outside-world-border
     if [[ ! -f "$world" ]]; then
         printf 'environment:\n  %s: true\n' "$key" > "$world"
-        log "seeded config/paper-world-defaults.yml with ${key}: true"
+        log "file seeded: file=config/paper-world-defaults.yml key=${key} value=true"
     elif grep -qxF "  ${key}: false" "$world"; then
         # A temporary file, as in set_property, since GNU and BSD sed spell -i differently.
         sed "s|^  ${key}: false\$|  ${key}: true|" "$world" > "${world}.tmp" && mv "${world}.tmp" "$world"
-        log "config/paper-world-defaults.yml: ${key} set to true"
+        log "property set: file=config/paper-world-defaults.yml key=${key} value=true"
     fi
 }
 
@@ -211,12 +201,12 @@ configure_prism() {
     # Prism is optional, so a setting it cannot use leaves it on its defaults and the SMP starts.
     if [[ ! "$url" =~ $pattern ]]; then
         rm -f "$file"
-        warn "NORDTAL_SMP_DATABASE_JDBC_URL is not jdbc:postgresql://host[:port]/database, so Prism is not pointed at it"
+        warn "database url not postgresql, prism left on defaults: key=NORDTAL_SMP_DATABASE_JDBC_URL"
         return 0
     fi
     if [[ "${NORDTAL_SMP_DATABASE_PASSWORD:?}" == *[[:cntrl:]]* ]]; then
         rm -f "$file"
-        warn "smp's database password holds a control character, which storage.conf cannot carry, so Prism is not pointed at it"
+        warn "database password holds a control character, prism left on defaults"
         return 0
     fi
     local host="${BASH_REMATCH[1]}" port="${BASH_REMATCH[3]:-5432}" database="${BASH_REMATCH[4]}"
@@ -240,7 +230,7 @@ HOCON
     )
     # Prism saves the file back with the JVM's umask, so the mode is set again after every write.
     chmod 600 "$file"
-    log "plugins/prism/storage.conf points Prism at schema prism of ${database} on ${host}:${port}"
+    log "prism storage configured: file=plugins/prism/storage.conf schema=prism database=${database} host=${host} port=${port}"
 }
 
 # A value as a quoted HOCON string, so a password with a quote or a backslash stays one value.
@@ -288,7 +278,7 @@ remove_superseded_jars() {
 
     shopt -s nullglob
     for old in "$cache/${kind}-"*.jar; do
-        [[ "$old" != "$keep" ]] && { rm -f "$old"; log "removed superseded ${old##*/}"; }
+        [[ "$old" != "$keep" ]] && { rm -f "$old"; log "superseded jar removed: file=${old##*/}"; }
     done
     shopt -u nullglob
     return 0
@@ -334,17 +324,17 @@ seed_velocity_config() {
     local file="$DATA/velocity.toml" name address tmp
 
     if [[ -f "$file" ]]; then
-        log "velocity.toml exists - not touched"
+        log "existing file not touched: file=velocity.toml"
         return 0
     fi
     if [[ -z "${VELOCITY_SERVERS:-}" ]]; then
-        warn "no velocity.toml and VELOCITY_SERVERS is unset, so Velocity will write its own default: forwarding off and three example servers on 127.0.0.1. Nobody can join through that."
+        warn "VELOCITY_SERVERS unset, velocity.toml not seeded"
         return 0
     fi
 
     # The function validates first, because a half-written velocity.toml would pass for the operator's own.
     for entry in $VELOCITY_SERVERS; do
-        [[ "$entry" == *=* ]] || die "VELOCITY_SERVERS entries are name=host:port, not '${entry}'"
+        [[ "$entry" == *=* ]] || die "Not started: VELOCITY_SERVERS holds ${entry}, which is not name=host:port. Correct the entry."
     done
 
     tmp="${file}.partial"
@@ -371,12 +361,11 @@ seed_velocity_config() {
         printf 'accepts-transfers = true\n'
     } > "$tmp" || { rm -f "$tmp"; exit 1; }
     mv "$tmp" "$file"
-    log "seeded velocity.toml: modern forwarding, servers ${VELOCITY_SERVERS}"
+    log "file seeded: file=velocity.toml servers=\"${VELOCITY_SERVERS}\""
 }
 
 ensure_velocity_transfers() {
-    ensure_velocity_advanced accepts-transfers true \
-        "without it this proxy refuses every player another proxy hands it, and an update that moves a proxy would drop them"
+    ensure_velocity_advanced accepts-transfers true
 }
 
 # Holds haproxy-protocol to VELOCITY_HAPROXY, which compose.yml sets beside the guard on 25565.
@@ -386,12 +375,11 @@ ensure_velocity_haproxy() {
 
     [[ -n "$wanted" ]] || return 0
     if [[ "$wanted" != "true" && "$wanted" != "false" ]]; then
-        warn "VELOCITY_HAPROXY is \"${wanted}\", which is neither true nor false - velocity.toml left untouched"
+        warn "VELOCITY_HAPROXY neither true nor false, velocity.toml not touched: value=\"${wanted}\""
         return 0
     fi
 
-    ensure_velocity_advanced haproxy-protocol "$wanted" \
-        "a guard in front of this proxy writes a PROXY header that Velocity would otherwise read as the client's first packet"
+    ensure_velocity_advanced haproxy-protocol "$wanted"
 }
 
 # Holds one key under [advanced] to a value. The function keeps a correct value, corrects a wrong one
@@ -400,9 +388,8 @@ ensure_velocity_haproxy() {
 #
 # @param key    the bare key name under [advanced]
 # @param wanted the value of the key, as written into the file
-# @param why    one sentence for the warning, on what breaks without the key
 ensure_velocity_advanced() {
-    local key="$1" wanted="$2" why="$3"
+    local key="$1" wanted="$2"
     local file="$DATA/velocity.toml" tmp verdict
 
     [[ -f "$file" ]] || return 0
@@ -428,17 +415,17 @@ ensure_velocity_advanced() {
             else                       state = "absent"
             print state, (root ? "root" : "-")
         }
-    ' "$file") || { warn "could not read velocity.toml to check ${key} - left untouched"; return 0; }
+    ' "$file") || { warn "velocity.toml unreadable, not touched: key=${key}"; return 0; }
 
     # Nothing reads a root-level key. The function reports it and does not delete it.
     if [[ "$verdict" == *" root" ]]; then
-        warn "velocity.toml has a ${key} at the ROOT of the file. Velocity reads it under [advanced] and nowhere else, so that line does nothing."
+        warn "velocity setting at file root, not read: file=velocity.toml key=${key}"
     fi
 
     tmp="${file}.partial"
     case "${verdict%% *}" in
         present)
-            log "velocity.toml has ${key} = ${wanted}"
+            log "velocity setting present: file=velocity.toml key=${key} value=${wanted}"
             return 0
             ;;
         wrong)
@@ -454,30 +441,30 @@ ensure_velocity_advanced() {
                     }
                     print
                 }
-            ' "$file" > "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
+            ' "$file" > "$tmp" || { rm -f "$tmp"; warn "velocity.toml not rewritten, not touched: key=${key}"; return 0; }
             mv "$tmp" "$file"
-            warn "velocity.toml carried a different ${key} under [advanced]. Set to ${wanted}: ${why}."
+            warn "velocity setting corrected: file=velocity.toml key=${key} value=${wanted}"
             ;;
         table-only)
             # Right after the header, because a second [advanced] table is invalid TOML.
             awk -v line="${key} = ${wanted}" '
                 { print }
                 /^[[:space:]]*\[advanced\][[:space:]]*$/ && !done { print line; done = 1 }
-            ' "$file" > "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
+            ' "$file" > "$tmp" || { rm -f "$tmp"; warn "velocity.toml not rewritten, not touched: key=${key}"; return 0; }
             mv "$tmp" "$file"
-            log "velocity.toml had an [advanced] table without ${key} - added it"
+            log "velocity setting added: file=velocity.toml key=${key} value=${wanted}"
             ;;
         absent)
             # Last, so that the new table swallows no later keys.
-            cp "$file" "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
+            cp "$file" "$tmp" || { rm -f "$tmp"; warn "velocity.toml not rewritten, not touched: key=${key}"; return 0; }
             {
                 printf '\n'
                 printf '# Added by the nordtal entrypoint.\n'
                 printf '[advanced]\n'
                 printf '%s = %s\n' "$key" "$wanted"
-            } >> "$tmp" || { rm -f "$tmp"; warn "could not rewrite velocity.toml - left untouched"; return 0; }
+            } >> "$tmp" || { rm -f "$tmp"; warn "velocity.toml not rewritten, not touched: key=${key}"; return 0; }
             mv "$tmp" "$file"
-            log "velocity.toml had no ${key} - appended [advanced] ${key} = ${wanted}"
+            log "velocity table appended: file=velocity.toml table=advanced key=${key} value=${wanted}"
             ;;
     esac
 }
@@ -486,14 +473,14 @@ ensure_velocity_advanced() {
 # would kill a sourcing shell.
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
 
-: "${SERVER_KIND:?set SERVER_KIND to paper or velocity}"
+: "${SERVER_KIND:?Not started: SERVER_KIND is not set. Set it to paper or velocity.}"
 # paper: the exact Minecraft version. velocity: the family name of Fill, whose newest release the script resolves.
-: "${SERVER_VERSION:?set SERVER_VERSION (paper: the Minecraft version, e.g. 26.2; velocity: the Fill version family, e.g. 4.0.0)}"
+: "${SERVER_VERSION:?Not started: SERVER_VERSION is not set. Set it to the Minecraft version for paper, as in 26.2, or the Fill family for velocity, as in 4.0.0.}"
 # SERVER_BUILD does not exist: an empty cache gets the newest STABLE build.
 
 case "$SERVER_KIND" in
     paper|velocity) ;;
-    *) die "SERVER_KIND must be 'paper' or 'velocity', not '${SERVER_KIND}'" ;;
+    *) die "Not started: SERVER_KIND is ${SERVER_KIND}. Set it to paper or velocity." ;;
 esac
 
 CACHE="$DATA/.server"
@@ -514,48 +501,48 @@ JAR_NAME=$(newest_server_jar "$CACHE" "$SERVER_KIND")
 
 if [[ -n "$JAR_NAME" ]]; then
     JAR_PATH="$CACHE/$JAR_NAME"
-    log "server jar from cache: ${JAR_NAME} (the Fill API was not consulted)"
+    log "cached server jar used: file=${JAR_NAME}"
 else
-    log "no ${SERVER_KIND} jar cached - resolving the newest stable build through the Fill API"
+    log "no server jar cached, fill api asked: kind=${SERVER_KIND}"
     project=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" "${FILL_API}/${SERVER_KIND}") \
-        || die "could not reach the Fill API, and no ${SERVER_KIND} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
+        || die "Not started: the Fill API did not answer, and no ${SERVER_KIND} jar is cached in ${CACHE}. Start the container again once ${FILL_API} answers."
 
     version=$(jq -er --arg family "$SERVER_VERSION" '
             (.versions[$family] // empty)
             | map(select(test("^[0-9]+(\\.[0-9]+)*$")))
             | sort_by(split(".") | map(tonumber))
             | last // empty' <<<"$project") \
-        || die "the Fill API lists no released version in ${SERVER_KIND} family '${SERVER_VERSION}'. A family is Fill's name for a major and is NOT a version - check it against ${FILL_API}/${SERVER_KIND}"
+        || die "Not started: Fill lists no released ${SERVER_KIND} version in family ${SERVER_VERSION}. Check SERVER_VERSION against ${FILL_API}/${SERVER_KIND}."
     [[ "$version" == "$SERVER_VERSION" ]] \
-        || log "${SERVER_KIND} family ${SERVER_VERSION} resolves to version ${version}"
+        || log "fill family resolved: kind=${SERVER_KIND} family=${SERVER_VERSION} version=${version}"
 
     # `/builds/latest` includes ALPHA builds, so the list is filtered as steward filters it.
     builds=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" \
         "${FILL_API}/${SERVER_KIND}/versions/${version}/builds") \
-        || die "could not read the ${SERVER_KIND} ${version} builds from the Fill API, and no ${SERVER_KIND} jar is cached in ${CACHE}. Refusing to start: this container has no server to run."
+        || die "Not started: the ${SERVER_KIND} ${version} builds could not be read from the Fill API, and no jar is cached in ${CACHE}. Start the container again once ${FILL_API} answers."
 
     meta=$(jq -er '[.[] | select(.channel == "STABLE" and .downloads."server:default")] | max_by(.id)' <<<"$builds") \
-        || die "the Fill API lists no STABLE build with a 'server:default' download for ${SERVER_KIND} ${version}. Check ${FILL_API}/${SERVER_KIND}/versions/${version}/builds"
+        || die "Not started: Fill lists no STABLE ${SERVER_KIND} ${version} build with a server download. Check ${FILL_API}/${SERVER_KIND}/versions/${version}/builds."
 
     JAR_NAME=$(jq -er '.downloads."server:default".name' <<<"$meta") \
-        || die "the Fill API returned a download with no filename"
+        || die "Not started: the Fill API named a ${SERVER_KIND} ${version} download without a file name."
     JAR_PATH="$CACHE/$JAR_NAME"
     url=$(jq -er '.downloads."server:default".url' <<<"$meta") \
-        || die "the Fill API returned a download with no url"
+        || die "Not started: the Fill API named a ${SERVER_KIND} ${version} download without a URL."
     sha=$(jq -er '.downloads."server:default".checksums.sha256' <<<"$meta") \
-        || die "the Fill API returned a download without a sha256 checksum"
-    log "bootstrapping ${JAR_NAME} (build $(jq -r '.id' <<<"$meta"), channel STABLE)"
+        || die "Not started: the Fill API named a ${SERVER_KIND} ${version} download without a sha256 checksum."
+    log "server jar download started: file=${JAR_NAME} build=$(jq -r '.id' <<<"$meta")"
 
     tmp="${JAR_PATH}.partial"
     curl -fsSL --max-time 600 -H "User-Agent: ${FILL_UA}" -o "$tmp" "$url" \
-        || { rm -f "$tmp"; die "downloading ${JAR_NAME} failed"; }
+        || { rm -f "$tmp"; die "Not started: ${JAR_NAME} could not be downloaded from ${url}."; }
 
     actual=$(sha256sum "$tmp" | cut -d' ' -f1)
     [[ "$actual" == "$sha" ]] \
-        || { rm -f "$tmp"; die "checksum mismatch for ${JAR_NAME}: expected ${sha}, got ${actual}"; }
+        || { rm -f "$tmp"; die "Not started: ${JAR_NAME} does not match its sha256 (wanted ${sha}, got ${actual})."; }
 
     mv "$tmp" "$JAR_PATH"
-    log "downloaded and verified ${JAR_NAME}"
+    log "server jar downloaded and verified: file=${JAR_NAME}"
 fi
 
 remove_superseded_jars "$CACHE" "$SERVER_KIND" "$JAR_PATH"
@@ -578,11 +565,7 @@ if [[ "${ALLOW_NO_PLUGINS:-false}" != "true" ]]; then
     shopt -u nullglob
 
     if (( ${#installed[@]} == 0 )); then
-        die "no plugin jars in ${PLUGINS}. This container does not fetch them - steward-agent does, at every start of its own. Restart it against this stack:
-
-    docker compose restart steward-agent
-
-Refusing to start: a Minecraft server with no plugins is a server with no season on it, and nothing about it looks wrong until somebody joins. Set ALLOW_NO_PLUGINS=true if a server with no plugins really is what you want."
+        die "Not started: no plugin jars in ${PLUGINS}. Restart steward-agent against this stack: docker compose restart steward-agent. Set ALLOW_NO_PLUGINS=true if this server runs without plugins."
     fi
 
     if [[ -n "${SERVER_PLUGINS:-}" ]]; then
@@ -612,30 +595,18 @@ Refusing to start: a Minecraft server with no plugins is a server with no season
         done
 
         if (( ${#missing[@]} > 0 )); then
-            die "${PLUGINS} is missing ${#missing[@]} of the ${expected} plugin(s) this server needs.
-
-  missing:  ${missing[*]}
-  present:  ${present[*]:-nothing}
-  expected: ${required[*]}
-
-Refusing to start. A folder with SOME of the plugins in it is the state that looks fine and is not: a Minecraft server missing its season jar starts, reports healthy, and is discovered by the first player who joins.
-
-The likeliest cause is a run that could not reach a source and skipped this whole server - read steward-agent's log for a line saying so, and restart it once the source answers:
-
-    docker compose restart steward-agent
-
-If the plugin IS in the folder under a different filename, its publisher renamed the jar: give the new prefix in this service's eu.nordtal.plugins label in compose.yml (artifact=prefix) rather than deleting anything."
+            die "Not started: ${PLUGINS} lacks ${missing[*]} (present: ${present[*]:-none}). Restart steward-agent once its sources answer: docker compose restart steward-agent. If a jar was renamed, give its new prefix in this service's eu.nordtal.plugins label."
         fi
-        log "plugins present: ${#installed[@]} jar(s); all ${expected} expected one(s) accounted for"
+        log "plugins present: count=${#installed[@]} required=${expected}"
     else
-        log "plugins present: ${#installed[@]} jar(s) - SERVER_PLUGINS is unset, so only 'not empty' was checked"
+        log "plugins present, SERVER_PLUGINS unset: count=${#installed[@]}"
     fi
 fi
 
 JAVA_ARGS=()
 if [[ "$SERVER_KIND" == "paper" ]]; then
     [[ "${EULA:-}" == "true" ]] \
-        || die "set EULA=true to accept https://aka.ms/MinecraftEULA - this is deliberately not defaulted"
+        || die "Not started: EULA is not accepted. Set EULA=true."
     printf 'eula=true\n' > "$DATA/eula.txt"
     JAVA_ARGS+=(nogui)
 
@@ -666,8 +637,7 @@ JVM_OPTS="${JVM_OPTS:--Xms${HEAP:-2G} -Xmx${HEAP:-2G} -XX:+UseG1GC -XX:+Parallel
 
 # `docker exec` cannot reach stdin of PID 1, so tmux provides the writable console. `console` attaches
 # to it, and `mc <cmd>` sends one command.
-log "starting ${SERVER_KIND} ${SERVER_VERSION_RUNNING} build ${SERVER_BUILD_RUNNING}"
-log "console: run 'console' in this container to attach, or 'mc <command>' to send one command"
+log "server started: kind=${SERVER_KIND} version=${SERVER_VERSION_RUNNING} build=${SERVER_BUILD_RUNNING}"
 
 LOG_FILE="$DATA/logs/latest.log"
 BOOT_LOG="$DATA/logs/console.log"
@@ -706,10 +676,10 @@ on_term() {
     local pid
     pid=$(tmux -S "$SOCK" display-message -p -t "$SESSION" '#{pane_pid}' 2>/dev/null || true)
     if [[ -n "$pid" ]]; then
-        log "shutdown requested - SIGTERM to the server (pid ${pid}), waiting for it to save"
+        log "shutdown requested, SIGTERM sent: pid=${pid}"
         kill -TERM "$pid" 2>/dev/null || true
     else
-        warn "shutdown requested but the server process could not be found"
+        warn "shutdown requested, server process not found"
     fi
 }
 trap on_term TERM INT
@@ -731,12 +701,12 @@ kill "$TAIL_PID" 2>/dev/null || true
 
 # The JVM died before latest.log existed, so the boot capture is the only record. Print it.
 if [[ ! -s "$LOG_FILE" && -s "$BOOT_LOG" ]]; then
-    warn "the server produced no ${LOG_FILE##*/}, so it died before Paper started logging. Its console output follows - this is the only copy, and it is also in ${BOOT_LOG} until the next start:"
+    warn "server stopped before logging, boot console follows: file=${BOOT_LOG}"
     cat "$BOOT_LOG" >&2
 fi
 
 tmux -S "$SOCK" kill-server 2>/dev/null || true
-log "server exited with status ${status:-1}"
+log "server exited: status=${status:-1}"
 
 # A restart would refuse again, and unless-stopped restarts on any status. Held, the container turns
 # unhealthy and Steward alerts. steward-agent reads this line as the last of the log.

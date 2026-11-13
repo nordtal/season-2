@@ -46,11 +46,7 @@ public final class Standbys {
             final String standby = each.name();
             final Path target = volumesRoot.resolve(standby).resolve(Installation.PLUGINS);
             if (!Files.isDirectory(volumesRoot.resolve(standby))) {
-                log.info(
-                        "{} is not mounted here, so nothing was copied into it. That is a"
-                                + " deployment without standby services; a run that needs one will find it"
-                                + " empty and the container will refuse to start rather than run nothing.",
-                        standby);
+                log.info("standby volume not mounted, nothing copied: service={}", standby);
                 continue;
             }
             final Path source = volumesRoot.resolve(service).resolve(Installation.PLUGINS);
@@ -85,7 +81,12 @@ public final class Standbys {
             Files.createDirectories(target);
             copyInto(source, target, 0, tally);
         } catch (final IOException failed) {
-            log.error("Could not fill {}'s {} from {}: {}", standby, directory, source, failed.getMessage());
+            log.error(
+                    "standby not filled: service={} dir={} from={} cause={}",
+                    standby,
+                    directory,
+                    source,
+                    failed.getMessage());
             return new ApplyResult.Outcome(
                     standby,
                     directory,

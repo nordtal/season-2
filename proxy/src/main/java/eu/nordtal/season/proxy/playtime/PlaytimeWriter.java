@@ -60,11 +60,7 @@ public final class PlaytimeWriter {
         final DiscordId discordId =
                 roster.of(mcUuid).map(LoginRoster.Session::discordId).orElse(null);
         if (discordId == null) {
-            logger.warn(
-                    "Not counting play time for {} ({}): the login path never learned a Discord "
-                            + "id for this account",
-                    mcUuid,
-                    username);
+            logger.warn("play time not counted, discord id unknown: uuid={} player={}", mcUuid, username);
             return;
         }
         sessions.put(mcUuid, new Session(discordId, clock.instant()));
@@ -109,7 +105,7 @@ public final class PlaytimeWriter {
                 store.add(session.discordId, seconds);
             } catch (final RuntimeException exception) {
                 logger.warn(
-                        "Could not write {}s of play time for {} ({}); it will be written with " + "the next flush",
+                        "play time not written: seconds={} uuid={} member={}",
                         seconds,
                         mcUuid,
                         session.discordId,

@@ -33,7 +33,7 @@ final class LocalProject {
 
     void requireEnv() {
         if (!env.exists()) {
-            throw new Processes.Failure(ENV_FILE + " is not there. Run: dev init");
+            throw new Processes.Failure(ENV_FILE + " is missing. Run dev init first.");
         }
     }
 
@@ -72,11 +72,10 @@ final class LocalProject {
         final String value = env.value(variable)
                 .filter(found -> !found.isBlank())
                 .orElseThrow(() -> new Processes.Failure(ENV_FILE + " sets no " + variable
-                        + ". The local stack needs a path there; see " + "deploy/dev.env.example"));
+                        + ". Set it to a directory, as deploy/dev.env.example does."));
         if (!value.contains("/") && !value.contains("\\")) {
-            throw new Processes.Failure(variable + " is '" + value + "', which Docker reads as a VOLUME NAME, not a"
-                    + " path. The local stack cannot copy jars or read configs out of a volume - set it to a"
-                    + " directory.");
+            throw new Processes.Failure(
+                    variable + " in " + ENV_FILE + " is " + value + ", a volume name. Set it to a directory path.");
         }
         return root.resolve(value).normalize();
     }
@@ -84,8 +83,8 @@ final class LocalProject {
     Path secretsDir(final String service) {
         final String value = env.value("NORDTAL_SECRETS_DIR")
                 .filter(found -> !found.isBlank())
-                .orElseThrow(() -> new Processes.Failure(ENV_FILE + " sets no NORDTAL_SECRETS_DIR. The local stack"
-                        + " needs a path there; see deploy/dev.env.example"));
+                .orElseThrow(() -> new Processes.Failure(ENV_FILE
+                        + " sets no NORDTAL_SECRETS_DIR. Set it to a directory, as deploy/dev.env.example does."));
         return root.resolve(value).resolve(service).normalize();
     }
 

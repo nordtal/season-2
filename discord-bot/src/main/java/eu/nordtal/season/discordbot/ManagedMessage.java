@@ -30,11 +30,7 @@ public final class ManagedMessage {
         }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
-            log.error(
-                    "Channel {} for the {} message does not exist, or the bot cannot see it. "
-                            + "That message is not being maintained.",
-                    channelId,
-                    kind);
+            log.error("channel not found, managed message not kept: kind={} channel={}", kind, channelId);
             return;
         }
         try {
@@ -45,9 +41,9 @@ public final class ManagedMessage {
             final String posted =
                     channel.sendMessage(content.create()).complete().getId();
             dao.remember(kind, channelId, posted);
-            log.info("Posted the {} message as {} in {}", kind, posted, channelId);
+            log.info("managed message posted: kind={} message={} channel={}", kind, posted, channelId);
         } catch (final RuntimeException exception) {
-            log.error("Could not maintain the {} message in channel {}", kind, channelId, exception);
+            log.error("managed message not kept: kind={} channel={}", kind, channelId, exception);
         }
     }
 
@@ -57,7 +53,7 @@ public final class ManagedMessage {
             return true;
         } catch (final RuntimeException exception) {
             log.info(
-                    "The remembered message {} in {} could not be edited ({}); posting a new one",
+                    "managed message not edited: message={} channel={} cause={}",
                     messageId,
                     channel.getId(),
                     exception.toString());

@@ -115,7 +115,11 @@ public final class CommandApi {
                 who.actor(),
                 Schedule.within(PATIENCE),
                 new AuditLine(line.action(), who.actor(), line.subject(), null, line.detail()));
-        log.info("{} asked for {}", who.name(), inbox.table().kindOf(request));
+        log.info(
+                "request submitted: actor={} kind={} request={}",
+                who.name(),
+                inbox.table().kindOf(request),
+                asked.id());
         return asked.id();
     }
 
@@ -179,7 +183,11 @@ public final class CommandApi {
         }
         final SmpRequest request = new SmpRequest.TakeInItem(player, purpose);
         final Request<SmpRequest> asked = data.smp().submit(request, who.actor(), Schedule.within(TAKE_IN_PATIENCE));
-        log.info("{} asked for {}", who.name(), data.smp().table().kindOf(request));
+        log.info(
+                "request submitted: actor={} kind={} request={}",
+                who.name(),
+                data.smp().table().kindOf(request),
+                asked.id());
         return "smp:" + asked.id();
     }
 
@@ -239,7 +247,11 @@ public final class CommandApi {
 
     private <P> long ask(final DiscordAuth.Account who, final Inbox<P> inbox, final P request) {
         final Request<P> asked = inbox.submit(request, who.actor(), Schedule.within(PATIENCE));
-        log.info("{} asked for {}", who.name(), inbox.table().kindOf(request));
+        log.info(
+                "request submitted: actor={} kind={} request={}",
+                who.name(),
+                inbox.table().kindOf(request),
+                asked.id());
         return asked.id();
     }
 

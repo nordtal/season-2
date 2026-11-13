@@ -131,7 +131,7 @@ public final class AdminLog {
         try {
             book.raise(alert, Actor.BOT);
         } catch (final RuntimeException exception) {
-            log.error("Could not raise the alert {}: {}", alert.action(), alert.detail(), exception);
+            log.error("alert not raised: action={} detail=\"{}\"", alert.action(), alert.detail(), exception);
         }
     }
 
@@ -157,7 +157,7 @@ public final class AdminLog {
             final BotRequest.PostAlert request, final @Nullable String role, final LongFunction<RunCard> runCards) {
         final RaisedAlert raised = alerts.alert(request.entry()).orElse(null);
         if (raised == null) {
-            log.warn("There is no alert {} to post", request.entry());
+            log.warn("alert not found: entry={}", request.entry());
             return false;
         }
         final Alert alert = raised.alert();
@@ -173,7 +173,7 @@ public final class AdminLog {
                 ? runCards.apply(failed.run())
                 : RunCard.NONE;
         if (taken.again()) {
-            log.info("The alert {} of a run was posted before; it is not posted again", request.entry());
+            log.info("run alert already posted, not posted again: entry={}", request.entry());
             return true;
         }
         final String runCard = taken.messageId();
@@ -181,12 +181,10 @@ public final class AdminLog {
             return send(card, pinged);
         }
         channel.deleteMessageById(runCard).queue(gone -> send(card, pinged), failure -> {
-            log.warn("Could not delete the run card {}, so the alert answers it", runCard, failure);
+            log.warn("run card not deleted, alert sent as reply: message={}", runCard, failure);
             channel.sendMessage(pinging(card, pinged))
                     .setMessageReference(runCard)
-                    .queue(
-                            success -> {},
-                            unsent -> log.error("Could not write to the admin channel: {}", card.text(), unsent));
+                    .queue(success -> {}, unsent -> log.error("admin card not sent: text=\"{}\"", card.text(), unsent));
         });
         return true;
     }
@@ -231,9 +229,7 @@ public final class AdminLog {
             return;
         }
         channel.sendMessage(pinging(card, null))
-                .queue(
-                        sent -> sentId.accept(sent.getId()),
-                        failure -> log.error("Could not post a card to the admin channel", failure));
+                .queue(sent -> sentId.accept(sent.getId()), failure -> log.error("admin card not sent", failure));
     }
 
     public void edit(final String messageId, final DocumentRenderer.Drawn card) {
@@ -242,9 +238,7 @@ public final class AdminLog {
             return;
         }
         channel.editMessageById(messageId, card.edit())
-                .queue(
-                        success -> {},
-                        failure -> log.error("Could not edit admin-channel message {}", messageId, failure));
+                .queue(success -> {}, failure -> log.error("admin card not edited: message={}", messageId, failure));
     }
 
     public void delete(final String messageId) {
@@ -253,9 +247,7 @@ public final class AdminLog {
             return;
         }
         channel.deleteMessageById(messageId)
-                .queue(
-                        success -> {},
-                        failure -> log.error("Could not delete admin-channel message {}", messageId, failure));
+                .queue(success -> {}, failure -> log.error("admin card not deleted: message={}", messageId, failure));
     }
 
     /**
@@ -266,7 +258,7 @@ public final class AdminLog {
         try {
             journal.record(line);
         } catch (final RuntimeException exception) {
-            log.error("Could not write the journal entry for {} {}", line.action(), line.detail(), exception);
+            log.error("journal entry not written: action={} detail=\"{}\"", line.action(), line.detail(), exception);
         }
         send(card(documents, line), null);
     }
@@ -277,7 +269,7 @@ public final class AdminLog {
                         row -> send(
                                 card(documents, row.action(), row.actor(), row.subject(), row.mcUuid(), row.line()),
                                 null),
-                        () -> log.error("Journal entry {} is gone, so its card was not posted", entry));
+                        () -> log.error("journal entry not found, card not posted: entry={}", entry));
     }
 
     static DocumentRenderer.Drawn card(final DocumentRenderer documents, final AuditLine line) {
@@ -312,9 +304,7 @@ public final class AdminLog {
         final MessageChannel channel =
                 jda.getChannelById(MessageChannel.class, config.channels().admin());
         if (channel == null) {
-            log.error(
-                    "Admin channel {} does not exist or the bot cannot see it",
-                    config.channels().admin());
+            log.error("admin channel not found: channel={}", config.channels().admin());
         }
         return channel;
     }
@@ -322,13 +312,11 @@ public final class AdminLog {
     private boolean send(final DocumentRenderer.Drawn card, final @Nullable String role) {
         final MessageChannel channel = channel();
         if (channel == null) {
-            log.warn("No admin channel, so this was not posted to Discord: {}", card.text());
+            log.warn("admin channel not set, card not posted: text=\"{}\"", card.text());
             return false;
         }
         channel.sendMessage(pinging(card, role))
-                .queue(
-                        success -> {},
-                        failure -> log.error("Could not write to the admin channel: {}", card.text(), failure));
+                .queue(success -> {}, failure -> log.error("admin card not sent: text=\"{}\"", card.text(), failure));
         return true;
     }
 

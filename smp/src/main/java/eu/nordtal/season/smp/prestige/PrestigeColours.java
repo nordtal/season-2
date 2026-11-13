@@ -93,9 +93,8 @@ public final class PrestigeColours {
         }
         final TextColor colour = TextColor.fromHexString(hex.trim());
         if (colour == null) {
-            problems.accept("the prestige colour for " + label + " is '" + hex + "', which is not a"
-                    + " hex colour (it has to look like #5fbfae); using the default "
-                    + fallback.asHexString());
+            problems.accept("prestige colour not a hex colour, default used: entry=\"" + label + "\" value=\"" + hex
+                    + "\" default=" + fallback.asHexString());
             return fallback;
         }
         return colour;

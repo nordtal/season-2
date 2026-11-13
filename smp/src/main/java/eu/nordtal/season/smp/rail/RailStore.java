@@ -214,7 +214,7 @@ public final class RailStore {
     }
 
     private @Nullable Void logged(final Throwable failure) {
-        log.log(Level.WARNING, "a write of the rail networks failed", failure);
+        log.log(Level.WARNING, "rail networks not written", failure);
         return null;
     }
 }

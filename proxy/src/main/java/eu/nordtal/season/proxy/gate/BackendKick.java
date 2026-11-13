@@ -91,8 +91,7 @@ public final class BackendKick {
         }
         if (servers.isWaitingRoom(from)) {
             logger.warn(
-                    "'{}' lost {} with no reason given, and it is itself a waiting room; "
-                            + "leaving Velocity's own result in place",
+                    "waiting room lost player without reason, velocity result kept: server={} player={}",
                     from,
                     event.getPlayer().getUsername());
             return null;
@@ -103,8 +102,8 @@ public final class BackendKick {
                 .orElse(null);
         if (target == null) {
             logger.error(
-                    "{} lost its connection to '{}' with no reason given, and neither '{}' nor "
-                            + "'{}' is registered on this proxy to hold them in instead",
+                    "player lost without reason, no waiting room registered: player={} from={} waiting_room={}"
+                            + " standby_room={}",
                     event.getPlayer().getUsername(),
                     from,
                     servers.limbo(),
@@ -114,12 +113,11 @@ public final class BackendKick {
 
         health.suspend(from);
         logger.warn(
-                "{} lost its connection to '{}' with no reason given; moving them to '{}' "
-                        + "instead of a disconnect screen, and holding '{}' suspended for {}s",
+                "player lost without reason, moved to waiting room, server suspended: player={} from={} to={}"
+                        + " seconds={}",
                 event.getPlayer().getUsername(),
                 from,
                 target.getServerInfo().getName(),
-                from,
                 BackendHealth.RETRY.toSeconds());
         final Locale locale = roster.localeOf(event.getPlayer().getUniqueId());
         event.setResult(KickedFromServerEvent.RedirectPlayer.create(target, messages.connectionLost(locale)));
@@ -132,7 +130,7 @@ public final class BackendKick {
         final Optional<RegisteredServer> room = WaitingRooms.answering(proxy, servers, clock, WaitingRooms.ON_ARRIVAL);
         if (room.isPresent()) {
             logger.info(
-                    "'{}' refused {} on arrival; '{}' answers now, sending them there",
+                    "arrival refused, player sent to waiting room: from={} player={} to={}",
                     from,
                     player.getUsername(),
                     room.get().getServerInfo().getName());
@@ -140,7 +138,7 @@ public final class BackendKick {
             return;
         }
         logger.warn(
-                "'{}' refused {} on arrival and no waiting room answered within {}s; disconnecting them",
+                "arrival refused, no waiting room answered, player disconnected: from={} player={} seconds={}",
                 from,
                 player.getUsername(),
                 WaitingRooms.ON_ARRIVAL.toSeconds());

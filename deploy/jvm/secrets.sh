@@ -12,7 +12,7 @@ read_secrets() {
     file="$1"
     if [ ! -f "$file" ]; then
         if [ -d "$(dirname "$file")" ]; then
-            echo "[entrypoint] $file is not there, so this service starts without its own secrets" >&2
+            echo "[entrypoint] secrets file missing, own secrets skipped: file=$file" >&2
         fi
         return 0
     fi
@@ -26,7 +26,7 @@ read_secrets() {
         case "$name" in
             "$line" | '' | [0-9]* | *[!A-Za-z0-9_]*)
                 # The message does not repeat the line, because the line may hold a secret.
-                echo "[entrypoint] a line of $file is no NAME=value assignment and is skipped" >&2
+                echo "[entrypoint] secrets line not an assignment, skipped: file=$file" >&2
                 continue
                 ;;
         esac

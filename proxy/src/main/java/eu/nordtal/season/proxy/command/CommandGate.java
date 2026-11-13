@@ -122,7 +122,7 @@ public final class CommandGate {
         remove.forEach(event.getRootNode()::removeChildByName);
         if (!remove.isEmpty()) {
             logger.debug(
-                    "Hid {} command(s) from {}: {}",
+                    "commands hidden: count={} player={} commands=\"{}\"",
                     remove.size(),
                     event.getPlayer().getUsername(),
                     remove);

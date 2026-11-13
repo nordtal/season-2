@@ -47,7 +47,7 @@ final class Steps {
         try {
             id = recorder.begin(run, step, service);
         } catch (final RuntimeException failure) {
-            log.warn("Could not write the step {} {} of run {}", step, service, run, failure);
+            log.warn("run step not written: run={} step={} service={}", run, step, service, failure);
         }
         return new Step(id, step, service);
     }
@@ -66,7 +66,7 @@ final class Steps {
         try {
             statement.run();
         } catch (final RuntimeException failure) {
-            log.warn("Could not write a step of run {}", run, failure);
+            log.warn("run step not written: run={}", run, failure);
         }
     }
 
@@ -124,7 +124,13 @@ final class Steps {
         /** A run ahead of the schema keeps no steps before its migration, so the log keeps how each ended. */
         private void unkept(final Outcome outcome, final @Nullable Reason reason) {
             if (run != 0) {
-                log.info("Run {}, step {} {} ended {} {}", run, kind, service, outcome, reason);
+                log.info(
+                        "run step ended: run={} step={} service={} outcome={} reason={}",
+                        run,
+                        kind,
+                        service,
+                        outcome,
+                        reason);
             }
         }
 

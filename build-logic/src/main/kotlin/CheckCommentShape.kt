@@ -40,7 +40,7 @@ abstract class CheckCommentShape : DefaultTask() {
             }
         if (findings.isEmpty()) return
         if (enforced.get()) throw GradleException("Comments that break CONVENTIONS.md:\n" + findings.joinToString("\n"))
-        logger.lifecycle("$path: ${findings.size} comment findings, not yet enforced.")
+        logger.lifecycle("comment findings not enforced: task=$path count=${findings.size}")
     }
 
     private fun findingsIn(lines: List<String>): List<String> =

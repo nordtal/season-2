@@ -155,7 +155,7 @@ public final class PackStation {
         }
         if (roster.isPackExempt(player.getUniqueId())) {
             if (book.packExempt(player.getUniqueId())) {
-                logger.info("{} is exempt from the resource pack by an admin; no offer sent", player.getUsername());
+                logger.info("resource pack offer skipped, player exempt: player={}", player.getUsername());
             }
             return;
         }
@@ -163,7 +163,7 @@ public final class PackStation {
             return;
         }
         player.sendResourcePackOffer(offer.forLocale(localeOf(player)));
-        logger.debug("Offered the resource pack to {}", player.getUsername());
+        logger.debug("resource pack offered: player={}", player.getUsername());
     }
 
     // the client's answer
@@ -181,22 +181,19 @@ public final class PackStation {
             }
             case ACCEPTED, DOWNLOADED -> {}
             case DECLINED -> {
-                logger.info("{} declined the resource pack", player.getUsername());
+                logger.info("resource pack declined: player={}", player.getUsername());
                 disconnect(player, messages.declined(locale));
             }
             case FAILED_DOWNLOAD, FAILED_RELOAD -> {
-                logger.warn("{} could not apply the resource pack: {}", player.getUsername(), event.getStatus());
+                logger.warn("resource pack not applied: player={} status={}", player.getUsername(), event.getStatus());
                 disconnect(player, messages.failedDownload(locale));
             }
             case INVALID_URL -> {
-                logger.error(
-                        "The client of {} reports pack#url as unloadable. EVERY player will "
-                                + "fail this way until it is fixed.",
-                        player.getUsername());
+                logger.error("resource pack url unloadable: player={}", player.getUsername());
                 disconnect(player, messages.invalidUrl(locale));
             }
             case DISCARDED -> {
-                logger.warn("The resource pack was discarded for {}", player.getUsername());
+                logger.warn("resource pack discarded: player={}", player.getUsername());
             }
         }
     }
@@ -219,14 +216,14 @@ public final class PackStation {
         final Optional<LimboProtocol.Message> message = LimboProtocol.decode(event.getData());
         if (message.isEmpty()) {
             logger.warn(
-                    "Dropped an unreadable {} message from '{}'",
+                    "unreadable plugin message dropped: plugin_channel={} server={}",
                     LimboProtocol.CHANNEL,
                     connection.getServerInfo().getName());
             return;
         }
         if (message.get().type() != LimboProtocol.Type.READY) {
             logger.warn(
-                    "'{}' sent a {} on {}, which only the proxy sends",
+                    "unexpected plugin message ignored: server={} type={} plugin_channel={}",
                     connection.getServerInfo().getName(),
                     message.get().type(),
                     LimboProtocol.CHANNEL);
@@ -236,8 +233,7 @@ public final class PackStation {
         final Player player = connection.getPlayer();
         if (book.ready(player.getUniqueId())) {
             logger.info(
-                    "'{}' reported {} ready before the proxy had finished putting them in the "
-                            + "waiting room; remembered rather than dropped",
+                    "early ready remembered: server={} player={}",
                     connection.getServerInfo().getName(),
                     player.getUsername());
         }
@@ -248,9 +244,11 @@ public final class PackStation {
         final UUID uuid = event.getSource() instanceof Player player ? player.getUniqueId() : null;
         if (uuid == null || reportedForgery.add(uuid)) {
             logger.warn(
-                    "Ignored a {} message that did not come from a backend server: {}",
+                    "plugin message from non-backend ignored: plugin_channel={} source={}",
                     LimboProtocol.CHANNEL,
-                    event.getSource());
+                    event.getSource() instanceof Player player
+                            ? player.getUsername()
+                            : event.getSource().getClass().getSimpleName());
         }
     }
 
@@ -317,21 +315,18 @@ public final class PackStation {
             }
             case TIMED_OUT -> {
                 logger.warn(
-                        "{} never answered the resource pack offer within {}s",
+                        "resource pack offer not answered: player={} seconds={}",
                         player.getUsername(),
                         config.applyTimeoutSeconds());
                 disconnect(player, messages.timedOut(localeOf(player)));
             }
             case RELEASE -> {
-                logger.info(
-                        "{} has the pack and is leaving the waiting room for '{}'", player.getUsername(), destination);
+                logger.info("player released from waiting room: player={} to={}", player.getUsername(), destination);
                 release.accept(player);
             }
             case RELEASE_UNCONFIRMED -> {
                 logger.warn(
-                        "Releasing {} to '{}' without a READY from '{}': everything else has "
-                                + "been settled for the grace period. The nordtal:limbo channel is "
-                                + "not delivering backend messages to this proxy.",
+                        "player released without ready: player={} to={} waiting_room={}",
                         player.getUsername(),
                         destination,
                         routing.servers().limbo());
@@ -344,7 +339,7 @@ public final class PackStation {
         player.getCurrentServer().ifPresent(connection -> {
             if (!connection.sendPluginMessage(channel, data)) {
                 logger.warn(
-                        "'{}' did not accept a {} message; is the limbo plugin running there?",
+                        "plugin message not accepted: server={} plugin_channel={}",
                         connection.getServerInfo().getName(),
                         LimboProtocol.CHANNEL);
             }
@@ -357,11 +352,11 @@ public final class PackStation {
         book.releaseFailed(player.getUniqueId(), destination);
         health.suspend(destination);
         logger.warn(
-                "'{}' did not take {} ({}); holding them in the waiting room and trying again in {}s",
+                "release not taken, player held: to={} player={} seconds={} cause={}",
                 destination,
                 player.getUsername(),
-                cause,
-                WaitingBook.RELEASE_RETRY.toSeconds());
+                WaitingBook.RELEASE_RETRY.toSeconds(),
+                cause);
         evaluate(player);
     }
 

@@ -51,12 +51,12 @@ public final class AdminRole {
     public void reconcile() {
         final Guild guild = jda.getGuildById(config.guildId());
         if (guild == null) {
-            log.error("Guild {} is not available; the admin role was not reconciled", config.guildId());
+            log.error("guild not available, admin role not reconciled: guild={}", config.guildId());
             return;
         }
         final Role role = roles.role(guild, GuildRoles.ADMIN).orElse(null);
         if (role == null) {
-            log.warn("There is no admin role yet; it was not reconciled");
+            log.warn("admin role not found, not reconciled");
             return;
         }
 
@@ -67,7 +67,7 @@ public final class AdminRole {
             if (!shouldHave.remove(member.getId())) {
                 guild.removeRoleFromMember(member, role)
                         .queue(
-                                ok -> succeeded(DiscordId.of(member.getId()), "took the admin role from"),
+                                ok -> succeeded(DiscordId.of(member.getId()), "taken"),
                                 failure -> failed(DiscordId.of(member.getId()), false, failure));
             }
         }
@@ -79,20 +79,18 @@ public final class AdminRole {
                 continue;
             }
             guild.addRoleToMember(member, role)
-                    .queue(
-                            ok -> succeeded(discordId, "gave the admin role to"),
-                            failure -> failed(discordId, true, failure));
+                    .queue(ok -> succeeded(discordId, "given"), failure -> failed(discordId, true, failure));
         }
     }
 
     private void succeeded(final DiscordId discordId, final String what) {
         alerts.clear(discordId.value());
-        log.info("Admin role: {} {}", what, discordId);
+        log.info("admin role changed: member={} change={}", discordId, what);
     }
 
     private void failed(final DiscordId discordId, final boolean given, final Throwable failure) {
         if (!alerts.raise(discordId.value(), GuildRoles.notChanged(DiscordRole.ADMIN, given, discordId, failure))) {
-            log.debug("Could still not change the admin role of {}: {}", discordId, failure.getMessage());
+            log.debug("admin role still not changed: member={} cause={}", discordId, failure.getMessage());
         }
     }
 }

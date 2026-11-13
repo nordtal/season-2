@@ -43,7 +43,7 @@ public final class AdminAnnouncements {
     public BotRequest.PostAnnouncement.Answer post(final BotRequest.PostAnnouncement request) {
         final Optional<Document> document = documents.apply(request.announcement());
         if (document.isEmpty()) {
-            log.error("Announcement {} is gone, so nothing of it was posted", request.announcement());
+            log.error("announcement not found, nothing posted: announcement={}", request.announcement());
         }
         final List<BotRequest.Announce.Posted> answers = new ArrayList<>();
         final List<String> out = new ArrayList<>();
@@ -65,7 +65,7 @@ public final class AdminAnnouncements {
         try {
             message = draw.apply(document, target.language());
         } catch (final RuntimeException broken) {
-            log.error("Could not draw the announcement in '{}'", target.language(), broken);
+            log.error("announcement not drawn: language={}", target.language(), broken);
             return false;
         }
         return channels.post(target.channel(), target.language(), message);

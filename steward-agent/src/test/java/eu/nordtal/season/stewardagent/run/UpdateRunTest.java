@@ -119,7 +119,8 @@ class UpdateRunTest {
         final UpdateRun run = run(containers);
         final UpdateRun.Stopped stopped = run.stop(List.of(Topology.SMP), containers.runtime());
         run.start(stopped);
-        containers.refuses(Topology.SMP, "smp is not starting: the milestones name an unknown track");
+        containers.refuses(
+                Topology.SMP, "smp not starting, milestones refused: cause=the milestones name an unknown track");
 
         run.verify(stopped.services(), patient());
 

@@ -88,8 +88,8 @@ class AnnouncementsTest {
                 .map(Line::text)
                 .toList();
         assertEquals(2, info.size(), () -> "logged: " + logged);
-        assertTrue(info.get(0).contains("'en'") && info.get(0).contains("#announcements (111)"), info.get(0));
-        assertTrue(info.get(1).contains("'de'") && info.get(1).contains("#ankuendigungen (222)"), info.get(1));
+        assertTrue(info.get(0).contains("language=en channel=111 channel_name=\"announcements\""), info.get(0));
+        assertTrue(info.get(1).contains("language=de channel=222 channel_name=\"ankuendigungen\""), info.get(1));
     }
 
     @Test

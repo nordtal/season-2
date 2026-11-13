@@ -15,12 +15,14 @@ import java.util.Properties;
  * The wooden wheel's timetable in cooldown ticks of the item group {@code nordtal:wheel}.
  * The build writes it with the pack's turn. A variant {@code e} stops the wheel {@code e} places past whole turns.
  *
- * @param cooldown the spin's cooldown: the swap, then the turn
- * @param swap the swap's ticks
- * @param pops the tick of each place's pop, place 0 first
+ * @param cooldown the turn's cooldown, as long as the longest variant's turn
+ * @param open the cooldown of the prizes' pop-in when the dialog opens
+ * @param pops the tick of each place's pop in the pop-in, place 0 first
  * @param clicks per variant, in the pack's order, its peg clicks
+ * @param ends per variant, the tick at which its wheel rests
  */
-public record WheelTimetable(int cooldown, int swap, List<Integer> pops, Map<Integer, List<Integer>> clicks) {
+public record WheelTimetable(
+        int cooldown, int open, List<Integer> pops, Map<Integer, List<Integer>> clicks, Map<Integer, Integer> ends) {
 
     /** Where the build puts the timetable, beside this module's other generated tables. */
     public static final String RESOURCE = "nordtal/wheel/wheel.properties";
@@ -30,6 +32,7 @@ public record WheelTimetable(int cooldown, int swap, List<Integer> pops, Map<Int
         final Map<Integer, List<Integer>> copy = new LinkedHashMap<>();
         clicks.forEach((variant, ticks) -> copy.put(variant, List.copyOf(ticks)));
         clicks = Collections.unmodifiableMap(copy);
+        ends = Map.copyOf(ends);
     }
 
     /** The timetable the build wrote for the pack this module ships with. */
@@ -47,17 +50,26 @@ public record WheelTimetable(int cooldown, int swap, List<Integer> pops, Map<Int
         }
     }
 
-    /** Reads {@code cooldown}, {@code swap}, {@code pops}, {@code variants} and {@code clicks.<variant>}. */
+    /** Reads the timetable: cooldown, open, pops, variants, and clicks and end per variant. */
     static WheelTimetable parse(final Properties properties) {
         final Map<Integer, List<Integer>> clicks = new LinkedHashMap<>();
+        final Map<Integer, Integer> ends = new LinkedHashMap<>();
+        final int cooldown = Integer.parseInt(required(properties, "cooldown"));
         for (final int variant : numbers(required(properties, "variants"))) {
             clicks.put(variant, numbers(properties.getProperty("clicks." + variant, "")));
+            ends.put(variant, Integer.parseInt(properties.getProperty("end." + variant, String.valueOf(cooldown))));
         }
         return new WheelTimetable(
-                Integer.parseInt(required(properties, "cooldown")),
-                Integer.parseInt(required(properties, "swap")),
+                cooldown,
+                Integer.parseInt(required(properties, "open")),
                 numbers(required(properties, "pops")),
-                clicks);
+                clicks,
+                ends);
+    }
+
+    /** The tick at which variant {@code variant}'s wheel rests, so its prize is paid. */
+    public int end(final int variant) {
+        return ends.getOrDefault(variant, cooldown);
     }
 
     /** The turn variants the pack holds. */

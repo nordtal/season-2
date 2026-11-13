@@ -26,7 +26,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -37,6 +36,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.IntConsumer;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -84,8 +84,11 @@ public final class Wheel {
     /** The players whose wheel turns, from click to payout, each with the payout {@link #stop} runs. */
     private final Map<UUID, Runnable> turning = new ConcurrentHashMap<>();
 
-    /** What each player's wheel last showed, so the next spin swaps from it. */
+    /** Each player's wheel: drawn on the first open and kept, turned by each spin, until the server stops. */
     private final Map<UUID, WheelPlan.Face> faces = new ConcurrentHashMap<>();
+
+    /** The pop-in's sounds that still play, per player, which a spin stops. */
+    private final Map<UUID, Scheduler.Task> popping = new ConcurrentHashMap<>();
 
     private final Clock clock;
 
@@ -114,7 +117,67 @@ public final class Wheel {
         this.timetable = timetable;
     }
 
-    /** Callable from the main thread. */
+    /**
+     * Shows the player's wheel and waits for the button.
+     * The prizes pop in; no spin is spent. Callable from the main thread; ignored while the player's wheel turns.
+     */
+    public void open(final Player player) {
+        final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
+        final Locale locale = identities.languageOf(player.getUniqueId());
+        if (discordId.isEmpty()) {
+            player.sendMessage(renderer.format(locale, Sent.of(SmpTexts.NO_ACCOUNT_LINK)));
+            sounds.play(player, Feedback.REFUSED);
+            return;
+        }
+        final UUID id = player.getUniqueId();
+        if (turning.containsKey(id)) {
+            return;
+        }
+        PaperScheduler.of(plugin).execute(() -> {
+            final Spins spins = dao.spinsOf(discordId.get()).orElse(new Spins(0, 0, null));
+            final int count = spins.available(LocalDate.now(clock));
+            final WheelPlan plan = WheelPlan.waiting(face(id, config.wheelPrizes()));
+            final List<ItemStack> stacks = shown(plan);
+            PaperScheduler.of(plugin).onMain(() -> {
+                if (!player.isOnline() || turning.containsKey(id)) {
+                    return;
+                }
+                final ClickEvent press =
+                        count > 0 ? dialogs.send().clickUnless(() -> turning.containsKey(id), this::spin) : null;
+                player.setCooldown(WheelDialog.GROUP, timetable.open());
+                player.showDialog(
+                        WheelDialog.of(plan, stacks, texts(locale, count), locale.getLanguage(), count > 0, press));
+                final Set<Integer> pops = Set.copyOf(timetable.pops());
+                stopPopping(id);
+                popping.put(
+                        id,
+                        play(
+                                player,
+                                timetable.open(),
+                                tick -> {
+                                    if (pops.contains(tick)) {
+                                        sounds.play(player, Feedback.POP);
+                                    }
+                                },
+                                () -> popping.remove(id)));
+            });
+        });
+    }
+
+    /** The player's wheel, drawn now if they have none yet or a prize on it left the pool. */
+    private WheelPlan.Face face(final UUID id, final List<WheelPrizeSpec> pool) {
+        return faces.compute(
+                id, (key, face) -> face != null && face.drawnFrom(pool) ? face : WheelPlan.Face.random(pool, random));
+    }
+
+    private void stopPopping(final UUID id) {
+        final Scheduler.Task task = popping.remove(id);
+        if (task != null) {
+            task.cancel();
+        }
+    }
+
+    /** Spends a spin and turns the player's wheel; the dialog's button calls it. Callable from the main thread. */
     public void spin(final Player player) {
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());
         final Locale locale = identities.languageOf(player.getUniqueId());
@@ -195,42 +258,36 @@ public final class Wheel {
 
     private void award(final Player player, final Locale locale, final Runnable refund, final int spinsLeft) {
         final List<WheelPrizeSpec> pool = config.wheelPrizes();
-        final List<Integer> weights = new ArrayList<>(pool.size());
-        pool.forEach(prize -> weights.add(prize.weight()));
-
-        final int index = PrizeDraw.draw(weights, random);
-        final WheelPrizeSpec prize = pool.get(index);
+        final UUID id = player.getUniqueId();
+        // This part runs off the main thread.
+        final WheelPlan.Face face = face(id, pool);
+        final WheelPlan plan = WheelPlan.turning(face, face.draw(pool, timetable.variants(), random));
+        final WheelPrizeSpec prize = plan.winner();
         final ItemStack item = itemOf(prize);
         if (item == null) {
             plugin.getLogger().warning("wheel prize item unreadable, spin returned: item=" + prize.item());
             refund.run();
-            turning.remove(player.getUniqueId());
+            turning.remove(id);
             tell(player, renderer.format(locale, Sent.of(BROKEN_PRIZE)), Feedback.LOSS);
             return;
         }
-
-        // This part runs off the main thread.
-        final List<Integer> variants = timetable.variants();
-        final int variant = variants.get(random.nextInt(variants.size()));
-        final WheelPlan.Face before = faces.getOrDefault(player.getUniqueId(), WheelPlan.Face.random(pool, random));
-        final WheelPlan plan = WheelPlan.of(before, prize, others(pool, index), variant);
         final List<ItemStack> stacks = shown(plan);
 
         PaperScheduler.of(plugin)
-                .onMain(() -> guarded(player.getUniqueId(), refund, () -> {
+                .onMain(() -> guarded(id, refund, () -> {
                     if (!player.isOnline()) {
-                        turning.remove(player.getUniqueId());
+                        turning.remove(id);
                         give(player, item, prize.amount(), locale, refund);
                         return;
                     }
-                    final WheelDialog.Texts texts = texts(locale, spinsLeft);
-                    final UUID id = player.getUniqueId();
                     final ClickEvent again = spinsLeft > 0
                             ? dialogs.send().clickUnless(() -> turning.containsKey(id), this::spin)
                             : null;
-                    // The cooldown goes first, so the dialog's first frame already plays the spin.
+                    stopPopping(id);
+                    // The cooldown goes first, so the dialog's first frame already plays the turn.
                     player.setCooldown(WheelDialog.GROUP, timetable.cooldown());
-                    player.showDialog(WheelDialog.of(plan, stacks, texts, locale.getLanguage(), spinsLeft > 0, again));
+                    player.showDialog(WheelDialog.of(
+                            plan, stacks, texts(locale, spinsLeft), locale.getLanguage(), spinsLeft > 0, again));
                     faces.put(id, plan.after());
                     final AtomicBoolean paid = new AtomicBoolean();
                     final Runnable payout = () -> {
@@ -240,13 +297,27 @@ public final class Wheel {
                         }
                     };
                     turning.put(id, payout);
-                    play(player, variant, () -> {
+                    turn(player, plan.variant(), () -> {
                         if (player.isOnline() && !paid.get()) {
                             sounds.play(player, Feedback.BIG_SUCCESS);
                         }
                         payout.run();
                     });
                 }));
+    }
+
+    /** Plays the clicks of {@code variant}'s turn, then {@code end} once the wheel rests. */
+    private void turn(final Player player, final int variant, final Runnable end) {
+        final Set<Integer> clicks = Set.copyOf(timetable.clicks().getOrDefault(variant, List.of()));
+        play(
+                player,
+                timetable.end(variant),
+                tick -> {
+                    if (clicks.contains(tick)) {
+                        sounds.play(player, Feedback.COUNTDOWN_TICK);
+                    }
+                },
+                end);
     }
 
     /** Each body's prize as an item; one whose item does not read shows as a barrier. */
@@ -268,10 +339,10 @@ public final class Wheel {
                 document.title(),
                 Dialogs.plain(document.title()),
                 document.label(spinsLeft > 0 ? "spins-left" : "no-spins-left"),
-                document.label("again-button"),
-                document.label("again-title"),
-                document.label("again-cost"),
-                document.label("again-none"));
+                document.label("spin-button"),
+                document.label("spin-title"),
+                document.label("spin-cost"),
+                document.label("spin-none"));
     }
 
     /**
@@ -279,46 +350,29 @@ public final class Wheel {
      * Paper disables plugins before it disconnects players.
      */
     public void stop() {
+        List.copyOf(popping.values()).forEach(Scheduler.Task::cancel);
+        popping.clear();
         List.copyOf(turning.values()).forEach(Runnable::run);
         turning.clear();
     }
 
-    /** The 11 prizes the wheel shows beside the winner, each prize of the pool before any shows twice. */
-    private List<WheelPrizeSpec> others(final List<WheelPrizeSpec> pool, final int winner) {
-        final List<WheelPrizeSpec> rest = new ArrayList<>(pool);
-        rest.remove(winner);
-        if (rest.isEmpty()) {
-            rest.add(pool.get(winner));
-        }
-        final List<WheelPrizeSpec> out = new ArrayList<>(WheelPlan.PLACES - 1);
-        while (out.size() < WheelPlan.PLACES - 1) {
-            final List<WheelPrizeSpec> round = new ArrayList<>(rest);
-            Collections.shuffle(round, random);
-            out.addAll(round.subList(0, Math.min(round.size(), WheelPlan.PLACES - 1 - out.size())));
-        }
-        return out;
-    }
-
-    /** Plays the spin's sounds on the timetable, a pop per place and a click per peg, then runs {@code end} once. */
-    private void play(final Player player, final int variant, final Runnable end) {
-        final Set<Integer> pops = Set.copyOf(timetable.pops());
-        final Set<Integer> clicks = Set.copyOf(timetable.clicks().getOrDefault(variant, List.of()));
+    /**
+     * Runs {@code each} on every tick from 0 until {@code ticks}, then {@code end} once; stops early with {@code end}
+     * when the player leaves.
+     */
+    private Scheduler.Task play(final Player player, final int ticks, final IntConsumer each, final Runnable end) {
         final int[] tick = {0};
         final Scheduler.Task[] task = {null};
         task[0] = PaperScheduler.of(plugin).onMainEvery(Duration.ZERO, TICK, () -> {
             final int now = tick[0]++;
-            if (now >= timetable.cooldown() || !player.isOnline()) {
+            if (now >= ticks || !player.isOnline()) {
                 task[0].cancel();
                 end.run();
                 return;
             }
-            if (pops.contains(now)) {
-                sounds.play(player, Feedback.POP);
-            }
-            if (clicks.contains(now)) {
-                sounds.play(player, Feedback.COUNTDOWN_TICK);
-            }
+            each.accept(now);
         });
+        return task[0];
     }
 
     /** The spin's end calls it once. It runs {@code refund} when the player is offline. */

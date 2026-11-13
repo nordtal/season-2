@@ -1321,8 +1321,8 @@
     {
       "font": "nordtal:ui_text_{shift}",
       "shifts": [
-        0, 1, 2, 3, 4, 5, 6, 9, 10, 13, 16, 22, 25, 29, 33, 34, 37, 42, 43, 44, 45, 47, 49, 51, 52, 53, 58, 62, 65, 69,
-        70, 85, 88, 89, 91, 106, 137
+        0, 1, 2, 3, 4, 5, 6, 9, 10, 13, 16, 22, 25, 29, 33, 34, 37, 42, 43, 44, 45, 47, 49, 51, 52, 53, 56, 58, 62, 65,
+        69, 70, 85, 88, 89, 91, 106, 137
       ],
       "constant": "FONT_UI_TEXT",
       "letters": true,
@@ -1676,10 +1676,10 @@
     },
     {
       "font": "nordtal:ui_dialog_{shift}",
-      "shifts": [43, 49, 50, 53, 55, 57, 64],
+      "shifts": [43, 49, 50, 53, 55, 57, 62],
       "constant": "FONT_UI_DIALOG",
       "references": ["nordtal:ui_space"],
-      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first line of plates or a column whose art starts at its box + 4, 50 over a first text line, 53, 55 and 57 over a column set at the foot of its box, 43 over a frame 2 px above its line, 64 for the wheel.",
+      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first line of plates or a column whose art starts at its box + 4, 50 over a first text line, 53, 55 and 57 over a column set at the foot of its box, 43 over a frame 2 px above its line, 62 for the wheel.",
       "blocks": [
         {
           "range": "FE3C0-FE3FF",
@@ -1897,9 +1897,9 @@
             },
             {
               "code": "FE3DE",
-              "list": "UI_DIALOG_WHEEL_137",
-              "texture": "nordtal:ui/kit/dialog_wheel_137_0.png",
-              "height": 137,
+              "list": "UI_DIALOG_WHEEL_141",
+              "texture": "nordtal:ui/kit/dialog_wheel_141_0.png",
+              "height": 141,
               "ascent": 20
             }
           ]
@@ -1923,7 +1923,7 @@
         { "constant": "UI_DIALOG_DRAFT_PREVIEW_42" },
         { "constant": "UI_DIALOG_DRAFT_PREVIEW_62" },
         { "constant": "UI_DIALOG_DRAFT_PREVIEW_82" },
-        { "constant": "UI_DIALOG_WHEEL_137" }
+        { "constant": "UI_DIALOG_WHEEL_141" }
       ]
     },
     {

@@ -22,7 +22,7 @@ public final class DialogTitle {
     public static final int MARGIN = 7;
 
     /** The panel tops the pack has a font for, as glyphs.json describes them. */
-    public static final List<Integer> TOPS = List.of(49, 50, 53, 55, 57, 43, 64);
+    public static final List<Integer> TOPS = List.of(49, 50, 53, 55, 57, 43, 62);
 
     private static final int HEADER_ROW = 280;
     private static final int FIELD_FRAME = 184;
@@ -62,13 +62,19 @@ public final class DialogTitle {
 
     /** Draws the header at panel + 7: {@code symbol}, {@code name}, {@code marks} ending 8 inside the right edge. */
     public DialogTitle header(final @Nullable Symbol symbol, final String name, final List<Mark> marks) {
-        final int shift = top + MARGIN - TITLE_ROW;
-        final int nameX = MARGIN + (symbol == null ? 0 : Symbol.BEFORE_TEXT);
-        final int right = panel.width() - 1 - MARGIN;
+        return header(symbol, name, marks, MARGIN);
+    }
+
+    /** Draws the header {@code margin} inside the panel, for a panel with a wider margin, such as the wheel's. */
+    public DialogTitle header(
+            final @Nullable Symbol symbol, final String name, final List<Mark> marks, final int margin) {
+        final int shift = top + margin - TITLE_ROW;
+        final int nameX = margin + (symbol == null ? 0 : Symbol.BEFORE_TEXT);
+        final int right = panel.width() - 1 - margin;
         final int marksLeft = Mark.draw(pen, marks, right, shift, x -> left + x);
         final int room = (marks.isEmpty() ? right + 1 : marksLeft - NAME_TO_MARK) - nameX;
         if (symbol != null) {
-            pen.moveTo(left + MARGIN).symbol(shift, symbol, Colours.INK);
+            pen.moveTo(left + margin).symbol(shift, symbol, Colours.INK);
         }
         pen.moveTo(left + nameX).text(shift, Letters.cut(name, room), Colours.INK);
         return this;

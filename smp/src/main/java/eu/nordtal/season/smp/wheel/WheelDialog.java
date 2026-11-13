@@ -76,9 +76,12 @@ final class WheelDialog {
     private static final int PLATE_X = 1;
 
     /**
-     * The spins line's ui text font under the plate's text row. It draws below the plate's one-line box, outside the
-     * client's outline around the clickable plate.
+     * The plate's top above its text row, as high as the pack draws art, so the most of the plate is in its box.
+     * The 17-pixel plate overhangs the one-line box of 17 by 2, where the client takes no click and no hover.
      */
+    private static final int PLATE_UP = 2;
+
+    /** The spins line's ui text font, below the plate's box and outside the client's outline. */
     private static final int SPINS_SHIFT = 22;
 
     private WheelDialog() {}
@@ -87,8 +90,8 @@ final class WheelDialog {
     record Texts(Component heading, String name, String spins, String button, String title, String cost, String none) {}
 
     /**
-     * The dialog of {@code plan}, one of {@code prizes} per body; {@code click} spins, null without spins left, and
-     * {@code close} runs when the player closes it.
+     * The dialog of {@code plan}, one of {@code prizes} per body.
+     * {@code click} spins, null without spins left, and {@code close} runs when the player closes it.
      */
     static Dialog of(
             final WheelPlan plan,
@@ -128,7 +131,7 @@ final class WheelDialog {
     static Component plateRow(final Texts texts, final boolean spinLeft, final @Nullable ClickEvent click) {
         final Component hover =
                 spinLeft ? Tooltip.hover(texts.title(), texts.cost(), null) : Tooltip.hover(texts.none(), null, null);
-        final Component plate = BodyLine.start()
+        final Component plate = BodyLine.start(-PLATE_UP)
                 .at(PLATE_X)
                 .button(
                         new BodyLine.Press(click, hover),

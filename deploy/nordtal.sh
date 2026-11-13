@@ -1752,7 +1752,7 @@ if $CHECK_ONLY; then
     exit 0
 fi
 
-# 6 · Mojang's assets
+# 5a · Mojang's assets
 # The script asks once per installation and keeps the answer in the env file. On yes, steward-agent
 # fetches the client jar of each Minecraft version from Mojang, draws the item icons that the pickers
 # of Steward show and deletes the jar. Only the icons stay, in the database. Without an answer, the

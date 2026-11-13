@@ -13,19 +13,51 @@ import eu.nordtal.season.build.EditMinecraftInstance
 import eu.nordtal.season.build.EditPackSources
 import eu.nordtal.season.build.ExtractVanillaFonts
 import eu.nordtal.season.build.GenerateGlyphs
-import eu.nordtal.season.build.GenerateWheel
 import eu.nordtal.season.build.InstallPack
 import eu.nordtal.season.build.ListVanillaAssets
 import eu.nordtal.season.build.MinecraftInstanceChooser
 import eu.nordtal.season.build.MinecraftVersion
-import eu.nordtal.season.build.Sha1File
 import eu.nordtal.season.build.VanillaClientTask
 import eu.nordtal.season.build.WriteItemSprites
 import org.gradle.accessors.dm.LibrariesForLibs
 
 plugins {
     id("base")
+    id("jvm-toolchains")
 }
+
+// Gson, which :pack-builder reads JSON with.
+repositories {
+    mavenCentral()
+}
+
+// :pack-builder writes the wheel, the vanilla facts and the zip, each task a run of its command line.
+val packBuilder = configurations.dependencyScope("packBuilder")
+val packBuilderClasspath =
+    configurations.resolvable("packBuilderClasspath") {
+        extendsFrom(packBuilder.get())
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME))
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
+            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
+            attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
+        }
+    }
+dependencies { "packBuilder"(project(":pack-builder")) }
+val packBuilderLauncher = javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) }
+val packBuilderRun: JavaExec.() -> Unit = {
+    classpath(packBuilderClasspath)
+    mainClass.set("eu.nordtal.season.packbuilder.PackBuilderMain")
+    javaLauncher.set(packBuilderLauncher)
+}
+
+// The default wheel prizes, which :smp writes from DefaultSmp.
+val wheelPrizes = configurations.dependencyScope("wheelPrizes")
+val wheelPrizeFiles = configurations.resolvable("wheelPrizeFiles") { extendsFrom(wheelPrizes.get()) }
+dependencies { "wheelPrizes"(project(":smp", "wheelPrizes")) }
+
+// The off plate draws the plate's label from the wheel's own texts.
+val wheelTexts = rootProject.layout.projectDirectory.file("smp/src/main/resources/documents/smp/wheel.json")
 
 val packSource = layout.projectDirectory.dir("src")
 
@@ -63,8 +95,41 @@ configurations.consumable("glyphManifest") {
 
 val drawChestPanels = tasks.register<DrawChestPanels>("drawChestPanels")
 
-// The wooden wheel's turn for the prizes in wheel-prizes.json, with as many turn variants as the budget allows.
-val generateWheel = tasks.register<GenerateWheel>("generateWheel")
+// The wooden wheel's turn for the default prizes. The vanilla facts come from the client jar further down.
+val vanillaFacts = layout.buildDirectory.file("vanilla-facts/vanilla-facts.zip")
+val generateWheel =
+    tasks.register<JavaExec>("generateWheel") {
+        description = "Writes the wooden wheel's pack files for the default prizes."
+        packBuilderRun()
+        val facts = vanillaFacts
+        val prizes = wheelPrizeFiles.map { it.incoming.files }
+        val texts = wheelTexts
+        val pack = layout.buildDirectory.dir("generated/wheel/pack")
+        inputs.file(facts).withPropertyName("facts").withPathSensitivity(PathSensitivity.NONE)
+        inputs.files(prizes).withPropertyName("prizes").withPathSensitivity(PathSensitivity.NONE)
+        inputs.file(texts).withPropertyName("texts").withPathSensitivity(PathSensitivity.NONE)
+        outputs.dir(pack).withPropertyName("pack")
+        argumentProviders.add(
+            CommandLineArgumentProvider {
+                listOf("wheel", facts.get().asFile.path, prizes.get().singleFile.path, texts.asFile.path, pack.get().asFile.path)
+            },
+        )
+    }
+
+// The wheel's timetable, which the plugin reads. It depends on the turn alone and not on the prizes, so :smp, which
+// writes the prizes on a classpath that holds this timetable, builds without a cycle.
+val writeWheelTimetable =
+    tasks.register<JavaExec>("writeWheelTimetable") {
+        description = "Writes the wooden wheel's timetable for the plugin."
+        packBuilderRun()
+        val resources = layout.buildDirectory.dir("generated/wheel/resources")
+        outputs.dir(resources).withPropertyName("resources")
+        argumentProviders.add(
+            CommandLineArgumentProvider {
+                listOf("timetable", resources.get().file("nordtal/wheel/wheel.properties").asFile.path)
+            },
+        )
+    }
 
 // The pack as the client receives it. Everything that reads the pack reads this and never src/.
 val assembledPack = layout.buildDirectory.dir("pack")
@@ -75,7 +140,7 @@ val assemblePack =
         from(packSource)
         from(generateGlyphs.flatMap { it.fontDirectory })
         from(drawChestPanels.flatMap { it.textures })
-        from(generateWheel.flatMap { it.pack })
+        from(generateWheel)
         into(assembledPack)
     }
 
@@ -84,33 +149,49 @@ configurations.consumable("pack") {
     outgoing.artifact(assembledPack) { builtBy(assemblePack) }
 }
 
+// The pack as the client receives it, from the same sources as assemblePack. Its bytes depend on them alone, so the
+// same version always has the same hash.
+val packZipName = "nordtal-resource-pack-$version.zip"
+val packZipFile = layout.buildDirectory.file("distributions/$packZipName")
 val packZip =
-    tasks.register<Zip>("packZip") {
+    tasks.register<JavaExec>("packZip") {
         group = "distribution"
-        description = "Packs the assembled pack into the distributable resource pack zip."
-
-        // The root of the zip must be pack.mcmeta and assets, not a src/ folder.
-        from(assemblePack)
-        archiveBaseName.set("nordtal-resource-pack")
-        archiveVersion.set(project.version.toString())
-
-        // Reproducible, so the same version always has the same hash.
-        isReproducibleFileOrder = true
-        isPreserveFileTimestamps = false
+        description = "Packs the pack's sources and the wheel into the distributable resource pack zip."
+        packBuilderRun()
+        val facts = vanillaFacts
+        val prizes = wheelPrizeFiles.map { it.incoming.files }
+        val texts = wheelTexts
+        val zip = packZipFile
+        val roots =
+            files(
+                packSource,
+                generateGlyphs.flatMap { it.fontDirectory },
+                drawChestPanels.flatMap { it.textures },
+            )
+        inputs.file(facts).withPropertyName("facts").withPathSensitivity(PathSensitivity.NONE)
+        inputs.files(prizes).withPropertyName("prizes").withPathSensitivity(PathSensitivity.NONE)
+        inputs.file(texts).withPropertyName("texts").withPathSensitivity(PathSensitivity.NONE)
+        inputs.files(roots).withPropertyName("roots").withPathSensitivity(PathSensitivity.RELATIVE)
+        outputs.file(zip).withPropertyName("zip")
+        argumentProviders.add(
+            CommandLineArgumentProvider {
+                listOf("zip", facts.get().asFile.path, prizes.get().singleFile.path, texts.asFile.path, zip.get().asFile.path) +
+                    roots.files.map { it.path }
+            },
+        )
     }
 
 val packSha1 =
-    tasks.register<Sha1File>("packSha1") {
+    tasks.register<JavaExec>("packSha1") {
         group = "distribution"
         description = "Writes the SHA-1 of the pack zip next to it."
-
-        source.set(packZip.flatMap { it.archiveFile })
-        // `layout` stays outside the lambda, because a provider that closes over the scope of the script cannot be cached.
-        target.set(
-            layout.buildDirectory.file(
-                packZip.flatMap { it.archiveFileName }.map { "distributions/$it.sha1" },
-            ),
-        )
+        packBuilderRun()
+        val zip = packZipFile
+        val sha1 = layout.buildDirectory.file("distributions/$packZipName.sha1")
+        inputs.file(zip).withPropertyName("zip").withPathSensitivity(PathSensitivity.NONE)
+        outputs.file(sha1).withPropertyName("sha1")
+        dependsOn(packZip)
+        argumentProviders.add(CommandLineArgumentProvider { listOf("sha1", zip.get().asFile.path, sha1.get().asFile.path) })
     }
 
 packZip.configure { finalizedBy(packSha1) }
@@ -266,17 +347,26 @@ drawChestPanels.configure {
     textures.set(layout.buildDirectory.dir("generated/chest-panels"))
 }
 
-generateWheel.configure {
-    vanillaClient()
-    prizes.set(layout.projectDirectory.file("wheel-prizes.json"))
-    // The off plate draws the plate's label from the wheel's own texts.
-    texts.set(rootProject.layout.projectDirectory.file("smp/src/main/resources/documents/smp/wheel.json"))
-    pack.set(layout.buildDirectory.dir("generated/wheel/pack"))
-    resources.set(layout.buildDirectory.dir("generated/wheel/resources"))
+// The few files of the client jar the wheel reads, in one zip, which steward-agent reads later as well.
+val extractVanillaFacts =
+    tasks.register<JavaExec>("extractVanillaFacts") {
+        description = "Extracts the item definitions, the GUI display transforms and the letters the wheel reads."
+        packBuilderRun()
+        val client = vanillaClientFiles.map { it.incoming.files }
+        val facts = vanillaFacts
+        inputs.files(client).withPropertyName("client").withPathSensitivity(PathSensitivity.NONE)
+        outputs.file(facts).withPropertyName("facts")
+        argumentProviders.add(CommandLineArgumentProvider { listOf("facts", client.get().singleFile.path, facts.get().asFile.path) })
+    }
+generateWheel.configure { dependsOn(extractVanillaFacts) }
+packZip.configure { dependsOn(extractVanillaFacts) }
+configurations.consumable("vanillaFacts") {
+    outgoing.artifact(vanillaFacts) { builtBy(extractVanillaFacts) }
 }
+
 // For :pack-rendering, which ships the wheel's timetable to the plugin that spins it.
 configurations.consumable("wheelResources") {
-    outgoing.artifact(generateWheel.flatMap { it.resources })
+    outgoing.artifact(layout.buildDirectory.dir("generated/wheel/resources")) { builtBy(writeWheelTimetable) }
 }
 
 // The atlas sprite of each item, for :pack-rendering, which ships the table that a menu draws an item's texture from.

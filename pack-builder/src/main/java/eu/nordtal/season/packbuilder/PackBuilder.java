@@ -19,7 +19,7 @@ import java.util.stream.Stream;
 public final class PackBuilder {
 
     /** How many turn variants the wheel holds. */
-    public static final int VARIANTS = 8;
+    public static final int VARIANTS = 12;
 
     private PackBuilder() {}
 

@@ -22,7 +22,7 @@ final class WheelLayout {
     static final int[] POINTER = {40, -8};
 
     /** The off plate's top-left on the disc canvas. */
-    static final int[] PLATE = {108, 33};
+    static final int[] PLATE = {108, 31};
 
     static final int PLATE_WIDTH = 75;
     static final int PLATE_HEIGHT = 17;
@@ -33,8 +33,8 @@ final class WheelLayout {
     /** The rectangle the overlay spans, which takes in the plate. */
     static final int[] OVERLAY_ANCHOR = {-2, -10, 184, 106};
 
-    /** The plate row's height: its description's padding 4 above and below three text lines. */
-    private static final int PLATE_ROW_HEIGHT = 4 + 3 * 9 + 4;
+    /** The plate row's height: its description's padding 4 above and below one text line. */
+    private static final int PLATE_ROW_HEIGHT = 4 + 9 + 4;
 
     private WheelLayout() {}
 

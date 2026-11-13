@@ -81,6 +81,11 @@ Steward raises the pack alert when the URL stops answering.
   of `:pack-rendering`. It names the atlas sprite of each item that a text draws before the item's name: the `layer0`,
   else the `particle`, of an item whose definition is one `minecraft:model` without tints, where that texture lies in an
   atlas. Every other item, such as a chest, a leaf or a compass, shows its name alone.
+- The wooden wheel, written by `:pack-builder`: `generateWheel` writes its pack files for the default prizes, which
+  `:smp` writes from `DefaultSmp`, and `writeWheelTimetable` writes `nordtal/wheel/wheel.properties`, which ships in
+  the jar of `:pack-rendering`. The wheel draws a count for each amount above 1 on the list; a prize whose item vanilla
+  lacks turns as a "?". `extractVanillaFacts` writes the few files of the client jar the wheel reads to
+  `build/vanilla-facts/vanilla-facts.zip`, which the configuration `vanillaFacts` offers.
 
 ## The pack model
 

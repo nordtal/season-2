@@ -78,6 +78,12 @@ class WheelPlanTest {
     }
 
     @Test
+    void aPrizeIsSelectedByItsItemIdWithoutNamespaceOrComponents() {
+        assertEquals("diamond_sword", WheelPlan.key(prize("minecraft:diamond_sword[enchantments={sharpness:5}]", 1)));
+        assertEquals("dirt", WheelPlan.key(prize("minecraft:dirt", 1)));
+    }
+
+    @Test
     void aNewFaceShowsEachPrizeOfThePoolBeforeAnyTwice() {
         final List<WheelPrizeSpec> pool = numbered("minecraft:stone").subList(0, 5);
         final WheelPlan.Face drawn = WheelPlan.Face.random(pool, new Random(7));

@@ -145,9 +145,10 @@ record WheelPlan(int variant, Face face) {
         return variant == WAITING ? OPEN : String.valueOf(variant);
     }
 
-    /** The key the pack's turn selects a prize by: its item id without {@code minecraft:}. */
+    /** The key the pack's turn selects a prize by: its item id without {@code minecraft:} and its components. */
     static String key(final WheelPrizeSpec prize) {
-        final String item = prize.item();
+        final int components = prize.item().indexOf('[');
+        final String item = components < 0 ? prize.item() : prize.item().substring(0, components);
         return item.startsWith("minecraft:") ? item.substring("minecraft:".length()) : item;
     }
 }

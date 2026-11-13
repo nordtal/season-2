@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -35,6 +36,8 @@ public final class WheelPack {
     static final int LANGUAGE = 13;
     private static final Map<String, Object> EMPTY = Map.of("type", "minecraft:empty");
 
+    private static final System.Logger LOG = System.getLogger(WheelPack.class.getName());
+
     private final WheelVanilla vanilla;
     private final Map<String, String> labels;
     private final List<Integer> amounts;
@@ -43,7 +46,7 @@ public final class WheelPack {
     private final Map<String, Json.Raw> leafJson = new HashMap<>();
     private final List<Map<String, Object>> countCases = new ArrayList<>();
 
-    /** A prize on the pack's list: its item id without {@code minecraft:} and the amount the wheel hands out. */
+    /** A prize on the pack's list: its {@link #key} and the amount the wheel hands out. */
     public record Prize(String key, int amount) {}
 
     private record Member(String key, Map<String, Object> leaf) {}
@@ -53,19 +56,20 @@ public final class WheelPack {
     public WheelPack(final VanillaFacts facts, final List<Prize> prizes, final Map<String, String> labels) {
         this.vanilla = new WheelVanilla(facts);
         this.labels = labels;
-        this.amounts = prizes.stream()
-                .map(Prize::amount)
-                .filter(a -> a > 1)
-                .distinct()
-                .sorted()
-                .toList();
+        this.amounts = amounts(prizes);
         final Map<String, Group> byDisplay = new LinkedHashMap<>();
         final LinkedHashSet<String> keys = new LinkedHashSet<>();
         prizes.forEach(prize -> keys.add(prize.key()));
         for (final String key : keys) {
-            final Map<?, ?> definition = vanilla.definition(key)
-                    .orElseThrow(() -> new IllegalStateException(
-                            "the wheel's prize list names minecraft:" + key + ", which vanilla lacks"));
+            final Optional<Map<?, ?>> found = vanilla.definition(key);
+            if (found.isEmpty()) {
+                LOG.log(
+                        System.Logger.Level.WARNING,
+                        "The wheel shows a ? for minecraft:{0}: vanilla has no such item.",
+                        key);
+                continue;
+            }
+            final Map<?, ?> definition = found.get();
             final Map<String, Object> leaf = WheelVanilla.leaf(definition);
             final Map<String, double[]> displays = new LinkedHashMap<>();
             for (final String ref : WheelVanilla.refs(leaf)) {
@@ -94,6 +98,17 @@ public final class WheelPack {
                     "model",
                     map("type", "minecraft:model", "model", model("count_" + amount))));
         }
+    }
+
+    /**
+     * Every amount above 1 on the list: the overlay repeats the count's select at each place and step, so an amount
+     * not on the list would only grow it.
+     */
+    static List<Integer> amounts(final List<Prize> prizes) {
+        final TreeSet<Integer> out = new TreeSet<>();
+        prizes.forEach(prize -> out.add(prize.amount()));
+        out.removeIf(a -> a < 2);
+        return List.copyOf(out);
     }
 
     private static String tag(final double[] m) {
@@ -477,15 +492,20 @@ public final class WheelPack {
         return WheelSpin.offsets(count);
     }
 
-    /** The prize list, a JSON list of {@code item} and {@code amount}. */
+    /** The prize list, a JSON list of {@code item} and {@code amount}, each keyed by {@link #key}. */
     public static List<Prize> prizes(final Object json) {
         final List<Prize> out = new ArrayList<>();
         for (final Object each : (List<?>) json) {
             final Map<?, ?> prize = (Map<?, ?>) each;
-            final String item = (String) prize.get("item");
-            out.add(new Prize(WheelVanilla.shortId(item), ((Number) prize.get("amount")).intValue()));
+            out.add(new Prize(key((String) prize.get("item")), ((Number) prize.get("amount")).intValue()));
         }
         return out;
+    }
+
+    /** The key the plugin selects a prize by: the item id without {@code minecraft:} and without its components. */
+    public static String key(final String item) {
+        final int components = item.indexOf('[');
+        return WheelVanilla.shortId(components < 0 ? item : item.substring(0, components));
     }
 
     /** The {@code spin-button} label per language of the wheel's text document, German first. */

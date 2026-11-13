@@ -68,6 +68,13 @@ class RegisterRepliesTest {
     }
 
     @Test
+    void anAccountAlreadyOnATeamIsNamedAndNotCalledABot() {
+        assertEquals(
+                new Sent<>(Replies.INVITE_UNAVAILABLE, new Replies.Unavailable(false, PARTNER)),
+                RegisterReplies.invitation(InviteResult.targetUnavailable(), PARTNER));
+    }
+
+    @Test
     void aClosedRoundIsNamedTheSameWayInEveryStep() {
         final Sent<?> closed = Sent.of(Replies.REGISTER_CLOSED);
 

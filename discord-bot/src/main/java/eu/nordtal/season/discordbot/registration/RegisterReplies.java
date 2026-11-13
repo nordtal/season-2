@@ -33,7 +33,7 @@ final class RegisterReplies {
             case TEAM_FULL -> Sent.of(Replies.INVITE_TEAM_FULL);
             case INVITE_PENDING -> Sent.of(Replies.INVITE_PENDING);
             case CANNOT_INVITE_SELF -> Sent.of(Replies.INVITE_SELF);
-            case TARGET_UNAVAILABLE -> Sent.of(Replies.INVITE_UNAVAILABLE);
+            case TARGET_UNAVAILABLE -> new Sent<>(Replies.INVITE_UNAVAILABLE, new Replies.Unavailable(false, partner));
             case CLOSED -> Sent.of(Replies.REGISTER_CLOSED);
         };
     }

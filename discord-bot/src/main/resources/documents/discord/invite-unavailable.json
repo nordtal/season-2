@@ -4,9 +4,17 @@
       "type": "TEXT",
       "lines": [
         {
+          "when": "bot",
           "text": {
-            "en": "You cannot invite this account. It is a bot or already registered for this event.",
-            "de": "Diesen Account kannst du nicht einladen. Er ist ein Bot oder schon für dieses Event registriert."
+            "en": "{partner.name} is a bot.",
+            "de": "{partner.name} ist ein Bot."
+          }
+        },
+        {
+          "when": "!bot",
+          "text": {
+            "en": "{partner.name} already has a {@terms.team, n=1} or an open invitation.",
+            "de": "{partner.name} hat schon ein {@terms.team, n=1} oder eine offene Einladung."
           }
         }
       ]

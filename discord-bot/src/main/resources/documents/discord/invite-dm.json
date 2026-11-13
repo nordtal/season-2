@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "Team **{team.name}** invites you to the {@terms.hunger-games} start event.",
-            "de": "{@terms.team, n=1} **{team.name}** lädt dich zum Start-Event der {@terms.hunger-games} ein."
+            "en": "Team **{team.name}** invites you to join it for the {@terms.hunger-games} start event.",
+            "de": "{@terms.team, n=1} **{team.name}** lädt dich ein, ihm für das Start-Event der {@terms.hunger-games} beizutreten."
           }
         }
       ]
@@ -17,15 +17,15 @@
         {
           "slot": "accept",
           "label": {
-            "en": "Accept",
-            "de": "Annehmen"
+            "en": "Accept invitation",
+            "de": "Einladung annehmen"
           }
         },
         {
           "slot": "decline",
           "label": {
-            "en": "Decline",
-            "de": "Ablehnen"
+            "en": "Decline invitation",
+            "de": "Einladung ablehnen"
           }
         }
       ]

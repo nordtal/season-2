@@ -6,15 +6,15 @@
         {
           "when": "passes",
           "text": {
-            "en": "The bank did not answer. Use the button in the channel to try again in a few minutes.",
-            "de": "Die Bank hat nicht geantwortet. Versuch es in ein paar Minuten mit dem Knopf im Kanal noch einmal."
+            "en": "No payment link: the bank is not available. Try again in a few minutes with **Buy {@terms.access}**.",
+            "de": "Kein Zahlungslink: Die Bank ist nicht erreichbar. Versuch es in ein paar Minuten noch einmal mit **{@terms.access} kaufen**."
           }
         },
         {
           "when": "!passes",
           "text": {
-            "en": "The payment link could not be created. An admin knows. Use the button in the channel to start again.",
-            "de": "Der Zahlungslink konnte nicht erstellt werden. Ein Admin weiß Bescheid. Starte mit dem Knopf im Kanal neu."
+            "en": "Creating the payment link failed. An admin knows.",
+            "de": "Der Zahlungslink konnte nicht erstellt werden. Ein Admin weiß Bescheid."
           }
         }
       ]

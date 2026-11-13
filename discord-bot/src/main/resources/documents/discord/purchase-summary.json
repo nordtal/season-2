@@ -11,8 +11,8 @@
         },
         {
           "text": {
-            "en": "This includes a donation of {donation}. It gives you the permanent donor role.",
-            "de": "Darin steckt eine Spende von {donation}. Sie gibt dir die dauerhafte Spender-Rolle."
+            "en": "Includes a donation of {donation} and the permanent donor role.",
+            "de": "Enthält eine Spende von {donation} und die dauerhafte Spenderrolle."
           },
           "when": "donating"
         },
@@ -37,8 +37,8 @@
         {
           "slot": "change",
           "label": {
-            "en": "Change",
-            "de": "Ändern"
+            "en": "Change {@terms.period, n=1}",
+            "de": "{@terms.period, n=1} ändern"
           }
         },
         {

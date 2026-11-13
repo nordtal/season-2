@@ -17,8 +17,8 @@
         {
           "slot": "days",
           "placeholder": {
-            "en": "How long do you want {@terms.access}?",
-            "de": "Wie lange willst du {@terms.access}?"
+            "en": "Choose a {@terms.period, n=1}",
+            "de": "{@terms.period, n=1} wählen"
           },
           "option": {
             "en": "{@values.duration.days, n=days}: {price}",

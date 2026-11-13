@@ -5,15 +5,15 @@
       "lines": [
         {
           "text": {
-            "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}). Buy more in {channel} to extend it.",
-            "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until}). Kauf in {channel} mehr, um ihn zu verlängern."
+            "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}). Extend it in {channel}.",
+            "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until}). Verlängere ihn in {channel}."
           },
           "when": "channel"
         },
         {
           "text": {
-            "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}). Buy more in the {@terms.contribution-channel} to extend it.",
-            "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until}). Kauf in dem {@terms.contribution-channel} mehr, um ihn zu verlängern."
+            "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}). Extend it in the {@terms.contribution-channel}.",
+            "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until}). Verlängere ihn im {@terms.contribution-channel}."
           },
           "when": "!channel"
         }

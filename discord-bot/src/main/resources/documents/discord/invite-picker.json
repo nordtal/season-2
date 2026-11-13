@@ -17,8 +17,8 @@
         {
           "slot": "partner",
           "placeholder": {
-            "en": "Choose who to invite",
-            "de": "Wen möchtest du einladen?"
+            "en": "Choose a member",
+            "de": "Mitglied wählen"
           }
         }
       ]

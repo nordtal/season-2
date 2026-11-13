@@ -48,7 +48,7 @@
             {
               "text": {
                 "en": "+{amount} → permanent donor role",
-                "de": "+{amount} → dauerhafte Spender-Rolle"
+                "de": "+{amount} → dauerhafte Spenderrolle"
               }
             }
           ]
@@ -65,8 +65,8 @@
             },
             {
               "text": {
-                "en": "*adds to your current {@terms.access}, nothing is lost*",
-                "de": "*wird an deinen {@terms.access} angehängt, nichts geht verloren*"
+                "en": "*extends your current {@terms.access}*",
+                "de": "*verlängert deinen laufenden {@terms.access}*"
               }
             }
           ]

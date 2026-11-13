@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "Too many wrong codes. Try again later.",
-            "de": "Zu viele falsche Codes. Versuch es später noch einmal."
+            "en": "Too many wrong codes. Try again {until, instant, relative}.",
+            "de": "Zu viele falsche Codes. Versuch es {until, instant, relative} noch einmal."
           }
         }
       ]

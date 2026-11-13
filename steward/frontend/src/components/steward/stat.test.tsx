@@ -20,7 +20,9 @@ describe("UsageBar - the arithmetic", () => {
   it("rounds for the ARIA value and keeps the exact share for the width", () => {
     render(<UsageBar used={1} total={3} />)
     expect(share()).toBe(33)
-    expect(fill().style.width).toBe("33.33333333333333%")
+    // The style keeps six significant digits, as a browser does, so 33.3333 % and not the rounded 33 %.
+    expect(fill().style.width).toMatch(/%$/)
+    expect(Number.parseFloat(fill().style.width)).toBeCloseTo(100 / 3, 3)
   })
 
   it.each([0, -1])("answers 0 rather than NaN or Infinity when the ceiling is %s", (total) => {

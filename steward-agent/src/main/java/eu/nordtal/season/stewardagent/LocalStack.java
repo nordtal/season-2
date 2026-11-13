@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,6 +98,38 @@ final class LocalStack implements ContainerOps {
         } catch (final DockerException unasked) {
             log.warn("missing secrets not read: container={} cause={}", containerId, unasked.getMessage());
             return java.util.Optional.empty();
+        }
+    }
+
+    /**
+     * A Minecraft status ping from inside the server's own container, since steward-agent is on none of its networks.
+     *
+     * Inline rather than a script of the image, because a standby may still run the image of the release before.
+     * Velocity behind Caddy expects a PROXY header first; protocol -1 asks for none in particular.
+     */
+    static final String STATUS_PING = """
+            port=${SERVER_PORT:-25565}
+            exec 3<>"/dev/tcp/127.0.0.1/$port" || exit 2
+            if grep -qs '^[[:space:]]*haproxy-protocol[[:space:]]*=[[:space:]]*true' /data/velocity.toml; then
+                printf 'PROXY TCP4 127.0.0.1 127.0.0.1 40000 %s\\r\\n' "$port" >&3
+            fi
+            printf "\\x13\\x00\\xff\\xff\\xff\\xff\\x0f\\x09localhost\\x$(printf %02x $((port >> 8)))\\x$(printf %02x $((port & 255)))\\x01\\x01\\x00" >&3
+            timeout 2 cat <&3 | tr -d '\\000'
+            exit 0
+            """;
+
+    @Override
+    public OptionalInt protocol(final String containerId) {
+        try {
+            final Docker.ExecResult answer = docker.exec(containerId, List.of("bash", "-c", STATUS_PING));
+            if (!answer.ok()) {
+                log.warn("status ping unanswered: container={} exit_code={}", containerId, answer.exitCode());
+                return OptionalInt.empty();
+            }
+            return StatusAnswer.protocol(answer.output());
+        } catch (final DockerException unasked) {
+            log.warn("status ping not sent: container={} cause={}", containerId, unasked.getMessage());
+            return OptionalInt.empty();
         }
     }
 

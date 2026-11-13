@@ -6,6 +6,7 @@ import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 
 /**
  * The container actions an update sequence needs. Tests fake it.
@@ -30,6 +31,13 @@ public interface ContainerOps {
      * Only names come back, never a value.
      */
     java.util.Optional<List<String>> missingSecrets(String containerId, List<String> names);
+
+    /**
+     * Sends a Minecraft status ping to a running server from inside its container.
+     *
+     * @return the protocol number it answered with, or none when it did not answer
+     */
+    OptionalInt protocol(String containerId);
 
     /**
      * Gives the user of one service ownership of everything the service mounts. A failure is logged.

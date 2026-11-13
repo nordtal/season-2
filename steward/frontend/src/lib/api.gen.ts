@@ -1158,6 +1158,7 @@ export type StepReason =
   | "UNVERIFIED_STOP"
   | "PLAYERS_STAYED"
   | "PLAYERS_UNKNOWN"
+  | "PLAYERS_LOST"
   | "NO_ROOM"
   | "TOOL_FAILED"
   | "NO_REPOSITORY"
@@ -1184,6 +1185,7 @@ export type StepReason =
   | "FOREIGN_NEWER"
   | "VELOCITY_AHEAD"
   | "MISSING_SECRET"
+  | "PROTOCOL_MISMATCH"
 
 export type RunChange = {
   artefact: string

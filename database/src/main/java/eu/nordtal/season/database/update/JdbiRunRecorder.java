@@ -186,4 +186,14 @@ final class JdbiRunRecorder implements RunRecorder {
     public void returned(final String from, final String to, final int players) {
         when(() -> dao.returned(from, to, players));
     }
+
+    @Override
+    public List<RunStep.Move> moves(final long run) {
+        if (!current.getAsBoolean()) {
+            return List.of();
+        }
+        return dao.moves(run).stream()
+                .map(row -> new RunStep.Move(row.fromService(), row.toService(), row.moved(), row.returned()))
+                .toList();
+    }
 }

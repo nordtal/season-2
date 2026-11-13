@@ -54,6 +54,11 @@ class RunnerTest {
         }
     };
 
+    /** Runs on the third sleep while players back is open, as a proxy that counts a player back late. */
+    private Runnable lateReturn = () -> {};
+
+    private int lateIn = 3;
+
     private TestDatabase postgres;
     private Database database;
     private UpdateDirectory directory;
@@ -119,6 +124,43 @@ class RunnerTest {
                         "VERIFY smp DONE",
                         "PLAYERS_BACK DONE"),
                 steps(request.id()));
+    }
+
+    @Test
+    void playersBackWarnsWhenFewerCameBackThanTheProxyMovedOut() {
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+        // The proxy moves three players to limbo as the countdown ends, and only two come back.
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 3);
+            } else if (call.equals("start:smp-container")) {
+                directory.recorder().returned("smp", "limbo", 2);
+            }
+        };
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status(), "a lost player needs a look, but the run did its work");
+        assertEquals("PLAYERS_BACK WARNING PLAYERS_LOST", steps(request.id()).getLast());
+    }
+
+    @Test
+    void playersBackWaitsForTheLastPlayerTheProxyCountsBackLate() {
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 2);
+            } else if (call.equals("start:smp-container")) {
+                directory.recorder().returned("smp", "limbo", 1);
+            }
+        };
+        // The second player lands a few seconds after the run starts counting.
+        lateReturn = () -> directory.recorder().returned("smp", "limbo", 1);
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status());
+        assertEquals("PLAYERS_BACK DONE", steps(request.id()).getLast());
     }
 
     /**
@@ -578,6 +620,9 @@ class RunnerTest {
             public boolean sleep(final Duration duration) {
                 now = now.plus(duration);
                 containers.settle();
+                if (lateIn > 0 && steps().contains("PLAYERS_BACK") && --lateIn == 0) {
+                    lateReturn.run();
+                }
                 return true;
             }
         };

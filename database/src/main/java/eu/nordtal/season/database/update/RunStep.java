@@ -79,6 +79,8 @@ public final class RunStep {
         UNVERIFIED_STOP,
         PLAYERS_STAYED,
         PLAYERS_UNKNOWN,
+        /** Fewer players came back than the run moved out; the step's moves say how many. */
+        PLAYERS_LOST,
         /** The row of the room check says how much was needed and free. */
         NO_ROOM,
         TOOL_FAILED,
@@ -115,7 +117,9 @@ public final class RunStep {
         /** The newest Velocity is newer than the API the proxy is built against. */
         VELOCITY_AHEAD,
         /** A service's own secrets file lacks a value, which ./nordtal.sh update adds; the step names each. */
-        MISSING_SECRET
+        MISSING_SECRET,
+        /** A standby answers a status ping with another protocol than the service it stands in for. */
+        PROTOCOL_MISMATCH
     }
 
     /** Which image a container was recreated from. */

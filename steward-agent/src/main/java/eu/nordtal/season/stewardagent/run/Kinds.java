@@ -63,7 +63,7 @@ final class Kinds {
         // Held services are removed first, since starting one to verify it is what the hold forbids.
         final List<String> holds = runner.held();
         final AgentWire.Topology topology = runner.topology();
-        final UpdatePlan plan = Runs.resolve(runner.config, topology, runner.plugins, runner.settings())
+        final UpdatePlan plan = Runs.resolve(runner.config, topology, runner.plugins)
                 .onlyServices(scope)
                 .withoutServices(holds);
         final Work planned = ForeignImages.withImages(Work.of(plan), images, topology, scope)
@@ -263,7 +263,7 @@ final class Kinds {
                 throw new Run.Abort();
             }
             final ApplyResult result =
-                    Runs.apply(runner.config, runner.topology(), plan, runner.settings(), runner.plugins);
+                    Runs.apply(runner.config, runner.topology(), plan, runner.plugins);
             final List<String> installed = new ArrayList<>(state.services());
             installed.addAll(resting);
             Installed.record(record, planned, result, installed);

@@ -6,14 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.internalapi.agent.Topology;
-import eu.nordtal.season.settings.MemorySettingStore;
-import eu.nordtal.season.settings.PackState;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.season.stewardagent.plan.Change;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
-import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.Fetcher;
 import eu.nordtal.season.stewardagent.source.RemoteFile;
 import eu.nordtal.season.stewardagent.topology.DeclaredTopology;
@@ -31,13 +27,8 @@ import org.junit.jupiter.api.io.TempDir;
 /** Step 3 of a run: what happens on disk, above all when it fails half way through. */
 class ApplierTest {
 
-    private static final String SHA1 = "6f1ed002ab5595859014ebf0951522d9d0f2ee34";
-
     @TempDir
     Path volumes;
-
-    /** Where the proxy's pack is stored. */
-    private final MemorySettingStore settings = new MemorySettingStore();
 
     @Test
     void anOutdatedJarIsReplacedAndTheOneItSupersedesIsDeleted() throws IOException {
@@ -328,37 +319,6 @@ class ApplierTest {
     }
 
     @Test
-    void thePacksTwoValuesAreWrittenFromTheReleaseHashIncluded() throws IOException {
-        install("proxy", "plugins/proxy-0.1.0.jar");
-        storePack();
-
-        final Change pack = new Change(
-                "proxy",
-                "resource-pack",
-                Change.Status.OUTDATED,
-                "0000000000000000000000000000000000000000",
-                new RemoteFile(
-                        "resource-pack",
-                        "0.2.0",
-                        "nordtal-resource-pack-0.2.0.zip",
-                        URI.create("https://github.com/nordtal/season-2/releases/download/v0.2.0/"
-                                + "nordtal-resource-pack-0.2.0.zip"),
-                        Checksum.sha1(SHA1)),
-                null);
-
-        final ApplyResult result = apply(new Fake(), plan(pack));
-
-        final PackState written = PackState.read(settings);
-        assertEquals(SHA1, written.sha1());
-        assertTrue(written.url().contains("releases/download/v0.2.0/"), written.url());
-        assertEquals(
-                ApplyResult.Status.DONE,
-                outcome(result, "proxy", "resource-pack").status());
-        // The zip itself is never downloaded: the client fetches it, the proxy only describes it.
-        assertFalse(Files.exists(volumes.resolve("proxy/plugins/nordtal-resource-pack-0.2.0.zip")));
-    }
-
-    @Test
     void aVolumeThatIsNotMountedIsSkippedWholeNeverCreated() {
         final ApplyResult result = apply(
                 new Fake(),
@@ -428,47 +388,6 @@ class ApplierTest {
         assertTrue(result.skippedAnything());
     }
 
-    @Test
-    void m1APackThatCannotBeResolvedFallsBackAndDoesNotHoldTheJarsBack() throws IOException {
-        install("proxy", "plugins/proxy-0.1.0.jar");
-
-        // A release without a .sha1 beside the pack zip must not skip the service while the other backends update.
-        final ApplyResult result = apply(
-                new Fake(),
-                plan(
-                        Change.unresolved(
-                                "proxy",
-                                Topology.RESOURCE_PACK,
-                                TEXTS.report().words("the release published no .sha1 asset")),
-                        outdated("proxy", "proxy", "proxy-0.1.0.jar", "proxy-0.2.0.jar")));
-
-        assertTrue(
-                Files.exists(volumes.resolve("proxy/plugins/proxy-0.2.0.jar")),
-                "the proxy plugin was held back because the pack could not be checked");
-
-        final ApplyResult.Outcome pack = outcome(result, "proxy", Topology.RESOURCE_PACK);
-        assertEquals(
-                ApplyResult.Status.SKIPPED,
-                pack.status(),
-                "a pack that could not be checked must not read as UNCHANGED - the client is still"
-                        + " being sent the previous one, and that is a fallback, not a no-op");
-        assertNotNull(pack.detail());
-        assertTrue(pack.detail().contains("pack was left alone"), pack.detail());
-    }
-
-    @Test
-    void m1ThePackStillGetsARowWhenTheServiceReallyIsBlocked() {
-        // A skipped service still reports the one row a player sees: what the client is sent.
-        final ApplyResult result = apply(
-                new Fake(),
-                plan(
-                        Change.unresolved("proxy", "proxy", TEXTS.report().words("GitHub answered 403")),
-                        new Change("proxy", Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE, "abc123", null, null)));
-
-        final ApplyResult.Outcome pack = outcome(result, "proxy", Topology.RESOURCE_PACK);
-        assertNotNull(pack, "the pack row vanished from a report for a service that was skipped");
-    }
-
     /** A {@link Fetcher} that writes a marker instead of downloading, and can be told to fail. */
     private static final class Fake implements Fetcher {
 
@@ -512,7 +431,7 @@ class ApplierTest {
                 };
             }
         };
-        return new Applier(config, fetcher, settings, DeclaredTopology.topology()).apply(plan);
+        return new Applier(config, fetcher, DeclaredTopology.topology()).apply(plan);
     }
 
     private static UpdatePlan plan(final Change... changes) {
@@ -543,15 +462,6 @@ class ApplierTest {
         final Path file = volumes.resolve(service).resolve(relative);
         Files.createDirectories(file.getParent());
         Files.writeString(file, "old", StandardCharsets.UTF_8);
-    }
-
-    private void storePack() {
-        settings.set(
-                        "proxy",
-                        "pack",
-                        "url",
-                        "https://github.com/nordtal/season-2/releases/download/v0.1.0/nordtal-resource-pack-0.1.0.zip")
-                .set("proxy", "pack", "sha1", "0000000000000000000000000000000000000000");
     }
 
     /** Where the fetcher was asked to put one file, which is the staging directory. */

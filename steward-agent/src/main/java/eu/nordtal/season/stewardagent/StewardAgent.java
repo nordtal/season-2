@@ -369,7 +369,7 @@ public final class StewardAgent {
         final PluginDirectory plugins = PluginDirectory.using(database.dataSource());
         final AgentApi api =
                 new AgentApi(docker, project, compose::definitions, compose::hashes, paths, clock, scheduler);
-        final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, database, clock, api.topology()::read);
+        final RunRoutes runRoutes = new RunRoutes(runs::get, plugins, clock, api.topology()::read);
         if (!docker.isReachable()) {
             log.warn("docker socket not answering");
         }

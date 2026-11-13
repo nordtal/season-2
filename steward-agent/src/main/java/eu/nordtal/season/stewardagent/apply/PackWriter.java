@@ -7,13 +7,17 @@ import eu.nordtal.season.settings.PackState;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/** Sets the pack the proxy sends: {@code url} and {@code sha1} of its {@code pack} group, as Steward. */
+/**
+ * Sets the pack the proxy sends: {@code url} and {@code sha1} of its {@code pack} group, as Steward.
+ *
+ * The agent writes them after each pack it built.
+ */
 public final class PackWriter {
 
     private PackWriter() {}
 
     /**
-     * Writes the two values, which the proxy takes at its next start.
+     * Writes the two values, which the proxy offers from the next connect to its waiting room.
      *
      * @return {@code true} if they were written, {@code false} if the proxy's group already said this
      */

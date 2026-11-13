@@ -3,13 +3,10 @@ package eu.nordtal.season.stewardagent.plan;
 import static eu.nordtal.season.database.AdminTexts.TEXTS;
 
 import eu.nordtal.season.common.Platform;
-import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.internalapi.agent.JarName;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.messages.MessageRef;
-import eu.nordtal.season.settings.PackState;
 import eu.nordtal.season.stewardagent.config.RunSpec;
-import eu.nordtal.season.stewardagent.source.Checksum;
 import eu.nordtal.season.stewardagent.source.GitHubReleases;
 import eu.nordtal.season.stewardagent.source.Modrinth;
 import eu.nordtal.season.stewardagent.source.PaperFill;
@@ -44,9 +41,6 @@ public final class Resolver {
     private final Clock clock;
     private final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins;
 
-    /** Where the proxy's pack is read; {@code null} without a database. */
-    private final @Nullable SettingStore settings;
-
     private final List<Topology.Service> servers;
 
     /**
@@ -54,7 +48,6 @@ public final class Resolver {
      *
      * @param servers the servers as compose.yml's labels describe them
      * @param plugins merged in by {@code PluginDirectory#servicesWith}; {@code PluginDirectory#NONE} without a database
-     * @param settings where the proxy's pack is read; {@code null} leaves the pack unknown
      */
     public Resolver(
             final RunSpec config,
@@ -63,8 +56,7 @@ public final class Resolver {
             final PaperFill fill,
             final Clock clock,
             final List<Topology.Service> servers,
-            final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins,
-            final @Nullable SettingStore settings) {
+            final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins) {
         this.config = config;
         this.servers = List.copyOf(servers);
         this.github = github;
@@ -72,7 +64,6 @@ public final class Resolver {
         this.fill = fill;
         this.clock = clock;
         this.plugins = plugins;
-        this.settings = settings;
     }
 
     public UpdatePlan resolve() {
@@ -102,8 +93,6 @@ public final class Resolver {
         final List<UpdatePlan.Retiring> retiring = new ArrayList<>();
         final Path root = Path.of(config.volumesRoot());
         compareServices(services, root, newest, failures, unsupported, unreleased, changes, unclaimed, retiring);
-
-        changes.add(resolvePack(newest, failures, unreleased));
 
         return new UpdatePlan(
                 clock.instant(),
@@ -241,12 +230,11 @@ public final class Resolver {
         try {
             release = github.latest(config.seasonRepo());
         } catch (final IOException failed) {
-            // One call answers for our jars and the pack, so one reason covers every row.
+            // One call answers for every jar of ours, so one reason covers every row.
             final MessageRef why =
                     TEXTS.report().releaseUnread(config.seasonRepo(), String.valueOf(failed.getMessage()));
             log.warn("season release unresolved: cause={}", failed.getMessage());
             Topology.SEASON_JARS.forEach(artifact -> failures.put(artifact, why));
-            failures.put(Topology.RESOURCE_PACK, why);
             return null;
         }
 
@@ -278,50 +266,7 @@ public final class Resolver {
             }
         }
 
-        resolvePackAsset(release, newest, failures, unreleased);
         return release;
-    }
-
-    private void resolvePackAsset(
-            final GitHubReleases.Release release,
-            final Map<String, RemoteFile> newest,
-            final Map<String, MessageRef> failures,
-            final Set<String> unreleased) {
-        GitHubReleases.Asset zip = null;
-        GitHubReleases.Asset sha1 = null;
-        for (final GitHubReleases.Asset asset : release.assets()) {
-            if (asset.name().endsWith(".zip.sha1")) {
-                sha1 = asset;
-            } else if (asset.name().endsWith(".zip")) {
-                zip = asset;
-            }
-        }
-
-        if (zip == null) {
-            failures.put(Topology.RESOURCE_PACK, TEXTS.report().releaseWithoutPack(release.tag()));
-            unreleased.add(Topology.RESOURCE_PACK);
-            return;
-        }
-        if (sha1 == null) {
-            // Refused, not worked around: the client gets URL and hash together and rejects a mismatch.
-            failures.put(Topology.RESOURCE_PACK, TEXTS.report().releaseWithoutSha1(release.tag(), zip.name()));
-            return;
-        }
-
-        try {
-            newest.put(
-                    Topology.RESOURCE_PACK,
-                    new RemoteFile(
-                            Topology.RESOURCE_PACK,
-                            versionOrTag(zip.name(), release.tag()),
-                            zip.name(),
-                            zip.url(),
-                            Checksum.sha1(github.readText(sha1))));
-        } catch (final IOException failed) {
-            failures.put(
-                    Topology.RESOURCE_PACK,
-                    TEXTS.report().sha1Unread(sha1.name(), String.valueOf(failed.getMessage())));
-        }
     }
 
     /**
@@ -424,68 +369,6 @@ public final class Resolver {
             return new Change(service, artifact, Change.Status.UP_TO_DATE, present.fileName(), wanted, null);
         }
         return new Change(service, artifact, Change.Status.OUTDATED, present.fileName(), wanted, null);
-    }
-
-    private Change resolvePack(
-            final Map<String, RemoteFile> newest,
-            final Map<String, MessageRef> failures,
-            final Set<String> unreleased) {
-        final RemoteFile wanted = newest.get(Topology.RESOURCE_PACK);
-        final MessageRef why =
-                failures.getOrDefault(Topology.RESOURCE_PACK, TEXTS.report().noSource(Topology.RESOURCE_PACK));
-        if (wanted == null && !unreleased.contains(Topology.RESOURCE_PACK)) {
-            return Change.unresolved(Topology.PROXY, Topology.RESOURCE_PACK, why);
-        }
-
-        if (settings == null) {
-            return Change.unresolved(
-                    Topology.PROXY, Topology.RESOURCE_PACK, TEXTS.report().noDatabase());
-        }
-        final PackState state;
-        try {
-            state = PackState.read(settings);
-        } catch (final RuntimeException failed) {
-            return Change.unresolved(
-                    Topology.PROXY,
-                    Topology.RESOURCE_PACK,
-                    TEXTS.report().proxyPackUnread(String.valueOf(failed.getMessage())));
-        }
-
-        if (wanted == null) {
-            // A release without a pack keeps the installed one. Only an empty proxy fails.
-            return state.present()
-                    ? new Change(
-                            Topology.PROXY,
-                            Topology.RESOURCE_PACK,
-                            Change.Status.NOT_IN_RELEASE,
-                            state.sha1(),
-                            null,
-                            why)
-                    : Change.unresolved(Topology.PROXY, Topology.RESOURCE_PACK, why);
-        }
-
-        if (!state.present()) {
-            return new Change(
-                    Topology.PROXY,
-                    Topology.RESOURCE_PACK,
-                    Change.Status.MISSING,
-                    null,
-                    wanted,
-                    state.url() == null
-                            ? TEXTS.report().proxyWithoutPack()
-                            : TEXTS.report().proxyPackWithoutSha1());
-        }
-
-        // The URL too, since an unchanged pack's older release may be deleted; a typed hash may differ in case.
-        final Checksum checksum = wanted.checksum();
-        final String wantedSha1 = checksum == null ? null : checksum.hex();
-        if (wantedSha1 != null
-                && wantedSha1.equalsIgnoreCase(state.sha1())
-                && wanted.url().toString().equals(state.url())) {
-            return new Change(
-                    Topology.PROXY, Topology.RESOURCE_PACK, Change.Status.UP_TO_DATE, state.sha1(), wanted, null);
-        }
-        return new Change(Topology.PROXY, Topology.RESOURCE_PACK, Change.Status.OUTDATED, state.sha1(), wanted, null);
     }
 
     private Installation scan(final String service, final Path directory) {

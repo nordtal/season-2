@@ -288,11 +288,15 @@ public final class Wheel {
                     player.setCooldown(WheelDialog.GROUP, timetable.cooldown());
                     player.showDialog(WheelDialog.of(
                             plan, stacks, texts(locale, spinsLeft), locale.getLanguage(), spinsLeft > 0, again));
-                    faces.put(id, plan.after());
+                    final WheelPlan.Face before = faces.put(id, plan.after());
                     final AtomicBoolean paid = new AtomicBoolean();
                     final Runnable payout = () -> {
                         if (paid.compareAndSet(false, true)) {
                             turning.remove(id);
+                            // A spin that goes back leaves the wheel as it was before it.
+                            if (!player.isOnline() && before != null) {
+                                faces.put(id, before);
+                            }
                             give(player, item, prize.amount(), locale, refund);
                         }
                     };

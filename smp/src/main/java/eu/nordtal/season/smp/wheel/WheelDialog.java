@@ -56,7 +56,7 @@ final class WheelDialog {
     /** The panel's top, which the header draws from. */
     private static final int TOP = 62;
 
-    /** The panel's margin around the header, the wheel and the plate, the plate's margin before. */
+    /** The panel's one margin around the header, the wheel and the plate. */
     private static final int MARGIN = 9;
 
     /** The prize body that carries the plate's row. */

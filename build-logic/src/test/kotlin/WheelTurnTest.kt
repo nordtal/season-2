@@ -3,6 +3,7 @@ package eu.nordtal.season.build
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.abs
 
 class WheelTurnTest {
     private val variants = WheelSpin.offsets(WheelLayout.PLACES)
@@ -26,9 +27,21 @@ class WheelTurnTest {
             for (i in 1 until angles.size) {
                 assertTrue(angles[i] - angles[i - 1] <= WheelTurn.START_SPEED + 1e-9, "variant $e at tick $i")
             }
-            val speeds = (0 until WheelTurn.SHARED + 60).map { WheelTurn.speed(e, it.toDouble()) }
+            val dips = WheelTurn.distance(e) + WheelTurn.PIN - 120.0
+            val beforeDips = (0 until WheelTurn.length(e)).takeWhile { WheelTurn.angle(e, it + 0.5) < dips }
+            val speeds = beforeDips.map { WheelTurn.speed(e, it.toDouble()) }
             for (i in 1 until speeds.size) assertTrue(speeds[i] <= speeds[i - 1] + 1e-9, "variant $e speeds up at tick $i")
             assertTrue(WheelTurn.length(e) >= 160, "variant $e turns long")
+        }
+    }
+
+    @Test
+    fun theSlowingNeverJumpsWhereTheVariantsPart() {
+        for (e in variants) {
+            val slowing = (WheelTurn.SHARED - 5 until WheelTurn.SHARED + 40).map { WheelTurn.speed(e, it - 0.5) - WheelTurn.speed(e, it + 0.5) }
+            for (i in 1 until slowing.size) {
+                assertTrue(abs(slowing[i] - slowing[i - 1]) <= 0.002, "variant $e slowing jumps at tick ${WheelTurn.SHARED - 5 + i}")
+            }
         }
     }
 

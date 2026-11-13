@@ -8,10 +8,10 @@ import kotlin.math.pow
 
 /**
  * The wheel's turn, tick by tick. It starts at [START_SPEED] and slows down evenly, the same in every variant for the
- * first [SHARED] ticks, so the pack writes that part once. Each variant then slows down evenly onto the pin at the far
- * edge of the winning field, losing a little speed at each of the last pegs, rests [HOLD] ticks against it with the
- * pointer bent, and rocks back to the field's middle in [SETTLE] ticks. Angles are degrees clockwise from where the turn
- * starts, so the turn of variant e rests at [distance], 3 whole turns and e places on.
+ * first [SHARED] ticks, so the pack writes that part once. Each variant then eases into its own even slowing onto the
+ * pin at the far edge of the winning field, losing a little speed at each of the last pegs, rests [HOLD] ticks against
+ * it with the pointer bent, and rocks back to the field's middle in [SETTLE] ticks. Angles are degrees clockwise from
+ * where the turn starts, so the turn of variant e rests at [distance], 3 whole turns and e places on.
  */
 object WheelTurn {
     const val TURNS = 3
@@ -38,7 +38,8 @@ object WheelTurn {
     private const val DIP_B = 0.8
     private const val DIP_AT = -2.0
     private const val DIP_W = 3.5
-    private const val SAMPLES = 20_001
+    private const val RAMP = 30.0
+    private const val DT = 0.02
     private const val STEP = 360.0 / FRAMES_PER_TURN
 
     /** The middle variant slows down at the shared rate all the way, so every variant's rate stays close to it. */
@@ -126,8 +127,9 @@ object WheelTurn {
     private fun motion(e: Int): Motion = motions.getOrPut(e) { compute(e) }
 
     /**
-     * From the end of the shared start, the wheel slows down evenly onto the pin. Each peg over the last 120 degrees
-     * takes the disc to a little over half its speed, which lengthens the approach rather than hurrying its start.
+     * From the end of the shared start, the wheel slows down onto the pin. Its deceleration moves from the shared one to
+     * the variant's own over [RAMP] ticks, so the slowing never jumps. Each peg over the last 120 degrees takes the disc to
+     * a little over half its speed, which lengthens the approach rather than hurrying its start.
      */
     private fun compute(e: Int): Motion {
         val start = SHARED.toDouble()
@@ -135,19 +137,49 @@ object WheelTurn {
         val speed = START_SPEED - DECELERATION * start
         val pin = distance(e) + PIN
         val rest = pin - from
-        val duration = 2 * rest / speed
-        val ts = DoubleArray(SAMPLES)
-        val a = DoubleArray(SAMPLES)
-        for (k in 0 until SAMPLES) {
-            val u = k.toDouble() / (SAMPLES - 1)
-            ts[k] = u * duration
-            a[k] = from + rest * (2 * u - u * u)
+        var lo = DECELERATION / 4
+        var hi = DECELERATION * 4
+        repeat(60) {
+            val mid = (lo + hi) / 2
+            if (stop(speed, mid).second.last() > rest) lo = mid else hi = mid
         }
-        val warped = DoubleArray(SAMPLES)
-        for (k in 1 until SAMPLES) {
+        val (ts, xs) = stop(speed, (lo + hi) / 2)
+        val scale = rest / xs.last()
+        val a = DoubleArray(ts.size) { from + xs[it] * scale }
+        val warped = DoubleArray(ts.size)
+        for (k in 1 until ts.size) {
             warped[k] = warped[k - 1] + (dip(a[k], pin) + dip(a[k - 1], pin)) / 2 * (ts[k] - ts[k - 1])
         }
-        return Motion(DoubleArray(SAMPLES) { start + warped[it] }, a)
+        return Motion(DoubleArray(ts.size) { start + warped[it] }, a)
+    }
+
+    /** The times and distances of a wheel at [speed] that slows down until it stops, ramping to [deceleration]. */
+    private fun stop(
+        speed: Double,
+        deceleration: Double,
+    ): Pair<DoubleArray, DoubleArray> {
+        val ts = ArrayList<Double>()
+        val xs = ArrayList<Double>()
+        var t = 0.0
+        var x = 0.0
+        var v = speed
+        ts.add(t)
+        xs.add(x)
+        while (v > 0) {
+            val d = DECELERATION + (deceleration - DECELERATION) * minOf((t + DT / 2) / RAMP, 1.0)
+            if (v <= d * DT) {
+                t += v / d
+                x += v * v / (2 * d)
+                v = 0.0
+            } else {
+                t += DT
+                x += (v - d * DT / 2) * DT
+                v -= d * DT
+            }
+            ts.add(t)
+            xs.add(x)
+        }
+        return ts.toDoubleArray() to xs.toDoubleArray()
     }
 
     private fun dip(

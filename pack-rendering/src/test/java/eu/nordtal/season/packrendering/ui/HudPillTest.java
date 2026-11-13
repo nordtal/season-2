@@ -1,8 +1,13 @@
 package eu.nordtal.season.packrendering.ui;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.packrendering.Glyphs;
 import java.util.List;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import org.junit.jupiter.api.Test;
 
 /** The HUD's pills as the third iteration's sheets measure them, walked with the pack's own advances. */
@@ -51,5 +56,25 @@ class HudPillTest {
                 Pill.width(ride.get(0)) + 3 + Pill.width(ride.get(1)),
                 Advances.of(Pill.line(ride)),
                 "the client centres a boss bar name by its advance");
+    }
+
+    @Test
+    void theHudDrawsTheFlatPillAndAHologramKeepsTheBevelledOne() {
+        final String hud = plain(Pill.of(Pill.Content.of(Symbol.RAIL, "Fjordmarkt")));
+        final String hologram = plain(Pill.of(Symbol.RAIL, "Fjordmarkt"));
+
+        assertTrue(hud.contains(Glyphs.UI_HUD_PILL.get(0)), "the HUD's pill opens with its flat end");
+        assertFalse(hud.contains(Glyphs.UI_PILL.get(0)), "the HUD draws none of the bevelled pill");
+        assertTrue(hologram.contains(Glyphs.UI_PILL.get(0)), "a hologram's pill opens with its bevelled end");
+        assertFalse(hologram.contains(Glyphs.UI_HUD_PILL.get(0)), "a hologram draws none of the flat pill");
+    }
+
+    private static String plain(final Component component) {
+        final StringBuilder out = new StringBuilder();
+        if (component instanceof TextComponent text) {
+            out.append(text.content());
+        }
+        component.children().forEach(child -> out.append(plain(child)));
+        return out.toString();
     }
 }

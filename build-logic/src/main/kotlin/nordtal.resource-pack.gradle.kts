@@ -126,7 +126,13 @@ val writeWheelTimetable =
         outputs.dir(resources).withPropertyName("resources")
         argumentProviders.add(
             CommandLineArgumentProvider {
-                listOf("timetable", resources.get().file("nordtal/wheel/wheel.properties").asFile.path)
+                listOf(
+                    "timetable",
+                    resources
+                        .get()
+                        .file("nordtal/wheel/wheel.properties")
+                        .asFile.path,
+                )
             },
         )
     }

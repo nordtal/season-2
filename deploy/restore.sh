@@ -219,7 +219,7 @@ if [[ -z "$TARGET" ]]; then
     # When neither exists, the script creates and names the directory, because a typo looks the same.
     TARGET="$(directory_for "$VOLUME" "$PROJECT" "$NORDTAL_DIR" || true)"
     [[ -n "$TARGET" ]] || die "$VOLUME is neither a directory of this installation nor a Docker volume, and $ENV_FILE has no NORDTAL_DIR. Restore this archive on the host of its deployment."
-    warn "directory missing, created: dir=$TARGET"
+    warn "directory missing: dir=$TARGET"
     if [[ "$VOLUME" != "$PROJECT"_* ]]; then
         warn "volume outside this project, mounted by nothing: volume=$VOLUME project=$PROJECT"
     fi

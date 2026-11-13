@@ -1605,19 +1605,19 @@ generate_vapid_keys() {
     if ! docker image inspect "$image" >/dev/null 2>&1; then
         log "vapid image pull started: image=$image"
         if ! docker pull "$image" >/dev/null 2>&1; then
-            warn "vapid keypair not generated, web push off: image=$image cause=\"pull failed\""
+            warn "vapid keypair not generated, web push off: image=$image cause=pull failed"
             return
         fi
     fi
 
     output="$(docker run --rm "$image" generate-vapid-keys 2>/dev/null)" || {
-        warn "vapid keypair not generated, web push off: image=$image cause=\"generate-vapid-keys failed\""
+        warn "vapid keypair not generated, web push off: image=$image cause=generate-vapid-keys failed"
         return
     }
     pub="$(sed -n '1p' <<<"$output")"
     priv="$(sed -n '2p' <<<"$output")"
     if [[ -z "$pub" || -z "$priv" ]]; then
-        warn "vapid keypair not generated, web push off: image=$image cause=\"generate-vapid-keys printed no keypair\""
+        warn "vapid keypair not generated, web push off: image=$image cause=generate-vapid-keys printed no keypair"
         return
     fi
 

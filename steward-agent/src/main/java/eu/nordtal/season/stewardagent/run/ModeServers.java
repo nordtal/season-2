@@ -92,7 +92,7 @@ final class ModeServers {
             }
             rest(runner.containers, runtime, mode.other().server());
             if (runner.directory.isHeld(mode.server())) {
-                log.info("held server kept stopped: server={}", mode.server());
+                log.info("held server kept stopped: service={}", mode.server());
                 return;
             }
             wake(runner.containers, runtime, mode.server());
@@ -123,9 +123,9 @@ final class ModeServers {
         }
         final RedeployResult stopped = containers.stop(id);
         if (stopped.triggered()) {
-            log.info("inactive mode server stopped: server={}", inactive);
+            log.info("inactive mode server stopped: service={}", inactive);
         } else {
-            log.warn("inactive mode server not stopped: server={} cause={}", inactive, stopped.message());
+            log.warn("inactive mode server not stopped: service={} cause={}", inactive, stopped.message());
         }
     }
 
@@ -135,14 +135,14 @@ final class ModeServers {
         }
         final String id = containerOf(runtime, active);
         if (id == null) {
-            log.warn("active mode server without container: server={}", active);
+            log.warn("active mode server without container: service={}", active);
             return;
         }
         final RedeployResult started = containers.start(id);
         if (started.triggered()) {
-            log.info("active mode server started: server={}", active);
+            log.info("active mode server started: service={}", active);
         } else {
-            log.warn("active mode server not started: server={} cause={}", active, started.message());
+            log.warn("active mode server not started: service={} cause={}", active, started.message());
         }
     }
 

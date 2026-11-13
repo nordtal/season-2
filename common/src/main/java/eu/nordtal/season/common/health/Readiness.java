@@ -64,7 +64,7 @@ public final class Readiness {
             return true;
         } catch (final IOException | RuntimeException failure) {
             if (complained.compareAndSet(false, true)) {
-                complaints.accept("readiness marker not written: path=" + marker + " cause=" + failure);
+                complaints.accept("readiness marker not written: file=" + marker + " cause=" + failure);
             }
             return false;
         }

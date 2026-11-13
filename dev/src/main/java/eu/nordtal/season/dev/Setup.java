@@ -62,14 +62,13 @@ final class Setup {
         }
         for (final String service : ResetGuard.SERVICES) {
             createDirectories(compose.pluginsDir(service));
+            terminal.log("plugin directory ready: service=" + service + " dir=" + compose.pluginsDir(service));
         }
         createDirectories(compose.packRoot());
         // Created here, because Docker would create them as root, and a developer could not write a secret there.
         for (final String service : SECRET_SERVICES) {
             createDirectories(compose.secretsDir(service));
         }
-        terminal.log(
-                "plugin directories ready: dir=" + compose.pluginsDir("smp").getParent());
         terminal.log("next: dev up");
     }
 

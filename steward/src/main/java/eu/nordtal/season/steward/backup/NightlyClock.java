@@ -258,7 +258,7 @@ public final class NightlyClock implements AutoCloseable {
         } catch (final Refused refused) {
             if (refused.reason() == UpdateRefusal.RUN_OPEN && now.plus(RETRY).isBefore(due.plus(PATIENCE))) {
                 log.info(
-                        "scheduled run deferred: job={} after={} cause={}",
+                        "scheduled run deferred: job={} retry={} cause={}",
                         job.key,
                         RETRY,
                         DatabaseText.english(refused.refusal().message()));

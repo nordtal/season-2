@@ -120,11 +120,11 @@ public final class Payments {
         }
 
         // The request closed after it was read, so the new tab is cancelled.
+        bunq.cancelTab(tab.id());
         log.warn(
                 "payment request closed during tab creation, tab cancelled: reference={} tab={}",
                 request.reference(),
                 tab.id());
-        bunq.cancelTab(tab.id());
         return Outcome.done(new BankRequest.OpenTab.Answer(tab.id()));
     }
 

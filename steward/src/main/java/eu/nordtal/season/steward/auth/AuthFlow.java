@@ -113,7 +113,7 @@ public final class AuthFlow {
         try {
             sessions.sweep();
         } catch (RuntimeException e) {
-            log.warn("expired sessions not swept: after={} cause={}", SWEEP, e.toString());
+            log.warn("expired sessions not swept: retry={} cause={}", SWEEP, e.toString());
         }
     }
 

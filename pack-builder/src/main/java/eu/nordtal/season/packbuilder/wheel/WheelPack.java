@@ -65,7 +65,7 @@ public final class WheelPack {
             if (found.isEmpty()) {
                 LOG.log(
                         System.Logger.Level.WARNING,
-                        "The wheel shows a ? for minecraft:{0}: vanilla has no such item.",
+                        "Vanilla has no item {0}, so the wheel shows a question mark for it.",
                         key);
                 continue;
             }
@@ -77,7 +77,11 @@ public final class WheelPack {
                 displays.putIfAbsent(tag(display), display);
             }
             if (displays.isEmpty()) {
-                throw new IllegalStateException("minecraft:" + key + " draws no model in a GUI slot");
+                LOG.log(
+                        System.Logger.Level.WARNING,
+                        "The item {0} draws nothing in a slot, so the wheel shows a question mark for it.",
+                        key);
+                continue;
             }
             if (displays.size() == 1) {
                 final Map.Entry<String, double[]> only =

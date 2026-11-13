@@ -56,7 +56,7 @@ class WheelTurnTest {
             val pin = WheelTurn.distance(e) + WheelTurn.PIN
             assertTrue(ticks.all { it.angle <= pin + 1e-9 }, "variant $e passes the pin")
             val top = ticks.indexOfFirst { it.angle >= pin - 1e-9 }
-            assertEquals(WheelTurn.Pointer.TICK2, ticks[top].pointer, "variant $e bends on the pin")
+            assertEquals(WheelTurn.Pointer.TICK1, ticks[top].pointer, "variant $e bends on the pin")
             val back = ticks.drop(top)
             for (i in 1 until back.size) assertTrue(back[i].angle <= back[i - 1].angle + 1e-9, "variant $e rocks forward again")
             assertEquals(WheelTurn.Pointer.REST, ticks.last().pointer)

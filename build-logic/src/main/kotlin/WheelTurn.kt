@@ -23,8 +23,11 @@ object WheelTurn {
     const val SHARED = 70
     const val START_SPEED = 3 * 360.0 / FRAMES_PER_TURN
 
-    /** How far past the field's middle the pin stops the wheel, the ticks it rests there, and the ticks it rocks back. */
-    const val PIN = 15.0
+    /**
+     * How far past the field's middle the far pin stops the wheel, three frames, where it rests against the bent pointer's
+     * side rather than under its tip; the ticks it rests there, and the ticks it rocks back.
+     */
+    const val PIN = 3 * 360.0 / FRAMES_PER_TURN
     const val HOLD = 4
     const val SETTLE = 36
 
@@ -81,7 +84,7 @@ object WheelTurn {
         val pin = distance(e) + PIN
         val a = DoubleArray(length(e) + 1) { minOf(angle(e, it.toDouble()), pin - 1e-6) }
         val passes = (1..length(e)).filter { n -> floor((a[n] - 15.0) / 30.0) != floor((a[n - 1] - 15.0) / 30.0) }
-        val bend = (0 until length(e)).first { snapped(angle(e, it.toDouble())) >= pin - STEP - 1e-9 }
+        val bend = (0 until length(e)).first { snapped(angle(e, it.toDouble())) >= pin - 1e-9 }
         return (passes + bend).distinct().sorted()
     }
 

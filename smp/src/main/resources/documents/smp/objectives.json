@@ -182,6 +182,18 @@
     },
     {
       "type": "LABEL",
+      "slot": "not-started",
+      "lines": [
+        {
+          "text": {
+            "en": "The {@terms.season} has not started yet",
+            "de": "Die {@terms.season} hat noch nicht begonnen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
       "slot": "none",
       "lines": [
         {

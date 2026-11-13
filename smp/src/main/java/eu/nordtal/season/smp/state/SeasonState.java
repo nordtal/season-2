@@ -56,11 +56,7 @@ public final class SeasonState {
      */
     public void refresh(final List<String> completed, final MilestoneTrack track) {
         final Set<Unlock> found = EnumSet.noneOf(Unlock.class);
-        // The border of the first milestone applies before any milestone unlocks.
-        int border = track.first()
-                .filter(first -> first.unlock() == Unlock.BORDER)
-                .map(Milestone::borderDiameter)
-                .orElse(0);
+        int border = 0;
         for (final String key : completed) {
             final Milestone milestone = track.milestone(key).orElse(null);
             if (milestone == null) {

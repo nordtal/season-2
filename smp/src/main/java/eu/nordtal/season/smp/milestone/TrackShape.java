@@ -33,7 +33,8 @@ public final class TrackShape {
         }
 
         final Set<String> milestoneKeys = new HashSet<>();
-        for (final Milestone milestone : milestones) {
+        for (int index = 0; index < milestones.size(); index++) {
+            final Milestone milestone = milestones.get(index);
             if (milestone.key().isBlank()) {
                 problems.add(new TrackValidation.Problem(null, null, "a milestone has a blank key."));
                 continue;
@@ -56,6 +57,16 @@ public final class TrackShape {
                         "unlocks a border but its border-diameter is " + milestone.borderDiameter()
                                 + ". Border sizes are DIAMETERS, because that is what Minecraft's "
                                 + "world border takes."));
+            }
+
+            if (index > 0
+                    && milestone.objectives().isEmpty()
+                    && milestones.get(index - 1).objectives().isEmpty()) {
+                problems.add(new TrackValidation.Problem(
+                        milestone.key(),
+                        null,
+                        "has no objectives, and neither has the milestone before it, so each needs its own admin"
+                                + " unlock. Give one of them objectives, or remove one."));
             }
 
             problems.addAll(objectiveProblems(milestone));

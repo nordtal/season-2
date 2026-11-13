@@ -550,7 +550,16 @@ public final class SmpPlugin extends NordtalPlugin {
         reload(problems, "the sounds", soundSettings, () -> sounds.reload(soundSettings.get()));
         reload(problems, "the name tags", nameTagSettings, () -> nameTags.reload(nameTagSettings.get()));
         final PaperScheduler scheduler = PaperScheduler.of(this);
-        reload(problems, "the border", borderSettings, () -> scheduler.onMain(worlds::applyFixedBorders));
+        reload(
+                problems,
+                "the border",
+                borderSettings,
+                () -> scheduler.onMain(() -> {
+                    worlds.applyFixedBorders();
+                    if (season.borderDiameter() == 0) {
+                        worlds.expandNordtal(borderSettings.get().startBorderDiameter(), false);
+                    }
+                }));
         // The boards draw themselves again on the next refresh.
         reload(problems, "the boards", boardSettings, () -> scheduler.onMain(Objects.requireNonNull(boards)::stop));
         reload(problems, "the NPC", npcSettings, () -> scheduler.onMain(Objects.requireNonNull(npc)::spawn));
@@ -633,7 +642,10 @@ public final class SmpPlugin extends NordtalPlugin {
         });
     }
 
-    /** Reads the track progress and sets the border of Nordtal to the size of the completed milestones. */
+    /**
+     * Reads the track progress and sets the border of Nordtal.
+     * It takes the size of the completed milestones, or the start border before any of them unlocks a border.
+     */
     void loadSeasonState() {
         final MilestoneTrack now = track;
         ensureRows(now);
@@ -649,13 +661,12 @@ public final class SmpPlugin extends NordtalPlugin {
         season.refresh(completed, now);
 
         PaperScheduler.of(this).onMain(() -> {
-            final int diameter = season.borderDiameter();
-            if (diameter > 0) {
-                worlds.expandNordtal(diameter, false);
-            }
+            final int unlocked = season.borderDiameter();
+            final int diameter = unlocked > 0 ? unlocked : borderSettings.get().startBorderDiameter();
+            worlds.expandNordtal(diameter, false);
             getLogger()
                     .info("season state loaded: completed=" + completed.size() + " unlocks=\"" + season.unlocked()
-                            + "\" border=" + (diameter > 0 ? String.valueOf(diameter) : "untouched"));
+                            + "\" border=" + diameter + (unlocked > 0 ? "" : " (start)"));
         });
     }
 }

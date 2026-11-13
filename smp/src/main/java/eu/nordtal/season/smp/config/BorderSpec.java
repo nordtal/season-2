@@ -11,6 +11,16 @@ import eu.nordtal.season.spec.annotation.Order;
 @ConfigSpec
 public interface BorderSpec {
 
+    /** The border of Nordtal until the first milestone that unlocks a border is unlocked. */
+    @Order(5)
+    @Name("Border diameter before the start")
+    @Key("start-border-diameter")
+    @Positive
+    @NoExplanationNeeded
+    default int startBorderDiameter() {
+        return 20;
+    }
+
     @Order(6)
     @Name("Nether border diameter")
     @Key("nether-border-diameter")

@@ -41,7 +41,7 @@ class SeasonStateTest {
         state.refresh(List.of(), TRACK);
 
         assertTrue(state.unlocked().isEmpty());
-        assertEquals(43, state.borderDiameter(), "the first milestone's border holds from the start");
+        assertEquals(0, state.borderDiameter(), "the first milestone's border waits for its unlock");
         assertFalse(state.isUnlocked(Unlock.NETHER));
     }
 
@@ -82,14 +82,6 @@ class SeasonStateTest {
     }
 
     @Test
-    void aTrackThatDoesNotStartWithABorderLeavesItUntouched() {
-        final SeasonState state = new SeasonState();
-        state.refresh(List.of(), new MilestoneTrack(List.of(milestone("the-nether", Unlock.NETHER, 0))));
-
-        assertEquals(0, state.borderDiameter(), "an untouched border is 0");
-    }
-
-    @Test
     void theNextMilestoneIsTheFirstNotCompleted() {
         assertEquals("opening", TRACK.next(List.of()).orElseThrow().key());
         assertEquals(
@@ -106,7 +98,7 @@ class SeasonStateTest {
         final SeasonState state = new SeasonState();
         state.refresh(List.of("the-last-one"), TRACK);
 
-        assertEquals(43, state.borderDiameter(), "only the starting border");
+        assertEquals(0, state.borderDiameter(), "no border is unlocked");
         assertTrue(state.unlocked().contains(Unlock.NOTHING));
         assertFalse(state.isUnlocked(Unlock.NETHER));
     }

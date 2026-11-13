@@ -4,13 +4,6 @@
       "type": "TEXT",
       "lines": [
         {
-          "when": "milestone=waiting",
-          "text": {
-            "en": "Waiting",
-            "de": "Warten"
-          }
-        },
-        {
           "when": "milestone=departure",
           "text": {
             "en": "Departure",

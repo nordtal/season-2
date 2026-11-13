@@ -20,6 +20,7 @@ import eu.nordtal.season.papercommon.dialog.Dialogs;
 import eu.nordtal.season.papercommon.dialog.Paging;
 import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneNames;
+import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.Objective;
 import eu.nordtal.season.smp.milestone.ObjectiveRow;
 import eu.nordtal.season.smp.milestone.ObjectiveType;
@@ -81,6 +82,7 @@ public final class ObjectiveDialog {
                     Slot.label("share-none"),
                     Slot.label("share-title"),
                     Slot.label("share-row", Share.class),
+                    Slot.label("not-started"),
                     Slot.label("none"),
                     Slot.label("all"),
                     Slot.label("pager", Paging.Page.class))
@@ -128,15 +130,49 @@ public final class ObjectiveDialog {
         return new GameDocument(renderer, documents.applied(DOCUMENT), Viewer.of(locale), new DocumentSpec.None());
     }
 
-    /** Shows that no milestone runs: {@code all} when every milestone is finished, else none has started. */
+    /** Why the menu has no objectives to show. */
+    public enum Empty {
+        /** The first milestone, which has no objectives, is not unlocked yet. */
+        NOT_STARTED("not-started"),
+        /** No milestone is active, though some are left. */
+        NONE("none"),
+        /** Every milestone is finished. */
+        ALL("all");
+
+        private final String label;
+
+        Empty(final String label) {
+            this.label = label;
+        }
+
+        /**
+         * Returns why the menu shows no objectives, or nothing when {@code active} has objectives to show.
+         * A milestone without objectives waits for an admin unlock. The first one's unlock starts the season.
+         */
+        public static Optional<Empty> of(
+                final MilestoneTrack track, final List<String> completed, final @Nullable Milestone active) {
+            if (active == null) {
+                if (track.size() > 0 && track.next(completed).isEmpty()) {
+                    return Optional.of(ALL);
+                }
+                return Optional.of(completed.isEmpty() ? NOT_STARTED : NONE);
+            }
+            if (active.objectives().isEmpty()) {
+                return Optional.of(completed.isEmpty() ? NOT_STARTED : NONE);
+            }
+            return Optional.empty();
+        }
+    }
+
+    /** Shows that no objectives run, and why. */
     public static Dialog empty(
-            final MessageRenderer renderer, final AppliedDocuments documents, final Locale locale, final boolean all) {
+            final MessageRenderer renderer, final AppliedDocuments documents, final Locale locale, final Empty why) {
         final GameDocument document = document(renderer, documents, locale);
         return Dialog.create(builder -> builder.empty()
                 .base(Dialogs.base(title(document, DialogPanel.OBJECTIVES_33, TEXT_TOP))
                         .body(List.of(Dialogs.line(
                                 BodyLine.textLine()
-                                        .text(document.label(all ? "all" : "none"), Colours.SOFT)
+                                        .text(document.label(why.label), Colours.SOFT)
                                         .build(),
                                 WIDTH)))
                         .build())

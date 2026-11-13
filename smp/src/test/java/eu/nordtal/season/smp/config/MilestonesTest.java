@@ -1,13 +1,13 @@
 package eu.nordtal.season.smp.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.MemorySettingStore;
 import eu.nordtal.season.settings.SettingsException;
+import eu.nordtal.season.smp.milestone.Milestone;
 import eu.nordtal.season.smp.milestone.MilestoneTrack;
 import eu.nordtal.season.smp.milestone.ObjectiveType;
 import eu.nordtal.season.smp.milestone.Unlock;
@@ -40,8 +40,7 @@ class MilestonesTest {
         final MilestoneTrack track = Milestones.read(reread).track();
 
         assertEquals(
-                List.of("waiting", "departure", "foothold", "settlement", "nether", "end", "expanse", "frontier"),
-                track.keys());
+                List.of("departure", "foothold", "settlement", "nether", "end", "expanse", "frontier"), track.keys());
         assertEquals(written.milestones().size(), reread.milestones().size());
     }
 
@@ -74,7 +73,6 @@ class MilestonesTest {
     void theTrackMatchesTheTableInTheConcept() throws Exception {
         final MilestoneTrack track = Milestones.read(load()).track();
 
-        assertEquals(20, track.milestone("waiting").orElseThrow().borderDiameter());
         assertEquals(43, track.milestone("departure").orElseThrow().borderDiameter());
         assertEquals(400, track.milestone("settlement").orElseThrow().borderDiameter());
         assertEquals(900, track.milestone("expanse").orElseThrow().borderDiameter());
@@ -89,7 +87,6 @@ class MilestonesTest {
 
         assertEquals(
                 List.of(
-                        List.of(),
                         List.of(),
                         List.of(List.of(30, 20)),
                         List.of(List.of(60, 20)),
@@ -123,12 +120,17 @@ class MilestonesTest {
     }
 
     @Test
-    void theOpeningTwoMilestonesHaveNothingToFinish() throws Exception {
+    void onlyTheOpeningMilestoneHasNothingToFinish() throws Exception {
         final MilestoneTrack track = Milestones.read(load()).track();
 
-        assertTrue(track.milestone("waiting").orElseThrow().hasNoObjectives());
+        assertEquals("departure", track.first().orElseThrow().key());
         assertTrue(track.milestone("departure").orElseThrow().hasNoObjectives());
-        assertFalse(track.milestone("waiting").orElseThrow().adminUnlocked());
+        assertEquals(
+                List.of("departure"),
+                track.milestones().stream()
+                        .filter(Milestone::hasNoObjectives)
+                        .map(Milestone::key)
+                        .toList());
         assertTrue(
                 track.milestone("departure").orElseThrow().adminUnlocked(),
                 "departure is the one milestone an admin opens, at the season's opening");

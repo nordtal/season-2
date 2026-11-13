@@ -82,11 +82,11 @@ public final class NpcListener implements Listener {
         final String activeKey = active.key();
         final Milestone milestone =
                 activeKey == null ? null : track.get().milestone(activeKey).orElse(null);
-        if (milestone == null) {
-            final MilestoneTrack shown = track.get();
-            final boolean all =
-                    shown.size() > 0 && shown.next(season.completedKeys()).isEmpty();
-            player.showDialog(ObjectiveDialog.empty(renderer, documents, locale, all));
+        final Optional<ObjectiveDialog.Empty> why =
+                ObjectiveDialog.Empty.of(track.get(), season.completedKeys(), milestone);
+        if (why.isPresent() || milestone == null) {
+            player.showDialog(
+                    ObjectiveDialog.empty(renderer, documents, locale, why.orElse(ObjectiveDialog.Empty.NONE)));
             return;
         }
         show(player, locale, milestone, active.objectives());

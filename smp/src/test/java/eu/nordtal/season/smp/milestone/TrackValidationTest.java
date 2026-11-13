@@ -29,7 +29,7 @@ class TrackValidationTest {
             "logs", ObjectiveType.HAND_IN, "gathering", 2048, List.of("OAK_LOG"), "", List.of(), "", 0, 0);
 
     private final MilestoneTrack track = new MilestoneTrack(List.of(
-            new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+            new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
             new Milestone("foothold", Unlock.BORDER, 99, false, List.of(LOGS, GATE))));
 
     @Test
@@ -77,12 +77,29 @@ class TrackValidationTest {
     }
 
     @Test
+    void twoMilestonesWithoutObjectivesInARowAreRefused() {
+        // Two in a row take two admin unlocks, as the season's start once did. One alone, at either end, is allowed.
+        final List<TrackValidation.Problem> problems = TrackShape.validate(List.of(
+                new Milestone("departure", Unlock.BORDER, 43, true, List.of()),
+                new Milestone("crossing", Unlock.BORDER, 70, false, List.of()),
+                new Milestone("foothold", Unlock.BORDER, 99, false, List.of(LOGS, GATE)),
+                new Milestone("exploration", Unlock.BORDER, 5000, true, List.of())));
+
+        assertEquals(
+                List.of("crossing/null"),
+                problems.stream()
+                        .map(problem -> problem.milestoneKey() + "/" + problem.objectiveKey())
+                        .toList(),
+                problems.toString());
+    }
+
+    @Test
     void aRenamedMilestoneIsRefused() {
         // A rename looks like a deletion, and stored progress and paid aura have nothing to point at.
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack renamed = new MilestoneTrack(List.of(
-                new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+                new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
                 new Milestone("first-steps", Unlock.BORDER, 99, false, List.of(LOGS, GATE))));
 
         final List<TrackValidation.Problem> problems = TrackValidation.validate(renamed, stored);
@@ -96,7 +113,7 @@ class TrackValidationTest {
         final StoredProgress stored =
                 progress(MilestoneState.ACTIVE, objective("logs", ObjectiveType.HAND_IN, 100, 2048, false));
         final MilestoneTrack without = new MilestoneTrack(List.of(
-                new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+                new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
                 new Milestone("foothold", Unlock.BORDER, 99, false, List.of(GATE))));
 
         final List<TrackValidation.Problem> problems = TrackValidation.validate(without, stored);
@@ -142,7 +159,7 @@ class TrackValidationTest {
         final StoredProgress stored =
                 progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
         final MilestoneTrack longer = new MilestoneTrack(List.of(
-                new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+                new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
                 new Milestone("foothold", Unlock.BORDER, 99, false, List.of(LOGS, GATE)),
                 new Milestone("beyond", Unlock.BORDER, 8000, false, List.of(LOGS, GATE))));
 
@@ -155,13 +172,13 @@ class TrackValidationTest {
         final StoredProgress stored = new StoredProgress(
                 List.of(
                         new StoredProgress.StoredMilestone("foothold", MilestoneState.UNLOCKED),
-                        new StoredProgress.StoredMilestone("waiting", MilestoneState.LOCKED)),
+                        new StoredProgress.StoredMilestone("departure", MilestoneState.LOCKED)),
                 List.of());
 
         final List<TrackValidation.Problem> problems = TrackValidation.validate(track, stored);
 
         assertEquals(1, problems.size(), problems.toString());
-        assertEquals("waiting", problems.get(0).milestoneKey());
+        assertEquals("departure", problems.get(0).milestoneKey());
     }
 
     @Test
@@ -197,14 +214,14 @@ class TrackValidationTest {
                         : objective)
                 .toList();
         return new MilestoneTrack(List.of(
-                new Milestone("waiting", Unlock.BORDER, 20, false, List.of()),
+                new Milestone("departure", Unlock.BORDER, 20, false, List.of()),
                 new Milestone("foothold", Unlock.BORDER, 99, false, objectives)));
     }
 
     private static StoredProgress progress(final MilestoneState state, final StoredProgress.StoredObjective objective) {
         return new StoredProgress(
                 List.of(
-                        new StoredProgress.StoredMilestone("waiting", MilestoneState.UNLOCKED),
+                        new StoredProgress.StoredMilestone("departure", MilestoneState.UNLOCKED),
                         new StoredProgress.StoredMilestone("foothold", state)),
                 List.of(objective));
     }

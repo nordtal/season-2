@@ -15,7 +15,6 @@ final class DefaultTrack {
     private static final Budget NOTHING = new Budget(0, 0);
 
     static final List<MilestonesSpec.MilestoneEntry> LIST = List.of(
-            milestone("waiting", "BORDER", 20, false, NOTHING, List.of()),
             milestone("departure", "BORDER", 43, true, NOTHING, List.of()),
             milestone(
                     "foothold",

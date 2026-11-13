@@ -262,8 +262,7 @@ final class Kinds {
                 log.warn("migration not run: cause={}", migrated.message());
                 throw new Run.Abort();
             }
-            final ApplyResult result =
-                    Runs.apply(runner.config, runner.topology(), plan, runner.plugins);
+            final ApplyResult result = Runs.apply(runner.config, runner.topology(), plan, runner.plugins);
             final List<String> installed = new ArrayList<>(state.services());
             installed.addAll(resting);
             Installed.record(record, planned, result, installed);

@@ -41,10 +41,7 @@ public final class Applier {
 
     private final AgentWire.Topology topology;
 
-    public Applier(
-            final RunSpec config,
-            final Fetcher fetcher,
-            final AgentWire.Topology topology) {
+    public Applier(final RunSpec config, final Fetcher fetcher, final AgentWire.Topology topology) {
         this.config = config;
         this.fetcher = fetcher;
         this.topology = topology;
@@ -134,8 +131,8 @@ public final class Applier {
             final List<ApplyResult.Outcome> outcomes) {
         final String why =
                 blocked.artifact() + " could not be checked" + why(blocked) + ", so nothing on this server was touched";
-        changes.forEach(change -> outcomes.add(
-                        new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
+        changes.forEach(change ->
+                outcomes.add(new ApplyResult.Outcome(service, change.artifact(), ApplyResult.Status.SKIPPED, why)));
     }
 
     private static void markUnresolvedServerJarsSkipped(

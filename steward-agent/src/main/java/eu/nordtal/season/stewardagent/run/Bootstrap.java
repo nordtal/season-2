@@ -49,8 +49,7 @@ public final class Bootstrap {
         final CollectedSteps steps = new CollectedSteps();
         try {
             final AgentWire.Topology read = topology.get();
-            final UpdatePlan missing =
-                    Runs.resolve(config, read, plugins).onlyMissing();
+            final UpdatePlan missing = Runs.resolve(config, read, plugins).onlyMissing();
             services = services(missing);
             report = report(
                     new Steps(steps, 1),

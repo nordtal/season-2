@@ -58,8 +58,7 @@ final class RunRoutes {
 
     void register(final JavalinConfig config) {
         config.routes.get(
-                AgentWire.PLAN,
-                ctx -> ctx.json(PlanView.of(Runs.resolve(this.config.get(), topology.get(), plugins))));
+                AgentWire.PLAN, ctx -> ctx.json(PlanView.of(Runs.resolve(this.config.get(), topology.get(), plugins))));
         config.routes.get(AgentWire.PLUGINS, pluginsApi::list);
         config.routes.get(AgentWire.PLUGIN_SEARCH, pluginsApi::search);
         config.routes.post(AgentWire.PLUGINS, pluginsApi::add);

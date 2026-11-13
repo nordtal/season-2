@@ -4,7 +4,7 @@ Season 2 runs as one `docker compose` stack on one host, started from the reposi
 project overview is [`../README.md`](../README.md).
 
 ```
-compose.yml            services in six profiles: db, bot, mc, steward, devpack (local), standby
+compose.yml            services in five profiles: db, bot, mc, steward, standby
 .env.example           every setting, as a reference; nobody fills it in by hand
 deploy/
   minecraft/           one image for all four Minecraft services
@@ -249,7 +249,6 @@ dev init          # write deploy/dev.env, generate the secrets, create the direc
 dev up            # build the jars and images, then start the stack
 dev deploy smp    # rebuild :smp, replace the jar, restart that container
 dev ui            # start the stack, steward and steward-agent, then Vite on http://localhost:5173
-dev pack          # build the pack, serve it through the devpack profile, point the proxy at it
 dev help          # list every command
 ```
 
@@ -265,9 +264,9 @@ replace the jar this way.
   and `/auth` to `127.0.0.1:8080`, so `:steward:run` needs the container to be stopped. Gradle
   provides Node under `steward/build/nodejs/`. `STEWARD_PUBLIC_URL` is the address of the browser.
   With another address, the sign-in through Discord and WebAuthn fails.
-- `dev pack` must run again after every change under `resource-pack/src/`. `FAILED_DOWNLOAD` in the
-  client means a stale hash. To draw the pack, install it into a client (see
-  [resource-pack/README.md](../resource-pack/README.md)).
+- steward-agent builds the resource pack from its image into `deploy/pack/`, and Caddy serves it at
+  `http://localhost`. After a change under `resource-pack/src/`, `dev up` builds a new image, which
+  builds the pack at its start (see [resource-pack/README.md](../resource-pack/README.md)).
 - `console` types into a server from the Run window of IntelliJ. In a terminal,
   `docker compose --env-file deploy/dev.env exec smp console` attaches.
 

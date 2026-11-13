@@ -26,7 +26,7 @@ bunq-config.conf
 
 # The servers' plugins/ folders, bound in by compose.yml.
 /deploy/servers/
-# The pack zip the devpack profile serves.
+# The packs steward-agent builds for the local stack.
 /deploy/pack/
 # Local secrets: database password, Steward tokens, Discord credentials.
 /deploy/dev.env

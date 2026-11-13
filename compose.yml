@@ -189,20 +189,6 @@ services:
       - ${NORDTAL_SECRETS_DIR:?set NORDTAL_SECRETS_DIR in .env - the directory of each service's own secrets, deploy/nordtal.sh writes it}/discord-bot:/app/secrets:ro
     logging: *logging
 
-  # Serves a locally built resource pack on loopback; `devpack` is never selected in production.
-  # `dev pack` builds the zip into PACK_ROOT and sets the proxy's pack to it.
-  pack-host:
-    profiles: ["devpack"]
-    # Nobody here builds its image; a run renews it once the rest is back.
-    labels: { eu.nordtal.renew: after }
-    image: ${PACK_HOST_IMAGE:-nginx:alpine}
-    restart: unless-stopped
-    ports:
-      - "${PACK_BIND:-127.0.0.1}:${PACK_PORT:-8080}:80"
-    volumes:
-      - ${PACK_ROOT:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/pack}:/usr/share/nginx/html:ro
-    logging: *logging
-
   # The Velocity proxy.
   proxy:
     <<: *minecraft
@@ -532,8 +518,8 @@ services:
       SECRETS_REVISION: ${SECRETS_REVISION_STEWARD_AGENT:-}
       # The installer's one question: whether Mojang's client jar may be fetched to draw item icons.
       NORDTAL_STEWARD_AGENT_MOJANG_ASSETS: ${NORDTAL_MOJANG_ASSETS:-false}
-      # The name Caddy serves the built packs under, which the proxy's pack address names.
-      NORDTAL_STEWARD_AGENT_PACK_HOST: ${PACK_HOST:-pack.nordtal.eu}
+      # The address Caddy serves the built packs under, without a trailing slash; the proxy's pack address starts with it.
+      NORDTAL_STEWARD_AGENT_PACK_BASE_URL: ${PACK_BASE_URL:-https://${PACK_HOST:-pack.nordtal.eu}}
     volumes:
       # The packs the agent builds, as <sha1>.zip; Caddy serves them read-only.
       - ${PACK_DIR:-${NORDTAL_DIR:?the installation directory, an absolute path - deploy/nordtal.sh writes it}/pack}:/pack

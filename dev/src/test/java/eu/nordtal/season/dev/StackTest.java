@@ -11,22 +11,6 @@ import org.junit.jupiter.api.Test;
 class StackTest {
 
     @Test
-    void thePackIsStoredAsTwoValuesOfTheProxysPackGroup() {
-        final String sql = Stack.storePack("http://localhost:8081/p.zip", "abc");
-
-        assertTrue(sql.contains("('url', to_jsonb('http://localhost:8081/p.zip'::text))"), sql);
-        assertTrue(sql.contains("('sha1', to_jsonb('abc'::text))"), sql);
-        assertTrue(sql.contains("ON CONFLICT (service, name, path) DO UPDATE"), sql);
-    }
-
-    @Test
-    void aQuoteInTheUrlStaysInsideItsLiteral() {
-        final String sql = Stack.storePack("http://localhost/it's.zip", "abc");
-
-        assertTrue(sql.contains("to_jsonb('http://localhost/it''s.zip'::text)"), sql);
-    }
-
-    @Test
     void aJarIsInstalledAsRootThroughTheServersImageWithOnlyTheCapabilitiesTheCopyNeeds() {
         final List<String> arguments = Stack.installArguments("smp", Path.of("/checkout/smp/build/libs/smp-1.0.jar"));
         assertEquals(List.of("run", "--rm", "--no-deps", "-T", "--pull", "never"), arguments.subList(0, 6));

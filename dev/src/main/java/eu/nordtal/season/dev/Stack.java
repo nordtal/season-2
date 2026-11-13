@@ -4,11 +4,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -71,56 +67,6 @@ final class Stack {
         compose.run(restart.toArray(String[]::new));
     }
 
-    /** Builds the resource pack, copies it to the directory that pack-host serves and points the proxy at it. */
-    void pack() {
-        compose.requireEnv();
-        processes.gradle(":resource-pack:packZip");
-        final String name = "nordtal-resource-pack-" + Repository.version(root) + ".zip";
-        final Path zip = root.resolve("resource-pack/build/distributions").resolve(name);
-        if (!Files.isRegularFile(zip)) {
-            throw new Processes.Failure(
-                    zip + " is missing after the build. Run sh gradlew :resource-pack:packZip and check its output.");
-        }
-        final String sha1 = sha1(zip);
-        final String url = "http://localhost:" + compose.valueOr("PACK_PORT", "8080") + "/" + name;
-        try {
-            Files.createDirectories(compose.packRoot());
-            Files.copy(zip, compose.packRoot().resolve(name), StandardCopyOption.REPLACE_EXISTING);
-        } catch (final IOException e) {
-            throw new UncheckedIOException("cannot install the pack", e);
-        }
-        if (compose.exec(
-                        "postgres",
-                        "sh",
-                        "-c",
-                        "psql -q -v ON_ERROR_STOP=1 -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -c \"$0\"",
-                        storePack(url, sha1))
-                != 0) {
-            throw new Processes.Failure(
-                    "The database refused the pack. Start steward once with dev up, then run dev pack again.");
-        }
-        terminal.log("proxy pack set: url=" + url + " sha1=" + sha1);
-        compose.run("restart", "proxy");
-    }
-
-    static String storePack(final String url, final String sha1) {
-        return "INSERT INTO setting_override (service, name, path, actor_kind, changed) VALUES"
-                + " ('proxy', 'pack', 'url', 'HOST', now()), ('proxy', 'pack', 'sha1', 'HOST', now())"
-                + " ON CONFLICT (service, name, path) DO UPDATE SET"
-                + " actor_kind = excluded.actor_kind, actor_id = NULL, changed = excluded.changed;"
-                + " DELETE FROM setting_override_node WHERE service = 'proxy' AND name = 'pack';"
-                + " INSERT INTO setting_override_node"
-                + " (service, name, path, node, parent, field, ordinal, kind, string, number, flag)"
-                + " SELECT 'proxy', 'pack', v.path, n.* FROM (VALUES"
-                + " ('url', to_jsonb(" + literal(url) + "::text)),"
-                + " ('sha1', to_jsonb(" + literal(sha1) + "::text))) AS v (path, value),"
-                + " setting_override_nodes(v.value) AS n";
-    }
-
-    private static String literal(final String text) {
-        return "'" + text.replace("'", "''") + "'";
-    }
-
     /**
      * Starts the interface with hot reload: the stack in the background and Vite in front on :5173.
      * The command names the steward services, so Caddy does not start.
@@ -128,12 +74,7 @@ final class Stack {
      */
     void ui() {
         compose.requireEnv();
-        final String packPort = compose.valueOr("PACK_PORT", "8080");
         final String stewardPort = compose.valueOr("STEWARD_PORT", "8080");
-        if (packPort.equals(stewardPort)) {
-            throw new Processes.Failure("PACK_PORT and STEWARD_PORT are both " + stewardPort + " in "
-                    + LocalProject.ENV_FILE + ". Set PACK_PORT=8081 there and run dev ui again.");
-        }
         terminal.log("stack starting: profiles=\"" + compose.valueOr("COMPOSE_PROFILES", "") + "\"");
         compose.run("up", "-d");
         terminal.log("interface services starting: service=\"steward steward-agent\"");
@@ -281,15 +222,5 @@ final class Stack {
 
     private static List<String> lines(final String output) {
         return output.lines().map(String::strip).filter(line -> !line.isEmpty()).toList();
-    }
-
-    private static String sha1(final Path file) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-1").digest(Files.readAllBytes(file)));
-        } catch (final IOException e) {
-            throw new UncheckedIOException("cannot read " + file, e);
-        } catch (final NoSuchAlgorithmException e) {
-            throw new IllegalStateException("every JDK ships SHA-1", e);
-        }
     }
 }

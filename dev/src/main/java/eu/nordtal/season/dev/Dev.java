@@ -21,7 +21,6 @@ public final class Dev {
               deploy [module...]   rebuild those modules and restart their servers (default: all four)
                                    (a jar swap. After editing deploy/dev.env, run up instead: a restart
                                     reuses the container and its environment with it)
-              pack                 build the resource pack and point the proxy at it
               ui                   the interface: the stack in the background, Vite in front
                                    (http://localhost:5173. Stopping it leaves the containers up)
               logs [service]       follow the logs
@@ -55,7 +54,6 @@ public final class Dev {
             case "init" -> new Setup(root, compose, terminal).init();
             case "up" -> stack.up();
             case "deploy" -> stack.deploy(rest);
-            case "pack" -> stack.pack();
             case "ui" -> stack.ui();
             case "logs" -> compose.run(concat(List.of("logs", "-f"), rest));
             case "ps" -> compose.run("ps");

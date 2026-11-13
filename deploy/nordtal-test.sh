@@ -332,7 +332,7 @@ ok "names and commas; a path, an empty element and nothing are refused"
 
 case_begin "a name compose.yml selects nothing by is reported"
 [[ -z "$(unknown_profiles "db,bot,mc,steward")" ]]    || bad "the production selection has an unknown name"
-[[ -z "$(unknown_profiles "db, mc ,devpack")" ]]      || bad "spaces around a known name made it unknown"
+[[ -z "$(unknown_profiles "db, mc ,steward")" ]]      || bad "spaces around a known name made it unknown"
 [[ "$(unknown_profiles "db,backup,steward")" == "backup" ]] || bad "backup is no profile"
 [[ "$(unknown_profiles "standby,mc")" == "standby" ]] || bad "standby is never selected"
 ok "every name but the selectable profiles is reported, one per line"

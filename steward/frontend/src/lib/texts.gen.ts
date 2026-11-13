@@ -654,12 +654,10 @@ export type TextArgs = {
   "steward.announcements.draft": Record<string, never>
   "steward.announcements.drafts": Record<string, never>
   "steward.announcements.empty": Record<string, never>
-  "steward.announcements.empty-note": Record<string, never>
   "steward.announcements.no-channel": Record<string, never>
   "steward.announcements.no-drafts": Record<string, never>
   "steward.announcements.no-match": Record<string, never>
   "steward.announcements.none-open": Record<string, never>
-  "steward.announcements.none-open-note": Record<string, never>
   "steward.announcements.not-everywhere": {
     count: Arg["number"]
   }
@@ -754,9 +752,7 @@ export type TextArgs = {
   "steward.answer.grants-per-hour": {
     count: Arg["number"]
   }
-  "steward.answer.image-refused": {
-    mebibytes: Arg["number"]
-  }
+  "steward.answer.image-refused": Record<string, never>
   "steward.answer.interrupted": Record<string, never>
   "steward.answer.inventory-held": {
     server: Arg["text"]
@@ -836,6 +832,7 @@ export type TextArgs = {
   "steward.answer.override-refused": {
     key: Arg["text"]
     language: Arg["text"]
+    problem: Arg["text"]
   }
   "steward.answer.playtime-range": {
     most: Arg["duration"]
@@ -844,6 +841,7 @@ export type TextArgs = {
   "steward.answer.preview-refused": {
     key: Arg["text"]
     language: Arg["text"]
+    problem: Arg["text"]
   }
   "steward.answer.preview-unlinked": Record<string, never>
   "steward.answer.push-not-accepted": Record<string, never>
@@ -1306,6 +1304,7 @@ export type TextArgs = {
   "steward.journal.yesterday": Record<string, never>
   "steward.keys.aborted": Record<string, never>
   "steward.keys.add": Record<string, never>
+  "steward.keys.add-app": Record<string, never>
   "steward.keys.add-note": {
     domain: Arg["text"]
   }
@@ -1593,7 +1592,9 @@ export type TextArgs = {
   "steward.operations.notes": Record<string, never>
   "steward.operations.nothing-to-do": Record<string, never>
   "steward.operations.nothing-written": Record<string, never>
-  "steward.operations.now": Record<string, never>
+  "steward.operations.now": {
+    kind: Arg["choice"]
+  }
   "steward.operations.players-back": {
     count: Arg["number"]
   }
@@ -2275,7 +2276,9 @@ export type TextArgs = {
   "steward.service-page.settings": Record<string, never>
   "steward.service-page.stats": Record<string, never>
   "steward.service-page.the-jar": Record<string, never>
-  "steward.service-page.uncheckable": Record<string, never>
+  "steward.service-page.uncheckable": {
+    error: Arg["text"]
+  }
   "steward.service-page.up-to-date": Record<string, never>
   "steward.service-page.update-available": Record<string, never>
   "steward.service-page.waiting-for-log": Record<string, never>

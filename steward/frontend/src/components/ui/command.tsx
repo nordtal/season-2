@@ -36,8 +36,8 @@ const SHEET_INSET = "data-[slot=drawer-content]:px-[calc(var(--sheet-gutter)-(--
  * `aria-labelledby` points at that label and outranks `aria-label`, so an empty label leaves the input without a name.
  */
 function CommandDialog({
-  title = "Command Palette",
-  description = "Search for a command to run...",
+  title,
+  description,
   label,
   filter,
   children,
@@ -45,8 +45,8 @@ function CommandDialog({
   showCloseButton = false,
   ...props
 }: React.ComponentProps<typeof ResponsiveDialog> & {
-  title?: string
-  description?: string
+  title: string
+  description: string
   label?: string
   filter?: React.ComponentProps<typeof CommandPrimitive>["filter"]
   className?: string

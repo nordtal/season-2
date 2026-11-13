@@ -28,7 +28,7 @@ function draw() {
 
 const signInButton = () => screen.queryByRole("link", { name: /Sign in with Discord/ })
 
-const stuckDoor = () => screen.queryByText(/session has not expired/)
+const stuckDoor = () => screen.queryByText(/You are still signed in/)
 
 beforeEach(() => {
   fetched = vi.fn<(url: string, init?: { method?: string; body?: string }) => Promise<Response>>()
@@ -97,7 +97,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
 
     await waitFor(() => expect(stuckDoor()).not.toBeNull())
     expect(signInButton()).toBeNull()
-    expect(screen.getByRole("alert").textContent).toContain("The interface cannot be reached.")
+    expect(screen.getByRole("alert").textContent).toContain("Steward cannot be reached.")
   })
 
   it("shows it for a failure that is not an ApiError at all", async () => {

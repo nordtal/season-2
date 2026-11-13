@@ -332,7 +332,8 @@ public interface StewardTexts {
             @Name("Override refused")
             MessageRef overrideRefused(
                     @Arg("key") @Example("steward.answer.no-bundle") String key,
-                    @Arg("language") @Example("Deutsch") String language);
+                    @Arg("language") @Example("Deutsch") String language,
+                    @Arg("problem") @Example("expected , before the cases (at character 14)") String problem);
 
             @Name("Building block refused")
             MessageRef blockRefused(
@@ -345,7 +346,8 @@ public interface StewardTexts {
             @Name("Preview refused")
             MessageRef previewRefused(
                     @Arg("key") @Example("steward.answer.no-bundle") String key,
-                    @Arg("language") @Example("Deutsch") String language);
+                    @Arg("language") @Example("Deutsch") String language,
+                    @Arg("problem") @Example("expected , before the cases (at character 14)") String problem);
 
             @Name("Nowhere to preview")
             MessageRef noPreview(@Arg("key") @Example("steward.answer.no-bundle") String key);
@@ -386,7 +388,7 @@ public interface StewardTexts {
             MessageRef draftNotMessage(@Arg("document") @Example("rules") String document);
 
             @Name("Image refused")
-            MessageRef imageRefused(@Arg("mebibytes") @Example("8") int mebibytes);
+            MessageRef imageRefused();
 
             @Name("No player to preview to")
             MessageRef previewUnlinked();

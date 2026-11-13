@@ -24,9 +24,9 @@ describe("AccessPage - each value opens its own dialog", () => {
     const row = await rowFor("alice")
     for (const [value, title] of [
       [/never had access/, "Grant access to alice"],
-      [/^Playtime/, "Set play time"],
+      [/^Playtime/, "Set playtime"],
       [/^Aura/, "Set aura"],
-      [/^Spins/, "Set spins"],
+      [/^Extra spins/, "Set extra spins"],
     ] as const) {
       fireEvent.click(within(row).getAllByRole("button", { name: value })[0])
       const dialog = await screen.findByRole("alertdialog")

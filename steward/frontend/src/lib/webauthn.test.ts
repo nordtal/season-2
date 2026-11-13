@@ -225,7 +225,6 @@ describe("what a person is told went wrong", () => {
   it("tells a cancelled dialog apart from a refused one", () => {
     /** A cancel means "try again" and a known key means "use another". */
     expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/cancelled/)
-    expect(whyTheKeyFailed(named("NotAllowedError"))).toMatch(/Nothing was registered/)
     expect(whyTheKeyFailed(named("InvalidStateError"))).toMatch(/already has that key/)
   })
 

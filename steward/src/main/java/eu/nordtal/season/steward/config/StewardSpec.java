@@ -117,7 +117,7 @@ public interface StewardSpec {
         @Name("Token")
         @Key("token")
         @Secret
-        @Explain("Empty, no container can be shown or changed.")
+        @Explain("Empty means no container can be shown or changed.")
         default String token() {
             return "";
         }

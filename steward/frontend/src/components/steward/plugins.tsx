@@ -62,7 +62,11 @@ export function ServicePlugins({ service }: { service: string }) {
         </Button>
       </div>
 
-      {unchecked ? <p className="text-sm text-muted-foreground">{t("steward.service-page.uncheckable")}</p> : null}
+      {unchecked ? (
+        <p className="text-sm text-muted-foreground">
+          {t("steward.service-page.uncheckable", { error: errorMessage(available.error ?? refresh.error) })}
+        </p>
+      ) : null}
 
       <QueryState query={plugins}>
         {(answer) =>

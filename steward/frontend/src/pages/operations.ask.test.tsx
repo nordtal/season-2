@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { AskButton } from "@/pages/operations"
 import { TooltipProvider } from "@/components/ui/tooltip"
 
-/** The confirmation before a run offers Now or Cancel in at most two short lines. */
+/** The confirmation before a run offers its action now, or Cancel, in at most two short lines. */
 
 afterEach(() => {
   cleanup()
@@ -30,11 +30,18 @@ function open(kind: "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START") {
 }
 
 describe("the run dialog", () => {
+  const now = {
+    UPDATE: "Update now",
+    BACKUP: "Back up now",
+    RESTART: "Restart now",
+    DOWN: "Take down now",
+    START: "Start now",
+  }
   for (const kind of ["UPDATE", "BACKUP", "RESTART", "DOWN", "START"] as const) {
-    it(`asks ${kind} as Now or Cancel, in two lines at most`, () => {
+    it(`asks ${kind} as ${now[kind]} or Cancel, in two lines at most`, () => {
       const dialog = open(kind)
       const buttons = [...dialog.querySelectorAll("button")].map((button) => button.textContent?.trim())
-      expect(buttons).toEqual(["Cancel", "Now"])
+      expect(buttons).toEqual(["Cancel", now[kind]])
       expect(dialog.textContent).not.toMatch(/tonight/i)
       expect(dialog.querySelectorAll("p").length).toBeLessThanOrEqual(2)
     })
@@ -75,13 +82,13 @@ describe("an update over a build made on the host", () => {
   it("names the jar in the confirmation and says the build may go", async () => {
     const posted = askUpdate(["smp"])
     expect(await screen.findByText(/smp \(smp-0\.17\.0\.jar\)/)).toBeTruthy()
-    fireEvent.click(screen.getByRole("button", { name: "Now" }))
+    fireEvent.click(screen.getByRole("button", { name: "Update now" }))
     await vi.waitFor(() => expect(posted).toEqual([{ kind: "UPDATE", services: ["smp"], replaceLocal: true }]))
   })
 
   it("says nothing of a build outside the run's scope, and asks the agent to keep any it would replace", async () => {
     const posted = askUpdate(["limbo"])
-    fireEvent.click(screen.getByRole("button", { name: "Now" }))
+    fireEvent.click(screen.getByRole("button", { name: "Update now" }))
     await vi.waitFor(() => expect(posted).toEqual([{ kind: "UPDATE", services: ["limbo"] }]))
     expect(screen.queryByText(/smp-0\.17\.0\.jar/)).toBeNull()
   })

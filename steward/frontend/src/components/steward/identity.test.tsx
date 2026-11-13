@@ -87,7 +87,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
 
     fireEvent.click(screen.getByRole("button"))
 
-    const field = await screen.findByLabelText("Discord-ID")
+    const field = await screen.findByLabelText("Discord ID")
     expect(asInput(field).value).toBe(DISCORD_ID)
   })
 
@@ -96,7 +96,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
 
     fireEvent.click(screen.getByRole("button"))
 
-    const field = await screen.findByLabelText("Minecraft-UUID")
+    const field = await screen.findByLabelText("Minecraft UUID")
     expect(asInput(field).value).toBe(MC_UUID)
   })
 
@@ -106,7 +106,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     fireEvent.click(screen.getByRole("button"))
 
     await screen.findByText(/no minecraft account linked/i)
-    expect(screen.queryByLabelText("Minecraft-UUID")).toBeNull()
+    expect(screen.queryByLabelText("Minecraft UUID")).toBeNull()
   })
 
   it("copies the id it is asked to copy, and not the other one", async () => {
@@ -116,9 +116,9 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
 
     render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" mcUuid={MC_UUID} mcName="AliceMC" />)
     fireEvent.click(screen.getByRole("button"))
-    await screen.findByLabelText("Minecraft-UUID")
+    await screen.findByLabelText("Minecraft UUID")
 
-    fireEvent.click(screen.getByRole("button", { name: "Copy Minecraft-UUID" }))
+    fireEvent.click(screen.getByRole("button", { name: "Copy Minecraft UUID" }))
 
     expect(writeText).toHaveBeenCalledExactlyOnceWith(MC_UUID)
   })
@@ -130,7 +130,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
 
     render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" />)
     fireEvent.click(screen.getByRole("button"))
-    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Copy Discord-ID" })))
+    await act(async () => fireEvent.click(await screen.findByRole("button", { name: "Copy Discord ID" })))
     expect(writeText).toHaveBeenCalledOnce()
 
     cleanup()
@@ -146,10 +146,10 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
     render(<PersonIdentity discordId={DISCORD_ID} discordUsername="alice" />)
     fireEvent.click(screen.getByRole("button"))
 
-    const field = asInput(await screen.findByLabelText("Discord-ID"))
+    const field = asInput(await screen.findByLabelText("Discord ID"))
     expect(field.readOnly).toBe(true)
     expect(field.value).toBe(DISCORD_ID)
-    expect(() => fireEvent.click(screen.getByRole("button", { name: "Copy Discord-ID" }))).not.toThrow()
+    expect(() => fireEvent.click(screen.getByRole("button", { name: "Copy Discord ID" }))).not.toThrow()
   })
 })
 
@@ -188,7 +188,7 @@ describe("PersonIdentity - the way to the person's page", () => {
 
     fireEvent.click(screen.getByRole("button"))
 
-    await screen.findByLabelText("Discord-ID")
+    await screen.findByLabelText("Discord ID")
     expect(screen.queryByRole("link")).toBeNull()
     expect(warn).not.toHaveBeenCalled()
     warn.mockRestore()

@@ -599,8 +599,7 @@ public final class DocumentsApi {
      */
     public void upload(final Context ctx, final Actor actor) {
         final byte[] bytes = ctx.bodyAsBytes();
-        final String type =
-                mediaType(bytes).orElseThrow(() -> new RequestRefused(400, ANSWER.imageRefused(IMAGE_MEBIBYTES)));
+        final String type = mediaType(bytes).orElseThrow(() -> new RequestRefused(400, ANSWER.imageRefused()));
         final long id = store.upload(type, bytes, actor);
         ctx.json(new Uploaded(id, DocumentStore.Image.SCHEME + id));
     }

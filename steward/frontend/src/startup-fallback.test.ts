@@ -133,7 +133,7 @@ describe("index.html's inline startup reporter", () => {
     window.dispatchEvent(event)
 
     expect(reload).not.toHaveBeenCalled()
-    expect(message()).toBe("Steward hit an error before it could start: something inside React threw.")
+    expect(message()).toBe("Steward did not start: something inside React threw.")
   })
 
   it("reports an unhandled promise rejection the same way", () => {
@@ -144,6 +144,6 @@ describe("index.html's inline startup reporter", () => {
     })
     window.dispatchEvent(event)
 
-    expect(message()).toBe("Steward hit an error before it could start: a query rejected.")
+    expect(message()).toBe("Steward did not start: a query rejected.")
   })
 })

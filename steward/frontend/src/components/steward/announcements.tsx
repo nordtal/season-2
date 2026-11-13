@@ -159,9 +159,7 @@ function AnnouncementsView({
             ) : null}
           </section>
         )}
-        {nothing ? (
-          <Empty title={t("steward.announcements.empty")} note={t("steward.announcements.empty-note")} />
-        ) : null}
+        {nothing ? <Empty title={t("steward.announcements.empty")} /> : null}
       </div>
 
       {item && template ? (
@@ -178,7 +176,7 @@ function AnnouncementsView({
         />
       ) : (
         <div className="max-lg:hidden">
-          <Empty title={t("steward.announcements.none-open")} note={t("steward.announcements.none-open-note")} />
+          <Empty title={t("steward.announcements.none-open")} />
         </div>
       )}
     </div>

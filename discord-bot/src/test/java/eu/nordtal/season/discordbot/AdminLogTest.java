@@ -184,7 +184,7 @@ class AdminLogTest {
 
         assertEquals("""
                 ## 📝 Security key added
-                Added the security key "\\*bold\\*".
+                Added the security key “\\*bold\\*”.
                 **By** <@400000000000000001>""", card.text());
     }
 

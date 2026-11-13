@@ -108,7 +108,7 @@ export const ASKS: Record<Kind, typeof TERM_ICON.recreate> = {
 }
 
 /**
- * One button and one confirmation: Now or Cancel. Every run stops servers, so the dialog names what will happen in at most two short lines.
+ * One button and one confirmation: the action now, or Cancel. Every run stops servers, so the dialog names what will happen in at most two short lines.
  */
 export function AskButton({
   kind,
@@ -181,7 +181,7 @@ export function AskButton({
         ) : null
       }
       title={scoped ? t("steward.operations.scoped", { ask: title, services }) : title}
-      action={t("steward.operations.now")}
+      action={t("steward.operations.now", { kind: choice(kind) })}
       destructive={kind === "RESTART" || kind === "DOWN"}
       act={submit}
     >

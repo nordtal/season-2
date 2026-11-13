@@ -663,12 +663,12 @@ describe("an open document", { timeout: 15_000 }, () => {
 
     expect(await within(editor).findByText("Shared part rule-links")).toBeTruthy()
     // An added part starts open.
-    expect(within(editor).getByText(/Every document that names rule-links draws it here/)).toBeTruthy()
+    expect(within(editor).getByText(/Drawn from the shared part rule-links\./)).toBeTruthy()
 
     fireEvent.pointerDown(within(editor).getAllByRole("button", { name: "Shared part" }).at(-1)!, { button: 0 })
     fireEvent.click(await screen.findByRole("menuitem", { name: "Detach from the shared part" }))
     await waitFor(() => expect(within(editor).queryByText("Shared part rule-links")).toBeNull())
-    expect(within(editor).queryByText(/Every document that names rule-links/)).toBeNull()
+    expect(within(editor).queryByText(/Drawn from the shared part rule-links/)).toBeNull()
   })
 
   it("shows the packaged and the saved version side by side when a release changed the packaged one", async () => {

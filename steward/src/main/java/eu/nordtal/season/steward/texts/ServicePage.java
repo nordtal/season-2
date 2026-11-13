@@ -118,7 +118,7 @@ public interface ServicePage {
     MessageRef checkUpdates();
 
     @Name("Uncheckable")
-    MessageRef uncheckable();
+    MessageRef uncheckable(@Arg("error") @Example("GitHub did not answer") String error);
 
     @Name("No volume")
     MessageRef noVolume();

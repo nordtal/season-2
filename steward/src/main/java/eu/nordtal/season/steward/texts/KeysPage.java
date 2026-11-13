@@ -180,8 +180,11 @@ public interface KeysPage {
     @Name("Heading")
     MessageRef heading();
 
-    @Name("Add")
+    @Name("Add security key")
     MessageRef add();
+
+    @Name("Add authenticator app")
+    MessageRef addApp();
 
     @Name("No key")
     MessageRef noKey();

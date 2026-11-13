@@ -173,7 +173,7 @@ export function AuthenticatorAppRow({ state }: { state: AuthenticatorActions }) 
         {state.app ? null : (
           <Button type="button" variant="ghost" size="sm" onClick={state.startEnrolling}>
             <PlusIcon aria-hidden />
-            {t("steward.keys.add")}
+            {t("steward.keys.add-app")}
           </Button>
         )}
       </div>

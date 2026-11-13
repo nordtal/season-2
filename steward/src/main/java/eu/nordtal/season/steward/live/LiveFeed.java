@@ -32,7 +32,7 @@ public final class LiveFeed implements AutoCloseable {
     /** The shortest gap between two passes. */
     static final Duration GAP = Duration.ofSeconds(1);
 
-    private static final String SIGNED_OUT = "this session ended - sign in again to stay live";
+    private static final String SIGNED_OUT = "Live updates stopped: your session ended. Sign in again.";
 
     private final Map<Topic, Supplier<?>> readings = new EnumMap<>(Topic.class);
     private final Map<Topic, String> versions = new ConcurrentHashMap<>();

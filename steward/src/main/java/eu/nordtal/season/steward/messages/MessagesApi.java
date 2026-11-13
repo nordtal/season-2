@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -110,8 +111,10 @@ public final class MessagesApi {
             for (final String text : change.texts()) {
                 for (final MessageCheck.Problem problem : OverrideCheck.problems(entry, text)) {
                     if (problem.error()) {
-                        // The refusal names the text only.
-                        throw new RequestRefused(400, ANSWER.overrideRefused(entry.key(), change.language()));
+                        throw new RequestRefused(
+                                400,
+                                ANSWER.overrideRefused(
+                                        entry.key(), change.language(), MessageCheck.english(problem.text())));
                     }
                     warnings.add(new Warning(entry.bundle(), entry.key(), change.language(), problem.text()));
                 }
@@ -328,8 +331,14 @@ public final class MessagesApi {
         }
         final AgentWire.BundleRef location = locate(textOf(body, "bundle"));
         final MessageEntry entry = entryOf(location, key);
-        if (OverrideCheck.problems(entry, text).stream().anyMatch(MessageCheck.Problem::error)) {
-            throw new RequestRefused(400, ANSWER.previewRefused(key, language));
+        final Optional<MessageCheck.Problem> broken = OverrideCheck.problems(entry, text).stream()
+                .filter(MessageCheck.Problem::error)
+                .findFirst();
+        if (broken.isPresent()) {
+            throw new RequestRefused(
+                    400,
+                    ANSWER.previewRefused(
+                            key, language, MessageCheck.english(broken.get().text())));
         }
         final String place = textOf(body, "shown");
         final Display shown = previewable(entry).stream()

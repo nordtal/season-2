@@ -54,7 +54,7 @@ describe("the web target", () => {
   it("shows a moment in the browser's zone and the page's own locale", () => {
     const held = "2026-10-03T18:40:00Z"
     expect(t("steward.service.held-since", { since: held, state: "exited" })).toBe(
-      `Held down since ${dateTime(held)}. Docker reports the state "exited".`,
+      `Held down since ${dateTime(held)}. Docker reports the state “exited”.`,
     )
     replaceTexts({ ...PACKAGED, vector: [[{ v: "at", k: "instant", s: "relative" }]] })
     expect(message({ key: "vector", args: { at: { kind: "instant", value: held } } })).toBe(relative(held))

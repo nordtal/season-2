@@ -74,6 +74,9 @@ include("architecture")
 // The local network, driven from IntelliJ or a terminal.
 include("dev")
 
+// Replaces the underground of the custom overworld with a generated one, offline on copies of its region files.
+include("underground")
+
 // Packs src/ into the resource pack zip.
 include("resource-pack")
 

@@ -26,6 +26,7 @@ val checkedModules =
         ":steward-bunq",
         ":internal-api",
         ":dev",
+        ":underground",
     )
 
 dependencies {

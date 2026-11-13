@@ -58,6 +58,17 @@ public final class AppliedDocuments implements Documents.Source {
     }
 
     /**
+     * Returns the document {@code namespace}/{@code name} as it applies, for a reader without its spec class.
+     *
+     * @throws IllegalStateException if the jar packages no such document
+     */
+    public Documents.Packaged applied(final String namespace, final String name) {
+        final Documents.Packaged own = own(namespace, name);
+        final Document document = written.get(own.declaration().id());
+        return document == null ? own : new Documents.Packaged(own.declaration(), document);
+    }
+
+    /**
      * Returns an admin's draft with the declaration this jar packages for its document.
      *
      * @throws IllegalStateException if the jar packages no such document

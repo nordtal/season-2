@@ -27,7 +27,7 @@ internal object WheelLayout {
     val POINTER = intArrayOf(40, -8)
 
     /** The off plate's top-left on the disc canvas, and its size. */
-    val PLATE = intArrayOf(108, 33)
+    val PLATE = intArrayOf(108, 31)
     const val PLATE_WIDTH = 75
     const val PLATE_HEIGHT = 17
 

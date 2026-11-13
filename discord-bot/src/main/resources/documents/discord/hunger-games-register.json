@@ -58,7 +58,7 @@
             {
               "text": {
                 "en": "No-show",
-                "de": "Nicht da"
+                "de": "Nicht erschienen"
               },
               "style": "HEADING"
             },
@@ -78,8 +78,8 @@
         {
           "slot": "register",
           "label": {
-            "en": "Register",
-            "de": "Registrieren"
+            "en": "Register a team",
+            "de": "Team anmelden"
           }
         }
       ]

@@ -46,6 +46,15 @@ public final class RedemptionLimit {
         return maxFailures - recent.size();
     }
 
+    /** Returns when the oldest failure in the window expires and frees an attempt, or now when one is free. */
+    public synchronized Instant retryAt(final DiscordId discordId) {
+        final Deque<Instant> recent = recent(discordId);
+        if (recent.size() < maxFailures) {
+            return clock.instant();
+        }
+        return recent.peekFirst().plus(WINDOW);
+    }
+
     public synchronized void release(final DiscordId discordId) {
         final Deque<Instant> recorded = failures.get(discordId.value());
         if (recorded == null) {

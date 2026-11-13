@@ -20,6 +20,9 @@ public final class Replies {
 
     public record Partner(DiscordMemberContext partner) {}
 
+    /** @param bot whether the invited account is a bot, rather than one already on a team or invited */
+    public record Unavailable(boolean bot, DiscordMemberContext partner) {}
+
     public record Team(TeamContext team) {}
 
     public record Answer(DiscordMemberContext player, TeamContext team) {}
@@ -69,8 +72,8 @@ public final class Replies {
             reply("link-already-linked", "Link").titled("Account already linked");
     public static final DocumentSpec<DocumentSpec.None> LINK_FAILED =
             reply("link-failed", "Link").titled("Linking failed");
-    public static final DocumentSpec<DocumentSpec.None> LINK_TOO_MANY =
-            reply("link-too-many", "Link").titled("Too many wrong codes");
+    public static final DocumentSpec<Until> LINK_TOO_MANY =
+            reply("link-too-many", "Link", Until.class).titled("Too many wrong codes");
     public static final DocumentSpec<DocumentSpec.None> UNLINK_SUCCESS =
             reply("unlink-success", "Link").titled("Account unlinked");
     public static final DocumentSpec<DocumentSpec.None> UNLINK_NONE =
@@ -101,8 +104,8 @@ public final class Replies {
             reply("invite-pending", "Register").titled("Invitation still open");
     public static final DocumentSpec<DocumentSpec.None> INVITE_SELF =
             reply("invite-self", "Register").titled("Invitation to oneself");
-    public static final DocumentSpec<DocumentSpec.None> INVITE_UNAVAILABLE =
-            reply("invite-unavailable", "Register").titled("Account cannot be invited");
+    public static final DocumentSpec<Unavailable> INVITE_UNAVAILABLE =
+            reply("invite-unavailable", "Register", Unavailable.class).titled("Account cannot be invited");
     public static final DocumentSpec<Team> INVITE_ACCEPTED =
             reply("invite-accepted", "Register", Team.class).titled("Invitation accepted, to the partner");
     public static final DocumentSpec<Team> INVITE_DECLINED =

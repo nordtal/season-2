@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "This purchase is closed. Use the button in the channel to start a new one.",
-            "de": "Dieser Kauf ist abgeschlossen. Starte mit dem Knopf im Kanal einen neuen."
+            "en": "This purchase is no longer open. Start a new one with **Buy {@terms.access}**.",
+            "de": "Dieser Kauf ist nicht mehr offen. Starte einen neuen mit **{@terms.access} kaufen**."
           }
         }
       ]

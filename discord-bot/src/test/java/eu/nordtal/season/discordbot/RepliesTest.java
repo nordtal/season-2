@@ -19,7 +19,7 @@ class RepliesTest {
         final DocumentRenderer.Drawn drawn = RENDERER.reply(Locale.ENGLISH, Replies.UNLINK_SUCCESS);
 
         assertEquals(
-                List.of("Your Minecraft account is unlinked."),
+                List.of("Your Minecraft account is no longer linked."),
                 drawn.components().stream()
                         .map(component -> ((TextDisplay) component).getContent())
                         .toList());

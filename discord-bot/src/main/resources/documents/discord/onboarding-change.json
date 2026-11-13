@@ -17,19 +17,6 @@
                     "de": "Sprache und Region"
                   },
                   "style": "TITLE"
-                },
-                {
-                  "text": {
-                    "en": "Change",
-                    "de": "Ändern"
-                  },
-                  "style": "HEADING"
-                },
-                {
-                  "text": {
-                    "en": "**{change.label}** → language and region, at any time",
-                    "de": "**{change.label}** → Sprache und Region, jederzeit"
-                  }
                 }
               ]
             }
@@ -41,8 +28,8 @@
             {
               "slot": "change",
               "label": {
-                "en": "Change",
-                "de": "Ändern"
+                "en": "Change language and region",
+                "de": "Sprache und Region ändern"
               }
             }
           ]

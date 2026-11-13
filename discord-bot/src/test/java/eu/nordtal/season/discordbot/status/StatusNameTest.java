@@ -42,13 +42,13 @@ class StatusNameTest {
 
     @Test
     void moreThanADayOutShowsDaysAndWholeHours() {
-        assertEquals("Opens in 3d 4h", at(Duration.ofDays(3).plusHours(4).plusMinutes(59)));
+        assertEquals("Opens in 3 d 4 h", at(Duration.ofDays(3).plusHours(4).plusMinutes(59)));
     }
 
     @Test
     void underADayTheMinutesAreDroppedBecauseTheyWouldCostSixtyRenamesAnHour() {
-        assertEquals("Opens in 5h", at(Duration.ofHours(5).plusMinutes(59)));
-        assertEquals("Opens in 1h", at(Duration.ofHours(1)));
+        assertEquals("Opens in 5 h", at(Duration.ofHours(5).plusMinutes(59)));
+        assertEquals("Opens in 1 h", at(Duration.ofHours(1)));
     }
 
     @Test
@@ -84,7 +84,7 @@ class StatusNameTest {
     @Test
     void aClosedSeasonInMaintenanceStillShowsTheClosedSeason() {
         assertEquals("Launch date to come", render(CLOSED.withMaintenance(true)));
-        assertEquals("Opens in 2d 0h", render(CLOSED.withMaintenance(true).withLaunch(NOW.plus(Duration.ofDays(2)))));
+        assertEquals("Opens in 2 d 0 h", render(CLOSED.withMaintenance(true).withLaunch(NOW.plus(Duration.ofDays(2)))));
     }
 
     @Test
@@ -152,7 +152,7 @@ class StatusNameTest {
                 .map(state -> StatusName.render(MESSAGES, Locale.GERMAN, state, RUNNING, NOW))
                 .toList();
         assertEquals(
-                List.of("Starttermin folgt", "Start in 2T 0Std", "Wartung", "31 Spieler", "3 Teams übrig, 7 am Leben"),
+                List.of("Starttermin folgt", "Start in 2 d 0 h", "Wartung", "31 Spieler", "3 Teams übrig, 7 am Leben"),
                 german);
     }
 

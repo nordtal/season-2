@@ -14,6 +14,7 @@ import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
+import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.messages.document.Slot;
 import eu.nordtal.season.messages.value.Mention;
 import java.util.List;
@@ -120,7 +121,9 @@ public final class LinkFlow extends ListenerAdapter {
         // Acquire before the database is touched. The acquire is atomic, so two workers cannot share the last attempt.
         final int remaining = limit.acquire(discordId);
         if (remaining < 0) {
-            event.getHook().editOriginal(reply(locale, Replies.LINK_TOO_MANY)).queue();
+            event.getHook()
+                    .editOriginal(reply(locale, new Sent<>(Replies.LINK_TOO_MANY, new Replies.Until(limit.retryAt(discordId)))))
+                    .queue();
             return;
         }
 
@@ -186,6 +189,10 @@ public final class LinkFlow extends ListenerAdapter {
     }
 
     private MessageEditData reply(final Locale locale, final DocumentSpec<DocumentSpec.None> text) {
+        return documents.reply(locale, text).edit();
+    }
+
+    private MessageEditData reply(final Locale locale, final Sent<?> text) {
         return documents.reply(locale, text).edit();
     }
 

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "This option no longer exists. Start again to see the current prices.",
-            "de": "Diese Option gibt es nicht mehr. Starte neu, um die aktuellen Preise zu sehen."
+            "en": "This {@terms.period, n=1} is no longer offered. Start again with **Buy {@terms.access}**.",
+            "de": "Diesen {@terms.period, n=1} gibt es nicht mehr. Starte neu mit **{@terms.access} kaufen**."
           }
         }
       ]

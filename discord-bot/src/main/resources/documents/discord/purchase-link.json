@@ -11,7 +11,7 @@
         },
         {
           "text": {
-            "en": "Reference: **{reference}**. Keep the reference in the payment description.",
+            "en": "Reference: **{reference}**. Keep it in the payment description.",
             "de": "Verwendungszweck: **{reference}**. Lass ihn in der Zahlung unverändert."
           }
         },

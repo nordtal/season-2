@@ -197,16 +197,17 @@ public final class RegisterFlow extends ListenerAdapter {
     }
 
     private void invite(final EntitySelectInteractionEvent event, final Locale locale, final User partner) {
+        final DiscordMemberContext invited =
+                new DiscordMemberContext(DiscordId.of(partner.getId()), partner.getEffectiveName());
         if (partner.isBot()) {
             event.getHook()
-                    .editOriginal(reply(locale, Sent.of(Replies.INVITE_UNAVAILABLE)))
+                    .editOriginal(reply(
+                            locale, new Sent<>(Replies.INVITE_UNAVAILABLE, new Replies.Unavailable(true, invited))))
                     .queue();
             return;
         }
 
         final InviteResult result = teams.invite(event.getUser().getId(), partner.getId());
-        final DiscordMemberContext invited =
-                new DiscordMemberContext(DiscordId.of(partner.getId()), partner.getEffectiveName());
         event.getHook()
                 .editOriginal(reply(locale, RegisterReplies.invitation(result, invited)))
                 .queue();

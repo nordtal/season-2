@@ -52,6 +52,20 @@ class RedemptionLimitTest {
     }
 
     @Test
+    void aFullWindowFreesAnAttemptAnHourAfterItsOldestFailure() {
+        final Movable clock = new Movable();
+        final RedemptionLimit limit = new RedemptionLimit(2, clock);
+        final Instant first = clock.instant();
+
+        assertEquals(first, limit.retryAt(DiscordId.of(SOMEBODY)));
+        limit.acquire(DiscordId.of(SOMEBODY));
+        clock.advance(Duration.ofMinutes(20));
+        limit.acquire(DiscordId.of(SOMEBODY));
+
+        assertEquals(first.plus(Duration.ofHours(1)), limit.retryAt(DiscordId.of(SOMEBODY)));
+    }
+
+    @Test
     void theCapIsReachedExactlyOnTheConfiguredNumberOfFailures() {
         final RedemptionLimit limit = new RedemptionLimit(5, new Movable());
 

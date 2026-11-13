@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "Register your own {@terms.team, n=1} before you invite anyone.",
-            "de": "Registriere zuerst dein eigenes {@terms.team, n=1}, dann kannst du einladen."
+            "en": "You have no {@terms.team, n=1} of your own.",
+            "de": "Du hast kein eigenes {@terms.team, n=1}."
           }
         }
       ]

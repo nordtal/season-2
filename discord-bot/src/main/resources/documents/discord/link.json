@@ -14,7 +14,7 @@
             {
               "text": {
                 "en": "Link your Minecraft account",
-                "de": "Account-Verknüpfung"
+                "de": "Minecraft-Konto verknüpfen"
               },
               "style": "TITLE"
             }
@@ -25,8 +25,8 @@
           "lines": [
             {
               "text": {
-                "en": "1. Connect to the Minecraft server at **`play.nordtal.eu`**\n",
-                "de": "Server betreten → Code kopieren → **{link.label}**"
+                "en": "Connect to `play.nordtal.eu` → copy the code → **{link.label}**",
+                "de": "Mit `play.nordtal.eu` verbinden → Code kopieren → **{link.label}**"
               },
               "style": "HEADING"
             }
@@ -38,14 +38,14 @@
             {
               "text": {
                 "en": "Already linked?",
-                "de": "Anderer Account"
+                "de": "Schon verknüpft?"
               },
               "style": "HEADING"
             },
             {
               "text": {
-                "en": "Use /unlink to be able to link to another account.",
-                "de": "/unlink → neu verknüpfen"
+                "en": "/unlink → link another account",
+                "de": "/unlink → anderes Konto verknüpfen"
               }
             }
           ]
@@ -58,7 +58,7 @@
         {
           "slot": "link",
           "label": {
-            "en": "Enter my code",
+            "en": "Enter code",
             "de": "Code eingeben"
           }
         }

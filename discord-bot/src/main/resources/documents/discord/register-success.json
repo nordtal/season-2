@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "Team **{name}** is registered. You can invite a partner below or play alone.",
-            "de": "{@terms.team, n=1} **{name}** ist registriert. Du kannst unten einen Partner einladen oder allein spielen."
+            "en": "Team **{name}** is registered.",
+            "de": "{@terms.team, n=1} **{name}** ist angemeldet."
           }
         }
       ]
@@ -17,8 +17,8 @@
         {
           "slot": "invite",
           "label": {
-            "en": "Invite a partner",
-            "de": "Partner einladen"
+            "en": "Invite a team member",
+            "de": "Teammitglied einladen"
           }
         }
       ]

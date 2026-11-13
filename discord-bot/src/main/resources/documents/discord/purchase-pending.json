@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "The payment link is being created. This message updates when it is ready.",
-            "de": "Der Zahlungslink wird erstellt. Diese Nachricht aktualisiert sich, sobald er fertig ist."
+            "en": "Creating the payment link …",
+            "de": "Der Zahlungslink wird erstellt …"
           }
         }
       ]

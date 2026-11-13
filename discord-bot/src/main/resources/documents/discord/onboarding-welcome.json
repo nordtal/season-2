@@ -28,24 +28,6 @@
           ]
         },
         {
-          "type": "TEXT",
-          "lines": [
-            {
-              "text": {
-                "en": "Steps",
-                "de": "Schritte"
-              },
-              "style": "HEADING"
-            },
-            {
-              "text": {
-                "en": "**Language** → **region** → done",
-                "de": "**Sprache** → **Region** → fertig"
-              }
-            }
-          ]
-        },
-        {
           "type": "GALLERY",
           "media": ["attachment://onboarding.png"]
         }

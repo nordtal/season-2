@@ -316,7 +316,7 @@ public class AccessBot implements AutoCloseable {
         connected
                 .getPresence()
                 .setPresence(
-                        Activity.of(Activity.ActivityType.CUSTOM_STATUS, "It's that time of the year again..."), false);
+                        Activity.of(Activity.ActivityType.CUSTOM_STATUS, "It's that time of the year again …"), false);
         return connected;
     }
 

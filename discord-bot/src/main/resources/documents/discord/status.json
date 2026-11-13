@@ -18,22 +18,22 @@
       "lines": [
         {
           "text": {
-            "en": "Opens in {days}d {hours}h",
-            "de": "Start in {days}T {hours}Std"
+            "en": "Opens in {days} d {hours} h",
+            "de": "Start in {days} d {hours} h"
           },
           "when": "countdown=days"
         },
         {
           "text": {
-            "en": "Opens in {hours}h",
-            "de": "Start in {hours}Std"
+            "en": "Opens in {hours} h",
+            "de": "Start in {hours} h"
           },
           "when": "countdown=hours"
         },
         {
           "text": {
             "en": "Opens in {minutes} min",
-            "de": "Start in {minutes} Min"
+            "de": "Start in {minutes} min"
           },
           "when": "countdown=minutes"
         },

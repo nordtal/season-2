@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "Register your {@terms.team, n=1}",
-            "de": "{@terms.team, n=1} registrieren"
+            "de": "{@terms.team, n=1} anmelden"
           },
           "style": "TITLE"
         }

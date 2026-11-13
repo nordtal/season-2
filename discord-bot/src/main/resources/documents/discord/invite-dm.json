@@ -17,15 +17,15 @@
         {
           "slot": "accept",
           "label": {
-            "en": "Accept",
-            "de": "Annehmen"
+            "en": "Accept invitation",
+            "de": "Einladung annehmen"
           }
         },
         {
           "slot": "decline",
           "label": {
-            "en": "Decline",
-            "de": "Ablehnen"
+            "en": "Decline invitation",
+            "de": "Einladung ablehnen"
           }
         }
       ]

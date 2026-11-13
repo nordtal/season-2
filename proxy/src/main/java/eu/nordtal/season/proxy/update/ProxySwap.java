@@ -242,7 +242,8 @@ public final class ProxySwap {
         return move.toCompletableFuture()
                 .<@Nullable Void>thenApply(_ -> null)
                 .completeOnTimeout(null, limit.toMillis(), TimeUnit.MILLISECONDS)
-                .handle((_, _) -> {
+                // Async: a timeout fires on the JDK's one delay thread, which must not carry the transfers.
+                .handleAsync((_, _) -> {
                     then.run();
                     return null;
                 });

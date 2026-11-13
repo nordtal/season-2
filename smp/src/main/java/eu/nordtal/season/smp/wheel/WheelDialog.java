@@ -74,7 +74,7 @@ final class WheelDialog {
     /** The plate's left from the description's text; any further and the description wraps the plate. */
     private static final int PLATE_X = 1;
 
-    /** The spins line's ui text font under its text row, the description's second, inside the client's hover outline. */
+    /** The spins line's ui text font under its text row, inside the client's hover outline. */
     private static final int SPINS_SHIFT = 13;
 
     private WheelDialog() {}

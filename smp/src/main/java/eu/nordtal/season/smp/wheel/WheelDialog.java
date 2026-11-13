@@ -17,6 +17,7 @@ import io.papermc.paper.datacomponent.DataComponentTypes;
 import io.papermc.paper.datacomponent.item.CustomModelData;
 import io.papermc.paper.datacomponent.item.UseCooldown;
 import io.papermc.paper.dialog.Dialog;
+import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import java.util.ArrayList;
 import java.util.List;
@@ -74,22 +75,29 @@ final class WheelDialog {
     /** The plate's left from the description's text; any further and the description wraps the plate. */
     private static final int PLATE_X = 1;
 
-    /** The spins line's ui text font under its text row, inside the client's hover outline. */
-    private static final int SPINS_SHIFT = 13;
+    /**
+     * The spins line's ui text font under the plate's text row. It draws below the plate's one-line box, outside the
+     * client's outline around the clickable plate.
+     */
+    private static final int SPINS_SHIFT = 22;
 
     private WheelDialog() {}
 
     /** The words on the wheel, read from {@link #DOCUMENT} in the player's language. */
     record Texts(Component heading, String name, String spins, String button, String title, String cost, String none) {}
 
-    /** The dialog of {@code plan}, one of {@code prizes} per body; {@code click} spins, null without spins left. */
+    /**
+     * The dialog of {@code plan}, one of {@code prizes} per body; {@code click} spins, null without spins left, and
+     * {@code close} runs when the player closes it.
+     */
     static Dialog of(
             final WheelPlan plan,
             final List<ItemStack> prizes,
             final Texts texts,
             final String language,
             final boolean spinLeft,
-            final @Nullable ClickEvent click) {
+            final @Nullable ClickEvent click,
+            final DialogAction close) {
         final List<DialogBody> bodies = new ArrayList<>(WheelPlan.PLACES + 2);
         bodies.add(body(stack(named(texts.heading()), "disc", plan.disc())));
         for (int body = 0; body < WheelPlan.PLACES; body++) {
@@ -110,10 +118,13 @@ final class WheelDialog {
                 .header(Symbol.WHEEL, texts.name(), List.of(), MARGIN)
                 .build();
         return Dialog.create(builder ->
-                builder.empty().base(Dialogs.base(title).body(bodies).build()).type(Dialogs.bodyOnly()));
+                builder.empty().base(Dialogs.base(title).body(bodies).build()).type(Dialogs.bodyOnly(close)));
     }
 
-    /** The plate, whose hover says what a spin costs or that none is left, and under it the spins line. */
+    /**
+     * The plate, whose hover says what a spin costs or that none is left, and under it the spins line.
+     * Both share one text line, so the row is one line high and the client's outline runs around the plate alone.
+     */
     static Component plateRow(final Texts texts, final boolean spinLeft, final @Nullable ClickEvent click) {
         final Component hover =
                 spinLeft ? Tooltip.hover(texts.title(), texts.cost(), null) : Tooltip.hover(texts.none(), null, null);
@@ -124,12 +135,14 @@ final class WheelDialog {
                         line -> line.plate(PLATE_WIDTH, null, texts.button(), spinLeft ? Look.PRIMARY : Look.DISABLED))
                 .build();
         final String spins = Letters.cut(texts.spins(), PLATE_WIDTH);
-        final Component line = Pen.start()
+        // The spins line goes first: the client wraps a line at its last space once it has run past the box.
+        return Pen.start()
                 .moveTo(PLATE_X + (PLATE_WIDTH - Letters.visibleWidth(spins) + 1) / 2)
                 .text(SPINS_SHIFT, spins, Colours.SOFT)
-                // The dialog centres each line, so both end with the plate.
-                .build(PLATE_X + PLATE_WIDTH);
-        return Component.textOfChildren(plate, Component.newline(), line);
+                .moveTo(0)
+                // The dialog centres the line, so it ends with the plate.
+                .append(plate, PLATE_X + PLATE_WIDTH)
+                .build();
     }
 
     private static DialogBody body(final ItemStack stack) {

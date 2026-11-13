@@ -201,7 +201,8 @@ final class SmpStart {
                                 plugin.identities(),
                                 plugin.awardSettings.get(),
                                 plugin.renderer(),
-                                plugin.sounds),
+                                plugin.sounds,
+                                activities.duels()),
                         plugin);
         plugin.getServer()
                 .getPluginManager()

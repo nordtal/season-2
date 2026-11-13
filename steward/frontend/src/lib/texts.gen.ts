@@ -1717,7 +1717,6 @@ export type TextArgs = {
   "steward.people.admins": Record<string, never>
   "steward.people.armour": Record<string, never>
   "steward.people.aura": Record<string, never>
-  "steward.people.aura-now": Record<string, never>
   "steward.people.aura-set": {
     name: Arg["text"]
     aura: Arg["number"]
@@ -1892,7 +1891,6 @@ export type TextArgs = {
   }
   "steward.people.source-column": Record<string, never>
   "steward.people.spins": Record<string, never>
-  "steward.people.spins-now": Record<string, never>
   "steward.people.spins-set": {
     name: Arg["text"]
     spins: Arg["number"]

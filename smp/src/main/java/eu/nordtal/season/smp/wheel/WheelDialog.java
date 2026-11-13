@@ -127,7 +127,8 @@ final class WheelDialog {
         final Component line = Pen.start()
                 .moveTo(PLATE_X + (PLATE_WIDTH - Letters.visibleWidth(spins) + 1) / 2)
                 .text(SPINS_SHIFT, spins, Colours.SOFT)
-                .build();
+                // The dialog centres each line, so both end with the plate.
+                .build(PLATE_X + PLATE_WIDTH);
         return Component.textOfChildren(plate, Component.newline(), line);
     }
 

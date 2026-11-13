@@ -488,7 +488,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 admin.showAccess(console, id, name);
             } catch (final RuntimeException failure) {
                 getLogger().log(java.util.logging.Level.WARNING, "/smp access could not read " + name, failure);
-                tell(sender, Answer.failed(Sent.of(Replies.FAILED)));
+                tell(sender, Answer.failed(Replies.FAILED.with(Replies.Failure.of(failure))));
             }
         });
         return Command.SINGLE_SUCCESS;

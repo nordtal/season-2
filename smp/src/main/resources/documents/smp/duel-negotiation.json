@@ -18,8 +18,8 @@
       "lines": [
         {
           "text": {
-            "en": "Click to pick this kit.",
-            "de": "Klicken, um dieses Kit zu wählen."
+            "en": "Pick this kit",
+            "de": "Dieses Kit wählen"
           }
         }
       ]
@@ -30,7 +30,7 @@
       "lines": [
         {
           "text": {
-            "en": "your pick",
+            "en": "Your pick",
             "de": "Deine Wahl"
           }
         }
@@ -79,7 +79,7 @@
         {
           "text": {
             "en": "{opponent.name} picked another kit.",
-            "de": "{opponent.name} will ein anderes Kit."
+            "de": "{opponent.name} hat ein anderes Kit gewählt."
           }
         }
       ]

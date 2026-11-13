@@ -54,7 +54,7 @@
       "lines": [
         {
           "text": {
-            "en": "favourite",
+            "en": "Favourite",
             "de": "Favorit"
           }
         }
@@ -78,7 +78,7 @@
       "lines": [
         {
           "text": {
-            "en": "next page, previous page, page {page} of {pages}",
+            "en": "Next page, previous page, page {page} of {pages}",
             "de": "Nächste Seite, vorherige Seite, Seite {page} von {pages}"
           }
         }

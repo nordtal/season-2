@@ -50,6 +50,12 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Duels implements Arenas {
 
+    /** Why a duel cannot start. */
+    enum Blocked {
+        ARENA_BUSY,
+        ARENA_NOT_READY
+    }
+
     enum Outcome {
         WON,
         LOST,
@@ -202,11 +208,12 @@ public final class Duels implements Arenas {
     /**
      * Called by the negotiation's countdown, never from a move event: Bukkit would undo the teleport.
      *
-     * @return false when no duel could start, with the two players left where they stand
+     * @return why no duel could start, with the two players left where they stand, or {@code null} once it started
      */
-    boolean begin(final Player first, final Player second, final DuelKitSpec kit) {
+    @Nullable
+    Blocked begin(final Player first, final Player second, final DuelKitSpec kit) {
         if (active != null) {
-            return false;
+            return Blocked.ARENA_BUSY;
         }
         final Box arena = box(config.arena());
         final World world = Bukkit.getWorld(arena.world());
@@ -215,10 +222,10 @@ public final class Duels implements Arenas {
         if (world == null || startFirst == null || startSecond == null) {
             plugin.getLogger()
                     .warning("the duel arena or a fighter start names a world that is not loaded; no duel is fought");
-            return false;
+            return Blocked.ARENA_NOT_READY;
         }
         if (!copy.save(world, arena)) {
-            return false;
+            return Blocked.ARENA_NOT_READY;
         }
         face(startFirst, startSecond);
         face(startSecond, startFirst);
@@ -237,10 +244,10 @@ public final class Duels implements Arenas {
 
         if (!enter(first, startFirst, kit.loadout()) || !enter(second, startSecond, kit.loadout())) {
             abort(duel);
-            return true;
+            return null;
         }
         countdown(duel);
-        return true;
+        return null;
     }
 
     /** Turns {@code from} to look at {@code to}. */

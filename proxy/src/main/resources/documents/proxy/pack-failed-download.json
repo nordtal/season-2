@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "<bad>The resource pack download failed.</bad> <muted>Join again in a moment.</muted>",
-            "de": "<bad>Der Download des Resource-Packs ist fehlgeschlagen.</bad> <muted>Verbinde dich gleich neu.</muted>"
+            "de": "<bad>Das Herunterladen des Ressourcenpakets ist fehlgeschlagen.</bad> <muted>Verbinde dich gleich neu.</muted>"
           }
         }
       ]

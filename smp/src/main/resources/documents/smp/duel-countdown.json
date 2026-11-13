@@ -6,8 +6,8 @@
         {
           "when": "seconds",
           "text": {
-            "en": "<accent>{seconds}...</accent>",
-            "de": "<accent>{seconds}...</accent>"
+            "en": "<accent>{seconds} …</accent>",
+            "de": "<accent>{seconds} …</accent>"
           }
         },
         {

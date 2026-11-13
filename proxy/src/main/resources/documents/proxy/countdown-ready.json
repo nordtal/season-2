@@ -6,15 +6,15 @@
         {
           "when": "paid",
           "text": {
-            "en": "<brand>Nordtal</brand> <warn>has not opened yet.</warn> <muted>Your account is linked and your {@terms.access} is paid. See you at the start.</muted>",
-            "de": "<brand>Nordtal</brand> <warn>hat noch nicht eröffnet.</warn> <muted>Dein Account ist verknüpft und dein {@terms.access} ist bezahlt. Bis zum Start.</muted>"
+            "en": "<brand>Nordtal</brand> <warn>has not opened yet.</warn> <muted>Your account is linked and your {@terms.access} is paid.</muted>",
+            "de": "<brand>Nordtal</brand> <warn>hat noch nicht eröffnet.</warn> <muted>Dein Konto ist verknüpft und dein {@terms.access} ist bezahlt.</muted>"
           }
         },
         {
           "when": "!paid",
           "text": {
-            "en": "<brand>Nordtal</brand> <warn>has not opened yet.</warn> <muted>Your account is linked, and the {@terms.hunger-games} are open to every member. See you at the start.</muted>",
-            "de": "<brand>Nordtal</brand> <warn>hat noch nicht eröffnet.</warn> <muted>Dein Account ist verknüpft, und die {@terms.hunger-games} stehen jedem Mitglied offen. Bis zum Start.</muted>"
+            "en": "<brand>Nordtal</brand> <warn>has not opened yet.</warn> <muted>Your account is linked, and the {@terms.hunger-games} are open to every member.</muted>",
+            "de": "<brand>Nordtal</brand> <warn>hat noch nicht eröffnet.</warn> <muted>Dein Konto ist verknüpft, und die {@terms.hunger-games} stehen jedem Mitglied offen.</muted>"
           }
         }
       ]

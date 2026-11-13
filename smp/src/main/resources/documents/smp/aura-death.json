@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>A death costs you <bad>{aura} aura</bad>.</muted>",
-            "de": "<muted>Ein Tod kostet dich <bad>{aura} Aura</bad>.</muted>"
+            "en": "<muted>You lost <bad>{aura} aura</bad>.</muted>",
+            "de": "<muted>Du hast <bad>{aura} Aura</bad> verloren.</muted>"
           }
         }
       ]

@@ -503,7 +503,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         final IntConsumer kept = count -> {
             final Player here = getServer().getPlayer(admin.value());
             if (here != null) {
-                here.sendMessage(renderer.format(locale, InventoryEditor.KEPT.with(new InventoryEditor.Kept(count))));
+                here.sendMessage(renderer.format(locale, Sent.of(InventoryEditor.KEPT)));
             }
         };
         // The name a player was last seen with, here or by the server; one never seen is named by their id.
@@ -572,7 +572,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
             return action.get();
         } catch (final RuntimeException failure) {
             getLogger().log(Level.WARNING, "an admin action failed", failure);
-            return Answer.failed(Sent.of(Replies.FAILED));
+            return Answer.failed(Replies.FAILED.with(Replies.Failure.of(failure)));
         }
     }
 

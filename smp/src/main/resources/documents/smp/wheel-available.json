@@ -6,8 +6,8 @@
         {
           "when": "!count",
           "text": {
-            "en": "<muted>You have no {@terms.spin, n=2} right now.</muted>",
-            "de": "<muted>Du hast gerade keinen {@terms.spin, n=1}.</muted>"
+            "en": "<muted>You have no {@terms.spin, n=2}.</muted>",
+            "de": "<muted>Du hast keinen {@terms.spin, n=1}.</muted>"
           }
         },
         {

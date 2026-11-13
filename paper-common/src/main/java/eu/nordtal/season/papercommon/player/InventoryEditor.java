@@ -5,7 +5,6 @@ import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Stack;
 import eu.nordtal.season.messages.document.DocumentSpec;
-import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.packrendering.menu.SlotGeometry;
 import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.ChestTitle;
@@ -35,9 +34,6 @@ import org.jspecify.annotations.Nullable;
  */
 public final class InventoryEditor extends Menu {
 
-    /** @param count the slots that changed while the window was open, so that none of the edit was written */
-    public record Kept(@Example("2") int count) {}
-
     private static final int INVENTORY_ROWS = 5;
     private static final int ENDER_CHEST_ROWS = 3;
 
@@ -48,8 +44,8 @@ public final class InventoryEditor extends Menu {
                     "paper-common", "ender-chest-editor", "Admin", DocumentSpec.None.class, ENDER_CHEST_ROWS)
             .titled("Ender chest editor");
     /** The admin reads it after closing an editor whose slots changed meanwhile. */
-    public static final DocumentSpec<Kept> KEPT = DocumentSpec.game(
-                    "paper-common", "editor-kept", "Admin", DocumentSpec.Shape.CHAT, Kept.class)
+    public static final DocumentSpec<DocumentSpec.None> KEPT = DocumentSpec.game(
+                    "paper-common", "editor-kept", "Admin", DocumentSpec.Shape.CHAT, DocumentSpec.None.class)
             .titled("Edit not written");
 
     private final ModeStates states;

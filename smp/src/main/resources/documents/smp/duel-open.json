@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>Duel open</muted> <accent>[Back]</accent>",
-            "de": "<muted>Duell offen</muted> <accent>[Zurück]</accent>"
+            "en": "<accent>[Reopen duel]</accent>",
+            "de": "<accent>[Duell wieder öffnen]</accent>"
           }
         }
       ]

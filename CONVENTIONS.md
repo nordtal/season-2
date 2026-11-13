@@ -37,6 +37,7 @@ word.
 | a Discord server                    | server                 | Server              | Gilde                       |
 | a Discord channel                   | channel                | Kanal               | Channel                     |
 | a Discord role                      | role                   | Rolle               |                             |
+| a resource pack                     | resource pack          | Ressourcenpaket     | Resource-Pack               |
 | joining a round of the Hunger Games | register, registration | anmelden, Anmeldung | registrieren, Registrierung |
 
 - **A glyph** is named by its `name` in `resource-pack/glyphs.json` (`<glyph:name>`), and a colour by

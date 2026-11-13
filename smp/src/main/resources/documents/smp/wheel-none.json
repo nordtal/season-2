@@ -6,8 +6,8 @@
         {
           "when": "!extras",
           "text": {
-            "en": "<bad>No {@terms.spin, n=2} left today.</bad> <muted>Come back tomorrow.</muted>",
-            "de": "<bad>Heute keine {@terms.spin, n=2} mehr.</bad> <muted>Komm morgen wieder.</muted>"
+            "en": "<bad>No {@terms.spin, n=2} left today.</bad>",
+            "de": "<bad>Heute keine {@terms.spin, n=2} mehr.</bad>"
           }
         },
         {

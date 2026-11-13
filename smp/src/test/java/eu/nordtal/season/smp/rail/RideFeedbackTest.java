@@ -49,7 +49,7 @@ class RideFeedbackTest {
         assertEquals(
                 List.of(Pill.Content.of(Symbol.RAIL, "Rechtsklick auf die Lore: Bahnhof wählen")),
                 feedback.render(PLAYER, Locale.GERMAN));
-        assertEquals(List.of(Pill.Content.of("Schleichen zum Absteigen")), feedback.below(PLAYER, Locale.GERMAN));
+        assertEquals(List.of(Pill.Content.of("Zum Absteigen schleichen")), feedback.below(PLAYER, Locale.GERMAN));
     }
 
     @Test

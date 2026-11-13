@@ -12,7 +12,7 @@
         {
           "text": {
             "en": "<click:open_url:'{invite}'><hover:show_text:'{invite}'><brand><underlined>Join the Nordtal Discord</underlined></brand></hover></click>",
-            "de": "<click:open_url:'{invite}'><hover:show_text:'{invite}'><brand><underlined>Zum Nordtal-Discord</underlined></brand></hover></click>"
+            "de": "<click:open_url:'{invite}'><hover:show_text:'{invite}'><brand><underlined>Nordtal-Discord beitreten</underlined></brand></hover></click>"
           }
         }
       ]

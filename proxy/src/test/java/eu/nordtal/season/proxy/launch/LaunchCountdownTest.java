@@ -47,8 +47,8 @@ class LaunchCountdownTest {
     @Test
     void theLastMinuteReadsAsImminentRatherThanAsZero() {
         // Below a minute there is nothing to count, and "0 minutes" reads as a fault.
-        assertEquals("The network opens in any moment now.", render(Locale.ENGLISH, Duration.ofSeconds(30)));
-        assertEquals("The network opens in any moment now.", render(Locale.ENGLISH, Duration.ZERO));
+        assertEquals("The network opens any moment now.", render(Locale.ENGLISH, Duration.ofSeconds(30)));
+        assertEquals("The network opens any moment now.", render(Locale.ENGLISH, Duration.ZERO));
     }
 
     @Test
@@ -56,7 +56,7 @@ class LaunchCountdownTest {
         // The normal state between the announced instant and an admin's switch.
         final String line = render(Locale.ENGLISH, Duration.ofHours(-3));
 
-        assertEquals("The network opens in any moment now.", line);
+        assertEquals("The network opens any moment now.", line);
         assertFalse(line.contains("-"), line);
     }
 
@@ -71,7 +71,7 @@ class LaunchCountdownTest {
     @Test
     void germanIsTranslatedRatherThanFallingBackToEnglish() {
         assertEquals("Das Netzwerk öffnet in 42 Minuten.", render(Locale.GERMAN, Duration.ofMinutes(42)));
-        assertEquals("Das Netzwerk öffnet in jedem Moment.", render(Locale.GERMAN, Duration.ZERO));
+        assertEquals("Das Netzwerk öffnet jeden Moment.", render(Locale.GERMAN, Duration.ZERO));
     }
 
     private static String render(final Locale locale, final Duration remaining) {

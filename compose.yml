@@ -659,8 +659,9 @@ configs:
   caddyfile:
     content: |
       {
-      	# The Cloudflare tunnel arrives from a Docker gateway and names the browser's address and scheme.
-      	# A request through the published port from outside comes from a public address and names neither.
+      	# The Cloudflare tunnel arrives from a Docker gateway and names the browser's address and scheme. Every
+      	# container is trusted the same way; Steward reads no client address, and a forged scheme changes
+      	# only the forger's own cookie.
       	servers :80 {
       		trusted_proxies static private_ranges
       		client_ip_headers Cf-Connecting-IP
@@ -741,6 +742,10 @@ configs:
       	respond 404
       }
 
+      (invite) {
+      	redir https://discord.gg/PX9N7FjVxr 302
+      }
+
       # The website is the Discord invite, except for the icon that Discord's embeds show.
       http://${WEBSITE_HOST:-nordtal.eu}, http://www.${WEBSITE_HOST:-nordtal.eu} {
       	handle /icon.png {
@@ -748,13 +753,13 @@ configs:
       		file_server
       	}
       	handle {
-      		redir https://discord.gg/PX9N7FjVxr 302
+      		import invite
       	}
       }
 
       # Any other name the tunnel sends here, such as one its wildcard catches, lands on the invite too.
       http:// {
-      	redir https://discord.gg/PX9N7FjVxr 302
+      	import invite
       }
 
 # Unused by default; deploy/dev.env.example points the local stack at these names.

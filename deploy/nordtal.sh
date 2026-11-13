@@ -65,8 +65,6 @@ DEFAULT_PROJECT="nordtal-s2"
 # Seconds to wait for GitHub before the run uses the copy that is already here.
 SELF_UPDATE_TIMEOUT=10
 
-# Seconds between two lookups of the name, and the interval of the message that nothing has changed.
-
 log()  { printf '\033[36m[nordtal]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[nordtal]\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[31m[nordtal]\033[0m %s\n' "$*" >&2; exit 1; }
@@ -1754,7 +1752,7 @@ if $CHECK_ONLY; then
     exit 0
 fi
 
-# 5b · Mojang's assets
+# 6 · Mojang's assets
 # The script asks once per installation and keeps the answer in the env file. On yes, steward-agent
 # fetches the client jar of each Minecraft version from Mojang, draws the item icons that the pickers
 # of Steward show and deletes the jar. Only the icons stay, in the database. Without an answer, the

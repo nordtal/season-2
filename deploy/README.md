@@ -39,8 +39,11 @@ the images `minecraft`, `steward`, `steward-agent`, `steward-bunq`, `discord-bot
 
 4. In Cloudflare, give the host's tunnel a public hostname for `STEWARD_HOST`, `PACK_HOST`,
    `WEBSITE_HOST` and `www.` in front of it, each with the service `http://127.0.0.1:80`. Caddy serves
-   them as plain HTTP and routes by the Host header. Cloudflare's free certificate covers one level
-   below the domain only, so a name such as `steward.dev.nordtal.eu` gets no certificate.
+   them as plain HTTP and routes by the Host header. A wildcard `*.<domain>` to the same service, below
+   every other hostname of the tunnel, sends any name without a record of its own to the Discord invite;
+   its DNS record and that of each named host must be the tunnel's, not an old A record. Cloudflare's
+   free certificate covers one level below the domain only, so a name such as `steward.dev.nordtal.eu`
+   gets no certificate.
 5. Upload the hand-built worlds (see [Limits, secret, worlds, console](#limits-secret-worlds-console)).
 6. Join with a real client. Nothing on the host tests the login path.
 

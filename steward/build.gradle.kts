@@ -44,6 +44,7 @@ repositoryRootTestInputs {
     reads("deploy/README.md")
     // DiscordAuthTest reads the documented environment beside the setup script.
     reads("deploy/dev.env.example")
+    reads("deploy/caddy/website/icon.png")
 
     // ApiTypesTest compares the generated TypeScript types with the records, TextTypesTest the texts with the bundle.
     reads("steward/frontend/src/lib/api.gen.ts")

@@ -4,7 +4,9 @@ A Fabric mod that runs only in the client. The Nordtal Designer reaches it over 
 `127.0.0.1` to reload the resource packs and to show a texture in chat, the actionbar, the title, a
 boss bar, a chest title, a dialog, the hand, or a block or a station rail placed in the client only.
 It also saves screenshots of what the client shows. It works in singleplayer and on servers, and it
-needs Fabric Loader but not the Fabric API. Every release attaches it as
+needs Fabric Loader but not the Fabric API. It accepts the loader that Fabric names for players of the
+season's Minecraft, `bridge-loader-minimum` in `gradle/libs.versions.toml`, not only the newer loader
+it compiles against. Every release attaches it as
 `nordtal-bridge-<version>.jar`.
 
 | File             | What it does                                                           |

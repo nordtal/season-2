@@ -56,7 +56,8 @@ public final class Dialogs {
 
     /**
      * The base of a dialog with drawn buttons, closed by Esc.
-     * Esc tells the server nothing, a click keeps the dialog open for the server's redraw, and the game runs on.
+     * Esc tells the server nothing unless the type has an exit action, as {@link #bodyOnly(DialogAction)} gives it.
+     * A click keeps the dialog open for the server's redraw, and the game runs on.
      */
     public static DialogBase.Builder base(final Component title) {
         return DialogBase.builder(title)

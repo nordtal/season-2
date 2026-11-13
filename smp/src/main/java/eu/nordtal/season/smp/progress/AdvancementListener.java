@@ -12,6 +12,7 @@ import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.config.AdvancementAwardSpec;
 import eu.nordtal.season.smp.config.AdvancementAwardsSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
+import eu.nordtal.season.smp.port.Arenas;
 import eu.nordtal.season.smp.port.PrizeSource;
 import java.util.List;
 import java.util.Locale;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerAdvancementDoneEvent;
 import org.bukkit.plugin.Plugin;
@@ -26,9 +28,20 @@ import org.jdbi.v3.core.Jdbi;
 
 /**
  * Credits {@code ADVANCEMENT} objectives and pays the aura and spins of the configured advancement awards.
- * It ignores advancements whose key contains {@code /recipes/}.
+ * It ignores recipe advancements. An advancement earned in a duel, from the kit or the fight, pays nothing, credits
+ * nothing and is not announced in chat; the player keeps it.
  */
 public final class AdvancementListener implements Listener {
+
+    /** What an earned advancement does. */
+    enum Handling {
+        /** A recipe: nothing. */
+        IGNORE,
+        /** Earned in a duel: no aura, no spins, no objective and no chat announcement. */
+        SILENCE,
+        /** Pays the award and credits the objectives. */
+        PAY
+    }
 
     record Award(@Example("50") int aura, @Example("1") int spins) {}
 
@@ -46,6 +59,7 @@ public final class AdvancementListener implements Listener {
     private final SmpSounds sounds;
 
     private final AdvancementAwardsSpec config;
+    private final Arenas arenas;
 
     /** @param jdbi the {@code Jdbi} whose transaction the aura and the spins of one award share */
     public AdvancementListener(
@@ -57,7 +71,8 @@ public final class AdvancementListener implements Listener {
             final Identities identities,
             final AdvancementAwardsSpec config,
             final MessageRenderer renderer,
-            final SmpSounds sounds) {
+            final SmpSounds sounds,
+            final Arenas arenas) {
         this.plugin = plugin;
         this.jdbi = jdbi;
         this.aura = aura;
@@ -67,6 +82,15 @@ public final class AdvancementListener implements Listener {
         this.renderer = renderer;
         this.sounds = sounds;
         this.config = config;
+        this.arenas = arenas;
+    }
+
+    /** {@code key} is the namespaced key in lower case; {@code duelling} whether its player fights a duel. */
+    static Handling handlingOf(final String key, final boolean duelling) {
+        if (key.substring(key.indexOf(':') + 1).startsWith("recipes/")) {
+            return Handling.IGNORE;
+        }
+        return duelling ? Handling.SILENCE : Handling.PAY;
     }
 
     /** The award of the advancement {@code key}, matched without case, or none when it pays nothing. */
@@ -78,13 +102,21 @@ public final class AdvancementListener implements Listener {
                 .filter(award -> award.aura() > 0 || award.spins() > 0);
     }
 
-    @EventHandler
+    /** Runs before the chat's own announcement, which sends nothing once the message is gone. */
+    @EventHandler(priority = EventPriority.LOW)
     public void onAdvancement(final PlayerAdvancementDoneEvent event) {
         final Player player = event.getPlayer();
         final String key = event.getAdvancement().getKey().toString().toLowerCase(Locale.ROOT);
 
-        if (key.contains("/recipes/")) {
-            return;
+        switch (handlingOf(key, arenas.isInArena(player))) {
+            case IGNORE -> {
+                return;
+            }
+            case SILENCE -> {
+                event.message(null);
+                return;
+            }
+            case PAY -> {}
         }
 
         final Optional<DiscordId> discordId = identities.discordIdOf(player.getUniqueId());

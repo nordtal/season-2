@@ -18,7 +18,7 @@ tasks.processResources {
         mapOf(
             "version" to project.version.toString(),
             "loader" to
-                libs.versions.fabric.loader
+                libs.versions.bridge.loader.minimum
                     .get(),
             "minecraft" to minecraftVersion,
         )

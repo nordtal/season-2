@@ -39,7 +39,7 @@ abstract class CheckNoTrackerIds : DefaultTask() {
         if (enforced.get()) {
             throw GradleException("Issue-tracker IDs in the repository:\n" + hits.joinToString("\n"))
         }
-        logger.lifecycle("$path: ${hits.size} issue-tracker IDs, not yet enforced.")
+        logger.lifecycle("tracker ids not enforced: task=$path count=${hits.size}")
     }
 
     private fun hitsIn(file: java.io.File): List<String> {

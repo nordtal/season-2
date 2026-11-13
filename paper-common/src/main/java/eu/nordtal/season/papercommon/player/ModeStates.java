@@ -134,7 +134,7 @@ public final class ModeStates implements Listener {
             try {
                 waitFor(CompletableFuture.runAsync(() -> closeEditors(id), scheduler.mainThread()));
             } catch (final IllegalStateException failed) {
-                logger.warn("an editor of {} stays open as they join; the arrival refuses its write", id, failed);
+                logger.warn("state editor still open at join: uuid={}", id, failed);
             }
         }
         try {
@@ -142,7 +142,7 @@ public final class ModeStates implements Listener {
                     .get(WAIT_SECONDS, TimeUnit.SECONDS)
                     .ifPresent(held -> arriving.put(id, held));
         } catch (final ExecutionException | TimeoutException failed) {
-            logger.warn("{} joins with the state in the player data: the database did not answer", id, failed);
+            logger.warn("stored state not loaded, player data state kept: uuid={}", id, failed);
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
@@ -192,7 +192,7 @@ public final class ModeStates implements Listener {
             try {
                 back = store.swap(plugin.getName(), PlayerId.of(id), left, stored, entered);
             } catch (final RuntimeException failed) {
-                logger.warn("{} stays in {}: the database did not take the state", player.getName(), left, failed);
+                logger.warn("mode state not stored, mode kept: player={} mode={}", player.getName(), left, failed);
                 scheduler.onMain(() -> refused(id));
                 return;
             }
@@ -200,7 +200,10 @@ public final class ModeStates implements Listener {
                 final Player now = plugin.getServer().getPlayer(id);
                 // Anything that changed since the snapshot would be lost under the other state.
                 if (now == null || !leaving.equals(Snapshot.of(now))) {
-                    logger.info("{} changed while the switch to {} waited; it is not made", player.getName(), entered);
+                    logger.info(
+                            "mode switch refused, player changed while waiting: player={} mode={}",
+                            player.getName(),
+                            entered);
                     refused(id);
                     return;
                 }
@@ -234,7 +237,7 @@ public final class ModeStates implements Listener {
         try {
             CompletableFuture.runAsync(() -> {}, lane).get(WAIT_SECONDS * 2, TimeUnit.SECONDS);
         } catch (final ExecutionException | TimeoutException failed) {
-            logger.warn("the states of the players were not all written before the server stopped", failed);
+            logger.warn("player states not all written before stop", failed);
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
@@ -248,7 +251,7 @@ public final class ModeStates implements Listener {
             try {
                 store.leave(plugin.getName(), id, mode, state);
             } catch (final RuntimeException failed) {
-                logger.warn("the state {} left with stays in the player data alone", player.getName(), failed);
+                logger.warn("state at leave not stored, player data kept: player={}", player.getName(), failed);
             }
         });
     }
@@ -497,7 +500,7 @@ public final class ModeStates implements Listener {
                 try {
                     refused = store.edit(plugin.getName(), editor.player(), Mode.SURVIVAL, editor.container(), writes);
                 } catch (final RuntimeException failed) {
-                    logger.warn("the edit of {}'s stored state was not written", editor.player(), failed);
+                    logger.warn("stored state edit not written: uuid={}", editor.player(), failed);
                     refused = Set.copyOf(
                             changes.stream().map(InventoryEditor.Change::slot).toList());
                 }
@@ -522,7 +525,7 @@ public final class ModeStates implements Listener {
             try {
                 store.copy(plugin.getName(), editor.player(), Mode.SURVIVAL, state);
             } catch (final RuntimeException failed) {
-                logger.warn("the copy of {}'s edited state was not written", here.getName(), failed);
+                logger.warn("edited state copy not written: player={}", here.getName(), failed);
             }
         });
     }
@@ -545,7 +548,7 @@ public final class ModeStates implements Listener {
         if (admin == null) {
             if (!back.isEmpty() || !taken.isEmpty()) {
                 logger.warn(
-                        "{} left before an edit was evened out; {} stay lost, {} stay theirs",
+                        "refused edit not evened out, admin gone: actor={} lost=\"{}\" kept=\"{}\"",
                         editor.admin(),
                         back,
                         taken);
@@ -555,7 +558,7 @@ public final class ModeStates implements Listener {
         final Collection<ItemStack> missing =
                 admin.getInventory().removeItem(taken.toArray(ItemStack[]::new)).values();
         if (!missing.isEmpty()) {
-            logger.warn("{} no longer holds {} they took from a copy whose edit was refused", admin.getName(), missing);
+            logger.warn("items of refused edit not taken back: player={} items=\"{}\"", admin.getName(), missing);
         }
         admin.getInventory()
                 .addItem(back.toArray(ItemStack[]::new))

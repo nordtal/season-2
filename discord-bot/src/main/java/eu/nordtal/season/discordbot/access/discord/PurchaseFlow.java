@@ -136,7 +136,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                     purchase(event, id, locale);
                 }
             }
-            default -> log.debug("Ignoring unknown component id {}", id);
+            default -> log.debug("unknown component ignored: component={}", id);
         }
     }
 
@@ -166,7 +166,7 @@ public final class PurchaseFlow extends ListenerAdapter {
         try {
             open = onSale.getAsBoolean();
         } catch (final RuntimeException unreadable) {
-            log.warn("Could not read whether the season has a launch date", unreadable);
+            log.warn("season launch date unreadable, purchase refused", unreadable);
             event.reply(documents.reply(locale, Replies.PURCHASE_FAILED).create())
                     .setEphemeral(true)
                     .queue();
@@ -341,7 +341,10 @@ public final class PurchaseFlow extends ListenerAdapter {
                         hook,
                         documents.reply(
                                 locale, new Sent<>(Replies.PURCHASE_SLOW, new Replies.Reference(request.reference()))));
-                log.warn("Request {} had no tab after {}", request.reference(), PaymentWait.LIMIT);
+                log.warn(
+                        "payment tab not created in time: reference={} after={}",
+                        request.reference(),
+                        PaymentWait.LIMIT);
             }
             case WAITING -> {}
         }
@@ -362,8 +365,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     }
 
     private void edit(final InteractionHook hook, final DocumentRenderer.Drawn drawn) {
-        hook.editOriginal(drawn.edit())
-                .queue(ok -> {}, failure -> log.warn("Could not finish a purchase message", failure));
+        hook.editOriginal(drawn.edit()).queue(ok -> {}, failure -> log.warn("purchase message not edited", failure));
     }
 
     private void showSummary(final IDeferrableCallback event, final Locale locale, final PaymentRequest request) {
@@ -401,7 +403,7 @@ public final class PurchaseFlow extends ListenerAdapter {
 
     private void fail(
             final IDeferrableCallback event, final Locale locale, final String what, final RuntimeException exception) {
-        log.error("Purchase failed while {}", what, exception);
+        log.error("purchase failed: member={} step=\"{}\"", event.getUser().getId(), what, exception);
         admin.alert(new Alert(
                 JournalAction.PURCHASE_FAILED,
                 Alert.Level.DOWN,

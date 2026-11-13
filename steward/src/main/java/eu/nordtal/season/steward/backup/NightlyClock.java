@@ -33,17 +33,15 @@ public final class NightlyClock implements AutoCloseable {
 
     /** The request a clock writes, as {@link Actor#STEWARD}. */
     public enum Job {
-        BACKUP(UpdateKind.BACKUP, "backup", "the nightly backup"),
-        UPDATE(UpdateKind.UPDATE, "update", "the scheduled update");
+        BACKUP(UpdateKind.BACKUP, "backup"),
+        UPDATE(UpdateKind.UPDATE, "update");
 
         private final UpdateKind kind;
         private final String key;
-        private final String noun;
 
-        Job(final UpdateKind kind, final String key, final String noun) {
+        Job(final UpdateKind kind, final String key) {
             this.kind = kind;
             this.key = key;
-            this.noun = noun;
         }
     }
 
@@ -116,10 +114,7 @@ public final class NightlyClock implements AutoCloseable {
         }
         final Set<DayOfWeek> weekdays = weekdays(job, days);
         if (weekdays.isEmpty()) {
-            log.warn(
-                    "{}.days lists no weekday this service can read, so {} never runs." + " Nothing else is affected.",
-                    job.key,
-                    job.noun);
+            log.warn("schedule days unreadable, job not scheduled: job={} key={}.days", job.key, job.key);
             return Optional.empty();
         }
         return Optional.of(new NightlyClock(directory, job, parsed, weekdays, wall));
@@ -144,11 +139,7 @@ public final class NightlyClock implements AutoCloseable {
                 }
             }
             if (found == null) {
-                log.error(
-                        "{}.days has \"{}\" in it, which is not a weekday. It is ignored;"
-                                + " the rest of the list still schedules.",
-                        job.key,
-                        day);
+                log.error("weekday unreadable, ignored: key={}.days value=\"{}\"", job.key, day);
                 continue;
             }
             chosen.add(found);
@@ -197,10 +188,7 @@ public final class NightlyClock implements AutoCloseable {
             return LocalTime.parse(at.strip(), HH_MM);
         } catch (DateTimeParseException e) {
             log.error(
-                    "{}.at is \"{}\", which is not HH:mm. {} does not run until it is." + " Nothing else is affected.",
-                    job.key,
-                    at,
-                    job.noun);
+                    "schedule time unreadable, job not scheduled: job={} key={}.at value=\"{}\"", job.key, job.key, at);
             return null;
         }
     }
@@ -222,8 +210,8 @@ public final class NightlyClock implements AutoCloseable {
         this.scheduler = on;
         final Duration until = untilNext(ZonedDateTime.now(wall));
         log.info(
-                "{} is asked for at {} {} on {} - next in {}h{}m",
-                job.noun,
+                "schedule armed: job={} at={} zone={} days=\"{}\" next={}h{}m",
+                job.key,
                 at,
                 zone,
                 days.size() == 7 ? "every day" : days,
@@ -266,26 +254,22 @@ public final class NightlyClock implements AutoCloseable {
         try {
             final long id =
                     directory.submit(job.kind, Actor.STEWARD, Duration.ZERO).id();
-            log.info("asked for {} as request {}", job.noun, id);
+            log.info("scheduled run submitted: job={} request={}", job.key, id);
         } catch (final Refused refused) {
             if (refused.reason() == UpdateRefusal.RUN_OPEN && now.plus(RETRY).isBefore(due.plus(PATIENCE))) {
                 log.info(
-                        "{} waits: {} Asking again in {} minutes.",
-                        job.noun,
-                        DatabaseText.english(refused.refusal().message()),
-                        RETRY.toMinutes());
+                        "scheduled run deferred: job={} after={} cause={}",
+                        job.key,
+                        RETRY,
+                        DatabaseText.english(refused.refusal().message()));
                 return RETRY;
             }
             log.warn(
-                    "{} was not asked for this time: {} The next scheduled day is tried again.",
-                    job.noun,
+                    "scheduled run skipped: job={} cause={}",
+                    job.key,
                     DatabaseText.english(refused.refusal().message()));
         } catch (RuntimeException e) {
-            log.warn(
-                    "{} could not be asked for this time. The clock carries on; the next"
-                            + " scheduled day is tried again.",
-                    job.noun,
-                    e);
+            log.warn("scheduled run not submitted: job={}", job.key, e);
         }
         return untilNext(now);
     }

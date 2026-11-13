@@ -129,10 +129,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                 hook.editOriginal(saved(reads, language.orElseThrow(), region.orElseThrow()))
                         .queue();
             case FAILED -> {
-                log.warn(
-                        "{} chose the language {}, which was not given or leaves no region to offer",
-                        member.getId(),
-                        tag);
+                log.warn("language choice refused: member={} language={}", member.getId(), tag);
                 hook.editOriginal(reply(reads, Sent.of(Replies.ONBOARDING_FAILED)))
                         .queue();
             }
@@ -195,7 +192,7 @@ public final class OnboardingFlow extends ListenerAdapter {
         final List<SelectOption> spoken = options(guild, choices, Choices.Kind.LANGUAGE);
         final List<SelectOption> regions = options(guild, choices, Choices.Kind.REGION);
         if (spoken.isEmpty() || regions.isEmpty()) {
-            log.warn("{} wanted to choose, but no language or no region has a role yet", member.getId());
+            log.warn("onboarding choice not offered, roles missing: member={}", member.getId());
             event.reply(documents
                             .reply(locale, Sent.of(Replies.ONBOARDING_FAILED))
                             .create())
@@ -239,7 +236,11 @@ public final class OnboardingFlow extends ListenerAdapter {
             final Optional<Role> language = role(member.getGuild(), choices.byValue(Choices.Kind.LANGUAGE, tag));
             final Optional<Role> region = role(member.getGuild(), choices.byValue(Choices.Kind.REGION, zone));
             if (language.isEmpty() || region.isEmpty()) {
-                log.warn("{} chose {} and {}, of which one has no role", member.getId(), tag, zone);
+                log.warn(
+                        "onboarding choice refused, role missing: member={} language={} region={}",
+                        member.getId(),
+                        tag,
+                        zone);
                 event.getHook()
                         .editOriginal(reply(asked, Sent.of(Replies.ONBOARDING_FAILED)))
                         .queue();
@@ -267,7 +268,11 @@ public final class OnboardingFlow extends ListenerAdapter {
             member.getGuild().addRoleToMember(member, role).complete();
             return true;
         } catch (final RuntimeException failure) {
-            log.warn("Could not give {} the role {}: {}", member.getId(), role.getName(), failure.toString());
+            log.warn(
+                    "role not changed: role=\"{}\" member={} cause={}",
+                    role.getName(),
+                    member.getId(),
+                    failure.toString());
             alerts.accept(GuildRoles.notChanged(kind, true, DiscordId.of(member.getId()), failure));
             return false;
         }

@@ -53,7 +53,7 @@ public final class Announcer {
             try {
                 bot.submit(announcement(message, milestone, name), Actor.STEWARD, Schedule.within(KEEP));
             } catch (final RuntimeException failure) {
-                warn.accept("could not send the announcement of " + milestone, failure);
+                warn.accept("milestone announcement not sent: milestone=" + milestone, failure);
             }
         });
     }

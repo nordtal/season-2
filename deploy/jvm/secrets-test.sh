@@ -63,12 +63,12 @@ ok "a command substitution is text"
 case_begin "a line that is no assignment is skipped and never repeated"
 [[ -z "$(exported "$WORK/secrets/secrets.env" 9STARTS_WITH_A_DIGIT)" ]] || bad "a name starting with a digit"
 message="$(said "$WORK/secrets/secrets.env")"
-grep -q "is skipped" <<<"$message" || bad "the skipped lines were not said"
+grep -q "not an assignment, skipped" <<<"$message" || bad "the skipped lines were not said"
 grep -q "not a line" <<<"$message" && bad "a skipped line was repeated"
 ok "skipped, said, not repeated"
 
 case_begin "a missing file is said only where the directory is mounted"
-[[ "$(said "$WORK/secrets/absent.env")" == *"starts without its own secrets"* ]] \
+[[ "$(said "$WORK/secrets/absent.env")" == *"secrets file missing, own secrets skipped"* ]] \
     || bad "a missing file under a mounted directory was not said"
 [[ -z "$(said "$WORK/nowhere/secrets.env")" ]] || bad "a service without a mount was told about it"
 ok "said under a mount, silent without one"

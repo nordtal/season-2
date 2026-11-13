@@ -34,7 +34,7 @@ class StartLineTest {
 
         assertEquals(Level.INFO, line.getLevel(), "a configured bunq is not a warning - it is the expected state");
         final String text = line.getFormattedMessage();
-        assertTrue(text.startsWith("bunq is ON"), "the first three words are what somebody greps for: " + text);
+        assertTrue(text.startsWith("bunq on:"), "the event is what somebody greps for: " + text);
         assertTrue(
                 text.contains("987654"),
                 "the account id belongs in the line - an id pointing at the wrong account is the"
@@ -53,10 +53,10 @@ class StartLineTest {
         assertEquals(
                 Level.WARN,
                 line.getLevel(),
-                "'bunq is OFF' at INFO is a line nobody finds among several hundred at startup,"
+                "'bunq off' at INFO is a line nobody finds among several hundred at startup,"
                         + " and being found is the entire job of this sentence");
         final String text = line.getFormattedMessage();
-        assertTrue(text.startsWith("bunq is OFF"), text);
+        assertTrue(text.startsWith("bunq off:"), text);
         assertTrue(
                 text.contains("NORDTAL_STEWARD_BUNQ_API_KEY") && text.contains("NORDTAL_STEWARD_BUNQ_ACCOUNT_ID"),
                 "the line has to name the variables to set, or it says only that something is" + " missing: " + text);

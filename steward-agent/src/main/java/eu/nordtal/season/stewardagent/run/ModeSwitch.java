@@ -80,10 +80,10 @@ final class ModeSwitch {
         try {
             runner.season().setMode(wanted.target(), request.actor(), wanted.reason());
         } catch (final RuntimeException failure) {
-            log.error("Request {}: the game mode could not be written", request.id(), failure);
+            log.error("game mode not written: request={}", request.id(), failure);
             throw new Run.Abort();
         }
-        log.info("Request {}: the game mode is {}", request.id(), wanted.target());
+        log.info("game mode written: request={} mode={}", request.id(), wanted.target());
     }
 
     /** Returns whether the switch before this one failed, which a retry follows. */

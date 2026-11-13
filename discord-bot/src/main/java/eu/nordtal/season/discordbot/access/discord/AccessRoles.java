@@ -109,7 +109,7 @@ public final class AccessRoles {
                                         active,
                                         withholding.withholds(member),
                                         member.getRoles().contains(role))),
-                        failure -> log.debug("{} is not a member of the guild, so no access role to set", discordId));
+                        failure -> log.debug("member not in guild, access role not set: member={}", discordId));
     }
 
     public void grantDonorRole(final DiscordId discordId) {
@@ -209,11 +209,10 @@ public final class AccessRoles {
                         : member.getGuild().removeRoleFromMember(member, role))
                 .queue(
                         ok -> log.info(
-                                "{} the role {} {} {}",
-                                given ? "Gave" : "Took",
+                                "role changed: role=\"{}\" member={} change={}",
                                 role.getName(),
-                                given ? "to" : "from",
-                                discordId),
+                                discordId,
+                                given ? "given" : "taken"),
                         failure -> admin.alert(GuildRoles.notChanged(kind, given, discordId, failure)));
     }
 
@@ -251,7 +250,7 @@ public final class AccessRoles {
     public void sweepLinkCodes() {
         final int deleted = dao.deleteExpiredLinkCodes();
         if (deleted > 0) {
-            log.debug("Deleted {} expired link code(s)", deleted);
+            log.debug("expired link codes deleted: count={}", deleted);
         }
     }
 
@@ -269,7 +268,7 @@ public final class AccessRoles {
                 .queue(
                         channel -> channel.sendMessage(drawn.create())
                                 .queue(
-                                        ok -> log.debug("DMed {}", discordId),
+                                        ok -> log.debug("direct message sent: member={}", discordId),
                                         failure -> admin.alert(dmNotDelivered(discordId, failure))),
                         failure -> admin.alert(dmNotDelivered(discordId, failure)));
     }
@@ -287,7 +286,7 @@ public final class AccessRoles {
                     .complete();
             return true;
         } catch (final RuntimeException bounced) {
-            log.info("Discord did not deliver a direct message to {}: {}", discordId, bounced.getMessage());
+            log.info("direct message not delivered: member={} cause={}", discordId, bounced.getMessage());
             return false;
         }
     }
@@ -341,7 +340,7 @@ public final class AccessRoles {
     private @Nullable Role role(final Guild guild, final String key) {
         final Role role = roles.role(guild, key).orElse(null);
         if (role == null) {
-            log.warn("There is no {} role yet; nothing was changed", key);
+            log.warn("role not found, nothing changed: key={}", key);
         }
         return role;
     }
@@ -387,7 +386,7 @@ public final class AccessRoles {
     private Guild guild() {
         final Guild guild = jda.getGuildById(config.guildId());
         if (guild == null) {
-            log.error("Guild {} is not available to the bot", config.guildId());
+            log.error("guild not available: guild={}", config.guildId());
         }
         return guild;
     }

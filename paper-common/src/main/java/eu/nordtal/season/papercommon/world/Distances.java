@@ -36,8 +36,8 @@ public record Distances(int view, int simulation) {
         }
         final int used = Math.clamp(wanted, MIN, MAX);
         if (used != wanted) {
-            warn.accept("distances " + key + " is " + wanted + ", outside the " + MIN + " to " + MAX
-                    + " Paper accepts; " + used + " is used");
+            warn.accept("distance out of range, clamped: key=" + key + " value=" + wanted + " min=" + MIN + " max="
+                    + MAX + " used=" + used);
         }
         return used;
     }

@@ -71,7 +71,7 @@ public final class ErrorHandlers {
 
         // The agent's own refusal says whether Docker caused the failure.
         cfg.routes.exception(InternalClient.Failure.class, (failure, ctx) -> {
-            log.warn("{} did not answer: {}", failure.where(), failure.getMessage());
+            log.warn("service not answering: service={} cause={}", failure.where(), failure.getMessage());
             final AgentWire.Refusal refusal = AgentClient.refusal(failure)
                     .orElseGet(() -> new AgentWire.Refusal(String.valueOf(failure.getMessage()), failure.where()));
             ctx.status(failure.status() == 0 ? 502 : failure.status())

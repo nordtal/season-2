@@ -39,7 +39,7 @@ final class ArchiveFiles {
                 row(entry, inBackup).ifPresent(all::add);
             }
         } catch (final IOException e) {
-            log.warn("could not list {}", backups, e);
+            log.warn("backups not listed: dir={}", backups, e);
         }
         all.sort(Comparator.comparing(AgentWire.Archive::modified).reversed());
         return all;

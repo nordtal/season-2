@@ -67,6 +67,6 @@ abstract class DescribePack : DefaultTask() {
             ) +
                 "\n",
         )
-        logger.lifecycle("Wrote the pack model to $file")
+        logger.lifecycle("pack model written: file=$file")
     }
 }

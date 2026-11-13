@@ -230,7 +230,7 @@ public final class DatabaseSettings implements Settings {
                     stored,
                     environment,
                     path -> logger.warn(
-                            "{}/{} stores {}, which {} has no setting for: it is ignored",
+                            "stored setting unknown, ignored: owner={} group={} path={} service={}",
                             owner,
                             group.name(),
                             path,
@@ -239,7 +239,11 @@ public final class DatabaseSettings implements Settings {
 
         private void refuse(final SettingsException why) {
             refused = true;
-            logger.error("{}/{} keeps the values it runs with: {}", owner, group.name(), why.getMessage());
+            logger.error(
+                    "settings refused, running values kept: owner={} group={} cause={}",
+                    owner,
+                    group.name(),
+                    why.getMessage());
             store.problem(owner, group.name(), why.getMessage());
         }
     }

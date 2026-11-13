@@ -68,7 +68,7 @@ public final class CommandTrees implements Listener {
         try {
             dispatcher = game(registrar.getDispatcher());
         } catch (final IllegalStateException unreadable) {
-            plugin.getLogger().warning("The command tree cannot be read: " + unreadable.getMessage());
+            plugin.getLogger().warning("command tree unreadable: cause=" + unreadable.getMessage());
             return;
         }
         readSoon();
@@ -130,10 +130,11 @@ public final class CommandTrees implements Listener {
             try {
                 if (writer.write(tree)) {
                     plugin.getLogger()
-                            .info("Published the command tree, " + tree.nodes().size() + " nodes");
+                            .info("command tree published: count="
+                                    + tree.nodes().size());
                 }
             } catch (final RuntimeException failed) {
-                plugin.getLogger().warning("The command tree could not be published: " + failed.getMessage());
+                plugin.getLogger().warning("command tree not published: cause=" + failed.getMessage());
             }
         });
     }

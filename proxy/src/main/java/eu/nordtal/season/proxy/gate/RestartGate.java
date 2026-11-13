@@ -81,13 +81,12 @@ public final class RestartGate {
         try {
             moved = park.test(player);
         } catch (final RuntimeException failure) {
-            logger.warn("Could not park {} on arrival", player.getUsername(), failure);
+            logger.warn("player not parked on arrival: player={}", player.getUsername(), failure);
             moved = false;
         }
         if (moved) {
             logger.info(
-                    "Parked {} ({}) on arrival: this proxy is being moved by an update, so"
-                            + " they went straight on to the standby ({} so far)",
+                    "player parked on arrival: player={} uuid={} count={}",
                     player.getUsername(),
                     uuid,
                     parked.incrementAndGet());
@@ -100,8 +99,7 @@ public final class RestartGate {
     Component refuse(final UUID mcUuid, final String username) {
         final Locale locale = locales.localeOf(mcUuid);
         logger.warn(
-                "Could not park {} ({}) and this proxy stops in a moment, so they were sent"
-                        + " away with a sentence instead of a dropped connection ({} so far)",
+                "player not parked, login refused: player={} uuid={} count={}",
                 username,
                 mcUuid,
                 refused.incrementAndGet());

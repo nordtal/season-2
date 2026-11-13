@@ -180,7 +180,7 @@ public final class TarSnapshots {
         try {
             Files.createDirectories(outputRoot);
             Files.deleteIfExists(partial);
-            log.info("saving {} to {}", source, finished.getFileName());
+            log.info("volume save started: dir={} file={}", source, finished.getFileName());
             return writeArchive(volume, source, new Target(name, partial, finished), startedAt, wall);
         } catch (final IOException failure) {
             quietlyDelete(partial);
@@ -246,7 +246,7 @@ public final class TarSnapshots {
             }
             touched = true;
             empty(target, Files::delete);
-            log.info("unpacking {} into {}", archive, target);
+            log.info("archive unpack started: file={} dir={}", archive, target);
             final Pipeline.Result unpacked = Pipeline.run(
                     wall,
                     null,
@@ -354,7 +354,7 @@ public final class TarSnapshots {
         // The size on disk, not the input size.
         final long bytes = Files.size(finished);
         final Duration took = since(startedAt);
-        log.info("saved {} ({}) in {}s", name, ByteSize.of(bytes), took.toSeconds());
+        log.info("archive saved: file={} size={} seconds={}", name, ByteSize.of(bytes), took.toSeconds());
         return SnapshotResult.saved(volume, bytes, took, finished.toString());
     }
 
@@ -388,18 +388,18 @@ public final class TarSnapshots {
         try {
             mark = Path.of(archive + MARK);
         } catch (final InvalidPathException notAPath) {
-            log.warn("cannot mark {}: {}", archive, notAPath.toString());
+            log.warn("archive not marked: file={} cause={}", archive, notAPath.toString());
             return false;
         }
         try {
             Files.writeString(mark, Json.encode(record) + System.lineSeparator(), StandardCharsets.UTF_8);
         } catch (final IOException unwritable) {
             // A failed mark does not discard a successful backup.
-            log.warn("could not mark {} as unverified: {}", archive, unwritable.toString());
+            log.warn("archive not marked unverified: file={} cause={}", archive, unwritable.toString());
             return false;
         }
         log.warn(
-                "{} was taken by run {} after the stop of {} could not be verified",
+                "archive taken after unverified stop: file={} run={} services=\"{}\"",
                 mark.getFileName(),
                 record.run(),
                 String.join(", ", record.services()));
@@ -417,7 +417,7 @@ public final class TarSnapshots {
         try (Stream<Path> listing = Files.list(outputRoot)) {
             files = listing.filter(Files::isRegularFile).toList();
         } catch (final IOException unreadable) {
-            log.warn("cannot read {} to prune it: {}", outputRoot, unreadable.toString());
+            log.warn("backup directory unreadable, nothing pruned: dir={} cause={}", outputRoot, unreadable.toString());
             return new Snapshots.Pruned(List.of(), List.of());
         }
 
@@ -433,7 +433,7 @@ public final class TarSnapshots {
             for (final Retention.Dated old : expired) {
                 if (deleteArchive(old.name())) {
                     log.info(
-                            "pruning {} ({} of {} remain)",
+                            "archive pruned: file={} remaining={} series={}",
                             old.name(),
                             series.getValue().size() - 1,
                             series.getKey());
@@ -467,7 +467,7 @@ public final class TarSnapshots {
                 }
             }
         } catch (final IOException unreadable) {
-            log.warn("cannot read {} to size the backup: {}", outputRoot, unreadable.toString());
+            log.warn("backup directory unreadable for sizing: dir={} cause={}", outputRoot, unreadable.toString());
         }
         long expected = newest.getOrDefault(DUMP_SERIES, 0L);
         for (final String volume : volumes) {
@@ -480,7 +480,7 @@ public final class TarSnapshots {
             final long total = space.totalBytes();
             return new Snapshots.Room(expected, space.usableBytes(), total / 100 * keepFreePercent);
         } catch (final IOException unreadable) {
-            log.warn("cannot read the free space under {}: {}", outputRoot, unreadable.toString());
+            log.warn("free space unreadable: dir={} cause={}", outputRoot, unreadable.toString());
             return new Snapshots.Room(expected, Long.MAX_VALUE, 0);
         }
     }
@@ -490,13 +490,13 @@ public final class TarSnapshots {
         try {
             total = space.totalBytes();
         } catch (final IOException unreadable) {
-            log.warn("cannot read the size of {} for the disk budget: {}", outputRoot, unreadable.toString());
+            log.warn("backup size unreadable for disk budget: dir={} cause={}", outputRoot, unreadable.toString());
             return List.of();
         }
         final List<String> removed = new ArrayList<>();
         for (final String name : DiskBudget.of(total, budgetPercent).over(left)) {
             if (deleteArchive(name)) {
-                log.info("pruning {} - the archives take more than {} percent of the disk", name, budgetPercent);
+                log.info("archive pruned, over disk budget: file={} budget_percent={}", name, budgetPercent);
                 removed.add(name);
             }
         }
@@ -550,7 +550,7 @@ public final class TarSnapshots {
             final Matcher leftover = PARTIAL_ARCHIVE.matcher(name);
             if (leftover.matches() && isOlderThan(leftover.group("stamp"), debrisBefore, name)) {
                 if (delete(file)) {
-                    log.info("pruning {} - a partial from a killed run, never a backup", name);
+                    log.info("partial archive pruned: file={}", name);
                     removed.add(name);
                 }
                 continue;
@@ -558,7 +558,7 @@ public final class TarSnapshots {
             final Matcher halfDump = PARTIAL_DUMP.matcher(name);
             if (halfDump.matches() && isOlderThan(halfDump.group("stamp"), debrisBefore, name)) {
                 if (delete(file)) {
-                    log.info("pruning {} - a partial dump from a killed run, never a backup", name);
+                    log.info("partial dump pruned: file={}", name);
                     removed.add(name);
                 }
             }
@@ -570,7 +570,7 @@ public final class TarSnapshots {
         try {
             return java.util.Optional.of(new Retention.Dated(name, stampOf(stamp)));
         } catch (final DateTimeParseException notADate) {
-            log.warn("leaving {} alone: {} looks like a timestamp and is not one", name, stamp);
+            log.warn("archive left alone, timestamp invalid: file={} stamp={}", name, stamp);
             return java.util.Optional.empty();
         }
     }
@@ -594,7 +594,7 @@ public final class TarSnapshots {
             if (members == 0) {
                 return "it holds no files at all";
             }
-            log.debug("{} holds {} entries", archive.getFileName(), members);
+            log.debug("archive entries counted: file={} count={}", archive.getFileName(), members);
             return null;
         } finally {
             Files.deleteIfExists(listing);
@@ -609,7 +609,7 @@ public final class TarSnapshots {
         try {
             return stampOf(stamp).isBefore(cut);
         } catch (final DateTimeParseException notADate) {
-            log.warn("leaving {} alone: {} looks like a timestamp and is not one", name, stamp);
+            log.warn("archive left alone, timestamp invalid: file={} stamp={}", name, stamp);
             return false;
         }
     }
@@ -619,7 +619,7 @@ public final class TarSnapshots {
             return Files.deleteIfExists(file);
         } catch (final IOException undeletable) {
             // One undeletable file must not stop the sweep.
-            log.warn("cannot delete {}: {}", file, undeletable.toString());
+            log.warn("file not deleted: file={} cause={}", file, undeletable.toString());
             return false;
         }
     }
@@ -628,7 +628,7 @@ public final class TarSnapshots {
         try {
             Files.deleteIfExists(file);
         } catch (final IOException ignored) {
-            log.warn("a partial archive is left behind at {} - the next prune will take it", file);
+            log.warn("partial archive left behind: file={}", file);
         }
     }
 

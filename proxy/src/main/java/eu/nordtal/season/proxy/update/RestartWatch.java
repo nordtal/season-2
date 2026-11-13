@@ -154,7 +154,7 @@ public final class RestartWatch {
         try {
             pending = updates.countingDown();
         } catch (final RuntimeException failure) {
-            logger.warn("Could not read the countdown; nobody was told anything this pass", failure);
+            logger.warn("countdown unreadable, nobody told", failure);
             return;
         }
 
@@ -168,8 +168,8 @@ public final class RestartWatch {
             shape = shapeOf(request);
             saidVoice = false;
             logger.info(
-                    "Telling {} player(s) about the {} asked for by {}: {} beat(s) over"
-                            + " {} - {} on {}, waiting room {}, standby proxy {}",
+                    "countdown announced: count={} kind={} actor={} beats={} delay={} occasion={} services=\"{}\""
+                            + " waiting_room={} standby_proxy={}",
                     proxy.getPlayerCount(),
                     request.kind(),
                     request.actor(),
@@ -177,8 +177,8 @@ public final class RestartWatch {
                     request.untilDue(clock.instant()),
                     shape.occasion(),
                     shape.moving(),
-                    shape.waitingRoom() ? "yes" : "NO",
-                    shape.standbyProxy() ? "yes" : "no");
+                    shape.waitingRoom(),
+                    shape.standbyProxy());
             cancelScheduled();
             saidNow = false;
             beats.forEach(this::schedule);
@@ -198,10 +198,7 @@ public final class RestartWatch {
         try {
             standby = standbyProxy.getAsBoolean();
         } catch (final RuntimeException failure) {
-            logger.warn(
-                    "Could not ask whether the standby proxy answers; telling players the"
-                            + " worse of the two outcomes",
-                    failure);
+            logger.warn("standby proxy check failed, worse outcome announced", failure);
         }
         return RunShape.of(request.kind(), moving, room, standby);
     }
@@ -220,10 +217,7 @@ public final class RestartWatch {
                 try {
                     atZero.run();
                 } catch (final RuntimeException failure) {
-                    logger.warn(
-                            "What was scheduled for the end of the countdown failed; the commit's"
-                                    + " notification is what still has to catch this",
-                            failure);
+                    logger.warn("countdown end action failed", failure);
                 }
             }
             say(beat.said());
@@ -247,14 +241,11 @@ public final class RestartWatch {
         try {
             status = updates.find(watched).map(UpdateRequest::status).orElse(null);
         } catch (final RuntimeException failure) {
-            logger.warn(
-                    "Countdown {} stopped and could not be read back; nobody was told anything" + " this pass",
-                    watched,
-                    failure);
+            logger.warn("stopped countdown unreadable, nobody told: request={}", watched, failure);
             return;
         }
 
-        logger.info("Countdown {} is over: {}", watched, status == null ? "the row is gone" : status);
+        logger.info("countdown over: request={} status={}", watched, status == null ? "gone" : status);
         cancelScheduled();
         countdown.gone(status).ifPresent(announcement -> {
             if (announcement.kind() == Announcement.Kind.NOW) {
@@ -358,7 +349,7 @@ public final class RestartWatch {
             try {
                 what.accept(player, roster.localeOf(player.getUniqueId()));
             } catch (final RuntimeException failure) {
-                logger.warn("Could not tell {} about the restart", player.getUsername(), failure);
+                logger.warn("restart notice not sent: player={}", player.getUsername(), failure);
             }
         }
     }

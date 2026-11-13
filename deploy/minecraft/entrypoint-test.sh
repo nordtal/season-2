@@ -175,8 +175,8 @@ expect_status 1
 expect_present "$data/world"
 expect_present "$data/world/playerdata/069a79f4-44e9-4726-a5be-fca90e38aaf5.dat"
 expect_property "$data/server.properties" level-name world
-expect_output "somebody has played in it"
-expect_output "docker volume rm"
+expect_output "default world played in, not removed"
+expect_output "Not started: server.properties says level-name=world"
 ok "refused, nothing deleted"
 
 case_begin "an empty playerdata folder is not somebody having played"
@@ -198,7 +198,7 @@ seed "$data" nordtal_alt 1837371427
 expect_status 1
 expect_present "$data/nordtal"
 expect_property "$data/server.properties" level-name nordtal
-expect_output "Refusing to start"
+expect_output "Not started: server.properties says level-name=nordtal, but LEVEL_NAME is nordtal_alt."
 ok "chosen name refused"
 
 # limbo has no LEVEL_NAME, so the name resolves to `world` and matches what Paper wrote.
@@ -232,7 +232,7 @@ printf 'level-name=nordtal\nlevel-seed=99\n' > "$data/server.properties"
 seed "$data" nordtal 1837371427
 expect_status 0
 expect_property "$data/server.properties" level-seed 99
-expect_output "Terrain is never re-rolled"
+expect_output "world seed differs from LEVEL_SEED"
 ok "existing world's seed left alone"
 
 case_begin "no LEVEL_SEED writes no level-seed"
@@ -394,7 +394,7 @@ mkdir -p "$data/plugins/prism"
 printf 'primary-storage-type=POSTGRES\n' > "$data/plugins/prism/storage.conf"
 prism "$data" "jdbc:mysql://db:3306/x" secret
 expect_status 0
-expect_output "jdbc:postgresql://host"
+expect_output "database url not postgresql"
 expect_gone "$data/plugins/prism/storage.conf"
 ok "warned and skipped"
 
@@ -556,7 +556,7 @@ dir=$(old_proxy_volume velocity-old)
 ensure_transfers "$dir"
 expect_status 0
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
-expect_output "appended"
+expect_output "velocity table appended"
 # [advanced] is appended as the last table, so it swallows no keys below it.
 [[ "$(awk '/^\[/ { last = $1 } END { print last }' "$dir/velocity.toml")" == "[advanced]" ]] \
     || bad "[advanced] is not the last table in the file: $(grep '^\[' "$dir/velocity.toml" | tr '\n' ' ')"
@@ -582,7 +582,7 @@ printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers = false\n' > "$d
 ensure_transfers "$dir"
 expect_status 0
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
-expect_output "carried a different accepts-transfers"
+expect_output "velocity setting corrected: file=velocity.toml key=accepts-transfers"
 ok "false corrected"
 
 case_begin "a file that already says true is not touched at all"
@@ -602,7 +602,7 @@ dir=$(volume velocity-root)
 printf 'accepts-transfers = true\nbind = "0.0.0.0:25565"\n\n[servers]\nlimbo = "limbo:25565"\n' > "$dir/velocity.toml"
 ensure_transfers "$dir"
 expect_status 0
-expect_output "ROOT"
+expect_output "velocity setting at file root"
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
 ok "root-level key called out and the real one written"
 
@@ -650,7 +650,7 @@ printf 'bind = "0.0.0.0:25565"\n\n[advanced]\nhaproxy-protocol = true\n' > "$dir
 ensure_haproxy "$dir" false
 expect_status 0
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" haproxy-protocol false
-expect_output "carried a different haproxy-protocol"
+expect_output "velocity setting corrected: file=velocity.toml key=haproxy-protocol"
 ok "turned back off"
 
 case_begin "a value that is neither true nor false changes nothing and says so"

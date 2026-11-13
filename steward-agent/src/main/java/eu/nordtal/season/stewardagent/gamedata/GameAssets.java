@@ -80,7 +80,7 @@ public final class GameAssets implements AutoCloseable {
                 Thread.currentThread().interrupt();
                 return;
             } catch (final RuntimeException failure) {
-                log.warn("Drawing the game's icons failed; it tries again at the next signal", failure);
+                log.warn("game icons not drawn", failure);
                 try {
                     doorbell.await(SignalHub.RECONCILIATION);
                 } catch (final InterruptedException interrupted) {
@@ -110,10 +110,13 @@ public final class GameAssets implements AutoCloseable {
                         jar, entries(catalogues, version, "item"), entries(catalogues, version, "advancement"));
                 store.storeIcons(version, icons);
                 failed.remove(version);
-                log.info("Drew {} icons for Minecraft {}", icons.index().slots().size(), version);
+                log.info(
+                        "game icons drawn: count={} version={}",
+                        icons.index().slots().size(),
+                        version);
             } catch (final IOException | RuntimeException unavailable) {
                 failed.put(version, clock.instant());
-                log.warn("Could not draw the icons of Minecraft {}: {}", version, unavailable.getMessage());
+                log.warn("game icons not drawn: version={} cause={}", version, unavailable.getMessage());
             }
         }
     }

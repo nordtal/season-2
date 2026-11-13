@@ -606,7 +606,7 @@ secrets_dir_ok /etc/nordtal/season-2.env relative/secrets && bad "a relative dir
 mkdir -p "$WORK/agent"
 printf 'NORDTAL_SECRETS_DIR=%s/inside\n' "$WORK/agent" > "$WORK/agent/season-2.env"
 said="$( (settle_service_secrets "$WORK/agent/season-2.env") 2>&1 )" && bad "a run settled secrets where the agent reads them"
-grep -q "steward-agent mounts that directory" <<<"$said" || bad "the refusal did not say why"
+grep -q "which steward-agent can read" <<<"$said" || bad "the refusal did not say why"
 ok "the default, and every place the agent would read refused"
 
 case_begin "a single-reader secret leaves the shared file for its service's own, owned by its uid"

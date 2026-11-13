@@ -50,8 +50,7 @@ public final class SpawnNpc {
     public void spawn() {
         final World world = Bukkit.getWorld(config.world());
         if (world == null) {
-            plugin.getLogger()
-                    .warning("the spawn NPC's world '" + config.world() + "' does not exist - no figure was placed");
+            plugin.getLogger().warning("spawn NPC world missing, NPC not placed: world=" + config.world());
             return;
         }
         remove();
@@ -86,8 +85,8 @@ public final class SpawnNpc {
             mannequin.setProfile(profile);
         } catch (final RuntimeException exception) {
             plugin.getLogger()
-                    .warning("could not put '" + skinName + "'s skin on the spawn NPC: " + exception.getMessage()
-                            + " - it keeps the default one");
+                    .warning("spawn NPC skin not applied, default kept: skin=" + skinName + " cause="
+                            + exception.getMessage());
         }
     }
 

@@ -35,10 +35,7 @@ public final class FeedbackSounds {
 
             final String key = sound.key().trim();
             if (!Key.parseable(key)) {
-                problems.accept("the sound for " + category + " is '" + key + "', which is not a"
-                        + " namespaced key (it has to look like minecraft:ui.button.click - lower"
-                        + " case, and the path may only carry letters, digits, _ - . and /). That"
-                        + " category is silent until it is corrected.");
+                problems.accept("sound key invalid, category silenced: category=" + category + " key=\"" + key + "\"");
                 continue;
             }
             parsed.put(
@@ -70,9 +67,8 @@ public final class FeedbackSounds {
             return false;
         }
         final FeedbackSound sound = byCategory.get(category);
-        problems.accept("the sound for " + category + " ("
-                + (sound == null ? "none" : sound.key()) + ") could not be played and is switched"
-                + " off for the rest of this run: " + cause);
+        problems.accept("sound failed, category silenced until restart: category=" + category + " key="
+                + (sound == null ? "none" : sound.key()) + " cause=" + cause);
         return true;
     }
 
@@ -80,22 +76,21 @@ public final class FeedbackSounds {
         if (declared >= 0.0f && Float.isFinite(declared)) {
             return declared;
         }
-        problems.accept("the volume for " + category + " is " + declared + ", which is not a volume;" + " using "
+        problems.accept("sound volume invalid, default used: category=" + category + " volume=" + declared + " default="
                 + FeedbackSound.DEFAULT_VOLUME);
         return FeedbackSound.DEFAULT_VOLUME;
     }
 
     private static float pitch(final Feedback category, final float declared, final Consumer<String> problems) {
         if (!Float.isFinite(declared) || declared <= 0.0f) {
-            problems.accept("the pitch for " + category + " is " + declared + ", which is not a" + " pitch; using "
-                    + FeedbackSound.DEFAULT_PITCH);
+            problems.accept("sound pitch invalid, default used: category=" + category + " pitch=" + declared
+                    + " default=" + FeedbackSound.DEFAULT_PITCH);
             return FeedbackSound.DEFAULT_PITCH;
         }
         if (declared < FeedbackSound.MIN_PITCH || declared > FeedbackSound.MAX_PITCH) {
             final float clamped = Math.min(FeedbackSound.MAX_PITCH, Math.max(FeedbackSound.MIN_PITCH, declared));
-            problems.accept("the pitch for " + category + " is " + declared + ", outside the "
-                    + FeedbackSound.MIN_PITCH + " - " + FeedbackSound.MAX_PITCH + " a client will"
-                    + " play; using " + clamped);
+            problems.accept("sound pitch out of range, clamped: category=" + category + " pitch=" + declared + " min="
+                    + FeedbackSound.MIN_PITCH + " max=" + FeedbackSound.MAX_PITCH + " clamped=" + clamped);
             return clamped;
         }
         return declared;

@@ -130,9 +130,9 @@ public final class LiveFeed implements AutoCloseable {
                 return;
             }
             if (failing.add(topic)) {
-                log.warn("the live topic {} could not be read", topic, unreadable);
+                log.warn("live topic unreadable: topic={}", topic, unreadable);
             } else {
-                log.debug("the live topic {} still cannot be read", topic, unreadable);
+                log.debug("live topic still unreadable: topic={}", topic, unreadable);
             }
             return;
         }
@@ -161,7 +161,7 @@ public final class LiveFeed implements AutoCloseable {
             try {
                 pass(rang);
             } catch (final RuntimeException failed) {
-                log.warn("a pass of the live feed failed; the next one tries again", failed);
+                log.warn("live feed pass failed", failed);
             }
             if (!waiting.sleep(GAP)) {
                 return;

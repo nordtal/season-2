@@ -77,12 +77,9 @@ public final class BunqGateway {
     /** Returns the startup line, which never contains the key. */
     String startupLine() {
         if (configured) {
-            return "bunq is ON: monetary account " + accountId + " is the one billed and polled, and this container"
-                    + " is the only one that holds the key.";
+            return "bunq on: account=" + accountId;
         }
-        return "bunq is OFF: NORDTAL_STEWARD_BUNQ_API_KEY and NORDTAL_STEWARD_BUNQ_ACCOUNT_ID are both empty, so"
-                + " no payment link can be created and no payment will ever be noticed. Everything else in the"
-                + " network is unaffected.";
+        return "bunq off: missing=NORDTAL_STEWARD_BUNQ_API_KEY,NORDTAL_STEWARD_BUNQ_ACCOUNT_ID";
     }
 
     public void logStartupLine() {
@@ -127,7 +124,7 @@ public final class BunqGateway {
             BunqMeTabApiObject.update(tabId, accountId, STATUS_CANCELLED);
             return new BankWire.Cancelled(true);
         } catch (final RuntimeException exception) {
-            log.warn("Could not cancel bunq.me tab {}: {}", tabId, exception.toString());
+            log.warn("bunq tab not cancelled: tab={} cause={}", tabId, exception.toString());
             return new BankWire.Cancelled(false);
         }
     }
@@ -179,7 +176,7 @@ public final class BunqGateway {
             final int cents = cents(amount.getValue());
             return cents > 0 ? cents : null;
         } catch (final ArithmeticException | NumberFormatException exception) {
-            log.warn("Payment {} has an unreadable amount '{}'", payment.getId(), amount.getValue());
+            log.warn("payment amount unreadable: payment={} amount=\"{}\"", payment.getId(), amount.getValue());
             return null;
         }
     }
@@ -192,7 +189,7 @@ public final class BunqGateway {
         try {
             return LocalDateTime.parse(created.trim(), TIMESTAMP).toInstant(ZoneOffset.UTC);
         } catch (final DateTimeParseException exception) {
-            log.warn("Payment {} has an unreadable creation time '{}'", payment.getId(), created);
+            log.warn("payment creation time unreadable: payment={} created=\"{}\"", payment.getId(), created);
             return null;
         }
     }
@@ -221,10 +218,10 @@ public final class BunqGateway {
             createParentDirectory(contextPath);
             context.save(contextPath.toString());
             BunqContext.loadApiContext(context);
-            log.info("Created a new bunq API context at {}", contextPath);
+            log.info("bunq api context created: path={}", contextPath);
         } else {
             BunqContext.loadApiContext(ApiContext.restore(contextPath.toString()));
-            log.info("Restored the bunq API context from {}", contextPath);
+            log.info("bunq api context restored: path={}", contextPath);
         }
         contextLoaded = true;
     }

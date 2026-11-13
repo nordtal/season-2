@@ -226,7 +226,7 @@ public final class UpdateFeed {
                     .filter(request -> request.status().isFinished() && request.status() != UpdateStatus.FAILED)
                     .isPresent();
         } catch (final RuntimeException failure) {
-            log.warn("Could not read update request {} for its alert", run, failure);
+            log.warn("update request unreadable: request={}", run, failure);
             return false;
         }
     }
@@ -236,7 +236,7 @@ public final class UpdateFeed {
         try {
             return cards.alert(run);
         } catch (final RuntimeException failure) {
-            log.warn("Could not record the alert of run {}; it is posted all the same", run, failure);
+            log.warn("run alert not recorded: run={}", run, failure);
             return true;
         }
     }
@@ -246,7 +246,7 @@ public final class UpdateFeed {
         try {
             return cards.of(run);
         } catch (final RuntimeException failure) {
-            log.warn("Could not read the card of run {}; a new one is posted", run, failure);
+            log.warn("run card unreadable: run={}", run, failure);
             return Optional.empty();
         }
     }
@@ -272,7 +272,7 @@ public final class UpdateFeed {
                 follow(request);
             }
         } catch (final RuntimeException failure) {
-            log.error("Could not read the update history; the feed starts from {}", lastSeen, failure);
+            log.error("update history unreadable, feed started from last seen: last_seen={}", lastSeen, failure);
         }
     }
 
@@ -304,7 +304,7 @@ public final class UpdateFeed {
                         pass();
                     }
                 } catch (final RuntimeException failure) {
-                    log.error("The update feed pass failed; it runs again on the next signal", failure);
+                    log.error("update feed pass failed", failure);
                 } finally {
                     ticking.set(false);
                 }
@@ -324,7 +324,7 @@ public final class UpdateFeed {
         try {
             fresh = updates.since(lastSeen);
         } catch (final RuntimeException failure) {
-            log.warn("Could not read new update requests; nothing was posted this pass", failure);
+            log.warn("new update requests unreadable, pass skipped", failure);
             return;
         }
 
@@ -406,7 +406,7 @@ public final class UpdateFeed {
         try {
             cards.keep(run, messageId);
         } catch (final RuntimeException failure) {
-            log.warn("Could not keep the card of run {}; a restart posts another", run, failure);
+            log.warn("run card not kept: run={} message={}", run, messageId, failure);
         }
     }
 
@@ -415,7 +415,7 @@ public final class UpdateFeed {
         try {
             submit();
         } catch (final RuntimeException refused) {
-            log.debug("No pass after a card's message id; the next signal draws it", refused);
+            log.debug("follow-up pass not submitted", refused);
         }
     }
 
@@ -432,7 +432,7 @@ public final class UpdateFeed {
             try {
                 row = updates.find(id);
             } catch (final RuntimeException failure) {
-                log.warn("Could not re-read update request {} for the admin channel", id, failure);
+                log.warn("update request unreadable: request={}", id, failure);
                 continue;
             }
             if (row.isEmpty() || shown(row.get()) || row.get().status().isFinished()) {
@@ -468,7 +468,7 @@ public final class UpdateFeed {
             try {
                 row = updates.find(id);
             } catch (final RuntimeException failure) {
-                log.warn("Could not re-read update request {} for the admin channel", id, failure);
+                log.warn("update request unreadable: request={}", id, failure);
                 continue;
             }
             if (row.isEmpty()) {

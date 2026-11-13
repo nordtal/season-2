@@ -119,7 +119,7 @@ public final class StandbyReturn {
         try {
             seats.reportStandby(players.size(), now);
         } catch (final RuntimeException failure) {
-            logger.warn("Could not report how many players the standby is holding", failure);
+            logger.warn("standby player count not reported", failure);
         }
 
         if (returning) {
@@ -135,16 +135,13 @@ public final class StandbyReturn {
         try {
             answers = probe.answers(target, PROBE_TIMEOUT);
         } catch (final RuntimeException failure) {
-            logger.warn("Could not probe {}; holding the players here this pass", live, failure);
+            logger.warn("live proxy not probed, players held: address={}", live, failure);
             return;
         }
 
         if (!answers) {
             if (!outageSeen) {
-                logger.info(
-                        "{} has stopped answering - this is the swap. {} player(s) stay here" + " until it is back",
-                        live,
-                        players.size());
+                logger.info("live proxy not answering, players held: address={} count={}", live, players.size());
             }
             outageSeen = true;
             answeringSince = null;
@@ -166,7 +163,7 @@ public final class StandbyReturn {
         final List<CountdownPlan.Beat<Announcement>> beats =
                 notice.beats(++notices, Homecoming.NOTICE).orElseGet(List::of);
         logger.info(
-                "{} is answering again: telling {} player(s) and handing them back to {} in {}s",
+                "live proxy answering again, players returning: address={} count={} to={} seconds={}",
                 live,
                 players.size(),
                 home,
@@ -201,14 +198,14 @@ public final class StandbyReturn {
     }
 
     private void sendHome(final Collection<Player> players) {
-        logger.info("Transferring {} player(s) back to {}", players.size(), home);
+        logger.info("players sent back: count={} to={}", players.size(), home);
         int sent = 0;
         for (final Player player : players) {
             try {
                 player.transferToHost(home);
                 sent++;
             } catch (final RuntimeException failure) {
-                logger.warn("Could not transfer {} back to {}", player.getUsername(), home, failure);
+                logger.warn("player not transferred back: player={} to={}", player.getUsername(), home, failure);
             }
         }
         voice.returned(ProxySwap.OWN_SERVICE, ProxySwap.STANDBY_SERVICE, sent);

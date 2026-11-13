@@ -48,7 +48,12 @@ public final class Console {
                 .orElseThrow(() -> new DockerException(
                         "no running container for " + service + ", so there is no console to type into"));
 
-        log.info("console {} <- {} {}: {}", service, actor.kind(), Objects.requireNonNullElse(actor.id(), ""), command);
+        log.info(
+                "console command sent: service={} actor={} actor_id={} command=\"{}\"",
+                service,
+                actor.kind(),
+                Objects.requireNonNullElse(actor.id(), ""),
+                command);
         // `mc` exits once tmux has the line, so an empty answer is success.
         final Docker.ExecResult answer = docker.exec(containerId, List.of("mc", command));
         if (!answer.ok()) {
@@ -58,7 +63,10 @@ public final class Console {
         }
         if (!answer.output().isBlank()) {
             // Only `mc` writes here, never the server.
-            log.info("console {}: {}", service, answer.output().strip());
+            log.info(
+                    "console answered: service={} output=\"{}\"",
+                    service,
+                    answer.output().strip());
         }
     }
 }

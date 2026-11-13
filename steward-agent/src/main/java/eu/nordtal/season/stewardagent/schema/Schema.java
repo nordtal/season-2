@@ -78,7 +78,7 @@ public final class Schema {
                                 + " ORDER BY installed_rank DESC LIMIT 1")) {
             return row.next() ? row.getString(1) : null;
         } catch (final SQLException unread) {
-            log.warn("Could not read the schema's version: {}", unread.getMessage());
+            log.warn("schema version unreadable: cause={}", unread.getMessage());
             return null;
         }
     }
@@ -91,9 +91,9 @@ public final class Schema {
     public static int migrate(final Database database) {
         final int applied = flyway(database).migrate().migrationsExecuted;
         if (applied == 0) {
-            log.info("Schema is current - nothing to apply");
+            log.info("schema current, nothing applied");
         } else {
-            log.info("Applied {} database migration(s)", applied);
+            log.info("database migrations applied: count={}", applied);
         }
         return applied;
     }

@@ -213,10 +213,7 @@ public final class HungerGamesManager {
         if (online != null) {
             final var _ = online.teleportAsync(tower).thenAccept(moved -> {
                 if (!moved) {
-                    plugin.getLogger()
-                            .severe(online.getName() + " could not be placed on their "
-                                    + "spawn tower and is invulnerable wherever they are standing. The end "
-                                    + "of the countdown releases them with everybody else.");
+                    plugin.getLogger().severe("player not placed on spawn tower: player=" + online.getName());
                 }
             });
             online.setInvulnerable(true);
@@ -225,10 +222,7 @@ public final class HungerGamesManager {
             return;
         }
 
-        LOGGER.info(
-                "Placing an unequipped body for offline participant {} on its "
-                        + "spawn tower - see PlayerBodies for what this approximates",
-                participant.mcUuid());
+        LOGGER.info("offline participant body placed on spawn tower: uuid={}", participant.mcUuid());
         final PlayerContext named = names.get(participant.mcUuid());
         bodies.spawnBareArmorStand(tower, named == null ? "" : named.name().name(), participant.mcUuid());
     }

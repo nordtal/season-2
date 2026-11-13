@@ -23,7 +23,7 @@ public final class Shutdown {
             step.run();
         } catch (final RuntimeException | LinkageError failure) {
             // LinkageError is not an Exception.
-            warn.accept("disable step " + what + " failed; carrying on with the next one", failure);
+            warn.accept("disable step failed: step=" + what, failure);
         }
     }
 }

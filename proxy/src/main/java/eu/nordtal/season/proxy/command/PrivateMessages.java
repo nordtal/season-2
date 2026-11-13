@@ -132,7 +132,7 @@ public final class PrivateMessages {
         try {
             deliver(from, to, text);
         } catch (final RuntimeException failure) {
-            logger.warn("{} could not be delivered", what, failure);
+            logger.warn("private message not delivered: command={}", what, failure);
             reply(from, Sent.of(Replies.FAILED));
         }
     }

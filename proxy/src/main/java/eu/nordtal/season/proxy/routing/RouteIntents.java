@@ -50,12 +50,7 @@ public final class RouteIntents {
             return;
         }
 
-        logger.warn(
-                "Refused to connect {} to '{}': nothing in proxy chose that "
-                        + "destination. If this is a route this plugin takes, it is missing its "
-                        + "RouteIntents#intend call.",
-                player.getUsername(),
-                destination);
+        logger.warn("connection refused, no route intent: player={} to={}", player.getUsername(), destination);
         event.setResult(ServerPreConnectEvent.ServerResult.denied());
     }
 

@@ -142,10 +142,20 @@ final class LockedChannels {
                             ? channel.upsertPermissionOverride(holder).grant(open)
                             : channel.upsertPermissionOverride(holder).deny(Permission.VIEW_CHANNEL))
                     .complete();
-            log.info("{} the channel {} to {}", opening ? "Opened" : "Closed", name(channel), whom);
+            log.info(
+                    "channel overwrite set: channel={} channel_name=\"{}\" holder={} view={}",
+                    channel.getId(),
+                    channel.getName(),
+                    whom,
+                    opening ? "open" : "closed");
             return Optional.empty();
         } catch (final RuntimeException failure) {
-            log.warn("Could not keep the overwrite of {} in {}: {}", whom, name(channel), failure.toString());
+            log.warn(
+                    "channel overwrite not set: channel={} channel_name=\"{}\" holder={} cause={}",
+                    channel.getId(),
+                    channel.getName(),
+                    whom,
+                    failure.toString());
             return Optional.of(new ChannelFailure(name(channel), String.valueOf(failure.getMessage())));
         }
     }

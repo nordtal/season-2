@@ -122,7 +122,7 @@ public final class ProxySwap {
         try {
             running = updates.running();
         } catch (final RuntimeException failure) {
-            logger.warn("Could not read the update row; nobody was parked this pass", failure);
+            logger.warn("update row unreadable, nobody parked", failure);
             return;
         }
         final Set<String> next = Evacuation.imminent(running);
@@ -136,10 +136,7 @@ public final class ProxySwap {
             case IDLE, ALREADY_DONE, ALREADY_MOVED -> {}
             case STANDBY_MISSING ->
                 logger.warn(
-                        "The proxy is about to stop and {}:{} does not answer, so nobody can "
-                                + "be parked - this update takes the network down the way it "
-                                + "always did. The standby has to be running BEFORE the run "
-                                + "reaches this proxy.",
+                        "standby proxy not answering, nobody parked: standby_address={}:{}",
                         target.getHostString(),
                         target.getPort());
             case PARK -> park();
@@ -205,12 +202,12 @@ public final class ProxySwap {
         final var players = proxy.getAllPlayers();
         final InetSocketAddress target = standby;
         if (target == null || players.isEmpty()) {
-            logger.info("The update moves this proxy and nobody is connected: nothing to park");
+            logger.info("proxy swap skipped, no player connected");
             return;
         }
 
         logger.info(
-                "The update moves this proxy: parking {} player(s) on {}:{} until it is back",
+                "players sent to standby proxy: count={} standby_address={}:{}",
                 players.size(),
                 target.getHostString(),
                 target.getPort());
@@ -227,7 +224,7 @@ public final class ProxySwap {
         try {
             updates.recorder().moved(run, OWN_SERVICE, STANDBY_SERVICE, 1);
         } catch (final RuntimeException failure) {
-            logger.warn("Could not count a player parked on the standby", failure);
+            logger.warn("parked player not recorded", failure);
         }
     }
 
@@ -245,11 +242,7 @@ public final class ProxySwap {
             try {
                 seats.seat(player.getUniqueId(), on, clock.instant());
             } catch (final RuntimeException failure) {
-                logger.warn(
-                        "Could not record where {} was standing; they will be routed by the"
-                                + " season when they come back",
-                        player.getUsername(),
-                        failure);
+                logger.warn("player seat not recorded: player={}", player.getUsername(), failure);
             }
         }
         try {
@@ -257,7 +250,7 @@ public final class ProxySwap {
             moved();
             return true;
         } catch (final RuntimeException failure) {
-            logger.warn("Could not transfer {} to the standby proxy", player.getUsername(), failure);
+            logger.warn("player not transferred to standby proxy: player={}", player.getUsername(), failure);
             return false;
         }
     }

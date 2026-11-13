@@ -56,7 +56,7 @@ abstract class GenerateWheel : VanillaClientTask() {
         properties.parentFile.mkdirs()
         properties.writeText(budget.properties())
         logger.lifecycle(
-            "The wheel: ${budget.offsets.size} turn variants, ${budget.raw} B raw, ${budget.zipped} B zipped, about ${budget.loadMs().toLong()} ms to load.",
+            "wheel generated: variants=${budget.offsets.size} raw_bytes=${budget.raw} zipped_bytes=${budget.zipped} load_ms=${budget.loadMs().toLong()}",
         )
     }
 

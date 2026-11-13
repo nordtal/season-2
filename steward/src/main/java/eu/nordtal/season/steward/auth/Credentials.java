@@ -70,7 +70,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
                 backupEligible,
                 backedUp);
         log.info(
-                "registered a security key for {} - \"{}\", {} key(s) on that account now",
+                "security key registered: member={} label=\"{}\" keys={}",
                 discordId,
                 label.trim(),
                 dao.forAccount(discordId).size());
@@ -78,11 +78,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
 
     public int forget(final DiscordId discordId) {
         final int gone = dao.forget(Objects.requireNonNull(discordId, "discordId"));
-        log.warn(
-                "removed {} security key(s) of {} - that account's second factor is gone until it"
-                        + " registers a new one",
-                gone,
-                discordId);
+        log.warn("security keys removed: member={} count={}", discordId, gone);
         return gone;
     }
 
@@ -91,7 +87,7 @@ public final class Credentials implements CredentialRepositoryV2<Credentials.Key
         final boolean gone = dao.remove(credentialId.getBytes(), discordId) == 1;
         if (gone) {
             log.info(
-                    "removed a security key of {} - {} left on that account",
+                    "security key removed: member={} keys={}",
                     discordId,
                     dao.forAccount(discordId).size());
         }

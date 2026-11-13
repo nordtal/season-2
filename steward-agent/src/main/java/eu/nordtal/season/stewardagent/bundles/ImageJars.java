@@ -50,7 +50,7 @@ public interface ImageJars {
                 return copy;
             } catch (final IOException | DockerException failed) {
                 // A Minecraft service has no baked jar. Its bundles are in its plugins folder.
-                log.debug("{} has no {} to read bundles from: {}", service, BAKED_JAR, failed.getMessage());
+                log.debug("baked jar missing: service={} file={} cause={}", service, BAKED_JAR, failed.getMessage());
                 return null;
             }
         };

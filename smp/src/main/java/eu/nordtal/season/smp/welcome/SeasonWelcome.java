@@ -79,11 +79,7 @@ public final class SeasonWelcome {
     private void show(final UUID uuid, final String name, final DiscordId discordId) {
         final Player player = Bukkit.getPlayer(uuid);
         if (player == null) {
-            plugin.getLogger()
-                    .info(name + " left in the tick after their own join, so the season's"
-                            + " opening moment was claimed but never shown. To give it back:"
-                            + " UPDATE smp_player SET welcome_shown = false WHERE discord_id = '"
-                            + discordId + "';");
+            plugin.getLogger().info("welcome claimed, not shown, player gone: player=" + name + " member=" + discordId);
             return;
         }
         placeAtFirstJoinSpawn(player, name);
@@ -95,31 +91,26 @@ public final class SeasonWelcome {
         final World world = Bukkit.getWorld(spawn.world());
         if (world == null) {
             plugin.getLogger()
-                    .warning("nordtal-spawn names the world '" + spawn.world()
-                            + "', which does not exist, so " + name + " was left where the server spawned"
-                            + " them. The SMP's build world is called '" + worlds.nameOf(WorldRole.NORDTAL)
-                            + "' - if that was renamed, nordtal-spawn: world has to be renamed with it.");
+                    .warning("nordtal-spawn world missing, player not moved: player=" + name + " world=" + spawn.world()
+                            + " build_world=" + worlds.nameOf(WorldRole.NORDTAL));
             return;
         }
         final WorldBorder border = world.getWorldBorder();
         final Location centre = border.getCenter();
-        final String where = "nordtal-spawn (" + spawn.x() + " " + spawn.z() + ")";
         final String bounds =
-                "the world border (" + border.getSize() + " wide around " + centre.getX() + " " + centre.getZ() + ")";
+                " border_size=" + border.getSize() + " border_x=" + centre.getX() + " border_z=" + centre.getZ();
         if (!within(centre.getX(), centre.getZ(), border.getSize(), spawn.x(), spawn.z())) {
             plugin.getLogger()
-                    .warning(where + " lies outside " + bounds + ", which would kill " + name
-                            + " at once, so they were left where the server spawned them. Move nordtal-spawn"
-                            + " inside the border.");
+                    .warning("nordtal-spawn outside world border, player not moved: player=" + name + " x=" + spawn.x()
+                            + " z=" + spawn.z() + bounds);
             return;
         }
         final Location landing = LandingSite.safeAt(
                 world, new Location(world, spawn.x(), spawn.y(), spawn.z(), spawn.yaw(), spawn.pitch()));
         if (!within(centre.getX(), centre.getZ(), border.getSize(), landing.getX(), landing.getZ())) {
             plugin.getLogger()
-                    .warning(where + " is not a safe landing, and the safe one found near it lies outside " + bounds
-                            + ", so " + name + " was left where the server spawned them. Clear a spot at"
-                            + " nordtal-spawn.");
+                    .warning("safe landing outside world border, player not moved: player=" + name + " x="
+                            + landing.getX() + " z=" + landing.getZ() + bounds);
             return;
         }
         player.teleport(landing);

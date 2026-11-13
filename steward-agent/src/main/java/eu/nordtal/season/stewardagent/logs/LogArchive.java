@@ -81,7 +81,7 @@ final class LogArchive {
             }
             if (index > 0 && Duration.between(started, clock.get()).compareTo(BUDGET) > 0) {
                 log.warn(
-                        "reading the archived logs of {} took over {}; stopped after {} file(s)",
+                        "archived log read stopped at time budget: service={} timeout={} count={}",
                         service,
                         BUDGET,
                         index);
@@ -121,7 +121,7 @@ final class LogArchive {
                     .sorted(Comparator.comparing(LogArchive::modified).reversed())
                     .toList();
         } catch (IOException e) {
-            log.warn("could not list {}: {}", logs, e.toString());
+            log.warn("log directory not listed: dir={} cause={}", logs, e.toString());
             return List.of();
         }
     }
@@ -147,7 +147,7 @@ final class LogArchive {
                 lines.add(line);
             }
         } catch (IOException e) {
-            log.warn("could not read {}: {}", archive, e.toString());
+            log.warn("log archive unreadable: file={} cause={}", archive, e.toString());
         }
         return lines;
     }

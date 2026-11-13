@@ -50,11 +50,7 @@ public final class LobbyMaps {
     private void renderLanguage(final World world, final String language) {
         final BufferedImage image = loadImage(language);
         if (image == null) {
-            LOGGER.warn(
-                    "No lobby/map-{}.png found - the lobby map display for {} is unavailable "
-                            + "until the image is added.",
-                    language,
-                    language);
+            LOGGER.warn("lobby map image missing: file=lobby/map-{}.png language={}", language, language);
             return;
         }
 
@@ -74,8 +70,7 @@ public final class LobbyMaps {
                 final ItemFrame frame = findFrame(world, frameLocation);
                 if (frame == null) {
                     LOGGER.warn(
-                            "No item frame found near {} for the lobby map grid ({}, row {}, "
-                                    + "column {}) - the hand-built lobby must place one there",
+                            "lobby map frame missing: location=\"{}\" language={} row={} column={}",
                             frameLocation,
                             language,
                             row,
@@ -98,8 +93,7 @@ public final class LobbyMaps {
             }
             return ImageIO.read(stream);
         } catch (final IOException exception) {
-            LOGGER.warn(
-                    "Could not read {} - the lobby map display for {} is unavailable", resource, language, exception);
+            LOGGER.warn("lobby map image unreadable: file={} language={}", resource, language, exception);
             return null;
         }
     }

@@ -109,7 +109,7 @@ public final class GuildRoles {
         }
         if (named.size() == 1) {
             store(wanted.key(), named.getFirst());
-            log.info("Took the role {} ({}) for {}", wanted.name(), named.getFirst(), wanted.key());
+            log.info("role taken over: role=\"{}\" role_id={} key={}", wanted.name(), named.getFirst(), wanted.key());
             return;
         }
         final String created;
@@ -125,7 +125,7 @@ public final class GuildRoles {
             return;
         }
         store(wanted.key(), created);
-        log.info("Created the role {} ({}) for {}", wanted.name(), created, wanted.key());
+        log.info("role created: role=\"{}\" role_id={} key={}", wanted.name(), created, wanted.key());
     }
 
     private void store(final String key, final String roleId) {
@@ -160,7 +160,7 @@ public final class GuildRoles {
 
     private void alertOnce(final String key, final Alert alert) {
         if (!alerts.raise(key, alert)) {
-            log.debug("Still no role for {}", key);
+            log.debug("role still missing: key={}", key);
         }
     }
 

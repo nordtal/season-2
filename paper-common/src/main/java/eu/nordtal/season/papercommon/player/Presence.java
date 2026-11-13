@@ -65,11 +65,11 @@ public final class Presence implements Listener {
             identities.load(player);
         } catch (final RuntimeException failure) {
             if (!refusesWithoutIdentity) {
-                logger.warn("could not read who {} is, so they play as nobody in particular", player, failure);
+                logger.warn("identity unreadable, player held as unknown: uuid={}", player, failure);
                 identities.holdUnknown(player);
                 return;
             }
-            logger.error("refusing {}'s login because the database is unreachable", player, failure);
+            logger.error("login refused, database unreachable: uuid={}", player, failure);
             event.disallow(
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
                     renderer.format(Locale.ENGLISH, Sent.of(DATABASE_UNREACHABLE)));

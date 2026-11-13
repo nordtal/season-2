@@ -48,7 +48,7 @@ final class Setup {
     void init() {
         final EnvFile env = compose.env();
         if (env.exists()) {
-            terminal.log(LocalProject.ENV_FILE + " already exists; leaving it alone");
+            terminal.log("env file exists, not touched: file=" + LocalProject.ENV_FILE);
         } else {
             copyExample(env.path());
             SECRETS.forEach(secret -> generate(env, secret));
@@ -56,8 +56,8 @@ final class Setup {
             deriveRelyingParty(env);
             final List<Integer> leftovers = env.replaceMeLines();
             if (!leftovers.isEmpty()) {
-                terminal.warn("REPLACE_ME is still in " + LocalProject.ENV_FILE + " at line(s): " + leftovers
-                        + ". Nothing generated a value for those.");
+                terminal.warn("REPLACE_ME left without a value: file=" + LocalProject.ENV_FILE + " lines=\"" + leftovers
+                        + "\"");
             }
         }
         for (final String service : ResetGuard.SERVICES) {
@@ -68,8 +68,8 @@ final class Setup {
         for (final String service : SECRET_SERVICES) {
             createDirectories(compose.secretsDir(service));
         }
-        terminal.log("plugin directories: " + compose.pluginsDir("smp") + " and its three siblings - jars and"
-                + " configs live there");
+        terminal.log(
+                "plugin directories ready: dir=" + compose.pluginsDir("smp").getParent());
         terminal.log("next: dev up");
     }
 
@@ -79,18 +79,18 @@ final class Setup {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot copy " + EXAMPLE, e);
         }
-        terminal.log("wrote " + LocalProject.ENV_FILE + " from " + EXAMPLE);
+        terminal.log("env file written: file=" + LocalProject.ENV_FILE + " from=" + EXAMPLE);
     }
 
     private void generate(final EnvFile env, final Secret secret) {
         if (env.isSet(secret.name())) {
-            terminal.log(secret.name() + " is already set (left alone)");
+            terminal.log("secret already set, kept: key=" + secret.name());
             return;
         }
         final byte[] bytes = new byte[secret.bytes()];
         random.nextBytes(bytes);
         env.set(secret.name(), HexFormat.of().formatHex(bytes));
-        terminal.log(secret.name() + " generated (" + secret.bytes() + " random bytes, hex)");
+        terminal.log("secret generated: key=" + secret.name() + " bytes=" + secret.bytes());
     }
 
     void ask(final EnvFile env, final LocalQuestions.Question question) {
@@ -102,38 +102,39 @@ final class Setup {
             final String answer = typed.orElse("").strip();
             if (question.kind() == LocalQuestions.Kind.LICENCE) {
                 if (!LocalQuestions.isYes(answer)) {
-                    throw new Processes.Failure("the EULA was not accepted, so there are no servers to start. "
-                            + LocalProject.ENV_FILE + " has been written as far as this point and can be removed.");
+                    throw new Processes.Failure("Setup stopped: the Minecraft EULA was not accepted. Delete "
+                            + LocalProject.ENV_FILE + " and run dev init again.");
                 }
                 env.set(question.name(), "true");
-                terminal.log(question.name() + " accepted and recorded");
+                terminal.log("licence accepted: key=" + question.name());
                 return;
             }
             if (answer.isEmpty()) {
                 if (question.kind() != LocalQuestions.Kind.PLAIN) {
-                    terminal.log(question.name() + " left empty - the feature that needs it is simply not served");
+                    terminal.log("answer skipped: key=" + question.name());
                     return;
                 }
                 if (typed.isEmpty()) {
-                    throw new Processes.Failure(question.name() + " is required and the input ended.");
+                    throw new Processes.Failure("Setup stopped: the input ended before " + question.name()
+                            + " was answered. Delete " + LocalProject.ENV_FILE + " and run dev init again.");
                 }
-                terminal.warn("that one cannot be left empty.");
+                terminal.warn("This one needs an answer.");
                 continue;
             }
             if (!question.check().test(answer)) {
-                terminal.warn("that does not look like it can be right. Try again.");
+                terminal.warn("That answer has the wrong form.");
                 continue;
             }
             final LocalQuestions.Home home = question.home();
             if (home == null) {
                 env.set(question.name(), answer);
-                terminal.log(question.name() + " written to " + LocalProject.ENV_FILE);
+                terminal.log("answer written: key=" + question.name() + " file=" + LocalProject.ENV_FILE);
             } else {
                 final Path directory = compose.secretsDir(home.service());
                 createDirectories(directory);
                 EnvFile.readableByItsService(directory.resolve("secrets.env")).set(home.name(), answer);
-                terminal.log(question.name() + " written to " + root.relativize(directory) + "/secrets.env,"
-                        + " which only " + home.service() + " mounts");
+                terminal.log("answer written: key=" + question.name() + " file=" + root.relativize(directory)
+                        + "/secrets.env");
             }
             return;
         }
@@ -151,13 +152,11 @@ final class Setup {
         }
         final String host = LocalQuestions.hostOf(url.get());
         env.set("STEWARD_WEBAUTHN_RP_ID", host);
-        terminal.log("STEWARD_WEBAUTHN_RP_ID = " + host + " (derived from the address above)");
+        terminal.log("relying party id derived: key=STEWARD_WEBAUTHN_RP_ID host=" + host);
         if (!host.contains(".") && !host.equals("localhost")) {
-            terminal.warn(host + " has no dot in it, so steward will refuse to start: a relying party id has to"
-                    + " be a registrable domain, and localhost is the only single label that is allowed. Use"
-                    + " http://localhost:5173 for the dev server, http://steward.localhost:8080 for the container."
-                    + " Everything else in " + LocalProject.ENV_FILE + " is written and only this one line needs"
-                    + " changing.");
+            terminal.warn("Steward refuses the host " + host + ": it needs a dot, or must be localhost. In "
+                    + LocalProject.ENV_FILE + ", set STEWARD_PUBLIC_URL to http://localhost:5173 for the dev server"
+                    + " or http://steward.localhost:8080 for the container, and STEWARD_WEBAUTHN_RP_ID to its host.");
         }
     }
 

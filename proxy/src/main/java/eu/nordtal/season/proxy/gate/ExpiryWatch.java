@@ -90,11 +90,7 @@ public final class ExpiryWatch {
         try {
             state = access.accessState(uuid);
         } catch (final RuntimeException exception) {
-            logger.warn(
-                    "Could not re-check access for {} ({}); the next wake-up of the signal hub asks again",
-                    uuid,
-                    player.getUsername(),
-                    exception);
+            logger.warn("access not re-checked: uuid={} player={}", uuid, player.getUsername(), exception);
             return;
         }
         fallback.remember(uuid, state);

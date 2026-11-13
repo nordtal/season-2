@@ -104,7 +104,7 @@ public class AccessBot implements AutoCloseable {
 
     /** Runs everything that blocks. A gateway thread must acknowledge an interaction within three seconds. */
     private final ProcessScheduler scheduler =
-            new ProcessScheduler("access-bot", failure -> log.error("A task of the bot failed", failure));
+            new ProcessScheduler("access-bot", failure -> log.error("bot task failed", failure));
 
     private final Executor statusLane = scheduler.serial();
 
@@ -170,7 +170,7 @@ public class AccessBot implements AutoCloseable {
                     databaseConfig, settings, accessConfig, core, wiring, seasons, updates, botConfig.stewardUrl());
 
             started = true;
-            log.info("access-bot is up");
+            log.info("access-bot started");
         } finally {
             if (!started) {
                 database.close();
@@ -530,7 +530,7 @@ public class AccessBot implements AutoCloseable {
         if (status.configured()) {
             status.follow(hub, scheduler, statusLane);
         } else {
-            log.info("No language has a status-channel; the sidebar status is off");
+            log.info("status channels not set, sidebar status off");
         }
         MessageOverrideStore.using(database.dataSource()).follow(messages.raw(), hub);
         documents.follow(hub, documentsChanged);
@@ -542,7 +542,7 @@ public class AccessBot implements AutoCloseable {
     /** Leaves the readiness marker to go stale, which signals the shutdown. */
     @Override
     public void close() {
-        log.info("Shutting down");
+        log.info("access-bot stopping");
         signals.close();
         scheduler.close();
         try {
@@ -559,14 +559,11 @@ public class AccessBot implements AutoCloseable {
         try {
             bot = new AccessBot();
         } catch (final SettingsException e) {
-            log.error("access-bot is not starting because its configuration could not be read.");
-            log.error("{}", e.getMessage());
+            log.error("access-bot not starting, settings unreadable: cause={}", e.getMessage());
             System.exit(1);
             return;
         } catch (final net.dv8tion.jda.api.exceptions.InvalidTokenException badToken) {
-            log.error("access-bot is not starting: Discord rejected the bot token.");
-            log.error("Check NORDTAL_BOT_TOKEN in .env against the token in the Discord developer"
-                    + " portal - a regenerated token invalidates the old one immediately.");
+            log.error("access-bot not starting, bot token rejected");
             backOffThenExit();
             return;
         }
@@ -574,10 +571,7 @@ public class AccessBot implements AutoCloseable {
     }
 
     private static void backOffThenExit() {
-        log.error(
-                "Waiting {}s before exiting, so this container does not retry a login Discord has"
-                        + " already refused every few seconds.",
-                FATAL_BACKOFF.toSeconds());
+        log.error("exit delayed: seconds={}", FATAL_BACKOFF.toSeconds());
         final var _ = Waiting.on(NetworkTime.clock()).sleep(FATAL_BACKOFF);
         System.exit(1);
     }

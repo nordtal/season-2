@@ -96,7 +96,7 @@ public final class Bank {
             return Json.decode(client.post(BankWire.of(BankWire.CANCEL, tabId), "{}"), BankWire.Cancelled.class)
                     .accepted();
         } catch (final InternalClient.Failure failure) {
-            log.warn("Could not cancel bunq.me tab {}: {}", tabId, failure.getMessage());
+            log.warn("bunq tab not cancelled: tab={} cause={}", tabId, failure.getMessage());
             return false;
         }
     }

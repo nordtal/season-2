@@ -56,8 +56,7 @@ public final class Gatekeeper {
             return Gate.ANYONE;
         }
         log.error(
-                "{} {} carries {} of Steward's own route decisions and has to carry exactly"
-                        + " one - refusing it rather than guessing.",
+                "route refused, not exactly one route decision: method={} path={} count={}",
                 ctx.method(),
                 ctx.path(),
                 decided.size());

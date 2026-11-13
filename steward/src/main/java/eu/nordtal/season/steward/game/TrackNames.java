@@ -62,8 +62,7 @@ public record TrackNames(
         try {
             return read.get();
         } catch (final RuntimeException unread) {
-            log.warn(
-                    "the names of the milestones could not be read, so Steward shows their ids: {}", unread.toString());
+            log.warn("milestone names unreadable, ids shown: cause={}", unread.toString());
             return IDS;
         }
     }

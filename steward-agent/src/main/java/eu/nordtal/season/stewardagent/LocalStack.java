@@ -70,7 +70,7 @@ final class LocalStack implements ContainerOps {
             return docker.recentLines(
                     containerId, count, !docker.inspect(containerId).tty());
         } catch (final DockerException unread) {
-            log.warn("could not read the log of {}", containerId, unread);
+            log.warn("container log unreadable: container={}", containerId, unread);
             return List.of();
         }
     }
@@ -84,7 +84,7 @@ final class LocalStack implements ContainerOps {
         try {
             final Docker.ExecResult answer = docker.exec(containerId, command);
             if (!answer.ok()) {
-                log.warn("could not ask {} for its missing secrets: exit {}", containerId, answer.exitCode());
+                log.warn("missing secrets not read: container={} exit_code={}", containerId, answer.exitCode());
                 return java.util.Optional.empty();
             }
             // Anything but an asked name is dropped, so no other output reaches the record.
@@ -95,7 +95,7 @@ final class LocalStack implements ContainerOps {
                     .distinct()
                     .toList());
         } catch (final DockerException unasked) {
-            log.warn("could not ask {} for its missing secrets: {}", containerId, unasked.getMessage());
+            log.warn("missing secrets not read: container={} cause={}", containerId, unasked.getMessage());
             return java.util.Optional.empty();
         }
     }
@@ -103,9 +103,10 @@ final class LocalStack implements ContainerOps {
     @Override
     public void handOverMounts(final String service) {
         try {
-            compose.handOver(List.of(service), line -> log.info("[hand-over {}] {}", service, line));
+            compose.handOver(
+                    List.of(service), line -> log.info("hand-over output: service={} line=\"{}\"", service, line));
         } catch (final java.io.IOException | RuntimeException failure) {
-            log.warn("could not hand {}'s volumes to its user: {}", service, failure.getMessage());
+            log.warn("volume hand-over failed: service={} cause={}", service, failure.getMessage());
         }
     }
 
@@ -177,13 +178,10 @@ final class LocalStack implements ContainerOps {
     public Pruned pruneImages() {
         try {
             final Docker.Pruned pruned = docker.prune();
-            log.info(
-                    "pruned {} unused images and the build cache, freeing {} bytes",
-                    pruned.images(),
-                    pruned.freedBytes());
+            log.info("unused images and build cache pruned: count={} bytes={}", pruned.images(), pruned.freedBytes());
             return new Pruned(pruned.images(), pruned.removed(), pruned.freedBytes(), pruned.cacheBytes(), null);
         } catch (final DockerException refused) {
-            log.warn("pruning the unused images failed: {}", refused.getMessage());
+            log.warn("unused images not pruned: cause={}", refused.getMessage());
             return new Pruned(0, Map.of(), 0, 0, String.valueOf(refused.getMessage()));
         }
     }
@@ -200,7 +198,7 @@ final class LocalStack implements ContainerOps {
         final List<String> lines = new ArrayList<>();
         final Consumer<String> output = line -> {
             lines.add(line);
-            log.info("[{} {}] {}", what, service, line);
+            log.info("compose output: action={} service={} line=\"{}\"", what, service, line);
         };
         try {
             final int status = command.run(output);

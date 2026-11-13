@@ -41,7 +41,7 @@ abstract class CheckNoDashPunctuation : DefaultTask() {
                 .flatMap { path -> findingsIn(path, root.resolve(path)).map { "    $path:$it" } }
         if (findings.isEmpty()) return
         if (enforced.get()) throw GradleException("Dash punctuation in the repository:\n" + findings.joinToString("\n"))
-        logger.lifecycle("$path: ${findings.size} dash findings, not yet enforced.")
+        logger.lifecycle("dash findings not enforced: task=$path count=${findings.size}")
     }
 
     private fun findingsIn(

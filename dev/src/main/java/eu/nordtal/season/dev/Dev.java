@@ -61,10 +61,10 @@ public final class Dev {
             case "ps" -> compose.run("ps");
             case "stop" -> compose.run("stop");
             case "down" -> compose.run("down");
-            case "console" -> stack.console(one(rest, "usage: dev console <service>"));
+            case "console" -> stack.console(one(rest, "Name one service: dev console <service>"));
             case "mc" -> {
                 if (rest.size() < 2) {
-                    throw new Processes.Failure("usage: dev mc <service> <command>");
+                    throw new Processes.Failure("Name a service and a command: dev mc <service> <command>");
                 }
                 Processes.require(
                         compose.exec(rest.getFirst(), "mc", String.join(" ", rest.subList(1, rest.size()))),
@@ -73,7 +73,7 @@ public final class Dev {
             case "psql" -> stack.psql();
             case "reset" -> stack.reset(rest.isEmpty() ? "" : rest.getFirst());
             case "help", "-h", "--help" -> terminal.print(HELP);
-            default -> throw new Processes.Failure("unknown command '" + command + "'. Try: dev help");
+            default -> throw new Processes.Failure("Unknown command " + command + ". Run dev help for the list.");
         }
     }
 

@@ -32,7 +32,7 @@ public final class StewardBunq {
                 Path.of(server.setting("CONTEXT_PATH", DEFAULT_CONTEXT)));
         bank.logStartupLine();
         final ProcessScheduler scheduler =
-                new ProcessScheduler(BankWire.SERVICE, failure -> log.error("A task of steward-bunq failed", failure));
+                new ProcessScheduler(BankWire.SERVICE, failure -> log.error("task failed", failure));
         server.serve(BankWire.PORT, NetworkTime.clock(), scheduler, config -> routes(config, bank));
     }
 
@@ -61,7 +61,7 @@ public final class StewardBunq {
         } catch (final BunqGateway.NotConfigured off) {
             ctx.status(503).json(refused(off));
         } catch (final RuntimeException refused) {
-            log.warn("bunq refused {} {}: {}", ctx.method(), ctx.path(), refused.toString());
+            log.warn("bunq request refused: method={} path={} cause={}", ctx.method(), ctx.path(), refused.toString());
             ctx.status(502).json(refused(refused));
         }
     }

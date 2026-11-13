@@ -111,11 +111,11 @@ public final class Updates {
             throw new BadRequestResponse(named.getMessage());
         }
         log.info(
-                "{} asked for {} as request {}{}",
+                "run submitted: actor={} kind={} request={} services=\"{}\"",
                 who.name(),
                 kind,
                 written.id(),
-                ask.services == null || ask.services.isEmpty() ? "" : " for " + String.join(", ", ask.services));
+                ask.services == null ? "" : String.join(", ", ask.services));
         final List<String> scope = data.updates().scopeOf(written.id());
         Journaling.line(ctx, new JournalDetail.RunAsked(written.id(), written.kind(), scope));
         ctx.status(202).json(describe(written, scope, RunRecord.EMPTY));
@@ -141,7 +141,7 @@ public final class Updates {
                 new JournalDetail.RunCancelled(
                         cancelled.get().id(), cancelled.get().kind()));
         log.info(
-                "{} cancelled {} request {}",
+                "run cancelled: actor={} kind={} request={}",
                 who.name(),
                 cancelled.get().kind(),
                 cancelled.get().id());

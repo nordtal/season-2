@@ -69,7 +69,7 @@ final class Restores {
             // Started on a half-emptied volume, a server writes defaults over the gaps or makes a new world.
             final List<String> mounting = topology.usersOf(volume);
             log.warn(
-                    "The restore of {} left {} half emptied; {} stay down, and {} holds what it replaced",
+                    "restore left volume half emptied, services kept down: file={} volume={} services={} saved_file={}",
                     archive,
                     volume,
                     mounting,

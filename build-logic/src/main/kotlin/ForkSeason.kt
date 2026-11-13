@@ -37,6 +37,6 @@ abstract class ForkSeason : DefaultTask() {
         val properties = root.resolve("gradle.properties")
         properties.writeText(properties.readText().replace(Regex("(?m)^season=.*$"), "season=$next"))
         val changed = SeasonNames.rewrite(root, trackedFiles(root, listOf(".")), next)
-        logger.lifecycle("season=$next, ${changed.size} files rewritten:\n" + changed.joinToString("\n") { "    $it" })
+        logger.lifecycle("files rewritten: season=$next count=${changed.size}\n" + changed.joinToString("\n") { "    $it" })
     }
 }

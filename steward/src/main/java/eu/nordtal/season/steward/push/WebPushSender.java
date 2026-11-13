@@ -45,7 +45,7 @@ public final class WebPushSender implements PushSender {
                     payload, subscription.endpoint(), subscription.p256dh(), subscription.auth(), null, null, null);
             return state == WebPush.SubscriptionState.EXPIRED ? Result.EXPIRED : Result.SENT;
         } catch (final Exception failure) {
-            log.warn("a push to {} failed and was not a 404/410: {}", subscription.endpoint(), failure.getMessage());
+            log.warn("push failed: endpoint={} cause={}", subscription.endpoint(), failure.getMessage());
             return Result.FAILED;
         }
     }

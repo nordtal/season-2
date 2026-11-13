@@ -85,7 +85,7 @@ public final class Containers {
                 }
             }
         } catch (DockerException e) {
-            log.warn("could not list the containers", e);
+            log.warn("containers not listed", e);
             return new AgentWire.Containers(false, messageOf(e), List.of());
         }
         all.sort(java.util.Comparator.comparing(AgentWire.Container::service));
@@ -123,7 +123,7 @@ public final class Containers {
             exitCode = finishedAt == null || inspection.exitCode() < 0 ? null : inspection.exitCode();
             restarts = inspection.restartCount();
         } catch (DockerException e) {
-            log.debug("could not inspect {}", container.id(), e);
+            log.debug("container not inspected: container={}", container.id(), e);
         }
         return new AgentWire.Container(
                 java.util.Objects.requireNonNull(container.service(), "only compose services are described"),
@@ -165,7 +165,7 @@ public final class Containers {
             }
             return RuntimeResult.of(services);
         } catch (DockerException e) {
-            log.warn("could not read the container runtime", e);
+            log.warn("container runtime unreadable", e);
             return RuntimeResult.unreachable(messageOf(e));
         }
     }
@@ -192,7 +192,7 @@ public final class Containers {
             }
         } catch (DockerException e) {
             // An unknown end is not a bad end, and a refusal would take the network down.
-            log.warn("could not read how {} exited", shortId(containerId), e);
+            log.warn("container exit unreadable: container={}", shortId(containerId), e);
             return RedeployResult.unverified(shortId(containerId) + " was stopped, and how it ended"
                     + " could not be read back: " + e.getMessage());
         }
@@ -269,7 +269,7 @@ public final class Containers {
             }
             return ImageResult.of(states, unverifiable).withLocalBuilds(builds);
         } catch (DockerException e) {
-            log.warn("could not compare images against their registries", e);
+            log.warn("images not compared with registries", e);
             return ImageResult.unreachable(messageOf(e));
         }
     }
@@ -289,7 +289,7 @@ public final class Containers {
                     .filter(container -> service.equals(container.service()))
                     .anyMatch(container -> !hash.equals(container.configHash()));
         } catch (DockerException e) {
-            log.warn("could not compare {}'s container with compose.yml", service, e);
+            log.warn("container not compared with compose.yml: service={}", service, e);
             return false;
         }
     }
@@ -314,7 +314,7 @@ public final class Containers {
         try {
             return definitions.hashes();
         } catch (final java.io.IOException | RuntimeException failed) {
-            log.warn("could not read what compose.yml makes of each service now: {}", failed.getMessage());
+            log.warn("compose services unreadable: cause={}", failed.getMessage());
             return Map.of();
         }
     }

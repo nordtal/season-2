@@ -62,19 +62,23 @@ public final class Journaling {
         }
         final Optional<Actor> who = actor.apply(ctx);
         if (who.isEmpty()) {
-            log.error("{} {} succeeded without a signed-in admin, so it has no journal line", ctx.method(), ctx.path());
+            log.error("change without signed-in admin, not journaled: method={} path={}", ctx.method(), ctx.path());
             return;
         }
         final List<Noted> noted = ctx.attribute(LINES);
         final List<Noted> lines = noted == null || noted.isEmpty() ? List.of(new Noted(null, null)) : noted;
         if (noted == null || noted.isEmpty()) {
-            log.warn("{} {} named no journal line, so it is journaled by its path", ctx.method(), ctx.path());
+            log.warn("journal line missing, journaled by path: method={} path={}", ctx.method(), ctx.path());
         }
         for (final Noted line : lines) {
             try {
                 audit.record(new AuditLine(journaled.action(), who.get(), line.subject(), null, line.detail()));
             } catch (final RuntimeException failed) {
-                log.error("Could not write the journal entry {} {}", journaled.action(), line.detail(), failed);
+                log.error(
+                        "journal entry not written: action={} detail=\"{}\"",
+                        journaled.action(),
+                        line.detail(),
+                        failed);
             }
         }
     }

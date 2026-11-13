@@ -150,7 +150,7 @@ public final class SpawnStation {
             if (step instanceof Step.Remove remove) {
                 networks.removeUnloaded(remove.station());
             } else {
-                unplaced.because("the spawn station is not placed: there is no world called " + name + ".");
+                unplaced.because("spawn station not placed, world missing: world=" + name);
             }
             letGo();
             return;
@@ -172,8 +172,8 @@ public final class SpawnStation {
             }
             case Step.Place _ -> {
                 if (!Material.RAIL.createBlockData().isSupported(block)) {
-                    unplaced.because("the spawn station is not placed: the block under " + name + " " + pos.x() + " "
-                            + pos.y() + " " + pos.z() + " cannot carry a rail.");
+                    unplaced.because("spawn station not placed, block cannot carry a rail: world=" + name + " x="
+                            + pos.x() + " y=" + pos.y() + " z=" + pos.z());
                     hold(world, chunkX, chunkZ);
                     return;
                 }

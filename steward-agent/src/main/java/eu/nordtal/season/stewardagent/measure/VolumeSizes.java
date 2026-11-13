@@ -47,7 +47,7 @@ public final class VolumeSizes {
                     .start();
             if (!process.waitFor(30, TimeUnit.SECONDS)) {
                 process.destroyForcibly();
-                log.warn("du on {} took longer than 30 s and was stopped", path);
+                log.warn("du timed out and stopped: path={} timeout=30s", path);
                 return OptionalLong.empty();
             }
             // du exits 1 when a file vanished under it, which a running server does all the time; the total stands.
@@ -58,7 +58,7 @@ public final class VolumeSizes {
             }
             return OptionalLong.of(Long.parseLong(out.substring(0, tab)) * 1024L);
         } catch (IOException | NumberFormatException failed) {
-            log.warn("du on {} failed: {}", path, failed.toString());
+            log.warn("du failed: path={} cause={}", path, failed.toString());
             return OptionalLong.empty();
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();

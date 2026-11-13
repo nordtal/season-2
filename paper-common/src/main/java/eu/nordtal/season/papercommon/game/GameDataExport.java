@@ -110,7 +110,7 @@ public final class GameDataExport {
                                 .toList()));
             }
         } catch (final UnsupportedOperationException noTags) {
-            warn.accept("a registry offers no tags: " + noTags.getMessage());
+            warn.accept("registry tags not exported: cause=" + noTags.getMessage());
         }
         found.sort(Comparator.comparing(GameCatalogue.Tag::id));
         return found;
@@ -161,8 +161,7 @@ public final class GameDataExport {
                 }
             }
         } catch (final ReflectiveOperationException | RuntimeException changed) {
-            warn.accept(
-                    "statistics are exported without names: the server's mapping could not be read (" + changed + ")");
+            warn.accept("statistic mapping unreadable, statistics exported without names: cause=" + changed);
         }
         return ids;
     }

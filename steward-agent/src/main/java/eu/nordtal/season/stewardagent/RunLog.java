@@ -56,10 +56,10 @@ final class RunLog implements AutoCloseable {
                     folder.resolve(id + ".log"), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             System.setOut(new PrintStream(new Tee(out, file), true, out.charset()));
             System.setErr(new PrintStream(new Tee(err, file), true, err.charset()));
-            log.info("This run's log is kept in {}", folder.resolve(id + ".log"));
+            log.info("run log kept: file={}", folder.resolve(id + ".log"));
             return new RunLog(out, err, file);
         } catch (final IOException unwritable) {
-            log.warn("This run's log is not kept: {} cannot be written ({})", folder, unwritable.toString());
+            log.warn("run log not kept: dir={} cause={}", folder, unwritable.toString());
             return new RunLog(out, err, OutputStream.nullOutputStream());
         }
     }
@@ -94,7 +94,7 @@ final class RunLog implements AutoCloseable {
         try {
             file.close();
         } catch (final IOException unclosed) {
-            log.warn("This run's log could not be closed: {}", unclosed.toString());
+            log.warn("run log not closed: cause={}", unclosed.toString());
         }
     }
 

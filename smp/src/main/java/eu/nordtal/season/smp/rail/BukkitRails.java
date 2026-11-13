@@ -218,15 +218,14 @@ final class BukkitRails implements RailView {
             plugin.getLogger()
                     .log(
                             Level.WARNING,
-                            "chunk " + (pos.x() >> 4) + "," + (pos.z() >> 4) + " of " + world.getName()
-                                    + " failed to load " + TRIES + " times; its rail network is walked as if the track"
-                                    + " ended there, and again once the chunk loads",
+                            "rail chunk not loaded, track treated as ended: world=" + world.getName() + " chunk_x="
+                                    + (pos.x() >> 4) + " chunk_z=" + (pos.z() >> 4) + " attempt=" + TRIES,
                             failure);
             return;
         }
         if (!warned) {
             warned = true;
-            plugin.getLogger().log(Level.WARNING, "a chunk of a rail network failed to load, asking again", failure);
+            plugin.getLogger().log(Level.WARNING, "rail chunk not loaded, load retried", failure);
         }
         notBefore.put(key, loadCalls + SPACING);
         failed.add(pos);

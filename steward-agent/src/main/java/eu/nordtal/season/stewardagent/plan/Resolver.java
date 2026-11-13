@@ -120,9 +120,7 @@ public final class Resolver {
         try {
             return plugins.all();
         } catch (final RuntimeException failed) {
-            log.warn(
-                    "Could not read the added plugins, so this plan carries only the ones the" + " topology names: {}",
-                    failed.toString());
+            log.warn("added plugins unreadable, plan holds topology only: cause={}", failed.toString());
             return List.of();
         }
     }
@@ -246,7 +244,7 @@ public final class Resolver {
             // One call answers for our jars and the pack, so one reason covers every row.
             final MessageRef why =
                     TEXTS.report().releaseUnread(config.seasonRepo(), String.valueOf(failed.getMessage()));
-            log.warn("Season release unresolved - {}", failed.getMessage());
+            log.warn("season release unresolved: cause={}", failed.getMessage());
             Topology.SEASON_JARS.forEach(artifact -> failures.put(artifact, why));
             failures.put(Topology.RESOURCE_PACK, why);
             return null;
@@ -339,11 +337,7 @@ public final class Resolver {
         try {
             newest.put(artifact, modrinth.newest(artifact, projectId, Platform.MINECRAFT, loader));
         } catch (final Modrinth.Unsupported none) {
-            log.info(
-                    "{} has no build for Minecraft {} - the row stays in the plan and installs"
-                            + " itself when one appears",
-                    artifact,
-                    Platform.MINECRAFT);
+            log.info("minecraft build missing, plan row kept: artifact={} version={}", artifact, Platform.MINECRAFT);
             unsupported.put(artifact, TEXTS.report().noBuild(artifact, Platform.MINECRAFT, loader));
         } catch (final IOException failed) {
             failures.put(artifact, TEXTS.report().words(String.valueOf(failed.getMessage())));
@@ -499,7 +493,7 @@ public final class Resolver {
             return Installation.scan(service, directory);
         } catch (final IOException failed) {
             // A directory that exists but cannot be listed is a mount permission problem, not an empty server.
-            log.warn("Could not read {} for {}: {}", directory, service, failed.getMessage());
+            log.warn("directory unreadable: dir={} service={} cause={}", directory, service, failed.getMessage());
             return Installation.absent(service, directory);
         }
     }

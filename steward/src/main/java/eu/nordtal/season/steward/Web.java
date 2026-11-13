@@ -435,9 +435,8 @@ public final class Web {
         timed.add(scheduler.every(Duration.ZERO, GAME_PING, () -> pingGame(gameLane)));
         live.start();
         authFlow.whatIsMissing()
-                .ifPresent(missing ->
-                        log.warn("Nobody can sign in yet: {} is empty. Everything else is running.", missing));
-        log.info("Nordtal Steward is on {} - public address {}", port, config.publicUrl());
+                .ifPresent(missing -> log.warn("sign-in not possible, setting empty: key=\"{}\"", missing));
+        log.info("steward listening: port={} url={}", port, config.publicUrl());
         return app;
     }
 
@@ -600,7 +599,7 @@ public final class Web {
                 && !admins.isAdmin(found.get().signedInDiscordId())) {
             final int ended = sessions.endAllOf(found.get().signedInDiscordId());
             log.info(
-                    "ended {} session(s) of {}: no longer an admin",
+                    "sessions ended, no longer an admin: count={} member={}",
                     ended,
                     found.get().signedInDiscordId());
             found = Optional.empty();

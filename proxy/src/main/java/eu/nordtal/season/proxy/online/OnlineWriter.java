@@ -84,7 +84,7 @@ public final class OnlineWriter {
         try {
             return hurry.getAsBoolean();
         } catch (final RuntimeException failure) {
-            logger.debug("Could not tell whether a run is imminent; writing on the usual cadence", failure);
+            logger.debug("run imminence unreadable, usual cadence kept", failure);
             return false;
         }
     }
@@ -113,9 +113,7 @@ public final class OnlineWriter {
         try {
             online.write(OnlineCounts.of(proxy.getPlayerCount(), playersByServer()));
         } catch (final RuntimeException failure) {
-            logger.warn(
-                    "Could not write online player counts; the service list keeps showing the " + "last numbers it saw",
-                    failure);
+            logger.warn("online player counts not written", failure);
         }
     }
 
@@ -123,9 +121,7 @@ public final class OnlineWriter {
         try {
             roster.replace(present());
         } catch (final RuntimeException failure) {
-            logger.warn(
-                    "Could not write the online player list; the service list keeps showing " + "the last names it saw",
-                    failure);
+            logger.warn("online player list not written", failure);
         }
     }
 

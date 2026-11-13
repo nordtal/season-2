@@ -63,8 +63,8 @@ public final class LimboPlugin extends NordtalPlugin {
         presence = new WaitingRoomRules(this, world, room, speaking, renderer(), identities());
         listen(presence);
         getLogger()
-                .info("waiting world '" + config.get().worldName() + "', title refreshed every "
-                        + config.get().titleRefreshSeconds() + "s, speaking " + LimboProtocol.CHANNEL);
+                .info("limbo enabled: world=" + config.get().worldName() + " title_refresh_seconds="
+                        + config.get().titleRefreshSeconds() + " plugin_channel=" + LimboProtocol.CHANNEL);
     }
 
     @Override

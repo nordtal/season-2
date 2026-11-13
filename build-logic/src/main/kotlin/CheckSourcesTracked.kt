@@ -38,7 +38,7 @@ abstract class CheckSourcesTracked : DefaultTask() {
     fun check() {
         val root = repositoryRoot.get().asFile
         if (!File(root, ".git").exists()) {
-            logger.info("{}: {} is not a Git checkout, nothing to compare against", path, root)
+            logger.info("git checkout not found, sources not compared: task={} dir={}", path, root)
             return
         }
 
@@ -76,7 +76,7 @@ abstract class CheckSourcesTracked : DefaultTask() {
                 git(root, arguments)
             } catch (e: IOException) {
                 logger.warn(
-                    "{}: could not run git ({}), so a source file missing from the repository would go unnoticed",
+                    "git not run, sources not compared: task={} cause={}",
                     path,
                     e.message,
                 )

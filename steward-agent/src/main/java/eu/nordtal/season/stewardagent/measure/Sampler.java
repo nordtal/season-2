@@ -68,14 +68,14 @@ public final class Sampler implements AutoCloseable {
     /** Takes a round now, which has no CPU yet, and one every period. */
     public synchronized void start() {
         ticking = scheduler.every(Duration.ZERO, PERIOD, this::tickQuietly);
-        log.info("sampling the host and the containers every {}s", PERIOD.toSeconds());
+        log.info("sampling started: seconds={}", PERIOD.toSeconds());
     }
 
     private void tickQuietly() {
         try {
             tick(wall.instant());
         } catch (final RuntimeException e) {
-            log.warn("a round of sampling failed; the next one will try again", e);
+            log.warn("sampling round failed", e);
         }
     }
 
@@ -125,7 +125,7 @@ public final class Sampler implements AutoCloseable {
                     snapshot.diskTotalBytes(),
                     snapshot.diskUsedBytes());
         } catch (final IOException e) {
-            log.warn("could not read the host's own numbers", e);
+            log.warn("host numbers unreadable", e);
             return null;
         }
     }
@@ -137,7 +137,7 @@ public final class Sampler implements AutoCloseable {
                     .filter(container -> container.service() != null && container.isRunning())
                     .toList();
         } catch (final DockerException e) {
-            log.warn("could not list containers for sampling", e);
+            log.warn("containers not listed for sampling", e);
             return List.of();
         }
         final List<CompletableFuture<Reading>> reads = containers.stream()
@@ -158,7 +158,7 @@ public final class Sampler implements AutoCloseable {
             Thread.currentThread().interrupt();
         } catch (final ExecutionException | TimeoutException e) {
             // One container that would not answer is one gap in one chart, not a lost round.
-            log.debug("a container did not answer with stats", e);
+            log.debug("container stats not answered", e);
         }
         final List<Reading> readings = new ArrayList<>();
         for (final CompletableFuture<Reading> read : reads) {

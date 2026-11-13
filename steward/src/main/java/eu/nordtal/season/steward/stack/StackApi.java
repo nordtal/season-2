@@ -218,7 +218,7 @@ public final class StackApi implements AutoCloseable {
             try {
                 drift.get();
             } catch (RuntimeException failed) {
-                log.warn("the first image comparison failed - the next request will try again: {}", failed.toString());
+                log.warn("first image comparison failed: cause={}", failed.toString());
             }
         });
     }
@@ -432,7 +432,7 @@ public final class StackApi implements AutoCloseable {
         }
         final eu.nordtal.season.database.update.UpdateRequest written = updates.submit(
                 new eu.nordtal.season.database.inbox.StewardRequest.Restore(name), List.of(), actor, Duration.ZERO);
-        log.info("restore of {} asked for as request {}", name, written.id());
+        log.info("restore submitted: archive={} request={}", name, written.id());
         Journaling.line(ctx, new JournalDetail.RestoreAsked(written.id(), name));
         ctx.status(202).json(new RestoreAsked(written.id(), written.kind(), name));
     }

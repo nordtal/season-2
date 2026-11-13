@@ -23,9 +23,7 @@ public final class TabUtil {
         try {
             Class.forName("me.neznamy.tab.api.TabAPI", false, TabUtil.class.getClassLoader());
         } catch (ClassNotFoundException | LinkageError error) {
-            plugin.getLogger()
-                    .warning(
-                            "TAB is installed, but its API is not accessible. DisplayTags will manage the vanilla name tags itself.");
+            plugin.getLogger().warning("TAB API not accessible, own name tags used");
             return;
         }
 
@@ -33,14 +31,10 @@ public final class TabUtil {
 
         try {
             Hook.registerNameTagHider(plugin);
-            plugin.getLogger()
-                    .info(
-                            "TAB is installed on this server. DisplayTags will let TAB hide the vanilla name tags instead of sending its own team packets.");
+            plugin.getLogger().info("TAB found");
         } catch (LinkageError | RuntimeException error) {
             available = false;
-            plugin.getLogger()
-                    .warning("Failed to hook into TAB (" + error
-                            + "). DisplayTags will manage the vanilla name tags itself.");
+            plugin.getLogger().warning("TAB hook failed, own name tags used: cause=" + error);
         }
     }
 
@@ -61,9 +55,7 @@ public final class TabUtil {
             // TAB creates its event bus after it has loaded, so this can be null.
             final EventBus eventBus = TabAPI.getInstance().getEventBus();
             if (eventBus == null) {
-                plugin.getLogger()
-                        .warning(
-                                "TAB's event bus is not available, so DisplayTags cannot ask TAB to hide the vanilla name tags.");
+                plugin.getLogger().warning("TAB event bus missing, vanilla name tags not hidden by TAB");
                 return;
             }
 

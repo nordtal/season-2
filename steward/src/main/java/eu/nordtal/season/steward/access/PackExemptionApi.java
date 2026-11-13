@@ -68,7 +68,7 @@ public final class PackExemptionApi {
         switch (outcome) {
             case CHANGED -> {
                 Journaling.line(ctx, DiscordId.of(target), null);
-                log.info("{} {} for {}", who.name(), action, target);
+                log.info("pack exemption changed: actor={} action={} member={}", who.name(), action, target);
                 ctx.json(new Exempted(outcome));
             }
             case UNCHANGED -> throw new RequestRefused(409, unchanged);

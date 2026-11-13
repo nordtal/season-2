@@ -92,28 +92,26 @@ public final class Announcements {
         final Optional<String> channel = channels.name(channelId);
         if (channel.isEmpty()) {
             log.error(
-                    "Announcement channel {} for '{}' does not exist or the bot cannot see it;"
-                            + " it would have carried \"{}\"",
-                    channelId,
-                    languageTag,
-                    text);
+                    "announcement channel not found: channel={} language={} text=\"{}\"", channelId, languageTag, text);
             return false;
         }
         try {
             channels.send(channelId, text);
-            log.info("Announced in '{}' in #{} ({}): {}", languageTag, channel.get(), channelId, text);
+            log.info(
+                    "announcement posted: language={} channel={} channel_name=\"{}\" text=\"{}\"",
+                    languageTag,
+                    channelId,
+                    channel.get(),
+                    text);
             return true;
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            log.warn("Interrupted while announcing in '{}'", languageTag);
+            log.warn("announcement interrupted: language={}", languageTag);
             return false;
         } catch (final ExecutionException | TimeoutException failure) {
             // A timeout counts as a failure even though JDA may still deliver the message.
             log.warn(
-                    "Could not announce in '{}': {} - it would have carried \"{}\"",
-                    languageTag,
-                    failure.toString(),
-                    text);
+                    "announcement not posted: language={} text=\"{}\" cause={}", languageTag, text, failure.toString());
             return false;
         }
     }
@@ -126,21 +124,28 @@ public final class Announcements {
     public boolean post(final String channelId, final String languageTag, final MessageCreateData message) {
         final Optional<String> channel = channels.name(channelId);
         if (channel.isEmpty()) {
-            log.error(
-                    "Announcement channel {} for '{}' does not exist or the bot cannot see it", channelId, languageTag);
+            log.error("announcement channel not found: channel={} language={}", channelId, languageTag);
             return false;
         }
         try {
             channels.send(channelId, message);
-            log.info("Announced in '{}' in #{} ({})", languageTag, channel.get(), channelId);
+            log.info(
+                    "announcement posted: language={} channel={} channel_name=\"{}\"",
+                    languageTag,
+                    channelId,
+                    channel.get());
             return true;
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            log.warn("Interrupted while announcing in '{}'", languageTag);
+            log.warn("announcement interrupted: language={}", languageTag);
             return false;
         } catch (final ExecutionException | TimeoutException failure) {
             // A timeout counts as a failure even though JDA may still deliver the message.
-            log.warn("Could not announce in '{}' in {}: {}", languageTag, channelId, failure.toString());
+            log.warn(
+                    "announcement not posted: language={} channel={} cause={}",
+                    languageTag,
+                    channelId,
+                    failure.toString());
             return false;
         }
     }

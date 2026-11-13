@@ -63,7 +63,7 @@ public final class Sessions {
                 Objects.requireNonNull(name, "name"),
                 random(),
                 seconds);
-        log.info("signed in {} ({}) - session valid for {} days", name, discordId, seconds / 86400);
+        log.info("session started: actor={} member={} days={}", name, discordId, seconds / 86400);
         return id;
     }
 
@@ -111,7 +111,7 @@ public final class Sessions {
     public int sweep() {
         final int gone = dao.sweep();
         if (gone > 0) {
-            log.info("swept {} expired session(s)", gone);
+            log.info("expired sessions swept: count={}", gone);
         }
         return gone;
     }

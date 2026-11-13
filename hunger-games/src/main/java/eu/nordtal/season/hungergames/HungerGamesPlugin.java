@@ -145,9 +145,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         sounds = HungerGamesSounds.of(soundSettings.get(), getLogger()::warning);
         final World found = resolveWorld(config.get());
         if (found == null) {
-            throw fatal(
-                    "hunger-games could not find/load world '" + config.get().worldName()
-                            + "': stopping the server rather than running an event server with no event world on it");
+            throw fatal("hunger-games not starting, world missing: world="
+                    + config.get().worldName());
         }
         world = found;
     }
@@ -274,8 +273,8 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         }
         final List<Participant> playing = Demotion.resolve(rosters.roster(round.get()));
         getLogger()
-                .info("game " + started.get() + " started with " + playing.size() + " resolvable participants"
-                        + (playing.size() < recommended ? " (confirmed below the recommended minimum)" : ""));
+                .info("game started: game=" + started.get() + " count=" + playing.size() + " below_minimum="
+                        + (playing.size() < recommended));
         startGame(started.get(), playing);
         return Answer.done(STARTED.with(new Count(playing.size())));
     }
@@ -339,12 +338,10 @@ public final class HungerGamesPlugin extends NordtalPlugin {
         try {
             soundSettings.reload();
             sounds.reload(soundSettings.get());
-            getLogger().info("the sounds were reloaded");
+            getLogger().info("sounds reloaded");
             return true;
         } catch (final SettingsException | RuntimeException exception) {
-            getLogger()
-                    .severe("the sounds could not be reloaded, the running ones are unchanged: "
-                            + exception.getMessage());
+            getLogger().severe("sounds not reloaded, running sounds kept: cause=" + exception.getMessage());
             return false;
         }
     }
@@ -370,16 +367,14 @@ public final class HungerGamesPlugin extends NordtalPlugin {
     private void abortInterrupted() {
         dao.abortInterrupted()
                 .ifPresent(game -> getLogger()
-                        .warning("game " + game.id() + " was in " + game.state() + " when the server stopped:"
-                                + " it is aborted and its round is open again for an admin to start anew"));
+                        .warning("interrupted game aborted, round reopened: game=" + game.id() + " state="
+                                + game.state()));
     }
 
     private @Nullable World resolveWorld(final HungerGamesSpec config) {
         final World world = Bukkit.getWorld(config.worldName());
         if (world == null) {
-            getLogger()
-                    .warning("World '" + config.worldName() + "' is not currently loaded - "
-                            + "hunger-games cannot run without its event world");
+            getLogger().warning("event world not loaded: world=" + config.worldName());
         }
         return world;
     }

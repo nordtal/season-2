@@ -137,7 +137,7 @@ public final class WebAuthn {
                     .response(response)
                     .build());
         } catch (RegistrationFailedException refused) {
-            log.info("a registration for {} was refused: {}", discordId, refused.getMessage());
+            log.info("security key registration refused: member={} cause={}", discordId, refused.getMessage());
             throw new Refused(ANSWER.keyRefused(true, String.valueOf(refused.getMessage())), refused);
         }
 
@@ -205,7 +205,7 @@ public final class WebAuthn {
                     .response(response)
                     .build());
         } catch (AssertionFailedException refused) {
-            log.info("an assertion for {} was refused: {}", discordId, refused.getMessage());
+            log.info("security key assertion refused: member={} cause={}", discordId, refused.getMessage());
             throw new Refused(ANSWER.keyRefused(false, String.valueOf(refused.getMessage())), refused);
         }
         if (!result.isSuccess()) {

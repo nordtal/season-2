@@ -64,7 +64,7 @@ public final class BookingReaction {
         }
 
         admin.show(booked.entry());
-        log.info("Told {} of {}: {} days", payer, booked.reference(), booked.days());
+        log.info("booking sent to member: member={} reference={} days={}", payer, booked.reference(), booked.days());
     }
 
     private void announceDonation(final DiscordId discordId, final int donationCents, final Locale locale) {
@@ -74,7 +74,7 @@ public final class BookingReaction {
         }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
-            log.error("Contribution channel {} is not available; the thank-you was not posted", channelId);
+            log.error("contribution channel not found, thank-you not posted: channel={}", channelId);
             return;
         }
         channel.sendMessage(documents
@@ -86,6 +86,6 @@ public final class BookingReaction {
                                                 new DiscordMemberContext(discordId, discordId.value()),
                                                 Money.euroCents(donationCents))))
                         .create())
-                .queue(ok -> {}, failure -> log.error("Could not post the donation thank-you", failure));
+                .queue(ok -> {}, failure -> log.error("donation thank-you not posted", failure));
     }
 }

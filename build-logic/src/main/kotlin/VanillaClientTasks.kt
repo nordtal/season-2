@@ -80,7 +80,7 @@ abstract class ListVanillaAssets : VanillaClientTask() {
                         },
                 )
             } catch (e: IllegalStateException) {
-                logger.warn(e.message)
+                logger.warn("vanilla sounds not listed: cause={}", e.message)
                 mapOf("sounds" to emptyList<Any>(), "soundsProblem" to e.message)
             }
         val assets = mapOf("version" to version.get()) + VanillaClient.assets(jar()) + sounds

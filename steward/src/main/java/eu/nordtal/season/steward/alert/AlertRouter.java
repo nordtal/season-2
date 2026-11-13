@@ -80,7 +80,7 @@ public final class AlertRouter {
         try {
             raised = book.claimUnrouted();
         } catch (final RuntimeException failure) {
-            log.warn("Could not read the alerts to route", failure);
+            log.warn("alerts unreadable for routing", failure);
             return;
         }
         if (raised.isEmpty()) {
@@ -129,7 +129,7 @@ public final class AlertRouter {
                 case SENT -> subscriptions.touchSent(subscription.endpoint());
                 // A 404 or 410 means the subscription is dead, so the row is removed.
                 case EXPIRED -> subscriptions.expired(subscription.endpoint());
-                case FAILED -> log.warn("push to {} failed (not a 404/410)", subscription.endpoint());
+                case FAILED -> log.warn("push failed: endpoint={}", subscription.endpoint());
             }
         }
     }
@@ -148,7 +148,7 @@ public final class AlertRouter {
                     Schedule.within(BOT_PATIENCE));
         } catch (final RuntimeException failure) {
             log.warn(
-                    "Could not ask the bot to post the alert of {} on {}",
+                    "alert not posted by bot: type={} subject=\"{}\"",
                     alert.type().key(),
                     alert.subject(),
                     failure);
@@ -159,7 +159,7 @@ public final class AlertRouter {
         try {
             return Objects.requireNonNull(sender).send(subscription, payload);
         } catch (final RuntimeException failure) {
-            log.warn("push to {} failed: {}", subscription.endpoint(), failure.getMessage());
+            log.warn("push failed: endpoint={} cause={}", subscription.endpoint(), failure.getMessage());
             return PushSender.Result.FAILED;
         }
     }

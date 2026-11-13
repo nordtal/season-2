@@ -48,7 +48,8 @@ final class HostRequests {
         try {
             config = AgentSettings.database().get();
         } catch (final SettingsException broken) {
-            System.err.println("the database settings cannot be read: " + broken.getMessage());
+            System.err.println("Nothing was asked: the database settings cannot be read (" + broken.getMessage()
+                    + "). Correct them in the environment of steward-agent and run it again.");
             return 1;
         }
         final Database opened = DatabaseWaiting.openDatabase(
@@ -58,7 +59,8 @@ final class HostRequests {
                 Duration.ofSeconds(1),
                 Waiting.on(NetworkTime.clock()));
         if (opened == null) {
-            System.err.println("the database did not answer, so nothing was asked");
+            System.err.println(
+                    "Nothing was asked: the database did not answer. Check that the database runs and run it again.");
             return 1;
         }
         try (Database database = opened) {
@@ -79,11 +81,12 @@ final class HostRequests {
         try {
             kind = UpdateKind.valueOf(args.get(1).toUpperCase(Locale.ROOT));
         } catch (final IllegalArgumentException unknown) {
-            System.err.println(args.get(1) + " is not a kind of run");
+            System.err.println(
+                    args.get(1) + " is not a kind of run. Use one of " + Arrays.toString(UpdateKind.values()) + ".");
             return 2;
         }
         if (replaceLocal && kind != UpdateKind.UPDATE) {
-            System.err.println(REPLACE_LOCAL + " is for an update only, the one kind that replaces a build");
+            System.err.println(REPLACE_LOCAL + " works only with UPDATE. Leave it out or ask for UPDATE.");
             return 2;
         }
         final String named = args.size() > 2 ? args.get(2) : "";

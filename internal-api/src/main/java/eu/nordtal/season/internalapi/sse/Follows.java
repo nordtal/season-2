@@ -139,9 +139,9 @@ public final class Follows implements AutoCloseable {
                 client.sendEvent(event, data);
             });
         } catch (final Gone gone) {
-            log.debug("the follow of {} ended with whoever was reading it", name);
+            log.debug("follow ended, reader gone: follow=\"{}\"", name);
         } catch (final IOException e) {
-            log.debug("the follow of {} ended", name, e);
+            log.debug("follow ended: follow=\"{}\"", name, e);
         } finally {
             sources.remove(source);
             closeQuietly(source, name);
@@ -154,7 +154,7 @@ public final class Follows implements AutoCloseable {
         try {
             return wanted.check().getAsBoolean();
         } catch (final RuntimeException gone) {
-            log.warn("could not re-check who follows {}, so the follow is being ended: {}", name, gone.getMessage());
+            log.warn("follow not re-checked, follow ended: follow=\"{}\" cause={}", name, gone.getMessage());
             return false;
         }
     }
@@ -170,7 +170,7 @@ public final class Follows implements AutoCloseable {
             }
             client.sendComment("following " + name);
         } catch (final RuntimeException e) {
-            log.debug("the heartbeat for {} could not be written", name, e);
+            log.debug("follow heartbeat not written: follow=\"{}\"", name, e);
         }
     }
 
@@ -194,7 +194,7 @@ public final class Follows implements AutoCloseable {
         try {
             source.close();
         } catch (final IOException e) {
-            log.debug("closing the source of {}", name, e);
+            log.debug("follow source not closed: follow=\"{}\"", name, e);
         }
     }
 
@@ -210,7 +210,7 @@ public final class Follows implements AutoCloseable {
         try {
             running.awaitAdvanceInterruptibly(running.arrive(), 2, TimeUnit.SECONDS);
         } catch (final TimeoutException e) {
-            log.warn("a follow was still running two seconds into shutdown");
+            log.warn("follow still running at shutdown: seconds=2");
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
         }

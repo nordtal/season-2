@@ -50,8 +50,7 @@ final class PaymentsStartup {
         final Duration poll = Duration.ofSeconds(settings.pollIntervalSeconds());
         if (settings.token().isBlank()) {
             announce(database, false);
-            log.warn("Payments are OFF: bunq.token is empty (NORDTAL_STEWARD_BUNQ_TOKEN), so steward never asks"
-                    + " steward-bunq anything and no payment will ever be noticed.");
+            log.warn("payments off, bunq token empty: key=bunq.token");
             return null;
         }
 
@@ -68,22 +67,16 @@ final class PaymentsStartup {
                 new Backoff(Duration.ofSeconds(1), Duration.ofSeconds(8)));
         if (account.isEmpty()) {
             // No row is written, so the row keeps the result of the last start.
-            log.error(
-                    "Payments are OFF until steward restarts: steward-bunq did not answer at {} within {}s.",
-                    settings.url(),
-                    PATIENCE.toSeconds());
+            log.error("payments off, steward-bunq not answering: url={} timeout={}", settings.url(), PATIENCE);
             return null;
         }
 
         announce(database, account.get().configured());
         if (!account.get().configured()) {
-            log.warn("Payments are OFF: steward-bunq holds no bank key; its own start line says which variables.");
+            log.warn("payments off, steward-bunq has no bank key");
             return null;
         }
-        log.info(
-                "Payments are ON: monetary account {} through steward-bunq, polled every {}s.",
-                account.get().id(),
-                poll.toSeconds());
+        log.info("payments on: account={} poll={}", account.get().id(), poll);
 
         final Instant watermark = Watermark.resolve(database.jdbi(), settings.watermark(), waiting.now());
 
@@ -105,10 +98,7 @@ final class PaymentsStartup {
         try {
             PaymentGateway.announce(database.jdbi(), configured);
         } catch (final RuntimeException failure) {
-            log.warn(
-                    "Could not record whether bunq is configured; the bot will say it does not"
-                            + " know rather than saying it is off.",
-                    failure);
+            log.warn("bunq configuration state not recorded", failure);
         }
     }
 }

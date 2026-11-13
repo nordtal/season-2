@@ -24,8 +24,8 @@ final class Repository {
             at = at.getParent();
         }
         if (at == null) {
-            throw new Processes.Failure("no settings.gradle.kts above " + start.toAbsolutePath()
-                    + " - run this from inside the season-2 checkout");
+            throw new Processes.Failure("No settings.gradle.kts found above " + start.toAbsolutePath()
+                    + ". Run dev from inside the season-2 checkout.");
         }
         return at;
     }
@@ -33,7 +33,7 @@ final class Repository {
     static String version(final Path root) {
         final Matcher version = VERSION.matcher(read(root.resolve("gradle.properties")));
         if (!version.find()) {
-            throw new Processes.Failure("gradle.properties carries no version= line");
+            throw new Processes.Failure("gradle.properties has no version= line. Restore it from Git.");
         }
         return version.group(1).strip();
     }

@@ -38,7 +38,7 @@ public final class PushSubscriptions {
         final Devices.Device device = Devices.of(userAgent);
         dao.add(endpoint, discordId, p256dh, auth, device.system(), device.browser());
         log.info(
-                "{} subscribed a browser to web push - {} subscription(s) on that account now",
+                "push subscription added: member={} count={}",
                 discordId,
                 dao.forAccount(discordId).size());
     }
@@ -68,7 +68,7 @@ public final class PushSubscriptions {
     /** Removes the subscription of {@code endpoint} without an account check. */
     public void expired(final String endpoint) {
         if (dao.expired(endpoint) == 1) {
-            log.info("a push subscription answered 404/410 and was removed: {}", endpoint);
+            log.info("push subscription expired, removed: endpoint={}", endpoint);
         }
     }
 

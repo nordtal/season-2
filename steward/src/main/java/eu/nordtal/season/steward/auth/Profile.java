@@ -125,7 +125,7 @@ public final class Profile {
                     .map(Person::discordAvatarUrl)
                     .filter(url -> url != null && !url.isBlank());
         } catch (final RuntimeException e) {
-            log.warn("could not read the Discord avatar of {}, so /api/me answers none", discordId, e);
+            log.warn("discord avatar unreadable: member={}", discordId, e);
             return Optional.empty();
         }
     }

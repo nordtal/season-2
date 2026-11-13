@@ -56,14 +56,11 @@ public final class DatabaseWaiting {
                         if (last.getAndSet(unreachable) == null) {
                             // Log once, so the retries do not bury the migration line.
                             log.info(
-                                    "The database at {} is not answering yet ({}). That is expected on a"
-                                            + " first deployment - PostgreSQL is still initialising and this"
-                                            + " container has no depends_on for it, deliberately. Asking"
-                                            + " again every {} for up to {}.",
+                                    "database not answering yet, waiting: url={} delay={} timeout={} cause={}",
                                     config.jdbcUrl(),
-                                    rootCauseOf(unreachable),
                                     between,
-                                    wait);
+                                    wait,
+                                    rootCauseOf(unreachable));
                         }
                         return Optional.empty();
                     }
@@ -74,14 +71,12 @@ public final class DatabaseWaiting {
             return opened.get();
         }
         if (Thread.currentThread().isInterrupted()) {
-            log.error("Interrupted while waiting for the database at {}.", config.jdbcUrl());
+            log.error("database wait interrupted: url={}", config.jdbcUrl());
             return null;
         }
         final RuntimeException failure = last.get();
         log.error(
-                "The database at {} did not answer within {}: {}. Check"
-                        + " POSTGRES_PASSWORD and that the `db` profile is in"
-                        + " COMPOSE_PROFILES; the restart policy will try again.",
+                "database wait timed out: url={} timeout={} cause={}",
                 config.jdbcUrl(),
                 wait,
                 failure == null ? "no answer" : rootCauseOf(failure));

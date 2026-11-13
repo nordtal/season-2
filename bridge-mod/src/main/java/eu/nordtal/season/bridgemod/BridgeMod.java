@@ -18,7 +18,7 @@ public final class BridgeMod implements ClientModInitializer {
     public void onInitializeClient() {
         final Path file = FabricLoader.getInstance().getConfigDir().resolve(BridgeSettings.FILE);
         if (!Files.exists(file)) {
-            LOG.info("No {}, so the bridge stays off.", file);
+            LOG.info("bridge off, settings file missing: file={}", file);
             return;
         }
         try {
@@ -29,9 +29,9 @@ public final class BridgeMod implements ClientModInitializer {
                     Duration.ofSeconds(5),
                     token -> BridgeSettings.accepts(file, token),
                     new ClientActions(Minecraft.getInstance()));
-            LOG.info("The bridge listens on 127.0.0.1:{}.", server.port());
+            LOG.info("bridge listening: port={}", server.port());
         } catch (Exception e) {
-            LOG.error("The bridge stays off: {}", e.getMessage(), e);
+            LOG.error("bridge not started", e);
         }
     }
 }

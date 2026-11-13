@@ -25,7 +25,6 @@ export function AuraDialog({
       id="aura"
       label={t("steward.people.aura")}
       title={t("steward.people.aura-title")}
-      hint={t("steward.people.aura-now")}
       start={person.aura}
       negative
       pending={write.isPending}
@@ -56,7 +55,6 @@ export function SpinsDialog({
       id="spins"
       label={t("steward.people.spins")}
       title={t("steward.people.spins-title")}
-      hint={t("steward.people.spins-now")}
       start={person.spins}
       pending={write.isPending}
       open={open}
@@ -75,7 +73,6 @@ function CountDialog({
   id,
   label,
   title,
-  hint,
   start,
   negative = false,
   pending,
@@ -86,7 +83,6 @@ function CountDialog({
   id: string
   label: string
   title: string
-  hint: string
   start: number
   negative?: boolean
   pending: boolean
@@ -118,7 +114,6 @@ function CountDialog({
           // A phone's number pad has no minus sign.
           inputMode={negative ? "text" : "numeric"}
         />
-        <p className="text-xs text-muted-foreground">{hint}</p>
       </div>
     </AskThenAct>
   )

@@ -30,19 +30,6 @@ public interface ReportTexts {
     MessageRef releaseJarWithoutDigest(
             @Arg("release") @Example("0.57.0") String release, @Arg("jar") @Example("smp-0.57.0.jar") String jar);
 
-    @Name("A release without a pack")
-    MessageRef releaseWithoutPack(@Arg("release") @Example("0.57.0") String release);
-
-    @Name("A release's pack without its SHA-1")
-    MessageRef releaseWithoutSha1(
-            @Arg("release") @Example("0.57.0") String release,
-            @Arg("zip") @Example("nordtal-pack-0.57.0.zip") String zip);
-
-    @Name("A pack's SHA-1 unread")
-    MessageRef sha1Unread(
-            @Arg("file") @Example("nordtal-pack-0.57.0.zip.sha1") String file,
-            @Arg("error") @Example("No such file") String error);
-
     @Name("No build for this Minecraft version")
     MessageRef noBuild(
             @Arg("artefact") @Example("chunky") String artefact,
@@ -54,18 +41,6 @@ public interface ReportTexts {
 
     @Name("A volume not mounted")
     MessageRef notMounted(@Arg("directory") @Example("/data/plugins") String directory);
-
-    @Name("No database to read the proxy's pack from")
-    MessageRef noDatabase();
-
-    @Name("The proxy's pack unread")
-    MessageRef proxyPackUnread(@Arg("error") @Example("Connection refused") String error);
-
-    @Name("The proxy has no pack")
-    MessageRef proxyWithoutPack();
-
-    @Name("The proxy's pack has no SHA-1")
-    MessageRef proxyPackWithoutSha1();
 
     @Name("Velocity ahead of the proxy's API")
     MessageRef velocityAhead(

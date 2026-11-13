@@ -78,8 +78,8 @@
       "lines": [
         {
           "text": {
-            "en": "Save station",
-            "de": "Bahnhof speichern"
+            "en": "Save {@terms.station, n=1}",
+            "de": "{@terms.station, n=1} speichern"
           }
         }
       ]

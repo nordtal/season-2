@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>You are not on the Discord server yet? Join: <emphasis>{invite}</emphasis></muted>",
-            "de": "<muted>Du bist noch nicht auf dem Discord-Server? Tritt bei: <emphasis>{invite}</emphasis></muted>"
+            "en": "<muted>Join the Discord server: <emphasis>{invite}</emphasis></muted>",
+            "de": "<muted>Tritt dem Discord-Server bei: <emphasis>{invite}</emphasis></muted>"
           }
         }
       ]

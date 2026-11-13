@@ -11,8 +11,8 @@
         },
         {
           "text": {
-            "en": "<muted>You will be connected as soon as it is up.</muted>",
-            "de": "<muted>Du wirst verbunden, sobald er läuft.</muted>"
+            "en": "<muted>You join when it is up.</muted>",
+            "de": "<muted>Du kommst rein, sobald er läuft.</muted>"
           }
         }
       ]

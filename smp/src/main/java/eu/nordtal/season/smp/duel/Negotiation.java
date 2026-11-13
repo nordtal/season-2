@@ -42,8 +42,11 @@ import org.jspecify.annotations.Nullable;
  */
 final class Negotiation {
 
-    static final DocumentSpec<DocumentSpec.None> AREA_HELD = DocumentSpec.game(
-                    "smp", "duel-area-held", "Duels", DocumentSpec.Shape.CHAT)
+    /** @param fighting whether the pair in the area fights, rather than still picking kits */
+    record Held(@Example("true") boolean fighting) {}
+
+    static final DocumentSpec<Held> AREA_HELD = DocumentSpec.game(
+                    "smp", "duel-area-held", "Duels", DocumentSpec.Shape.CHAT, Held.class)
             .titled("Negotiation area taken");
 
     /** @param reason why the duel cannot start */
@@ -174,7 +177,7 @@ final class Negotiation {
                 event.setCancelled(true);
                 push(player);
                 if (notices.allows(id, clock.millis())) {
-                    tell(player, Sent.of(AREA_HELD), Feedback.REFUSED);
+                    tell(player, AREA_HELD.with(new Held(duels.fighting())), Feedback.REFUSED);
                 }
             }
             case WAIT -> {

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>Not saved: the inventory changed in {count, number} of its slots while you were editing. What you took out or put in is back where it was.</warn>",
-            "de": "<warn>Nicht gespeichert: Das Inventar hat sich beim Bearbeiten in {count, number} seiner Plätze geändert. Was du herausgenommen oder hineingelegt hast, ist wieder an seinem Platz.</warn>"
+            "en": "<warn>Not saved: slots changed while you were editing. What you took out or put in is back where it was.</warn>",
+            "de": "<warn>Nicht gespeichert: Plätze haben sich beim Bearbeiten geändert. Was du herausgenommen oder hineingelegt hast, ist wieder an seinem Platz.</warn>"
           }
         }
       ]

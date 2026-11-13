@@ -2,6 +2,7 @@ package eu.nordtal.season.papercommon.command;
 
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.value.Example;
+import java.sql.SQLException;
 
 /** The replies every server's commands share: the admin answers, which the console and Steward read. */
 public final class Replies {
@@ -9,15 +10,23 @@ public final class Replies {
     public record Typed(
             @Example("/smp milestone unlock nether") String command) {}
 
-    /** @param cause what went wrong, from the failure's own message */
-    public record Failure(
-            @Example("the database did not answer") String cause) {
+    /** What an admin action failed on, as far as the text can name it. */
+    public enum Cause {
+        DATABASE,
+        OTHER
+    }
 
-        /** Returns the failure of {@code failure}: its message, or its type's name when it has none. */
+    /** @param cause what the action failed on */
+    public record Failure(@Example("database") Cause cause) {
+
+        /** Returns the failure of {@code failure}: the database when any exception in its chain is the database's. */
         public static Failure of(final Throwable failure) {
-            final String message = failure.getMessage();
-            return new Failure(
-                    message == null || message.isBlank() ? failure.getClass().getSimpleName() : message);
+            for (Throwable link = failure; link != null; link = link.getCause()) {
+                if (link instanceof SQLException || link.getClass().getName().startsWith("org.jdbi.")) {
+                    return new Failure(Cause.DATABASE);
+                }
+            }
+            return new Failure(Cause.OTHER);
         }
     }
 

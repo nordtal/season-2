@@ -11,8 +11,8 @@
         },
         {
           "text": {
-            "en": "<muted>You will be reconnected as soon as it runs.</muted>",
-            "de": "<muted>Du wirst erneut verbunden, sobald er läuft.</muted>"
+            "en": "<muted>You return when it runs again.</muted>",
+            "de": "<muted>Du kommst zurück, sobald er wieder läuft.</muted>"
           }
         }
       ]

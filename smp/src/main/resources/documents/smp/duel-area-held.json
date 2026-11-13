@@ -4,9 +4,17 @@
       "type": "TEXT",
       "lines": [
         {
+          "when": "fighting",
           "text": {
             "en": "<warn>The negotiation area is taken: a duel is under way.</warn>",
             "de": "<warn>Die Verhandlungsfläche ist belegt: Dort läuft ein Duell.</warn>"
+          }
+        },
+        {
+          "when": "!fighting",
+          "text": {
+            "en": "<warn>The negotiation area is taken: two players are picking kits.</warn>",
+            "de": "<warn>Die Verhandlungsfläche ist belegt: Zwei Spieler wählen gerade ihre Kits.</warn>"
           }
         }
       ]

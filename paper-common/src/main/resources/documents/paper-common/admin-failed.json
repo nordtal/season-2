@@ -4,9 +4,17 @@
       "type": "TEXT",
       "lines": [
         {
+          "when": "cause=database",
           "text": {
-            "en": "<bad>Failed: {cause}. Nothing changed.</bad>",
-            "de": "<bad>Fehlgeschlagen: {cause}. Nichts geändert.</bad>"
+            "en": "<bad>Failed: the database did not answer. Nothing changed.</bad>",
+            "de": "<bad>Fehlgeschlagen: Die Datenbank hat nicht geantwortet. Nichts geändert.</bad>"
+          }
+        },
+        {
+          "when": "cause=other",
+          "text": {
+            "en": "<bad>Failed. Nothing changed.</bad> <muted>The server log names the cause.</muted>",
+            "de": "<bad>Fehlgeschlagen. Nichts geändert.</bad> <muted>Den Grund nennt das Server-Log.</muted>"
           }
         }
       ]

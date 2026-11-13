@@ -29,7 +29,7 @@ public interface WebSpec {
     @Key("public-url")
     @Explain("Start-up fails unless it lies under the relying party ID.")
     default String publicUrl() {
-        return "https://steward.dev.nordtal.eu";
+        return "https://steward.nordtal.eu";
     }
 
     @Order(3)

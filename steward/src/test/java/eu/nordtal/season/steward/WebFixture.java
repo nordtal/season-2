@@ -188,7 +188,7 @@ abstract class WebFixture {
             .truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
             .toString();
 
-    static final String ORIGIN = "https://steward.dev.nordtal.eu";
+    static final String ORIGIN = "https://steward.nordtal.eu";
 
     @AfterAll
     static void stop() {

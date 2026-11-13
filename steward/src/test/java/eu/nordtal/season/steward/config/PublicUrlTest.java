@@ -51,7 +51,7 @@ class PublicUrlTest {
 
     @Test
     void theRealValuesPass() {
-        assertDoesNotThrow(() -> StewardSettings.requirePublicUrl("https://steward.dev.nordtal.eu"));
+        assertDoesNotThrow(() -> StewardSettings.requirePublicUrl("https://steward.nordtal.eu"));
         assertDoesNotThrow(() -> StewardSettings.requirePublicUrl("http://127.0.0.1:8080"));
         assertDoesNotThrow(() -> StewardSettings.requirePublicUrl("https://nordtal.eu/steward"));
     }
@@ -59,27 +59,27 @@ class PublicUrlTest {
     @Test
     void aRelyingPartyMustBeTheAddressOrAParentOfIt() {
         // The production pair and its two correct shapes.
-        StewardSettings.requireRelyingParty("nordtal.eu", "https://steward.dev.nordtal.eu");
+        StewardSettings.requireRelyingParty("nordtal.eu", "https://steward.nordtal.eu");
         StewardSettings.requireRelyingParty("nordtal.eu", "https://nordtal.eu");
-        StewardSettings.requireRelyingParty("steward.dev.nordtal.eu", "https://steward.dev.nordtal.eu");
+        StewardSettings.requireRelyingParty("steward.nordtal.eu", "https://steward.nordtal.eu");
 
         // A plain endsWith accepts `ordtal.eu` for `nordtal.eu`, so the comparison includes the dot.
         final IllegalArgumentException wrong = assertThrows(
                 IllegalArgumentException.class,
-                () -> StewardSettings.requireRelyingParty("ordtal.eu", "https://steward.dev.nordtal.eu"));
+                () -> StewardSettings.requireRelyingParty("ordtal.eu", "https://steward.nordtal.eu"));
         assertTrue(
-                wrong.getMessage().contains("ordtal.eu") && wrong.getMessage().contains("steward.dev.nordtal.eu"),
+                wrong.getMessage().contains("ordtal.eu") && wrong.getMessage().contains("steward.nordtal.eu"),
                 "the message has to name both values, or nobody can see what does not match: " + wrong.getMessage());
 
         // A bare TLD is a suffix of the host too, so a second condition rejects public suffixes.
         final IllegalArgumentException tld = assertThrows(
                 IllegalArgumentException.class,
-                () -> StewardSettings.requireRelyingParty("eu", "https://steward.dev.nordtal.eu"));
+                () -> StewardSettings.requireRelyingParty("eu", "https://steward.nordtal.eu"));
         assertTrue(tld.getMessage().contains("registrable"), tld.getMessage());
         // A narrower ID: a key registered there is never offered.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> StewardSettings.requireRelyingParty("other.nordtal.eu", "https://steward.dev.nordtal.eu"));
+                () -> StewardSettings.requireRelyingParty("other.nordtal.eu", "https://steward.nordtal.eu"));
     }
 
     @Test
@@ -92,10 +92,10 @@ class PublicUrlTest {
         // The exception widens nothing: it covers one value for one host, not every single label.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> StewardSettings.requireRelyingParty("eu", "https://steward.dev.nordtal.eu"));
+                () -> StewardSettings.requireRelyingParty("eu", "https://steward.nordtal.eu"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> StewardSettings.requireRelyingParty("localhost", "https://steward.dev.nordtal.eu"));
+                () -> StewardSettings.requireRelyingParty("localhost", "https://steward.nordtal.eu"));
         // Reverse: an address on localhost does not accept another single label.
         assertThrows(
                 IllegalArgumentException.class,
@@ -110,15 +110,15 @@ class PublicUrlTest {
     void aRelyingPartyIsNotAUrl() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> StewardSettings.requireRelyingParty("https://nordtal.eu", "https://steward.dev.nordtal.eu"));
+                () -> StewardSettings.requireRelyingParty("https://nordtal.eu", "https://steward.nordtal.eu"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> StewardSettings.requireRelyingParty("nordtal.eu:443", "https://steward.dev.nordtal.eu"));
+                () -> StewardSettings.requireRelyingParty("nordtal.eu:443", "https://steward.nordtal.eu"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> StewardSettings.requireRelyingParty("", "https://steward.dev.nordtal.eu"));
+                () -> StewardSettings.requireRelyingParty("", "https://steward.nordtal.eu"));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> StewardSettings.requireRelyingParty(null, "https://steward.dev.nordtal.eu"));
+                () -> StewardSettings.requireRelyingParty(null, "https://steward.nordtal.eu"));
     }
 }

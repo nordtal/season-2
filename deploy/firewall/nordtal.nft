@@ -1,6 +1,6 @@
 #!/usr/sbin/nft -f
-# The inbound filter of the host. From outside it admits only SSH, the web ports and the game port,
-# and the standby port while proxy-standby runs. Published ports of Docker pass the forward hook, so
+# The inbound filter of the host. From outside it admits only SSH and the game port, and the standby
+# port while proxy-standby runs. The web names reach Caddy through the Cloudflare tunnel. Published ports of Docker pass the forward hook, so
 # this table filters them too. Docker never touches a table of its own.
 
 # The public interface of this host and the Port of its sshd.
@@ -12,16 +12,16 @@ table inet nordtal
 delete table inet nordtal
 
 table inet nordtal {
-# HTTP and HTTPS of Caddy, and PROXY_PORT.
+# PROXY_PORT.
 	set public_tcp {
 		type inet_service
-		elements = { 80, 443, 25565 }
+		elements = { 25565 }
 	}
 
-# HTTP/3, and voice chat on PROXY_PORT.
+# Voice chat on PROXY_PORT.
 	set public_udp {
 		type inet_service
-		elements = { 443, 25565 }
+		elements = { 25565 }
 	}
 
 # PROXY_STANDBY_PORT, TCP and UDP, while proxy-standby runs. standby-port.sh fills the set.

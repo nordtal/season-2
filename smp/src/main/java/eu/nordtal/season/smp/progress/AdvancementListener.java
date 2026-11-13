@@ -39,6 +39,7 @@ public final class AdvancementListener implements Listener {
         IGNORE,
         /** Earned in a duel: no aura, no spins, no objective and no chat announcement. */
         SILENCE,
+        /** Pays the award and credits the objectives. */
         PAY
     }
 

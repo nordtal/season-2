@@ -76,7 +76,7 @@ final class WheelDialog {
     private static final int PLATE_X = 1;
 
     /**
-     * The plate's top above its text row, as high as the pack draws art, so the most of the plate is in its box.
+     * The plate's top above its text row, as high as the pack draws art, so most of the plate is in its box.
      * The 17-pixel plate overhangs the one-line box of 17 by 2, where the client takes no click and no hover.
      */
     private static final int PLATE_UP = 2;
@@ -138,11 +138,11 @@ final class WheelDialog {
                         line -> line.plate(PLATE_WIDTH, null, texts.button(), spinLeft ? Look.PRIMARY : Look.DISABLED))
                 .build();
         final String spins = Letters.cut(texts.spins(), PLATE_WIDTH);
+        // The plate goes first, so the narrator reads the button before the spins.
         return Pen.start()
+                .append(plate, PLATE_X + PLATE_WIDTH)
                 .moveTo(PLATE_X + (PLATE_WIDTH - Letters.visibleWidth(spins) + 1) / 2)
                 .text(SPINS_SHIFT, spins, Colours.SOFT)
-                .moveTo(0)
-                .append(plate, PLATE_X + PLATE_WIDTH)
                 // The client splits the line again at its own width, and the plate's edge reaches 1 past its end.
                 .build(PLATE_X + PLATE_WIDTH + 1);
     }

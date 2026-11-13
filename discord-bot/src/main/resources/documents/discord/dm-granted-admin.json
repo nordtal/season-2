@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "An admin gave you **{@values.duration.days, n=days}** of {@terms.access}. It lasts until **{until}**.",
-            "de": "Ein Admin hat dir **{@values.duration.days, n=days}** {@terms.access} gegeben. Er gilt bis **{until}**."
+            "en": "Your {@terms.access} lasts until **{until}**. An admin gave you **{@values.duration.days, n=days}**.",
+            "de": "Dein {@terms.access} gilt bis **{until}**. Ein Admin hat dir **{@values.duration.days, n=days}** gegeben."
           }
         }
       ]

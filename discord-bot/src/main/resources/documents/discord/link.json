@@ -25,8 +25,8 @@
           "lines": [
             {
               "text": {
-                "en": "Connect to `play.nordtal.eu` → copy the code → **{link.label}**",
-                "de": "Mit `play.nordtal.eu` verbinden → Code kopieren → **{link.label}**"
+                "en": "Join `play.nordtal.eu` → copy the code → **{link.label}**",
+                "de": "`play.nordtal.eu` betreten → Code kopieren → **{link.label}**"
               },
               "style": "HEADING"
             }

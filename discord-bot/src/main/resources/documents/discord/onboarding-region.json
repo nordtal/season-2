@@ -31,7 +31,7 @@
           "slot": "regions",
           "placeholder": {
             "en": "Choose your region",
-            "de": "Wähle deine Region"
+            "de": "Region wählen"
           }
         }
       ]

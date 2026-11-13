@@ -78,8 +78,8 @@
         {
           "slot": "register",
           "label": {
-            "en": "Register a team",
-            "de": "Team anmelden"
+            "en": "Register a {@terms.team, n=1}",
+            "de": "{@terms.team, n=1} anmelden"
           }
         }
       ]

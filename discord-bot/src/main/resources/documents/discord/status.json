@@ -40,7 +40,7 @@
         {
           "text": {
             "en": "Opens any moment",
-            "de": "Start jeden Moment"
+            "de": "Startet gleich"
           },
           "when": "countdown=imminent"
         }

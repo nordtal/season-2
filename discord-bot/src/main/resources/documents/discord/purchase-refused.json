@@ -6,8 +6,8 @@
         {
           "when": "passes",
           "text": {
-            "en": "No payment link: the bank did not answer. Try again in a few minutes with **Buy {@terms.access}**.",
-            "de": "Kein Zahlungslink: Die Bank hat nicht geantwortet. Versuch es in ein paar Minuten noch einmal mit **{@terms.access} kaufen**."
+            "en": "No payment link: the bank is not available. Try again in a few minutes with **Buy {@terms.access}**.",
+            "de": "Kein Zahlungslink: Die Bank ist nicht erreichbar. Versuch es in ein paar Minuten noch einmal mit **{@terms.access} kaufen**."
           }
         },
         {

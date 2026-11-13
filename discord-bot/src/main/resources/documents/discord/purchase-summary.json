@@ -12,7 +12,7 @@
         {
           "text": {
             "en": "Includes a donation of {donation} and the permanent donor role.",
-            "de": "Enthält eine Spende von {donation} und die dauerhafte Spender-Rolle."
+            "de": "Enthält eine Spende von {donation} und die dauerhafte Spenderrolle."
           },
           "when": "donating"
         },

@@ -32,6 +32,7 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.DiscordLocale;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
@@ -69,7 +70,8 @@ public final class LinkFlow extends ListenerAdapter {
     }
 
     public static List<CommandData> commands() {
-        return List.of(Commands.slash("unlink", "Remove the Minecraft account linked to your Discord account."));
+        return List.of(Commands.slash("unlink", "Unlinks your Minecraft account.")
+                .setDescriptionLocalization(DiscordLocale.GERMAN, "Hebt die Verknüpfung deines Minecraft-Kontos auf."));
     }
 
     @Override

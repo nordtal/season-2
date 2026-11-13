@@ -267,10 +267,7 @@ class PlayerTextRulesTest {
         final String owner = access.getTargetOwner().getName();
         final String name = access.getTarget().getName();
         return owner.equals(GLYPHS)
-                && (name.startsWith("BOSSBAR_BG_")
-                        || name.startsWith("UI_PILL")
-                        || name.startsWith("UI_HUD_PILL")
-                        || name.startsWith("UI_RIDE_"));
+                && (name.startsWith("BOSSBAR_BG_") || name.startsWith("UI_PILL") || name.startsWith("UI_RIDE_"));
     }
 
     private static boolean takes(final List<JavaClass> parameters, final String type) {

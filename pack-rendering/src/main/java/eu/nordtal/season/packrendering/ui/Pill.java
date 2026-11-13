@@ -6,13 +6,13 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import org.jspecify.annotations.Nullable;
 
-/** Composes a label pill: 15 high, its text in ink 4 rows down, content + 10 wide; the HUD's is flat. */
+/** Composes the flat label pill of the HUD and the world: 15 high, its text in ink 4 rows down, content + 10 wide. */
 public final class Pill {
 
     /** The pill's height. */
     public static final int HEIGHT = 15;
 
-    /** From a pill's end to its content: 3 px of edge and 2 clear, or the HUD's 1 px of rim and 4 clear. */
+    /** From a pill's end to its content: 1 px of rim and 4 clear. */
     public static final int PAD = 5;
 
     private static final int TEXT = 4;
@@ -114,10 +114,10 @@ public final class Pill {
         return content.width() + 2 * PAD;
     }
 
-    /** Returns the HUD's pill that holds {@code content}, its top on the text row, flat with a 1 px rim. */
+    /** Returns the HUD's pill that holds {@code content}, its top on the text row. */
     public static Component of(final Content content) {
         final int inner = content.width();
-        final Pen pen = frame(Glyphs.UI_HUD_PILL, inner);
+        final Pen pen = frame(inner);
         final @Nullable Double done = content.done();
         if (done != null) {
             final String font = Pen.artFont(0);
@@ -153,7 +153,7 @@ public final class Pill {
         final StringBuilder all = new StringBuilder();
         runs.forEach(run -> all.append(run.text()));
         final int content = content(symbol, all.toString());
-        final Pen pen = frame(Glyphs.UI_PILL, content);
+        final Pen pen = frame(content);
         if (symbol != null) {
             pen.symbol(TEXT, symbol, Colours.INK).move(Symbol.BEFORE_TEXT - Symbol.ADVANCE);
         }
@@ -161,8 +161,9 @@ public final class Pill {
         return pen.build(content + 2 * PAD);
     }
 
-    /** Draws the pill of {@code glyphs} around {@code content} columns, and returns the pen at the content's start. */
-    private static Pen frame(final List<String> glyphs, final int content) {
+    /** Draws the pill around {@code content} columns, and returns the pen at the content's start. */
+    private static Pen frame(final int content) {
+        final List<String> glyphs = Glyphs.UI_PILL;
         final String font = Pen.artFont(0);
         final Pen pen = Pen.start().art(font, glyphs.get(0), PAD);
         body(pen, font, glyphs.subList(2, glyphs.size()), content);

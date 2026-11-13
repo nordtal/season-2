@@ -7,10 +7,12 @@ import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.pack.PackBuildStore;
 import eu.nordtal.season.database.setting.SettingStore;
+import eu.nordtal.season.packbuilder.PackBuilderMain;
 import eu.nordtal.season.packbuilder.zip.ReproducibleZip;
 import eu.nordtal.season.settings.PackState;
 import eu.nordtal.season.stewardagent.apply.PackWriter;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
@@ -63,9 +65,13 @@ public final class PackBuilds {
     private volatile @Nullable PackInputs wanted;
     /** The inputs of the build that runs now, so a change back during it still asks for a build. */
     private volatile @Nullable PackInputs building;
+    /** Whether a build reads its inputs now, before {@link #building} names them, so a change then still asks. */
+    private volatile boolean reading;
 
     private @Nullable Debounce debounce;
-    /** The fingerprint of {@link #facts} and {@link #roots}, read once, since the image does not change. */
+    /** The pack builder's code, so a release that changes only the builder builds the pack anew. */
+    private List<Path> code = List.of();
+    /** The fingerprint of {@link #facts}, {@link #roots} and {@link #code}, read once: the image does not change. */
     private @Nullable String image;
 
     /**
@@ -90,7 +96,7 @@ public final class PackBuilds {
         this.zipper = Objects.requireNonNull(zipper, "zipper");
         this.facts = Objects.requireNonNull(facts, "facts");
         this.roots = List.copyOf(roots);
-        this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl");
+        this.baseUrl = Objects.requireNonNull(baseUrl, "baseUrl").replaceAll("/+$", "");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
@@ -139,6 +145,7 @@ public final class PackBuilds {
                 baseUrl,
                 clock);
         builds.documents = documents;
+        builds.code = builderCode();
         builds.debounceWith(new Debounce(scheduler, QUIET, scheduler.serial(), builds::build));
         return builds;
     }
@@ -230,7 +237,7 @@ public final class PackBuilds {
         final PackInputs waiting = wanted;
         final PackInputs running = building;
         final PackInputs last = waiting != null ? waiting : running != null ? running : built;
-        if (last != null && last.drawsSame(now)) {
+        if (!reading && last != null && last.drawsSame(now)) {
             return;
         }
         wanted = now;
@@ -248,16 +255,20 @@ public final class PackBuilds {
     synchronized Optional<String> build() {
         wanted = null;
         final PackInputs inputs;
+        reading = true;
         try {
             inputs = source.read();
         } catch (final IOException | RuntimeException unreadable) {
+            reading = false;
             log.warn("pack inputs not read, the pack stays: cause={}", unreadable.getMessage());
             return active();
         }
         if (built != null && built.drawsSame(inputs)) {
+            reading = false;
             return active();
         }
         building = inputs;
+        reading = false;
         try {
             return build(inputs);
         } finally {
@@ -339,13 +350,31 @@ public final class PackBuilds {
 
     private String image() throws IOException {
         if (image == null) {
-            image = fingerprint(facts, roots);
+            image = fingerprint(
+                    facts, Stream.concat(roots.stream(), code.stream()).toList());
         }
         return image;
     }
 
+    /** Returns the jar the pack builder runs from, none when it runs from a folder of classes, as in a test. */
+    private static List<Path> builderCode() {
+        try {
+            final Path jar = Path.of(PackBuilderMain.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .toURI());
+            return Files.isRegularFile(jar) ? List.of(jar) : List.of();
+        } catch (final URISyntaxException | RuntimeException unknown) {
+            log.warn(
+                    "pack builder's code not found, a new builder alone builds no new pack: cause={}",
+                    unknown.getMessage());
+            return List.of();
+        }
+    }
+
     /**
-     * Returns the SHA-1 over the facts zip and every file under {@code roots}, with its path.
+     * Returns the SHA-1 over the facts zip and every file under {@code roots}, with its path; a root may be a file.
      *
      * @param facts the facts zip; a missing one counts as empty
      */

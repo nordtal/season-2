@@ -105,13 +105,13 @@ The container writes its output to `steward-backups/runs/<id>.log` and keeps the
 
 ## Sources of versions
 
-| what                                                 | source                                                         |
-| ---------------------------------------------------- | -------------------------------------------------------------- |
-| the season-2 jars                                    | `/releases/latest` of the GitHub repository `nordtal/season-2` |
-| PacketEvents                                         | Modrinth v2, filtered by the Minecraft version and `paper`     |
-| Paper and Velocity                                   | PaperMC Fill v3, the newest `STABLE` build                     |
-| what is installed                                    | the volumes under `volumes-root`                               |
-| the resource pack the proxy offers                   | the agent's own builds, see below                              |
+| what                               | source                                                         |
+| ---------------------------------- | -------------------------------------------------------------- |
+| the season-2 jars                  | `/releases/latest` of the GitHub repository `nordtal/season-2` |
+| PacketEvents                       | Modrinth v2, filtered by the Minecraft version and `paper`     |
+| Paper and Velocity                 | PaperMC Fill v3, the newest `STABLE` build                     |
+| what is installed                  | the volumes under `volumes-root`                               |
+| the resource pack the proxy offers | the agent's own builds, see below                              |
 
 The agent checks every jar against the sha256 `digest` of its release asset.
 

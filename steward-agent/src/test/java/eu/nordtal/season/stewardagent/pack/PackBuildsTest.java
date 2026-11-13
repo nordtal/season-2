@@ -40,10 +40,17 @@ class PackBuildsTest {
     private final ManualScheduler scheduler = new ManualScheduler();
     private boolean failing;
     private Runnable duringZip = () -> {};
+    private Runnable afterRead = () -> {};
 
     private PackBuilds builds() {
         final PackBuilds builds = new PackBuilds(
-                inputs::get,
+                () -> {
+                    final PackInputs read = inputs.get();
+                    final Runnable hook = afterRead;
+                    afterRead = () -> {};
+                    hook.run();
+                    return read;
+                },
                 record,
                 settings,
                 new PackShelf(shelfDir, 5),
@@ -57,7 +64,7 @@ class PackBuildsTest {
                 },
                 shelfDir.resolve("facts.zip"),
                 List.of(),
-                "https://pack.example",
+                "https://pack.example/",
                 Clock.fixed(Instant.parse("2026-11-13T12:00:00Z"), ZoneOffset.UTC));
         builds.debounceWith(new Debounce(scheduler, Duration.ofSeconds(30), scheduler, builds::build));
         return builds;
@@ -148,6 +155,40 @@ class PackBuildsTest {
 
         assertEquals(first, PackState.read(settings).sha1());
         assertEquals(3, zips.get());
+    }
+
+    @Test
+    void aChangeBackWhileABuildReadsItsInputsEndsWithThePackOfTheChangeBack() {
+        final PackBuilds builds = builds();
+        final String first = builds.build().orElseThrow();
+        final PackInputs original = inputs.get();
+
+        inputs.set(inputsOf("[{\"item\":\"emerald\",\"amount\":1}]"));
+        builds.requestIfChanged();
+        afterRead = () -> {
+            inputs.set(original);
+            builds.requestIfChanged();
+        };
+        scheduler.runPending();
+        scheduler.runPending();
+
+        assertEquals(first, PackState.read(settings).sha1());
+        assertEquals(3, zips.get());
+    }
+
+    @Test
+    void aTrailingSlashOfTheBaseAddressIsDropped() {
+        assertEquals("https://pack.example/" + "a".repeat(40) + ".zip", builds().url("a".repeat(40)));
+    }
+
+    @Test
+    void aSingleFileCountsInTheFingerprint() throws IOException {
+        final Path jar = Files.writeString(shelfDir.resolve("app.jar"), "builder 1");
+        final String before = PackBuilds.fingerprint(shelfDir.resolve("facts.zip"), List.of(jar));
+
+        Files.writeString(jar, "builder 2");
+
+        assertFalse(before.equals(PackBuilds.fingerprint(shelfDir.resolve("facts.zip"), List.of(jar))));
     }
 
     @Test

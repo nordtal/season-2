@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
@@ -46,6 +47,9 @@ public final class ProxySwap {
     /** Returns the end of the player's move into a waiting room. */
     private final Function<UUID, ? extends CompletionStage<?>> settled;
 
+    /** Runs a transfer once the player's move has ended. */
+    private final Executor transfers;
+
     /** The start time of this process. */
     private final Instant startedAt;
 
@@ -60,6 +64,7 @@ public final class ProxySwap {
      *
      * @param standby from {@code SwapAddresses#standbyAddress}, {@code null} without a public address
      * @param settled {@code Evacuation#settled}
+     * @param transfers the process scheduler
      */
     public ProxySwap(
             final ProxyServer proxy,
@@ -69,8 +74,9 @@ public final class ProxySwap {
             final ProxyRole role,
             final @Nullable InetSocketAddress standby,
             final Clock clock,
-            final Function<UUID, ? extends CompletionStage<?>> settled) {
-        this(proxy, logger, updates, seats, role, standby, clock, settled, StandbyReturn::connects);
+            final Function<UUID, ? extends CompletionStage<?>> settled,
+            final Executor transfers) {
+        this(proxy, logger, updates, seats, role, standby, clock, settled, transfers, StandbyReturn::connects);
     }
 
     /** @param probe asks whether the standby answers */
@@ -83,6 +89,7 @@ public final class ProxySwap {
             final @Nullable InetSocketAddress standby,
             final Clock clock,
             final Function<UUID, ? extends CompletionStage<?>> settled,
+            final Executor transfers,
             final StandbyReturn.Probe probe) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -93,6 +100,7 @@ public final class ProxySwap {
         this.clock = Objects.requireNonNull(clock, "clock");
         this.probe = Objects.requireNonNull(probe, "probe");
         this.settled = Objects.requireNonNull(settled, "settled");
+        this.transfers = Objects.requireNonNull(transfers, "transfers");
         this.startedAt = this.clock.instant();
     }
 
@@ -229,24 +237,27 @@ public final class ProxySwap {
                 target.getPort());
         for (final Player player : players) {
             seat(player);
-            final var _ = afterMove(settled.apply(player.getUniqueId()), MOVE_WAIT, () -> transfer(player));
+            final var _ = afterMove(settled.apply(player.getUniqueId()), MOVE_WAIT, transfers, () -> transfer(player));
         }
     }
 
     /**
-     * Runs {@code then} once the move has ended, or after {@code limit} for a move that hangs.
+     * Runs {@code then} on {@code on} once the move has ended, or after {@code limit} for a move that hangs.
      *
      * @return the end of {@code then}
      */
-    static CompletableFuture<Void> afterMove(final CompletionStage<?> move, final Duration limit, final Runnable then) {
+    static CompletableFuture<Void> afterMove(
+            final CompletionStage<?> move, final Duration limit, final Executor on, final Runnable then) {
         return move.toCompletableFuture()
                 .<@Nullable Void>thenApply(_ -> null)
                 .completeOnTimeout(null, limit.toMillis(), TimeUnit.MILLISECONDS)
                 // Async: a timeout fires on the JDK's one delay thread, which must not carry the transfers.
-                .handleAsync((_, _) -> {
-                    then.run();
-                    return null;
-                });
+                .handleAsync(
+                        (_, _) -> {
+                            then.run();
+                            return null;
+                        },
+                        on);
     }
 
     /** Stores the count of the transferred players. A failed write is logged. */

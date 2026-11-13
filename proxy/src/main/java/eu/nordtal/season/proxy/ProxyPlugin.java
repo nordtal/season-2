@@ -528,7 +528,8 @@ public final class ProxyPlugin {
                 shared.role(),
                 shared.standbyAddress(),
                 clock,
-                updates.evacuation()::settled);
+                updates.evacuation()::settled,
+                scheduler);
         updates.restartWatch().whenZeroReached(() -> atZero(updates.evacuation(), swap));
         updates.restartWatch().standbyProxyAnswers(swap::canPark);
         proxy.getEventManager()

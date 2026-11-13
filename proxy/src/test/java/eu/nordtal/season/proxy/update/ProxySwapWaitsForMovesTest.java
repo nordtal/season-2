@@ -18,7 +18,7 @@ class ProxySwapWaitsForMovesTest {
         final CompletableFuture<Void> move = new CompletableFuture<>();
 
         final CompletableFuture<Void> done =
-                ProxySwap.afterMove(move, Duration.ofMinutes(1), transferred::incrementAndGet);
+                ProxySwap.afterMove(move, Duration.ofMinutes(1), Runnable::run, transferred::incrementAndGet);
 
         assertEquals(0, transferred.get(), "a transfer now leaves the player on the backend the run stops");
         move.complete(null);
@@ -31,6 +31,7 @@ class ProxySwapWaitsForMovesTest {
         final CompletableFuture<Void> done = ProxySwap.afterMove(
                 CompletableFuture.failedFuture(new IllegalStateException("lost")),
                 Duration.ofMinutes(1),
+                Runnable::run,
                 transferred::incrementAndGet);
 
         done.join();
@@ -43,7 +44,7 @@ class ProxySwapWaitsForMovesTest {
 
         assertTimeoutPreemptively(
                 Duration.ofSeconds(5),
-                () -> ProxySwap.afterMove(hangs, Duration.ofMillis(50), transferred::incrementAndGet)
+                () -> ProxySwap.afterMove(hangs, Duration.ofMillis(50), Runnable::run, transferred::incrementAndGet)
                         .join());
         assertEquals(1, transferred.get());
     }

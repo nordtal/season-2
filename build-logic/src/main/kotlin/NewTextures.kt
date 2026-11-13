@@ -194,7 +194,10 @@ object NewTextures {
         size: Int,
     ): OxfmtJson.Object {
         val entry = font(root, font)
-        val blocks = entry["blocks"] as MutableList<Any?>
+        // A font of spaces, of letters or a silent one draws no glyph blocks
+        val blocks =
+            entry["blocks"] as MutableList<Any?>?
+                ?: throw FieldRefusal("font", "The font $font has no glyph blocks, so it takes none.")
         if (blocks.any { (it as Map<*, *>)["title"] == title }) throw FieldRefusal("title", "The font $font has a block $title already.")
         val run =
             range?.let { at("range") { parseRange(it) } } ?: at("size") { freeRun(taken(root, entry), size) }
@@ -225,7 +228,7 @@ object NewTextures {
     ): List<IntRange> {
         val sharing = if (font["numbering"] == "own") listOf(font) else fonts(root).filter { it === font || it["numbering"] != "own" }
         return sharing.flatMap { f ->
-            (f["blocks"] as List<*>).mapNotNull { (it as Map<*, *>)["range"] as String? }.map { parseRange(it) }
+            (f["blocks"] as List<*>?).orEmpty().mapNotNull { (it as Map<*, *>)["range"] as String? }.map { parseRange(it) }
         } +
             (font["spaces"] as List<*>? ?: emptyList<Any>()).map {
                 ((it as Map<*, *>)["code"] as String).toInt(16).let { code ->
@@ -259,7 +262,7 @@ object NewTextures {
         id: String,
         title: String,
     ): OxfmtJson.Object =
-        (font["blocks"] as List<*>).firstOrNull { (it as Map<*, *>)["title"] == title } as OxfmtJson.Object?
+        (font["blocks"] as List<*>?).orEmpty().firstOrNull { (it as Map<*, *>)["title"] == title } as OxfmtJson.Object?
             ?: throw FieldRefusal("block", "The font $id has no block $title.")
 
     internal fun range(block: Map<*, *>): IntRange = parseRange(block["range"] as String)

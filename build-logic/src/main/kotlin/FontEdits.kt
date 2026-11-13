@@ -83,7 +83,7 @@ object FontEdits {
             val entry = block(root, font, block)
             if (title != null && title != block) {
                 if (title.isBlank()) throw FieldRefusal("title", "A block needs a title.")
-                if ((NewTextures.font(root, font)["blocks"] as List<*>).any { (it as Map<*, *>)["title"] == title }) {
+                if ((NewTextures.font(root, font)["blocks"] as List<*>?).orEmpty().any { (it as Map<*, *>)["title"] == title }) {
                     throw FieldRefusal("title", "The font $font has a block $title already.")
                 }
                 entry["title"] = title
@@ -185,7 +185,7 @@ object FontEdits {
         }
         val root = OxfmtJson.read(pack.resolve("glyphs.json")) as Map<*, *>
         val entry = NewTextures.font(root, font)
-        val blocks = (entry["blocks"] as List<*>).map { it as Map<*, *> }
+        val blocks = (entry["blocks"] as List<*>?).orEmpty().map { it as Map<*, *> }
         val ids = (entry["rows"] as Int?)?.let { rows -> (0 until rows).map { font.replace("{row}", "$it") } } ?: listOf(font)
         val own =
             listOfNotNull(entry["constant"] as String?) +
@@ -212,7 +212,8 @@ object FontEdits {
     ) {
         val glyphs = blocks.flatMap { (it["glyphs"] as List<*>?).orEmpty() }.map { it as Map<*, *> }
         val kept =
-            (font["blocks"] as List<*>)
+            (font["blocks"] as List<*>?)
+                .orEmpty()
                 .filter { block -> blocks.none { it === block } }
                 .flatMap { ((it as Map<*, *>)["glyphs"] as List<*>?).orEmpty() }
                 .mapNotNull { (it as Map<*, *>)["list"] }
@@ -251,7 +252,8 @@ object FontEdits {
     private fun dropEmptyLists(font: OxfmtJson.Object) {
         val lists = font["lists"] as MutableList<*>? ?: return
         val used =
-            (font["blocks"] as List<*>)
+            (font["blocks"] as List<*>?)
+                .orEmpty()
                 .flatMap { ((it as Map<*, *>)["glyphs"] as List<*>?).orEmpty() }
                 .mapNotNull { (it as Map<*, *>)["list"] }
                 .toSet()
@@ -263,9 +265,11 @@ object FontEdits {
         root: Map<*, *>,
         font: String,
         title: String,
-    ): OxfmtJson.Object =
-        (NewTextures.font(root, font)["blocks"] as List<*>).firstOrNull { (it as Map<*, *>)["title"] == title } as OxfmtJson.Object?
+    ): OxfmtJson.Object {
+        val blocks = (NewTextures.font(root, font)["blocks"] as List<*>?).orEmpty()
+        return blocks.firstOrNull { (it as Map<*, *>)["title"] == title } as OxfmtJson.Object?
             ?: throw FieldRefusal("block", "The font $font has no block $title.")
+    }
 
     /** Puts the keys of [entry] in the order of [keys], as `glyphs.json` writes them. */
     private fun order(

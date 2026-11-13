@@ -582,7 +582,7 @@ object Drafts {
         val fonts = target["fonts"] as MutableList<Any?>
         for (font in fonts.map { it as MutableMap<String, Any?> }) {
             val id = font["font"] as String
-            val blocks = font["blocks"] as MutableList<Any?>
+            val blocks = font["blocks"] as MutableList<Any?>? ?: continue
             removeWhere(blocks) { (it as Map<*, *>)["texture"] in ids }
             for (block in blocks.map { it as Map<*, *> }) {
                 (block["glyphs"] as MutableList<Any?>?)?.let { glyphs -> removeWhere(glyphs) { glyphId(id, it as Map<*, *>) in ids } }
@@ -609,7 +609,7 @@ object Drafts {
         for (font in source?.let(NewTextures::fonts).orEmpty()) {
             val id = font["font"] as String
             if ("font $id" in ids) replace(targetFont(font), font, "blocks")
-            for (block in (font["blocks"] as List<*>).map { it as Map<*, *> }) {
+            for (block in (font["blocks"] as List<*>?).orEmpty().map { it as Map<*, *> }) {
                 if (block["texture"] != null) {
                     if (block["texture"] in ids) place(targetFont(font)["blocks"] as MutableList<Any?>, block)
                     continue
@@ -627,14 +627,14 @@ object Drafts {
         val kept = parts(source).keys
         for (font in fonts.map { it as Map<*, *> }) {
             val id = font["font"] as String
-            removeWhere(font["blocks"] as MutableList<Any?>) {
+            removeWhere(font["blocks"] as MutableList<Any?>? ?: continue) {
                 val block = it as Map<*, *>
                 blockId(id, block) in ids && blockId(id, block) !in kept && (block["glyphs"] as List<*>?).isNullOrEmpty()
             }
         }
         removeWhere(fonts) {
             val font = it as Map<*, *>
-            "font ${font["font"]}" in ids && "font ${font["font"]}" !in kept && (font["blocks"] as List<*>).isEmpty()
+            "font ${font["font"]}" in ids && "font ${font["font"]}" !in kept && (font["blocks"] as List<*>?).isNullOrEmpty()
         }
     }
 
@@ -729,7 +729,7 @@ object Drafts {
             val id = font["font"] as String
             val fields = font - "blocks"
             add("font $id", id, "font", Entry("font", "", font, null, fields, JsonOutput.toJson(fields)))
-            for (block in (font["blocks"] as List<*>).map { it as Map<*, *> }) {
+            for (block in (font["blocks"] as List<*>?).orEmpty().map { it as Map<*, *> }) {
                 val texture = block["texture"] as String?
                 if (texture != null) {
                     add(texture, block["title"], "sheet $id", Entry("sheet", "", font, null, block, JsonOutput.toJson(listOf(id, block))))

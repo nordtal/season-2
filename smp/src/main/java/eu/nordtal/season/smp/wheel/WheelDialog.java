@@ -135,14 +135,13 @@ final class WheelDialog {
                         line -> line.plate(PLATE_WIDTH, null, texts.button(), spinLeft ? Look.PRIMARY : Look.DISABLED))
                 .build();
         final String spins = Letters.cut(texts.spins(), PLATE_WIDTH);
-        // The spins line goes first: the client wraps a line at its last space once it has run past the box.
         return Pen.start()
                 .moveTo(PLATE_X + (PLATE_WIDTH - Letters.visibleWidth(spins) + 1) / 2)
                 .text(SPINS_SHIFT, spins, Colours.SOFT)
                 .moveTo(0)
-                // The dialog centres the line, so it ends with the plate.
                 .append(plate, PLATE_X + PLATE_WIDTH)
-                .build();
+                // The client splits the line again at its own width, and the plate's edge reaches 1 past its end.
+                .build(PLATE_X + PLATE_WIDTH + 1);
     }
 
     private static DialogBody body(final ItemStack stack) {

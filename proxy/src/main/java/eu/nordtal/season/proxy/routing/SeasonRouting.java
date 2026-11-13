@@ -9,6 +9,8 @@ import eu.nordtal.season.proxy.gate.GateOutcome;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /** Decides the server of a player from the {@link AccessState} and the registered servers. */
@@ -54,10 +56,28 @@ public final class SeasonRouting {
      * Without a waiting room only an admin connects to the server of the active mode.
      */
     public RouteDecision decideInitial(final SeasonState season, final boolean admin, final Set<String> available) {
+        return decideInitial(season, admin, available, server -> false);
+    }
+
+    /**
+     * Returns the decision for an admitted login, avoiding a waiting room that an update run stops.
+     * It is {@link #decideInitial(SeasonState, boolean, Set)} while the other room is not registered.
+     *
+     * @param stopping whether an update run stops the server
+     */
+    public RouteDecision decideInitial(
+            final SeasonState season,
+            final boolean admin,
+            final Set<String> available,
+            final Predicate<String> stopping) {
         Objects.requireNonNull(season, "season");
         Objects.requireNonNull(available, "available");
+        Objects.requireNonNull(stopping, "stopping");
 
-        final String room = waitingRoomAmong(available);
+        final Set<String> spared =
+                available.stream().filter(server -> !stopping.test(server)).collect(Collectors.toSet());
+        final String sparedRoom = waitingRoomAmong(spared);
+        final String room = sparedRoom != null ? sparedRoom : waitingRoomAmong(available);
         if (room != null) {
             return RouteDecision.connectTo(room);
         }

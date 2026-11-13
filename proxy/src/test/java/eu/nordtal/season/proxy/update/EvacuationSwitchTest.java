@@ -12,6 +12,7 @@ import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.velocitypowered.api.proxy.server.ServerInfo;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.common.time.ManualScheduler;
 import eu.nordtal.season.database.inbox.StewardRequest;
 import eu.nordtal.season.database.update.RunProgress;
 import eu.nordtal.season.database.update.RunRecorder;
@@ -64,6 +65,7 @@ class EvacuationSwitchTest {
     private Evacuation evacuation() {
         final Evacuation built = new Evacuation(
                 proxy(),
+                new ManualScheduler(),
                 LoggerFactory.getLogger(EvacuationSwitchTest.class),
                 updates(),
                 SERVERS,
@@ -84,6 +86,7 @@ class EvacuationSwitchTest {
         final MutableClock clock = new MutableClock(Instant.EPOCH.minusSeconds(60));
         final Evacuation early = new Evacuation(
                 proxy(),
+                new ManualScheduler(),
                 LoggerFactory.getLogger(EvacuationSwitchTest.class),
                 updates(),
                 SERVERS,
@@ -96,6 +99,8 @@ class EvacuationSwitchTest {
                 clock);
         clock.advance(Duration.ofSeconds(90));
         early.check();
+        assertEquals(List.of(), recorded, "a move counts once the player is in the waiting room");
+        moves.getFirst().complete(landed());
 
         assertTrue(early.holdsEveryone());
         assertEquals(List.of("11: smp -> limbo x1"), recorded, "the move is counted on the switch run");
@@ -226,6 +231,26 @@ class EvacuationSwitchTest {
             case "getServerInfo" -> info;
             default -> throw new UnsupportedOperationException(method);
         });
+    }
+
+    /** What Velocity answers once the player is in the waiting room. */
+    private ConnectionRequestBuilder.Result landed() {
+        return new ConnectionRequestBuilder.Result() {
+            @Override
+            public ConnectionRequestBuilder.Status getStatus() {
+                return ConnectionRequestBuilder.Status.SUCCESS;
+            }
+
+            @Override
+            public Optional<Component> getReasonComponent() {
+                return Optional.empty();
+            }
+
+            @Override
+            public RegisteredServer getAttemptedConnection() {
+                return limbo;
+            }
+        };
     }
 
     @FunctionalInterface

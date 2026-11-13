@@ -54,4 +54,21 @@ class WaitingRoomIsEitherTest {
                 routing.decideInitial(SeasonState.UNREAD.withMaintenance(false), false, both)
                         .server());
     }
+
+    @Test
+    void aJoinDuringARunLandsInTheRoomItSpares() {
+        final SeasonRouting routing = new SeasonRouting(SERVERS);
+        final Set<String> both = Set.of("limbo", "limbo-standby", "smp", "hunger-games");
+
+        assertEquals(
+                "limbo-standby",
+                routing.decideInitial(SeasonState.UNREAD, false, both, "limbo"::equals)
+                        .server(),
+                "a player sent to the limbo the run stops would be dropped at its stop");
+        assertEquals(
+                "limbo",
+                routing.decideInitial(SeasonState.UNREAD, false, Set.of("limbo", "smp"), "limbo"::equals)
+                        .server(),
+                "without the standby the stopping room still beats a refusal");
+    }
 }

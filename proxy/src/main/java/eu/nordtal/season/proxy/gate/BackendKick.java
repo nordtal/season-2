@@ -8,17 +8,19 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.proxy.NetworkServers;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
- * Handles a player whom a backend kicked.
- * A kick with a reason disconnects the player. A kick without a reason moves the player to limbo.
- * A waiting room that refuses an arriving player is waited for briefly, so a network still starting holds them.
+ * Handles a player whom a backend kicked: a reason disconnects, no reason moves them to a waiting room.
+ * A waiting room that refuses an arriving player is waited for; one that drops a player hands them to the other.
+ * No redirect leads to a server that an update run stops while the other waiting room runs.
  */
 public final class BackendKick {
 
@@ -38,6 +40,10 @@ public final class BackendKick {
     private final Logger logger;
     private final Waiting clock;
 
+    /** Whether an update run stops the server. */
+    private final Predicate<String> stopping;
+
+    /** @param stopping {@code Evacuation#isMoving} */
     public BackendKick(
             final ProxyServer proxy,
             final NetworkServers servers,
@@ -45,7 +51,8 @@ public final class BackendKick {
             final GateMessages messages,
             final LoginRoster roster,
             final Logger logger,
-            final Waiting clock) {
+            final Waiting clock,
+            final Predicate<String> stopping) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.servers = Objects.requireNonNull(servers, "servers");
         this.health = Objects.requireNonNull(health, "health");
@@ -53,6 +60,7 @@ public final class BackendKick {
         this.roster = Objects.requireNonNull(roster, "roster");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.stopping = Objects.requireNonNull(stopping, "stopping");
     }
 
     /** Returns the wait for a waiting room that refused an arriving player, otherwise {@code null}. */
@@ -66,9 +74,62 @@ public final class BackendKick {
             case TO_LIMBO -> {
                 return toLimbo(event);
             }
-            case LEAVE -> {}
+            case LEAVE -> avoidStopping(event);
         }
         return null;
+    }
+
+    /**
+     * Returns the first usable waiting room besides {@code besides}, {@code limbo} first, otherwise {@code null}.
+     *
+     * @param besides the room the player left, {@code null} for none
+     * @param usable whether the proxy can send a player to the server
+     */
+    static @Nullable String room(
+            final @Nullable String besides, final NetworkServers servers, final Predicate<String> usable) {
+        for (final String room : List.of(servers.limbo(), servers.limboStandby())) {
+            if (!room.equals(besides) && usable.test(room)) {
+                return room;
+            }
+        }
+        return null;
+    }
+
+    /** Returns whether the server is registered, not suspended after a drop, and no run stops it. */
+    private boolean usable(final String server) {
+        return !stopping.test(server)
+                && !health.isSuspended(server)
+                && proxy.getServer(server).isPresent();
+    }
+
+    /** Turns Velocity's redirect to a server that a run stops, from its try list, to a waiting room the run spares. */
+    private void avoidStopping(final KickedFromServerEvent event) {
+        if (!(event.getResult() instanceof final KickedFromServerEvent.RedirectPlayer redirect)) {
+            return;
+        }
+        final String to = redirect.getServer().getServerInfo().getName();
+        if (!stopping.test(to)) {
+            return;
+        }
+        final RegisteredServer room = registered(room(to, servers, this::usable));
+        if (room == null) {
+            return;
+        }
+        logger.info(
+                "redirect away from stopping server: player={} from={} stopping={} to={}",
+                event.getPlayer().getUsername(),
+                event.getServer().getServerInfo().getName(),
+                to,
+                room.getServerInfo().getName());
+        final @Nullable Component message = redirect.getMessageComponent();
+        event.setResult(
+                message == null
+                        ? KickedFromServerEvent.RedirectPlayer.create(room)
+                        : KickedFromServerEvent.RedirectPlayer.create(room, message));
+    }
+
+    private @Nullable RegisteredServer registered(final @Nullable String server) {
+        return server == null ? null : proxy.getServer(server).orElse(null);
     }
 
     /**
@@ -90,16 +151,31 @@ public final class BackendKick {
             return EventTask.async(() -> awaitWaitingRoom(event, from));
         }
         if (servers.isWaitingRoom(from)) {
+            // Suspended, so two rooms that both drop the player do not hand them back and forth.
+            health.suspend(from);
+            final RegisteredServer other = registered(room(from, servers, this::usable));
+            if (other == null) {
+                logger.warn(
+                        "waiting room lost player without reason, no other room, velocity result kept: server={}"
+                                + " player={}",
+                        from,
+                        event.getPlayer().getUsername());
+                return null;
+            }
             logger.warn(
-                    "waiting room lost player without reason, velocity result kept: server={} player={}",
+                    "waiting room lost player without reason, sent to other room: server={} player={} to={}",
                     from,
-                    event.getPlayer().getUsername());
+                    event.getPlayer().getUsername(),
+                    other.getServerInfo().getName());
+            event.setResult(KickedFromServerEvent.RedirectPlayer.create(other));
             return null;
         }
 
-        final RegisteredServer target = proxy.getServer(servers.limbo())
-                .or(() -> proxy.getServer(servers.limboStandby()))
-                .orElse(null);
+        final String spared = room(null, servers, this::usable);
+        final RegisteredServer target = registered(
+                spared != null
+                        ? spared
+                        : room(null, servers, name -> proxy.getServer(name).isPresent()));
         if (target == null) {
             logger.error(
                     "player lost without reason, no waiting room registered: player={} from={} waiting_room={}"

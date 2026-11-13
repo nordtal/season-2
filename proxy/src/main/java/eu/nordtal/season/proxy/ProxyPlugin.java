@@ -254,7 +254,7 @@ public final class ProxyPlugin {
         final SnapshotStore snapshots = wireServerList(shared);
         final OnlineWriter onlineWriter = wireOnlineCounts(shared);
         wirePlaytime(shared);
-        final Updates updates = wireUpdates(shared, packs, onlineWriter);
+        final Updates updates = wireUpdates(shared, packs, router, onlineWriter);
         final ProxySwap swap = wireProxySwap(shared, updates);
         wireCommands(shared);
         final SignalHub hub = wireSignals(shared, router, updates, new Reads(swap, expiry));
@@ -433,17 +433,6 @@ public final class ProxyPlugin {
         proxy.getEventManager().register(this, loginGate);
         proxy.getEventManager().register(this, shared.roster());
         proxy.getEventManager().register(this, expiryWatch);
-        proxy.getEventManager()
-                .register(
-                        this,
-                        new BackendKick(
-                                proxy,
-                                shared.servers(),
-                                shared.backendHealth(),
-                                shared.gateMessages(),
-                                shared.roster(),
-                                logger,
-                                Waiting.on(clock)));
         return expiryWatch;
     }
 
@@ -493,7 +482,8 @@ public final class ProxyPlugin {
     }
 
     /** Creates the restart countdown and the evacuation of players. */
-    private Updates wireUpdates(final Shared shared, final PackStation packs, final OnlineWriter onlineWriter) {
+    private Updates wireUpdates(
+            final Shared shared, final PackStation packs, final PlayerRouter router, final OnlineWriter onlineWriter) {
         final HikariDataSource pool = shared.loaded().pool();
         final RestartWatch restartWatch = new RestartWatch(
                 scheduler,
@@ -505,11 +495,24 @@ public final class ProxyPlugin {
                 shared.servers(),
                 clock);
         final Evacuation evacuation = new Evacuation(
-                proxy, logger, UpdateDirectory.using(pool), shared.servers(), shared.homecoming(), clock);
+                proxy, scheduler, logger, UpdateDirectory.using(pool), shared.servers(), shared.homecoming(), clock);
         packs.whenUpdating(evacuation::isMoving);
         packs.whenHeld(evacuation::isHeld);
         packs.whenProgressing(evacuation::progress);
         packs.whenSwitching(evacuation::holdsEveryone);
+        router.whenStopping(evacuation::isMoving);
+        proxy.getEventManager()
+                .register(
+                        this,
+                        new BackendKick(
+                                proxy,
+                                shared.servers(),
+                                shared.backendHealth(),
+                                shared.gateMessages(),
+                                shared.roster(),
+                                logger,
+                                Waiting.on(clock),
+                                evacuation::isMoving));
         evacuation.whenReleased(() -> scheduler.execute(packs::sweep));
         onlineWriter.whenHurrying(() -> restartWatch.isCountingDown() || evacuation.isAnyMoving());
         return new Updates(restartWatch, evacuation);
@@ -524,7 +527,9 @@ public final class ProxyPlugin {
                 shared.swaps(),
                 shared.role(),
                 shared.standbyAddress(),
-                clock);
+                clock,
+                updates.evacuation()::settled,
+                scheduler);
         updates.restartWatch().whenZeroReached(() -> atZero(updates.evacuation(), swap));
         updates.restartWatch().standbyProxyAnswers(swap::canPark);
         proxy.getEventManager()

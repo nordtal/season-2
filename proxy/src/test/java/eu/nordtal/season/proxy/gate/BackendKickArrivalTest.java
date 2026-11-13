@@ -25,8 +25,11 @@ import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.Component;
@@ -35,7 +38,10 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-/** A player sent back from the standby whom limbo refuses waits for limbo rather than seeing Velocity's error. */
+/**
+ * A waiting room that refuses or drops a player is waited for or replaced, and no redirect meets a stopping server.
+ * A player sent back from the standby whom limbo refuses waits for limbo rather than seeing Velocity's error.
+ */
 class BackendKickArrivalTest {
 
     private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
@@ -43,6 +49,11 @@ class BackendKickArrivalTest {
     private final Driven clock = new Driven();
     private @Nullable Instant limboUpAt;
     private final RegisteredServer limbo = server("limbo");
+    private final RegisteredServer standby = server("limbo-standby");
+    private final RegisteredServer smp = server("smp");
+
+    private final Map<String, RegisteredServer> registered = new HashMap<>(Map.of("limbo", limbo, "smp", smp));
+    private final Set<String> stopping = new HashSet<>();
 
     private final BackendKick kick = new BackendKick(
             proxy(),
@@ -55,7 +66,8 @@ class BackendKickArrivalTest {
                             })),
             new LoginRoster(),
             LoggerFactory.getLogger(BackendKickArrivalTest.class),
-            clock);
+            clock,
+            stopping::contains);
 
     @Test
     void limboThatComesUpTakesThePlayer() {
@@ -91,8 +103,73 @@ class BackendKickArrivalTest {
         assertNull(kick.onKickedFromServer(refused(on)));
     }
 
-    private KickedFromServerEvent refused(final @Nullable ServerConnection current) {
-        final Player player = (Player) Proxy.newProxyInstance(
+    @Test
+    void aWaitingRoomThatDropsAPlayerHandsThemToTheOtherOne() {
+        registered.put("limbo-standby", standby);
+        final KickedFromServerEvent event = dropped();
+
+        kick.onKickedFromServer(event);
+
+        final var redirect = assertInstanceOf(KickedFromServerEvent.RedirectPlayer.class, event.getResult());
+        assertEquals("limbo-standby", redirect.getServer().getServerInfo().getName());
+    }
+
+    @Test
+    void aDroppedPlayerWithoutAnotherRoomKeepsVelocitysResult() {
+        final KickedFromServerEvent event = dropped();
+
+        kick.onKickedFromServer(event);
+
+        assertInstanceOf(KickedFromServerEvent.DisconnectPlayer.class, event.getResult());
+    }
+
+    @Test
+    void aRedirectToAServerTheRunStopsGoesToTheRoomItSpares() {
+        registered.put("limbo-standby", standby);
+        stopping.add("limbo");
+        final KickedFromServerEvent event = new KickedFromServerEvent(
+                player(null), smp, null, false, KickedFromServerEvent.RedirectPlayer.create(limbo));
+
+        assertNull(kick.onKickedFromServer(event));
+
+        final var redirect = assertInstanceOf(KickedFromServerEvent.RedirectPlayer.class, event.getResult());
+        assertEquals("limbo-standby", redirect.getServer().getServerInfo().getName());
+    }
+
+    @Test
+    void aRedirectToARunningServerIsLeftAlone() {
+        registered.put("limbo-standby", standby);
+        stopping.add("smp");
+        final KickedFromServerEvent event = new KickedFromServerEvent(
+                player(null), smp, null, false, KickedFromServerEvent.RedirectPlayer.create(limbo));
+
+        kick.onKickedFromServer(event);
+
+        final var redirect = assertInstanceOf(KickedFromServerEvent.RedirectPlayer.class, event.getResult());
+        assertEquals("limbo", redirect.getServer().getServerInfo().getName());
+    }
+
+    @Test
+    void theRoomIsLimboFirstAndNeverTheOneLeft() {
+        final NetworkServers servers = SERVERS;
+        assertEquals("limbo", BackendKick.room(null, servers, server -> true));
+        assertEquals("limbo-standby", BackendKick.room("limbo", servers, server -> true));
+        assertEquals("limbo-standby", BackendKick.room(null, servers, server -> !server.equals("limbo")));
+        assertNull(BackendKick.room("limbo-standby", servers, server -> !server.equals("limbo")));
+    }
+
+    /** What Velocity fires when limbo drops a player who stood in it: no reason from the server. */
+    private KickedFromServerEvent dropped() {
+        final ServerConnection on = (ServerConnection) Proxy.newProxyInstance(
+                getClass().getClassLoader(), new Class<?>[] {ServerConnection.class}, (self, method, arguments) -> {
+                    throw new UnsupportedOperationException(method.getName());
+                });
+        return new KickedFromServerEvent(
+                player(on), limbo, null, false, KickedFromServerEvent.DisconnectPlayer.create(Component.text("lost")));
+    }
+
+    private Player player(final @Nullable ServerConnection current) {
+        return (Player) Proxy.newProxyInstance(
                 getClass().getClassLoader(),
                 new Class<?>[] {Player.class},
                 (self, method, arguments) -> switch (method.getName()) {
@@ -101,6 +178,10 @@ class BackendKickArrivalTest {
                     case "getCurrentServer" -> Optional.ofNullable(current);
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
+    }
+
+    private KickedFromServerEvent refused(final @Nullable ServerConnection current) {
+        final Player player = player(current);
         // What Velocity fires when the connection to limbo is refused: no reason from the server.
         return new KickedFromServerEvent(
                 player, limbo, null, true, KickedFromServerEvent.DisconnectPlayer.create(Component.text("refused")));
@@ -123,7 +204,7 @@ class BackendKickArrivalTest {
         return (ProxyServer) Proxy.newProxyInstance(
                 getClass().getClassLoader(), new Class<?>[] {ProxyServer.class}, (self, method, arguments) -> {
                     if (method.getName().equals("getServer")) {
-                        return Optional.ofNullable(Map.of("limbo", limbo).get((String) arguments[0]));
+                        return Optional.ofNullable(registered.get((String) arguments[0]));
                     }
                     throw new UnsupportedOperationException(method.getName());
                 });

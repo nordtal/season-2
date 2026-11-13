@@ -12,12 +12,19 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
  * Transfers every player to the standby proxy before an update run stops the live proxy.
+ * A player whose move into a waiting room is under way is transferred once that move has ended.
  * It does nothing on the standby and without a {@code public-address}.
  */
 public final class ProxySwap {
@@ -37,6 +44,12 @@ public final class ProxySwap {
     private final Clock clock;
     private final StandbyReturn.Probe probe;
 
+    /** Returns the end of the player's move into a waiting room. */
+    private final Function<UUID, ? extends CompletionStage<?>> settled;
+
+    /** Runs a transfer once the player's move has ended. */
+    private final Executor transfers;
+
     /** The start time of this process. */
     private final Instant startedAt;
 
@@ -50,6 +63,8 @@ public final class ProxySwap {
      * Prepares the swap.
      *
      * @param standby from {@code SwapAddresses#standbyAddress}, {@code null} without a public address
+     * @param settled {@code Evacuation#settled}
+     * @param transfers the process scheduler
      */
     public ProxySwap(
             final ProxyServer proxy,
@@ -58,8 +73,10 @@ public final class ProxySwap {
             final SwapStore seats,
             final ProxyRole role,
             final @Nullable InetSocketAddress standby,
-            final Clock clock) {
-        this(proxy, logger, updates, seats, role, standby, clock, StandbyReturn::connects);
+            final Clock clock,
+            final Function<UUID, ? extends CompletionStage<?>> settled,
+            final Executor transfers) {
+        this(proxy, logger, updates, seats, role, standby, clock, settled, transfers, StandbyReturn::connects);
     }
 
     /** @param probe asks whether the standby answers */
@@ -71,6 +88,8 @@ public final class ProxySwap {
             final ProxyRole role,
             final @Nullable InetSocketAddress standby,
             final Clock clock,
+            final Function<UUID, ? extends CompletionStage<?>> settled,
+            final Executor transfers,
             final StandbyReturn.Probe probe) {
         this.proxy = Objects.requireNonNull(proxy, "proxy");
         this.logger = Objects.requireNonNull(logger, "logger");
@@ -80,8 +99,13 @@ public final class ProxySwap {
         this.standby = standby;
         this.clock = Objects.requireNonNull(clock, "clock");
         this.probe = Objects.requireNonNull(probe, "probe");
+        this.settled = Objects.requireNonNull(settled, "settled");
+        this.transfers = Objects.requireNonNull(transfers, "transfers");
         this.startedAt = this.clock.instant();
     }
+
+    /** The longest wait for a player's move into a waiting room before the transfer goes ahead. */
+    static final Duration MOVE_WAIT = Duration.ofSeconds(5);
 
     /** The time that the standby has to answer. */
     static final Duration STANDBY_ANSWERS_WITHIN = Duration.ofSeconds(1);
@@ -212,8 +236,28 @@ public final class ProxySwap {
                 target.getHostString(),
                 target.getPort());
         for (final Player player : players) {
-            park(player);
+            seat(player);
+            final var _ = afterMove(settled.apply(player.getUniqueId()), MOVE_WAIT, transfers, () -> transfer(player));
         }
+    }
+
+    /**
+     * Runs {@code then} on {@code on} once the move has ended, or after {@code limit} for a move that hangs.
+     *
+     * @return the end of {@code then}
+     */
+    static CompletableFuture<Void> afterMove(
+            final CompletionStage<?> move, final Duration limit, final Executor on, final Runnable then) {
+        return move.toCompletableFuture()
+                .<@Nullable Void>thenApply(_ -> null)
+                .completeOnTimeout(null, limit.toMillis(), TimeUnit.MILLISECONDS)
+                // Async: a timeout fires on the JDK's one delay thread, which must not carry the transfers.
+                .handleAsync(
+                        (_, _) -> {
+                            then.run();
+                            return null;
+                        },
+                        on);
     }
 
     /** Stores the count of the transferred players. A failed write is logged. */
@@ -235,6 +279,12 @@ public final class ProxySwap {
      * @return whether the transfer was sent
      */
     public boolean park(final Player player) {
+        seat(player);
+        return transfer(player);
+    }
+
+    /** Stores the server of the player, which the return to the live proxy reads. */
+    private void seat(final Player player) {
         final String on = player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName())
                 .orElse(null);
@@ -244,6 +294,18 @@ public final class ProxySwap {
             } catch (final RuntimeException failure) {
                 logger.warn("player seat not recorded: player={}", player.getUsername(), failure);
             }
+        }
+    }
+
+    /**
+     * Transfers a connected player to the standby.
+     *
+     * @return whether the transfer was sent
+     */
+    private boolean transfer(final Player player) {
+        if (!player.isActive()) {
+            logger.info("player left before the transfer to standby proxy: player={}", player.getUsername());
+            return false;
         }
         try {
             player.transferToHost(standby);

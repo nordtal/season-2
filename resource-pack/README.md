@@ -345,7 +345,8 @@ absolute path of every file it wrote or deleted.
   `sounds/<event, dots as slashes>.ogg`.
 - `overrideSound` overrides a `minecraft:` event of the season's client. With `replace`, the event
   plays the pack's sounds alone: it starts with vanilla's subtitle and a copy of each of vanilla's
-  `.ogg` files, at `sounds/nordtal/<vanilla's path>.ogg`, or with the `file` alone where one is given.
+  `.ogg` files, at `sounds/nordtal/<event, dots as slashes>/<file>.ogg`, or with the `file` alone
+  where one is given.
   A sound it cannot download refuses the override, which then writes nothing. Without `replace`, the
   `file` plays beside vanilla's sounds. Its own files go under `sounds/nordtal/` of `minecraft`, so
   they never take the place of a vanilla file that other events play.

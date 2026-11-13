@@ -177,11 +177,9 @@ object Sounds {
     }
 
     /**
-     * Overrides the vanilla event [event] that [vanilla] lists. With [replace], the event plays only the pack's sounds and
-     * starts from copies of vanilla's sounds and its subtitle, or from [file] alone where one is given; without, [file]
-     * plays beside vanilla's sounds. Each copy goes to `sounds/nordtal/<vanilla's path>` in vanilla's namespace, so it
-     * never hides a vanilla file that other events play. A sound that cannot be copied refuses the override and writes
-     * nothing. Returns the files it wrote.
+     * Overrides the vanilla event [event] that [vanilla] lists. With [replace], it plays only the pack's sounds: [file],
+     * or else copies of vanilla's sounds as [copyOf] names them, which refuse the whole override where one cannot be read,
+     * with vanilla's subtitle. Without, [file] plays beside vanilla's sounds. Returns the files it wrote.
      */
     fun override(
         pack: File,
@@ -206,7 +204,7 @@ object Sounds {
                     val fields = s as? Map<*, *>
                     val name = qualified((fields?.get("name") ?: s).toString())
                     if (fields?.get("type") == "event") return@map map(fields + ("name" to name))
-                    val copy = free(pack, copyOf(name), taken).also { taken += it }
+                    val copy = free(pack, copyOf(event, name), taken).also { taken += it }
                     copies[file(pack, copy)] = vanillaBytes(vanilla, name)
                     if (fields != null) map(fields + ("name" to copy)) else copy
                 }
@@ -220,17 +218,24 @@ object Sounds {
         }
     }
 
-    /** The name a copy of the vanilla sound [name] starts from: `nordtal/` before its path, in its namespace. */
-    private fun copyOf(name: String) = "${name.substringBefore(':')}:nordtal/${name.substringAfter(':')}"
+    /**
+     * The name a copy of the vanilla sound [name] for [event] starts from: `nordtal/<event, dots as slashes>/<file>`. It
+     * never hides a vanilla file, and no two events share it, so a publish never writes one event's copy over another's.
+     */
+    private fun copyOf(
+        event: String,
+        name: String,
+    ) = "${name.substringBefore(':')}:nordtal/${event.substringAfter(':').replace('.', '/')}/${name.substringAfterLast('/')}"
 
-    /** Whether the pack's sound [name] is a copy of the vanilla sound [vanilla] that still holds [bytes], vanilla's file. */
+    /** Whether the pack's sound [name] is a copy of the vanilla sound [vanilla] for [event] that still holds [bytes]. */
     private fun unchangedCopy(
         pack: File,
+        event: String,
         name: String,
         vanilla: String,
         bytes: () -> ByteArray?,
     ): Boolean {
-        val base = copyOf(vanilla)
+        val base = copyOf(event, vanilla)
         if (name != base && !Regex(Regex.escape(base) + "_[0-9]+").matches(name)) return false
         val own = file(pack, name)
         return own.isFile && bytes()?.contentEquals(own.readBytes()) == true
@@ -299,6 +304,7 @@ object Sounds {
         if (replace != null) {
             if (replace != "true" && replace != "false") throw FieldRefusal("replace", "Set -Preplace to true or false.")
             if (!event.startsWith("minecraft:")) throw FieldRefusal("replace", "Only a vanilla sound event replaces vanilla's sounds.")
+            val dropped = mutableListOf<String>()
             return change(pack, event, null) { root, _ ->
                 root.also {
                     if (replace == "true") {
@@ -315,18 +321,19 @@ object Sounds {
                         // Vanilla's sounds and the copies of them that nobody changed play as vanilla's again
                         val copied = names(vanilla().events()[event].orEmpty()).toSet()
                         val held = mutableMapOf<String, ByteArray?>()
+
                         fun bytes(name: String) = held.getOrPut(name) { runCatching { vanilla().sound(name).readBytes() }.getOrNull() }
                         (it["sounds"] as MutableList<Any?>).removeAll { sound ->
-                            names(mapOf("sounds" to listOf(sound))).any { name ->
-                                name in copied || copied.any { v -> unchangedCopy(pack, name, v) { bytes(v) } }
-                            }
+                            val named = names(mapOf("sounds" to listOf(sound)))
+                            val copy = named.filter { name -> copied.any { v -> unchangedCopy(pack, event, name, v) { bytes(v) } } }
+                            dropped += copy
+                            named.any { it in copied } || copy.isNotEmpty()
                         }
                     }
                 }
             }.let { written ->
                 val key = entry["subtitle"] as String?
-                val dropped = if (replace == "true") emptyList() else unused(pack, names(entry))
-                (if (replace == "true" || key == null) written else written + subtitleText(pack, event, key)) + dropped
+                (if (replace == "true" || key == null) written else written + subtitleText(pack, event, key)) + unused(pack, dropped)
             }
         }
         val values =

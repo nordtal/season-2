@@ -316,32 +316,44 @@ public final class Wheel {
                             spinsLeft > 0,
                             again,
                             closing(send)));
-                    final WheelPlan.Face before = faces.put(id, plan.after());
-                    final AtomicBoolean paid = new AtomicBoolean();
-                    final Runnable payout = () -> {
-                        if (paid.compareAndSet(false, true)) {
-                            ending.remove(id);
-                            turning.remove(id);
-                            // A spin that goes back leaves the wheel as it was before it.
-                            if (!player.isOnline() && before != null) {
-                                faces.put(id, before);
-                            }
-                            give(player, item, prize.amount(), locale, refund);
-                        }
-                    };
-                    turning.put(id, payout);
-                    final Runnable end = () -> {
-                        if (player.isOnline() && !paid.get()) {
-                            sounds.play(player, Feedback.BIG_SUCCESS);
-                        }
-                        payout.run();
-                    };
-                    final Scheduler.Task clicks = turn(player, plan.variant(), end);
-                    ending.put(id, () -> {
-                        clicks.cancel();
-                        end.run();
-                    });
+                    pay(player, plan, item, prize.amount(), locale, refund);
                 }));
+    }
+
+    /** Turns the wheel of {@code plan} and pays its prize once it rests, or at once when the player closes it. */
+    private void pay(
+            final Player player,
+            final WheelPlan plan,
+            final ItemStack item,
+            final int amount,
+            final Locale locale,
+            final Runnable refund) {
+        final UUID id = player.getUniqueId();
+        final WheelPlan.Face before = faces.put(id, plan.after());
+        final AtomicBoolean paid = new AtomicBoolean();
+        final Runnable payout = () -> {
+            if (paid.compareAndSet(false, true)) {
+                ending.remove(id);
+                turning.remove(id);
+                // A spin that goes back leaves the wheel as it was before it.
+                if (!player.isOnline() && before != null) {
+                    faces.put(id, before);
+                }
+                give(player, item, amount, locale, refund);
+            }
+        };
+        turning.put(id, payout);
+        final Runnable end = () -> {
+            if (player.isOnline() && !paid.get()) {
+                sounds.play(player, Feedback.BIG_SUCCESS);
+            }
+            payout.run();
+        };
+        final Scheduler.Task clicks = turn(player, plan.variant(), end);
+        ending.put(id, () -> {
+            clicks.cancel();
+            end.run();
+        });
     }
 
     /** Plays the clicks of {@code variant}'s turn, then {@code end} once the wheel rests. */

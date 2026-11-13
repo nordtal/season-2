@@ -53,7 +53,7 @@ class PackBuildsTest {
                 },
                 record,
                 settings,
-                new PackShelf(shelfDir, 5),
+                new PackShelf(shelfDir, 5, Clock.systemUTC()),
                 (facts, prizes, texts, zip, roots) -> {
                     zips.incrementAndGet();
                     duringZip.run();

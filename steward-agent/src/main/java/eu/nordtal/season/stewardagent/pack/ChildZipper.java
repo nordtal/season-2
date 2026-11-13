@@ -1,8 +1,8 @@
 package eu.nordtal.season.stewardagent.pack;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -46,41 +46,34 @@ final class ChildZipper implements PackZipper {
                 texts.toString(),
                 zip.toString()));
         roots.forEach(root -> command.add(root.toString()));
-        final Process child =
-                new ProcessBuilder(command).redirectErrorStream(true).start();
-        final StringBuilder output = new StringBuilder();
-        final Thread reader = Thread.ofVirtual().start(() -> drain(child.getInputStream(), output));
+        final Path log = zip.resolveSibling(zip.getFileName() + ".log");
         try {
-            if (!child.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+            final Process child = new ProcessBuilder(command)
+                    .redirectErrorStream(true)
+                    .redirectOutput(log.toFile())
+                    .start();
+            try {
+                if (!child.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                    child.destroyForcibly();
+                    throw new IOException("the pack builder did not finish within " + timeout);
+                }
+            } catch (final InterruptedException interrupted) {
                 child.destroyForcibly();
-                throw new IOException("the pack builder did not finish within " + timeout);
+                Thread.currentThread().interrupt();
+                throw new IOException("interrupted while the pack builder ran", interrupted);
             }
-            reader.join(Duration.ofSeconds(5));
-        } catch (final InterruptedException interrupted) {
-            child.destroyForcibly();
-            Thread.currentThread().interrupt();
-            throw new IOException("interrupted while the pack builder ran", interrupted);
-        }
-        if (child.exitValue() != 0) {
-            final String text;
-            synchronized (output) {
-                text = output.length() > TAIL ? output.substring(output.length() - TAIL) : output.toString();
+            if (child.exitValue() != 0) {
+                throw new IOException("the pack builder exited with " + child.exitValue() + ": "
+                        + tail(log).strip());
             }
-            throw new IOException("the pack builder exited with " + child.exitValue() + ": " + text.strip());
+        } finally {
+            Files.deleteIfExists(log);
         }
     }
 
-    private static void drain(final InputStream in, final StringBuilder output) {
-        try (in) {
-            final byte[] buffer = new byte[4096];
-            int read;
-            while ((read = in.read(buffer)) >= 0) {
-                synchronized (output) {
-                    output.append(new String(buffer, 0, read, StandardCharsets.UTF_8));
-                }
-            }
-        } catch (final IOException ignored) {
-            // The child ended; what it wrote so far is the reason.
-        }
+    /** The end of the child's output, the reason of a failed build. */
+    private static String tail(final Path log) throws IOException {
+        final String text = Files.readString(log, StandardCharsets.UTF_8);
+        return text.length() > TAIL ? text.substring(text.length() - TAIL) : text;
     }
 }

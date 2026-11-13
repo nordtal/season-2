@@ -7,7 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.time.Instant;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -30,14 +30,19 @@ final class PackShelf {
 
     private final Path dir;
     private final int keep;
+    private final Clock clock;
 
-    /** @param keep how many of the newest packs stay besides the active one */
-    PackShelf(final Path dir, final int keep) {
+    /**
+     * @param keep how many of the newest packs stay besides the active one
+     * @param clock dates a pack put on the shelf, which decides the newest
+     */
+    PackShelf(final Path dir, final int keep, final Clock clock) {
         if (keep < 1) {
             throw new IllegalArgumentException("keep must be at least 1, was " + keep);
         }
         this.dir = Objects.requireNonNull(dir, "dir");
         this.keep = keep;
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     Path dir() {
@@ -63,7 +68,7 @@ final class PackShelf {
             Files.setPosixFilePermissions(built, PosixFilePermissions.fromString("rw-r--r--"));
             Files.move(built, target, StandardCopyOption.ATOMIC_MOVE);
         }
-        Files.setLastModifiedTime(target, FileTime.from(Instant.now()));
+        Files.setLastModifiedTime(target, FileTime.from(clock.instant()));
     }
 
     /**

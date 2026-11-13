@@ -138,7 +138,7 @@ public final class PackBuilds {
                 () -> PackInputs.read(settings, documents, prizes),
                 PackBuildStore.using(dataSource),
                 settings,
-                new PackShelf(shelf, KEEP),
+                new PackShelf(shelf, KEEP, clock),
                 new ChildZipper(TIMEOUT),
                 image.resolve("vanilla-facts.zip"),
                 List.of(image.resolve("base")),

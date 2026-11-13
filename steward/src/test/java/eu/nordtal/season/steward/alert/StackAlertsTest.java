@@ -139,7 +139,8 @@ class StackAlertsTest {
                 "smp", "running", "starting", StackReading.Purpose.SERVES, null, false, 3, NOW.minusSeconds(40)));
         assertEquals(List.of("smp restarts"), titles(looping));
         assertEquals(
-                List.of("smp restarted 3 times since it was started, the last time within the hour."),
+                List.of(
+                        "smp exited and Docker restarted it 3 times since it was started, the last time within the hour."),
                 AdminPlain.of(looping.getFirst().lines()));
         assertEquals(Alert.Level.WARN, looping.getFirst().level());
         assertEquals(

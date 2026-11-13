@@ -27,7 +27,7 @@ internal object WheelLayout {
     val POINTER = intArrayOf(40, -8)
 
     /** The off plate's top-left on the disc canvas, and its size. */
-    val PLATE = intArrayOf(108, 33)
+    val PLATE = intArrayOf(108, 31)
     const val PLATE_WIDTH = 75
     const val PLATE_HEIGHT = 17
 
@@ -36,10 +36,10 @@ internal object WheelLayout {
     val OVERLAY_ANCHOR = intArrayOf(-2, -10, 184, 106)
 
     /**
-     * The plate row's height: its description's padding 4 above and below three text lines, as the client lays it out
+     * The plate row's height: its description's padding 4 above and below one text line, as the client lays it out
      * (measured in the dev client, the same in every language and with no spin left).
      */
-    const val PLATE_ROW_HEIGHT = 4 + 3 * 9 + 4
+    const val PLATE_ROW_HEIGHT = 4 + 9 + 4
 
     /** Body [body]'s item origin from body 0's; the plate row's 1-pixel item sits at its row's vertical middle. */
     fun origin(body: Int): IntArray =

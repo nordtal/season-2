@@ -4,6 +4,7 @@ import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.packrendering.ui.BodyLine;
 import io.papermc.paper.dialog.DialogResponseView;
 import io.papermc.paper.registry.RegistryKey;
+import io.papermc.paper.registry.data.dialog.ActionButton;
 import io.papermc.paper.registry.data.dialog.DialogBase;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
@@ -55,7 +56,8 @@ public final class Dialogs {
 
     /**
      * The base of a dialog with drawn buttons, closed by Esc.
-     * Esc tells the server nothing, a click keeps the dialog open for the server's redraw, and the game runs on.
+     * Esc tells the server nothing unless the type has an exit action, as {@link #bodyOnly(DialogAction)} gives it.
+     * A click keeps the dialog open for the server's redraw, and the game runs on.
      */
     public static DialogBase.Builder base(final Component title) {
         return DialogBase.builder(title)
@@ -67,6 +69,19 @@ public final class Dialogs {
     /** A dialog of its body alone: no button grid and no footer button. */
     public static DialogType bodyOnly() {
         return DialogType.dialogList(RegistrySet.keySet(RegistryKey.DIALOG)).build();
+    }
+
+    /**
+     * A dialog of its body alone whose Esc runs {@code exit}, the only way the client tells the server a dialog closed.
+     * The client draws the exit as a native button, 1 pixel wide, in a footer 33 high instead of 5.
+     */
+    public static DialogType bodyOnly(final DialogAction exit) {
+        return DialogType.dialogList(RegistrySet.keySet(RegistryKey.DIALOG))
+                .exitAction(ActionButton.builder(Component.empty())
+                        .width(1)
+                        .action(exit)
+                        .build())
+                .build();
     }
 
     /** A body line whose art is {@code art} wide: its box is 10 wider, so the focus ring stands clear of the art. */

@@ -22,6 +22,7 @@ import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -87,7 +88,10 @@ public final class Wheel {
     /** Each player's wheel: drawn on the first open and kept, turned by each spin, until the server stops. */
     private final Map<UUID, WheelPlan.Face> faces = new ConcurrentHashMap<>();
 
-    /** The pop-in's sounds that still play, per player, which a spin stops. */
+    /** Ends a player's turn on the spot: stops its clicks and pays as a turn that ran to its end. Closing calls it. */
+    private final Map<UUID, Runnable> ending = new ConcurrentHashMap<>();
+
+    /** The pop-in's sounds that still play, per player, which a spin or a close stops. */
     private final Map<UUID, Scheduler.Task> popping = new ConcurrentHashMap<>();
 
     private final Clock clock;
@@ -142,11 +146,11 @@ public final class Wheel {
                 if (!player.isOnline() || turning.containsKey(id)) {
                     return;
                 }
-                final ClickEvent press =
-                        count > 0 ? dialogs.send().clickUnless(() -> turning.containsKey(id), this::spin) : null;
+                final Dialogs.Send send = dialogs.send();
+                final ClickEvent press = count > 0 ? send.clickUnless(() -> turning.containsKey(id), this::spin) : null;
                 player.setCooldown(WheelDialog.GROUP, timetable.open());
-                player.showDialog(
-                        WheelDialog.of(plan, stacks, texts(locale, count), locale.getLanguage(), count > 0, press));
+                player.showDialog(WheelDialog.of(
+                        plan, stacks, texts(locale, count), locale.getLanguage(), count > 0, press, closing(send)));
                 final Set<Integer> pops = Set.copyOf(timetable.pops());
                 stopPopping(id);
                 popping.put(
@@ -168,6 +172,24 @@ public final class Wheel {
     private WheelPlan.Face face(final UUID id, final List<WheelPrizeSpec> pool) {
         return faces.compute(
                 id, (key, face) -> face != null && face.drawnFrom(pool) ? face : WheelPlan.Face.random(pool, random));
+    }
+
+    /** The dialog's close, which stops the pop-in's sounds and ends a turn at once. */
+    private DialogAction closing(final Dialogs.Send send) {
+        return send.action((player, response) -> close(player));
+    }
+
+    /**
+     * Stops the player's wheel: the pop-in's sounds end, and a turning wheel stops and pays its prize straight away.
+     * Callable from the main thread; the dialog's close calls it, and so does anything else that closes the dialog.
+     */
+    public void close(final Player player) {
+        final UUID id = player.getUniqueId();
+        stopPopping(id);
+        final Runnable end = ending.remove(id);
+        if (end != null) {
+            end.run();
+        }
     }
 
     private void stopPopping(final UUID id) {
@@ -280,40 +302,53 @@ public final class Wheel {
                         give(player, item, prize.amount(), locale, refund);
                         return;
                     }
-                    final ClickEvent again = spinsLeft > 0
-                            ? dialogs.send().clickUnless(() -> turning.containsKey(id), this::spin)
-                            : null;
+                    final Dialogs.Send send = dialogs.send();
+                    final ClickEvent again =
+                            spinsLeft > 0 ? send.clickUnless(() -> turning.containsKey(id), this::spin) : null;
                     stopPopping(id);
                     // The cooldown goes first, so the dialog's first frame already plays the turn.
                     player.setCooldown(WheelDialog.GROUP, timetable.cooldown());
                     player.showDialog(WheelDialog.of(
-                            plan, stacks, texts(locale, spinsLeft), locale.getLanguage(), spinsLeft > 0, again));
-                    final WheelPlan.Face before = faces.put(id, plan.after());
-                    final AtomicBoolean paid = new AtomicBoolean();
-                    final Runnable payout = () -> {
-                        if (paid.compareAndSet(false, true)) {
-                            turning.remove(id);
-                            // A spin that goes back leaves the wheel as it was before it.
-                            if (!player.isOnline() && before != null) {
-                                faces.put(id, before);
-                            }
-                            give(player, item, prize.amount(), locale, refund);
-                        }
-                    };
-                    turning.put(id, payout);
-                    turn(player, plan.variant(), () -> {
-                        if (player.isOnline() && !paid.get()) {
-                            sounds.play(player, Feedback.BIG_SUCCESS);
-                        }
-                        payout.run();
-                    });
+                            plan,
+                            stacks,
+                            texts(locale, spinsLeft),
+                            locale.getLanguage(),
+                            spinsLeft > 0,
+                            again,
+                            closing(send)));
+                    pay(player, plan, item, prize.amount(), locale, refund);
                 }));
     }
 
+    /** Turns the wheel of {@code plan} and pays its prize once it rests, or at once when the player closes it. */
+    private void pay(
+            final Player player,
+            final WheelPlan plan,
+            final ItemStack item,
+            final int amount,
+            final Locale locale,
+            final Runnable refund) {
+        final UUID id = player.getUniqueId();
+        final WheelPlan.Face before = faces.put(id, plan.after());
+        final WheelTurn once = new WheelTurn(() -> sounds.play(player, Feedback.BIG_SUCCESS), () -> {
+            ending.remove(id);
+            turning.remove(id);
+            // A spin that goes back leaves the wheel as it was before it.
+            if (!player.isOnline() && before != null) {
+                faces.put(id, before);
+            }
+            give(player, item, amount, locale, refund);
+        });
+        turning.put(id, () -> once.end(false));
+        final Runnable end = () -> once.end(player.isOnline());
+        once.clicks(turn(player, plan.variant(), end)::cancel);
+        ending.put(id, end);
+    }
+
     /** Plays the clicks of {@code variant}'s turn, then {@code end} once the wheel rests. */
-    private void turn(final Player player, final int variant, final Runnable end) {
+    private Scheduler.Task turn(final Player player, final int variant, final Runnable end) {
         final Set<Integer> clicks = Set.copyOf(timetable.clicks().getOrDefault(variant, List.of()));
-        play(
+        return play(
                 player,
                 timetable.end(variant),
                 tick -> {
@@ -356,6 +391,7 @@ public final class Wheel {
     public void stop() {
         List.copyOf(popping.values()).forEach(Scheduler.Task::cancel);
         popping.clear();
+        ending.clear();
         List.copyOf(turning.values()).forEach(Runnable::run);
         turning.clear();
     }

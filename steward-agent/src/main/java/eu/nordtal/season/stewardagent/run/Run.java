@@ -361,7 +361,14 @@ final class Run {
      * Players moved off a held service stay in the waiting room on purpose, so those moves are not counted.
      */
     private void countBack(final Steps.Step returning) {
-        final Set<String> held = Set.copyOf(runner.held());
+        final Set<String> held;
+        try {
+            held = Set.copyOf(runner.held());
+        } catch (final RuntimeException unread) {
+            log.warn("service holds not read, players back not counted", unread);
+            returning.warned(RunStep.Reason.PLAYERS_UNKNOWN);
+            return;
+        }
         final Instant deadline = runner.waiting.now().plus(RETURN_CAP);
         while (true) {
             final Optional<List<RunStep.Move>> moves = steps.record.moves();

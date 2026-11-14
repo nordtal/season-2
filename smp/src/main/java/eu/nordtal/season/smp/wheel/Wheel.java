@@ -91,7 +91,7 @@ public final class Wheel {
     /** Ends a player's turn on the spot: stops its clicks and pays as a turn that ran to its end. Closing calls it. */
     private final Map<UUID, Runnable> ending = new ConcurrentHashMap<>();
 
-    /** The pop-in's sounds that still play, per player, which a spin or a close stops. */
+    /** The pop-in that still plays, per player, with the turn a spin starts after it; a spin or a close stops it. */
     private final Map<UUID, Scheduler.Task> popping = new ConcurrentHashMap<>();
 
     private final Clock clock;
@@ -160,19 +160,8 @@ public final class Wheel {
                         count > 0,
                         press,
                         closing(send)));
-                final Set<Integer> pops = Set.copyOf(timetable.pops());
                 stopPopping(id);
-                popping.put(
-                        id,
-                        play(
-                                player,
-                                timetable.open(),
-                                tick -> {
-                                    if (pops.contains(tick)) {
-                                        sounds.play(player, Feedback.POP);
-                                    }
-                                },
-                                () -> popping.remove(id)));
+                popping.put(id, pops(player, () -> popping.remove(id)));
             });
         });
     }
@@ -285,7 +274,7 @@ public final class Wheel {
         final List<WheelPrizeSpec> pool = config.wheelPrizes();
         final UUID id = player.getUniqueId();
         // This part runs off the main thread.
-        final WheelFaces.Next next = faces.next(id, pool);
+        final WheelFaces.Next next = faces.peek(id, pool);
         final WheelPlan.Face face = next.face();
         final WheelPlan plan = WheelPlan.turning(face, face.draw(pool, timetable.variants(), random));
         final WheelPrizeSpec prize = plan.winner();
@@ -395,13 +384,13 @@ public final class Wheel {
             final Runnable show,
             final Runnable rest) {
         final UUID id = player.getUniqueId();
-        final WheelPlan.Face before = faces.turning(id, plan.after());
+        final WheelFaces.Before before = faces.turning(id, plan.after());
         final WheelTurn once = new WheelTurn(() -> sounds.play(player, Feedback.BIG_SUCCESS), () -> {
             ending.remove(id);
             turning.remove(id);
             if (player.isOnline()) {
                 faces.ended(id);
-            } else if (before != null) {
+            } else {
                 faces.back(id, before);
             }
             give(player, item, amount, locale, refund);
@@ -419,31 +408,43 @@ public final class Wheel {
         ending.put(id, end);
         final Runnable start = () -> {
             popping.remove(id);
-            if (over.get()) {
+            if (over.get() || !player.isOnline()) {
+                end.run();
                 return;
             }
-            show.run();
-            clicks[0] = turn(player, plan.variant(), () -> {
-                end.run();
-                rest.run();
-            });
+            try {
+                show.run();
+                clicks[0] = turn(player, plan.variant(), () -> {
+                    end.run();
+                    rest.run();
+                });
+            } catch (final RuntimeException e) {
+                ending.remove(id);
+                turning.remove(id);
+                faces.back(id, before);
+                refund.run();
+                plugin.getLogger().log(Level.WARNING, "wheel turn failed to show, spin returned", e);
+            }
         };
-        if (!popIn) {
+        if (popIn) {
+            popping.put(id, pops(player, start));
+        } else {
             start.run();
-            return;
         }
+    }
+
+    /** Plays the pop-in with its sounds, then {@code end}. */
+    private Scheduler.Task pops(final Player player, final Runnable end) {
         final Set<Integer> pops = Set.copyOf(timetable.pops());
-        popping.put(
-                id,
-                play(
-                        player,
-                        timetable.open(),
-                        tick -> {
-                            if (pops.contains(tick)) {
-                                sounds.play(player, Feedback.POP);
-                            }
-                        },
-                        start));
+        return play(
+                player,
+                timetable.open(),
+                tick -> {
+                    if (pops.contains(tick)) {
+                        sounds.play(player, Feedback.POP);
+                    }
+                },
+                end);
     }
 
     /** Plays the clicks of {@code variant}'s turn, then {@code end} once the wheel rests. */

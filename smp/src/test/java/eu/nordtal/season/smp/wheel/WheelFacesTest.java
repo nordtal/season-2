@@ -70,11 +70,34 @@ class WheelFacesTest {
     @Test
     void aSpinThatGoesBackLeavesTheWheelAsBefore() {
         final WheelPlan.Face face = faces.next(PLAYER, pool).face();
-        final WheelPlan.Face before =
+        final WheelFaces.Before before =
                 faces.turning(PLAYER, WheelPlan.turning(face, 3).after());
         faces.back(PLAYER, before);
         final WheelFaces.Next next = faces.next(PLAYER, pool);
         assertFalse(next.drawn());
         assertEquals(face, next.face());
+    }
+
+    @Test
+    void aSpinAfterATurnThatGoesBackStillDrawsNewPrizesNextTime() {
+        final WheelPlan.Face face = faces.next(PLAYER, pool).face();
+        faces.turning(PLAYER, WheelPlan.turning(face, 3).after());
+        faces.ended(PLAYER);
+        final WheelFaces.Next spin = faces.peek(PLAYER, pool);
+        assertTrue(spin.drawn(), "a spin after a turn draws new prizes");
+        faces.back(
+                PLAYER, faces.turning(PLAYER, WheelPlan.turning(spin.face(), 1).after()));
+        assertTrue(faces.peek(PLAYER, pool).drawn(), "the refunded spin left the wheel as it was");
+        assertTrue(faces.next(PLAYER, pool).drawn());
+    }
+
+    @Test
+    void aSpinOnlyLooksUntilItsTurnKeepsTheWheel() {
+        final WheelPlan.Face face = faces.next(PLAYER, pool).face();
+        faces.ended(PLAYER);
+        final WheelFaces.Next spin = faces.peek(PLAYER, pool);
+        assertTrue(spin.drawn());
+        assertEquals(face.parity(), spin.face().parity(), "new prizes keep the grain");
+        assertTrue(faces.peek(PLAYER, pool).drawn(), "a look keeps nothing");
     }
 }

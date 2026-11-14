@@ -119,7 +119,11 @@ and each node above it, shows `*` at the start of its badge until a save or an u
 save. A sprite that the tab built from the frames of a PNG has no unsaved changes until the designer
 changes it. The tree's **Texts** lists each key of the pack's language files, and its properties
 show the asset that owns the key, one value per language that `editText` writes, and **Delete
-Text**. **Add Text** on **Texts** asks for a key, a language and a value. The properties panel of a
+Text**. **Add Text** on **Texts** asks for a key, a language and a value. Aseprite's font has no glyph of
+the pack, so a value or subtitle shows each private-use character as a token of its code point and title,
+such as `[FE021: Logo, 32 px high]`, in the panel, its dialogs and the conflict dialog. A field turns
+each token back into its character, whatever title it carries, and `[FE021]` typed alone adds the
+glyph. The properties panel of a
 draft has **Discard Changes**, which runs `discardDraft` once confirmed. **Publish** above the tree
 shows the number of drafts and is disabled while there are none. It opens the same dialog as
 **File > Publish...**, which lists every draft with a check, and a title that names the drafts

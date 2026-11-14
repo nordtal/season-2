@@ -89,6 +89,22 @@ describe("sounds", function()
     assert.equal("weight field:weight: 2", rows[5])
   end)
 
+  it("shows a glyph of the pack in a subtitle as a token, and keeps the glyph through the edit", function()
+    local logo = utf8.char(0xFE021)
+    local info = event({ id=ping.id, subtitles={ en_us=logo .. " Ping" }, sounds=ping.sounds })
+    info.titles = { [0xFE021]="Logo" }
+    local found
+    for _, line in ipairs(lines(sounds.rows(info, tr))) do
+      if line:find("subtitle:en_us", 1, true) then found = line end
+    end
+    assert.equal("subtitle subtitle:en_us: [FE021: Logo] Ping", found)
+    local form = sounds.form(info, "subtitle:en_us", tr)
+    assert.equal("[FE021: Logo] Ping", form.widgets[1].text)
+    assert.is_nil(sounds.jobs(info, "subtitle:en_us", { value=form.widgets[1].text }))
+    assert.same({ "subtitleSound", { sound=ping.id, language="en_us", value=logo .. " Pong" } },
+      sounds.jobs(info, "subtitle:en_us", { value="[FE021: Logo] Pong" }))
+  end)
+
   it("asks whether to delete an event and says what goes with it", function()
     assert.same({ "sounds.delete_question nordtal:ui.ping", "sounds.delete_note" }, sounds.confirm(event(ping), tr))
     assert.same({ "sounds.delete_question minecraft:block.anvil.land", "sounds.delete_vanilla_note" },

@@ -353,6 +353,21 @@ describe("a text", function()
     assert.is_nil(properties.jobs(text(), "text:de_de", { value="" }, tr))
   end)
 
+  it("shows a glyph of the pack in a value as a token with its title, and keeps the glyph through the edit", function()
+    local logo = utf8.char(0xFE021)
+    local info = text({ values={ en_us="Play " .. logo } })
+    info.titles = { [0xFE021]="Logo, 32 px high" }
+    assert.equal("en_us=Play [FE021: Logo, 32 px high]*", rows(info)[4])
+    local form = properties.form(info, "text:en_us", tr, lists)
+    assert.equal("Play [FE021: Logo, 32 px high]", form.widgets[1].text)
+    -- Saved unchanged, the value writes nothing; changed, it keeps the exact character
+    assert.is_nil(properties.jobs(info, "text:en_us", { value=form.widgets[1].text }, tr))
+    assert.same({ "editText", { key="menu.title", language="en_us", value="Play " .. logo .. "!" } },
+      properties.jobs(info, "text:en_us", { value=form.widgets[1].text .. "!" }, tr))
+    assert.same({ "editText", { key="menu.help", language="en_us", value=logo } },
+      properties.jobs({ kind="texts" }, "addText", { key="menu.help", language="en_us", value="[FE021]" }, tr))
+  end)
+
   it("deletes the key from every language", function()
     assert.equal("label", properties.form(text(), "deleteText", tr, lists).widgets[1].kind)
     assert.same({ "editText", { key="menu.title", delete=true } }, properties.jobs(text(), "deleteText", {}, tr))

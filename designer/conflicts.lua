@@ -4,6 +4,8 @@
 
 local conflicts = {}
 
+local glyphtext = require("glyphtext")
+
 -- The size of the compare canvas, in points, and the space between
 -- a caption and its image
 local compareWidth, compareHeight, gap = 320, 180, 10
@@ -11,11 +13,13 @@ local compareWidth, compareHeight, gap = 320, 180, 10
 local valueLength = 40
 
 -- The value as the dialog shows it, cut to valueLength characters, or
--- the word for absent where that side removed the field
+-- the word for absent where that side removed the field. A glyph of
+-- the pack shows as a token of its code, which the UI font can draw.
 local function short(value, tr)
   if value == nil then
     return tr("conflict.absent")
   end
+  value = glyphtext.readable(value, {})
   if utf8.len(value) <= valueLength then
     return value
   end

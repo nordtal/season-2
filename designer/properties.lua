@@ -6,6 +6,8 @@
 
 local properties = {}
 
+local glyphtext = require("glyphtext")
+
 -- The integer of a whole number, any other value as it is. Aseprite's
 -- Lua floors in math.tointeger, so a fraction needs its own check.
 local function int(value)
@@ -173,7 +175,7 @@ function properties.rows(info, tr, context)
     for _, language in ipairs(languages(info)) do
       local value = e.values[language]
       table.insert(list, { key="text", label=language, field="text:" .. language,
-                           value=value == nil and tr("properties.no_text") or shown(value) })
+                           value=value == nil and tr("properties.no_text") or glyphtext.readable(shown(value), info.titles) })
     end
     table.insert(list, { key="delete_text", value=tr("properties.delete_text"), field="deleteText", button=true })
   elseif kind == "override" then
@@ -218,7 +220,8 @@ function properties.form(info, field, tr, lists)
   local language = field:match("^text:(.+)$")
   if language then
     local title = tr("properties.text_in", e.key, language)
-    return { title=title, widgets={ { kind="entry", id="value", label=language, text=e.values[language] or "" } } }
+    return { title=title, widgets={ { kind="entry", id="value", label=language,
+                                      text=glyphtext.readable(e.values[language] or "", info.titles) } } }
   elseif field == "addText" then
     local title = tr("properties.add_text")
     local options = languages(info)
@@ -286,11 +289,12 @@ function properties.jobs(info, field, data, tr, old)
   local value = data.value
   local language = field:match("^text:(.+)$")
   if language then
+    value = glyphtext.exact(value)
     if value == (e.values[language] or "") then return nil end
     return { "editText", { key=e.key, language=language, value=value } }
   elseif field == "addText" then
     if (data.key or "") == "" then return nil end
-    return { "editText", { key=data.key, language=data.language, value=data.value or "" } }
+    return { "editText", { key=data.key, language=data.language, value=glyphtext.exact(data.value or "") } }
   elseif field == "deleteText" then
     return { "editText", { key=e.key, delete=true } }
   elseif field == "delete" and info.kind == "override" then

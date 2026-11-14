@@ -87,6 +87,9 @@ describe("tree", function()
     assert.equal("sound/nordtal:ui.ping", ping.id)
     assert.equal("sound", index[ping.id].kind)
     assert.same({ "de_de", "en_us" }, index[ping.id].languages)
+    -- A sound and a text name the glyphs of the pack, so their values can show them
+    assert.is_table(index[ping.id].titles)
+    assert.equal(index[ping.id].titles, index["text/menu.title"].titles)
     local pong = index[ping.children[2].id]
     assert.equal("sound_file", pong.kind)
     assert.equal("nordtal:ui/pong", pong.entry.name)

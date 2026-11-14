@@ -25,7 +25,7 @@ class RestartLinesRenderTest {
     void aCountdownLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
             for (final Occasion occasion : Occasion.values()) {
-                assertRendered(locale, RestartWatch.countdown(occasion, "smp", 10), occasion != Occasion.MAINTENANCE);
+                assertRendered(locale, RestartWatch.countdown(occasion, "smp", 10), namesService(occasion));
             }
         }
     }
@@ -34,9 +34,14 @@ class RestartLinesRenderTest {
     void aNowLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
             for (final Occasion occasion : Occasion.values()) {
-                assertRendered(locale, RestartWatch.now(occasion, "smp"), occasion != Occasion.MAINTENANCE);
+                assertRendered(locale, RestartWatch.now(occasion, "smp"), namesService(occasion));
             }
         }
+    }
+
+    /** MAINTENANCE names the network, and PACK the resource pack, since neither is about one service. */
+    private static boolean namesService(final Occasion occasion) {
+        return occasion != Occasion.MAINTENANCE && occasion != Occasion.PACK;
     }
 
     @Test
@@ -58,6 +63,20 @@ class RestartLinesRenderTest {
             final RestartWatch.Occasioned update = new RestartWatch.Occasioned(Occasion.UPDATE);
             assertRendered(locale, RestartWatch.CANCELLED.with(update), false);
             assertRendered(locale, RestartWatch.FAILED.with(update), false);
+        }
+    }
+
+    @Test
+    void aFailedSwapSaysOnlyThatThePlayerKeepsTheirPack() {
+        final String text = plain(Locale.ENGLISH, RestartWatch.FAILED.with(new RestartWatch.Occasioned(Occasion.PACK)));
+        assertEquals("The resource pack update failed. You keep the pack you have.", text);
+    }
+
+    @Test
+    void everyOccasionHasAFailedLine() {
+        for (final Occasion occasion : Occasion.values()) {
+            final String text = plain(Locale.ENGLISH, RestartWatch.FAILED.with(new RestartWatch.Occasioned(occasion)));
+            assertTrue(text.contains("failed"), occasion + ": " + text);
         }
     }
 

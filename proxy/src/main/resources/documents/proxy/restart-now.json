@@ -32,6 +32,13 @@
           }
         },
         {
+          "when": "occasion=pack",
+          "text": {
+            "en": "<warn>The resource pack is being updated now.</warn> <muted>You can move again once it has loaded.</muted>",
+            "de": "<warn>Das Ressourcenpaket wird jetzt aktualisiert.</warn> <muted>Sobald es geladen ist, kannst du dich wieder bewegen.</muted>"
+          }
+        },
+        {
           "when": "occasion=maintenance",
           "text": {
             "en": "<warn>Nordtal is going down now.</warn>",

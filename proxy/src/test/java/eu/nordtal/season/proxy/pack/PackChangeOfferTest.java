@@ -229,6 +229,62 @@ class PackChangeOfferTest {
     }
 
     @Test
+    void thePackALiveSwapSentOnTheSmpCountsAsAppliedAndTheOldOneGoes() {
+        final FakePlayer miner = online("Alex", "smp", false);
+        applied(miner, OLD);
+        spec.set(pack(NEW, true));
+        station.packChanged();
+
+        station.onPackStatus(status(miner, NEW, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+
+        assertEquals(List.of(PackOffer.idOf(OLD)), miner.removed);
+        assertEquals(0, miner.disconnects);
+    }
+
+    @Test
+    void aPlayerOnTheSmpWhoDeclinesTheLiveSwapIsDisconnectedAsAtJoin() {
+        final FakePlayer miner = online("Alex", "smp", false);
+        applied(miner, OLD);
+        spec.set(pack(NEW, true));
+        station.packChanged();
+
+        station.onPackStatus(status(miner, NEW, PlayerResourcePackStatusEvent.Status.DECLINED));
+
+        assertEquals(1, miner.disconnects);
+        assertEquals(List.of(), miner.removed);
+    }
+
+    @Test
+    void aPlayerOnTheSmpWhoseClientCannotLoadTheLiveSwapIsDisconnectedAsAtJoin() {
+        for (final PlayerResourcePackStatusEvent.Status failure : List.of(
+                PlayerResourcePackStatusEvent.Status.FAILED_DOWNLOAD,
+                PlayerResourcePackStatusEvent.Status.FAILED_RELOAD)) {
+            spec.set(pack(OLD, true));
+            final FakePlayer miner = online("Alex", "smp", false);
+            applied(miner, OLD);
+            spec.set(pack(NEW, true));
+            station.packChanged();
+
+            station.onPackStatus(status(miner, NEW, failure));
+
+            assertEquals(1, miner.disconnects, failure.name());
+        }
+    }
+
+    @Test
+    void thePackALiveSwapAppliedIsNotOfferedAgainInTheWaitingRoom() {
+        final FakePlayer miner = online("Alex", "smp", false);
+        applied(miner, OLD);
+        spec.set(pack(NEW, true));
+        station.packChanged();
+        station.onPackStatus(status(miner, NEW, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+
+        miner.server = Optional.of(connection("limbo", miner.player(), miner.limbo));
+        assertEquals(0, station.packChanged());
+        assertEquals(List.of(), miner.offers);
+    }
+
+    @Test
     void aDisabledPackIsOfferedToNobody() {
         final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, OLD);

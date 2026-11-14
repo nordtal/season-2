@@ -1173,6 +1173,25 @@ export type TextArgs = {
   "steward.game.no-way-back": Record<string, never>
   "steward.game.no-world": Record<string, never>
   "steward.game.objective": Record<string, never>
+  "steward.game.pack": Record<string, never>
+  "steward.game.pack-active": {
+    size: Arg["text"]
+    at: Arg["text"]
+  }
+  "steward.game.pack-again": Record<string, never>
+  "steward.game.pack-again-failed": Record<string, never>
+  "steward.game.pack-again-sent": Record<string, never>
+  "steward.game.pack-building": {
+    at: Arg["text"]
+  }
+  "steward.game.pack-failed": {
+    reason: Arg["text"]
+  }
+  "steward.game.pack-none": Record<string, never>
+  "steward.game.pack-swap": Record<string, never>
+  "steward.game.pack-swap-ask": Record<string, never>
+  "steward.game.pack-swap-note": Record<string, never>
+  "steward.game.pack-swap-wait": Record<string, never>
   "steward.game.prize": Record<string, never>
   "steward.game.prizes": {
     count: Arg["number"]

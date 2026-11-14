@@ -16,6 +16,7 @@ import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.metric.Metric;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.database.pack.PackBuildStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.spec.MessageSchema;
@@ -62,6 +63,7 @@ import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
 import eu.nordtal.season.steward.messages.DocumentsApi;
 import eu.nordtal.season.steward.metric.Metrics;
+import eu.nordtal.season.steward.pack.PackApi;
 import eu.nordtal.season.steward.push.PushSubscriptions;
 import eu.nordtal.season.steward.push.WebPushSender;
 import eu.nordtal.season.steward.season.SeasonRoutes;
@@ -164,6 +166,7 @@ public final class Web {
     private final AgentApi deployments;
 
     private final Updates updates;
+    private final PackApi pack;
 
     private final SeasonRoutes season;
 
@@ -203,7 +206,8 @@ public final class Web {
             Channel.SETTINGS,
             Channel.ALERT,
             Channel.GAME_DATA,
-            Channel.COMMAND_TREE);
+            Channel.COMMAND_TREE,
+            Channel.PACK);
 
     /** How often {@link AlertMonitor#poll} reads the stack. */
     private static final Duration ALERT_POLL = Duration.ofSeconds(30);
@@ -286,6 +290,7 @@ public final class Web {
                 PackExemptions.using(data.dataSource()), ctx -> account(ctx).orElseThrow());
         this.authFlow = new AuthFlow(config, discord, data, this.sessions, admins);
         this.updates = new Updates(data, ctx -> account(ctx).orElseThrow(), secondFactor::requireStepUp);
+        this.pack = new PackApi(PackBuildStore.using(data.dataSource()));
         this.season = new SeasonRoutes(data, ctx -> account(ctx).orElseThrow(), stack::online, clock);
         this.deployments = new AgentApi(agent, agentOffered);
         final PushSubscriptions localPushSubscriptions = new PushSubscriptions(data.dataSource());
@@ -358,6 +363,7 @@ public final class Web {
         live.watch(Topic.ALERTS, alerts::read);
         live.watch(Topic.GAME_DATA, gameData::changes);
         live.watch(Topic.COMMANDS, consoleCommands::published);
+        live.watch(Topic.PACK, pack::read);
         return live;
     }
 
@@ -418,6 +424,7 @@ public final class Web {
                     deployments.register(cfg);
                     metrics.register(cfg);
                     updates.register(cfg);
+                    pack.register(cfg);
                     GameRoutes.register(cfg, commands, games, inventories, announcements, gameData, consoleCommands);
                     registerPreviewRoutes(cfg);
                     guild.register(cfg);

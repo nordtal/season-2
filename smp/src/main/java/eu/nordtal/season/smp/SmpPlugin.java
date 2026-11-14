@@ -54,6 +54,7 @@ import eu.nordtal.season.smp.milestone.TrackDao;
 import eu.nordtal.season.smp.milestone.TrackNames;
 import eu.nordtal.season.smp.milestone.TrackValidation;
 import eu.nordtal.season.smp.npc.SpawnNpc;
+import eu.nordtal.season.smp.pack.PackSwap;
 import eu.nordtal.season.smp.player.PlayerSurfacesListener;
 import eu.nordtal.season.smp.prestige.PrestigeColours;
 import eu.nordtal.season.smp.progress.GateHolders;
@@ -284,14 +285,16 @@ public final class SmpPlugin extends NordtalPlugin {
         hub().on(Channel.SMP, "the boards and HUD", this::refreshSurfaceData);
         final ItemTakeIn takeIn = new ItemTakeIn(this, pool(), renderer(), documents(), identities());
         takeIn.watch(hub());
-        answerRequests(takeIn);
+        final PackSwap packSwap = new PackSwap(this, pool());
+        getServer().getPluginManager().registerEvents(packSwap, this);
+        answerRequests(takeIn, packSwap);
         getLogger()
                 .info("track loaded: milestones=" + track.size() + " protected_areas="
                         + protectedAreas.all().size());
     }
 
     /** Carries out what Steward asks of smp, each request by its kind. */
-    private void answerRequests(final ItemTakeIn takeIn) {
+    private void answerRequests(final ItemTakeIn takeIn, final PackSwap packSwap) {
         answer(SmpRequest.TABLE, request -> switch (request.payload()) {
             case SmpRequest.CompleteObjective complete -> admin.completeObjective(complete.key());
             case SmpRequest.UnlockMilestone unlock -> admin.unlockMilestone(unlock.key());
@@ -303,6 +306,7 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.StoreModeState store -> storeModeState(store.player());
             case SmpRequest.OpenInventory open -> openEditor(open.admin(), open.player(), open.container());
             case SmpRequest.TakeInItem take -> takeIn.open(request.id(), take.player(), take.purpose());
+            case SmpRequest.SendPack send -> packSwap.send(request.id(), send.url(), send.sha1());
             case SmpRequest.RemoveStack remove ->
                 removeStack(
                         remove.player(),

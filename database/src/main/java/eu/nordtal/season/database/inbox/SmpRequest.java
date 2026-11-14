@@ -23,7 +23,8 @@ public sealed interface SmpRequest
                 SmpRequest.StoreModeState,
                 SmpRequest.RemoveStack,
                 SmpRequest.OpenInventory,
-                SmpRequest.TakeInItem {
+                SmpRequest.TakeInItem,
+                SmpRequest.SendPack {
 
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
             .withRows(
@@ -36,7 +37,8 @@ public sealed interface SmpRequest
                     OpenInventory.class,
                     TakeInItem.class,
                     PreviewMessage.class,
-                    PreviewDocument.class);
+                    PreviewDocument.class,
+                    SendPack.class);
 
     /** Closes one objective of the active milestone by hand and pays out what was collected. */
     record CompleteObjective(String key) implements SmpRequest {
@@ -199,6 +201,22 @@ public sealed interface SmpRequest
             /** Returns the answer of a window closed empty. */
             public static Answer none() {
                 return new Answer(null, null);
+            }
+        }
+    }
+
+    /**
+     * Sends the resource pack at {@code url} in place of the pack each player holds, to every player not exempt.
+     * Each player stands still and takes no damage while it loads, and it settles once nobody is left loading.
+     *
+     * @param sha1 the SHA-1 of the zip in lower-case hex, from which the pack's id derives as at the proxy
+     */
+    record SendPack(String url, String sha1) implements SmpRequest {
+
+        public SendPack {
+            Objects.requireNonNull(url, "url");
+            if (sha1 == null || !sha1.matches("[0-9a-f]{40}")) {
+                throw new IllegalArgumentException("a pack's SHA-1 is 40 lower-case hex characters, not " + sha1);
             }
         }
     }

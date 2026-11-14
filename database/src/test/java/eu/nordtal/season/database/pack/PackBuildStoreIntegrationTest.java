@@ -3,6 +3,7 @@ package eu.nordtal.season.database.pack;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
 import eu.nordtal.season.database.DatabaseRole;
@@ -13,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
@@ -84,6 +86,20 @@ class PackBuildStoreIntegrationTest {
         assertThrows(
                 UnableToExecuteStatementException.class,
                 () -> asSteward.useHandle(handle -> handle.execute("DELETE FROM pack_build")));
+    }
+
+    @Test
+    void eachAskOfStewardMovesTheAskTheAgentWatchesOn() {
+        final TestDatabase database = TestDatabase.fresh();
+        final PackBuildStore agent = PackBuildStore.using(database.dataSource());
+        final PackBuildStore steward = PackBuildStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        assertEquals(Optional.empty(), agent.asked());
+
+        steward.askAgain();
+        final Instant first = agent.asked().orElseThrow();
+        steward.askAgain();
+
+        assertTrue(agent.asked().orElseThrow().isAfter(first));
     }
 
     @Test

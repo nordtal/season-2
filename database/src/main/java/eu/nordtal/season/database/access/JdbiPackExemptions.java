@@ -1,7 +1,10 @@
 package eu.nordtal.season.database.access;
 
 import eu.nordtal.season.database.Jdbis;
+import java.util.Collection;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
@@ -12,6 +15,22 @@ final class JdbiPackExemptions implements PackExemptions {
 
     JdbiPackExemptions(final DataSource dataSource) {
         this.jdbi = Jdbis.over(Objects.requireNonNull(dataSource, "dataSource"));
+    }
+
+    @Override
+    public Set<UUID> exemptAmong(final Collection<UUID> players) {
+        if (players.isEmpty()) {
+            return Set.of();
+        }
+        return jdbi.withHandle(handle -> Set.copyOf(handle.createQuery("""
+                        SELECT link.mc_uuid
+                        FROM account_link link
+                                 JOIN discord_user usr ON usr.discord_id = link.discord_id
+                        WHERE link.mc_uuid = ANY(:players) AND usr.pack_exempt_at IS NOT NULL
+                        """)
+                .bind("players", players.toArray(UUID[]::new))
+                .mapTo(UUID.class)
+                .list()));
     }
 
     @Override

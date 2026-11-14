@@ -43,4 +43,13 @@ class DebounceTest {
 
         assertEquals(2, builds.get());
     }
+
+    @Test
+    void aBuildAskedForNowRunsAtOnceAndTakesThePlaceOfTheWaitingOne() {
+        debounce.request();
+        debounce.now();
+
+        assertEquals(1, builds.get());
+        assertEquals(0, scheduler.pending().size());
+    }
 }

@@ -1,5 +1,8 @@
 package eu.nordtal.season.database.access;
 
+import java.util.Collection;
+import java.util.Set;
+import java.util.UUID;
 import javax.sql.DataSource;
 
 /**
@@ -13,6 +16,9 @@ public interface PackExemptions {
     static PackExemptions using(final DataSource dataSource) {
         return new JdbiPackExemptions(dataSource);
     }
+
+    /** Returns those of {@code players}, Minecraft ids, whose account is exempt from the resource pack. */
+    Set<UUID> exemptAmong(Collection<UUID> players);
 
     /**
      * {@code actor} lets {@code target} play without the resource pack.

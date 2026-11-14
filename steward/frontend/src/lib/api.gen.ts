@@ -94,6 +94,11 @@ export type ActiveRun = {
   run?: Run
 }
 
+export type PackStatus = {
+  latest?: PackBuild
+  active?: PackBuild
+}
+
 export type Router = {
   launch?: string
   opening: SeasonOpening
@@ -595,6 +600,7 @@ export type Topic =
   | "TOPOLOGY"
   | "GAME_DATA"
   | "COMMANDS"
+  | "PACK"
 
 export type GuildEntry = {
   id: string
@@ -650,6 +656,7 @@ export type UpdateKind =
   | "DEPLOY"
   | "REMOVE_PLUGIN"
   | "SWITCH_MODE"
+  | "LIVE_SWAP"
   | "INSTALL"
 
 export type UpdateStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED" | "CANCELLED"
@@ -686,6 +693,17 @@ export type RunStep = {
   offsite?: RunOffsite
   saved: RunArchive[]
   pruned: RunArchive[]
+}
+
+export type PackBuild = {
+  id: number
+  state: PackBuildState
+  started: string
+  finished?: string
+  sha1?: string
+  sizeBytes?: number
+  durationMs?: number
+  error?: string
 }
 
 export type SeasonOpening = "CLOSED" | "COUNTDOWN" | "LAUNCHED"
@@ -1219,6 +1237,8 @@ export type RunArchive = {
   stopVerified: boolean
   rule?: PruneRule
 }
+
+export type PackBuildState = "BUILDING" | "ACTIVE" | "SUPERSEDED" | "FAILED"
 
 export type SmpObjective = {
   key: string

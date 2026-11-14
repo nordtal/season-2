@@ -48,6 +48,7 @@ export const keys = {
   documentDrawing: (id: string, language: string, draft: string) => ["document-drawing", id, language, draft] as const,
   descriptors: ["descriptors"] as const,
   gameData: ["game-data"] as const,
+  pack: ["pack"] as const,
   messageExamples: ["message-examples"] as const,
   messageSyntax: ["message-syntax"] as const,
   messageFallbacks: ["message-fallbacks"] as const,

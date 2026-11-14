@@ -76,7 +76,7 @@ public final class Updates {
     public void ask(final Context ctx) {
         final Ask ask = ctx.bodyAsClass(Ask.class);
         if (ask == null || ask.kind == null) {
-            throw new BadRequestResponse("kind is UPDATE, BACKUP, RESTART, DOWN, START, RECREATE or DEPLOY");
+            throw new BadRequestResponse("kind is UPDATE, BACKUP, RESTART, DOWN, START, RECREATE, DEPLOY or LIVE_SWAP");
         }
         final UpdateKind kind;
         try {
@@ -125,7 +125,7 @@ public final class Updates {
     static boolean needsStepUp(final UpdateKind kind) {
         return switch (kind) {
             case UPDATE, DOWN, RECREATE, DEPLOY, RESTORE, REMOVE_PLUGIN, INSTALL, SWITCH_MODE -> true;
-            case RESTART, START, BACKUP -> false;
+            case RESTART, START, BACKUP, LIVE_SWAP -> false;
         };
     }
 

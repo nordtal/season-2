@@ -29,6 +29,7 @@ import {
   type Available,
   type Run,
   type ActiveRun,
+  type PackStatus,
   type Schedule,
   type Service,
   type ServiceTable,
@@ -388,7 +389,7 @@ export function useAskForRun() {
   const client = useQueryClient()
   return useMutation({
     mutationFn: (ask: {
-      kind: "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START" | "RECREATE" | "DEPLOY"
+      kind: "UPDATE" | "BACKUP" | "RESTART" | "DOWN" | "START" | "RECREATE" | "DEPLOY" | "LIVE_SWAP"
       delaySeconds?: number
       /** Without it the run is for the whole network. */
       services?: string[]
@@ -398,6 +399,23 @@ export function useAskForRun() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ["runs"] })
     },
+  })
+}
+
+/** The newest build of the resource pack and the active one, which the proxy offers. */
+export function usePackStatus(enabled = true) {
+  return useQuery({
+    queryKey: keys.pack,
+    queryFn: () => api<PackStatus>("/api/pack"),
+    ...live("PACK"),
+    enabled,
+  })
+}
+
+/** Asks for a build of the resource pack now. Its progress arrives through the pack's topic. */
+export function useBuildPackAgain() {
+  return useMutation({
+    mutationFn: () => api<void>("/api/pack/build", { method: "POST" }),
   })
 }
 

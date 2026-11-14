@@ -22,6 +22,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -164,11 +165,36 @@ public final class PackBuilds {
         start();
     }
 
-    /** Asks for a build on every change of smp's settings or of the admins' documents. Call before the hub starts. */
+    /**
+     * Asks for a build on every change of smp's settings or the admins' documents, and at once when an admin asks.
+     * Call before the hub starts.
+     */
     public void listen(final SignalHub signals, final DocumentStore store) {
         signals.on(Channel.SETTINGS, "the wheel prizes", this::requestIfChanged);
+        // The hub re-reads on every wake, so a build runs only when the ask moved on since the last read.
+        signals.watch(
+                Channel.PACK_BUILD, "a pack build asked for", askedAtListen(), record::asked, asked -> buildNow());
         if (documents != null) {
             documents.follow(store, signals, this::requestIfChanged);
+        }
+    }
+
+    /** Returns the last ask as the agent starts, so an ask from before the start builds nothing again. */
+    private Optional<Instant> askedAtListen() {
+        try {
+            return record.asked();
+        } catch (final RuntimeException unread) {
+            log.warn("last pack build ask not read, the next ask builds: cause={}", unread.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /** Builds now, as an admin asked after a failed build; it builds nothing when the active pack is drawn the same. */
+    void buildNow() {
+        log.info("pack build asked for by an admin");
+        final Debounce lane = debounce;
+        if (lane != null) {
+            lane.now();
         }
     }
 

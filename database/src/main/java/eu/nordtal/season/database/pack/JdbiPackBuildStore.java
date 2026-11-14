@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
+import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
 /** Implements {@link PackBuildStore} with JDBI. */
@@ -34,15 +35,19 @@ final class JdbiPackBuildStore implements PackBuildStore {
 
     @Override
     public long start(final Instant started, final String prizes, final Map<String, String> label) {
-        return jdbi.withHandle(handle -> handle.createUpdate("""
-                        INSERT INTO pack_build (state, started, prizes, label)
-                        VALUES ('BUILDING', :started, CAST(:prizes AS jsonb), CAST(:label AS jsonb))""")
-                .bind("started", at(started))
-                .bind("prizes", prizes)
-                .bind("label", Json.encode(label))
-                .executeAndReturnGeneratedKeys("id")
-                .mapTo(Long.class)
-                .one());
+        return jdbi.inTransaction(handle -> {
+            final long id = handle.createUpdate("""
+                            INSERT INTO pack_build (state, started, prizes, label)
+                            VALUES ('BUILDING', :started, CAST(:prizes AS jsonb), CAST(:label AS jsonb))""")
+                    .bind("started", at(started))
+                    .bind("prizes", prizes)
+                    .bind("label", Json.encode(label))
+                    .executeAndReturnGeneratedKeys("id")
+                    .mapTo(Long.class)
+                    .one();
+            announce(handle);
+            return id;
+        });
     }
 
     @Override
@@ -61,30 +66,64 @@ final class JdbiPackBuildStore implements PackBuildStore {
                     .bind("sha1", sha1)
                     .bind("size", sizeBytes)
                     .execute();
+            announce(handle);
         });
     }
 
     @Override
     public void fail(final long id, final Instant finished, final String error) {
-        jdbi.useHandle(handle -> handle.createUpdate("""
-                        UPDATE pack_build SET state = 'FAILED', finished = :finished, error = :error,
-                            duration_ms = GREATEST(0, (EXTRACT(EPOCH FROM (CAST(:finished AS timestamptz) - started)) * 1000)::bigint)
-                        WHERE id = :id AND state = 'BUILDING'""")
-                .bind("id", id)
-                .bind("finished", at(finished))
-                .bind("error", error)
-                .execute());
+        jdbi.useTransaction(handle -> {
+            handle.createUpdate("""
+                            UPDATE pack_build SET state = 'FAILED', finished = :finished, error = :error,
+                                duration_ms = GREATEST(0, (EXTRACT(EPOCH FROM (CAST(:finished AS timestamptz) - started)) * 1000)::bigint)
+                            WHERE id = :id AND state = 'BUILDING'""")
+                    .bind("id", id)
+                    .bind("finished", at(finished))
+                    .bind("error", error)
+                    .execute();
+            announce(handle);
+        });
     }
 
     @Override
     public void abandon(final Instant finished, final String error) {
-        jdbi.useHandle(handle -> handle.createUpdate("""
-                        UPDATE pack_build SET state = 'FAILED', finished = :finished, error = :error,
-                            duration_ms = GREATEST(0, (EXTRACT(EPOCH FROM (CAST(:finished AS timestamptz) - started)) * 1000)::bigint)
-                        WHERE state = 'BUILDING'""")
-                .bind("finished", at(finished))
-                .bind("error", error)
-                .execute());
+        jdbi.useTransaction(handle -> {
+            handle.createUpdate("""
+                            UPDATE pack_build SET state = 'FAILED', finished = :finished, error = :error,
+                                duration_ms = GREATEST(0, (EXTRACT(EPOCH FROM (CAST(:finished AS timestamptz) - started)) * 1000)::bigint)
+                            WHERE state = 'BUILDING'""")
+                    .bind("finished", at(finished))
+                    .bind("error", error)
+                    .execute();
+            announce(handle);
+        });
+    }
+
+    @Override
+    public void askAgain() {
+        jdbi.useTransaction(handle -> {
+            handle.createUpdate("""
+                            INSERT INTO pack_build_ask (asked) VALUES (clock_timestamp())
+                            ON CONFLICT (one) DO UPDATE SET asked = clock_timestamp()""").execute();
+            handle.createQuery("SELECT pg_notify('nordtal_pack_build', '') IS NULL")
+                    .mapTo(Boolean.class)
+                    .one();
+        });
+    }
+
+    @Override
+    public Optional<Instant> asked() {
+        return jdbi.withHandle(handle -> handle.createQuery("SELECT asked FROM pack_build_ask")
+                .mapTo(OffsetDateTime.class)
+                .findOne()
+                .map(OffsetDateTime::toInstant));
+    }
+
+    /** Signals the change of a build, sent with the commit. */
+    private static void announce(final Handle handle) {
+        handle.createQuery("SELECT pg_notify('nordtal_pack', '') IS NULL")
+                .mapTo(Boolean.class)
+                .one();
     }
 
     @Override

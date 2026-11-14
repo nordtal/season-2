@@ -48,6 +48,12 @@ public enum UpdateKind {
     SWITCH_MODE,
 
     /**
+     * Counts down to the players on the SMP and sends them the current resource pack, with no service stopped.
+     * Each player stands still while the pack loads.
+     */
+    LIVE_SWAP,
+
+    /**
      * Puts what has nothing installed into the volumes when steward-agent starts, before any server runs.
      * Nobody asks for it: steward-agent writes the row when done, already settled.
      */
@@ -58,7 +64,7 @@ public enum UpdateKind {
         return (this == BACKUP ? "/operations/backups/" : "/operations/updates/") + id;
     }
 
-    /** Returns whether this kind stops servers, which a confirmation is asked for. */
+    /** Returns whether this kind stops servers or interrupts their players, which a countdown warns of. */
     public boolean stopsServers() {
         return this != START && this != INSTALL;
     }
@@ -78,6 +84,7 @@ public enum UpdateKind {
             case START -> new StewardRequest.Start();
             case RECREATE -> new StewardRequest.Recreate();
             case DEPLOY -> new StewardRequest.Deploy();
+            case LIVE_SWAP -> new StewardRequest.LiveSwap();
             case RESTORE, REMOVE_PLUGIN, SWITCH_MODE ->
                 throw new IllegalArgumentException(this + " names more than its kind; submit the request itself");
             case INSTALL ->

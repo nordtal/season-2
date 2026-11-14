@@ -71,6 +71,9 @@ class RunShapeTest {
     void nowhereToPutAnybody() {
         // With limbo in the run and no standby, every kind is the same run to its players.
         for (final UpdateKind kind : UpdateKind.values()) {
+            if (kind == UpdateKind.LIVE_SWAP) {
+                continue;
+            }
             final RunShape shape = RunShape.of(kind, Set.of("smp", "limbo"), false, false);
             assertEquals(Occasion.MAINTENANCE, shape.occasion(), kind.name());
             assertEquals(RunShape.Fate.DISCONNECT, shape.fateFor("smp"), kind.name());
@@ -90,6 +93,19 @@ class RunShapeTest {
 
         // START reaches no player but is named anyway.
         assertEquals(Occasion.UPDATE, occasionOf(UpdateKind.START));
+    }
+
+    @Test
+    void aLiveSwapReachesOnlyTheSmpAndNeedsNoWaitingRoom() {
+        final RunShape shape = RunShape.of(UpdateKind.LIVE_SWAP, Set.of(), false, false);
+
+        assertEquals(Occasion.PACK, shape.occasion());
+        assertTrue(shape.reaches("smp"));
+        assertFalse(shape.reaches("hunger-games"));
+        assertFalse(shape.reaches("limbo"));
+        assertFalse(shape.reaches(null));
+        assertEquals(RunShape.Fate.NOTHING, shape.fateFor("smp"), "a live swap stops nothing");
+        assertTrue(RunShape.of(UpdateKind.UPDATE, Set.of("smp"), true, false).reaches("hunger-games"));
     }
 
     @Test

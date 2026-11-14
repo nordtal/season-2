@@ -15,6 +15,9 @@ public enum Occasion {
     /** An update request of the kind {@code UPDATE}. */
     UPDATE,
 
+    /** An update request of the kind {@code LIVE_SWAP}, which reaches only the players on the SMP. */
+    PACK,
+
     /** No waiting room runs during the run, so the players are disconnected. It replaces every other kind. */
     MAINTENANCE
 }

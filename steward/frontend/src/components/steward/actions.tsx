@@ -30,6 +30,7 @@ const KIND_ICON: Record<string, Icon> = {
   CLOSE_SEASON: TERM_ICON.closed,
   SET_MAINTENANCE: TERM_ICON.maintenance,
   SWITCH_MODE: TERM_ICON.gameMode,
+  LIVE_SWAP: TERM_ICON.pack,
   ADMIN_ROOT: TERM_ICON.admin,
   GRANT_ADMIN: TERM_ICON.admin,
   REVOKE_ADMIN: TERM_ICON.revokeAdmin,

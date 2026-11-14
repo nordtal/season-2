@@ -34,4 +34,13 @@ final class Debounce {
         }
         waiting = scheduler.after(quiet, () -> lane.execute(work));
     }
+
+    /** Runs {@code work} at once, in place of a run still waiting for its quiet time. */
+    synchronized void now() {
+        if (waiting != null) {
+            waiting.cancel();
+            waiting = null;
+        }
+        lane.execute(work);
+    }
 }

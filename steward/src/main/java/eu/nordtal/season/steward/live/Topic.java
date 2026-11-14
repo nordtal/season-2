@@ -43,7 +43,10 @@ public enum Topic {
     GAME_DATA(false),
 
     /** The command tree that each server published last. */
-    COMMANDS(false);
+    COMMANDS(false),
+
+    /** The newest build of the resource pack and the active one. */
+    PACK(false);
 
     private final boolean timed;
 

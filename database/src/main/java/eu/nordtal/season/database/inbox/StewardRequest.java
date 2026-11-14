@@ -92,6 +92,9 @@ public sealed interface StewardRequest {
         }
     }
 
+    /** Sends the current resource pack to every player on the SMP, with no service stopped. */
+    record LiveSwap() implements StewardRequest {}
+
     /** Records what steward-agent installed on its start because nothing of it existed. It is written when done. */
     record Install() implements StewardRequest {}
 }

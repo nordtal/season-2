@@ -345,6 +345,15 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V120__steward_agent_records_each_pack_build.sql",
                 "89607d3a3b73bb3b4d7ff48d9e56d91dca9ebb9d4db5fea4561027a2afe2e162");
+        FROZEN.put(
+                "V121__a_live_swap_sends_the_current_pack_to_the_smp.sql",
+                "d5343008908cc6bc72d2022ae4076ef9e58a86482d2221b51300ed7ed69c8a2b");
+        FROZEN.put(
+                "V122__smp_reads_the_pack_a_live_swap_sends.sql",
+                "9468d497c232fdfb5131ea4c8bf80a1800dc694474142eabc0f966daa9be05f8");
+        FROZEN.put(
+                "V123__an_admins_ask_for_a_pack_build_is_a_row.sql",
+                "56a0f3274dcf6db1e5eea2ec79f5d54a81d1f93bfe642685ccf62bd3a349f430");
     }
 
     @Test

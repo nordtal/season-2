@@ -32,6 +32,13 @@
           }
         },
         {
+          "when": "occasion=pack",
+          "text": {
+            "en": "<warn>The resource pack is updated in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</warn> <muted>You can't move while it loads.</muted>",
+            "de": "<warn>Das Ressourcenpaket wird in <emphasis>{@values.duration.seconds, n=seconds}</emphasis> aktualisiert.</warn> <muted>Solange es lädt, kannst du dich nicht bewegen.</muted>"
+          }
+        },
+        {
           "when": "occasion=maintenance",
           "text": {
             "en": "<warn>Nordtal goes down for maintenance in <emphasis>{@values.duration.seconds, n=seconds}</emphasis>.</warn>",

@@ -57,7 +57,13 @@ public enum Channel {
     GAME_DATA("nordtal_game_data"),
 
     /** A server or the proxy published a changed command tree. The payload is its service. steward listens. */
-    COMMAND_TREE("nordtal_command_tree");
+    COMMAND_TREE("nordtal_command_tree"),
+
+    /** A build of the resource pack started or ended. steward-agent emits, steward listens. */
+    PACK("nordtal_pack"),
+
+    /** An admin asked for the resource pack to be built again. steward emits, steward-agent listens. */
+    PACK_BUILD("nordtal_pack_build");
 
     private final String sqlName;
 

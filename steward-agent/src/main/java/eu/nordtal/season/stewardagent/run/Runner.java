@@ -198,6 +198,7 @@ public final class Runner implements RequestRunner {
             case RESTORE -> Restores.restore(this, request, record);
             case INSTALL -> throw new IllegalStateException("a start-up install is written settled and never claimed");
             case SWITCH_MODE -> ModeSwitch.plan(this, request, record);
+            case LIVE_SWAP -> LiveSwap.carryOut(this, request, progress, record);
         };
     }
 
@@ -207,6 +208,53 @@ public final class Runner implements RequestRunner {
      * @return the step the players are moved in, begun as the countdown ran out; {@code null} when cancelled
      */
     Steps.@Nullable Step countDown(
+            final long id,
+            final Duration length,
+            final List<String> moving,
+            final Consumer<RunStage> progress,
+            final Steps record) {
+        final Steps.Step countdown = runOut(id, length, moving, progress, record);
+        if (countdown == null) {
+            return null;
+        }
+        countdown.done();
+        // Before the commit, which is the proxy's signal: the proxy counts what it moves against this step.
+        final Steps.Step players = record.begin(RunStep.Kind.PLAYERS_MOVED);
+        // A cancel at zero either takes the row or is refused by SKIP LOCKED.
+        if (!directory.commitCountdown(id)) {
+            log.info("request cancelled at countdown end, nothing stopped: request={}", id);
+            players.skipped(RunStep.Reason.CANCELLED);
+            return null;
+        }
+        return players;
+    }
+
+    /**
+     * Counts down as {@link #countDown} does, for a run that moves nobody and so begins no players' step.
+     *
+     * @return whether the countdown ran out uncancelled
+     */
+    boolean countDownInPlace(
+            final long id, final Duration length, final Consumer<RunStage> progress, final Steps record) {
+        final Steps.Step countdown = runOut(id, length, List.of(), progress, record);
+        if (countdown == null) {
+            return false;
+        }
+        if (!directory.commitCountdown(id)) {
+            log.info("request cancelled at countdown end, nothing done: request={}", id);
+            countdown.skipped(RunStep.Reason.CANCELLED);
+            return false;
+        }
+        countdown.done();
+        return true;
+    }
+
+    /**
+     * Starts the countdown and waits until it runs out, ending its step only when it was cancelled or interrupted.
+     *
+     * @return the countdown's step, still open; {@code null} when cancelled or interrupted
+     */
+    private Steps.@Nullable Step runOut(
             final long id,
             final Duration length,
             final List<String> moving,
@@ -241,16 +289,7 @@ public final class Runner implements RequestRunner {
                 return null;
             }
         }
-        countdown.done();
-        // Before the commit, which is the proxy's signal: the proxy counts what it moves against this step.
-        final Steps.Step players = record.begin(RunStep.Kind.PLAYERS_MOVED);
-        // A cancel at zero either takes the row or is refused by SKIP LOCKED.
-        if (!directory.commitCountdown(id)) {
-            log.info("request cancelled at countdown end, nothing stopped: request={}", id);
-            players.skipped(RunStep.Reason.CANCELLED);
-            return null;
-        }
-        return players;
+        return countdown;
     }
 
     /** What an unverified stop costs when the run settles. */

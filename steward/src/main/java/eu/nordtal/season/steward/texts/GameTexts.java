@@ -156,6 +156,43 @@ public interface GameTexts {
     @Name("Take-in failed")
     MessageRef takeInFailed();
 
+    @Name("Resource pack")
+    MessageRef pack();
+
+    @Name("Pack building")
+    MessageRef packBuilding(@Arg("at") @Example("14:02") String at);
+
+    @Name("Active pack")
+    MessageRef packActive(
+            @Arg("size") @Example("2.4 MiB") String size, @Arg("at") @Example("14 Nov 2026, 14:03") String at);
+
+    @Name("Pack build failed")
+    MessageRef packFailed(@Arg("reason") @Example("an item has no texture") String reason);
+
+    @Name("No pack build")
+    MessageRef packNone();
+
+    @Name("Build the pack again")
+    MessageRef packAgain();
+
+    @Name("Pack build asked for")
+    MessageRef packAgainSent();
+
+    @Name("Pack build not asked for")
+    MessageRef packAgainFailed();
+
+    @Name("Swap the pack live")
+    MessageRef packSwap();
+
+    @Name("Ask before a live swap")
+    MessageRef packSwapAsk();
+
+    @Name("What a live swap does")
+    MessageRef packSwapNote();
+
+    @Name("Swap waits for the build")
+    MessageRef packSwapWait();
+
     @Name("Enchantment with its level")
     MessageRef enchantment(@Arg("name") @Example("Sharpness") String name, @Arg("level") @Example("V") String level);
 

@@ -66,7 +66,7 @@ export function cancellable(run: Run, now = new Date()): boolean {
 }
 
 /** The kinds a countdown runs for, as in Steward's SQL. */
-const CANCELLABLE_KINDS = new Set(["RESTART", "UPDATE", "BACKUP", "DOWN", "SWITCH_MODE"])
+const CANCELLABLE_KINDS = new Set(["RESTART", "UPDATE", "BACKUP", "DOWN", "SWITCH_MODE", "LIVE_SWAP"])
 
 /** Returns the archives a run saved, one per finished save step, which holds before the catalogue too. */
 export function savedCount(run: Run): number {

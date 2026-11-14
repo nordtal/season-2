@@ -25,7 +25,7 @@ class RestartLinesRenderTest {
     void aCountdownLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
             for (final Occasion occasion : Occasion.values()) {
-                assertRendered(locale, RestartWatch.countdown(occasion, "smp", 10), occasion != Occasion.MAINTENANCE);
+                assertRendered(locale, RestartWatch.countdown(occasion, "smp", 10), namesService(occasion));
             }
         }
     }
@@ -34,9 +34,14 @@ class RestartLinesRenderTest {
     void aNowLineNamesTheServiceAndLeavesNoBrace() {
         for (final Locale locale : LOCALES) {
             for (final Occasion occasion : Occasion.values()) {
-                assertRendered(locale, RestartWatch.now(occasion, "smp"), occasion != Occasion.MAINTENANCE);
+                assertRendered(locale, RestartWatch.now(occasion, "smp"), namesService(occasion));
             }
         }
+    }
+
+    /** MAINTENANCE names the network, and PACK the resource pack, since neither is about one service. */
+    private static boolean namesService(final Occasion occasion) {
+        return occasion != Occasion.MAINTENANCE && occasion != Occasion.PACK;
     }
 
     @Test

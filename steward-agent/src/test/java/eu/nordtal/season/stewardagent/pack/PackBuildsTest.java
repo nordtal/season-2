@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.time.ManualScheduler;
+import eu.nordtal.season.database.notify.Notifications;
+import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.pack.PackBuildStore;
 import eu.nordtal.season.packbuilder.zip.ReproducibleZip;
 import eu.nordtal.season.settings.MemorySettingStore;
@@ -13,6 +15,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -21,10 +24,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
 
 /** A good build makes the proxy offer the new pack; a failed one leaves the active pack as it was. */
 class PackBuildsTest {
@@ -310,11 +318,66 @@ class PackBuildsTest {
         assertFalse(record.calls.contains("start"));
     }
 
+    @Test
+    void anAdminsAskBuildsOnceHoweverOftenTheHubWakes() throws Exception {
+        final PackBuilds builds = builds();
+        // An ask from before the start, which the start settled.
+        record.asked = Optional.of(Instant.EPOCH);
+        final BlockingQueue<Boolean> wakes = new LinkedBlockingQueue<>();
+        final Semaphore waiting = new Semaphore(0);
+        final SignalHub hub = new SignalHub(
+                channels -> new Notifications() {
+                    @Override
+                    public boolean awaitNotification(final Duration timeout) throws SQLException {
+                        waiting.release();
+                        try {
+                            return wakes.take();
+                        } catch (final InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            throw new SQLException("interrupted", interrupted);
+                        }
+                    }
+
+                    @Override
+                    public void close() {
+                        wakes.add(Boolean.TRUE);
+                    }
+                },
+                "pack-builds-test",
+                LoggerFactory.getLogger(PackBuildsTest.class));
+        builds.listen(hub, null);
+        hub.start();
+        try {
+            waitForRound(waiting);
+            for (int wake = 0; wake < 3; wake++) {
+                wakes.add(Boolean.TRUE);
+                waitForRound(waiting);
+            }
+            assertEquals(0, zips.get(), "the hub's wakes alone build nothing");
+
+            record.asked = Optional.of(Instant.EPOCH.plusSeconds(1));
+            wakes.add(Boolean.TRUE);
+            waitForRound(waiting);
+            wakes.add(Boolean.TRUE);
+            waitForRound(waiting);
+
+            assertEquals(1, zips.get(), "one ask builds once");
+        } finally {
+            hub.close();
+        }
+    }
+
+    /** Waits until the hub re-read everything and waits for the next signal. */
+    private static void waitForRound(final Semaphore waiting) throws InterruptedException {
+        assertTrue(waiting.tryAcquire(10, TimeUnit.SECONDS), "the hub stopped re-reading");
+    }
+
     /** The calls the builds made on their record, in order. */
     private static final class Recorded implements PackBuildStore {
 
         final List<String> calls = new ArrayList<>();
         Optional<PackBuild> active = Optional.empty();
+        volatile Optional<Instant> asked = Optional.empty();
         /** Whether every write but {@code start} fails, as on a database hiccup after the build began. */
         boolean broken;
 
@@ -344,6 +407,16 @@ class PackBuildsTest {
         @Override
         public void abandon(final Instant finished, final String error) {
             write("abandon");
+        }
+
+        @Override
+        public void askAgain() {
+            calls.add("ask again");
+        }
+
+        @Override
+        public Optional<Instant> asked() {
+            return asked;
         }
 
         @Override

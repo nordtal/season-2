@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Records each build of the resource pack. steward-agent writes it, steward reads it.
  *
- * The newest good build is the active pack. A failed build leaves the active one as it was.
+ * The newest good build is the active pack; a failed one leaves it as it was. Every write signals {@code PACK}.
  */
 public interface PackBuildStore {
 
@@ -36,6 +36,12 @@ public interface PackBuildStore {
 
     /** Ends every build that still runs as failed, for a start after the agent stopped in the middle of one. */
     void abandon(Instant finished, String error);
+
+    /** Asks steward-agent to build the pack now, unless the active pack is drawn from the same inputs. */
+    void askAgain();
+
+    /** Returns when an admin last asked for a build, which steward-agent watches; empty before the first ask. */
+    Optional<Instant> asked();
 
     /** Returns the active build, if a build ever succeeded. */
     Optional<PackBuild> active();

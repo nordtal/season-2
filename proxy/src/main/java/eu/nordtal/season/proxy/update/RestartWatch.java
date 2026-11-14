@@ -31,7 +31,9 @@ import net.kyori.adventure.title.Title;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/** Announces the countdown of an update run to every player. The countdown ends at {@link UpdateRequest#due()}. */
+/**
+ * Announces the countdown of an update run to every player it reaches, ending at {@link UpdateRequest#due()}.
+ */
 public final class RestartWatch {
 
     /** @param service the compose service, which the text names when {@code what} is {@code OTHER} */
@@ -344,8 +346,15 @@ public final class RestartWatch {
                 player.showTitle(Title.title(Component.empty(), Lines.joined(render.apply(locale)), TIMES)));
     }
 
+    /** Runs {@code what} for every player the run's notices reach. */
     private void each(final java.util.function.BiConsumer<Player, Locale> what) {
+        final RunShape current = shape;
         for (final Player player : proxy.getAllPlayers()) {
+            if (!current.reaches(player.getCurrentServer()
+                    .map(connection -> connection.getServerInfo().getName())
+                    .orElse(null))) {
+                continue;
+            }
             try {
                 what.accept(player, roster.localeOf(player.getUniqueId()));
             } catch (final RuntimeException failure) {

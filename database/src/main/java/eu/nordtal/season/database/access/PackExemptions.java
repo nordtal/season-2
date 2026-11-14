@@ -14,6 +14,9 @@ public interface PackExemptions {
         return new JdbiPackExemptions(dataSource);
     }
 
+    /** Returns those of {@code players}, Minecraft ids, whose account is exempt from the resource pack. */
+    java.util.Set<java.util.UUID> exemptAmong(java.util.Collection<java.util.UUID> players);
+
     /**
      * {@code actor} lets {@code target} play without the resource pack.
      *

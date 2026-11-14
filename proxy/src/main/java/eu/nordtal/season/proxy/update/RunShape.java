@@ -1,5 +1,6 @@
 package eu.nordtal.season.proxy.update;
 
+import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.messages.value.Occasion;
 import eu.nordtal.season.proxy.online.OnlineCounts;
@@ -54,6 +55,10 @@ public record RunShape(
     }
 
     private static Occasion occasionOf(final UpdateKind kind, final boolean waitingRoom) {
+        // A live swap stops nothing, so it needs no waiting room.
+        if (kind == UpdateKind.LIVE_SWAP) {
+            return Occasion.PACK;
+        }
         if (!waitingRoom) {
             return Occasion.MAINTENANCE;
         }
@@ -62,7 +67,17 @@ public record RunShape(
             case RESTART, RESTORE, RECREATE, DEPLOY, REMOVE_PLUGIN -> Occasion.RECREATE;
             case BACKUP -> Occasion.BACKUP;
             case UPDATE, START, INSTALL -> Occasion.UPDATE;
+            case LIVE_SWAP -> Occasion.PACK;
         };
+    }
+
+    /**
+     * Returns whether the run's notices reach the player: a live swap's only reach the players on the SMP.
+     *
+     * @param on the server of the player, {@code null} while the player logs in
+     */
+    public boolean reaches(final @Nullable String on) {
+        return occasion != Occasion.PACK || SeasonMode.SMP.server().equals(on);
     }
 
     /**

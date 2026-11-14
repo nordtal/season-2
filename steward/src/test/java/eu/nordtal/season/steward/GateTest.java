@@ -102,6 +102,7 @@ class GateTest extends WebFixture {
             Map.entry("POST /api/people/{id}/aura", Gate.KEY_HELD),
             Map.entry("POST /api/people/{id}/spins", Gate.KEY_HELD),
             Map.entry("POST /api/pack-exemptions/exempt", Gate.KEY_HELD),
+            Map.entry("POST /api/pack/build", Gate.KEY_HELD),
             Map.entry("POST /api/pack-exemptions/enforce", Gate.KEY_HELD),
             Map.entry("POST /api/season/maintenance", Gate.KEY_HELD),
             Map.entry("POST /api/hunger-games/start", Gate.KEY_HELD),

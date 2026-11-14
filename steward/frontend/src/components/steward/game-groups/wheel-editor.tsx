@@ -13,6 +13,7 @@ import { type SectionValues, blankSection } from "@/components/steward/repeatabl
 import { TERM_ICON } from "@/components/steward/term-icons"
 import { BLOCK_KEYS, chance, count, field, listEntry, sum, text } from "@/components/steward/game-groups/model"
 import { AddPicker, Heading, NumberInput } from "@/components/steward/game-groups/parts"
+import { PackState } from "@/components/steward/game-groups/pack-state"
 import { PlaceList } from "@/components/steward/game-groups/places"
 import { TakeInButton } from "@/components/steward/game-groups/take-in"
 import { EntryDialog, Labelled, Tile, Tiles } from "@/components/steward/game-groups/tiles"
@@ -125,6 +126,7 @@ function Prizes({
         </Pill>
         <Pill>{t("steward.game.total-weight", { total })}</Pill>
       </div>
+      <PackState />
       {prizes.length === 0 ? (
         <Empty title={t("steward.game.no-prizes")} />
       ) : (

@@ -8,8 +8,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The wheel's turn, tick by tick, in degrees clockwise from where the turn starts.
- * Every variant shares the first {@link #SHARED} ticks: it starts fast, speeds up to {@link #TOP_SPEED}, holds it and
- * slows against a drag that grows with its speed. Then each variant eases onto its pin, rests and springs back.
+ * Every variant shares the first {@link #SHARED} ticks: from two frames a tick it speeds up to {@link #TOP_SPEED},
+ * holds it and slows against a drag that grows with its speed. Then each eases onto its pin, rests and springs back.
  */
 public final class WheelTurn {
 

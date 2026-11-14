@@ -34,8 +34,8 @@ public final class WheelLayout {
     /** The item's width in a row with a description, but for the plate's, whose item hovers the prize left of it. */
     public static final int ITEM_WIDTH = 1;
 
-    /** The plate row's item: the hover of the prize at place 9, from 11 left of it to its right edge. */
-    public static final int PLATE_ITEM = 27;
+    /** The plate row's item: the hover of the prize at place 9, from 17 left of it to its right edge. */
+    public static final int PLATE_ITEM = 33;
 
     /** The width of the disc's item, which has no text. */
     public static final int LONE_ITEM = 2;

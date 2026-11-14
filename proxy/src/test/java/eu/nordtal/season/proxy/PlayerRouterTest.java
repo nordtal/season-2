@@ -50,6 +50,16 @@ class PlayerRouterTest {
     }
 
     @Test
+    void aRetryGoesOnWhenTheGateNowRefusesThePlayer() {
+        assertTrue(PlayerRouter.moveWanted(
+                "smp",
+                "smp",
+                new RouteDecision(RouteDecision.Action.REFUSE_NO_ACCESS, null),
+                servers,
+                Set.of("limbo", "smp")));
+    }
+
+    @Test
     void aRetryEndsOnceThePlayerIsOnAnotherServer() {
         assertFalse(PlayerRouter.moveWanted("limbo", "smp", toLimbo(), servers, Set.of("limbo", "smp")));
     }

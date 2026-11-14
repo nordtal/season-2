@@ -381,7 +381,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
 
     /**
      * Returns whether a move that failed off {@code from} is still wanted.
-     * It is not once the player is elsewhere, or the gate keeps the player where the player is.
+     * It is not once the player is elsewhere, or the gate keeps the player where the player is; a refusal keeps it.
      */
     static boolean moveWanted(
             final @Nullable String from,
@@ -389,8 +389,11 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             final RouteDecision decision,
             final NetworkServers servers,
             final Set<String> available) {
-        if (!Objects.equals(from, current) || decision.action() != RouteDecision.Action.CONNECT) {
+        if (!Objects.equals(from, current) || decision.action() == RouteDecision.Action.STAY) {
             return false;
+        }
+        if (decision.action() != RouteDecision.Action.CONNECT) {
+            return true;
         }
         final String server = Objects.requireNonNull(decision.server(), "CONNECT always carries a server");
         return !viaWaitingRoom(server, current, servers, available).equals(current);

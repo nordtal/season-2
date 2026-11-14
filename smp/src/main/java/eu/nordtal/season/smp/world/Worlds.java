@@ -58,9 +58,8 @@ public final class Worlds {
     }
 
     /**
-     * Loads or creates the three worlds other than Nordtal, then the extra worlds with Nordtal's seed and generator.
-     * It never creates Nordtal, which holds the spawn. An extra world has no role, so no portal leads into it, and its
-     * portals lead out as Nordtal's do.
+     * Loads or creates every world but Nordtal, which holds the spawn and is never created.
+     * An extra world takes Nordtal's seed and generator, and its portals act as Nordtal's.
      *
      * @param log takes a line for each extra world
      * @return the Nordtal world, or empty when it does not exist

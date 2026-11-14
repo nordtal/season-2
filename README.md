@@ -128,6 +128,7 @@ jars of the services.
 | `pack-builder`      | library         | Writes the pack's wheel and the reproducible pack zip. Depends only on the JDK and Gson.  |
 | `bridge-mod`        | Fabric mod      | Client mod through which the Nordtal Designer reloads the pack and shows previews.        |
 | `designer`          | Aseprite plugin | The Nordtal tab of Nordtal Designer: pack tree, embedded editor and properties.           |
+| `underground`       | JVM app         | Offline tool: replaces the underground of the custom overworld with a generated one.      |
 | `architecture`      | tests           | ArchUnit rules over every module: dependencies and wiring.                                |
 | `shipped-jars`      | tests           | Loads each shipped jar the way its host does.                                             |
 

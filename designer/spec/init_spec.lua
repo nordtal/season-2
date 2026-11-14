@@ -31,8 +31,8 @@ local function start(version, os, noRequire)
 end
 
 describe("the plugin's start", function()
-  it("shows one status on an app older than fork API 8 that offers only Quit, and opens no tab", function()
-    local shown, required, ran = start(7)
+  it("shows one status on an app older than fork API 9 that offers only Quit, and opens no tab", function()
+    local shown, required, ran = start(8)
     assert.equal(1, #shown)
     local status = shown[1]
     assert.is_true(status.args.notitlebar)
@@ -62,7 +62,7 @@ describe("the plugin's start", function()
   end)
 
   it("gives the PowerShell line on Windows", function()
-    local shown = start(7, { windows=true })
+    local shown = start(8, { windows=true })
     local text
     for _, w in ipairs(shown[1].widgets) do
       if w.kind == "entry" then text = w.args.text end
@@ -72,8 +72,8 @@ describe("the plugin's start", function()
                 shown[1]:labels())
   end)
 
-  it("opens the Nordtal tab without a status on fork API 8", function()
-    local shown, required = start(8)
+  it("opens the Nordtal tab without a status on fork API 9", function()
+    local shown, required = start(9)
     assert.same({}, shown)
     assert.equal("language", required[1])
     assert.equal("tab", required[2])

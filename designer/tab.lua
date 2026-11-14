@@ -1,6 +1,6 @@
 -- The Nordtal tab: the embedded editor below the Minecraft bar, and a
 -- side panel with the Publish button above the pack tree, and the tree
--- above the properties of the selected entry with a splitter between
+-- left of the properties of the selected entry with a splitter between
 -- them. The main window docks the panel outside the colour bar, or
 -- outside the tools when preferences.treeSide is "right".
 --
@@ -40,9 +40,9 @@ local tab = {}
 
 -- The side panel's id and its width in points, until the designer
 -- drags it to another. The editor takes the rest, and a longer node of
--- the tree scrolls.
-local sidePanel = "nordtal_pack"
-local sideWidth = 150
+-- the tree scrolls. The panel opens wide enough for both.
+local sidePanel = "nordtal_side"
+local sideWidth = 420
 
 -- The characters a line of text in the wizard and the publish dialog
 -- holds at most
@@ -94,6 +94,9 @@ function tab.open(context)
   local drawn, barDrawn
   local pad = 4
   local scroll, lineHeight = 0, 0
+  -- The panel's scroll bar as it was last drawn, { x, size, height,
+  -- content, thumb, length }, and the drag of its thumb, { y, scroll }
+  local scrollBar, dragging
   -- synced says whether the tab asked for the pull requests since it
   -- opened, every holds the timer that asks again, and syncing says
   -- whether such a run waits
@@ -134,6 +137,36 @@ function tab.open(context)
   -- Builds the tab again, defined below
   local rebuild
 
+  -- The item entry of the item id, for the file of its definition
+  local function itemEntry(id)
+    local info = index and index["item/" .. tostring(id)]
+    return info and info.entry
+  end
+
+  -- The text of the button that shows a file in the file manager
+  local function revealText()
+    local text = tr("properties.reveal_" .. (api.os or "linux"))
+    return text
+  end
+
+  -- Puts the button that shows the entry's file in the file manager
+  -- into list, before the first button that deletes or removes, from
+  -- the row first on. An entry without a file gets none.
+  local function withReveal(list, info, first)
+    if not modules.reveal.offered(info, itemEntry) then
+      return
+    end
+    local at = #list + 1
+    for i = first, #list do
+      local field = list[i].field
+      if field == "delete" or field == "remove" or field == "deleteText" then
+        at = i
+        break
+      end
+    end
+    table.insert(list, at, { text=revealText(), field="reveal", kind="button" })
+  end
+
   -- The rows of the selected entry as the panel lays them out
   local function entryRows()
     local list = {}
@@ -149,16 +182,19 @@ function tab.open(context)
       for _, row in ipairs(modules.items.rows(definition, info.at or "", info.part or "item", tr)) do
         table.insert(list, row)
       end
+      local first = #list + 1
       if info.kind == "item" then
         for _, row in ipairs(modules.drafts.rows(model, info, tr)) do
           table.insert(list, row)
         end
         table.insert(list, { text=tr("properties.delete"), field="delete", kind="button" })
       end
+      withReveal(list, info, first)
       return list
     end
     local own = modules.sounds.handles(info) and modules.sounds.rows(info, tr)
       or properties.rows(info, tr, { coupled=preferences.coupled })
+    local first = #list + 1
     for _, row in ipairs(own) do
       if row.key == "coupled" then
         table.insert(list, { text=tr("properties.coupled"), value=row.value, field=row.field, kind="switch" })
@@ -168,6 +204,7 @@ function tab.open(context)
         table.insert(list, { text=row.label or tr("properties." .. row.key), value=row.value, field=row.field })
       end
     end
+    withReveal(list, info, first)
     for _, row in ipairs(modules.drafts.rows(model, info, tr)) do
       table.insert(list, row)
     end
@@ -196,7 +233,8 @@ function tab.open(context)
   -- Draws the properties of the selected entry on the theme's face:
   -- keys in the color of its section labels and values below them, a
   -- value that a click edits in a sunken box. A panel taller than its
-  -- canvas narrows for a scroll bar along its right edge.
+  -- canvas narrows for a scroll bar along its right edge, drawn like
+  -- the tree's.
   local function paintProperties(ev)
     local gc = ev.context
     local color = gc.theme.color
@@ -207,17 +245,20 @@ function tab.open(context)
     lineHeight = textHeight + 2
     local width = gc.width - 2 * pad
     local list = rows()
-    local size = gc.theme.dimension.mini_scrollbar_size
+    local size = gc.theme.dimension.scrollbar_size
     drawn = modules.panel.layout(list, width, measure, lineHeight, textHeight)
     if drawn.height + 2 * pad > gc.height then
       drawn = modules.panel.layout(list, width - size, measure, lineHeight, textHeight)
     end
-    scroll = math.max(0, math.min(scroll, drawn.height + 2 * pad - gc.height))
-    local bar = modules.panel.scrollbar(drawn.height + 2 * pad, gc.height, scroll, size)
+    local content = drawn.height + 2 * pad
+    scroll = math.max(0, math.min(scroll, content - gc.height))
+    local bar = modules.panel.scrollbar(content, gc.height, scroll, size)
+    scrollBar = nil
     if bar then
       local x = gc.width - size
-      gc:drawThemeRect("mini_scrollbar_bg", { x=x, y=0, width=size, height=gc.height })
-      gc:drawThemeRect("mini_scrollbar_thumb", { x=x, y=bar.thumb, width=size, height=bar.height })
+      gc:drawThemeRect("scrollbar_bg", { x=x, y=0, width=size, height=gc.height })
+      gc:drawThemeRect("scrollbar_thumb", { x=x, y=bar.thumb, width=size, height=bar.height })
+      scrollBar = { x=x, size=size, height=gc.height, content=content, thumb=bar.thumb, length=bar.height }
     end
     for _, op in ipairs(drawn.ops) do
       local x, y = op.x + pad, op.y + pad - scroll
@@ -1137,6 +1178,46 @@ function tab.open(context)
     end)
   end
 
+  -- What reveal reads to find the file of an entry: the language files
+  -- of the pack, in each namespace under src/assets
+  local function revealContext()
+    local assets = api.join(clone, "resource-pack", "src", "assets")
+    local namespaces = {}
+    for _, name in ipairs(api.listFiles and api.listFiles(assets) or {}) do
+      if api.isDirectory(api.join(assets, name)) then table.insert(namespaces, name) end
+    end
+    table.sort(namespaces)
+    return {
+      language=modules.reveal.language(api.language),
+      namespaces=namespaces,
+      item=itemEntry,
+      holds=function(path, key)
+        local text = api.read(api.join(clone, "resource-pack", path))
+        local ok, texts = pcall(api.decode, text or "")
+        -- The app's decode gives a JSON object, which is userdata
+        if not ok or (type(texts) ~= "table" and type(texts) ~= "userdata") then
+          return false
+        end
+        local found, value = pcall(function() return texts[key] end)
+        return found and value ~= nil
+      end,
+    }
+  end
+
+  -- Shows the file of info in the system's file manager
+  local function revealFile(info)
+    local file = modules.reveal.file(info, revealContext())
+    if not file then
+      return
+    end
+    local cmd = modules.reveal.command(api.os, api.join(clone, "resource-pack", file),
+      { isFile=api.isFile, isDirectory=api.isDirectory, folderOf=api.filePath })
+    local process = api.Process{ cmd=cmd, onexit=function() end }
+    if not pcall(process.start, process) then
+      setStatus(tr("status.not_revealed"))
+    end
+  end
+
   -- Edits field of the selected entry, or takes an action of the
   -- Minecraft bar or of a preview, which needs no entry and queues its
   -- tasks
@@ -1147,6 +1228,11 @@ function tab.open(context)
     end
     local info = index and selected and index[selected]
     if not info then
+      return
+    end
+    -- Showing a file writes nothing, so it waits for no task
+    if field == "reveal" then
+      revealFile(info)
       return
     end
     if running or #queue > 0 then
@@ -1233,7 +1319,20 @@ function tab.open(context)
     end
   end
 
+  -- A press on the scroll bar's thumb drags it, one beside the thumb
+  -- scrolls a page towards the press. Anywhere else edits the field
+  -- there.
   local function click(ev)
+    local bar = scrollBar
+    if bar and ev.x >= bar.x then
+      if ev.y >= bar.thumb and ev.y < bar.thumb + bar.length then
+        dragging = { y=ev.y, scroll=scroll }
+      else
+        scroll = scroll + (ev.y < bar.thumb and -1 or 1) * bar.height
+        showProperties()
+      end
+      return
+    end
     local field = drawn and modules.panel.hit(drawn, ev.x - pad, ev.y - pad + scroll)
     if field then
       ctl.edit(field)
@@ -1259,10 +1358,25 @@ function tab.open(context)
     end
   end
 
-  -- Scrolls the panel three lines a step. The next paint keeps it
+  -- Moves the dragged thumb of the scroll bar with the pointer. The
+  -- next paint keeps the panel between its first and its last row.
+  local function drag(ev)
+    tipped = nil
+    local bar = scrollBar
+    if not (dragging and bar) or bar.height <= bar.length then
+      return
+    end
+    local moved = (ev.y - dragging.y) * (bar.content - bar.height) / (bar.height - bar.length)
+    scroll = math.max(0, math.floor(dragging.scroll + moved))
+    showProperties()
+  end
+
+  -- Scrolls the panel as the tree scrolls: three lines a step of the
+  -- wheel, and by its points a trackpad. The next paint keeps it
   -- between its first and its last row.
   local function wheel(ev)
-    scroll = math.max(0, scroll + ev.deltaY * 3 * lineHeight)
+    local by = ev.precise and ev.deltaY or ev.deltaY * 3 * lineHeight
+    scroll = math.max(0, math.floor(scroll + by))
     showProperties()
   end
 
@@ -1281,9 +1395,9 @@ function tab.open(context)
     dlg:button{ id="publish", text=tr("publish.button", draftCount()), enabled=draftCount() > 0, hexpand=true,
                 onclick=function() ctl.publish() end }
     dlg:tree{ id="tree", nodes=nodes or {}, onchange=function(ev) ctl.select(ev.node) end }
-    dlg:splitter{}
+    dlg:splitter{ beside=true }
     dlg:canvas{ id="properties", onpaint=paintProperties, onmousedown=click, onwheel=wheel,
-                onmousemove=function() tipped = nil end }
+                onmousemove=drag, onmouseup=function() dragging = nil end }
     if selected then
       dlg.data = { tree=selected }
     end

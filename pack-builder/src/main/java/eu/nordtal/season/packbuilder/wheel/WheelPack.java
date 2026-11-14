@@ -8,6 +8,7 @@ import eu.nordtal.season.packbuilder.wheel.WheelSpin.PrizeAt;
 import eu.nordtal.season.packbuilder.wheel.WheelSpin.Run;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -512,8 +513,7 @@ public final class WheelPack {
             out.append("end.").append(e).append('=').append(WheelTurn.length(e)).append('\n');
         }
         out.append("heights=")
-                .append(joined(
-                        java.util.Arrays.stream(WheelLayout.HEIGHTS).boxed().toList()))
+                .append(joined(Arrays.stream(WheelLayout.HEIGHTS).boxed().toList()))
                 .append('\n');
         out.append("row-width=").append(WheelLayout.ROW_WIDTH).append('\n');
         out.append("item-width=").append(WheelLayout.ITEM_WIDTH).append('\n');

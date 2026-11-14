@@ -62,8 +62,11 @@ class WheelTimetableTest {
                         tick -> assertTrue(tick > 0 && tick < timetable.cooldown(), "click at " + tick)));
         timetable.variants().forEach(variant -> assertTrue(timetable.end(variant) <= timetable.cooldown()));
         assertEquals(11, timetable.rows().hovers().size());
-        assertTrue(timetable.rows().hovers().values().stream()
-                .allMatch(hover ->
-                        hover.x() >= 0 && hover.x() + 16 <= timetable.rows().rowWidth()));
+        final WheelTimetable.Rows rows = timetable.rows();
+        // A hover's 17 advance stays inside its row's line: the text box but its padding of 4 on each side.
+        assertTrue(rows.hovers().values().stream().allMatch(hover -> {
+            final int item = hover.body() == 3 ? rows.plateItem() : rows.itemWidth();
+            return hover.x() >= 0 && hover.x() + 17 <= rows.rowWidth() - item - 2 - 8;
+        }));
     }
 }

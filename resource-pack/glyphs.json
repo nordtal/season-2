@@ -1854,7 +1854,7 @@
       "shifts": [43, 49, 50, 53, 55, 57],
       "constant": "FONT_UI_DIALOG",
       "references": ["nordtal:ui_space"],
-      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first line of plates or a column whose art starts at its box + 4, 50 over a first text line, 53, 55 and 57 over a column set at the foot of its box, 43 over a frame 2 px above its line, 62 for the wheel.",
+      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first line of plates or a column whose art starts at its box + 4, 50 over a first text line, 53, 55 and 57 over a column set at the foot of its box, 43 over a frame 2 px above its line and for the wheel.",
       "blocks": [
         {
           "range": "FE3C0-FE3FF",

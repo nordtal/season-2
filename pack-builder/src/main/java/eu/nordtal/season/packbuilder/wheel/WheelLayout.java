@@ -20,10 +20,10 @@ public final class WheelLayout {
     private static final double RADIUS = DISC / 2.0 - 14;
 
     /** The row tops from the column's top, with a 10-pixel gap after each row. */
-    private static final int[] ROWS = {0, 11, 47, 76, 103, 134};
+    private static final int[] ROWS = {0, 11, 47, 74, 105, 134};
 
     /** The rows' heights; the text of a row of 26 has two lines, of 17 one, centred in its row. */
-    public static final int[] HEIGHTS = {1, 26, 19, 17, 21, 26};
+    public static final int[] HEIGHTS = {1, 26, 17, 21, 19, 26};
 
     /** The width of every row with a description, from its item's left to its text's right. */
     public static final int ROW_WIDTH = 254;
@@ -105,10 +105,5 @@ public final class WheelLayout {
     /** The off plate's left from the plate row's text's left. */
     public static int plateInText() {
         return CANVAS[0] + PLATE[0] - textLeft(PLATE_BODY);
-    }
-
-    /** Row {@code body}'s top from the column's top. */
-    public static int rowTop(final int body) {
-        return ROWS[body];
     }
 }

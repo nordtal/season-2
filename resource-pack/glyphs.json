@@ -1780,7 +1780,7 @@
             },
             {
               "code": "FE3A6",
-              "title": "1 row, every slot framed",
+              "title": "1 row, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_1.png",
               "height": 148,
@@ -1788,7 +1788,7 @@
             },
             {
               "code": "FE3A7",
-              "title": "2 rows, every slot framed",
+              "title": "2 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_2.png",
               "height": 166,
@@ -1796,7 +1796,7 @@
             },
             {
               "code": "FE3A8",
-              "title": "3 rows, every slot framed",
+              "title": "3 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_3.png",
               "height": 184,
@@ -1804,7 +1804,7 @@
             },
             {
               "code": "FE3A9",
-              "title": "4 rows, every slot framed",
+              "title": "4 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_4.png",
               "height": 202,
@@ -1812,7 +1812,7 @@
             },
             {
               "code": "FE3AA",
-              "title": "5 rows, every slot framed",
+              "title": "5 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_5.png",
               "height": 220,
@@ -1820,7 +1820,7 @@
             },
             {
               "code": "FE3AB",
-              "title": "6 rows, every slot framed",
+              "title": "6 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_6.png",
               "height": 238,

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.logging.Logger;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
@@ -58,11 +59,13 @@ public final class Worlds {
 
     /**
      * Loads or creates the three worlds other than Nordtal, then the extra worlds with Nordtal's seed and generator.
-     * It never creates Nordtal, which holds the spawn. An extra world has no role, so no portal leads into it.
+     * It never creates Nordtal, which holds the spawn. An extra world has no role, so no portal leads into it, and its
+     * portals lead out as Nordtal's do.
      *
+     * @param log takes a line for each extra world
      * @return the Nordtal world, or empty when it does not exist
      */
-    public Optional<World> bootstrap() {
+    public Optional<World> bootstrap(final Logger log) {
         final World nordtal = Bukkit.getWorld(names.get(WorldRole.NORDTAL));
         if (nordtal == null) {
             return Optional.empty();
@@ -70,12 +73,25 @@ public final class Worlds {
 
         ensure(WorldRole.NETHER, World.Environment.NETHER);
         ensure(WorldRole.END, World.Environment.THE_END);
-        for (final String name : extras) {
-            if (Bukkit.getWorld(name) == null) {
-                Bukkit.createWorld(new WorldCreator(name).copy(nordtal));
-            }
-        }
+        extras.forEach(name -> loadExtra(name, nordtal, log));
         return Optional.of(nordtal);
+    }
+
+    /** A name Paper refuses only loses its own world, so a typo in a test world never stops the SMP. */
+    private static void loadExtra(final String name, final World nordtal, final Logger log) {
+        if (Bukkit.getWorld(name) != null) {
+            return;
+        }
+        try {
+            final World world = Bukkit.createWorld(new WorldCreator(name).copy(nordtal));
+            if (world == null) {
+                log.warning("extra world not loaded: world=" + name);
+                return;
+            }
+            log.info("extra world loaded: world=" + name + " key=" + world.getKey());
+        } catch (final IllegalArgumentException | IllegalStateException e) {
+            log.warning("extra world not loaded: world=" + name + " cause=" + e.getMessage());
+        }
     }
 
     private void ensure(final WorldRole role, final World.Environment environment) {

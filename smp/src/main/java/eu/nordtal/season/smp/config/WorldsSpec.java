@@ -1,6 +1,7 @@
 package eu.nordtal.season.smp.config;
 
 import eu.nordtal.season.settings.rule.Required;
+import eu.nordtal.season.settings.rule.Unique;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -44,8 +45,10 @@ public interface WorldsSpec {
     @Order(5)
     @Name("Extra worlds")
     @Key("extra-worlds")
-    @Explain("Worlds loaded beside the season's own, with Nordtal's seed, such as a test world. Only a command"
-            + " leads into one.")
+    @Unique
+    @Explain("Each name loads that world from its folder at the next start, or creates a new one from Nordtal's seed"
+            + " when the folder is missing. Only a command takes a player there, and its portals lead where"
+            + " Nordtal's do.")
     default List<String> extraWorlds() {
         return List.of();
     }

@@ -384,7 +384,7 @@ public final class SmpPlugin extends NordtalPlugin {
         }
 
         final Worlds candidate = new Worlds(config, borderSettings.get());
-        final World nordtal = candidate.bootstrap().orElse(null);
+        final World nordtal = candidate.bootstrap(getLogger()).orElse(null);
         if (nordtal == null) {
             throw fatal("smp not starting, world missing: world=" + config.worldNordtal());
         }

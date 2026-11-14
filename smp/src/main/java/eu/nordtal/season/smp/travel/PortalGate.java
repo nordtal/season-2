@@ -66,7 +66,8 @@ public final class PortalGate implements Listener {
             return;
         }
         final World world = event.getWorld();
-        if (worlds.roleOf(world).filter(WorldRole::hasVanillaPortalLinking).isEmpty()) {
+        // An extra world is a copy of Nordtal, so its portals are held as Nordtal's.
+        if (!worlds.roleOf(world).orElse(WorldRole.NORDTAL).hasVanillaPortalLinking()) {
             return;
         }
 
@@ -92,10 +93,7 @@ public final class PortalGate implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onPortal(final PlayerPortalEvent event) {
-        final WorldRole from = worlds.roleOf(event.getFrom().getWorld()).orElse(null);
-        if (from == null) {
-            return;
-        }
+        final WorldRole from = worlds.roleOf(event.getFrom().getWorld()).orElse(WorldRole.NORDTAL);
 
         final boolean endPortal = event.getCause() == PlayerTeleportEvent.TeleportCause.END_PORTAL;
         if (endPortal && from != WorldRole.END && !season.isUnlocked(Unlock.END)) {

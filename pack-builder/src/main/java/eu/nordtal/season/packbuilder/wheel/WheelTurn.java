@@ -8,26 +8,33 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The wheel's turn, tick by tick, in degrees clockwise from where the turn starts.
- * Every variant shares the first {@link #SHARED} ticks: it starts fast, speeds up to {@link #TOP_SPEED} and slows
- * against a drag that grows with its speed. Then each variant eases onto its pin, rests and springs back.
+ * Every variant shares the first {@link #SHARED} ticks: it starts fast, speeds up to {@link #TOP_SPEED}, holds it and
+ * slows against a drag that grows with its speed. Then each variant eases onto its pin, rests and springs back.
  */
 public final class WheelTurn {
 
-    public static final int TURNS = 8;
+    public static final int TURNS = 4;
     public static final int FRAMES_PER_TURN = 96;
     public static final int PLACES = 12;
 
-    /** The speed the turn starts with in degrees a tick: the most at which the fields read sharp. */
-    public static final double START_SPEED = 3 * 360.0 / FRAMES_PER_TURN;
+    /** The speed the turn starts with in degrees a tick: two frames. */
+    public static final double START_SPEED = 2 * 360.0 / FRAMES_PER_TURN;
 
-    /** The speed the turn reaches at the end of its acceleration, in degrees a tick. */
-    public static final double TOP_SPEED = 40.0;
+    /**
+     * The speed the turn speeds up to and holds, in degrees a tick.
+     * The client shows one frame a tick, so a step past half the 30 degrees between two fields would make the sharp
+     * wheel seem to stand or run back.
+     */
+    public static final double TOP_SPEED = 14.0;
 
     /** The ticks the wheel speeds up for. */
-    public static final int ACCELERATION = 36;
+    public static final int ACCELERATION = 30;
 
-    /** The ticks every variant shares: the acceleration and the start of the slowing, where the disc is a blur. */
-    public static final int SHARED = ACCELERATION + 10;
+    /** The ticks the wheel holds its top speed for. */
+    public static final int CRUISE = 30;
+
+    /** The ticks every variant shares: the acceleration, the top speed and the start of the slowing. */
+    public static final int SHARED = ACCELERATION + CRUISE + 10;
 
     /** How far past the field's middle the far pin stops the wheel: three frames, against the bent pointer's side. */
     public static final double PIN = 3 * 360.0 / FRAMES_PER_TURN;
@@ -56,8 +63,11 @@ public final class WheelTurn {
     private static final double DRAG_SPEED = 15.0;
 
     /** How far the acceleration takes the wheel. */
-    private static final double ACCELERATED =
+    private static final double SPED_UP =
             START_SPEED * ACCELERATION + (TOP_SPEED - START_SPEED) * ACCELERATION * 2.0 / 3.0;
+
+    /** How far the wheel has turned when it starts to slow. */
+    private static final double ACCELERATED = SPED_UP + TOP_SPEED * CRUISE;
 
     /** The slowing at speed 0, in degrees a tick squared, at which the middle variant slows all the way. */
     private static final double DECELERATION = DRAG_SPEED
@@ -72,45 +82,8 @@ public final class WheelTurn {
 
     private WheelTurn() {}
 
-    /** What one tick shows: the disc at its angle and blur, the pointer, and whether the prizes show. */
-    public record Tick(double angle, Pointer pointer, Blur blur, boolean prizes) {}
-
-    /**
-     * How far the disc's picture is smeared back along its turn, in degrees.
-     * Once a tick's step passes half a field, sharp fields would seem to run backwards, so the disc is smeared over
-     * about one step, and over its whole 60-degree pattern once a step reaches a field.
-     */
-    public enum Blur {
-        SHARP(0, START_SPEED),
-        B15(15, 18.75),
-        B30(30, 30.0),
-        FULL(60, Double.MAX_VALUE);
-
-        private final int degrees;
-        private final double upTo;
-
-        Blur(final int degrees, final double upTo) {
-            this.degrees = degrees;
-            this.upTo = upTo;
-        }
-
-        public int degrees() {
-            return degrees;
-        }
-
-        /** The blur for a disc that turns {@code speed} degrees a tick. */
-        public static Blur of(final double speed) {
-            for (final Blur blur : values()) {
-                if (speed <= blur.upTo + 1e-9) {
-                    return blur;
-                }
-            }
-            return FULL;
-        }
-    }
-
-    /** The fastest speed at which the prizes show: half the 30 degrees between two, so none seems to run back. */
-    public static final double PRIZE_SPEED = 15.0;
+    /** What one tick shows: the disc and its prizes at their angle, and the pointer. */
+    public record Tick(double angle, Pointer pointer) {}
 
     /** The pointer's drawn textures: straight, and bent by a pin under it. */
     public enum Pointer {
@@ -139,8 +112,7 @@ public final class WheelTurn {
         final List<Tick> out = new ArrayList<>(length);
         for (int t = 0; t < length; t++) {
             final double angle = snapped(angle(e, t));
-            final double speed = speed(e, t);
-            out.add(new Tick(angle, pointerAt(angle), Blur.of(speed), speed <= PRIZE_SPEED + 1e-9));
+            out.add(new Tick(angle, pointerAt(angle)));
         }
         return out;
     }
@@ -218,15 +190,19 @@ public final class WheelTurn {
         return distance(e);
     }
 
-    /** The shared start's angle at tick {@code t}: the acceleration, then the slowing at the shared rate. */
+    /** The shared start's angle at tick {@code t}: the acceleration, the top speed, then the shared slowing. */
     private static double shared(final double t) {
         if (t <= ACCELERATION) {
             final double u = t / ACCELERATION;
             return START_SPEED * t + (TOP_SPEED - START_SPEED) * ACCELERATION * (u * u - u * u * u / 3);
         }
+        if (t <= ACCELERATION + CRUISE) {
+            return SPED_UP + TOP_SPEED * (t - ACCELERATION);
+        }
         final double k = DECELERATION / DRAG_SPEED;
         final double theta = Math.atan(TOP_SPEED / DRAG_SPEED);
-        return ACCELERATED + DRAG_SPEED / k * Math.log(Math.cos(theta - k * (t - ACCELERATION)) / Math.cos(theta));
+        final double slowing = t - ACCELERATION - CRUISE;
+        return ACCELERATED + DRAG_SPEED / k * Math.log(Math.cos(theta - k * slowing) / Math.cos(theta));
     }
 
     /** The shared start's speed at tick {@code t} in degrees a tick. */
@@ -235,8 +211,11 @@ public final class WheelTurn {
             final double u = t / ACCELERATION;
             return START_SPEED + (TOP_SPEED - START_SPEED) * (2 * u - u * u);
         }
+        if (t <= ACCELERATION + CRUISE) {
+            return TOP_SPEED;
+        }
         final double k = DECELERATION / DRAG_SPEED;
-        return DRAG_SPEED * Math.tan(Math.atan(TOP_SPEED / DRAG_SPEED) - k * (t - ACCELERATION));
+        return DRAG_SPEED * Math.tan(Math.atan(TOP_SPEED / DRAG_SPEED) - k * (t - ACCELERATION - CRUISE));
     }
 
     /** The speed in degrees a tick that variant {@code e} has at tick {@code t}. */

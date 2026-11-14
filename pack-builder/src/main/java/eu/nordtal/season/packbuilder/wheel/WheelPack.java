@@ -234,13 +234,9 @@ public final class WheelPack {
         return select(index, cases, part("unknown", at.x(), at.y(), 16, 16, body, 0.0), null);
     }
 
-    /** The disc's texture for {@code at}: a sharp or blurred frame, or the full blur, the same at every angle. */
+    /** The disc's texture for {@code at}: its frame. */
     static String discTexture(final DiscAt at) {
-        return switch (at.blur()) {
-            case SHARP -> String.format(Locale.ROOT, "disc_%02d", at.frame());
-            case FULL -> "disc_b60";
-            default -> String.format(Locale.ROOT, "disc_b%d_%02d", at.blur().degrees(), at.frame());
-        };
+        return String.format(Locale.ROOT, "disc_%02d", at.frame());
     }
 
     private static String discNode(final DiscAt at) {
@@ -433,11 +429,7 @@ public final class WheelPack {
         final List<String> flats = new ArrayList<>();
         for (int i = 0; i < 16; i++) {
             flats.add(String.format(Locale.ROOT, "disc_%02d", i));
-            for (final WheelTurn.Blur blur : List.of(WheelTurn.Blur.B15, WheelTurn.Blur.B30)) {
-                flats.add(discTexture(new DiscAt(i, blur, false)));
-            }
         }
-        flats.add(discTexture(new DiscAt(0, WheelTurn.Blur.FULL, false)));
         flats.addAll(
                 List.of("shadow", "stand", "winner", "pointer", "pointer_tick1", "pointer_tick2", "anchor", "unknown"));
         labels.keySet().forEach(lang -> flats.add("plate_off_" + lang));

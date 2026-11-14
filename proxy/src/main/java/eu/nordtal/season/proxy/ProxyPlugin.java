@@ -257,7 +257,7 @@ public final class ProxyPlugin {
         final Updates updates = wireUpdates(shared, packs, router, onlineWriter);
         final ProxySwap swap = wireProxySwap(shared, updates);
         wireCommands(shared);
-        final SignalHub hub = wireSignals(shared, router, updates, new Reads(swap, expiry));
+        final SignalHub hub = wireSignals(shared, packs, router, updates, new Reads(swap, expiry));
         final SignalHub numbers = wireNumbers(shared, snapshots);
         logStartup(shared);
         hub.start();
@@ -613,12 +613,16 @@ public final class ProxyPlugin {
 
     /** Opens the signal hub and subscribes the refreshes. It does not start the hub. */
     private SignalHub wireSignals(
-            final Shared shared, final PlayerRouter router, final Updates updates, final Reads reads) {
+            final Shared shared,
+            final PackStation packs,
+            final PlayerRouter router,
+            final Updates updates,
+            final Reads reads) {
         final Loaded loaded = shared.loaded();
         final SignalHub hub = openHub(loaded, "proxy-signals");
         this.signals = hub;
         hub.on(Channel.SEASON, "the season state", shared.seasonWatch()::refresh);
-        loaded.settings().listen(hub, () -> reloadNetwork(loaded));
+        loaded.settings().listen(hub, () -> reloadNetwork(loaded, packs));
         MessageOverrideStore.using(loaded.pool()).follow(loaded.messages(), hub);
         documents.follow(DocumentStore.using(loaded.pool()), hub, () -> {});
         hub.on(Channel.ADMIN, "the admin roster", () -> refreshAdmins(shared, router));
@@ -681,11 +685,13 @@ public final class ProxyPlugin {
     }
 
     /** Reads the live groups again: players, crests and the queue. An invalid change keeps the old values. */
-    private void reloadNetwork(final Loaded loaded) {
+    private void reloadNetwork(final Loaded loaded, final PackStation packs) {
         final Setting<PrestigeSpec> prestigeSettings = loaded.prestigeSetting();
         try {
             if (loaded.pack().reload()) {
                 logPack(loaded.pack().get(), "resource pack changed");
+                final int offered = packs.packChanged();
+                logger.info("resource pack offered to online players: count={}", offered);
             }
         } catch (final SettingsException refused) {
             logger.warn("resource pack setting refused, running pack kept: cause={}", refused.getMessage());

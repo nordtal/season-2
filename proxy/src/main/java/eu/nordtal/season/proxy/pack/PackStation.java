@@ -153,23 +153,48 @@ public final class PackStation {
         evaluate(player);
     }
 
-    private void sendOfferIfNeeded(final Player player) {
+    /**
+     * Offers a changed pack at once to every player on a server, not only at the next visit to the waiting room.
+     * The answer takes the same way as there: a decline disconnects, an applied pack replaces the old one.
+     *
+     * @return the number of players offered the pack
+     */
+    public int packChanged() {
+        int offered = 0;
+        for (final Player player : proxy.getAllPlayers()) {
+            final Optional<String> server = player.getCurrentServer()
+                    .map(connection -> connection.getServerInfo().getName());
+            if (server.isPresent() && sendOfferIfNeeded(player)) {
+                logger.info(
+                        "changed resource pack offered: player={} server={} sha1={}",
+                        player.getUsername(),
+                        server.get(),
+                        config.get().sha1());
+                offered++;
+            }
+        }
+        return offered;
+    }
+
+    /** Offers the pack unless the player is exempt, has it or waits for its answer, and returns whether it did. */
+    private boolean sendOfferIfNeeded(final Player player) {
         final PackSpec spec = config.get();
         if (!spec.enabled()) {
-            return;
+            return false;
         }
         if (roster.isPackExempt(player.getUniqueId())) {
             if (book.packExempt(player.getUniqueId())) {
                 logger.info("resource pack offer skipped, player exempt: player={}", player.getUsername());
             }
-            return;
+            return false;
         }
         final PackOffer current = offerOf(spec);
         if (!book.claimOffer(player.getUniqueId(), current.sha1())) {
-            return;
+            return false;
         }
         player.sendResourcePackOffer(current.forLocale(localeOf(player)));
         logger.debug("resource pack offered: player={} sha1={}", player.getUsername(), current.sha1());
+        return true;
     }
 
     /** Returns the offer of the pack {@code spec} names, keeping the last one while the settings stay. */

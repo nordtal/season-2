@@ -196,7 +196,7 @@ class LimboHoldTest {
     void aModeSwitchHoldsEverybodyAdminsIncluded() {
         for (final boolean admin : new boolean[] {false, true}) {
             assertEquals(
-                    Optional.of(WaitReason.UPDATE),
+                    Optional.of(WaitReason.SWITCH),
                     LimboHold.reason(true, SeasonHold.SWITCH, admin, false, true, false, false),
                     "admin=" + admin);
         }
@@ -206,7 +206,7 @@ class LimboHoldTest {
     void aModeSwitchOutranksMaintenanceAndAHeldBackend() {
         // The switch moves every player; the screen says so until its target passed its check.
         assertEquals(
-                Optional.of(WaitReason.UPDATE),
+                Optional.of(WaitReason.SWITCH),
                 LimboHold.reason(true, SeasonHold.SWITCH, false, false, true, false, true));
     }
 

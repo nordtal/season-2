@@ -18,9 +18,10 @@ class StandbyNeverReleasesTest {
         for (final SeasonHold hold : SeasonHold.values()) {
             for (final boolean admin : new boolean[] {false, true}) {
                 final Optional<WaitReason> reason = LimboHold.reason(true, hold, admin, true, true, false, false);
-                // MAINTENANCE for a non-admin outranks it, as the longer-lived truth.
-                final WaitReason expected =
-                        hold == SeasonHold.MAINTENANCE && !admin ? WaitReason.MAINTENANCE : WaitReason.UPDATE;
+                // A switch and MAINTENANCE for a non-admin outrank it, as the longer-lived truths.
+                final WaitReason expected = hold == SeasonHold.SWITCH
+                        ? WaitReason.SWITCH
+                        : hold == SeasonHold.MAINTENANCE && !admin ? WaitReason.MAINTENANCE : WaitReason.UPDATE;
                 assertEquals(Optional.of(expected), reason, hold + ", admin=" + admin);
             }
         }

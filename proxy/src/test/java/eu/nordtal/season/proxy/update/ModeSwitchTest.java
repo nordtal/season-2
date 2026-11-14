@@ -32,25 +32,17 @@ class ModeSwitchTest {
     }
 
     @Test
-    void aSwitchThatFailedOnItsTargetHoldsEverybody() {
+    void aFailedSwitchHoldsNobody() {
         final UpdateRequest run = run(UpdateStatus.FAILED);
 
-        assertTrue(ModeSwitch.holds(
+        // The waiting room's own rules keep the players while the target is down.
+        assertFalse(ModeSwitch.holds(
                 run, List.of(new RunProgress.Step(RunStep.Kind.START, TARGET, RunStep.Outcome.FAILED)), TARGET, AFTER));
-        assertTrue(ModeSwitch.holds(run, List.of(verify(TARGET, RunStep.Outcome.FAILED)), TARGET, AFTER));
-    }
-
-    @Test
-    void aSwitchThatFailedBeforeItsTargetHoldsNobody() {
-        final UpdateRequest run = run(UpdateStatus.FAILED);
-
+        assertFalse(ModeSwitch.holds(run, List.of(verify(TARGET, RunStep.Outcome.FAILED)), TARGET, AFTER));
         assertFalse(ModeSwitch.holds(run, List.of(), TARGET, AFTER), "it failed before it planned anything");
         assertFalse(
                 ModeSwitch.holds(run, List.of(verify("smp", RunStep.Outcome.DONE)), TARGET, AFTER),
                 "the old mode's server is back");
-        assertFalse(
-                ModeSwitch.holds(run, List.of(verify(TARGET, RunStep.Outcome.DONE)), TARGET, AFTER),
-                "the target passed its check");
     }
 
     @Test

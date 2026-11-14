@@ -214,7 +214,7 @@ public final class Evacuation {
             final List<RunProgress.Step> runningSteps) {
         final boolean before = switching;
         final boolean now;
-        if (run == null || (run.status() != UpdateStatus.RUNNING && run.status() != UpdateStatus.FAILED)) {
+        if (run == null || run.status() != UpdateStatus.RUNNING) {
             now = ModeSwitch.holds(run, List.of(), "", clock.instant());
         } else {
             final boolean same = running.map(other -> other.id() == run.id()).orElse(false);

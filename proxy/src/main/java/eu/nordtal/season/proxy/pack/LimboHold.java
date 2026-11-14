@@ -34,7 +34,7 @@ public final class LimboHold {
             return Optional.of(WaitReason.PACK);
         }
         if (hold == SeasonHold.SWITCH) {
-            return Optional.of(WaitReason.UPDATE);
+            return Optional.of(WaitReason.SWITCH);
         }
         if (hold == SeasonHold.MAINTENANCE && !admin) {
             return Optional.of(WaitReason.MAINTENANCE);

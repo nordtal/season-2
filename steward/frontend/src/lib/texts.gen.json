@@ -1809,6 +1809,7 @@
     "terms.block": [[{"c":"n","plural":true,"cases":{"one":["block"],"other":["blocks"]}}]],
     "terms.contribution-channel": [["contribution channel"]],
     "terms.extra-spin": [[{"c":"n","plural":true,"cases":{"one":["extra spin"],"other":["extra spins"]}}]],
+    "terms.game-mode": [["game mode"]],
     "terms.hunger-games": [["Hunger Games"]],
     "terms.kill": [[{"c":"n","plural":true,"cases":{"one":["kill"],"other":["kills"]}}]],
     "terms.milestone": [[{"c":"n","plural":true,"cases":{"one":["milestone"],"other":["milestones"]}}]],

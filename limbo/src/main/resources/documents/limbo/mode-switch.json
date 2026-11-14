@@ -1,0 +1,21 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "<accent>Changing the {@terms.game-mode}</accent>",
+            "de": "<accent>Der {@terms.game-mode} wechselt</accent>"
+          }
+        },
+        {
+          "text": {
+            "en": "<muted>You return when the new {@terms.game-mode} is ready.</muted>",
+            "de": "<muted>Du kommst zurück, sobald der neue {@terms.game-mode} bereit ist.</muted>"
+          }
+        }
+      ]
+    }
+  ]
+}

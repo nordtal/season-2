@@ -73,6 +73,10 @@ public interface TermMessages {
         @Describe("A spin of the wheel that a finished objective or an admin gives beyond the daily ones.")
         MessageRef extraSpin(@Arg("n") @Example("2") long n);
 
+        @Name("Game mode")
+        @Describe("What the network plays now: the SMP or the Hunger Games. Admins switch it.")
+        MessageRef gameMode();
+
         @Name("Hunger Games")
         @Describe("The season's game mode played in teams, beside the SMP.")
         MessageRef hungerGames();

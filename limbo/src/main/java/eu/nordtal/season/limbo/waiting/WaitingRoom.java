@@ -39,6 +39,7 @@ public final class WaitingRoom {
     static final DocumentSpec<Progress> UPDATE = DocumentSpec.game(
                     "limbo", "update", "Waiting room", DocumentSpec.Shape.TITLE, Progress.class)
             .titled("Update running");
+    static final DocumentSpec<DocumentSpec.None> SWITCH = screen("mode-switch").titled("Game mode changing");
     static final DocumentSpec<DocumentSpec.None> HELD = screen("server-stopped").titled("Server stopped");
     static final DocumentSpec<DocumentSpec.None> QUEUE = screen("next-in-line").titled("Next in line");
     static final DocumentSpec<DocumentSpec.None> MAINTENANCE =
@@ -129,6 +130,7 @@ public final class WaitingRoom {
             case PACK -> Sent.of(PACK);
             case BACKEND -> Sent.of(BACKEND);
             case UPDATE -> UPDATE.with(new Progress(percent != null, percent == null ? 0 : percent));
+            case SWITCH -> Sent.of(SWITCH);
             case HELD -> Sent.of(HELD);
             case QUEUE -> Sent.of(QUEUE);
             case MAINTENANCE -> Sent.of(MAINTENANCE);

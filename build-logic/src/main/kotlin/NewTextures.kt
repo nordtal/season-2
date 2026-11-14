@@ -36,6 +36,12 @@ object NewTextures {
         title: String? = null,
     ): List<File> {
         val png = png(pack, texture)
+        title?.takeIf { it.isNotBlank() }?.trim()?.let {
+            if (it.length > GlyphAllocation.TITLE_LENGTH) {
+                throw FieldRefusal("title", "A title is at most ${GlyphAllocation.TITLE_LENGTH} characters long.")
+            }
+            if ('[' in it || ']' in it) throw FieldRefusal("title", "A title has no square bracket.")
+        }
         return edit(pack, png, width, height, refused = if (name != null) "name" else "constant") { root ->
             val target = block(font(root, font), font, block)
             if (target["texture"] != null || target["chars"] != null) {

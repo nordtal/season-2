@@ -32,6 +32,13 @@ function properties.label(info)
   return (e.name or nil) or (e.constant or nil)
 end
 
+-- How an edit names the glyph or cell of info: by its label, or by its
+-- font and code, "nordtal:ui_panel/FE3A0", when it is in a list alone
+function properties.ref(info)
+  local e = info.entry
+  return properties.label(info) or e.list and info.font and e.code and info.font.font .. "/" .. e.code or nil
+end
+
 -- The question that confirms the delete of info: for an override or
 -- an item, the question and what goes with it as lines of their own,
 -- since a long id would push one line past the window
@@ -99,6 +106,9 @@ function properties.rows(info, tr, context)
 
   local e, kind, t = info.entry, info.kind, info.texture
   local editable = (kind == "glyph" or kind == "cell") and properties.label(info) ~= nil
+  -- A glyph in a list alone has no name to rename or delete it by, but
+  -- keeps its title, status and about
+  local described = (kind == "glyph" or kind == "cell") and properties.ref(info) ~= nil
   -- The font of ordinary text and a sheet of ordinary characters stay,
   -- since code writes them as plain text
   local ordinary = (kind == "font" and e.font == properties.text_font) or (kind == "sheet" and e.characters == true)
@@ -145,11 +155,11 @@ function properties.rows(info, tr, context)
   elseif kind == "glyph" or kind == "cell" then
     local glyph = kind == "glyph"
     add("block", info.block.title)
-    add("title", e.title, editable and "title")
+    add("title", e.title, described and "title")
     add("code", e.code)
     add("name", e.name, editable and "name")
     add("constant", e.constant, editable and not e.name and "constant" or nil)
-    add("status", e.effectiveStatus, editable and "status")
+    add("status", e.effectiveStatus, described and "status")
     add("height", e.height, editable and glyph and "height")
     add("ascent", e.ascent, editable and glyph and "ascent")
     if glyph then
@@ -158,7 +168,7 @@ function properties.rows(info, tr, context)
         table.insert(list, { key="coupled", value=context.coupled ~= false, field="coupled" })
       end
     end
-    if editable then
+    if described then
       table.insert(list, { key="about", value=e.about or "", field="about" })
     else
       add("about", e.about)
@@ -315,19 +325,19 @@ function properties.jobs(info, field, data, tr, old)
   elseif field == "status" then
     if value == fromBlock(info, tr) then value = "" end
     if value == (e.status or "") then return nil end
-    return { "editGlyph", { glyph=glyph, status=value } }
+    return { "editGlyph", { glyph=properties.ref(info), status=value } }
   elseif field == "height" or field == "ascent" then
     value = int(value)
     if value == int(e[field]) then return nil end
     return { "editGlyph", { glyph=glyph, [field]=value } }
   elseif field == "about" then
     if value == (e.about or "") then return nil end
-    return { "editGlyph", { glyph=glyph, about=value } }
+    return { "editGlyph", { glyph=properties.ref(info), about=value } }
   elseif field == "title" then
     -- Every glyph keeps a title, so an empty one changes nothing
     value = tostring(value or ""):match("^%s*(.-)%s*$")
     if value == "" or value == e.title then return nil end
-    return { "editGlyph", { glyph=glyph, title=value } }
+    return { "editGlyph", { glyph=properties.ref(info), title=value } }
   elseif field == "delete" then
     return { "deleteGlyph", { glyph=glyph } }
   elseif field == "size" and old then

@@ -454,6 +454,23 @@ class GlyphEditsTest {
     }
 
     @Test
+    fun anEditFindsAGlyphInAListAloneByItsFontAndCode() {
+        allocation.writeText(
+            allocation.readText().replace(
+                """"title": "Bars", "height": 5, "ascent": 5, "glyphs": [] }]""",
+                """"title": "Bars", "height": 5, "ascent": 5, "glyphs": [{ "code": "FE040", "title": "Bar", "list": "BARS", "texture": "nordtal:hud/bar.png" }] }],
+                  "lists": [{ "constant": "BARS" }]""",
+            ),
+        )
+
+        GlyphEdits.edit(pack, "nordtal:hud/FE040", title = "Bar, full", about = "A full bar.")
+
+        assertTrue(""""title": "Bar, full"""" in allocation.readText(), allocation.readText())
+        assertTrue(""""about": "A full bar."""" in allocation.readText(), allocation.readText())
+        assertThrows<IllegalArgumentException> { GlyphEdits.edit(pack, "minecraft:default/FE040", title = "Bar") }
+    }
+
+    @Test
     fun anEditLeavesWhatItIsNotGivenAndKeepsTheOrderOfTheKeys() {
         GlyphEdits.edit(pack, "star", about = "A star.")
         GlyphEdits.edit(pack, "star", height = 10)

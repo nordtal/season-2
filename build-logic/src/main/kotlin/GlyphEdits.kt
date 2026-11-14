@@ -327,12 +327,27 @@ object GlyphEdits {
             (block["glyphs"] as List<*>?).orEmpty().map { block to it as OxfmtJson.Object }
         }
 
+    /** Finds [glyph] by its name or constant, or by its font and code, `nordtal:ui_panel/FE3A0`, as a glyph in a list alone. */
     private fun find(
         root: Map<*, *>,
         glyph: String,
-    ): Found =
-        entries(root).firstOrNull { (_, entry) -> entry["name"] == glyph || entry["constant"] == glyph }?.let { Found(it.first, it.second) }
+    ): Found {
+        val font = glyph.substringBeforeLast('/', "")
+        val code = glyph.substringAfterLast('/')
+        val found =
+            if (font.isEmpty()) {
+                entries(root).firstOrNull { (_, entry) -> entry["name"] == glyph || entry["constant"] == glyph }
+            } else {
+                NewTextures
+                    .fonts(root)
+                    .filter { it["font"] == font }
+                    .flatMap { (it["blocks"] as List<*>?).orEmpty().map { block -> block as OxfmtJson.Object } }
+                    .flatMap { block -> (block["glyphs"] as List<*>?).orEmpty().map { block to it as OxfmtJson.Object } }
+                    .firstOrNull { (_, entry) -> (entry["code"] as String?).equals(code, ignoreCase = true) }
+            }
+        return found?.let { Found(it.first, it.second) }
             ?: throw IllegalArgumentException("glyphs.json has no glyph named $glyph or with the constant $glyph.")
+    }
 
     /** The PNG of [texture] under `src/` and its `.aseprite` source under `art/`. */
     internal fun sources(

@@ -1456,9 +1456,16 @@ function tab.open(context)
     -- and stays in it when the save fails
     local shown = dlg.data.editor
     local record = shown and opened[shown.filename]
-    if id ~= selected and record and unsaved(shown, record) and not save(shown, record) then
-      dlg.data = { tree=selected }
-      return
+    if id ~= selected and record and unsaved(shown, record) then
+      if not save(shown, record) then
+        dlg.data = { tree=selected }
+        return
+      end
+      -- A drawn texture's changes were let go, so its PNG opens anew
+      if record.texture.generated then
+        opened[record.paths.png], opened[record.paths.aseprite], changed[record.paths.png] = nil, nil, nil
+        drop(shown, true)
+      end
     end
     selected = id
     refused = nil

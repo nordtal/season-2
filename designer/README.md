@@ -44,13 +44,14 @@ the item's definition for a part of it, the language file that holds a text, in 
 language first, and the event's `sounds.json` for a sound event or a sound of Minecraft or of an
 event. A text that no language file holds opens the folder of new language files. A click on a box asks
 for the new value in a form. OK runs the resource pack's task that writes it:
-`renameGlyph` for a name, `editGlyph` for status, display height, ascent and about, `scaleTexture`
+`renameGlyph` for a name, `editGlyph` for title, status, display height, ascent and about, `scaleTexture`
 for the scaling of a GUI sprite, `editFont` for a font's constant and about, and `editGlyphBlock` for
 a block's or sheet's title, status, display height, ascent and about. The Delete button below asks
 first and runs `deleteGlyph` for a glyph, `deleteTexture` for a vanilla override or a texture without
 a glyph, `deleteItem` for an item, `deleteGlyphBlock` for a block or sheet and `deleteFont` for a font.
 The font `minecraft:default` and a sheet of ordinary characters have no Delete button, and the default
-font has no constant to edit. The rows, pitch, numbering, spaces and lists of a font stay read only and
+font has no constant to edit. A glyph in a list alone, such as a chest panel, has no name or constant,
+so its title, status and about are edited by its font and code point, and it has no Delete button. The rows, pitch, numbering, spaces and lists of a font stay read only and
 are changed in `glyphs.json`. **Add Cells** on a sheet asks for the constants of the new cells and runs
 `addSheetCells`, which widens the PNG by one cell each on the right. The tab then widens the open
 sprite to match and saves it, so its source keeps the new cells. While the sheet's sprite is not in

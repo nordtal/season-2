@@ -133,6 +133,18 @@ describe("an edit of a property", function()
     assert.same({ "editGlyph", { glyph="star", about="" } }, properties.jobs(glyph(), "about", { value="" }))
   end)
 
+  it("edits the title, status and about of a glyph in a list alone, by its font and code", function()
+    local panel = glyph({ constant=false, name=false, list="PANELS" })
+    panel.entry.constant, panel.entry.name = nil, nil
+    local fields = {}
+    for _, row in ipairs(properties.rows(panel, tr, {})) do if row.field then fields[row.key] = row.field end end
+    assert.same({ title="title", status="status", about="about" }, fields)
+    assert.same({ "editGlyph", { glyph="minecraft:default/F0000", title="Chest, 1 row" } },
+      properties.jobs(panel, "title", { value="Chest, 1 row" }))
+    assert.same({ "editGlyph", { glyph="minecraft:default/F0000", about="A panel." } },
+      properties.jobs(panel, "about", { value="A panel." }))
+  end)
+
   it("writes the title of a glyph, and none that is empty or unchanged", function()
     assert.same({ "editGlyph", { glyph="star", title="Gold star" } }, properties.jobs(glyph(), "title", { value="Gold star" }))
     assert.is_nil(properties.jobs(glyph(), "title", { value="  " }))

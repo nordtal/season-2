@@ -235,6 +235,34 @@ class NewTexturesTest {
                 "ascent" to { NewTextures.glyph(pack, "nordtal:hud", "Bars", "nordtal:hud/c.png", "BAR_C", null, 4, 4) },
                 "width" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/two.png", null, "two", 5000, 7) },
                 "height" to { NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/two.png", null, "two", 7, 0) },
+                "title" to
+                    {
+                        NewTextures.glyph(
+                            pack,
+                            "minecraft:default",
+                            "Badges",
+                            "nordtal:badges/two.png",
+                            null,
+                            "two",
+                            7,
+                            7,
+                            title = "x".repeat(41),
+                        )
+                    },
+                "title" to
+                    {
+                        NewTextures.glyph(
+                            pack,
+                            "minecraft:default",
+                            "Badges",
+                            "nordtal:badges/two.png",
+                            null,
+                            "two",
+                            7,
+                            7,
+                            title = "Two [x]",
+                        )
+                    },
                 "title" to { NewTextures.block(pack, "minecraft:default", "Badges") },
                 "title" to { NewTextures.block(pack, "minecraft:default", "Clash", range = "FE008-FE017") },
                 "size" to { NewTextures.block(pack, "minecraft:default", "Huge", size = 0x20000) },

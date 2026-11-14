@@ -229,6 +229,31 @@ class PackChangeOfferTest {
     }
 
     @Test
+    void thePackALiveSwapSentOnTheSmpCountsAsAppliedAndTheOldOneGoes() {
+        final FakePlayer miner = online("Alex", "smp", false);
+        applied(miner, OLD);
+        spec.set(pack(NEW, true));
+        station.packChanged();
+
+        station.onPackStatus(status(miner, NEW, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+
+        assertEquals(List.of(PackOffer.idOf(OLD)), miner.removed);
+        assertEquals(0, miner.disconnects);
+    }
+
+    @Test
+    void aPlayerOnTheSmpWhoDeclinesTheLiveSwapIsDisconnectedAsAtJoin() {
+        final FakePlayer miner = online("Alex", "smp", false);
+        applied(miner, OLD);
+        spec.set(pack(NEW, true));
+        station.packChanged();
+
+        station.onPackStatus(status(miner, NEW, PlayerResourcePackStatusEvent.Status.DECLINED));
+
+        assertEquals(1, miner.disconnects);
+    }
+
+    @Test
     void aDisabledPackIsOfferedToNobody() {
         final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, OLD);

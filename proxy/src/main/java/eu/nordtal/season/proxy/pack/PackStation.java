@@ -260,6 +260,14 @@ public final class PackStation {
         final UUID uuid = player.getUniqueId();
         final Locale locale = localeOf(player);
 
+        final PackSpec spec = config.get();
+        if (spec.enabled()
+                && PackOffer.idOf(spec.sha1()).equals(event.getPackId())
+                && !book.answersNewestOffer(uuid, event.getPackId())) {
+            // smp sent the active pack in a live swap, under the id the proxy gives it.
+            swapAnswered(player, spec.sha1(), event.getStatus(), locale);
+            return;
+        }
         // An answer about a pack a newer offer replaced keeps the player, as SUCCESSFUL and DISCARDED do.
         if (KICKS.contains(event.getStatus()) && !book.answersNewestOffer(uuid, event.getPackId())) {
             logger.debug(
@@ -274,24 +282,47 @@ public final class PackStation {
                 evaluate(player);
             }
             case ACCEPTED, DOWNLOADED -> {}
-            case DECLINED -> {
-                logger.info("resource pack declined: player={}", player.getUsername());
-                disconnect(player, messages.declined(locale));
-            }
-            case FAILED_DOWNLOAD, FAILED_RELOAD -> {
-                logger.warn("resource pack not applied: player={} status={}", player.getUsername(), event.getStatus());
-                disconnect(player, messages.failedDownload(locale));
-            }
-            case INVALID_URL -> {
-                logger.error("resource pack url unloadable: player={}", player.getUsername());
-                disconnect(player, messages.invalidUrl(locale));
-            }
+            case DECLINED, FAILED_DOWNLOAD, FAILED_RELOAD, INVALID_URL -> refused(player, event.getStatus(), locale);
             case DISCARDED -> {
                 if (book.offeredSha1(uuid).map(PackOffer::idOf).equals(Optional.ofNullable(event.getPackId()))) {
                     logger.warn("resource pack discarded: player={}", player.getUsername());
                 } else {
                     logger.debug("replaced resource pack discarded: player={}", player.getUsername());
                 }
+            }
+        }
+    }
+
+    /** Records the pack a live swap applied, or disconnects the player who refused it, as at join. */
+    private void swapAnswered(
+            final Player player,
+            final String sha1,
+            final PlayerResourcePackStatusEvent.Status status,
+            final Locale locale) {
+        switch (status) {
+            case SUCCESSFUL -> {
+                logger.info("resource pack applied in a live swap: player={} sha1={}", player.getUsername(), sha1);
+                replace(player, sha1);
+            }
+            case DECLINED, FAILED_DOWNLOAD, FAILED_RELOAD, INVALID_URL -> refused(player, status, locale);
+            case ACCEPTED, DOWNLOADED, DISCARDED -> {}
+        }
+    }
+
+    /** Disconnects a player whose client declined the pack or could not apply it. */
+    private void refused(final Player player, final PlayerResourcePackStatusEvent.Status status, final Locale locale) {
+        switch (status) {
+            case DECLINED -> {
+                logger.info("resource pack declined: player={}", player.getUsername());
+                disconnect(player, messages.declined(locale));
+            }
+            case INVALID_URL -> {
+                logger.error("resource pack url unloadable: player={}", player.getUsername());
+                disconnect(player, messages.invalidUrl(locale));
+            }
+            default -> {
+                logger.warn("resource pack not applied: player={} status={}", player.getUsername(), status);
+                disconnect(player, messages.failedDownload(locale));
             }
         }
     }

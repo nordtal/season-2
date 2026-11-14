@@ -220,9 +220,13 @@ public final class PackStation {
     private void applied(final Player player, final @Nullable UUID packId) {
         final UUID uuid = player.getUniqueId();
         if (!book.answersNewestOffer(uuid, packId)) {
-            // A newer offer replaced this pack before it was applied, so it goes again at once.
-            player.removeResourcePacks(Objects.requireNonNull(packId));
-            logger.info("replaced resource pack removed: player={}", player.getUsername());
+            if (book.takeReplaced(uuid, packId)) {
+                // A newer offer replaced this pack before it was applied, so it goes again at once.
+                player.removeResourcePacks(Objects.requireNonNull(packId));
+                logger.info("replaced resource pack removed: player={} pack={}", player.getUsername(), packId);
+            } else {
+                logger.debug("resource pack applied that is not the newest offer: player={}", player.getUsername());
+            }
             return;
         }
         replace(player, book.offeredSha1(uuid).orElseThrow());

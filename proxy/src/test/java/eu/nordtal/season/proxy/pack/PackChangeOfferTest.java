@@ -160,6 +160,17 @@ class PackChangeOfferTest {
     }
 
     @Test
+    void aPackThatTheProxyDidNotOfferStaysWhenApplied() {
+        final FakePlayer alex = online("Alex", "limbo", false);
+        applied(alex, OLD);
+
+        station.onPackStatus(new PlayerResourcePackStatusEvent(
+                alex.player(), UUID.randomUUID(), PlayerResourcePackStatusEvent.Status.SUCCESSFUL, null));
+
+        assertEquals(List.of(), alex.removed);
+    }
+
+    @Test
     void aPlayerInTheWaitingRoomIsHeldForTheNewPackAtOnce() {
         final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, OLD);

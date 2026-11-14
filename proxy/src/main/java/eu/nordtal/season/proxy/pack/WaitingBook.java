@@ -139,6 +139,15 @@ public final class WaitingBook {
     public boolean claimOffer(final UUID uuid, final String sha1) {
         final Session session = session(uuid);
         synchronized (session) {
+            if (!session.exempt
+                    && sha1.equals(session.appliedSha1)
+                    && session.offeredSha1 != null
+                    && !sha1.equals(session.offeredSha1)) {
+                // The pack went back to the applied one while another waited: that one is replaced, nothing is sent.
+                session.replacedSha1s.add(session.offeredSha1);
+                session.offeredSha1 = sha1;
+                return false;
+            }
             if (!PackHash.owed(session.exempt, session.appliedSha1, session.offeredSha1, sha1)) {
                 return false;
             }
@@ -167,8 +176,21 @@ public final class WaitingBook {
      * A client that names no pack answers about the newest.
      */
     public boolean answersNewestOffer(final UUID uuid, final @Nullable UUID packId) {
-        final Optional<String> offered = offeredSha1(uuid);
-        return offered.isPresent() && (packId == null || packId.equals(PackOffer.idOf(offered.get())));
+        return newestAnswered(uuid, packId).isPresent();
+    }
+
+    /** Returns the SHA-1 of the newest offer if the answer about {@code packId} is about it, read in one step. */
+    public Optional<String> newestAnswered(final UUID uuid, final @Nullable UUID packId) {
+        final Session session = sessions.get(uuid);
+        if (session == null) {
+            return Optional.empty();
+        }
+        synchronized (session) {
+            final String offered = session.offeredSha1;
+            return offered != null && (packId == null || packId.equals(PackOffer.idOf(offered)))
+                    ? Optional.of(offered)
+                    : Optional.empty();
+        }
     }
 
     /**

@@ -176,6 +176,21 @@ class PackChangeOfferTest {
     }
 
     @Test
+    void aPackChangedBackToTheAppliedOneReplacesThePendingOffer() {
+        final FakePlayer alex = online("Alex", "limbo", false);
+        applied(alex, OLD);
+        spec.set(pack(NEW, true));
+        assertEquals(1, station.packChanged());
+
+        spec.set(pack(OLD, true));
+        assertEquals(0, station.packChanged());
+        station.onPackStatus(status(alex, NEW, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+
+        assertEquals(List.of(PackOffer.idOf(NEW)), alex.removed, "the pending pack goes, the active one stays");
+        assertEquals(Optional.of(OLD), book.offeredSha1(alex.uuid));
+    }
+
+    @Test
     void aPackThatTheProxyDidNotOfferStaysWhenApplied() {
         final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, OLD);

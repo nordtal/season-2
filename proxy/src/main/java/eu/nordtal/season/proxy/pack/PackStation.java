@@ -219,7 +219,8 @@ public final class PackStation {
     /** Records the applied pack and removes the one it replaced from the client. */
     private void applied(final Player player, final @Nullable UUID packId) {
         final UUID uuid = player.getUniqueId();
-        if (!book.answersNewestOffer(uuid, packId)) {
+        final Optional<String> newest = book.newestAnswered(uuid, packId);
+        if (newest.isEmpty()) {
             // A newer offer replaced this pack before it was applied, so it goes again at once.
             book.takeReplaced(uuid, packId)
                     .ifPresentOrElse(
@@ -235,7 +236,7 @@ public final class PackStation {
                                     player.getUsername()));
             return;
         }
-        replace(player, book.offeredSha1(uuid).orElseThrow());
+        replace(player, newest.get());
     }
 
     /** Records {@code sha1} as applied and removes the pack it replaced from the client. */

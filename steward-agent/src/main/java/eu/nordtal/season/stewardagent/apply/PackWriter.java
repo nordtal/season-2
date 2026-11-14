@@ -17,7 +17,7 @@ public final class PackWriter {
     private PackWriter() {}
 
     /**
-     * Writes the two values, which the proxy offers from the next connect to its waiting room.
+     * Writes the two values, which the proxy offers at once to every player in its waiting room.
      *
      * @return {@code true} if they were written, {@code false} if the proxy's group already said this
      */

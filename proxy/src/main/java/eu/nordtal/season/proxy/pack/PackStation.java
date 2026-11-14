@@ -35,7 +35,7 @@ import org.slf4j.Logger;
 
 /**
  * Keeps each player in {@code limbo} until the pack is applied and the server of the active mode accepts them.
- * Each handler records a fact and asks {@link WaitingBook}.
+ * A changed pack is offered to every player there at once. Each handler records a fact and asks {@link WaitingBook}.
  */
 public final class PackStation {
 
@@ -156,22 +156,20 @@ public final class PackStation {
     }
 
     /**
-     * Offers a changed pack at once to every player on a server, not only at the next visit to the waiting room.
-     * The answer takes the same way as there: a decline disconnects, an applied pack replaces the old one.
+     * Offers a changed pack at once to every player already in the waiting room, as a new arrival gets it.
+     * Players elsewhere keep their pack until their next visit there, or until a live swap on the SMP.
      *
      * @return the number of players offered the pack
      */
     public int packChanged() {
         int offered = 0;
         for (final Player player : proxy.getAllPlayers()) {
-            final Optional<String> server = player.getCurrentServer()
-                    .map(connection -> connection.getServerInfo().getName());
-            if (server.isPresent() && sendOfferIfNeeded(player)) {
+            if (onLimbo(player) && sendOfferIfNeeded(player)) {
                 logger.info(
-                        "changed resource pack offered: player={} server={} sha1={}",
+                        "changed resource pack offered: player={} sha1={}",
                         player.getUsername(),
-                        server.get(),
                         config.get().sha1());
+                evaluate(player);
                 offered++;
             }
         }
@@ -198,8 +196,8 @@ public final class PackStation {
         if (player.getAppliedResourcePacks().stream()
                 .anyMatch(pack -> Arrays.equals(pack.getHash(), offer.getHash()))) {
             // Velocity refuses an offer of a pack it already counts as applied, so the book takes it as applied.
-            book.packApplied(player.getUniqueId(), current.sha1());
             logger.info("resource pack already applied: player={} sha1={}", player.getUsername(), current.sha1());
+            replace(player, current.sha1());
             return false;
         }
         player.sendResourcePackOffer(offer);
@@ -222,13 +220,19 @@ public final class PackStation {
     private void applied(final Player player, final @Nullable UUID packId) {
         final UUID uuid = player.getUniqueId();
         if (!book.answersNewestOffer(uuid, packId)) {
-            logger.debug("resource pack applied that is not the newest offer: player={}", player.getUsername());
+            // A newer offer replaced this pack before it was applied, so it goes again at once.
+            player.removeResourcePacks(Objects.requireNonNull(packId));
+            logger.info("replaced resource pack removed: player={}", player.getUsername());
             return;
         }
-        final String offered = book.offeredSha1(uuid).orElseThrow();
-        book.packApplied(uuid, offered).ifPresent(before -> {
+        replace(player, book.offeredSha1(uuid).orElseThrow());
+    }
+
+    /** Records {@code sha1} as applied and removes the pack it replaced from the client. */
+    private void replace(final Player player, final String sha1) {
+        book.packApplied(player.getUniqueId(), sha1).ifPresent(before -> {
             player.removeResourcePacks(PackOffer.idOf(before));
-            logger.info("resource pack replaced: player={} sha1={}", player.getUsername(), offered);
+            logger.info("resource pack replaced: player={} sha1={}", player.getUsername(), sha1);
         });
     }
 

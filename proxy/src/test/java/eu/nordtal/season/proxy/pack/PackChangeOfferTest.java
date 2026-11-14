@@ -13,6 +13,8 @@ import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.common.time.ManualScheduler;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.season.SeasonDirectory;
+import eu.nordtal.season.limboprotocol.LimboProtocol;
+import eu.nordtal.season.limboprotocol.WaitReason;
 import eu.nordtal.season.proxy.MutableClock;
 import eu.nordtal.season.proxy.NetworkServers;
 import eu.nordtal.season.proxy.ProxyRenderer;
@@ -37,7 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.slf4j.helpers.NOPLogger;
 
-/** A change of the active pack is offered at once to every player already online, as limbo offers it. */
+/** A change of the active pack is offered at once to every player already in the waiting room. */
 class PackChangeOfferTest {
 
     private static final String OLD = "a".repeat(40);
@@ -59,6 +61,7 @@ class PackChangeOfferTest {
             fake(ProxyServer.class, (method, arguments) -> switch (method) {
                 case "getAllPlayers" -> online.stream().map(FakePlayer::player).toList();
                 case "createResourcePackBuilder" -> new FakeBuilder((String) arguments[0]).builder();
+                case "getServer" -> Optional.empty();
                 default -> throw new UnsupportedOperationException(method);
             }),
             NOPLogger.NOP_LOGGER,
@@ -76,8 +79,8 @@ class PackChangeOfferTest {
             new BackendHealth(clock));
 
     @Test
-    void aPlayerOnSmpIsOfferedTheNewPackAndLosesOnlyTheOldOneOnceApplied() {
-        final FakePlayer alex = online("Alex", "smp", false);
+    void aPlayerInTheWaitingRoomIsOfferedTheNewPackAndLosesOnlyTheOldOneOnceApplied() {
+        final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, OLD);
 
         spec.set(pack(NEW, true));
@@ -96,7 +99,7 @@ class PackChangeOfferTest {
 
     @Test
     void exemptPlayersAndPlayersWithoutAServerAreLeftAlone() {
-        final FakePlayer exempt = online("Steve", "smp", true);
+        final FakePlayer exempt = online("Steve", "limbo", true);
         final FakePlayer joining = online("Kai", null, false);
 
         spec.set(pack(NEW, true));
@@ -107,8 +110,22 @@ class PackChangeOfferTest {
     }
 
     @Test
+    void playersOnTheSmpAndInHungerGamesKeepTheirPack() {
+        final FakePlayer miner = online("Alex", "smp", false);
+        final FakePlayer fighter = online("Kai", "hunger-games", false);
+        applied(miner, OLD);
+        applied(fighter, OLD);
+
+        spec.set(pack(NEW, true));
+        assertEquals(0, station.packChanged());
+
+        assertEquals(List.of(), miner.offers);
+        assertEquals(List.of(), fighter.offers);
+    }
+
+    @Test
     void aPlayerWhoHasTheNewPackIsNotOfferedItAgain() {
-        final FakePlayer alex = online("Alex", "smp", false);
+        final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, NEW);
 
         spec.set(pack(NEW, true));
@@ -118,19 +135,47 @@ class PackChangeOfferTest {
 
     @Test
     void aPackTheProxyAlreadyCountsAsAppliedIsNotOfferedAgain() {
-        final FakePlayer alex = online("Alex", "smp", false);
+        final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, OLD);
         alex.velocityApplied.add(packInfo(NEW));
 
         spec.set(pack(NEW, true));
         assertEquals(0, station.packChanged());
         assertEquals(List.of(), alex.offers);
-        assertEquals(Optional.of(NEW), book.offeredSha1(alex.uuid));
+        assertEquals(List.of(PackOffer.idOf(OLD)), alex.removed, "the pack it replaced goes");
     }
 
     @Test
-    void aPlayerOnSmpWhoDeclinesTheNewPackIsDisconnectedAsOnLimbo() {
-        final FakePlayer alex = online("Alex", "smp", false);
+    void aPendingOfferThatTheChangeReplacedIsRemovedOnceTheClientAppliesIt() {
+        final FakePlayer alex = online("Alex", "limbo", false);
+        assertTrue(book.claimOffer(alex.uuid, OLD));
+
+        spec.set(pack(NEW, true));
+        assertEquals(1, station.packChanged());
+        station.onPackStatus(status(alex, OLD, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+        station.onPackStatus(status(alex, NEW, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+
+        assertEquals(List.of(PackOffer.idOf(OLD)), alex.removed);
+        assertEquals(0, alex.disconnects);
+    }
+
+    @Test
+    void aPlayerInTheWaitingRoomIsHeldForTheNewPackAtOnce() {
+        final FakePlayer alex = online("Alex", "limbo", false);
+        applied(alex, OLD);
+        book.entered(alex.uuid);
+
+        spec.set(pack(NEW, true));
+        assertEquals(1, station.packChanged());
+
+        assertEquals(
+                Optional.of(WaitReason.PACK),
+                LimboProtocol.decode(alex.limbo.getLast()).map(LimboProtocol.Message::reason));
+    }
+
+    @Test
+    void aPlayerInTheWaitingRoomWhoDeclinesTheNewPackIsDisconnected() {
+        final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, OLD);
 
         spec.set(pack(NEW, true));
@@ -143,7 +188,7 @@ class PackChangeOfferTest {
 
     @Test
     void aDisabledPackIsOfferedToNobody() {
-        final FakePlayer alex = online("Alex", "smp", false);
+        final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, OLD);
 
         spec.set(pack(NEW, false));
@@ -218,6 +263,7 @@ class PackChangeOfferTest {
         private final List<ResourcePackInfo> offers = new ArrayList<>();
         private final List<UUID> removed = new ArrayList<>();
         private final List<ResourcePackInfo> velocityApplied = new ArrayList<>();
+        private final List<byte[]> limbo = new ArrayList<>();
         private int disconnects;
         private final Player player;
 
@@ -243,7 +289,7 @@ class PackChangeOfferTest {
                 }
                 default -> throw new UnsupportedOperationException(method);
             });
-            this.server = server == null ? Optional.empty() : Optional.of(connection(server, player));
+            this.server = server == null ? Optional.empty() : Optional.of(connection(server, player, limbo));
         }
 
         Player player() {
@@ -251,11 +297,12 @@ class PackChangeOfferTest {
         }
     }
 
-    private static ServerConnection connection(final String name, final Player player) {
+    private static ServerConnection connection(final String name, final Player player, final List<byte[]> sent) {
         final ServerInfo info = new ServerInfo(name, InetSocketAddress.createUnresolved(name, 25565));
         return fake(ServerConnection.class, (method, arguments) -> switch (method) {
             case "getServerInfo" -> info;
             case "getPlayer" -> player;
+            case "sendPluginMessage" -> sent.add((byte[]) arguments[1]);
             default -> throw new UnsupportedOperationException(method);
         });
     }

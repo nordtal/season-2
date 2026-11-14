@@ -690,8 +690,7 @@ public final class ProxyPlugin {
         try {
             if (loaded.pack().reload()) {
                 logPack(loaded.pack().get(), "resource pack changed");
-                final int offered = packs.packChanged();
-                logger.info("resource pack offered to online players: count={}", offered);
+                packs.packChanged();
             }
         } catch (final SettingsException refused) {
             logger.warn("resource pack setting refused, running pack kept: cause={}", refused.getMessage());

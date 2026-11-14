@@ -1,30 +1,29 @@
 package eu.nordtal.season.packbuilder.wheel;
 
 /**
- * Where the wheel's parts sit, in GUI pixels of a 480 x 270 screen.
- * The dialog's column holds {@link #BODIES} item bodies, one row each, 10 apart, which all draw over one rectangle.
- * Each part is placed from its body's origin; the rows' texts lie over the prizes at rest, to show their items.
+ * Where the wheel's parts sit, in GUI pixels of a 480 x 270 screen, each from its body's origin.
+ * The column holds {@link #BODIES} item bodies 10 apart, and the client's empty button column 10 below them,
+ * so it is 170 high and starts at 63. The rows' texts lie over the prizes at rest, to show their items.
  */
 public final class WheelLayout {
 
-    public static final int BODIES = 7;
+    public static final int BODIES = 6;
     public static final int DISC_BODY = 0;
     public static final int PRIZES_BODY = 1;
     public static final int FOIL_BODY = 2;
     public static final int PLATE_BODY = 3;
     public static final int OVERLAY_BODY = 4;
     public static final int HOVER_BODY = 5;
-    public static final int LAST_BODY = 6;
 
     static final int DISC = 156;
     static final int PLACES = WheelTurn.PLACES;
     private static final double RADIUS = DISC / 2.0 - 14;
 
     /** The row tops from the column's top, with a 10-pixel gap after each row. */
-    private static final int[] ROWS = {0, 11, 47, 76, 103, 134, 170};
+    private static final int[] ROWS = {0, 11, 47, 76, 103, 134};
 
     /** The rows' heights; the text of a row of 26 has two lines, of 17 one, centred in its row. */
-    public static final int[] HEIGHTS = {1, 26, 19, 17, 21, 26, 4};
+    public static final int[] HEIGHTS = {1, 26, 19, 17, 21, 26};
 
     /** The width of every row with a description, from its item's left to its text's right. */
     public static final int ROW_WIDTH = 254;
@@ -35,7 +34,7 @@ public final class WheelLayout {
     /** The plate row's item: the hover of the prize at place 9, from 11 left of it to its right edge. */
     public static final int PLATE_ITEM = 27;
 
-    /** The width of the disc's and the last row's items, which have no text. */
+    /** The width of the disc's item, which has no text. */
     public static final int LONE_ITEM = 2;
 
     /** The disc canvas's top-left from the column's top-middle. */
@@ -59,7 +58,7 @@ public final class WheelLayout {
 
     /** Body {@code body}'s item origin from the column's top-middle. */
     static int[] origin(final int body) {
-        final int x = body == DISC_BODY || body == LAST_BODY ? -LONE_ITEM / 2 : -ROW_WIDTH / 2;
+        final int x = body == DISC_BODY ? -LONE_ITEM / 2 : -ROW_WIDTH / 2;
         return new int[] {x, ROWS[body]};
     }
 

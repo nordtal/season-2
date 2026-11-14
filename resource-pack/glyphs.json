@@ -1545,10 +1545,10 @@
     },
     {
       "font": "nordtal:ui_art_{shift}",
-      "shifts": [-4, -2, 0, 4, 8, 11, 17, 20, 24, 28, 29, 37, 40, 44, 47, 48, 50, 57, 60, 64, 65, 80, 83, 84, 101],
+      "shifts": [-2, 0, 4, 8, 11, 17, 20, 24, 28, 29, 37, 40, 44, 47, 48, 50, 57, 60, 64, 65, 80, 83, 84, 101],
       "constant": "FONT_UI_ART",
       "references": ["nordtal:ui_space"],
-      "about": "Plates, frames, the bar and the pill. Shift 0 puts the art's top on a dialog line's text row; 11 + 18 r on chest content row r. A dialog column's rows take their shift from their place in it, and −2 raises the line after a column, its art 2 above its box's text row. −4 puts the art's top on its text box's top, for hover areas.",
+      "about": "Plates, frames, the bar and the pill. Shift 0 puts the art's top on a dialog line's text row; 11 + 18 r on chest content row r. A dialog column's rows take their shift from their place in it, and −2 raises the line after a column, its art 2 above its box's text row.",
       "blocks": [
         {
           "range": "FE340-FE34F",
@@ -1650,8 +1650,8 @@
               "constant": "UI_HOVER_17",
               "texture": "nordtal:ui/kit/hover_17.png",
               "height": 17,
-              "ascent": 7,
-              "about": "A 16 x 17 hit area that draws nothing visible, for a hover over art: at shift -4 it covers a one-line text box."
+              "ascent": 9,
+              "about": "A 16 x 17 hit area that draws nothing visible, for a hover over art: 2 higher than other art, so at shift -2 it covers a one-line text box."
             },
             {
               "code": "FE374",
@@ -1659,8 +1659,8 @@
               "constant": "UI_HOVER_26",
               "texture": "nordtal:ui/kit/hover_26.png",
               "height": 26,
-              "ascent": 7,
-              "about": "A 16 x 26 hit area that draws nothing visible: at shift -4 it covers a two-line text box."
+              "ascent": 9,
+              "about": "A 16 x 26 hit area that draws nothing visible: 2 higher than other art, so at shift -2 it covers a two-line text box."
             }
           ]
         },

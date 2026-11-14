@@ -33,7 +33,7 @@ import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The wooden wheel as a dialog of 7 item bodies, which the pack draws over one another.
+ * The wooden wheel as a dialog of 6 item bodies, which the pack draws over one another.
  * It turns them by the cooldown of {@link #GROUP}. Their texts carry the plate and, at rest, the prizes' hovers.
  */
 final class WheelDialog {
@@ -58,14 +58,13 @@ final class WheelDialog {
     /** The item group whose cooldown plays the spin. */
     static final Key GROUP = Key.key("nordtal", "wheel");
 
-    static final int BODIES = 7;
+    static final int BODIES = 6;
     private static final int DISC_BODY = 0;
     private static final int PRIZES_BODY = 1;
     private static final int FOIL_BODY = 2;
     private static final int PLATE_BODY = 3;
     private static final int OVERLAY_BODY = 4;
     private static final int HOVER_BODY = 5;
-    private static final int LAST_BODY = 6;
 
     /** The panel's top, which the header draws from; the column below starts at the client's 63. */
     private static final int TOP = 43;
@@ -87,8 +86,8 @@ final class WheelDialog {
     /** A hover glyph's ink, which stands over a 16-pixel prize. */
     private static final int HOVER = 16;
 
-    /** The hover glyphs' ui art font, which puts their tops on the text box's top. */
-    private static final int HOVER_SHIFT = -4;
+    /** The hover glyphs' ui art font, which with their 2 higher ascent puts their tops on the text box's top. */
+    private static final int HOVER_SHIFT = -2;
 
     /**
      * The plate's top above its text row, as high as the pack draws art, so most of the plate is in its box.
@@ -138,7 +137,6 @@ final class WheelDialog {
                 .build());
         bodies.add(row(stack(paper, "overlay", plan.overlay(language)), rows, OVERLAY_BODY, resting));
         bodies.add(row(stack(paper, "none", List.of()), rows, HOVER_BODY, resting));
-        bodies.add(lone(stack(paper, "none", List.of()), rows, LAST_BODY));
         final Component title = DialogTitle.of(DialogPanel.WHEEL_201, TOP)
                 .header(Symbol.WHEEL, texts.name(), List.of(), MARGIN)
                 .build();

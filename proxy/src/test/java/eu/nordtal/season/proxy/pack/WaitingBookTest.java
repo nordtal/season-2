@@ -630,7 +630,7 @@ class WaitingBookTest {
         book.ready(player);
 
         assertEquals(
-                WaitingDecision.show(WaitReason.UPDATE),
+                WaitingDecision.show(WaitReason.SWITCH),
                 book.decide(player, SeasonHold.SWITCH, true, true, DESTINATION, false, false));
         assertEquals(
                 Action.RELEASE,

@@ -20,6 +20,9 @@ public enum WaitReason {
     /** An update run has stopped the backend of the player. The proxy reads this from the update row. */
     UPDATE,
 
+    /** A game mode switch moves every player, admins included, until the new mode's server runs. */
+    SWITCH,
+
     /**
      * An admin stopped the backend of the player. The proxy sends the player on when the backend accepts connections.
      */

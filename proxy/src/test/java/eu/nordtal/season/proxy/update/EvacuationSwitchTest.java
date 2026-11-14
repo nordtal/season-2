@@ -123,15 +123,18 @@ class EvacuationSwitchTest {
     }
 
     @Test
-    void aSwitchThatFailedOnItsTargetKeepsHoldingEverybody() {
+    void aSwitchThatFailedOnItsTargetReleasesTheWaitingRoomOnce() {
         evacuation.check();
+        assertTrue(evacuation.holdsEveryone());
         status = UpdateStatus.FAILED;
         steps = List.of(new RunProgress.Step(RunStep.Kind.START, "hunger-games", RunStep.Outcome.FAILED));
 
         evacuation.check();
+        evacuation.check();
 
-        assertTrue(evacuation.holdsEveryone());
-        assertEquals(0, released.get());
+        assertFalse(
+                evacuation.holdsEveryone(), "the waiting room's own rules keep the players while the target is down");
+        assertEquals(1, released.get());
     }
 
     @Test

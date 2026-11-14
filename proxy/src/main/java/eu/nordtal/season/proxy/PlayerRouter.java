@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.Nullable;
@@ -62,6 +63,9 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
     private final eu.nordtal.season.proxy.update.Homecoming homecoming;
 
     private final Clock clock;
+
+    /** Tries the waiting rooms for a player whose re-route failed, before the disconnect. */
+    private final WaitingRoomRetry retry;
 
     /** Whether an update run stops the server. */
     private volatile Predicate<String> stopping = server -> false;
@@ -97,6 +101,11 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
         this.health = Objects.requireNonNull(health, "health");
         this.seats = Objects.requireNonNull(seats, "seats");
         this.homecoming = Objects.requireNonNull(homecoming, "homecoming");
+        this.retry = new WaitingRoomRetry(
+                scheduler,
+                routing.servers(),
+                name -> proxy.getServer(name).isPresent() && !stopping.test(name),
+                logger);
     }
 
     /** Sets the check for a server that an update run stops, which no login is sent to. */
@@ -176,7 +185,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
                 final String destination =
                         seats.releaseTo(uuid, roster.isAdmin(uuid), modeDestination, available, routing.servers());
                 homecoming.comingBack(player, destination);
-                connect(player, destination, locale, cause -> packs.releaseFailed(player, cause));
+                connect(player, destination, cause -> packs.releaseFailed(player, cause));
             }
             case STAY -> {
                 logger.info("player held again for maintenance: player={}", player.getUsername());
@@ -301,11 +310,48 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
         return server.equals(servers.smp()) && available.contains(limbo) ? limbo : server;
     }
 
-    /** Connects the player unless the player is on the server. */
+    /**
+     * Connects the player unless the player is on the server.
+     * A failed move tries the waiting rooms through {@link WaitingRoomRetry} before it disconnects the player.
+     */
     private boolean connect(final Player player, final String server, final Locale locale) {
-        return connect(player, server, locale, cause -> {
-            logger.error("re-route failed: player={} server={} cause={}", player.getUsername(), server, cause);
-            player.disconnect(messages.noServer(locale));
+        return connect(player, server, cause -> {
+            logger.warn(
+                    "re-route failed, waiting room tried next: player={} server={} cause={}",
+                    player.getUsername(),
+                    server,
+                    cause);
+            retry.start(player.getUsername(), server, room -> intoRoom(player, room), () -> {
+                if (player.isActive()) {
+                    logger.error(
+                            "re-route failed, player disconnected: player={} server={}", player.getUsername(), server);
+                    player.disconnect(messages.noServer(locale));
+                }
+            });
+        });
+    }
+
+    /** Moves the player into the waiting room; completes with {@code true} once the player is there or gone. */
+    private CompletableFuture<Boolean> intoRoom(final Player player, final String room) {
+        if (!player.isActive()) {
+            return CompletableFuture.completedFuture(true);
+        }
+        final RegisteredServer target = proxy.getServer(room).orElse(null);
+        if (target == null) {
+            return CompletableFuture.completedFuture(false);
+        }
+        intents.intend(player.getUniqueId(), room);
+        return player.createConnectionRequest(target).connect().thenApply(result -> {
+            final boolean there = result.getStatus() == ConnectionRequestBuilder.Status.SUCCESS
+                    || result.getStatus() == ConnectionRequestBuilder.Status.ALREADY_CONNECTED;
+            if (there) {
+                health.clear(room);
+                logger.info(
+                        "player moved into waiting room after a failed re-route: player={} waiting_room={}",
+                        player.getUsername(),
+                        room);
+            }
+            return there;
         });
     }
 
@@ -315,10 +361,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
      * @param onFailure receives the reason as one line
      */
     private boolean connect(
-            final Player player,
-            final String server,
-            final Locale locale,
-            final java.util.function.Consumer<String> onFailure) {
+            final Player player, final String server, final java.util.function.Consumer<String> onFailure) {
         final Optional<String> currently = player.getCurrentServer()
                 .map(connection -> connection.getServerInfo().getName());
         if (currently.isPresent() && currently.get().equals(server)) {
@@ -328,7 +371,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
         final RegisteredServer target = proxy.getServer(server).orElse(null);
         if (target == null) {
             logger.error("server gone during re-route: server={} player={}", server, player.getUsername());
-            player.disconnect(messages.noServer(locale));
+            onFailure.accept("server not registered");
             return true;
         }
 

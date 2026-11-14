@@ -344,9 +344,12 @@ absolute path of every file it wrote or deleted.
   words of `a` to `z`, `0` to `9`, `_` and `-` with dots between them. It copies the file to
   `sounds/<event, dots as slashes>.ogg`.
 - `overrideSound` overrides a `minecraft:` event of the season's client. With `replace`, the event
-  plays the pack's sounds alone: it starts as a copy of vanilla's sounds and subtitle, or with the
-  `file` alone where one is given. Without, the `file` plays beside vanilla's sounds. Its own files go
-  under `sounds/nordtal/` of `minecraft`, so they never take the place of a vanilla file.
+  plays the pack's sounds alone: it starts with vanilla's subtitle and a copy of each of vanilla's
+  `.ogg` files, at `sounds/nordtal/<event, dots as slashes>/<file>.ogg`, or with the `file` alone
+  where one is given.
+  A sound it cannot download refuses the override, which then writes nothing. Without `replace`, the
+  `file` plays beside vanilla's sounds. Its own files go under `sounds/nordtal/` of `minecraft`, so
+  they never take the place of a vanilla file that other events play.
 - `editSound` changes one thing: `file` adds an Ogg Vorbis file as a sound, `name` adds a sound
   Minecraft or the pack holds, `remove` removes the sound `at` and its file where no other event names
   it, `fields`, a JSON object, sets the fields of the sound `at`, and a null clears one. `replace` is
@@ -357,7 +360,8 @@ absolute path of every file it wrote or deleted.
   `subtitles.<namespace>.<event>` unless the event names one that the pack's language files hold, so
   a text never changes a vanilla key that other events share. The client shows vanilla's subtitle
   for a `minecraft:` event that keeps vanilla's sounds, so `subtitleSound` refuses one, and
-  `-Preplace=false` drops the event's subtitle and the copies of vanilla's sounds.
+  `-Preplace=false` drops the event's subtitle and each copy of vanilla's sounds that still equals
+  vanilla's file.
 - `deleteSound` deletes the event, each file only it names and its subtitle text where no other
   event names that.
 - `playSound` decodes the sound `at`, or the first, to `build/sounds/` as a WAV at its volume and

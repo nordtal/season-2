@@ -1,6 +1,6 @@
 package eu.nordtal.season.stewardagent.pack;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,13 +16,14 @@ class ImageDocumentsTest {
         Files.writeString(smp.resolve("declarations.json"), """
                 [{"namespace":"smp","name":"wheel","title":"Wheel of Fortune","englishOnly":false,"area":"Menus",\
                 "shape":"MENU","rows":1,"values":{},"slots":[]}]""");
-        Files.writeString(smp.resolve("wheel.json"), "{\"parts\":[]}");
+        Files.writeString(smp.resolve("wheel.json"), """
+                {"parts":[{"type":"TEXT","lines":[{"text":{"en":"Wheel of Fortune","de":"Glücksrad"}}]}]}""");
 
-        assertEquals(
-                "wheel",
-                PackBuilds.imageDocuments(image)
-                        .applied("smp", "wheel")
-                        .declaration()
-                        .name());
+        final String texts = PackBuilds.imageDocuments(image)
+                .applied(PackInputs.SERVICE, PackInputs.DOCUMENT)
+                .document()
+                .json();
+
+        assertTrue(texts.contains("Glücksrad"), texts);
     }
 }

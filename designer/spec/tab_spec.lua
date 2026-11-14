@@ -472,6 +472,13 @@ describe("the Nordtal tab", function()
     assert.is_true(stopped)
     assert.same({}, t.log)
     assert.equal("status.generated", status(dlg))
+
+    -- A change to it holds no other entry back: the tab moves on, keeps nothing and says so
+    change(t.open[1])
+    dlg.handlers.tree.onchange({ node="glyph/minecraft:default/F0000" })
+    assert.equal(2, #t.open)
+    assert.equal(t.open[2], dlg.data.editor)
+    assert.same({}, t.log)
   end)
 
   it("writes the source and the PNG when the embedded sprite is saved", function()

@@ -40,7 +40,7 @@ name of the installed bridge mod), `problem` (a sentence while `mods/` holds mor
 once. It stops before the copy when an old version cannot be deleted.
 
 A new glyph is an image plus one entry in `glyphs.json`: a free code point in its block, a title of
-at most 40 characters that tells a designer what the glyph is, such as `1 row`, a constant, a texture
+at most 40 characters without square brackets that tells a designer what the glyph is, such as `1 row`, a constant, a texture
 and, in `minecraft:default`, a name. The next build names every rule that an entry breaks.
 
 An admin chooses **Skip resource pack** on a user's row under Users in Steward to show that user the

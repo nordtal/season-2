@@ -18,7 +18,7 @@ batch file reads an option. A task that cannot start shows why in the status lin
 entry opens its texture in the editor, zoomed to fit, unless its PNG lies outside
 `resource-pack/src/` or its source outside `resource-pack/art/`. A PNG that the build draws, such as
 a chest panel, opens from `resource-pack/build/generated/`; its properties say so, and a save of it
-is refused, since the next build draws it again. Then the editor stays empty and
+is refused, since the next build draws it again. Its changes then hold no other entry back. Then the editor stays empty and
 the tab says why. When the sprite leaves the editor without the tab, such as with **File > Close**,
 the tree selects nothing, so a click opens the entry again. Each save of that sprite writes its
 `.aseprite` source under `resource-pack/art/` and its PNG: the first frame for a glyph or an item,
@@ -121,7 +121,8 @@ changes it. The tree's **Texts** lists each key of the pack's language files, an
 show the asset that owns the key, one value per language that `editText` writes, and **Delete
 Text**. **Add Text** on **Texts** asks for a key, a language and a value. Aseprite's font has no glyph of
 the pack, so a value or subtitle shows each private-use character as a token of its code point and title,
-such as `[FE021: Logo, 32 px high]`, in the panel, its dialogs and the conflict dialog. A field turns
+such as `[FE021: Logo, 32 px high]`, in the panel and its dialogs; the conflict dialog shows the code point
+alone, such as `[FE021]`. A field turns
 each token back into its character, whatever title it carries, and `[FE021]` typed alone adds the
 glyph. The properties panel of a
 draft has **Discard Changes**, which runs `discardDraft` once confirmed. **Publish** above the tree

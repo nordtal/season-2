@@ -243,6 +243,9 @@ class GlyphAllocation private constructor(
             val title = glyph.string("title", required = true)
             if (title != null && title.isBlank()) glyph.problem("'title' is empty")
             if (title != null && title.length > TITLE_LENGTH) glyph.problem("'title' is longer than $TITLE_LENGTH characters")
+            if (title != null && (title.contains('[') || title.contains(']'))) {
+                glyph.problem("'title' has a square bracket, which ends the designer's glyph token")
+            }
             return Glyph(code, constant, glyph.string("name"), title, list, texture, height ?: 0, ascent ?: 0, status, glyph.string("about"))
         }
 

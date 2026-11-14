@@ -839,15 +839,19 @@ function tab.open(context)
   end
 
   -- Saves a sprite the tab opened as its source and its PNG, and runs
-  -- what follows from it. Returns true once saved.
+  -- what follows from it. Returns true once saved, or once the changes
+  -- to a texture the build draws are let go.
   local function save(sprite, record)
     local info = record.info or index and index[record.id]
     local texture = info and info.texture or record.texture
     local column = info and properties.animated(info)
-    -- The build draws it again from its own source, so a save would be lost
-    if texture.generated then
+    -- The build draws it again from its own source, so a save would be
+    -- lost. Its changes count as done with, so the tab can move on.
+    if texture and texture.generated then
       setStatus(tr("status.generated"))
-      return false
+      changed[record.paths.png] = false
+      markUnsaved()
+      return true
     end
     local ok, err = pcall(modules.textures.save, sprite, texture, record.paths, api, column)
     if not ok then

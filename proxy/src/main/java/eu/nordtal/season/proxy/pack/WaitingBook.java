@@ -194,6 +194,33 @@ public final class WaitingBook {
     }
 
     /**
+     * The newest offer an answer applied, and the pack applied before it if that was another one.
+     *
+     * @param before the pack the caller removes from the client, or {@code null}
+     */
+    public record Applied(String sha1, @Nullable String before) {}
+
+    /**
+     * Records the newest offer as applied if the answer about {@code packId} is about it, in one step with the match.
+     * A pack change between the two cannot then record an offer the client never answered.
+     */
+    public Optional<Applied> newestApplied(final UUID uuid, final @Nullable UUID packId) {
+        final Session session = sessions.get(uuid);
+        if (session == null) {
+            return Optional.empty();
+        }
+        synchronized (session) {
+            final String offered = session.offeredSha1;
+            if (offered == null || (packId != null && !packId.equals(PackOffer.idOf(offered)))) {
+                return Optional.empty();
+            }
+            final String before = session.appliedSha1;
+            session.appliedSha1 = offered;
+            return Optional.of(new Applied(offered, before == null || before.equals(offered) ? null : before));
+        }
+    }
+
+    /**
      * Returns the SHA-1 of the pending offer a newer one replaced that {@code packId} names, and forgets it.
      * The caller then removes it from the client; a pack a backend sent is never such an offer.
      */

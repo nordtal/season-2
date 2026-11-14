@@ -20,9 +20,46 @@ import java.util.Properties;
  * @param pops the tick of each place's pop in the pop-in, place 0 first
  * @param clicks per variant, in the pack's order, its peg clicks
  * @param ends per variant, the tick at which its wheel rests
+ * @param rows the dialog's rows, which the pack's art is drawn for
  */
 public record WheelTimetable(
-        int cooldown, int open, List<Integer> pops, Map<Integer, List<Integer>> clicks, Map<Integer, Integer> ends) {
+        int cooldown,
+        int open,
+        List<Integer> pops,
+        Map<Integer, List<Integer>> clicks,
+        Map<Integer, Integer> ends,
+        Rows rows) {
+
+    /**
+     * The dialog's rows, one per body, which the pack's art is drawn for.
+     *
+     * @param heights each row's height, the disc's first; a row of 26 has a text of two lines, of 17 one
+     * @param rowWidth the width of a row with a text, from its item's left to its text's right
+     * @param itemWidth the item's width in a row with a text, but for the plate's row
+     * @param plateItem the plate row's item's width, which hovers the prize at {@code itemPlace}
+     * @param loneItem the width of the item in a row without a text
+     * @param plateX the plate's left from its row's text's left
+     * @param itemPlace the place whose prize the plate row's item shows
+     * @param hovers per other place, the row whose text hovers its prize and the hover's left in that text
+     */
+    public record Rows(
+            List<Integer> heights,
+            int rowWidth,
+            int itemWidth,
+            int plateItem,
+            int loneItem,
+            int plateX,
+            int itemPlace,
+            Map<Integer, Hover> hovers) {
+
+        public Rows {
+            heights = List.copyOf(heights);
+            hovers = Map.copyOf(hovers);
+        }
+    }
+
+    /** Where a prize's hover sits: in body {@code body}'s text, {@code x} from its left. */
+    public record Hover(int body, int x) {}
 
     /** Where the build puts the timetable, beside this module's other generated tables. */
     public static final String RESOURCE = "nordtal/wheel/wheel.properties";
@@ -59,12 +96,29 @@ public record WheelTimetable(
             clicks.put(variant, numbers(properties.getProperty("clicks." + variant, "")));
             ends.put(variant, Integer.parseInt(properties.getProperty("end." + variant, String.valueOf(cooldown))));
         }
+        final Map<Integer, Hover> hovers = new LinkedHashMap<>();
+        properties.stringPropertyNames().stream()
+                .filter(key -> key.startsWith("hover."))
+                .forEach(key -> {
+                    final List<Integer> hover = numbers(properties.getProperty(key));
+                    hovers.put(
+                            Integer.parseInt(key.substring("hover.".length())), new Hover(hover.get(0), hover.get(1)));
+                });
+        final Rows rows = new Rows(
+                numbers(required(properties, "heights")),
+                number(properties, "row-width"),
+                number(properties, "item-width"),
+                number(properties, "plate-item"),
+                number(properties, "lone-item"),
+                number(properties, "plate-x"),
+                number(properties, "item-place"),
+                hovers);
         return new WheelTimetable(
-                cooldown,
-                Integer.parseInt(required(properties, "open")),
-                numbers(required(properties, "pops")),
-                clicks,
-                ends);
+                cooldown, number(properties, "open"), numbers(required(properties, "pops")), clicks, ends, rows);
+    }
+
+    private static int number(final Properties properties, final String key) {
+        return Integer.parseInt(required(properties, key).trim());
     }
 
     /** The tick at which variant {@code variant}'s wheel rests, so its prize is paid. */

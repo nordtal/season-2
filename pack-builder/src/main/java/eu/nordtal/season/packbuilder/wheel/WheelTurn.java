@@ -8,20 +8,33 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The wheel's turn, tick by tick, in degrees clockwise from where the turn starts.
- * Every variant shares the first {@link #SHARED} ticks, then eases onto the pin at the far edge of its winning field,
- * rests {@link #HOLD} ticks against it and springs back to the field's middle; variant e rests at {@link #distance}.
+ * Every variant shares the first {@link #SHARED} ticks: from two frames a tick it speeds up to {@link #TOP_SPEED},
+ * holds it and slows against a drag that grows with its speed. Then each eases onto its pin, rests and springs back.
  */
 public final class WheelTurn {
 
-    public static final int TURNS = 3;
+    public static final int TURNS = 4;
     public static final int FRAMES_PER_TURN = 96;
     public static final int PLACES = 12;
 
-    /** The ticks every variant shares. */
-    public static final int SHARED = 70;
+    /** The speed the turn starts with in degrees a tick: two frames. */
+    public static final double START_SPEED = 2 * 360.0 / FRAMES_PER_TURN;
 
-    /** The speed the turn starts with in degrees a tick: three frames, below a field's half. */
-    public static final double START_SPEED = 3 * 360.0 / FRAMES_PER_TURN;
+    /**
+     * The speed the turn speeds up to and holds, in degrees a tick.
+     * The client shows one frame a tick, so a step past half the 30 degrees between two fields would make the sharp
+     * wheel seem to stand or run back.
+     */
+    public static final double TOP_SPEED = 14.0;
+
+    /** The ticks the wheel speeds up for. */
+    public static final int ACCELERATION = 30;
+
+    /** The ticks the wheel holds its top speed for. */
+    public static final int CRUISE = 30;
+
+    /** The ticks every variant shares: the acceleration, the top speed and the start of the slowing. */
+    public static final int SHARED = ACCELERATION + CRUISE + 10;
 
     /** How far past the field's middle the far pin stops the wheel: three frames, against the bent pointer's side. */
     public static final double PIN = 3 * 360.0 / FRAMES_PER_TURN;
@@ -46,8 +59,21 @@ public final class WheelTurn {
     private static final double DT = 0.02;
     private static final double STEP = 360.0 / FRAMES_PER_TURN;
 
-    /** The middle variant slows down at the shared rate all the way, so every variant's rate stays close to it. */
-    private static final double DECELERATION = START_SPEED * START_SPEED / (2 * (distance(PLACES / 2) + PIN));
+    /** The speed at which the drag doubles the slowing: below it the wheel slows almost evenly, above it fast. */
+    private static final double DRAG_SPEED = 15.0;
+
+    /** How far the acceleration takes the wheel. */
+    private static final double SPED_UP =
+            START_SPEED * ACCELERATION + (TOP_SPEED - START_SPEED) * ACCELERATION * 2.0 / 3.0;
+
+    /** How far the wheel has turned when it starts to slow. */
+    private static final double ACCELERATED = SPED_UP + TOP_SPEED * CRUISE;
+
+    /** The slowing at speed 0, in degrees a tick squared, at which the middle variant slows all the way. */
+    private static final double DECELERATION = DRAG_SPEED
+            * DRAG_SPEED
+            * -Math.log(Math.cos(Math.atan(TOP_SPEED / DRAG_SPEED)))
+            / (distance(PLACES / 2) + PIN - ACCELERATED);
 
     private static final Map<Integer, Motion> MOTIONS = new ConcurrentHashMap<>();
 
@@ -56,7 +82,7 @@ public final class WheelTurn {
 
     private WheelTurn() {}
 
-    /** What one tick shows: the disc at {@code angle}, snapped to a frame, and the pointer. */
+    /** What one tick shows: the disc and its prizes at their angle, and the pointer. */
     public record Tick(double angle, Pointer pointer) {}
 
     /** The pointer's drawn textures: straight, and bent by a pin under it. */
@@ -150,7 +176,7 @@ public final class WheelTurn {
         final Motion m = motion(e);
         final double pin = distance(e) + PIN;
         if (t <= SHARED) {
-            return START_SPEED * t - DECELERATION * t * t / 2;
+            return shared(t);
         }
         if (t <= m.end()) {
             return interpolate(m.times(), m.angles(), t);
@@ -162,6 +188,34 @@ public final class WheelTurn {
             return distance(e) + PIN * (1 - Math.sin(Math.PI / 2 * (t - m.end() - HOLD) / SETTLE));
         }
         return distance(e);
+    }
+
+    /** The shared start's angle at tick {@code t}: the acceleration, the top speed, then the shared slowing. */
+    private static double shared(final double t) {
+        if (t <= ACCELERATION) {
+            final double u = t / ACCELERATION;
+            return START_SPEED * t + (TOP_SPEED - START_SPEED) * ACCELERATION * (u * u - u * u * u / 3);
+        }
+        if (t <= ACCELERATION + CRUISE) {
+            return SPED_UP + TOP_SPEED * (t - ACCELERATION);
+        }
+        final double k = DECELERATION / DRAG_SPEED;
+        final double theta = Math.atan(TOP_SPEED / DRAG_SPEED);
+        final double slowing = t - ACCELERATION - CRUISE;
+        return ACCELERATED + DRAG_SPEED / k * Math.log(Math.cos(theta - k * slowing) / Math.cos(theta));
+    }
+
+    /** The shared start's speed at tick {@code t} in degrees a tick. */
+    private static double sharedSpeed(final double t) {
+        if (t <= ACCELERATION) {
+            final double u = t / ACCELERATION;
+            return START_SPEED + (TOP_SPEED - START_SPEED) * (2 * u - u * u);
+        }
+        if (t <= ACCELERATION + CRUISE) {
+            return TOP_SPEED;
+        }
+        final double k = DECELERATION / DRAG_SPEED;
+        return DRAG_SPEED * Math.tan(Math.atan(TOP_SPEED / DRAG_SPEED) - k * (t - ACCELERATION - CRUISE));
     }
 
     /** The speed in degrees a tick that variant {@code e} has at tick {@code t}. */
@@ -183,17 +237,17 @@ public final class WheelTurn {
 
     /**
      * From the end of the shared start, the wheel slows down onto the pin.
-     * Its deceleration moves from the shared one to the variant's own over {@link #RAMP} ticks. Each peg over the last
-     * 120 degrees takes the disc to a little over half its speed, which lengthens the approach rather than hurrying it.
+     * Its slowing moves from the shared one to the variant's own multiple of it over {@link #RAMP} ticks. Each peg
+     * over the last 120 degrees takes the disc to a little over half its speed, which lengthens the approach.
      */
     private static Motion compute(final int e) {
         final double start = SHARED;
-        final double from = START_SPEED * start - DECELERATION * start * start / 2;
-        final double speed = START_SPEED - DECELERATION * start;
+        final double from = shared(start);
+        final double speed = sharedSpeed(start);
         final double pin = distance(e) + PIN;
         final double rest = pin - from;
-        double lo = DECELERATION / 4;
-        double hi = DECELERATION * 4;
+        double lo = 0.25;
+        double hi = 4.0;
         for (int i = 0; i < 60; i++) {
             final double mid = (lo + hi) / 2;
             final double[] xs = stop(speed, mid)[1];
@@ -222,8 +276,8 @@ public final class WheelTurn {
         return new Motion(times, a);
     }
 
-    /** The times and distances of a wheel at {@code speed} that slows down until it stops, ramping to its rate. */
-    private static double[][] stop(final double speed, final double deceleration) {
+    /** The times and distances of a wheel at {@code speed} that slows, ramping to {@code scale} times the shared. */
+    private static double[][] stop(final double speed, final double scale) {
         final List<Double> ts = new ArrayList<>();
         final List<Double> xs = new ArrayList<>();
         double t = 0.0;
@@ -232,7 +286,8 @@ public final class WheelTurn {
         ts.add(t);
         xs.add(x);
         while (v > 0) {
-            final double d = DECELERATION + (deceleration - DECELERATION) * Math.min((t + DT / 2) / RAMP, 1.0);
+            final double ramped = 1 + (scale - 1) * Math.min((t + DT / 2) / RAMP, 1.0);
+            final double d = ramped * DECELERATION * (1 + v * v / (DRAG_SPEED * DRAG_SPEED));
             if (v <= d * DT) {
                 t += v / d;
                 x += v * v / (2 * d);

@@ -1643,6 +1643,24 @@
               "height": 18,
               "ascent": 12,
               "about": "The 98 x 18 plate in the primary look that a native button carries as its label, 5 px above the label's text row."
+            },
+            {
+              "code": "FE373",
+              "title": "Item hover, 17 high",
+              "constant": "UI_HOVER_17",
+              "texture": "nordtal:ui/kit/hover_17.png",
+              "height": 17,
+              "ascent": 9,
+              "about": "A 16 x 17 hit area that draws nothing visible, for a hover over art: 2 higher than other art, so at shift -2 it covers a one-line text box."
+            },
+            {
+              "code": "FE374",
+              "title": "Item hover, 26 high",
+              "constant": "UI_HOVER_26",
+              "texture": "nordtal:ui/kit/hover_26.png",
+              "height": 26,
+              "ascent": 9,
+              "about": "A 16 x 26 hit area that draws nothing visible: 2 higher than other art, so at shift -2 it covers a two-line text box."
             }
           ]
         },
@@ -1833,10 +1851,10 @@
     },
     {
       "font": "nordtal:ui_dialog_{shift}",
-      "shifts": [43, 49, 50, 53, 55, 57, 62],
+      "shifts": [43, 49, 50, 53, 55, 57],
       "constant": "FONT_UI_DIALOG",
       "references": ["nordtal:ui_space"],
-      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first line of plates or a column whose art starts at its box + 4, 50 over a first text line, 53, 55 and 57 over a column set at the foot of its box, 43 over a frame 2 px above its line, 62 for the wheel.",
+      "about": "The dialog panels, drawn through the dialog's title with their top at the shift: 49 over a first line of plates or a column whose art starts at its box + 4, 50 over a first text line, 53, 55 and 57 over a column set at the foot of its box, 43 over a frame 2 px above its line and for the wheel.",
       "blocks": [
         {
           "range": "FE3C0-FE3FF",
@@ -2084,10 +2102,18 @@
             },
             {
               "code": "FE3DE",
-              "title": "Wheel, 141 high",
-              "list": "UI_DIALOG_WHEEL_141",
-              "texture": "nordtal:ui/kit/dialog_wheel_141_0.png",
-              "height": 141,
+              "title": "Wheel, 201 high, left",
+              "list": "UI_DIALOG_WHEEL_201",
+              "texture": "nordtal:ui/kit/dialog_wheel_201_0.png",
+              "height": 201,
+              "ascent": 20
+            },
+            {
+              "code": "FE3DF",
+              "title": "Wheel, 201 high, right",
+              "list": "UI_DIALOG_WHEEL_201",
+              "texture": "nordtal:ui/kit/dialog_wheel_201_1.png",
+              "height": 201,
               "ascent": 20
             }
           ]
@@ -2111,7 +2137,7 @@
         { "constant": "UI_DIALOG_DRAFT_PREVIEW_42" },
         { "constant": "UI_DIALOG_DRAFT_PREVIEW_62" },
         { "constant": "UI_DIALOG_DRAFT_PREVIEW_82" },
-        { "constant": "UI_DIALOG_WHEEL_141" }
+        { "constant": "UI_DIALOG_WHEEL_201" }
       ]
     },
     {

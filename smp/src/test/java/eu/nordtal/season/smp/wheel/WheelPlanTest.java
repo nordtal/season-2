@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
@@ -61,7 +62,9 @@ class WheelPlanTest {
     void theWaitingWheelPlaysThePopInAndKeepsItsFace() {
         final WheelPlan plan = WheelPlan.waiting(face);
         assertEquals(List.of("open", "1"), plan.disc());
-        assertEquals(List.of("dirt", "open"), plan.prize(3));
+        assertEquals(
+                "open",
+                plan.prizes(Collections.nCopies(WheelPlan.PLACES, false), false).get(WheelPlan.PLACES));
         assertEquals(face, plan.after());
     }
 
@@ -69,7 +72,16 @@ class WheelPlanTest {
     void theStringsNameEachBodysPrizeTheVariantAndTheLanguage() {
         final WheelPlan plan = WheelPlan.turning(face, 3);
         assertEquals(List.of("3", "1"), plan.disc());
-        assertEquals(List.of("dirt", "3"), plan.prize(0));
+        final List<Boolean> foil = new ArrayList<>(Collections.nCopies(WheelPlan.PLACES, false));
+        foil.set(0, true);
+        final List<String> plain = plan.prizes(foil, false);
+        final List<String> glinting = plan.prizes(foil, true);
+        assertEquals(WheelPlan.PLACES + 1, plain.size());
+        assertEquals(WheelPlan.NONE, plain.get(0));
+        assertEquals("dirt", glinting.get(0));
+        assertEquals("dirt", plain.get(1));
+        assertEquals(WheelPlan.NONE, glinting.get(1));
+        assertEquals("3", plain.get(WheelPlan.PLACES));
         final List<String> overlay = plan.overlay("de");
         assertEquals(WheelPlan.PLACES + 2, overlay.size());
         assertEquals("10", overlay.get(9));

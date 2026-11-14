@@ -32,8 +32,29 @@ final class WheelSpin {
         this.turn = WheelTurn.ticks(e);
     }
 
-    PrizeAt prize(final int body, final int t) {
-        return t < turn.size() ? at(30.0 * body + turn.get(t).angle(), 0) : prizeRest(body);
+    /** Body {@code body}'s prize at tick {@code t}, which turns with the disc. */
+    Optional<PrizeAt> prize(final int body, final int t) {
+        if (t >= turn.size()) {
+            return Optional.of(prizeRest(body));
+        }
+        return Optional.of(at(30.0 * body + turn.get(t).angle(), 0));
+    }
+
+    /** Every body's prize at tick {@code t}. */
+    List<Optional<PrizeAt>> prizes(final int t) {
+        final List<Optional<PrizeAt>> out = new ArrayList<>(WheelLayout.PLACES);
+        for (int b = 0; b < WheelLayout.PLACES; b++) {
+            out.add(prize(b, t));
+        }
+        return out;
+    }
+
+    List<Optional<PrizeAt>> prizesRest() {
+        final List<Optional<PrizeAt>> out = new ArrayList<>(WheelLayout.PLACES);
+        for (int b = 0; b < WheelLayout.PLACES; b++) {
+            out.add(Optional.of(prizeRest(b)));
+        }
+        return out;
     }
 
     PrizeAt prizeRest(final int body) {
@@ -41,9 +62,10 @@ final class WheelSpin {
     }
 
     DiscAt disc(final int parity, final int t) {
-        return t < turn.size()
-                ? new DiscAt(WheelTurn.discFrame(30.0 * parity + turn.get(t).angle()), false)
-                : discRest(parity);
+        if (t >= turn.size()) {
+            return discRest(parity);
+        }
+        return new DiscAt(WheelTurn.discFrame(30.0 * parity + turn.get(t).angle()), false);
     }
 
     DiscAt discRest(final int parity) {
@@ -54,11 +76,7 @@ final class WheelSpin {
         if (t >= turn.size()) {
             return overlayRest();
         }
-        final List<Optional<PrizeAt>> counts = new ArrayList<>();
-        for (int b = 0; b < WheelLayout.PLACES; b++) {
-            counts.add(Optional.of(prize(b, t)));
-        }
-        return new OverlayAt(turn.get(t).pointer(), counts, true);
+        return new OverlayAt(turn.get(t).pointer(), prizes(t), true);
     }
 
     OverlayAt overlayRest() {
@@ -84,6 +102,24 @@ final class WheelSpin {
     /** Body {@code body}'s prize while the wheel waits for the press: at its own place. */
     static PrizeAt waiting(final int body) {
         return at(30.0 * body, 0);
+    }
+
+    /** Every body's prize at tick {@code t} of the pop-in. */
+    static List<Optional<PrizeAt>> popIns(final int t) {
+        final List<Optional<PrizeAt>> out = new ArrayList<>(WheelLayout.PLACES);
+        for (int b = 0; b < WheelLayout.PLACES; b++) {
+            out.add(popIn(b, t));
+        }
+        return out;
+    }
+
+    /** Every body's prize while the wheel waits for the press. */
+    static List<Optional<PrizeAt>> waitings() {
+        final List<Optional<PrizeAt>> out = new ArrayList<>(WheelLayout.PLACES);
+        for (int b = 0; b < WheelLayout.PLACES; b++) {
+            out.add(Optional.of(waiting(b)));
+        }
+        return out;
     }
 
     static OverlayAt popInOverlay(final int t) {

@@ -41,6 +41,15 @@ public interface WorldsSpec {
         return "nordtal_the_end";
     }
 
+    @Order(5)
+    @Name("Extra worlds")
+    @Key("extra-worlds")
+    @Explain("Worlds loaded beside the season's own, with Nordtal's seed, such as a test world. Only a command"
+            + " leads into one.")
+    default List<String> extraWorlds() {
+        return List.of();
+    }
+
     @Order(14)
     @Name("Required datapacks")
     @Key("required-datapacks")

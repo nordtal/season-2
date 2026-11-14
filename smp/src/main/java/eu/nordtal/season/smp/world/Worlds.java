@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.world;
 import eu.nordtal.season.smp.config.BorderSpec;
 import eu.nordtal.season.smp.config.WorldsSpec;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -12,13 +13,14 @@ import org.bukkit.WorldBorder;
 import org.bukkit.WorldCreator;
 
 /**
- * Finds, creates and holds the borders of the four worlds of the SMP.
+ * Finds, creates and holds the borders of the four worlds of the SMP, and loads the extra worlds beside them.
  *
  * A created world is stored under {@code <level-name>/dimensions/}. Use {@link World#getWorldFolder()} for its folder.
  */
 public final class Worlds {
 
     private final Map<WorldRole, String> names = new EnumMap<>(WorldRole.class);
+    private final List<String> extras;
     private final BorderSpec config;
 
     public Worlds(final WorldsSpec worlds, final BorderSpec border) {
@@ -26,6 +28,7 @@ public final class Worlds {
         names.put(WorldRole.NORDTAL, worlds.worldNordtal());
         names.put(WorldRole.NETHER, worlds.worldNether());
         names.put(WorldRole.END, worlds.worldEnd());
+        this.extras = List.copyOf(worlds.extraWorlds());
     }
 
     public String nameOf(final WorldRole role) {
@@ -54,7 +57,8 @@ public final class Worlds {
     }
 
     /**
-     * Loads or creates the three worlds other than Nordtal. It never creates Nordtal, which holds the spawn.
+     * Loads or creates the three worlds other than Nordtal, then the extra worlds with Nordtal's seed and generator.
+     * It never creates Nordtal, which holds the spawn. An extra world has no role, so no portal leads into it.
      *
      * @return the Nordtal world, or empty when it does not exist
      */
@@ -66,6 +70,11 @@ public final class Worlds {
 
         ensure(WorldRole.NETHER, World.Environment.NETHER);
         ensure(WorldRole.END, World.Environment.THE_END);
+        for (final String name : extras) {
+            if (Bukkit.getWorld(name) == null) {
+                Bukkit.createWorld(new WorldCreator(name).copy(nordtal));
+            }
+        }
         return Optional.of(nordtal);
     }
 

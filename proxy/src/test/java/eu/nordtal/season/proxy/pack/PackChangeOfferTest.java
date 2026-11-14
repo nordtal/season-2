@@ -28,6 +28,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -116,6 +117,18 @@ class PackChangeOfferTest {
     }
 
     @Test
+    void aPackTheProxyAlreadyCountsAsAppliedIsNotOfferedAgain() {
+        final FakePlayer alex = online("Alex", "smp", false);
+        applied(alex, OLD);
+        alex.velocityApplied.add(packInfo(NEW));
+
+        spec.set(pack(NEW, true));
+        assertEquals(0, station.packChanged());
+        assertEquals(List.of(), alex.offers);
+        assertEquals(Optional.of(NEW), book.offeredSha1(alex.uuid));
+    }
+
+    @Test
     void aPlayerOnSmpWhoDeclinesTheNewPackIsDisconnectedAsOnLimbo() {
         final FakePlayer alex = online("Alex", "smp", false);
         applied(alex, OLD);
@@ -165,6 +178,14 @@ class PackChangeOfferTest {
                 SeasonState.UNREAD);
     }
 
+    private static ResourcePackInfo packInfo(final String sha1) {
+        final byte[] hash = HexFormat.of().parseHex(sha1);
+        return fake(ResourcePackInfo.class, (method, arguments) -> switch (method) {
+            case "getHash" -> hash;
+            default -> throw new UnsupportedOperationException(method);
+        });
+    }
+
     private static PlayerResourcePackStatusEvent status(
             final FakePlayer player, final String sha1, final PlayerResourcePackStatusEvent.Status status) {
         return new PlayerResourcePackStatusEvent(player.player(), PackOffer.idOf(sha1), status, null);
@@ -196,6 +217,7 @@ class PackChangeOfferTest {
         private Optional<ServerConnection> server = Optional.empty();
         private final List<ResourcePackInfo> offers = new ArrayList<>();
         private final List<UUID> removed = new ArrayList<>();
+        private final List<ResourcePackInfo> velocityApplied = new ArrayList<>();
         private int disconnects;
         private final Player player;
 
@@ -205,6 +227,7 @@ class PackChangeOfferTest {
                 case "getUniqueId" -> uuid;
                 case "getUsername" -> this.name;
                 case "getCurrentServer" -> this.server;
+                case "getAppliedResourcePacks" -> List.copyOf(velocityApplied);
                 case "sendResourcePackOffer" -> {
                     offers.add((ResourcePackInfo) arguments[0]);
                     yield null;

@@ -9,6 +9,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
+import com.velocitypowered.api.proxy.player.ResourcePackInfo;
 import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.limboprotocol.LimboProtocol;
 import eu.nordtal.season.limboprotocol.WaitReason;
@@ -17,6 +18,7 @@ import eu.nordtal.season.proxy.gate.BackendHealth;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import eu.nordtal.season.proxy.routing.SeasonRouting;
 import eu.nordtal.season.proxy.season.SeasonWatch;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -192,7 +194,15 @@ public final class PackStation {
         if (!book.claimOffer(player.getUniqueId(), current.sha1())) {
             return false;
         }
-        player.sendResourcePackOffer(current.forLocale(localeOf(player)));
+        final ResourcePackInfo offer = current.forLocale(localeOf(player));
+        if (player.getAppliedResourcePacks().stream()
+                .anyMatch(pack -> Arrays.equals(pack.getHash(), offer.getHash()))) {
+            // Velocity refuses an offer of a pack it already counts as applied, so the book takes it as applied.
+            book.packApplied(player.getUniqueId(), current.sha1());
+            logger.info("resource pack already applied: player={} sha1={}", player.getUsername(), current.sha1());
+            return false;
+        }
+        player.sendResourcePackOffer(offer);
         logger.debug("resource pack offered: player={} sha1={}", player.getUsername(), current.sha1());
         return true;
     }

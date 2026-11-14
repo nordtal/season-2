@@ -313,6 +313,7 @@ tasks.register<DescribePack>("describePack") {
     allocation.set(layout.projectDirectory.file("glyphs.json"))
     source.set(packSource)
     art.set(packArt)
+    generated.from(drawChestPanels.flatMap { it.textures })
     model.set(layout.buildDirectory.file("pack-model.json"))
 }
 

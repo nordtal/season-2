@@ -35,7 +35,7 @@ class FontEditsTest {
                   "height": 8,
                   "ascent": 6,
                   "glyphs": [
-                    { "code": "FE000", "constant": "BADGE_STAR", "name": "star", "texture": "nordtal:badges/star.png", "list": "BADGES" }
+                    { "code": "FE000", "title": "Glyph", "constant": "BADGE_STAR", "name": "star", "texture": "nordtal:badges/star.png", "list": "BADGES" }
                   ]
                 }
               ],
@@ -52,7 +52,7 @@ class FontEditsTest {
                   "texture": "nordtal:hud/arrows.png",
                   "height": 5,
                   "ascent": 4,
-                  "glyphs": [{ "code": "FE040", "constant": "ARROW_LEFT" }, { "code": "FE041", "constant": "ARROW_RIGHT" }]
+                  "glyphs": [{ "code": "FE040", "title": "Glyph", "constant": "ARROW_LEFT" }, { "code": "FE041", "title": "Glyph", "constant": "ARROW_RIGHT" }]
                 },
                 {
                   "title": "Letters",
@@ -200,6 +200,7 @@ class FontEditsTest {
         val sheet = font("nordtal:hud").blocks[0]
         assertEquals(listOf(0xFE042, 0xFE043), sheet.glyphs.drop(2).map { it.codePoint })
         assertEquals(listOf("ARROW_UP", "ARROW_DOWN"), sheet.glyphs.drop(2).map { it.constant })
+        assertEquals(listOf("Arrow up", "Arrow down"), sheet.glyphs.drop(2).map { it.title })
         val image = ImageIO.read(arrows)
         assertEquals(listOf(24, 5), listOf(image.width, image.height))
         assertEquals(0xFF00FF00.toInt(), image.getRGB(11, 4))
@@ -236,7 +237,7 @@ class FontEditsTest {
         (NewTextures.font(root, "nordtal:signs")["blocks"] as MutableList<Any?>) +=
             OxfmtJson.read(
                 """{"range": "FE080-FE08F", "title": "Stars", "height": 8, "ascent": 6,
-                   "glyphs": [{"code": "FE080", "constant": "SIGN_STAR", "texture": "nordtal:badges/star.png"}]}""",
+                   "glyphs": [{"code": "FE080", "title": "Glyph", "constant": "SIGN_STAR", "texture": "nordtal:badges/star.png"}]}""",
             )
         allocation.writeText(OxfmtJson.format(root))
 
@@ -279,7 +280,7 @@ class FontEditsTest {
         fonts +=
             OxfmtJson.read(
                 """{"font": "nordtal:hud", "constant": "FONT_HUD", "blocks": [{"range": "FE040-FE04F", "title": "Arrows",
-                   "texture": "nordtal:hud/arrows.png", "height": 5, "ascent": 4, "glyphs": [{"code": "FE040", "constant": "ARROW_LEFT"}]}]}""",
+                   "texture": "nordtal:hud/arrows.png", "height": 5, "ascent": 4, "glyphs": [{"code": "FE040", "title": "Glyph", "constant": "ARROW_LEFT"}]}]}""",
             )
         allocation.writeText(OxfmtJson.format(root))
 

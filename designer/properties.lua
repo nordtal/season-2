@@ -6,6 +6,8 @@
 
 local properties = {}
 
+local glyphtext = require("glyphtext")
+
 -- The integer of a whole number, any other value as it is. Aseprite's
 -- Lua floors in math.tointeger, so a fraction needs its own check.
 local function int(value)
@@ -28,6 +30,13 @@ end
 function properties.label(info)
   local e = info.entry
   return (e.name or nil) or (e.constant or nil)
+end
+
+-- How an edit names the glyph or cell of info: by its label, or by its
+-- font and code, "nordtal:ui_panel/FE3A0", when it is in a list alone
+function properties.ref(info)
+  local e = info.entry
+  return properties.label(info) or e.list and info.font and e.code and info.font.font .. "/" .. e.code or nil
 end
 
 -- The question that confirms the delete of info: for an override or
@@ -97,6 +106,9 @@ function properties.rows(info, tr, context)
 
   local e, kind, t = info.entry, info.kind, info.texture
   local editable = (kind == "glyph" or kind == "cell") and properties.label(info) ~= nil
+  -- A glyph in a list alone has no name to rename or delete it by, but
+  -- keeps its title, status and about
+  local described = (kind == "glyph" or kind == "cell") and properties.ref(info) ~= nil
   -- The font of ordinary text and a sheet of ordinary characters stay,
   -- since code writes them as plain text
   local ordinary = (kind == "font" and e.font == properties.text_font) or (kind == "sheet" and e.characters == true)
@@ -113,7 +125,7 @@ function properties.rows(info, tr, context)
   local function files()
     if t then
       add("png", t.png)
-      add("source", t.asepriteExists and t.aseprite or tr("properties.no_source"))
+      add("source", t.generated and tr("properties.generated") or t.asepriteExists and t.aseprite or tr("properties.no_source"))
     end
   end
 
@@ -143,10 +155,11 @@ function properties.rows(info, tr, context)
   elseif kind == "glyph" or kind == "cell" then
     local glyph = kind == "glyph"
     add("block", info.block.title)
+    add("title", e.title, described and "title")
     add("code", e.code)
     add("name", e.name, editable and "name")
     add("constant", e.constant, editable and not e.name and "constant" or nil)
-    add("status", e.effectiveStatus, editable and "status")
+    add("status", e.effectiveStatus, described and "status")
     add("height", e.height, editable and glyph and "height")
     add("ascent", e.ascent, editable and glyph and "ascent")
     if glyph then
@@ -155,7 +168,7 @@ function properties.rows(info, tr, context)
         table.insert(list, { key="coupled", value=context.coupled ~= false, field="coupled" })
       end
     end
-    if editable then
+    if described then
       table.insert(list, { key="about", value=e.about or "", field="about" })
     else
       add("about", e.about)
@@ -172,7 +185,7 @@ function properties.rows(info, tr, context)
     for _, language in ipairs(languages(info)) do
       local value = e.values[language]
       table.insert(list, { key="text", label=language, field="text:" .. language,
-                           value=value == nil and tr("properties.no_text") or shown(value) })
+                           value=value == nil and tr("properties.no_text") or glyphtext.readable(shown(value), info.titles) })
     end
     table.insert(list, { key="delete_text", value=tr("properties.delete_text"), field="deleteText", button=true })
   elseif kind == "override" then
@@ -217,7 +230,8 @@ function properties.form(info, field, tr, lists)
   local language = field:match("^text:(.+)$")
   if language then
     local title = tr("properties.text_in", e.key, language)
-    return { title=title, widgets={ { kind="entry", id="value", label=language, text=e.values[language] or "" } } }
+    return { title=title, widgets={ { kind="entry", id="value", label=language,
+                                      text=glyphtext.readable(e.values[language] or "", info.titles) } } }
   elseif field == "addText" then
     local title = tr("properties.add_text")
     local options = languages(info)
@@ -285,11 +299,12 @@ function properties.jobs(info, field, data, tr, old)
   local value = data.value
   local language = field:match("^text:(.+)$")
   if language then
+    value = glyphtext.exact(value)
     if value == (e.values[language] or "") then return nil end
     return { "editText", { key=e.key, language=language, value=value } }
   elseif field == "addText" then
     if (data.key or "") == "" then return nil end
-    return { "editText", { key=data.key, language=data.language, value=data.value or "" } }
+    return { "editText", { key=data.key, language=data.language, value=glyphtext.exact(data.value or "") } }
   elseif field == "deleteText" then
     return { "editText", { key=e.key, delete=true } }
   elseif field == "delete" and info.kind == "override" then
@@ -310,14 +325,19 @@ function properties.jobs(info, field, data, tr, old)
   elseif field == "status" then
     if value == fromBlock(info, tr) then value = "" end
     if value == (e.status or "") then return nil end
-    return { "editGlyph", { glyph=glyph, status=value } }
+    return { "editGlyph", { glyph=properties.ref(info), status=value } }
   elseif field == "height" or field == "ascent" then
     value = int(value)
     if value == int(e[field]) then return nil end
     return { "editGlyph", { glyph=glyph, [field]=value } }
   elseif field == "about" then
     if value == (e.about or "") then return nil end
-    return { "editGlyph", { glyph=glyph, about=value } }
+    return { "editGlyph", { glyph=properties.ref(info), about=value } }
+  elseif field == "title" then
+    -- Every glyph keeps a title, so an empty one changes nothing
+    value = tostring(value or ""):match("^%s*(.-)%s*$")
+    if value == "" or value == e.title then return nil end
+    return { "editGlyph", { glyph=properties.ref(info), title=value } }
   elseif field == "delete" then
     return { "deleteGlyph", { glyph=glyph } }
   elseif field == "size" and old then

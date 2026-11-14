@@ -839,11 +839,20 @@ function tab.open(context)
   end
 
   -- Saves a sprite the tab opened as its source and its PNG, and runs
-  -- what follows from it. Returns true once saved.
+  -- what follows from it. Returns true once saved, or once the changes
+  -- to a texture the build draws are let go.
   local function save(sprite, record)
     local info = record.info or index and index[record.id]
     local texture = info and info.texture or record.texture
     local column = info and properties.animated(info)
+    -- The build draws it again from its own source, so a save would be
+    -- lost. Its changes count as done with, so the tab can move on.
+    if texture and texture.generated then
+      setStatus(tr("status.generated"))
+      changed[record.paths.png] = false
+      markUnsaved()
+      return true
+    end
     local ok, err = pcall(modules.textures.save, sprite, texture, record.paths, api, column)
     if not ok then
       setStatus(tr("status.save_failed") .. " " .. tostring(err))
@@ -1447,9 +1456,16 @@ function tab.open(context)
     -- and stays in it when the save fails
     local shown = dlg.data.editor
     local record = shown and opened[shown.filename]
-    if id ~= selected and record and unsaved(shown, record) and not save(shown, record) then
-      dlg.data = { tree=selected }
-      return
+    if id ~= selected and record and unsaved(shown, record) then
+      if not save(shown, record) then
+        dlg.data = { tree=selected }
+        return
+      end
+      -- A drawn texture's changes were let go, so its PNG opens anew
+      if record.texture.generated then
+        opened[record.paths.png], opened[record.paths.aseprite], changed[record.paths.png] = nil, nil, nil
+        drop(shown, true)
+      end
     end
     selected = id
     refused = nil

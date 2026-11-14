@@ -32,7 +32,9 @@ class EditPackSourcesTest {
                   "glyphs": [
                     ${codes.joinToString(
             ",\n",
-        ) { """{ "code": "$it", "constant": "B$it", "name": "b${it.lowercase()}", "texture": "nordtal:b${it.lowercase()}.png" }""" }}
+        ) {
+            """{ "code": "$it", "title": "Glyph", "constant": "B$it", "name": "b${it.lowercase()}", "texture": "nordtal:b${it.lowercase()}.png" }"""
+        }}
                   ]
                 }
               ]

@@ -3,6 +3,8 @@
 
 local tree = {}
 
+local glyphtext = require("glyphtext")
+
 -- The theme part that marks the node of a draft
 tree.draftIcon = "tab_modified_icon_normal"
 -- The theme part that marks a draft with a conflict and each node above it
@@ -42,12 +44,12 @@ function tree.build(model, tr, mark)
   end
 
   local function glyphText(glyph)
-    return glyph.name or glyph.constant or glyph.code
+    return glyph.title or glyph.name or glyph.constant or glyph.code
   end
 
   local function cellText(cell, font, block)
-    if cell.constant then
-      return cell.constant
+    if cell.title or cell.constant then
+      return cell.title or cell.constant
     end
     local code = tonumber(cell.code, 16)
     if not code or code > 0x10FFFF then
@@ -71,7 +73,9 @@ function tree.build(model, tr, mark)
         for _, glyph in ipairs(block.glyphs or {}) do
           local n = node("glyph/" .. font.font .. "/" .. glyph.code, glyphText(glyph),
             { kind="glyph", entry=glyph, texture=glyph.texture, font=font, block=block })
-          n.badge = n.badge or glyph.code
+          -- A glyph without a file says so, since the editor can show nothing
+          local absent = glyph.texture and glyph.texture.pngExists == false
+          n.badge = n.badge or (absent and tr("tree.no_texture") .. " " .. glyph.code or glyph.code)
           table.insert(children, n)
         end
       end
@@ -111,10 +115,13 @@ function tree.build(model, tr, mark)
   local overrides = textures(model.overrides, "override")
   local own = textures(model.textures, "texture")
 
-  -- A text carries the languages of the pack, so its panel shows each
+  -- A text carries the languages of the pack, so its panel shows each,
+  -- and the titles of its glyphs, so a value shows the glyphs it holds
+  local titles = glyphtext.titles(model)
   local texts = {}
   for _, text in ipairs(model.texts or {}) do
-    table.insert(texts, node("text/" .. text.key, text.key, { kind="text", entry=text, languages=model.languages }))
+    table.insert(texts, node("text/" .. text.key, text.key,
+      { kind="text", entry=text, languages=model.languages, titles=titles }))
   end
 
   -- A sound event lists its sounds, each by the name after its namespace
@@ -127,7 +134,7 @@ function tree.build(model, tr, mark)
         { kind="sound_file", entry=sound, event=event, at=i - 1 }))
     end
     table.insert(sounds, node("sound/" .. event.id, event.id,
-      { kind="sound", entry=event, languages=model.languages }, children))
+      { kind="sound", entry=event, languages=model.languages, titles=titles }, children))
   end
 
   local nodes = {
@@ -135,7 +142,7 @@ function tree.build(model, tr, mark)
     node("items", tr("tree.items"), { kind="root" }, items),
     node("overrides", tr("tree.overrides"), { kind="root" }, overrides),
     node("textures", tr("tree.textures"), { kind="root" }, own),
-    node("texts", tr("tree.texts"), { kind="texts", languages=model.languages }, texts),
+    node("texts", tr("tree.texts"), { kind="texts", languages=model.languages, titles=titles }, texts),
     node("sounds", tr("tree.sounds"), { kind="sounds" }, sounds),
   }
   -- The badge without unsaved changes, which unsaved() falls back to

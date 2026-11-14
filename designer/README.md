@@ -16,13 +16,18 @@ Gradle wrapper and builds the tree from `build/pack-model.json`. Every task star
 gradle/wrapper/gradle-wrapper.jar` on the JDK of the bootstrap's `JAVA_HOME`, so no shell and no
 batch file reads an option. A task that cannot start shows why in the status line. A click on an
 entry opens its texture in the editor, zoomed to fit, unless its PNG lies outside
-`resource-pack/src/` or its source outside `resource-pack/art/`. Then the editor stays empty and
+`resource-pack/src/` or its source outside `resource-pack/art/`. A PNG that the build draws, such as
+a chest panel, opens from `resource-pack/build/generated/`; its properties say so, and a save of it
+is refused, since the next build draws it again. Its changes then hold no other entry back. Then the editor stays empty and
 the tab says why. When the sprite leaves the editor without the tab, such as with **File > Close**,
 the tree selects nothing, so a click opens the entry again. Each save of that sprite writes its
 `.aseprite` source under `resource-pack/art/` and its PNG: the first frame for a glyph or an item,
 every frame for a vanilla override. A click on another entry saves the sprite first when it has
 unsaved changes, and keeps it open when that save fails. **View > Nordtal Tree on the Right** docks
 the side panel right of the tools.
+
+A glyph's node shows its title, such as `1 row`, and its code point as its badge. A glyph whose PNG
+exists nowhere says `no texture` before its code point. The properties panel edits the title.
 
 The tree's **Textures** lists every PNG under `src/assets/<namespace>/textures/` outside `minecraft`
 that no glyph, sheet or item of the tree shows, by namespace and folder, so a texture that nothing
@@ -39,13 +44,14 @@ the item's definition for a part of it, the language file that holds a text, in 
 language first, and the event's `sounds.json` for a sound event or a sound of Minecraft or of an
 event. A text that no language file holds opens the folder of new language files. A click on a box asks
 for the new value in a form. OK runs the resource pack's task that writes it:
-`renameGlyph` for a name, `editGlyph` for status, display height, ascent and about, `scaleTexture`
+`renameGlyph` for a name, `editGlyph` for title, status, display height, ascent and about, `scaleTexture`
 for the scaling of a GUI sprite, `editFont` for a font's constant and about, and `editGlyphBlock` for
 a block's or sheet's title, status, display height, ascent and about. The Delete button below asks
 first and runs `deleteGlyph` for a glyph, `deleteTexture` for a vanilla override or a texture without
 a glyph, `deleteItem` for an item, `deleteGlyphBlock` for a block or sheet and `deleteFont` for a font.
 The font `minecraft:default` and a sheet of ordinary characters have no Delete button, and the default
-font has no constant to edit. The rows, pitch, numbering, spaces and lists of a font stay read only and
+font has no constant to edit. A glyph in a list alone, such as a chest panel, has no name or constant,
+so its title, status and about are edited by its font and code point, and it has no Delete button. The rows, pitch, numbering, spaces and lists of a font stay read only and
 are changed in `glyphs.json`. **Add Cells** on a sheet asks for the constants of the new cells and runs
 `addSheetCells`, which widens the PNG by one cell each on the right. The tab then widens the open
 sprite to match and saves it, so its source keeps the new cells. While the sheet's sprite is not in
@@ -114,7 +120,12 @@ and each node above it, shows `*` at the start of its badge until a save or an u
 save. A sprite that the tab built from the frames of a PNG has no unsaved changes until the designer
 changes it. The tree's **Texts** lists each key of the pack's language files, and its properties
 show the asset that owns the key, one value per language that `editText` writes, and **Delete
-Text**. **Add Text** on **Texts** asks for a key, a language and a value. The properties panel of a
+Text**. **Add Text** on **Texts** asks for a key, a language and a value. Aseprite's font has no glyph of
+the pack, so a value or subtitle shows each private-use character as a token of its code point and title,
+such as `[FE021: Logo, 32 px high]`, in the panel and its dialogs; the conflict dialog shows the code point
+alone, such as `[FE021]`. A field turns
+each token back into its character, whatever title it carries, and `[FE021]` typed alone adds the
+glyph. The properties panel of a
 draft has **Discard Changes**, which runs `discardDraft` once confirmed. **Publish** above the tree
 shows the number of drafts and is disabled while there are none. It opens the same dialog as
 **File > Publish...**, which lists every draft with a check, and a title that names the drafts

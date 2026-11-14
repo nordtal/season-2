@@ -6,6 +6,8 @@
 
 local sounds = {}
 
+local glyphtext = require("glyphtext")
+
 -- The file types the file dialog offers, as the wizard's. The task
 -- refuses each but Ogg Vorbis and says how to convert, so the others
 -- are offered too.
@@ -90,7 +92,7 @@ function sounds.rows(info, tr)
       for _, language in ipairs(languages(info, e)) do
         local value = (e.subtitles or {})[language]
         table.insert(list, { key="subtitle", label=tr("sounds.subtitle_in", language), field="subtitle:" .. language,
-                             value=value == nil and tr("sounds.no_subtitle") or shown(value) })
+                             value=value == nil and tr("sounds.no_subtitle") or glyphtext.readable(shown(value), info.titles) })
       end
       add("key", e.subtitle)
     end
@@ -138,7 +140,8 @@ function sounds.form(info, field, tr)
   if language then
     local title = tr("sounds.subtitle_of", e.id, language)
     return { title=title, widgets={
-      { kind="entry", id="value", label=language, text=(e.subtitles or {})[language] or "" } } }
+      { kind="entry", id="value", label=language,
+        text=glyphtext.readable((e.subtitles or {})[language] or "", info.titles) } } }
   elseif field == "replace" then
     local title = tr("sounds.replace")
     return { title=title, widgets={
@@ -202,6 +205,7 @@ function sounds.jobs(info, field, data)
   end
   local language = field:match("^subtitle:(.+)$")
   if language then
+    data = { value=glyphtext.exact(data.value) }
     if data.value == ((e.subtitles or {})[language] or "") then return nil end
     -- An empty box deletes the subtitle only where no other language
     -- has a text, and else empties this language's, as the texts do

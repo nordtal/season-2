@@ -5,7 +5,7 @@ local function tr(id, ...) return table.concat({ id, ... }, " ") end
 local lists = { statuses={ "keep", "final candidate", "placeholder" }, scalings={ "stretch", "tile", "nine_slice", "new" } }
 
 local function glyph(fields)
-  local entry = { code="F0000", constant="STAR", name="star", status=nil, effectiveStatus="keep",
+  local entry = { code="F0000", title="Star", constant="STAR", name="star", status=nil, effectiveStatus="keep",
                   height=7, ascent=6, about="A star" }
   for k, v in pairs(fields or {}) do entry[k] = v end
   entry.texture = { id="nordtal:badges/star.png", width=7, height=7 }
@@ -14,7 +14,7 @@ local function glyph(fields)
 end
 
 local function cell(fields)
-  local entry = { code="E000", constant="CORNER", effectiveStatus="keep", height=9, ascent=8 }
+  local entry = { code="E000", title="Corner", constant="CORNER", effectiveStatus="keep", height=9, ascent=8 }
   for k, v in pairs(fields or {}) do entry[k] = v end
   local texture = { id="nordtal:gui/board.png", width=36, height=9 }
   return { kind="cell", entry=entry, texture=texture, font={ font="nordtal:gui" },
@@ -39,7 +39,7 @@ end
 describe("the properties of an entry", function()
   it("shows font, block and code point of a glyph read-only and edits the rest", function()
     assert.same({
-      "font=minecraft:default", "block=Player badges", "code=F0000",
+      "font=minecraft:default", "block=Player badges", "title=Star*", "code=F0000",
       "name=star*", "constant=STAR", "status=keep*", "height=7*", "ascent=6*",
       "size=properties.pixels 7 7*", "coupled=true*", "about=A star*",
       "texture=nordtal:badges/star.png", "source=properties.no_source", "delete=properties.delete*",
@@ -58,7 +58,7 @@ describe("the properties of an entry", function()
 
   it("renames a glyph without a name by its constant", function()
     local rows = shown(glyph({ name=false, constant="HALF_MOON" }), true)
-    assert.equal("constant=HALF_MOON*", rows[4])
+    assert.equal("constant=HALF_MOON*", rows[5])
   end)
 
   it("shows the switch off once the designer decoupled the sizes", function()
@@ -71,7 +71,7 @@ describe("the properties of an entry", function()
 
   it("keeps the height and ascent of a cell with its sheet and shows the size of the sheet read-only", function()
     assert.same({
-      "font=nordtal:gui", "block=Board", "code=E000", "constant=CORNER*", "status=keep*",
+      "font=nordtal:gui", "block=Board", "title=Corner*", "code=E000", "constant=CORNER*", "status=keep*",
       "height=9", "ascent=8", "about=*", "texture=nordtal:gui/board.png", "size=properties.pixels 36 9",
       "source=properties.no_source", "delete=properties.delete*",
     }, shown(cell(), true))
@@ -131,6 +131,24 @@ describe("an edit of a property", function()
     assert.same({ "editGlyph", { glyph="star", height=9 } }, properties.jobs(glyph(), "height", { value=9 }))
     assert.same({ "editGlyph", { glyph="star", ascent=5 } }, properties.jobs(glyph(), "ascent", { value=5 }))
     assert.same({ "editGlyph", { glyph="star", about="" } }, properties.jobs(glyph(), "about", { value="" }))
+  end)
+
+  it("edits the title, status and about of a glyph in a list alone, by its font and code", function()
+    local panel = glyph({ constant=false, name=false, list="PANELS" })
+    panel.entry.constant, panel.entry.name = nil, nil
+    local fields = {}
+    for _, row in ipairs(properties.rows(panel, tr, {})) do if row.field then fields[row.key] = row.field end end
+    assert.same({ title="title", status="status", about="about" }, fields)
+    assert.same({ "editGlyph", { glyph="minecraft:default/F0000", title="Chest, 1 row" } },
+      properties.jobs(panel, "title", { value="Chest, 1 row" }))
+    assert.same({ "editGlyph", { glyph="minecraft:default/F0000", about="A panel." } },
+      properties.jobs(panel, "about", { value="A panel." }))
+  end)
+
+  it("writes the title of a glyph, and none that is empty or unchanged", function()
+    assert.same({ "editGlyph", { glyph="star", title="Gold star" } }, properties.jobs(glyph(), "title", { value="Gold star" }))
+    assert.is_nil(properties.jobs(glyph(), "title", { value="  " }))
+    assert.is_nil(properties.jobs(glyph(), "title", { value="Star" }))
   end)
 
   it("asks for a number as a whole number", function()
@@ -345,6 +363,21 @@ describe("a text", function()
       properties.jobs(text(), "text:de_de", { value="Pause!" }, tr))
     assert.is_nil(properties.jobs(text(), "text:en_us", { value="Pause" }, tr))
     assert.is_nil(properties.jobs(text(), "text:de_de", { value="" }, tr))
+  end)
+
+  it("shows a glyph of the pack in a value as a token with its title, and keeps the glyph through the edit", function()
+    local logo = utf8.char(0xFE021)
+    local info = text({ values={ en_us="Play " .. logo } })
+    info.titles = { [0xFE021]="Logo, 32 px high" }
+    assert.equal("en_us=Play [FE021: Logo, 32 px high]*", rows(info)[4])
+    local form = properties.form(info, "text:en_us", tr, lists)
+    assert.equal("Play [FE021: Logo, 32 px high]", form.widgets[1].text)
+    -- Saved unchanged, the value writes nothing; changed, it keeps the exact character
+    assert.is_nil(properties.jobs(info, "text:en_us", { value=form.widgets[1].text }, tr))
+    assert.same({ "editText", { key="menu.title", language="en_us", value="Play " .. logo .. "!" } },
+      properties.jobs(info, "text:en_us", { value=form.widgets[1].text .. "!" }, tr))
+    assert.same({ "editText", { key="menu.help", language="en_us", value=logo } },
+      properties.jobs({ kind="texts" }, "addText", { key="menu.help", language="en_us", value="[FE021]" }, tr))
   end)
 
   it("deletes the key from every language", function()

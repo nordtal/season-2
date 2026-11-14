@@ -95,7 +95,7 @@ class DraftClone(
         val name = spec.substringBefore('@')
         val code = spec.substringAfter('@').substringBefore('=')
         val constant = spec.substringAfter('=', name.uppercase())
-        return """{ "code": "$code", "constant": "$constant", "name": "$name", "texture": "nordtal:badges/$name.png" }"""
+        return """{ "code": "$code", "title": "Glyph", "constant": "$constant", "name": "$name", "texture": "nordtal:badges/$name.png" }"""
     }
 
     fun writeGlyphs(vararg badges: String) {

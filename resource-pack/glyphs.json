@@ -13,6 +13,7 @@
           "glyphs": [
             {
               "code": "FE000",
+              "title": "Donor star",
               "constant": "BADGE_DONOR_STAR",
               "name": "donor-star",
               "texture": "nordtal:badges/donor_star.png",
@@ -21,6 +22,7 @@
             },
             {
               "code": "FE004",
+              "title": "Admin tag",
               "constant": "TAG_ADMIN",
               "name": "admin",
               "texture": "nordtal:tags/a.png",
@@ -39,6 +41,7 @@
           "glyphs": [
             {
               "code": "FE010",
+              "title": "Other language",
               "constant": "FLAG_OTHER",
               "name": "flag-other",
               "texture": "nordtal:flags/other.png",
@@ -46,6 +49,7 @@
             },
             {
               "code": "FE011",
+              "title": "Germany",
               "constant": "FLAG_GERMANY",
               "name": "flag-germany",
               "texture": "nordtal:flags/germany.png",
@@ -53,6 +57,7 @@
             },
             {
               "code": "FE012",
+              "title": "Netherlands",
               "constant": "FLAG_NETHERLANDS",
               "name": "flag-netherlands",
               "texture": "nordtal:flags/netherlands.png",
@@ -60,6 +65,7 @@
             },
             {
               "code": "FE013",
+              "title": "United Kingdom",
               "constant": "FLAG_UNITED_KINGDOM",
               "name": "flag-united-kingdom",
               "texture": "nordtal:flags/unitedkingdom.png",
@@ -67,6 +73,7 @@
             },
             {
               "code": "FE014",
+              "title": "United States",
               "constant": "FLAG_UNITED_STATES",
               "name": "flag-united-states",
               "texture": "nordtal:flags/unitedstates.png",
@@ -81,6 +88,7 @@
           "glyphs": [
             {
               "code": "FE020",
+              "title": "Logo, 24 px high",
               "constant": "LOGO_HEIGHT_24",
               "name": "logo",
               "texture": "nordtal:assets/logo.png",
@@ -90,6 +98,7 @@
             },
             {
               "code": "FE021",
+              "title": "Logo, 32 px high",
               "constant": "LOGO_HEIGHT_32",
               "name": "logo-large",
               "texture": "nordtal:assets/logo.png",
@@ -109,6 +118,7 @@
           "glyphs": [
             {
               "code": "FE030",
+              "title": "Tier 1",
               "constant": "PRESTIGE_CREST_01",
               "name": "crest-1",
               "list": "PRESTIGE_CRESTS",
@@ -117,6 +127,7 @@
             },
             {
               "code": "FE031",
+              "title": "Tier 2",
               "constant": "PRESTIGE_CREST_02",
               "name": "crest-2",
               "list": "PRESTIGE_CRESTS",
@@ -125,6 +136,7 @@
             },
             {
               "code": "FE032",
+              "title": "Tier 3",
               "constant": "PRESTIGE_CREST_03",
               "name": "crest-3",
               "list": "PRESTIGE_CRESTS",
@@ -133,6 +145,7 @@
             },
             {
               "code": "FE033",
+              "title": "Tier 4",
               "constant": "PRESTIGE_CREST_04",
               "name": "crest-4",
               "list": "PRESTIGE_CRESTS",
@@ -141,6 +154,7 @@
             },
             {
               "code": "FE034",
+              "title": "Tier 5",
               "constant": "PRESTIGE_CREST_05",
               "name": "crest-5",
               "list": "PRESTIGE_CRESTS",
@@ -149,6 +163,7 @@
             },
             {
               "code": "FE035",
+              "title": "Tier 6",
               "constant": "PRESTIGE_CREST_06",
               "name": "crest-6",
               "list": "PRESTIGE_CRESTS",
@@ -157,6 +172,7 @@
             },
             {
               "code": "FE036",
+              "title": "Tier 7",
               "constant": "PRESTIGE_CREST_07",
               "name": "crest-7",
               "list": "PRESTIGE_CRESTS",
@@ -165,6 +181,7 @@
             },
             {
               "code": "FE037",
+              "title": "Tier 8",
               "constant": "PRESTIGE_CREST_08",
               "name": "crest-8",
               "list": "PRESTIGE_CRESTS",
@@ -173,6 +190,7 @@
             },
             {
               "code": "FE038",
+              "title": "Tier 9",
               "constant": "PRESTIGE_CREST_09",
               "name": "crest-9",
               "list": "PRESTIGE_CRESTS",
@@ -181,6 +199,7 @@
             },
             {
               "code": "FE039",
+              "title": "Tier 10",
               "constant": "PRESTIGE_CREST_10",
               "name": "crest-10",
               "list": "PRESTIGE_CRESTS",
@@ -189,6 +208,7 @@
             },
             {
               "code": "FE03A",
+              "title": "Tier 11",
               "constant": "PRESTIGE_CREST_11",
               "name": "crest-11",
               "list": "PRESTIGE_CRESTS",
@@ -197,6 +217,7 @@
             },
             {
               "code": "FE03B",
+              "title": "Tier 12",
               "constant": "PRESTIGE_CREST_12",
               "name": "crest-12",
               "list": "PRESTIGE_CRESTS",
@@ -205,6 +226,7 @@
             },
             {
               "code": "FE03C",
+              "title": "Tier 13",
               "constant": "PRESTIGE_CREST_13",
               "name": "crest-13",
               "list": "PRESTIGE_CRESTS",
@@ -223,6 +245,7 @@
           "glyphs": [
             {
               "code": "FE080",
+              "title": "Separator",
               "constant": "SEPARATOR",
               "name": "separator",
               "texture": "nordtal:system/separator.png",
@@ -231,6 +254,7 @@
             },
             {
               "code": "FE081",
+              "title": "Joined",
               "constant": "ICON_JOIN",
               "name": "join",
               "texture": "nordtal:system/join.png",
@@ -238,6 +262,7 @@
             },
             {
               "code": "FE082",
+              "title": "Left",
               "constant": "ICON_LEAVE",
               "name": "leave",
               "texture": "nordtal:system/leave.png",
@@ -245,6 +270,7 @@
             },
             {
               "code": "FE083",
+              "title": "Death",
               "constant": "ICON_DEATH",
               "name": "death",
               "texture": "nordtal:system/death.png",
@@ -252,6 +278,7 @@
             },
             {
               "code": "FE084",
+              "title": "Advancement",
               "constant": "ICON_ADVANCEMENT",
               "name": "advancement",
               "texture": "nordtal:system/advancement.png",
@@ -259,6 +286,7 @@
             },
             {
               "code": "FE085",
+              "title": "Announcement",
               "constant": "ICON_ANNOUNCE",
               "name": "announce",
               "texture": "nordtal:system/announce.png",
@@ -274,16 +302,16 @@
           "height": 30,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE090", "name": "cover-outline", "list": "UI_LANG_COVER" },
-            { "code": "FE091", "name": "cover-rim", "list": "UI_LANG_COVER" },
-            { "code": "FE092", "name": "cover-1", "list": "UI_LANG_COVER" },
-            { "code": "FE093", "name": "cover-2", "list": "UI_LANG_COVER" },
-            { "code": "FE094", "name": "cover-4", "list": "UI_LANG_COVER" },
-            { "code": "FE095", "name": "cover-8", "list": "UI_LANG_COVER" },
-            { "code": "FE096", "name": "cover-16", "list": "UI_LANG_COVER" },
-            { "code": "FE097", "name": "cover-32", "list": "UI_LANG_COVER" },
-            { "code": "FE098", "name": "cover-64", "list": "UI_LANG_COVER" },
-            { "code": "FE099", "name": "cover-128", "list": "UI_LANG_COVER" }
+            { "code": "FE090", "title": "Outline", "name": "cover-outline", "list": "UI_LANG_COVER" },
+            { "code": "FE091", "title": "Rim", "name": "cover-rim", "list": "UI_LANG_COVER" },
+            { "code": "FE092", "title": "Fill 1 px", "name": "cover-1", "list": "UI_LANG_COVER" },
+            { "code": "FE093", "title": "Fill 2 px", "name": "cover-2", "list": "UI_LANG_COVER" },
+            { "code": "FE094", "title": "Fill 4 px", "name": "cover-4", "list": "UI_LANG_COVER" },
+            { "code": "FE095", "title": "Fill 8 px", "name": "cover-8", "list": "UI_LANG_COVER" },
+            { "code": "FE096", "title": "Fill 16 px", "name": "cover-16", "list": "UI_LANG_COVER" },
+            { "code": "FE097", "title": "Fill 32 px", "name": "cover-32", "list": "UI_LANG_COVER" },
+            { "code": "FE098", "title": "Fill 64 px", "name": "cover-64", "list": "UI_LANG_COVER" },
+            { "code": "FE099", "title": "Fill 128 px", "name": "cover-128", "list": "UI_LANG_COVER" }
           ]
         }
       ],
@@ -329,132 +357,154 @@
           "glyphs": [
             {
               "code": "FE040",
+              "title": "Top left corner",
               "constant": "BOARD_CORNER_TOP_LEFT",
               "texture": "nordtal:ui/board/corner_tl.png",
               "about": "Corner, top left."
             },
             {
               "code": "FE041",
+              "title": "Top right corner",
               "constant": "BOARD_CORNER_TOP_RIGHT",
               "texture": "nordtal:ui/board/corner_tr.png",
               "about": "Corner, top right."
             },
             {
               "code": "FE042",
+              "title": "Bottom left corner",
               "constant": "BOARD_CORNER_BOTTOM_LEFT",
               "texture": "nordtal:ui/board/corner_bl.png",
               "about": "Corner, bottom left."
             },
             {
               "code": "FE043",
+              "title": "Bottom right corner",
               "constant": "BOARD_CORNER_BOTTOM_RIGHT",
               "texture": "nordtal:ui/board/corner_br.png",
               "about": "Corner, bottom right."
             },
             {
               "code": "FE044",
+              "title": "Horizontal edge 1 px",
               "constant": "BOARD_EDGE_H_1",
               "texture": "nordtal:ui/board/edge_h_1.png",
               "about": "Horizontal edge, 1 pixel."
             },
             {
               "code": "FE045",
+              "title": "Horizontal edge 2 px",
               "constant": "BOARD_EDGE_H_2",
               "texture": "nordtal:ui/board/edge_h_2.png",
               "about": "Horizontal edge, 2 pixels."
             },
             {
               "code": "FE046",
+              "title": "Horizontal edge 4 px",
               "constant": "BOARD_EDGE_H_4",
               "texture": "nordtal:ui/board/edge_h_4.png",
               "about": "Horizontal edge, 4 pixels."
             },
             {
               "code": "FE047",
+              "title": "Horizontal edge 8 px",
               "constant": "BOARD_EDGE_H_8",
               "texture": "nordtal:ui/board/edge_h_8.png",
               "about": "Horizontal edge, 8 pixels."
             },
             {
               "code": "FE048",
+              "title": "Horizontal edge 16 px",
               "constant": "BOARD_EDGE_H_16",
               "texture": "nordtal:ui/board/edge_h_16.png",
               "about": "Horizontal edge, 16 pixels."
             },
             {
               "code": "FE049",
+              "title": "Horizontal edge 32 px",
               "constant": "BOARD_EDGE_H_32",
               "texture": "nordtal:ui/board/edge_h_32.png",
               "about": "Horizontal edge, 32 pixels."
             },
             {
               "code": "FE04A",
+              "title": "Horizontal edge 64 px",
               "constant": "BOARD_EDGE_H_64",
               "texture": "nordtal:ui/board/edge_h_64.png",
               "about": "Horizontal edge, 64 pixels."
             },
             {
               "code": "FE04B",
+              "title": "Horizontal edge 128 px",
               "constant": "BOARD_EDGE_H_128",
               "texture": "nordtal:ui/board/edge_h_128.png",
               "about": "Horizontal edge, 128 pixels."
             },
             {
               "code": "FE04C",
+              "title": "Left edge",
               "constant": "BOARD_EDGE_V_LEFT",
               "texture": "nordtal:ui/board/edge_v_l.png",
               "about": "Vertical edge, left."
             },
             {
               "code": "FE04D",
+              "title": "Right edge",
               "constant": "BOARD_EDGE_V_RIGHT",
               "texture": "nordtal:ui/board/edge_v_r.png",
               "about": "Vertical edge, right."
             },
             {
               "code": "FE04E",
+              "title": "Divider 1 px",
               "constant": "BOARD_DIVIDER_1",
               "texture": "nordtal:ui/board/divider_1.png",
               "about": "Divider, 1 pixel: a rule inside the board, apart from the edge so it can look different."
             },
             {
               "code": "FE04F",
+              "title": "Divider 2 px",
               "constant": "BOARD_DIVIDER_2",
               "texture": "nordtal:ui/board/divider_2.png",
               "about": "Divider, 2 pixels: a rule inside the board, apart from the edge so it can look different."
             },
             {
               "code": "FE050",
+              "title": "Divider 4 px",
               "constant": "BOARD_DIVIDER_4",
               "texture": "nordtal:ui/board/divider_4.png",
               "about": "Divider, 4 pixels: a rule inside the board, apart from the edge so it can look different."
             },
             {
               "code": "FE051",
+              "title": "Divider 8 px",
               "constant": "BOARD_DIVIDER_8",
               "texture": "nordtal:ui/board/divider_8.png",
               "about": "Divider, 8 pixels: a rule inside the board, apart from the edge so it can look different."
             },
             {
               "code": "FE052",
+              "title": "Divider 16 px",
               "constant": "BOARD_DIVIDER_16",
               "texture": "nordtal:ui/board/divider_16.png",
               "about": "Divider, 16 pixels: a rule inside the board, apart from the edge so it can look different."
             },
             {
               "code": "FE053",
+              "title": "Divider 32 px",
               "constant": "BOARD_DIVIDER_32",
               "texture": "nordtal:ui/board/divider_32.png",
               "about": "Divider, 32 pixels: a rule inside the board, apart from the edge so it can look different."
             },
             {
               "code": "FE054",
+              "title": "Divider 64 px",
               "constant": "BOARD_DIVIDER_64",
               "texture": "nordtal:ui/board/divider_64.png",
               "about": "Divider, 64 pixels: a rule inside the board, apart from the edge so it can look different."
             },
             {
               "code": "FE055",
+              "title": "Divider 128 px",
               "constant": "BOARD_DIVIDER_128",
               "texture": "nordtal:ui/board/divider_128.png",
               "about": "Divider, 128 pixels: a rule inside the board, apart from the edge so it can look different."
@@ -495,60 +545,70 @@
           "glyphs": [
             {
               "code": "FE000",
+              "title": "Right cap",
               "constant": "BOSSBAR_BG_END",
               "texture": "nordtal:ui/bossbar/bg/end.png",
               "about": "The right cap, 4 pixels."
             },
             {
               "code": "FE001",
+              "title": "Body 1 px",
               "constant": "BOSSBAR_BG_1",
               "texture": "nordtal:ui/bossbar/bg/1.png",
               "about": "A body segment, 1 pixel."
             },
             {
               "code": "FE002",
+              "title": "Body 2 px",
               "constant": "BOSSBAR_BG_2",
               "texture": "nordtal:ui/bossbar/bg/2.png",
               "about": "A body segment, 2 pixels."
             },
             {
               "code": "FE004",
+              "title": "Body 4 px",
               "constant": "BOSSBAR_BG_4",
               "texture": "nordtal:ui/bossbar/bg/4.png",
               "about": "A body segment, 4 pixels."
             },
             {
               "code": "FE008",
+              "title": "Body 8 px",
               "constant": "BOSSBAR_BG_8",
               "texture": "nordtal:ui/bossbar/bg/8.png",
               "about": "A body segment, 8 pixels."
             },
             {
               "code": "FE016",
+              "title": "Body 16 px",
               "constant": "BOSSBAR_BG_16",
               "texture": "nordtal:ui/bossbar/bg/16.png",
               "about": "A body segment, 16 pixels."
             },
             {
               "code": "FE032",
+              "title": "Body 32 px",
               "constant": "BOSSBAR_BG_32",
               "texture": "nordtal:ui/bossbar/bg/32.png",
               "about": "A body segment, 32 pixels."
             },
             {
               "code": "FE064",
+              "title": "Body 64 px",
               "constant": "BOSSBAR_BG_64",
               "texture": "nordtal:ui/bossbar/bg/64.png",
               "about": "A body segment, 64 pixels."
             },
             {
               "code": "FE0FF",
+              "title": "Left cap",
               "constant": "BOSSBAR_BG_START",
               "texture": "nordtal:ui/bossbar/bg/start.png",
               "about": "The left cap, 4 pixels."
             },
             {
               "code": "FE128",
+              "title": "Body 128 px",
               "constant": "BOSSBAR_BG_128",
               "texture": "nordtal:ui/bossbar/bg/128.png",
               "about": "A body segment, 128 pixels."
@@ -588,6 +648,7 @@
           "glyphs": [
             {
               "code": "FEF01",
+              "title": "Blue land flag",
               "constant": "BOSSBAR_ICON_FBLUE",
               "texture": "nordtal:ui/bossbar/icons/fblue.png",
               "status": "keep",
@@ -595,6 +656,7 @@
             },
             {
               "code": "FEF02",
+              "title": "Green land flag",
               "constant": "BOSSBAR_ICON_FGREEN",
               "texture": "nordtal:ui/bossbar/icons/fgreen.png",
               "status": "keep",
@@ -602,6 +664,7 @@
             },
             {
               "code": "FEF03",
+              "title": "Red land flag",
               "constant": "BOSSBAR_ICON_FRED",
               "texture": "nordtal:ui/bossbar/icons/fred.png",
               "status": "keep",
@@ -609,6 +672,7 @@
             },
             {
               "code": "FEF04",
+              "title": "White land flag",
               "constant": "BOSSBAR_ICON_FWHITE",
               "texture": "nordtal:ui/bossbar/icons/fwhite.png",
               "status": "keep",
@@ -616,6 +680,7 @@
             },
             {
               "code": "FEF05",
+              "title": "Overworld",
               "constant": "BOSSBAR_ICON_DIM_OVERWORLD",
               "texture": "nordtal:ui/bossbar/icons/dim_overworld.png",
               "status": "final candidate",
@@ -623,6 +688,7 @@
             },
             {
               "code": "FEF07",
+              "title": "Nether",
               "constant": "BOSSBAR_ICON_DIM_NETHER",
               "texture": "nordtal:ui/bossbar/icons/dim_nether.png",
               "status": "final candidate",
@@ -630,6 +696,7 @@
             },
             {
               "code": "FEF08",
+              "title": "End",
               "constant": "BOSSBAR_ICON_DIM_END",
               "texture": "nordtal:ui/bossbar/icons/dim_end.png",
               "status": "final candidate",
@@ -637,6 +704,7 @@
             },
             {
               "code": "FEF09",
+              "title": "Players alive",
               "constant": "BOSSBAR_ICON_ALIVE",
               "texture": "nordtal:ui/bossbar/icons/status_alive.png",
               "status": "final candidate",
@@ -644,6 +712,7 @@
             },
             {
               "code": "FEF0A",
+              "title": "Deaths",
               "constant": "BOSSBAR_ICON_DEATHS",
               "texture": "nordtal:ui/bossbar/icons/status_deaths.png",
               "status": "final candidate",
@@ -651,6 +720,7 @@
             },
             {
               "code": "FEF0B",
+              "title": "Loot point",
               "constant": "BOSSBAR_ICON_LOOT_POINT",
               "texture": "nordtal:ui/bossbar/icons/status_loot.png",
               "status": "final candidate",
@@ -658,6 +728,7 @@
             },
             {
               "code": "FEF0C",
+              "title": "World border",
               "constant": "BOSSBAR_ICON_BORDER",
               "texture": "nordtal:ui/bossbar/icons/status_border.png",
               "status": "final candidate",
@@ -665,6 +736,7 @@
             },
             {
               "code": "FEF0D",
+              "title": "Ride",
               "constant": "BOSSBAR_ICON_RIDE",
               "texture": "nordtal:ui/bossbar/icons/status_ride.png",
               "status": "final candidate",
@@ -682,6 +754,7 @@
           "glyphs": [
             {
               "code": "FEF10",
+              "title": "0°",
               "constant": "BOSSBAR_ARROW_000_0",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_000_0.png",
@@ -689,6 +762,7 @@
             },
             {
               "code": "FEF11",
+              "title": "22.5°",
               "constant": "BOSSBAR_ARROW_022_5",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_022_5.png",
@@ -696,6 +770,7 @@
             },
             {
               "code": "FEF12",
+              "title": "45°",
               "constant": "BOSSBAR_ARROW_045_0",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_045_0.png",
@@ -703,6 +778,7 @@
             },
             {
               "code": "FEF13",
+              "title": "67.5°",
               "constant": "BOSSBAR_ARROW_067_5",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_067_5.png",
@@ -710,6 +786,7 @@
             },
             {
               "code": "FEF14",
+              "title": "90°",
               "constant": "BOSSBAR_ARROW_090_0",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_090_0.png",
@@ -717,6 +794,7 @@
             },
             {
               "code": "FEF15",
+              "title": "112.5°",
               "constant": "BOSSBAR_ARROW_112_5",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_112_5.png",
@@ -724,6 +802,7 @@
             },
             {
               "code": "FEF16",
+              "title": "135°",
               "constant": "BOSSBAR_ARROW_135_0",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_135_0.png",
@@ -731,6 +810,7 @@
             },
             {
               "code": "FEF17",
+              "title": "157.5°",
               "constant": "BOSSBAR_ARROW_157_5",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_157_5.png",
@@ -738,6 +818,7 @@
             },
             {
               "code": "FEF18",
+              "title": "180°",
               "constant": "BOSSBAR_ARROW_180_0",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_180_0.png",
@@ -745,6 +826,7 @@
             },
             {
               "code": "FEF19",
+              "title": "202.5°",
               "constant": "BOSSBAR_ARROW_202_5",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_202_5.png",
@@ -752,6 +834,7 @@
             },
             {
               "code": "FEF1A",
+              "title": "225°",
               "constant": "BOSSBAR_ARROW_225_0",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_225_0.png",
@@ -759,6 +842,7 @@
             },
             {
               "code": "FEF1B",
+              "title": "247.5°",
               "constant": "BOSSBAR_ARROW_247_5",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_247_5.png",
@@ -766,6 +850,7 @@
             },
             {
               "code": "FEF1C",
+              "title": "270°",
               "constant": "BOSSBAR_ARROW_270_0",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_270_0.png",
@@ -773,6 +858,7 @@
             },
             {
               "code": "FEF1D",
+              "title": "292.5°",
               "constant": "BOSSBAR_ARROW_292_5",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_292_5.png",
@@ -780,6 +866,7 @@
             },
             {
               "code": "FEF1E",
+              "title": "315°",
               "constant": "BOSSBAR_ARROW_315_0",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_315_0.png",
@@ -787,6 +874,7 @@
             },
             {
               "code": "FEF1F",
+              "title": "337.5°",
               "constant": "BOSSBAR_ARROW_337_5",
               "list": "BOSSBAR_ARROWS",
               "texture": "nordtal:ui/bossbar/arrows/arrow_337_5.png",
@@ -809,48 +897,56 @@
           "glyphs": [
             {
               "code": "FEF30",
+              "title": "Empty track",
               "constant": "BOSSBAR_RIDE_TRACK",
               "texture": "nordtal:ui/bossbar/ride/track.png",
               "about": "The empty track, 100 by 5, with an outline of one pixel around 98 by 3."
             },
             {
               "code": "FEF31",
+              "title": "Ridden 1 px",
               "constant": "BOSSBAR_RIDE_FILL_1",
               "texture": "nordtal:ui/bossbar/ride/fill_1.png",
               "about": "The ridden part of the track, 1 pixel."
             },
             {
               "code": "FEF32",
+              "title": "Ridden 2 px",
               "constant": "BOSSBAR_RIDE_FILL_2",
               "texture": "nordtal:ui/bossbar/ride/fill_2.png",
               "about": "The ridden part of the track, 2 pixels."
             },
             {
               "code": "FEF33",
+              "title": "Ridden 4 px",
               "constant": "BOSSBAR_RIDE_FILL_4",
               "texture": "nordtal:ui/bossbar/ride/fill_4.png",
               "about": "The ridden part of the track, 4 pixels."
             },
             {
               "code": "FEF34",
+              "title": "Ridden 8 px",
               "constant": "BOSSBAR_RIDE_FILL_8",
               "texture": "nordtal:ui/bossbar/ride/fill_8.png",
               "about": "The ridden part of the track, 8 pixels."
             },
             {
               "code": "FEF35",
+              "title": "Ridden 16 px",
               "constant": "BOSSBAR_RIDE_FILL_16",
               "texture": "nordtal:ui/bossbar/ride/fill_16.png",
               "about": "The ridden part of the track, 16 pixels."
             },
             {
               "code": "FEF36",
+              "title": "Ridden 32 px",
               "constant": "BOSSBAR_RIDE_FILL_32",
               "texture": "nordtal:ui/bossbar/ride/fill_32.png",
               "about": "The ridden part of the track, 32 pixels."
             },
             {
               "code": "FEF37",
+              "title": "Ridden 64 px",
               "constant": "BOSSBAR_RIDE_FILL_64",
               "texture": "nordtal:ui/bossbar/ride/fill_64.png",
               "about": "The ridden part of the track, 64 pixels."
@@ -896,6 +992,7 @@
           "glyphs": [
             {
               "code": "FE060",
+              "title": "1 row",
               "constant": "GUI_PANEL_1",
               "list": "GUI_PANELS",
               "texture": "nordtal:ui/gui/panel_1.png",
@@ -904,6 +1001,7 @@
             },
             {
               "code": "FE061",
+              "title": "2 rows",
               "constant": "GUI_PANEL_2",
               "list": "GUI_PANELS",
               "texture": "nordtal:ui/gui/panel_2.png",
@@ -912,6 +1010,7 @@
             },
             {
               "code": "FE062",
+              "title": "3 rows",
               "constant": "GUI_PANEL_3",
               "list": "GUI_PANELS",
               "texture": "nordtal:ui/gui/panel_3.png",
@@ -920,6 +1019,7 @@
             },
             {
               "code": "FE063",
+              "title": "4 rows",
               "constant": "GUI_PANEL_4",
               "list": "GUI_PANELS",
               "texture": "nordtal:ui/gui/panel_4.png",
@@ -928,6 +1028,7 @@
             },
             {
               "code": "FE064",
+              "title": "5 rows",
               "constant": "GUI_PANEL_5",
               "list": "GUI_PANELS",
               "texture": "nordtal:ui/gui/panel_5.png",
@@ -936,6 +1037,7 @@
             },
             {
               "code": "FE065",
+              "title": "6 rows",
               "constant": "GUI_PANEL_6",
               "list": "GUI_PANELS",
               "texture": "nordtal:ui/gui/panel_6.png",
@@ -953,6 +1055,7 @@
           "glyphs": [
             {
               "code": "FE06B",
+              "title": "1 row",
               "constant": "GUI_PANEL_PLAIN_1",
               "list": "GUI_PANELS_PLAIN",
               "texture": "nordtal:ui/gui/panel_1_plain.png",
@@ -961,6 +1064,7 @@
             },
             {
               "code": "FE06C",
+              "title": "2 rows",
               "constant": "GUI_PANEL_PLAIN_2",
               "list": "GUI_PANELS_PLAIN",
               "texture": "nordtal:ui/gui/panel_2_plain.png",
@@ -969,6 +1073,7 @@
             },
             {
               "code": "FE06D",
+              "title": "3 rows",
               "constant": "GUI_PANEL_PLAIN_3",
               "list": "GUI_PANELS_PLAIN",
               "texture": "nordtal:ui/gui/panel_3_plain.png",
@@ -977,6 +1082,7 @@
             },
             {
               "code": "FE06E",
+              "title": "4 rows",
               "constant": "GUI_PANEL_PLAIN_4",
               "list": "GUI_PANELS_PLAIN",
               "texture": "nordtal:ui/gui/panel_4_plain.png",
@@ -985,6 +1091,7 @@
             },
             {
               "code": "FE06F",
+              "title": "5 rows",
               "constant": "GUI_PANEL_PLAIN_5",
               "list": "GUI_PANELS_PLAIN",
               "texture": "nordtal:ui/gui/panel_5_plain.png",
@@ -993,6 +1100,7 @@
             },
             {
               "code": "FE070",
+              "title": "6 rows",
               "constant": "GUI_PANEL_PLAIN_6",
               "list": "GUI_PANELS_PLAIN",
               "texture": "nordtal:ui/gui/panel_6_plain.png",
@@ -1009,6 +1117,7 @@
           "glyphs": [
             {
               "code": "FE200",
+              "title": "Card, upper row",
               "constant": "GUI_CARD_TOP",
               "texture": "nordtal:ui/gui/objective_card.png",
               "height": 32,
@@ -1017,6 +1126,7 @@
             },
             {
               "code": "FE201",
+              "title": "Card, lower row",
               "constant": "GUI_CARD_BOTTOM",
               "texture": "nordtal:ui/gui/objective_card.png",
               "height": 32,
@@ -1025,6 +1135,7 @@
             },
             {
               "code": "FE202",
+              "title": "Finished card, upper row",
               "constant": "GUI_CARD_DONE_TOP",
               "texture": "nordtal:ui/gui/objective_card_done.png",
               "height": 32,
@@ -1033,6 +1144,7 @@
             },
             {
               "code": "FE203",
+              "title": "Finished card, lower row",
               "constant": "GUI_CARD_DONE_BOTTOM",
               "texture": "nordtal:ui/gui/objective_card_done.png",
               "height": 32,
@@ -1041,6 +1153,7 @@
             },
             {
               "code": "FE210",
+              "title": "Bar fill 1 px, upper row",
               "list": "GUI_BAR_FILL_TOP",
               "texture": "nordtal:ui/gui/bar_fill_1.png",
               "height": 3,
@@ -1049,6 +1162,7 @@
             },
             {
               "code": "FE211",
+              "title": "Bar fill 2 px, upper row",
               "list": "GUI_BAR_FILL_TOP",
               "texture": "nordtal:ui/gui/bar_fill_2.png",
               "height": 3,
@@ -1057,6 +1171,7 @@
             },
             {
               "code": "FE212",
+              "title": "Bar fill 4 px, upper row",
               "list": "GUI_BAR_FILL_TOP",
               "texture": "nordtal:ui/gui/bar_fill_4.png",
               "height": 3,
@@ -1065,6 +1180,7 @@
             },
             {
               "code": "FE213",
+              "title": "Bar fill 8 px, upper row",
               "list": "GUI_BAR_FILL_TOP",
               "texture": "nordtal:ui/gui/bar_fill_8.png",
               "height": 3,
@@ -1073,6 +1189,7 @@
             },
             {
               "code": "FE214",
+              "title": "Bar fill 16 px, upper row",
               "list": "GUI_BAR_FILL_TOP",
               "texture": "nordtal:ui/gui/bar_fill_16.png",
               "height": 3,
@@ -1081,6 +1198,7 @@
             },
             {
               "code": "FE215",
+              "title": "Bar fill 32 px, upper row",
               "list": "GUI_BAR_FILL_TOP",
               "texture": "nordtal:ui/gui/bar_fill_32.png",
               "height": 3,
@@ -1089,6 +1207,7 @@
             },
             {
               "code": "FE218",
+              "title": "Bar fill 1 px, lower row",
               "list": "GUI_BAR_FILL_BOTTOM",
               "texture": "nordtal:ui/gui/bar_fill_1.png",
               "height": 3,
@@ -1097,6 +1216,7 @@
             },
             {
               "code": "FE219",
+              "title": "Bar fill 2 px, lower row",
               "list": "GUI_BAR_FILL_BOTTOM",
               "texture": "nordtal:ui/gui/bar_fill_2.png",
               "height": 3,
@@ -1105,6 +1225,7 @@
             },
             {
               "code": "FE21A",
+              "title": "Bar fill 4 px, lower row",
               "list": "GUI_BAR_FILL_BOTTOM",
               "texture": "nordtal:ui/gui/bar_fill_4.png",
               "height": 3,
@@ -1113,6 +1234,7 @@
             },
             {
               "code": "FE21B",
+              "title": "Bar fill 8 px, lower row",
               "list": "GUI_BAR_FILL_BOTTOM",
               "texture": "nordtal:ui/gui/bar_fill_8.png",
               "height": 3,
@@ -1121,6 +1243,7 @@
             },
             {
               "code": "FE21C",
+              "title": "Bar fill 16 px, lower row",
               "list": "GUI_BAR_FILL_BOTTOM",
               "texture": "nordtal:ui/gui/bar_fill_16.png",
               "height": 3,
@@ -1129,6 +1252,7 @@
             },
             {
               "code": "FE21D",
+              "title": "Bar fill 32 px, lower row",
               "list": "GUI_BAR_FILL_BOTTOM",
               "texture": "nordtal:ui/gui/bar_fill_32.png",
               "height": 3,
@@ -1186,54 +1310,63 @@
           "glyphs": [
             {
               "code": "FE100",
+              "title": "Entry plate",
               "constant": "GUI_ROW_PILL",
               "texture": "nordtal:ui/gui/row_pill.png",
               "about": "A list entry's plate, 158 by 14: the nine cells of its row, inset 2."
             },
             {
               "code": "FE101",
+              "title": "Active frame",
               "constant": "GUI_ROW_FRAME",
               "texture": "nordtal:ui/gui/row_frame.png",
               "about": "The active marker, 158 by 14: a hollow white frame 2 pixels wide, drawn last on its row."
             },
             {
               "code": "FE103",
+              "title": "Small button",
               "constant": "GUI_ROW_BUTTON_SMALL",
               "texture": "nordtal:ui/gui/row_button_small.png",
               "about": "A square button plate, 14 by 14: one slot cell inset 2."
             },
             {
               "code": "FE104",
+              "title": "Small button, off",
               "constant": "GUI_ROW_BUTTON_SMALL_OFF",
               "texture": "nordtal:ui/gui/row_button_small_off.png",
               "about": "The same, greyed: a page button with no page behind it."
             },
             {
               "code": "FE105",
+              "title": "Dark entry plate",
               "constant": "GUI_ROW_PILL_DARK",
               "texture": "nordtal:ui/gui/row_pill_dark.png",
               "about": "The plate in a darker grey, 158 by 14, for a heading row that is not clickable."
             },
             {
               "code": "FE106",
+              "title": "Confirm button",
               "constant": "GUI_ROW_BUTTON_CONFIRM",
               "texture": "nordtal:ui/gui/row_button_confirm.png",
               "about": "A gold button plate, 50 by 14 over three cells, for a menu's action."
             },
             {
               "code": "FE107",
+              "title": "Take button",
               "constant": "GUI_ROW_BUTTON_TAKE",
               "texture": "nordtal:ui/gui/row_button_take.png",
               "about": "The same, 68 by 14 over four cells, as in the grave's take everything."
             },
             {
               "code": "FE108",
+              "title": "Short entry plate",
               "constant": "GUI_ROW_PILL_SHORT",
               "texture": "nordtal:ui/gui/row_pill_short.png",
               "about": "The entry plate at 122 by 14, for a row that carries controls on its right."
             },
             {
               "code": "FE109",
+              "title": "Long entry plate",
               "constant": "GUI_ROW_PILL_LONG",
               "texture": "nordtal:ui/gui/row_pill_long.png",
               "about": "The entry plate at 140 by 14, over eight cells, for a row that carries one button on its right."
@@ -1249,38 +1382,68 @@
           "ascent": -9,
           "status": "placeholder",
           "glyphs": [
-            { "code": "FE110", "constant": "GUI_ROW_ICON_SPAWN", "about": "A house: a world's spawn." },
-            { "code": "FE111", "constant": "GUI_ROW_ICON_DEATH", "about": "A skull: where you last died." },
-            { "code": "FE112", "constant": "GUI_ROW_ICON_POI", "about": "A map pin: a place." },
-            { "code": "FE113", "constant": "GUI_ROW_ICON_STOP", "about": "A cross: stop." },
-            { "code": "FE114", "constant": "GUI_ROW_ICON_PREV", "about": "A left arrow: the previous page." },
-            { "code": "FE115", "constant": "GUI_ROW_ICON_NEXT", "about": "A right arrow: the next page." },
+            {
+              "code": "FE110",
+              "title": "Spawn",
+              "constant": "GUI_ROW_ICON_SPAWN",
+              "about": "A house: a world's spawn."
+            },
+            {
+              "code": "FE111",
+              "title": "Death",
+              "constant": "GUI_ROW_ICON_DEATH",
+              "about": "A skull: where you last died."
+            },
+            { "code": "FE112", "title": "Place", "constant": "GUI_ROW_ICON_POI", "about": "A map pin: a place." },
+            { "code": "FE113", "title": "Stop", "constant": "GUI_ROW_ICON_STOP", "about": "A cross: stop." },
+            {
+              "code": "FE114",
+              "title": "Previous page",
+              "constant": "GUI_ROW_ICON_PREV",
+              "about": "A left arrow: the previous page."
+            },
+            {
+              "code": "FE115",
+              "title": "Next page",
+              "constant": "GUI_ROW_ICON_NEXT",
+              "about": "A right arrow: the next page."
+            },
             {
               "code": "FE116",
+              "title": "Hand-in",
               "constant": "GUI_ROW_ICON_HAND_IN",
               "about": "A hand: a hand-in objective, the one kind you can click."
             },
             {
               "code": "FE117",
+              "title": "Statistic",
               "constant": "GUI_ROW_ICON_STATISTIC",
               "about": "A pickaxe: a statistic objective, which counts itself."
             },
             {
               "code": "FE118",
+              "title": "Advancement",
               "constant": "GUI_ROW_ICON_ADVANCEMENT",
               "about": "A medal: an advancement objective, earned somewhere else entirely."
             },
             {
               "code": "FE119",
+              "title": "Done",
               "constant": "GUI_ROW_ICON_DONE",
               "about": "A tick: a finished objective, whichever kind it was."
             },
             {
               "code": "FE11A",
+              "title": "Aura",
               "constant": "GUI_ROW_ICON_AURA",
               "about": "An experience orb: the objective menu's share line."
             },
-            { "code": "FE11B", "constant": "GUI_ROW_ICON_FAVOURITE", "about": "A star: a favourite station." }
+            {
+              "code": "FE11B",
+              "title": "Favourite",
+              "constant": "GUI_ROW_ICON_FAVOURITE",
+              "about": "A star: a favourite station."
+            }
           ]
         },
         {
@@ -1337,45 +1500,45 @@
           "height": 7,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE300", "constant": "UI_SYMBOL_STAR" },
-            { "code": "FE301", "constant": "UI_SYMBOL_STAR_HOLLOW" },
-            { "code": "FE302", "constant": "UI_SYMBOL_LEFT" },
-            { "code": "FE303", "constant": "UI_SYMBOL_RIGHT" },
-            { "code": "FE304", "constant": "UI_SYMBOL_TICK" },
-            { "code": "FE305", "constant": "UI_SYMBOL_PIN" },
-            { "code": "FE306", "constant": "UI_SYMBOL_RAIL" },
-            { "code": "FE307", "constant": "UI_SYMBOL_MEDAL" },
-            { "code": "FE308", "constant": "UI_SYMBOL_FLAG" },
-            { "code": "FE309", "constant": "UI_SYMBOL_WHEEL" },
-            { "code": "FE30A", "constant": "UI_SYMBOL_SWORDS" },
-            { "code": "FE30B", "constant": "UI_SYMBOL_SHIELD" },
-            { "code": "FE30C", "constant": "UI_SYMBOL_GRAVE" },
-            { "code": "FE30D", "constant": "UI_SYMBOL_HANDIN" },
-            { "code": "FE30E", "constant": "UI_SYMBOL_CHEST" },
-            { "code": "FE30F", "constant": "UI_SYMBOL_EYE" },
-            { "code": "FE310", "constant": "UI_SYMBOL_PICKAXE" },
-            { "code": "FE311", "constant": "UI_SYMBOL_BOX" },
-            { "code": "FE312", "constant": "UI_SYMBOL_XP" },
-            { "code": "FE313", "constant": "UI_SYMBOL_POINTER" },
-            { "code": "FE314", "constant": "UI_SYMBOL_HEART" },
-            { "code": "FE315", "constant": "UI_SYMBOL_BORDER" },
-            { "code": "FE316", "constant": "UI_SYMBOL_SKULL" },
-            { "code": "FE317", "constant": "UI_SYMBOL_ARROW0" },
-            { "code": "FE318", "constant": "UI_SYMBOL_ARROW1" },
-            { "code": "FE319", "constant": "UI_SYMBOL_ARROW2" },
-            { "code": "FE31A", "constant": "UI_SYMBOL_ARROW3" },
-            { "code": "FE31B", "constant": "UI_SYMBOL_ARROW4" },
-            { "code": "FE31C", "constant": "UI_SYMBOL_ARROW5" },
-            { "code": "FE31D", "constant": "UI_SYMBOL_ARROW6" },
-            { "code": "FE31E", "constant": "UI_SYMBOL_ARROW7" },
-            { "code": "FE31F", "constant": "UI_SYMBOL_ARROW8" },
-            { "code": "FE320", "constant": "UI_SYMBOL_ARROW9" },
-            { "code": "FE321", "constant": "UI_SYMBOL_ARROW10" },
-            { "code": "FE322", "constant": "UI_SYMBOL_ARROW11" },
-            { "code": "FE323", "constant": "UI_SYMBOL_ARROW12" },
-            { "code": "FE324", "constant": "UI_SYMBOL_ARROW13" },
-            { "code": "FE325", "constant": "UI_SYMBOL_ARROW14" },
-            { "code": "FE326", "constant": "UI_SYMBOL_ARROW15" }
+            { "code": "FE300", "title": "Star", "constant": "UI_SYMBOL_STAR" },
+            { "code": "FE301", "title": "Hollow star", "constant": "UI_SYMBOL_STAR_HOLLOW" },
+            { "code": "FE302", "title": "Left", "constant": "UI_SYMBOL_LEFT" },
+            { "code": "FE303", "title": "Right", "constant": "UI_SYMBOL_RIGHT" },
+            { "code": "FE304", "title": "Tick", "constant": "UI_SYMBOL_TICK" },
+            { "code": "FE305", "title": "Pin", "constant": "UI_SYMBOL_PIN" },
+            { "code": "FE306", "title": "Rail", "constant": "UI_SYMBOL_RAIL" },
+            { "code": "FE307", "title": "Medal", "constant": "UI_SYMBOL_MEDAL" },
+            { "code": "FE308", "title": "Flag", "constant": "UI_SYMBOL_FLAG" },
+            { "code": "FE309", "title": "Wheel", "constant": "UI_SYMBOL_WHEEL" },
+            { "code": "FE30A", "title": "Swords", "constant": "UI_SYMBOL_SWORDS" },
+            { "code": "FE30B", "title": "Shield", "constant": "UI_SYMBOL_SHIELD" },
+            { "code": "FE30C", "title": "Grave", "constant": "UI_SYMBOL_GRAVE" },
+            { "code": "FE30D", "title": "Hand-in", "constant": "UI_SYMBOL_HANDIN" },
+            { "code": "FE30E", "title": "Chest", "constant": "UI_SYMBOL_CHEST" },
+            { "code": "FE30F", "title": "Eye", "constant": "UI_SYMBOL_EYE" },
+            { "code": "FE310", "title": "Pickaxe", "constant": "UI_SYMBOL_PICKAXE" },
+            { "code": "FE311", "title": "Box", "constant": "UI_SYMBOL_BOX" },
+            { "code": "FE312", "title": "Experience", "constant": "UI_SYMBOL_XP" },
+            { "code": "FE313", "title": "Pointer", "constant": "UI_SYMBOL_POINTER" },
+            { "code": "FE314", "title": "Heart", "constant": "UI_SYMBOL_HEART" },
+            { "code": "FE315", "title": "Border", "constant": "UI_SYMBOL_BORDER" },
+            { "code": "FE316", "title": "Skull", "constant": "UI_SYMBOL_SKULL" },
+            { "code": "FE317", "title": "Arrow 0°", "constant": "UI_SYMBOL_ARROW0" },
+            { "code": "FE318", "title": "Arrow 22.5°", "constant": "UI_SYMBOL_ARROW1" },
+            { "code": "FE319", "title": "Arrow 45°", "constant": "UI_SYMBOL_ARROW2" },
+            { "code": "FE31A", "title": "Arrow 67.5°", "constant": "UI_SYMBOL_ARROW3" },
+            { "code": "FE31B", "title": "Arrow 90°", "constant": "UI_SYMBOL_ARROW4" },
+            { "code": "FE31C", "title": "Arrow 112.5°", "constant": "UI_SYMBOL_ARROW5" },
+            { "code": "FE31D", "title": "Arrow 135°", "constant": "UI_SYMBOL_ARROW6" },
+            { "code": "FE31E", "title": "Arrow 157.5°", "constant": "UI_SYMBOL_ARROW7" },
+            { "code": "FE31F", "title": "Arrow 180°", "constant": "UI_SYMBOL_ARROW8" },
+            { "code": "FE320", "title": "Arrow 202.5°", "constant": "UI_SYMBOL_ARROW9" },
+            { "code": "FE321", "title": "Arrow 225°", "constant": "UI_SYMBOL_ARROW10" },
+            { "code": "FE322", "title": "Arrow 247.5°", "constant": "UI_SYMBOL_ARROW11" },
+            { "code": "FE323", "title": "Arrow 270°", "constant": "UI_SYMBOL_ARROW12" },
+            { "code": "FE324", "title": "Arrow 292.5°", "constant": "UI_SYMBOL_ARROW13" },
+            { "code": "FE325", "title": "Arrow 315°", "constant": "UI_SYMBOL_ARROW14" },
+            { "code": "FE326", "title": "Arrow 337.5°", "constant": "UI_SYMBOL_ARROW15" }
           ]
         }
       ]
@@ -1395,17 +1558,17 @@
           "height": 17,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE340", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE341", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE342", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE343", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE344", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE345", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE346", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE347", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE348", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE349", "list": "UI_PLATE_NORMAL" },
-            { "code": "FE34A", "list": "UI_PLATE_NORMAL" }
+            { "code": "FE340", "title": "Left column", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE341", "title": "Right column", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE342", "title": "Body 1 px", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE343", "title": "Body 2 px", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE344", "title": "Body 4 px", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE345", "title": "Body 8 px", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE346", "title": "Body 16 px", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE347", "title": "Body 32 px", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE348", "title": "Body 64 px", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE349", "title": "Body 128 px", "list": "UI_PLATE_NORMAL" },
+            { "code": "FE34A", "title": "Body 256 px", "list": "UI_PLATE_NORMAL" }
           ]
         },
         {
@@ -1416,17 +1579,17 @@
           "height": 17,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE350", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE351", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE352", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE353", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE354", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE355", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE356", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE357", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE358", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE359", "list": "UI_PLATE_PRIMARY" },
-            { "code": "FE35A", "list": "UI_PLATE_PRIMARY" }
+            { "code": "FE350", "title": "Left column", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE351", "title": "Right column", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE352", "title": "Body 1 px", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE353", "title": "Body 2 px", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE354", "title": "Body 4 px", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE355", "title": "Body 8 px", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE356", "title": "Body 16 px", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE357", "title": "Body 32 px", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE358", "title": "Body 64 px", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE359", "title": "Body 128 px", "list": "UI_PLATE_PRIMARY" },
+            { "code": "FE35A", "title": "Body 256 px", "list": "UI_PLATE_PRIMARY" }
           ]
         },
         {
@@ -1437,17 +1600,17 @@
           "height": 17,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE360", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE361", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE362", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE363", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE364", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE365", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE366", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE367", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE368", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE369", "list": "UI_PLATE_DISABLED" },
-            { "code": "FE36A", "list": "UI_PLATE_DISABLED" }
+            { "code": "FE360", "title": "Left column", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE361", "title": "Right column", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE362", "title": "Body 1 px", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE363", "title": "Body 2 px", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE364", "title": "Body 4 px", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE365", "title": "Body 8 px", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE366", "title": "Body 16 px", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE367", "title": "Body 32 px", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE368", "title": "Body 64 px", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE369", "title": "Body 128 px", "list": "UI_PLATE_DISABLED" },
+            { "code": "FE36A", "title": "Body 256 px", "list": "UI_PLATE_DISABLED" }
           ]
         },
         {
@@ -1456,6 +1619,7 @@
           "glyphs": [
             {
               "code": "FE370",
+              "title": "Slot frame",
               "constant": "UI_SLOT",
               "texture": "nordtal:ui/kit/slot.png",
               "height": 18,
@@ -1464,6 +1628,7 @@
             },
             {
               "code": "FE371",
+              "title": "Field frame",
               "constant": "UI_FIELD_FRAME",
               "texture": "nordtal:ui/kit/field_frame.png",
               "height": 24,
@@ -1472,6 +1637,7 @@
             },
             {
               "code": "FE372",
+              "title": "Primary button",
               "constant": "UI_PRIMARY_BUTTON",
               "texture": "nordtal:ui/kit/primary_button.png",
               "height": 18,
@@ -1488,19 +1654,19 @@
           "height": 10,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE380", "list": "UI_BAR_TRACK" },
-            { "code": "FE381", "list": "UI_BAR_FILL" },
-            { "code": "FE382", "list": "UI_BAR_FILL" },
-            { "code": "FE383", "list": "UI_BAR_FILL" },
-            { "code": "FE384", "list": "UI_BAR_FILL" },
-            { "code": "FE385", "list": "UI_BAR_FILL" },
-            { "code": "FE386", "list": "UI_BAR_FILL" },
-            { "code": "FE387", "list": "UI_BAR_DONE" },
-            { "code": "FE388", "list": "UI_BAR_DONE" },
-            { "code": "FE389", "list": "UI_BAR_DONE" },
-            { "code": "FE38A", "list": "UI_BAR_DONE" },
-            { "code": "FE38B", "list": "UI_BAR_DONE" },
-            { "code": "FE38C", "list": "UI_BAR_DONE" }
+            { "code": "FE380", "title": "Track", "list": "UI_BAR_TRACK" },
+            { "code": "FE381", "title": "Fill 1 px", "list": "UI_BAR_FILL" },
+            { "code": "FE382", "title": "Fill 2 px", "list": "UI_BAR_FILL" },
+            { "code": "FE383", "title": "Fill 4 px", "list": "UI_BAR_FILL" },
+            { "code": "FE384", "title": "Fill 8 px", "list": "UI_BAR_FILL" },
+            { "code": "FE385", "title": "Fill 16 px", "list": "UI_BAR_FILL" },
+            { "code": "FE386", "title": "Fill 32 px", "list": "UI_BAR_FILL" },
+            { "code": "FE387", "title": "Done 1 px", "list": "UI_BAR_DONE" },
+            { "code": "FE388", "title": "Done 2 px", "list": "UI_BAR_DONE" },
+            { "code": "FE389", "title": "Done 4 px", "list": "UI_BAR_DONE" },
+            { "code": "FE38A", "title": "Done 8 px", "list": "UI_BAR_DONE" },
+            { "code": "FE38B", "title": "Done 16 px", "list": "UI_BAR_DONE" },
+            { "code": "FE38C", "title": "Done 32 px", "list": "UI_BAR_DONE" }
           ]
         },
         {
@@ -1511,16 +1677,16 @@
           "height": 15,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE390", "list": "UI_PILL" },
-            { "code": "FE391", "list": "UI_PILL" },
-            { "code": "FE392", "list": "UI_PILL" },
-            { "code": "FE393", "list": "UI_PILL" },
-            { "code": "FE394", "list": "UI_PILL" },
-            { "code": "FE395", "list": "UI_PILL" },
-            { "code": "FE396", "list": "UI_PILL" },
-            { "code": "FE397", "list": "UI_PILL" },
-            { "code": "FE398", "list": "UI_PILL" },
-            { "code": "FE399", "list": "UI_PILL" }
+            { "code": "FE390", "title": "Left end", "list": "UI_PILL" },
+            { "code": "FE391", "title": "Right end", "list": "UI_PILL" },
+            { "code": "FE392", "title": "Middle 1 px", "list": "UI_PILL" },
+            { "code": "FE393", "title": "Middle 2 px", "list": "UI_PILL" },
+            { "code": "FE394", "title": "Middle 4 px", "list": "UI_PILL" },
+            { "code": "FE395", "title": "Middle 8 px", "list": "UI_PILL" },
+            { "code": "FE396", "title": "Middle 16 px", "list": "UI_PILL" },
+            { "code": "FE397", "title": "Middle 32 px", "list": "UI_PILL" },
+            { "code": "FE398", "title": "Middle 64 px", "list": "UI_PILL" },
+            { "code": "FE399", "title": "Middle 128 px", "list": "UI_PILL" }
           ]
         },
         {
@@ -1531,14 +1697,14 @@
           "height": 10,
           "ascent": 7,
           "glyphs": [
-            { "code": "FE3B0", "list": "UI_RIDE_TRACK" },
-            { "code": "FE3B1", "list": "UI_RIDE_FILL" },
-            { "code": "FE3B2", "list": "UI_RIDE_FILL" },
-            { "code": "FE3B3", "list": "UI_RIDE_FILL" },
-            { "code": "FE3B4", "list": "UI_RIDE_FILL" },
-            { "code": "FE3B5", "list": "UI_RIDE_FILL" },
-            { "code": "FE3B6", "list": "UI_RIDE_FILL" },
-            { "code": "FE3B7", "list": "UI_RIDE_FILL" }
+            { "code": "FE3B0", "title": "Track", "list": "UI_RIDE_TRACK" },
+            { "code": "FE3B1", "title": "Fill 1 px", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B2", "title": "Fill 2 px", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B3", "title": "Fill 4 px", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B4", "title": "Fill 8 px", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B5", "title": "Fill 16 px", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B6", "title": "Fill 32 px", "list": "UI_RIDE_FILL" },
+            { "code": "FE3B7", "title": "Fill 64 px", "list": "UI_RIDE_FILL" }
           ]
         }
       ],
@@ -1566,6 +1732,7 @@
           "glyphs": [
             {
               "code": "FE3A0",
+              "title": "1 row",
               "list": "UI_CHEST_PANELS",
               "texture": "nordtal:ui/kit/chest_1.png",
               "height": 148,
@@ -1573,6 +1740,7 @@
             },
             {
               "code": "FE3A1",
+              "title": "2 rows",
               "list": "UI_CHEST_PANELS",
               "texture": "nordtal:ui/kit/chest_2.png",
               "height": 166,
@@ -1580,6 +1748,7 @@
             },
             {
               "code": "FE3A2",
+              "title": "3 rows",
               "list": "UI_CHEST_PANELS",
               "texture": "nordtal:ui/kit/chest_3.png",
               "height": 184,
@@ -1587,6 +1756,7 @@
             },
             {
               "code": "FE3A3",
+              "title": "4 rows",
               "list": "UI_CHEST_PANELS",
               "texture": "nordtal:ui/kit/chest_4.png",
               "height": 202,
@@ -1594,6 +1764,7 @@
             },
             {
               "code": "FE3A4",
+              "title": "5 rows",
               "list": "UI_CHEST_PANELS",
               "texture": "nordtal:ui/kit/chest_5.png",
               "height": 220,
@@ -1601,6 +1772,7 @@
             },
             {
               "code": "FE3A5",
+              "title": "6 rows",
               "list": "UI_CHEST_PANELS",
               "texture": "nordtal:ui/kit/chest_6.png",
               "height": 238,
@@ -1608,6 +1780,7 @@
             },
             {
               "code": "FE3A6",
+              "title": "1 row, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_1.png",
               "height": 148,
@@ -1615,6 +1788,7 @@
             },
             {
               "code": "FE3A7",
+              "title": "2 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_2.png",
               "height": 166,
@@ -1622,6 +1796,7 @@
             },
             {
               "code": "FE3A8",
+              "title": "3 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_3.png",
               "height": 184,
@@ -1629,6 +1804,7 @@
             },
             {
               "code": "FE3A9",
+              "title": "4 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_4.png",
               "height": 202,
@@ -1636,6 +1812,7 @@
             },
             {
               "code": "FE3AA",
+              "title": "5 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_5.png",
               "height": 220,
@@ -1643,6 +1820,7 @@
             },
             {
               "code": "FE3AB",
+              "title": "6 rows, framed",
               "list": "UI_CHEST_PANELS_PLAIN",
               "texture": "nordtal:ui/kit/chest_plain_6.png",
               "height": 238,
@@ -1666,6 +1844,7 @@
           "glyphs": [
             {
               "code": "FE3C0",
+              "title": "Ride list, 153 high, left",
               "list": "UI_DIALOG_RIDE_LIST_153",
               "texture": "nordtal:ui/kit/dialog_ride_list_153_0.png",
               "height": 153,
@@ -1673,6 +1852,7 @@
             },
             {
               "code": "FE3C1",
+              "title": "Ride list, 153 high, right",
               "list": "UI_DIALOG_RIDE_LIST_153",
               "texture": "nordtal:ui/kit/dialog_ride_list_153_1.png",
               "height": 153,
@@ -1680,6 +1860,7 @@
             },
             {
               "code": "FE3C2",
+              "title": "Ride list, 42 high, left",
               "list": "UI_DIALOG_RIDE_LIST_42",
               "texture": "nordtal:ui/kit/dialog_ride_list_42_0.png",
               "height": 42,
@@ -1687,6 +1868,7 @@
             },
             {
               "code": "FE3C3",
+              "title": "Ride list, 42 high, right",
               "list": "UI_DIALOG_RIDE_LIST_42",
               "texture": "nordtal:ui/kit/dialog_ride_list_42_1.png",
               "height": 42,
@@ -1694,6 +1876,7 @@
             },
             {
               "code": "FE3C4",
+              "title": "Ride list, 62 high, left",
               "list": "UI_DIALOG_RIDE_LIST_62",
               "texture": "nordtal:ui/kit/dialog_ride_list_62_0.png",
               "height": 62,
@@ -1701,6 +1884,7 @@
             },
             {
               "code": "FE3C5",
+              "title": "Ride list, 62 high, right",
               "list": "UI_DIALOG_RIDE_LIST_62",
               "texture": "nordtal:ui/kit/dialog_ride_list_62_1.png",
               "height": 62,
@@ -1708,6 +1892,7 @@
             },
             {
               "code": "FE3C6",
+              "title": "Ride list, 82 high, left",
               "list": "UI_DIALOG_RIDE_LIST_82",
               "texture": "nordtal:ui/kit/dialog_ride_list_82_0.png",
               "height": 82,
@@ -1715,6 +1900,7 @@
             },
             {
               "code": "FE3C7",
+              "title": "Ride list, 82 high, right",
               "list": "UI_DIALOG_RIDE_LIST_82",
               "texture": "nordtal:ui/kit/dialog_ride_list_82_1.png",
               "height": 82,
@@ -1722,6 +1908,7 @@
             },
             {
               "code": "FE3C8",
+              "title": "Ride list, 102 high, left",
               "list": "UI_DIALOG_RIDE_LIST_102",
               "texture": "nordtal:ui/kit/dialog_ride_list_102_0.png",
               "height": 102,
@@ -1729,6 +1916,7 @@
             },
             {
               "code": "FE3C9",
+              "title": "Ride list, 102 high, right",
               "list": "UI_DIALOG_RIDE_LIST_102",
               "texture": "nordtal:ui/kit/dialog_ride_list_102_1.png",
               "height": 102,
@@ -1736,6 +1924,7 @@
             },
             {
               "code": "FE3CA",
+              "title": "Ride list, 122 high, left",
               "list": "UI_DIALOG_RIDE_LIST_122",
               "texture": "nordtal:ui/kit/dialog_ride_list_122_0.png",
               "height": 122,
@@ -1743,6 +1932,7 @@
             },
             {
               "code": "FE3CB",
+              "title": "Ride list, 122 high, right",
               "list": "UI_DIALOG_RIDE_LIST_122",
               "texture": "nordtal:ui/kit/dialog_ride_list_122_1.png",
               "height": 122,
@@ -1750,6 +1940,7 @@
             },
             {
               "code": "FE3CC",
+              "title": "Ride list, 33 high, left",
               "list": "UI_DIALOG_RIDE_LIST_33",
               "texture": "nordtal:ui/kit/dialog_ride_list_33_0.png",
               "height": 33,
@@ -1757,6 +1948,7 @@
             },
             {
               "code": "FE3CD",
+              "title": "Ride list, 33 high, right",
               "list": "UI_DIALOG_RIDE_LIST_33",
               "texture": "nordtal:ui/kit/dialog_ride_list_33_1.png",
               "height": 33,
@@ -1764,6 +1956,7 @@
             },
             {
               "code": "FE3CE",
+              "title": "Station, 78 high",
               "list": "UI_DIALOG_STATION_78",
               "texture": "nordtal:ui/kit/dialog_station_78_0.png",
               "height": 78,
@@ -1771,6 +1964,7 @@
             },
             {
               "code": "FE3CF",
+              "title": "Station, 104 high",
               "list": "UI_DIALOG_STATION_104",
               "texture": "nordtal:ui/kit/dialog_station_104_0.png",
               "height": 104,
@@ -1778,6 +1972,7 @@
             },
             {
               "code": "FE3D0",
+              "title": "Station, 122 high",
               "list": "UI_DIALOG_STATION_122",
               "texture": "nordtal:ui/kit/dialog_station_122_0.png",
               "height": 122,
@@ -1785,6 +1980,7 @@
             },
             {
               "code": "FE3D1",
+              "title": "Objectives, 124 high, left",
               "list": "UI_DIALOG_OBJECTIVES_124",
               "texture": "nordtal:ui/kit/dialog_objectives_124_0.png",
               "height": 124,
@@ -1792,6 +1988,7 @@
             },
             {
               "code": "FE3D2",
+              "title": "Objectives, 124 high, right",
               "list": "UI_DIALOG_OBJECTIVES_124",
               "texture": "nordtal:ui/kit/dialog_objectives_124_1.png",
               "height": 124,
@@ -1799,6 +1996,7 @@
             },
             {
               "code": "FE3D3",
+              "title": "Objectives, 33 high, left",
               "list": "UI_DIALOG_OBJECTIVES_33",
               "texture": "nordtal:ui/kit/dialog_objectives_33_0.png",
               "height": 33,
@@ -1806,6 +2004,7 @@
             },
             {
               "code": "FE3D4",
+              "title": "Objectives, 33 high, right",
               "list": "UI_DIALOG_OBJECTIVES_33",
               "texture": "nordtal:ui/kit/dialog_objectives_33_1.png",
               "height": 33,
@@ -1813,6 +2012,7 @@
             },
             {
               "code": "FE3D5",
+              "title": "Duel, 124 high",
               "list": "UI_DIALOG_DUEL_124",
               "texture": "nordtal:ui/kit/dialog_duel_124_0.png",
               "height": 124,
@@ -1820,6 +2020,7 @@
             },
             {
               "code": "FE3D6",
+              "title": "Draft preview, 113 high, left",
               "list": "UI_DIALOG_DRAFT_PREVIEW_113",
               "texture": "nordtal:ui/kit/dialog_draft_preview_113_0.png",
               "height": 113,
@@ -1827,6 +2028,7 @@
             },
             {
               "code": "FE3D7",
+              "title": "Draft preview, 113 high, right",
               "list": "UI_DIALOG_DRAFT_PREVIEW_113",
               "texture": "nordtal:ui/kit/dialog_draft_preview_113_1.png",
               "height": 113,
@@ -1834,6 +2036,7 @@
             },
             {
               "code": "FE3D8",
+              "title": "Draft preview, 42 high, left",
               "list": "UI_DIALOG_DRAFT_PREVIEW_42",
               "texture": "nordtal:ui/kit/dialog_draft_preview_42_0.png",
               "height": 42,
@@ -1841,6 +2044,7 @@
             },
             {
               "code": "FE3D9",
+              "title": "Draft preview, 42 high, right",
               "list": "UI_DIALOG_DRAFT_PREVIEW_42",
               "texture": "nordtal:ui/kit/dialog_draft_preview_42_1.png",
               "height": 42,
@@ -1848,6 +2052,7 @@
             },
             {
               "code": "FE3DA",
+              "title": "Draft preview, 62 high, left",
               "list": "UI_DIALOG_DRAFT_PREVIEW_62",
               "texture": "nordtal:ui/kit/dialog_draft_preview_62_0.png",
               "height": 62,
@@ -1855,6 +2060,7 @@
             },
             {
               "code": "FE3DB",
+              "title": "Draft preview, 62 high, right",
               "list": "UI_DIALOG_DRAFT_PREVIEW_62",
               "texture": "nordtal:ui/kit/dialog_draft_preview_62_1.png",
               "height": 62,
@@ -1862,6 +2068,7 @@
             },
             {
               "code": "FE3DC",
+              "title": "Draft preview, 82 high, left",
               "list": "UI_DIALOG_DRAFT_PREVIEW_82",
               "texture": "nordtal:ui/kit/dialog_draft_preview_82_0.png",
               "height": 82,
@@ -1869,6 +2076,7 @@
             },
             {
               "code": "FE3DD",
+              "title": "Draft preview, 82 high, right",
               "list": "UI_DIALOG_DRAFT_PREVIEW_82",
               "texture": "nordtal:ui/kit/dialog_draft_preview_82_1.png",
               "height": 82,
@@ -1876,6 +2084,7 @@
             },
             {
               "code": "FE3DE",
+              "title": "Wheel, 141 high",
               "list": "UI_DIALOG_WHEEL_141",
               "texture": "nordtal:ui/kit/dialog_wheel_141_0.png",
               "height": 141,
@@ -1919,16 +2128,16 @@
           "height": 20,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE400", "list": "UI_COVER_20" },
-            { "code": "FE401", "list": "UI_COVER_20" },
-            { "code": "FE402", "list": "UI_COVER_20" },
-            { "code": "FE403", "list": "UI_COVER_20" },
-            { "code": "FE404", "list": "UI_COVER_20" },
-            { "code": "FE405", "list": "UI_COVER_20" },
-            { "code": "FE406", "list": "UI_COVER_20" },
-            { "code": "FE407", "list": "UI_COVER_20" },
-            { "code": "FE408", "list": "UI_COVER_20" },
-            { "code": "FE409", "list": "UI_COVER_20" }
+            { "code": "FE400", "title": "Outline", "list": "UI_COVER_20" },
+            { "code": "FE401", "title": "Rim", "list": "UI_COVER_20" },
+            { "code": "FE402", "title": "Fill 1 px", "list": "UI_COVER_20" },
+            { "code": "FE403", "title": "Fill 2 px", "list": "UI_COVER_20" },
+            { "code": "FE404", "title": "Fill 4 px", "list": "UI_COVER_20" },
+            { "code": "FE405", "title": "Fill 8 px", "list": "UI_COVER_20" },
+            { "code": "FE406", "title": "Fill 16 px", "list": "UI_COVER_20" },
+            { "code": "FE407", "title": "Fill 32 px", "list": "UI_COVER_20" },
+            { "code": "FE408", "title": "Fill 64 px", "list": "UI_COVER_20" },
+            { "code": "FE409", "title": "Fill 128 px", "list": "UI_COVER_20" }
           ]
         },
         {
@@ -1939,16 +2148,16 @@
           "height": 30,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE410", "list": "UI_COVER_30" },
-            { "code": "FE411", "list": "UI_COVER_30" },
-            { "code": "FE412", "list": "UI_COVER_30" },
-            { "code": "FE413", "list": "UI_COVER_30" },
-            { "code": "FE414", "list": "UI_COVER_30" },
-            { "code": "FE415", "list": "UI_COVER_30" },
-            { "code": "FE416", "list": "UI_COVER_30" },
-            { "code": "FE417", "list": "UI_COVER_30" },
-            { "code": "FE418", "list": "UI_COVER_30" },
-            { "code": "FE419", "list": "UI_COVER_30" }
+            { "code": "FE410", "title": "Outline", "list": "UI_COVER_30" },
+            { "code": "FE411", "title": "Rim", "list": "UI_COVER_30" },
+            { "code": "FE412", "title": "Fill 1 px", "list": "UI_COVER_30" },
+            { "code": "FE413", "title": "Fill 2 px", "list": "UI_COVER_30" },
+            { "code": "FE414", "title": "Fill 4 px", "list": "UI_COVER_30" },
+            { "code": "FE415", "title": "Fill 8 px", "list": "UI_COVER_30" },
+            { "code": "FE416", "title": "Fill 16 px", "list": "UI_COVER_30" },
+            { "code": "FE417", "title": "Fill 32 px", "list": "UI_COVER_30" },
+            { "code": "FE418", "title": "Fill 64 px", "list": "UI_COVER_30" },
+            { "code": "FE419", "title": "Fill 128 px", "list": "UI_COVER_30" }
           ]
         },
         {
@@ -1959,16 +2168,16 @@
           "height": 32,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE420", "list": "UI_COVER_32" },
-            { "code": "FE421", "list": "UI_COVER_32" },
-            { "code": "FE422", "list": "UI_COVER_32" },
-            { "code": "FE423", "list": "UI_COVER_32" },
-            { "code": "FE424", "list": "UI_COVER_32" },
-            { "code": "FE425", "list": "UI_COVER_32" },
-            { "code": "FE426", "list": "UI_COVER_32" },
-            { "code": "FE427", "list": "UI_COVER_32" },
-            { "code": "FE428", "list": "UI_COVER_32" },
-            { "code": "FE429", "list": "UI_COVER_32" }
+            { "code": "FE420", "title": "Outline", "list": "UI_COVER_32" },
+            { "code": "FE421", "title": "Rim", "list": "UI_COVER_32" },
+            { "code": "FE422", "title": "Fill 1 px", "list": "UI_COVER_32" },
+            { "code": "FE423", "title": "Fill 2 px", "list": "UI_COVER_32" },
+            { "code": "FE424", "title": "Fill 4 px", "list": "UI_COVER_32" },
+            { "code": "FE425", "title": "Fill 8 px", "list": "UI_COVER_32" },
+            { "code": "FE426", "title": "Fill 16 px", "list": "UI_COVER_32" },
+            { "code": "FE427", "title": "Fill 32 px", "list": "UI_COVER_32" },
+            { "code": "FE428", "title": "Fill 64 px", "list": "UI_COVER_32" },
+            { "code": "FE429", "title": "Fill 128 px", "list": "UI_COVER_32" }
           ]
         },
         {
@@ -1979,16 +2188,16 @@
           "height": 40,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE430", "list": "UI_COVER_40" },
-            { "code": "FE431", "list": "UI_COVER_40" },
-            { "code": "FE432", "list": "UI_COVER_40" },
-            { "code": "FE433", "list": "UI_COVER_40" },
-            { "code": "FE434", "list": "UI_COVER_40" },
-            { "code": "FE435", "list": "UI_COVER_40" },
-            { "code": "FE436", "list": "UI_COVER_40" },
-            { "code": "FE437", "list": "UI_COVER_40" },
-            { "code": "FE438", "list": "UI_COVER_40" },
-            { "code": "FE439", "list": "UI_COVER_40" }
+            { "code": "FE430", "title": "Outline", "list": "UI_COVER_40" },
+            { "code": "FE431", "title": "Rim", "list": "UI_COVER_40" },
+            { "code": "FE432", "title": "Fill 1 px", "list": "UI_COVER_40" },
+            { "code": "FE433", "title": "Fill 2 px", "list": "UI_COVER_40" },
+            { "code": "FE434", "title": "Fill 4 px", "list": "UI_COVER_40" },
+            { "code": "FE435", "title": "Fill 8 px", "list": "UI_COVER_40" },
+            { "code": "FE436", "title": "Fill 16 px", "list": "UI_COVER_40" },
+            { "code": "FE437", "title": "Fill 32 px", "list": "UI_COVER_40" },
+            { "code": "FE438", "title": "Fill 64 px", "list": "UI_COVER_40" },
+            { "code": "FE439", "title": "Fill 128 px", "list": "UI_COVER_40" }
           ]
         },
         {
@@ -1999,16 +2208,16 @@
           "height": 42,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE440", "list": "UI_COVER_42" },
-            { "code": "FE441", "list": "UI_COVER_42" },
-            { "code": "FE442", "list": "UI_COVER_42" },
-            { "code": "FE443", "list": "UI_COVER_42" },
-            { "code": "FE444", "list": "UI_COVER_42" },
-            { "code": "FE445", "list": "UI_COVER_42" },
-            { "code": "FE446", "list": "UI_COVER_42" },
-            { "code": "FE447", "list": "UI_COVER_42" },
-            { "code": "FE448", "list": "UI_COVER_42" },
-            { "code": "FE449", "list": "UI_COVER_42" }
+            { "code": "FE440", "title": "Outline", "list": "UI_COVER_42" },
+            { "code": "FE441", "title": "Rim", "list": "UI_COVER_42" },
+            { "code": "FE442", "title": "Fill 1 px", "list": "UI_COVER_42" },
+            { "code": "FE443", "title": "Fill 2 px", "list": "UI_COVER_42" },
+            { "code": "FE444", "title": "Fill 4 px", "list": "UI_COVER_42" },
+            { "code": "FE445", "title": "Fill 8 px", "list": "UI_COVER_42" },
+            { "code": "FE446", "title": "Fill 16 px", "list": "UI_COVER_42" },
+            { "code": "FE447", "title": "Fill 32 px", "list": "UI_COVER_42" },
+            { "code": "FE448", "title": "Fill 64 px", "list": "UI_COVER_42" },
+            { "code": "FE449", "title": "Fill 128 px", "list": "UI_COVER_42" }
           ]
         },
         {
@@ -2019,16 +2228,16 @@
           "height": 50,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE450", "list": "UI_COVER_50" },
-            { "code": "FE451", "list": "UI_COVER_50" },
-            { "code": "FE452", "list": "UI_COVER_50" },
-            { "code": "FE453", "list": "UI_COVER_50" },
-            { "code": "FE454", "list": "UI_COVER_50" },
-            { "code": "FE455", "list": "UI_COVER_50" },
-            { "code": "FE456", "list": "UI_COVER_50" },
-            { "code": "FE457", "list": "UI_COVER_50" },
-            { "code": "FE458", "list": "UI_COVER_50" },
-            { "code": "FE459", "list": "UI_COVER_50" }
+            { "code": "FE450", "title": "Outline", "list": "UI_COVER_50" },
+            { "code": "FE451", "title": "Rim", "list": "UI_COVER_50" },
+            { "code": "FE452", "title": "Fill 1 px", "list": "UI_COVER_50" },
+            { "code": "FE453", "title": "Fill 2 px", "list": "UI_COVER_50" },
+            { "code": "FE454", "title": "Fill 4 px", "list": "UI_COVER_50" },
+            { "code": "FE455", "title": "Fill 8 px", "list": "UI_COVER_50" },
+            { "code": "FE456", "title": "Fill 16 px", "list": "UI_COVER_50" },
+            { "code": "FE457", "title": "Fill 32 px", "list": "UI_COVER_50" },
+            { "code": "FE458", "title": "Fill 64 px", "list": "UI_COVER_50" },
+            { "code": "FE459", "title": "Fill 128 px", "list": "UI_COVER_50" }
           ]
         },
         {
@@ -2039,16 +2248,16 @@
           "height": 52,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE460", "list": "UI_COVER_52" },
-            { "code": "FE461", "list": "UI_COVER_52" },
-            { "code": "FE462", "list": "UI_COVER_52" },
-            { "code": "FE463", "list": "UI_COVER_52" },
-            { "code": "FE464", "list": "UI_COVER_52" },
-            { "code": "FE465", "list": "UI_COVER_52" },
-            { "code": "FE466", "list": "UI_COVER_52" },
-            { "code": "FE467", "list": "UI_COVER_52" },
-            { "code": "FE468", "list": "UI_COVER_52" },
-            { "code": "FE469", "list": "UI_COVER_52" }
+            { "code": "FE460", "title": "Outline", "list": "UI_COVER_52" },
+            { "code": "FE461", "title": "Rim", "list": "UI_COVER_52" },
+            { "code": "FE462", "title": "Fill 1 px", "list": "UI_COVER_52" },
+            { "code": "FE463", "title": "Fill 2 px", "list": "UI_COVER_52" },
+            { "code": "FE464", "title": "Fill 4 px", "list": "UI_COVER_52" },
+            { "code": "FE465", "title": "Fill 8 px", "list": "UI_COVER_52" },
+            { "code": "FE466", "title": "Fill 16 px", "list": "UI_COVER_52" },
+            { "code": "FE467", "title": "Fill 32 px", "list": "UI_COVER_52" },
+            { "code": "FE468", "title": "Fill 64 px", "list": "UI_COVER_52" },
+            { "code": "FE469", "title": "Fill 128 px", "list": "UI_COVER_52" }
           ]
         },
         {
@@ -2059,16 +2268,16 @@
           "height": 60,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE470", "list": "UI_COVER_60" },
-            { "code": "FE471", "list": "UI_COVER_60" },
-            { "code": "FE472", "list": "UI_COVER_60" },
-            { "code": "FE473", "list": "UI_COVER_60" },
-            { "code": "FE474", "list": "UI_COVER_60" },
-            { "code": "FE475", "list": "UI_COVER_60" },
-            { "code": "FE476", "list": "UI_COVER_60" },
-            { "code": "FE477", "list": "UI_COVER_60" },
-            { "code": "FE478", "list": "UI_COVER_60" },
-            { "code": "FE479", "list": "UI_COVER_60" }
+            { "code": "FE470", "title": "Outline", "list": "UI_COVER_60" },
+            { "code": "FE471", "title": "Rim", "list": "UI_COVER_60" },
+            { "code": "FE472", "title": "Fill 1 px", "list": "UI_COVER_60" },
+            { "code": "FE473", "title": "Fill 2 px", "list": "UI_COVER_60" },
+            { "code": "FE474", "title": "Fill 4 px", "list": "UI_COVER_60" },
+            { "code": "FE475", "title": "Fill 8 px", "list": "UI_COVER_60" },
+            { "code": "FE476", "title": "Fill 16 px", "list": "UI_COVER_60" },
+            { "code": "FE477", "title": "Fill 32 px", "list": "UI_COVER_60" },
+            { "code": "FE478", "title": "Fill 64 px", "list": "UI_COVER_60" },
+            { "code": "FE479", "title": "Fill 128 px", "list": "UI_COVER_60" }
           ]
         },
         {
@@ -2079,16 +2288,16 @@
           "height": 62,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE480", "list": "UI_COVER_62" },
-            { "code": "FE481", "list": "UI_COVER_62" },
-            { "code": "FE482", "list": "UI_COVER_62" },
-            { "code": "FE483", "list": "UI_COVER_62" },
-            { "code": "FE484", "list": "UI_COVER_62" },
-            { "code": "FE485", "list": "UI_COVER_62" },
-            { "code": "FE486", "list": "UI_COVER_62" },
-            { "code": "FE487", "list": "UI_COVER_62" },
-            { "code": "FE488", "list": "UI_COVER_62" },
-            { "code": "FE489", "list": "UI_COVER_62" }
+            { "code": "FE480", "title": "Outline", "list": "UI_COVER_62" },
+            { "code": "FE481", "title": "Rim", "list": "UI_COVER_62" },
+            { "code": "FE482", "title": "Fill 1 px", "list": "UI_COVER_62" },
+            { "code": "FE483", "title": "Fill 2 px", "list": "UI_COVER_62" },
+            { "code": "FE484", "title": "Fill 4 px", "list": "UI_COVER_62" },
+            { "code": "FE485", "title": "Fill 8 px", "list": "UI_COVER_62" },
+            { "code": "FE486", "title": "Fill 16 px", "list": "UI_COVER_62" },
+            { "code": "FE487", "title": "Fill 32 px", "list": "UI_COVER_62" },
+            { "code": "FE488", "title": "Fill 64 px", "list": "UI_COVER_62" },
+            { "code": "FE489", "title": "Fill 128 px", "list": "UI_COVER_62" }
           ]
         },
         {
@@ -2099,16 +2308,16 @@
           "height": 70,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE490", "list": "UI_COVER_70" },
-            { "code": "FE491", "list": "UI_COVER_70" },
-            { "code": "FE492", "list": "UI_COVER_70" },
-            { "code": "FE493", "list": "UI_COVER_70" },
-            { "code": "FE494", "list": "UI_COVER_70" },
-            { "code": "FE495", "list": "UI_COVER_70" },
-            { "code": "FE496", "list": "UI_COVER_70" },
-            { "code": "FE497", "list": "UI_COVER_70" },
-            { "code": "FE498", "list": "UI_COVER_70" },
-            { "code": "FE499", "list": "UI_COVER_70" }
+            { "code": "FE490", "title": "Outline", "list": "UI_COVER_70" },
+            { "code": "FE491", "title": "Rim", "list": "UI_COVER_70" },
+            { "code": "FE492", "title": "Fill 1 px", "list": "UI_COVER_70" },
+            { "code": "FE493", "title": "Fill 2 px", "list": "UI_COVER_70" },
+            { "code": "FE494", "title": "Fill 4 px", "list": "UI_COVER_70" },
+            { "code": "FE495", "title": "Fill 8 px", "list": "UI_COVER_70" },
+            { "code": "FE496", "title": "Fill 16 px", "list": "UI_COVER_70" },
+            { "code": "FE497", "title": "Fill 32 px", "list": "UI_COVER_70" },
+            { "code": "FE498", "title": "Fill 64 px", "list": "UI_COVER_70" },
+            { "code": "FE499", "title": "Fill 128 px", "list": "UI_COVER_70" }
           ]
         },
         {
@@ -2119,16 +2328,16 @@
           "height": 72,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE4A0", "list": "UI_COVER_72" },
-            { "code": "FE4A1", "list": "UI_COVER_72" },
-            { "code": "FE4A2", "list": "UI_COVER_72" },
-            { "code": "FE4A3", "list": "UI_COVER_72" },
-            { "code": "FE4A4", "list": "UI_COVER_72" },
-            { "code": "FE4A5", "list": "UI_COVER_72" },
-            { "code": "FE4A6", "list": "UI_COVER_72" },
-            { "code": "FE4A7", "list": "UI_COVER_72" },
-            { "code": "FE4A8", "list": "UI_COVER_72" },
-            { "code": "FE4A9", "list": "UI_COVER_72" }
+            { "code": "FE4A0", "title": "Outline", "list": "UI_COVER_72" },
+            { "code": "FE4A1", "title": "Rim", "list": "UI_COVER_72" },
+            { "code": "FE4A2", "title": "Fill 1 px", "list": "UI_COVER_72" },
+            { "code": "FE4A3", "title": "Fill 2 px", "list": "UI_COVER_72" },
+            { "code": "FE4A4", "title": "Fill 4 px", "list": "UI_COVER_72" },
+            { "code": "FE4A5", "title": "Fill 8 px", "list": "UI_COVER_72" },
+            { "code": "FE4A6", "title": "Fill 16 px", "list": "UI_COVER_72" },
+            { "code": "FE4A7", "title": "Fill 32 px", "list": "UI_COVER_72" },
+            { "code": "FE4A8", "title": "Fill 64 px", "list": "UI_COVER_72" },
+            { "code": "FE4A9", "title": "Fill 128 px", "list": "UI_COVER_72" }
           ]
         },
         {
@@ -2139,16 +2348,16 @@
           "height": 80,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE4B0", "list": "UI_COVER_80" },
-            { "code": "FE4B1", "list": "UI_COVER_80" },
-            { "code": "FE4B2", "list": "UI_COVER_80" },
-            { "code": "FE4B3", "list": "UI_COVER_80" },
-            { "code": "FE4B4", "list": "UI_COVER_80" },
-            { "code": "FE4B5", "list": "UI_COVER_80" },
-            { "code": "FE4B6", "list": "UI_COVER_80" },
-            { "code": "FE4B7", "list": "UI_COVER_80" },
-            { "code": "FE4B8", "list": "UI_COVER_80" },
-            { "code": "FE4B9", "list": "UI_COVER_80" }
+            { "code": "FE4B0", "title": "Outline", "list": "UI_COVER_80" },
+            { "code": "FE4B1", "title": "Rim", "list": "UI_COVER_80" },
+            { "code": "FE4B2", "title": "Fill 1 px", "list": "UI_COVER_80" },
+            { "code": "FE4B3", "title": "Fill 2 px", "list": "UI_COVER_80" },
+            { "code": "FE4B4", "title": "Fill 4 px", "list": "UI_COVER_80" },
+            { "code": "FE4B5", "title": "Fill 8 px", "list": "UI_COVER_80" },
+            { "code": "FE4B6", "title": "Fill 16 px", "list": "UI_COVER_80" },
+            { "code": "FE4B7", "title": "Fill 32 px", "list": "UI_COVER_80" },
+            { "code": "FE4B8", "title": "Fill 64 px", "list": "UI_COVER_80" },
+            { "code": "FE4B9", "title": "Fill 128 px", "list": "UI_COVER_80" }
           ]
         },
         {
@@ -2159,16 +2368,16 @@
           "height": 82,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE4C0", "list": "UI_COVER_82" },
-            { "code": "FE4C1", "list": "UI_COVER_82" },
-            { "code": "FE4C2", "list": "UI_COVER_82" },
-            { "code": "FE4C3", "list": "UI_COVER_82" },
-            { "code": "FE4C4", "list": "UI_COVER_82" },
-            { "code": "FE4C5", "list": "UI_COVER_82" },
-            { "code": "FE4C6", "list": "UI_COVER_82" },
-            { "code": "FE4C7", "list": "UI_COVER_82" },
-            { "code": "FE4C8", "list": "UI_COVER_82" },
-            { "code": "FE4C9", "list": "UI_COVER_82" }
+            { "code": "FE4C0", "title": "Outline", "list": "UI_COVER_82" },
+            { "code": "FE4C1", "title": "Rim", "list": "UI_COVER_82" },
+            { "code": "FE4C2", "title": "Fill 1 px", "list": "UI_COVER_82" },
+            { "code": "FE4C3", "title": "Fill 2 px", "list": "UI_COVER_82" },
+            { "code": "FE4C4", "title": "Fill 4 px", "list": "UI_COVER_82" },
+            { "code": "FE4C5", "title": "Fill 8 px", "list": "UI_COVER_82" },
+            { "code": "FE4C6", "title": "Fill 16 px", "list": "UI_COVER_82" },
+            { "code": "FE4C7", "title": "Fill 32 px", "list": "UI_COVER_82" },
+            { "code": "FE4C8", "title": "Fill 64 px", "list": "UI_COVER_82" },
+            { "code": "FE4C9", "title": "Fill 128 px", "list": "UI_COVER_82" }
           ]
         },
         {
@@ -2179,16 +2388,16 @@
           "height": 90,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE4D0", "list": "UI_COVER_90" },
-            { "code": "FE4D1", "list": "UI_COVER_90" },
-            { "code": "FE4D2", "list": "UI_COVER_90" },
-            { "code": "FE4D3", "list": "UI_COVER_90" },
-            { "code": "FE4D4", "list": "UI_COVER_90" },
-            { "code": "FE4D5", "list": "UI_COVER_90" },
-            { "code": "FE4D6", "list": "UI_COVER_90" },
-            { "code": "FE4D7", "list": "UI_COVER_90" },
-            { "code": "FE4D8", "list": "UI_COVER_90" },
-            { "code": "FE4D9", "list": "UI_COVER_90" }
+            { "code": "FE4D0", "title": "Outline", "list": "UI_COVER_90" },
+            { "code": "FE4D1", "title": "Rim", "list": "UI_COVER_90" },
+            { "code": "FE4D2", "title": "Fill 1 px", "list": "UI_COVER_90" },
+            { "code": "FE4D3", "title": "Fill 2 px", "list": "UI_COVER_90" },
+            { "code": "FE4D4", "title": "Fill 4 px", "list": "UI_COVER_90" },
+            { "code": "FE4D5", "title": "Fill 8 px", "list": "UI_COVER_90" },
+            { "code": "FE4D6", "title": "Fill 16 px", "list": "UI_COVER_90" },
+            { "code": "FE4D7", "title": "Fill 32 px", "list": "UI_COVER_90" },
+            { "code": "FE4D8", "title": "Fill 64 px", "list": "UI_COVER_90" },
+            { "code": "FE4D9", "title": "Fill 128 px", "list": "UI_COVER_90" }
           ]
         },
         {
@@ -2199,16 +2408,16 @@
           "height": 92,
           "ascent": 13,
           "glyphs": [
-            { "code": "FE4E0", "list": "UI_COVER_92" },
-            { "code": "FE4E1", "list": "UI_COVER_92" },
-            { "code": "FE4E2", "list": "UI_COVER_92" },
-            { "code": "FE4E3", "list": "UI_COVER_92" },
-            { "code": "FE4E4", "list": "UI_COVER_92" },
-            { "code": "FE4E5", "list": "UI_COVER_92" },
-            { "code": "FE4E6", "list": "UI_COVER_92" },
-            { "code": "FE4E7", "list": "UI_COVER_92" },
-            { "code": "FE4E8", "list": "UI_COVER_92" },
-            { "code": "FE4E9", "list": "UI_COVER_92" }
+            { "code": "FE4E0", "title": "Outline", "list": "UI_COVER_92" },
+            { "code": "FE4E1", "title": "Rim", "list": "UI_COVER_92" },
+            { "code": "FE4E2", "title": "Fill 1 px", "list": "UI_COVER_92" },
+            { "code": "FE4E3", "title": "Fill 2 px", "list": "UI_COVER_92" },
+            { "code": "FE4E4", "title": "Fill 4 px", "list": "UI_COVER_92" },
+            { "code": "FE4E5", "title": "Fill 8 px", "list": "UI_COVER_92" },
+            { "code": "FE4E6", "title": "Fill 16 px", "list": "UI_COVER_92" },
+            { "code": "FE4E7", "title": "Fill 32 px", "list": "UI_COVER_92" },
+            { "code": "FE4E8", "title": "Fill 64 px", "list": "UI_COVER_92" },
+            { "code": "FE4E9", "title": "Fill 128 px", "list": "UI_COVER_92" }
           ]
         }
       ],

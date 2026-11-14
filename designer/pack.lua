@@ -223,14 +223,16 @@ end
 
 -- The absolute paths { png, aseprite } of a texture of the model, or
 -- nil and the path that lies outside its folder: a PNG outside
--- resource-pack/src, a source outside resource-pack/art. join
+-- resource-pack/src, or outside resource-pack/build/generated for one
+-- the build draws, a source outside resource-pack/art. join
 -- normalizes, so .. in a path of the model counts.
 function pack.paths(clone, texture, join)
   local paths = {
     png=join(clone, "resource-pack", texture.png),
     aseprite=join(clone, "resource-pack", texture.aseprite),
   }
-  if not under(paths.png, join(clone, "resource-pack", "src")) then
+  local folder = texture.generated and join(clone, "resource-pack", "build", "generated") or join(clone, "resource-pack", "src")
+  if not under(paths.png, folder) then
     return nil, paths.png
   end
   if not under(paths.aseprite, join(clone, "resource-pack", "art")) then

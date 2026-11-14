@@ -184,7 +184,7 @@ class PublishTest {
         publish(clone).publish(listOf("nordtal:badges/comet.png"), "feat(resource-pack): a comet joins the badges")
 
         val (glyphs, pngs) = checked.single()
-        assertTrue(""""code": "FE002", "constant": "COMET"""" in glyphs.replace(Regex("\\s+"), " "), glyphs)
+        assertTrue(""""code": "FE002", "title": "Glyph", "constant": "COMET"""" in glyphs.replace(Regex("\\s+"), " "), glyphs)
         assertFalse("MOON" in glyphs)
         assertEquals(listOf("comet.png", "star.png"), pngs)
     }

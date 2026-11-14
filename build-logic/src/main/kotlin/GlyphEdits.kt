@@ -11,7 +11,7 @@ import javax.imageio.ImageIO
  * code points their final ones. Every change goes through [NewTextures.edit], so `glyphs.json` keeps its layout and rules.
  */
 object GlyphEdits {
-    private val KEYS = listOf("code", "constant", "name", "list", "texture", "height", "ascent", "status", "about")
+    private val KEYS = listOf("code", "title", "constant", "name", "list", "texture", "height", "ascent", "status", "about")
 
     private class Found(
         val block: OxfmtJson.Object,
@@ -87,8 +87,9 @@ object GlyphEdits {
             .toSet()
 
     /**
-     * Sets the [status], display [height], [ascent] and [about] of [glyph] that are not null. An empty status or about
-     * removes it, and a height or ascent equal to the block's leaves the glyph without its own.
+     * Sets the [title], [status], display [height], [ascent] and [about] of [glyph] that are not null. An empty status or
+     * about removes it, an empty title is refused, and a height or ascent equal to the block's leaves the glyph without
+     * its own.
      */
     fun edit(
         pack: File,
@@ -97,9 +98,14 @@ object GlyphEdits {
         height: Int? = null,
         ascent: Int? = null,
         about: String? = null,
+        title: String? = null,
     ): List<File> =
-        NewTextures.edit(pack, null, 0, 0) { root ->
+        NewTextures.edit(pack, null, 0, 0, refused = title?.let { "title" }) { root ->
             val target = find(root, glyph)
+            if (title != null) {
+                if (title.isBlank()) throw FieldRefusal("title", "A glyph needs a title.")
+                target.glyph["title"] = title.trim()
+            }
             require((height == null && ascent == null) || target.block["texture"] == null) {
                 "${target.label} is a cell of the sheet ${target.block["title"]}, which sets the display height and ascent of every cell."
             }
@@ -321,12 +327,27 @@ object GlyphEdits {
             (block["glyphs"] as List<*>?).orEmpty().map { block to it as OxfmtJson.Object }
         }
 
+    /** Finds [glyph] by its name or constant, or by its font and code, `nordtal:ui_panel/FE3A0`, as a glyph in a list alone. */
     private fun find(
         root: Map<*, *>,
         glyph: String,
-    ): Found =
-        entries(root).firstOrNull { (_, entry) -> entry["name"] == glyph || entry["constant"] == glyph }?.let { Found(it.first, it.second) }
+    ): Found {
+        val font = glyph.substringBeforeLast('/', "")
+        val code = glyph.substringAfterLast('/')
+        val found =
+            if (font.isEmpty()) {
+                entries(root).firstOrNull { (_, entry) -> entry["name"] == glyph || entry["constant"] == glyph }
+            } else {
+                NewTextures
+                    .fonts(root)
+                    .filter { it["font"] == font }
+                    .flatMap { (it["blocks"] as List<*>?).orEmpty().map { block -> block as OxfmtJson.Object } }
+                    .flatMap { block -> (block["glyphs"] as List<*>?).orEmpty().map { block to it as OxfmtJson.Object } }
+                    .firstOrNull { (_, entry) -> (entry["code"] as String?).equals(code, ignoreCase = true) }
+            }
+        return found?.let { Found(it.first, it.second) }
             ?: throw IllegalArgumentException("glyphs.json has no glyph named $glyph or with the constant $glyph.")
+    }
 
     /** The PNG of [texture] under `src/` and its `.aseprite` source under `art/`. */
     internal fun sources(

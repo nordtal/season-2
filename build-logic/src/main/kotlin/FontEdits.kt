@@ -141,7 +141,8 @@ object FontEdits {
                 if (code !in NewTextures.range(target)) {
                     throw FieldRefusal("constants", "The sheet $block of $font has no free code point left in ${target["range"]}.")
                 }
-                glyphs += linkedMapOf("code" to "%X".format(code), "constant" to constant.trim())
+                glyphs +=
+                    linkedMapOf("code" to "%X".format(code), "title" to NewTextures.titleOf(constant.trim()), "constant" to constant.trim())
             }
         }
     }

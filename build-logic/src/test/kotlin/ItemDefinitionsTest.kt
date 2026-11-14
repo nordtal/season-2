@@ -692,6 +692,8 @@ class ItemDefinitionsTest {
                                     mapOf(
                                         "id" to "nordtal:item/wand.png",
                                         "png" to "src/assets/nordtal/textures/item/wand.png",
+                                        "pngExists" to true,
+                                        "generated" to false,
                                         "aseprite" to "art/assets/nordtal/textures/item/wand.aseprite",
                                         "asepriteExists" to false,
                                         "draft" to null,

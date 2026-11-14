@@ -42,7 +42,7 @@ class GlyphEditsTest {
                   "texture": "nordtal:icons.png",
                   "height": 8,
                   "ascent": 7,
-                  "glyphs": [{ "code": "FE020", "constant": "SPAWN", "name": "spawn" }]
+                  "glyphs": [{ "code": "FE020", "title": "Glyph", "constant": "SPAWN", "name": "spawn" }]
                 }
               ]
             },
@@ -59,7 +59,7 @@ class GlyphEditsTest {
         code: String,
         name: String,
         constant: String = name.uppercase().replace('-', '_'),
-    ) = """{ "code": "$code", "constant": "$constant", "name": "$name", "texture": "nordtal:badges/$name.png" }"""
+    ) = """{ "code": "$code", "title": "Glyph", "constant": "$constant", "name": "$name", "texture": "nordtal:badges/$name.png" }"""
 
     @BeforeEach
     fun fixture() {
@@ -217,7 +217,7 @@ class GlyphEditsTest {
                     ((it[0] as Map<*, *>)["glyphs"] as List<*>)[0] as Map<*, *>
                 }
             }
-        assertEquals(listOf("code", "constant", "name", "texture"), entry.keys.toList())
+        assertEquals(listOf("code", "title", "constant", "name", "texture"), entry.keys.toList())
     }
 
     @Test
@@ -272,7 +272,7 @@ class GlyphEditsTest {
             glyphs(badge("FE000", "star", "BADGE_STAR")).replace(
                 """{ "range": "FE040-FE04F", "title": "Bars", "height": 5, "ascent": 5, "glyphs": [] }""",
                 """{ "range": "FE040-FE04F", "title": "Bars", "height": 5, "ascent": 5, "glyphs": [] },
-                   { "range": "FE050-FE05F", "title": "Hearts", "height": 5, "ascent": 5, "glyphs": [{ "code": "FE050", "constant": "HEART", "texture": "nordtal:heart.png" }] }""",
+                   { "range": "FE050-FE05F", "title": "Hearts", "height": 5, "ascent": 5, "glyphs": [{ "code": "FE050", "title": "Glyph", "constant": "HEART", "texture": "nordtal:heart.png" }] }""",
             ),
         )
         val main =
@@ -291,10 +291,10 @@ class GlyphEditsTest {
 
     private fun icons(vararg cells: String) =
         glyphs(badge("FE000", "star", "BADGE_STAR"), badge("FE001", "moon")).replace(
-            """[{ "code": "FE020", "constant": "SPAWN", "name": "spawn" }]""",
+            """[{ "code": "FE020", "title": "Glyph", "constant": "SPAWN", "name": "spawn" }]""",
             "[" +
                 cells.withIndex().joinToString(", ") { (index, name) ->
-                    """{ "code": "FE02$index", "constant": "${name.uppercase()}", "name": "$name" }"""
+                    """{ "code": "FE02$index", "title": "Glyph", "constant": "${name.uppercase()}", "name": "$name" }"""
                 } + "]",
         )
 
@@ -320,7 +320,7 @@ class GlyphEditsTest {
     @Test
     fun aBlockOfMainIsMatchedByItsRangeAndTitleNotItsTitleAlone() {
         val bars = """{ "range": "FE040-FE04F", "title": "Bars", "height": 5, "ascent": 5, "glyphs": [] }"""
-        val heart = """{ "code": "%s", "constant": "HEART", "texture": "nordtal:heart.png" }"""
+        val heart = """{ "code": "%s", "title": "Glyph", "constant": "HEART", "texture": "nordtal:heart.png" }"""
         allocation.writeText(
             glyphs(badge("FE000", "star", "BADGE_STAR")).replace(
                 bars,
@@ -446,11 +446,36 @@ class GlyphEditsTest {
     }
 
     @Test
+    fun anEditSetsTheTitleOfAGlyphAndRefusesAnEmptyOne() {
+        GlyphEdits.edit(pack, "star", title = "Gold star")
+
+        assertEquals("Gold star", glyph("star").title)
+        assertEquals("title", assertThrows<FieldRefusal> { GlyphEdits.edit(pack, "star", title = " ") }.field)
+    }
+
+    @Test
+    fun anEditFindsAGlyphInAListAloneByItsFontAndCode() {
+        allocation.writeText(
+            allocation.readText().replace(
+                """"title": "Bars", "height": 5, "ascent": 5, "glyphs": [] }]""",
+                """"title": "Bars", "height": 5, "ascent": 5, "glyphs": [{ "code": "FE040", "title": "Bar", "list": "BARS", "texture": "nordtal:hud/bar.png" }] }],
+                  "lists": [{ "constant": "BARS" }]""",
+            ),
+        )
+
+        GlyphEdits.edit(pack, "nordtal:hud/FE040", title = "Bar, full", about = "A full bar.")
+
+        assertTrue(""""title": "Bar, full"""" in allocation.readText(), allocation.readText())
+        assertTrue(""""about": "A full bar."""" in allocation.readText(), allocation.readText())
+        assertThrows<IllegalArgumentException> { GlyphEdits.edit(pack, "minecraft:default/FE040", title = "Bar") }
+    }
+
+    @Test
     fun anEditLeavesWhatItIsNotGivenAndKeepsTheOrderOfTheKeys() {
         GlyphEdits.edit(pack, "star", about = "A star.")
         GlyphEdits.edit(pack, "star", height = 10)
 
-        assertEquals(listOf("code", "constant", "name", "texture", "height", "about"), entry(0).keys.toList())
+        assertEquals(listOf("code", "title", "constant", "name", "texture", "height", "about"), entry(0).keys.toList())
         assertEquals("A star.", glyph("star").about)
     }
 
@@ -460,7 +485,7 @@ class GlyphEditsTest {
 
         GlyphEdits.edit(pack, "star", status = "", height = 8, ascent = 6, about = "")
 
-        assertEquals(listOf("code", "constant", "name", "texture"), entry(0).keys.toList())
+        assertEquals(listOf("code", "title", "constant", "name", "texture"), entry(0).keys.toList())
     }
 
     @Test

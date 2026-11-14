@@ -104,7 +104,13 @@ class NewTexturesTest {
         NewTextures.glyph(pack, "minecraft:default", "Badges", "nordtal:badges/sun.png", null, "sun", 9, 7, title = "Sun, rising")
         NewTextures.glyph(pack, "nordtal:hud", "Bars", "nordtal:hud/bar.png", "BAR_END_LEFT", null, 4, 4, ascent = 3)
 
-        val glyphs = GlyphAllocation.read(allocation).fonts.flatMap { it.glyphs }.filter { it.title != "Glyph" }.map { it.title }
+        val glyphs =
+            GlyphAllocation
+                .read(allocation)
+                .fonts
+                .flatMap { it.glyphs }
+                .filter { it.title != "Glyph" }
+                .map { it.title }
         assertEquals(listOf("Half moon", "Sun, rising", "Bar end left"), glyphs)
     }
 
@@ -114,7 +120,12 @@ class NewTexturesTest {
 
         NewTextures.sheet(pack, "nordtal:hud", "Arrows", "nordtal:hud/arrows.png", listOf("ARROW_UP", "ARROW_DOWN"), 4, 4, 3)
 
-        val sheet = GlyphAllocation.read(allocation).fonts[1].blocks.single { it.title == "Arrows" }
+        val sheet =
+            GlyphAllocation
+                .read(allocation)
+                .fonts[1]
+                .blocks
+                .single { it.title == "Arrows" }
         assertEquals(listOf("Arrow up", "Arrow down"), sheet.glyphs.map { it.title })
     }
 

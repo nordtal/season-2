@@ -246,7 +246,18 @@ class GlyphAllocation private constructor(
             if (title != null && (title.contains('[') || title.contains(']'))) {
                 glyph.problem("'title' has a square bracket, which ends the designer's glyph token")
             }
-            return Glyph(code, constant, glyph.string("name"), title, list, texture, height ?: 0, ascent ?: 0, status, glyph.string("about"))
+            return Glyph(
+                code,
+                constant,
+                glyph.string("name"),
+                title,
+                list,
+                texture,
+                height ?: 0,
+                ascent ?: 0,
+                status,
+                glyph.string("about"),
+            )
         }
 
         private fun texture(

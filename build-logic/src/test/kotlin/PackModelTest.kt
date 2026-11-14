@@ -54,7 +54,12 @@ class PackModelTest {
         )
         png("build/generated/chest-panels/assets/nordtal/textures/ui/kit/chest_1.png", 176, 148)
 
-        val model = PackModel.of(GlyphAllocation.read(pack.resolve("glyphs.json")), pack, generated = listOf(pack.resolve("build/generated/chest-panels")))
+        val model =
+            PackModel.of(
+                GlyphAllocation.read(pack.resolve("glyphs.json")),
+                pack,
+                generated = listOf(pack.resolve("build/generated/chest-panels")),
+            )
         val (drawn, absent) = only(only(model.list("fonts")).list("blocks")).list("glyphs").map { it.map("texture") }
 
         assertEquals("build/generated/chest-panels/assets/nordtal/textures/ui/kit/chest_1.png", drawn["png"])

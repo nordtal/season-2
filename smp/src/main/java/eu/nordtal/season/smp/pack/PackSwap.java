@@ -4,19 +4,17 @@ import eu.nordtal.season.database.access.PackExemptions;
 import eu.nordtal.season.database.inbox.Inbox;
 import eu.nordtal.season.database.inbox.Outcome;
 import eu.nordtal.season.database.inbox.SmpRequest;
+import eu.nordtal.season.database.pack.PackId;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import javax.sql.DataSource;
 import net.kyori.adventure.resource.ResourcePackInfo;
@@ -46,21 +44,17 @@ public final class PackSwap implements Listener {
     private final PackExemptions exemptions;
     private final Logger log;
 
-    // The players still loading the pack of the swap under way, by player. Main thread only.
-    private final Map<UUID, Loading> loading = new HashMap<>();
+    /** The longest the hub's thread waits for the main thread's list of the players here. */
+    private static final Duration LIST = Duration.ofSeconds(10);
 
-    private record Loading(long request, UUID pack, long sent) {}
+    // The players still loading the pack of a swap. Main thread only.
+    private final SwapHolds holds = new SwapHolds();
 
     public PackSwap(final Plugin plugin, final DataSource pool) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.inbox = Inbox.over(pool, SmpRequest.TABLE);
         this.exemptions = PackExemptions.using(pool);
         this.log = plugin.getLogger();
-    }
-
-    /** Returns the id the proxy gives the pack of {@code sha1}, so a client holds one pack for it, not two. */
-    static UUID idOf(final String sha1) {
-        return UUID.nameUUIDFromBytes(sha1.toLowerCase(Locale.ROOT).getBytes(StandardCharsets.US_ASCII));
     }
 
     /**
@@ -70,19 +64,20 @@ public final class PackSwap implements Listener {
     public Answer send(final long request, final String url, final String sha1) {
         final List<UUID> here = onMainList();
         final Set<UUID> exempt = exemptions.exemptAmong(here);
+        final UUID id = PackId.of(sha1);
         final ResourcePackRequest pack = ResourcePackRequest.resourcePackRequest()
-                .packs(ResourcePackInfo.resourcePackInfo(idOf(sha1), URI.create(url), sha1))
+                .packs(ResourcePackInfo.resourcePackInfo(id, URI.create(url), sha1))
                 .replace(true)
                 .required(true)
                 .build();
         PaperScheduler.of(plugin).onMain(() -> {
             int sent = 0;
-            for (final UUID id : here) {
-                final Player player = plugin.getServer().getPlayer(id);
-                if (player == null || exempt.contains(id)) {
+            for (final UUID uuid : here) {
+                final Player player = plugin.getServer().getPlayer(uuid);
+                if (player == null || exempt.contains(uuid)) {
                     continue;
                 }
-                loading.put(id, new Loading(request, idOf(sha1), System.nanoTime()));
+                holds.hold(uuid, request, id, System.nanoTime()).ifPresent(this::settle);
                 player.sendResourcePacks(pack);
                 sent++;
             }
@@ -103,64 +98,47 @@ public final class PackSwap implements Listener {
                 .onMain(() -> online.complete(plugin.getServer().getOnlinePlayers().stream()
                         .map(Player::getUniqueId)
                         .toList()));
-        return online.join();
+        return online.orTimeout(LIST.toMillis(), TimeUnit.MILLISECONDS).join();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onStatus(final PlayerResourcePackStatusEvent event) {
-        final Loading held = loading.get(event.getPlayer().getUniqueId());
-        if (held == null || !held.pack().equals(event.getID()) || !isFinal(event.getStatus())) {
-            return;
-        }
-        loading.remove(event.getPlayer().getUniqueId());
-        log.info("pack swap answered: request=" + held.request() + " player="
-                + event.getPlayer().getName() + " status=" + event.getStatus() + " ms="
-                + (System.nanoTime() - held.sent()) / 1_000_000);
-        settleIfDone(held.request());
+        holds.answer(event.getPlayer().getUniqueId(), event.getID(), event.getStatus(), System.nanoTime())
+                .ifPresent(answered -> {
+                    log.info("pack swap answered: request=" + answered.request() + " player="
+                            + event.getPlayer().getName() + " status=" + event.getStatus() + " ms="
+                            + answered.millis());
+                    if (answered.last()) {
+                        settle(answered.request());
+                    }
+                });
     }
 
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
-        final Loading held = loading.remove(event.getPlayer().getUniqueId());
-        if (held != null) {
-            settleIfDone(held.request());
-        }
+        holds.leave(event.getPlayer().getUniqueId()).ifPresent(this::settle);
     }
 
     /** Keeps a loading player in place, while they may still turn their head. */
     @EventHandler(ignoreCancelled = true)
     public void onMove(final PlayerMoveEvent event) {
-        if (loading.containsKey(event.getPlayer().getUniqueId()) && event.hasChangedPosition()) {
+        if (holds.holds(event.getPlayer().getUniqueId()) && event.hasChangedPosition()) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onDamage(final EntityDamageEvent event) {
-        if (event.getEntity() instanceof Player player && loading.containsKey(player.getUniqueId())) {
+        if (event.getEntity() instanceof Player player && holds.holds(player.getUniqueId())) {
             event.setCancelled(true);
         }
     }
 
-    static boolean isFinal(final PlayerResourcePackStatusEvent.Status status) {
-        return switch (status) {
-            case SUCCESSFULLY_LOADED, DECLINED, FAILED_DOWNLOAD, INVALID_URL, FAILED_RELOAD, DISCARDED -> true;
-            case ACCEPTED, DOWNLOADED -> false;
-        };
-    }
-
     /** Lets go of every player of {@code request} who is still loading once the hold ran out. */
     private void release(final long request) {
-        final int before = loading.size();
-        loading.values().removeIf(held -> held.request() == request);
-        if (before != loading.size()) {
-            log.warning("pack swap hold ran out: request=" + request + " players=" + (before - loading.size()));
-            settle(request);
-        }
-    }
-
-    private void settleIfDone(final long request) {
-        if (loading.values().stream().noneMatch(held -> held.request() == request)) {
+        final int released = holds.release(request);
+        if (released > 0) {
+            log.warning("pack swap hold ran out: request=" + request + " players=" + released);
             settle(request);
         }
     }

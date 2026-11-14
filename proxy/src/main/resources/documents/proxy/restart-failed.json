@@ -4,6 +4,34 @@
       "type": "TEXT",
       "lines": [
         {
+          "when": "occasion=update",
+          "text": {
+            "en": "<bad>{@values.occasion} failed.</bad> <muted>You stay here. It is tried again.</muted>",
+            "de": "<bad>{@values.occasion} ist fehlgeschlagen.</bad> <muted>Du bleibst hier. Es wird erneut versucht.</muted>"
+          }
+        },
+        {
+          "when": "occasion=recreate",
+          "text": {
+            "en": "<bad>{@values.occasion} failed.</bad> <muted>You stay here. It is tried again.</muted>",
+            "de": "<bad>{@values.occasion} ist fehlgeschlagen.</bad> <muted>Du bleibst hier. Es wird erneut versucht.</muted>"
+          }
+        },
+        {
+          "when": "occasion=backup",
+          "text": {
+            "en": "<bad>{@values.occasion} failed.</bad> <muted>You stay here. It is tried again.</muted>",
+            "de": "<bad>{@values.occasion} ist fehlgeschlagen.</bad> <muted>Du bleibst hier. Es wird erneut versucht.</muted>"
+          }
+        },
+        {
+          "when": "occasion=down",
+          "text": {
+            "en": "<bad>{@values.occasion} failed.</bad> <muted>You stay here. It is tried again.</muted>",
+            "de": "<bad>{@values.occasion} ist fehlgeschlagen.</bad> <muted>Du bleibst hier. Es wird erneut versucht.</muted>"
+          }
+        },
+        {
           "when": "occasion=pack",
           "text": {
             "en": "<bad>The resource pack update failed.</bad> <muted>You keep the pack you have.</muted>",
@@ -11,6 +39,7 @@
           }
         },
         {
+          "when": "occasion=maintenance",
           "text": {
             "en": "<bad>{@values.occasion} failed.</bad> <muted>You stay here. It is tried again.</muted>",
             "de": "<bad>{@values.occasion} ist fehlgeschlagen.</bad> <muted>Du bleibst hier. Es wird erneut versucht.</muted>"

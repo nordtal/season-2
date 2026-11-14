@@ -67,6 +67,20 @@ class RestartLinesRenderTest {
     }
 
     @Test
+    void aFailedSwapSaysOnlyThatThePlayerKeepsTheirPack() {
+        final String text = plain(Locale.ENGLISH, RestartWatch.FAILED.with(new RestartWatch.Occasioned(Occasion.PACK)));
+        assertEquals("The resource pack update failed. You keep the pack you have.", text);
+    }
+
+    @Test
+    void everyOccasionHasAFailedLine() {
+        for (final Occasion occasion : Occasion.values()) {
+            final String text = plain(Locale.ENGLISH, RestartWatch.FAILED.with(new RestartWatch.Occasioned(occasion)));
+            assertTrue(text.contains("failed"), occasion + ": " + text);
+        }
+    }
+
+    @Test
     void aServiceWithNoLineOfItsOwnIsNamedByItsComposeName() {
         for (final Locale locale : LOCALES) {
             final String text = plain(locale, RestartWatch.now(Occasion.RECREATE, "steward"));

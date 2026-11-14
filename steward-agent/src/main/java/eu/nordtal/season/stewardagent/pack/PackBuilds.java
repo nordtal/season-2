@@ -129,9 +129,7 @@ public final class PackBuilds {
             final Scheduler scheduler,
             final Clock clock)
             throws IOException {
-        final URLClassLoader loader =
-                new URLClassLoader(new URL[] {image.resolve("documents").toUri().toURL()}, null);
-        final AppliedDocuments documents = new AppliedDocuments(loader, Set.of(NAMESPACE));
+        final AppliedDocuments documents = imageDocuments(image);
         final Path prizes = image.resolve("wheel-prizes.json");
         Files.createDirectories(shelf);
         final PackBuilds builds = new PackBuilds(
@@ -354,6 +352,13 @@ public final class PackBuilds {
                     facts, Stream.concat(roots.stream(), code.stream()).toList());
         }
         return image;
+    }
+
+    /** The smp documents of the image, which keeps them under {@code documents/smp/} as smp's jar does. */
+    static AppliedDocuments imageDocuments(final Path image) throws IOException {
+        final URLClassLoader loader =
+                new URLClassLoader(new URL[] {image.toUri().toURL()}, null);
+        return new AppliedDocuments(loader, Set.of(NAMESPACE));
     }
 
     /** Returns the jar the pack builder runs from, none when it runs from a folder of classes, as in a test. */

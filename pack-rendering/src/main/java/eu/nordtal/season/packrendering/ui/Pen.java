@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.HoverEventSource;
 import net.kyori.adventure.text.format.ShadowColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.jspecify.annotations.Nullable;
@@ -74,6 +75,19 @@ public final class Pen {
         }
         put(font, Colours.ART, glyph, width + 1);
         return move(-1);
+    }
+
+    /** Draws {@code glyph} as {@link #art(String, String, int)} does, showing {@code hover} under the mouse. */
+    public Pen art(final String font, final String glyph, final int width, final HoverEventSource<?> hover) {
+        if (layer == Layer.INK) {
+            return move(width);
+        }
+        final Component piece = Component.text(glyph)
+                .font(Key.key(font))
+                .color(Colours.ART)
+                .shadowColor(ShadowColor.none())
+                .hoverEvent(hover);
+        return append(piece, width + 1).move(-1);
     }
 
     /** Draws {@code text} in the ui text font {@code shift} pixels below the text row, and moves by its advance. */

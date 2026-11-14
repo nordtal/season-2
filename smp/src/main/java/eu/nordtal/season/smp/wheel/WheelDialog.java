@@ -27,7 +27,6 @@ import java.util.List;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.format.ShadowColor;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
@@ -220,14 +219,7 @@ final class WheelDialog {
                 .filter(hover -> hover.getValue().body() == body)
                 .sorted(Comparator.comparingInt(hover -> hover.getValue().x()))
                 .forEach(hover -> pen.moveTo(hover.getValue().x())
-                        .append(
-                                Component.text(glyph)
-                                        .font(Key.key(font))
-                                        .color(Colours.ART)
-                                        .shadowColor(ShadowColor.none())
-                                        .hoverEvent(resting.get(hover.getKey()).asHoverEvent()),
-                                HOVER + 1)
-                        .move(-1));
+                        .art(font, glyph, HOVER, resting.get(hover.getKey()).asHoverEvent()));
         return pen;
     }
 

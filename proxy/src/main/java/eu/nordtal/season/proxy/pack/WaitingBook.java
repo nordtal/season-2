@@ -5,8 +5,10 @@ import eu.nordtal.season.proxy.ProxyRole;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
@@ -36,6 +38,9 @@ public final class WaitingBook {
 
         /** The SHA-1 of the newest pack offered to the player. */
         private @Nullable String offeredSha1;
+
+        /** The SHA-1s of pending offers that a newer one replaced, which go once the client applies them. */
+        private final Set<String> replacedSha1s = new HashSet<>();
 
         /** The SHA-1 of the pack the client last reported as applied. */
         private @Nullable String appliedSha1;
@@ -134,8 +139,20 @@ public final class WaitingBook {
     public boolean claimOffer(final UUID uuid, final String sha1) {
         final Session session = session(uuid);
         synchronized (session) {
+            if (!session.exempt
+                    && sha1.equals(session.appliedSha1)
+                    && session.offeredSha1 != null
+                    && !sha1.equals(session.offeredSha1)) {
+                // The pack went back to the applied one while another waited: that one is replaced, nothing is sent.
+                session.replacedSha1s.add(session.offeredSha1);
+                session.offeredSha1 = sha1;
+                return false;
+            }
             if (!PackHash.owed(session.exempt, session.appliedSha1, session.offeredSha1, sha1)) {
                 return false;
+            }
+            if (session.offeredSha1 != null && !session.offeredSha1.equals(session.appliedSha1)) {
+                session.replacedSha1s.add(session.offeredSha1);
             }
             session.offeredSha1 = sha1;
             session.offeredAt = clock.instant();
@@ -159,8 +176,66 @@ public final class WaitingBook {
      * A client that names no pack answers about the newest.
      */
     public boolean answersNewestOffer(final UUID uuid, final @Nullable UUID packId) {
-        final Optional<String> offered = offeredSha1(uuid);
-        return offered.isPresent() && (packId == null || packId.equals(PackOffer.idOf(offered.get())));
+        return newestAnswered(uuid, packId).isPresent();
+    }
+
+    /** Returns the SHA-1 of the newest offer if the answer about {@code packId} is about it, read in one step. */
+    public Optional<String> newestAnswered(final UUID uuid, final @Nullable UUID packId) {
+        final Session session = sessions.get(uuid);
+        if (session == null) {
+            return Optional.empty();
+        }
+        synchronized (session) {
+            final String offered = session.offeredSha1;
+            return offered != null && (packId == null || packId.equals(PackOffer.idOf(offered)))
+                    ? Optional.of(offered)
+                    : Optional.empty();
+        }
+    }
+
+    /**
+     * The newest offer an answer applied, and the pack applied before it if that was another one.
+     *
+     * @param before the pack the caller removes from the client, or {@code null}
+     */
+    public record Applied(String sha1, @Nullable String before) {}
+
+    /**
+     * Records the newest offer as applied if the answer about {@code packId} is about it, in one step with the match.
+     * A pack change between the two cannot then record an offer the client never answered.
+     */
+    public Optional<Applied> newestApplied(final UUID uuid, final @Nullable UUID packId) {
+        final Session session = sessions.get(uuid);
+        if (session == null) {
+            return Optional.empty();
+        }
+        synchronized (session) {
+            final String offered = session.offeredSha1;
+            if (offered == null || (packId != null && !packId.equals(PackOffer.idOf(offered)))) {
+                return Optional.empty();
+            }
+            final String before = session.appliedSha1;
+            session.appliedSha1 = offered;
+            return Optional.of(new Applied(offered, before == null || before.equals(offered) ? null : before));
+        }
+    }
+
+    /**
+     * Returns the SHA-1 of the pending offer a newer one replaced that {@code packId} names, and forgets it.
+     * The caller then removes it from the client; a pack a backend sent is never such an offer.
+     */
+    public Optional<String> takeReplaced(final UUID uuid, final @Nullable UUID packId) {
+        final Session session = sessions.get(uuid);
+        if (session == null || packId == null) {
+            return Optional.empty();
+        }
+        synchronized (session) {
+            final Optional<String> replaced = session.replacedSha1s.stream()
+                    .filter(sha1 -> packId.equals(PackOffer.idOf(sha1)))
+                    .findFirst();
+            replaced.ifPresent(session.replacedSha1s::remove);
+            return replaced;
+        }
     }
 
     /**

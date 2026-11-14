@@ -9,6 +9,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
+import com.velocitypowered.api.proxy.player.ResourcePackInfo;
 import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.limboprotocol.LimboProtocol;
 import eu.nordtal.season.limboprotocol.WaitReason;
@@ -17,6 +18,7 @@ import eu.nordtal.season.proxy.gate.BackendHealth;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import eu.nordtal.season.proxy.routing.SeasonRouting;
 import eu.nordtal.season.proxy.season.SeasonWatch;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -33,7 +35,7 @@ import org.slf4j.Logger;
 
 /**
  * Keeps each player in {@code limbo} until the pack is applied and the server of the active mode accepts them.
- * Each handler records a fact and asks {@link WaitingBook}.
+ * A changed pack is offered to every player there at once. Each handler records a fact and asks {@link WaitingBook}.
  */
 public final class PackStation {
 
@@ -153,23 +155,54 @@ public final class PackStation {
         evaluate(player);
     }
 
-    private void sendOfferIfNeeded(final Player player) {
+    /**
+     * Offers a changed pack at once to every player already in the waiting room, as a new arrival gets it.
+     * Players elsewhere keep their pack until their next visit there, or until a live swap on the SMP.
+     *
+     * @return the number of players offered the pack
+     */
+    public int packChanged() {
+        int offered = 0;
+        for (final Player player : proxy.getAllPlayers()) {
+            if (onLimbo(player) && sendOfferIfNeeded(player)) {
+                logger.info(
+                        "changed resource pack offered: player={} sha1={}",
+                        player.getUsername(),
+                        config.get().sha1());
+                evaluate(player);
+                offered++;
+            }
+        }
+        return offered;
+    }
+
+    /** Offers the pack unless the player is exempt, has it or waits for its answer, and returns whether it did. */
+    private boolean sendOfferIfNeeded(final Player player) {
         final PackSpec spec = config.get();
         if (!spec.enabled()) {
-            return;
+            return false;
         }
         if (roster.isPackExempt(player.getUniqueId())) {
             if (book.packExempt(player.getUniqueId())) {
                 logger.info("resource pack offer skipped, player exempt: player={}", player.getUsername());
             }
-            return;
+            return false;
         }
         final PackOffer current = offerOf(spec);
         if (!book.claimOffer(player.getUniqueId(), current.sha1())) {
-            return;
+            return false;
         }
-        player.sendResourcePackOffer(current.forLocale(localeOf(player)));
+        final ResourcePackInfo offer = current.forLocale(localeOf(player));
+        if (player.getAppliedResourcePacks().stream()
+                .anyMatch(pack -> Arrays.equals(pack.getHash(), offer.getHash()))) {
+            // Velocity refuses an offer of a pack it already counts as applied, so the book takes it as applied.
+            logger.info("resource pack already applied: player={} sha1={}", player.getUsername(), current.sha1());
+            replace(player, current.sha1());
+            return false;
+        }
+        player.sendResourcePackOffer(offer);
         logger.debug("resource pack offered: player={} sha1={}", player.getUsername(), current.sha1());
+        return true;
     }
 
     /** Returns the offer of the pack {@code spec} names, keeping the last one while the settings stay. */
@@ -186,14 +219,36 @@ public final class PackStation {
     /** Records the applied pack and removes the one it replaced from the client. */
     private void applied(final Player player, final @Nullable UUID packId) {
         final UUID uuid = player.getUniqueId();
-        if (!book.answersNewestOffer(uuid, packId)) {
-            logger.debug("resource pack applied that is not the newest offer: player={}", player.getUsername());
+        final Optional<WaitingBook.Applied> newest = book.newestApplied(uuid, packId);
+        if (newest.isEmpty()) {
+            // A newer offer replaced this pack before it was applied, so it goes again at once.
+            book.takeReplaced(uuid, packId)
+                    .ifPresentOrElse(
+                            replaced -> {
+                                player.removeResourcePacks(PackOffer.idOf(replaced));
+                                logger.info(
+                                        "replaced resource pack removed: player={} sha1={}",
+                                        player.getUsername(),
+                                        replaced);
+                            },
+                            () -> logger.debug(
+                                    "resource pack applied that is not the newest offer: player={}",
+                                    player.getUsername()));
             return;
         }
-        final String offered = book.offeredSha1(uuid).orElseThrow();
-        book.packApplied(uuid, offered).ifPresent(before -> {
+        final WaitingBook.Applied applied = newest.get();
+        final String before = applied.before();
+        if (before != null) {
             player.removeResourcePacks(PackOffer.idOf(before));
-            logger.info("resource pack replaced: player={} sha1={}", player.getUsername(), offered);
+            logger.info("resource pack replaced: player={} sha1={}", player.getUsername(), applied.sha1());
+        }
+    }
+
+    /** Records {@code sha1} as applied and removes the pack it replaced from the client. */
+    private void replace(final Player player, final String sha1) {
+        book.packApplied(player.getUniqueId(), sha1).ifPresent(before -> {
+            player.removeResourcePacks(PackOffer.idOf(before));
+            logger.info("resource pack replaced: player={} sha1={}", player.getUsername(), sha1);
         });
     }
 

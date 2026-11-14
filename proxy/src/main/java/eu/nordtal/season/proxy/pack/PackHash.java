@@ -4,9 +4,8 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Decides from the SHA-1 a player applied whether the pack is owed.
- *
- * A new pack is offered at the next connect to the waiting room, and a pack the client applied is not offered again.
+ * Decides from the SHA-1 a player applied whether the pack is owed; a pack the client applied is not owed again.
+ * It is asked when a player enters the waiting room and, on a change, for every player there.
  */
 final class PackHash {
 

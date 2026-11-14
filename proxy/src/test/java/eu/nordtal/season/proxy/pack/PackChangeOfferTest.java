@@ -160,6 +160,22 @@ class PackChangeOfferTest {
     }
 
     @Test
+    void everyPendingOfferThatTwoChangesReplacedIsRemovedOnceApplied() {
+        final String latest = "c".repeat(40);
+        final FakePlayer alex = online("Alex", "limbo", false);
+        assertTrue(book.claimOffer(alex.uuid, OLD));
+        spec.set(pack(NEW, true));
+        station.packChanged();
+        spec.set(pack(latest, true));
+        station.packChanged();
+
+        station.onPackStatus(status(alex, OLD, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+        station.onPackStatus(status(alex, NEW, PlayerResourcePackStatusEvent.Status.SUCCESSFUL));
+
+        assertEquals(List.of(PackOffer.idOf(OLD), PackOffer.idOf(NEW)), alex.removed);
+    }
+
+    @Test
     void aPackThatTheProxyDidNotOfferStaysWhenApplied() {
         final FakePlayer alex = online("Alex", "limbo", false);
         applied(alex, OLD);

@@ -320,10 +320,11 @@ public final class PackStation {
                 logger.error("resource pack url unloadable: player={}", player.getUsername());
                 disconnect(player, messages.invalidUrl(locale));
             }
-            default -> {
+            case FAILED_DOWNLOAD, FAILED_RELOAD -> {
                 logger.warn("resource pack not applied: player={} status={}", player.getUsername(), status);
                 disconnect(player, messages.failedDownload(locale));
             }
+            case SUCCESSFUL, ACCEPTED, DOWNLOADED, DISCARDED -> throw new IllegalArgumentException(status.name());
         }
     }
 

@@ -116,4 +116,26 @@ class WaitingRoomRetryTest {
         assertEquals("limbo-standby", WaitingRoomRetry.nextRoom("smp", SERVERS, Set.of("limbo-standby")::contains));
         assertNull(WaitingRoomRetry.nextRoom("smp", SERVERS, Set.of("smp")::contains));
     }
+
+    @Test
+    void aSecondFailureWhileTheTriesRunStartsNoSecondChain() {
+        final WaitingRoomRetry retry = retry(Set.of("limbo"));
+        for (int i = 0; i < 2; i++) {
+            retry.start(
+                    "Alex",
+                    "smp",
+                    room -> {
+                        tried.add(room);
+                        return CompletableFuture.completedFuture(true);
+                    },
+                    gaveUp::incrementAndGet);
+        }
+
+        assertEquals(1, scheduler.pending().size());
+        scheduler.runPending();
+        assertEquals(List.of("limbo"), tried);
+
+        retry.start("Alex", "smp", room -> CompletableFuture.completedFuture(true), gaveUp::incrementAndGet);
+        assertEquals(1, scheduler.pending().size(), "a landed chain lets the next one start");
+    }
 }

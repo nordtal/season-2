@@ -1,7 +1,10 @@
 package eu.nordtal.season.proxy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.proxy.routing.RouteDecision;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -31,5 +34,27 @@ class PlayerRouterTest {
         assertEquals(
                 "hunger-games",
                 PlayerRouter.viaWaitingRoom("hunger-games", "smp", servers, Set.of("limbo", "hunger-games")));
+    }
+
+    @Test
+    void aRetryIntoTheWaitingRoomGoesOnWhileTheGateStillMovesThePlayer() {
+        assertTrue(PlayerRouter.moveWanted("smp", "smp", toLimbo(), servers, Set.of("limbo", "smp")));
+    }
+
+    @Test
+    void aRetryEndsOnceMaintenanceIsOffAndThePlayerStays() {
+        assertFalse(PlayerRouter.moveWanted(
+                "smp", "smp", new RouteDecision(RouteDecision.Action.CONNECT, "smp"), servers, Set.of("limbo", "smp")));
+        assertFalse(PlayerRouter.moveWanted(
+                "smp", "smp", new RouteDecision(RouteDecision.Action.STAY, null), servers, Set.of("limbo", "smp")));
+    }
+
+    @Test
+    void aRetryEndsOnceThePlayerIsOnAnotherServer() {
+        assertFalse(PlayerRouter.moveWanted("limbo", "smp", toLimbo(), servers, Set.of("limbo", "smp")));
+    }
+
+    private static RouteDecision toLimbo() {
+        return new RouteDecision(RouteDecision.Action.CONNECT, "limbo");
     }
 }

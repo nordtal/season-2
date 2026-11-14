@@ -315,13 +315,14 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
      * A failed move tries the waiting rooms through {@link WaitingRoomRetry} before it disconnects the player.
      */
     private boolean connect(final Player player, final String server, final Locale locale) {
+        final @Nullable String from = currentServer(player);
         return connect(player, server, cause -> {
             logger.warn(
                     "re-route failed, waiting room tried next: player={} server={} cause={}",
                     player.getUsername(),
                     server,
                     cause);
-            retry.start(player.getUsername(), server, room -> intoRoom(player, room), () -> {
+            retry.start(player.getUsername(), server, room -> intoRoom(player, from, room), () -> {
                 if (player.isActive()) {
                     logger.error(
                             "re-route failed, player disconnected: player={} server={}", player.getUsername(), server);
@@ -331,16 +332,18 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
         });
     }
 
-    /** Moves the player into the waiting room; completes with {@code true} once the player is there or gone. */
-    private CompletableFuture<Boolean> intoRoom(final Player player, final String room) {
-        if (!player.isActive()) {
+    /**
+     * Moves the player into the waiting room.
+     * Completes with {@code true} once the player is there, gone or no longer to be moved from {@code from}.
+     */
+    private CompletableFuture<Boolean> intoRoom(final Player player, final @Nullable String from, final String room) {
+        if (!player.isActive() || !moveWanted(player, from)) {
             return CompletableFuture.completedFuture(true);
         }
         final RegisteredServer target = proxy.getServer(room).orElse(null);
         if (target == null) {
             return CompletableFuture.completedFuture(false);
         }
-        intents.intend(player.getUniqueId(), room);
         return player.createConnectionRequest(target).connect().thenApply(result -> {
             final boolean there = result.getStatus() == ConnectionRequestBuilder.Status.SUCCESS
                     || result.getStatus() == ConnectionRequestBuilder.Status.ALREADY_CONNECTED;
@@ -353,6 +356,50 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             }
             return there;
         });
+    }
+
+    /** Returns whether the gate still moves the player off {@code from}, read again for each try. */
+    private boolean moveWanted(final Player player, final @Nullable String from) {
+        final UUID uuid = player.getUniqueId();
+        if (packs.isHeld(uuid)) {
+            return false;
+        }
+        final Set<String> available = registeredServerNames();
+        final RouteDecision decision;
+        try {
+            decision = routing.decide(access.accessState(uuid), available, clock.instant());
+        } catch (final RuntimeException exception) {
+            logger.warn("access not re-checked for the retry: player={}", player.getUsername(), exception);
+            return true;
+        }
+        final boolean wanted = moveWanted(from, currentServer(player), decision, routing.servers(), available);
+        if (!wanted) {
+            logger.info("waiting room retry ended, move no longer wanted: player={}", player.getUsername());
+        }
+        return wanted;
+    }
+
+    /**
+     * Returns whether a move that failed off {@code from} is still wanted.
+     * It is not once the player is elsewhere, or the gate keeps the player where the player is.
+     */
+    static boolean moveWanted(
+            final @Nullable String from,
+            final @Nullable String current,
+            final RouteDecision decision,
+            final NetworkServers servers,
+            final Set<String> available) {
+        if (!Objects.equals(from, current) || decision.action() != RouteDecision.Action.CONNECT) {
+            return false;
+        }
+        final String server = Objects.requireNonNull(decision.server(), "CONNECT always carries a server");
+        return !viaWaitingRoom(server, current, servers, available).equals(current);
+    }
+
+    private static @Nullable String currentServer(final Player player) {
+        return player.getCurrentServer()
+                .map(connection -> connection.getServerInfo().getName())
+                .orElse(null);
     }
 
     /**

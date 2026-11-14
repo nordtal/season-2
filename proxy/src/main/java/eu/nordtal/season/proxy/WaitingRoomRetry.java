@@ -4,7 +4,9 @@ import eu.nordtal.season.common.time.Scheduler;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -24,6 +26,7 @@ final class WaitingRoomRetry {
     private final NetworkServers servers;
     private final Predicate<String> registered;
     private final Logger logger;
+    private final Set<String> running = ConcurrentHashMap.newKeySet();
 
     WaitingRoomRetry(
             final Scheduler scheduler,
@@ -37,9 +40,10 @@ final class WaitingRoomRetry {
     }
 
     /**
-     * Starts the tries for a player whose move onto {@code failed} did not land.
+     * Starts the tries for a player whose move onto {@code failed} did not land, unless the player has tries running.
      *
-     * @param connect moves the player into the room and completes with whether the player is there, or gone
+     * @param connect moves the player into the room and completes with whether the player is there, gone or no
+     *     longer to be moved
      * @param giveUp runs once when no try is left, no room is registered or the scheduler stopped
      */
     void start(
@@ -47,7 +51,14 @@ final class WaitingRoomRetry {
             final String failed,
             final Function<String, CompletableFuture<Boolean>> connect,
             final Runnable giveUp) {
-        schedule(player, failed, 1, connect, giveUp);
+        if (!running.add(player)) {
+            logger.info("waiting room retry already running: player={}", player);
+            return;
+        }
+        schedule(player, failed, 1, connect, () -> {
+            running.remove(player);
+            giveUp.run();
+        });
     }
 
     /**
@@ -94,7 +105,7 @@ final class WaitingRoomRetry {
             return;
         }
         logger.info(
-                "re-route into waiting room tried again: player={} waiting_room={} attempt={} of={}",
+                "re-route into waiting room tried again: player={} waiting_room={} attempt={} tries={}",
                 player,
                 room,
                 attempt,
@@ -107,6 +118,7 @@ final class WaitingRoomRetry {
         }
         final var _ = move.whenComplete((landed, failure) -> {
             if (failure == null && Boolean.TRUE.equals(landed)) {
+                running.remove(player);
                 return;
             }
             if (attempt >= TRIES) {

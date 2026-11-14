@@ -22,7 +22,10 @@ public final class WheelLayout {
     /** The row tops from the column's top, with a 10-pixel gap after each row. */
     private static final int[] ROWS = {0, 11, 47, 74, 105, 134};
 
-    /** The rows' heights; the text of a row of 26 has two lines, of 17 one, centred in its row. */
+    /**
+     * The rows' heights; the text of a row of 26 has two lines, of 17 one, centred in its row.
+     * Each row is taller than its text by an even number, so the centring needs no rounding.
+     */
     public static final int[] HEIGHTS = {1, 26, 17, 21, 19, 26};
 
     /** The width of every row with a description, from its item's left to its text's right. */

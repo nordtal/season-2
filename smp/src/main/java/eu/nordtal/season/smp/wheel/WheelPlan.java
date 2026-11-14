@@ -127,9 +127,20 @@ record WheelPlan(int variant, Face face) {
         return List.of(variantString(), String.valueOf(face.parity()));
     }
 
-    /** Prize body {@code body}'s strings: its prize and the variant. */
-    List<String> prize(final int body) {
-        return List.of(key(face.places().get(body)), variantString());
+    /** The strings that draw nothing at a place, whose prize the other prizes' body draws. */
+    static final String NONE = "-";
+
+    /**
+     * A prizes body's strings: each place's prize, or {@link #NONE}, and the variant.
+     * The glinting body draws the prizes {@code foil} marks, so its glint falls on them alone; the plain one the rest.
+     */
+    List<String> prizes(final List<Boolean> foil, final boolean glinting) {
+        final List<String> out = new ArrayList<>(PLACES + 1);
+        for (int body = 0; body < PLACES; body++) {
+            out.add(foil.get(body) == glinting ? key(face.places().get(body)) : NONE);
+        }
+        out.add(variantString());
+        return out;
     }
 
     /** The overlay's strings: each body's count, the variant and {@code language}. */

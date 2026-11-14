@@ -22,6 +22,7 @@ import eu.nordtal.season.smp.config.WheelPrizeSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import java.time.Clock;
 import java.time.Duration;
@@ -150,7 +151,15 @@ public final class Wheel {
                 final ClickEvent press = count > 0 ? send.clickUnless(() -> turning.containsKey(id), this::spin) : null;
                 player.setCooldown(WheelDialog.GROUP, timetable.open());
                 player.showDialog(WheelDialog.of(
-                        plan, stacks, texts(locale, count), locale.getLanguage(), count > 0, press, closing(send)));
+                        plan,
+                        stacks,
+                        stacks,
+                        timetable.rows(),
+                        texts(locale, count),
+                        locale.getLanguage(),
+                        count > 0,
+                        press,
+                        closing(send)));
                 final Set<Integer> pops = Set.copyOf(timetable.pops());
                 stopPopping(id);
                 popping.put(
@@ -294,6 +303,7 @@ public final class Wheel {
             return;
         }
         final List<ItemStack> stacks = shown(plan);
+        final List<ItemStack> after = shown(WheelPlan.waiting(plan.after()));
 
         PaperScheduler.of(plugin)
                 .onMain(() -> guarded(id, refund, () -> {
@@ -311,23 +321,57 @@ public final class Wheel {
                     player.showDialog(WheelDialog.of(
                             plan,
                             stacks,
+                            null,
+                            timetable.rows(),
                             texts(locale, spinsLeft),
                             locale.getLanguage(),
                             spinsLeft > 0,
                             again,
                             closing(send)));
-                    pay(player, plan, item, prize.amount(), locale, refund);
+                    pay(player, plan, item, prize.amount(), locale, refund, () -> {
+                        if (player.isOnline()) {
+                            player.showDialog(rested(player, plan, stacks, after, locale, spinsLeft));
+                        }
+                    });
                 }));
     }
 
-    /** Turns the wheel of {@code plan} and pays its prize once it rests, or at once when the player closes it. */
+    /**
+     * The turn's dialog again once its wheel rests: the same picture, with hovers over the prizes where they stopped.
+     */
+    private Dialog rested(
+            final Player player,
+            final WheelPlan plan,
+            final List<ItemStack> stacks,
+            final List<ItemStack> after,
+            final Locale locale,
+            final int spinsLeft) {
+        final UUID id = player.getUniqueId();
+        final Dialogs.Send send = dialogs.send();
+        return WheelDialog.of(
+                plan,
+                stacks,
+                after,
+                timetable.rows(),
+                texts(locale, spinsLeft),
+                locale.getLanguage(),
+                spinsLeft > 0,
+                spinsLeft > 0 ? send.clickUnless(() -> turning.containsKey(id), this::spin) : null,
+                closing(send));
+    }
+
+    /**
+     * Turns the wheel of {@code plan} and pays its prize once it rests, then runs {@code rest}.
+     * When the player closes the wheel first, it pays at once and {@code rest} does not run.
+     */
     private void pay(
             final Player player,
             final WheelPlan plan,
             final ItemStack item,
             final int amount,
             final Locale locale,
-            final Runnable refund) {
+            final Runnable refund,
+            final Runnable rest) {
         final UUID id = player.getUniqueId();
         final WheelPlan.Face before = faces.put(id, plan.after());
         final WheelTurn once = new WheelTurn(() -> sounds.play(player, Feedback.BIG_SUCCESS), () -> {
@@ -341,7 +385,10 @@ public final class Wheel {
         });
         turning.put(id, () -> once.end(false));
         final Runnable end = () -> once.end(player.isOnline());
-        once.clicks(turn(player, plan.variant(), end)::cancel);
+        once.clicks(turn(player, plan.variant(), () -> {
+            end.run();
+            rest.run();
+        })::cancel);
         ending.put(id, end);
     }
 

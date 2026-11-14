@@ -22,7 +22,7 @@ public final class DialogTitle {
     public static final int MARGIN = 7;
 
     /** The panel tops the pack has a font for, as glyphs.json describes them. */
-    public static final List<Integer> TOPS = List.of(49, 50, 53, 55, 57, 43, 62);
+    public static final List<Integer> TOPS = List.of(49, 50, 53, 55, 57, 43);
 
     private static final int HEADER_ROW = 280;
     private static final int FIELD_FRAME = 184;

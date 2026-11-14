@@ -3,7 +3,7 @@ package eu.nordtal.season.packbuilder.wheel;
 /**
  * Where the wheel's parts sit, in GUI pixels of a 480 x 270 screen, each from its body's origin.
  * The column holds {@link #BODIES} item bodies 10 apart, and the client's empty button column 10 below them,
- * so it is 170 high and starts at 63. The rows' texts lie over the prizes at rest, to show their items.
+ * so it is 168 high and starts at 63. The rows' texts lie over the prizes at rest, to show their items.
  */
 public final class WheelLayout {
 
@@ -17,16 +17,16 @@ public final class WheelLayout {
 
     static final int DISC = 156;
     static final int PLACES = WheelTurn.PLACES;
-    private static final double RADIUS = DISC / 2.0 - 14;
+    private static final double RADIUS = DISC / 2.0 - 20;
 
     /** The row tops from the column's top, with a 10-pixel gap after each row. */
-    private static final int[] ROWS = {0, 11, 47, 74, 105, 134};
+    private static final int[] ROWS = {0, 11, 47, 74, 105, 132};
 
     /**
      * The rows' heights; the text of a row of 26 has two lines, of 17 one, centred in its row.
      * Each row is taller than its text by an even number, so the centring needs no rounding.
      */
-    public static final int[] HEIGHTS = {1, 26, 17, 21, 19, 26};
+    public static final int[] HEIGHTS = {1, 26, 17, 21, 17, 26};
 
     /** The width of every row with a description, from its item's left to its text's right. */
     public static final int ROW_WIDTH = 254;

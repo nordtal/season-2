@@ -155,6 +155,33 @@ public final class PackBuilds {
      * @param store where the admins' documents are, read now because the hub is not running yet
      */
     public void start(final DocumentStore store) {
+        holdTexts(store);
+        start();
+    }
+
+    /**
+     * Builds the pack for an update's countdown, unless this image and today's inputs drew the active one.
+     *
+     * @param store where the admins' documents are, read now because a run hears no signal
+     * @return the SHA-1 of the active pack afterwards, which a failed build left as it was, empty if there is none
+     */
+    public synchronized Optional<String> beforeRun(final DocumentStore store) {
+        holdTexts(store);
+        return beforeRun();
+    }
+
+    synchronized Optional<String> beforeRun() {
+        if (built == null) {
+            try {
+                adopt();
+            } catch (final RuntimeException failure) {
+                log.warn("active pack not read before the run, building it: cause={}", failure.getMessage());
+            }
+        }
+        return build();
+    }
+
+    private void holdTexts(final DocumentStore store) {
         if (documents != null) {
             try {
                 documents.hold(store.applied(Set.of(NAMESPACE)));
@@ -162,7 +189,17 @@ public final class PackBuilds {
                 log.warn("admins' wheel texts not read, the packaged ones count: cause={}", unreadable.getMessage());
             }
         }
-        start();
+    }
+
+    /** Takes the active pack's inputs as built when it is on the shelf and was built from this image. */
+    private void adopt() {
+        final String sha1 = PackState.read(settings).sha1();
+        if (sha1 == null || !shelf.has(sha1) || !builtFromThisImage()) {
+            return;
+        }
+        record.active()
+                .filter(active -> sha1.equals(active.sha1()))
+                .ifPresent(active -> built = new PackInputs(active.prizes(), "", active.label()));
     }
 
     /**

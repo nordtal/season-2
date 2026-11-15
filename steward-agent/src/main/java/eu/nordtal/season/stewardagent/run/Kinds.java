@@ -10,6 +10,7 @@ import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.Retention;
 import eu.nordtal.season.internalapi.agent.SnapshotResult;
 import eu.nordtal.season.internalapi.agent.Topology;
+import eu.nordtal.season.settings.PackState;
 import eu.nordtal.season.stewardagent.apply.ApplyResult;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.season.stewardagent.plan.UpdatePlan;
@@ -43,14 +44,30 @@ final class Kinds {
 
     private Kinds() {}
 
-    record Planned(Run.@Nullable Plan plan, @Nullable Outcome outcome) {
+    /**
+     * @param swapsPack whether a live swap follows the run, see {@link Outcome#swapsPack()}
+     * @param packBefore the pack the proxy offered before the run built a new one, offered again if it is cancelled
+     */
+    record Planned(
+            Run.@Nullable Plan plan,
+            @Nullable Outcome outcome,
+            boolean swapsPack,
+            @Nullable PackState packBefore) {
 
         static Planned plan(final Run.Plan plan) {
-            return new Planned(plan, null);
+            return new Planned(plan, null, false, null);
         }
 
         static Planned outcome(final Outcome outcome) {
-            return new Planned(null, outcome);
+            return new Planned(null, outcome, false, null);
+        }
+
+        Planned swappingPack() {
+            return new Planned(plan, outcome, true, packBefore);
+        }
+
+        Planned restoringPack(final @Nullable PackState before) {
+            return new Planned(plan, outcome, swapsPack, before);
         }
     }
 
@@ -96,11 +113,9 @@ final class Kinds {
             return elsewhere;
         }
         Resolved.run(planned).on(resolving);
+        final Optional<PackState> packBefore = UpdatePack.build(runner, record);
         if (!planned.isWork() && foreign.isEmpty()) {
-            // A one-shot with no work still recreates the agent.
-            return runner.oneShot
-                    ? Planned.plan(onlyTheAgent())
-                    : Planned.outcome(Outcome.at(plan.hasFailures() ? RunStage.FAILED : RunStage.NOTHING_TO_DO));
+            return movingNothing(runner, plan, packBefore.isPresent());
         }
 
         // A resting server takes its files, so an update of nothing else stops nobody and warns nobody.
@@ -108,10 +123,28 @@ final class Kinds {
         final boolean onlyResting = !planned.moving().isEmpty() && awake.isEmpty() && foreign.isEmpty();
         final Run.Payload payload =
                 planned.isWork() ? install(runner, plan, planned, resting, progress, record) : Run.Payload.NONE;
-        return Planned.plan(
-                Run.Plan.of(awake, pruningImages(runner.containers, payload, record), true, Runner.Doubt.FAILS_THE_RUN)
+        return Planned.plan(Run.Plan.of(
+                                awake,
+                                pruningImages(runner.containers, payload, record),
+                                true,
+                                Runner.Doubt.FAILS_THE_RUN)
                         .announced(!onlyResting)
-                        .renewing(planned.services(), images, foreign, plan.hasFailures()));
+                        .renewing(planned.services(), images, foreign, plan.hasFailures()))
+                .restoringPack(packBefore.orElse(null));
+    }
+
+    /** A run that moves no service; a one-shot with no work still recreates the agent. */
+    private static Planned movingNothing(final Runner runner, final UpdatePlan plan, final boolean packChanged) {
+        if (!packChanged) {
+            return runner.oneShot
+                    ? Planned.plan(onlyTheAgent())
+                    : Planned.outcome(Outcome.at(plan.hasFailures() ? RunStage.FAILED : RunStage.NOTHING_TO_DO));
+        }
+        // Nobody passes the waiting room, so a live swap of its own brings the pack, and nothing restarts.
+        return runner.oneShot
+                ? Planned.plan(onlyTheAgent()).swappingPack()
+                : Planned.outcome(Outcome.at(plan.hasFailures() ? RunStage.FAILED : RunStage.DONE))
+                        .swappingPack();
     }
 
     private static void skippedHeld(final Steps record, final List<String> holds, final List<String> scope) {

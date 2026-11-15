@@ -42,7 +42,7 @@ class RunCardBudgetTest {
                     "four services is the everyday run; guarding the limit must not cost it a line");
         }
         assertTrue(text.contains("0.6.0 → 0.7.0"), "a change is a transition");
-        assertFalse(text.matches("(?s).*\\n\\+\\d+(\\n.*)?"), "nothing was summarised away");
+        assertFalse(text.contains("not shown"), "nothing was summarised away");
     }
 
     @Test
@@ -85,7 +85,9 @@ class RunCardBudgetTest {
     void aRunTooBigForOneMessageCountsWhatItLeavesOutAndNeverDrawsACodeBlock() {
         final String text = card(record(40, 600), request()).text();
 
-        assertTrue(text.matches("(?s).*\\n\\+\\d+(\\n.*)?"), "what did not fit is counted: " + text.length());
+        assertTrue(
+                text.matches("(?s).*\\n\\d+ more lines are not shown\\.(\\n.*)?"),
+                "what did not fit is counted in words: " + text.length());
         assertFalse(text.contains("```"), "a code block is for something to copy");
     }
 

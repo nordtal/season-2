@@ -68,11 +68,30 @@ class ManagedMessagesTest {
 
     @Test
     void aDataListTooLongForOneMessageLosesItsLastItemsToACount() {
+        final String text = tooManyTiers(Locale.ENGLISH);
+
+        assertAll(
+                () -> assertTrue(text.length() <= DocumentCheck.TEXT, text.length() + " characters"),
+                () -> assertTrue(
+                        text.matches("(?s).*\n\\d+ more lines are not shown\\.(\n.*)?"),
+                        text.substring(text.length() - 200)));
+    }
+
+    @Test
+    void theCountOfWhatIsLeftOutIsWrittenInTheReadersLanguage() {
+        final String text = tooManyTiers(Locale.GERMAN);
+
+        assertTrue(
+                text.matches("(?s).*\n\\d+ weitere Zeilen werden nicht angezeigt\\.(\n.*)?"),
+                text.substring(text.length() - 200));
+    }
+
+    private static String tooManyTiers(final Locale locale) {
         final List<ManagedMessages.Tier> tiers = IntStream.range(1, 400)
                 .mapToObj(day -> new ManagedMessages.Tier(day, Money.euroCents(100)))
                 .toList();
 
-        final String text = StoredDocumentsStandIn.renderer()
+        return StoredDocumentsStandIn.renderer()
                 .render(
                         ManagedMessages.CONTRIBUTION,
                         new ManagedMessages.Contribution(Money.euroCents(500)),
@@ -81,11 +100,7 @@ class ManagedMessagesTest {
                                 DocumentRenderer.FilledList.of(tiers),
                                 "buy",
                                 new DocumentRenderer.FilledButton(Ids.BUY)),
-                        Locale.ENGLISH)
+                        locale)
                 .text();
-
-        assertAll(
-                () -> assertTrue(text.length() <= DocumentCheck.TEXT, text.length() + " characters"),
-                () -> assertTrue(text.matches("(?s).*\n\\+\\d+(\n.*)?"), text.substring(text.length() - 200)));
     }
 }

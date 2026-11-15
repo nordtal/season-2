@@ -149,6 +149,17 @@ public final class Duels implements Arenas {
         return active != null && active.fights(player.getUniqueId());
     }
 
+    /** Returns whether the player's advancement criteria are refused now. Main thread only. */
+    public boolean refusesAdvancements(final Player player) {
+        final UUID id = player.getUniqueId();
+        return refusesAdvancements(active != null && active.fights(id), pending.containsKey(id));
+    }
+
+    /** Refuses a player's advancement criteria while they fight, and after a death in the arena until the respawn. */
+    static boolean refusesAdvancements(final boolean fights, final boolean awaitsRestore) {
+        return fights || awaitsRestore;
+    }
+
     /** A fighter builds in the arena during the duel, because the arena is restored afterwards. */
     @Override
     public boolean buildsInArena(final Player player, final Block block) {

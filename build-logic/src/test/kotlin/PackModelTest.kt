@@ -369,7 +369,8 @@ class PackModelTest {
                 "nordtal:border/pixel_fade_3",
                 "nordtal:station_rail",
             ),
-            model.list("items").flatMap { it.list("entries") }.map { it["id"] })
+            model.list("items").flatMap { it.list("entries") }.map { it["id"] },
+        )
     }
 
     @Test

@@ -84,8 +84,8 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("contribution"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("\\n**€5.00** 30 days\""), drawn);
-        assertTrue(drawn.contains("+€5.00 →"), drawn);
+        assertTrue(drawn.contains("\\n**30 days** for €5.00\""), drawn);
+        assertTrue(drawn.contains("donation of €5.00"), drawn);
     }
 
     @Test
@@ -157,6 +157,35 @@ class DocumentRendererTest {
             };
             assertTrue(drawn.has(field), each.declaration().id() + " is drawn as " + drawn);
         }
+    }
+
+    @Test
+    void noPackagedDocumentDrawsABarAlongABox() {
+        final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();
+        final List<String> barred = new ArrayList<>();
+        for (final Documents.Packaged each : Documents.packaged(
+                        DocumentRendererTest.class.getClassLoader(), StoredDocuments.NAMESPACE)
+                .values()) {
+            final String drawn = renderer.preview(each, List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+            if (accented(JsonParser.parseString(drawn))) {
+                barred.add(each.declaration().id());
+            }
+        }
+
+        assertEquals(List.of(), barred);
+    }
+
+    /** Returns whether a component in {@code drawn} is sent with an accent colour, which Discord draws as a bar. */
+    private static boolean accented(final JsonElement drawn) {
+        if (drawn.isJsonArray()) {
+            return drawn.getAsJsonArray().asList().stream().anyMatch(DocumentRendererTest::accented);
+        }
+        if (!drawn.isJsonObject()) {
+            return false;
+        }
+        final JsonObject component = drawn.getAsJsonObject();
+        return (component.has("accent_color") && !component.get("accent_color").isJsonNull())
+                || component.asMap().values().stream().anyMatch(DocumentRendererTest::accented);
     }
 
     @Test

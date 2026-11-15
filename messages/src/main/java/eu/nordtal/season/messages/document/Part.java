@@ -10,7 +10,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * One part of a document's tree, as Components V2 draws it.
  *
- * @param accent a container's accent colour as {@code #rrggbb}
+ * @param accent a container's accent colour as {@code #rrggbb}, which Discord draws as a bar along its edge, or
+ *     {@code null} for a box without a bar
  * @param parts what a container holds, a section's text blocks or what a block per language repeats
  * @param button a section's button
  * @param thumbnail a section's image, in place of a button
@@ -35,7 +36,7 @@ public record Part(
         @Nullable String shared) {
 
     public enum Type {
-        /** A box with an accent colour along its edge, as an embed is drawn. */
+        /** A box around the parts it holds. */
         CONTAINER,
         TEXT,
         /** One to three text blocks with a button or a thumbnail beside them. */

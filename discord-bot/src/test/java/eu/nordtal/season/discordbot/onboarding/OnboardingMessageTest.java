@@ -23,6 +23,7 @@ import net.dv8tion.jda.api.components.mediagallery.MediaGallery;
 import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import org.junit.jupiter.api.Test;
 
 class OnboardingMessageTest {
@@ -39,30 +40,35 @@ class OnboardingMessageTest {
     private final OnboardingMessage message = new OnboardingMessage(LANGUAGES, RENDERER, StoredDocumentsStandIn.none());
 
     @Test
-    void theWelcomeIsOneBoxInTheDefaultLanguageOverItsBanner() {
+    void theWelcomeIsOneBoxInTheDefaultLanguageUnderItsBanner() {
         final DocumentRenderer.Drawn welcome = message.welcome();
         final Container box = (Container) welcome.components().getFirst();
 
         assertAll(
-                () -> assertEquals(
-                        "## Welcome to Nordtal",
-                        ((TextDisplay) box.getComponents().getFirst()).getContent()),
+                () -> assertEquals(1, welcome.components().size()),
                 () -> assertEquals(
                         "attachment://onboarding.png",
-                        ((MediaGallery) box.getComponents().getLast())
+                        ((MediaGallery) box.getComponents().getFirst())
                                 .getItems()
                                 .getFirst()
                                 .getUrl()),
+                () -> assertEquals(
+                        "## Welcome to Nordtal",
+                        ((TextDisplay) box.getComponents().get(1)).getContent()),
                 () -> assertEquals(List.of("onboarding.png"), welcome.attachments()));
     }
 
     @Test
     void theWelcomeAsksOnlyForTheLanguageWithOneSelectAndNoButton() {
-        final List<MessageTopLevelComponent> components = message.welcome().components();
+        final MessageComponentTree welcome =
+                MessageComponentTree.of(message.welcome().components());
 
         assertAll(
-                () -> assertEquals(2, components.size()),
-                () -> assertEquals(Ids.ONBOARD_PICK_LANGUAGE, select(components).getCustomId()));
+                () -> assertEquals(1, welcome.findAll(ActionRow.class).size()),
+                () -> assertEquals(List.of(), welcome.findAll(Button.class)),
+                () -> assertEquals(
+                        Ids.ONBOARD_PICK_LANGUAGE,
+                        select(message.welcome().components()).getCustomId()));
     }
 
     @Test
@@ -109,8 +115,9 @@ class OnboardingMessageTest {
     }
 
     private static StringSelectMenu select(final List<MessageTopLevelComponent> components) {
-        return (StringSelectMenu)
-                ((ActionRow) components.getLast()).getComponents().getFirst();
+        return MessageComponentTree.of(components)
+                .findAll(StringSelectMenu.class)
+                .getFirst();
     }
 
     @Test

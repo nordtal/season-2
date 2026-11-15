@@ -200,10 +200,11 @@ run `git config core.hooksPath .githooks` once per clone.
   whose value is a term shows it beside its label. _(checked)_
 - **The name is Nordtal** in prose, in every language, and `nordtal.eu` where it is the address; never a
   lower-case nordtal in a text. _(checked in the bundles and documents)_
-- **One blue, the brand's**, defined once as `Tone.BRAND` and read by the game's `<brand>` tone, the bot's
-  container accent and Steward (`brand.gen.css`, written from it). A text that cannot carry a hex colour, the
+- **One blue, the brand's**, defined once as `Tone.BRAND` and read by the game's `<brand>` tone and
+  Steward (`brand.gen.css`, written from it). A text that cannot carry a hex colour, the
   pack's `pack.mcmeta` and lang files, uses `§9`, Minecraft's nearest legacy blue.
-- **Every Discord container carries the brand blue accent**, a success included. The outcome shows in the
+- **No packaged Discord document sets a container's accent**, so no message of the bot has a coloured bar
+  along its edge. Only a document an admin writes in Steward may set one. _(checked)_ The outcome shows in the
   content through one coordinated set of emojis, `Mark` in discord-bot, and no class but `Mark` types an
   emoji. An arrow may show a transition (`from → to`); no text symbol stands for an outcome or separates
   values. _(emojis outside `Mark` checked)_ The set:

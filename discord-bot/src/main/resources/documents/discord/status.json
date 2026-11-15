@@ -83,8 +83,8 @@
         },
         {
           "text": {
-            "en": "{teams} {@terms.team, n=teams} left, {players} alive",
-            "de": "{teams} {@terms.team, n=teams} übrig, {players} am Leben"
+            "en": "{teams} {@terms.team, n=teams} left, {players} {@terms.player, n=players} alive",
+            "de": "{teams} {@terms.team, n=teams} übrig, {players} {@terms.player, n=players} am Leben"
           },
           "when": "playing"
         }

@@ -2,8 +2,11 @@
   "parts": [
     {
       "type": "CONTAINER",
-      "accent": "#4a63d8",
       "parts": [
+        {
+          "type": "GALLERY",
+          "media": ["attachment://contribution.png"]
+        },
         {
           "type": "TEXT",
           "lines": [
@@ -21,71 +24,50 @@
           "lines": [
             {
               "text": {
-                "en": "Prices",
-                "de": "Preise"
-              },
-              "style": "HEADING"
+                "en": "With {@terms.access} you can join the server.",
+                "de": "Mit {@terms.access} kannst du auf den Server."
+              }
             },
             {
               "list": "tiers",
               "text": {
-                "en": "**{price}** {@values.duration.days, n=days}",
-                "de": "**{price}** {@values.duration.days, n=days}"
+                "en": "**{@values.duration.days, n=days}** for {price}",
+                "de": "**{@values.duration.days, n=days}** für {price}"
               }
             }
           ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "buy",
+              "label": {
+                "en": "Buy {@terms.access}",
+                "de": "{@terms.access} kaufen"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEPARATOR"
         },
         {
           "type": "TEXT",
           "lines": [
             {
               "text": {
-                "en": "Donation",
-                "de": "Spende"
-              },
-              "style": "HEADING"
+                "en": "Buying again extends your {@terms.access}.",
+                "de": "Ein weiterer Kauf verlängert deinen {@terms.access}."
+              }
             },
             {
               "text": {
-                "en": "+{amount} → permanent donor role",
-                "de": "+{amount} → dauerhafte Spenderrolle"
+                "en": "A donation of {amount} added to your purchase gives you the permanent donor role.",
+                "de": "Eine Spende von {amount} zu deinem Kauf gibt dir die dauerhafte Spenderrolle."
               }
             }
           ]
-        },
-        {
-          "type": "TEXT",
-          "lines": [
-            {
-              "text": {
-                "en": "Renewal",
-                "de": "Verlängerung"
-              },
-              "style": "HEADING"
-            },
-            {
-              "text": {
-                "en": "*extends your current {@terms.access}*",
-                "de": "*verlängert deinen laufenden {@terms.access}*"
-              }
-            }
-          ]
-        },
-        {
-          "type": "GALLERY",
-          "media": ["attachment://contribution.png"]
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
-        {
-          "slot": "buy",
-          "label": {
-            "en": "Buy {@terms.access}",
-            "de": "{@terms.access} kaufen"
-          }
         }
       ]
     }

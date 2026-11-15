@@ -204,9 +204,9 @@ run `git config core.hooksPath .githooks` once per clone.
   Steward (`brand.gen.css`, written from it). A text that cannot carry a hex colour, the
   pack's `pack.mcmeta` and lang files, uses `§9`, Minecraft's nearest legacy blue.
 - **No packaged Discord document sets a container's accent**, so no message of the bot has a coloured bar
-  along its edge. Only a document an admin writes in Steward may set one. _(checked)_ The outcome shows in the
-  content through one coordinated set of emojis, `Mark` in discord-bot, and no class but `Mark` types an
-  emoji. An arrow may show a transition (`from → to`); no text symbol stands for an outcome or separates
+  along its edge. Only a document an admin writes in Steward may set one. _(checked)_
+- **A Discord message shows an outcome in its content** through one coordinated set of emojis, `Mark` in
+  discord-bot, and no class but `Mark` types an emoji. An arrow may show a transition (`from → to`); no text symbol stands for an outcome or separates
   values. _(emojis outside `Mark` checked)_ The set:
   - Status: ✅ done, 🛑 failed or down, ⚠️ needs a look but has not failed, 🔄 under way, ⏳ waiting, ➖ nothing
     to do, 🔍 not read yet, 📋 planned, ⏹️ cancelled.

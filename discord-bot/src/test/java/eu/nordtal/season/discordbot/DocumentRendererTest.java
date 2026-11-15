@@ -167,7 +167,8 @@ class DocumentRendererTest {
                         DocumentRendererTest.class.getClassLoader(), StoredDocuments.NAMESPACE)
                 .values()) {
             final String drawn = renderer.preview(each, List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
-            if (accented(JsonParser.parseString(drawn))) {
+            if (accented(JsonParser.parseString(drawn))
+                    || each.document().allParts().stream().anyMatch(part -> part.accent() != null)) {
                 barred.add(each.declaration().id());
             }
         }

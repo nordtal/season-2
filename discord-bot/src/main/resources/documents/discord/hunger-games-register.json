@@ -24,8 +24,8 @@
           "lines": [
             {
               "text": {
-                "en": "A {@terms.team, n=1} has 1 or 2 {@terms.player, n=2}.",
-                "de": "Ein {@terms.team, n=1} hat 1 oder 2 {@terms.player, n=2}."
+                "en": "A {@terms.team, n=1} has 1 or 2 {@terms.participant, n=2}.",
+                "de": "Ein {@terms.team, n=1} hat 1 oder 2 {@terms.participant, n=2}."
               }
             },
             {

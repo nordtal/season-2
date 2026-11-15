@@ -56,7 +56,7 @@ class ManagedMessagesTest {
         assertAll(
                 () -> assertEquals(1, drawn.components().size()),
                 () -> assertEquals(
-                        "1. Betritt `play.nordtal.eu` in Minecraft.\n2. Gib den Code ein, den dir der Server zeigt.",
+                        "1. Betritt `play.nordtal.eu` in Minecraft.\n2. Gib hier den Code vom Login-Bildschirm ein.",
                         ((TextDisplay) box.getComponents().get(2)).getContent()),
                 () -> assertEquals(
                         "Code eingeben",

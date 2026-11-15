@@ -442,7 +442,7 @@ class UpdateFeedTest {
     }
 
     @Test
-    void everyStageCarriesTheSameColourAndItsOutcomeAsAnEmoji() {
+    void everyStageIsDrawnWithoutABarAndItsOutcomeAsAnEmoji() {
         rows.put(row(1L, UpdateStatus.DONE, RunStage.DONE, NOW));
         rows.steps.put(
                 1L,
@@ -456,7 +456,7 @@ class UpdateFeedTest {
 
         final DocumentRenderer.Drawn good = board.posted.get(0).card();
         final DocumentRenderer.Drawn bad = board.posted.get(1).card();
-        assertEquals(accent(good), accent(bad), "a finished and a failed run carry the same line");
+        assertTrue(accent(good) == null && accent(bad) == null, "a finished or a failed run has a bar");
         assertTrue(title(good).startsWith("✅"), title(good));
         assertTrue(title(bad).startsWith("🛑"), title(bad));
         final String goodLines = lines(good);

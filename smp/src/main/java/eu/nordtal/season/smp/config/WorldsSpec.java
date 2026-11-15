@@ -58,6 +58,6 @@ public interface WorldsSpec {
     @Key("required-datapacks")
     @Explain("Start-up fails if these data packs are not installed.")
     default List<String> requiredDatapacks() {
-        return List.of("Terralith", "Dungeons and Taverns");
+        return List.of("Terralith", "Dungeons and Taverns", "Incendium", "Nullscape", "nordtal");
     }
 }

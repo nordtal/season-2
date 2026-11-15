@@ -297,6 +297,25 @@ expect_gone "$dir/New Pack.zip.partial"
 ok "fetched and swept"
 
 
+case_begin "a bundled pack replaces the copy of the same name, and the pinned packs stay"
+dir="$(volume datapacks-bundled)/nordtal/datapacks"
+bundled=$(volume datapacks-bundled-source)
+mkdir -p "$bundled/ours/data" "$dir/ours/data/stale"
+printf 'new\n' > "$bundled/ours/pack.mcmeta"
+printf 'old\n' > "$dir/ours/pack.mcmeta"
+: > "$dir/Terralith_26.3_v2.6.5.zip"
+set +e
+output=$(BUNDLED_DATAPACKS="$bundled" bash -c 'source "$1"; install_bundled_datapacks "$2"' datapack-test "$ENTRYPOINT" "$dir" 2>&1)
+status=$?
+set -e
+expect_status 0
+[[ "$(cat "$dir/ours/pack.mcmeta")" == "new" ]] || bad "the bundled pack did not replace the old copy"
+expect_gone "$dir/ours/data/stale"
+expect_present "$dir/Terralith_26.3_v2.6.5.zip"
+expect_output "bundled datapack installed"
+ok "replaced by name"
+
+
 echo "entrypoint.sh: a backend behind the proxy"
 
 backend() {

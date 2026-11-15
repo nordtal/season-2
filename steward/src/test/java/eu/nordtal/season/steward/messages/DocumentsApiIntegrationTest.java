@@ -345,7 +345,7 @@ class DocumentsApiIntegrationTest {
         assertEquals("image/png", store.image(id).orElseThrow().mediaType());
         send("POST", "/api/document-images", "not an image".getBytes(UTF_8), 400);
         assertEquals(
-                "Not uploaded: the file is larger than 8 MiB.",
+                "Not uploaded: the file is larger than " + DocumentsApi.IMAGE_MEBIBYTES + " MiB.",
                 GSON.fromJson(
                                 send("POST", "/api/document-images", new byte[DocumentsApi.IMAGE_BYTES + 1], 413),
                                 JsonObject.class)

@@ -32,8 +32,9 @@ import eu.nordtal.season.messages.text.MessageSyntaxException;
 import eu.nordtal.season.messages.text.MessageText;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
-import io.javalin.http.ContentTooLargeResponse;
 import io.javalin.http.Context;
+import io.javalin.http.HttpResponseException;
+import io.javalin.http.HttpStatus;
 import io.javalin.http.NotFoundResponse;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -599,7 +600,11 @@ public final class DocumentsApi {
         final byte[] bytes;
         try {
             bytes = ctx.bodyAsBytes();
-        } catch (final ContentTooLargeResponse tooLarge) {
+        } catch (final HttpResponseException refused) {
+            // Javalin stops reading past the limit with a bare 413 of its own.
+            if (refused.getStatus() != HttpStatus.CONTENT_TOO_LARGE.getCode()) {
+                throw refused;
+            }
             throw new RequestRefused(413, ANSWER.imageTooLarge(IMAGE_MEBIBYTES));
         }
         final String type = ImageTypes.of(bytes).orElseThrow(() -> new RequestRefused(400, ANSWER.imageRefused()));

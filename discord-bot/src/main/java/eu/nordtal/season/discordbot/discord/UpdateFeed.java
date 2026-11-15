@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
@@ -251,11 +252,21 @@ public final class UpdateFeed {
         }
     }
 
-    /** Starts from the highest request id and posts the runs that finished within {@link #CATCH_UP}. */
+    /**
+     * Starts from the highest request id and posts the runs that finished within {@link #CATCH_UP}.
+     * A kept card that was not drawn to its run's end is drawn again, however long ago the run ended.
+     */
     public void start() {
         try {
             final long mark = updates.latestId();
+            final Map<Long, UpdateRequest> ended = new TreeMap<>();
             for (final UpdateRequest request : updates.finishedWithin(CATCH_UP)) {
+                ended.put(request.id(), request);
+            }
+            for (final UpdateRequest request : endedUndrawn(ended.keySet())) {
+                ended.put(request.id(), request);
+            }
+            for (final UpdateRequest request : ended.values()) {
                 // A row with an id above mark finished between the two reads, and tick() posts it.
                 if (request.id() > mark || !shown(request)) {
                     continue;
@@ -274,6 +285,23 @@ public final class UpdateFeed {
         } catch (final RuntimeException failure) {
             log.error("update history unreadable, feed started from last seen: last_seen={}", lastSeen, failure);
         }
+    }
+
+    /** Returns the finished runs not in {@code known} whose kept card still shows them under way. */
+    private List<UpdateRequest> endedUndrawn(final Set<Long> known) {
+        final List<UpdateRequest> finished = new ArrayList<>();
+        try {
+            for (final long run : cards.unsettled()) {
+                if (!known.contains(run)) {
+                    updates.find(run)
+                            .filter(request -> request.status().isFinished())
+                            .ifPresent(finished::add);
+                }
+            }
+        } catch (final RuntimeException failure) {
+            log.warn("kept run cards unreadable, only the catch-up window is redrawn", failure);
+        }
+        return finished;
     }
 
     public void tick() {
@@ -384,7 +412,9 @@ public final class UpdateFeed {
             if (taken) {
                 // The alert came first and stands alone.
                 board.delete(messageId);
-            } else if (!over) {
+            } else if (over) {
+                settle(id);
+            } else {
                 again();
             }
         });
@@ -395,6 +425,7 @@ public final class UpdateFeed {
         if (over) {
             board.edit(messageId, card(request));
             ended(request, messageId);
+            settle(request.id());
         } else {
             // Nothing is shown yet, so the next pass draws the run's present state into the card.
             drawing.put(request.id(), new Drawn(messageId, null));
@@ -407,6 +438,15 @@ public final class UpdateFeed {
             cards.keep(run, messageId);
         } catch (final RuntimeException failure) {
             log.warn("run card not kept: run={} message={}", run, messageId, failure);
+        }
+    }
+
+    /** Records that a run's card shows its end, so no later start draws it again. */
+    private void settle(final long run) {
+        try {
+            cards.settle(run);
+        } catch (final RuntimeException failure) {
+            log.warn("run card not marked as drawn to its end: run={}", run, failure);
         }
     }
 
@@ -484,10 +524,15 @@ public final class UpdateFeed {
                 board.edit(drawn.messageId(), card(request));
             }
             if (request.status().isFinished()) {
+                final boolean removed;
                 synchronized (handing) {
-                    if (drawing.remove(id) != null) {
+                    removed = drawing.remove(id) != null;
+                    if (removed) {
                         ended(request, drawn.messageId());
                     }
+                }
+                if (removed) {
+                    settle(id);
                 }
             }
         }

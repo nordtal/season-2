@@ -1,7 +1,9 @@
 package eu.nordtal.season.discordbot.discord;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
@@ -20,6 +22,12 @@ public interface RunCards {
 
     /** Keeps the message of a run's card. */
     void keep(long run, String messageId);
+
+    /** Records that a run's card was drawn to the run's end, so a later start does not draw it again. */
+    void settle(long run);
+
+    /** Returns the runs whose card has a message, no alert in its place and was not drawn to the run's end. */
+    List<Long> unsettled();
 
     /** Records that the alert of a failed run takes its card's place, and returns false when an alert already had. */
     boolean alert(long run);
@@ -47,6 +55,22 @@ public interface RunCards {
             }
 
             @Override
+            public void settle(final long run) {
+                jdbi.useHandle(handle -> handle.createUpdate("UPDATE bot_run_card SET settled = true WHERE run = :run")
+                        .bind("run", run)
+                        .execute());
+            }
+
+            @Override
+            public List<Long> unsettled() {
+                return jdbi.withHandle(
+                        handle -> handle.createQuery("""
+                                SELECT run FROM bot_run_card
+                                WHERE NOT settled AND NOT alerted AND message_id IS NOT NULL ORDER BY run
+                                """).mapTo(Long.class).list());
+            }
+
+            @Override
             public boolean alert(final long run) {
                 return jdbi.withHandle(handle ->
                                 handle.createUpdate("""
@@ -61,6 +85,7 @@ public interface RunCards {
     /** Keeps the cards for as long as the process runs. */
     static RunCards inMemory() {
         final Map<Long, Card> cards = new ConcurrentHashMap<>();
+        final Set<Long> settled = ConcurrentHashMap.newKeySet();
         return new RunCards() {
             @Override
             public Optional<Card> of(final long run) {
@@ -70,6 +95,22 @@ public interface RunCards {
             @Override
             public void keep(final long run, final String messageId) {
                 cards.merge(run, new Card(messageId, false), (old, fresh) -> new Card(messageId, old.alerted()));
+            }
+
+            @Override
+            public void settle(final long run) {
+                settled.add(run);
+            }
+
+            @Override
+            public List<Long> unsettled() {
+                return cards.entrySet().stream()
+                        .filter(card -> card.getValue().messageId() != null
+                                && !card.getValue().alerted()
+                                && !settled.contains(card.getKey()))
+                        .map(Map.Entry::getKey)
+                        .sorted()
+                        .toList();
             }
 
             @Override

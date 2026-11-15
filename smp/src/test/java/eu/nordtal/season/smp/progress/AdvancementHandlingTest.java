@@ -8,9 +8,11 @@ import org.junit.jupiter.api.Test;
 class AdvancementHandlingTest {
 
     @Test
-    void anAdvancementIsPaidAndCredited() {
+    void aGateAdvancementIsNoRecipe() {
         assertFalse(AdvancementListener.isRecipe("minecraft:story/iron_tools"));
+        assertFalse(AdvancementListener.isRecipe("minecraft:story/mine_diamond"));
         assertFalse(AdvancementListener.isRecipe("minecraft:nether/obtain_blaze_rod"));
+        assertFalse(AdvancementListener.isRecipe("minecraft:nether/netherite_armor"));
     }
 
     @Test

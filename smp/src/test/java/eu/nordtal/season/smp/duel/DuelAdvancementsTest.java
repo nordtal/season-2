@@ -17,7 +17,7 @@ class DuelAdvancementsTest {
     }
 
     @Test
-    void aFighterWhoDiedIsGrantedNoCriterionUntilTheSavedStateIsBack() {
+    void aFighterWhoDiedIsGrantedNoCriterionUntilTheRespawn() {
         assertTrue(Duels.refusesAdvancements(false, true));
     }
 

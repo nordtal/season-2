@@ -1,8 +1,8 @@
 package eu.nordtal.season.steward.stack;
 
-import eu.nordtal.season.common.http.WebClient;
 import eu.nordtal.season.common.season.SeasonMode;
 import eu.nordtal.season.common.time.Scheduler;
+import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.JournalDetail;
 import eu.nordtal.season.database.document.DocumentStore;
 import eu.nordtal.season.database.inbox.DocumentPreview;
@@ -30,7 +30,6 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.Context;
 import java.io.InputStream;
-import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -88,9 +87,6 @@ public final class StackApi implements AutoCloseable {
     /** How long the answer of the proxy's pack URL stays cached. */
     private static final Duration PACK_TTL = Duration.ofMinutes(10);
 
-    private static final WebClient PACK_PROBE =
-            WebClient.create(Duration.ofSeconds(10)).followingRedirects();
-
     /** The largest console step in lines. */
     static final int LOG_CAPACITY_MAX = 10_000;
 
@@ -106,6 +102,8 @@ public final class StackApi implements AutoCloseable {
 
     /** The pack URL of the proxy when it does not answer. */
     private final Refreshed<Optional<String>> deadPack;
+
+    private final PackProbe packProbe;
 
     private static final Duration AVAILABLE_TTL = Duration.ofHours(6);
 
@@ -168,6 +166,7 @@ public final class StackApi implements AutoCloseable {
         this.drift = new Refreshed<>(
                 () -> new Drift(agent.images(), clock.instant()), DRIFT_TTL, driftRefresh, clock::instant);
         this.available = resolve == null ? null : new Refreshed<>(resolve, AVAILABLE_TTL, driftRefresh, clock::instant);
+        this.packProbe = PackProbe.web(Waiting.on(clock));
         this.deadPack = new Refreshed<>(() -> deadPack(settings), PACK_TTL, driftRefresh, clock::instant);
     }
 
@@ -467,17 +466,10 @@ public final class StackApi implements AutoCloseable {
                 deadPack.get().orElse(null));
     }
 
-    /** Returns the pack URL when a GET of it does not answer 200, else empty. */
-    private static Optional<String> deadPack(final SettingStore settings) {
+    /** Returns the pack URL when it has not answered 200 for a minute, else empty. */
+    private Optional<String> deadPack(final SettingStore settings) {
         final String url = PackState.read(settings).url();
-        if (url == null) {
-            return Optional.empty();
-        }
-        try {
-            return PACK_PROBE.answers(URI.create(url)) ? Optional.empty() : Optional.of(url);
-        } catch (final IllegalArgumentException notAUrl) {
-            return Optional.of(url);
-        }
+        return url == null ? Optional.empty() : packProbe.dead(url);
     }
 
     /** Returns the disk and memory numbers, or {@code null} when the agent cannot read them. */

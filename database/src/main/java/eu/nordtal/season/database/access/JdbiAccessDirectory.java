@@ -172,6 +172,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
     @Override
     public boolean setMinecraftName(final UUID mcUuid, final String name) {
         Objects.requireNonNull(mcUuid, "mcUuid");
+        dao.rememberMinecraftName(mcUuid, name);
         return dao.setMinecraftName(mcUuid, name) > 0;
     }
 

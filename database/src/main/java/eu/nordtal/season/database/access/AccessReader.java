@@ -30,7 +30,7 @@ public interface AccessReader {
 
     Optional<DiscordId> linkedDiscordAccount(UUID mcUuid);
 
-    /** Returns the name the account last joined with: the one it is online with now, else the one its link saw last. */
+    /** Returns the name the account is online with now, else the one it last joined with, else the one its link saw. */
     Optional<String> minecraftName(UUID mcUuid);
 
     /**

@@ -60,7 +60,7 @@ public interface AccessDirectory extends AccessReader {
     boolean unlink(DiscordId discordId);
 
     /**
-     * Writes the Minecraft name last seen at login.
+     * Writes the Minecraft name last seen at login, for a linked account and an unlinked one alike.
      *
      * @return whether a linked account existed
      */

@@ -131,12 +131,14 @@ interface AccessDao {
     @SqlQuery("SELECT discord_id FROM account_link WHERE mc_uuid = :mcUuid")
     Optional<DiscordId> discordAccountOf(@Bind("mcUuid") UUID mcUuid);
 
-    /** The name the account is online with now, else the name its link saw at the last login. */
+    /** The name the account is online with now, else the one it last joined with, else the one its link saw last. */
     @SqlQuery("""
             SELECT name FROM (
                 SELECT mc_name AS name, 1 AS rank FROM online_player WHERE mc_uuid = :mcUuid
                 UNION ALL
-                SELECT mc_name, 2 FROM account_link WHERE mc_uuid = :mcUuid AND mc_name IS NOT NULL
+                SELECT mc_name, 2 FROM player_name WHERE mc_uuid = :mcUuid
+                UNION ALL
+                SELECT mc_name, 3 FROM account_link WHERE mc_uuid = :mcUuid AND mc_name IS NOT NULL
             ) AS known
             ORDER BY rank
             LIMIT 1
@@ -157,6 +159,14 @@ interface AccessDao {
 
     @SqlUpdate("DELETE FROM account_link WHERE discord_id = :discordId")
     int unlink(@Bind("discordId") DiscordId discordId);
+
+    /** Keeps the name the account joined with, whether it is linked or not. */
+    @SqlUpdate("""
+            INSERT INTO player_name (mc_uuid, mc_name, seen)
+            VALUES (:mcUuid, :name, now())
+            ON CONFLICT (mc_uuid) DO UPDATE SET mc_name = excluded.mc_name, seen = excluded.seen
+            """)
+    void rememberMinecraftName(@Bind("mcUuid") UUID mcUuid, @Bind("name") String name);
 
     /**
      * Writes the Minecraft name last seen at login.

@@ -46,7 +46,7 @@ class AccessProfileIntegrationTest {
     @BeforeEach
     void freshDirectory() {
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, journal_entry, "
-                + "player_playtime, admin_grant, discord_user CASCADE");
+                + "player_playtime, admin_grant, player_name, discord_user CASCADE");
         directory = AccessDirectory.using(dataSource, Clock.systemUTC());
     }
 
@@ -184,6 +184,20 @@ class AccessProfileIntegrationTest {
         execute("INSERT INTO online_player (mc_uuid, mc_name, subject, updated) VALUES ('" + MC_UUID
                 + "', 'Steve2', 'smp', now())");
         assertEquals("Steve2", directory.minecraftName(MC_UUID).orElseThrow());
+    }
+
+    @Test
+    void aNameSeenAtLoginIsKeptForAnAccountNobodyLinkedAndOutlivesAnUnlink() {
+        final UUID stranger = UUID.fromString("33333333-2222-3333-4444-555555555555");
+        execute("TRUNCATE TABLE online_player");
+
+        assertFalse(directory.setMinecraftName(stranger, "Alex"), "nobody has linked it");
+        assertEquals("Alex", directory.minecraftName(stranger).orElseThrow());
+
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        directory.setMinecraftName(MC_UUID, "Steve");
+        directory.unlink(DiscordId.of(DISCORD_ID));
+        assertEquals("Steve", directory.minecraftName(MC_UUID).orElseThrow());
     }
 
     @Test

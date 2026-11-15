@@ -72,9 +72,7 @@ public final class LoginGate {
 
         fallback.remember(uuid, state);
         roster.remember(uuid, state);
-        if (state.linked()) {
-            mirrorMinecraftName(uuid, player.getUsername());
-        }
+        mirrorMinecraftName(uuid, player.getUsername());
 
         final int online = proxy.getPlayerCount();
         final int maximum = players.maxPlayers();
@@ -106,7 +104,7 @@ public final class LoginGate {
         }
     }
 
-    /** Stores the Minecraft name of the login. A failure is ignored. */
+    /** Stores the Minecraft name of every login, refused ones too. A failure is ignored. */
     private void mirrorMinecraftName(final UUID uuid, final String username) {
         try {
             access.setMinecraftName(uuid, username);

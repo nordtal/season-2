@@ -2,10 +2,12 @@ package eu.nordtal.season.smp.eye;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.bukkit.Location;
@@ -33,15 +35,15 @@ public final class MapPortals implements Listener {
     private final FrameIndex index = new FrameIndex();
     private final Path cache;
     private final Logger log;
-    private final ExecutorService scanner = Executors.newSingleThreadExecutor(work -> {
-        final Thread thread = new Thread(work, "smp-end-portal-scan");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final Executor background;
+    private final AtomicBoolean stopping = new AtomicBoolean();
+    private final CountDownLatch scanned = new CountDownLatch(1);
 
-    public MapPortals(final Path dataFolder, final Logger log) {
+    /** {@code background} runs the one scan of every world, off the main thread. */
+    public MapPortals(final Path dataFolder, final Logger log, final Executor background) {
         this.cache = dataFolder.resolve(CACHE);
         this.log = log;
+        this.background = background;
     }
 
     /** Reads the cache, then scans the region files of every overworld in the background. Main thread. */
@@ -51,21 +53,30 @@ public final class MapPortals implements Listener {
         } catch (final IOException | RuntimeException e) {
             log.log(Level.WARNING, "end portal cache not read, every region is scanned: file=" + cache, e);
         }
+        final List<String> names = new ArrayList<>();
+        final List<Path> regions = new ArrayList<>();
         for (final World world : worlds) {
-            if (world.getEnvironment() != World.Environment.NORMAL) {
-                continue;
+            if (world.getEnvironment() == World.Environment.NORMAL) {
+                names.add(world.getName());
+                regions.add(world.getWorldPath().resolve("region"));
             }
-            final String name = world.getName();
-            final Path regions = world.getWorldPath().resolve("region");
-            scanner.execute(() -> scan(name, regions));
         }
+        background.execute(() -> {
+            try {
+                for (int i = 0; i < names.size() && !stopping.get(); i++) {
+                    scan(names.get(i), regions.get(i));
+                }
+            } finally {
+                scanned.countDown();
+            }
+        });
     }
 
     /** Stops a running scan, which saves every region file read so far before it ends. */
     public void stop() {
-        scanner.shutdownNow();
+        stopping.set(true);
         try {
-            if (!scanner.awaitTermination(5, TimeUnit.SECONDS)) {
+            if (!scanned.await(5, TimeUnit.SECONDS)) {
                 log.warning("end portal scan still running at the stop: file=" + cache);
             }
         } catch (final InterruptedException e) {
@@ -76,7 +87,7 @@ public final class MapPortals implements Listener {
     private void scan(final String world, final Path regions) {
         final long started = System.nanoTime();
         try {
-            final FrameScan.Outcome outcome = FrameScan.world(index, world, regions);
+            final FrameScan.Outcome outcome = FrameScan.world(index, world, regions, stopping::get);
             index.save(cache);
             log.info((outcome.stopped() ? "end portal scan stopped: world=" : "end portals found: world=") + world
                     + " portals="

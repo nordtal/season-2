@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
 /** Brings a world's entry in the index level with its region files, reading only the files that changed. */
@@ -19,8 +20,12 @@ final class FrameScan {
 
     private FrameScan() {}
 
-    /** Scans the region directory of one world into the index; a missing directory holds no frames. */
-    static Outcome world(final FrameIndex index, final String world, final Path regions) throws IOException {
+    /**
+     * Scans the region directory of one world into the index; a missing directory holds no frames.
+     * Ends early, before the next region file, once {@code stopped} is true.
+     */
+    static Outcome world(final FrameIndex index, final String world, final Path regions, final BooleanSupplier stopped)
+            throws IOException {
         final Set<String> present = new HashSet<>();
         int read = 0;
         int unchanged = 0;
@@ -28,8 +33,7 @@ final class FrameScan {
         final RegionFrames reader = new RegionFrames();
         try {
             for (final Path file : files(regions)) {
-                // Clears the flag too, so the caller can still save what was read.
-                if (Thread.interrupted()) {
+                if (stopped.getAsBoolean()) {
                     return new Outcome(read, unchanged, failed, true);
                 }
                 final String name = file.getFileName().toString();
@@ -63,7 +67,7 @@ final class FrameScan {
         } finally {
             reader.close();
         }
-        if (Thread.interrupted()) {
+        if (stopped.getAsBoolean()) {
             return new Outcome(read, unchanged, failed, true);
         }
         index.finished(world, present);

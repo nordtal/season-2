@@ -281,7 +281,7 @@ final class SmpStart {
 
     /** Scans the worlds for the map's End portals, to which every thrown eye of ender flies. */
     static MapPortals wireMapPortals(final SmpPlugin plugin) {
-        final MapPortals portals = new MapPortals(plugin.getDataPath(), plugin.getLogger());
+        final MapPortals portals = new MapPortals(plugin.getDataPath(), plugin.getLogger(), PaperScheduler.of(plugin));
         plugin.getServer().getPluginManager().registerEvents(portals, plugin);
         portals.start(plugin.getServer().getWorlds());
         return portals;

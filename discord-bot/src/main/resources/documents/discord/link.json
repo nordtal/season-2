@@ -2,7 +2,6 @@
   "parts": [
     {
       "type": "CONTAINER",
-      "accent": "#4a63d8",
       "parts": [
         {
           "type": "GALLERY",
@@ -25,42 +24,43 @@
           "lines": [
             {
               "text": {
-                "en": "Join `play.nordtal.eu` → copy the code → **{link.label}**",
-                "de": "`play.nordtal.eu` betreten → Code kopieren → **{link.label}**"
-              },
-              "style": "HEADING"
+                "en": "1. Join `play.nordtal.eu` in Minecraft.",
+                "de": "1. Betritt `play.nordtal.eu` in Minecraft."
+              }
+            },
+            {
+              "text": {
+                "en": "2. Enter the code from the login screen here.",
+                "de": "2. Gib hier den Code vom Login-Bildschirm ein."
+              }
             }
           ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "link",
+              "label": {
+                "en": "Enter code",
+                "de": "Code eingeben"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEPARATOR"
         },
         {
           "type": "TEXT",
           "lines": [
             {
               "text": {
-                "en": "Already linked?",
-                "de": "Schon verknüpft?"
-              },
-              "style": "HEADING"
-            },
-            {
-              "text": {
-                "en": "/unlink → link another account",
-                "de": "/unlink → anderes Konto verknüpfen"
+                "en": "To link another account, run `/unlink` first.",
+                "de": "Um ein anderes Konto zu verknüpfen, nutze zuerst `/unlink`."
               }
             }
           ]
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
-        {
-          "slot": "link",
-          "label": {
-            "en": "Enter code",
-            "de": "Code eingeben"
-          }
         }
       ]
     }

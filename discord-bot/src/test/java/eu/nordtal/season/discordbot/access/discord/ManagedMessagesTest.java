@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot.access.discord;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.database.payment.Tier;
@@ -16,8 +17,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.stream.IntStream;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.container.Container;
+import net.dv8tion.jda.api.components.mediagallery.MediaGallery;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import org.junit.jupiter.api.Test;
 
 class ManagedMessagesTest {
@@ -25,31 +29,41 @@ class ManagedMessagesTest {
     private static final DocumentRenderer RENDERER = StoredDocumentsStandIn.renderer();
 
     @Test
-    void theContributionMessageListsEachTierOverItsBannerWithTheBuyButtonUnderIt() {
+    void theContributionMessageListsEachTierUnderItsBannerInOneBoxWithTheBuyButton() {
         final DocumentRenderer.Drawn drawn = ManagedMessages.contribution(
                 RENDERER, Tiers.of(List.of(new Tier(30, 500), new Tier(90, 1250)), 500), Locale.ENGLISH);
         final Container box = (Container) drawn.components().getFirst();
-        final ActionRow row = (ActionRow) drawn.components().getLast();
+        final Button buy = MessageComponentTree.of(drawn.components())
+                .findAll(Button.class)
+                .getFirst();
 
         assertAll(
+                () -> assertEquals(1, drawn.components().size()),
+                () -> assertInstanceOf(MediaGallery.class, box.getComponents().getFirst()),
                 () -> assertEquals(
-                        "### Prices\n**€5.00** 30 days\n**€12.50** 90 days",
-                        ((TextDisplay) box.getComponents().get(1)).getContent()),
+                        "With access you can join the server.\n**30 days** for €5.00\n**90 days** for €12.50",
+                        ((TextDisplay) box.getComponents().get(2)).getContent()),
                 () -> assertEquals(List.of("contribution.png"), drawn.attachments()),
-                () -> assertEquals(Ids.BUY, row.getButtons().getFirst().getCustomId()),
-                () -> assertEquals("Buy access", row.getButtons().getFirst().getLabel()));
+                () -> assertEquals(Ids.BUY, buy.getCustomId()),
+                () -> assertEquals("Buy access", buy.getLabel()));
     }
 
     @Test
-    void theLinkStepsNameTheButtonByItsOwnLabel() {
+    void theLinkStepsStandOverTheButtonThatTakesTheCode() {
         final DocumentRenderer.Drawn drawn = ManagedMessages.link(RENDERER, Locale.GERMAN);
         final Container box = (Container) drawn.components().getFirst();
-        final ActionRow row = (ActionRow) drawn.components().getLast();
 
-        assertEquals(
-                "### `play.nordtal.eu` betreten → Code kopieren → **"
-                        + row.getButtons().getFirst().getLabel() + "**",
-                ((TextDisplay) box.getComponents().get(2)).getContent());
+        assertAll(
+                () -> assertEquals(1, drawn.components().size()),
+                () -> assertEquals(
+                        "1. Betritt `play.nordtal.eu` in Minecraft.\n2. Gib hier den Code vom Login-Bildschirm ein.",
+                        ((TextDisplay) box.getComponents().get(2)).getContent()),
+                () -> assertEquals(
+                        "Code eingeben",
+                        ((ActionRow) box.getComponents().get(3))
+                                .getButtons()
+                                .getFirst()
+                                .getLabel()));
     }
 
     @Test

@@ -4,7 +4,7 @@ import eu.nordtal.season.messages.Tone;
 import java.nio.file.Path;
 
 /**
- * Writes the frontend's brand blue from {@link Tone#BRAND}, which the game and the bot paint too.
+ * Writes the frontend's brand blue from {@link Tone#BRAND}, which the game paints too.
  *
  * {@code :steward:generateApiTypes} runs it. {@code BrandCssTest} fails while the committed file differs.
  */

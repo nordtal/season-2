@@ -2,7 +2,10 @@ package eu.nordtal.season.smp.wall;
 
 import java.util.Locale;
 
-/** How the wall is drawn: a field the pack's item shader draws, or a pixel-art texture without a shader. */
+/**
+ * How the wall is drawn: a field the pack's item shader draws, or a pixel-art texture without a shader.
+ * Players see them named Veil and Lattice.
+ */
 enum Look {
     FIELD,
     PIXEL;

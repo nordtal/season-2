@@ -11,16 +11,16 @@ final class Walls {
 
     private Walls() {}
 
-    /** The wall and look by world name. A world that is off, or a second entry of a world, is left out. */
+    /** The wall and look by world name. A world that is off is left out; the group refuses a world twice. */
     static Map<String, Drawn> read(final CustomBorderSpec spec) {
         final Map<String, Drawn> walls = new HashMap<>();
         for (final CustomBorderSpec.World world : spec.worlds()) {
-            if (!world.enabled() || walls.containsKey(world.world())) {
+            if (!world.enabled()) {
                 continue;
             }
             final List<Area> areas = new ArrayList<>();
             for (final CustomBorderSpec.Polygon polygon : world.polygons()) {
-                // Fewer than three corners enclose nothing.
+                // Fewer than three corners enclose nothing; the group's check refuses them, this keeps a read safe.
                 if (polygon.corners().size() >= 3) {
                     areas.add(new Area(polygon.corners().stream()
                             .map(corner -> new Area.Point(corner.x(), corner.z()))

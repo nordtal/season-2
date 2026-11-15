@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.config;
 import eu.nordtal.season.settings.ChoiceNames;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.settings.rule.Required;
+import eu.nordtal.season.settings.rule.Unique;
 import eu.nordtal.season.spec.annotation.AllowedValues;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
@@ -19,6 +20,7 @@ public interface CustomBorderSpec {
     @Order(1)
     @Name("Worlds")
     @Key("worlds")
+    @Unique("world")
     @NoExplanationNeeded
     default List<World> worlds() {
         return List.of();
@@ -80,7 +82,7 @@ public interface CustomBorderSpec {
         @Order(2)
         @Name("Corners")
         @Key("corners")
-        @Explain("In order around the area. The last corner joins the first.")
+        @Explain("In order around the area, at least three. The last corner joins the first.")
         default List<Corner> corners() {
             return List.of();
         }

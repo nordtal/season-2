@@ -231,8 +231,9 @@ public final class SmpPlugin extends NordtalPlugin {
         spawnSettings = setting(Group.of("spawn", SpawnSpec.class).whileRunning());
         deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class).whileRunning());
         railSettings = setting(Group.of("rails", RailsSpec.class).whileRunning());
-        customBorderSettings =
-                setting(Group.of("custom-border", CustomBorderSpec.class).whileRunning());
+        customBorderSettings = setting(Group.of("custom-border", CustomBorderSpec.class)
+                .checkedBy(SmpSettings::checkCustomBorder)
+                .whileRunning());
         milestoneSettings = setting(Group.of("milestones", MilestonesSpec.class)
                 .checkedBy(SmpSettings::checkMilestones)
                 .whileRunning());

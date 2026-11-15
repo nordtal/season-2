@@ -109,7 +109,10 @@ class SmpSettingsTest {
                                         "name",
                                         "spawn",
                                         "corners",
-                                        List.of(Map.of("x", 1, "z", 2), Map.of("x", 3, "z", 4))))))));
+                                        List.of(
+                                                Map.of("x", 1, "z", 2),
+                                                Map.of("x", 3, "z", 4),
+                                                Map.of("x", 5, "z", 0))))))));
 
         final CustomBorderSpec.World world = read.worlds().getFirst();
         assertTrue(world.enabled());
@@ -309,6 +312,22 @@ class SmpSettingsTest {
                 () -> assertRefused(SPAWN, Map.of("nordtal-spawn.world", ""), "nordtal-spawn.world must not be empty"),
                 () -> assertRefused(
                         SPAWN, Map.of("protected-areas", List.of(area)), "protected-areas[0].world must not be empty"));
+    }
+
+    @Test
+    void theCustomBorderRefusesAnAreaOfTwoCornersAndAWorldTwice() {
+        final Group<CustomBorderSpec> checked = CUSTOM_BORDER.checkedBy(SmpSettings::checkCustomBorder);
+        final Map<String, Object> line =
+                Map.of("name", "spawn", "corners", List.of(Map.of("x", 1, "z", 2), Map.of("x", 3, "z", 4)));
+        assertAll(
+                () -> assertRefused(
+                        checked,
+                        Map.of("worlds", List.of(Map.of("world", "nordtal", "polygons", List.of(line)))),
+                        "the area \"spawn\" in nordtal needs at least 3 corners, has 2"),
+                () -> assertRefused(
+                        checked,
+                        Map.of("worlds", List.of(Map.of("world", "nordtal"), Map.of("world", "nordtal"))),
+                        "holds nordtal twice"));
     }
 
     private void assertRefused(final Group<?> group, final Map<String, ?> values, final String sentence) {

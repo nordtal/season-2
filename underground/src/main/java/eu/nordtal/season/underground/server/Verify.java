@@ -79,18 +79,39 @@ public final class Verify {
         final int[] area = {minX, minZ, maxX, maxZ};
         boolean good;
         // The stop saves every chunk; a save on command stalls the server until its watchdog dumps threads.
+        final List<String> log = loaded(setup, regions);
         final ScratchServer server = ScratchServer.start(setup);
         try {
-            Generate.load(server, regions);
             good = located(server, "mineshaft", area, true);
             good &= located(server, "trial_chambers", area, true);
             good &= located(server, "stronghold", area, false);
         } finally {
             server.close();
         }
-        final boolean clean = clean(server.log(), map, world);
+        log.addAll(server.log());
+        final boolean clean = clean(log, map, world);
         final boolean loaded = lit(setup.overworld(), regions);
         return good && clean && loaded;
+    }
+
+    /** Loads every chunk of the regions, a few regions to a start of the server, and returns the logs. */
+    private static List<String> loaded(final ScratchServer.Setup setup, final List<int[]> regions)
+            throws IOException, InterruptedException {
+        final List<String> log = new ArrayList<>();
+        for (int from = 0; from < regions.size(); from += Generate.PER_START) {
+            final ScratchServer server = ScratchServer.start(setup);
+            try {
+                Generate.load(
+                        server,
+                        regions.subList(from, Math.min(regions.size(), from + Generate.PER_START)),
+                        from,
+                        regions.size());
+            } finally {
+                server.close();
+            }
+            log.addAll(server.log());
+        }
+        return log;
     }
 
     /** Prints the lines of the log that name a problem and returns whether there are none. */

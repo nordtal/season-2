@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.IntPredicate;
@@ -60,6 +61,31 @@ public final class Region {
                     ? new ByteArrayInputStream(data, offset + 5, length - 1)
                     : new ByteArrayInputStream(Files.readAllBytes(external(file, index)));
             chunks.put(index, Nbt.read(inflate(stored, compression & ~EXTERNAL)));
+        }
+        return chunks;
+    }
+
+    /** Returns each chunk of a region file as it is stored, compressed, so two files compare without decoding. */
+    public static Map<Integer, byte[]> stored(final Path file) throws IOException {
+        final Map<Integer, byte[]> chunks = new TreeMap<>();
+        if (!Files.exists(file)) {
+            return chunks;
+        }
+        final byte[] data = Files.readAllBytes(file);
+        if (data.length < 2 * SECTOR) {
+            return chunks;
+        }
+        for (int index = 0; index < SIDE * SIDE; index++) {
+            final int offset = int24(data, index * 4) * SECTOR;
+            if (offset == 0 || offset + 5 > data.length) {
+                continue;
+            }
+            final int length = int32(data, offset);
+            chunks.put(
+                    index,
+                    (data[offset + 4] & EXTERNAL) == 0
+                            ? Arrays.copyOfRange(data, offset + 4, offset + 4 + length)
+                            : Files.readAllBytes(external(file, index)));
         }
         return chunks;
     }

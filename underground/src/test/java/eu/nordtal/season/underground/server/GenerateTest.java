@@ -4,11 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.underground.anvil.Region;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
@@ -38,6 +42,24 @@ class GenerateTest {
                 "10.0\n",
                 Files.readString(
                         pack.resolve("data/minecraft/worldgen/density_function/overworld/sloped_cheese.json")));
+    }
+
+    @Test
+    void aRegionGeneratedToTheEndBeforeIsSkippedAndOneWithAChunkLeftIsNot(@TempDir final Path directory)
+            throws IOException {
+        final Map<Integer, Map<String, Object>> chunks = new TreeMap<>();
+        for (int index = 0; index < Region.SIDE * Region.SIDE; index++) {
+            chunks.put(index, Map.of("Status", "minecraft:full"));
+        }
+        Region.write(Region.file(directory, 0, 0), chunks);
+        chunks.put(5, Map.of("Status", "minecraft:carvers"));
+        Region.write(Region.file(directory, 1, 0), chunks);
+
+        final List<int[]> left =
+                Generate.left(directory, List.of(new int[] {0, 0}, new int[] {1, 0}, new int[] {2, 0}));
+
+        assertEquals(
+                List.of("1,0", "2,0"), left.stream().map(r -> r[0] + "," + r[1]).toList());
     }
 
     private static void entry(final ZipOutputStream zip, final String name, final String content) throws IOException {

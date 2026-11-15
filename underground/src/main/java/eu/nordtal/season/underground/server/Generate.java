@@ -1,13 +1,17 @@
 package eu.nordtal.season.underground.server;
 
+import eu.nordtal.season.underground.anvil.ChunkBlocks;
+import eu.nordtal.season.underground.anvil.Region;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,22 +29,50 @@ public final class Generate {
     private static final Pattern DATA_MAJOR = Pattern.compile("\"data_major\"\\s*:\\s*(\\d+)");
     private static final int BATCH = 16;
 
+    /** How many regions one start of the server loads; its heap fills over a long run, and a new start empties it. */
+    static final int PER_START = 10;
+
     private Generate() {}
 
-    /** Creates the world with its data pack and generates every chunk of the regions. */
+    /** Creates the world with its data pack and generates every chunk of the regions not generated before. */
     public static void run(final ScratchServer.Setup setup, final Path data, final List<int[]> regions)
             throws IOException, InterruptedException {
         ScratchServer.prepare(setup);
         dataPack(data, setup.directory().resolve("world/datapacks/underground"));
-        try (ScratchServer server = ScratchServer.start(setup)) {
-            load(server, regions);
-            server.ask("save-all flush", SAVED, Duration.ofMinutes(30));
+        final List<int[]> left = left(setup.overworld().resolve("region"), regions);
+        final int skipped = regions.size() - left.size();
+        if (skipped > 0) {
+            System.out.println("regions generated before: " + skipped);
+        }
+        for (int from = 0; from < left.size(); from += PER_START) {
+            try (ScratchServer server = ScratchServer.start(setup)) {
+                load(
+                        server,
+                        left.subList(from, Math.min(left.size(), from + PER_START)),
+                        skipped + from,
+                        regions.size());
+                server.ask("save-all flush", SAVED, Duration.ofMinutes(30));
+            }
         }
     }
 
+    /** Returns the regions whose file does not hold every one of their chunks generated to the end. */
+    static List<int[]> left(final Path directory, final List<int[]> regions) throws IOException {
+        final List<int[]> left = new ArrayList<>();
+        for (final int[] region : regions) {
+            final Map<Integer, Map<String, Object>> chunks = Region.read(Region.file(directory, region[0], region[1]));
+            if (chunks.size() < Region.SIDE * Region.SIDE
+                    || !chunks.values().stream().allMatch(ChunkBlocks::full)) {
+                left.add(region);
+            }
+        }
+        return left;
+    }
+
     /** Loads every chunk of the regions once, in batches the server takes in one command, and lets them go again. */
-    static void load(final ScratchServer server, final List<int[]> regions) throws IOException, InterruptedException {
-        int done = 0;
+    static void load(final ScratchServer server, final List<int[]> regions, final int before, final int all)
+            throws IOException, InterruptedException {
+        int done = before;
         for (final int[] region : regions) {
             for (int x = 0; x < 32; x += BATCH) {
                 for (int z = 0; z < 32; z += BATCH) {
@@ -48,13 +80,13 @@ public final class Generate {
                     final int blockZ = (region[1] * 32 + z) * 16;
                     final String range =
                             blockX + " " + blockZ + " " + (blockX + BATCH * 16 - 1) + " " + (blockZ + BATCH * 16 - 1);
-                    server.ask("forceload add " + range, MARKED, Duration.ofMinutes(30));
+                    server.ask("forceload add " + range, MARKED, Duration.ofMinutes(10));
                     server.ask("forceload remove " + range, UNMARKED, Duration.ofMinutes(5));
                 }
             }
             done++;
-            System.out.println("region generated: x=" + region[0] + " z=" + region[1] + " done=" + done + " regions="
-                    + regions.size());
+            System.out.println(
+                    "region generated: x=" + region[0] + " z=" + region[1] + " done=" + done + " regions=" + all);
         }
     }
 

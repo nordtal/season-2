@@ -8,6 +8,7 @@ import eu.nordtal.season.underground.server.ScratchServer;
 import eu.nordtal.season.underground.server.Upgrade;
 import eu.nordtal.season.underground.server.Verify;
 import eu.nordtal.season.underground.transplant.Parameters;
+import eu.nordtal.season.underground.transplant.Refresh;
 import eu.nordtal.season.underground.transplant.Transplant;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -16,6 +17,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** The command line of the tool; the README of the module lists the commands in the order of a run. */
 public final class Underground {
@@ -25,7 +27,7 @@ public final class Underground {
     public static void main(final String[] words) throws IOException, InterruptedException {
         if (words.length == 0) {
             throw new IllegalArgumentException(
-                    "Name a command: histogram, upgrade, generate, transplant, check, slice or verify.");
+                    "Name a command: histogram, upgrade, generate, transplant, refresh, check, slice or verify.");
         }
         final Arguments arguments = new Arguments(List.of(Arrays.copyOfRange(words, 1, words.length)));
         switch (words[0]) {
@@ -34,6 +36,7 @@ public final class Underground {
             case "upgrade" -> Upgrade.run(setup(arguments, 0), arguments.path("map"), arguments.path("out"));
             case "generate" ->
                 Generate.run(setup(arguments, seed(arguments)), arguments.path("data"), regions(arguments));
+            case "refresh" -> refresh(arguments);
             case "verify" -> verify(arguments);
             case "check" -> check(arguments);
             case "slice" -> slice(arguments);
@@ -59,6 +62,24 @@ public final class Underground {
         final Transplant transplant =
                 new Transplant(arguments.path("map"), arguments.path("parallel"), arguments.path("out"), measures);
         System.out.println("transplant finished: " + transplant.run(arguments.regions(arguments.path("map"))));
+    }
+
+    /** Prints what changed since the earlier copy and which regions a transplant has to run over again. */
+    private static void refresh(final Arguments arguments) throws IOException {
+        final Refresh.Changes changes = Refresh.run(
+                arguments.path("before"), arguments.path("now"), arguments.path("upgraded"), arguments.path("out"));
+        final Refresh.Bounds bounds = changes.bounds();
+        if (bounds == null) {
+            System.out.println("refresh finished: changed=0, the earlier result stays as it is");
+            return;
+        }
+        System.out.println("refresh finished: changed=" + changes.chunks() + " chunks=" + bounds.minX() + ","
+                + bounds.minZ() + "," + bounds.maxX() + "," + bounds.maxZ());
+        System.out.println("transplant again: regions=" + joined(bounds.run()) + " take=" + joined(bounds.affected()));
+    }
+
+    private static String joined(final int[] numbers) {
+        return Arrays.stream(numbers).mapToObj(String::valueOf).collect(Collectors.joining(","));
     }
 
     /** Returns --seed, which a world generated in another seed would not match. */

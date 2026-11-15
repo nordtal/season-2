@@ -37,6 +37,9 @@ both corners included; without the option a command takes every region file of t
    pack, creates the world in `<dir>/world` and generates every chunk of the regions. `--data` is the
    jar that holds the game's `data/` folder: `versions/<version>/paper-<version>.jar` beside a Paper
    jar that has started once.
+   The server starts anew every ten regions, since its heap fills over a long run, and a run started
+   again skips every region whose file holds all its chunks generated to the end. A server that runs
+   out of memory or gives no answer for ten minutes ends the run with exit code 1.
 4. **`transplant --map <map> --parallel <dir>/world/dimensions/minecraft/overworld --out <result>`**
    writes the joined `region` and `entities`. It prints what it kept, filled, closed and opened, and
    a line per entrance with the place where the map's cave ends, the middle of the tunnel and its end.
@@ -57,6 +60,13 @@ both corners included; without the option a command takes every region file of t
 7. **`slice --out <png> --worlds map=<map>,result=<result> --line 4000,2200:4400,2200`** draws the
    worlds one below the other along a line of `x,z` corners, to look at a place before and after.
    `--y 20..120` limits the heights and `--scale 4` sets the pixels per block.
+
+8. **`refresh --before <copy> --now <newer copy> --upgraded <map> --out <refreshed map>`** brings a
+   map upgraded from an earlier copy up to a newer copy, without upgrading again: it takes every
+   chunk that changed since the earlier copy from the newer one, and refuses one that the game has
+   not saved in the newest version. It prints the bounds of the changes and the regions to join
+   again, with a ring for the entrances that reach into a neighbour (`regions=`), of which those
+   whose result a change can reach are taken (`take=`); the rest of the earlier result stays.
 
 The points of interest and the light are not part of the result: the game rebuilds both when it
 loads a chunk without them. Copy the result over a copy of the world, never over the world itself,

@@ -13,6 +13,7 @@ import { runPath } from "@/lib/run-path"
 import { choice, message, t } from "@/lib/texts"
 import { useNow } from "@/lib/use-now"
 import { actionIcon } from "@/components/steward/actions"
+import { MessageText } from "@/components/steward/message-text"
 import { Actor, Entity } from "@/components/steward/entity"
 import { FilterBar, SearchField } from "@/components/steward/filter-bar"
 import { PageHeader } from "@/components/steward/page-header"
@@ -132,7 +133,7 @@ function AlertLines({ alert, meters }: { alert: Alert; meters: boolean }) {
     <>
       {alert.detail.map((line, index) => (
         <p key={index} className="text-sm break-words whitespace-pre-line text-muted-foreground">
-          {message(line)}
+          <MessageText text={message(line)} />
         </p>
       ))}
       {meters
@@ -327,7 +328,7 @@ function JournalRow({
       ) : null}
       {run?.why.map((line, index) => (
         <p key={index} className="text-sm break-words text-muted-foreground">
-          {message(line)}
+          <MessageText text={message(line)} />
         </p>
       ))}
       {alert && alert.level !== "ok" ? <AlertLines alert={alert} meters={false} /> : null}
@@ -336,7 +337,9 @@ function JournalRow({
           {concerns ? <Entity id={concerns} kind="discord" /> : null}
           {!concerns && entry.mcUuid ? <Entity id={entry.mcUuid} kind="minecraft" /> : null}
           {Object.keys(entry.line.args ?? {}).length > 0 ? (
-            <span className="min-w-0 text-sm wrap-anywhere text-muted-foreground">{message(entry.line)}</span>
+            <span className="min-w-0 text-sm wrap-anywhere text-muted-foreground">
+              <MessageText text={message(entry.line)} />
+            </span>
           ) : null}
         </div>
       ) : null}

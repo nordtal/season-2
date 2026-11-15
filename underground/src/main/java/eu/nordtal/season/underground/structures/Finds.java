@@ -10,7 +10,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
-/** What a scan of the world found: spawners, hives, beds, chests, portal frames, starts and the chunks themselves. */
+/** What a scan found: spawners, hives, beds, chests, portal frames, suspicious blocks, starts and the chunks. */
 public final class Finds {
 
     /** A spawner block with the mobs its data names; an empty spawner names none. */
@@ -40,6 +40,7 @@ public final class Finds {
     final List<Point> chests = new ArrayList<>();
     final List<Chest> loot = new ArrayList<>();
     final List<Point> frames = new ArrayList<>();
+    final List<Point> suspicious = new ArrayList<>();
     final List<Start> starts = new ArrayList<>();
     final Set<Long> fullChunks = new HashSet<>();
     final NavigableMap<Integer, Integer> versions = new TreeMap<>();
@@ -53,6 +54,7 @@ public final class Finds {
         chests.addAll(other.chests);
         loot.addAll(other.loot);
         frames.addAll(other.frames);
+        suspicious.addAll(other.suspicious);
         starts.addAll(other.starts);
         fullChunks.addAll(other.fullChunks);
         other.versions.forEach((version, count) -> versions.merge(version, count, Integer::sum));

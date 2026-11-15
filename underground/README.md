@@ -110,9 +110,10 @@ ring by ring, and the wider sets of the game would answer first with a place far
 
 `furnish --world <world> --seed <seed> --out <dir> --regions 0,0,19,19` runs after `structures`, on
 the world that holds its starts, and writes the region and entity files it changes into `<dir>`, with
-`furnish-report.tsv`, one line per place, per chest with the table it rolled before, and per pair of
-allays. It changes no chunk outside `--regions`, and stops before it writes anything when a chunk to
-change is at another data version. A second run on its own output writes nothing.
+`furnish-report.tsv`, one line per place, per chest with the table it rolled before, per pair of
+allays and per chunk of suspicious blocks. It changes no chunk outside `--regions`, and stops before
+it writes anything when a chunk to change is at another data version. A second run on its own output
+writes nothing.
 
 - **Every pillager outpost gets two allays**, which never despawn. They go into the largest closed
   room the map built there, else on a lead to the outpost's fence nearest its middle, else free on its
@@ -125,6 +126,12 @@ change is at another data version. A second run on its own output writes nothing
   and rolls no table, and in a village every chest that rolls the house table of another kind of
   village. A place left with no chest of its table gets it on one chest that holds nothing, of the
   table most of its chests roll, nearest its middle. A chest that holds items is never changed.
+- **Every suspicious sand and gravel block gets an archaeology table of the game**, chosen per block:
+  under water (water above it before open air) sand rolls the warm ocean ruins' table and gravel the
+  cold ones'; on land gravel rolls the trail ruins', one block in eight the rare one, and sand the
+  desert pyramid's in a place of 1,000 such blocks or more, the desert well's in a smaller one.
+  Chunks with suspicious blocks that touch at a side or a corner are one place. A block that already
+  rolls a table or holds an item stays as it is.
 
 ## What stays and what is replaced
 

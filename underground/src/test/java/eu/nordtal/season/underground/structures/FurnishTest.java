@@ -117,6 +117,46 @@ class FurnishTest {
     }
 
     @Test
+    void aSuspiciousBlockRollsTheTableOfItsWaterAndItsPlaceAndOneThatHoldsAnItemStays(@TempDir final Path directory)
+            throws IOException {
+        final Path out = run(world(directory), directory.resolve("out"));
+
+        assertEquals(Archaeology.WARM, table(out, 40, 60, 40));
+        assertEquals(Archaeology.WELL, table(out, 42, 63, 42));
+        assertEquals(Archaeology.COLD, table(out, 46, 60, 46));
+        assertTrue(List.of(Archaeology.TRAIL, Archaeology.TRAIL_RARE).contains(table(out, 44, 63, 44)));
+        assertNull(table(out, 48, 63, 48));
+        final Map<String, Object> warm = Objects.requireNonNull(blockEntity(out, 40, 60, 40));
+        assertTrue(warm.get("LootTableSeed") instanceof Long);
+        assertFalse(warm.containsKey("item"));
+    }
+
+    @Test
+    void sandRollsAnOceanRuinUnderWaterAndADesertTableOnLandAndGravelAColdRuinOrTheTrailRuins() {
+        assertEquals(Archaeology.WARM, Archaeology.table("minecraft:suspicious_sand", true, true, false));
+        assertEquals(Archaeology.PYRAMID, Archaeology.table("minecraft:suspicious_sand", false, true, false));
+        assertEquals(Archaeology.WELL, Archaeology.table("minecraft:suspicious_sand", false, false, true));
+        assertEquals(Archaeology.COLD, Archaeology.table("minecraft:suspicious_gravel", true, false, true));
+        assertEquals(Archaeology.TRAIL, Archaeology.table("minecraft:suspicious_gravel", false, true, false));
+        assertEquals(Archaeology.TRAIL_RARE, Archaeology.table("minecraft:suspicious_gravel", false, true, true));
+    }
+
+    @Test
+    void chunksOfSuspiciousBlocksThatTouchAtASideOrACornerAreOnePlace() {
+        final Map<Long, Integer> sizes = Archaeology.places(List.of(
+                new Finds.Point(1, 60, 1),
+                new Finds.Point(2, 60, 2),
+                new Finds.Point(17, 60, 17),
+                new Finds.Point(-15, 60, 17),
+                new Finds.Point(100, 60, 100)));
+
+        assertEquals(4, sizes.get(Finds.key(0, 0)));
+        assertEquals(4, sizes.get(Finds.key(1, 1)));
+        assertEquals(4, sizes.get(Finds.key(-1, 1)));
+        assertEquals(1, sizes.get(Finds.key(6, 6)));
+    }
+
+    @Test
     void aSecondRunOnTheFurnishedWorldWritesNothing(@TempDir final Path directory) throws IOException {
         final Path world = world(directory);
         final Path first = run(world, directory.resolve("first"));
@@ -165,6 +205,7 @@ class FurnishTest {
      * Builds a world of three outposts and a taiga village.
      * One outpost's stone brick hull closes a room, one is a floor of planks, and one a floor of planks with a fence;
      * the village has an empty chest, a plains house chest and an armorer's chest.
+     * Suspicious sand and gravel lie under water and dry, one of them holding a bone.
      */
     private static Path world(final Path directory) throws IOException {
         final Path world = directory.resolve("world");
@@ -189,13 +230,25 @@ class FurnishTest {
         blockEntity(chunks, chest(90, 64, 90, null, false));
         blockEntity(chunks, chest(100, 64, 100, "minecraft:chests/village/village_plains_house", false));
         blockEntity(chunks, chest(95, 64, 95, "minecraft:chests/village/village_armorer", false));
+        for (final int at : new int[] {40, 42, 44, 46, 48}) {
+            blockEntity(chunks, suspicious(at, at == 40 || at == 46 ? 60 : 63, at == 48));
+        }
         Region.write(Region.file(world.resolve("region"), 0, 0), chunks);
         Files.createDirectories(world.resolve("entities"));
         return world;
     }
 
-    /** Names the blocks: stone below 64, the hull, the floor of planks and the chests. */
+    /** Names the blocks: stone below 64, the hull, the floor of planks, the chests and the suspicious blocks. */
     private static String block(final int x, final int y, final int z) {
+        if (x == z && (x == 40 || x == 46) && y > 60 && y < 64) {
+            return "minecraft:water";
+        }
+        if (x == z && (x == 40 || x == 42 || x == 48) && y == (x == 40 ? 60 : 63)) {
+            return "minecraft:suspicious_sand";
+        }
+        if (x == z && (x == 44 || x == 46) && y == (x == 46 ? 60 : 63)) {
+            return "minecraft:suspicious_gravel";
+        }
         if ((x == 20 || x == 22 || x == 24) && y == 65 && x == z) {
             return "minecraft:chest";
         }
@@ -266,6 +319,16 @@ class FurnishTest {
             stacks.add(new LinkedHashMap<>(Map.of("id", "minecraft:stone", "count", 1, "Slot", (byte) 0)));
             entity.put("Items", stacks);
         }
+        return entity;
+    }
+
+    private static Map<String, Object> suspicious(final int x, final int y, final boolean item) {
+        final Map<String, Object> entity = new LinkedHashMap<>();
+        entity.put("id", "minecraft:brushable_block");
+        entity.put("x", x);
+        entity.put("y", y);
+        entity.put("z", x);
+        entity.put("item", new LinkedHashMap<>(Map.of("id", item ? "minecraft:bone" : "minecraft:air", "count", 1)));
         return entity;
     }
 

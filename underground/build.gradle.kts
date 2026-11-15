@@ -14,3 +14,12 @@ application {
 tasks.named<JavaExec>("run") {
     workingDir = rootProject.projectDir
 }
+
+// StructurePackTest reads the structure sets of the data pack the smp image brings.
+repositoryRootTestInputs {
+    readsTree("deploy/minecraft/datapacks/nordtal")
+}
+
+dependencies {
+    testImplementation(testFixtures(project(":common")))
+}

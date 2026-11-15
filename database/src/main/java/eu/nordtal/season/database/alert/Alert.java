@@ -114,6 +114,10 @@ public record Alert(
             case ROLE_NOT_CREATED -> TEXTS.alert().roleNotCreated(named());
             case LOCK_NOT_KEPT -> TEXTS.alert().lockNotKept();
             case LOCK_WITHOUT_CHANNEL -> TEXTS.alert().lockWithoutChannel();
+            case START_CHANNEL_HIDDEN -> TEXTS.alert().startChannelHidden();
+            case LANGUAGE_NOT_KEPT -> TEXTS.alert().languageNotKept();
+            case CHANNEL_SEEN ->
+                TEXTS.alert().channelSeen(((JournalDetail.ChannelSeen) Objects.requireNonNull(detail)).channel());
             default -> throw new IllegalStateException(action + " needs a measure for its title");
         };
     }
@@ -130,6 +134,8 @@ public record Alert(
             lines.addAll(detail.lines());
         } else if (action == JournalAction.LOCK_WITHOUT_CHANNEL) {
             lines.add(TEXTS.alert().nobodyLocked());
+        } else if (action == JournalAction.START_CHANNEL_HIDDEN) {
+            lines.add(TEXTS.alert().showStartChannel());
         }
         return List.copyOf(lines);
     }
@@ -150,7 +156,8 @@ public record Alert(
             }
             case PAYMENT_NEEDS_LOOK, LINK_REFUSED, PURCHASE_FAILED -> "/payments";
             case LINK_FAILED, DM_NOT_DELIVERED, ROLE_NOT_CHANGED, ROLE_AMBIGUOUS, ROLE_NOT_CREATED -> "/access";
-            case LOCK_NOT_KEPT, LOCK_WITHOUT_CHANNEL -> "/services/discord-bot";
+            case LOCK_NOT_KEPT, LOCK_WITHOUT_CHANNEL, START_CHANNEL_HIDDEN, LANGUAGE_NOT_KEPT, CHANNEL_SEEN ->
+                "/services/discord-bot";
             default -> "/";
         };
     }

@@ -47,6 +47,17 @@ interface AccessDao {
     void setTimeZone(@Bind("discordId") DiscordId discordId, @Bind("zone") @Nullable String zone);
 
     @SqlUpdate("""
+            INSERT INTO discord_user (discord_id, country, time_zone, updated)
+            VALUES (:discordId, :country, :zone, now())
+            ON CONFLICT (discord_id)
+                DO UPDATE SET country = EXCLUDED.country, time_zone = EXCLUDED.time_zone, updated = now()
+            """)
+    void setCountry(
+            @Bind("discordId") DiscordId discordId,
+            @Bind("country") @Nullable String country,
+            @Bind("zone") @Nullable String zone);
+
+    @SqlUpdate("""
             INSERT INTO discord_user (discord_id, donor, updated)
             VALUES (:discordId, :donor, now())
             ON CONFLICT (discord_id)

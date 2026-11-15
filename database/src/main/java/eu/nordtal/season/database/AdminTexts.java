@@ -565,6 +565,23 @@ public interface AdminTexts {
         @Name("Channels the lock does not close")
         MessageRef lockNotKept();
 
+        @Name("The start channel hidden while the lock is on")
+        MessageRef startChannelHidden();
+
+        @Name("Show the start channel")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef showStartChannel();
+
+        @Name("Channels a language's members are not kept out of")
+        MessageRef languageNotKept();
+
+        @Name("A channel open to members it is closed to")
+        MessageRef channelSeen(@Arg("channel") @Example("#deutsch-chat") String channel);
+
+        @Name("Whose allow opens it")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef seenThrough(@Arg("holder") @Example("@English") String holder);
+
         @Name("Which channel, and what went wrong")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
         MessageRef failedIn(

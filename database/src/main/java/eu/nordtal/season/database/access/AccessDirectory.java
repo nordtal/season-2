@@ -32,6 +32,14 @@ public interface AccessDirectory extends AccessReader {
     void setTimeZone(DiscordId discordId, @Nullable ZoneId zone);
 
     /**
+     * Stores the country role of the member and the time zone it gives, both at once.
+     *
+     * @param country the key of the country, null for a member without one
+     * @param zone the country's zone, null for the network's
+     */
+    void setCountry(DiscordId discordId, @Nullable String country, @Nullable ZoneId zone);
+
+    /**
      * Sets the total play time of this account to {@code seconds} and creates the row if it is missing.
      * It is the one lever that moves the prestige tier.
      *

@@ -7,5 +7,6 @@ public enum DiscordRole {
     ADMIN,
     LANGUAGE,
     REGION,
+    COUNTRY,
     LOCK
 }

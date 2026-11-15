@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
+import org.jspecify.annotations.Nullable;
 
 /** What a scan of the world found: spawners, hives, beds, chests, portal frames, starts and the chunks themselves. */
 public final class Finds {
@@ -27,6 +28,9 @@ public final class Finds {
     /** A block position. */
     public record Point(int x, int y, int z) {}
 
+    /** A chest with the loot table it rolls when first opened, null for none, and how many stacks it holds. */
+    public record Chest(int x, int y, int z, @Nullable String lootTable, int stacks) {}
+
     /** A structure start already in the world, with the box around its pieces. */
     public record Start(String id, int chunkX, int chunkZ, Box box) {}
 
@@ -34,6 +38,7 @@ public final class Finds {
     final List<Hive> hives = new ArrayList<>();
     final List<Point> beds = new ArrayList<>();
     final List<Point> chests = new ArrayList<>();
+    final List<Chest> loot = new ArrayList<>();
     final List<Point> frames = new ArrayList<>();
     final List<Start> starts = new ArrayList<>();
     final Set<Long> fullChunks = new HashSet<>();
@@ -46,6 +51,7 @@ public final class Finds {
         hives.addAll(other.hives);
         beds.addAll(other.beds);
         chests.addAll(other.chests);
+        loot.addAll(other.loot);
         frames.addAll(other.frames);
         starts.addAll(other.starts);
         fullChunks.addAll(other.fullChunks);

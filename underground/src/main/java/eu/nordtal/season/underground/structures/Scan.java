@@ -73,7 +73,15 @@ public final class Scan {
             }
             case "minecraft:beehive" ->
                 finds.hives.add(new Finds.Hive(x, y, z, Nbt.list(entity, "bees").size()));
-            case "minecraft:chest", "minecraft:trapped_chest" -> finds.chests.add(new Finds.Point(x, y, z));
+            case "minecraft:chest", "minecraft:trapped_chest" -> {
+                finds.chests.add(new Finds.Point(x, y, z));
+                finds.loot.add(new Finds.Chest(
+                        x,
+                        y,
+                        z,
+                        entity.get("LootTable") instanceof String table ? table : null,
+                        Nbt.list(entity, "Items").size()));
+            }
             default -> {}
         }
     }

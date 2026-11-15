@@ -106,6 +106,26 @@ every chunk it covers, since the game reads a start no further; a wide place get
 generates in new land and `/locate` searches only the map's: it searches every set of a structure
 ring by ring, and the wider sets of the game would answer first with a place far away.
 
+### Allays and loot
+
+`furnish --world <world> --seed <seed> --out <dir> --regions 0,0,19,19` runs after `structures`, on
+the world that holds its starts, and writes the region and entity files it changes into `<dir>`, with
+`furnish-report.tsv`, one line per place, per chest and per pair of allays. It stops before it writes
+anything when a chunk to change is at another data version. A second run on its own output writes
+nothing.
+
+- **Every pillager outpost gets two allays**, which never despawn. They go into the largest closed
+  room the map built there, else on a lead to the outpost's fence nearest its middle, else free on its
+  highest floor near the middle. A room counts as closed only where an allay cannot get out: doors,
+  trapdoors, gates, slabs, stairs, plants, water and thin blocks count as open, since a player leaves
+  a door open and two half blocks make a gap. The game ties the knot to the fence when it loads the
+  allay. An outpost with an allay within eight blocks of it is left as it is.
+- **The chests of outposts and taiga villages get the game's loot table**, `pillager_outpost` and
+  `village/village_taiga_house`, rolled when a player first opens one: every chest that holds nothing
+  and rolls no table, and in a village every chest that rolls the house table of another kind of
+  village. A place left with no chest of its table gets it on one chest that holds nothing, of the
+  table most of its chests roll, nearest its middle. A chest that holds items is never changed.
+
 ## What stays and what is replaced
 
 A block of the map is ground when `block/terrain.txt` names it, a plant or the like when

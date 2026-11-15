@@ -14,7 +14,6 @@ import eu.nordtal.season.messages.document.Text;
 import eu.nordtal.season.messages.document.Value;
 import eu.nordtal.season.messages.spec.TextFormat;
 import eu.nordtal.season.messages.value.Kind;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -43,7 +42,6 @@ import net.dv8tion.jda.api.components.section.Section;
 import net.dv8tion.jda.api.components.section.SectionAccessoryComponent;
 import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
 import net.dv8tion.jda.api.components.selections.SelectMenu;
-import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
@@ -51,7 +49,6 @@ import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.Channel;
-import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.data.DataObject;
@@ -90,7 +87,12 @@ public final class DocumentRenderer {
 
     public record FilledInput(Function<@Nullable String, LabelChildComponent> field) implements Filled {}
 
-    public record FilledSelect(String id, List<Option> options) implements Filled {
+    public record FilledSelect(
+            String id, List<Option> options, @Nullable String selected) implements Filled {
+
+        public FilledSelect(final String id, final List<Option> options) {
+            this(id, options, null);
+        }
 
         public FilledSelect {
             options = List.copyOf(options);
@@ -171,18 +173,7 @@ public final class DocumentRenderer {
         }
 
         private List<FileUpload> files() {
-            final List<FileUpload> all =
-                    new ArrayList<>(attachments.stream().map(Drawn::banner).toList());
-            all.addAll(uploads);
-            return all;
-        }
-
-        private static FileUpload banner(final String name) {
-            final InputStream stream = DocumentRenderer.class.getClassLoader().getResourceAsStream("banners/" + name);
-            if (stream == null) {
-                throw new IllegalStateException("banners/" + name + " is missing from the jar");
-            }
-            return FileUpload.fromData(stream, name);
+            return DocumentFiles.files(attachments, uploads);
         }
     }
 
@@ -553,15 +544,32 @@ public final class DocumentRenderer {
         private Container container(final Part part, final Locale locale, final @Nullable String tag) {
             components++;
             final List<ContainerChildComponent> children = new ArrayList<>();
-            for (final Part inner : part.inner()) {
-                if (!empty(inner, locale)) {
-                    children.add(inner.type() == Part.Type.ROW ? row(inner, locale, tag) : child(inner, locale, tag));
-                }
-            }
+            children(part.inner(), locale, tag, children);
             final Container container = Container.of(children);
             return part.accent() == null
                     ? container
                     : container.withAccentColor(Integer.parseInt(part.accent().substring(1), 16));
+        }
+
+        private void children(
+                final List<Part> parts,
+                final Locale locale,
+                final @Nullable String tag,
+                final List<ContainerChildComponent> into) {
+            for (final Part part : parts) {
+                if (empty(part, locale)) {
+                    continue;
+                }
+                if (part.type() == Part.Type.LANGUAGES) {
+                    for (final Locale language : languagesOf(part)) {
+                        labels(language);
+                        children(part.inner(), language, Locales.tag(language), into);
+                    }
+                    labels(locale);
+                } else {
+                    into.add(part.type() == Part.Type.ROW ? row(part, locale, tag) : child(part, locale, tag));
+                }
+            }
         }
 
         private ContainerChildComponent child(final Part part, final Locale locale, final @Nullable String tag) {
@@ -684,21 +692,12 @@ public final class DocumentRenderer {
             final Map<String, Kind> optionKinds =
                     declaration.kinds(declaration.requireSlot(id).values());
             final FilledSelect filled = filled(slots, id, FilledSelect.class);
-            final List<SelectOption> options = new ArrayList<>();
-            for (final Option option : filled.options().stream()
-                    .limit(SelectMenu.OPTIONS_MAX_AMOUNT)
-                    .toList()) {
+            return SelectDrawing.draw(filled, placeholder(item, locale), option -> {
                 final Text line = item.option();
-                final String label = line != null
+                return line != null
                         ? format(locale, line, option.values(), optionKinds, TextFormat.PLAIN)
                         : Objects.requireNonNull(option.label(), "an option without a line of its own has no label");
-                final SelectOption shown = SelectOption.of(cut(label, SelectOption.LABEL_MAX_LENGTH), option.value());
-                options.add(option.emoji() == null ? shown : shown.withEmoji(Emoji.fromUnicode(option.emoji())));
-            }
-            return StringSelectMenu.create(filled.id())
-                    .setPlaceholder(cut(placeholder(item, locale), SelectMenu.PLACEHOLDER_MAX_LENGTH))
-                    .addOptions(options)
-                    .build();
+            });
         }
 
         private String placeholder(final Item item, final Locale locale) {

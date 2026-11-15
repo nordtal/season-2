@@ -144,6 +144,18 @@ class FurnishTest {
         assertFalse(Furnish.otherHouse("minecraft:chests/village/village_plains_house", Furnish.OUTPOST_LOOT));
     }
 
+    @Test
+    void aRunChangesNoChunkOutsideTheGivenRegions(@TempDir final Path directory) throws IOException {
+        assertEquals(java.util.Set.of("0.0", "19.-1"), Furnish.names(List.of(new int[] {0, 0}, new int[] {19, -1})));
+
+        final Path out = run(world(directory), directory.resolve("out"));
+
+        assertTrue(report(out).stream().noneMatch(line -> line.startsWith("outside\t")));
+        assertTrue(report(out).stream()
+                .filter(line -> line.startsWith("chest\t"))
+                .allMatch(line -> line.contains(", rolled ")));
+    }
+
     private static Path run(final Path world, final Path out) throws IOException {
         Furnish.run(world, SEED, out, REGIONS);
         return out;

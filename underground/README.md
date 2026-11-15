@@ -110,9 +110,9 @@ ring by ring, and the wider sets of the game would answer first with a place far
 
 `furnish --world <world> --seed <seed> --out <dir> --regions 0,0,19,19` runs after `structures`, on
 the world that holds its starts, and writes the region and entity files it changes into `<dir>`, with
-`furnish-report.tsv`, one line per place, per chest and per pair of allays. It stops before it writes
-anything when a chunk to change is at another data version. A second run on its own output writes
-nothing.
+`furnish-report.tsv`, one line per place, per chest with the table it rolled before, and per pair of
+allays. It changes no chunk outside `--regions`, and stops before it writes anything when a chunk to
+change is at another data version. A second run on its own output writes nothing.
 
 - **Every pillager outpost gets two allays**, which never despawn. They go into the largest closed
   room the map built there, else on a lead to the outpost's fence nearest its middle, else free on its

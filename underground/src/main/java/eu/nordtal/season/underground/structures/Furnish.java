@@ -12,10 +12,14 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
@@ -71,6 +75,7 @@ public final class Furnish {
     private final Path world;
     private final Path out;
     private final Finds finds;
+    private final Set<String> regions;
     private final int dataVersion;
     private final Random random;
     private final Area area;
@@ -81,10 +86,11 @@ public final class Furnish {
     private int allays;
     private int missing;
 
-    private Furnish(final Path world, final Path out, final Finds finds, final long seed) {
+    private Furnish(final Path world, final Path out, final Finds finds, final long seed, final List<int[]> regions) {
         this.world = world;
         this.out = out;
         this.finds = finds;
+        this.regions = names(regions);
         this.dataVersion = Structures.version(finds);
         this.random = new Random(seed);
         this.area = new Area(world);
@@ -94,7 +100,7 @@ public final class Furnish {
     public static String run(final Path world, final long seed, final Path out, final List<int[]> regions)
             throws IOException {
         final Finds finds = Scan.run(world, regions);
-        return new Furnish(world, out, finds, seed).furnish().toString();
+        return new Furnish(world, out, finds, seed, regions).furnish().toString();
     }
 
     private Summary furnish() throws IOException {
@@ -106,6 +112,9 @@ public final class Furnish {
         }
         for (final Place village : villages) {
             chests(village, TAIGA_LOOT);
+        }
+        for (final Map.Entry<String, Map<Integer, List<Change>>> file : files.entrySet()) {
+            versions(file.getKey(), file.getValue().keySet());
         }
         int regionFiles = 0;
         int entityFiles = 0;
@@ -185,7 +194,11 @@ public final class Furnish {
             final long seed = random.nextLong();
             add(REGION, chest.x() >> 4, chest.z() >> 4, chunk -> {
                 final String decision = loot(chunk, chest, table, seed);
-                report("chest", chest.x() + " " + chest.y() + " " + chest.z(), decision, place.structure());
+                report(
+                        "chest",
+                        chest.x() + " " + chest.y() + " " + chest.z(),
+                        decision,
+                        place.structure() + ", rolled " + chest.lootTable() + " before");
                 if (decision.equals(table)) {
                     chests++;
                     return true;
@@ -237,7 +250,7 @@ public final class Furnish {
                 continue;
             }
             final @Nullable String old = entity.get("LootTable") instanceof String text ? text : null;
-            if (!java.util.Objects.equals(old, at.lootTable())) {
+            if (!Objects.equals(old, at.lootTable())) {
                 return "keep: has " + old + " now";
             }
             if (!Nbt.list(entity, "Items").isEmpty()) {
@@ -307,7 +320,7 @@ public final class Furnish {
                 allays++;
                 return true;
             });
-            detail.append(String.format(java.util.Locale.ROOT, "allay at %.1f %.1f %.1f ", spot[0], spot[1], spot[2]));
+            detail.append(String.format(Locale.ROOT, "allay at %.1f %.1f %.1f ", spot[0], spot[1], spot[2]));
         }
         report("allays", at, decision, detail.toString().strip());
     }
@@ -621,8 +634,22 @@ public final class Furnish {
         return Nbt.list(chunk, "Entities");
     }
 
+    /** Returns the names x.z of the regions the command may change. */
+    static Set<String> names(final List<int[]> regions) {
+        final Set<String> names = new HashSet<>();
+        for (final int[] region : regions) {
+            names.add(region[0] + "." + region[1]);
+        }
+        return names;
+    }
+
     private void add(final String kind, final int chunkX, final int chunkZ, final Change change) {
-        files.computeIfAbsent(kind + "/r." + (chunkX >> 5) + "." + (chunkZ >> 5) + ".mca", key -> new TreeMap<>())
+        final String region = (chunkX >> 5) + "." + (chunkZ >> 5);
+        if (!regions.contains(region)) {
+            report("outside", "r." + region, "skip", kind + " of the chunk " + chunkX + " " + chunkZ + " stays");
+            return;
+        }
+        files.computeIfAbsent(kind + "/r." + region + ".mca", key -> new TreeMap<>())
                 .computeIfAbsent((chunkX & 31) + (chunkZ & 31) * Region.SIDE, key -> new ArrayList<>())
                 .add(change);
     }
@@ -641,12 +668,8 @@ public final class Furnish {
             }
             if (chunk == null) {
                 missing += entry.getValue().size();
+                report("missing", name, "skip", "the chunk " + entry.getKey() + " is not there");
                 continue;
-            }
-            final int version = Nbt.number(chunk, "DataVersion", dataVersion);
-            if (version != dataVersion) {
-                throw new IllegalStateException("The chunk " + entry.getKey() + " of " + name + " is at data version "
-                        + version + ", not " + dataVersion + "; upgrade the world first.");
             }
             for (final Change change : entry.getValue()) {
                 changed |= change.apply(chunk);
@@ -656,6 +679,23 @@ public final class Furnish {
             Region.write(out.resolve(name), chunks);
         }
         return changed;
+    }
+
+    /** Throws before anything is written when a chunk to change is at another data version than the world. */
+    private void versions(final String name, final Set<Integer> chunks) throws IOException {
+        final Path source = world.resolve(name);
+        if (!Files.exists(source)) {
+            return;
+        }
+        final Map<Integer, Map<String, Object>> read = Region.read(source);
+        for (final int index : chunks) {
+            final @Nullable Map<String, Object> chunk = read.get(index);
+            final int version = chunk == null ? dataVersion : Nbt.number(chunk, "DataVersion", dataVersion);
+            if (version != dataVersion) {
+                throw new IllegalStateException("The chunk " + index + " of " + name + " is at data version " + version
+                        + ", not " + dataVersion + "; upgrade the world first.");
+            }
+        }
     }
 
     private void report(final String kind, final String at, final String decision, final String detail) {

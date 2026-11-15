@@ -194,7 +194,7 @@ final class Entrances {
                 }
                 final Bored bored = tunnel(front, target);
                 final Cells tunnel = bored.cells();
-                final boolean sound = bored.walkable() && sound(tunnel);
+                final boolean sound = bored.walkable() && dry(front.cells) && sound(tunnel);
                 for (int at = 0; at < tunnel.size(); at++) {
                     tile.flags[tunnel.get(at)] &= (byte) ~Tile.MARK;
                 }
@@ -362,6 +362,28 @@ final class Entrances {
                     if (tile.has(tile.index(x + side % 3 - 1, layer + up, z + side / 3 - 1), Tile.SKY)) {
                         return false;
                     }
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns whether no cell of a cave's cut-off stretch is or touches a fluid.
+     * The entrance opens that stretch again, where the generated world may hold water against its rock.
+     */
+    boolean dry(final Cells stretch) {
+        for (int at = 0; at < stretch.size(); at++) {
+            final int cell = stretch.get(at);
+            if (fluid(cell)) {
+                return false;
+            }
+            if (tile.edge(cell)) {
+                continue;
+            }
+            for (final int face : tile.faces()) {
+                if (fluid(cell + face)) {
+                    return false;
                 }
             }
         }

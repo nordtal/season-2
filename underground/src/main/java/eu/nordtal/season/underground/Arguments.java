@@ -72,11 +72,25 @@ public final class Arguments {
         return values.containsKey(name);
     }
 
-    /** Returns the regions to work on: the rectangle of --regions x1,z1,x2,z2, or every region file of a world. */
+    /**
+     * Returns the regions to work on, named by --regions or else every region file of a world.
+     * --regions is a rectangle x1,z1,x2,z2 with both corners included, or a list x,z;x,z.
+     */
     public List<int[]> regions(final Path world) throws IOException {
         final List<int[]> regions = new ArrayList<>();
         if (has("regions")) {
             final String[] corners = text("regions").split(",", -1);
+            if (corners.length != 4 || text("regions").contains(";")) {
+                for (final String region : text("regions").split(";", -1)) {
+                    final String[] coordinates = region.split(",", -1);
+                    if (coordinates.length != 2) {
+                        throw new IllegalArgumentException("--regions " + text("regions")
+                                + " is neither x1,z1,x2,z2 nor a list x,z;x,z. Give one of the two.");
+                    }
+                    regions.add(new int[] {Integer.parseInt(coordinates[0]), Integer.parseInt(coordinates[1])});
+                }
+                return regions;
+            }
             for (int x = Integer.parseInt(corners[0]); x <= Integer.parseInt(corners[2]); x++) {
                 for (int z = Integer.parseInt(corners[1]); z <= Integer.parseInt(corners[3]); z++) {
                     regions.add(new int[] {x, z});

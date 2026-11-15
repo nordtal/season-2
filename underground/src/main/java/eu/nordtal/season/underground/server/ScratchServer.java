@@ -20,11 +20,13 @@ public final class ScratchServer implements AutoCloseable {
 
     private static final Pattern STARTED = Pattern.compile("Done \\(");
     private static final String END = "\u0000";
+    private static final Pattern BROKEN = Pattern.compile("OutOfMemoryError");
 
     private final Process process;
     private final BufferedWriter console;
     private final BlockingQueue<String> lines = new LinkedBlockingQueue<>();
     private final List<String> log = new ArrayList<>();
+    private volatile boolean broken;
 
     private ScratchServer(final Process process) {
         this.process = process;
@@ -88,7 +90,13 @@ public final class ScratchServer implements AutoCloseable {
                 .redirectErrorStream(true)
                 .start();
         final ScratchServer server = new ScratchServer(process);
-        server.await(STARTED, Duration.ofHours(12));
+        try {
+            server.await(STARTED, Duration.ofHours(12));
+        } catch (final IOException | InterruptedException | RuntimeException e) {
+            // A server that never started would hold its port, its memory and the world's lock for the next run.
+            process.destroyForcibly().waitFor();
+            throw e;
+        }
         return server;
     }
 
@@ -107,14 +115,19 @@ public final class ScratchServer implements AutoCloseable {
         return await(answer, patience);
     }
 
-    /** Returns the next line of the log that matches, and fails when the server ends or the time runs out first. */
+    /** Returns the next matching line, and fails when the server ends, runs out of memory or of time first. */
     public String await(final Pattern pattern, final Duration patience) throws IOException, InterruptedException {
         final long end = System.nanoTime() + patience.toNanos();
         while (true) {
             final String line = lines.poll(Math.max(1, end - System.nanoTime()), TimeUnit.NANOSECONDS);
-            if (line == null || line.equals(END)) {
-                throw new IOException((line == null ? "No line like " : "The server ended before a line like ")
-                        + pattern + "; the log ends with: " + tail());
+            if (line == null || line.equals(END) || BROKEN.matcher(line).find()) {
+                broken = true;
+                throw new IOException((line == null
+                                ? "No line like " + pattern
+                                : line.equals(END)
+                                        ? "The server ended before a line like " + pattern
+                                        : "The server ran out of memory")
+                        + "; the log ends with: " + tail());
             }
             if (pattern.matcher(line).find()) {
                 return line;
@@ -131,6 +144,10 @@ public final class ScratchServer implements AutoCloseable {
 
     @Override
     public void close() throws IOException, InterruptedException {
+        if (broken) {
+            process.destroyForcibly().waitFor();
+            return;
+        }
         if (process.isAlive()) {
             send("stop");
         }

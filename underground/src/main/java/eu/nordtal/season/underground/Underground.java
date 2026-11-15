@@ -9,6 +9,7 @@ import eu.nordtal.season.underground.server.Upgrade;
 import eu.nordtal.season.underground.server.Verify;
 import eu.nordtal.season.underground.structures.Structures;
 import eu.nordtal.season.underground.transplant.Parameters;
+import eu.nordtal.season.underground.transplant.Refresh;
 import eu.nordtal.season.underground.transplant.Transplant;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -26,7 +27,8 @@ public final class Underground {
     public static void main(final String[] words) throws IOException, InterruptedException {
         if (words.length == 0) {
             throw new IllegalArgumentException(
-                    "Name a command: histogram, upgrade, generate, transplant, check, slice, verify or structures.");
+                    "Name a command: histogram, upgrade, generate, transplant, refresh, check, slice, verify or"
+                            + " structures.");
         }
         final Arguments arguments = new Arguments(List.of(Arrays.copyOfRange(words, 1, words.length)));
         switch (words[0]) {
@@ -35,6 +37,7 @@ public final class Underground {
             case "upgrade" -> Upgrade.run(setup(arguments, 0), arguments.path("map"), arguments.path("out"));
             case "generate" ->
                 Generate.run(setup(arguments, seed(arguments)), arguments.path("data"), regions(arguments));
+            case "refresh" -> refresh(arguments);
             case "verify" -> verify(arguments);
             case "check" -> check(arguments);
             case "slice" -> slice(arguments);
@@ -67,6 +70,20 @@ public final class Underground {
         final Transplant transplant =
                 new Transplant(arguments.path("map"), arguments.path("parallel"), arguments.path("out"), measures);
         System.out.println("transplant finished: " + transplant.run(arguments.regions(arguments.path("map"))));
+    }
+
+    /** Prints what changed since the earlier copy and which regions a transplant has to run over again. */
+    private static void refresh(final Arguments arguments) throws IOException {
+        final Refresh.Changes changes = Refresh.run(
+                arguments.path("before"), arguments.path("now"), arguments.path("upgraded"), arguments.path("out"));
+        if (changes.regions().isEmpty()) {
+            System.out.println("refresh finished: changed=0, the earlier result stays as it is");
+            return;
+        }
+        System.out.println(
+                "refresh finished: changed=" + changes.chunks() + " regions=" + Refresh.listed(changes.regions()));
+        System.out.println("transplant again: regions=" + Refresh.listed(changes.run()) + " take="
+                + Refresh.listed(changes.affected()));
     }
 
     /** Returns --seed, which a world generated in another seed would not match. */

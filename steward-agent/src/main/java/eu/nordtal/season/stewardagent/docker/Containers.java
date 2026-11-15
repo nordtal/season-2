@@ -181,11 +181,7 @@ public final class Containers {
             grace = Math.min(docker.inspect(containerId).stopTimeout(), LONGEST_GRACE_SECONDS);
             docker.stop(containerId, grace);
         } catch (DockerException e) {
-            // A failed read names its own cause, which is the answer when Docker sent none.
-            final String cause = e.getCause() == null || e.getCause().getMessage() == null
-                    ? ""
-                    : " (" + e.getCause().getMessage() + ")";
-            return RedeployResult.refused("stopping " + shortId(containerId) + ": " + e.getMessage() + cause);
+            return RedeployResult.refused("stopping " + shortId(containerId) + ": " + answerOf(e));
         }
         try {
             if (docker.inspect(containerId).wasKilled()) {
@@ -208,7 +204,7 @@ public final class Containers {
             docker.start(containerId);
             return RedeployResult.triggered("start asked for " + shortId(containerId));
         } catch (DockerException e) {
-            return RedeployResult.refused("starting " + shortId(containerId) + ": " + e.getMessage());
+            return RedeployResult.refused("starting " + shortId(containerId) + ": " + answerOf(e));
         }
     }
 
@@ -387,6 +383,14 @@ public final class Containers {
 
     private static String shortId(final String containerId) {
         return containerId.length() > 12 ? containerId.substring(0, 12) : containerId;
+    }
+
+    /** Docker's answer, with the cause of a failed read, which is the answer when Docker sent none. */
+    private static String answerOf(final DockerException failure) {
+        final Throwable cause = failure.getCause();
+        return cause == null || cause.getMessage() == null
+                ? messageOf(failure)
+                : messageOf(failure) + " (" + cause.getMessage() + ")";
     }
 
     private static String messageOf(final Exception failure) {

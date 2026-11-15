@@ -597,6 +597,9 @@ export type TextArgs = {
   "run.reason": {
     reason: Arg["choice"]
   }
+  "run.refusal": {
+    answer: Arg["text"]
+  }
   "run.removed": {
     artefact: Arg["text"]
     version: Arg["text"]

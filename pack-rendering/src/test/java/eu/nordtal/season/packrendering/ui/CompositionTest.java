@@ -123,6 +123,8 @@ class CompositionTest {
                         .plate(120, null, "Fahren", Look.PRIMARY)
                         .build()));
         assertEquals(98, Advances.of(BodyLine.primaryButton("Speichern")));
+        // Wider than the 96 a native button of 100 gives its label, the client would scroll the plate and clip it.
+        assertEquals(BodyLine.NATIVE_LABEL, Advances.of(BodyLine.normalButton("Schließen")));
         assertEquals(
                 248,
                 Advances.of(BodyLine.textLine()

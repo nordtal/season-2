@@ -35,6 +35,12 @@ public final class BodyLine {
     private static final int TEXT_GAP = 8;
     private static final int PRIMARY_WIDTH = 98;
 
+    /** The width of a native button that carries a 98 x 18 plate inside its 1 px rim. */
+    public static final int NATIVE_BUTTON = 100;
+
+    /** The width a native button gives its label: 2 kept clear on each side. */
+    public static final int NATIVE_LABEL = NATIVE_BUTTON - 4;
+
     /** A text line's capitals under its text row: box + 5, where a plain_message draws at box + 4. */
     private static final int TEXT_LINE = 1;
 
@@ -89,6 +95,21 @@ public final class BodyLine {
                 .moveTo((PRIMARY_WIDTH - Letters.visibleWidth(text) + 1) / 2)
                 .text(0, text, Look.PRIMARY.ink())
                 .build(PRIMARY_WIDTH);
+    }
+
+    /**
+     * Returns the label of a native button 100 wide in the normal look: the 98 x 18 plate, {@code label} on it.
+     * It advances {@link #NATIVE_LABEL}, so the client neither scrolls nor clips it, and its plate starts 1 left
+     * of it, inside the button's 1 px rim, which the client draws dark, and white on hover and focus.
+     */
+    public static Component normalButton(final String label) {
+        final String text = Letters.cut(label, PRIMARY_WIDTH - 2 * PAD);
+        return Pen.start()
+                .move(-1)
+                .art(Pen.artFont(0), Glyphs.UI_NORMAL_BUTTON, PRIMARY_WIDTH)
+                .moveTo(-1 + (PRIMARY_WIDTH - Letters.visibleWidth(text) + 1) / 2)
+                .text(0, text, Look.NORMAL.ink())
+                .build(NATIVE_LABEL);
     }
 
     /** Moves to {@code x} of the line, forward or back, without drawing. */

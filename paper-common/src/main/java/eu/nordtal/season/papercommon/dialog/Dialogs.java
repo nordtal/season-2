@@ -56,7 +56,7 @@ public final class Dialogs {
 
     /**
      * The base of a dialog with drawn buttons, closed by Esc.
-     * Esc tells the server nothing unless the type has an exit action, as {@link #bodyOnly(DialogAction)} gives it.
+     * Esc tells the server nothing without an exit action, which {@link #bodyOnly(Component, int, DialogAction)} adds.
      * A click keeps the dialog open for the server's redraw, and the game runs on.
      */
     public static DialogBase.Builder base(final Component title) {
@@ -72,15 +72,13 @@ public final class Dialogs {
     }
 
     /**
-     * A dialog of its body alone whose Esc runs {@code exit}, the only way the client tells the server a dialog closed.
-     * The client draws the exit as a native button, 1 pixel wide, in a footer 33 high instead of 5.
+     * A dialog of its body whose Esc and exit button run {@code exit}, which closes it: the button leaves it open.
+     * The client draws the button {@code width} by 20 with {@code label}, centred in a footer 33 high at the bottom.
      */
-    public static DialogType bodyOnly(final DialogAction exit) {
+    public static DialogType bodyOnly(final Component label, final int width, final DialogAction exit) {
         return DialogType.dialogList(RegistrySet.keySet(RegistryKey.DIALOG))
-                .exitAction(ActionButton.builder(Component.empty())
-                        .width(1)
-                        .action(exit)
-                        .build())
+                .exitAction(
+                        ActionButton.builder(label).width(width).action(exit).build())
                 .build();
     }
 

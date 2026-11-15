@@ -651,14 +651,13 @@ public final class SmpPlugin extends NordtalPlugin {
                 for (final eu.nordtal.season.smp.milestone.Objective objective : milestone.objectives()) {
                     final String type = objective.type().name();
                     if (trackRows.ensureObjective(milestone.key(), objective.key(), type, objective.target()) == 0) {
-                        final long paid = trackRows
+                        trackRows
                                 .objective(milestone.key(), objective.key())
-                                .map(ObjectiveRow::target)
-                                .orElse(-1L);
-                        getLogger()
-                                .warning("objective already paid, kept as paid: milestone=" + milestone.key()
-                                        + " key=" + objective.key() + " target=" + paid + " declared_target="
-                                        + objective.target() + " declared_type=" + type);
+                                .ifPresent(kept -> getLogger()
+                                        .warning("completed objective kept: milestone=" + milestone.key()
+                                                + " key=" + objective.key() + " target=" + kept.target()
+                                                + " declared_target=" + objective.target() + " declared_type="
+                                                + type));
                     }
                 }
             }

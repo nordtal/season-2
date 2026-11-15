@@ -8,8 +8,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Checks a reloaded milestone file against the stored progress.
  * It refuses a file that leaves stored progress without a milestone or objective.
- * It accepts a lower target for an objective that has not completed.
- * It accepts any change to a completed objective, whose row keeps the target and type it was paid at.
+ * It accepts a changed target for an open objective and any change to a completed one, whose row stays as it is.
  */
 public final class TrackValidation {
 

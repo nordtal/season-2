@@ -115,8 +115,8 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("🛑 **smp** *Verify* paper 1.21.4 → 1.21.5"), drawn);
-        assertTrue(drawn.contains("**smp** not healthy in time"), drawn);
+        assertTrue(drawn.contains("🛑 **smp** paper 1.21.4 → 1.21.5"), drawn);
+        assertTrue(drawn.contains("**smp**: not healthy in time"), drawn);
         assertFalse(drawn.contains("admin/"), drawn);
     }
 

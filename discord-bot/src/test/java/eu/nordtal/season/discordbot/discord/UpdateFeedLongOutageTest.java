@@ -60,7 +60,7 @@ class UpdateFeedLongOutageTest {
                 List.of("msg-1"),
                 board.edited.stream().map(Board.Post::messageId).toList());
         assertTrue(
-                board.edited.getLast().card().text().contains("Duration"),
+                board.edited.getLast().card().text().contains("Took "),
                 board.edited.getLast().card().text());
 
         restarted().start();

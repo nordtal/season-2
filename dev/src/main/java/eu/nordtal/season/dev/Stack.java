@@ -29,7 +29,7 @@ final class Stack {
      *
      * Its inner corner is at 116, 93.
      */
-    private static final String TEST_WALL = "[{\"world\":\"nordtal\",\"on\":true,\"look\":\"FIELD\",\"polygons\":"
+    private static final String TEST_WALL = "[{\"world\":\"nordtal\",\"enabled\":true,\"look\":\"FIELD\",\"polygons\":"
             + "[{\"name\":\"Test\",\"corners\":[{\"x\":76,\"z\":68},{\"x\":136,\"z\":68},{\"x\":136,\"z\":108},"
             + "{\"x\":116,\"z\":108},{\"x\":116,\"z\":93},{\"x\":76,\"z\":93}]}]}]";
 

@@ -91,14 +91,15 @@ public final class BorderWall implements Listener {
     @EventHandler
     public void changedWorld(final PlayerChangedWorldEvent event) {
         final Player player = event.getPlayer();
-        viewers.remove(player.getUniqueId());
+        clear(player);
         nextTick.accept(() -> refresh(player));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void respawned(final PlayerRespawnEvent event) {
         final Player player = event.getPlayer();
-        viewers.remove(player.getUniqueId());
+        // A respawn in the same world keeps the client's entities, so the old panels are removed.
+        clear(player);
         nextTick.accept(() -> refresh(player));
     }
 

@@ -38,10 +38,10 @@ public interface CustomBorderSpec {
         }
 
         @Order(2)
-        @Name("On")
-        @Key("on")
+        @Name("Enabled")
+        @Key("enabled")
         @Explain("Shows the wall and pushes players back at it. Off leaves only the vanilla border.")
-        default boolean on() {
+        default boolean enabled() {
             return false;
         }
 

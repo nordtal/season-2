@@ -15,6 +15,15 @@ enum Look {
         return "PIXEL".equals(name.toUpperCase(Locale.ROOT)) ? PIXEL : FIELD;
     }
 
+    /**
+     * How far from the player panels are sent, in blocks.
+     *
+     * The field fades by the camera's distance, so it reaches past a third-person camera's fade.
+     */
+    double reach() {
+        return this == FIELD ? Band.RADIUS + Band.CAMERA : Band.RADIUS;
+    }
+
     /** The item model, in the namespace {@code nordtal}, of a panel this far from the player. */
     String model(final double distance) {
         if (this == FIELD) {

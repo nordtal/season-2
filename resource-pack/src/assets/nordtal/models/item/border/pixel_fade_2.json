@@ -1,6 +1,6 @@
 {
     "textures": {
-        "wall": "nordtal:item/border/pixel_fade_2",
+        "layer0": "nordtal:item/border/pixel_fade_2",
         "particle": "nordtal:item/border/pixel_fade_2"
     },
     "elements": [
@@ -9,8 +9,8 @@
             "to": [16, 16, 8],
             "shade": false,
             "faces": {
-                "north": { "uv": [0, 0, 16, 16], "texture": "#wall" },
-                "south": { "uv": [0, 0, 16, 16], "texture": "#wall" }
+                "north": { "uv": [0, 0, 16, 16], "texture": "#layer0" },
+                "south": { "uv": [0, 0, 16, 16], "texture": "#layer0" }
             }
         }
     ]

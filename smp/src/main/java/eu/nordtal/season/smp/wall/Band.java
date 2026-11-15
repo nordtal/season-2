@@ -9,11 +9,14 @@ import java.util.Map;
 final class Band {
 
     /**
-     * How far along the wall a player sees it, in blocks.
+     * Where the wall has faded out, in blocks along it.
      *
-     * The field's shader fades it out by the same distance, and the pixel look's last three panels fade.
+     * The field's shader fades it by the camera's distance, and the pixel look's last three panels fade.
      */
     static final double RADIUS = 30;
+
+    /** How far behind the player the third-person camera can be, in blocks. */
+    static final double CAMERA = 4;
 
     /** How far the band reaches below the feet, in blocks. */
     static final double BELOW = 3;
@@ -26,7 +29,7 @@ final class Band {
     /** The model of each panel a player at {@code x}, {@code z} sees. */
     static Map<Panel, String> seen(final Wall wall, final Look look, final double x, final double z) {
         final Map<Panel, String> seen = new HashMap<>();
-        for (final Panel panel : wall.near(x, z, RADIUS)) {
+        for (final Panel panel : wall.near(x, z, look.reach())) {
             seen.put(panel, look.model(panel.distance(x, z)));
         }
         return seen;

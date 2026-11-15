@@ -125,6 +125,21 @@ class WallTest {
     }
 
     @Test
+    void theFieldReachesPastTheFadeOfAThirdPersonCamera() {
+        final Wall wall = new Wall(List.of(area(0, 0, 100, 0, 100, 10, 0, 10)));
+
+        assertTrue(seenAt(wall, Look.FIELD, 82.5));
+        assertFalse(seenAt(wall, Look.PIXEL, 82.5));
+        assertTrue(seenAt(wall, Look.PIXEL, 79.5));
+    }
+
+    /** Whether a player at 50, 0 is sent the panel at {@code x} on the wall's edge at z 0. */
+    private static boolean seenAt(final Wall wall, final Look look, final double x) {
+        return Band.seen(wall, look, 50, 0).keySet().stream()
+                .anyMatch(panel -> panel.z() == 0 && Math.abs(panel.x() - x) < 1e-9);
+    }
+
+    @Test
     void aChangeAddsRemovesAndRemodelsOnlyWhatDiffers() {
         final Panel kept = new Panel(0, 0, 0);
         final Panel faded = new Panel(1, 0, 0);

@@ -15,7 +15,7 @@ final class Walls {
     static Map<String, Drawn> read(final CustomBorderSpec spec) {
         final Map<String, Drawn> walls = new HashMap<>();
         for (final CustomBorderSpec.World world : spec.worlds()) {
-            if (!world.on() || walls.containsKey(world.world())) {
+            if (!world.enabled() || walls.containsKey(world.world())) {
                 continue;
             }
             final List<Area> areas = new ArrayList<>();

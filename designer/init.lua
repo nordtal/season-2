@@ -116,6 +116,7 @@ function init(plugin)
       minecraft=plugin.require("minecraft"),
       sounds=plugin.require("sounds"),
       reveal=plugin.require("reveal"),
+      files=plugin.require("files"),
     },
     bootstrap=plugin.bootstrap,
     preferences=plugin.preferences,
@@ -135,6 +136,13 @@ function init(plugin)
     title=tr("command.new_sound"),
     group="file_new",
     onclick=function() ctl.createSound() end,
+  }
+
+  plugin:newCommand{
+    id="NordtalNewFile",
+    title=tr("command.new_file"),
+    group="file_new",
+    onclick=function() ctl.createFile() end,
   }
 
   plugin:newCommand{

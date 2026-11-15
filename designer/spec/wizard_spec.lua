@@ -85,6 +85,48 @@ describe("the new-texture wizard", function()
     assert.is_true(wizard.absent({ "refused file" }, wizard.job("sound", { namespace="nordtal", path="ping", file="" })))
   end)
 
+  it("creates a file of the pack from its path below the namespace, and copies one of the client jar", function()
+    assert.same({ "file", "vanilla_file" }, wizard.fileKinds)
+    assert.same({ "createFile", { asset="nordtal:models/item/lamp.json" } },
+      wizard.job("file", { namespace="nordtal", path=" models/item/lamp.json " }))
+    assert.same({ "createFile", { asset="minecraft:blockstates/stone.json", vanilla="true" } },
+      wizard.job("vanilla_file", { asset="minecraft:blockstates/stone.json" }))
+    assert.equal("path", wizard.refused({ "refused asset" }))
+    assert.is_true(wizard.absent({ "refused asset" }, wizard.job("file", { namespace="nordtal", path="" })))
+    local index = { ["file/minecraft:blockstates/stone.json"]={ kind="file", entry={ id="minecraft:blockstates/stone.json" } } }
+    assert.equal("file/minecraft:blockstates/stone.json",
+      wizard.target(index, { "createFile", { asset="minecraft:blockstates/stone.json", vanilla="true" } }))
+  end)
+
+  it("offers the client jar's files that the pack does not hold, by folder", function()
+    local listing = { files={ "minecraft:blockstates/stone.json", "minecraft:blockstates/glass.json", "minecraft:texts/splashes.txt" } }
+    local model = { files={ { category="minecraft:blockstates", entries={ { id="minecraft:blockstates/glass.json" } } } } }
+    local ids = wizard.choices("vanilla_file", listing, model)
+    assert.same({ "minecraft:blockstates/stone.json", "minecraft:texts/splashes.txt" }, ids)
+    local nodes = wizard.matches(ids, "", 10)
+    assert.same({ "blockstates", "texts" }, { nodes[1].text, nodes[2].text })
+    assert.equal("stone.json", nodes[1].children[1].text)
+  end)
+
+  it("shows a file's path with an example and copies the chosen vanilla file", function()
+    local Dialog, dialogs = fake()
+    local jobs = {}
+    wizard.open{ api={ Dialog=Dialog }, tr=tr, model={}, kinds=wizard.fileKinds, title="new.file_dialog",
+                 labels=function(dialog, id, count, text, add) panel.labels(dialog, id, count, text, add, 48, utf8.len) end,
+                 run=function(job) table.insert(jobs, job) end, created=function() end,
+                 listing=function(done) done({ textures={}, items={}, files={ "minecraft:texts/splashes.txt" } }) end }
+    local d = dialogs[#dialogs]
+    assert.same({ "new.kind_file", "new.kind_vanilla_file" }, d.handlers.kind.options)
+    assert.equal("models/item/", d.data.path)
+    assert.is_true(table.concat(d:labels(), " "):find("new.file_note", 1, true) ~= nil)
+    d.data.kind = "new.kind_vanilla_file"
+    d.handlers.kind.onchange()
+    d = dialogs[#dialogs]
+    d.handlers.choices.onchange({ node="minecraft:texts/splashes.txt" })
+    d.handlers.create.onclick()
+    assert.same({ { "createFile", { asset="minecraft:texts/splashes.txt", vanilla="true" } } }, jobs)
+  end)
+
   it("finds the node of a sound event it created or overrode", function()
     local index = { ["sound/nordtal:ui.ping"]={ kind="sound", entry={ id="nordtal:ui.ping" } },
                     ["sound_file/nordtal:ui.ping/1"]={ kind="sound_file", entry={ name="nordtal:ui/ping" } } }

@@ -154,6 +154,23 @@ fetch_datapacks() {
     shopt -u nullglob
 }
 
+# The image carries Nordtal's own packs as folders. The function copies each one over the folder of the
+# same name in the world, so a pack changed in the image replaces the old copy on the next start.
+install_bundled_datapacks() {
+    local dir="$1" from="${BUNDLED_DATAPACKS:-/usr/local/share/nordtal/datapacks}" pack name
+
+    [[ -d "$from" ]] || return 0
+    mkdir -p "$dir"
+    shopt -s nullglob
+    for pack in "$from"/*/; do
+        name="$(basename "$pack")"
+        rm -rf "${dir:?}/${name}"
+        cp -R "$pack" "${dir}/${name}"
+        log "bundled datapack installed: pack=\"${name}\""
+    done
+    shopt -u nullglob
+}
+
 prepare_backend() {
     local global="$DATA/config/paper-global.yml"
 
@@ -614,6 +631,7 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
 
     if [[ -n "${DATAPACK_URLS:-}" ]]; then
         fetch_datapacks "$DATA/${LEVEL_NAME}/datapacks"
+        install_bundled_datapacks "$DATA/${LEVEL_NAME}/datapacks"
     fi
 
     if [[ -n "${PAPER_VELOCITY_SECRET:-}" ]]; then

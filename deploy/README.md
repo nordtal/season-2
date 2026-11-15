@@ -385,9 +385,13 @@ Simple Voice Chat needs UDP 25565 open next to TCP and no configuration. No serv
   writes `plugins/prism/storage.conf` from smp's database settings at every start, and Steward does
   not list that file, because it holds the password.
   An update run deletes CoreProtect's jar and its data folder from smp, and nothing of its log is kept.
-- **Terralith and Dungeons and Taverns:** the entrypoint fetches them from `SMP_DATAPACK_URLS` before
-  the first start, and `smp` refuses to start without them. The entrypoint owns the `datapacks/`
-  folder of the world. On start it removes every zip there that the variable does not name.
+- **Datapacks:** the entrypoint fetches Terralith, Dungeons and Taverns, Incendium and Nullscape from
+  `SMP_DATAPACK_URLS` before the first start, and `smp` refuses to start without them. The entrypoint
+  owns the `datapacks/` folder of the world. On start it removes every zip there that the variable
+  does not name. The image also carries Nordtal's own pack `nordtal` (`deploy/minecraft/datapacks/`),
+  which places End cities closer together than Nullscape does, and the entrypoint copies it over the
+  world's copy at every start. Incendium shapes only a Nether generated after it is installed, and
+  Nullscape only an End generated after it: a world made before keeps its old terrain.
 
 The label `eu.nordtal.plugins` of a server in `compose.yml` lists its plugins as
 `artifact[=jar prefix][?]` per plugin. `steward-agent` installs them. The entrypoint reads the same

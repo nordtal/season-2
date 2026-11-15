@@ -23,6 +23,8 @@ VOLUME ["/data"]
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/ /usr/local/bin/
+# Nordtal's own datapacks, which the smp copies into its world when it fetches the pinned ones.
+COPY datapacks/ /usr/local/share/nordtal/datapacks/
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/console /usr/local/bin/mc
 
 # The server runs in tmux, because `docker exec` cannot write to stdin of PID 1.

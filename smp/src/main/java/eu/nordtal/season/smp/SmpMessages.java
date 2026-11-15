@@ -64,10 +64,10 @@ public interface SmpMessages {
             @Name("Custom border look")
             interface BorderLook {
 
-                @Name("Field")
+                @Name("Veil")
                 MessageRef field();
 
-                @Name("Pixel art")
+                @Name("Lattice")
                 MessageRef pixel();
             }
         }

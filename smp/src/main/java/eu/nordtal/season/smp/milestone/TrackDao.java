@@ -87,13 +87,20 @@ public interface TrackDao {
             """)
     void ensureMilestone(@Bind("key") String key, @Bind("state") String state);
 
-    /** Inserts the objective row, or sets {@code target} and {@code type} of the existing row. */
+    /**
+     * Inserts the objective row, or sets {@code target} and {@code type} of the existing row unless it has completed.
+     * A completed row keeps the target and type it was paid at.
+     *
+     * @return 0 when a completed row was kept with a target or type other than the given one, 1 otherwise
+     */
     @SqlUpdate("""
             INSERT INTO smp_objective (milestone_key, key, type, target)
             VALUES (:milestoneKey, :key, :type, :target)
             ON CONFLICT (milestone_key, key) DO UPDATE SET target = EXCLUDED.target, type = EXCLUDED.type
+                WHERE smp_objective.completed IS NULL
+                   OR (smp_objective.target = EXCLUDED.target AND smp_objective.type = EXCLUDED.type)
             """)
-    void ensureObjective(
+    int ensureObjective(
             @Bind("milestoneKey") String milestoneKey,
             @Bind("key") String key,
             @Bind("type") String type,

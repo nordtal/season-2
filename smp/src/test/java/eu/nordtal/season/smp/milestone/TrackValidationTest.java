@@ -10,7 +10,8 @@ import org.junit.jupiter.api.Test;
 /**
  * The rule that decides whether a reloaded milestone file replaces the running one.
  *
- * It refuses a change that orphans stored progress and permits lowering the target of a live objective.
+ * It refuses a change that orphans stored progress and permits lowering the target of a live objective
+ * or changing a completed one.
  */
 class TrackValidationTest {
 
@@ -135,15 +136,16 @@ class TrackValidationTest {
     }
 
     @Test
-    void changingTheTargetOfACompletedObjectiveIsRefused() {
-        // The objective already paid out at its old target.
+    void changingACompletedObjectiveIsAccepted() {
+        // The row keeps the target and type it was paid at, so a start that kept it never blocks a later reload.
         final StoredProgress stored =
                 progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.HAND_IN, 2048, 2048, true));
 
-        final List<TrackValidation.Problem> problems = TrackValidation.validate(lowered("logs", 1000), stored);
-
-        assertEquals(1, problems.size(), problems.toString());
-        assertTrue(problems.get(0).message().contains("already completed"), problems.toString());
+        assertTrue(TrackValidation.validate(lowered("logs", 1000), stored).isEmpty());
+        assertTrue(TrackValidation.validate(
+                        track,
+                        progress(MilestoneState.UNLOCKED, objective("logs", ObjectiveType.STATISTIC, 2048, 2048, true)))
+                .isEmpty());
     }
 
     @Test

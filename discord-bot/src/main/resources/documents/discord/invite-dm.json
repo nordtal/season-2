@@ -9,7 +9,7 @@
             {
               "text": {
                 "en": "{owner.name} invites you to {@terms.team, n=1} **{team.name}** for the {@terms.hunger-games}.",
-                "de": "{owner.name} lädt dich für die {@terms.hunger-games} ins {@terms.team, n=1} **{team.name}** ein."
+                "de": "{owner.name} lädt dich für die {@terms.hunger-games} in das {@terms.team, n=1} **{team.name}** ein."
               }
             }
           ]

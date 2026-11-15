@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "You declined the invitation to {@terms.team, n=1} **{team.name}**.",
-            "de": "Du hast die Einladung ins {@terms.team, n=1} **{team.name}** abgelehnt."
+            "de": "Du hast die Einladung in das {@terms.team, n=1} **{team.name}** abgelehnt."
           }
         }
       ]

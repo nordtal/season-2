@@ -253,7 +253,6 @@ public final class SmpPlugin extends NordtalPlugin {
         protectedAreas = ConfigBoxes.of(spawnSettings.get().protectedAreas());
         trackRows = jdbi().onDemand(TrackDao.class);
         aura = jdbi().onDemand(AuraDao.class);
-        PaperScheduler.of(this).execute(this::loadSeasonState);
 
         announcer = SmpStart.startAnnouncer(this);
 
@@ -273,6 +272,8 @@ public final class SmpPlugin extends NordtalPlugin {
         engine = progress.engine();
         poller = progress.poller();
         gates = progress.gates();
+        // The start sweeps with the engine, so it is scheduled once the engine exists.
+        PaperScheduler.of(this).execute(this::loadSeasonStateAndSweep);
 
         final SmpStart.Activities activities = SmpStart.wireActivities(this, wired.effects());
         graves = activities.graves();
@@ -539,6 +540,12 @@ public final class SmpPlugin extends NordtalPlugin {
             // The surfaces keep their last data.
             getLogger().warning("boards and HUD not refreshed: cause=" + exception);
         }
+    }
+
+    /** Reads the track progress, then finishes every objective whose amount reaches the target the start wrote. */
+    private void loadSeasonStateAndSweep() {
+        loadSeasonState();
+        completeWhateverTheNewTargetsAlreadyReach();
     }
 
     /** Finishes every objective of the active milestone whose amount reaches its reloaded target. */

@@ -16,6 +16,7 @@ import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSpec;
+import eu.nordtal.season.settings.PackState;
 import eu.nordtal.season.stewardagent.apply.PackWriter;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.schema.Schema;
@@ -24,15 +25,22 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/** Drives a live swap against a real database, with smp as a stand-in that answers or stays silent. */
+/**
+ * Drives a live swap and the pack build of an update against a real database.
+ *
+ * The smp is a stand-in that answers or stays silent.
+ */
 class LiveSwapTest {
 
     private static final String URL = "https://pack.nordtal.eu/packs/abc.zip";
     private static final String SHA1 = "6f1ed002ab5595859014ebf0951522d9d0f2ee34";
+    private static final String OTHER_URL = "https://pack.nordtal.eu/packs/def.zip";
+    private static final String OTHER_SHA1 = "0b2f9c4a6e8d1f3a5c7e9b1d3f5a7c9e1b3d5f7a";
 
     private final FakeContainers containers = new FakeContainers().running("proxy", "limbo", "smp");
     private final List<RunStage> progress = new ArrayList<>();
@@ -135,6 +143,48 @@ class LiveSwapTest {
         assertEquals(
                 RunStage.NOTHING_TO_DO, outcome.stage(), steps(request.id()).toString());
         assertEquals(List.of("SCOPE smp SKIPPED NO_CONTAINER"), steps(request.id()));
+    }
+
+    @Test
+    void anUpdateThatChangesThePackRecordsItsInstallAndKeepsThePackBefore() {
+        final SettingStore settings = SettingStore.using(database.dataSource());
+        PackWriter.write(settings, URL, SHA1);
+        final UpdateRequest request = update();
+
+        final Optional<PackState> before = UpdatePack.build(
+                runner.buildingPack(() -> PackWriter.write(settings, OTHER_URL, OTHER_SHA1)),
+                new Steps(directory.recorder(), request.id()));
+
+        assertEquals(Optional.of(new PackState(URL, SHA1)), before);
+        assertEquals(OTHER_SHA1, PackState.read(settings).sha1());
+        assertEquals(List.of("INSTALL DONE"), steps(request.id()));
+    }
+
+    @Test
+    void anUpdateWhosePackStaysRecordsNothing() {
+        PackWriter.write(SettingStore.using(database.dataSource()), URL, SHA1);
+        final UpdateRequest request = update();
+
+        final Optional<PackState> before =
+                UpdatePack.build(runner.buildingPack(() -> {}), new Steps(directory.recorder(), request.id()));
+
+        assertEquals(Optional.empty(), before);
+        assertEquals(List.of(), steps(request.id()));
+    }
+
+    @Test
+    void aCancelledUpdateOffersThePackBeforeItAgain() {
+        final SettingStore settings = SettingStore.using(database.dataSource());
+        PackWriter.write(settings, OTHER_URL, OTHER_SHA1);
+
+        UpdatePack.restore(runner, update(), new PackState(URL, SHA1));
+
+        assertEquals(new PackState(URL, SHA1), PackState.read(settings));
+    }
+
+    private UpdateRequest update() {
+        directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO, null);
+        return directory.claimNext().orElseThrow();
     }
 
     private UpdateRequest swap() {

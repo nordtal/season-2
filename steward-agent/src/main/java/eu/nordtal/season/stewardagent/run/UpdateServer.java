@@ -5,6 +5,7 @@ import eu.nordtal.season.database.notify.Doorbell;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateDirectory;
+import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
 import java.time.Clock;
@@ -171,6 +172,22 @@ public final class UpdateServer implements AutoCloseable {
             log.info("request settled elsewhere, stage not written: request={}", request.id());
         } else {
             log.info("request finished: request={} status={}", request.id(), outcome.status());
+            if (outcome.swapsPack()) {
+                swapPack(request);
+            }
+        }
+    }
+
+    /** Asks for a live swap after a run that changed only the pack; without one, players get it in the waiting room. */
+    private void swapPack(final UpdateRequest after) {
+        try {
+            final UpdateRequest swap = directory.submit(UpdateKind.LIVE_SWAP, after.actor(), Duration.ZERO, null);
+            log.info("live swap asked for after the run: request={} swap={}", after.id(), swap.id());
+        } catch (final RuntimeException refused) {
+            log.warn(
+                    "live swap not asked for, players get the pack at their next waiting room: request={} cause={}",
+                    after.id(),
+                    refused.getMessage());
         }
     }
 

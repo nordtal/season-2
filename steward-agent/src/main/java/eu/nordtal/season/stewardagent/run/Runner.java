@@ -53,6 +53,22 @@ public final class Runner implements RequestRunner {
      */
     final boolean oneShot;
 
+    /** Builds the pack of this agent's release before an update's countdown. */
+    final PackBuild pack;
+
+    /**
+     * Builds the pack from this agent's image now, unless the active pack is already drawn from it.
+     */
+    @FunctionalInterface
+    public interface PackBuild {
+
+        /** For an agent without pack builds: there is nothing to build. */
+        PackBuild NONE = () -> {};
+
+        /** Builds the pack; it never throws, and a failed build keeps the active pack. */
+        void build();
+    }
+
     /** Built on first use, because a run that stops nothing never asks. */
     private volatile @Nullable Occupancy occupancy;
 
@@ -126,7 +142,7 @@ public final class Runner implements RequestRunner {
             final Waiting waiting,
             final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins,
             final PluginRemoval removal) {
-        this(config, database, containers, backups, directory, waiting, plugins, removal, false);
+        this(config, database, containers, backups, directory, waiting, plugins, removal, false, PackBuild.NONE);
     }
 
     private Runner(
@@ -138,8 +154,10 @@ public final class Runner implements RequestRunner {
             final Waiting waiting,
             final eu.nordtal.season.stewardagent.plugin.PluginDirectory plugins,
             final PluginRemoval removal,
-            final boolean oneShot) {
+            final boolean oneShot,
+            final PackBuild pack) {
         this.oneShot = oneShot;
+        this.pack = pack;
         this.plugins = plugins;
         this.removal = removal;
         this.config = config;
@@ -151,7 +169,12 @@ public final class Runner implements RequestRunner {
     }
 
     public Runner asOneShot() {
-        return new Runner(config, database, containers, backups, directory, waiting, plugins, removal, true);
+        return new Runner(config, database, containers, backups, directory, waiting, plugins, removal, true, pack);
+    }
+
+    /** Returns this runner building the pack with {@code builds} before an update's countdown. */
+    public Runner buildingPack(final PackBuild builds) {
+        return new Runner(config, database, containers, backups, directory, waiting, plugins, removal, oneShot, builds);
     }
 
     @Override
@@ -172,12 +195,18 @@ public final class Runner implements RequestRunner {
             // The row is the lock: the inbox holds one open run at a time.
             final Kinds.Planned planned = plan(request, progress, record);
             if (planned.outcome() != null) {
-                return planned.outcome();
+                return planned.swapsPack() ? planned.outcome().swappingPack() : planned.outcome();
             }
             if (first != RunStage.PLANNED) {
                 progress.accept(RunStage.PLANNED);
             }
-            return new Run(this, steps, runtime, progress).carryOut(request, Objects.requireNonNull(planned.plan()));
+            final Outcome carried =
+                    new Run(this, steps, runtime, progress).carryOut(request, Objects.requireNonNull(planned.plan()));
+            if (oneShot && carried.stage() == RunStage.CANCELLED && planned.packBefore() != null) {
+                // Nothing of the release went in, so its pack does not either. An agent's own pack stays.
+                UpdatePack.restore(this, request, planned.packBefore());
+            }
+            return planned.swapsPack() ? carried.swappingPack() : carried;
         } catch (final RuntimeException failure) {
             log.error("request failed: request={} kind={}", request.id(), request.kind(), failure);
             record.endOpen(RunStep.Outcome.FAILED, RunStep.Reason.UNEXPECTED);

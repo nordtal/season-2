@@ -318,6 +318,31 @@ class PackBuildsTest {
         assertFalse(record.calls.contains("start"));
     }
 
+    /** The one-shot of an update never ran a start, so it takes the active pack as built when this image drew it. */
+    @Test
+    void anUpdateWhoseImageDrewTheActivePackBuildsNothingBeforeItsCountdown() throws IOException {
+        final String sha1 = shelved("d".repeat(40));
+        record.active = Optional.of(activeRow(sha1, "[{\"item\": \"diamond\", \"amount\": 2}]"));
+
+        assertEquals(Optional.of(sha1), builds().beforeRun());
+
+        assertEquals(0, zips.get());
+        assertEquals(sha1, PackState.read(settings).sha1());
+    }
+
+    @Test
+    void anUpdateToAnotherImageBuildsThePackBeforeItsCountdown() throws IOException {
+        final String sha1 = shelved("e".repeat(40));
+        record.active = Optional.of(activeRow(sha1, "[{\"item\": \"diamond\", \"amount\": 2}]"));
+        Files.writeString(shelfDir.resolve(PackBuilds.IMAGE_MARK), "the image before the update");
+
+        final Optional<String> built = builds().beforeRun();
+
+        assertEquals(1, zips.get(), "built now, not after the quiet time");
+        assertEquals(Optional.of(sha1Of(inputs.get().prizes())), built);
+        assertEquals(built.get(), PackState.read(settings).sha1());
+    }
+
     @Test
     void anAdminsAskBuildsOnceHoweverOftenTheHubWakes() throws Exception {
         final PackBuilds builds = builds();

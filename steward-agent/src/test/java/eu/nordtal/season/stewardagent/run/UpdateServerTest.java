@@ -254,6 +254,32 @@ class UpdateServerTest {
         assertFalse(oneShot.carryOutHanded(handed.id(), "nordtal-s2-steward-agent-run"), "a settled run");
     }
 
+    /** A run that changed only the pack stops nothing, so a live swap of its own brings the pack to the SMP. */
+    @Test
+    void aRunThatChangedOnlyThePackIsFollowedByALiveSwap() {
+        final UpdateRequest update = directory.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO);
+        final List<UpdateKind> ran = new ArrayList<>();
+
+        server((request, progress) -> {
+                    ran.add(request.kind());
+                    return request.kind() == UpdateKind.UPDATE
+                            ? Outcome.at(RunStage.DONE).swappingPack()
+                            : Outcome.at(RunStage.DONE);
+                })
+                .drain();
+
+        assertEquals(List.of(UpdateKind.UPDATE, UpdateKind.LIVE_SWAP), ran);
+        assertEquals(
+                UpdateStatus.DONE, directory.find(update.id()).orElseThrow().status());
+    }
+
+    @Test
+    void aCancelledOrHandedOverRunIsFollowedByNoLiveSwap() {
+        assertFalse(Runner.cancelled().swappingPack().swapsPack());
+        assertFalse(Outcome.handedOver().swappingPack().swapsPack());
+        assertTrue(Outcome.at(RunStage.FAILED).swappingPack().swapsPack(), "the pack changed even if a service failed");
+    }
+
     private UpdateServer server(final RequestRunner runner) {
         return server(runner, oneShot -> false);
     }

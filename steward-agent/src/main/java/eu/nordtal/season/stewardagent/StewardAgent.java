@@ -87,7 +87,8 @@ public final class StewardAgent {
             case "serve" -> System.exit(serve(server, compose, docker, scheduler));
             case Compose.MIGRATE -> System.exit(migrate());
             case "run" ->
-                System.exit(args.length == 2 ? runHanded(server, compose, docker, Long.parseLong(args[1])) : 2);
+                System.exit(
+                        args.length == 2 ? runHanded(server, compose, docker, scheduler, Long.parseLong(args[1])) : 2);
             case "request", "status" -> System.exit(HostRequests.run(args));
             default -> {
                 System.err.println(
@@ -202,17 +203,25 @@ public final class StewardAgent {
      * @return 0 once the run is settled, 1 without such a run or without a database
      */
     private static int runHanded(
-            final InternalServer server, final Compose compose, final Docker docker, final long id) {
+            final InternalServer server,
+            final Compose compose,
+            final Docker docker,
+            final Scheduler scheduler,
+            final long id) {
         final Path backups = Path.of(
                 server.setting("BACKUPS", AgentApi.Paths.DEFAULTS.backups().toString()));
         // The container is removed on exit, so the file is the only record of a failed run.
         try (RunLog ignored = RunLog.keep(backups, id)) {
-            return carryOutHanded(server, compose, docker, id);
+            return carryOutHanded(server, compose, docker, scheduler, id);
         }
     }
 
     private static int carryOutHanded(
-            final InternalServer server, final Compose compose, final Docker docker, final long id) {
+            final InternalServer server,
+            final Compose compose,
+            final Docker docker,
+            final Scheduler scheduler,
+            final long id) {
         final Clock clock = NetworkTime.clock();
         final DatabaseSpec databaseConfig;
         try {
@@ -234,8 +243,12 @@ public final class StewardAgent {
                 return 1;
             }
             final UpdateDirectory updates = Schema.updates(database);
+            // Built from this image's pack files, which the long-running agent of the older release does not have.
+            final Optional<PackBuilds> pack =
+                    packBuilds(server, database, SettingStore.using(database.dataSource()), scheduler, clock);
             final Runner runner = runner(server, compose, docker, clock, database, runs, updates, PluginRemoval.NONE)
-                    .asOneShot();
+                    .asOneShot()
+                    .buildingPack(packBefore(pack, DocumentStore.using(database.dataSource())));
             final UpdateServer handed = new UpdateServer(updates, runner, docker::isRunning, clock);
             return handed.carryOutHanded(id, compose.oneShotName()) ? 0 : 1;
         }
@@ -398,7 +411,8 @@ public final class StewardAgent {
                 log.error("readiness marker not written");
             }
             final UpdateDirectory updates = Schema.updates(database);
-            final Runner runner = runner(server, compose, docker, clock, database, runs, updates, runRoutes.removal());
+            final Runner runner = runner(server, compose, docker, clock, database, runs, updates, runRoutes.removal())
+                    .buildingPack(packBefore(pack, documents));
             // Before the first run, so no run starts from two game servers.
             runner.restInactive();
             try (SignalHub signals = SignalHub.open(
@@ -424,6 +438,12 @@ public final class StewardAgent {
             app.stop();
         }
         return 0;
+    }
+
+    /** The pack build an update runs before its countdown, none without pack builds. */
+    private static Runner.PackBuild packBefore(final Optional<PackBuilds> pack, final DocumentStore documents) {
+        return pack.<Runner.PackBuild>map(builds -> () -> builds.beforeRun(documents))
+                .orElse(Runner.PackBuild.NONE);
     }
 
     /**

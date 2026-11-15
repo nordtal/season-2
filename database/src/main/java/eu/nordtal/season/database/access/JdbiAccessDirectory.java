@@ -50,6 +50,11 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
+    public Optional<String> minecraftName(final UUID mcUuid) {
+        return dao.minecraftName(Objects.requireNonNull(mcUuid, "mcUuid"));
+    }
+
+    @Override
     public AccessState accessState(final UUID mcUuid) {
         Objects.requireNonNull(mcUuid, "mcUuid");
         return dao.accessState(mcUuid).orElseGet(() -> AccessState.unlinked(mcUuid));
@@ -167,7 +172,9 @@ final class JdbiAccessDirectory implements AccessDirectory {
     @Override
     public boolean setMinecraftName(final UUID mcUuid, final String name) {
         Objects.requireNonNull(mcUuid, "mcUuid");
-        return dao.setMinecraftName(mcUuid, name) > 0;
+        final boolean linked = dao.setMinecraftName(mcUuid, name) > 0;
+        dao.rememberMinecraftName(mcUuid, name);
+        return linked;
     }
 
     @Override

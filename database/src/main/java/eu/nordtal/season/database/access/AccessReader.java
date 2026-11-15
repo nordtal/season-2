@@ -30,6 +30,9 @@ public interface AccessReader {
 
     Optional<DiscordId> linkedDiscordAccount(UUID mcUuid);
 
+    /** Returns the name the account is online with now, else the one it last joined with, else the one its link saw. */
+    Optional<String> minecraftName(UUID mcUuid);
+
     /**
      * Returns the access state and the season state in one round trip.
      *

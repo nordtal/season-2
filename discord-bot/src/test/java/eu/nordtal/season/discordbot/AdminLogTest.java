@@ -153,6 +153,26 @@ class AdminLogTest {
     }
 
     @Test
+    void aJournalLineNamesTheMinecraftAccountByItsPlayerNameWhenTheNameIsKnown() {
+        final UUID account = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        final AuditLine line = new AuditLine(
+                JournalAction.LINK,
+                Actor.person(DiscordId.of("400000000000000002")),
+                DiscordId.of("400000000000000002"),
+                account,
+                null);
+
+        assertTrue(
+                AdminLog.card(ADMIN, line, uuid -> Optional.of("Red_Fox"))
+                        .text()
+                        .endsWith("\nMinecraft account `Red_Fox`"),
+                AdminLog.card(ADMIN, line, uuid -> Optional.of("Red_Fox")).text());
+        assertTrue(AdminLog.card(ADMIN, line, uuid -> Optional.empty())
+                .text()
+                .endsWith("\nMinecraft account `00000000-0000-0000-0000-000000000001`"));
+    }
+
+    @Test
     void anOverrideOfTheActorBlockReachesTheJournalCard() {
         final Messages messages =
                 Messages.load(AdminLogTest.class.getClassLoader(), DocumentRenderer.BUNDLES, Locale.ENGLISH);

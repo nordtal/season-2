@@ -46,7 +46,7 @@ class AccessProfileIntegrationTest {
     @BeforeEach
     void freshDirectory() {
         execute("TRUNCATE TABLE access_grant, account_link, link_code, payment_request, journal_entry, "
-                + "player_playtime, admin_grant, discord_user CASCADE");
+                + "player_playtime, admin_grant, player_name, discord_user CASCADE");
         directory = AccessDirectory.using(dataSource, Clock.systemUTC());
     }
 
@@ -166,6 +166,38 @@ class AccessProfileIntegrationTest {
         assertEquals("Steve", first.displayName());
         assertEquals("Steve", second.displayName());
         assertNotEquals(first, second, "identical display names must not make the two records equal");
+    }
+
+    @Test
+    void aPlayerNameIsTheOneOnlineNowElseTheOneItsLinkLastSaw() {
+        final UUID online = UUID.fromString("22222222-2222-3333-4444-555555555555");
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        execute("UPDATE account_link SET mc_name = 'Steve' WHERE mc_uuid = '" + MC_UUID + "'");
+        execute("TRUNCATE TABLE online_player");
+        execute("INSERT INTO online_player (mc_uuid, mc_name, subject, updated) VALUES ('" + online
+                + "', 'Alex', 'smp', now())");
+
+        assertEquals("Steve", directory.minecraftName(MC_UUID).orElseThrow());
+        assertEquals("Alex", directory.minecraftName(online).orElseThrow());
+        assertTrue(directory.minecraftName(UUID.randomUUID()).isEmpty());
+
+        execute("INSERT INTO online_player (mc_uuid, mc_name, subject, updated) VALUES ('" + MC_UUID
+                + "', 'Steve2', 'smp', now())");
+        assertEquals("Steve2", directory.minecraftName(MC_UUID).orElseThrow());
+    }
+
+    @Test
+    void aNameSeenAtLoginIsKeptForAnAccountNobodyLinkedAndOutlivesAnUnlink() {
+        final UUID stranger = UUID.fromString("33333333-2222-3333-4444-555555555555");
+        execute("TRUNCATE TABLE online_player");
+
+        assertFalse(directory.setMinecraftName(stranger, "Alex"), "nobody has linked it");
+        assertEquals("Alex", directory.minecraftName(stranger).orElseThrow());
+
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        directory.setMinecraftName(MC_UUID, "Steve");
+        directory.unlink(DiscordId.of(DISCORD_ID));
+        assertEquals("Steve", directory.minecraftName(MC_UUID).orElseThrow());
     }
 
     @Test

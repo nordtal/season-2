@@ -79,6 +79,13 @@ class DatabaseRoleIntegrationTest {
         final List<Case> cases = new ArrayList<>(List.of(
                 may(DatabaseRole.PROXY, "UPDATE account_link SET mc_name = 'x' WHERE mc_uuid = gen_random_uuid()"),
                 mayNot(DatabaseRole.PROXY, "UPDATE account_link SET discord_id = 'x' WHERE false"),
+                // The proxy keeps the name of every login, and the bot reads it for the journal.
+                may(
+                        DatabaseRole.PROXY,
+                        "INSERT INTO player_name (mc_uuid, mc_name, seen) SELECT gen_random_uuid(), 'x', now() WHERE false"),
+                may(DatabaseRole.PROXY, "UPDATE player_name SET mc_name = 'x' WHERE false"),
+                may(DatabaseRole.DISCORD_BOT, "SELECT count(*) FROM player_name"),
+                mayNot(DatabaseRole.DISCORD_BOT, "UPDATE player_name SET mc_name = 'x' WHERE false"),
                 mayNot(
                         DatabaseRole.PROXY,
                         "INSERT INTO steward_session (id, csrf, created_at, expires_at) VALUES ('x', 'y', now(), now())"),

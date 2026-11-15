@@ -357,6 +357,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V124__the_bot_knows_which_run_cards_show_the_run_s_end.sql",
                 "9a4026387502285efaa485bb4007ebec370b8e3838b21be71bc786c0b43f13fd");
+        FROZEN.put(
+                "V125__the_proxy_keeps_the_name_each_account_last_joined_with.sql",
+                "dddfbc79d96c9d2b48610bfa1eab6fad30edc8e2f71faf6d110a0dd5eb56c330");
     }
 
     @Test

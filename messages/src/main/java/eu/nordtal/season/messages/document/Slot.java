@@ -39,6 +39,9 @@ public record Slot(String id, Type type, boolean required, Map<String, Value> va
         Objects.requireNonNull(type, "type");
         values = Collections.unmodifiableMap(new TreeMap<>(Objects.requireNonNullElse(values, Map.of())));
         at = List.copyOf(Objects.requireNonNullElse(at, List.of()));
+        if (link && type != Type.BUTTON) {
+            throw new IllegalArgumentException("only a button opens a link, not the " + type + " " + id);
+        }
     }
 
     public Slot(

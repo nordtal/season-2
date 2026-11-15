@@ -33,7 +33,14 @@ const contribution: DocumentView = view(
     title: "Contribution",
     values: { donated: { kind: "flag", example: "false" }, reason: { kind: "message", example: "admin/run.failed" } },
     slots: [
-      { id: "tiers", type: "LIST", required: true, values: { price: { kind: "money", example: "100" } }, at: [], link: false },
+      {
+        id: "tiers",
+        type: "LIST",
+        required: true,
+        values: { price: { kind: "money", example: "100" } },
+        at: [],
+        link: false,
+      },
       { id: "buy", type: "BUTTON", required: true, values: {}, at: [], link: false },
     ],
   },

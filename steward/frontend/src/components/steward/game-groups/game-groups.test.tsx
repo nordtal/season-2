@@ -8,7 +8,7 @@ import { clearDraft } from "@/lib/drafts"
 import { BreachContext } from "@/components/steward/breach-context"
 import { customEditor } from "@/components/steward/config-editors"
 import { Control } from "@/components/steward/configuration"
-import { type SectionValues, sectionsFromEntry } from "@/components/steward/repeatable-cards"
+import { type SectionValues, sectionsFromEntry, sectionsOf } from "@/components/steward/repeatable-cards"
 import { AwardsEditor } from "@/components/steward/game-groups/awards-editor"
 import { KitList } from "@/components/steward/game-groups/kits"
 import { chance } from "@/components/steward/game-groups/model"
@@ -677,8 +677,8 @@ function drawLoot(breaches: Record<string, string> = {}) {
           draft={{ "loot-points": value }}
           disabled={false}
           onChange={(next) => {
-            changes.push(next as SectionValues[])
-            setValue(next as SectionValues[])
+            changes.push(sectionsOf(next))
+            setValue(sectionsOf(next))
           }}
         />
       </BreachContext.Provider>
@@ -714,7 +714,7 @@ describe("the loot points", { timeout: 15_000 }, () => {
     backend(document("config", [LOOT]))
     const changes = drawLoot()
 
-    const add = await screen.findByRole("button", { name: "Block" })
+    const add = await screen.findByRole("button", { name: "Point" })
     expect(add).toHaveProperty("disabled", true)
 
     fireEvent.click(screen.getByRole("button", { name: "east" }))
@@ -722,7 +722,10 @@ describe("the loot points", { timeout: 15_000 }, () => {
     fireEvent.click(await screen.findByRole("button", { name: "Remove it" }))
     await waitFor(() => expect(screen.queryByRole("button", { name: "east" })).toBeNull())
     expect(changes.at(-1)?.map((point) => point.label)).toEqual(["spawn", "north"])
-    expect(screen.getByRole("button", { name: "Block" })).toHaveProperty("disabled", false)
+    expect(screen.getByRole("button", { name: "Point" })).toHaveProperty("disabled", false)
+
+    fireEvent.click(screen.getByRole("button", { name: "Point" }))
+    expect(within(await screen.findByRole("dialog")).getByRole("textbox", { name: "Label" })).toBeTruthy()
   })
 
   it("mark the point whose label breaks a rule, and say why in its dialog", async () => {

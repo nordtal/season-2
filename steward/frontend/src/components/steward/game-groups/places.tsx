@@ -17,6 +17,13 @@ import { mostEntries } from "@/lib/setting-rules"
 import { t } from "@/lib/texts"
 import { cn } from "@/lib/utils"
 
+/** The words of a list of places: its Add button, a place without a label, and the empty list. */
+const WORDS = {
+  area: { add: "steward.game.area", numbered: "steward.game.area-numbered", none: "steward.game.no-areas" },
+  block: { add: "steward.game.block", numbered: "steward.game.block-numbered", none: "steward.game.no-blocks" },
+  point: { add: "steward.game.point", numbered: "steward.game.point-numbered", none: "steward.game.no-points" },
+} as const
+
 /** The fields of one place by key, its values by key, and how a value changes. */
 type Place = {
   shape: PlaceShape
@@ -347,9 +354,10 @@ export function PlaceList({
   const shape = placeShape(fields.map((field) => field.key))
   if (shape === undefined) return null
   /** A labelled place is named by its label, as a card is by its name; without one, by its place in the list. */
-  const name = (index: number) =>
-    labelOf({ fields, values: value[index] }) ||
-    t(shape === "area" ? "steward.game.area-numbered" : "steward.game.block-numbered", { index: index + 1 })
+  /** A labelled point in its game's one world is a point, not a block. */
+  const point = fields.some((field) => field.key === LABEL) && !fields.some((field) => field.key === "world")
+  const words = WORDS[shape === "area" ? "area" : point ? "point" : "block"]
+  const name = (index: number) => labelOf({ fields, values: value[index] }) || t(words.numbered, { index: index + 1 })
   const invalid = (index: number) => fields.some((field) => breachAt(`${entry.path}.${index}.${field.key}`) !== null)
   const placeAt = (index: number): Place => ({
     shape,
@@ -366,7 +374,7 @@ export function PlaceList({
   return (
     <div className="flex flex-col gap-2">
       {value.length === 0 ? (
-        <Empty title={t(shape === "area" ? "steward.game.no-areas" : "steward.game.no-blocks")} />
+        <Empty title={t(words.none)} />
       ) : (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-2">
           {value.map((section, index) => (
@@ -400,7 +408,7 @@ export function PlaceList({
             }}
           >
             <PlusIcon aria-hidden />
-            {t(shape === "area" ? "steward.game.area" : "steward.game.block")}
+            {t(words.add)}
           </Button>
         </Hint>
       </div>

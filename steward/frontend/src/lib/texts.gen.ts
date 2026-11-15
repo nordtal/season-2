@@ -1173,6 +1173,7 @@ export type TextArgs = {
   "steward.game.no-blocks": Record<string, never>
   "steward.game.no-kits": Record<string, never>
   "steward.game.no-loadout": Record<string, never>
+  "steward.game.no-points": Record<string, never>
   "steward.game.no-prizes": Record<string, never>
   "steward.game.no-round": Record<string, never>
   "steward.game.no-track": Record<string, never>
@@ -1198,6 +1199,10 @@ export type TextArgs = {
   "steward.game.pack-swap-ask": Record<string, never>
   "steward.game.pack-swap-note": Record<string, never>
   "steward.game.pack-swap-wait": Record<string, never>
+  "steward.game.point": Record<string, never>
+  "steward.game.point-numbered": {
+    index: Arg["number"]
+  }
   "steward.game.prize": Record<string, never>
   "steward.game.prizes": {
     count: Arg["number"]

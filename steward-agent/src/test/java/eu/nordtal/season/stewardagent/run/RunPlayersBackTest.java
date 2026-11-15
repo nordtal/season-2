@@ -42,7 +42,8 @@ import org.junit.jupiter.api.Test;
  */
 class RunPlayersBackTest {
 
-    private final FakeContainers containers = new FakeContainers().running("smp", "discord-bot", "limbo");
+    private final FakeContainers containers =
+            new FakeContainers().running("smp", "hunger-games", "discord-bot", "limbo");
     private final List<RunStage> progress = new ArrayList<>();
 
     /** Runs on every sleep while players back is open, with the number of that sleep, as the proxy's waiting room. */
@@ -232,6 +233,32 @@ class RunPlayersBackTest {
         runner.run(request, progress::add);
 
         assertEquals("PLAYERS_BACK WARNING PLAYERS_LOST", steps(request.id()).getLast());
+    }
+
+    @Test
+    void aPlayerAHeldServiceKeepsInLimboHidesNoLossOfAnother() {
+        maintenance();
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp", "hunger-games"));
+        final UUID quit = online("smp");
+        final UUID kept = online("hunger-games");
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 1);
+                directory.recorder().moved(request.id(), "hunger-games", "limbo", 1);
+                // Held once the run has stopped it: its player waits in limbo on purpose, which says nothing of smp's.
+                directory.hold("hunger-games", Actor.HOST, null);
+                where.remove(quit);
+                where.put(kept, "limbo");
+            }
+        };
+
+        runner.run(request, progress::add);
+
+        assertEquals(
+                "PLAYERS_BACK WARNING PLAYERS_LOST",
+                steps(request.id()).getLast(),
+                steps(request.id()).toString());
+        assertTrue(sleptInBack <= PlayersBack.CAP.toSeconds() + 1, "nobody smp lost still waits: " + sleptInBack);
     }
 
     /** Puts a new player on {@code service} in the proxy's roster, written on every sleep. */

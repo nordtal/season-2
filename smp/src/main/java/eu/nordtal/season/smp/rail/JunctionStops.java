@@ -61,7 +61,7 @@ final class JunctionStops {
      * @param speed    the speed the cart had on its last tick; zero for a cart that stands
      * @param reach    the distance up to which the junctions are read
      * @param before   how far before a junction set the wrong way it switches
-     * @param crawl    the speed reached at the switch point, in blocks per tick
+     * @param crawl    the crawl speed of the settings, in blocks per tick, which a close next junction lowers
      */
     Limit limit(
             final RidePath path,
@@ -130,7 +130,7 @@ final class JunctionStops {
     }
 
     /**
-     * Returns the crawl speed for the junction at {@code position}, lowered for a wrong junction close behind it.
+     * Returns the crawl speed for the junction at {@code position}, lowered for a wrong junction close after it.
      * A cart at that speed can still brake at its acceleration for the stop before the next junction set the wrong way,
      * which the switch interval may hold unswitched.
      */

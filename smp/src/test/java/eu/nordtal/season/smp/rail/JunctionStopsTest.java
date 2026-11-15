@@ -287,6 +287,7 @@ class JunctionStopsTest {
 
         assertEquals(2, switched.size());
         assertTrue(switched.get(1).tick() > switched.get(0).tick(), "each switches at its own moment");
+        assertEquals(CRAWL, switched.get(0).speed(), MOTION.acceleration(), "at the crawl of the settings");
         assertEquals(path.start(30) - BEFORE, switched.get(0).along(), CRAWL);
         assertEquals(path.start(34) - BEFORE, switched.get(1).along(), CRAWL);
         for (int t = 0; t < ticks.size() - 1; t++) {

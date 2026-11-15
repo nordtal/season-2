@@ -12,8 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.TreeSet;
-import org.jspecify.annotations.Nullable;
+import java.util.stream.Collectors;
 
 /**
  * Brings a map upgraded from an earlier copy up to a newer copy of the same world, without a second upgrade.
@@ -29,37 +30,21 @@ public final class Refresh {
     private Refresh() {}
 
     /**
-     * The smallest and largest chunk x and z of the chunks that changed.
+     * A region, by its x and z.
      *
-     * @param minX the smallest chunk x
-     * @param minZ the smallest chunk z
-     * @param maxX the largest chunk x
-     * @param maxZ the largest chunk z
+     * @param x the region x
+     * @param z the region z
      */
-    public record Bounds(int minX, int minZ, int maxX, int maxZ) {
+    public record Spot(int x, int z) implements Comparable<Spot> {
 
-        Bounds widened(final int chunkX, final int chunkZ) {
-            return new Bounds(
-                    Math.min(minX, chunkX), Math.min(minZ, chunkZ), Math.max(maxX, chunkX), Math.max(maxZ, chunkZ));
+        @Override
+        public int compareTo(final Spot other) {
+            return x != other.x ? Integer.compare(x, other.x) : Integer.compare(z, other.z);
         }
 
-        /** Returns the regions whose result can differ, as x1,z1,x2,z2. */
-        public int[] affected() {
-            return grown(AFFECTED);
-        }
-
-        /** Returns the regions a transplant must run over so the affected ones get every entrance beside them. */
-        public int[] run() {
-            return grown(AFFECTED + 1);
-        }
-
-        private int[] grown(final int regions) {
-            return new int[] {
-                Math.floorDiv(minX, Region.SIDE) - regions,
-                Math.floorDiv(minZ, Region.SIDE) - regions,
-                Math.floorDiv(maxX, Region.SIDE) + regions,
-                Math.floorDiv(maxZ, Region.SIDE) + regions
-            };
+        @Override
+        public String toString() {
+            return x + "," + z;
         }
     }
 
@@ -67,16 +52,47 @@ public final class Refresh {
      * What changed between the two copies.
      *
      * @param chunks the number of chunks the server saved with other contents since the earlier copy
-     * @param bounds where those chunks lie, or null when none changed
+     * @param regions the regions that hold those chunks, empty when none changed
      */
-    public record Changes(int chunks, @Nullable Bounds bounds) {}
+    public record Changes(int chunks, SortedSet<Spot> regions) {
+
+        /**
+         * Returns the regions whose result can differ: each changed region and those around it.
+         * Changes far apart cost no more than each of them alone, so a stop does not grow with the distance.
+         */
+        public SortedSet<Spot> affected() {
+            return grown(AFFECTED);
+        }
+
+        /** Returns the regions a transplant must run over so the affected ones get every entrance beside them. */
+        public SortedSet<Spot> run() {
+            return grown(AFFECTED + 1);
+        }
+
+        private SortedSet<Spot> grown(final int around) {
+            final SortedSet<Spot> grown = new TreeSet<>();
+            for (final Spot region : regions) {
+                for (int x = region.x() - around; x <= region.x() + around; x++) {
+                    for (int z = region.z() - around; z <= region.z() + around; z++) {
+                        grown.add(new Spot(x, z));
+                    }
+                }
+            }
+            return grown;
+        }
+    }
+
+    /** Returns regions as the list x,z;x,z that --regions takes. */
+    public static String listed(final Set<Spot> regions) {
+        return regions.stream().map(Spot::toString).collect(Collectors.joining(";"));
+    }
 
     /** Writes the refreshed map into out and returns what changed; a changed chunk must have the upgraded version. */
     public static Changes run(final Path before, final Path now, final Path upgraded, final Path out)
             throws IOException {
         final int version = version(upgraded);
         int chunks = 0;
-        Bounds bounds = null;
+        final SortedSet<Spot> regions = new TreeSet<>();
         for (final String kind : KINDS) {
             Files.createDirectories(out.resolve(kind));
             for (final Path file : files(upgraded.resolve(kind), "*.mc[ac]")) {
@@ -119,17 +135,13 @@ public final class Refresh {
                     }
                     result.put(index, chunk);
                     chunks++;
-                    final int chunkX = region[0] * Region.SIDE + index % Region.SIDE;
-                    final int chunkZ = region[1] * Region.SIDE + index / Region.SIDE;
-                    bounds = bounds == null
-                            ? new Bounds(chunkX, chunkZ, chunkX, chunkZ)
-                            : bounds.widened(chunkX, chunkZ);
+                    regions.add(new Spot(region[0], region[1]));
                 }
                 Files.deleteIfExists(target);
                 Region.write(target, result);
             }
         }
-        return new Changes(chunks, bounds);
+        return new Changes(chunks, regions);
     }
 
     /** Returns the chunks of the newer file that are new or hold other contents than in the earlier one. */

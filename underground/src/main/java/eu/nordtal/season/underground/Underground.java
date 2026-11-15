@@ -17,7 +17,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /** The command line of the tool; the README of the module lists the commands in the order of a run. */
 public final class Underground {
@@ -68,18 +67,14 @@ public final class Underground {
     private static void refresh(final Arguments arguments) throws IOException {
         final Refresh.Changes changes = Refresh.run(
                 arguments.path("before"), arguments.path("now"), arguments.path("upgraded"), arguments.path("out"));
-        final Refresh.Bounds bounds = changes.bounds();
-        if (bounds == null) {
+        if (changes.regions().isEmpty()) {
             System.out.println("refresh finished: changed=0, the earlier result stays as it is");
             return;
         }
-        System.out.println("refresh finished: changed=" + changes.chunks() + " chunks=" + bounds.minX() + ","
-                + bounds.minZ() + "," + bounds.maxX() + "," + bounds.maxZ());
-        System.out.println("transplant again: regions=" + joined(bounds.run()) + " take=" + joined(bounds.affected()));
-    }
-
-    private static String joined(final int[] numbers) {
-        return Arrays.stream(numbers).mapToObj(String::valueOf).collect(Collectors.joining(","));
+        System.out.println(
+                "refresh finished: changed=" + changes.chunks() + " regions=" + Refresh.listed(changes.regions()));
+        System.out.println("transplant again: regions=" + Refresh.listed(changes.run()) + " take="
+                + Refresh.listed(changes.affected()));
     }
 
     /** Returns --seed, which a world generated in another seed would not match. */

@@ -1,16 +1,19 @@
 package eu.nordtal.season.underground.transplant;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.underground.anvil.Region;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -30,7 +33,7 @@ class RefreshTest {
         assertEquals(5023, result.get(1).get("DataVersion"));
         assertEquals("built more", result.get(2).get("contents"));
         assertEquals(1, changes.chunks());
-        assertEquals(new Refresh.Bounds(34, 0, 34, 0), changes.bounds());
+        assertEquals(Set.of(new Refresh.Spot(1, 0)), changes.regions());
         assertEquals(
                 "built",
                 Region.read(Region.file(directory.resolve("upgraded/region"), 1, 0))
@@ -47,7 +50,7 @@ class RefreshTest {
         final Refresh.Changes changes = refresh(directory);
 
         assertEquals(0, changes.chunks());
-        assertNull(changes.bounds());
+        assertTrue(changes.regions().isEmpty());
         assertEquals(
                 5023,
                 Region.read(Region.file(directory.resolve("out/region"), 1, 0))
@@ -65,11 +68,17 @@ class RefreshTest {
     }
 
     @Test
-    void theRegionsAroundAChangeAreTransplantedAgainWithARingForTheirEntrances() {
-        final Refresh.Bounds bounds = new Refresh.Bounds(40, -3, 70, 5);
+    void theRegionsAroundEachChangeAreTransplantedAgainWithARingForTheirEntrances() {
+        final Refresh.Changes changes =
+                new Refresh.Changes(2, new TreeSet<>(List.of(new Refresh.Spot(0, 0), new Refresh.Spot(15, 15))));
 
-        assertArrayEquals(new int[] {-1, -3, 4, 2}, bounds.affected());
-        assertArrayEquals(new int[] {-2, -4, 5, 3}, bounds.run());
+        assertEquals(2 * 25, changes.affected().size());
+        assertEquals(2 * 49, changes.run().size());
+        assertTrue(changes.affected().contains(new Refresh.Spot(-2, 2)));
+        assertTrue(changes.affected().contains(new Refresh.Spot(17, 13)));
+        assertFalse(changes.affected().contains(new Refresh.Spot(7, 7)));
+        assertTrue(changes.run().contains(new Refresh.Spot(-3, 3)));
+        assertEquals("-3,-3;-3,-2", Refresh.listed(changes.run()).substring(0, 11));
     }
 
     private static Refresh.Changes refresh(final Path directory) throws IOException {

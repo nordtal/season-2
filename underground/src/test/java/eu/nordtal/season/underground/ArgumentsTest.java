@@ -42,4 +42,13 @@ class ArgumentsTest {
         assertArrayEquals(new int[] {7, 2}, regions.get(0));
         assertArrayEquals(new int[] {8, 3}, regions.get(3));
     }
+
+    @Test
+    void theRegionsCanBeAList() throws Exception {
+        final List<int[]> regions = new Arguments(List.of("--regions", "7,2;-1,3")).regions(Path.of("unused"));
+
+        assertEquals(2, regions.size());
+        assertArrayEquals(new int[] {7, 2}, regions.get(0));
+        assertArrayEquals(new int[] {-1, 3}, regions.get(1));
+    }
 }

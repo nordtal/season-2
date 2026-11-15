@@ -256,10 +256,12 @@ public final class WebClient {
         });
     }
 
-    /** Returns whether a GET answers 200 within the timeout. */
+    /** Returns whether a GET answers 200 within the timeout. The body is read and dropped, never held. */
     public boolean answers(final URI uri) {
         try {
-            return send(request(uri, timeout).GET(), uri).status() == 200;
+            return exchange(request(uri, timeout).GET(), HttpResponse.BodyHandlers.discarding())
+                            .statusCode()
+                    == 200;
         } catch (final IOException unreachable) {
             return false;
         }

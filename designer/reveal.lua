@@ -81,6 +81,9 @@ function reveal.file(info, context)
   if kind == "sound" then
     return soundsJson(e.id)
   end
+  if kind == "file" then
+    return e.file
+  end
   if kind == "sound_file" then
     return e.file or soundsJson(info.event.id)
   end

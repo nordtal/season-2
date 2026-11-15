@@ -5,7 +5,7 @@ import java.io.File
 import java.util.zip.ZipFile
 
 /**
- * The textures and item definitions in the season's client jar, which Fabric Loom downloads for `:bridge-mod`.
+ * The textures, item definitions and other files in the season's client jar, which Fabric Loom downloads for `:bridge-mod`.
  *
  * The jar is a starting point for a vanilla override. It is never committed and never part of the pack.
  */
@@ -16,7 +16,8 @@ object VanillaClient {
     /**
      * Lists the `textures` and `items` of [jar] from one read of its entries. A texture is a map of its id, such as
      * `minecraft:block/stone.png`, its pixels and whether it has a `.mcmeta`. An item is its id, such as
-     * `minecraft:compass`. Both lists are sorted by id.
+     * `minecraft:compass`. `files` lists every other file that [PackFiles] shows, such as `minecraft:blockstates/stone.json`.
+     * Each list is sorted by id.
      */
     fun assets(jar: File): Map<String, List<Any>> =
         ZipFile(jar).use { zip ->
@@ -41,7 +42,7 @@ object VanillaClient {
                     }
                 }
             val items = names.mapNotNull { ITEM.matchEntire(it) }.map { "${it.groupValues[1]}:${it.groupValues[2]}" }.sorted()
-            mapOf("textures" to textures, "items" to items)
+            mapOf("textures" to textures, "items" to items, "files" to PackFiles.vanilla(names))
         }
 
     /**

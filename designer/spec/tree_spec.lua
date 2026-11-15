@@ -48,7 +48,21 @@ local model = {
     { id="nordtal:ui.ping", subtitle="subtitles.nordtal.ui.ping", subtitles={ en_us="Ping" }, draft="sound nordtal:ui.ping",
       sounds={ { name="nordtal:ui/ping", file="src/assets/nordtal/sounds/ui/ping.ogg" }, { name="nordtal:ui/pong" } } },
   },
+  files = {
+    { category="minecraft:blockstates", entries={
+      { id="minecraft:blockstates/stone.json", file="src/assets/minecraft/blockstates/stone.json", name="stone.json",
+        kind="blockstate", problems={}, draft="src/assets/minecraft/blockstates/stone.json" },
+      { id="minecraft:blockstates/glass.json", file="src/assets/minecraft/blockstates/glass.json", name="glass.json",
+        kind="blockstate", problems={ "It needs either variants or multipart, and not both." } },
+    } },
+    { category="nordtal:models", entries={
+      { id="nordtal:models/block/lamp.json", file="src/assets/nordtal/models/block/lamp.json", name="block/lamp.json",
+        kind="model", problems={ "A", "B" } },
+    } },
+  },
   drafts = { { id="text menu.title", label="menu.title", state="changed", files={}, keys={ "menu.title" } },
+             { id="src/assets/minecraft/blockstates/stone.json", label="stone.json", state="added",
+               files={ "src/assets/minecraft/blockstates/stone.json" } },
              { id="sound nordtal:ui.ping", label="nordtal:ui.ping", state="added", files={} } },
 }
 
@@ -76,7 +90,20 @@ describe("tree", function()
       { "<tree.texts>", { { "item.nordtal.wand" }, { "menu.title" } } },
       { "<tree.sounds>", { { "minecraft:block.anvil.land", { { "random/anvil_land" } } },
                            { "nordtal:ui.ping", { { "ui/ping" }, { "ui/pong" } } } } },
+      { "<tree.files>", { { "minecraft:blockstates", { { "stone.json" }, { "glass.json" } } },
+                          { "nordtal:models", { { "block/lamp.json" } } } } },
     }, texts(nodes))
+  end)
+
+  it("lists the pack's other files by category, counts the problems of each and marks a draft", function()
+    local nodes, index = tree.build(model, function(id, n) return n and id .. " " .. n or id end, drafts.marks(model))
+    local root = nodes[7]
+    local states, models = root.children[1], root.children[2]
+    assert.same({ "files", "(1)" }, { root.id, root.badge })
+    assert.equal(tree.draftIcon, states.children[1].icon)
+    assert.same({ "tree.problems 1", "tree.problems 2" }, { states.children[2].badge, models.children[1].badge })
+    assert.same({ kind="file", entry=model.files[2].entries[1] }, index["file/nordtal:models/block/lamp.json"])
+    assert.equal("files", index.files.kind)
   end)
 
   it("indexes a sound event with the pack's languages and each of its sounds with its event and place", function()

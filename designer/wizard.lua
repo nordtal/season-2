@@ -4,7 +4,8 @@
 -- A vanilla override is chosen in a browser of the client jar's
 -- textures, and a vanilla item in one of its item definitions that
 -- the pack does not override yet. The same wizard creates a sound
--- event from an audio file, or overrides one of the client's.
+-- event from an audio file, or overrides one of the client's, and a
+-- file of the pack such as a model, new or copied from the client jar.
 --
 -- wizard.open{ api, tr, model, labels, run, listing, created, kinds,
 -- title } shows it, with the kinds of kinds under title, or else those
@@ -20,6 +21,7 @@ local wizard = {}
 
 wizard.kinds = { "glyph", "block", "sheet", "font", "item", "texture", "vanilla_item", "override" }
 wizard.soundKinds = { "sound", "vanilla_sound" }
+wizard.fileKinds = { "file", "vanilla_file" }
 
 -- The audio files the file field offers. The task refuses each but
 -- Ogg Vorbis and says how to convert, so the others are offered too.
@@ -34,6 +36,8 @@ local browsers = {
                  none="new.chosen_none_item", required="new.required_item" },
   vanilla_sound={ option="sound", count="new.count_sounds", more="new.count_sounds_more", chosen="new.chosen_sound",
                   none="new.chosen_none_sound", required="new.required_sound", separator="." },
+  vanilla_file={ option="asset", count="new.count_files", more="new.count_files_more", chosen="new.chosen_file",
+                 none="new.chosen_none_file", required="new.required_file" },
 }
 
 -- The fields of each kind but those of a browser, in the order the dialog
@@ -50,6 +54,8 @@ wizard.fields = {
   -- Below the browser: whether the override replaces vanilla's sounds,
   -- and the file it starts from, which keeping vanilla's sounds needs
   vanilla_sound={ "replace", "file" },
+  -- The path below the namespace holds the folder, which picks the template
+  file={ "namespace", "path" },
 }
 
 -- The text a field starts with
@@ -62,13 +68,14 @@ local defaults = {
   texture={ namespace="nordtal", width="16", height="16" },
   sound={ namespace="nordtal" },
   vanilla_sound={},
+  file={ namespace="nordtal", path="models/item/" },
 }
 
 -- editItem without a change writes a vanilla item's definition into
 -- the pack as the jar has it
 local tasks = { glyph="createGlyph", block="createGlyphBlock", sheet="createGlyphSheet", font="createFont", item="createItem",
                 texture="createTexture", vanilla_item="editItem", override="copyVanillaTexture",
-                sound="createSound", vanilla_sound="overrideSound" }
+                sound="createSound", vanilla_sound="overrideSound", file="createFile", vanilla_file="createFile" }
 
 -- How many entries a group shows before it splits by first letter,
 -- and how many each letter shows
@@ -79,6 +86,9 @@ local hintLines = 3
 
 -- How many lines a refusal shows
 local refusalLines = 6
+
+-- How many lines the note below a file's path shows
+local noteLines = 4
 
 -- The fonts of the model, by id
 function wizard.fonts(model)
@@ -115,6 +125,8 @@ function wizard.job(kind, values)
     if kind == "vanilla_sound" then
       options.replace = values.replace == false and "false" or "true"
       if trim(values.file) ~= "" then options.file = trim(values.file) end
+    elseif kind == "vanilla_file" then
+      options.vanilla = "true"
     end
     return { tasks[kind], options }
   end
@@ -126,6 +138,8 @@ function wizard.job(kind, values)
   if path ~= "" then
     if kind == "sound" then
       options.sound = namespace .. ":" .. path
+    elseif kind == "file" then
+      options.asset = namespace .. ":" .. path
     elseif kind == "item" then
       options.item = namespace .. ":" .. path
     elseif kind == "font" then
@@ -143,7 +157,7 @@ function wizard.refused(out)
   for _, line in ipairs(out or {}) do
     local field = line:match("^refused (%S+)$")
     if field then
-      return (field == "texture" or field == "item" or field == "sound") and "path" or field
+      return (field == "texture" or field == "item" or field == "sound" or field == "asset") and "path" or field
     end
   end
 end
@@ -155,9 +169,9 @@ function wizard.absent(out, job)
     local option = line:match("^refused (%S+)$")
     if option then
       -- The id's namespace and path are one option, passed whenever the path is filled
-      if option == "namespace" or option == "path" or option == "sound" then
+      if option == "namespace" or option == "path" or option == "sound" or option == "asset" then
         if job[1] == "createFont" then return job[2].font == nil end
-        return job[2].texture == nil and job[2].item == nil and job[2].sound == nil
+        return job[2].texture == nil and job[2].item == nil and job[2].sound == nil and job[2].asset == nil
       end
       return job[2][option] == nil
     end
@@ -173,6 +187,8 @@ function wizard.target(index, job)
       if info.kind == "font" and info.entry.font == options.font then return id end
     elseif task == "createGlyphBlock" then
       if info.kind == "block" and info.entry.title == options.title and info.font.font == options.font then return id end
+    elseif options.asset then
+      if info.kind == "file" and info.entry.id == options.asset then return id end
     elseif options.sound then
       if info.kind == "sound" and info.entry.id == options.sound then return id end
     elseif options.item then
@@ -196,6 +212,15 @@ function wizard.choices(kind, listing, model)
   local out = {}
   if kind == "override" then
     for _, texture in ipairs(listing.textures or {}) do table.insert(out, texture.id) end
+    return out
+  elseif kind == "vanilla_file" then
+    local held = {}
+    for _, category in ipairs(model.files or {}) do
+      for _, file in ipairs(category.entries or {}) do held[file.id] = true end
+    end
+    for _, id in ipairs(listing.files or {}) do
+      if not held[id] then table.insert(out, id) end
+    end
     return out
   elseif kind == "vanilla_sound" then
     local held = {}
@@ -454,6 +479,10 @@ function wizard.open(context)
       elseif field == "block" then
         local blocks = wizard.blocks(model, values.font)
         dlg:combobox{ id="block", label=tr("new.block"), options=blocks, option=values.block or blocks[1] }
+      elseif kind == "file" and field == "path" then
+        dlg:entry{ id=field, label=tr("new.file_path"), text=text }
+        dlg:newrow()
+        context.labels(dlg, "note", noteLines, tr("new.file_note"), true)
       else
         dlg:entry{ id=field, label=tr("new." .. field), text=text }
       end

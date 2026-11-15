@@ -57,6 +57,8 @@ class PackRulesTest {
                 "nordtal/items/lamp.json breaks a rule of item definitions: model has no known 'type': minecraft:cube",
                 "nordtal/items/wand.json breaks a rule of item definitions: model nordtal:item/handheld is in neither the pack nor the client jar",
                 "nordtal/items/wand.json breaks a rule of item definitions: texture nordtal:item/wand of model nordtal:item/wand is in neither the pack nor the client jar",
+                "nordtal/models/item/wand.json: Its parent names nordtal:item/handheld, which the pack does not hold.",
+                "nordtal/models/item/wand.json: The texture layer0 names nordtal:item/wand, which the pack does not hold.",
             ),
             PackRules.findings(root.resolve("pack/assets")),
         )

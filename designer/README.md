@@ -194,6 +194,15 @@ override of one of the client's sound events, chosen in a browser of its dotted 
 replaces vanilla's sounds or keeps them, and keeping them needs a file of the pack's to add. An
 override that replaces them without a file starts from copies of vanilla's `.ogg` files in the pack.
 
+The tree's **Files** lists every other file of the pack, such as models, block states, atlases, equipment,
+particles, shaders and `texts/splashes.txt`, by namespace and folder. A file with problems shows their count as its
+badge. Its properties show its path, its kind and each problem that `describePack` found, or that there is none.
+**Open in Text Editor** opens it in the system's text editor: on macOS the default text editor, elsewhere the
+application chosen for its type. The tab then looks at the file every second, and a save there reads the pack again
+and, with live sync on, installs it. **Delete File** runs `deleteFile` once confirmed. **File > New Pack File...** and
+**New File...** on **Files** open the wizard for a file of the pack, made by `createFile` from a path below the
+namespace, or a copy of a file of the client jar, chosen in a browser of its folders.
+
 The properties panel lists the previews of the selected entry. A glyph or a cell runs `renderGlyphPreviews`
 first, with **Show Previews**, and then offers itself alone in each place the bridge mod shows text,
 and the menu, HUD line or board that its font draws. An item offers a give of each of its `states`, and

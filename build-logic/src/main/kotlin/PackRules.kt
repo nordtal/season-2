@@ -41,6 +41,7 @@ object PackRules {
         fonts(assets).forEach { findings += fontFindings(assets, it, images) }
         findings += itemFindings(assets)
         findings += soundFindings(assets)
+        findings += PackFiles.findings(assets)
         TRANSPARENT.map { assets.resolve(it) }.forEach { file ->
             val image = images[file] ?: return@forEach
             if (hasPixels(image, 0, 0, image.width, image.height)) {

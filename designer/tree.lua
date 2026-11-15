@@ -137,6 +137,22 @@ function tree.build(model, tr, mark)
       { kind="sound", entry=event, languages=model.languages, titles=titles }, children))
   end
 
+  -- A file of the pack's other files shows how many problems its check found
+  local files = {}
+  for _, category in ipairs(model.files or {}) do
+    local entries = {}
+    for _, file in ipairs(category.entries or {}) do
+      local n = node("file/" .. file.id, file.name, { kind="file", entry=file })
+      local problems = #(file.problems or {})
+      if problems > 0 then
+        local text = tr("tree.problems", problems)
+        n.badge = n.badge and n.badge .. " " .. text or text
+      end
+      table.insert(entries, n)
+    end
+    table.insert(files, node("files/" .. category.category, category.category, { kind="category", entry=category }, entries))
+  end
+
   local nodes = {
     node("glyphs", tr("tree.glyphs"), { kind="root" }, fonts),
     node("items", tr("tree.items"), { kind="root" }, items),
@@ -144,6 +160,7 @@ function tree.build(model, tr, mark)
     node("textures", tr("tree.textures"), { kind="root" }, own),
     node("texts", tr("tree.texts"), { kind="texts", languages=model.languages, titles=titles }, texts),
     node("sounds", tr("tree.sounds"), { kind="sounds" }, sounds),
+    node("files", tr("tree.files"), { kind="files" }, files),
   }
   -- The badge without unsaved changes, which unsaved() falls back to
   local function keep(list)

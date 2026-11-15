@@ -8,7 +8,7 @@
 -- and reads the pack. api holds the Aseprite functions that pack and
 -- textures name, plus Dialog, Rectangle, screen, alert, activeSprite
 -- and write. modules holds pack, tree, textures, panel, properties,
--- items, wizard, drafts, conflicts and minecraft. preferences.treeSide
+-- items, wizard, drafts, conflicts, minecraft, sounds, reveal and files. preferences.treeSide
 -- is "left" or "right", preferences.coupled is false once the
 -- designer decoupled pixel size and display height, and
 -- preferences.liveSync is false once live sync was switched off.
@@ -17,7 +17,10 @@
 -- OK runs the task that writes it. The tasks run one at a time, and
 -- after them the tab reads the pack again. ctl.create() opens the
 -- wizard for a new texture, which opens in the editor once created,
--- and ctl.createSound() the wizard for a new sound event.
+-- ctl.createSound() the wizard for a new sound event and
+-- ctl.createFile() the one for a file of the pack, such as a model.
+-- Open in Text Editor opens such a file in the system's text editor,
+-- and a save there reads the pack again.
 --
 -- A selected item reads its definition, whose models, cases, entries
 -- and tints the tree then shows below the item's node. The panel edits
@@ -120,6 +123,9 @@ function tab.open(context)
   -- What renderGlyphPreviews wrote since the pack was read, by font
   -- and code
   local rendered = {}
+  -- The text of each file that the tab opened in a text editor, by its
+  -- path, and the timer that looks for a save there
+  local watched, watching = {}, nil
 
   -- Repaints the panel and the bar
   local function showProperties()
@@ -193,6 +199,7 @@ function tab.open(context)
       return list
     end
     local own = modules.sounds.handles(info) and modules.sounds.rows(info, tr)
+      or modules.files.handles(info) and modules.files.rows(info, tr)
       or properties.rows(info, tr, { coupled=preferences.coupled })
     local first = #list + 1
     for _, row in ipairs(own) do
@@ -200,6 +207,9 @@ function tab.open(context)
         table.insert(list, { text=tr("properties.coupled"), value=row.value, field=row.field, kind="switch" })
       elseif row.key == "delete" or row.button then
         table.insert(list, { text=row.value, field=row.field, kind="button" })
+      elseif row.label == false then
+        -- A row that continues the one above it, such as a second problem
+        table.insert(list, { value=row.value, field=row.field })
       else
         table.insert(list, { text=row.label or tr("properties." .. row.key), value=row.value, field=row.field })
       end
@@ -1009,6 +1019,60 @@ function tab.open(context)
     if job then write(job) end
   end
 
+  -- Reads the pack again once a file that the tab opened in a text
+  -- editor was saved there, and with live sync installs it too
+  local function look()
+    if closed or running or #queue > 0 then
+      return
+    end
+    local saved = modules.files.changed(watched, api.read)
+    if #saved == 0 then
+      return
+    end
+    local name = saved[1]:match("[^/\\]+$") or saved[1]
+    ctl.reload()
+    table.insert(queue, function(done)
+      setStatus(tr("status.file_saved", name))
+      done()
+    end)
+    if preferences.liveSync ~= false and instance and instance.instance then
+      installPack()
+    end
+    pump()
+  end
+
+  -- Takes the action of a row of Files or of one of its files: opens
+  -- the file in the system's text editor and watches it, or asks for
+  -- the change and runs its task
+  local function editFile(info, field)
+    if field == "newFile" then
+      ctl.createFile()
+      return
+    elseif field == "edit" then
+      local path = api.join(clone, "resource-pack", info.entry.file)
+      local process = api.Process{ cmd=modules.files.command(api.os, path), onexit=function() end }
+      if not pcall(process.start, process) then
+        setStatus(tr("status.not_edited"))
+        return
+      end
+      watched[path] = api.read(path)
+      if not watching then
+        watching = api.Timer{ interval=1, ontick=look }
+        watching:start()
+      end
+      return
+    elseif field == "delete" then
+      local yes = api.alert{ title=tr("files.delete"), text=modules.files.confirm(info, tr),
+                             buttons={ tr("files.delete"), tr("edit.cancel") } }
+      if yes == 1 then
+        write(modules.files.jobs(info, field), function()
+          watched[api.join(clone, "resource-pack", info.entry.file)] = nil
+          ctl.clear()
+        end)
+      end
+    end
+  end
+
   -- Shows text in the status line once the pack was read again
   local function reloadThen(text)
     ctl.reload()
@@ -1239,9 +1303,14 @@ function tab.open(context)
     if not info then
       return
     end
-    -- Showing a file writes nothing, so it waits for no task
+    -- Showing a file, or opening one in a text editor, writes
+    -- nothing, so it waits for no task
     if field == "reveal" then
       revealFile(info)
+      return
+    end
+    if field == "edit" and info.kind == "file" then
+      editFile(info, field)
       return
     end
     if running or #queue > 0 then
@@ -1254,6 +1323,10 @@ function tab.open(context)
     end
     if modules.sounds.handles(info) and field ~= "discard" and field ~= "resolve" and field ~= "github" then
       editSound(info, field)
+      return
+    end
+    if modules.files.handles(info) and field ~= "discard" and field ~= "resolve" and field ~= "github" then
+      editFile(info, field)
       return
     end
     if field == "coupled" then
@@ -1545,6 +1618,11 @@ function tab.open(context)
     ctl.create(modules.wizard.soundKinds, tr("new.sound_dialog"))
   end
 
+  -- Opens the wizard for a new file of the pack or a copy of vanilla's
+  function ctl.createFile()
+    ctl.create(modules.wizard.fileKinds, tr("new.file_dialog"))
+  end
+
   -- Selects no entry, so that a click on the last one opens it again.
   -- An ID that no node has selects none.
   function ctl.clear()
@@ -1587,6 +1665,7 @@ function tab.open(context)
   function ctl.close()
     closed = true
     every:stop()
+    if watching then watching:stop() end
     queue = {}
     local process = running and running.process
     if process and process.isRunning then

@@ -15,7 +15,7 @@ import java.io.File
 /**
  * Reads or makes one change of [kind] to the pack's sources with the [options] that `resource-pack/README.md` lists per kind,
  * prints what it changed, and fails with the reason when it refuses. A [FieldRefusal] first prints `refused` and the option's
- * name, a [FieldsNeeded] `needs`, a field and its kind per line. Only the item kinds read the client jar, and only the
+ * name, a [FieldsNeeded] `needs`, a field and its kind per line. Only the item and file kinds read the client jar, and only the
  * sound kinds the asset index.
  */
 @DisableCachingByDefault(because = "Writes into the pack's sources")
@@ -24,7 +24,7 @@ abstract class EditPackSources : VanillaClientTask() {
      * `glyph`, `block`, `sheet`, `font`, `item`, `texture`, `rename`, `edit`, `resize`, `delete`, `editFont`, `editBlock`,
      * `cells`, `deleteBlock`, `deleteFont`, `codePoints`, `animate`, `scaling`,
      * `readItem`, `writeItem`, `editItem`, `import`, `text`, `sound`, `overrideSound`, `editSound`, `subtitle`, `deleteSound`,
-     * `play`, `discard`, `resolve`, `conflict`, `publish` or `sync`.
+     * `play`, `file`, `deleteFile`, `discard`, `resolve`, `conflict`, `publish` or `sync`.
      */
     @get:Input
     abstract val kind: Property<String>
@@ -87,6 +87,8 @@ abstract class EditPackSources : VanillaClientTask() {
                 "sound",
                 "file",
                 "replace",
+                "asset",
+                "vanilla",
             )
     }
 
@@ -342,6 +344,16 @@ abstract class EditPackSources : VanillaClientTask() {
 
                     "play" -> {
                         listOf(Sounds.play(pack, ::sounds, text("sound"), number("at")))
+                    }
+
+                    "file" -> {
+                        val vanilla = options["vanilla"] ?: "false"
+                        if (vanilla != "true" && vanilla != "false") throw FieldRefusal("vanilla", "Set -Pvanilla to true or false.")
+                        if (vanilla == "true") PackFiles.copy(pack, jar(), text("asset")) else PackFiles.create(pack, text("asset"))
+                    }
+
+                    "deleteFile" -> {
+                        PackFiles.delete(pack, runCatching { jar() }.getOrNull(), text("asset"))
                     }
 
                     "discard" -> {

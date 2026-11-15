@@ -40,6 +40,7 @@ class VanillaClientTest {
                         mapOf("id" to "minecraft:block/water_still.png", "width" to 16, "height" to 512, "mcmeta" to true),
                     ),
                 "items" to listOf("minecraft:apple", "minecraft:stone"),
+                "files" to listOf("minecraft:models/block/stone.json"),
             ),
             VanillaClient.assets(file),
         )

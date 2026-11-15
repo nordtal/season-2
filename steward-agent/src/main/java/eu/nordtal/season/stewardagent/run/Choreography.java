@@ -51,8 +51,8 @@ final class Choreography {
 
     private final Map<String, Steps.Step> comingUp = new LinkedHashMap<>();
 
-    /** The players seen on a service this run stops, before it stopped. */
-    private final Set<UUID> leaving = new LinkedHashSet<>();
+    /** The service each player was first seen on of those this run stops, before it stopped. */
+    private final Map<UUID, String> leaving = new LinkedHashMap<>();
 
     Choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock) {
         this(containers, occupancy, clock, Steps.none());
@@ -262,14 +262,14 @@ final class Choreography {
     void noteLeaving(final Collection<String> moving) {
         occupancy.roster(clock.now()).forEach((player, service) -> {
             if (moving.contains(service)) {
-                leaving.add(player);
+                leaving.putIfAbsent(player, service);
             }
         });
     }
 
-    /** Returns the players seen on a service this run stops while it still ran. */
-    Set<UUID> leaving() {
-        return Set.copyOf(leaving);
+    /** Returns the service each player was seen on of those this run stops, while it still ran. */
+    Map<UUID, String> leaving() {
+        return Map.copyOf(leaving);
     }
 
     private boolean canCarryPlayers(final String service) {

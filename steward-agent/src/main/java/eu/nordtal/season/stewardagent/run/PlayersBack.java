@@ -13,11 +13,11 @@ final class PlayersBack {
     static final Duration CAP = Duration.ofSeconds(30);
 
     /**
-     * How long the count waits at most while players who left still wait.
+     * How long the count waits without a return while players who left still wait.
      *
-     * It covers the standby proxy's minute and a full SMP queue, so only a stuck waiting room reaches it.
+     * Longer than the standby proxy's minute and its notice, the longest pause of any release; a queue keeps returning.
      */
-    static final Duration LIMIT = Duration.ofMinutes(5);
+    static final Duration STALL = Duration.ofMinutes(2);
 
     private PlayersBack() {}
 
@@ -38,8 +38,14 @@ final class PlayersBack {
      * @param waiting the players who left and still wait in a waiting room, zero when no fresh roster says
      * @param maintenance whether maintenance keeps members in the waiting room
      * @param elapsed the time since the count began
+     * @param stalled the time since the last player came back, or since the count began
      */
-    static Verdict judge(final int missing, final int waiting, final boolean maintenance, final Duration elapsed) {
+    static Verdict judge(
+            final int missing,
+            final int waiting,
+            final boolean maintenance,
+            final Duration elapsed,
+            final Duration stalled) {
         if (missing <= 0) {
             return Verdict.DONE;
         }
@@ -49,7 +55,7 @@ final class PlayersBack {
         if (maintenance && waiting >= missing) {
             return Verdict.DONE;
         }
-        if (waiting > 0 && elapsed.compareTo(LIMIT) < 0) {
+        if (waiting > 0 && stalled.compareTo(STALL) < 0) {
             return Verdict.WAIT;
         }
         return Verdict.LOST;

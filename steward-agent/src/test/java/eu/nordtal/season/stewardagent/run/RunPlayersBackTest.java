@@ -8,6 +8,7 @@ import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.online.OnlineRoster;
 import eu.nordtal.season.database.season.SeasonDirectory;
+import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
@@ -17,6 +18,11 @@ import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec;
 import eu.nordtal.season.stewardagent.config.RunSpec.BackupSpec;
 import eu.nordtal.season.stewardagent.schema.Schema;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -37,7 +43,7 @@ import org.junit.jupiter.api.Test;
 class RunPlayersBackTest {
 
     private final FakeContainers containers = new FakeContainers().running("smp", "discord-bot", "limbo");
-    private final List<eu.nordtal.season.database.update.RunStage> progress = new ArrayList<>();
+    private final List<RunStage> progress = new ArrayList<>();
 
     /** Runs on every sleep while players back is open, with the number of that sleep, as the proxy's waiting room. */
     private IntConsumer waitingRoom = slept -> {};
@@ -141,8 +147,33 @@ class RunPlayersBackTest {
         assertEquals(UpdateStatus.DONE, outcome.status());
         assertEquals("PLAYERS_BACK WARNING PLAYERS_LOST", steps(request.id()).getLast());
         assertTrue(
-                sleptInBack >= PlayersBack.LIMIT.toSeconds() - 1,
+                sleptInBack >= PlayersBack.STALL.toSeconds() - 1,
                 "a player still waiting is given the whole patience: " + sleptInBack);
+    }
+
+    @Test
+    void aLongQueueThatKeepsLettingPlayersOnIsWaitedForToTheLast() {
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+        final List<UUID> players = new ArrayList<>();
+        for (int one = 0; one < 16; one++) {
+            players.add(online("smp"));
+        }
+        movedOnStop(request, "limbo", players.toArray(UUID[]::new));
+        // One player onto the server every twenty seconds, the last after more than five minutes.
+        waitingRoom = slept -> {
+            if (slept % 20 == 0 && slept / 20 <= players.size()) {
+                directory.recorder().returned("smp", "limbo", 1);
+                where.put(players.get(slept / 20 - 1), "smp");
+            }
+        };
+
+        runner.run(request, progress::add);
+
+        assertEquals(
+                "PLAYERS_BACK DONE",
+                steps(request.id()).getLast(),
+                steps(request.id()).toString());
+        assertTrue(sleptInBack >= 320, "the last player came back after " + sleptInBack);
     }
 
     @Test
@@ -224,8 +255,7 @@ class RunPlayersBackTest {
     }
 
     private void maintenance() {
-        SeasonDirectory.using(database.dataSource(), java.time.Clock.systemUTC())
-                .setMaintenance(true, Actor.HOST, null);
+        SeasonDirectory.using(database.dataSource(), Clock.systemUTC()).setMaintenance(true, Actor.HOST, null);
     }
 
     private void writeRoster(final Instant at) {
@@ -237,16 +267,16 @@ class RunPlayersBackTest {
 
     private List<String> steps(final long run) {
         final List<String> steps = new ArrayList<>();
-        try (java.sql.Connection connection = database.dataSource().getConnection();
-                java.sql.PreparedStatement query = connection.prepareStatement(
+        try (Connection connection = database.dataSource().getConnection();
+                PreparedStatement query = connection.prepareStatement(
                         "SELECT concat_ws(' ', step, service, outcome, reason) FROM run_step WHERE run = ? ORDER BY seq")) {
             query.setLong(1, run);
-            try (java.sql.ResultSet rows = query.executeQuery()) {
+            try (ResultSet rows = query.executeQuery()) {
                 while (rows.next()) {
                     steps.add(rows.getString(1));
                 }
             }
-        } catch (final java.sql.SQLException failure) {
+        } catch (final SQLException failure) {
             throw new IllegalStateException(failure);
         }
         return steps;

@@ -361,23 +361,23 @@ final class Run {
      * Ends {@code returning} on whether every player the run moved out came back, waiting for the last of them.
      * Players moved off a held service stay in the waiting room on purpose, so those moves are not counted.
      *
-     * @param leaving the players seen on the stopped services, the only ones a waiting room may still owe
+     * @param leaving the service each player was seen on before it stopped, the only players a waiting room may owe
      */
-    private void countBack(final Steps.Step returning, final boolean counted, final Set<UUID> leaving) {
+    private void countBack(final Steps.Step returning, final boolean counted, final Map<UUID, String> leaving) {
         if (!counted) {
             // A run from an older schema wrote no moves, so nothing says who should come back.
             returning.warned(RunStep.Reason.PLAYERS_UNKNOWN);
             return;
         }
-        final Set<String> held;
-        try {
-            held = Set.copyOf(runner.held());
-        } catch (final RuntimeException unread) {
-            log.warn("service holds not read, players back not counted", unread);
+        final Optional<Set<String>> holds = holds();
+        if (holds.isEmpty()) {
             returning.warned(RunStep.Reason.PLAYERS_UNKNOWN);
             return;
         }
+        final Set<String> held = holds.get();
         final Instant started = runner.waiting.now();
+        Instant progressed = started;
+        int owedBefore = Integer.MAX_VALUE;
         AgentWire.@Nullable Topology topology = null;
         while (true) {
             final Optional<List<RunStep.Move>> moves = steps.record.moves();
@@ -393,6 +393,10 @@ final class Run {
                     .sum();
             final Instant now = runner.waiting.now();
             final Duration elapsed = Duration.between(started, now);
+            if (owed < owedBefore) {
+                progressed = now;
+                owedBefore = owed;
+            }
             // The waiting rooms are read only once the cap has passed, since only then do they decide.
             final boolean past = elapsed.compareTo(PlayersBack.CAP) >= 0;
             if (past && owed > 0 && topology == null) {
@@ -400,26 +404,50 @@ final class Run {
             }
             final int waiting = topology != null && owed > 0 ? waitingFor(topology, leaving, missing, now) : 0;
             final boolean maintenance = past && owed > 0 && maintenance();
-            switch (PlayersBack.judge(owed, waiting, maintenance, elapsed)) {
-                case DONE -> {
-                    if (owed > 0) {
-                        log.info("players back counted, the rest wait for maintenance: moves={}", missing);
-                    }
-                    returning.done();
-                    return;
-                }
-                case LOST -> {
-                    log.warn("fewer players came back than moved out: moves={} waiting={}", missing, waiting);
-                    returning.warned(RunStep.Reason.PLAYERS_LOST);
-                    return;
-                }
-                case WAIT -> {
-                    if (!runner.waiting.sleep(RETURN_POLL)) {
-                        returning.warned(RunStep.Reason.INTERRUPTED);
-                        return;
-                    }
-                }
+            final PlayersBack.Verdict verdict =
+                    PlayersBack.judge(owed, waiting, maintenance, elapsed, Duration.between(progressed, now));
+            if (ends(returning, verdict, missing, waiting)) {
+                return;
             }
+        }
+    }
+
+    /** Ends {@code returning} as the verdict says, or sleeps until the next look; returns whether it ended. */
+    private boolean ends(
+            final Steps.Step returning,
+            final PlayersBack.Verdict verdict,
+            final List<RunStep.Move> missing,
+            final int waiting) {
+        return switch (verdict) {
+            case DONE -> {
+                if (!missing.isEmpty()) {
+                    log.info("players back counted, the rest wait for maintenance: moves={}", missing);
+                }
+                returning.done();
+                yield true;
+            }
+            case LOST -> {
+                log.warn("fewer players came back than moved out: moves={} waiting={}", missing, waiting);
+                returning.warned(RunStep.Reason.PLAYERS_LOST);
+                yield true;
+            }
+            case WAIT -> {
+                if (runner.waiting.sleep(RETURN_POLL)) {
+                    yield false;
+                }
+                returning.warned(RunStep.Reason.INTERRUPTED);
+                yield true;
+            }
+        };
+    }
+
+    /** Returns the held services, empty when they cannot be read. */
+    private Optional<Set<String>> holds() {
+        try {
+            return Optional.of(Set.copyOf(runner.held()));
+        } catch (final RuntimeException unread) {
+            log.warn("service holds not read, players back not counted", unread);
+            return Optional.empty();
         }
     }
 
@@ -430,12 +458,14 @@ final class Run {
      */
     private int waitingFor(
             final AgentWire.Topology topology,
-            final Set<UUID> leaving,
+            final Map<UUID, String> leaving,
             final List<RunStep.Move> missing,
             final Instant now) {
         final Optional<String> proxyStandby = topology.standbyOf(Topology.PROXY);
         final Set<String> rooms = new LinkedHashSet<>();
+        final Set<String> from = new LinkedHashSet<>();
         for (final RunStep.Move move : missing) {
+            from.add(move.from());
             rooms.add(move.to());
             topology.services().stream()
                     .filter(service -> service.name().equals(move.to()))
@@ -449,19 +479,20 @@ final class Run {
                 : 0;
         for (final Map.Entry<UUID, String> player :
                 runner.occupancy().roster(now).entrySet()) {
-            if (leaving.contains(player.getKey()) && rooms.contains(player.getValue())) {
+            // A player of a held service waits on purpose, so only a missing move's own players count.
+            if (from.contains(leaving.get(player.getKey())) && rooms.contains(player.getValue())) {
                 waiting++;
             }
         }
         return waiting;
     }
 
-    /** Returns the topology, an empty one when it cannot be read, so nobody counts as waiting. */
+    /** Returns the topology, an empty one when it cannot be read, so no standby's live room counts. */
     private AgentWire.Topology topology() {
         try {
             return runner.topology();
         } catch (final RuntimeException unread) {
-            log.warn("topology not read, nobody counted as waiting", unread);
+            log.warn("topology not read, standby rooms not counted as waiting", unread);
             return new AgentWire.Topology(List.of(), List.of());
         }
     }

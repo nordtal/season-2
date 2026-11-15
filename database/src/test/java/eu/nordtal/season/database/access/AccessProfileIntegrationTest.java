@@ -169,6 +169,24 @@ class AccessProfileIntegrationTest {
     }
 
     @Test
+    void aPlayerNameIsTheOneOnlineNowElseTheOneItsLinkLastSaw() {
+        final UUID online = UUID.fromString("22222222-2222-3333-4444-555555555555");
+        directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
+        execute("UPDATE account_link SET mc_name = 'Steve' WHERE mc_uuid = '" + MC_UUID + "'");
+        execute("TRUNCATE TABLE online_player");
+        execute("INSERT INTO online_player (mc_uuid, mc_name, subject, updated) VALUES ('" + online
+                + "', 'Alex', 'smp', now())");
+
+        assertEquals("Steve", directory.minecraftName(MC_UUID).orElseThrow());
+        assertEquals("Alex", directory.minecraftName(online).orElseThrow());
+        assertTrue(directory.minecraftName(UUID.randomUUID()).isEmpty());
+
+        execute("INSERT INTO online_player (mc_uuid, mc_name, subject, updated) VALUES ('" + MC_UUID
+                + "', 'Steve2', 'smp', now())");
+        assertEquals("Steve2", directory.minecraftName(MC_UUID).orElseThrow());
+    }
+
+    @Test
     void anIdentityIsTheLinkTheNameTheLanguageTheZoneBothFlagsTheAuraAndThePlayTimeInOneRead() {
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
         directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);

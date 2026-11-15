@@ -326,6 +326,7 @@ public class AccessBot implements AutoCloseable {
                 jda,
                 accessConfig,
                 AuditDirectory.using(database.dataSource()),
+                access::minecraftName,
                 AlertBook.using(database.dataSource()),
                 core.renderer(),
                 stewardUrl);

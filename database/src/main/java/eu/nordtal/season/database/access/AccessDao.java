@@ -131,6 +131,18 @@ interface AccessDao {
     @SqlQuery("SELECT discord_id FROM account_link WHERE mc_uuid = :mcUuid")
     Optional<DiscordId> discordAccountOf(@Bind("mcUuid") UUID mcUuid);
 
+    /** The name the account is online with now, else the name its link saw at the last login. */
+    @SqlQuery("""
+            SELECT name FROM (
+                SELECT mc_name AS name, 1 AS rank FROM online_player WHERE mc_uuid = :mcUuid
+                UNION ALL
+                SELECT mc_name, 2 FROM account_link WHERE mc_uuid = :mcUuid AND mc_name IS NOT NULL
+            ) AS known
+            ORDER BY rank
+            LIMIT 1
+            """)
+    Optional<String> minecraftName(@Bind("mcUuid") UUID mcUuid);
+
     /**
      * Writes the 1:1 link, or nothing if either side is taken.
      *

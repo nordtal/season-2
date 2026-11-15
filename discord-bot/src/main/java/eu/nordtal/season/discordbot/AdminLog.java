@@ -24,8 +24,10 @@ import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Mention;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.JDA;
@@ -43,7 +45,8 @@ public final class AdminLog {
      * @param by the kind of who did it
      * @param person the member who did it when a person did, else {@code null}
      * @param concerns the member the entry is about, or {@code null}
-     * @param minecraft the Minecraft account the entry is about, or {@code null}
+     * @param minecraft the player name of the Minecraft account the entry is about, its id while the name is unknown,
+     *     or {@code null}
      */
     record Journal(
             @Example(Mark.PREVIEW) String mark,
@@ -102,21 +105,27 @@ public final class AdminLog {
     private final JDA jda;
     private final AccessSpec config;
     private final AuditDirectory journal;
+    private final Function<UUID, Optional<String>> names;
     private final AlertBook alerts;
     private final DocumentRenderer documents;
     private final String stewardUrl;
 
-    /** @param stewardUrl Steward's address, which an alert card's link starts with. An empty value shows no link. */
+    /**
+     * @param names the player name a Minecraft account last joined with, which a journal card shows in place of its id
+     * @param stewardUrl Steward's address, which an alert card's link starts with. An empty value shows no link.
+     */
     public AdminLog(
             final JDA jda,
             final AccessSpec config,
             final AuditDirectory journal,
+            final Function<UUID, Optional<String>> names,
             final AlertBook alerts,
             final DocumentRenderer documents,
             final String stewardUrl) {
         this.jda = jda;
         this.config = config;
         this.journal = journal;
+        this.names = names;
         this.alerts = alerts;
         this.documents = documents;
         this.stewardUrl = stewardUrl.endsWith("/") ? stewardUrl.substring(0, stewardUrl.length() - 1) : stewardUrl;
@@ -260,20 +269,32 @@ public final class AdminLog {
         } catch (final RuntimeException exception) {
             log.error("journal entry not written: action={} detail=\"{}\"", line.action(), line.detail(), exception);
         }
-        send(card(documents, line), null);
+        send(card(documents, line, names), null);
     }
 
     public void show(final UUID entry) {
         journal.entry(entry)
                 .ifPresentOrElse(
                         row -> send(
-                                card(documents, row.action(), row.actor(), row.subject(), row.mcUuid(), row.line()),
+                                card(
+                                        documents,
+                                        row.action(),
+                                        row.actor(),
+                                        row.subject(),
+                                        row.mcUuid(),
+                                        row.line(),
+                                        names),
                                 null),
                         () -> log.error("journal entry not found, card not posted: entry={}", entry));
     }
 
     static DocumentRenderer.Drawn card(final DocumentRenderer documents, final AuditLine line) {
-        return card(documents, line.action(), line.actor(), line.subject(), line.mcUuid(), line.line());
+        return card(documents, line, account -> Optional.empty());
+    }
+
+    static DocumentRenderer.Drawn card(
+            final DocumentRenderer documents, final AuditLine line, final Function<UUID, Optional<String>> names) {
+        return card(documents, line.action(), line.actor(), line.subject(), line.mcUuid(), line.line(), names);
     }
 
     static DocumentRenderer.Drawn card(
@@ -282,7 +303,8 @@ public final class AdminLog {
             final Actor actor,
             final @Nullable DiscordId subject,
             final @Nullable UUID account,
-            final MessageRef line) {
+            final MessageRef line,
+            final Function<UUID, Optional<String>> names) {
         return documents.render(
                 JOURNAL,
                 new Journal(
@@ -292,9 +314,19 @@ public final class AdminLog {
                         actor.kind(),
                         actor.person() == null ? null : Mention.of(actor.person()),
                         subject == null ? null : Mention.of(subject),
-                        account == null ? null : account.toString()),
+                        account == null ? null : named(account, names)),
                 Map.of(),
                 Locales.DEFAULT);
+    }
+
+    /** Returns the account's player name, or its id while the name is unknown or cannot be read. */
+    private static String named(final UUID account, final Function<UUID, Optional<String>> names) {
+        try {
+            return names.apply(account).orElse(account.toString());
+        } catch (final RuntimeException exception) {
+            log.warn("player name not read, card shows the account id: account={}", account, exception);
+            return account.toString();
+        }
     }
 
     private @Nullable MessageChannel channel() {

@@ -252,4 +252,35 @@ interface RunStepDao {
               AND from_service = :from AND to_service = :to
             """)
     int returned(@Bind("from") String from, @Bind("to") String to, @Bind("players") int players);
+
+    @SqlUpdate("""
+            INSERT INTO run_player_move (step, player, from_service, to_service, switching)
+            SELECT id, :player, :from, :room, :switching FROM run_step
+            WHERE run = :run AND step = 'PLAYERS_MOVED'
+            ORDER BY seq DESC LIMIT 1
+            ON CONFLICT (step, player) DO NOTHING
+            """)
+    void rememberMove(
+            @Bind("run") long run,
+            @Bind("player") java.util.UUID player,
+            @Bind("from") String from,
+            @Bind("room") String room,
+            @Bind("switching") boolean switching);
+
+    @SqlQuery("""
+            WITH claimed AS (
+                UPDATE run_player_move SET arrived = true
+                WHERE player = :player AND NOT arrived
+                  AND step = (SELECT max(step) FROM run_player_move WHERE player = :player)
+                RETURNING step, from_service, to_service, switching
+            ), counted AS (
+                UPDATE run_players p SET returned = least(p.moved, p.returned + 1)
+                FROM claimed c
+                WHERE p.step = c.step AND p.from_service = c.from_service AND p.to_service = c.to_service
+                RETURNING p.step
+            )
+            SELECT from_service AS "from", to_service AS room, switching FROM claimed
+            """)
+    @RegisterConstructorMapper(RunRecorder.PlayerMove.class)
+    RunRecorder.@Nullable PlayerMove takeReturn(@Bind("player") java.util.UUID player);
 }

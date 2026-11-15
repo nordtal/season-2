@@ -93,26 +93,40 @@ class HomecomingTest {
     // what a return counts against
 
     @Test
-    void aReturnCountsAgainstTheRoomThePlayerWasMovedIntoWhereverTheyWaitedSince() {
+    void aRestartedProxyCountsTheReturnOnce() {
+        final UUID uuid = UUID.randomUUID();
+        final java.util.Map<UUID, RunRecorder.PlayerMove> durable = new java.util.HashMap<>();
         final List<String> counted = new ArrayList<>();
-        final Homecoming counting = new Homecoming(
+        final RunRecorder store = new RunRecorder() {
+            @Override
+            public void rememberMove(
+                    final long run, final UUID player, final String from, final String room, final boolean switching) {
+                durable.putIfAbsent(player, new PlayerMove(from, room, switching));
+            }
+
+            @Override
+            public PlayerMove takeReturn(final UUID player) {
+                final PlayerMove move = durable.remove(player);
+                if (move != null) counted.add(move.from() + " -> " + move.room());
+                return move;
+            }
+        };
+        final Homecoming before = new Homecoming(
                 LoggerFactory.getLogger(HomecomingTest.class),
                 ProxyRenderer.RENDERER,
                 new LoginRoster(),
                 SERVERS,
-                new RunRecorder() {
-                    @Override
-                    public void returned(final String from, final String to, final int players) {
-                        counted.add(from + " -> " + to + " " + players);
-                    }
-                });
-        final UUID uuid = UUID.randomUUID();
-        // Moved into limbo-standby, the player waited in limbo once the standby stopped.
-        counting.owe(4L, uuid, new Homecoming.Owed("smp", "limbo-standby", false));
-
-        counting.comingBack(player(uuid, "limbo"), "smp");
-
-        assertEquals(List.of("smp -> limbo-standby 1"), counted, "the run's move row is the one the player left by");
+                store);
+        before.movedOut(4L, player(uuid, "limbo-standby"), "smp", "limbo-standby", null);
+        final Homecoming restarted = new Homecoming(
+                LoggerFactory.getLogger(HomecomingTest.class),
+                ProxyRenderer.RENDERER,
+                new LoginRoster(),
+                SERVERS,
+                store);
+        restarted.comingBack(player(uuid, "limbo-standby"), "smp");
+        restarted.comingBack(player(uuid, "smp"), "smp");
+        assertEquals(List.of("smp -> limbo-standby"), counted);
     }
 
     // who gets a counter

@@ -3,6 +3,7 @@ package eu.nordtal.season.smp.rail;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -60,7 +61,7 @@ final class JunctionStops {
      * @param speed    the speed the cart had on its last tick; zero for a cart that stands
      * @param reach    the distance up to which the junctions are read
      * @param before   how far before a junction set the wrong way it switches
-     * @param crawl    the speed reached at the switch point, in blocks per tick
+     * @param crawl    the crawl speed of the settings, in blocks per tick, which a close next junction lowers
      */
     Limit limit(
             final RidePath path,
@@ -94,7 +95,8 @@ final class JunctionStops {
         final var ordered = switches.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
                 .toList();
-        for (final Map.Entry<Integer, RailShape> junction : ordered) {
+        for (int position = 0; position < ordered.size(); position++) {
+            final Map.Entry<Integer, RailShape> junction = ordered.get(position);
             final int index = junction.getKey();
             final double start = path.start(index);
             if (index < on || (index == on && speed > 0) || start > reach) {
@@ -109,19 +111,50 @@ final class JunctionStops {
                 return stop(along, start);
             }
             final double switchAt = start - before;
-            final boolean late = !motion.brakes(speed, switchAt - along, crawl);
-            final double next = path.next(along, speed, switchAt, motion, crawl);
+            final double slow = crawlUpTo(path, ordered, position, switchAt, reach, crawl, motion, junctions);
+            final boolean late = !motion.brakes(speed, switchAt - along, slow);
+            final double next = path.next(along, speed, switchAt, motion, slow);
             final boolean reached = late || along >= switchAt - AT || along + next >= switchAt - AT;
             if (interval > 0) {
-                return reached ? stop(along, start) : new Limit(switchAt, crawl);
+                // The stop waits for the interval, and the crawl holds as long as it is the slower of the two.
+                final Limit hold = stop(along, start);
+                return reached || path.next(along, speed, hold.at(), motion) < next ? hold : new Limit(switchAt, slow);
             }
             if (!reached) {
-                return new Limit(switchAt, crawl);
+                return new Limit(switchAt, slow);
             }
             junctions.set(rail, junction.getValue());
             interval = SWITCH_INTERVAL;
         }
         return new Limit(Double.POSITIVE_INFINITY, 0);
+    }
+
+    /**
+     * Returns the crawl speed for the junction at {@code position}, lowered for a wrong junction close after it.
+     * A cart at that speed can still brake at its acceleration for the stop before the next junction set the wrong way,
+     * which the switch interval may hold unswitched.
+     */
+    private static double crawlUpTo(
+            final RidePath path,
+            final List<Map.Entry<Integer, RailShape>> ordered,
+            final int position,
+            final double switchAt,
+            final double reach,
+            final double crawl,
+            final RidePath.Motion motion,
+            final Junctions junctions) {
+        for (int later = position + 1; later < ordered.size(); later++) {
+            final Map.Entry<Integer, RailShape> junction = ordered.get(later);
+            final double start = path.start(junction.getKey());
+            if (start > reach) {
+                break;
+            }
+            if (junctions.wrong(path.rails().get(junction.getKey()), junction.getValue())) {
+                final double room = Math.max(0, start - STOP_BEFORE - switchAt);
+                return Math.min(crawl, Math.sqrt(2 * motion.acceleration() * room));
+            }
+        }
+        return crawl;
     }
 
     private static Limit stop(final double along, final double junction) {

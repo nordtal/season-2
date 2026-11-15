@@ -287,6 +287,7 @@ class JunctionStopsTest {
 
         assertEquals(2, switched.size());
         assertTrue(switched.get(1).tick() > switched.get(0).tick(), "each switches at its own moment");
+        assertEquals(CRAWL, switched.get(0).speed(), MOTION.acceleration(), "at the crawl of the settings");
         assertEquals(path.start(30) - BEFORE, switched.get(0).along(), CRAWL);
         assertEquals(path.start(34) - BEFORE, switched.get(1).along(), CRAWL);
         for (int t = 0; t < ticks.size() - 1; t++) {
@@ -304,13 +305,59 @@ class JunctionStopsTest {
         switches.put(31, RailShape.EAST_WEST);
         final RidePath path = path(rails);
 
-        ride(path, switches, () -> {});
+        final List<Tick> ticks = ride(path, switches, () -> {});
 
         assertEquals(2, switched.size());
         assertTrue(
                 switched.get(1).tick() - switched.get(0).tick() >= JunctionStops.SWITCH_INTERVAL,
                 "half a second between the switches");
         assertTrue(switched.get(1).along() < path.start(31), "the second switches before the cart reaches it");
+        final double stopAt = path.start(31) - JunctionStops.STOP_BEFORE;
+        assertTrue(
+                ticks.subList(0, switched.get(1).tick()).stream().allMatch(t -> t.along() <= stopAt + 1e-9),
+                "never past two blocks before the junction still set wrong");
+    }
+
+    @Test
+    void junctionsCloseTogetherAreBrakedForGentlyAtEveryCrawlSpeedAndSwitchDistance() {
+        for (int speed = 1; speed <= 10; speed++) {
+            for (int distance = 2; distance <= 16; distance++) {
+                crawl = (double) speed / RidePath.TICKS_PER_SECOND;
+                before = distance;
+                for (final int gap : new int[] {1, 2, 3}) {
+                    final List<RailPos> rails = straight(80);
+                    final Map<Integer, RailShape> switches = new LinkedHashMap<>();
+                    for (int index = 40; index <= 40 + 2 * gap; index += gap) {
+                        world.put(rails.get(index), RailShape.NORTH_SOUTH);
+                        switches.put(index, RailShape.EAST_WEST);
+                    }
+                    final RidePath path = path(rails);
+                    switched.clear();
+                    claims.clear();
+                    final String setting = speed + " blocks per second, " + distance + " blocks, " + gap + " apart";
+
+                    final List<Tick> ticks = ride(path, switches, () -> {});
+
+                    assertGentle(ticks);
+                    assertEquals(3, switched.size(), setting);
+                    for (int made = 0; made < 3; made++) {
+                        final int index = 40 + made * gap;
+                        final Switch at = switched.get(made);
+                        assertEquals(rails.get(index), at.rail(), setting);
+                        assertTrue(at.along() < path.start(index), "before the cart reaches it, " + setting);
+                        if (made > 0) {
+                            assertTrue(
+                                    at.tick() - switched.get(made - 1).tick() >= JunctionStops.SWITCH_INTERVAL,
+                                    "half a second after the one before, " + setting);
+                            final double stopAt = path.start(index) - JunctionStops.STOP_BEFORE;
+                            assertTrue(
+                                    ticks.subList(0, at.tick()).stream().allMatch(t -> t.along() <= stopAt + 1e-9),
+                                    "never past two blocks before it while it is set wrong, " + setting);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Test

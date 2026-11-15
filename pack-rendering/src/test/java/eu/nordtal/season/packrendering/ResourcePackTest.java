@@ -271,9 +271,10 @@ class ResourcePackTest {
         try (Stream<Path> walk = Files.walk(textures)) {
             walk.filter(path -> path.toString().endsWith(".png")).forEach(path -> {
                 final String relative = RepositoryRoot.relative(textures, path);
-                // A gui sprite is reached through the gui atlas and the wheel's art through its generated models.
+                // The gui atlas reaches gui sprites, and item models reach the wheel's and the border wall's art.
                 if (!relative.startsWith("gui/sprites/")
                         && !relative.startsWith("item/wheel/")
+                        && !relative.startsWith("item/border/")
                         && !referenced.contains("nordtal:" + relative)) {
                     orphans.add("nordtal:" + relative);
                 }

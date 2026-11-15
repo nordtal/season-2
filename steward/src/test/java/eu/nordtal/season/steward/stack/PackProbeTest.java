@@ -78,4 +78,12 @@ class PackProbeTest {
         assertEquals(Optional.of("not a url"), new PackProbe(uri -> true, pauses).dead("not a url"));
         assertTrue(pauses.taken.isEmpty());
     }
+
+    @Test
+    void anAddressWhoseSchemeNoRequestTakesIsDead() {
+        final String ftp = "ftp://example.org/pack.zip";
+        final PackProbe probe = PackProbe.web(new Pauses());
+
+        assertEquals(Optional.of(ftp), probe.dead(ftp));
+    }
 }

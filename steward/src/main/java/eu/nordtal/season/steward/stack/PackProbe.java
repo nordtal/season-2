@@ -44,14 +44,14 @@ final class PackProbe {
 
     /** Returns {@code url} when it has not answered 200 for {@link #PATIENCE}, else empty. */
     Optional<String> dead(final String url) {
-        final URI uri;
         try {
-            uri = URI.create(url);
+            final URI uri = URI.create(url);
+            final Optional<Boolean> answered = waiting.until(
+                    () -> answers.test(uri) ? Optional.of(true) : Optional.empty(), PATIENCE, BACKOFF);
+            return answered.isPresent() ? Optional.empty() : Optional.of(url);
         } catch (final IllegalArgumentException notAUrl) {
             return Optional.of(url);
         }
-        final Optional<Boolean> answered =
-                waiting.until(() -> answers.test(uri) ? Optional.of(true) : Optional.empty(), PATIENCE, BACKOFF);
-        return answered.isPresent() ? Optional.empty() : Optional.of(url);
     }
+
 }

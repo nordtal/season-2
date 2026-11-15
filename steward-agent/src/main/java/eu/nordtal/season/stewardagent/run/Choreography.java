@@ -94,7 +94,7 @@ final class Choreography {
             final Steps.Step up = record.begin(RunStep.Kind.STANDBY_UP, standby);
             final RedeployResult made = containers.standby(standby);
             if (!made.triggered()) {
-                up.failed(RunStep.Reason.REFUSED);
+                up.refused(made.message());
                 return refuse();
             }
             standing.add(standby);
@@ -299,7 +299,7 @@ final class Choreography {
             // The install mirrored its service's plugins into it as root while it ran.
             containers.handOverMounts(standby);
             if (!stopped.triggered()) {
-                down.failed(RunStep.Reason.REFUSED);
+                down.refused(stopped.message());
             } else if (waited == null) {
                 down.done();
             } else if (waited.interrupted()) {

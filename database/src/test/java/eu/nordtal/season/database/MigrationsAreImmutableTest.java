@@ -360,6 +360,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V125__the_proxy_keeps_the_name_each_account_last_joined_with.sql",
                 "dddfbc79d96c9d2b48610bfa1eab6fad30edc8e2f71faf6d110a0dd5eb56c330");
+        FROZEN.put(
+                "V126__a_refused_step_keeps_the_answer_it_got.sql",
+                "d975c1688fb0f358c92df5dd8cae1785630220d8253c3d604ed13414d193b5ac");
     }
 
     @Test

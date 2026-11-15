@@ -25,6 +25,9 @@ public final class RunLines {
         if (step.reason() != null) {
             lines.add(TEXTS.run().reason(step.reason()));
         }
+        if (step.refusal() != null) {
+            lines.add(TEXTS.run().refusal(step.refusal()));
+        }
         if (step.exitCode() != null) {
             lines.add(TEXTS.run().exitCode(step.exitCode()));
         }

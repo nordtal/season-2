@@ -67,6 +67,7 @@ final class JdbiRunRecorder implements RunRecorder {
                             row.outcome(),
                             row.reason(),
                             row.exitCode(),
+                            row.refusal(),
                             changes.getOrDefault(row.id(), List.of()),
                             moves.getOrDefault(row.id(), List.of()),
                             removed.getOrDefault(row.id(), List.of()),
@@ -124,6 +125,11 @@ final class JdbiRunRecorder implements RunRecorder {
             final RunStep.@Nullable Reason reason,
             final @Nullable Integer exitCode) {
         when(() -> dao.end(run, step, outcome.name(), reason == null ? null : reason.name(), exitCode));
+    }
+
+    @Override
+    public void refusal(final long step, final String answer) {
+        when(() -> dao.refusal(step, answer));
     }
 
     @Override

@@ -185,12 +185,14 @@ final class Kinds {
                         final Steps.Step cleanup = record.begin(RunStep.Kind.CLEANUP);
                         final ContainerOps.Pruned pruned = containers.pruneImages();
                         pruned.removed().forEach(cleanup::imageRemoved);
-                        if (pruned.failure() == null) {
+                        final String failure = pruned.failure();
+                        if (failure == null) {
                             cleanup.cacheFreed(pruned.cacheBytes());
                             cleanup.done();
                         } else {
-                            log.warn("unused images not removed: cause={}", pruned.failure());
+                            log.warn("unused images not removed: cause={}", failure);
                             cleanup.warned(RunStep.Reason.REFUSED);
+                            cleanup.refusal(failure);
                         }
                     },
                     done.leftDown());

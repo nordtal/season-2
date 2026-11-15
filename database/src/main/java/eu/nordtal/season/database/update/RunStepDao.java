@@ -55,6 +55,10 @@ interface RunStepDao {
             @Bind("reason") @Nullable String reason,
             @Bind("exitCode") @Nullable Integer exitCode);
 
+    /** Keeps the answer of a step that ended refused. */
+    @SqlUpdate("UPDATE run_step SET refusal = :answer WHERE id = :step AND reason = 'REFUSED'")
+    void refusal(@Bind("step") long step, @Bind("answer") String answer);
+
     @SqlUpdate("""
             UPDATE run_step SET finished = now(), outcome = :outcome, reason = :reason
             WHERE run = :run AND finished IS NULL
@@ -112,7 +116,7 @@ interface RunStepDao {
     Optional<String> stage(@Bind("run") long run);
 
     @SqlQuery("""
-            SELECT id, seq, step, service, started, finished, outcome, reason, exit_code
+            SELECT id, seq, step, service, started, finished, outcome, reason, exit_code, refusal
             FROM run_step WHERE run = :run ORDER BY seq
             """)
     @RegisterConstructorMapper(StepRow.class)
@@ -128,7 +132,8 @@ interface RunStepDao {
             @Nullable Instant finished,
             RunStep.@Nullable Outcome outcome,
             RunStep.@Nullable Reason reason,
-            @Nullable Integer exitCode) {}
+            @Nullable Integer exitCode,
+            @Nullable String refusal) {}
 
     @SqlQuery("""
             SELECT c.step, c.artefact, c.version_from, c.version_to, c.image

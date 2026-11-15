@@ -69,6 +69,10 @@ class UpdateRunTest {
                 stopped.services(),
                 "starting something that was never stopped is how one failure becomes two");
         assertStep(RunStep.Kind.STOP, Topology.SMP, RunStep.Outcome.FAILED, RunStep.Reason.REFUSED);
+        assertEquals(
+                "refused",
+                step(RunStep.Kind.STOP, Topology.SMP).refusal(),
+                "the step keeps Docker's answer, or the cause of the refusal is lost once the run ends");
         run.start(stopped);
         assertFalse(containers.calls.contains("start:smp-container"));
     }

@@ -71,7 +71,7 @@ public final class RunStep {
         /** steward-agent stopped while it waited. */
         INTERRUPTED,
         NO_CONTAINER,
-        /** Docker or the process refused. The run log has the answer. */
+        /** Docker or the process refused. The step keeps the answer, and steward-agent's log has it too. */
         REFUSED,
         /** Not healthy between the start and the end of the step. */
         NOT_HEALTHY,
@@ -141,6 +141,7 @@ public final class RunStep {
      *
      * @param started {@code null} for a step of a plan, which no run has begun
      * @param exitCode what the tool exited with, for a step that failed on it
+     * @param refusal the answer a refused step got from Docker or the process
      * @param cacheFreed the bytes a cleanup freed in the build cache
      * @param saved the archives the step wrote
      * @param pruned the archives the step removed
@@ -154,6 +155,7 @@ public final class RunStep {
             @Nullable Outcome outcome,
             @Nullable Reason reason,
             @Nullable Integer exitCode,
+            @Nullable String refusal,
             List<Change> changes,
             List<Move> players,
             List<ImageRemoved> imagesRemoved,

@@ -126,6 +126,8 @@ class FurnishTest {
         assertEquals(Archaeology.COLD, table(out, 46, 60, 46));
         assertTrue(List.of(Archaeology.TRAIL, Archaeology.TRAIL_RARE).contains(table(out, 44, 63, 44)));
         assertNull(table(out, 48, 63, 48));
+        assertTrue(
+                Objects.requireNonNull(blockEntity(out, 48, 63, 48)).toString().contains("minecraft:bone"));
         final Map<String, Object> warm = Objects.requireNonNull(blockEntity(out, 40, 60, 40));
         assertTrue(warm.get("LootTableSeed") instanceof Long);
         assertFalse(warm.containsKey("item"));
@@ -205,7 +207,7 @@ class FurnishTest {
      * Builds a world of three outposts and a taiga village.
      * One outpost's stone brick hull closes a room, one is a floor of planks, and one a floor of planks with a fence;
      * the village has an empty chest, a plains house chest and an armorer's chest.
-     * Suspicious sand and gravel lie under water and dry, one of them holding a bone.
+     * Suspicious sand and gravel lie under water, one with stone between, and dry, one of them holding a bone.
      */
     private static Path world(final Path directory) throws IOException {
         final Path world = directory.resolve("world");
@@ -240,7 +242,7 @@ class FurnishTest {
 
     /** Names the blocks: stone below 64, the hull, the floor of planks, the chests and the suspicious blocks. */
     private static String block(final int x, final int y, final int z) {
-        if (x == z && (x == 40 || x == 46) && y > 60 && y < 64) {
+        if (x == z && ((x == 40 && y > 61) || (x == 46 && y > 60)) && y < 64) {
             return "minecraft:water";
         }
         if (x == z && (x == 40 || x == 42 || x == 48) && y == (x == 40 ? 60 : 63)) {

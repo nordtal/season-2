@@ -131,7 +131,8 @@ writes nothing.
   cold ones'; on land gravel rolls the trail ruins', one block in eight the rare one, and sand the
   desert pyramid's in a place of 1,000 such blocks or more, the desert well's in a smaller one.
   Chunks with suspicious blocks that touch at a side or a corner are one place. A block that already
-  rolls a table or holds an item stays as it is.
+  rolls a table or holds an item stays as it is. A place counts only its blocks inside `--regions`,
+  so a run over part of the map can count a large place as a small one.
 
 ## What stays and what is replaced
 

@@ -53,4 +53,18 @@ class RunCardsIntegrationTest {
         cards.keep(run, "1400000000000000002");
         assertEquals(Optional.of(new RunCards.Card("1400000000000000002", true)), cards.of(run));
     }
+
+    @Test
+    void aCardIsUnsettledUntilItIsDrawnToTheRunsEndAndAnAlertedOneNever() {
+        final long drawn = run();
+        final long alerted = run();
+        cards.keep(drawn, "1400000000000000003");
+        cards.keep(alerted, "1400000000000000004");
+        cards.alert(alerted);
+        assertTrue(cards.unsettled().contains(drawn), "a new card shows its run under way");
+        assertFalse(cards.unsettled().contains(alerted), "the alert took its place");
+
+        cards.settle(drawn);
+        assertFalse(cards.unsettled().contains(drawn), "drawn to the end");
+    }
 }

@@ -216,8 +216,8 @@ class UpdateFeedTest {
                 step(RunStep.Kind.START, "smp", RunStep.Outcome.DONE, null));
 
         final String shown = field(card, "Services");
-        assertTrue(shown.contains("**database** Dump the database: nordtal-20261106T034501Z.dump, 25.6 MiB"), shown);
-        assertTrue(shown.contains("**mc-smp** Save a volume: mc-smp-20261106T034612Z.tar.zst, 4.2 GiB"), shown);
+        assertTrue(shown.contains("**database** nordtal-20261106T034501Z.dump, 25.6 MiB"), shown);
+        assertTrue(shown.contains("**mc-smp** mc-smp-20261106T034612Z.tar.zst, 4.2 GiB"), shown);
         assertTrue(shown.contains("**smp** Start\n") || shown.endsWith("**smp** Start"), shown);
         assertFalse(shown.contains("nothing"), "a service that moved no artefact says nothing about it: " + shown);
     }
@@ -468,7 +468,7 @@ class UpdateFeedTest {
     }
 
     @Test
-    void aServicesLineIsItsWorstStepItsLatestStepAndTheArtefactsOfItsLatestStepThatHasAny() {
+    void aServicesLineIsItsWorstStepAndTheArtefactsOfItsLatestStepThatHasAnyElseItsLatestStep() {
         final DocumentRenderer.Drawn card = card(
                 row(1L, UpdateStatus.DONE, RunStage.DONE, NOW),
                 documents,
@@ -490,11 +490,9 @@ class UpdateFeedTest {
                 step(RunStep.Kind.VERIFY, "proxy", RunStep.Outcome.WARNING, RunStep.Reason.NOT_HEALTHY));
 
         final String shown = field(card, "Services");
-        assertTrue(shown.contains("✅ **smp** Verify: paper 133 → 134"), shown);
+        assertTrue(shown.contains("✅ **smp** paper 133 → 134"), shown);
         assertTrue(shown.contains("image pulled"), shown);
-        assertTrue(
-                shown.contains("⚠️ **proxy** Verify: resource-pack f8fb6640 → 0.24.0"),
-                "a pack's hash is short: " + shown);
+        assertTrue(shown.contains("⚠️ **proxy** resource-pack f8fb6640 → 0.24.0"), "a pack's hash is short: " + shown);
         assertFalse(shown.contains("run."), "no key is ever shown in place of its words: " + shown);
     }
 
@@ -542,7 +540,7 @@ class UpdateFeedTest {
                 step(RunStep.Kind.STOP, "smp", RunStep.Outcome.WARNING, RunStep.Reason.UNVERIFIED_STOP),
                 step(RunStep.Kind.OFFSITE_COPY, null, RunStep.Outcome.SKIPPED, RunStep.Reason.NO_REPOSITORY));
 
-        assertEquals(List.of("Took", "Services"), names(card), "a run that went well is its lines");
+        assertEquals(List.of("Services", "Took"), names(card), "a run that went well is its lines");
     }
 
     @Test
@@ -563,7 +561,7 @@ class UpdateFeedTest {
                         RunStep.Reason.MISSING_SECRET,
                         new RunStep.Change("NORDTAL_STEWARD_WEB_TOTP_KEY", null, null, null)));
 
-        assertEquals(List.of("Why", "Took", "Services"), names(card));
+        assertEquals(List.of("Why", "Services", "Took"), names(card));
         final String shown = field(card, "Services");
         assertTrue(shown.contains("steward 0.64.0 → 0.65.0"), "the line is what it moves: " + shown);
         assertFalse(shown.contains("TOTP"), shown);
@@ -584,7 +582,7 @@ class UpdateFeedTest {
                 step(RunStep.Kind.STOP, "hunger_games", RunStep.Outcome.FAILED, RunStep.Reason.NO_CONTAINER),
                 step(RunStep.Kind.CLEANUP, null, RunStep.Outcome.FAILED, RunStep.Reason.UNEXPECTED));
 
-        assertEquals(List.of("Why", "Took", "Services"), names(card));
+        assertEquals(List.of("Why", "Services", "Took"), names(card));
         assertEquals("""
                 **smp**: refused, the run log has the answer
                 **hunger\\_games**: no container
@@ -643,7 +641,7 @@ class UpdateFeedTest {
         final Button posted =
                 java.util.Objects.requireNonNull(link(board.posted.getFirst().card()));
         assertEquals("https://steward.example/operations/updates/7", posted.getUrl());
-        assertEquals("Open in Steward", posted.getLabel());
+        assertEquals("Open the run in Steward", posted.getLabel());
         assertEquals(
                 posted.getUrl(),
                 java.util.Objects.requireNonNull(link(board.edited.getFirst().card()))
@@ -756,7 +754,7 @@ class UpdateFeedTest {
         return card.text().lines().findFirst().orElseThrow().replaceFirst("^## ", "");
     }
 
-    /** Returns the kinds of line the card holds below its title, in order: Why, By, Took and Services. */
+    /** Returns the kinds of line the card holds below its title, in order: Why, Services, By and Took. */
     private static List<String> names(final DocumentRenderer.Drawn card) {
         return card.text().lines().skip(1).map(UpdateFeedTest::kind).distinct().toList();
     }

@@ -32,18 +32,36 @@
           ]
         },
         {
-          "type": "ROW",
-          "items": [
+          "type": "TEXT",
+          "lines": [
             {
-              "slot": "open",
-              "label": {
-                "en": "Open in Steward"
+              "list": "services",
+              "text": {
+                "en": "{mark} **{service}** {changes}"
+              }
+            },
+            {
+              "list": "quiet",
+              "text": {
+                "en": "{mark} **{service}** {state}"
               }
             }
           ]
         },
         {
-          "type": "SEPARATOR"
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "open",
+              "label": {
+                "en": "Open the run in Steward"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEPARATOR",
+          "when": "by"
         },
         {
           "type": "TEXT",
@@ -59,23 +77,6 @@
                 "en": "Took {took, duration, short}"
               },
               "when": "took"
-            }
-          ]
-        },
-        {
-          "type": "TEXT",
-          "lines": [
-            {
-              "list": "services",
-              "text": {
-                "en": "{mark} **{service}** {state}: {changes}"
-              }
-            },
-            {
-              "list": "quiet",
-              "text": {
-                "en": "{mark} **{service}** {state}"
-              }
             }
           ]
         }

@@ -1,5 +1,6 @@
 package eu.nordtal.season.discordbot.discord;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import net.dv8tion.jda.api.components.Component;
+import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.entities.Message;
 import org.junit.jupiter.api.Test;
@@ -36,7 +38,7 @@ class RunCardBudgetTest {
 
         for (int i = 0; i < 4; i++) {
             assertTrue(
-                    text.contains("🛑 **service-" + i + "** Verify: "),
+                    text.contains("🛑 **service-" + i + "** artefact-"),
                     "four services is the everyday run; guarding the limit must not cost it a line");
         }
         assertTrue(text.contains("0.6.0 → 0.7.0"), "a change is a transition");
@@ -44,18 +46,26 @@ class RunCardBudgetTest {
     }
 
     @Test
-    void aFailedRunIsOneBoxWithWhyAndTheButtonAboveASeparatorAndTheRestBelow() {
+    void aFailedRunIsOneBoxWithItsStateThenTheButtonAndWhoAskedBelowASeparator() {
         final DocumentRenderer.Drawn card =
                 UpdateFeed.card(record(1, 40), request(), DOCUMENTS, true, "https://steward.example/run");
 
-        assertTrue(card.components().size() == 1, "one box holds every part: " + card.components());
-        final List<String> parts = ((net.dv8tion.jda.api.components.container.Container)
-                        card.components().getFirst())
-                .getComponents().stream().map(part -> part.getType().name()).toList();
-        assertTrue(
-                List.of("TEXT_DISPLAY", "TEXT_DISPLAY", "ACTION_ROW", "SEPARATOR", "TEXT_DISPLAY", "TEXT_DISPLAY")
-                        .equals(parts),
-                "the title, why, the button, a separator, who asked and the services: " + parts);
+        assertEquals(1, card.components().size(), "one box holds every part");
+        final Container box = (Container) card.components().getFirst();
+        assertEquals(
+                List.of("TEXT_DISPLAY", "TEXT_DISPLAY", "TEXT_DISPLAY", "ACTION_ROW", "SEPARATOR", "TEXT_DISPLAY"),
+                box.getComponents().stream().map(part -> part.getType().name()).toList(),
+                "the title, why, the services, the button, a separator and who asked");
+    }
+
+    @Test
+    void aRunThatNamesNobodyEndsWithoutASeparator() {
+        final Container box =
+                (Container) card(record(1, 40), request()).components().getFirst();
+
+        assertEquals(
+                List.of("TEXT_DISPLAY", "TEXT_DISPLAY", "TEXT_DISPLAY"),
+                box.getComponents().stream().map(part -> part.getType().name()).toList());
     }
 
     @Test

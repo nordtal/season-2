@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.jspecify.annotations.Nullable;
@@ -203,15 +204,17 @@ class AdminLogTest {
 
     @Test
     void anAlertIsItsMentionAndOneBoxThatHoldsTheButton() {
-        final List<? extends net.dv8tion.jda.api.components.Component> parts =
-                card(ROLE, LINK).components();
+        final DocumentRenderer.Drawn card = card(ROLE, LINK);
 
-        assertEquals(2, parts.size(), "the mention and the box: " + parts);
-        final net.dv8tion.jda.api.components.container.Container box =
-                (net.dv8tion.jda.api.components.container.Container) parts.getLast();
-        assertTrue(
-                box.getComponents().getLast() instanceof net.dv8tion.jda.api.components.actionrow.ActionRow,
-                "the button closes the box: " + box.getComponents());
+        assertEquals(2, card.components().size(), "the mention and the box");
+        final Container box = (Container) card.components().getLast();
+        assertEquals("ACTION_ROW", box.getComponents().getLast().getType().name(), "the button closes the box");
+        assertEquals(
+                "Open Steward",
+                MessageComponentTree.of(card.components())
+                        .findAll(Button.class)
+                        .getFirst()
+                        .getLabel());
     }
 
     @Test

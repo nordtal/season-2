@@ -1427,6 +1427,7 @@ export type DocumentSlot = {
   required: boolean
   values: Record<string, DocumentValue>
   at: number[]
+  link: boolean
 }
 
 export type MenuPart = {

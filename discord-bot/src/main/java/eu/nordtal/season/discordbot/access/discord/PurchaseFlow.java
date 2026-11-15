@@ -82,7 +82,7 @@ public final class PurchaseFlow extends ListenerAdapter {
             .titled("Purchase summary");
 
     static final DocumentSpec<Link> LINK = DocumentSpec.message(
-                    StoredDocuments.NAMESPACE, "purchase-link", "Purchase", Link.class, Slot.button("pay"))
+                    StoredDocuments.NAMESPACE, "purchase-link", "Purchase", Link.class, Slot.link("pay"))
             .titled("Payment link");
 
     private final Tiers tiers;

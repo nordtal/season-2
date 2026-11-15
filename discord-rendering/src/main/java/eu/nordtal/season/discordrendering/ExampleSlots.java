@@ -15,6 +15,9 @@ import net.dv8tion.jda.api.components.textinput.TextInputStyle;
 /** Fills every slot of a draft with an example, as a preview and a draft sent to an admin show it. */
 final class ExampleSlots {
 
+    /** Where a preview's link button leads, since Discord takes no button without an address. */
+    private static final String EXAMPLE_ADDRESS = "https://nordtal.eu";
+
     private ExampleSlots() {}
 
     static Map<String, Filled> of(
@@ -26,7 +29,10 @@ final class ExampleSlots {
 
     private static Filled example(final Slot slot, final List<Locale> languages, final Messages messages) {
         return switch (slot.type()) {
-            case BUTTON -> new DocumentRenderer.FilledButton(slot.id());
+            case BUTTON ->
+                slot.link()
+                        ? DocumentRenderer.FilledButton.link(EXAMPLE_ADDRESS)
+                        : new DocumentRenderer.FilledButton(slot.id());
             case SELECT ->
                 new DocumentRenderer.FilledSelect(
                         slot.id(),

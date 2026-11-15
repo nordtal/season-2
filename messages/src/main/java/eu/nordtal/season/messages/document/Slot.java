@@ -14,8 +14,9 @@ import java.util.TreeMap;
  *     lines with
  * @param at the chest slots a menu's item is placed in, numbered row by row from the top left; empty for every other
  *     slot
+ * @param link whether the code fills the button with an address it opens, so a preview draws it as a link button
  */
-public record Slot(String id, Type type, boolean required, Map<String, Value> values, List<Integer> at) {
+public record Slot(String id, Type type, boolean required, Map<String, Value> values, List<Integer> at, boolean link) {
 
     public enum Type {
         BUTTON,
@@ -38,10 +39,27 @@ public record Slot(String id, Type type, boolean required, Map<String, Value> va
         Objects.requireNonNull(type, "type");
         values = Collections.unmodifiableMap(new TreeMap<>(Objects.requireNonNullElse(values, Map.of())));
         at = List.copyOf(Objects.requireNonNullElse(at, List.of()));
+        if (link && type != Type.BUTTON) {
+            throw new IllegalArgumentException("only a button opens a link, not the " + type + " " + id);
+        }
+    }
+
+    public Slot(
+            final String id,
+            final Type type,
+            final boolean required,
+            final Map<String, Value> values,
+            final List<Integer> at) {
+        this(id, type, required, values, at, false);
     }
 
     public static Slot button(final String id) {
         return new Slot(id, Type.BUTTON, true, Map.of(), List.of());
+    }
+
+    /** A button that the code fills with an address it opens. */
+    public static Slot link(final String id) {
+        return new Slot(id, Type.BUTTON, true, Map.of(), List.of(), true);
     }
 
     /** A select whose options the code labels, or a member select. */
@@ -86,12 +104,12 @@ public record Slot(String id, Type type, boolean required, Map<String, Value> va
 
     /** Returns this slot as one a document may leave out. A preview draws an optional data list without items. */
     public Slot optional() {
-        return new Slot(id, type, false, values, at);
+        return new Slot(id, type, false, values, at, link);
     }
 
     /** Returns this menu item placed in {@code slots}. */
     public Slot at(final List<Integer> slots) {
-        return new Slot(id, type, required, values, slots);
+        return new Slot(id, type, required, values, slots, link);
     }
 
     /** Returns whether the select draws its options with a line of the document. */

@@ -61,7 +61,8 @@ public record DocumentDeclaration(
                                 slot.type(),
                                 slot.required(),
                                 Value.withExampleValues(slot.values()),
-                                slot.at()))
+                                slot.at(),
+                                slot.link()))
                         .toList());
     }
 

@@ -27,14 +27,16 @@ const texts = listing(
   { languages: ["en", "de"] },
 )
 
+const price = { kind: "money", example: "100" } as const
+
 const contribution: DocumentView = view(
   {
     name: "contribution",
     title: "Contribution",
     values: { donated: { kind: "flag", example: "false" }, reason: { kind: "message", example: "admin/run.failed" } },
     slots: [
-      { id: "tiers", type: "LIST", required: true, values: { price: { kind: "money", example: "100" } }, at: [] },
-      { id: "buy", type: "BUTTON", required: true, values: {}, at: [] },
+      { id: "tiers", type: "LIST", required: true, values: { price }, at: [], link: false },
+      { id: "buy", type: "BUTTON", required: true, values: {}, at: [], link: false },
     ],
   },
   {
@@ -72,7 +74,7 @@ const modal: DocumentView = view(
     title: "Code form",
     area: "Link",
     shape: "MODAL",
-    slots: [{ id: "code", type: "INPUT", required: true, values: {}, at: [] }],
+    slots: [{ id: "code", type: "INPUT", required: true, values: {}, at: [], link: false }],
   },
   {
     parts: [
@@ -529,6 +531,7 @@ describe("an open document", { timeout: 15_000 }, () => {
             required: true,
             values: { known: { kind: "boolean", example: "true" } },
             at: [18],
+            link: false,
           },
         ],
       },

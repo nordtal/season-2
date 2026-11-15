@@ -112,7 +112,7 @@ it("lays a gallery of two to ten images out in whole rows, the rows of three und
 })
 
 /** A menu item of the test menu. */
-const item = (id: string, at: number[]) => ({ id, type: "ITEM" as const, required: true, values: {}, at })
+const item = (id: string, at: number[]) => ({ id, type: "ITEM" as const, required: true, values: {}, at, link: false })
 
 it("lays a menu's items out as runs of slots along each row, a later item over an earlier one", () => {
   const menu: DocumentDeclaration = {
@@ -123,7 +123,7 @@ it("lays a menu's items out as runs of slots along each row, a later item over a
       item("share", [9, 10, 11, 12, 13, 14, 15, 16, 17]),
       item("card", [0, 1, 9]),
       item("next", [17]),
-      { id: "left", type: "LABEL", required: true, values: {}, at: [] },
+      { id: "left", type: "LABEL", required: true, values: {}, at: [], link: false },
     ],
   }
   expect(menuCells(menu)).toEqual([

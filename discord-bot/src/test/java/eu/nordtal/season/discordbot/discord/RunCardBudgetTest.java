@@ -31,17 +31,31 @@ class RunCardBudgetTest {
     }
 
     @Test
-    void anOrdinaryRunIsDrawnInFullOneLinePerServiceUnderOneHeading() {
+    void anOrdinaryRunIsDrawnInFullOneLinePerService() {
         final String text = card(record(4, 60), request()).text();
 
-        assertTrue(text.contains("### Services"), text);
         for (int i = 0; i < 4; i++) {
             assertTrue(
-                    text.contains("**service-" + i + "**"),
+                    text.contains("🛑 **service-" + i + "** Verify: "),
                     "four services is the everyday run; guarding the limit must not cost it a line");
         }
         assertTrue(text.contains("0.6.0 → 0.7.0"), "a change is a transition");
         assertFalse(text.matches("(?s).*\\n\\+\\d+(\\n.*)?"), "nothing was summarised away");
+    }
+
+    @Test
+    void aFailedRunIsOneBoxWithWhyAndTheButtonAboveASeparatorAndTheRestBelow() {
+        final DocumentRenderer.Drawn card =
+                UpdateFeed.card(record(1, 40), request(), DOCUMENTS, true, "https://steward.example/run");
+
+        assertTrue(card.components().size() == 1, "one box holds every part: " + card.components());
+        final List<String> parts = ((net.dv8tion.jda.api.components.container.Container)
+                        card.components().getFirst())
+                .getComponents().stream().map(part -> part.getType().name()).toList();
+        assertTrue(
+                List.of("TEXT_DISPLAY", "TEXT_DISPLAY", "ACTION_ROW", "SEPARATOR", "TEXT_DISPLAY", "TEXT_DISPLAY")
+                        .equals(parts),
+                "the title, why, the button, a separator, who asked and the services: " + parts);
     }
 
     @Test
@@ -53,8 +67,8 @@ class RunCardBudgetTest {
                         step(RunStep.Kind.STOP, "smp", RunStep.Outcome.FAILED, RunStep.Reason.REFUSED, List.of())));
         final String why = why(card(record, request()));
 
-        assertTrue(why.contains("**mc\\_smp** not in this stack"), why);
-        assertTrue(why.contains("**smp** refused, the run log has the answer"), why);
+        assertTrue(why.contains("**mc\\_smp**: not in this stack"), why);
+        assertTrue(why.contains("**smp**: refused, the run log has the answer"), why);
     }
 
     @Test
@@ -86,8 +100,7 @@ class RunCardBudgetTest {
     }
 
     private static String why(final DocumentRenderer.Drawn card) {
-        final String text = card.text();
-        return text.substring(text.indexOf("### Why"));
+        return card.text();
     }
 
     /** A failed run whose every service installs about {@code each} characters of changes and then fails. */

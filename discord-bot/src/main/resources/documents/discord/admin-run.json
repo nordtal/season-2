@@ -18,14 +18,45 @@
           "type": "TEXT",
           "lines": [
             {
+              "list": "why",
               "text": {
-                "en": "**By** {@values.actor, kind=by}"
+                "en": "**{service}**: {what}"
+              }
+            },
+            {
+              "list": "reasons",
+              "text": {
+                "en": "{what}"
+              }
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "open",
+              "label": {
+                "en": "Open in Steward"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEPARATOR"
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Requested by {@values.actor, kind=by}"
               },
               "when": "by"
             },
             {
               "text": {
-                "en": "**Duration** {took, duration, short}"
+                "en": "Took {took, duration, short}"
               },
               "when": "took"
             }
@@ -35,58 +66,18 @@
           "type": "TEXT",
           "lines": [
             {
-              "text": {
-                "en": "Services"
-              },
-              "style": "HEADING"
-            },
-            {
               "list": "services",
               "text": {
-                "en": "{mark} **{service}** *{state}* {changes}"
+                "en": "{mark} **{service}** {state}: {changes}"
               }
             },
             {
               "list": "quiet",
               "text": {
-                "en": "{mark} **{service}** *{state}*"
+                "en": "{mark} **{service}** {state}"
               }
             }
           ]
-        },
-        {
-          "type": "TEXT",
-          "lines": [
-            {
-              "text": {
-                "en": "Why"
-              },
-              "style": "HEADING"
-            },
-            {
-              "text": {
-                "en": "**{service}** {what}"
-              },
-              "list": "why"
-            },
-            {
-              "text": {
-                "en": "{what}"
-              },
-              "list": "reasons"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
-        {
-          "slot": "open",
-          "label": {
-            "en": "Open in Steward"
-          }
         }
       ]
     }

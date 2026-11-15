@@ -155,6 +155,20 @@ class UpdateRunTest {
     }
 
     @Test
+    void aFailedStartCheckOfTheEntrypointIsTheRestartCauseOverTheLinesAfterIt() {
+        final String check = "2026-11-15T09:00:00Z [nordtal] FATAL: Not started: SERVER_KIND is not set."
+                + " Set it to paper or velocity.";
+
+        // Docker's restart policy starts the container again, so the next attempt's lines follow the check.
+        assertEquals(
+                check,
+                UpdateRun.restartCause(List.of(
+                        "2026-11-15T08:59:59Z [nordtal] cached server jar: paper-26.2-121.jar",
+                        check + "\n",
+                        "2026-11-15T09:00:05Z [nordtal] tmux socket ready")));
+    }
+
+    @Test
     void aServiceThatReportsHealthyInsideTheWindowIsTheSuccessCase() {
         final FakeContainers containers = new FakeContainers().running(Topology.SMP);
         final UpdateRun run = run(containers);

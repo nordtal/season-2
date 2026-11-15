@@ -425,6 +425,50 @@ expect_output "control character"
 expect_gone "$data/plugins/prism/storage.conf"
 ok "warned and skipped"
 
+case_begin "a URL without a password stops the start with the FATAL prefix steward-agent reads"
+data=$(volume prism-no-password)
+prism "$data" "jdbc:postgresql://postgres:5432/nordtal" ""
+expect_status 1
+expect_output "[nordtal] FATAL: Not started: NORDTAL_SMP_DATABASE_PASSWORD is not set"
+expect_gone "$data/plugins/prism/storage.conf"
+ok "refused through die"
+
+case_begin "a URL without a username stops the start with the FATAL prefix steward-agent reads"
+data=$(volume prism-no-username)
+set +e
+output=$(DATA="$data" NORDTAL_SMP_DATABASE_JDBC_URL="jdbc:postgresql://postgres:5432/nordtal" \
+    NORDTAL_SMP_DATABASE_PASSWORD=secret bash -c 'source "$1"; configure_prism' prism-test "$ENTRYPOINT" 2>&1)
+status=$?
+set -e
+expect_status 1
+expect_output "[nordtal] FATAL: Not started: NORDTAL_SMP_DATABASE_USERNAME is not set"
+expect_gone "$data/plugins/prism/storage.conf"
+ok "refused through die"
+
+
+echo "entrypoint.sh: the server settings"
+
+# Run as the container runs it, so the check after the source guard is the one tested.
+start_without() {
+    local name="$1"
+    set +e
+    output=$(cd "$WORK" && SERVER_KIND=paper SERVER_VERSION=26.2 DATA="$WORK/never" \
+        bash -c 'unset "$1"; exec bash "$2"' start-test "$name" "$ENTRYPOINT" 2>&1)
+    status=$?
+    set -e
+}
+
+for name in SERVER_KIND SERVER_VERSION; do
+    case_begin "an unset ${name} stops the start with the FATAL prefix steward-agent reads"
+    start_without "$name"
+    expect_status 1
+    [[ "$output" == "[nordtal] FATAL: Not started: ${name} is not set."* ]] \
+        || bad "the output does not start with the FATAL line. Output was:
+${output}"
+    expect_gone "$WORK/never"
+    ok "refused through die"
+done
+
 
 echo "entrypoint.sh: the cached server jar"
 

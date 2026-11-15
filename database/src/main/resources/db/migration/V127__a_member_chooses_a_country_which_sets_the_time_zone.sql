@@ -1,14 +1,15 @@
 -- A member chooses a country. The bot writes it beside the language and the time zone that follows from it.
 ALTER TABLE discord_user ADD COLUMN country varchar(32);
 
--- The category whose channels the bot last closed to every other language, so it takes the denials back from a
+-- The categories whose channels the bot closes to every other language, so it takes the denials back from a
 -- former category after a restart.
 CREATE TABLE discord_language_category
 (
-    language varchar(32) PRIMARY KEY,
-    category varchar(32) NOT NULL
+    language varchar(32) NOT NULL,
+    category varchar(32) NOT NULL,
+    PRIMARY KEY (language, category)
 );
-COMMENT ON TABLE discord_language_category IS 'Owned by discord-bot: the category of each language whose channels it last closed to the roles of the other languages.';
+COMMENT ON TABLE discord_language_category IS 'Owned by discord-bot: the categories of each language whose channels it closed to the roles of the other languages.';
 GRANT SELECT ON discord_language_category TO ${role_read};
 GRANT SELECT, INSERT, UPDATE, DELETE ON discord_language_category TO ${role_discord_bot};
 

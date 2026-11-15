@@ -65,6 +65,7 @@ public interface OnboardingSpec {
         @Order(1)
         @Name("Key")
         @Key("key")
+        @Required
         @NoExplanationNeeded
         default String key() {
             return "";
@@ -73,6 +74,7 @@ public interface OnboardingSpec {
         @Order(1)
         @Name("Name")
         @Key("name")
+        @Required
         @NoExplanationNeeded
         default String name() {
             return "";
@@ -90,6 +92,7 @@ public interface OnboardingSpec {
         @Order(3)
         @Name("Language")
         @Key("language")
+        @Required
         @NoExplanationNeeded
         default String language() {
             return "";
@@ -98,6 +101,7 @@ public interface OnboardingSpec {
         @Order(4)
         @Name("Discord emoji")
         @Key("emoji")
+        @Required
         @NoExplanationNeeded
         default String emoji() {
             return "";
@@ -106,6 +110,7 @@ public interface OnboardingSpec {
         @Order(5)
         @Name("Flag glyph")
         @Key("glyph")
+        @Required
         @NoExplanationNeeded
         default String glyph() {
             return "";

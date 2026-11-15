@@ -133,7 +133,9 @@ export function Countries({
             >
               {mark(country)}
               <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="truncate text-sm font-medium">{text(country, "name") || text(country, "key")}</span>
+                <span className="truncate text-sm font-medium">
+                  {text(country, "name") || text(country, "key") || list.label}
+                </span>
                 <span className="truncate text-xs text-muted-foreground">{text(country, "zone")}</span>
               </span>
               <span className="shrink-0 text-xs text-muted-foreground">{text(country, "language")}</span>

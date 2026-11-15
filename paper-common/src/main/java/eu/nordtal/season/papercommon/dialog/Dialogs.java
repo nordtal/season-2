@@ -72,7 +72,7 @@ public final class Dialogs {
     }
 
     /**
-     * A dialog of its body whose Esc and exit button run {@code exit}, which closes it: the button leaves it open.
+     * A dialog of its body whose Esc and exit button run {@code exit}, which must close it: the button does not.
      * The client draws the button {@code width} by 20 with {@code label}, centred in a footer 33 high at the bottom.
      */
     public static DialogType bodyOnly(final Component label, final int width, final DialogAction exit) {

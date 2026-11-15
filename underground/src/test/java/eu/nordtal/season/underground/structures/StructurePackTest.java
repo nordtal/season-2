@@ -8,11 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** The data pack of the smp turns off the game's new places and holds the sets the map's starts use. */
+/** The data pack of the smp turns off the game's sets and holds the sets the map's starts use. */
 class StructurePackTest {
 
     private static final Path PACK = Path.of(System.getProperty("nordtal.pack"));
@@ -40,9 +41,25 @@ class StructurePackTest {
     }
 
     @Test
-    void theMapsSetsHoldTheStructuresOfTheGamesSets() throws IOException {
+    void onlyTheMapsSetsHoldTheGamesStructures() throws IOException {
+        final Map<String, List<String>> wanted = Map.of(
+                Planner.VILLAGES,
+                List.of(
+                        "minecraft:village_desert",
+                        "minecraft:village_plains",
+                        "minecraft:village_savanna",
+                        "minecraft:village_snowy",
+                        "minecraft:village_taiga"),
+                Planner.OUTPOSTS,
+                List.of("minecraft:pillager_outpost"),
+                Planner.MONUMENTS,
+                List.of("minecraft:monument"),
+                Planner.STRONGHOLDS,
+                List.of("minecraft:stronghold"));
         for (final String set : SETS) {
-            assertEquals(structures(read("minecraft", set)), structures(read("nordtal", set)), set);
+            assertEquals(wanted.get(set), structures(read("nordtal", set)), set);
+            // /locate searches every set of a structure ring by ring, so a wider set of the game would win.
+            assertEquals(List.of(), structures(read("minecraft", set)), set);
         }
     }
 

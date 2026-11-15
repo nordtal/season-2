@@ -84,8 +84,10 @@ writes anything when one is not. A second run on its own output changes nothing 
 
 Each start lies in a chunk where the data pack's structure set looks, and within eight chunks of
 every chunk it covers, since the game reads a start no further; a wide place gets several. The pack
-`nordtal` turns off every new village, outpost, monument and stronghold of the game, so `/locate`
-finds only these; the villages of Dungeons and Taverns still generate in new land.
+`nordtal` empties the game's own sets of villages, outposts, monuments and strongholds, so none
+generates in new land and `/locate` searches only the map's: it searches every set of a structure
+ring by ring, and the wider sets of the game would answer first with a place far away. The villages
+of Dungeons and Taverns still generate in new land.
 
 ## What stays and what is replaced
 

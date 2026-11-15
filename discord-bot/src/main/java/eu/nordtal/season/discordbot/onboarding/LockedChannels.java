@@ -33,8 +33,7 @@ final class LockedChannels {
     /** The holders of an overwrite, in the order the overwrites are set. */
     enum Holder {
         BOT,
-        LOCK,
-        EVERYONE
+        LOCK
     }
 
     enum View {
@@ -74,10 +73,7 @@ final class LockedChannels {
      */
     static List<Overwrite> wanted(final boolean onboarding) {
         if (onboarding) {
-            return List.of(
-                    new Overwrite(Holder.BOT, View.OPEN),
-                    new Overwrite(Holder.LOCK, View.OPEN),
-                    new Overwrite(Holder.EVERYONE, View.CLOSED));
+            return List.of(new Overwrite(Holder.BOT, View.OPEN), new Overwrite(Holder.LOCK, View.OPEN));
         }
         return List.of(new Overwrite(Holder.LOCK, View.CLOSED));
     }
@@ -118,7 +114,6 @@ final class LockedChannels {
             final IPermissionHolder holder = switch (overwrite.holder()) {
                 case BOT -> guild.getSelfMember();
                 case LOCK -> lock;
-                case EVERYONE -> guild.getPublicRole();
             };
             final Optional<ChannelFailure> failed = keep(channel, holder, overwrite);
             if (failed.isPresent()) {

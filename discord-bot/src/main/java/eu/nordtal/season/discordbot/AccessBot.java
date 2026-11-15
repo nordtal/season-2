@@ -153,7 +153,7 @@ public class AccessBot implements AutoCloseable {
             final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
             final Tiers tiers =
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
-            final Setting<OnboardingSpec> onboarding = BotSettings.onboarding(settings);
+            final Setting<OnboardingSpec> onboarding = BotSettings.onboarding(settings, network);
 
             this.access = AccessDirectory.using(database.dataSource(), clock);
             final SeasonDirectory seasons = SeasonDirectory.using(database.dataSource(), clock);

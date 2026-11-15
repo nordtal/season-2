@@ -34,7 +34,7 @@ public final class GuildRoles {
 
     public static final String ADMIN = "admin";
 
-    /** The role of a member who has not chosen a language and a region. */
+    /** The role of a member who has not chosen a country. */
     public static final String LOCK = "lock";
 
     /** A role the bot uses, with the key it is stored under and the name it is found by. */
@@ -70,9 +70,9 @@ public final class GuildRoles {
         return "language/" + tag;
     }
 
-    /** Returns the key of the role of a region. The key holds the zone, so renaming the region keeps the role. */
-    public static String region(final String zone) {
-        return "region/" + zone;
+    /** Returns the stable key of a country role. */
+    public static String country(final String key) {
+        return "country/" + key;
     }
 
     /**

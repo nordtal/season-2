@@ -1,181 +1,120 @@
 package eu.nordtal.season.discordbot.onboarding;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import eu.nordtal.season.discordbot.roles.GuildRoles;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class SettlementTest {
+    private static final Choices CHOICES = choices("Europe/Berlin", "de");
 
-    private static final String EN = "10";
-    private static final String DE = "20";
-    private static final String BERLIN = "30";
-    private static final String NEW_YORK = "31";
-    private static final String LOCK = "40";
-
-    private static final Choices CHOICES = new Choices(
-            List.of(
-                    new Choices.Choice(Choices.Kind.LANGUAGE, GuildRoles.language("en"), "English", "en"),
-                    new Choices.Choice(Choices.Kind.LANGUAGE, GuildRoles.language("de"), "Deutsch", "de")),
-            List.of(
-                    new Choices.Choice(
-                            Choices.Kind.REGION, GuildRoles.region("Europe/Berlin"), "Central Europe", "Europe/Berlin"),
-                    new Choices.Choice(
-                            Choices.Kind.REGION, GuildRoles.region("America/New_York"), "US East", "America/New_York")),
-            "Onboarding");
-
-    private final Map<String, String> guild = new HashMap<>(Map.of(
-            GuildRoles.language("en"), EN,
-            GuildRoles.language("de"), DE,
-            GuildRoles.region("Europe/Berlin"), BERLIN,
-            GuildRoles.region("America/New_York"), NEW_YORK));
-
-    private Settlement settle(
-            final Set<String> held, final Set<String> chosen, final Records.Recorded recorded, final boolean locking) {
-        return Settlement.of(
-                CHOICES, key -> Optional.ofNullable(guild.get(key)), held, chosen, recorded, LOCK, locking);
+    private static Choices choices(final String zone, final String language) {
+        return new Choices(
+                List.of(
+                        new Choices.Choice(Choices.Kind.LANGUAGE, "en", "English", "en"),
+                        new Choices.Choice(Choices.Kind.LANGUAGE, "de", "Deutsch", "de")),
+                List.of(
+                        new Choices.Choice(
+                                Choices.Kind.COUNTRY, "germany", "Deutschland", "de", zone, language, "flag"),
+                        new Choices.Choice(Choices.Kind.COUNTRY, "other", "Other", "other", "", "en", "flag")),
+                "Lock");
     }
 
-    private static Records.Recorded recorded(final String language, final String zone) {
-        return new Records.Recorded(language, zone);
+    private static Settlement settle(
+            final Choices choices,
+            final Set<String> held,
+            final Set<String> chosen,
+            final Records.Recorded recorded,
+            final boolean locking) {
+        return Settlement.of(choices, Optional::of, held, chosen, recorded, "lock", locking);
+    }
+
+    private static Records.Recorded german() {
+        return new Records.Recorded("de", "de", "Europe/Berlin");
     }
 
     @Test
-    void aMemberWhoseRolesMatchTheirRecordChangesNothing() {
-        assertTrue(settle(Set.of(EN, BERLIN), Set.of(), recorded("en", "Europe/Berlin"), true)
+    void choosingACountryGivesItsLanguageAndRemovesTheLock() {
+        final var result = settle(CHOICES, Set.of("lock"), Set.of("germany"), Records.Recorded.NONE, true);
+        assertEquals(Set.of("germany", "de"), result.add());
+        assertEquals(Set.of("lock"), result.remove());
+        assertTrue(result.record().contains(new Settlement.Change(Choices.Kind.COUNTRY, "de", "Europe/Berlin")));
+        assertTrue(result.record().contains(new Settlement.Change(Choices.Kind.LANGUAGE, "de")));
+    }
+
+    @Test
+    void changingCountryKeepsAnExistingLanguage() {
+        final var result = settle(CHOICES, Set.of("germany", "de"), Set.of("other"), german(), true);
+        assertEquals(Set.of("other"), result.add());
+        assertEquals(Set.of("germany"), result.remove());
+        assertEquals(List.of(new Settlement.Change(Choices.Kind.COUNTRY, "other", null)), result.record());
+    }
+
+    @Test
+    void removingALanguageByHandRestoresTheCountrysLanguage() {
+        assertEquals(
+                Set.of("de"),
+                settle(CHOICES, Set.of("germany"), Set.of(), german(), true).add());
+    }
+
+    @Test
+    void changingACountrysLanguageKeepsAHeldLanguage() {
+        assertTrue(settle(choices("Europe/Berlin", "en"), Set.of("germany", "de"), Set.of(), german(), true)
                 .isEmpty());
     }
 
     @Test
-    void theRoleJustAddedWinsAndTheOtherOfItsKindIsTaken() {
-        final Settlement settlement = settle(Set.of(EN, DE, BERLIN), Set.of(DE), recorded("en", "Europe/Berlin"), true);
-
-        assertAll(
-                () -> assertEquals(Set.of(EN), settlement.remove()),
-                () -> assertEquals(Set.of(), settlement.add()),
-                () -> assertEquals(List.of(new Settlement.Change(Choices.Kind.LANGUAGE, "de")), settlement.record()));
-    }
-
-    @Test
-    void withNothingJustAddedTheOneTheRecordHoldsIsKept() {
-        final Settlement settlement = settle(Set.of(EN, DE, BERLIN), Set.of(), recorded("de", "Europe/Berlin"), true);
-
-        assertAll(
-                () -> assertEquals(Set.of(EN), settlement.remove()),
-                () -> assertTrue(settlement.record().isEmpty()));
-    }
-
-    @Test
-    void withNothingJustAddedAndNoRecordTheFirstOfferedIsKept() {
-        final Settlement settlement = settle(Set.of(DE, EN, NEW_YORK, BERLIN), Set.of(), Records.Recorded.NONE, false);
-
-        assertAll(
-                () -> assertEquals(Set.of(DE, NEW_YORK), settlement.remove()),
-                () -> assertEquals(
-                        List.of(
-                                new Settlement.Change(Choices.Kind.LANGUAGE, "en"),
-                                new Settlement.Change(Choices.Kind.REGION, "Europe/Berlin")),
-                        settlement.record()));
-    }
-
-    @Test
-    void droppingBothRolesGivesTheRecordBackToTheNetwork() {
-        final Settlement settlement = settle(Set.of(), Set.of(), recorded("de", "America/New_York"), false);
-
+    void changingACountrysZoneUpdatesItsMembers() {
         assertEquals(
-                List.of(
-                        new Settlement.Change(Choices.Kind.LANGUAGE, null),
-                        new Settlement.Change(Choices.Kind.REGION, null)),
-                settlement.record());
+                List.of(new Settlement.Change(Choices.Kind.COUNTRY, "de", "Europe/Vienna")),
+                settle(choices("Europe/Vienna", "de"), Set.of("germany", "de"), Set.of(), german(), true)
+                        .record());
     }
 
     @Test
-    void aMemberWithoutARegionIsLockedWhileTheLockIsOn() {
+    void removingACountryClearsCountryAndZoneAndLocksItsMembers() {
+        final var removed = new Choices(
+                CHOICES.of(Choices.Kind.LANGUAGE),
+                List.of(CHOICES.of(Choices.Kind.COUNTRY).getLast()),
+                "Lock");
+        final var result = settle(removed, Set.of("germany", "de"), Set.of(), german(), true);
+        assertEquals(Set.of("lock"), result.add());
+        assertEquals(List.of(new Settlement.Change(Choices.Kind.COUNTRY, null, null)), result.record());
+    }
+
+    @Test
+    void lockOffRemovesTheLockEvenWithoutACountry() {
         assertEquals(
-                Set.of(LOCK),
-                settle(Set.of(EN), Set.of(), recorded("en", null), true).add());
+                Set.of("lock"),
+                settle(CHOICES, Set.of("lock"), Set.of(), Records.Recorded.NONE, false)
+                        .remove());
     }
 
     @Test
-    void theLockRoleGoesTheMomentBothAreHeld() {
-        final Settlement settlement = settle(Set.of(EN, LOCK, BERLIN), Set.of(BERLIN), recorded("en", null), true);
-
-        assertAll(
-                () -> assertEquals(Set.of(LOCK), settlement.remove()),
-                () -> assertEquals(
-                        List.of(new Settlement.Change(Choices.Kind.REGION, "Europe/Berlin")), settlement.record()));
-    }
-
-    @Test
-    void choosingTheLanguageFirstKeepsTheLockUntilTheRegionFollows() {
-        final Settlement settlement = settle(Set.of(LOCK, EN), Set.of(EN), Records.Recorded.NONE, true);
-
-        assertAll(
-                () -> assertTrue(settlement.add().isEmpty()),
-                () -> assertTrue(settlement.remove().isEmpty()),
-                () -> assertEquals(List.of(new Settlement.Change(Choices.Kind.LANGUAGE, "en")), settlement.record()));
-    }
-
-    @Test
-    void withTheLockOffARoleGivenByHandStaysWhileAChoiceIsMissing() {
-        assertTrue(
-                settle(Set.of(LOCK, EN), Set.of(), recorded("en", null), false).isEmpty());
-    }
-
-    @Test
-    void withTheLockOffNobodyIsGivenTheLockRole() {
+    void languageAloneDoesNotReleaseTheLock() {
         assertEquals(
-                Set.of(),
-                settle(Set.of(EN), Set.of(), recorded("en", null), false).add());
+                Set.of("lock"),
+                settle(CHOICES, Set.of("en"), Set.of(), new Records.Recorded("en", null, null), true)
+                        .add());
     }
 
     @Test
-    void withTheLockOffARoleGivenByHandGoesOnceBothAreHeld() {
-        final Settlement settlement = settle(Set.of(EN, LOCK, BERLIN), Set.of(BERLIN), recorded("en", null), false);
-        assertEquals(Set.of(LOCK), settlement.remove());
+    void theAddedChoiceWinsThenTheRecordedOneThenTheFirstHeldOne() {
+        final var offered = CHOICES.of(Choices.Kind.LANGUAGE);
+        assertEquals(
+                offered.getLast(),
+                Choices.kept(offered, List.of(offered.getLast()), "en").orElseThrow());
+        assertEquals(offered.getLast(), Choices.kept(offered, List.of(), "de").orElseThrow());
+        assertEquals(offered.getFirst(), Choices.kept(offered, List.of(), null).orElseThrow());
     }
 
     @Test
-    void aKindWithARoleTheBotCouldNotTakeIsLeftAloneAndLocksNobody() {
-        // The guild has two roles called "US East", so neither is taken and a holder of one keeps the zone.
-        guild.remove(GuildRoles.region("America/New_York"));
-
-        final Settlement settlement = settle(Set.of(EN), Set.of(), recorded("en", "America/New_York"), true);
-
-        assertTrue(settlement.isEmpty(), settlement.toString());
-    }
-
-    @Test
-    void aChoiceNotYetHeldIsGivenAndTheRestOfItsKindTaken() {
-        final Settlement settlement = settle(Set.of(EN, BERLIN), Set.of(DE), recorded("en", "Europe/Berlin"), true);
-
-        assertAll(
-                () -> assertEquals(Set.of(DE), settlement.add()), () -> assertEquals(Set.of(EN), settlement.remove()));
-    }
-
-    @Test
-    void aRoleThatIsNoChoiceIsNeverTouched() {
-        final Settlement settlement =
-                settle(Set.of(EN, BERLIN, "99"), Set.of("99"), recorded("en", "Europe/Berlin"), true);
-
-        assertTrue(settlement.isEmpty(), settlement.toString());
-    }
-
-    @Test
-    void theLockRoleNamesItselfLastAmongTheRolesTheChoicesNeed() {
-        final List<GuildRoles.Wanted> wanted = CHOICES.wanted();
-
-        assertAll(
-                () -> assertEquals(5, wanted.size()),
-                () -> assertEquals(new GuildRoles.Wanted(GuildRoles.LOCK, "Onboarding"), wanted.getLast()),
-                () -> assertEquals(
-                        new GuildRoles.Wanted(GuildRoles.region("Europe/Berlin"), "Central Europe"), wanted.get(2)));
+    void choosingALanguageRemovesTheOtherOne() {
+        final var result = settle(CHOICES, Set.of("germany", "de"), Set.of("en"), german(), true);
+        assertEquals(Set.of("en"), result.add());
+        assertEquals(Set.of("de"), result.remove());
     }
 }

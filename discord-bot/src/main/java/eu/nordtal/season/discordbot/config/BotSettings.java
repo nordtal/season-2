@@ -31,9 +31,11 @@ public final class BotSettings {
     /** Each group reads its environment variables under {@code NORDTAL_<GROUP>}. */
     static final Environment ENVIRONMENT = Environment.of("NORDTAL");
 
-    static final Group<OnboardingSpec> ONBOARDING = Group.of("onboarding", OnboardingSpec.class)
-            .checkedBy(BotSettings::validateOnboarding)
-            .whileRunning();
+    static Group<OnboardingSpec> onboardingGroup(final Languages network) {
+        return Group.of("onboarding", OnboardingSpec.class)
+                .checkedBy(config -> validateOnboarding(config, network))
+                .whileRunning();
+    }
 
     static final int MAX_CHOICES = 25;
 
@@ -69,8 +71,9 @@ public final class BotSettings {
         return settings.load(accessGroup(network));
     }
 
-    public static Setting<OnboardingSpec> onboarding(final Settings settings) throws SettingsException {
-        return settings.load(ONBOARDING);
+    public static Setting<OnboardingSpec> onboarding(final Settings settings, final Languages network)
+            throws SettingsException {
+        return settings.load(onboardingGroup(network));
     }
 
     /** Requires every snowflake to be numeric. */
@@ -101,6 +104,8 @@ public final class BotSettings {
             final String path = "languages[" + index + "]";
 
             // Each channel is optional and must be a snowflake when set.
+            requireSnowflakeIfSet(path + ".category", language.category());
+            requireSnowflakeIfSet(path + ".rules-channel", language.rulesChannel());
             requireSnowflakeIfSet(path + ".contribution-channel", language.contributionChannel());
             requireSnowflakeIfSet(path + ".link-channel", language.linkChannel());
             requireSnowflakeIfSet(path + ".hunger-games-channel", language.hungerGamesChannel());
@@ -109,26 +114,27 @@ public final class BotSettings {
         }
     }
 
-    /** Requires two different optional channels, a lock role, and a known zone for each region. */
-    private static void validateOnboarding(final OnboardingSpec config) {
+    /** Requires country keys, known zones and network languages. */
+    private static void validateOnboarding(final OnboardingSpec config, final Languages network) {
         requireSnowflakeIfSet("channel", config.channel());
-        requireSnowflakeIfSet("change-channel", config.changeChannel());
-        if (Configured.isSet(config.changeChannel()) && config.changeChannel().equals(config.channel())) {
-            throw new IllegalArgumentException("change-channel is the onboarding channel, which a member no longer"
-                    + " sees once released. Choose a channel every member sees.");
-        }
         final Set<String> names = new HashSet<>();
         requireRoleName("lock-role", config.lockRole(), names);
-
-        final List<OnboardingSpec.RegionSpec> regions = config.regions();
-        for (int index = 0; index < regions.size(); index++) {
-            final OnboardingSpec.RegionSpec region = regions.get(index);
-            final String path = "regions[" + index + "]";
-            requireRoleName(path + ".name", region.name(), names);
-            final String zone = region.zone() == null ? "" : region.zone();
-            if (!ZoneId.getAvailableZoneIds().contains(zone)) {
-                throw new IllegalArgumentException(
-                        path + ".zone must be an IANA time zone such as Europe/Berlin, was: " + zone);
+        for (int index = 0; index < config.countries().size(); index++) {
+            final OnboardingSpec.CountrySpec country = config.countries().get(index);
+            final String path = "countries[" + index + "]";
+            requireRoleName(path + ".name", country.name(), names);
+            if (!country.key().matches("[a-z0-9][a-z0-9-]{0,31}")) {
+                throw new IllegalArgumentException(path + ".key must contain lower-case letters, digits or hyphens.");
+            }
+            if (!country.zone().isEmpty() && !ZoneId.getAvailableZoneIds().contains(country.zone())) {
+                throw new IllegalArgumentException(path + ".zone must be an IANA time zone such as Europe/Berlin.");
+            }
+            if (!network.tags().contains(country.language())) {
+                throw new IllegalArgumentException(path + ".language must be one of the network's languages.");
+            }
+            net.dv8tion.jda.api.entities.emoji.Emoji.fromFormatted(country.emoji());
+            if (!country.glyph().startsWith("flag-") || country.glyph().length() <= 5) {
+                throw new IllegalArgumentException(path + ".glyph must name a country flag.");
             }
         }
     }

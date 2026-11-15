@@ -13,7 +13,7 @@ import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The roles a member chooses from, a language and a region, in the order they are offered.
+ * The roles a member chooses from, a language and a country, in the order they are offered.
  *
  * The rules about which role a member keeps are here and use no Discord object.
  */
@@ -21,23 +21,27 @@ final class Choices {
 
     enum Kind {
         LANGUAGE,
-        REGION
+        COUNTRY
     }
 
     /**
      * One role a member may choose.
      *
-     * @param value the language tag or the region zone that the record stores
+     * @param value the language tag or the country key that the record stores
      */
-    record Choice(Kind kind, String key, String name, String value) {}
+    record Choice(Kind kind, String key, String name, String value, String zone, String language, String emoji) {
+        Choice(final Kind kind, final String key, final String name, final String value) {
+            this(kind, key, name, value, "", "", "");
+        }
+    }
 
     private final List<Choice> languages;
-    private final List<Choice> regions;
+    private final List<Choice> countries;
     private final String lockName;
 
-    Choices(final List<Choice> languages, final List<Choice> regions, final String lockName) {
+    Choices(final List<Choice> languages, final List<Choice> countries, final String lockName) {
         this.languages = List.copyOf(languages);
-        this.regions = List.copyOf(regions);
+        this.countries = List.copyOf(countries);
         this.lockName = lockName;
     }
 
@@ -49,18 +53,21 @@ final class Choices {
                         language.roleName(),
                         Locales.tag(language.locale())))
                 .toList();
-        final List<Choice> regions = onboarding.regions().stream()
-                .map(region -> new Choice(
-                        Kind.REGION,
-                        GuildRoles.region(region.zone()),
-                        region.name().strip(),
-                        region.zone()))
+        final List<Choice> countries = onboarding.countries().stream()
+                .map(country -> new Choice(
+                        Kind.COUNTRY,
+                        GuildRoles.country(country.key()),
+                        country.name().strip(),
+                        country.key(),
+                        country.zone(),
+                        country.language(),
+                        country.emoji()))
                 .toList();
-        return new Choices(spoken, regions, onboarding.lockRole().strip());
+        return new Choices(spoken, countries, onboarding.lockRole().strip());
     }
 
     List<Choice> of(final Kind kind) {
-        return kind == Kind.LANGUAGE ? languages : regions;
+        return kind == Kind.LANGUAGE ? languages : countries;
     }
 
     /** Returns every role of the choices, then the lock role. */

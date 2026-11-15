@@ -1,0 +1,85 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Your settings",
+                "de": "Deine Einstellungen"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Language: **{language}**",
+                "de": "Sprache: **{language}**"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Time zone: **{zone}**",
+                "de": "Zeitzone: **{zone}**"
+              }
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "countries",
+              "placeholder": {
+                "en": "Choose your country",
+                "de": "Land wählen"
+              }
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "rules",
+              "label": {
+                "en": "Read the rules",
+                "de": "Regeln lesen"
+              }
+            }
+          ]
+        },
+        {
+          "type": "LANGUAGES",
+          "slot": "others",
+          "parts": [
+            {
+              "type": "ROW",
+              "items": [
+                {
+                  "slot": "language",
+                  "label": {
+                    "en": "Use English",
+                    "de": "Deutsch verwenden"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -13,13 +13,13 @@ import eu.nordtal.season.spec.annotation.Order;
 import eu.nordtal.season.spec.annotation.Reload;
 import java.util.List;
 
-/** The {@code onboarding} group: the channels where a member chooses a language and a region, the regions, the lock. */
+/** The {@code onboarding} group: the start channel, countries and lock. */
 @ConfigSpec
 public interface OnboardingSpec {
 
-    /** The channel where a locked member chooses a language and a region. The lock role sees only this channel. */
+    /** The channel where a member chooses a country. */
     @Order(1)
-    @Name("Onboarding channel")
+    @Name("Start channel")
     @Key("channel")
     @NoExplanationNeeded
     @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
@@ -27,19 +27,10 @@ public interface OnboardingSpec {
         return "";
     }
 
-    @Order(2)
-    @Name("Change channel")
-    @Key("change-channel")
-    @NoExplanationNeeded
-    @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
-    default String changeChannel() {
-        return "";
-    }
-
     @Order(3)
     @Name("Lock")
     @Key("lock")
-    @Explain("On, a member without a language and a region sees only the onboarding channel.")
+    @Explain("On, a member without a country sees only the start channel.")
     default boolean lock() {
         return false;
     }
@@ -53,23 +44,31 @@ public interface OnboardingSpec {
         return "Onboarding";
     }
 
-    /** Each region is a role of its name. A member who holds the role reads times in its zone. */
+    /** Each country is a role whose language and time zone apply to a member. */
     @Order(5)
-    @Name("Regions")
-    @Key("regions")
+    @Name("Countries")
+    @Key("countries")
     @Required
     @Entries(most = BotSettings.MAX_CHOICES)
-    @Unique("zone")
+    @Unique("key")
     @NoExplanationNeeded
-    default List<RegionSpec> regions() {
-        return DefaultRegions.LIST;
+    default List<CountrySpec> countries() {
+        return DefaultCountries.LIST;
     }
 
     @Reload
     void reload();
 
     @ConfigSpec
-    interface RegionSpec {
+    interface CountrySpec {
+
+        @Order(1)
+        @Name("Key")
+        @Key("key")
+        @NoExplanationNeeded
+        default String key() {
+            return "";
+        }
 
         @Order(1)
         @Name("Name")
@@ -85,6 +84,30 @@ public interface OnboardingSpec {
         @Key("zone")
         @NoExplanationNeeded
         default String zone() {
+            return "";
+        }
+
+        @Order(3)
+        @Name("Language")
+        @Key("language")
+        @NoExplanationNeeded
+        default String language() {
+            return "";
+        }
+
+        @Order(4)
+        @Name("Discord emoji")
+        @Key("emoji")
+        @NoExplanationNeeded
+        default String emoji() {
+            return "";
+        }
+
+        @Order(5)
+        @Name("Flag glyph")
+        @Key("glyph")
+        @NoExplanationNeeded
+        default String glyph() {
             return "";
         }
     }

@@ -390,8 +390,9 @@ Simple Voice Chat needs UDP 25565 open next to TCP and no configuration. No serv
   owns the `datapacks/` folder of the world. On start it removes every zip there that the variable
   does not name. The image also carries Nordtal's own pack `nordtal` (`deploy/minecraft/datapacks/`),
   which adds a second set of End cities beside Nullscape's under an id of its own, so the load order
-  does not matter, and the entrypoint copies it over the world's copy at every start. Incendium shapes only a Nether generated after it is installed, and
-  Nullscape only an End generated after it: a world made before keeps its old terrain.
+  does not matter, and the entrypoint copies it over the world's copy at every start. Incendium
+  shapes only a Nether generated after it is installed, and Nullscape only an End generated after
+  it: a world made before keeps its old terrain.
 
 The label `eu.nordtal.plugins` of a server in `compose.yml` lists its plugins as
 `artifact[=jar prefix][?]` per plugin. `steward-agent` installs them. The entrypoint reads the same

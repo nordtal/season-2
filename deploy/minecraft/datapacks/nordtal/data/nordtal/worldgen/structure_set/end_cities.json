@@ -13,7 +13,7 @@
     "spread_type": "triangular",
     "exclusion_zone": {
       "other_set": "minecraft:end_cities",
-      "chunk_count": 5
+      "chunk_count": 8
     }
   }
 }

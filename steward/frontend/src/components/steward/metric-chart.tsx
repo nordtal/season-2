@@ -106,7 +106,8 @@ function Curve({
     [points],
   )
   if (series === undefined) return <Skeleton style={{ height }} className="w-full" />
-  if (series.length === 0) return <div style={{ height }} aria-hidden />
+  // An empty range draws nothing rather than a blank band, so stats in a grid keep one gap between their rows.
+  if (series.length === 0) return null
   const follow = (state: { activeTooltipIndex?: unknown }) => {
     const point = series[Number(state.activeTooltipIndex)]
     onReading?.(isReading(point) ? point : null)

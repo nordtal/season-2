@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 
@@ -49,6 +50,9 @@ final class Choreography {
     private final Set<String> standing = new LinkedHashSet<>();
 
     private final Map<String, Steps.Step> comingUp = new LinkedHashMap<>();
+
+    /** The service each player was last seen on of those this run stops, before it stopped. */
+    private final Map<UUID, String> leaving = new LinkedHashMap<>();
 
     Choreography(final ContainerOps containers, final Occupancy occupancy, final Waiting clock) {
         this(containers, occupancy, clock, Steps.none());
@@ -240,6 +244,7 @@ final class Choreography {
                     occupied.put(service, players.getAsInt());
                 }
             }
+            noteLeaving(watched);
             if (occupied.isEmpty() && unknown.isEmpty()) {
                 return Left.EMPTY;
             }
@@ -251,6 +256,20 @@ final class Choreography {
                 return new Left(RunStep.Reason.INTERRUPTED);
             }
         }
+    }
+
+    /** Notes who is on the services about to stop, so the count of their return knows whom to wait for. */
+    void noteLeaving(final Collection<String> moving) {
+        occupancy.roster(clock.now()).forEach((player, service) -> {
+            if (moving.contains(service)) {
+                leaving.put(player, service);
+            }
+        });
+    }
+
+    /** Returns the service each player was seen on of those this run stops, while it still ran. */
+    Map<UUID, String> leaving() {
+        return Map.copyOf(leaving);
     }
 
     private boolean canCarryPlayers(final String service) {

@@ -2,12 +2,16 @@ package eu.nordtal.season.stewardagent.run;
 
 import eu.nordtal.season.database.online.OnlineCount;
 import eu.nordtal.season.database.online.OnlineDirectory;
+import eu.nordtal.season.database.online.OnlinePlayer;
+import eu.nordtal.season.database.online.OnlineRoster;
 import eu.nordtal.season.database.update.StandbyDirectory;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
@@ -24,6 +28,9 @@ interface Occupancy {
     /** Four missed heartbeats of {@code StandbyReturn.INTERVAL}. */
     Duration STANDBY_FRESH_WITHIN = Duration.ofSeconds(8);
 
+    /** One missed roster write at the proxy's usual pace, which it keeps while no run is about to stop a server. */
+    Duration ROSTER_FRESH_WITHIN = OnlineDirectory.WRITE_INTERVAL.multipliedBy(2);
+
     /**
      * Reads one service's player count.
      *
@@ -32,6 +39,15 @@ interface Occupancy {
      * @return the count, or empty when no fresh row says
      */
     OptionalInt on(String service, Instant now, Instant since);
+
+    /**
+     * Returns the service each connected player is on, by player, at the pace the proxy writes its roster.
+     *
+     * @return the players on a backend, empty when no fresh roster says
+     */
+    default Map<UUID, String> roster(final Instant now) {
+        return Map.of();
+    }
 
     /** Returns whether a row written at {@code updated} still says something at {@code now}. */
     static boolean counts(final Instant updated, final Instant now, final Instant since) {
@@ -64,6 +80,7 @@ interface Occupancy {
 
             private volatile @Nullable OnlineDirectory counts;
             private volatile @Nullable StandbyDirectory standby;
+            private volatile @Nullable OnlineRoster players;
 
             @Override
             public OptionalInt on(final String service, final Instant now, final Instant since) {
@@ -82,6 +99,24 @@ interface Occupancy {
                     return OptionalInt.empty();
                 }
                 return OptionalInt.of(count.players());
+            }
+
+            @Override
+            public Map<UUID, String> roster(final Instant now) {
+                if (players == null) {
+                    players = OnlineRoster.using(dataSource, clock);
+                }
+                final Map<UUID, String> on = new LinkedHashMap<>();
+                try {
+                    for (final OnlinePlayer player : players.current()) {
+                        if (!player.updated().isBefore(now.minus(ROSTER_FRESH_WITHIN))) {
+                            player.on().ifPresent(service -> on.put(player.uuid(), service));
+                        }
+                    }
+                } catch (final RuntimeException failure) {
+                    return Map.of();
+                }
+                return on;
             }
 
             @Override

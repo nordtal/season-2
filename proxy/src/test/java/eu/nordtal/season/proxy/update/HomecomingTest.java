@@ -6,17 +6,29 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ServerConnection;
+import com.velocitypowered.api.proxy.server.ServerInfo;
 import eu.nordtal.season.common.time.CountdownPlan;
+import eu.nordtal.season.database.update.RunRecorder;
 import eu.nordtal.season.proxy.NetworkServers;
+import eu.nordtal.season.proxy.ProxyRenderer;
+import eu.nordtal.season.proxy.gate.LoginRoster;
+import java.lang.reflect.Proxy;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /** The way back, and who is told about it: nobody just logged in, nobody waiting, and never without warning. */
 class HomecomingTest {
 
     private static final NetworkServers SERVERS = new NetworkServers("limbo", "limbo-standby", "hunger-games", "smp");
-    private static final Homecoming.Owed OFF_SMP = new Homecoming.Owed("smp", false);
+    private static final Homecoming.Owed OFF_SMP = new Homecoming.Owed("smp", "limbo", false);
 
     private final Homecoming homecoming = new Homecoming(
             org.slf4j.LoggerFactory.getLogger(HomecomingTest.class),
@@ -73,9 +85,34 @@ class HomecomingTest {
     void aClaimKeepsTheServerMovedOffAndWhetherASwitchMovedThem() {
         // A mode switch returns the player elsewhere, yet the return counts against the move off that server.
         final UUID player = UUID.randomUUID();
-        homecoming.owe(3L, player, new Homecoming.Owed("hunger-games", true));
+        homecoming.owe(3L, player, new Homecoming.Owed("hunger-games", "limbo", true));
 
-        assertEquals(new Homecoming.Owed("hunger-games", true), homecoming.claim(player));
+        assertEquals(new Homecoming.Owed("hunger-games", "limbo", true), homecoming.claim(player));
+    }
+
+    // what a return counts against
+
+    @Test
+    void aReturnCountsAgainstTheRoomThePlayerWasMovedIntoWhereverTheyWaitedSince() {
+        final List<String> counted = new ArrayList<>();
+        final Homecoming counting = new Homecoming(
+                LoggerFactory.getLogger(HomecomingTest.class),
+                ProxyRenderer.RENDERER,
+                new LoginRoster(),
+                SERVERS,
+                new RunRecorder() {
+                    @Override
+                    public void returned(final String from, final String to, final int players) {
+                        counted.add(from + " -> " + to + " " + players);
+                    }
+                });
+        final UUID uuid = UUID.randomUUID();
+        // Moved into limbo-standby, the player waited in limbo once the standby stopped.
+        counting.owe(4L, uuid, new Homecoming.Owed("smp", "limbo-standby", false));
+
+        counting.comingBack(player(uuid, "limbo"), "smp");
+
+        assertEquals(List.of("smp -> limbo-standby 1"), counted, "the run's move row is the one the player left by");
     }
 
     // who gets a counter
@@ -116,4 +153,23 @@ class HomecomingTest {
     }
 
     // the lines
+
+    private static Player player(final UUID uuid, final String on) {
+        final var info = new ServerInfo(on, InetSocketAddress.createUnresolved(on, 25565));
+        final var connection = fake(ServerConnection.class, method -> "getServerInfo".equals(method) ? info : null);
+        return fake(Player.class, method -> switch (method) {
+            case "getUniqueId" -> uuid;
+            case "getUsername" -> "somebody";
+            case "getCurrentServer" -> Optional.of(connection);
+            default -> null;
+        });
+    }
+
+    private static <T> T fake(final Class<T> type, final Function<String, Object> answer) {
+        return type.cast(Proxy.newProxyInstance(
+                HomecomingTest.class.getClassLoader(),
+                new Class<?>[] {type},
+                (self, method, arguments) ->
+                        "toString".equals(method.getName()) ? type.getSimpleName() : answer.apply(method.getName())));
+    }
 }

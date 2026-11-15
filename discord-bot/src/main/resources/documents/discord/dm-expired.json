@@ -10,8 +10,7 @@
               "text": {
                 "en": "Your {@terms.access} has ended.",
                 "de": "Dein {@terms.access} ist abgelaufen."
-              },
-              "when": "channel"
+              }
             },
             {
               "text": {
@@ -19,13 +18,6 @@
                 "de": "Kauf einen neuen {@terms.period, n=1} in {channel}."
               },
               "when": "channel"
-            },
-            {
-              "text": {
-                "en": "Your {@terms.access} has ended.",
-                "de": "Dein {@terms.access} ist abgelaufen."
-              },
-              "when": "!channel"
             },
             {
               "text": {

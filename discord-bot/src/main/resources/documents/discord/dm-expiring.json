@@ -10,8 +10,7 @@
               "text": {
                 "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}).",
                 "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until})."
-              },
-              "when": "channel"
+              }
             },
             {
               "text": {
@@ -19,13 +18,6 @@
                 "de": "Verlängere ihn in {channel}."
               },
               "when": "channel"
-            },
-            {
-              "text": {
-                "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}).",
-                "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until})."
-              },
-              "when": "!channel"
             },
             {
               "text": {

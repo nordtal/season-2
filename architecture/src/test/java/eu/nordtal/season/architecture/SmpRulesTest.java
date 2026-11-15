@@ -126,6 +126,22 @@ class SmpRulesTest {
                 .check(classes);
     }
 
+    /** A start writes the rows, then sweeps them with the engine it has wired, as a reload does. */
+    @Test
+    void aStartWritesTheRowsThenSweepsThemWithTheEngine() {
+        classes()
+                .that(isListed(PLUGIN))
+                .should(callInOrder("enable", "SmpStart#wireProgressEngine", "SmpPlugin#loadSeasonStateAndSweep"))
+                .andShould(neverCallFrom("enable", "SmpPlugin#loadSeasonState"))
+                .andShould(callInOrder(
+                        "loadSeasonStateAndSweep",
+                        "SmpPlugin#loadSeasonState",
+                        "SmpPlugin#completeWhateverTheNewTargetsAlreadyReach"))
+                .because("an objective whose lowered target its amount already reaches stays open until something"
+                        + " completes it, and the sweep needs the engine")
+                .check(classes);
+    }
+
     /** The rows carry the targets payouts are computed from, so a reload writes all of them or none. */
     @Test
     void theRowsAreWrittenInOneTransaction() {

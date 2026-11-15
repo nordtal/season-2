@@ -589,7 +589,7 @@
     "alert.role-not-changed": [[{"c":"given","plural":false,"cases":{"true":["The ",{"v":"role"}," role was not given"],"other":["The ",{"v":"role"}," role was not taken"]}}]],
     "alert.role-not-created": [["The ",{"v":"name"}," role could not be created"]],
     "alert.run": [["Run ",{"v":"run","k":"number","s":"plain"},"."]],
-    "alert.seen-through": [["The allow of ",{"v":"holder"}," opens it. Remove the allow in Discord."]],
+    "alert.seen-through": [["The View Channel allow of ",{"v":"holder"}," opens it. Remove that allow in Discord."]],
     "alert.several": [["Several at once: ",{"v":"subjects"}]],
     "alert.show-start-channel": [["A new member sees no channel before the bot locks them. Show the start channel to @everyone in Discord."]],
     "alert.start-channel-hidden": [["The start channel is hidden from @everyone while the lock is on"]],

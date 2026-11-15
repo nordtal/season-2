@@ -18,6 +18,7 @@ generated world fills the rest.
 | `transplant` | Decides for every cell which world it comes from, and writes the joined regions.  |
 | `server`     | Runs a scratch server of the game to upgrade a copy, generate a world and verify. |
 | `check`      | Counts blocks, measures the cut and draws cross-sections.                         |
+| `structures` | Makes the map's places real structures of the game, see below.                    |
 
 ## A run
 
@@ -61,6 +62,32 @@ both corners included; without the option a command takes every region file of t
 The points of interest and the light are not part of the result: the game rebuilds both when it
 loads a chunk without them. Copy the result over a copy of the world, never over the world itself,
 and delete the `poi` files of the regions it replaced.
+
+## The map's structures
+
+`structures --world <result> --pack deploy/minecraft/datapacks/nordtal --seed <seed> --out <dir>
+--regions 0,0,19,19` writes the region and entity files it changes into `<dir>`, with
+`structures-report.tsv`, one line per place and per spawner it decided on. Copy them over a copy of
+the world, as with the transplant. It runs on the result of the transplant, or on any copy of the
+overworld whose chunks it changes are at the newest data version of the world, and stops before it
+writes anything when one is not. A second run on its own output changes nothing more.
+
+- **Illager ships** become pillager outposts and lose their pillager spawners, so pillagers spawn
+  and patrol there as the game's own. Every cluster of illager spawners counts as a ship.
+- **Monument builds** become ocean monuments where at least half of their prismarine lies in the
+  game's fixed box of an ocean monument, y 39 to 61.
+- **The portal rooms** become strongholds over the stone bricks around them.
+- **A place with beds and chests** becomes a village, with a villager beside each bed that has
+  room; a place with a trial or illager spawner near it gets none. Villager spawners go.
+- **An empty spawner** spawns skeletons in a stronghold, goes when a bee nest or hive is within four
+  blocks (an empty one gets the bees of a natural nest), and stays elsewhere, listed in the report.
+
+Each start lies in a chunk where the data pack's structure set looks, and within eight chunks of
+every chunk it covers, since the game reads a start no further; a wide place gets several. The pack
+`nordtal` empties the game's own sets of villages, outposts, monuments and strongholds, so none
+generates in new land and `/locate` searches only the map's: it searches every set of a structure
+ring by ring, and the wider sets of the game would answer first with a place far away. The villages
+of Dungeons and Taverns still generate in new land.
 
 ## What stays and what is replaced
 

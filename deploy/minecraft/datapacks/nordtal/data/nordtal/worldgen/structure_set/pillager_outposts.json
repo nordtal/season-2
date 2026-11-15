@@ -1,0 +1,15 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 8,
+    "separation": 0,
+    "salt": 945002,
+    "frequency": 0.0
+  },
+  "structures": [
+    {
+      "structure": "minecraft:pillager_outpost",
+      "weight": 1
+    }
+  ]
+}

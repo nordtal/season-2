@@ -42,12 +42,18 @@ public final class Region {
     public static Map<Integer, Map<String, Object>> read(final Path file, final IntPredicate wanted)
             throws IOException {
         final Map<Integer, Map<String, Object>> chunks = new TreeMap<>();
+        each(file, wanted, chunks::put);
+        return chunks;
+    }
+
+    /** Hands every chunk of a region file whose index passes the filter to the visitor, one at a time. */
+    public static void each(final Path file, final IntPredicate wanted, final Visitor visitor) throws IOException {
         if (!Files.exists(file)) {
-            return chunks;
+            return;
         }
         final byte[] data = Files.readAllBytes(file);
         if (data.length < 2 * SECTOR) {
-            return chunks;
+            return;
         }
         for (int index = 0; index < SIDE * SIDE; index++) {
             final int offset = int24(data, index * 4) * SECTOR;
@@ -59,9 +65,14 @@ public final class Region {
             final InputStream stored = (compression & EXTERNAL) == 0
                     ? new ByteArrayInputStream(data, offset + 5, length - 1)
                     : new ByteArrayInputStream(Files.readAllBytes(external(file, index)));
-            chunks.put(index, Nbt.read(inflate(stored, compression & ~EXTERNAL)));
+            visitor.chunk(index, Nbt.read(inflate(stored, compression & ~EXTERNAL)));
         }
-        return chunks;
+    }
+
+    /** Receives one chunk of a region file with its index, x + z * 32. */
+    @FunctionalInterface
+    public interface Visitor {
+        void chunk(int index, Map<String, Object> chunk) throws IOException;
     }
 
     /**

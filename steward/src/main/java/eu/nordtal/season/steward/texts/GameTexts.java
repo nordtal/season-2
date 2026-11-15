@@ -287,6 +287,15 @@ public interface GameTexts {
     @Name("No world")
     MessageRef noWorld();
 
+    @Name("Point")
+    MessageRef point();
+
+    @Name("Numbered point")
+    MessageRef pointNumbered(@Arg("index") @Example("2") int index);
+
+    @Name("No points")
+    MessageRef noPoints();
+
     @Name("Corner")
     MessageRef corner(@Arg("index") @Example("1") int index);
 

@@ -3,17 +3,26 @@ import { type ReactNode, useId, useState } from "react"
 
 import type { ConfigEntry } from "@/lib/api"
 import { type Choice, choiceFor, worldIcon } from "@/lib/references"
-import { ScalarControl } from "@/components/steward/config-controls"
+import { FieldProblem, ScalarControl } from "@/components/steward/config-controls"
+import { useBreach, useBreaches } from "@/components/steward/breach-context"
 import { Empty } from "@/components/steward/query-state"
 import { Hint } from "@/components/steward/status"
 import { Mark, useChoices } from "@/components/steward/reference-picker"
 import { type SectionValues, blankSection, notSaved } from "@/components/steward/repeatable-cards"
-import { AREA, type PlaceShape, placeShape, text } from "@/components/steward/game-groups/model"
+import { AREA, LABEL, type PlaceShape, placeShape, text } from "@/components/steward/game-groups/model"
 import { NumberInput } from "@/components/steward/game-groups/parts"
 import { EntryDialog, Labelled } from "@/components/steward/game-groups/tiles"
 import { Button } from "@/components/ui/button"
 import { mostEntries } from "@/lib/setting-rules"
 import { t } from "@/lib/texts"
+import { cn } from "@/lib/utils"
+
+/** The words of a list of places: its Add button, a place without a label, and the empty list. */
+const WORDS = {
+  area: { add: "steward.game.area", numbered: "steward.game.area-numbered", none: "steward.game.no-areas" },
+  block: { add: "steward.game.block", numbered: "steward.game.block-numbered", none: "steward.game.no-blocks" },
+  point: { add: "steward.game.point", numbered: "steward.game.point-numbered", none: "steward.game.no-points" },
+} as const
 
 /** The fields of one place by key, its values by key, and how a value changes. */
 type Place = {
@@ -38,6 +47,18 @@ function WorldMark({ world, reference, size }: { world: ConfigEntry | undefined;
     icon: worldIcon(reference),
   }
   return <Mark choice={choice} icons={icons} registry={undefined} size={size} />
+}
+
+/** The world's icon of a place in a world; a labelled point in its game's one world has none. */
+function PlaceMark({ place, size }: { place: Pick<Place, "fields" | "values">; size: number }) {
+  const world = fieldOf(place.fields, "world")
+  if (world === undefined) return null
+  return <WorldMark world={world} reference={text(place.values, "world")} size={size} />
+}
+
+/** The label of a place that has one, such as a loot point's "north"; blank when it has none. */
+export function labelOf(place: Pick<Place, "fields" | "values">): string {
+  return fieldOf(place.fields, LABEL) === undefined ? "" : text(place.values, LABEL).trim()
 }
 
 /** One coordinate on a tile: its axis muted, its value in tabular figures. */
@@ -78,17 +99,23 @@ function Coordinates({ shape, values }: { shape: PlaceShape; values: SectionValu
   )
 }
 
-/** A read-only tile of one place: the world with its icon, then the coordinates. A click opens its dialog. */
+/**
+ * A read-only tile of one place: its label, or the world with its icon, then the coordinates. A click opens its
+ * dialog. `invalid` marks a tile whose values break a rule, so the admin sees which one to open.
+ */
 export function PlaceTile({
   place,
   label,
+  invalid = false,
   onOpen,
 }: {
   place: Pick<Place, "shape" | "fields" | "values">
   label: string
+  invalid?: boolean
   onOpen: () => void
 }) {
   const world = text(place.values, "world")
+  const labelled = fieldOf(place.fields, LABEL) !== undefined
   const described = useId()
   return (
     <button
@@ -96,13 +123,19 @@ export function PlaceTile({
       aria-haspopup="dialog"
       aria-label={label}
       aria-describedby={described}
-      className="flex h-full w-full min-w-0 flex-col gap-2 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50"
+      aria-invalid={invalid || undefined}
+      className={cn(
+        "flex h-full w-full min-w-0 flex-col gap-2 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/50",
+        invalid && "border-destructive",
+      )}
       onClick={onOpen}
     >
       <span id={described} className="flex min-w-0 flex-col gap-2">
         <span className="flex min-w-0 items-center gap-2">
-          <WorldMark world={fieldOf(place.fields, "world")} reference={world} size={24} />
-          <span className="truncate font-medium">{world || t("steward.game.no-world")}</span>
+          <PlaceMark place={place} size={24} />
+          <span className="truncate font-medium">
+            {labelled ? labelOf(place) || label : world || t("steward.game.no-world")}
+          </span>
         </span>
         <Coordinates shape={place.shape} values={place.values} />
       </span>
@@ -155,13 +188,28 @@ function Row({ name, children }: { name?: string; children: ReactNode }) {
   )
 }
 
-/** The fields of the dialog: the world, then corner 1, corner 2 and the height, or X, Y and Z; any other field after them. */
+/**
+ * The fields of the dialog: the label, the world, then corner 1, corner 2 and the height, or X, Y and Z; any other
+ * field after them. The label's id is the form's, `<id>.label`, so a label that breaks a rule shows it there.
+ */
 function PlaceFields({ id, place, disabled }: { id: string; place: Place; disabled: boolean }) {
+  const label = fieldOf(place.fields, LABEL)
   const world = fieldOf(place.fields, "world")
-  const drawn = new Set(["world", ...(place.shape === "area" ? AREA.keys : ["x", "y", "z"])])
+  const drawn = new Set([LABEL, "world", ...(place.shape === "area" ? AREA.keys : ["x", "y", "z"])])
   const rest = place.fields.filter((field) => !drawn.has(field.key) && field.kind === "SCALAR")
   return (
     <div className="flex flex-col gap-4">
+      {label ? (
+        <Labelled id={`${id}.${LABEL}`} label={label.label}>
+          <ScalarControl
+            id={`${id}.${LABEL}`}
+            entry={label}
+            value={text(place.values, LABEL)}
+            disabled={disabled}
+            onChange={(value) => place.onChange(LABEL, value)}
+          />
+        </Labelled>
+      ) : null}
       {world ? (
         <Labelled id={`${id}-world`} label={world.label}>
           <ScalarControl
@@ -234,7 +282,7 @@ function PlaceDialog({
   return (
     <EntryDialog
       open
-      mark={<WorldMark world={fieldOf(place.fields, "world")} reference={text(place.values, "world")} size={40} />}
+      mark={<PlaceMark place={place} size={40} />}
       name={name}
       description={description}
       disabled={disabled}
@@ -300,11 +348,17 @@ export function PlaceList({
   const [chosen, choose] = useState<number | null>(null)
   /** The area Add just made, as it was made: closed untouched, it goes again, so a stray click saves nothing. */
   const [added, setAdded] = useState<{ index: number; values: SectionValues } | null>(null)
+  const breach = useBreach(entry.path)
+  const breachAt = useBreaches()
   const fields = entry.template ?? []
   const shape = placeShape(fields.map((field) => field.key))
   if (shape === undefined) return null
-  const name = (index: number) =>
-    t(shape === "area" ? "steward.game.area-numbered" : "steward.game.block-numbered", { index: index + 1 })
+  /** A labelled place is named by its label, as a card is by its name; without one, by its place in the list. */
+  /** A labelled point in its game's one world is a point, not a block. */
+  const point = fields.some((field) => field.key === LABEL) && !fields.some((field) => field.key === "world")
+  const words = WORDS[shape === "area" ? "area" : point ? "point" : "block"]
+  const name = (index: number) => labelOf({ fields, values: value[index] }) || t(words.numbered, { index: index + 1 })
+  const invalid = (index: number) => fields.some((field) => breachAt(`${entry.path}.${index}.${field.key}`) !== null)
   const placeAt = (index: number): Place => ({
     shape,
     fields,
@@ -320,16 +374,22 @@ export function PlaceList({
   return (
     <div className="flex flex-col gap-2">
       {value.length === 0 ? (
-        <Empty title={t(shape === "area" ? "steward.game.no-areas" : "steward.game.no-blocks")} />
+        <Empty title={t(words.none)} />
       ) : (
         <ul className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-2">
           {value.map((section, index) => (
             <li key={index}>
-              <PlaceTile place={{ shape, fields, values: section }} label={name(index)} onOpen={() => choose(index)} />
+              <PlaceTile
+                place={{ shape, fields, values: section }}
+                label={name(index)}
+                invalid={invalid(index)}
+                onOpen={() => choose(index)}
+              />
             </li>
           ))}
         </ul>
       )}
+      <FieldProblem id={`${entry.path}-breach`} problem={breach} />
       <div>
         <Hint tip={full ? t("steward.settings.list-full", { most }) : undefined}>
           <Button
@@ -348,13 +408,13 @@ export function PlaceList({
             }}
           >
             <PlusIcon aria-hidden />
-            {t(shape === "area" ? "steward.game.area" : "steward.game.block")}
+            {t(words.add)}
           </Button>
         </Hint>
       </div>
       {open !== null ? (
         <PlaceDialog
-          id={`${entry.path}-${open}`}
+          id={`${entry.path}.${open}`}
           name={name(open)}
           place={placeAt(open)}
           disabled={disabled}

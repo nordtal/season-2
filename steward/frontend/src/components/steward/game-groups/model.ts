@@ -59,12 +59,17 @@ export type PlaceShape = "area" | "block"
 
 export const BLOCK_KEYS = ["world", "x", "y", "z"] as const
 
+/** The field that names a place, such as a loot point's "north"; a place that has it is titled by it. */
+export const LABEL = "label"
+
 /** The shape of a setting whose fields are `keys`, or none when it is not a place in a world. */
 export function placeShape(keys: readonly string[]): PlaceShape | undefined {
   const holdsAll = (wanted: readonly string[]) => wanted.every((key) => keys.includes(key))
   const holdsOnly = (allowed: readonly string[]) => keys.every((key) => allowed.includes(key))
   if (holdsAll(BOX_KEYS) && holdsOnly(BOX_KEYS)) return "area"
-  // A facing may come with a block; anything else, such as a board's kind, makes it more than a place.
-  if (holdsAll(BLOCK_KEYS) && holdsOnly([...BLOCK_KEYS, "yaw", "pitch"])) return "block"
+  // A facing or a label may come with a block; anything else, such as a board's kind, makes it more than a place.
+  if (holdsAll(BLOCK_KEYS) && holdsOnly([...BLOCK_KEYS, "yaw", "pitch", LABEL])) return "block"
+  // A labelled point in the one world of its game, such as a loot point. A bare X, Y and Z is a vector, not a place.
+  if (holdsAll(["x", "y", "z", LABEL]) && holdsOnly(["x", "y", "z", LABEL])) return "block"
   return undefined
 }

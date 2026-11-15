@@ -37,11 +37,11 @@ layout(location = 0) out vec4 fragColor;
 
 // BEGIN nordtal wall field (the previews compile this block as it stands)
 
-// The marker: every texel of nordtal:item/border/field is this colour, #4A63D9, one step
-// beside the brand blue #4A63D8. No texture of Minecraft 26.3 or of the pack holds it.
+// The marker: every texel of nordtal:item/border/wall_field is this colour, #4A63D9, one step
+// beside the brand blue #4A63D8, and is not the colour drawn (WALL_DEEP is). No texture of Minecraft 26.3 or of the pack holds it.
 const vec3 WALL_MARKER = vec3(74.0, 99.0, 217.0) / 255.0;
 
-const vec3 WALL_DEEP = vec3(74.0, 99.0, 216.0) / 255.0;   // the brand blue: the veil
+const vec3 WALL_DEEP = vec3(52.0, 90.0, 180.0) / 255.0;   // #345AB4, the logo's middle blue: the veil
 const vec3 WALL_ICE = vec3(160.0, 180.0, 255.0) / 255.0;  // the light in the rays
 const vec3 WALL_SPARK = vec3(232.0, 238.0, 255.0) / 255.0; // lines and motes
 

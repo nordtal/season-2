@@ -95,7 +95,7 @@ describe("gateOf", () => {
 
   it("holds admins too while a switch has not reached its last stage", () => {
     const gate = gateOf(switching({ steps: [step("STOP", { service: "smp" })] }), NOW)
-    expect(gate).toMatchObject({ now: "waiting", why: "mode switch, until Hunger Games runs" })
+    expect(gate).toMatchObject({ now: "waiting", why: "game mode switch, until Hunger Games runs" })
     expect(gate.except).toEqual(["admins wait too", "/server works"])
   })
 

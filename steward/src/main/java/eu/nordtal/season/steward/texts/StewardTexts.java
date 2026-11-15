@@ -204,10 +204,10 @@ public interface StewardTexts {
             @Name("Countdown over")
             MessageRef tooLate();
 
-            @Name("Mode switch open")
+            @Name("Game mode switch open")
             MessageRef switchOpen();
 
-            @Name("Switch to the active mode")
+            @Name("Switch to the active game mode")
             MessageRef switchToActive(@Arg("mode") SeasonMode mode);
 
             @Name("Key not held")

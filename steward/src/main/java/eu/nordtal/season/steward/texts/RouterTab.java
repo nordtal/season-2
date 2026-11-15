@@ -178,10 +178,10 @@ public interface RouterTab {
     @Name("Admins on it")
     MessageRef adminsOnIt(@Arg("count") @Example("2") int count);
 
-    @Name("Players online on a mode")
+    @Name("Players online in a game mode")
     MessageRef playersOn(@Arg("count") @Example("15") int count);
 
-    @Name("Mode switch")
+    @Name("Game mode switch")
     MessageRef modeSwitch();
 
     @Name("Last switch")
@@ -232,7 +232,7 @@ public interface RouterTab {
     @Name("Moved to")
     MessageRef movedTo(@Arg("count") @Example("24") int count, @Arg("server") @Example("SMP") String server);
 
-    @Name("Mode")
+    @Name("Game mode heading")
     MessageRef mode();
 
     @Name("Requested by")

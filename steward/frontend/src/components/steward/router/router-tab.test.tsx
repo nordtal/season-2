@@ -344,7 +344,7 @@ describe("RouterTab - the switch run card", () => {
       }),
     )
     draw()
-    expect(await screen.findByText("Mode switch")).toBeTruthy()
+    expect(await screen.findByText("Game mode switch")).toBeTruthy()
     for (const name of ["Players to the waiting room", "Stop Hunger Games", "Start SMP", "Players to SMP"]) {
       expect(screen.getByText(name)).toBeTruthy()
     }

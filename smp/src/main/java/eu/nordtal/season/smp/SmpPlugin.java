@@ -642,14 +642,24 @@ public final class SmpPlugin extends NordtalPlugin {
     /**
      * Writes one row per milestone and one per objective in one transaction.
      * The transaction keeps the targets that {@code ObjectiveEngine#credit} reads from being half updated.
+     * A completed objective keeps the target it was paid at, and the log names each one the file declares otherwise.
      */
     private void ensureRows(final MilestoneTrack definition) {
         jdbi().useTransaction(handle -> {
             for (final Milestone milestone : definition.milestones()) {
                 trackRows.ensureMilestone(milestone.key(), MilestoneState.LOCKED.name());
                 for (final eu.nordtal.season.smp.milestone.Objective objective : milestone.objectives()) {
-                    trackRows.ensureObjective(
-                            milestone.key(), objective.key(), objective.type().name(), objective.target());
+                    final String type = objective.type().name();
+                    if (trackRows.ensureObjective(milestone.key(), objective.key(), type, objective.target()) == 0) {
+                        final long paid = trackRows
+                                .objective(milestone.key(), objective.key())
+                                .map(ObjectiveRow::target)
+                                .orElse(-1L);
+                        getLogger()
+                                .warning("objective already paid, kept as paid: milestone=" + milestone.key()
+                                        + " key=" + objective.key() + " target=" + paid + " declared_target="
+                                        + objective.target() + " declared_type=" + type);
+                    }
                 }
             }
         });

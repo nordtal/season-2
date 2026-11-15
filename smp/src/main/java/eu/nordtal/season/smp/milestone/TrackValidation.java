@@ -9,6 +9,7 @@ import org.jspecify.annotations.Nullable;
  * Checks a reloaded milestone file against the stored progress.
  * It refuses a file that leaves stored progress without a milestone or objective.
  * It accepts a lower target for an objective that has not completed.
+ * It accepts any change to a completed objective, whose row keeps the target and type it was paid at.
  */
 public final class TrackValidation {
 
@@ -74,21 +75,13 @@ public final class TrackValidation {
             }
 
             final Objective objective = declared.get();
-            if (objective.type() != stored.type()) {
+            if (!stored.completed() && objective.type() != stored.type()) {
                 problems.add(new Problem(
                         stored.milestoneKey(),
                         stored.key(),
                         "changed type from " + stored.type() + " to " + objective.type()
                                 + ", but " + stored.amount() + " of progress is already recorded "
                                 + "against it - and `amount` means a different thing for each type."));
-            }
-            if (stored.completed() && objective.target() != stored.target()) {
-                problems.add(new Problem(
-                        stored.milestoneKey(),
-                        stored.key(),
-                        "has already completed and paid out at a target of " + stored.target()
-                                + "; changing it to " + objective.target() + " would rewrite the "
-                                + "arithmetic behind aura that is already in the ledger."));
             }
         }
 

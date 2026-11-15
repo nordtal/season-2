@@ -97,6 +97,30 @@ class MilestoneStateIntegrationTest {
         assertEquals(0, dao.objectivesOf("departure").getFirst().amount(), "and the progress is untouched");
     }
 
+    /** A completed objective keeps the target, type and amount it was paid at, whatever the file declares. */
+    @Test
+    void aCompletedObjectiveKeepsItsPaidRow() {
+        dao.ensureObjective("departure", "logs", "HAND_IN", 2);
+        execute("UPDATE smp_objective SET amount = 2, completed = now() WHERE key = 'logs'");
+
+        assertEquals(1, dao.ensureObjective("departure", "logs", "HAND_IN", 2), "an unchanged target is no news");
+        assertEquals(0, dao.ensureObjective("departure", "logs", "HAND_IN", 1), "a lowered target is kept out");
+        assertEquals(0, dao.ensureObjective("departure", "logs", "STATISTIC", 2), "so is a changed type");
+
+        final ObjectiveRow row = dao.objectivesOf("departure").getFirst();
+        assertEquals(2, row.target());
+        assertEquals(2, row.amount());
+        assertTrue(row.completed());
+        assertEquals(List.of("HAND_IN"), types());
+    }
+
+    private static List<String> types() {
+        return Jdbis.over(dataSource)
+                .withHandle(handle -> handle.createQuery("SELECT type FROM smp_objective ORDER BY key")
+                        .mapTo(String.class)
+                        .list());
+    }
+
     private static List<String> activeKeys() {
         return Jdbis.over(dataSource)
                 .withHandle(handle -> handle.createQuery(

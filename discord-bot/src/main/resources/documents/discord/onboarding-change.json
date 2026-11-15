@@ -18,18 +18,18 @@
                   "style": "TITLE"
                 }
               ]
-            }
-          ]
-        },
-        {
-          "type": "ROW",
-          "items": [
+            },
             {
-              "slot": "change",
-              "label": {
-                "en": "Change language and region",
-                "de": "Sprache und Region ändern"
-              }
+              "type": "ROW",
+              "items": [
+                {
+                  "slot": "change",
+                  "label": {
+                    "en": "Change language and region",
+                    "de": "Sprache und Region ändern"
+                  }
+                }
+              ]
             }
           ]
         }

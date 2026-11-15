@@ -1,32 +1,37 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "Team **{team.name}** invites you to join it for the {@terms.hunger-games} start event.",
-            "de": "{@terms.team, n=1} **{team.name}** lädt dich ein, ihm für das Start-Event der {@terms.hunger-games} beizutreten."
-          }
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
-        {
-          "slot": "accept",
-          "label": {
-            "en": "Accept invitation",
-            "de": "Einladung annehmen"
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "{owner.name} invites you to {@terms.team, n=1} **{team.name}** for the {@terms.hunger-games}.",
+                "de": "{owner.name} lädt dich für die {@terms.hunger-games} ins {@terms.team, n=1} **{team.name}** ein."
+              }
+            }
+          ]
         },
         {
-          "slot": "decline",
-          "label": {
-            "en": "Decline invitation",
-            "de": "Einladung ablehnen"
-          }
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "accept",
+              "label": {
+                "en": "Accept invitation",
+                "de": "Einladung annehmen"
+              }
+            },
+            {
+              "slot": "decline",
+              "label": {
+                "en": "Decline invitation",
+                "de": "Einladung ablehnen"
+              }
+            }
+          ]
         }
       ]
     }

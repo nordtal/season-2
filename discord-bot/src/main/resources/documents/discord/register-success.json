@@ -1,25 +1,30 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "Team **{name}** is registered.",
-            "de": "{@terms.team, n=1} **{name}** ist angemeldet."
-          }
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Team **{name}** is registered.",
+                "de": "{@terms.team, n=1} **{name}** ist angemeldet."
+              }
+            }
+          ]
+        },
         {
-          "slot": "invite",
-          "label": {
-            "en": "Invite a team member",
-            "de": "Teammitglied einladen"
-          }
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "invite",
+              "label": {
+                "en": "Invite a team member",
+                "de": "Teammitglied einladen"
+              }
+            }
+          ]
         }
       ]
     }

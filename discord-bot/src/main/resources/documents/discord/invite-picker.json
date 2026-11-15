@@ -1,25 +1,30 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "Who do you want to invite?",
-            "de": "Wen möchtest du einladen?"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Who do you want to invite?",
+                "de": "Wen möchtest du einladen?"
+              }
+            }
+          ]
+        },
         {
-          "slot": "partner",
-          "placeholder": {
-            "en": "Choose a member",
-            "de": "Mitglied wählen"
-          }
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "partner",
+              "placeholder": {
+                "en": "Choose a member",
+                "de": "Mitglied wählen"
+              }
+            }
+          ]
         }
       ]
     }

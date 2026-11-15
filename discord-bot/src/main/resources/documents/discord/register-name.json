@@ -5,7 +5,7 @@
       "lines": [
         {
           "text": {
-            "en": "Register your {@terms.team, n=1}",
+            "en": "Register a {@terms.team, n=1}",
             "de": "{@terms.team, n=1} anmelden"
           },
           "style": "TITLE"
@@ -22,8 +22,8 @@
             "de": "Teamname"
           },
           "placeholder": {
-            "en": "3-15 characters",
-            "de": "3-15 Zeichen"
+            "en": "3 to 15 characters",
+            "de": "3 bis 15 Zeichen"
           }
         }
       ]

@@ -19,6 +19,7 @@ import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentCheck;
 import eu.nordtal.season.messages.document.DocumentDeclaration;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Line;
 import eu.nordtal.season.messages.document.Part;
@@ -33,7 +34,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import net.dv8tion.jda.api.components.Component;
 import net.dv8tion.jda.api.components.MessageTopLevelComponent;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -52,6 +55,10 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import org.junit.jupiter.api.Test;
 
 class DocumentRendererTest {
+
+    /** The documents that answer one person: every reply and direct message, and the change message. */
+    private static final Pattern TO_ONE_PERSON =
+            Pattern.compile("(link-|unlink-|register-|invite-|purchase-|dm-|onboarding-(?!welcome)).*");
 
     private static final Path VECTORS = Path.of("messages/src/test/resources/discord-documents.json");
 
@@ -174,6 +181,31 @@ class DocumentRendererTest {
         }
 
         assertEquals(List.of(), barred);
+    }
+
+    @Test
+    void aReplyOrADirectMessageIsOneTextOrABoxThatHoldsItsControlsWithoutABanner() {
+        final List<String> wrong = new ArrayList<>();
+        for (final Documents.Packaged each : Documents.packaged(
+                        DocumentRendererTest.class.getClassLoader(), StoredDocuments.NAMESPACE)
+                .values()) {
+            final String name = each.declaration().id().substring(StoredDocuments.NAMESPACE.length() + 1);
+            if (!TO_ONE_PERSON.matcher(name).matches() || each.declaration().shape() != DocumentSpec.Shape.MESSAGE) {
+                continue;
+            }
+            final List<Part> top = each.document().parts().stream()
+                    .flatMap(part -> part.type() == Part.Type.LANGUAGES ? part.inner().stream() : Stream.of(part))
+                    .toList();
+            final boolean oneText = top.size() == 1 && top.getFirst().type() == Part.Type.TEXT;
+            final boolean boxes = top.stream().allMatch(part -> part.type() == Part.Type.CONTAINER);
+            final boolean banner =
+                    each.document().allParts().stream().anyMatch(part -> part.type() == Part.Type.GALLERY);
+            if (!(oneText || boxes) || banner) {
+                wrong.add(name);
+            }
+        }
+
+        assertEquals(List.of(), wrong);
     }
 
     /** Returns whether a component in {@code drawn} is sent with an accent colour, which Discord draws as a bar. */

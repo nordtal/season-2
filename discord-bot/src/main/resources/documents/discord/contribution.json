@@ -24,8 +24,8 @@
           "lines": [
             {
               "text": {
-                "en": "With {@terms.access} you can join the server.",
-                "de": "Mit {@terms.access} kannst du auf den Server."
+                "en": "With {@terms.access} you can join `play.nordtal.eu`.",
+                "de": "Mit {@terms.access} kannst du `play.nordtal.eu` betreten."
               }
             },
             {

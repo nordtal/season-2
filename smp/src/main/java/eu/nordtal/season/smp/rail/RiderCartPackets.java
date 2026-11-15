@@ -13,8 +13,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Keeps the teleport of a driven cart, which the server sends its rider every tick, from reaching that rider.
- * On that packet the client snaps the rider's camera and ears to the cart, so the riding sound steps 20 times a second
- * and rings as a tone; without it the rider's client follows the cart smoothly, as a bystander's does.
+ * On that packet the client snaps the rider's camera and ears to the cart once a tick, the likely cause of the tone a
+ * rider hears; without it the rider's client follows the cart through its moves, as a bystander's does.
  */
 public final class RiderCartPackets extends PacketListenerAbstract implements DrivenCarts {
 

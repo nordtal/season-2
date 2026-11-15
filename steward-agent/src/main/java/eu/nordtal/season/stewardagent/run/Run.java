@@ -17,8 +17,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -315,6 +315,7 @@ final class Run {
             return Outcome.failed();
         }
         try {
+            choreography.noteLeaving(moving);
             final Steps.Step players = plan.announced()
                     ? runner.countDown(request.id(), plan.countdown(), plan.named(), progress, steps.record)
                     : null;
@@ -358,10 +359,11 @@ final class Run {
 
     /**
      * Ends {@code returning} on whether every player the run moved out came back, waiting for the last of them.
-     *
      * Players moved off a held service stay in the waiting room on purpose, so those moves are not counted.
+     *
+     * @param leaving the players seen on the stopped services, the only ones a waiting room may still owe
      */
-    private void countBack(final Steps.Step returning, final boolean counted) {
+    private void countBack(final Steps.Step returning, final boolean counted, final Set<UUID> leaving) {
         if (!counted) {
             // A run from an older schema wrote no moves, so nothing says who should come back.
             returning.warned(RunStep.Reason.PLAYERS_UNKNOWN);
@@ -376,6 +378,7 @@ final class Run {
             return;
         }
         final Instant started = runner.waiting.now();
+        AgentWire.@Nullable Topology topology = null;
         while (true) {
             final Optional<List<RunStep.Move>> moves = steps.record.moves();
             if (moves.isEmpty()) {
@@ -392,7 +395,10 @@ final class Run {
             final Duration elapsed = Duration.between(started, now);
             // The waiting rooms are read only once the cap has passed, since only then do they decide.
             final boolean past = elapsed.compareTo(PlayersBack.CAP) >= 0;
-            final int waiting = past && owed > 0 ? waitingFor(missing, now) : 0;
+            if (past && owed > 0 && topology == null) {
+                topology = topology();
+            }
+            final int waiting = topology != null && owed > 0 ? waitingFor(topology, leaving, missing, now) : 0;
             final boolean maintenance = past && owed > 0 && maintenance();
             switch (PlayersBack.judge(owed, waiting, maintenance, elapsed)) {
                 case DONE -> {
@@ -418,12 +424,15 @@ final class Run {
     }
 
     /**
-     * Returns how many players wait in the rooms the missing players were moved into.
+     * Returns how many of the players who left wait in the rooms the missing players were moved into.
      *
-     * A standby's own players wait in its live room once it stops, so that room counts as well.
+     * A standby's players wait in its live room once it stops, so that room counts too.
      */
-    private int waitingFor(final List<RunStep.Move> missing, final Instant now) {
-        final AgentWire.Topology topology = runner.topology();
+    private int waitingFor(
+            final AgentWire.Topology topology,
+            final Set<UUID> leaving,
+            final List<RunStep.Move> missing,
+            final Instant now) {
         final Optional<String> proxyStandby = topology.standbyOf(Topology.PROXY);
         final Set<String> rooms = new LinkedHashSet<>();
         for (final RunStep.Move move : missing) {
@@ -434,14 +443,27 @@ final class Run {
                     .filter(live -> live != null && !Topology.PROXY.equals(live))
                     .forEach(rooms::add);
         }
-        int waiting = 0;
-        for (final String room : rooms) {
-            final OptionalInt players = proxyStandby.filter(room::equals).isPresent()
-                    ? runner.occupancy().onStandbyProxy(now)
-                    : runner.occupancy().waitingIn(room, now);
-            waiting += players.orElse(0);
+        // The standby proxy writes no roster, only how many it holds.
+        int waiting = proxyStandby.filter(rooms::contains).isPresent()
+                ? runner.occupancy().onStandbyProxy(now).orElse(0)
+                : 0;
+        for (final Map.Entry<UUID, String> player :
+                runner.occupancy().roster(now).entrySet()) {
+            if (leaving.contains(player.getKey()) && rooms.contains(player.getValue())) {
+                waiting++;
+            }
         }
         return waiting;
+    }
+
+    /** Returns the topology, an empty one when it cannot be read, so nobody counts as waiting. */
+    private AgentWire.Topology topology() {
+        try {
+            return runner.topology();
+        } catch (final RuntimeException unread) {
+            log.warn("topology not read, nobody counted as waiting", unread);
+            return new AgentWire.Topology(List.of(), List.of());
+        }
     }
 
     /** Returns whether maintenance is on, false when its row cannot be read. */
@@ -478,7 +500,7 @@ final class Run {
         // The standbys close first, because caddy publishes their ports.
         choreography.close();
         if (moved != null && returning != null) {
-            countBack(returning, moved.written());
+            countBack(returning, moved.written(), choreography.leaving());
         }
         // This runs once the Minecraft services are healthy, with postgres last.
         ForeignImages.renewForeign(runner.containers, steps, plan.foreign(), plan.pulls(), runner.waiting);

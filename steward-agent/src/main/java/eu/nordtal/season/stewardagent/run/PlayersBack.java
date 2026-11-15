@@ -12,7 +12,11 @@ final class PlayersBack {
     /** How long the players moved out may take to come back once the standbys are closed. */
     static final Duration CAP = Duration.ofSeconds(30);
 
-    /** How long the count waits at most while players still wait, so a stuck waiting room cannot hold the run. */
+    /**
+     * How long the count waits at most while players who left still wait.
+     *
+     * It covers the standby proxy's minute and a full SMP queue, so only a stuck waiting room reaches it.
+     */
     static final Duration LIMIT = Duration.ofMinutes(5);
 
     private PlayersBack() {}
@@ -31,7 +35,7 @@ final class PlayersBack {
      * Returns what the count does next.
      *
      * @param missing the players moved out who have not come back
-     * @param waiting the players in the waiting rooms they were moved into, zero when no fresh count says
+     * @param waiting the players who left and still wait in a waiting room, zero when no fresh roster says
      * @param maintenance whether maintenance keeps members in the waiting room
      * @param elapsed the time since the count began
      */

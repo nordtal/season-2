@@ -6,11 +6,23 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ServerConnection;
+import com.velocitypowered.api.proxy.server.ServerInfo;
 import eu.nordtal.season.common.time.CountdownPlan;
+import eu.nordtal.season.database.update.RunRecorder;
 import eu.nordtal.season.proxy.NetworkServers;
+import eu.nordtal.season.proxy.ProxyRenderer;
+import eu.nordtal.season.proxy.gate.LoginRoster;
+import java.lang.reflect.Proxy;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 /** The way back, and who is told about it: nobody just logged in, nobody waiting, and never without warning. */
 class HomecomingTest {
@@ -82,13 +94,13 @@ class HomecomingTest {
 
     @Test
     void aReturnCountsAgainstTheRoomThePlayerWasMovedIntoWhereverTheyWaitedSince() {
-        final List<String> counted = new java.util.ArrayList<>();
+        final List<String> counted = new ArrayList<>();
         final Homecoming counting = new Homecoming(
-                org.slf4j.LoggerFactory.getLogger(HomecomingTest.class),
-                eu.nordtal.season.proxy.ProxyRenderer.RENDERER,
-                new eu.nordtal.season.proxy.gate.LoginRoster(),
+                LoggerFactory.getLogger(HomecomingTest.class),
+                ProxyRenderer.RENDERER,
+                new LoginRoster(),
                 SERVERS,
-                new eu.nordtal.season.database.update.RunRecorder() {
+                new RunRecorder() {
                     @Override
                     public void returned(final String from, final String to, final int players) {
                         counted.add(from + " -> " + to + " " + players);
@@ -142,22 +154,19 @@ class HomecomingTest {
 
     // the lines
 
-    private static com.velocitypowered.api.proxy.Player player(final UUID uuid, final String on) {
-        final var info = new com.velocitypowered.api.proxy.server.ServerInfo(
-                on, java.net.InetSocketAddress.createUnresolved(on, 25565));
-        final var connection = fake(
-                com.velocitypowered.api.proxy.ServerConnection.class,
-                method -> "getServerInfo".equals(method) ? info : null);
-        return fake(com.velocitypowered.api.proxy.Player.class, method -> switch (method) {
+    private static Player player(final UUID uuid, final String on) {
+        final var info = new ServerInfo(on, InetSocketAddress.createUnresolved(on, 25565));
+        final var connection = fake(ServerConnection.class, method -> "getServerInfo".equals(method) ? info : null);
+        return fake(Player.class, method -> switch (method) {
             case "getUniqueId" -> uuid;
             case "getUsername" -> "somebody";
-            case "getCurrentServer" -> java.util.Optional.of(connection);
+            case "getCurrentServer" -> Optional.of(connection);
             default -> null;
         });
     }
 
-    private static <T> T fake(final Class<T> type, final java.util.function.Function<String, Object> answer) {
-        return type.cast(java.lang.reflect.Proxy.newProxyInstance(
+    private static <T> T fake(final Class<T> type, final Function<String, Object> answer) {
+        return type.cast(Proxy.newProxyInstance(
                 HomecomingTest.class.getClassLoader(),
                 new Class<?>[] {type},
                 (self, method, arguments) ->

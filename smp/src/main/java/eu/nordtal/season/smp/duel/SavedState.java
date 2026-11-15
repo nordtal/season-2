@@ -7,8 +7,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
-import org.bukkit.event.inventory.InventoryType;
-import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.jspecify.annotations.Nullable;
@@ -98,9 +97,8 @@ public final class SavedState {
 
     /** Deletes the cursor and any crafting grid, so no kit item outlasts the duel, then closes the screen. */
     private static void emptyScreen(final Player player) {
-        final Inventory top = player.getOpenInventory().getTopInventory();
-        if (top.getType() == InventoryType.CRAFTING || top.getType() == InventoryType.WORKBENCH) {
-            top.clear();
+        if (player.getOpenInventory().getTopInventory() instanceof final CraftingInventory grid) {
+            grid.clear();
         }
         player.setItemOnCursor(null);
         player.closeInventory();

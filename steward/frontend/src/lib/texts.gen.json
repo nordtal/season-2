@@ -1502,7 +1502,7 @@
     "steward.router.closed-screen": [["members see the closed screen"]],
     "steward.router.closes-until": [["Closes the ",{"b":"terms.season"}," until then."]],
     "steward.router.date-title": [["Change the launch date?"]],
-    "steward.router.done": [[{"c":"change","plural":false,"cases":{"launch":["Launch date set."],"launch-now":["The ",{"b":"terms.season"}," is launched."],"close":["The ",{"b":"terms.season"}," is closed."],"maintenance-on":["Maintenance is on."],"maintenance-off":["Maintenance is off."],"switch":["The ",{"b":"terms.game-mode"}," switch is requested."],"other":[{"v":"change"}]}}]],
+    "steward.router.done": [[{"c":"change","plural":false,"cases":{"launch":["Launch date set."],"launch-now":["The ",{"b":"terms.season"}," is launched."],"close":["The ",{"b":"terms.season"}," is closed."],"maintenance-on":["Maintenance is on."],"maintenance-off":["Maintenance is off."],"switch":["Requested the ",{"b":"terms.game-mode"}," switch."],"other":[{"v":"change"}]}}]],
     "steward.router.end-maintenance": [["End maintenance"]],
     "steward.router.end-maintenance-title": [["End maintenance?"]],
     "steward.router.every-member": [["every member"]],

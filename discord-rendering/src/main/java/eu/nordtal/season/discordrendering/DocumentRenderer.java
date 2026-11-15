@@ -212,6 +212,9 @@ public final class DocumentRenderer {
      */
     public static final List<String> BUNDLES = List.of("messages/admin", "messages/database");
 
+    /** The line under a list that is cut to fit, counting what it leaves out. */
+    private static final Text MORE = Text.of("{@values.list.more, n=left}");
+
     private final DiscordRenderer messages;
     private final Source stored;
 
@@ -740,7 +743,8 @@ public final class DocumentRenderer {
                 lines.add(format(locale, line.text(), item, itemKinds, TextFormat.DISCORD_MARKDOWN));
             }
             if (shown < all.size()) {
-                lines.add("+" + (all.size() - shown));
+                final Map<String, Object> left = Map.of("left", all.size() - shown);
+                lines.add(format(locale, MORE, left, Map.of("left", Kind.NUMBER), TextFormat.DISCORD_MARKDOWN));
             }
             return lines;
         }

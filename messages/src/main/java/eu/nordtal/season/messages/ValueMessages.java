@@ -140,6 +140,9 @@ public interface ValueMessages {
 
             @Name("Joined with or")
             MessageRef or(@Arg("rest") @Example("Alex, Sam") String rest, @Arg("last") @Example("Kim") String last);
+
+            @Name("The lines a cut list leaves out")
+            MessageRef more(@Arg("n") @Example("36") long n);
         }
 
         Choice choice();

@@ -41,7 +41,7 @@ class ManagedMessagesTest {
                 () -> assertEquals(1, drawn.components().size()),
                 () -> assertInstanceOf(MediaGallery.class, box.getComponents().getFirst()),
                 () -> assertEquals(
-                        "With access you can join the server.\n**30 days** for €5.00\n**90 days** for €12.50",
+                        "With access you can join `play.nordtal.eu`.\n**30 days** for €5.00\n**90 days** for €12.50",
                         ((TextDisplay) box.getComponents().get(2)).getContent()),
                 () -> assertEquals(List.of("contribution.png"), drawn.attachments()),
                 () -> assertEquals(Ids.BUY, buy.getCustomId()),

@@ -6,7 +6,7 @@ author: nordtal
 website: https://nordtal.eu
 api-version: "26.3"
 
-# The name tags need PacketEvents. A server without it fails at start. TAB is used when present.
+# The name tags and the rides need PacketEvents. A server without it fails at start. TAB is used when present.
 dependencies:
   server:
     packetevents:

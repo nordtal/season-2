@@ -137,6 +137,15 @@ public interface SoundsSpec {
         return DefaultSounds.POP;
     }
 
+    /** A ride on the rails setting off. It is struck three times, 300 milliseconds apart. */
+    @Order(15)
+    @Name("Departure")
+    @Key("departure")
+    @NoExplanationNeeded
+    default SoundSpec departure() {
+        return DefaultSounds.DEPARTURE;
+    }
+
     /** One sound: the key, how loud, how fast. */
     @ConfigSpec
     interface SoundSpec {

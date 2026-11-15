@@ -32,6 +32,7 @@ import eu.nordtal.season.smp.rail.NetworkCarts;
 import eu.nordtal.season.smp.rail.RailNetworks;
 import eu.nordtal.season.smp.rail.RailStore;
 import eu.nordtal.season.smp.rail.RideFeedback;
+import eu.nordtal.season.smp.rail.RiderCartPackets;
 import eu.nordtal.season.smp.rail.Rides;
 import eu.nordtal.season.smp.rail.SpawnStation;
 import eu.nordtal.season.smp.rail.StationMenus;
@@ -287,7 +288,7 @@ final class SmpStart {
     }
 
     /** The rail networks and the rides on them, which stop together. */
-    record Rails(RailNetworks networks, Rides rides) {}
+    record Rails(RailNetworks networks, Rides rides, RiderCartPackets packets) {}
 
     /**
      * Starts the rail networks and the rides that drive minecarts along them.
@@ -309,6 +310,8 @@ final class SmpStart {
         scheduler.onMainEvery(Duration.ofSeconds(1), Duration.ofSeconds(1), spawn::tick);
         final Rides rides = new Rides(scheduler, rails, tickets, plugin.railSettings::get, plugin.sounds);
         rides.whenSwitched(effects::junctionSwitched);
+        final RiderCartPackets packets = RiderCartPackets.register();
+        rides.tell(packets);
         scheduler.onMainEvery(PaperScheduler.TICK, PaperScheduler.TICK, rides::tick);
         plugin.getServer().getPluginManager().registerEvents(rides, plugin);
         plugin.getServer()
@@ -326,8 +329,13 @@ final class SmpStart {
                 plugin.dialogs(),
                 () -> plugin.railSettings.get().stationWidth());
         plugin.getServer().getPluginManager().registerEvents(menus, plugin);
-        final RideFeedback feedback =
-                new RideFeedback(plugin.renderer(), plugin.identities(), plugin.sounds, plugin.clock(), menus::waiting);
+        final RideFeedback feedback = new RideFeedback(
+                plugin.renderer(),
+                plugin.identities(),
+                plugin.sounds,
+                plugin.clock(),
+                scheduler.mainThread(),
+                menus::waiting);
         rides.watch(feedback);
         plugin.hud().declare(feedback);
         plugin.hud().declare(feedback::below);
@@ -337,6 +345,6 @@ final class SmpStart {
                         NetworkCarts.of(
                                 rails, rides, menus, plugin.renderer(), plugin.identities(), plugin.sounds, scheduler),
                         plugin);
-        return new Rails(rails, rides);
+        return new Rails(rails, rides, packets);
     }
 }

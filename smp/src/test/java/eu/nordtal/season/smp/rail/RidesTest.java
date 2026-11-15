@@ -94,6 +94,7 @@ class RidesTest {
     /** A cart with its rider, as the fakes keep them. */
     private final class Rider {
         private final UUID id = UUID.randomUUID();
+        private final int entityId = id.hashCode();
         private final UUID playerId = UUID.randomUUID();
         private Location at;
         private @Nullable RideableMinecart vehicle;
@@ -103,6 +104,7 @@ class RidesTest {
         private final RideableMinecart cart =
                 fake(RideableMinecart.class, (proxy, method, args) -> switch (method.getName()) {
                     case "getUniqueId" -> id;
+                    case "getEntityId" -> entityId;
                     case "getWorld" -> world;
                     case "getLocation" -> at.clone();
                     case "teleport" -> {
@@ -367,6 +369,34 @@ class RidesTest {
 
         assertSetDownOn(at(40, 64, 0), rider);
         assertTrue(rider.gravity, "vanilla physics are back");
+    }
+
+    @Test
+    void theCartOfARideIsToldWithItsRiderUntilTheRideEnds() {
+        track.eastWest(0, 40, 64, 0);
+        stations(at(0, 64, 0), at(40, 64, 0));
+        final Map<Integer, UUID> driving = new HashMap<>();
+        final List<Integer> starts = new ArrayList<>();
+        rides.tell(new DrivenCarts() {
+            @Override
+            public void started(final int cart, final UUID rider) {
+                starts.add(cart);
+                driving.put(cart, rider);
+            }
+
+            @Override
+            public void ended(final int cart) {
+                driving.remove(cart);
+            }
+        });
+
+        final Rider rider = drive(at(0, 64, 0), 2);
+        assertEquals(Map.of(rider.entityId, rider.playerId), driving);
+        assertTrue(rides.drive(rider.player, rider.cart, station(2)), "the running ride plans again");
+        tickUntil(() -> ended(rider));
+
+        assertEquals(List.of(rider.entityId), starts, "planning again starts no second ride");
+        assertEquals(Map.of(), driving, "the ended ride is told");
     }
 
     @Test

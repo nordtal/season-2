@@ -60,7 +60,16 @@ configurations.consumable("wheelDocuments") {
     outgoing.artifact(layout.buildDirectory.dir("wheel-documents")) { builtBy(wheelDocuments) }
 }
 
+repositories {
+    // PacketEvents.
+    maven("https://repo.codemc.io/repository/maven-releases/")
+}
+
 dependencies {
+    // The server brings PacketEvents. Rides hold a driven cart's teleports back from its rider through it.
+    compileOnly(libs.packetevents)
+    testImplementation(libs.packetevents)
+
     // The assembled resource pack. The menu tests measure fonts that exist only in it.
     "resourcePack"(project(":resource-pack", "pack"))
 

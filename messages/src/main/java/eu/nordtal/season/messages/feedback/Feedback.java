@@ -27,7 +27,7 @@ public enum Feedback {
     /** A click in a surface that picks something. */
     SELECT,
 
-    /** The way to the duel arena. */
+    /** The way to the duel arena or into a game. */
     TRAVEL,
 
     /** One tick of a countdown before a duel start or a restart. */
@@ -46,5 +46,8 @@ public enum Feedback {
     SWITCH,
 
     /** A piece that pops into its place, such as a prize swapped onto the wheel before it turns. */
-    POP
+    POP,
+
+    /** A ride on the rails setting off for its station. */
+    DEPARTURE
 }

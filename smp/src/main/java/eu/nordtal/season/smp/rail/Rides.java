@@ -72,6 +72,7 @@ public final class Rides implements Listener {
     private Consumer<Player> stranded = _ -> {};
     private Consumer<Location> switched = _ -> {};
     private RideWatch watch = RideWatch.NONE;
+    private DrivenCarts carts = DrivenCarts.NONE;
 
     /** One cart on its way: the line it follows, how far along it is and how fast it goes. */
     private static final class Ride {
@@ -141,6 +142,11 @@ public final class Rides implements Listener {
         this.watch = watching;
     }
 
+    /** Tells {@code told} which carts the rides drive and who rides each. */
+    public void tell(final DrivenCarts told) {
+        this.carts = told;
+    }
+
     /** Returns whether a ride drives {@code cart} now. */
     boolean driving(final RideableMinecart cart) {
         return rides.containsKey(cart.getUniqueId());
@@ -171,6 +177,7 @@ public final class Rides implements Listener {
             return false;
         }
         rides.put(cart.getUniqueId(), ride);
+        carts.started(cart.getEntityId(), rider.getUniqueId());
         // The plugin moves the cart every tick, so vanilla gravity would only pull it off the line in between.
         cart.setGravity(false);
         // The cart keeps the velocity it rides at, for the client's riding sound; vanilla must not move it by that too.
@@ -546,6 +553,7 @@ public final class Rides implements Listener {
 
     private void release(final Ride ride) {
         watch.ended(ride.rider);
+        carts.ended(ride.cart.getEntityId());
         unclaim(ride);
         standStill(ride.cart);
         ride.held.forEach(key -> tickets.release(ride.world, key));

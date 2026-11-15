@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.rail;
 
+import eu.nordtal.season.common.time.Scheduler;
 import eu.nordtal.season.messagerendering.Lines;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.document.DocumentSpec;
@@ -12,6 +13,7 @@ import eu.nordtal.season.papercommon.hud.HudLine;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -50,16 +52,24 @@ public final class RideFeedback implements HudLine, RideWatch {
                     "smp", "hud-ride-dismount", "HUD", DocumentSpec.Shape.BOSS_BAR)
             .titled("Getting out of a standing cart in the HUD");
 
+    /** How often a departure strikes its sound. */
+    static final int STRIKES = 3;
+
+    /** The time between two strikes of a departure. */
+    static final Duration STRIKE_SPACING = Duration.ofMillis(300);
+
     private final MessageRenderer renderer;
     private final Identities identities;
     private final SmpSounds sounds;
     private final Clock clock;
+    private final Scheduler mainThread;
     private final Function<Player, Optional<Boolean>> waiting;
     private final RideDisplay display = new RideDisplay();
 
     /**
      * Creates the feedback of every ride.
      *
+     * @param mainThread runs the later strikes of a departure on the main thread
      * @param waiting for a rider whose cart stands on a network, whether it has a station to choose; else empty
      */
     public RideFeedback(
@@ -67,11 +77,13 @@ public final class RideFeedback implements HudLine, RideWatch {
             final Identities identities,
             final SmpSounds sounds,
             final Clock clock,
+            final Scheduler mainThread,
             final Function<Player, Optional<Boolean>> waiting) {
         this.renderer = renderer;
         this.identities = identities;
         this.sounds = sounds;
         this.clock = clock;
+        this.mainThread = mainThread;
         this.waiting = waiting;
     }
 
@@ -79,8 +91,17 @@ public final class RideFeedback implements HudLine, RideWatch {
     public void planned(final Player rider, final UUID station, final String name, final double left) {
         display.planned(rider.getUniqueId(), station, name, left).ifPresent(departing -> {
             tell(rider, DEPARTING, departing);
-            sounds.play(rider, Feedback.TRAVEL);
+            depart(rider);
         });
+    }
+
+    /** Strikes the departure now and twice more after it. */
+    private void depart(final Player rider) {
+        sounds.play(rider, Feedback.DEPARTURE);
+        for (int strike = 1; strike < STRIKES; strike++) {
+            final Scheduler.Task _ =
+                    mainThread.after(STRIKE_SPACING.multipliedBy(strike), () -> sounds.play(rider, Feedback.DEPARTURE));
+        }
     }
 
     @Override

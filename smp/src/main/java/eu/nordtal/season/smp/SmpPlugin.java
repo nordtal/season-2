@@ -434,6 +434,7 @@ public final class SmpPlugin extends NordtalPlugin {
         final SmpStart.Rails tracked = rails;
         if (tracked != null) {
             quietly("rides.stop", tracked.rides()::stop);
+            quietly("riderCartPackets.stop", tracked.packets()::stop);
             quietly("rails.stop", tracked.networks()::stop);
         }
         final MapPortals scanning = portals;

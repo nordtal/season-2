@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.duel;
 
+import com.destroystokyo.paper.event.player.PlayerAdvancementCriterionGrantEvent;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -10,7 +11,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-/** A disconnect counts as a defeat. */
+/** A disconnect counts as a defeat, and no advancement criterion is granted in a duel. */
 public final class DuelListener implements Listener {
 
     private final Duels duels;
@@ -69,6 +70,14 @@ public final class DuelListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onDrop(final org.bukkit.event.player.PlayerDropItemEvent event) {
         if (duels.isInArena(event.getPlayer())) {
+            event.setCancelled(true);
+        }
+    }
+
+    /** Refuses the grant itself, so a duel completes no advancement, shows no toast and counts for no gate later. */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onCriterion(final PlayerAdvancementCriterionGrantEvent event) {
+        if (duels.refusesAdvancements(event.getPlayer())) {
             event.setCancelled(true);
         }
     }

@@ -111,6 +111,7 @@ languages     the languages of the pack's language files, such as en_us
 texts[]       key, values (language to text), owner, draft, review
 sounds[]      id, replace, subtitle, subtitles (language to text), draft, review, sounds[]
   sounds[]    name (with its namespace), file, and the fields of the entry: volume, pitch, weight, stream, ...
+files[]       category (namespace:folder), entries[]: id, file, name, kind, problems, draft, review
 drafts[]      id, label, state, files, keys, sounds, review, conflict: files, fields[]: name, clone, main
 reviews[]     number, url, decision, checks, comments[]: author, body, path, url
 ```
@@ -136,6 +137,9 @@ that it holds.
 `sounds` lists every event of the pack's `sounds.json` files. `file` of a sound is the pack's `.ogg`,
 or null for a sound of Minecraft or an event. A subtitle's text is part of its event's draft, so it
 is no text of its own. `sounds` of a draft are the events that it holds.
+`files` lists every other file under `src/assets/<namespace>/`, as "Other files" below describes. Its `id` is
+the namespace and the path below it, such as `minecraft:blockstates/stone.json`, `name` the path below its category's
+folder, `kind` the kind of that folder and `problems` what the check of the file finds, one sentence each.
 `draft` is the id of the draft that a texture, block, font or item is, as `drafts` names it, which the
 next section describes, or null where it is none. An item without a texture is the draft of its file.
 The file of an item with a texture is part of its texture's draft. `review` is the number of the pull request that holds the texture, block,
@@ -300,6 +304,37 @@ all or nothing, and fails with the reason when it refuses.
 - A deleted item is one draft with each model and texture that went with it: the draft of its texture when that
   went too, else of its own file.
 - A texture or an item that the pack lacks is refused at `texture` or `item`.
+
+## Other files
+
+Every file under `src/assets/<namespace>/` that no glyph, item, texture, text or sound is, such as a block or item
+model, a block state, an atlas, an equipment asset, a particle, a shader, a post effect or `texts/splashes.txt`, is a
+file of its own. Nordtal Designer lists them under **Files** and opens each in a text editor. A file under `font/` is
+none: the build writes the fonts from `glyphs.json`.
+
+```bash
+./gradlew -q :resource-pack:createFile -Passet=nordtal:models/item/lamp.json
+./gradlew -q :resource-pack:createFile -Passet=minecraft:blockstates/stone.json -Pvanilla=true
+./gradlew -q :resource-pack:deleteFile -Passet=nordtal:models/item/lamp.json
+```
+
+| task         | options            | prints                                |
+| ------------ | ------------------ | ------------------------------------- |
+| `createFile` | `asset`, `vanilla` | the absolute path of the file written |
+| `deleteFile` | `asset`            | the absolute path of the file removed |
+
+- `createFile` writes a new file from the template of its folder: a model with the parent
+  `minecraft:item/generated`, a block state that shows `minecraft:block/stone`, an atlas, equipment asset or
+  particle without entries, and an empty file in any other folder. With `vanilla=true` it copies the file of the
+  client jar. It is refused at `asset` for a file that exists, a path without a file name and extension, and a path
+  under `textures`, `lang`, `items`, `sounds` or `font`.
+- `deleteFile` refuses a model of the pack that the client jar lacks while another JSON file of the pack names it, and
+  lists each place as `path:line`.
+- The check, which describePack shows and checkPack enforces, reads each JSON file of a folder it knows. A model's
+  `parent` and `textures` name a model and textures, and each element has `from` and `to` of three numbers and its
+  `faces`. A block state has either `variants` or `multipart`, and each names its `model`. An atlas lists `sources`
+  with a `type`, an equipment asset lists `layers` with a `texture`, and a particle lists `textures`. A reference into
+  `minecraft` may name the client jar, which the check does not open, so it passes; any other has to be in the pack.
 
 ## Texts
 
@@ -745,7 +780,7 @@ against the SHA-1 of Mojang's version manifest and keeps in `~/.gradle/caches/fa
 of its result, one file per line.
 
 ```bash
-./gradlew -q :resource-pack:listVanillaAssets       # build/vanilla-assets.json: textures (id, width, height, mcmeta), items, sounds (id, subtitle, sounds)
+./gradlew -q :resource-pack:listVanillaAssets       # build/vanilla-assets.json: textures (id, width, height, mcmeta), items, files, sounds (id, subtitle, sounds)
 ./gradlew -q :resource-pack:copyVanillaTexture -Ptexture=minecraft:block/stone.png
 ```
 

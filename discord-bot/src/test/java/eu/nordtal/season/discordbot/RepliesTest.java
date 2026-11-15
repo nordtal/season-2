@@ -28,9 +28,8 @@ class RepliesTest {
     @Test
     void aReplyIsFilledWithItsValues() {
         assertEquals(
-                "The payment link is still missing. Your reference is **NTABC123**.",
+                "The payment link is still missing.\nSend your reference **NTABC123** to an admin.",
                 RENDERER.reply(Locale.ENGLISH, new Sent<>(Replies.PURCHASE_SLOW, new Replies.Reference("NTABC123")))
-                        .text()
-                        .substring(0, 66));
+                        .text());
     }
 }

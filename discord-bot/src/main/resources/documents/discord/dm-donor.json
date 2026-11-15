@@ -1,13 +1,24 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "The donor role is yours for good. Thank you for your donation.",
-            "de": "Die Spenderrolle gehört dir dauerhaft. Danke für deine Spende."
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "The permanent donor role is yours.",
+                "de": "Die dauerhafte Spenderrolle gehört dir."
+              }
+            },
+            {
+              "text": {
+                "en": "Thank you for your donation.",
+                "de": "Danke für deine Spende."
+              }
+            }
+          ]
         }
       ]
     }

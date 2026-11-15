@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "No {@terms.access} on sale yet: the {@terms.season} has no launch date.",
-            "de": "Noch kein {@terms.access} zu kaufen: Die {@terms.season} hat noch keinen Starttermin."
+            "de": "{@terms.access} kannst du noch nicht kaufen: Die {@terms.season} hat noch keinen Starttermin."
           }
         }
       ]

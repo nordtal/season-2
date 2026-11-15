@@ -2,8 +2,11 @@
   "parts": [
     {
       "type": "CONTAINER",
-      "accent": "#4a63d8",
       "parts": [
+        {
+          "type": "GALLERY",
+          "media": ["attachment://hunger-games.png"]
+        },
         {
           "type": "TEXT",
           "lines": [
@@ -21,66 +24,29 @@
           "lines": [
             {
               "text": {
-                "en": "Team",
-                "de": "{@terms.team, n=1}"
-              },
-              "style": "HEADING"
+                "en": "A {@terms.team, n=1} has 1 or 2 {@terms.participant, n=2}.",
+                "de": "Ein {@terms.team, n=1} hat 1 oder 2 {@terms.participant, n=2}."
+              }
             },
             {
               "text": {
-                "en": "1-2 {@terms.player, n=2}",
-                "de": "1-2 {@terms.player, n=2}"
+                "en": "If your team member is not there when the game starts, you play alone with full hearts.",
+                "de": "Ist dein Teammitglied beim Start nicht da, spielst du allein mit vollen Herzen."
               }
             }
           ]
         },
         {
-          "type": "TEXT",
-          "lines": [
+          "type": "ROW",
+          "items": [
             {
-              "text": {
-                "en": "Name",
-                "de": "Name"
-              },
-              "style": "HEADING"
-            },
-            {
-              "text": {
-                "en": "3-15 characters",
-                "de": "3-15 Zeichen"
+              "slot": "register",
+              "label": {
+                "en": "Register a {@terms.team, n=1}",
+                "de": "{@terms.team, n=1} anmelden"
               }
             }
           ]
-        },
-        {
-          "type": "TEXT",
-          "lines": [
-            {
-              "text": {
-                "en": "No-show",
-                "de": "Nicht erschienen"
-              },
-              "style": "HEADING"
-            },
-            {
-              "text": {
-                "en": "*duo → solo, full health*",
-                "de": "*Duo → solo, volle Gesundheit*"
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
-        {
-          "slot": "register",
-          "label": {
-            "en": "Register a {@terms.team, n=1}",
-            "de": "{@terms.team, n=1} anmelden"
-          }
         }
       ]
     }

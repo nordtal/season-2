@@ -344,7 +344,13 @@ class DocumentsApiIntegrationTest {
         assertEquals("upload://" + id, uploaded.get("address").getAsString());
         assertEquals("image/png", store.image(id).orElseThrow().mediaType());
         send("POST", "/api/document-images", "not an image".getBytes(UTF_8), 400);
-        send("POST", "/api/document-images", new byte[DocumentsApi.IMAGE_BYTES + 1], 413);
+        assertEquals(
+                "Not uploaded: the file is larger than " + DocumentsApi.IMAGE_MEBIBYTES + " MiB.",
+                GSON.fromJson(
+                                send("POST", "/api/document-images", new byte[DocumentsApi.IMAGE_BYTES + 1], 413),
+                                JsonObject.class)
+                        .get("error")
+                        .getAsString());
         final String shown = WELCOME.replace(
                 "{\"type\":\"ROW\"", "{\"type\":\"GALLERY\",\"media\":[\"upload://" + id + "\"]},{\"type\":\"ROW\"");
         send("PUT", "/api/documents/smp/welcome", shown.getBytes(UTF_8), 200);

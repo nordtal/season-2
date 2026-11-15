@@ -11,6 +11,7 @@ import eu.nordtal.season.smp.board.Boards;
 import eu.nordtal.season.smp.config.DeathsSpec;
 import eu.nordtal.season.smp.duel.DuelListener;
 import eu.nordtal.season.smp.duel.Duels;
+import eu.nordtal.season.smp.eye.MapPortals;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.grave.GraveDao;
 import eu.nordtal.season.smp.grave.GraveListener;
@@ -201,8 +202,7 @@ final class SmpStart {
                                 plugin.identities(),
                                 plugin.awardSettings.get(),
                                 plugin.renderer(),
-                                plugin.sounds,
-                                activities.duels()),
+                                plugin.sounds),
                         plugin);
         plugin.getServer()
                 .getPluginManager()
@@ -276,6 +276,14 @@ final class SmpStart {
                                 plugin.identities(),
                                 plugin.sounds),
                         plugin);
+    }
+
+    /** Scans the worlds for the map's End portals, to which every thrown eye of ender flies. */
+    static MapPortals wireMapPortals(final SmpPlugin plugin) {
+        final MapPortals portals = new MapPortals(plugin.getDataPath(), plugin.getLogger(), PaperScheduler.of(plugin));
+        plugin.getServer().getPluginManager().registerEvents(portals, plugin);
+        portals.start(plugin.getServer().getWorlds());
+        return portals;
     }
 
     /** The rail networks and the rides on them, which stop together. */

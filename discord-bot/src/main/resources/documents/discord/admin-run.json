@@ -2,7 +2,6 @@
   "parts": [
     {
       "type": "CONTAINER",
-      "accent": "#4a63d8",
       "parts": [
         {
           "type": "TEXT",
@@ -19,16 +18,16 @@
           "type": "TEXT",
           "lines": [
             {
+              "list": "why",
               "text": {
-                "en": "**By** {@values.actor, kind=by}"
-              },
-              "when": "by"
+                "en": "**{service}**: {what}"
+              }
             },
             {
+              "list": "reasons",
               "text": {
-                "en": "**Duration** {took, duration, short}"
-              },
-              "when": "took"
+                "en": "{what}"
+              }
             }
           ]
         },
@@ -36,58 +35,50 @@
           "type": "TEXT",
           "lines": [
             {
-              "text": {
-                "en": "Services"
-              },
-              "style": "HEADING"
-            },
-            {
               "list": "services",
               "text": {
-                "en": "{mark} **{service}** *{state}* {changes}"
+                "en": "{mark} **{service}** {changes}"
               }
             },
             {
               "list": "quiet",
               "text": {
-                "en": "{mark} **{service}** *{state}*"
+                "en": "{mark} **{service}** {state}"
               }
             }
           ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "open",
+              "label": {
+                "en": "Open the run in Steward"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEPARATOR",
+          "when": "by"
         },
         {
           "type": "TEXT",
           "lines": [
             {
               "text": {
-                "en": "Why"
+                "en": "Requested by {@values.actor, kind=by}"
               },
-              "style": "HEADING"
+              "when": "by"
             },
             {
               "text": {
-                "en": "**{service}** {what}"
+                "en": "Took {took, duration, short}"
               },
-              "list": "why"
-            },
-            {
-              "text": {
-                "en": "{what}"
-              },
-              "list": "reasons"
+              "when": "took"
             }
           ]
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
-        {
-          "slot": "open",
-          "label": {
-            "en": "Open in Steward"
-          }
         }
       ]
     }

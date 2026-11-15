@@ -154,6 +154,23 @@ fetch_datapacks() {
     shopt -u nullglob
 }
 
+# The image carries Nordtal's own packs as folders. The function copies each one over the folder of the
+# same name in the world, so a pack changed in the image replaces the old copy on the next start.
+install_bundled_datapacks() {
+    local dir="$1" from="${BUNDLED_DATAPACKS:-/usr/local/share/nordtal/datapacks}" pack name
+
+    [[ -d "$from" ]] || return 0
+    mkdir -p "$dir"
+    shopt -s nullglob
+    for pack in "$from"/*/; do
+        name="$(basename "$pack")"
+        rm -rf "${dir:?}/${name}"
+        cp -R "$pack" "${dir}/${name}"
+        log "bundled datapack installed: pack=\"${name}\""
+    done
+    shopt -u nullglob
+}
+
 prepare_backend() {
     local global="$DATA/config/paper-global.yml"
 
@@ -204,7 +221,11 @@ configure_prism() {
         warn "database url not postgresql, prism left on defaults: key=NORDTAL_SMP_DATABASE_JDBC_URL"
         return 0
     fi
-    if [[ "${NORDTAL_SMP_DATABASE_PASSWORD:?}" == *[[:cntrl:]]* ]]; then
+    [[ -n "${NORDTAL_SMP_DATABASE_USERNAME:-}" ]] \
+        || die "Not started: NORDTAL_SMP_DATABASE_USERNAME is not set, while NORDTAL_SMP_DATABASE_JDBC_URL is. Set both, or neither."
+    [[ -n "${NORDTAL_SMP_DATABASE_PASSWORD:-}" ]] \
+        || die "Not started: NORDTAL_SMP_DATABASE_PASSWORD is not set, while NORDTAL_SMP_DATABASE_JDBC_URL is. Set both, or neither."
+    if [[ "$NORDTAL_SMP_DATABASE_PASSWORD" == *[[:cntrl:]]* ]]; then
         rm -f "$file"
         warn "database password holds a control character, prism left on defaults"
         return 0
@@ -223,8 +244,8 @@ postgres {
     port=$(hocon_string "$port")
     database=$(hocon_string "$database")
     schema=prism
-    username=$(hocon_string "${NORDTAL_SMP_DATABASE_USERNAME:?}")
-    password=$(hocon_string "${NORDTAL_SMP_DATABASE_PASSWORD:?}")
+    username=$(hocon_string "$NORDTAL_SMP_DATABASE_USERNAME")
+    password=$(hocon_string "$NORDTAL_SMP_DATABASE_PASSWORD")
 }
 HOCON
     )
@@ -469,14 +490,20 @@ ensure_velocity_advanced() {
     esac
 }
 
-# entrypoint-test.sh sources the definitions above. The guard sits before the `:?` checks, which
-# would kill a sourcing shell.
+# Stops the start on an unset SERVER_KIND or SERVER_VERSION, through die for the FATAL prefix that
+# steward-agent reads as the restart cause.
+check_server_settings() {
+    [[ -n "${SERVER_KIND:-}" ]] || die "Not started: SERVER_KIND is not set. Set it to paper or velocity."
+    # paper: the exact Minecraft version. velocity: the family name of Fill, whose newest release the script resolves.
+    [[ -n "${SERVER_VERSION:-}" ]] \
+        || die "Not started: SERVER_VERSION is not set. Set it to the Minecraft version for paper, as in 26.2, or the Fill family for velocity, as in 4.0.0."
+    # SERVER_BUILD does not exist: an empty cache gets the newest STABLE build.
+}
+
+# entrypoint-test.sh sources the definitions above. The guard keeps a sourcing shell from starting a server.
 [[ "${BASH_SOURCE[0]}" == "${0}" ]] || return 0
 
-: "${SERVER_KIND:?Not started: SERVER_KIND is not set. Set it to paper or velocity.}"
-# paper: the exact Minecraft version. velocity: the family name of Fill, whose newest release the script resolves.
-: "${SERVER_VERSION:?Not started: SERVER_VERSION is not set. Set it to the Minecraft version for paper, as in 26.2, or the Fill family for velocity, as in 4.0.0.}"
-# SERVER_BUILD does not exist: an empty cache gets the newest STABLE build.
+check_server_settings
 
 case "$SERVER_KIND" in
     paper|velocity) ;;
@@ -614,6 +641,7 @@ if [[ "$SERVER_KIND" == "paper" ]]; then
 
     if [[ -n "${DATAPACK_URLS:-}" ]]; then
         fetch_datapacks "$DATA/${LEVEL_NAME}/datapacks"
+        install_bundled_datapacks "$DATA/${LEVEL_NAME}/datapacks"
     fi
 
     if [[ -n "${PAPER_VELOCITY_SECRET:-}" ]]; then

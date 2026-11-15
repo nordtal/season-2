@@ -1,59 +1,77 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "**{@values.duration.days, n=days} of {@terms.access}** for {price}.",
-            "de": "**{@values.duration.days, n=days} {@terms.access}** für {price}."
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Your purchase",
+                "de": "Dein Kauf"
+              },
+              "style": "TITLE"
+            }
+          ]
         },
         {
-          "text": {
-            "en": "Includes a donation of {donation} and the permanent donor role.",
-            "de": "Enthält eine Spende von {donation} und die dauerhafte Spenderrolle."
-          },
-          "when": "donating"
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "**{@values.duration.days, n=days} of {@terms.access}** for {price}",
+                "de": "**{@values.duration.days, n=days} {@terms.access}** für {price}"
+              }
+            },
+            {
+              "text": {
+                "en": "**Donation** of {donation} with the permanent donor role",
+                "de": "**Spende** von {donation} mit der dauerhaften Spenderrolle"
+              },
+              "when": "donating"
+            },
+            {
+              "text": {
+                "en": "Total: **{total}**",
+                "de": "Gesamt: **{total}**"
+              },
+              "when": "donating"
+            }
+          ]
         },
         {
-          "text": {
-            "en": "Total: **{total}**",
-            "de": "Gesamt: **{total}**"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
-        {
-          "slot": "confirm",
-          "label": {
-            "en": "Get the payment link",
-            "de": "Zahlungslink holen"
-          }
-        },
-        {
-          "slot": "change",
-          "label": {
-            "en": "Change {@terms.period, n=1}",
-            "de": "{@terms.period, n=1} ändern"
-          }
-        },
-        {
-          "slot": "withdraw",
-          "label": {
-            "en": "Remove the donation",
-            "de": "Spende entfernen"
-          }
-        },
-        {
-          "slot": "donate",
-          "label": {
-            "en": "Add a {amount} donation",
-            "de": "{amount} spenden"
-          }
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "confirm",
+              "label": {
+                "en": "Get the payment link",
+                "de": "Zahlungslink holen"
+              }
+            },
+            {
+              "slot": "change",
+              "label": {
+                "en": "Change {@terms.period, n=1}",
+                "de": "{@terms.period, n=1} ändern"
+              }
+            },
+            {
+              "slot": "withdraw",
+              "label": {
+                "en": "Remove the donation",
+                "de": "Spende entfernen"
+              }
+            },
+            {
+              "slot": "donate",
+              "label": {
+                "en": "Add a {amount} donation",
+                "de": "{amount} spenden"
+              }
+            }
+          ]
         }
       ]
     }

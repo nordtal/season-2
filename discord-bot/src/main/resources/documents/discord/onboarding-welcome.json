@@ -2,8 +2,11 @@
   "parts": [
     {
       "type": "CONTAINER",
-      "accent": "#4a63d8",
       "parts": [
+        {
+          "type": "GALLERY",
+          "media": ["attachment://onboarding.png"]
+        },
         {
           "type": "TEXT",
           "lines": [
@@ -21,27 +24,23 @@
           "lines": [
             {
               "text": {
-                "en": "Choose your language and your region. Then every channel opens.",
-                "de": "Wähle deine Sprache und deine Region. Danach stehen dir alle Kanäle offen."
+                "en": "Choose your language, then your region. Every channel opens after that.",
+                "de": "Wähle deine Sprache, danach deine Region. Dann stehen dir alle Kanäle offen."
               }
             }
           ]
         },
         {
-          "type": "GALLERY",
-          "media": ["attachment://onboarding.png"]
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
-        {
-          "slot": "language",
-          "placeholder": {
-            "en": "Choose your language",
-            "de": "Sprache wählen"
-          }
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "language",
+              "placeholder": {
+                "en": "Choose your language",
+                "de": "Sprache wählen"
+              }
+            }
+          ]
         }
       ]
     }

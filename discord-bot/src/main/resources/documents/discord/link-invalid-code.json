@@ -1,13 +1,24 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "That code is wrong or expired. Join the server again to get a new code.",
-            "de": "Der Code ist falsch oder abgelaufen. Betritt den Server noch einmal, dann bekommst du einen neuen."
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "That code is wrong or expired.",
+                "de": "Der Code ist falsch oder abgelaufen."
+              }
+            },
+            {
+              "text": {
+                "en": "Join `play.nordtal.eu` again to get a new code.",
+                "de": "Betritt `play.nordtal.eu` noch einmal, dann bekommst du einen neuen."
+              }
+            }
+          ]
         }
       ]
     }

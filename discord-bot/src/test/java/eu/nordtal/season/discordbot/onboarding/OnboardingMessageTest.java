@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot.onboarding;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.discordbot.Ids;
@@ -23,6 +24,7 @@ import net.dv8tion.jda.api.components.mediagallery.MediaGallery;
 import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import org.junit.jupiter.api.Test;
 
 class OnboardingMessageTest {
@@ -39,30 +41,35 @@ class OnboardingMessageTest {
     private final OnboardingMessage message = new OnboardingMessage(LANGUAGES, RENDERER, StoredDocumentsStandIn.none());
 
     @Test
-    void theWelcomeIsOneBoxInTheDefaultLanguageOverItsBanner() {
+    void theWelcomeIsOneBoxInTheDefaultLanguageUnderItsBanner() {
         final DocumentRenderer.Drawn welcome = message.welcome();
         final Container box = (Container) welcome.components().getFirst();
 
         assertAll(
-                () -> assertEquals(
-                        "## Welcome to Nordtal",
-                        ((TextDisplay) box.getComponents().getFirst()).getContent()),
+                () -> assertEquals(1, welcome.components().size()),
                 () -> assertEquals(
                         "attachment://onboarding.png",
-                        ((MediaGallery) box.getComponents().getLast())
+                        ((MediaGallery) box.getComponents().getFirst())
                                 .getItems()
                                 .getFirst()
                                 .getUrl()),
+                () -> assertEquals(
+                        "## Welcome to Nordtal",
+                        ((TextDisplay) box.getComponents().get(1)).getContent()),
                 () -> assertEquals(List.of("onboarding.png"), welcome.attachments()));
     }
 
     @Test
     void theWelcomeAsksOnlyForTheLanguageWithOneSelectAndNoButton() {
-        final List<MessageTopLevelComponent> components = message.welcome().components();
+        final MessageComponentTree welcome =
+                MessageComponentTree.of(message.welcome().components());
 
         assertAll(
-                () -> assertEquals(2, components.size()),
-                () -> assertEquals(Ids.ONBOARD_PICK_LANGUAGE, select(components).getCustomId()));
+                () -> assertEquals(1, welcome.findAll(ActionRow.class).size()),
+                () -> assertEquals(List.of(), welcome.findAll(Button.class)),
+                () -> assertEquals(
+                        Ids.ONBOARD_PICK_LANGUAGE,
+                        select(message.welcome().components()).getCustomId()));
     }
 
     @Test
@@ -85,15 +92,13 @@ class OnboardingMessageTest {
     }
 
     @Test
-    void theChangeMessageHasABoxAndAButtonPerLanguageEachInItsLanguage() {
+    void theChangeMessageIsOneBoxPerLanguageThatHoldsItsButtonEachInItsLanguage() {
         final List<MessageTopLevelComponent> change = message.change().components();
-        final List<Button> buttons = change.stream()
-                .filter(ActionRow.class::isInstance)
-                .flatMap(row -> ((ActionRow) row).getButtons().stream())
-                .toList();
+        final List<Button> buttons = MessageComponentTree.of(change).findAll(Button.class);
 
         assertAll(
-                () -> assertEquals(4, change.size()),
+                () -> assertEquals(2, change.size()),
+                () -> assertTrue(change.stream().allMatch(Container.class::isInstance), change::toString),
                 () -> assertEquals(
                         List.of(Ids.ONBOARD + "en", Ids.ONBOARD + "de"),
                         buttons.stream().map(Button::getCustomId).toList()),
@@ -102,15 +107,40 @@ class OnboardingMessageTest {
                         buttons.stream().map(Button::getLabel).toList()),
                 () -> assertEquals(
                         "## Sprache und Region",
-                        ((TextDisplay) ((Container) change.get(2))
+                        ((TextDisplay) ((Container) change.getLast())
                                         .getComponents()
                                         .getFirst())
                                 .getContent()));
     }
 
+    @Test
+    void theRegionQuestionIsOneBoxInTheChosenLanguageThatHoldsItsSelect() {
+        final DocumentRenderer.Drawn region = OnboardingFlow.region(
+                StoredDocumentsStandIn.renderer(),
+                Ids.ONBOARD_PICK_REGION + "de",
+                List.of(SelectOption.of("Mitteleuropa", "Europe/Berlin")),
+                Locale.GERMAN);
+
+        assertAll(
+                () -> assertEquals(1, region.components().size()),
+                () -> assertEquals(
+                        "Wähle die Region, aus der du spielst.\nNordtal zeigt jede Zeit in ihrer Zeitzone.",
+                        region.text()),
+                () -> assertEquals(
+                        Ids.ONBOARD_PICK_REGION + "de",
+                        ((StringSelectMenu) ((ActionRow)
+                                                ((Container) region.components().getFirst())
+                                                        .getComponents()
+                                                        .getLast())
+                                        .getComponents()
+                                        .getFirst())
+                                .getCustomId()));
+    }
+
     private static StringSelectMenu select(final List<MessageTopLevelComponent> components) {
-        return (StringSelectMenu)
-                ((ActionRow) components.getLast()).getComponents().getFirst();
+        return MessageComponentTree.of(components)
+                .findAll(StringSelectMenu.class)
+                .getFirst();
     }
 
     @Test
@@ -124,6 +154,6 @@ class OnboardingMessageTest {
                                 "change", new DocumentRenderer.FilledButton(Ids.ONBOARD)),
                         Locale.ENGLISH);
 
-        assertEquals(20, drawn.components().size());
+        assertEquals(10, drawn.components().size());
     }
 }

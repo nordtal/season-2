@@ -413,7 +413,7 @@ tasks.register<CopyVanillaTexture>("copyVanillaTexture") {
     assets.set(packSource.dir("assets"))
 }
 
-// Nordtal Designer creates and changes textures, items, texts and sounds with these. The README lists the -P options and the output of each.
+// Nordtal Designer creates and changes textures, items, texts, sounds and other files with these. The README lists the -P options and the output of each.
 val sourceEdits =
     mapOf(
         "createGlyph" to "glyph",
@@ -452,6 +452,8 @@ val sourceEdits =
         "subtitleSound" to "subtitle",
         "deleteSound" to "deleteSound",
         "playSound" to "play",
+        "createFile" to "file",
+        "deleteFile" to "deleteFile",
         "publishDrafts" to "publish",
         "syncReviews" to "sync",
     )

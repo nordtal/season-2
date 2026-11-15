@@ -11,7 +11,22 @@ import javax.imageio.ImageIO
  * rules.
  */
 object FontEdits {
-    private val FONT_KEYS = listOf("font", "rows", "pitch", "constant", "numbering", "about", "spaces", "blocks", "lists")
+    private val FONT_KEYS =
+        listOf(
+            "font",
+            "rows",
+            "pitch",
+            "shifts",
+            "constant",
+            "numbering",
+            "letters",
+            "silent",
+            "references",
+            "about",
+            "spaces",
+            "blocks",
+            "lists",
+        )
     private val BLOCK_KEYS = listOf("range", "title", "about", "texture", "height", "ascent", "status", "chars", "glyphs")
 
     /** Adds the font [font], such as `nordtal:signs`, with its Java [constant], after every other font and without blocks. */
@@ -59,9 +74,10 @@ object FontEdits {
         }
         return NewTextures.edit(pack, null, 0, 0) { root ->
             val entry = NewTextures.font(root, font)
+            val had = entry.keys.toSet()
             constant?.let { entry["constant"] = it }
             about?.let { if (it.isEmpty()) entry.remove("about") else entry["about"] = it }
-            order(entry, FONT_KEYS)
+            place(entry, had, FONT_KEYS)
         }
     }
 
@@ -81,6 +97,7 @@ object FontEdits {
     ): List<File> =
         NewTextures.edit(pack, null, 0, 0) { root ->
             val entry = block(root, font, block)
+            val had = entry.keys.toSet()
             if (title != null && title != block) {
                 if (title.isBlank()) throw FieldRefusal("title", "A block needs a title.")
                 if ((NewTextures.font(root, font)["blocks"] as List<*>?).orEmpty().any { (it as Map<*, *>)["title"] == title }) {
@@ -94,7 +111,7 @@ object FontEdits {
                 if (value == null) continue
                 if (value.isEmpty()) entry.remove(key) else entry[key] = value
             }
-            order(entry, BLOCK_KEYS)
+            place(entry, had, BLOCK_KEYS)
         }
 
     /**
@@ -272,12 +289,25 @@ object FontEdits {
             ?: throw FieldRefusal("block", "The font $font has no block $title.")
     }
 
-    /** Puts the keys of [entry] in the order of [keys], as `glyphs.json` writes them. */
-    private fun order(
+    /**
+     * Keeps every key of [entry] that it [had] in its place and puts each new key after the last kept key that comes before it
+     * in [keys], so an edit moves no key that `glyphs.json` already wrote.
+     */
+    private fun place(
         entry: OxfmtJson.Object,
+        had: Set<String>,
         keys: List<String>,
     ) {
-        val entries = entry.entries.sortedBy { keys.indexOf(it.key).takeIf { index -> index >= 0 } ?: keys.size }.map { it.toPair() }
+        val entries =
+            entry.entries
+                .filter { it.key in had }
+                .map { it.toPair() }
+                .toMutableList()
+        for ((key, value) in entry.entries.filter { it.key !in had }.sortedBy { keys.indexOf(it.key) }) {
+            val slot = keys.indexOf(key).takeIf { it >= 0 } ?: keys.size
+            val after = entries.indexOfLast { (kept, _) -> keys.indexOf(kept) in 0 until slot }
+            entries.add(after + 1, key to value)
+        }
         entry.clear()
         entry.putAll(entries)
     }

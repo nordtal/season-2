@@ -2,7 +2,6 @@
   "parts": [
     {
       "type": "CONTAINER",
-      "accent": "#4a63d8",
       "parts": [
         {
           "type": "TEXT",
@@ -30,18 +29,18 @@
           "lines": [
             {
               "text": {
-                "en": "**By** {@values.actor, kind=by}"
+                "en": "By {@values.actor, kind=by}"
               }
             },
             {
               "text": {
-                "en": "**Concerns** {concerns}"
+                "en": "Concerns {concerns}"
               },
               "when": "concerns"
             },
             {
               "text": {
-                "en": "**Minecraft** `{minecraft}`"
+                "en": "Minecraft account `{minecraft}`"
               },
               "when": "minecraft"
             }

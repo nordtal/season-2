@@ -120,6 +120,26 @@ class WorldNetworksTest {
     }
 
     @Test
+    void joiningTheSpawnStationsRailsSuffixesAStationCalledLikeIt() {
+        track.eastWest(0, 4, 64, 0).eastWest(6, 10, 64, 0);
+        networks.addStation(new StationRow(new UUID(0, 1), "nordtal", 0, 64, 0, "EAST_WEST", null, null, null));
+        station(2, at(10, 64, 0), "Spawn", 5);
+        changed(at(0, 64, 0));
+        assertEquals("Spawn", nameAt(at(10, 64, 0)), "a station on rails of its own may carry the spawn's name");
+
+        track.rail(5, 64, 0, RailShape.EAST_WEST);
+        networks.spawnShownAs(() -> List.of("Spawn"));
+        final WorldNetworks.Change merged = changed(at(5, 64, 0));
+
+        assertEquals(1, networks.networks().size());
+        assertNull(nameAt(at(0, 64, 0)));
+        assertEquals("Spawn 2", nameAt(at(10, 64, 0)));
+        assertEquals(
+                List.of(new UUID(0, 2)),
+                merged.renamed().stream().map(StationRow::id).toList());
+    }
+
+    @Test
     void aBrokenRailSplitsANetworkInTwo() {
         track.eastWest(0, 10, 64, 0);
         station(1, at(0, 64, 0), "West", 0);

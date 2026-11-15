@@ -63,7 +63,6 @@ public final class PurchaseFlow extends ListenerAdapter {
 
     record Link(
             @Example("600") Money total,
-            @Example("https://bunq.me/t/example") String url,
             @Example("NT-A1B2C3") String reference,
             @Example("2026-10-24T18:00:00Z") Instant until) {}
 
@@ -83,7 +82,7 @@ public final class PurchaseFlow extends ListenerAdapter {
             .titled("Purchase summary");
 
     static final DocumentSpec<Link> LINK = DocumentSpec.message(
-                    StoredDocuments.NAMESPACE, "purchase-link", "Purchase", Link.class)
+                    StoredDocuments.NAMESPACE, "purchase-link", "Purchase", Link.class, Slot.button("pay"))
             .titled("Payment link");
 
     private final Tiers tiers;
@@ -355,12 +354,8 @@ public final class PurchaseFlow extends ListenerAdapter {
             final DocumentRenderer documents, final PaymentRequest request, final Locale locale) {
         return documents.render(
                 LINK,
-                new Link(
-                        Money.euroCents(request.amountCents()),
-                        Objects.requireNonNull(request.shareUrl()),
-                        request.reference(),
-                        request.expires()),
-                Map.of(),
+                new Link(Money.euroCents(request.amountCents()), request.reference(), request.expires()),
+                Map.of("pay", DocumentRenderer.FilledButton.link(Objects.requireNonNull(request.shareUrl()))),
                 locale);
     }
 

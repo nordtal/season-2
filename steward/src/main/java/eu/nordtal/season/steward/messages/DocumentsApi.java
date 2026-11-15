@@ -33,18 +33,17 @@ import eu.nordtal.season.messages.text.MessageText;
 import eu.nordtal.season.steward.texts.RequestRefused;
 import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.http.Context;
+import io.javalin.http.HttpResponseException;
+import io.javalin.http.HttpStatus;
 import io.javalin.http.NotFoundResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
@@ -598,35 +597,19 @@ public final class DocumentsApi {
      * It reads the type from the first bytes, not from the request header.
      */
     public void upload(final Context ctx, final Actor actor) {
-        final byte[] bytes = ctx.bodyAsBytes();
-        final String type = mediaType(bytes).orElseThrow(() -> new RequestRefused(400, ANSWER.imageRefused()));
+        final byte[] bytes;
+        try {
+            bytes = ctx.bodyAsBytes();
+        } catch (final HttpResponseException refused) {
+            // Javalin stops reading past the limit with a bare 413 of its own.
+            if (refused.getStatus() != HttpStatus.CONTENT_TOO_LARGE.getCode()) {
+                throw refused;
+            }
+            throw new RequestRefused(413, ANSWER.imageTooLarge(IMAGE_MEBIBYTES));
+        }
+        final String type = ImageTypes.of(bytes).orElseThrow(() -> new RequestRefused(400, ANSWER.imageRefused()));
         final long id = store.upload(type, bytes, actor);
         ctx.json(new Uploaded(id, DocumentStore.Image.SCHEME + id));
-    }
-
-    static Optional<String> mediaType(final byte[] bytes) {
-        if (starts(bytes, 0, new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})) {
-            return Optional.of("image/png");
-        }
-        if (starts(bytes, 0, new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff})) {
-            return Optional.of("image/jpeg");
-        }
-        if (starts(bytes, 0, ascii("GIF87a")) || starts(bytes, 0, ascii("GIF89a"))) {
-            return Optional.of("image/gif");
-        }
-        if (starts(bytes, 0, ascii("RIFF")) && starts(bytes, 8, ascii("WEBP"))) {
-            return Optional.of("image/webp");
-        }
-        return Optional.empty();
-    }
-
-    private static byte[] ascii(final String text) {
-        return text.getBytes(StandardCharsets.US_ASCII);
-    }
-
-    private static boolean starts(final byte[] bytes, final int at, final byte[] prefix) {
-        return bytes.length >= at + prefix.length
-                && Arrays.equals(bytes, at, at + prefix.length, prefix, 0, prefix.length);
     }
 
     private Documents.Packaged packagedOf(final Context ctx) {

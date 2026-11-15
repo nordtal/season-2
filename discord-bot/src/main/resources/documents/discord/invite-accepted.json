@@ -6,7 +6,7 @@
         {
           "text": {
             "en": "You joined {@terms.team, n=1} **{team.name}**.",
-            "de": "Du bist jetzt in {@terms.team, n=1} **{team.name}**."
+            "de": "Du bist jetzt im {@terms.team, n=1} **{team.name}**."
           }
         }
       ]

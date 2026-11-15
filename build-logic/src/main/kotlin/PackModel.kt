@@ -37,6 +37,7 @@ object PackModel {
                     .toList(),
             "texts" to texts(root, listed, drafts),
             "sounds" to sounds(root, drafts),
+            "files" to files(assets, root, drafts),
             "drafts" to
                 listed.map {
                     linkedMapOf(
@@ -153,6 +154,40 @@ object PackModel {
             )
         }
     }
+
+    /**
+     * The [PackFiles] of the pack, one category per namespace and first folder, such as `minecraft:blockstates`, each
+     * entry with its `id`, `file`, `name` below the folder, `kind` and `problems`, marked with its draft as [Drafts] names it.
+     */
+    private fun files(
+        assets: File,
+        root: File,
+        drafts: Marks,
+    ): List<Map<String, Any?>> =
+        PackFiles
+            .list(assets)
+            .groupBy { file ->
+                val parts = file.relativeTo(assets).invariantSeparatorsPath.split('/')
+                if (parts.size > 2) "${parts[0]}:${parts[1]}" else parts[0]
+            }.toSortedMap()
+            .map { (category, files) ->
+                linkedMapOf(
+                    "category" to category,
+                    "entries" to
+                        files.map { file ->
+                            val path = file.relativeTo(assets).invariantSeparatorsPath
+                            val relative = file.relativeTo(root).invariantSeparatorsPath
+                            linkedMapOf(
+                                "id" to path.replaceFirst('/', ':'),
+                                "file" to relative,
+                                "name" to if (':' in category) path.substringAfter('/').substringAfter('/') else path.substringAfter('/'),
+                                "kind" to PackFiles.kind(path),
+                                "problems" to PackFiles.problems(assets, file),
+                                *drafts.of(Drafts.idOf(root, relative)),
+                            )
+                        },
+                )
+            }
 
     /** The ids of the [drafts], and of each change in review with the number of its pull request. */
     internal class Marks(

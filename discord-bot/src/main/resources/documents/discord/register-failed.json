@@ -1,13 +1,30 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "Registering failed. An admin knows. Try again in a few minutes.",
-            "de": "Das Anmelden hat nicht geklappt. Ein Admin weiß Bescheid. Versuch es in ein paar Minuten noch einmal."
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Registering failed.",
+                "de": "Das Anmelden hat nicht geklappt."
+              }
+            },
+            {
+              "text": {
+                "en": "An admin knows.",
+                "de": "Ein Admin weiß Bescheid."
+              }
+            },
+            {
+              "text": {
+                "en": "Try again in a few minutes.",
+                "de": "Versuch es in ein paar Minuten noch einmal."
+              }
+            }
+          ]
         }
       ]
     }

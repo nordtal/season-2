@@ -354,6 +354,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V123__an_admins_ask_for_a_pack_build_is_a_row.sql",
                 "56a0f3274dcf6db1e5eea2ec79f5d54a81d1f93bfe642685ccf62bd3a349f430");
+        FROZEN.put(
+                "V124__the_bot_knows_which_run_cards_show_the_run_s_end.sql",
+                "9a4026387502285efaa485bb4007ebec370b8e3838b21be71bc786c0b43f13fd");
     }
 
     @Test

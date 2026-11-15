@@ -13,7 +13,6 @@
     },
     {
       "type": "CONTAINER",
-      "accent": "#4a63d8",
       "parts": [
         {
           "type": "TEXT",
@@ -36,17 +35,17 @@
               }
             }
           ]
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
+        },
         {
-          "slot": "open",
-          "label": {
-            "en": "Open in Steward"
-          }
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "open",
+              "label": {
+                "en": "Open Steward"
+              }
+            }
+          ]
         }
       ]
     }

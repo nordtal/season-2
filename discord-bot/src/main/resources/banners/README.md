@@ -1,7 +1,8 @@
 # Banner images
 
-`contribution.png`, `link.png` and `onboarding.png` are placeholder images of 2560x640 pixels. The bot attaches them
-to its managed messages as `attachment://contribution.png`, `attachment://link.png` and `attachment://onboarding.png`.
-The onboarding image belongs to the welcome in the onboarding channel.
+`contribution.png`, `hunger-games.png`, `link.png` and `onboarding.png` are the Nordtal banner, 2560x640 pixels.
+Each heads one managed message: the contribution message, the Register message of the Hunger Games, the link
+message and the welcome in the onboarding channel. A document names its file as `attachment://<name>`, and the bot
+attaches the file to the message.
 
-To change a banner, replace the file under the same name. `ManagedMessage` loads the files from the classpath by name.
+To change a banner, replace the file under the same name. `DocumentRenderer` loads the files from the classpath by name.

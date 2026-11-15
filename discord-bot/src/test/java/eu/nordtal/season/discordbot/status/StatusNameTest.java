@@ -73,7 +73,7 @@ class StatusNameTest {
 
     @Test
     void aDateThatHasPassedOpensTheSeasonByItself() {
-        assertEquals("3 teams left, 7 alive", render(CLOSED.withLaunch(NOW.minus(Duration.ofSeconds(1)))));
+        assertEquals("3 teams left, 7 participants alive", render(CLOSED.withLaunch(NOW.minus(Duration.ofSeconds(1)))));
     }
 
     @Test
@@ -102,7 +102,7 @@ class StatusNameTest {
     @Test
     void theHungerGamesShowWhoIsLeftOnceAnyoneIsEliminated() {
         assertEquals(
-                "3 teams left, 7 alive",
+                "3 teams left, 7 participants alive",
                 StatusName.render(
                         MESSAGES,
                         Locale.ENGLISH,
@@ -152,7 +152,12 @@ class StatusNameTest {
                 .map(state -> StatusName.render(MESSAGES, Locale.GERMAN, state, RUNNING, NOW))
                 .toList();
         assertEquals(
-                List.of("Starttermin folgt", "Start in 2 d 0 h", "Wartung", "31 Spieler", "3 Teams übrig, 7 am Leben"),
+                List.of(
+                        "Starttermin folgt",
+                        "Start in 2 d 0 h",
+                        "Wartung",
+                        "31 Spieler",
+                        "3 Teams übrig, 7 Teilnehmer am Leben"),
                 german);
     }
 

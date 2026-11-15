@@ -169,7 +169,7 @@ class UpdateFeedTest {
 
         assertEquals(1, board.posted.size());
         assertTrue(
-                lines(board.posted.getFirst().card()).contains("**By** <@300000000000000077>"),
+                lines(board.posted.getFirst().card()).contains("Requested by <@300000000000000077>"),
                 "who asked is a line of its own, as a mention");
 
         rows.put(row(1L, UpdateStatus.RUNNING, RunStage.STOPPING, null));
@@ -197,7 +197,7 @@ class UpdateFeedTest {
 
         assertEquals(2, board.edited.size(), "the finish is an edit of its own, with nothing else changed");
         assertTrue(
-                names(board.edited.getLast().card()).contains("Duration"),
+                names(board.edited.getLast().card()).contains("Took"),
                 "the last card says how long the run took: "
                         + lines(board.edited.getLast().card()));
     }
@@ -216,9 +216,9 @@ class UpdateFeedTest {
                 step(RunStep.Kind.START, "smp", RunStep.Outcome.DONE, null));
 
         final String shown = field(card, "Services");
-        assertTrue(shown.contains("**database** *Dump the database* nordtal-20261106T034501Z.dump, 25.6 MiB"), shown);
-        assertTrue(shown.contains("**mc-smp** *Save a volume* mc-smp-20261106T034612Z.tar.zst, 4.2 GiB"), shown);
-        assertTrue(shown.contains("**smp** *Start*\n") || shown.endsWith("**smp** *Start*"), shown);
+        assertTrue(shown.contains("**database** nordtal-20261106T034501Z.dump, 25.6 MiB"), shown);
+        assertTrue(shown.contains("**mc-smp** mc-smp-20261106T034612Z.tar.zst, 4.2 GiB"), shown);
+        assertTrue(shown.contains("**smp** Start\n") || shown.endsWith("**smp** Start"), shown);
         assertFalse(shown.contains("nothing"), "a service that moved no artefact says nothing about it: " + shown);
     }
 
@@ -333,7 +333,7 @@ class UpdateFeedTest {
                 List.of("msg-1", "msg-1"),
                 board.edited.stream().map(Board.Post::messageId).toList());
         assertTrue(
-                board.edited.getLast().card().text().contains("Duration"),
+                board.edited.getLast().card().text().contains("Took "),
                 board.edited.getLast().card().text());
     }
 
@@ -442,7 +442,7 @@ class UpdateFeedTest {
     }
 
     @Test
-    void everyStageCarriesTheSameColourAndItsOutcomeAsAnEmoji() {
+    void everyStageIsDrawnWithoutABarAndItsOutcomeAsAnEmoji() {
         rows.put(row(1L, UpdateStatus.DONE, RunStage.DONE, NOW));
         rows.steps.put(
                 1L,
@@ -456,7 +456,7 @@ class UpdateFeedTest {
 
         final DocumentRenderer.Drawn good = board.posted.get(0).card();
         final DocumentRenderer.Drawn bad = board.posted.get(1).card();
-        assertEquals(accent(good), accent(bad), "a finished and a failed run carry the same line");
+        assertTrue(accent(good) == null && accent(bad) == null, "a finished or a failed run has a bar");
         assertTrue(title(good).startsWith("✅"), title(good));
         assertTrue(title(bad).startsWith("🛑"), title(bad));
         final String goodLines = lines(good);
@@ -468,7 +468,7 @@ class UpdateFeedTest {
     }
 
     @Test
-    void aServicesLineIsItsWorstStepItsLatestStepAndTheArtefactsOfItsLatestStepThatHasAny() {
+    void aServicesLineIsItsWorstStepAndTheArtefactsOfItsLatestStepThatHasAnyElseItsLatestStep() {
         final DocumentRenderer.Drawn card = card(
                 row(1L, UpdateStatus.DONE, RunStage.DONE, NOW),
                 documents,
@@ -490,11 +490,9 @@ class UpdateFeedTest {
                 step(RunStep.Kind.VERIFY, "proxy", RunStep.Outcome.WARNING, RunStep.Reason.NOT_HEALTHY));
 
         final String shown = field(card, "Services");
-        assertTrue(shown.contains("✅ **smp** *Verify* paper 133 → 134"), shown);
+        assertTrue(shown.contains("✅ **smp** paper 133 → 134"), shown);
         assertTrue(shown.contains("image pulled"), shown);
-        assertTrue(
-                shown.contains("⚠️ **proxy** *Verify* resource-pack f8fb6640 → 0.24.0"),
-                "a pack's hash is short: " + shown);
+        assertTrue(shown.contains("⚠️ **proxy** resource-pack f8fb6640 → 0.24.0"), "a pack's hash is short: " + shown);
         assertFalse(shown.contains("run."), "no key is ever shown in place of its words: " + shown);
     }
 
@@ -505,7 +503,7 @@ class UpdateFeedTest {
                 documents,
                 step(RunStep.Kind.STOP, "smp", null, null));
 
-        assertTrue(field(card, "Services").startsWith("🔄 **smp** *Stop*"), field(card, "Services"));
+        assertTrue(field(card, "Services").startsWith("🔄 **smp** Stop"), field(card, "Services"));
     }
 
     @Test
@@ -527,9 +525,9 @@ class UpdateFeedTest {
                 2L, UpdateKind.UPDATE, UpdateStatus.CANCELLED, OWNER, NOW, NOW, null, List.of(), null, NOW, null);
 
         assertTrue(
-                card(waited, documents).text().lines().anyMatch("**Duration** 2m 9s"::equals),
+                card(waited, documents).text().lines().anyMatch("Took 2m 9s"::equals),
                 card(waited, documents).text());
-        assertFalse(names(card(never, documents)).contains("Duration"), "a run that never started took no time");
+        assertFalse(names(card(never, documents)).contains("Took"), "a run that never started took no time");
     }
 
     @Test
@@ -542,7 +540,7 @@ class UpdateFeedTest {
                 step(RunStep.Kind.STOP, "smp", RunStep.Outcome.WARNING, RunStep.Reason.UNVERIFIED_STOP),
                 step(RunStep.Kind.OFFSITE_COPY, null, RunStep.Outcome.SKIPPED, RunStep.Reason.NO_REPOSITORY));
 
-        assertEquals(List.of("Duration", "Services"), names(card), "a run that went well is its lines");
+        assertEquals(List.of("Services", "Took"), names(card), "a run that went well is its lines");
     }
 
     @Test
@@ -563,12 +561,12 @@ class UpdateFeedTest {
                         RunStep.Reason.MISSING_SECRET,
                         new RunStep.Change("NORDTAL_STEWARD_WEB_TOTP_KEY", null, null, null)));
 
-        assertEquals(List.of("Duration", "Services", "Why"), names(card));
+        assertEquals(List.of("Why", "Services", "Took"), names(card));
         final String shown = field(card, "Services");
         assertTrue(shown.contains("steward 0.64.0 → 0.65.0"), "the line is what it moves: " + shown);
         assertFalse(shown.contains("TOTP"), shown);
         assertEquals(
-                "**steward** a secret is missing, ./nordtal.sh update on the host adds it",
+                "**steward**: a secret is missing, ./nordtal.sh update on the host adds it",
                 field(card, "Why"),
                 "only the host adds it, so the card says how; the local build stays a mark");
     }
@@ -584,10 +582,10 @@ class UpdateFeedTest {
                 step(RunStep.Kind.STOP, "hunger_games", RunStep.Outcome.FAILED, RunStep.Reason.NO_CONTAINER),
                 step(RunStep.Kind.CLEANUP, null, RunStep.Outcome.FAILED, RunStep.Reason.UNEXPECTED));
 
-        assertEquals(List.of("Duration", "Services", "Why"), names(card));
+        assertEquals(List.of("Why", "Services", "Took"), names(card));
         assertEquals("""
-                **smp** refused, the run log has the answer
-                **hunger\\_games** no container
+                **smp**: refused, the run log has the answer
+                **hunger\\_games**: no container
                 steward-agent failed, its log says how""", field(card, "Why"), "the failed steps in order; nothing that went right and no warning");
     }
 
@@ -616,7 +614,7 @@ class UpdateFeedTest {
         assertEquals("🔄 Stopping the servers for the take-down", title(UpdateKind.DOWN, RunStage.STOPPING));
         assertEquals("✅ Nothing to start", title(UpdateKind.START, RunStage.NOTHING_TO_DO));
         assertEquals("⏹️ Plugin removal cancelled", title(UpdateKind.REMOVE_PLUGIN, RunStage.CANCELLED));
-        assertEquals("✅ Mode switch finished", title(UpdateKind.SWITCH_MODE, RunStage.DONE));
+        assertEquals("✅ Game mode switch finished", title(UpdateKind.SWITCH_MODE, RunStage.DONE));
         for (final UpdateKind kind : UpdateKind.values()) {
             for (final RunStage stage : RunStage.values()) {
                 final String shown = title(kind, stage);
@@ -630,7 +628,7 @@ class UpdateFeedTest {
         rows.put(asked(UpdateKind.BACKUP, RunStage.DONE, NOW));
         feed.tick();
 
-        assertEquals(List.of("By", "Duration"), names(board.posted.getFirst().card()));
+        assertEquals(List.of("By", "Took"), names(board.posted.getFirst().card()));
     }
 
     @Test
@@ -643,7 +641,7 @@ class UpdateFeedTest {
         final Button posted =
                 java.util.Objects.requireNonNull(link(board.posted.getFirst().card()));
         assertEquals("https://steward.example/operations/updates/7", posted.getUrl());
-        assertEquals("Open in Steward", posted.getLabel());
+        assertEquals("Open the run in Steward", posted.getLabel());
         assertEquals(
                 posted.getUrl(),
                 java.util.Objects.requireNonNull(link(board.edited.getFirst().card()))
@@ -756,27 +754,26 @@ class UpdateFeedTest {
         return card.text().lines().findFirst().orElseThrow().replaceFirst("^## ", "");
     }
 
-    /** Returns the sections of the card in order: the by and duration lines, then each heading. */
+    /** Returns the kinds of line the card holds below its title, in order: Why, Services, By and Took. */
     private static List<String> names(final DocumentRenderer.Drawn card) {
-        return card.text()
-                .lines()
-                .map(line -> line.startsWith("**By**")
-                        ? "By"
-                        : line.startsWith("**Duration**")
-                                ? "Duration"
-                                : line.startsWith("### ") ? line.substring(4) : null)
-                .filter(java.util.Objects::nonNull)
-                .toList();
+        return card.text().lines().skip(1).map(UpdateFeedTest::kind).distinct().toList();
+    }
+
+    /** A service's line opens with its mark, and a reason is whatever is neither that nor who asked or how long. */
+    private static String kind(final String line) {
+        return line.startsWith("Requested by ")
+                ? "By"
+                : line.startsWith("Took ") ? "Took" : line.matches("\\S+ \\*\\*.*") ? "Services" : "Why";
     }
 
     private static String field(final DocumentRenderer.Drawn card, final String name) {
-        final List<String> all = card.text().lines().toList();
-        final int heading = all.indexOf("### " + name);
-        if (heading < 0) {
-            throw new AssertionError("no heading " + name + " in " + names(card));
+        if (!names(card).contains(name)) {
+            throw new AssertionError("no " + name + " in " + names(card));
         }
-        return all.subList(heading + 1, all.size()).stream()
-                .takeWhile(line -> !line.startsWith("### "))
+        return card.text()
+                .lines()
+                .skip(1)
+                .filter(line -> kind(line).equals(name))
                 .collect(java.util.stream.Collectors.joining("\n"));
     }
 

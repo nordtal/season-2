@@ -72,16 +72,26 @@ class StationNamesTest {
 
     @Test
     void theStationNamedLaterGetsASuffixOnAMerge() {
-        final Map<UUID, String> renamed =
-                StationNames.settleClashes(List.of(named(2, "Spawn", 5), named(1, "Spawn", 0), named(3, "Hafen", 1)));
+        final Map<UUID, String> renamed = StationNames.settleClashes(
+                List.of(named(2, "Spawn", 5), named(1, "Spawn", 0), named(3, "Hafen", 1)), List.of());
 
         assertEquals(Map.of(new UUID(0, 2), "Spawn 2"), renamed);
     }
 
     @Test
+    void aStationCarryingTheSpawnStationsNameGetsASuffixOnAMerge() {
+        final Map<UUID, String> renamed = StationNames.settleClashes(
+                List.of(named(1, "spawn", 0), named(2, "Spawnpunkt", 1), named(3, "Hafen", 2)),
+                List.of("Spawn", "Spawnpunkt"));
+
+        assertEquals(Map.of(new UUID(0, 1), "spawn 2", new UUID(0, 2), "Spawnpunkt 2"), renamed);
+    }
+
+    @Test
     void aSuffixSkipsTheNumbersAlreadyTaken() {
         final Map<UUID, String> renamed = StationNames.settleClashes(
-                List.of(named(1, "Spawn", 0), named(2, "Spawn 2", 1), named(3, "spawn", 2), named(4, "Spawn", 3)));
+                List.of(named(1, "Spawn", 0), named(2, "Spawn 2", 1), named(3, "spawn", 2), named(4, "Spawn", 3)),
+                List.of());
 
         assertEquals(Map.of(new UUID(0, 3), "spawn 3", new UUID(0, 4), "Spawn 4"), renamed);
     }
@@ -91,7 +101,7 @@ class StationNamesTest {
         final String longName = "b".repeat(32);
 
         final Map<UUID, String> renamed =
-                StationNames.settleClashes(List.of(named(1, longName, 0), named(2, longName, 1)));
+                StationNames.settleClashes(List.of(named(1, longName, 0), named(2, longName, 1)), List.of());
 
         assertEquals("b".repeat(30) + " 2", renamed.get(new UUID(0, 2)));
     }

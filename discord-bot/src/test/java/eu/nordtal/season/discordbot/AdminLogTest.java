@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.jspecify.annotations.Nullable;
@@ -146,9 +147,9 @@ class AdminLogTest {
         assertEquals("""
                 ## 🎟️ Access granted
                 Granted 30 days of access until <t:1793613600:D>.
-                **By** Steward
-                **Concerns** <@400000000000000002>
-                **Minecraft** `00000000-0000-0000-0000-000000000001`""", card.text());
+                By Steward
+                Concerns <@400000000000000002>
+                Minecraft account `00000000-0000-0000-0000-000000000001`""", card.text());
     }
 
     @Test
@@ -170,7 +171,7 @@ class AdminLogTest {
                 renderer,
                 AuditLine.of(JournalAction.REGISTER_KEY, Actor.STEWARD, new JournalDetail.KeyRegistered("key")));
 
-        assertTrue(card.text().contains("**By** the crew"), card.text());
+        assertTrue(card.text().contains("By the crew"), card.text());
     }
 
     @Test
@@ -185,7 +186,7 @@ class AdminLogTest {
         assertEquals("""
                 ## 📝 Security key added
                 Added the security key “\\*bold\\*”.
-                **By** <@400000000000000001>""", card.text());
+                By <@400000000000000001>""", card.text());
     }
 
     @Test
@@ -199,6 +200,21 @@ class AdminLogTest {
         final Button open =
                 MessageComponentTree.of(card.components()).findAll(Button.class).getFirst();
         assertEquals("https://steward.example/services/smp_1", open.getUrl());
+    }
+
+    @Test
+    void anAlertIsItsMentionAndOneBoxThatHoldsTheButton() {
+        final DocumentRenderer.Drawn card = card(ROLE, LINK);
+
+        assertEquals(2, card.components().size(), "the mention and the box");
+        final Container box = (Container) card.components().getLast();
+        assertEquals("ACTION_ROW", box.getComponents().getLast().getType().name(), "the button closes the box");
+        assertEquals(
+                "Open Steward",
+                MessageComponentTree.of(card.components())
+                        .findAll(Button.class)
+                        .getFirst()
+                        .getLabel());
     }
 
     @Test
@@ -237,8 +253,8 @@ class AdminLogTest {
         assertEquals("""
                 ## 🔒 Too many wrong codes
                 Refused linking for the rest of the hour.
-                **By** the bot
-                **Concerns** <@400000000000000001>""", AdminLog.card(ADMIN, line).text());
+                By the bot
+                Concerns <@400000000000000001>""", AdminLog.card(ADMIN, line).text());
     }
 
     private static final String LINK = "https://steward.example/services/smp_1";

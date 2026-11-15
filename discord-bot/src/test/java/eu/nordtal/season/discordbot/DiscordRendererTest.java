@@ -63,7 +63,7 @@ class DiscordRendererTest {
     @Test
     void aMomentIsDiscordsTimestampInEveryReadersZone() {
         assertEquals(
-                "Your access lasts until **<t:1791052800:f>**. Have fun on Nordtal.",
+                "Your access lasts until **<t:1791052800:f>**.",
                 text(Locale.ENGLISH, Replies.DM_GRANTED, new Replies.Until(AT)));
     }
 

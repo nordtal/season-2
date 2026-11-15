@@ -7,6 +7,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.jspecify.annotations.Nullable;
@@ -48,7 +49,9 @@ public final class SavedState {
         this.effects = effects;
     }
 
+    /** Closes the player's screen first, so the cursor and the crafting grid go back into the saved inventory. */
     public static SavedState of(final Player player) {
+        player.closeInventory();
         return new SavedState(
                 Objects.requireNonNull(player.getLocation()),
                 player.getInventory().getContents().clone(),
@@ -74,6 +77,7 @@ public final class SavedState {
     }
 
     private void restoreWithout(final Player player) {
+        emptyScreen(player);
         player.getActivePotionEffects().forEach(effect -> player.removePotionEffect(effect.getType()));
         player.getInventory().setContents(inventory);
         player.getInventory().setArmorContents(armour);
@@ -91,7 +95,17 @@ public final class SavedState {
         effects.forEach(player::addPotionEffect);
     }
 
+    /** Deletes the cursor and any crafting grid, so no kit item outlasts the duel, then closes the screen. */
+    private static void emptyScreen(final Player player) {
+        if (player.getOpenInventory().getTopInventory() instanceof final CraftingInventory grid) {
+            grid.clear();
+        }
+        player.setItemOnCursor(null);
+        player.closeInventory();
+    }
+
     public static void clear(final Player player) {
+        emptyScreen(player);
         player.getInventory().clear();
         player.getInventory().setArmorContents(new ItemStack[4]);
         player.getActivePotionEffects().forEach(effect -> player.removePotionEffect(effect.getType()));

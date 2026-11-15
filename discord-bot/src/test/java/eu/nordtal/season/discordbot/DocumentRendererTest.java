@@ -19,6 +19,7 @@ import eu.nordtal.season.messages.MessageJson;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.DocumentCheck;
 import eu.nordtal.season.messages.document.DocumentDeclaration;
+import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Documents;
 import eu.nordtal.season.messages.document.Line;
 import eu.nordtal.season.messages.document.Part;
@@ -33,7 +34,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import net.dv8tion.jda.api.components.Component;
 import net.dv8tion.jda.api.components.MessageTopLevelComponent;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -52,6 +55,13 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import org.junit.jupiter.api.Test;
 
 class DocumentRendererTest {
+
+    /** The documents that answer one person: every reply and direct message, and the change message. */
+    private static final Pattern TO_ONE_PERSON =
+            Pattern.compile("(link-|unlink-|register-|invite-|purchase-|dm-|onboarding-(?!welcome)).*");
+
+    /** The end of a sentence that another one follows in the same line. */
+    private static final Pattern SENTENCE_END = Pattern.compile("[.!?]\\s+\\S");
 
     private static final Path VECTORS = Path.of("messages/src/test/resources/discord-documents.json");
 
@@ -84,8 +94,8 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("contribution"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("\\n**€5.00** 30 days\""), drawn);
-        assertTrue(drawn.contains("+€5.00 →"), drawn);
+        assertTrue(drawn.contains("\\n**30 days** for €5.00\""), drawn);
+        assertTrue(drawn.contains("donation of €5.00"), drawn);
     }
 
     @Test
@@ -115,8 +125,8 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("🛑 **smp** *Verify* paper 1.21.4 → 1.21.5"), drawn);
-        assertTrue(drawn.contains("**smp** not healthy in time"), drawn);
+        assertTrue(drawn.contains("🛑 **smp** paper 1.21.4 → 1.21.5"), drawn);
+        assertTrue(drawn.contains("**smp**: not healthy in time"), drawn);
         assertFalse(drawn.contains("admin/"), drawn);
     }
 
@@ -157,6 +167,68 @@ class DocumentRendererTest {
             };
             assertTrue(drawn.has(field), each.declaration().id() + " is drawn as " + drawn);
         }
+    }
+
+    @Test
+    void noPackagedDocumentDrawsABarAlongABox() {
+        final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();
+        final List<String> barred = new ArrayList<>();
+        for (final Documents.Packaged each : Documents.packaged(
+                        DocumentRendererTest.class.getClassLoader(), StoredDocuments.NAMESPACE)
+                .values()) {
+            final String drawn = renderer.preview(each, List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+            if (accented(JsonParser.parseString(drawn))
+                    || each.document().allParts().stream().anyMatch(part -> part.accent() != null)) {
+                barred.add(each.declaration().id());
+            }
+        }
+
+        assertEquals(List.of(), barred);
+    }
+
+    @Test
+    void aReplyOrADirectMessageIsOneSentenceOrOneBoxOfSentencesAndControlsWithoutABanner() {
+        final List<String> wrong = new ArrayList<>();
+        for (final Documents.Packaged each : Documents.packaged(
+                        DocumentRendererTest.class.getClassLoader(), StoredDocuments.NAMESPACE)
+                .values()) {
+            final String name = each.declaration().id().substring(StoredDocuments.NAMESPACE.length() + 1);
+            if (!TO_ONE_PERSON.matcher(name).matches() || each.declaration().shape() != DocumentSpec.Shape.MESSAGE) {
+                continue;
+            }
+            final List<Part> top = each.document().parts().stream()
+                    .flatMap(part -> part.type() == Part.Type.LANGUAGES ? part.inner().stream() : Stream.of(part))
+                    .toList();
+            final List<Part> all = each.document().allParts();
+            final boolean oneText = top.size() == 1
+                    && top.getFirst().type() == Part.Type.TEXT
+                    && top.getFirst().allLines().stream().noneMatch(line -> line.style() != null);
+            final boolean oneBox = top.size() == 1 && top.getFirst().type() == Part.Type.CONTAINER;
+            final boolean banner = all.stream().anyMatch(part -> part.type() == Part.Type.GALLERY);
+            final boolean sentences = all.stream()
+                    .flatMap(part -> part.allLines().stream())
+                    .flatMap(line -> line.text().languages().values().stream())
+                    .flatMap(List::stream)
+                    .anyMatch(text -> SENTENCE_END.matcher(text).find());
+            if (!(oneText || oneBox) || banner || sentences) {
+                wrong.add(name);
+            }
+        }
+
+        assertEquals(List.of(), wrong);
+    }
+
+    /** Returns whether a component in {@code drawn} is sent with an accent colour, which Discord draws as a bar. */
+    private static boolean accented(final JsonElement drawn) {
+        if (drawn.isJsonArray()) {
+            return drawn.getAsJsonArray().asList().stream().anyMatch(DocumentRendererTest::accented);
+        }
+        if (!drawn.isJsonObject()) {
+            return false;
+        }
+        final JsonObject component = drawn.getAsJsonObject();
+        return (component.has("accent_color") && !component.get("accent_color").isJsonNull())
+                || component.asMap().values().stream().anyMatch(DocumentRendererTest::accented);
     }
 
     @Test

@@ -181,7 +181,7 @@ local function setUp(preferences, modelText, os)
                panel=require("panel"), properties=require("properties"), items=require("items"),
                wizard=require("wizard"), drafts=require("drafts"), conflicts=require("conflicts"),
                minecraft=require("minecraft"), sounds=require("sounds"),
-               reveal=require("reveal") },
+               reveal=require("reveal"), files=require("files") },
     bootstrap={ clone=clone, env={ JAVA_HOME="/jdk" }, git="/usr/bin/git", gh="/gh" },
     preferences=preferences or {},
     tr=function(id, ...) return table.concat({ id, ... }, " ") end,
@@ -2143,7 +2143,7 @@ describe("the sounds of the Nordtal tab", function()
 
   it("lists the pack's sound events in the tree and shows an event's subtitle and actions", function()
     local t, dlg = sounding()
-    local root = dlg.handlers.tree.nodes[#dlg.handlers.tree.nodes]
+    local root = dlg.handlers.tree.nodes[#dlg.handlers.tree.nodes - 1]
     assert.same({ "sounds", "nordtal:ui.ping", "ui/ping" },
       { root.id, root.children[1].text, root.children[1].children[1].text })
     local shown = texts(dlg)
@@ -2208,6 +2208,76 @@ describe("the sounds of the Nordtal tab", function()
     local wizard = t.dialogs[#t.dialogs]
     assert.equal("new.sound_dialog", wizard.args.title)
     assert.same({ "new.kind_sound", "new.kind_vanilla_sound" }, wizard.handlers.kind.options)
+  end)
+end)
+
+describe("the files of the Nordtal tab", function()
+  local path = "/c/resource-pack/src/assets/minecraft/blockstates/stone.json"
+
+  local function filed()
+    local m = dkjson.decode(model)
+    m.files = { { category="minecraft:blockstates", entries={
+      { id="minecraft:blockstates/stone.json", file="src/assets/minecraft/blockstates/stone.json", name="stone.json",
+        kind="blockstate", problems={ "It needs either variants or multipart, and not both." } } } } }
+    local t = setUp(nil, dkjson.encode(m), "macos")
+    local dlg = loaded(t)
+    dlg.handlers.tree.onchange({ node="file/minecraft:blockstates/stone.json" })
+    return t, dlg
+  end
+
+  it("shows a file's path, kind and problems, with its actions", function()
+    local t, dlg = filed()
+    local shown = table.concat(texts(dlg), "\n")
+    for _, line in ipairs({ "files.file", "files.kind_blockstate", "files.problems",
+                            "It needs either variants or multipart, and not both.", "files.edit",
+                            "properties.reveal_macos", "files.delete" }) do
+      assert.is_true(shown:find(line, 1, true) ~= nil, line)
+    end
+  end)
+
+  it("opens a file in the text editor and reads the pack again once it was saved there", function()
+    local t, dlg = filed()
+    t.world.reads = { [path] = "{}" }
+    click(dlg, "files.edit")
+    local editor = t.started[#t.started]
+    assert.same({ "/usr/bin/open", "-t", path }, editor.args.cmd)
+    local timer = t.timers[#t.timers]
+    assert.equal(1, timer.args.interval)
+    local before = #t.started
+    timer.args.ontick()
+    assert.equal(before, #t.started)
+    t.world.reads[path] = '{ "variants": {} }'
+    timer.args.ontick()
+    assert.equal(":resource-pack:describePack", run(t.started[#t.started]))
+    t.started[#t.started].isRunning = false
+    t.started[#t.started].args.onexit(0)
+    assert.equal("status.file_saved stone.json", status(dlg))
+  end)
+
+  it("opens a file in the text editor while a task runs", function()
+    local t, dlg = filed()
+    t.world.confirm = 1
+    click(dlg, "files.delete")
+    click(dlg, "files.edit")
+    assert.same({ "/usr/bin/open", "-t", path }, t.started[#t.started].args.cmd)
+  end)
+
+  it("deletes a file once confirmed", function()
+    local t, dlg = filed()
+    t.world.confirm = 1
+    click(dlg, "files.delete")
+    assert.equal(":resource-pack:deleteFile -Passet=minecraft:blockstates/stone.json", run(t.started[#t.started]))
+    assert.same({ "alert", { "files.delete_question minecraft:blockstates/stone.json", "files.delete_vanilla_note" } },
+      t.log[#t.log])
+  end)
+
+  it("opens the wizard for a new file from Files", function()
+    local t, dlg = filed()
+    dlg.handlers.tree.onchange({ node="files" })
+    click(dlg, "files.new")
+    local wizard = t.dialogs[#t.dialogs]
+    assert.equal("new.file_dialog", wizard.args.title)
+    assert.same({ "new.kind_file", "new.kind_vanilla_file" }, wizard.handlers.kind.options)
   end)
 end)
 

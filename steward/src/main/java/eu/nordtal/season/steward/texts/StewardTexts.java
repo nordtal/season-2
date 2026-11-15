@@ -204,10 +204,10 @@ public interface StewardTexts {
             @Name("Countdown over")
             MessageRef tooLate();
 
-            @Name("Mode switch open")
+            @Name("Game mode switch open")
             MessageRef switchOpen();
 
-            @Name("Switch to the active mode")
+            @Name("Switch to the active game mode")
             MessageRef switchToActive(@Arg("mode") SeasonMode mode);
 
             @Name("Key not held")
@@ -389,6 +389,9 @@ public interface StewardTexts {
 
             @Name("Image refused")
             MessageRef imageRefused();
+
+            @Name("Image too large")
+            MessageRef imageTooLarge(@Arg("most") @Example("8") int most);
 
             @Name("No player to preview to")
             MessageRef previewUnlinked();

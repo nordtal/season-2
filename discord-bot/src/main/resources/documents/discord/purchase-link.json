@@ -1,25 +1,48 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "Pay **{total}** here: {url}",
-            "de": "Zahle **{total}** hier: {url}"
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Payment link",
+                "de": "Zahlungslink"
+              },
+              "style": "TITLE"
+            }
+          ]
         },
         {
-          "text": {
-            "en": "Reference: **{reference}**. Keep it in the payment description.",
-            "de": "Verwendungszweck: **{reference}**. Lass ihn in der Zahlung unverändert."
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Leave the reference **{reference}** in the payment description as it is.",
+                "de": "Lass den Verwendungszweck **{reference}** in der Zahlung unverändert."
+              }
+            },
+            {
+              "text": {
+                "en": "The link expires {until, instant, relative}.",
+                "de": "Der Link läuft {until, instant, relative} ab."
+              }
+            }
+          ]
         },
         {
-          "text": {
-            "en": "The link expires {until, instant, relative}.",
-            "de": "Der Link läuft {until, instant, relative} ab."
-          }
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "pay",
+              "label": {
+                "en": "Pay {total}",
+                "de": "{total} zahlen"
+              }
+            }
+          ]
         }
       ]
     }

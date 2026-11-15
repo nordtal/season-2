@@ -390,6 +390,9 @@ public interface StewardTexts {
             @Name("Image refused")
             MessageRef imageRefused();
 
+            @Name("Image too large")
+            MessageRef imageTooLarge(@Arg("most") @Example("8") int most);
+
             @Name("No player to preview to")
             MessageRef previewUnlinked();
 

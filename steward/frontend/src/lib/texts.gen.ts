@@ -736,6 +736,9 @@ export type TextArgs = {
     count: Arg["number"]
   }
   "steward.answer.image-refused": Record<string, never>
+  "steward.answer.image-too-large": {
+    most: Arg["number"]
+  }
   "steward.answer.interrupted": Record<string, never>
   "steward.answer.inventory-held": {
     server: Arg["text"]

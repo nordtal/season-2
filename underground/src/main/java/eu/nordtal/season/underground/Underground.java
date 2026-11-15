@@ -7,6 +7,7 @@ import eu.nordtal.season.underground.server.Generate;
 import eu.nordtal.season.underground.server.ScratchServer;
 import eu.nordtal.season.underground.server.Upgrade;
 import eu.nordtal.season.underground.server.Verify;
+import eu.nordtal.season.underground.structures.Structures;
 import eu.nordtal.season.underground.transplant.Parameters;
 import eu.nordtal.season.underground.transplant.Transplant;
 import java.io.IOException;
@@ -25,7 +26,7 @@ public final class Underground {
     public static void main(final String[] words) throws IOException, InterruptedException {
         if (words.length == 0) {
             throw new IllegalArgumentException(
-                    "Name a command: histogram, upgrade, generate, transplant, check, slice or verify.");
+                    "Name a command: histogram, upgrade, generate, transplant, check, slice, verify or structures.");
         }
         final Arguments arguments = new Arguments(List.of(Arrays.copyOfRange(words, 1, words.length)));
         switch (words[0]) {
@@ -37,6 +38,14 @@ public final class Underground {
             case "verify" -> verify(arguments);
             case "check" -> check(arguments);
             case "slice" -> slice(arguments);
+            case "structures" ->
+                System.out.println(Structures.run(
+                        arguments.path("world"),
+                        arguments.path("pack"),
+                        seed(arguments),
+                        arguments.path("out"),
+                        arguments.regions(arguments.path("world")),
+                        (int) arguments.number("threads", 4)));
             default -> throw new IllegalArgumentException("Unknown command " + words[0] + ".");
         }
     }

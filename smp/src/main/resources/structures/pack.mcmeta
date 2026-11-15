@@ -1,0 +1,8 @@
+{
+  "pack": {
+    "id": "nordtal_structures",
+    "min_format": 121,
+    "max_format": 121,
+    "description": "Nordtal: the map's villages, outposts, monuments and strongholds, and no new ones"
+  }
+}

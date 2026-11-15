@@ -166,9 +166,12 @@ public final class Wheel {
         });
     }
 
-    /** The dialog's close, which stops the pop-in's sounds and ends a turn at once. */
+    /** The dialog's Esc and close button: closes the dialog, which the button leaves open, and ends a turn at once. */
     private DialogAction closing(final Dialogs.Send send) {
-        return send.action((player, response) -> close(player));
+        return send.action((player, response) -> {
+            player.closeDialog();
+            close(player);
+        });
     }
 
     /**
@@ -483,7 +486,8 @@ public final class Wheel {
                 document.label("spin-button"),
                 document.label("spin-title"),
                 document.label("spin-cost"),
-                document.label("spin-none"));
+                document.label("spin-none"),
+                document.label("close"));
     }
 
     /**

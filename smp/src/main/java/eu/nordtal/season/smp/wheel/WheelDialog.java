@@ -51,7 +51,8 @@ final class WheelDialog {
                     Slot.label("spin-button"),
                     Slot.label("spin-title"),
                     Slot.label("spin-cost"),
-                    Slot.label("spin-none"))
+                    Slot.label("spin-none"),
+                    Slot.label("close"))
             .titled("Wheel of Fortune");
 
     /** The item group whose cooldown plays the spin. */
@@ -100,12 +101,20 @@ final class WheelDialog {
     private WheelDialog() {}
 
     /** The words on the wheel, read from {@link #DOCUMENT} in the player's language. */
-    record Texts(Component heading, String name, String spins, String button, String title, String cost, String none) {}
+    record Texts(
+            Component heading,
+            String name,
+            String spins,
+            String button,
+            String title,
+            String cost,
+            String none,
+            String close) {}
 
     /**
      * The dialog of {@code plan}, whose {@code prizes} stand at its bodies.
      * {@code resting} holds the item at each place at rest, which the hovers show, and is null while it turns.
-     * {@code click} spins, null without spins left, and {@code close} runs when the player closes it.
+     * {@code click} spins, null without spins left, and {@code close} runs on Esc and on the close button.
      */
     static Dialog of(
             final WheelPlan plan,
@@ -136,11 +145,12 @@ final class WheelDialog {
                 .build());
         bodies.add(row(stack(paper, "overlay", plan.overlay(language)), rows, OVERLAY_BODY, resting));
         bodies.add(row(stack(paper, "none", List.of()), rows, HOVER_BODY, resting));
-        final Component title = DialogTitle.of(DialogPanel.WHEEL_201, TOP)
+        final Component title = DialogTitle.of(DialogPanel.WHEEL_197, TOP)
                 .header(Symbol.WHEEL, texts.name(), List.of(), MARGIN)
                 .build();
-        return Dialog.create(builder ->
-                builder.empty().base(Dialogs.base(title).body(bodies).build()).type(Dialogs.bodyOnly(close)));
+        return Dialog.create(builder -> builder.empty()
+                .base(Dialogs.base(title).body(bodies).build())
+                .type(Dialogs.bodyOnly(BodyLine.normalButton(texts.close()), BodyLine.NATIVE_BUTTON, close)));
     }
 
     /**

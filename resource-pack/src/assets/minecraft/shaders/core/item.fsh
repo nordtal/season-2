@@ -45,11 +45,10 @@ const vec3 WALL_DEEP = vec3(74.0, 99.0, 216.0) / 255.0;   // the brand blue: the
 const vec3 WALL_ICE = vec3(160.0, 180.0, 255.0) / 255.0;  // the light in the rays
 const vec3 WALL_SPARK = vec3(232.0, 238.0, 255.0) / 255.0; // lines and motes
 
-const float WALL_TEXELS = 16.0;     // the field is drawn on the block's pixel grid
 const float WALL_FADE_START = 24.0; // blocks from the camera where the wall starts to fade
 const float WALL_FADE_END = 30.0;   // and where it is gone
-const float WALL_NEAR_START = 2.5;  // closer than this the block grid shows in full
-const float WALL_NEAR_END = 7.0;    // farther than this it does not show
+const float WALL_NEAR_START = 1.5;  // closer than this the block grid shows in full
+const float WALL_NEAR_END = 6.0;    // farther than this it does not show
 
 bool wallIsMarker(vec4 texel) {
     return texel.a > 0.002 && all(lessThan(abs(texel.rgb - WALL_MARKER), vec3(0.0019)));
@@ -72,12 +71,12 @@ int wallWrap(float value, float period) {
     return int(value - period * floor(value / period));
 }
 
-// Value noise on a grid that repeats after `period` cells in x and in y, so a drift of one period
-// per day of GameTime loops without a jump.
+// Smooth value noise (quintic interpolation, so its slope is continuous too) on a grid that repeats
+// after `period` cells in x and in y, so a drift of one period per day of GameTime loops without a jump.
 float wallNoise(vec2 at, vec2 period, int seed) {
     vec2 cell = floor(at);
     vec2 t = at - cell;
-    t = t * t * (3.0 - 2.0 * t);
+    t = t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
     int x0 = wallWrap(cell.x, period.x);
     int x1 = wallWrap(cell.x + 1.0, period.x);
     int y0 = wallWrap(cell.y, period.y) + seed * 4096;
@@ -85,57 +84,60 @@ float wallNoise(vec2 at, vec2 period, int seed) {
     return mix(mix(wallRandom(x0, y0), wallRandom(x1, y0), t.x), mix(wallRandom(x0, y1), wallRandom(x1, y1), t.x), t.y);
 }
 
+// A soft line of the given half width (in blocks) at every whole block of `at`, 1 on the line.
+float wallLine(float at, float halfWidth) {
+    float d = abs(fract(at + 0.5) - 0.5) / halfWidth;
+    return exp(-d * d);
+}
+
 // coord: x = blocks along the wall, y = world height, zw = horizontal offset from the camera.
 // envelope: 0 at the band's upper and lower end, 1 in its middle. gameTime: 0 to 1 in 1200 seconds.
+// Everything is continuous in space and time: no pixel grid, no steps.
 vec4 wallField(vec4 coord, float envelope, float gameTime) {
-    vec2 texel = floor(coord.xy * WALL_TEXELS);
+    vec2 at = coord.xy;
 
-    // Rays: tall soft columns that sway along the wall (1.75 pixels a second) and rise (2 to 2.3 pixels a second).
-    float wide = wallNoise(vec2(texel.x / 7.0 + gameTime * 300.0, texel.y / 96.0 - gameTime * 25.0), vec2(300.0, 25.0), 1);
-    float fine = wallNoise(vec2(texel.x / 3.0 - gameTime * 600.0, texel.y / 56.0 - gameTime * 50.0), vec2(600.0, 50.0), 2);
-    float ray = smoothstep(0.38, 0.80, wide * 0.7 + fine * 0.3);
-    ray = floor(ray * 4.0 + 0.5) / 4.0; // five flat steps, as pixel art shades
+    // Rays: tall soft folds that sway along the wall (0.11 and 0.09 blocks a second, against each
+    // other) and rise (0.13 to 0.15 blocks a second). Three smooth layers, the widest the strongest.
+    float broad = wallNoise(vec2(at.x / 1.6 + gameTime * 80.0, at.y / 9.0 - gameTime * 18.0), vec2(80.0, 18.0), 1);
+    float wide = wallNoise(vec2(at.x / 0.55 - gameTime * 200.0, at.y / 6.0 - gameTime * 30.0), vec2(200.0, 30.0), 2);
+    float fine = wallNoise(vec2(at.x / 0.22 + gameTime * 300.0, at.y / 4.0 - gameTime * 40.0), vec2(300.0, 40.0), 3);
+    float ray = smoothstep(0.30, 0.82, broad * 0.5 + wide * 0.35 + fine * 0.15);
 
-    float alpha = 0.22 + 0.32 * ray;
-    vec3 colour = mix(WALL_DEEP, WALL_ICE, 0.30 * ray);
+    float alpha = 0.21 + 0.31 * ray;
+    vec3 colour = mix(WALL_DEEP, WALL_ICE, 0.32 * ray);
 
-    // Strata: one pixel row at every block's lower edge. It shows the wall's run at a corner.
-    bool onRow = mod(texel.y, WALL_TEXELS) < 0.5;
-    if (onRow) {
-        alpha += 0.09 + 0.12 * ray;
-        colour = mix(colour, WALL_SPARK, 0.30);
-    }
-
-    // Close to the camera the block grid closes: the wall reads as solid before the push comes.
+    // Close to the camera a soft block grid comes up: the wall reads as solid before the push comes.
+    // Farther away only a breath of the horizontal lines stays, which shows the wall's run at a corner.
     float close = 1.0 - smoothstep(WALL_NEAR_START, WALL_NEAR_END, length(coord.zw));
-    if (mod(texel.x, WALL_TEXELS) < 0.5) {
-        alpha += 0.22 * close;
-        colour = mix(colour, WALL_SPARK, 0.35 * close);
-    }
-    if (onRow) {
-        alpha += 0.12 * close;
-    }
-    alpha *= 1.0 + 0.30 * close;
+    float rows = wallLine(at.y, 0.045);
+    float columns = wallLine(at.x, 0.045);
+    float grid = rows * (0.045 + 0.13 * close) + columns * 0.15 * close * (1.0 - 0.5 * rows);
+    alpha += grid;
+    colour = mix(colour, WALL_SPARK, min(1.0, grid * 2.2));
+    alpha *= 1.0 + 0.25 * close;
 
-    // Motes: in about one pixel column of fourteen a bright pixel with a short tail rises, five blocks
-    // apart, at 6 to 10 pixels a second.
-    int column = wallWrap(texel.x, 4096.0);
-    if (wallRandom(column, 11) < 0.07) {
+    // Motes: in about every second block a small soft light with a tail rises, five blocks apart,
+    // at 0.4 to 0.6 blocks a second.
+    float lane = floor(at.x);
+    int column = wallWrap(lane, 4096.0);
+    if (wallRandom(column, 11) < 0.55) {
         float loops = 90.0 + 30.0 * floor(wallRandom(column, 12) * 3.0);
-        float head = floor(fract(wallRandom(column, 13) + gameTime * loops) * 80.0);
-        float below = mod(head - texel.y, 80.0);
-        if (below < 1.0) {
-            alpha = 0.90;
-            colour = WALL_SPARK;
-        } else if (below < 5.0) {
-            float tail = 1.0 - below / 5.0;
-            alpha += 0.45 * tail;
-            colour = mix(colour, WALL_SPARK, 0.6 * tail);
-        }
+        float head = fract(wallRandom(column, 13) + gameTime * loops) * 5.0;
+        float below = mod(head - at.y, 5.0);                      // blocks below the mote's head
+        float above = 5.0 - below;
+        float across = (at.x - lane - 0.2 - 0.6 * wallRandom(column, 14)) / 0.035;
+        float along = exp(-below / 0.22) + exp(-above * above / 0.0012);
+        float mote = exp(-across * across) * min(1.0, along);
+        alpha += 0.60 * mote;
+        colour = mix(colour, WALL_SPARK, min(1.0, mote * 1.3));
     }
 
     float reach = 1.0 - smoothstep(WALL_FADE_START, WALL_FADE_END, length(coord.zw));
-    return vec4(colour, min(alpha, 0.92) * envelope * reach);
+    alpha = min(alpha, 0.92) * envelope * reach;
+
+    // Half a step of 8-bit colour of screen noise, so the long fades do not band on the screen.
+    float grain = float(wallHash(uint(gl_FragCoord.x) + wallHash(uint(gl_FragCoord.y))) >> 8u) / 16777216.0 - 0.5;
+    return vec4(colour, max(0.0, alpha + grain * envelope * reach / 255.0));
 }
 
 // END nordtal wall field

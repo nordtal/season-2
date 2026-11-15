@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.InstantSource;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.function.Predicate;
 import javax.sql.DataSource;
 import org.jspecify.annotations.Nullable;
 
@@ -24,6 +25,9 @@ interface Occupancy {
     /** Four missed heartbeats of {@code StandbyReturn.INTERVAL}. */
     Duration STANDBY_FRESH_WITHIN = Duration.ofSeconds(8);
 
+    /** One missed write at the proxy's usual pace, which it keeps once no run is about to stop a server. */
+    Duration WAITING_FRESH_WITHIN = OnlineDirectory.WRITE_INTERVAL.multipliedBy(2);
+
     /**
      * Reads one service's player count.
      *
@@ -32,6 +36,16 @@ interface Occupancy {
      * @return the count, or empty when no fresh row says
      */
     OptionalInt on(String service, Instant now, Instant since);
+
+    /**
+     * Reads how many players wait in a waiting room after a run, at the pace the proxy writes then.
+     *
+     * @param room a waiting room's compose service name
+     * @return the count, or empty when no fresh row says
+     */
+    default OptionalInt waitingIn(final String room, final Instant now) {
+        return on(room, now, Instant.MIN);
+    }
 
     /** Returns whether a row written at {@code updated} still says something at {@code now}. */
     static boolean counts(final Instant updated, final Instant now, final Instant since) {
@@ -67,6 +81,15 @@ interface Occupancy {
 
             @Override
             public OptionalInt on(final String service, final Instant now, final Instant since) {
+                return read(service, updated -> Occupancy.counts(updated, now, since));
+            }
+
+            @Override
+            public OptionalInt waitingIn(final String room, final Instant now) {
+                return read(room, updated -> !updated.isBefore(now.minus(WAITING_FRESH_WITHIN)));
+            }
+
+            private OptionalInt read(final String service, final Predicate<Instant> fresh) {
                 if (counts == null) {
                     counts = OnlineDirectory.using(dataSource, clock);
                 }
@@ -78,7 +101,7 @@ interface Occupancy {
                     return OptionalInt.empty();
                 }
                 final OnlineCount count = current.get(service);
-                if (count == null || !Occupancy.counts(count.updated(), now, since)) {
+                if (count == null || !fresh.test(count.updated())) {
                     return OptionalInt.empty();
                 }
                 return OptionalInt.of(count.players());

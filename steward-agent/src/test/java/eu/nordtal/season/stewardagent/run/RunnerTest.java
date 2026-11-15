@@ -10,6 +10,8 @@ import eu.nordtal.season.common.time.Waiting;
 import eu.nordtal.season.database.DatabaseRole;
 import eu.nordtal.season.database.TestDatabase;
 import eu.nordtal.season.database.inbox.StewardRequest;
+import eu.nordtal.season.database.online.OnlineDirectory;
+import eu.nordtal.season.database.season.SeasonDirectory;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
@@ -25,6 +27,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.IntConsumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +63,13 @@ class RunnerTest {
 
     private int lateIn = 3;
 
+    /** Runs on every sleep while players back is open, with the number of that sleep, as the proxy's waiting room. */
+    private IntConsumer waitingRoom = slept -> {};
+
+    private int sleptInBack;
+
+    private final Waiting clock = driven();
+
     private TestDatabase postgres;
     private Database database;
     private UpdateDirectory directory;
@@ -90,7 +101,7 @@ class RunnerTest {
                 },
                 "steward-test");
         directory = Schema.updates(database);
-        runner = new Runner(defaults(), database, containers, snapshots, directory, driven(), removal);
+        runner = new Runner(defaults(), database, containers, snapshots, directory, clock, removal);
     }
 
     @AfterEach
@@ -178,6 +189,95 @@ class RunnerTest {
 
         assertEquals(UpdateStatus.DONE, outcome.status());
         assertEquals("PLAYERS_BACK DONE", steps(request.id()).getLast());
+    }
+
+    @Test
+    void playersBackWaitsPastItsCapForAPlayerTheWaitingRoomStillHolds() {
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 1);
+            }
+        };
+        // The proxy lets the player on only once the server answers and the queue's turn comes, after the cap.
+        inLimboUntil(1, 45, () -> directory.recorder().returned("smp", "limbo", 1));
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status());
+        assertEquals(
+                "PLAYERS_BACK DONE",
+                steps(request.id()).getLast(),
+                steps(request.id()).toString());
+    }
+
+    @Test
+    void aPlayerMovedIntoTheStandbyWhoWaitsInLimboOnceItStopsStillCountsAsWaiting() {
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo-standby", 1);
+            }
+        };
+        inLimboUntil(1, 45, () -> directory.recorder().returned("smp", "limbo-standby", 1));
+
+        runner.run(request, progress::add);
+
+        assertEquals(
+                "PLAYERS_BACK DONE",
+                steps(request.id()).getLast(),
+                steps(request.id()).toString());
+    }
+
+    @Test
+    void aPlayerTheWaitingRoomNeverLetsGoEndsAsLostOnceThePatienceRunsOut() {
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 1);
+            }
+        };
+        inLimboUntil(1, Integer.MAX_VALUE, () -> {});
+
+        final Outcome outcome = runner.run(request, progress::add);
+
+        assertEquals(UpdateStatus.DONE, outcome.status());
+        assertEquals("PLAYERS_BACK WARNING PLAYERS_LOST", steps(request.id()).getLast());
+        assertTrue(sleptInBack > 60, "a player still waiting is given longer than the cap: " + sleptInBack);
+    }
+
+    @Test
+    void playersMaintenanceKeepsInTheWaitingRoomAreNotLost() {
+        SeasonDirectory.using(database.dataSource(), java.time.Clock.systemUTC())
+                .setMaintenance(true, Actor.HOST, null);
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "smp", "limbo", 2);
+            }
+        };
+        inLimboUntil(2, Integer.MAX_VALUE, () -> {});
+
+        runner.run(request, progress::add);
+
+        assertEquals(
+                "PLAYERS_BACK DONE",
+                steps(request.id()).getLast(),
+                steps(request.id()).toString());
+        assertTrue(sleptInBack <= 31, "maintenance holds them on purpose, so nothing is waited for: " + sleptInBack);
+    }
+
+    /** Has the proxy count players in limbo on every sleep of players back, and release them on sleep {@code at}. */
+    private void inLimboUntil(final int players, final int at, final Runnable released) {
+        final OnlineDirectory online = OnlineDirectory.using(database.dataSource(), clock::now);
+        waitingRoom = slept -> {
+            if (slept < at) {
+                online.write(Map.of("limbo", players, "proxy", players));
+            } else if (slept == at) {
+                released.run();
+                online.write(Map.of("limbo", 0, "proxy", players));
+            }
+        };
     }
 
     /**
@@ -664,8 +764,12 @@ class RunnerTest {
             public boolean sleep(final Duration duration) {
                 now = now.plus(duration);
                 containers.settle();
-                if (lateIn > 0 && steps().contains("PLAYERS_BACK") && --lateIn == 0) {
+                final boolean back = steps().contains("PLAYERS_BACK");
+                if (lateIn > 0 && back && --lateIn == 0) {
                     lateReturn.run();
+                }
+                if (back) {
+                    waitingRoom.accept(++sleptInBack);
                 }
                 return true;
             }

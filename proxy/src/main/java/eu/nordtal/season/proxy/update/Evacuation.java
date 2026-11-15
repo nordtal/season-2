@@ -527,7 +527,7 @@ public final class Evacuation {
 
     /** Tells the player why the run moved them and counts the move, once per run. */
     private void landed(final Player player, final String room, final String from, final Leg now) {
-        if (!homecoming.movedOut(now.run(), player, from, now.switchTo())) {
+        if (!homecoming.movedOut(now.run(), player, from, room, now.switchTo())) {
             return;
         }
         logger.info(

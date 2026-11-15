@@ -1,5 +1,6 @@
 package eu.nordtal.season.stewardagent.run;
 
+import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateDirectory;
@@ -8,6 +9,7 @@ import eu.nordtal.season.internalapi.agent.AgentWire;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.internalapi.agent.RedeployResult;
 import eu.nordtal.season.internalapi.agent.RuntimeResult;
+import eu.nordtal.season.internalapi.agent.Topology;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,6 +17,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
@@ -27,9 +30,6 @@ import org.jspecify.annotations.Nullable;
  */
 @Slf4j
 final class Run {
-
-    /** How long the players moved out may take to come back once the standbys are closed. */
-    private static final Duration RETURN_CAP = Duration.ofSeconds(30);
 
     private static final Duration RETURN_POLL = Duration.ofSeconds(1);
 
@@ -375,7 +375,7 @@ final class Run {
             returning.warned(RunStep.Reason.PLAYERS_UNKNOWN);
             return;
         }
-        final Instant deadline = runner.waiting.now().plus(RETURN_CAP);
+        final Instant started = runner.waiting.now();
         while (true) {
             final Optional<List<RunStep.Move>> moves = steps.record.moves();
             if (moves.isEmpty()) {
@@ -385,19 +385,74 @@ final class Run {
             final List<RunStep.Move> missing = moves.get().stream()
                     .filter(move -> !held.contains(move.from()) && move.returned() < move.moved())
                     .toList();
-            if (missing.isEmpty()) {
-                returning.done();
-                return;
+            final int owed = missing.stream()
+                    .mapToInt(move -> move.moved() - move.returned())
+                    .sum();
+            final Instant now = runner.waiting.now();
+            final Duration elapsed = Duration.between(started, now);
+            // The waiting rooms are read only once the cap has passed, since only then do they decide.
+            final boolean past = elapsed.compareTo(PlayersBack.CAP) >= 0;
+            final int waiting = past && owed > 0 ? waitingFor(missing, now) : 0;
+            final boolean maintenance = past && owed > 0 && maintenance();
+            switch (PlayersBack.judge(owed, waiting, maintenance, elapsed)) {
+                case DONE -> {
+                    if (owed > 0) {
+                        log.info("players back counted, the rest wait for maintenance: moves={}", missing);
+                    }
+                    returning.done();
+                    return;
+                }
+                case LOST -> {
+                    log.warn("fewer players came back than moved out: moves={} waiting={}", missing, waiting);
+                    returning.warned(RunStep.Reason.PLAYERS_LOST);
+                    return;
+                }
+                case WAIT -> {
+                    if (!runner.waiting.sleep(RETURN_POLL)) {
+                        returning.warned(RunStep.Reason.INTERRUPTED);
+                        return;
+                    }
+                }
             }
-            if (!runner.waiting.now().isBefore(deadline)) {
-                log.warn("fewer players came back than moved out: moves={}", missing);
-                returning.warned(RunStep.Reason.PLAYERS_LOST);
-                return;
-            }
-            if (!runner.waiting.sleep(RETURN_POLL)) {
-                returning.warned(RunStep.Reason.INTERRUPTED);
-                return;
-            }
+        }
+    }
+
+    /**
+     * Returns how many players wait in the rooms the missing players were moved into.
+     *
+     * A standby's own players wait in its live room once it stops, so that room counts as well.
+     */
+    private int waitingFor(final List<RunStep.Move> missing, final Instant now) {
+        final AgentWire.Topology topology = runner.topology();
+        final Optional<String> proxyStandby = topology.standbyOf(Topology.PROXY);
+        final Set<String> rooms = new LinkedHashSet<>();
+        for (final RunStep.Move move : missing) {
+            rooms.add(move.to());
+            topology.services().stream()
+                    .filter(service -> service.name().equals(move.to()))
+                    .map(AgentWire.Service::standbyOf)
+                    .filter(live -> live != null && !Topology.PROXY.equals(live))
+                    .forEach(rooms::add);
+        }
+        int waiting = 0;
+        for (final String room : rooms) {
+            final OptionalInt players = proxyStandby.filter(room::equals).isPresent()
+                    ? runner.occupancy().onStandbyProxy(now)
+                    : runner.occupancy().waitingIn(room, now);
+            waiting += players.orElse(0);
+        }
+        return waiting;
+    }
+
+    /** Returns whether maintenance is on, false when its row cannot be read. */
+    private boolean maintenance() {
+        try {
+            final SeasonState state = runner.season().state();
+            // A missing row reads as maintenance on, which would hide a real loss.
+            return !SeasonState.UNREAD.equals(state) && state.maintenance();
+        } catch (final RuntimeException unread) {
+            log.warn("maintenance not read, players back counted without it", unread);
+            return false;
         }
     }
 

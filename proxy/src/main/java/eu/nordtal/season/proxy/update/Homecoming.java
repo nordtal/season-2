@@ -61,11 +61,12 @@ public final class Homecoming {
     private final RunRecorder runs;
 
     /**
-     * Where a moved player came from, and whether a mode switch moved the player.
+     * Where a moved player came from and went, and whether a mode switch moved the player.
      *
      * @param from the server the run stopped under the player
+     * @param room the waiting room the move landed in, which the run counted the move against
      */
-    record Owed(String from, boolean switching) {}
+    record Owed(String from, String room, boolean switching) {}
 
     /** The players who were moved and have not been informed. */
     private final Map<UUID, Owed> owed = new ConcurrentHashMap<>();
@@ -93,11 +94,17 @@ public final class Homecoming {
      * Tells the player why the run moves them, once per run, and adds them to the players to inform on return.
      *
      * @param from the server the run stops under the player
+     * @param room the waiting room the player landed in
      * @param switchTo the server a mode switch makes active, {@code null} for another run
      * @return whether the player was not moved by this run before
      */
-    public boolean movedOut(final long run, final Player player, final String from, final @Nullable String switchTo) {
-        if (!owe(run, player.getUniqueId(), new Owed(from, switchTo != null))) {
+    public boolean movedOut(
+            final long run,
+            final Player player,
+            final String from,
+            final String room,
+            final @Nullable String switchTo) {
+        if (!owe(run, player.getUniqueId(), new Owed(from, room, switchTo != null))) {
             return false;
         }
         try {
@@ -131,7 +138,7 @@ public final class Homecoming {
 
     /**
      * Informs the player about the return if an update run moved the player.
-     * The return counts against the server the player was moved off, which a mode switch does not return to.
+     * The return counts against the move itself, even when the player waited in another room since.
      *
      * @param destination the server of the player
      */
@@ -140,9 +147,7 @@ public final class Homecoming {
         if (move == null) {
             return;
         }
-        player.getCurrentServer()
-                .map(connection -> connection.getServerInfo().getName())
-                .ifPresent(room -> returned(move.from(), room, 1));
+        returned(move.from(), move.room(), 1);
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
             final Named named = named(destination);

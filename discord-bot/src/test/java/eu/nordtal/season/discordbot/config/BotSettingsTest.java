@@ -14,8 +14,6 @@ import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.spec.annotation.Protected;
 import java.lang.reflect.Method;
-import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -419,98 +417,83 @@ class BotSettingsTest {
     }
 
     private OnboardingSpec onboarding(final Map<String, Object> values) throws SettingsException {
-        return store.checked(BotSettings.SERVICE, BotSettings.ONBOARDING, values);
+        return store.checked(
+                BotSettings.SERVICE, BotSettings.onboardingGroup(new Languages(List.of("en", "de"))), values);
     }
 
-    private String refusedOnboarding(final Map<String, Object> values) {
-        return assertThrows(SettingsException.class, () -> onboarding(values)).getMessage();
-    }
-
-    private static Map<String, Object> regions(final String... namesAndZones) {
-        final List<Map<String, String>> regions = new ArrayList<>();
-        for (int index = 0; index < namesAndZones.length; index += 2) {
-            regions.add(Map.of("name", namesAndZones[index], "zone", namesAndZones[index + 1]));
-        }
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("regions", regions);
-        return values;
+    private static Map<String, String> country(
+            final String key, final String name, final String zone, final String language) {
+        return Map.of(
+                "key",
+                key,
+                "name",
+                name,
+                "zone",
+                zone,
+                "language",
+                language,
+                "emoji",
+                eu.nordtal.season.discordbot.Mark.flag("DE"),
+                "glyph",
+                "flag-germany");
     }
 
     @Test
-    void anUntouchedOnboardingLocksNobodyHasNoChannelAndOffersTheDefaultRegions() throws Exception {
+    void retainedRegionAndChangeChannelOverridesDoNotAffectCountryOnboarding() throws Exception {
+        final OnboardingSpec config = onboarding(Map.of(
+                "change-channel", "not a channel",
+                "regions", List.of(Map.of("name", "Old region")),
+                "regions[0].zone", "not a zone",
+                "regions.name", "Old name",
+                "channel", "123"));
+        assertEquals("123", config.channel());
+        assertEquals(DefaultCountries.LIST.size(), config.countries().size());
+        assertEquals("de", config.countries().getFirst().key());
+    }
+
+    @Test
+    void defaultsOfferTenCountriesWithTheLockOff() throws Exception {
         final OnboardingSpec config = onboarding(Map.of());
-
-        assertAll(
-                () -> assertFalse(config.lock()),
-                () -> assertEquals("", config.channel()),
-                () -> assertEquals("", config.changeChannel()),
-                () -> assertEquals("Onboarding", config.lockRole()),
-                () -> assertEquals(12, config.regions().size()),
-                () -> assertTrue(config.regions().stream()
-                        .anyMatch(region -> region.zone().equals("Europe/Berlin"))),
-                () -> assertTrue(config.regions().stream()
-                        .allMatch(region -> ZoneId.getAvailableZoneIds().contains(region.zone()))));
+        assertFalse(config.lock());
+        assertEquals("", config.channel());
+        assertEquals(10, config.countries().size());
+        assertEquals(
+                List.of("de", "at", "ch", "nl", "gb", "us-east", "us-central", "us-mountain", "us-west", "other"),
+                config.countries().stream().map(OnboardingSpec.CountrySpec::key).toList());
+        assertTrue(
+                BotSettings.onboardingGroup(new Languages(List.of("en", "de"))).live());
     }
 
     @Test
-    void theOnboardingIsTakenWhileTheBotRunsSoTheLockSwitchNeedsNoRestart() {
-        assertTrue(BotSettings.ONBOARDING.live());
+    void countriesMayShareAZoneAndMayFollowTheNetworkZone() throws Exception {
+        assertEquals(
+                3,
+                onboarding(Map.of(
+                                "countries",
+                                List.of(
+                                        country("de", "Germany", "Europe/Berlin", "de"),
+                                        country("at", "Austria", "Europe/Berlin", "de"),
+                                        country("other", "Other", "", "en"))))
+                        .countries()
+                        .size());
     }
 
     @Test
-    void aRegionWhoseZoneIsNoIanaZoneIsRefusedNamingTheEntry() {
-        final String message = refusedOnboarding(regions("Central Europe", "Europe/Berlin", "Mars", "Mars/Olympus"));
-
-        assertTrue(message.contains("regions[1].zone"), message);
-    }
-
-    @Test
-    void twoRegionsOfOneZoneAreRefusedSinceTheZoneIsWhatARegionStandsFor() {
-        final String message =
-                refusedOnboarding(regions("Central Europe", "Europe/Berlin", "Germany", "Europe/Berlin"));
-
-        assertTrue(message.contains("regions[1]"), message);
-    }
-
-    @Test
-    void aRegionNamedLikeTheLockRoleIsRefusedSinceBothWouldBeOneRole() {
-        final String message = refusedOnboarding(regions("Onboarding", "Europe/Berlin"));
-
-        assertTrue(message.contains("regions[0].name"), message);
-    }
-
-    @Test
-    void anOnboardingWithoutRegionsIsRefusedSinceNobodyCouldEverChooseOne() {
-        final String message = refusedOnboarding(regions());
-
-        assertTrue(message.contains("regions"), message);
-    }
-
-    @Test
-    void anOnboardingChannelThatIsSetHasToBeASnowflake() {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("channel", "<#5>");
-
-        final String message = refusedOnboarding(values);
-        assertTrue(message.contains("channel"), message);
-    }
-
-    @Test
-    void aChangeChannelThatIsSetHasToBeASnowflake() {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("change-channel", "<#5>");
-
-        final String message = refusedOnboarding(values);
-        assertTrue(message.contains("change-channel"), message);
-    }
-
-    @Test
-    void theChangeChannelIsRefusedAsTheOnboardingChannelWhichAReleasedMemberNoLongerSees() {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("channel", "1404596278050033786");
-        values.put("change-channel", "1404596278050033786");
-
-        final String message = refusedOnboarding(values);
-        assertTrue(message.contains("change-channel"), message);
+    void countryKeysAreUniqueAndLanguagesMustBelongToTheNetwork() {
+        assertThrows(
+                SettingsException.class,
+                () -> onboarding(Map.of(
+                        "countries",
+                        List.of(
+                                country("de", "Germany", "Europe/Berlin", "de"),
+                                country("de", "Austria", "Europe/Vienna", "de")))));
+        assertThrows(
+                SettingsException.class,
+                () -> onboarding(Map.of("countries", List.of(country("fr", "France", "Europe/Paris", "fr")))));
+        assertThrows(
+                SettingsException.class,
+                () -> onboarding(Map.of("countries", List.of(country("bad", "Bad", "Mars/Olympus", "en")))));
+        assertThrows(SettingsException.class, () -> onboarding(Map.of("countries", List.of())));
+        assertThrows(SettingsException.class, () -> onboarding(Map.of("channel", "<#5>")));
     }
 }

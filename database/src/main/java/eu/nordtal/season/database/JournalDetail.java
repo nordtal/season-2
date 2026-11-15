@@ -696,6 +696,45 @@ public sealed interface JournalDetail {
         }
     }
 
+    /** The channels of a language's category that the roles of the other languages could not be closed out of. */
+    record ChannelsNotDenied(List<ChannelFailure> channels) implements JournalDetail {
+        public ChannelsNotDenied {
+            channels = List.copyOf(channels);
+        }
+
+        @Override
+        public MessageRef line() {
+            return TEXTS.alert().languageNotKept();
+        }
+
+        @Override
+        public List<MessageRef> lines() {
+            return new ChannelsNotClosed(channels).lines();
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            new ChannelsNotClosed(channels).insert(handle, entry);
+        }
+    }
+
+    /**
+     * A channel that an allow opens to members the bot keeps out of it.
+     *
+     * @param holder the role or the member whose allow it is, as Discord names them
+     */
+    record ChannelSeen(String channel, String holder) implements JournalDetail {
+        @Override
+        public MessageRef line() {
+            return TEXTS.alert().seenThrough(holder);
+        }
+
+        @Override
+        public void insert(final Handle handle, final UUID entry) {
+            new ChannelsNotClosed(List.of(new ChannelFailure(channel, holder))).insert(handle, entry);
+        }
+    }
+
     /** A channel and what Discord answered when the bot set its overwrites. */
     record ChannelFailure(String channel, String error) {}
 }

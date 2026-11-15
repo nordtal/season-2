@@ -615,9 +615,9 @@ describe("CommandPalette - finding a translation", () => {
         sharedParts: [{ name: "rule-links", part: { type: "TEXT", lines: [] }, documents: [] }],
       }),
     )
-    found([{ kind: "SHARED_PART", id: "rule-links", language: "de", field: "TEXT", exact: true, text: "Regeln" }])
+    found([{ kind: "SHARED_PART", id: "rule-links", language: "de", field: "TEXT", exact: true, text: "Rules" }])
 
-    await search("regeln")
+    await search("rules")
     fireEvent.click(await screen.findByText("rule-links"))
 
     expect(takePendingTextJump()).toEqual({ id: "shared-part/rule-links", language: "de" })

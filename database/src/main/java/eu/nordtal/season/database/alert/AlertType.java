@@ -83,7 +83,10 @@ public enum AlertType {
                     ROLE_AMBIGUOUS,
                     ROLE_NOT_CREATED,
                     LOCK_NOT_KEPT,
-                    LOCK_WITHOUT_CHANNEL -> BOT;
+                    LOCK_WITHOUT_CHANNEL,
+                    START_CHANNEL_HIDDEN,
+                    LANGUAGE_NOT_KEPT,
+                    CHANNEL_SEEN -> BOT;
             default -> null;
         };
     }

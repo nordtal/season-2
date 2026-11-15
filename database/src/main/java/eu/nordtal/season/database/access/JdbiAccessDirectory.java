@@ -133,6 +133,12 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     @Override
+    public void setCountry(final DiscordId discordId, final @Nullable String country, final @Nullable ZoneId zone) {
+        Objects.requireNonNull(discordId, "discordId");
+        dao.setCountry(discordId, country, zone == null ? null : zone.getId());
+    }
+
+    @Override
     public void setPlaytimeSeconds(final DiscordId discordId, final long seconds) {
         if (seconds < 0) {
             throw new IllegalArgumentException("play time is never negative, not " + seconds);

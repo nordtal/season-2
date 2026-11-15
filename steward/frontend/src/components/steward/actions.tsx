@@ -75,6 +75,9 @@ const KIND_ICON: Record<string, Icon> = {
   ROLE_NOT_CREATED: TERM_ICON.warning,
   LOCK_NOT_KEPT: TERM_ICON.warning,
   LOCK_WITHOUT_CHANNEL: TERM_ICON.warning,
+  START_CHANNEL_HIDDEN: TERM_ICON.warning,
+  LANGUAGE_NOT_KEPT: TERM_ICON.warning,
+  CHANNEL_SEEN: TERM_ICON.warning,
 }
 
 export function actionIcon(kind: string): Icon {

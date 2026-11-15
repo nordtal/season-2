@@ -23,23 +23,10 @@ public final class Ids {
 
     public static final String LINK_CODE_INPUT = "access:link-code";
 
-    /** Its values are language tags. */
-    public static final String ONBOARD_PICK_LANGUAGE = "access:onboard-pick-language";
-
-    /** Its values are time zones. The tag of the language follows the id. */
-    public static final String ONBOARD_PICK_REGION = "access:onboard-pick-region:";
-
-    /** The tag of the language follows the id. */
+    public static final String ONBOARD_COUNTRY = "access:onboard-country";
+    public static final String ONBOARD_SETTINGS = "access:onboard-settings";
+    public static final String ONBOARD_LANGUAGE = "access:onboard-language:";
     public static final String ONBOARD = "access:onboard:";
-
-    /** The tag of the language follows the id. */
-    public static final String ONBOARD_MODAL = "access:onboard-modal:";
-
-    /** Its values are language tags. */
-    public static final String ONBOARD_LANGUAGE = "access:onboard-language";
-
-    /** Its values are time zones. */
-    public static final String ONBOARD_REGION = "access:onboard-region";
 
     private Ids() {}
 }

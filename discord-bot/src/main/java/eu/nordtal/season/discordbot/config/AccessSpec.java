@@ -113,6 +113,24 @@ public interface AccessSpec {
             return "";
         }
 
+        @Order(8)
+        @Name("Category")
+        @Key("category")
+        @Explain("Other languages cannot see this category or its channels.")
+        @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
+        default String category() {
+            return "";
+        }
+
+        @Order(9)
+        @Name("Rules channel")
+        @Key("rules-channel")
+        @NoExplanationNeeded
+        @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
+        default String rulesChannel() {
+            return "";
+        }
+
         /** The buy-access message in this language and its donation thank-yous go here. */
         @Order(3)
         @Name("Contribution channel")

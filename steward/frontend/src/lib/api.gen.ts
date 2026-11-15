@@ -851,6 +851,9 @@ export type JournalAction =
   | "ROLE_NOT_CREATED"
   | "LOCK_NOT_KEPT"
   | "LOCK_WITHOUT_CHANNEL"
+  | "START_CHANNEL_HIDDEN"
+  | "LANGUAGE_NOT_KEPT"
+  | "CHANNEL_SEEN"
 
 export type Actor = {
   kind: ActorKind

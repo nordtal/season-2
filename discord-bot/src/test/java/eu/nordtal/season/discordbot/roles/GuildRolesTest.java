@@ -162,15 +162,15 @@ class GuildRolesTest {
 
     @Test
     void aRoleAnotherKeyAlreadyStandsForIsNeverTakenForASecond() {
-        // A region renamed in Steward to an existing language's name gets a role of its own.
+        // A country renamed in Steward to an existing language's name gets a role of its own.
         table.store(GuildRoles.language("de"), "20");
         final Guild guild = new Guild().with("20", "Deutsch");
 
-        roles().resolve(guild, List.of(new GuildRoles.Wanted(GuildRoles.region("Europe/Berlin"), "Deutsch")));
+        roles().resolve(guild, List.of(new GuildRoles.Wanted(GuildRoles.country("de"), "Deutsch")));
 
         assertAll(
                 () -> assertEquals("20", table.all().get(GuildRoles.language("de"))),
-                () -> assertEquals("900", table.all().get(GuildRoles.region("Europe/Berlin"))));
+                () -> assertEquals("900", table.all().get(GuildRoles.country("de"))));
     }
 
     @Test

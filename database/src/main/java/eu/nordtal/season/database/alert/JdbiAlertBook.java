@@ -232,6 +232,11 @@ final class JdbiAlertBook implements AlertBook {
             case ROLE_AMBIGUOUS, ROLE_NOT_CREATED ->
                 new JournalDetail.RoleNamed(Objects.requireNonNull(name, "name"), error);
             case LOCK_NOT_KEPT -> new JournalDetail.ChannelsNotClosed(channels(handle, id));
+            case LANGUAGE_NOT_KEPT -> new JournalDetail.ChannelsNotDenied(channels(handle, id));
+            case CHANNEL_SEEN -> {
+                final ChannelFailure seen = channels(handle, id).getFirst();
+                yield new JournalDetail.ChannelSeen(seen.channel(), seen.error());
+            }
             default -> null;
         };
     }

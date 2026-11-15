@@ -229,9 +229,16 @@ public final class AlertRouter {
                         action,
                         new JournalDetail.ChannelsNotClosed(
                                 List.of(new JournalDetail.ChannelFailure("general", "Missing Access"))));
-            case LOCK_WITHOUT_CHANNEL -> new Alert(action, Alert.Level.WARN, List.of());
+            case LOCK_WITHOUT_CHANNEL, START_CHANNEL_HIDDEN -> new Alert(action, Alert.Level.WARN, List.of());
+            case LANGUAGE_NOT_KEPT -> event(action, sampleLanguageDenial());
+            case CHANNEL_SEEN -> event(action, new JournalDetail.ChannelSeen("#deutsch-chat", "@English"));
             default -> throw new IllegalArgumentException(action + " is no alert");
         };
+    }
+
+    private static JournalDetail.ChannelsNotDenied sampleLanguageDenial() {
+        return new JournalDetail.ChannelsNotDenied(
+                List.of(new JournalDetail.ChannelFailure("#deutsch-chat", "Missing Access")));
     }
 
     private static Alert measured(final JournalAction action, final Alert.Level level, final Measure measure) {

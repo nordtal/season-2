@@ -47,7 +47,7 @@ COMPOSE_PROFILES=db,bot docker compose --env-file /etc/nordtal/season-2.env up -
 
 - `access/`: purchases, grants, linking, the reaction to a booked payment and the managed messages.
 - `registration/`: team registration for a game, named by its key. The Hunger Games is the only game.
-- `onboarding/`: the language and region roles, the lock and the onboarding messages.
+- `onboarding/`: the country and language roles, the lock and the start-channel message.
 - `roles/`: every role the bot uses (`GuildRoles`).
 - `announce/`, `discord/`: announcements, admin commands and the update feed.
 - `StoredDocuments`: the documents (`src/main/resources/documents/discord/`) that `DocumentRenderer` of
@@ -67,28 +67,16 @@ admin channel.
 
 ## Onboarding
 
-A member's language and region are Discord roles, and the roles are the source. The bot copies every change
-into `discord_user.locale` and `time_zone`. A member without a role gets the network's value. If a member
-holds two roles of a kind, the bot keeps the one added last. Both channels are ids in Steward's `onboarding`
-group.
+A member chooses a country in the start channel. Its role supplies the country and time zone in
+`discord_user`. A country supplies the language role only while the member has none. A later country
+change keeps that language. The member's settings reply shows language and time zone, links to that
+language's rules and offers the other languages.
 
-```mermaid
-flowchart LR
-    welcome["welcome, default language"] -->|"language select"| answer["answer in that language, to the member alone"]
-    answer -->|"region select"| released(["both held: lock role taken"])
-    change["change message, a button per language"] -->|"dialog with both selects"| released
-```
-
-- The onboarding channel holds the welcome. The bot answers a chosen language with a select of the regions,
-  unless the member holds a region already.
-- The change channel holds a button per language. Each button opens a dialog with both selects.
-- The lock role sees only the onboarding channel. The bot keeps its overwrite on every channel and repairs
-  drift on every reconcile.
-- With the lock on in Steward, the bot gives the lock role to a member who misses either role, and never to
-  a bot. A member loses it as soon as both roles are held. Switching the lock off takes the role from
-  everyone once. A role given by hand after that stays.
-- The bot withholds the access and donor roles while the lock role is held. When the lock goes, both return
-  as the database has them. The game is unaffected, since the proxy reads the database.
+Lock on gives the lock role to members without a country. Lock off removes it. The bot preserves the
+start channel's `@everyone` overwrites and keeps the lock role's access. The bot denies View Channel
+on every other channel to the lock role and on each language's category and channels to the other
+languages. A changed category removes its former denials. The sweep reports explicit allows that
+expose a channel to protected members.
 
 ## Registration
 

@@ -33,19 +33,19 @@
         },
         {
           "range": "FE010-FE01F",
-          "title": "Language flags",
-          "about": "One per language of the access group, chosen from discord_user.locale, so a new language needs a flag here too.",
+          "title": "Country flags",
+          "about": "Country flags chosen in Steward.",
           "height": 7,
           "ascent": 7,
           "status": "keep",
           "glyphs": [
             {
               "code": "FE010",
-              "title": "Other language",
+              "title": "Other country",
               "constant": "FLAG_OTHER",
               "name": "flag-other",
               "texture": "nordtal:flags/other.png",
-              "about": "Any other language, or none."
+              "about": "Any other country, or none."
             },
             {
               "code": "FE011",
@@ -78,6 +78,22 @@
               "name": "flag-united-states",
               "texture": "nordtal:flags/unitedstates.png",
               "about": "The United States."
+            },
+            {
+              "code": "FE015",
+              "title": "Austria",
+              "constant": "FLAG_AUSTRIA",
+              "name": "flag-austria",
+              "texture": "nordtal:flags/austria.png",
+              "about": "Austria."
+            },
+            {
+              "code": "FE016",
+              "title": "Switzerland",
+              "constant": "FLAG_SWITZERLAND",
+              "name": "flag-switzerland",
+              "texture": "nordtal:flags/switzerland.png",
+              "about": "Switzerland."
             }
           ]
         },

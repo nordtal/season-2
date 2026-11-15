@@ -262,6 +262,7 @@ type Component = {
   accent_color?: number
   label?: string
   placeholder?: string
+  options?: { label: string; default?: boolean }[]
   url?: string
   media?: { url: string }
   file?: { url: string }
@@ -391,7 +392,14 @@ function ComponentView({ component, language }: { component: Component; language
       )
     case STRING_SELECT:
     case USER_SELECT:
-      return <DiscordSelect className="w-full">{component.placeholder}</DiscordSelect>
+      return (
+        <DiscordSelect className="w-full">
+          {component.options
+            ?.filter((option) => option.default)
+            .map((option) => option.label)
+            .join(", ") || component.placeholder}
+        </DiscordSelect>
+      )
     case LABEL:
       return (
         <div className="flex w-full flex-col gap-2">

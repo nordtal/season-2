@@ -37,6 +37,8 @@ public enum Mark {
 
     NOTED("📝");
 
+    public static final String WORLD = "🌍";
+
     private static final int REGIONAL_A = 0x1F1E6;
 
     public static final String PREVIEW = "✅";

@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.IntSupplier;
+import java.util.stream.Stream;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Tag;
@@ -121,6 +122,11 @@ public final class StationMenus implements Listener {
         networks.whenRenamedByMerge(this::tellRenamed);
         // One hologram serves every viewer, so the spawn station's shows its English name.
         networks.whenSpawnNamed(() -> spawnName(Locale.ENGLISH));
+        // A merge has no viewer, so it keeps the spawn station's name in every language off the other stations.
+        networks.whenSpawnShownAs(() -> Stream.of(Locale.ENGLISH, Locale.GERMAN)
+                .map(this::spawnName)
+                .distinct()
+                .toList());
         rides.whenStranded(this::stranded);
     }
 

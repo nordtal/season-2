@@ -62,6 +62,7 @@ public final class RailNetworks {
     private final Map<String, ChunkRetries> retries = new HashMap<>();
     private final Set<String> whole = new LinkedHashSet<>();
     private Consumer<StationRow> renamedByMerge = _ -> {};
+    private Supplier<List<String>> spawnNames = List::of;
     private @Nullable Running running;
     private boolean restored;
 
@@ -107,6 +108,7 @@ public final class RailNetworks {
         unseen.addAll(loaded.unseen());
         hidden.addAll(loaded.hidden());
         built.forEach((world, networks) -> {
+            networks.spawnShownAs(spawnNames);
             final @Nullable WorldNetworks before = worlds.put(world, networks);
             if (before != null) {
                 networks.takeOver(before);
@@ -124,6 +126,7 @@ public final class RailNetworks {
 
     /** Hands {@code networks} to {@code world} as if the store held them, and reads them again on the next ticks. */
     void install(final String world, final WorldNetworks networks) {
+        networks.spawnShownAs(spawnNames);
         worlds.put(world, networks);
         whole.add(world);
         restored = true;
@@ -144,7 +147,11 @@ public final class RailNetworks {
     }
 
     private WorldNetworks networks(final String world) {
-        return worlds.computeIfAbsent(world, _ -> new WorldNetworks());
+        return worlds.computeIfAbsent(world, _ -> {
+            final WorldNetworks networks = new WorldNetworks();
+            networks.spawnShownAs(spawnNames);
+            return networks;
+        });
     }
 
     static RailPos pos(final Block block) {
@@ -346,6 +353,12 @@ public final class RailNetworks {
     /** Names the spawn station's hologram with what {@code name} returns at the time it is shown. */
     void whenSpawnNamed(final Supplier<String> name) {
         holograms.spawnNamed(name);
+    }
+
+    /** Keeps the names {@code names} returns, those the spawn station is shown by, off every station on its network. */
+    void whenSpawnShownAs(final Supplier<List<String>> names) {
+        this.spawnNames = names;
+        worlds.values().forEach(networks -> networks.spawnShownAs(names));
     }
 
     /** Returns the name {@code station} goes by in a message, empty for an unnamed one. */

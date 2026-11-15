@@ -19,6 +19,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -78,6 +79,7 @@ public final class WorldNetworks {
 
     final Map<RailPos, StationRow> stations = new HashMap<>();
     private final Map<UUID, StationRow> byId = new HashMap<>();
+    private Supplier<? extends Collection<String>> spawnNames = List::of;
     Map<RailPos, Node> nodes = new HashMap<>();
     Map<RailTrace.End, RailLeg> legs = new HashMap<>();
     final RailMap<RailGraph.Place> places = new RailMap<>();
@@ -365,18 +367,26 @@ public final class WorldNetworks {
         before.stations().forEach(this::addStation);
     }
 
+    /** Keeps the names {@code names} returns, those the spawn station is shown by, off every station on its network. */
+    void spawnShownAs(final Supplier<? extends Collection<String>> names) {
+        this.spawnNames = names;
+    }
+
     List<StationRow> settleNames(final Network network, final Clock clock) {
         final List<StationNames.Named> named = new ArrayList<>();
+        boolean spawn = false;
         for (final RailPos pos : network.graph().stations()) {
             final @Nullable StationRow row = stations.get(pos);
             if (row != null && row.name() != null && row.named() != null) {
                 named.add(new StationNames.Named(row.id(), row.name(), row.named()));
             }
+            spawn |= row != null && row.spawn();
         }
-        if (named.size() < 2) {
+        final Collection<String> reserved = spawn ? spawnNames.get() : List.of();
+        if (named.size() + (reserved.isEmpty() ? 0 : 1) < 2) {
             return List.of();
         }
-        final Map<UUID, String> names = StationNames.settleClashes(named);
+        final Map<UUID, String> names = StationNames.settleClashes(named, reserved);
         final List<StationRow> renamed = new ArrayList<>();
         for (final RailPos pos : network.graph().stations()) {
             final @Nullable StationRow row = stations.get(pos);

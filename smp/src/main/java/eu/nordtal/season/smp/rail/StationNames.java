@@ -62,14 +62,19 @@ public final class StationNames {
     /**
      * Returns the new name of every station whose name clashes after networks merged.
      * The station named first keeps its name, and each one named later gets the lowest free number suffix.
+     * No station keeps one of {@code reserved}, the names the network's spawn station is shown by.
      */
-    public static Map<UUID, String> settleClashes(final List<Named> stations) {
+    public static Map<UUID, String> settleClashes(final List<Named> stations, final Collection<String> reserved) {
         final List<Named> ordered = stations.stream()
                 .sorted(Comparator.comparing(Named::named).thenComparing(Named::station))
                 .toList();
         final Set<String> taken =
                 ordered.stream().map(named -> key(named.name())).collect(Collectors.toSet());
         final Set<String> kept = new HashSet<>();
+        reserved.stream().map(StationNames::key).forEach(key -> {
+            taken.add(key);
+            kept.add(key);
+        });
         final Map<UUID, String> renamed = new HashMap<>();
         for (final Named station : ordered) {
             if (kept.add(key(station.name()))) {

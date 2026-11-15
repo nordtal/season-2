@@ -34,6 +34,10 @@ that no glyph, sheet or item of the tree shows, by namespace and folder, so a te
 draws yet can still be drawn, animated and published. Such a texture opens and saves like a vanilla
 override, with every frame, its animation and, for a GUI sprite, its scaling.
 
+The tree's last node, **Pack icon**, opens the pack's icon `src/pack.png`, which Minecraft shows in
+its list of resource packs. A save writes its first frame to the PNG and the sprite to
+`art/pack.aseprite`, and both are one draft that **Publish** publishes like a texture. It has no delete.
+
 The properties panel shows each value it edits in a sunken box. The mouse wheel and a trackpad scroll
 the tree and the properties panel alike, and a panel taller than its room shows the tree's scroll bar
 along its right edge, whose thumb drags. **Show in Finder** (**Show in Explorer** on Windows, **Open

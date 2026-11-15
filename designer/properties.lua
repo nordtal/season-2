@@ -201,7 +201,8 @@ function properties.rows(info, tr, context)
   end
 
   if t then
-    add("texture", t.id)
+    -- The icon's id is its PNG's path, which the png row shows
+    if kind ~= "icon" then add("texture", t.id) end
     if kind ~= "glyph" then
       pixels(kind == "override" and "size" or nil)
     end

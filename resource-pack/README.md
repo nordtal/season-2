@@ -16,8 +16,9 @@ art/                  the .aseprite sources, each at the path of its PNG under s
 build/pack            the assembled pack: src/ plus the fonts the build writes
 ```
 
-`art/assets/nordtal/textures/x.aseprite` is the source of `src/assets/nordtal/textures/x.png`. The
-pack holds only the PNG, and `checkPack` refuses a source whose PNG is missing.
+`art/assets/nordtal/textures/x.aseprite` is the source of `src/assets/nordtal/textures/x.png`, and
+`art/pack.aseprite` that of the pack's icon `src/pack.png`. The pack holds only the PNG, and
+`checkPack` refuses a source whose PNG is missing.
 
 ## Editing the art
 
@@ -112,6 +113,7 @@ texts[]       key, values (language to text), owner, draft, review
 sounds[]      id, replace, subtitle, subtitles (language to text), draft, review, sounds[]
   sounds[]    name (with its namespace), file, and the fields of the entry: volume, pitch, weight, stream, ...
 files[]       category (namespace:folder), entries[]: id, file, name, kind, problems, draft, review
+icon          texture: the pack's icon src/pack.png, with its source art/pack.aseprite
 drafts[]      id, label, state, files, keys, sounds, review, conflict: files, fields[]: name, clone, main
 reviews[]     number, url, decision, checks, comments[]: author, body, path, url
 ```
@@ -412,8 +414,9 @@ absolute path of every file it wrote or deleted.
 
 A draft is one change of the clone that is in no pull request yet. A texture's draft holds its PNG,
 its `.png.mcmeta`, its `.aseprite` source, the item models and definitions that draw it, and its
-entries in `glyphs.json`. The fields of a font or a block in `glyphs.json` are a draft of their own,
-and so is every other changed file. A text of a language file is part of its owner's draft, and a
+entries in `glyphs.json`. The pack's icon `src/pack.png` is one draft with its source
+`art/pack.aseprite`, by the id `src/pack.png`. The fields of a font or a block in `glyphs.json` are
+a draft of their own, and so is every other changed file. A text of a language file is part of its owner's draft, and a
 text of its own is a draft of its own, so a draft holds keys rather than whole language files. A
 draft's `id` is its texture's id, `font <font>`, `block <font> <range or title>`, `text <key>`, `sound <event>` or
 the file's path. Its `state` is `added`, `changed` or `deleted`, and `review`

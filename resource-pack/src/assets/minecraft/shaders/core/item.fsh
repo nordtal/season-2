@@ -1,7 +1,7 @@
 #version 330
 #extension GL_ARB_separate_shader_objects : require
 
-// Vanilla 26.3 core/item.fsh plus the Nordtal border wall (look A).
+// Vanilla 26.3 core/item.fsh plus the Nordtal border wall (look A, the variant with snowflakes).
 // A fragment whose texel carries the marker colour is drawn as the wall's field; every other
 // fragment takes the vanilla path, unchanged. Every Nordtal line is marked "nordtal".
 
@@ -43,12 +43,14 @@ const vec3 WALL_MARKER = vec3(74.0, 99.0, 217.0) / 255.0;
 
 const vec3 WALL_DEEP = vec3(52.0, 90.0, 180.0) / 255.0;   // #345AB4, the logo's middle blue: the veil
 const vec3 WALL_ICE = vec3(160.0, 180.0, 255.0) / 255.0;  // the light in the rays
-const vec3 WALL_SPARK = vec3(232.0, 238.0, 255.0) / 255.0; // lines and motes
+const vec3 WALL_SPARK = vec3(232.0, 238.0, 255.0) / 255.0; // lines and snowflakes
 
 const float WALL_FADE_START = 24.0; // blocks from the camera where the wall starts to fade
 const float WALL_FADE_END = 30.0;   // and where it is gone
 const float WALL_NEAR_START = 1.5;  // closer than this the block grid shows in full
 const float WALL_NEAR_END = 6.0;    // farther than this it does not show
+const float WALL_SNOW = 0.55;       // the alpha a flake adds at its centre
+const float WALL_SNOW_SHARE = 0.6;  // the share of cells that hold a flake
 
 bool wallIsMarker(vec4 texel) {
     return texel.a > 0.002 && all(lessThan(abs(texel.rgb - WALL_MARKER), vec3(0.0019)));
@@ -90,6 +92,29 @@ float wallLine(float at, float halfWidth) {
     return exp(-d * d);
 }
 
+// One layer of snowflakes. The wall is cut into lanes of `width` blocks, each lane into cells of
+// `spacing` blocks that move down `loops` cells per day of GameTime, so the layer loops without a
+// jump. A cell holds at most one flake: a soft round point of `radius` blocks, at a place of its
+// own in the cell, that sways sideways once in 5, 6 or 7.5 seconds. The flake never reaches the
+// cell's edge, so no neighbour has to be looked at and nothing is cut.
+float wallFlakes(vec2 at, float gameTime, float width, float spacing, float loops, float radius, int seed) {
+    float lane = floor(at.x / width);
+    int column = wallWrap(lane, 4096.0) + seed * 8192;
+    float fall = at.y / spacing + gameTime * loops + wallRandom(column, 1);
+    float cell = floor(fall);
+    int flake = wallWrap(cell, loops) + 16;
+    if (wallRandom(column, flake) > WALL_SNOW_SHARE) {
+        return 0.0;
+    }
+    float turns = 160.0 + 40.0 * floor(wallRandom(column, flake + 1024) * 3.0);
+    float sway = sin(6.2831853 * (gameTime * turns + wallRandom(column, flake + 2048)));
+    float centre = 0.5 + 0.30 * (wallRandom(column, flake + 3072) - 0.5) + 0.14 * sway;      // in lanes
+    float height = 0.5 + (1.0 - 6.0 * radius / spacing) * (wallRandom(column, flake + 4096) - 0.5); // in cells
+    float size = radius * (0.75 + 0.5 * wallRandom(column, flake + 5120));
+    vec2 d = vec2((at.x / width - lane - centre) * width, (fall - cell - height) * spacing) / size;
+    return exp(-dot(d, d));
+}
+
 // coord: x = blocks along the wall, y = world height, zw = horizontal offset from the camera.
 // envelope: 0 at the band's upper and lower end, 1 in its middle. gameTime: 0 to 1 in 1200 seconds.
 // Everything is continuous in space and time: no pixel grid, no steps.
@@ -116,21 +141,15 @@ vec4 wallField(vec4 coord, float envelope, float gameTime) {
     colour = mix(colour, WALL_SPARK, min(1.0, grid * 2.2));
     alpha *= 1.0 + 0.25 * close;
 
-    // Motes: in about every second block a small soft light with a tail rises, five blocks apart,
-    // at 0.4 to 0.6 blocks a second.
-    float lane = floor(at.x);
-    int column = wallWrap(lane, 4096.0);
-    if (wallRandom(column, 11) < 0.55) {
-        float loops = 90.0 + 30.0 * floor(wallRandom(column, 12) * 3.0);
-        float head = fract(wallRandom(column, 13) + gameTime * loops) * 5.0;
-        float below = mod(head - at.y, 5.0);                      // blocks below the mote's head
-        float above = 5.0 - below;
-        float across = (at.x - lane - 0.2 - 0.6 * wallRandom(column, 14)) / 0.035;
-        float along = exp(-below / 0.22) + exp(-above * above / 0.0012);
-        float mote = exp(-across * across) * min(1.0, along);
-        alpha += 0.60 * mote;
-        colour = mix(colour, WALL_SPARK, min(1.0, mote * 1.3));
-    }
+    // Snow: small soft flakes drift down the wall and sway sideways, in three layers, the largest
+    // the fastest: 0.45, 0.32 and 0.22 blocks a second. They fade out at the band's lower end
+    // through the envelope, like everything else.
+    float snow = wallFlakes(at, gameTime, 1.00, 3.0, 180.0, 0.060, 21)
+               + wallFlakes(at, gameTime, 0.70, 2.4, 160.0, 0.045, 22) * 0.80
+               + wallFlakes(at, gameTime, 0.45, 2.0, 132.0, 0.032, 23) * 0.55;
+    snow = min(1.0, snow);
+    alpha += WALL_SNOW * snow;
+    colour = mix(colour, mix(WALL_ICE, WALL_SPARK, snow), min(1.0, snow * 1.4));
 
     float reach = 1.0 - smoothstep(WALL_FADE_START, WALL_FADE_END, length(coord.zw));
     alpha = min(alpha, 0.92) * envelope * reach;

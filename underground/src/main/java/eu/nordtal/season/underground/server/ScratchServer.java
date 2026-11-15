@@ -90,7 +90,13 @@ public final class ScratchServer implements AutoCloseable {
                 .redirectErrorStream(true)
                 .start();
         final ScratchServer server = new ScratchServer(process);
-        server.await(STARTED, Duration.ofHours(12));
+        try {
+            server.await(STARTED, Duration.ofHours(12));
+        } catch (final IOException | InterruptedException | RuntimeException e) {
+            // A server that never started would hold its port, its memory and the world's lock for the next run.
+            process.destroyForcibly().waitFor();
+            throw e;
+        }
         return server;
     }
 

@@ -26,7 +26,8 @@ Build it with `sh gradlew :underground:installDist`; the commands below are
 folder that holds `region` and `entities`, in a current world `<level>/dimensions/minecraft/overworld`.
 The commands that start a server need a server jar of the map's version with its `libraries` beside
 it, `--eula true`, and a free `--work` folder each. Regions are named as `--regions x1,z1,x2,z2`,
-both corners included, or as a list `--regions x,z;x,z`; without the option a command takes every region file of the map.
+both corners included, or as a list `--regions x,z;x,z`; without the option a command takes every
+region file of the map.
 
 1. **Copy the map** while its server is stopped, or take it from a backup: `region` and `entities`.
 2. **`upgrade --work <dir> --server <jar> --map <copy> --out <map>`** brings every chunk to the
@@ -69,7 +70,11 @@ both corners included, or as a list `--regions x,z;x,z`; without the option a co
    not saved in the newest version. It prints the regions that hold changes and, as lists, the
    regions to join again, with a ring for the entrances that reach into a neighbour (`regions=`), of
    which those whose result a change can reach are taken (`take=`): two regions around each changed
-   one, so changes far apart cost no more than each alone. The rest of the earlier result stays.
+   one, so changes far apart cost no more than each alone. Transplant over `regions=` into a free
+   `--out`, then copy only the `take=` regions' `region` and `entities` files over the earlier
+   result and delete their `poi` files: a region of the outer ring lacks the entrances of its own
+   neighbours. The refreshed map shares its unchanged files with the upgraded map, so nothing may
+   write into it in place, a server least of all.
 
 The points of interest and the light are not part of the result: the game rebuilds both when it
 loads a chunk without them. Copy the result over a copy of the world, never over the world itself,

@@ -1,6 +1,5 @@
 package eu.nordtal.season.discordbot.onboarding;
 
-import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.StoredDocuments;
@@ -15,7 +14,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.entities.Member;
@@ -56,7 +54,6 @@ public final class OnboardingFlow extends ListenerAdapter {
             final GuildRoles roles,
             final DocumentRenderer documents,
             final String networkZone,
-            final Consumer<Alert> alerts,
             final Executor lane) {
         this.onboarding = onboarding;
         this.languages = languages;

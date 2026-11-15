@@ -74,7 +74,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
      * The lock state.
      *
      * @param role the lock role
-     * @param locking whether a member without both choices holds the role
+     * @param locking whether a member without a country holds the role
      * @param withoutChannel whether the lock is on and the onboarding channel is not set
      */
     private record Lock(@Nullable Role role, boolean locking, boolean withoutChannel) {}
@@ -402,11 +402,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         if (!Configured.isSet(spec.channel()) || guild.getGuildChannelById(spec.channel()) == null) {
             return new Lock(role, false, true);
         }
-        final Function<String, Optional<String>> idOf = idOf(guild);
-        return new Lock(
-                role,
-                role != null && choices.ready(Choices.Kind.LANGUAGE, idOf) && choices.ready(Choices.Kind.COUNTRY, idOf),
-                false);
+        return new Lock(role, role != null, false);
     }
 
     private DiscordRole kindOf(final Guild guild, final String roleId) {

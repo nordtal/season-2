@@ -8,9 +8,6 @@ import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordbot.roles.GuildRoles;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Role;
@@ -20,51 +17,32 @@ import org.jdbi.v3.core.Jdbi;
 
 /** Keeps other languages out of each language's category and removes denials from its former category. */
 final class LanguageChannels {
-    private final Jdbi jdbi;
+    private final LanguageCategories categories;
     private final AlertOnce alerts;
 
     LanguageChannels(final Jdbi jdbi, final AlertOnce alerts) {
-        this.jdbi = jdbi;
+        this.categories = new LanguageCategories(jdbi);
         this.alerts = alerts;
     }
 
     void keep(final Guild guild, final GuildLanguages languages, final GuildRoles roles) {
-        final Map<String, String> previous = jdbi
-                .withHandle(handle -> handle.createQuery("SELECT language, category FROM discord_language_category")
-                        .mapToMap()
-                        .list())
-                .stream()
-                .collect(Collectors.toMap(row -> (String) row.get("language"), row -> (String) row.get("category")));
         final List<JournalDetail.ChannelFailure> failed = new ArrayList<>();
-        for (final var old : new ArrayList<>(previous.entrySet())) {
+        for (final LanguageCategories.Category old : categories.all()) {
             final String current = languages
-                    .byTag(old.getKey())
+                    .byTag(old.language())
                     .map(GuildLanguages.Language::categoryId)
                     .orElse("");
-            if (!old.getValue().equals(current)
-                    && update(guild, old.getKey(), old.getValue(), languages, roles, false, failed)) {
-                jdbi.useHandle(handle -> handle.createUpdate(
-                                "DELETE FROM discord_language_category WHERE language = :language")
-                        .bind("language", old.getKey())
-                        .execute());
-                previous.remove(old.getKey());
+            if (!old.category().equals(current)
+                    && update(guild, old.language(), old.category(), languages, roles, false, failed)) {
+                categories.forget(old);
             }
         }
         for (final GuildLanguages.Language language : languages.all()) {
-            if (language.categoryId().isBlank()
-                    || (previous.containsKey(language.tag())
-                            && !Objects.equals(previous.get(language.tag()), language.categoryId()))) {
+            if (language.categoryId().isBlank()) {
                 continue;
             }
-            if (update(guild, language.tag(), language.categoryId(), languages, roles, true, failed)) {
-                jdbi.useHandle(handle -> handle.createUpdate("""
-                        INSERT INTO discord_language_category (language, category) VALUES (:language, :category)
-                        ON CONFLICT (language) DO UPDATE SET category = EXCLUDED.category
-                        """)
-                        .bind("language", language.tag())
-                        .bind("category", language.categoryId())
-                        .execute());
-            }
+            categories.remember(new LanguageCategories.Category(language.tag(), language.categoryId()));
+            update(guild, language.tag(), language.categoryId(), languages, roles, true, failed);
         }
         if (failed.isEmpty()) {
             alerts.clear("language channels");

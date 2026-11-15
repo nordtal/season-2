@@ -349,13 +349,7 @@ public class AccessBot implements AutoCloseable {
         final GuildState guildState = new GuildState(jda, accessConfig, access, adminTree, database.jdbi());
         final AdminRole adminRole = new AdminRole(jda, accessConfig, guildRoles, adminTree, admin);
         final OnboardingFlow onboardingFlow = new OnboardingFlow(
-                onboarding,
-                core.languages(),
-                guildRoles,
-                core.renderer(),
-                core.networkZone(),
-                admin::alert,
-                onboardingLane);
+                onboarding, core.languages(), guildRoles, core.renderer(), core.networkZone(), onboardingLane);
 
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
                 core.tiers(), core.purchases(), core.requests(), core.renderer(), roles, admin, scheduler, clock);

@@ -31,6 +31,12 @@
                     "en": "Choose your country.",
                     "de": "Wähle dein Land."
                   }
+                },
+                {
+                  "text": {
+                    "en": "Your choice applies immediately.",
+                    "de": "Deine Auswahl gilt sofort."
+                  }
                 }
               ]
             }
@@ -54,8 +60,8 @@
             {
               "slot": "settings",
               "label": {
-                "en": "Open settings",
-                "de": "Einstellungen öffnen"
+                "en": "Show settings",
+                "de": "Einstellungen anzeigen"
               }
             }
           ]

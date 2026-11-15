@@ -150,6 +150,59 @@ class FontEditsTest {
     }
 
     @Test
+    fun aFontEditKeepsThePlaceOfEveryKeyOfASilentFontAndAFontWithShifts() {
+        val text =
+            """
+            {
+              "fonts": [
+                {
+                  "font": "minecraft:default",
+                  "about": "Text.",
+                  "references": ["nordtal:quiet"],
+                  "blocks": []
+                },
+                {
+                  "font": "nordtal:quiet",
+                  "constant": "FONT_QUIET",
+                  "silent": true
+                },
+                {
+                  "font": "nordtal:low_{shift}",
+                  "shifts": [0, 2],
+                  "constant": "FONT_LOW",
+                  "letters": true,
+                  "references": ["nordtal:quiet"],
+                  "about": "Letters lower.",
+                  "blocks": [
+                    {
+                      "range": "FE080-FE08F",
+                      "title": "Marks",
+                      "texture": "nordtal:hud/arrows.png",
+                      "height": 5,
+                      "ascent": 4,
+                      "glyphs": [{ "code": "FE080", "title": "Glyph", "constant": "MARK" }]
+                    }
+                  ]
+                }
+              ]
+            }
+
+            """.trimIndent()
+        allocation.writeText(text)
+
+        FontEdits.editFont(pack, repository, "minecraft:default", about = "Ordinary text.")
+        FontEdits.editFont(pack, repository, "nordtal:quiet", about = "Draws nothing.")
+        FontEdits.editFont(pack, repository, "nordtal:low_{shift}", about = "Letters drawn lower.")
+
+        val edited =
+            text
+                .replace("\"Text.\"", "\"Ordinary text.\"")
+                .replace("\"silent\": true\n", "\"silent\": true,\n      \"about\": \"Draws nothing.\"\n")
+                .replace("\"Letters lower.\"", "\"Letters drawn lower.\"")
+        assertEquals(edited, allocation.readText())
+    }
+
+    @Test
     fun aNewFontConstantIsRefusedWhileCodeUsesTheOldOne() {
         use("smp/src/main/java/Hud.java", "class Hud {\n    String font = Glyphs.FONT_HUD;\n}\n")
 

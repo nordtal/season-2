@@ -111,6 +111,18 @@ class DocumentRendererTest {
         assertFalse(drawn.contains("admin/alert."), drawn);
     }
 
+    /** A member gets these three as grey buttons that open an address, so a preview must not draw them blue. */
+    @Test
+    void aPreviewDrawsASlotThatOpensALinkAsALinkButton() {
+        assertAll(Stream.of("admin-alert", "admin-run", "purchase-link").map(name -> () -> {
+            final String drawn = StoredDocumentsStandIn.renderer()
+                    .preview(packaged(name), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
+
+            assertTrue(drawn.contains("\"style\":5"), name + ": " + drawn);
+            assertFalse(drawn.contains("\"style\":1"), name + ": " + drawn);
+        }));
+    }
+
     @Test
     void aJournalEntrysExamplesTellOneEvent() {
         final String drawn = StoredDocumentsStandIn.renderer()

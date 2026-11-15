@@ -25,8 +25,8 @@ const declaration: DocumentDeclaration = {
   rows: 0,
   values: {},
   slots: [
-    { id: "accept", type: "BUTTON", required: true, values: {}, at: [] },
-    { id: "rules", type: "LIST", required: false, values: {}, at: [] },
+    { id: "accept", type: "BUTTON", required: true, values: {}, at: [], link: false },
+    { id: "rules", type: "LIST", required: false, values: {}, at: [], link: false },
   ],
 }
 

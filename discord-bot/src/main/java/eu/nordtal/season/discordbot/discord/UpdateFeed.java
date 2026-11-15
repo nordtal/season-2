@@ -126,7 +126,7 @@ public final class UpdateFeed {
                     Slot.list("quiet", Quiet.class).optional(),
                     Slot.list("why", Failure.class),
                     Slot.list("reasons", Reason.class).optional(),
-                    Slot.button("open").optional())
+                    Slot.link("open").optional())
             .titled("Update run")
             .inEnglishOnly();
 

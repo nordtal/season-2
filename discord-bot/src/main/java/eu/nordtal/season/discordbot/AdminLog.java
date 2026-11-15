@@ -86,7 +86,7 @@ public final class AdminLog {
                     Card.class,
                     Slot.list("mentions", Pinged.class),
                     Slot.list("lines", Detail.class),
-                    Slot.button("open").optional())
+                    Slot.link("open").optional())
             .titled("Alert")
             .inEnglishOnly();
 

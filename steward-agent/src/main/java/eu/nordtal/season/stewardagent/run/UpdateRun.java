@@ -309,14 +309,19 @@ final class UpdateRun {
         if (state.restarts() <= before) {
             return null;
         }
-        final List<String> lines = containers.lastLines(id, RESTART_LINES);
-        final String why = lines.reversed().stream()
+        final String why = restartCause(containers.lastLines(id, RESTART_LINES));
+        log.warn("service restarted while starting: service={} cause={}", state.service(), why);
+        return RunStep.Reason.NOT_HEALTHY;
+    }
+
+    /** The newest line of a restarted log that says why it stopped, else its last line, else that it had none. */
+    static String restartCause(final List<String> lines) {
+        return lines.reversed().stream()
                 .filter(line ->
                         line.contains("FATAL") || line.contains("not starting") || line.contains("server exited"))
                 .findFirst()
-                .orElse(lines.isEmpty() ? "its log could not be read" : lines.getLast());
-        log.warn("service restarted while starting: service={} cause={}", state.service(), why.strip());
-        return RunStep.Reason.NOT_HEALTHY;
+                .orElse(lines.isEmpty() ? "its log could not be read" : lines.getLast())
+                .strip();
     }
 
     /** What {@link #stop} produced, carried to the two steps after it. */

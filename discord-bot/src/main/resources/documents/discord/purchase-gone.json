@@ -1,13 +1,24 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "This purchase is no longer open. Start a new one with **Buy {@terms.access}**.",
-            "de": "Dieser Kauf ist nicht mehr offen. Starte einen neuen mit **{@terms.access} kaufen**."
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "This purchase is no longer open.",
+                "de": "Dieser Kauf ist nicht mehr offen."
+              }
+            },
+            {
+              "text": {
+                "en": "Start a new one with “Buy {@terms.access}”.",
+                "de": "Starte einen neuen mit „{@terms.access} kaufen“."
+              }
+            }
+          ]
         }
       ]
     }

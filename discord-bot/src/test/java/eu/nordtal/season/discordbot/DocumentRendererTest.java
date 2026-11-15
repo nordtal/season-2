@@ -60,6 +60,9 @@ class DocumentRendererTest {
     private static final Pattern TO_ONE_PERSON =
             Pattern.compile("(link-|unlink-|register-|invite-|purchase-|dm-|onboarding-(?!welcome)).*");
 
+    /** The end of a sentence that another one follows in the same line. */
+    private static final Pattern SENTENCE_END = Pattern.compile("[.!?]\\s+\\S");
+
     private static final Path VECTORS = Path.of("messages/src/test/resources/discord-documents.json");
 
     @Test
@@ -184,7 +187,7 @@ class DocumentRendererTest {
     }
 
     @Test
-    void aReplyOrADirectMessageIsOneTextOrABoxThatHoldsItsControlsWithoutABanner() {
+    void aReplyOrADirectMessageIsOneSentenceOrOneBoxOfSentencesAndControlsWithoutABanner() {
         final List<String> wrong = new ArrayList<>();
         for (final Documents.Packaged each : Documents.packaged(
                         DocumentRendererTest.class.getClassLoader(), StoredDocuments.NAMESPACE)
@@ -196,11 +199,18 @@ class DocumentRendererTest {
             final List<Part> top = each.document().parts().stream()
                     .flatMap(part -> part.type() == Part.Type.LANGUAGES ? part.inner().stream() : Stream.of(part))
                     .toList();
-            final boolean oneText = top.size() == 1 && top.getFirst().type() == Part.Type.TEXT;
-            final boolean boxes = top.stream().allMatch(part -> part.type() == Part.Type.CONTAINER);
-            final boolean banner =
-                    each.document().allParts().stream().anyMatch(part -> part.type() == Part.Type.GALLERY);
-            if (!(oneText || boxes) || banner) {
+            final List<Part> all = each.document().allParts();
+            final boolean oneText = top.size() == 1
+                    && top.getFirst().type() == Part.Type.TEXT
+                    && top.getFirst().allLines().stream().noneMatch(line -> line.style() != null);
+            final boolean oneBox = top.size() == 1 && top.getFirst().type() == Part.Type.CONTAINER;
+            final boolean banner = all.stream().anyMatch(part -> part.type() == Part.Type.GALLERY);
+            final boolean sentences = all.stream()
+                    .flatMap(part -> part.allLines().stream())
+                    .flatMap(line -> line.text().languages().values().stream())
+                    .flatMap(List::stream)
+                    .anyMatch(text -> SENTENCE_END.matcher(text).find());
+            if (!(oneText || oneBox) || banner || sentences) {
                 wrong.add(name);
             }
         }

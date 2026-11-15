@@ -8,8 +8,14 @@
           "lines": [
             {
               "text": {
-                "en": "Choose the region you play from. Nordtal shows every time in your region's time zone.",
-                "de": "Wähle die Region, aus der du spielst. Nordtal zeigt jede Zeit in ihrer Zeitzone."
+                "en": "Choose the region you play from.",
+                "de": "Wähle die Region, aus der du spielst."
+              }
+            },
+            {
+              "text": {
+                "en": "Nordtal shows every time in your region's time zone.",
+                "de": "Nordtal zeigt jede Zeit in ihrer Zeitzone."
               }
             }
           ]

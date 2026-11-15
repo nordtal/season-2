@@ -9,7 +9,7 @@
             {
               "text": {
                 "en": "How long do you want {@terms.access}?",
-                "de": "Wie lange willst du {@terms.access}?"
+                "de": "Für wie lange willst du {@terms.access}?"
               }
             }
           ]

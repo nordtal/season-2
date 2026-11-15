@@ -124,7 +124,7 @@ class OnboardingMessageTest {
         assertAll(
                 () -> assertEquals(1, region.components().size()),
                 () -> assertEquals(
-                        "Wähle die Region, aus der du spielst. Nordtal zeigt jede Zeit in ihrer Zeitzone.",
+                        "Wähle die Region, aus der du spielst.\nNordtal zeigt jede Zeit in ihrer Zeitzone.",
                         region.text()),
                 () -> assertEquals(
                         Ids.ONBOARD_PICK_REGION + "de",

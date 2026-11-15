@@ -1,13 +1,24 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "Too many wrong codes. Try again {until, instant, relative}.",
-            "de": "Zu viele falsche Codes. Versuch es {until, instant, relative} noch einmal."
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Too many wrong codes.",
+                "de": "Zu viele falsche Codes."
+              }
+            },
+            {
+              "text": {
+                "en": "Try again {until, instant, relative}.",
+                "de": "Versuch es {until, instant, relative} noch einmal."
+              }
+            }
+          ]
         }
       ]
     }

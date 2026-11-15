@@ -1,21 +1,40 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}). Extend it in {channel}.",
-            "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until}). Verlängere ihn in {channel}."
-          },
-          "when": "channel"
-        },
-        {
-          "text": {
-            "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}). Extend it in the {@terms.contribution-channel}.",
-            "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until}). Verlängere ihn im {@terms.contribution-channel}."
-          },
-          "when": "!channel"
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}).",
+                "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until})."
+              },
+              "when": "channel"
+            },
+            {
+              "text": {
+                "en": "Extend it in {channel}.",
+                "de": "Verlängere ihn in {channel}."
+              },
+              "when": "channel"
+            },
+            {
+              "text": {
+                "en": "Your {@terms.access} ends **{until, instant, relative}** ({until}).",
+                "de": "Dein {@terms.access} endet **{until, instant, relative}** ({until})."
+              },
+              "when": "!channel"
+            },
+            {
+              "text": {
+                "en": "Extend it in the {@terms.contribution-channel}.",
+                "de": "Verlängere ihn im {@terms.contribution-channel}."
+              },
+              "when": "!channel"
+            }
+          ]
         }
       ]
     }

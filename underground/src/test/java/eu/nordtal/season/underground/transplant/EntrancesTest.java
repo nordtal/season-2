@@ -75,4 +75,28 @@ class EntrancesTest {
         assertFalse(entrances.sound(beside));
         assertTrue(entrances.sound(away));
     }
+
+    /**
+     * A cut-off stretch beside generated water is not reopened, as it was found at 5449 63 9115 of the map.
+     * The stretch is air of the map that nothing keeps, with rock in the generated world; beside it the generated
+     * world holds water that no closing rock covers, and the water would run into the reopened cave.
+     */
+    @Test
+    void aCutOffStretchBesideGeneratedWaterIsNotReopened() {
+        final Tile rock = new Tile(0, 0, 40, 40, 40);
+        final Entrances entrances = new Entrances(rock, Parameters.standard(), tally);
+        final int stretch = rock.index(20, 20, 21);
+        rock.map[stretch] = (byte) Blocks.AIR;
+        rock.map[rock.index(20, 20, 20)] = (byte) Blocks.AIR;
+        rock.parallel[rock.index(20, 20, 20)] = (byte) Blocks.WATER;
+        final Cells beside = new Cells();
+        beside.push(stretch);
+        final Cells away = new Cells();
+        away.push(rock.index(20, 20, 10));
+
+        assertFalse(entrances.dry(beside));
+        assertTrue(entrances.dry(away));
+        rock.flags[rock.index(20, 20, 20)] |= (byte) Tile.CLOSED;
+        assertTrue(entrances.dry(beside));
+    }
 }

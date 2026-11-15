@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -81,7 +80,14 @@ public final class Refresh {
         for (final String kind : KINDS) {
             Files.createDirectories(out.resolve(kind));
             for (final Path file : files(upgraded.resolve(kind), "*.mc[ac]")) {
-                Files.copy(file, out.resolve(kind).resolve(file.getFileName()), StandardCopyOption.REPLACE_EXISTING);
+                final Path copy = out.resolve(kind).resolve(file.getFileName());
+                Files.deleteIfExists(copy);
+                if (file.getFileName().toString().endsWith(".mca")) {
+                    // A link costs no space; a file with changes is written anew, never through it.
+                    Files.createLink(copy, file);
+                } else {
+                    Files.copy(file, copy);
+                }
             }
             for (final Path file : files(now.resolve(kind), "r.*.mca")) {
                 final Path name = file.getFileName();
@@ -119,6 +125,7 @@ public final class Refresh {
                             ? new Bounds(chunkX, chunkZ, chunkX, chunkZ)
                             : bounds.widened(chunkX, chunkZ);
                 }
+                Files.deleteIfExists(target);
                 Region.write(target, result);
             }
         }

@@ -31,6 +31,11 @@ class RefreshTest {
         assertEquals("built more", result.get(2).get("contents"));
         assertEquals(1, changes.chunks());
         assertEquals(new Refresh.Bounds(34, 0, 34, 0), changes.bounds());
+        assertEquals(
+                "built",
+                Region.read(Region.file(directory.resolve("upgraded/region"), 1, 0))
+                        .get(2)
+                        .get("contents"));
     }
 
     @Test

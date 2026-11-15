@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "You are already registered for this event.",
-            "de": "Du bist für dieses Event schon angemeldet."
+            "en": "You are already registered for the {@terms.hunger-games}.",
+            "de": "Du bist für die {@terms.hunger-games} schon angemeldet."
           }
         }
       ]

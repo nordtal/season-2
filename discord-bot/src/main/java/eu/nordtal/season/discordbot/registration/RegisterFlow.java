@@ -39,7 +39,7 @@ public final class RegisterFlow extends ListenerAdapter {
 
     record Registered(@Example("Red_Fox") String name) {}
 
-    record Invitation(TeamContext team) {}
+    record Invitation(DiscordMemberContext owner, TeamContext team) {}
 
     /** The modal that the Register button opens. It asks for the team name. */
     static final DocumentSpec<DocumentSpec.None> NAME = DocumentSpec.modal(
@@ -212,25 +212,24 @@ public final class RegisterFlow extends ListenerAdapter {
                 .editOriginal(reply(locale, RegisterReplies.invitation(result, invited)))
                 .queue();
         if (result.status() == InviteResult.Status.INVITED) {
-            dmInvite(partner, Objects.requireNonNull(result.memberId()), Objects.requireNonNull(result.teamName()));
+            dmInvite(
+                    partner,
+                    Objects.requireNonNull(result.memberId()),
+                    new Invitation(
+                            new DiscordMemberContext(
+                                    DiscordId.of(event.getUser().getId()),
+                                    event.getUser().getEffectiveName()),
+                            new TeamContext(Objects.requireNonNull(result.teamName()))));
         }
     }
 
-    private void dmInvite(final User partner, final UUID memberId, final String teamName) {
-        final Locale locale = access.language(DiscordId.of(partner.getId()));
-        final DocumentRenderer.Drawn invitation = documents.render(
-                INVITATION,
-                new Invitation(new TeamContext(teamName)),
-                Map.of(
-                        "accept",
-                        new DocumentRenderer.FilledButton(ids.inviteAccept() + memberId, ButtonStyle.SUCCESS),
-                        "decline",
-                        new DocumentRenderer.FilledButton(ids.inviteDecline() + memberId, ButtonStyle.DANGER)),
-                locale);
+    private void dmInvite(final User partner, final UUID memberId, final Invitation invitation) {
+        final DocumentRenderer.Drawn drawn =
+                invitation(documents, ids, memberId, invitation, access.language(DiscordId.of(partner.getId())));
 
         jda.openPrivateChannelById(partner.getId())
                 .queue(
-                        channel -> channel.sendMessage(invitation.create())
+                        channel -> channel.sendMessage(drawn.create())
                                 .queue(
                                         ok -> log.debug(
                                                 "team invite sent: game={} member={}",
@@ -242,6 +241,24 @@ public final class RegisterFlow extends ListenerAdapter {
                                                 failure.toString())),
                         failure -> log.info(
                                 "team invite not delivered: member={} cause={}", partner.getId(), failure.toString()));
+    }
+
+    /** Returns the invitation as the partner receives it, with the buttons that answer for {@code memberId}. */
+    static DocumentRenderer.Drawn invitation(
+            final DocumentRenderer documents,
+            final Ids ids,
+            final UUID memberId,
+            final Invitation invitation,
+            final Locale locale) {
+        return documents.render(
+                INVITATION,
+                invitation,
+                Map.of(
+                        "accept",
+                        new DocumentRenderer.FilledButton(ids.inviteAccept() + memberId, ButtonStyle.SUCCESS),
+                        "decline",
+                        new DocumentRenderer.FilledButton(ids.inviteDecline() + memberId, ButtonStyle.DANGER)),
+                locale);
     }
 
     private MessageEditData reply(final Locale locale, final Sent<?> text) {

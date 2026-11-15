@@ -7,7 +7,7 @@ import eu.nordtal.season.messages.value.Example;
 import eu.nordtal.season.messages.value.Money;
 import java.time.Instant;
 
-/** The replies and direct messages: one text block each, filled with nothing but its values. */
+/** The replies and direct messages: one text or one box of lines, filled with nothing but its values. */
 public final class Replies {
 
     public record Refused(boolean passes) {}
@@ -99,7 +99,7 @@ public final class Replies {
     public static final DocumentSpec<DocumentSpec.None> INVITE_NOT_OWNER =
             reply("invite-not-owner", "Register").titled("Invitation without a team");
     public static final DocumentSpec<DocumentSpec.None> INVITE_TEAM_FULL =
-            reply("invite-team-full", "Register").titled("Team already full");
+            reply("invite-team-full", "Register").titled("Team already complete");
     public static final DocumentSpec<DocumentSpec.None> INVITE_PENDING =
             reply("invite-pending", "Register").titled("Invitation still open");
     public static final DocumentSpec<DocumentSpec.None> INVITE_SELF =

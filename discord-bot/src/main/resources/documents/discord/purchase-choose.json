@@ -1,29 +1,34 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "How long do you want {@terms.access}?",
-            "de": "Wie lange willst du {@terms.access}?"
-          }
-        }
-      ]
-    },
-    {
-      "type": "ROW",
-      "items": [
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "How long do you want {@terms.access}?",
+                "de": "Für wie lange willst du {@terms.access}?"
+              }
+            }
+          ]
+        },
         {
-          "slot": "days",
-          "placeholder": {
-            "en": "Choose a {@terms.period, n=1}",
-            "de": "{@terms.period, n=1} wählen"
-          },
-          "option": {
-            "en": "{@values.duration.days, n=days}: {price}",
-            "de": "{@values.duration.days, n=days}: {price}"
-          }
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "days",
+              "placeholder": {
+                "en": "Choose a {@terms.period, n=1}",
+                "de": "{@terms.period, n=1} wählen"
+              },
+              "option": {
+                "en": "{@values.duration.days, n=days} for {price}",
+                "de": "{@values.duration.days, n=days} für {price}"
+              }
+            }
+          ]
         }
       ]
     }

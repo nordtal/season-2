@@ -1,13 +1,24 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "A Minecraft account is already linked. Run /unlink to link another one.",
-            "de": "Es ist schon ein Minecraft-Konto verknüpft. Mit /unlink kannst du ein anderes verknüpfen."
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "A Minecraft account is already linked.",
+                "de": "Du hast schon ein Minecraft-Konto verknüpft."
+              }
+            },
+            {
+              "text": {
+                "en": "To link another one, run `/unlink` first.",
+                "de": "Um ein anderes zu verknüpfen, nutze zuerst `/unlink`."
+              }
+            }
+          ]
         }
       ]
     }

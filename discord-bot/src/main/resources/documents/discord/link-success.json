@@ -1,13 +1,24 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "Your Minecraft account is linked. You can join the server now.",
-            "de": "Dein Minecraft-Konto ist verknüpft. Du kannst jetzt auf den Server."
-          }
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Your Minecraft account is linked.",
+                "de": "Dein Minecraft-Konto ist verknüpft."
+              }
+            },
+            {
+              "text": {
+                "en": "Join `play.nordtal.eu` again.",
+                "de": "Betritt `play.nordtal.eu` noch einmal."
+              }
+            }
+          ]
         }
       ]
     }

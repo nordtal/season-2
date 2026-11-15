@@ -26,8 +26,9 @@ import java.util.UUID;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.buttons.ButtonStyle;
+import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
-import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.components.tree.MessageComponentTree;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -43,18 +44,18 @@ class PurchaseFlowTest {
     private static final Instant NOW = Instant.parse("2026-10-18T12:00:00Z");
 
     @Test
-    void theChoiceAsksOverASelectOfEveryTier() {
+    void theChoiceAsksInOneBoxOverASelectOfEveryTier() {
         final DocumentRenderer.Drawn drawn = PurchaseFlow.choose(RENDERER, TIERS, Locale.ENGLISH);
+        final Container box = (Container) drawn.components().getFirst();
         final StringSelectMenu select = (StringSelectMenu)
-                ((ActionRow) drawn.components().getLast()).getComponents().getFirst();
+                ((ActionRow) box.getComponents().getLast()).getComponents().getFirst();
 
         assertAll(
-                () -> assertEquals(
-                        "How long do you want access?",
-                        ((TextDisplay) drawn.components().getFirst()).getContent()),
+                () -> assertEquals(1, drawn.components().size()),
+                () -> assertEquals("How long do you want access?", drawn.text()),
                 () -> assertEquals(Ids.DAYS_SELECT, select.getCustomId()),
                 () -> assertEquals(
-                        List.of("30 days: €5.00", "90 days: €12.50"),
+                        List.of("30 days for €5.00", "90 days for €12.50"),
                         select.getOptions().stream()
                                 .map(option -> option.getLabel())
                                 .toList()),
@@ -66,14 +67,13 @@ class PurchaseFlowTest {
     }
 
     @Test
-    void theSummaryWithoutADonationOffersOneAtItsPrice() {
+    void theSummaryWithoutADonationIsThePurchaseAloneAndOffersADonationAtItsPrice() {
         final DocumentRenderer.Drawn drawn = PurchaseFlow.summary(RENDERER, TIERS, request(0, null), Locale.ENGLISH);
-        final List<Button> buttons = ((ActionRow) drawn.components().getLast()).getButtons();
+        final List<Button> buttons = buttons(drawn);
 
         assertAll(
-                () -> assertEquals(
-                        "**30 days of access** for €5.00.\nTotal: **€5.00**",
-                        ((TextDisplay) drawn.components().getFirst()).getContent()),
+                () -> assertEquals(1, drawn.components().size()),
+                () -> assertEquals("## Your purchase\n**30 days of access** for €5.00", drawn.text()),
                 () -> assertEquals(
                         List.of(Ids.CONFIRM, Ids.CHANGE, Ids.DONATION),
                         buttons.stream().map(Button::getCustomId).toList()),
@@ -84,35 +84,35 @@ class PurchaseFlowTest {
     }
 
     @Test
-    void theSummaryWithADonationNamesItAndOffersToRemoveIt() {
+    void theSummaryWithADonationNamesItWithTheTotalAndOffersToRemoveIt() {
         final DocumentRenderer.Drawn drawn = PurchaseFlow.summary(RENDERER, TIERS, request(300, null), Locale.ENGLISH);
 
         assertAll(
                 () -> assertEquals("""
-                        **30 days of access** for €5.00.
-                        Includes a donation of €3.00 and the permanent donor role.
-                        Total: **€8.00**""", ((TextDisplay) drawn.components().getFirst()).getContent()),
+                        ## Your purchase
+                        **30 days of access** for €5.00
+                        **Donation** of €3.00 with the permanent donor role
+                        Total: **€8.00**""", drawn.text()),
                 () -> assertEquals(
-                        "Remove the donation",
-                        ((ActionRow) drawn.components().getLast())
-                                .getButtons()
-                                .getLast()
-                                .getLabel()));
+                        "Remove the donation", buttons(drawn).getLast().getLabel()));
     }
 
     @Test
-    void theLinkIsOneTextBlockOfTheLinkItsReferenceAndItsExpiry() {
+    void theLinkIsOneBoxOfTheReferenceTheExpiryAndAButtonThatOpensTheLinkAtItsAmount() {
         final DocumentRenderer.Drawn drawn =
                 PurchaseFlow.link(RENDERER, request(0, "https://bunq.me/t/example"), Locale.ENGLISH);
+        final Button pay = buttons(drawn).getFirst();
 
         assertAll(
                 () -> assertEquals(1, drawn.components().size()),
                 () -> assertEquals(
-                        "Pay **€5.00** here: https://bunq.me/t/example",
-                        drawn.text().lines().findFirst().orElseThrow()),
-                () -> assertEquals(
-                        "The link expires <t:" + NOW.plusSeconds(3600).getEpochSecond() + ":R>.",
-                        drawn.text().lines().toList().getLast()));
+                        "## Payment link\nLeave the reference **NTABC123** in the payment description as it is.\n"
+                                + "The link expires <t:" + NOW.plusSeconds(3600).getEpochSecond() + ":R>.",
+                        drawn.text()),
+                () -> assertEquals(1, buttons(drawn).size()),
+                () -> assertEquals(ButtonStyle.LINK, pay.getStyle()),
+                () -> assertEquals("https://bunq.me/t/example", pay.getUrl()),
+                () -> assertEquals("Pay €5.00", pay.getLabel()));
     }
 
     @Test
@@ -182,6 +182,10 @@ class PurchaseFlowTest {
                     sent[0] = data.toData().toString();
                     return action;
                 });
+    }
+
+    private static List<Button> buttons(final DocumentRenderer.Drawn drawn) {
+        return MessageComponentTree.of(drawn.components()).findAll(Button.class);
     }
 
     private static PaymentRequest request(final int donationCents, final @Nullable String shareUrl) {

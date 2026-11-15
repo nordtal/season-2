@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot.onboarding;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.discordbot.Ids;
@@ -91,15 +92,13 @@ class OnboardingMessageTest {
     }
 
     @Test
-    void theChangeMessageHasABoxAndAButtonPerLanguageEachInItsLanguage() {
+    void theChangeMessageIsOneBoxPerLanguageThatHoldsItsButtonEachInItsLanguage() {
         final List<MessageTopLevelComponent> change = message.change().components();
-        final List<Button> buttons = change.stream()
-                .filter(ActionRow.class::isInstance)
-                .flatMap(row -> ((ActionRow) row).getButtons().stream())
-                .toList();
+        final List<Button> buttons = MessageComponentTree.of(change).findAll(Button.class);
 
         assertAll(
-                () -> assertEquals(4, change.size()),
+                () -> assertEquals(2, change.size()),
+                () -> assertTrue(change.stream().allMatch(Container.class::isInstance), change::toString),
                 () -> assertEquals(
                         List.of(Ids.ONBOARD + "en", Ids.ONBOARD + "de"),
                         buttons.stream().map(Button::getCustomId).toList()),
@@ -108,10 +107,34 @@ class OnboardingMessageTest {
                         buttons.stream().map(Button::getLabel).toList()),
                 () -> assertEquals(
                         "## Sprache und Region",
-                        ((TextDisplay) ((Container) change.get(2))
+                        ((TextDisplay) ((Container) change.getLast())
                                         .getComponents()
                                         .getFirst())
                                 .getContent()));
+    }
+
+    @Test
+    void theRegionQuestionIsOneBoxInTheChosenLanguageThatHoldsItsSelect() {
+        final DocumentRenderer.Drawn region = OnboardingFlow.region(
+                StoredDocumentsStandIn.renderer(),
+                Ids.ONBOARD_PICK_REGION + "de",
+                List.of(SelectOption.of("Mitteleuropa", "Europe/Berlin")),
+                Locale.GERMAN);
+
+        assertAll(
+                () -> assertEquals(1, region.components().size()),
+                () -> assertEquals(
+                        "Wähle die Region, aus der du spielst.\nNordtal zeigt jede Zeit in ihrer Zeitzone.",
+                        region.text()),
+                () -> assertEquals(
+                        Ids.ONBOARD_PICK_REGION + "de",
+                        ((StringSelectMenu) ((ActionRow)
+                                                ((Container) region.components().getFirst())
+                                                        .getComponents()
+                                                        .getLast())
+                                        .getComponents()
+                                        .getFirst())
+                                .getCustomId()));
     }
 
     private static StringSelectMenu select(final List<MessageTopLevelComponent> components) {
@@ -131,6 +154,6 @@ class OnboardingMessageTest {
                                 "change", new DocumentRenderer.FilledButton(Ids.ONBOARD)),
                         Locale.ENGLISH);
 
-        assertEquals(20, drawn.components().size());
+        assertEquals(10, drawn.components().size());
     }
 }

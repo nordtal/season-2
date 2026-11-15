@@ -1,21 +1,32 @@
 {
   "parts": [
     {
-      "type": "TEXT",
-      "lines": [
+      "type": "CONTAINER",
+      "parts": [
         {
-          "text": {
-            "en": "Your {@terms.access} has ended. Buy a new {@terms.period, n=1} in {channel}.",
-            "de": "Dein {@terms.access} ist abgelaufen. Kauf einen neuen {@terms.period, n=1} in {channel}."
-          },
-          "when": "channel"
-        },
-        {
-          "text": {
-            "en": "Your {@terms.access} has ended. Buy a new {@terms.period, n=1} in the {@terms.contribution-channel}.",
-            "de": "Dein {@terms.access} ist abgelaufen. Kauf einen neuen {@terms.period, n=1} im {@terms.contribution-channel}."
-          },
-          "when": "!channel"
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Your {@terms.access} has ended.",
+                "de": "Dein {@terms.access} ist abgelaufen."
+              }
+            },
+            {
+              "text": {
+                "en": "Buy a new {@terms.period, n=1} in {channel}.",
+                "de": "Kauf einen neuen {@terms.period, n=1} in {channel}."
+              },
+              "when": "channel"
+            },
+            {
+              "text": {
+                "en": "Buy a new {@terms.period, n=1} in the {@terms.contribution-channel}.",
+                "de": "Kauf einen neuen {@terms.period, n=1} im {@terms.contribution-channel}."
+              },
+              "when": "!channel"
+            }
+          ]
         }
       ]
     }

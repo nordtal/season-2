@@ -65,7 +65,7 @@ and delete the `poi` files of the regions it replaced.
 
 ## The map's structures
 
-`structures --world <result> --pack smp/src/main/resources/structures --seed <seed> --out <dir>
+`structures --world <result> --pack deploy/minecraft/datapacks/nordtal --seed <seed> --out <dir>
 --regions 0,0,19,19` writes the region and entity files it changes into `<dir>`, with
 `structures-report.tsv`, one line per place and per spawner it decided on. Copy them over a copy of
 the world, as with the transplant. It runs on the result of the transplant, or on any copy of the
@@ -84,8 +84,8 @@ writes anything when one is not. A second run on its own output changes nothing 
 
 Each start lies in a chunk where the data pack's structure set looks, and within eight chunks of
 every chunk it covers, since the game reads a start no further; a wide place gets several. The pack
-of `smp` turns off every new village, outpost, monument and stronghold, so `/locate` finds only
-these.
+`nordtal` turns off every new village, outpost, monument and stronghold of the game, so `/locate`
+finds only these; the villages of Dungeons and Taverns still generate in new land.
 
 ## What stays and what is replaced
 

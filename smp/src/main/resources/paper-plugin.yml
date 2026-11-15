@@ -1,7 +1,6 @@
 name: smp
 version: "${version}"
 main: eu.nordtal.season.smp.SmpPlugin
-bootstrapper: eu.nordtal.season.smp.SmpBootstrap
 description: The season 2 SMP - Nordtal, the Nether and the End.
 author: nordtal
 website: https://nordtal.eu

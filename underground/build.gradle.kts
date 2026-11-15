@@ -14,3 +14,10 @@ application {
 tasks.named<JavaExec>("run") {
     workingDir = rootProject.projectDir
 }
+
+// The structure sets the command plans against are those of the data pack the smp image brings.
+tasks.named<Test>("test") {
+    val pack = rootProject.file("deploy/minecraft/datapacks/nordtal")
+    inputs.dir(pack)
+    systemProperty("nordtal.pack", pack.path)
+}

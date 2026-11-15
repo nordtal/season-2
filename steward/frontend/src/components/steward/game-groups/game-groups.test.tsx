@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type { ConfigDocument, ConfigEntry } from "@/lib/api"
 import { clearDraft } from "@/lib/drafts"
+import { BreachContext } from "@/components/steward/breach-context"
 import { customEditor } from "@/components/steward/config-editors"
 import { Control } from "@/components/steward/configuration"
 import { type SectionValues, sectionsFromEntry } from "@/components/steward/repeatable-cards"
@@ -642,5 +643,97 @@ describe("the duel kits", { timeout: 15_000 }, () => {
         { item: "minecraft:iron_sword", amount: "1", data },
       ],
     })
+  })
+})
+
+const LOOT = {
+  ...list(
+    "loot-points",
+    "Loot points",
+    [
+      entry("label", { label: "Label", value: "spawn", rules: [{ rule: "REQUIRED" }] }),
+      number("x", "X", "0"),
+      number("y", "Y", "64"),
+      number("z", "Z", "0"),
+    ],
+    [
+      { label: "spawn", x: "0", y: "64", z: "0" },
+      { label: "north", x: "0", y: "64", z: "-150" },
+      { label: "east", x: "150", y: "64", z: "0" },
+    ],
+  ),
+  rules: [{ rule: "ENTRIES" as const, limit: 3 }],
+}
+
+/** The loot points as the settings form draws them, and every list it was changed to. */
+function drawLoot(breaches: Record<string, string> = {}) {
+  const changes: SectionValues[][] = []
+  function Form() {
+    const [value, setValue] = useState(() => sectionsFromEntry(LOOT))
+    return (
+      <BreachContext.Provider value={(id) => breaches[id] ?? null}>
+        <Control
+          entry={LOOT}
+          draft={{ "loot-points": value }}
+          disabled={false}
+          onChange={(next) => {
+            changes.push(next as SectionValues[])
+            setValue(next as SectionValues[])
+          }}
+        />
+      </BreachContext.Provider>
+    )
+  }
+  draw(<Form />)
+  return changes
+}
+
+describe("the loot points", { timeout: 15_000 }, () => {
+  it("are tiles titled by their label with X, Y and Z, and the label is edited in the dialog", async () => {
+    backend(document("config", [LOOT]))
+    const changes = drawLoot()
+
+    const north = await screen.findByRole("button", { name: "north" })
+    expect(north.textContent).toContain("-150")
+    expect(screen.queryByText("Entry 1")).toBeNull()
+    expect(screen.queryByText("No world")).toBeNull()
+
+    fireEvent.click(north)
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByRole("heading", { name: "north" })).toBeTruthy()
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Label" }), { target: { value: "far north" } })
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Z" }), { target: { value: "-200" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+
+    expect(screen.getByRole("button", { name: "far north" }).textContent).toContain("-200")
+    expect(changes.at(-1)?.[1]).toMatchObject({ label: "far north", x: "0", y: "64", z: "-200" })
+  })
+
+  it("stop Add at the number of points the list takes, and remove a point from its dialog", async () => {
+    backend(document("config", [LOOT]))
+    const changes = drawLoot()
+
+    const add = await screen.findByRole("button", { name: "Block" })
+    expect(add).toHaveProperty("disabled", true)
+
+    fireEvent.click(screen.getByRole("button", { name: "east" }))
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Remove" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Remove it" }))
+    await waitFor(() => expect(screen.queryByRole("button", { name: "east" })).toBeNull())
+    expect(changes.at(-1)?.map((point) => point.label)).toEqual(["spawn", "north"])
+    expect(screen.getByRole("button", { name: "Block" })).toHaveProperty("disabled", false)
+  })
+
+  it("mark the point whose label breaks a rule, and say why in its dialog", async () => {
+    backend(document("config", [LOOT]))
+    drawLoot({ "loot-points.1.label": "Two loot points cannot share the label north." })
+
+    const north = await screen.findByRole("button", { name: "north" })
+    expect(north.getAttribute("aria-invalid")).toBe("true")
+    expect(screen.getByRole("button", { name: "spawn" }).getAttribute("aria-invalid")).toBeNull()
+
+    fireEvent.click(north)
+    expect(within(await screen.findByRole("dialog")).getByText(/cannot share the label/)).toBeTruthy()
   })
 })

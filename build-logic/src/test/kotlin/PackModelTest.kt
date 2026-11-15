@@ -359,7 +359,17 @@ class PackModelTest {
             .forEach { assertTrue((it["width"] as Int) > 0, "${it["png"]} has a pixel size") }
         val overrides = model.list("overrides").flatMap { it.list("entries") }.map { it.map("texture")["id"] }
         assertTrue("minecraft:gui/sprites/boss_bar/white_progress.png" in overrides)
-        assertEquals(listOf("nordtal:blank", "nordtal:station_rail"), model.list("items").flatMap { it.list("entries") }.map { it["id"] })
+        assertEquals(
+            listOf(
+                "nordtal:blank",
+                "nordtal:border/field",
+                "nordtal:border/pixel",
+                "nordtal:border/pixel_fade_1",
+                "nordtal:border/pixel_fade_2",
+                "nordtal:border/pixel_fade_3",
+                "nordtal:station_rail",
+            ),
+            model.list("items").flatMap { it.list("entries") }.map { it["id"] })
     }
 
     @Test

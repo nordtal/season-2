@@ -9,7 +9,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.bukkit.Location;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -34,13 +33,17 @@ public final class BorderWall implements Listener {
     /** Runs a task one tick later, after the client has cleared its entities on a respawn or a world change. */
     private final Consumer<Runnable> nextTick;
 
+    /** Plays the push back's sound to the player it pushed. */
+    private final Consumer<Player> pushSound;
+
     private Map<String, Walls.Drawn> walls = Map.of();
     private final Map<UUID, Viewer> viewers = new HashMap<>();
     private final Map<UUID, Long> pushed = new HashMap<>();
 
-    public BorderWall(final Clock clock, final Consumer<Runnable> nextTick) {
+    public BorderWall(final Clock clock, final Consumer<Runnable> nextTick, final Consumer<Player> pushSound) {
         this.clock = clock;
         this.nextTick = nextTick;
+        this.pushSound = pushSound;
     }
 
     /** Takes the settings and draws the wall again for every player. */
@@ -127,7 +130,7 @@ public final class BorderWall implements Listener {
         }
         pushed.put(player.getUniqueId(), now);
         player.setVelocity(new Vector(velocity[0], velocity[1], velocity[2]));
-        player.playSound(player, Sound.ENTITY_PLAYER_ATTACK_KNOCKBACK, 1f, 1f);
+        pushSound.accept(player);
     }
 
     /** Sends the player what changed in their part of the wall at {@code at}. */

@@ -2,6 +2,7 @@ package eu.nordtal.season.smp;
 
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.packrendering.wheel.WheelTimetable;
 import eu.nordtal.season.papercommon.chat.SystemLines;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -12,6 +13,7 @@ import eu.nordtal.season.smp.config.DeathsSpec;
 import eu.nordtal.season.smp.duel.DuelListener;
 import eu.nordtal.season.smp.duel.Duels;
 import eu.nordtal.season.smp.eye.MapPortals;
+import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.grave.GraveDao;
 import eu.nordtal.season.smp.grave.GraveListener;
@@ -292,7 +294,13 @@ final class SmpStart {
     static BorderWall wireBorderWall(final SmpPlugin plugin) {
         final PaperScheduler scheduler = PaperScheduler.of(plugin);
         final BorderWall wall =
-                new BorderWall(plugin.clock(), task -> scheduler.onMainAfter(PaperScheduler.TICK, task));
+                new BorderWall(plugin.clock(), task -> scheduler.onMainAfter(PaperScheduler.TICK, task), player -> {
+                    // Read on each push: the sounds are set up after the wall and reloaded in place.
+                    final SmpSounds sounds = plugin.sounds;
+                    if (sounds != null) {
+                        sounds.play(player, Feedback.REFUSED);
+                    }
+                });
         plugin.getServer().getPluginManager().registerEvents(wall, plugin);
         wall.apply(plugin.customBorderSettings.get(), plugin.getServer().getOnlinePlayers());
         return wall;

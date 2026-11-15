@@ -46,12 +46,11 @@ final class PackProbe {
     Optional<String> dead(final String url) {
         try {
             final URI uri = URI.create(url);
-            final Optional<Boolean> answered = waiting.until(
-                    () -> answers.test(uri) ? Optional.of(true) : Optional.empty(), PATIENCE, BACKOFF);
+            final Optional<Boolean> answered =
+                    waiting.until(() -> answers.test(uri) ? Optional.of(true) : Optional.empty(), PATIENCE, BACKOFF);
             return answered.isPresent() ? Optional.empty() : Optional.of(url);
         } catch (final IllegalArgumentException notAUrl) {
             return Optional.of(url);
         }
     }
-
 }

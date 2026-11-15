@@ -35,6 +35,8 @@ class LanguageChannelsIntegrationTest {
     private final Map<String, Set<String>> denied = new HashMap<>();
     private String parent = "10";
     private boolean interrupted;
+    private boolean synced;
+    private boolean interruptCategory;
     private boolean rateLimited;
     private int completed;
     private final Role english = proxy(Role.class, (name, args) -> name.equals("getId") ? "2" : null);
@@ -42,6 +44,7 @@ class LanguageChannelsIntegrationTest {
     private final TextChannel channel = proxy(TextChannel.class, (name, args) -> switch (name) {
         case "getId", "getName" -> "11";
         case "getParentCategoryId" -> parent;
+        case "isSynced" -> synced;
         case "getPermissionOverride" -> override("11", (Role) args[0]);
         case "upsertPermissionOverride" -> action("11", (Role) args[0]);
         default -> null;
@@ -59,6 +62,33 @@ class LanguageChannelsIntegrationTest {
         case "getRoleById" -> args[0].equals("2") ? english : german;
         default -> null;
     });
+
+    @Test
+    void categoryPropagationSurvivesAnInterruptionAndAChildMove() {
+        synced = true;
+        interruptCategory = true;
+        assertThrows(AssertionError.class, () -> keep("10"));
+        assertTrue(denied.get("11").contains("2"));
+        interruptCategory = false;
+        keep("10");
+        parent = "20";
+        synced = false;
+        keep("30");
+        assertFalse(denied.get("11").contains("2"));
+    }
+
+    @Test
+    void preExistingSyncedDenialsAreNotClaimed() {
+        synced = true;
+        denied.put("10", new HashSet<>(Set.of("2")));
+        denied.put("11", new HashSet<>(Set.of("2")));
+        keep("10");
+        parent = "20";
+        synced = false;
+        keep("");
+        assertTrue(denied.get("11").contains("2"));
+        assertTrue(new LanguageDenials(jdbi).all().isEmpty());
+    }
 
     @Test
     void aMovedChannelLosesItsDenialWhenTheCategoryChanges() {
@@ -172,6 +202,11 @@ class LanguageChannelsIntegrationTest {
             if (clear && rateLimited) throw new IllegalStateException("rate limited");
             if (clear) denied.get(id).remove(role.getId());
             else denied.computeIfAbsent(id, key -> new HashSet<>()).add(role.getId());
+            if (synced && parent.equals(id)) {
+                if (clear) denied.computeIfAbsent("11", key -> new HashSet<>()).remove(role.getId());
+                else denied.computeIfAbsent("11", key -> new HashSet<>()).add(role.getId());
+                if (interruptCategory) throw new AssertionError("process interrupted after category request");
+            }
             completed++;
             return null;
         });

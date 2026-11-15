@@ -114,6 +114,22 @@ final class LanguageChannels {
                     final var current = permissions.getPermissionOverride(role);
                     if (current == null || !current.getDenied().contains(Permission.VIEW_CHANNEL)) {
                         denials.remember(new LanguageDenials.Denial(tag, category, channel.getId(), role.getId()));
+                        // Discord copies category overwrites to synced children before the next sweep.
+                        if (channel.getId().equals(category)) {
+                            for (final var candidate : guild.getChannels(true)) {
+                                if (candidate instanceof ICategorizableChannel child
+                                        && category.equals(child.getParentCategoryId())
+                                        && child.isSynced()
+                                        && candidate instanceof IPermissionContainer childPermissions) {
+                                    final var existing = childPermissions.getPermissionOverride(role);
+                                    if (existing == null
+                                            || !existing.getDenied().contains(Permission.VIEW_CHANNEL)) {
+                                        denials.remember(new LanguageDenials.Denial(
+                                                tag, category, candidate.getId(), role.getId()));
+                                    }
+                                }
+                            }
+                        }
                         permissions
                                 .upsertPermissionOverride(role)
                                 .deny(Permission.VIEW_CHANNEL)

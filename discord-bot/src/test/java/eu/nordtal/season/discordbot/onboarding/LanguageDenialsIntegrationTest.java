@@ -8,17 +8,17 @@ import eu.nordtal.season.database.TestDatabase;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-class LanguageCategoriesIntegrationTest {
+class LanguageDenialsIntegrationTest {
     @Test
     void anInterruptedCategoryChangeKeepsBothCategoriesUntilTheirDenialsAreRemoved() {
         final var database = TestDatabase.fresh();
-        final var before = new LanguageCategories(Jdbis.over(database.dataSourceAs(DatabaseRole.DISCORD_BOT)));
-        final var old = new LanguageCategories.Category("de", "1");
-        final var current = new LanguageCategories.Category("de", "2");
+        final var before = new LanguageDenials(Jdbis.over(database.dataSourceAs(DatabaseRole.DISCORD_BOT)));
+        final var old = new LanguageDenials.Denial("de", "1", "11", "2");
+        final var current = new LanguageDenials.Denial("de", "2", "21", "2");
         before.remember(old);
         before.remember(current);
         before.remember(current);
-        final var restarted = new LanguageCategories(Jdbis.over(database.dataSourceAs(DatabaseRole.DISCORD_BOT)));
+        final var restarted = new LanguageDenials(Jdbis.over(database.dataSourceAs(DatabaseRole.DISCORD_BOT)));
         assertEquals(List.of(old, current), restarted.all());
         restarted.forget(old);
         assertEquals(List.of(current), restarted.all());

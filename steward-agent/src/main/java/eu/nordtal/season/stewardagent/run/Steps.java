@@ -115,6 +115,20 @@ final class Steps {
             end(Outcome.FAILED, reason);
         }
 
+        /** Fails the step as refused and keeps the answer it got, in the step and in the log. */
+        void refused(final String answer) {
+            log.warn("run step refused: run={} step={} service={} answer={}", run, kind, service, answer);
+            end(Outcome.FAILED, Reason.REFUSED);
+            refusal(answer);
+        }
+
+        /** Keeps the answer of a step that ended refused. */
+        void refusal(final String answer) {
+            if (id != 0) {
+                write(() -> recorder.refusal(id, answer));
+            }
+        }
+
         /** Ends the step on what a save or restore came back with, a failure as the tool's with its exit code. */
         void ended(final SnapshotResult result) {
             if (result.ok()) {

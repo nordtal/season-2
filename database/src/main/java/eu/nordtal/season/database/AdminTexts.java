@@ -302,6 +302,10 @@ public interface AdminTexts {
         @Shown(Display.STEWARD)
         MessageRef reason(@Arg("reason") @Example("not-healthy") RunStep.Reason reason);
 
+        @Name("The answer a refused step got")
+        @Shown(Display.STEWARD)
+        MessageRef refusal(@Arg("answer") @Example("stopping 3f2a9c1b: No such container: 3f2a9c1b") String answer);
+
         @Name("The exit code of a tool that failed")
         @Shown(Display.STEWARD)
         MessageRef exitCode(@Arg("code") @Example("2") long code);

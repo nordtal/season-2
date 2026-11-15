@@ -181,7 +181,11 @@ public final class Containers {
             grace = Math.min(docker.inspect(containerId).stopTimeout(), LONGEST_GRACE_SECONDS);
             docker.stop(containerId, grace);
         } catch (DockerException e) {
-            return RedeployResult.refused("stopping " + shortId(containerId) + ": " + e.getMessage());
+            // A failed read names its own cause, which is the answer when Docker sent none.
+            final String cause = e.getCause() == null || e.getCause().getMessage() == null
+                    ? ""
+                    : " (" + e.getCause().getMessage() + ")";
+            return RedeployResult.refused("stopping " + shortId(containerId) + ": " + e.getMessage() + cause);
         }
         try {
             if (docker.inspect(containerId).wasKilled()) {

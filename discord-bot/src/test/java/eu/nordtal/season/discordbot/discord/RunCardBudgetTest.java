@@ -141,8 +141,8 @@ class RunCardBudgetTest {
             final RunStep.@org.jspecify.annotations.Nullable Reason reason,
             final List<RunStep.Change> changes) {
         return new RunStep.Row(
-                0, kind, service, null, null, outcome, reason, null, changes, List.of(), List.of(), null, null, null,
-                List.of(), List.of());
+                0, kind, service, null, null, outcome, reason, null, null, changes, List.of(), List.of(), null, null,
+                null, List.of(), List.of());
     }
 
     /** The longest asker of a row is a person, whose Discord id has at most twenty digits. */

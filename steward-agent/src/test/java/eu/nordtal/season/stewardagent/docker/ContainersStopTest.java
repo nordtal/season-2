@@ -67,6 +67,24 @@ class ContainersStopTest {
     }
 
     @Test
+    void aStopDockerRefusesSaysWhatDockerAnswered() throws IOException {
+        final Containers containers = new Containers(
+                new Docker(new DockerSocket(
+                        listening(request -> request.contains("/stop")
+                                ? "HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\nContent-Length: 46"
+                                        + "\r\n\r\n{\"message\":\"No such container: smp-container\"}"
+                                : inspection("{\"Status\":\"running\"}", 30)),
+                        Duration.ofSeconds(5),
+                        TestScheduler.SHARED)),
+                "nordtal-s2");
+
+        final RedeployResult result = containers.stop("smp-container");
+
+        assertFalse(result.triggered(), result.message());
+        assertTrue(result.message().contains("No such container: smp-container"), result.message());
+    }
+
+    @Test
     void anOrdinaryShutdownIsAnOrdinaryStop() throws IOException {
         final RedeployResult result = ops(0).stop("smp-container");
 

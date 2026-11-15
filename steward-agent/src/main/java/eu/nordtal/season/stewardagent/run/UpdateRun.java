@@ -104,7 +104,7 @@ final class UpdateRun {
             }
             final RedeployResult result = containers.stop(service.containerId());
             if (!result.triggered()) {
-                step.failed(RunStep.Reason.REFUSED);
+                step.refused(result.message());
                 continue;
             }
             stopped.add(name);
@@ -197,7 +197,7 @@ final class UpdateRun {
             install.done();
             return;
         }
-        install.failed(RunStep.Reason.REFUSED);
+        install.refused(recreated.message());
 
         final Steps.Step fallback = record.begin(RunStep.Kind.START, service);
         final ServiceRuntime old = state.runtime().service(service).orElse(null);
@@ -216,12 +216,12 @@ final class UpdateRun {
         }
     }
 
-    /** Ends a step by whether Docker accepted the command. The verify step checks the start. */
+    /** Ends a step by whether Docker accepted the command, a refusal with its answer. Verify checks the start. */
     static void endBy(final Steps.Step step, final RedeployResult result) {
         if (result.triggered()) {
             step.done();
         } else {
-            step.failed(RunStep.Reason.REFUSED);
+            step.refused(result.message());
         }
     }
 

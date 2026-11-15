@@ -26,6 +26,7 @@ class RunLinesTest {
                 RunStep.Outcome.DONE,
                 reason,
                 exitCode,
+                null,
                 List.of(),
                 List.of(),
                 List.of(),
@@ -39,6 +40,34 @@ class RunLinesTest {
     @Test
     void aStepWithoutFactsHasNoLines() {
         assertEquals(List.of(), english(step(RunStep.Kind.STOP, null, null)));
+    }
+
+    @Test
+    void aRefusedStepNamesTheAnswerItGot() {
+        final RunStep.Row refused = new RunStep.Row(
+                1,
+                RunStep.Kind.STOP,
+                "smp",
+                null,
+                null,
+                RunStep.Outcome.FAILED,
+                RunStep.Reason.REFUSED,
+                null,
+                "stopping 3f2a9c1b: No such container: 3f2a9c1b",
+                List.of(),
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null,
+                List.of(),
+                List.of());
+
+        assertEquals(
+                List.of(
+                        "refused, the run log has the answer",
+                        "answer: stopping 3f2a9c1b: No such container: 3f2a9c1b"),
+                english(refused));
     }
 
     @Test
@@ -57,6 +86,7 @@ class RunLinesTest {
                 null,
                 null,
                 RunStep.Outcome.DONE,
+                null,
                 null,
                 null,
                 List.of(new RunStep.Change("resource-pack", "c0bac3a03dad681347cbe4a3bc932aff8ffd8203", "0.9.4", null)),
@@ -116,6 +146,7 @@ class RunLinesTest {
                 RunStep.Outcome.DONE,
                 null,
                 null,
+                null,
                 changes,
                 List.of(),
                 List.of(),
@@ -135,6 +166,7 @@ class RunLinesTest {
                 null,
                 null,
                 RunStep.Outcome.DONE,
+                null,
                 null,
                 null,
                 List.of(

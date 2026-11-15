@@ -36,6 +36,9 @@ public interface RunRecorder {
             final RunStep.@Nullable Reason reason,
             final @Nullable Integer exitCode) {}
 
+    /** The answer a step got that ended refused. */
+    default void refusal(final long step, final String answer) {}
+
     /** Ends every open step of the run, as a run that stops early leaves them. */
     default void endOpen(final long run, final RunStep.Outcome outcome, final RunStep.@Nullable Reason reason) {}
 

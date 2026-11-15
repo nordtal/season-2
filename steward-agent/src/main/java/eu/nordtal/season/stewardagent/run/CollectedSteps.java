@@ -32,6 +32,11 @@ final class CollectedSteps implements RunRecorder {
     }
 
     @Override
+    public void refusal(final long step, final String answer) {
+        of(step).refusal = answer;
+    }
+
+    @Override
     public void change(
             final long step,
             final String artefact,
@@ -102,6 +107,7 @@ final class CollectedSteps implements RunRecorder {
                     step.outcome,
                     step.reason,
                     step.exitCode,
+                    step.refusal,
                     List.copyOf(step.changes),
                     List.of(),
                     List.copyOf(step.imagesRemoved),
@@ -127,6 +133,9 @@ final class CollectedSteps implements RunRecorder {
             if (step.outcome != null) {
                 written.end(step.outcome, step.reason);
             }
+            if (step.refusal != null) {
+                written.refusal(step.refusal);
+            }
         }
     }
 
@@ -141,6 +150,7 @@ final class CollectedSteps implements RunRecorder {
         private RunStep.@Nullable Outcome outcome;
         private RunStep.@Nullable Reason reason;
         private @Nullable Integer exitCode;
+        private @Nullable String refusal;
         private final List<RunStep.Change> changes = new ArrayList<>();
         private final List<RunStep.ImageRemoved> imagesRemoved = new ArrayList<>();
         private @Nullable Long cacheFreed;

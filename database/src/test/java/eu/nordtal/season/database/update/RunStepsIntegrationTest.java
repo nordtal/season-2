@@ -224,6 +224,22 @@ class RunStepsIntegrationTest {
     }
 
     @Test
+    void aRefusedStepKeepsItsAnswerAndAStepThatWasNotRefusedKeepsNone() {
+        final long run =
+                updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO).id();
+        final long stop = recorder.begin(run, RunStep.Kind.STOP, "smp");
+        recorder.end(run, stop, RunStep.Outcome.FAILED, RunStep.Reason.REFUSED);
+        recorder.refusal(stop, "stopping 3f2a9c1b: No such container: 3f2a9c1b");
+        final long start = recorder.begin(run, RunStep.Kind.START, "smp");
+        recorder.end(run, start, RunStep.Outcome.FAILED, RunStep.Reason.NO_CONTAINER);
+        recorder.refusal(start, "never kept");
+
+        assertEquals(
+                java.util.Arrays.asList("stopping 3f2a9c1b: No such container: 3f2a9c1b", null),
+                updates.recordOf(run).steps().stream().map(RunStep.Row::refusal).toList());
+    }
+
+    @Test
     void theRecordJoinsEveryFactToItsStep() {
         final long run =
                 updates.submit(UpdateKind.UPDATE, Actor.HOST, Duration.ZERO).id();

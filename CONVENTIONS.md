@@ -206,8 +206,8 @@ run `git config core.hooksPath .githooks` once per clone.
 - **No packaged Discord document sets a container's accent**, so no message of the bot has a coloured bar
   along its edge. Only a document an admin writes in Steward may set one. _(checked)_
 - **A Discord message shows an outcome in its content** through one coordinated set of emojis, `Mark` in
-  discord-bot, and no class but `Mark` types an emoji. An arrow may show a transition (`from → to`); no text symbol stands for an outcome or separates
-  values. _(emojis outside `Mark` checked)_ The set:
+  discord-bot, and no class but `Mark` types an emoji. An arrow may show a transition (`from → to`); no text
+  symbol stands for an outcome or separates values. _(emojis outside `Mark` checked)_ The set:
   - Status: ✅ done, 🛑 failed or down, ⚠️ needs a look but has not failed, 🔄 under way, ⏳ waiting, ➖ nothing
     to do, 🔍 not read yet, 📋 planned, ⏹️ cancelled.
   - Action: 💶 paid, 🎟️ granted, 🚫 revoked, 🔗 linked, ✂️ unlinked, ⏱️ play time set, 🔒 refused and kept shut,

@@ -33,6 +33,14 @@ ALTER TABLE journal_entry
         'SET_LAUNCH_DATE', 'LAUNCH_NOW', 'CLOSE_SEASON', 'SET_MAINTENANCE', 'SWITCH_MODE', 'START_CHANNEL_HIDDEN',
         'LANGUAGE_NOT_KEPT', 'CHANNEL_SEEN'));
 
+ALTER TABLE journal_entry DROP CONSTRAINT journal_entry_level_iff_alert;
+ALTER TABLE journal_entry
+    ADD CONSTRAINT journal_entry_level_iff_alert CHECK ((level IS NOT NULL) = (action IN (
+        'SERVICE_DOWN', 'BACKUP_STALE', 'DISK_FULL', 'MEMORY_FULL', 'IMAGE_DRIFT', 'PACK_DEAD', 'RUN_FAILED',
+        'PAYMENT_NEEDS_LOOK', 'LINK_REFUSED', 'LINK_FAILED', 'PURCHASE_FAILED', 'DM_NOT_DELIVERED', 'ROLE_NOT_CHANGED',
+        'ROLE_AMBIGUOUS', 'ROLE_NOT_CREATED', 'LOCK_NOT_KEPT', 'LOCK_WITHOUT_CHANNEL', 'START_CHANNEL_HIDDEN',
+        'LANGUAGE_NOT_KEPT', 'CHANNEL_SEEN')));
+
 -- The countries replaced the regions, and the start channel's message replaced the change channel's, so an admin's
 -- values under those keys go; their nodes follow by cascade.
 DELETE FROM setting_override

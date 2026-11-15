@@ -64,6 +64,33 @@ class AccessDirectoryIntegrationTest {
     }
 
     @Test
+    void countryAndZoneFollowTheCountryWhileLanguageStays() {
+        final DiscordId id = DiscordId.of(DISCORD_ID);
+        directory.setLocale(id, Locale.ENGLISH);
+        directory.setCountry(id, "de", java.time.ZoneId.of("Europe/Berlin"));
+        assertCountry("de", "Europe/Berlin");
+        directory.setCountry(id, "other", null);
+        assertCountry("other", null);
+        directory.setCountry(id, null, null);
+        assertCountry(null, null);
+    }
+
+    private static void assertCountry(
+            final @org.jspecify.annotations.Nullable String country,
+            final @org.jspecify.annotations.Nullable String zone) {
+        Jdbis.over(dataSource).useHandle(handle -> {
+            final var row = handle.createQuery(
+                            "SELECT country, time_zone, locale FROM discord_user WHERE discord_id = :id")
+                    .bind("id", DISCORD_ID)
+                    .mapToMap()
+                    .one();
+            assertEquals(country, row.get("country"));
+            assertEquals(zone, row.get("time_zone"));
+            assertEquals("en", row.get("locale"));
+        });
+    }
+
+    @Test
     void grantingWithNoAccessRunningStartsNow() {
         final AccessGrant grant = directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
 

@@ -214,6 +214,14 @@ class AlertBookIntegrationTest {
                                 new JournalDetail.ChannelFailure("general", "Missing Access"),
                                 new JournalDetail.ChannelFailure("rules", "Missing Access")))),
                 new Alert(JournalAction.LOCK_WITHOUT_CHANNEL, Alert.Level.WARN, List.of()),
+                new Alert(JournalAction.START_CHANNEL_HIDDEN, Alert.Level.WARN, List.of()),
+                new Alert(
+                        JournalAction.LANGUAGE_NOT_KEPT,
+                        Alert.Level.WARN,
+                        new JournalDetail.ChannelsNotDenied(
+                                List.of(new JournalDetail.ChannelFailure("rules", "Missing Access")))),
+                new Alert(
+                        JournalAction.CHANNEL_SEEN, Alert.Level.WARN, new JournalDetail.ChannelSeen("rules", "member")),
                 new Alert(
                         JournalAction.LINK_FAILED,
                         Alert.Level.WARN,

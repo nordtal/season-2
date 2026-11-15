@@ -363,6 +363,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V126__a_refused_step_keeps_the_answer_it_got.sql",
                 "d975c1688fb0f358c92df5dd8cae1785630220d8253c3d604ed13414d193b5ac");
+        FROZEN.put(
+                "V127__a_member_chooses_a_country_which_sets_the_time_zone.sql",
+                "8edb72f128d62ffc760874ce77b52098632699d9938a19b23fe5bb75d30f39b7");
     }
 
     @Test

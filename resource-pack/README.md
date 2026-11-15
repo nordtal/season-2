@@ -12,13 +12,11 @@ writes as `<glyph:name>`.
 glyphs.json           every font, block and glyph
 src/assets/nordtal/   textures and font providers
 src/assets/minecraft/ the vanilla overrides
-art/                  the .aseprite sources, each at the path of its PNG under src/
 build/pack            the assembled pack: src/ plus the fonts the build writes
 ```
 
-`art/assets/nordtal/textures/x.aseprite` is the source of `src/assets/nordtal/textures/x.png`, and
-`art/pack.aseprite` that of the pack's icon `src/pack.png`. The pack holds only the PNG, and
-`checkPack` refuses a source whose PNG is missing.
+The PNG under `src/` is the image's only source and is edited in place, as _Editing the art_
+describes.
 
 ## Editing the art
 

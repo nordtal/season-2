@@ -41,6 +41,7 @@ export function RangeSelect({ minutes, onChange }: { minutes: Range; onChange: (
 
 /**
  * Touching or hovering the curve moves the reading at that moment into the number. Without `label` only the curve shows, for a tile that already draws its number.
+ * An empty range keeps the curve's height, so switching the range does not move the page; `collapse` lets it take none, for a tile in a grid of tiles without curves.
  */
 export function MetricChart({
   label,
@@ -53,6 +54,7 @@ export function MetricChart({
   className,
   statClassName,
   valueClassName,
+  collapse = false,
 }: {
   label?: string
   value?: string
@@ -64,6 +66,7 @@ export function MetricChart({
   className?: string
   statClassName?: string
   valueClassName?: string
+  collapse?: boolean
 }) {
   const [reading, setReading] = useState<Reading | null>(null)
   return (
@@ -77,7 +80,13 @@ export function MetricChart({
           valueClassName={valueClassName}
         />
       )}
-      <Curve points={points} colour={colour} height={height} onReading={label === undefined ? null : setReading} />
+      <Curve
+        points={points}
+        colour={colour}
+        height={height}
+        collapse={collapse}
+        onReading={label === undefined ? null : setReading}
+      />
     </div>
   )
 }
@@ -94,11 +103,13 @@ function Curve({
   points,
   colour,
   height,
+  collapse,
   onReading,
 }: {
   points?: MetricPoint[]
   colour: string
   height: number
+  collapse: boolean
   onReading: ((reading: Reading | null) => void) | null
 }) {
   const series = useMemo(
@@ -106,7 +117,7 @@ function Curve({
     [points],
   )
   if (series === undefined) return <Skeleton style={{ height }} className="w-full" />
-  if (series.length === 0) return <div style={{ height }} aria-hidden />
+  if (series.length === 0) return collapse ? null : <div style={{ height }} aria-hidden />
   const follow = (state: { activeTooltipIndex?: unknown }) => {
     const point = series[Number(state.activeTooltipIndex)]
     onReading?.(isReading(point) ? point : null)

@@ -228,6 +228,19 @@ describe("OverviewPage - the number row pairs up its tiles", () => {
     for (const tile of Array.from(grid?.children ?? [])) expect(tile.className).not.toMatch(/col-span/)
   })
 
+  it("leaves no blank band under CPU and Memory while their range holds no reading", async () => {
+    vi.stubGlobal("fetch", backend({}))
+    draw()
+
+    await waitFor(() => expect(screen.getByText("CPU")).toBeTruthy())
+    const grid = screen.getByText("CPU").closest("div")?.parentElement?.parentElement
+    const [cpu, memory] = Array.from(grid?.children ?? [])
+    await waitFor(() => {
+      expect(cpu?.children).toHaveLength(1)
+      expect(memory?.children).toHaveLength(1)
+    })
+  })
+
   it("draws the host's memory curve from its used bytes", async () => {
     const fetch = backend({})
     vi.stubGlobal("fetch", fetch)

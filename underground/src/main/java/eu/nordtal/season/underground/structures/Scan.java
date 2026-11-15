@@ -82,6 +82,7 @@ public final class Scan {
                         entity.get("LootTable") instanceof String table ? table : null,
                         Nbt.list(entity, "Items").size()));
             }
+            case "minecraft:brushable_block" -> finds.suspicious.add(new Finds.Point(x, y, z));
             default -> {}
         }
     }

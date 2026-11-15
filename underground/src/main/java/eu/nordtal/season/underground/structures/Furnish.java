@@ -24,7 +24,7 @@ import java.util.TreeMap;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The furnish command, which gives the outposts their allays and the chests of outposts and taiga villages their loot.
+ * The furnish command: allays for outposts, and loot for suspicious blocks and the chests of outposts and villages.
  * The module's README lists the rules.
  */
 public final class Furnish {
@@ -54,12 +54,26 @@ public final class Furnish {
 
     /** What the command did. */
     public record Summary(
-            int regionFiles, int entityFiles, int outposts, int villages, int chests, int allays, int missing) {
+            int regionFiles,
+            int entityFiles,
+            int outposts,
+            int villages,
+            int chests,
+            int allays,
+            int missing,
+            Map<String, Integer> suspicious) {
 
         @Override
         public String toString() {
-            return "regionFiles=" + regionFiles + " entityFiles=" + entityFiles + " outposts=" + outposts + " villages="
-                    + villages + " chests=" + chests + " allays=" + allays + " missing=" + missing;
+            final StringBuilder text = new StringBuilder("regionFiles=" + regionFiles + " entityFiles=" + entityFiles
+                    + " outposts=" + outposts + " villages=" + villages + " chests=" + chests + " allays=" + allays
+                    + " missing=" + missing + " suspicious="
+                    + suspicious.values().stream().mapToInt(Integer::intValue).sum());
+            suspicious.forEach((table, count) -> text.append(' ')
+                    .append(table.substring(table.lastIndexOf('/') + 1))
+                    .append('=')
+                    .append(count));
+            return text.toString();
         }
     }
 
@@ -82,6 +96,7 @@ public final class Furnish {
     private final Blocks blocks = Blocks.load();
     private final Map<String, Map<Integer, List<Change>>> files = new TreeMap<>();
     private final List<String> report = new ArrayList<>();
+    private final Map<String, Integer> suspicious = new TreeMap<>();
     private int chests;
     private int allays;
     private int missing;
@@ -113,6 +128,7 @@ public final class Furnish {
         for (final Place village : villages) {
             chests(village, TAIGA_LOOT);
         }
+        suspicious();
         for (final Map.Entry<String, Map<Integer, List<Change>>> file : files.entrySet()) {
             versions(file.getKey(), file.getValue().keySet());
         }
@@ -132,7 +148,8 @@ public final class Furnish {
         lines.addAll(report);
         Files.createDirectories(out);
         Files.write(out.resolve(REPORT), lines, StandardCharsets.UTF_8);
-        return new Summary(regionFiles, entityFiles, outposts.size(), villages.size(), chests, allays, missing);
+        return new Summary(
+                regionFiles, entityFiles, outposts.size(), villages.size(), chests, allays, missing, suspicious);
     }
 
     /** Joins the starts of a structure whose boxes touch into places, as a wide place has several starts. */
@@ -204,6 +221,27 @@ public final class Furnish {
                     return true;
                 }
                 return false;
+            });
+        }
+    }
+
+    /** Gives every suspicious block that rolls nothing the table of its place, with a report line per chunk. */
+    private void suspicious() {
+        for (final Map.Entry<Long, Integer> place :
+                Archaeology.places(finds.suspicious).entrySet()) {
+            final int chunkX = (int) (place.getKey() >> 32);
+            final int chunkZ = (int) (long) place.getKey();
+            final boolean large = place.getValue() >= Archaeology.LARGE;
+            add(REGION, chunkX, chunkZ, chunk -> {
+                final Map<String, Integer> set = new TreeMap<>();
+                final boolean changed = Archaeology.dig(chunk, large, random, set);
+                set.forEach((table, count) -> suspicious.merge(table, count, Integer::sum));
+                report(
+                        "suspicious",
+                        chunkX + " " + chunkZ,
+                        changed ? "table" : "skip",
+                        "place of " + place.getValue() + " blocks" + (set.isEmpty() ? "" : ", " + set));
+                return changed;
             });
         }
     }

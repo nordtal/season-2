@@ -5,14 +5,11 @@ import eu.nordtal.season.underground.anvil.Nbt;
 import eu.nordtal.season.underground.anvil.Region;
 import eu.nordtal.season.underground.anvil.Section;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import org.jspecify.annotations.Nullable;
 
 /** Reads every chunk of a world once and collects what the plan needs. */
@@ -20,30 +17,16 @@ public final class Scan {
 
     private Scan() {}
 
-    /** Scans the regions of a world with a few threads. */
-    public static Finds run(final Path world, final List<int[]> regions, final int threads)
-            throws IOException, InterruptedException {
+    /** Scans the regions of a world in parallel. */
+    public static Finds run(final Path world, final List<int[]> regions) {
         final Finds finds = new Finds();
-        final ExecutorService pool = Executors.newFixedThreadPool(threads);
-        try {
-            final List<Future<?>> work = new ArrayList<>();
-            for (final int[] region : regions) {
-                work.add(pool.submit(() -> {
-                    finds.add(region(Region.file(world.resolve("region"), region[0], region[1]), region));
-                    return null;
-                }));
+        regions.parallelStream().forEach(region -> {
+            try {
+                finds.add(region(Region.file(world.resolve("region"), region[0], region[1]), region));
+            } catch (final IOException e) {
+                throw new UncheckedIOException(e);
             }
-            for (final Future<?> one : work) {
-                one.get();
-            }
-        } catch (final ExecutionException e) {
-            if (e.getCause() instanceof IOException io) {
-                throw io;
-            }
-            throw new IllegalStateException(e.getCause());
-        } finally {
-            pool.shutdown();
-        }
+        });
         return finds;
     }
 

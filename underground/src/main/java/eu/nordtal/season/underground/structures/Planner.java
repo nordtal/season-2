@@ -161,17 +161,21 @@ public final class Planner {
         }
         for (final List<Clusters.At<Finds.Spawner>> group : Clusters.of(illagers, 64)) {
             final Box ship = Clusters.box(group).grow(24, 8, 16);
-            for (final Clusters.At<Finds.Spawner> at : group) {
-                if (at.thing().spawns("minecraft:pillager")) {
-                    plan.removals.add(new Plan.Removal(at.thing(), "pillager spawner of a ship"));
-                }
-            }
             if (existing("minecraft:pillager_outpost", ship)) {
                 report("ship", ship, "skip", "a pillager outpost start is there already");
                 continue;
             }
             final int starts = place("minecraft:pillager_outpost", "minecraft:btp", OUTPOSTS, Reach.columns(ship));
-            report("ship", ship, starts > 0 ? "start" : "skip", group.size() + " illager spawners");
+            if (starts == 0) {
+                report("ship", ship, "skip", "no candidate chunk in reach, so its pillager spawners stay");
+                continue;
+            }
+            for (final Clusters.At<Finds.Spawner> at : group) {
+                if (at.thing().spawns("minecraft:pillager")) {
+                    plan.removals.add(new Plan.Removal(at.thing(), "pillager spawner of a ship"));
+                }
+            }
+            report("ship", ship, "start", group.size() + " illager spawners");
         }
     }
 
@@ -277,7 +281,7 @@ public final class Planner {
     private void village(final Box place, final List<Clusters.At<Boolean>> beds) {
         final Set<List<Integer>> used = new HashSet<>();
         final Map<String, Integer> types = new LinkedHashMap<>();
-        int placed = 0;
+        final List<Plan.Villager> villagers = new ArrayList<>();
         for (final Clusters.At<Boolean> bed : beds) {
             final int @Nullable [] spot = spot(bed.x(), bed.y(), bed.z(), used);
             if (spot == null) {
@@ -290,10 +294,9 @@ public final class Planner {
             }
             final String type = villagerType(area.biome(bed.x(), bed.y(), bed.z()));
             types.merge(type, 1, Integer::sum);
-            plan.villagers.add(new Plan.Villager(spot[0] + 0.5, spot[1], spot[2] + 0.5, type));
-            placed++;
+            villagers.add(new Plan.Villager(spot[0] + 0.5, spot[1], spot[2] + 0.5, type));
         }
-        if (placed == 0) {
+        if (villagers.isEmpty()) {
             report("village", place, "skip", beds.size() + " beds without a free cell beside them");
             return;
         }
@@ -303,11 +306,16 @@ public final class Planner {
                 .orElse("minecraft:plains");
         final String structure = "minecraft:village_" + villageKind(type);
         final int starts = place(structure, "minecraft:btp", VILLAGES, Reach.columns(place.grow(8, 4, 4)));
+        if (starts == 0) {
+            report("village", place, "skip", "no candidate chunk in reach, so it gets no villagers");
+            return;
+        }
+        plan.villagers.addAll(villagers);
         report(
                 "village",
                 place,
                 "start",
-                structure + ", " + placed + " villagers for " + beds.size() + " beds, " + starts + " starts");
+                structure + ", " + villagers.size() + " villagers for " + beds.size() + " beds, " + starts + " starts");
     }
 
     /** Returns the nearest free cell of two open blocks on a floor within three blocks of a bed, or null. */

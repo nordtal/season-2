@@ -19,15 +19,10 @@ public final class Structures {
 
     /** Runs the command on a world and writes every region and entity file it changes, with the report, below out. */
     public static String run(
-            final Path world,
-            final Path pack,
-            final long seed,
-            final Path out,
-            final List<int[]> regions,
-            final int threads)
-            throws IOException, InterruptedException {
+            final Path world, final Path pack, final long seed, final Path out, final List<int[]> regions)
+            throws IOException {
         final long began = System.nanoTime();
-        final Finds finds = Scan.run(world, regions, threads);
+        final Finds finds = Scan.run(world, regions);
         final int version = version(finds);
         final long scanned = System.nanoTime();
         final Map<String, Reach> reaches = new LinkedHashMap<>();

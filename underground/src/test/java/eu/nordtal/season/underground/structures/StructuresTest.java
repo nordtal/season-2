@@ -149,7 +149,7 @@ class StructuresTest {
                     StandardCharsets.UTF_8);
         }
         final Path out = directory.resolve("out");
-        Structures.run(world, pack, SEED, out, List.of(new int[] {0, 0}), 2);
+        Structures.run(world, pack, SEED, out, List.of(new int[] {0, 0}));
         return out;
     }
 

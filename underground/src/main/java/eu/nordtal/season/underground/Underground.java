@@ -44,8 +44,7 @@ public final class Underground {
                         arguments.path("pack"),
                         seed(arguments),
                         arguments.path("out"),
-                        arguments.regions(arguments.path("world")),
-                        (int) arguments.number("threads", 4)));
+                        arguments.regions(arguments.path("world"))));
             default -> throw new IllegalArgumentException("Unknown command " + words[0] + ".");
         }
     }

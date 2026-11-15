@@ -28,6 +28,9 @@ public record Spread(int spacing, int separation, int salt) {
         if (!json.contains("minecraft:random_spread")) {
             throw new IOException(file + " is not a random spread.");
         }
+        if (json.contains("\"spread_type\"") && !json.contains("\"linear\"")) {
+            throw new IOException(file + " is not a linear spread.");
+        }
         int spacing = -1;
         int separation = -1;
         int salt = 0;

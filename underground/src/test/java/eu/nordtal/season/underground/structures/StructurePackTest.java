@@ -2,6 +2,7 @@ package eu.nordtal.season.underground.structures;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.season.common.RepositoryRoot;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,7 +17,7 @@ import org.junit.jupiter.api.Test;
 /** The data pack of the smp turns off the game's sets and holds the sets the map's starts use. */
 class StructurePackTest {
 
-    private static final Path PACK = Path.of(System.getProperty("nordtal.pack"));
+    private static final Path PACK = RepositoryRoot.path().resolve("deploy/minecraft/datapacks/nordtal");
 
     private static final List<String> SETS =
             List.of(Planner.VILLAGES, Planner.OUTPOSTS, Planner.MONUMENTS, Planner.STRONGHOLDS);

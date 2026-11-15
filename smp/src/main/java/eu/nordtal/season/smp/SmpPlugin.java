@@ -43,6 +43,7 @@ import eu.nordtal.season.smp.config.SpawnSpec;
 import eu.nordtal.season.smp.config.WheelSpec;
 import eu.nordtal.season.smp.config.WorldsSpec;
 import eu.nordtal.season.smp.duel.Duels;
+import eu.nordtal.season.smp.eye.MapPortals;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.grave.Graves;
 import eu.nordtal.season.smp.milestone.Milestone;
@@ -140,6 +141,9 @@ public final class SmpPlugin extends NordtalPlugin {
     Graves graves;
 
     SmpStart.@Nullable Rails rails;
+
+    @Nullable
+    MapPortals portals;
 
     @Nullable
     Duels duels;
@@ -278,6 +282,7 @@ public final class SmpPlugin extends NordtalPlugin {
         npc = SmpStart.wireNpc(this);
         SmpStart.restoreGravesAndRegisterWorld(this);
         rails = SmpStart.wireRails(this, wired.effects());
+        portals = SmpStart.wireMapPortals(this);
 
         admin = admin();
         // Steward signals a reset here, and this runs before the surface handler, so one pass resets and draws.
@@ -429,6 +434,10 @@ public final class SmpPlugin extends NordtalPlugin {
         if (tracked != null) {
             quietly("rides.stop", tracked.rides()::stop);
             quietly("rails.stop", tracked.networks()::stop);
+        }
+        final MapPortals scanning = portals;
+        if (scanning != null) {
+            quietly("portals.stop", scanning::stop);
         }
         final StatisticPoller statistics = poller;
         if (statistics != null) {

@@ -73,6 +73,7 @@ function MetricRow() {
         points={cpu.data?.points}
         format={percent}
         colour="var(--chart-1)"
+        collapse
       />
 
       <MetricChart
@@ -89,6 +90,7 @@ function MetricRow() {
         points={memory.data?.points}
         format={(used) => share(used, host.data?.memoryTotalBytes)}
         colour="var(--chart-2)"
+        collapse
       />
 
       <MetricTile

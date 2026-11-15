@@ -40,6 +40,9 @@ final class DefaultSounds {
     /** An item picked up, raised, so the wheel's swap pops quick and light. */
     static final SoundsSpec.SoundSpec POP = sound("minecraft:entity.item.pickup", 1.4f);
 
+    /** A chime lowered by an octave, which the departure strikes three times like a station bell. */
+    static final SoundsSpec.SoundSpec DEPARTURE = sound("minecraft:block.note_block.chime", 0.5f);
+
     private DefaultSounds() {}
 
     private static SoundsSpec.SoundSpec sound(final String key, final float pitch) {

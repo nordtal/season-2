@@ -7,6 +7,9 @@ export type TextArgs = {
     hours: Arg["number"]
     limit: Arg["number"]
   }
+  "alert.channel-seen": {
+    channel: Arg["text"]
+  }
   "alert.claimed": {
     payment: Arg["text"]
     amount: Arg["money"]
@@ -44,6 +47,7 @@ export type TextArgs = {
   "alert.health-fails": {
     service: Arg["text"]
   }
+  "alert.language-not-kept": Record<string, never>
   "alert.level": {
     level: Arg["choice"]
   }
@@ -121,9 +125,14 @@ export type TextArgs = {
   "alert.run": {
     run: Arg["number"]
   }
+  "alert.seen-through": {
+    holder: Arg["text"]
+  }
   "alert.several": {
     subjects: Arg["list"]
   }
+  "alert.show-start-channel": Record<string, never>
+  "alert.start-channel-hidden": Record<string, never>
   "alert.step": {
     kind: Arg["message"]
     why: Arg["message"]
@@ -2319,6 +2328,7 @@ export type TextArgs = {
   }
   "steward.service.unhealthy": Record<string, never>
   "steward.settings.add": Record<string, never>
+  "steward.settings.add-country": Record<string, never>
   "steward.settings.add-entry": Record<string, never>
   "steward.settings.add-to": {
     what: Arg["text"]

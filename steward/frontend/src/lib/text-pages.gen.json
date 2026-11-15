@@ -974,6 +974,7 @@
     "steward.service.state": ["every"],
     "steward.service.unhealthy": ["services"],
     "steward.settings.add": ["services","updates","backups"],
+    "steward.settings.add-country": ["services"],
     "steward.settings.add-entry": ["services"],
     "steward.settings.add-to": ["services","updates","backups"],
     "steward.settings.all": ["services","updates","backups"],

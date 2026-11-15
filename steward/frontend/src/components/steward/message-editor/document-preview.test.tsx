@@ -133,3 +133,42 @@ it("lays a menu's items out as runs of slots along each row, a later item over a
     { slot: "next", row: 1, column: 8, columns: 1 },
   ])
 })
+
+it("shows the selected country instead of the select placeholder", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            discord: {
+              components: [
+                {
+                  type: 1,
+                  components: [
+                    {
+                      type: 3,
+                      placeholder: "Choose your country",
+                      options: [
+                        { label: "Austria", value: "at", default: true },
+                        { label: "Germany", value: "de", default: false },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+          { headers: { "Content-Type": "application/json" } },
+        ),
+    ),
+  )
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(
+    <QueryClientProvider client={client}>
+      <DocumentPreview declaration={declaration} game={false} document={saying("settings")} />
+    </QueryClientProvider>,
+  )
+  expect(await screen.findByText("Austria")).toBeTruthy()
+  expect(screen.queryByText("Choose your country")).toBeNull()
+})

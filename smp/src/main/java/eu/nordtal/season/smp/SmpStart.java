@@ -39,6 +39,7 @@ import eu.nordtal.season.smp.rail.StationMenus;
 import eu.nordtal.season.smp.rail.StationRailListener;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.travel.PortalGate;
+import eu.nordtal.season.smp.wall.BorderWall;
 import eu.nordtal.season.smp.welcome.SeasonWelcome;
 import eu.nordtal.season.smp.welcome.WelcomeDao;
 import eu.nordtal.season.smp.wheel.ExtraSpins;
@@ -285,6 +286,16 @@ final class SmpStart {
         plugin.getServer().getPluginManager().registerEvents(portals, plugin);
         portals.start(plugin.getServer().getWorlds());
         return portals;
+    }
+
+    /** Starts the custom border's wall with the settings it has. */
+    static BorderWall wireBorderWall(final SmpPlugin plugin) {
+        final PaperScheduler scheduler = PaperScheduler.of(plugin);
+        final BorderWall wall =
+                new BorderWall(plugin.clock(), task -> scheduler.onMainAfter(PaperScheduler.TICK, task));
+        plugin.getServer().getPluginManager().registerEvents(wall, plugin);
+        wall.apply(plugin.customBorderSettings.get(), plugin.getServer().getOnlinePlayers());
+        return wall;
     }
 
     /** The rail networks and the rides on them, which stop together. */

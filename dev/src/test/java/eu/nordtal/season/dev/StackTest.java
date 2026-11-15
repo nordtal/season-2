@@ -27,4 +27,14 @@ class StackTest {
         assertEquals(List.of("--entrypoint", "sh"), arguments.subList(service - 2, service));
         assertEquals(List.of("sh", "smp-1.0.jar", "smp"), arguments.subList(arguments.size() - 3, arguments.size()));
     }
+
+    @Test
+    void theTestWallIsSeededInTheBackgroundOnlyWhileTheSettingHasNoRow() {
+        final List<String> arguments = Stack.seedArguments();
+        assertEquals(List.of("exec", "-d", "-T", "postgres", "sh", "-c"), arguments.subList(0, 6));
+        final String sql = arguments.getLast();
+        assertTrue(sql.contains("ON CONFLICT DO NOTHING RETURNING 1"), sql);
+        assertTrue(sql.contains("FROM added"), sql);
+        assertTrue(sql.endsWith("NOTIFY nordtal_settings, 'smp';"), sql);
+    }
 }

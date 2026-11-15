@@ -1,0 +1,17 @@
+{
+    "textures": {
+        "wall": "nordtal:item/border/field",
+        "particle": "nordtal:item/border/field"
+    },
+    "elements": [
+        {
+            "from": [0, 0, 8],
+            "to": [16, 16, 8],
+            "shade": false,
+            "faces": {
+                "north": { "uv": [0, 0, 16, 16], "texture": "#wall" },
+                "south": { "uv": [0, 0, 16, 16], "texture": "#wall" }
+            }
+        }
+    ]
+}

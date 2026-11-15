@@ -138,24 +138,19 @@ class UpdateFeedTest {
             final RunStep.@Nullable Outcome outcome,
             final RunStep.@Nullable Reason reason,
             final RunStep.Change... changes) {
+        return step(kind, service, outcome, reason, List.of(changes), List.of());
+    }
+
+    private static RunStep.Row step(
+            final RunStep.Kind kind,
+            final @Nullable String service,
+            final RunStep.@Nullable Outcome outcome,
+            final RunStep.@Nullable Reason reason,
+            final List<RunStep.Change> changes,
+            final List<RunStep.Archive> saved) {
         return new RunStep.Row(
-                0,
-                kind,
-                service,
-                null,
-                null,
-                outcome,
-                reason,
-                null,
-                null,
-                List.of(changes),
-                List.of(),
-                List.of(),
-                null,
-                null,
-                null,
-                List.of(),
-                List.of());
+                0, kind, service, null, null, outcome, reason, null, null, changes, List.of(), List.of(), null, null,
+                null, saved, List.of());
     }
 
     private static DocumentRenderer.Drawn card(
@@ -226,26 +221,14 @@ class UpdateFeedTest {
     /** A step that saved one archive of the given volume. */
     private static RunStep.Row saving(
             final RunStep.Kind kind, final @Nullable String service, final String volume, final String file) {
-        final RunStep.Row bare = step(kind, service, RunStep.Outcome.DONE, null);
-        return new RunStep.Row(
-                bare.seq(),
+        final long bytes = file.endsWith(".dump") ? 26_866_514L : 4_482_615_688L;
+        return step(
                 kind,
                 service,
-                null,
-                null,
                 RunStep.Outcome.DONE,
                 null,
-                null,
-                null,
                 List.of(),
-                List.of(),
-                List.of(),
-                null,
-                null,
-                null,
-                List.of(new RunStep.Archive(
-                        volume, file, file.endsWith(".dump") ? 26_866_514L : 4_482_615_688L, 6_000L, true, null)),
-                List.of());
+                List.of(new RunStep.Archive(volume, file, bytes, 6_000L, true, null)));
     }
 
     @Test

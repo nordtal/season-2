@@ -183,6 +183,35 @@ describe("JournalPage - an alert's span", () => {
   })
 })
 
+describe("JournalPage - an alert's detail", () => {
+  it("draws an address as code, without the backticks of the text", async () => {
+    const url = "https://pack.nordtal.eu/nordtal.zip"
+    vi.stubGlobal(
+      "fetch",
+      backend({
+        stream: () => [
+          {
+            key: "p1",
+            occurred: "2026-09-18T09:00:00Z",
+            actor: STEWARD,
+            alert: {
+              ...ALERT,
+              level: "down",
+              detail: [{ key: "alert.offered-pack", args: { url: { kind: "text", value: url } } }],
+              measured: [],
+            },
+          },
+        ],
+      }),
+    )
+    draw(<JournalPage />)
+
+    const code = await screen.findByText(url, { selector: "code" })
+    expect(code.closest("p")?.textContent).toContain(`${url} does not answer.`)
+    expect(document.body.textContent).not.toContain("`")
+  })
+})
+
 describe("JournalPage - a run is one row that links to its page", () => {
   it("draws the run's kind, status, services and why it failed", async () => {
     vi.stubGlobal(

@@ -43,6 +43,8 @@ both corners included; without the option a command takes every region file of t
 4. **`transplant --map <map> --parallel <dir>/world/dimensions/minecraft/overworld --out <result>`**
    writes the joined `region` and `entities`. It prints what it kept, filled, closed and opened, and
    a line per entrance with the place where the map's cave ends, the middle of the tunnel and its end.
+   A whole map of 400 regions needs more heap than the default: `UNDERGROUND_OPTS=-Xmx3g`, since the
+   entrances that reach into a neighbour are kept until the end of the run.
 5. **`check --map <map> --parallel … --out <result>`** measures the cut without the decisions of the
    transplant and exits with 1 when a measure is over its limit: no built block changed, no fluid
    beside open space of the other world, and of the ceilings and floors of new rock, where it closes

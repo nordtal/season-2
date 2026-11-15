@@ -207,15 +207,24 @@ class PackFilesTest {
     @Test
     fun aModelOfThePackIsNotDeletedWhileAnotherFileNamesIt() {
         val model = file("nordtal/models/block/lamp.json", "{}")
-        file("minecraft/blockstates/redstone_lamp.json", """{ "variants": {
-            "": { "model": "nordtal:block/lamp" } } }""")
+        file(
+            "minecraft/blockstates/redstone_lamp.json",
+            """{ "variants": {
+            "": { "model": "nordtal:block/lamp" } } }""",
+        )
         file("nordtal/models/block/lamp_on.json", """{ "textures": { "all": "nordtal:block/lamp" } }""")
 
         val refusal = assertThrows<IllegalStateException> { PackFiles.delete(pack, null, "nordtal:models/block/lamp.json") }
 
-        assertEquals("The model nordtal:block/lamp is still used in 1 place:\n    src/assets/minecraft/blockstates/redstone_lamp.json:2", refusal.message)
+        assertEquals(
+            "The model nordtal:block/lamp is still used in 1 place:\n    src/assets/minecraft/blockstates/redstone_lamp.json:2",
+            refusal.message,
+        )
         assertTrue(model.isFile)
-        assertEquals(listOf(assets.resolve("minecraft/blockstates/redstone_lamp.json")), PackFiles.delete(pack, null, "minecraft:blockstates/redstone_lamp.json"))
+        assertEquals(
+            listOf(assets.resolve("minecraft/blockstates/redstone_lamp.json")),
+            PackFiles.delete(pack, null, "minecraft:blockstates/redstone_lamp.json"),
+        )
         PackFiles.delete(pack, null, "nordtal:models/block/lamp.json")
         assertFalse(model.exists())
     }

@@ -48,7 +48,12 @@ object PackFiles {
     }
 
     /** The kind of the file at [path] relative to `assets/`, by its first folder. */
-    fun kind(path: String): String = path.split('/').getOrNull(1)?.let { KINDS[it] }.takeIf { path.count { it == '/' } >= 2 } ?: "file"
+    fun kind(path: String): String =
+        path
+            .split('/')
+            .getOrNull(1)
+            ?.let { KINDS[it] }
+            .takeIf { path.count { it == '/' } >= 2 } ?: "file"
 
     /** Every file under [assets] that [shown] lets through, sorted by path. */
     fun list(assets: File): List<File> =
@@ -185,7 +190,10 @@ object PackFiles {
     private fun path(id: String): String {
         val namespace = id.substringBefore(':', "")
         val rest = id.substringAfter(':', "")
-        Identifier.problem("$namespace:${rest.ifEmpty { "x" }}")?.let { throw FieldRefusal("asset", "${it.replaceFirstChar(Char::uppercase)}.") }
+        Identifier
+            .problem(
+                "$namespace:${rest.ifEmpty { "x" }}",
+            )?.let { throw FieldRefusal("asset", "${it.replaceFirstChar(Char::uppercase)}.") }
         return "$namespace/$rest"
     }
 

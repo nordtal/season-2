@@ -162,6 +162,10 @@ function tree.build(model, tr, mark)
     node("sounds", tr("tree.sounds"), { kind="sounds" }, sounds),
     node("files", tr("tree.files"), { kind="files" }, files),
   }
+  -- The pack's icon opens like a texture, and is no file of the files
+  if model.icon then
+    table.insert(nodes, node("icon", tr("tree.icon"), { kind="icon", entry=model.icon, texture=model.icon.texture }))
+  end
   -- The badge without unsaved changes, which unsaved() falls back to
   local function keep(list)
     for _, n in ipairs(list) do

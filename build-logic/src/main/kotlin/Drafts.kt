@@ -859,14 +859,15 @@ object Drafts {
     ): Boolean = runCatching { git(pack, listOf("cat-file", "-e", "HEAD:./$relative")) }.isSuccess
 
     /**
-     * The id of the draft of [path] by the file alone: its texture's, or its own path. A deleted file is read as the last
-     * commit has it only when [committed].
+     * The id of the draft of [path] by the file alone: its texture's, or its own path. The icon's source belongs to the
+     * icon. A deleted file is read as the last commit has it only when [committed].
      */
     private fun ownId(
         pack: File,
         path: String,
         committed: Boolean = true,
     ): String {
+        if (path == PackModel.ICON_SOURCE) return PackModel.ICON
         Regex(
             """src/assets/([^/]+)/textures/(.+\.png)(\.mcmeta)?""",
         ).matchEntire(path)?.let { return "${it.groupValues[1]}:${it.groupValues[2]}" }
@@ -889,8 +890,9 @@ object Drafts {
         return path
     }
 
-    /** The name of a draft that no entry names: its texture's or its file's. */
-    private fun label(id: String): String = id.substringAfterLast('/').substringAfterLast(':').removeSuffix(".png")
+    /** The name of a draft that no entry names: the pack icon's, its texture's or its file's. */
+    private fun label(id: String): String =
+        if (id == PackModel.ICON) "pack icon" else id.substringAfterLast('/').substringAfterLast(':').removeSuffix(".png")
 
     /** Whether the files and entries of the draft [id] in [pack] equal those at [ref]. */
     private fun same(

@@ -12,6 +12,12 @@ import javax.imageio.ImageIO
  * an older version of one.
  */
 object PackModel {
+    /** The pack's icon, which is the id of its draft too. */
+    const val ICON = "src/pack.png"
+
+    /** The `.aseprite` source of [ICON]. */
+    const val ICON_SOURCE = "art/pack.aseprite"
+
     fun of(
         allocation: GlyphAllocation,
         root: File,
@@ -38,6 +44,10 @@ object PackModel {
             "texts" to texts(root, listed, drafts),
             "sounds" to sounds(root, drafts),
             "files" to files(assets, root, drafts),
+            "icon" to
+                linkedMapOf(
+                    "texture" to texture(ICON, root, drafts, source = root.resolve(ICON), aseprite = root.resolve(ICON_SOURCE)),
+                ),
             "drafts" to
                 listed.map {
                     linkedMapOf(
@@ -297,19 +307,19 @@ object PackModel {
     /**
      * A texture by its id, such as `nordtal:badges/star.png`: its PNG, its `.aseprite` source under `art/` and its size.
      * A PNG that `src/` lacks and the build draws into one of the [generated] folders, each holding `assets/`, is that
-     * drawn file, marked `generated`.
+     * drawn file, marked `generated`. A texture outside `assets/`, such as the [ICON], names its [source] and [aseprite].
      */
     internal fun texture(
         id: String,
         root: File,
         drafts: Marks,
         generated: List<File> = emptyList(),
+        source: File = GlyphAdvances.texture(root.resolve("src/assets"), id),
+        aseprite: File = root.resolve("art").resolve(source.relativeTo(root.resolve("src")).path.removeSuffix(".png") + ".aseprite"),
     ): Map<String, Any?> {
-        val source = GlyphAdvances.texture(root.resolve("src/assets"), id)
         val drawn =
             if (source.isFile) null else generated.map { GlyphAdvances.texture(it.resolve("assets"), id) }.firstOrNull { it.isFile }
         val png = drawn ?: source
-        val aseprite = root.resolve("art").resolve(source.relativeTo(root.resolve("src")).path.removeSuffix(".png") + ".aseprite")
         val image = if (png.isFile) runCatching { ImageIO.read(png) }.getOrNull() else null
         return linkedMapOf(
             "id" to id,

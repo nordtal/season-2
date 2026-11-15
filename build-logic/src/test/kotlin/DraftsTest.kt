@@ -62,6 +62,39 @@ class DraftsTest {
     }
 
     @Test
+    fun thePacksIconIsOneDraftWithItsSource() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.pack.resolve("src/pack.png").writeText("icon")
+        clone.pack
+            .resolve("art/pack.aseprite")
+            .apply { parentFile.mkdirs() }
+            .writeText("art")
+
+        assertEquals(
+            listOf(listOf("src/pack.png", "pack icon", "added", listOf("art/pack.aseprite", "src/pack.png"))),
+            drafts(clone),
+        )
+    }
+
+    @Test
+    fun aDiscardOfThePacksIconRemovesItsSource() {
+        val clone = DraftClone(root, "star@FE000")
+        clone.pack.resolve("src/pack.png").writeText("icon")
+        clone.commitAll("feat: icon")
+        clone.pack.resolve("src/pack.png").writeText("drawn")
+        clone.pack
+            .resolve("art/pack.aseprite")
+            .apply { parentFile.mkdirs() }
+            .writeText("art")
+
+        Drafts.discard(clone.pack, PackModel.ICON)
+
+        assertEquals("icon", clone.pack.resolve("src/pack.png").readText())
+        assertFalse(clone.pack.resolve("art/pack.aseprite").exists())
+        assertEquals(emptyList<List<Any?>>(), drafts(clone))
+    }
+
+    @Test
     fun aDiscardRestoresTheFilesAndEntriesOfOneDraftAndKeepsTheOthers() {
         val clone = DraftClone(root, "star@FE000", "moon@FE001")
         val committed = clone.pack.resolve("glyphs.json").readText()

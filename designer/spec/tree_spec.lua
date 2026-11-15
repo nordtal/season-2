@@ -95,6 +95,18 @@ describe("tree", function()
     }, texts(nodes))
   end)
 
+  it("ends with the pack's icon, which opens like a texture and is marked as a draft", function()
+    local icon = { texture={ id="src/pack.png", png="src/pack.png", aseprite="art/pack.aseprite", draft="src/pack.png" } }
+    local with = setmetatable({ icon=icon, drafts={ { id="src/pack.png", label="pack icon", state="changed", files={ "src/pack.png" } } } },
+                              { __index=model })
+    local nodes, index = tree.build(with, tr, drafts.marks(with))
+    local last = nodes[#nodes]
+    assert.same({ "icon", "<tree.icon>", tree.draftIcon }, { last.id, last.text, last.icon })
+    assert.same({ kind="icon", entry=icon, texture=icon.texture }, index.icon)
+    assert.is_nil(last.children)
+    assert.equal(7, #tree.build(model, tr, drafts.marks(model)))
+  end)
+
   it("lists the pack's other files by category, counts the problems of each and marks a draft", function()
     local nodes, index = tree.build(model, function(id, n) return n and id .. " " .. n or id end, drafts.marks(model))
     local root = nodes[7]

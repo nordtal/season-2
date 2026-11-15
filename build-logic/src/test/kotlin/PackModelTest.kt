@@ -226,6 +226,19 @@ class PackModelTest {
     }
 
     @Test
+    fun thePacksIconIsATextureWithItsSourceUnderArt() {
+        allocation("""{"fonts": []}""")
+        png("src/pack.png", 128, 128)
+
+        val icon = model().map("icon").map("texture")
+
+        assertEquals(
+            listOf("src/pack.png", "src/pack.png", true, "art/pack.aseprite", false, false, 128, 128),
+            listOf("id", "png", "pngExists", "aseprite", "asepriteExists", "generated", "width", "height").map { icon[it] },
+        )
+    }
+
+    @Test
     fun theModelListsTheStatusesAGlyphCanHave() {
         allocation("""{"fonts": [{"font": "minecraft:default", "blocks": []}]}""")
 

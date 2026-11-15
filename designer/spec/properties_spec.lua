@@ -99,6 +99,17 @@ describe("the properties of an entry", function()
     assert.is_truthy(table.concat(shown(override({ guiSprite=true }), true), "\n"):find("scaling=stretch*", 1, true))
     assert.is_falsy(table.concat(shown(override({ guiSprite=false }), true), "\n"):find("scaling", 1, true))
   end)
+
+  it("shows the pack's icon with its files, saves its first frame and has no delete", function()
+    local texture = { id="src/pack.png", png="src/pack.png", aseprite="art/pack.aseprite", asepriteExists=true,
+                      width=128, height=128 }
+    local info = { kind="icon", entry={ texture=texture }, texture=texture }
+    assert.same({
+      "size=properties.pixels 128 128", "png=src/pack.png", "source=art/pack.aseprite",
+    }, shown(info, true))
+    assert.is_false(properties.animated(info))
+    assert.is_nil(properties.saved(info, { width=128, height=128, durations={ 100, 100 }, opened=1 }))
+  end)
 end)
 
 describe("an edit of a property", function()

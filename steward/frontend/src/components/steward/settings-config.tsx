@@ -107,7 +107,8 @@ export function DraftForm({
               onUndo={() => leaf.ids.forEach((id) => set(id, undefined))}
             />
           ) : leaf.value.kind === "run" ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-4">
+            // A column is wide enough for a whole `#rrggbb` in the mono face beside its swatch and eye button.
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-4">
               {leaf.value.entries.map((entry) => (
                 <div key={entry.path}>{field(entry, highlight, "compact")}</div>
               ))}

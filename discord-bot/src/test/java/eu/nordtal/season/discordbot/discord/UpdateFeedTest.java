@@ -616,7 +616,7 @@ class UpdateFeedTest {
         assertEquals("🔄 Stopping the servers for the take-down", title(UpdateKind.DOWN, RunStage.STOPPING));
         assertEquals("✅ Nothing to start", title(UpdateKind.START, RunStage.NOTHING_TO_DO));
         assertEquals("⏹️ Plugin removal cancelled", title(UpdateKind.REMOVE_PLUGIN, RunStage.CANCELLED));
-        assertEquals("✅ Mode switch finished", title(UpdateKind.SWITCH_MODE, RunStage.DONE));
+        assertEquals("✅ Game mode switch finished", title(UpdateKind.SWITCH_MODE, RunStage.DONE));
         for (final UpdateKind kind : UpdateKind.values()) {
             for (final RunStage stage : RunStage.values()) {
                 final String shown = title(kind, stage);

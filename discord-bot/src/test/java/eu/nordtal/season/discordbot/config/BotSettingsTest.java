@@ -439,6 +439,19 @@ class BotSettingsTest {
     }
 
     @Test
+    void retainedRegionAndChangeChannelOverridesDoNotAffectCountryOnboarding() throws Exception {
+        final OnboardingSpec config = onboarding(Map.of(
+                "change-channel", "not a channel",
+                "regions", List.of(Map.of("name", "Old region")),
+                "regions[0].zone", "not a zone",
+                "regions.name", "Old name",
+                "channel", "123"));
+        assertEquals("123", config.channel());
+        assertEquals(DefaultCountries.LIST.size(), config.countries().size());
+        assertEquals("de", config.countries().getFirst().key());
+    }
+
+    @Test
     void defaultsOfferTenCountriesWithTheLockOff() throws Exception {
         final OnboardingSpec config = onboarding(Map.of());
         assertFalse(config.lock());

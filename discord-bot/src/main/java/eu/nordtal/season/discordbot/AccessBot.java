@@ -187,7 +187,7 @@ public class AccessBot implements AutoCloseable {
             final SeasonDirectory seasons,
             final UpdateDirectory updates,
             final String stewardUrl) {
-        // After the guild state reconcile, so the first tick renames against the reconciled state.
+        // After the discord server state reconcile, so the first tick renames against the reconciled state.
         final StatusChannels status = new StatusChannels(
                 jda, core.languages(), core.renderer(), seasons, SnapshotDirectory.using(database.dataSource()), clock);
 

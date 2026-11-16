@@ -147,7 +147,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
             try {
                 setting.reload();
             } catch (final SettingsException refused) {
-                log.warn("onboarding settings refused, last ones kept: cause={}", refused.getMessage());
+                log.warn("onboarding settings rejected, current values kept: cause={}", refused.getMessage());
                 return;
             }
             choices = Choices.of(languages, setting.get());
@@ -252,7 +252,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         visibility.sweep(
                 guild, languages, roles, onboardingChannel, setting.get().lock());
         if (settled > 0) {
-            log.info("member onboarding settled: count={}", settled);
+            log.info("member onboarding reconciled: count={}", settled);
         }
     }
 
@@ -436,7 +436,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     private @Nullable Guild guild() {
         final Guild guild = jda.getGuildById(guildId);
         if (guild == null) {
-            log.error("guild not available, onboarding not kept: guild={}", guildId);
+            log.error("discord server unavailable, onboarding not reconciled: guild={}", guildId);
         }
         return guild;
     }

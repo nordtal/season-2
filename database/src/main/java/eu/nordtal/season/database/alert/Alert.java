@@ -89,10 +89,10 @@ public record Alert(
         final List<String> subjects = subjects();
         if (measured.stream().allMatch(measure -> measure.gauge() == Measure.Gauge.OLDER_IMAGE)
                 && !measured.isEmpty()) {
-            return TEXTS.alert().olderImage(subjects, subjects.size());
+            return TEXTS.alert().olderImage(subjects.size());
         }
         if (subjects.size() > 1) {
-            return TEXTS.alert().several(subjects);
+            return TEXTS.alert().several();
         }
         if (!measured.isEmpty()) {
             return title(measured.getFirst());
@@ -122,14 +122,21 @@ public record Alert(
         };
     }
 
-    /** Returns the lines below the title: one per measure but an older image, then the detail's. */
+    /** Returns the lines below the title: one per measure, older images on one line, then the detail's. */
     public List<MessageRef> lines() {
         final List<MessageRef> lines = new ArrayList<>();
-        // The title of older images names every service already.
         measured.stream()
                 .filter(measure -> measure.gauge() != Measure.Gauge.OLDER_IMAGE)
                 .map(Alert::line)
                 .forEach(lines::add);
+        final List<String> older = measured.stream()
+                .filter(measure -> measure.gauge() == Measure.Gauge.OLDER_IMAGE)
+                .map(Measure::subject)
+                .distinct()
+                .toList();
+        if (!older.isEmpty()) {
+            lines.add(TEXTS.alert().olderOn(older, older.size()));
+        }
         if (detail != null) {
             lines.addAll(detail.lines());
         } else if (action == JournalAction.LOCK_WITHOUT_CHANNEL) {
@@ -180,7 +187,7 @@ public record Alert(
             case BACKUP_AGE_HOURS -> backupTitle(subject, measure.value() == null);
             case DISK_PERCENT -> TEXTS.alert().disk();
             case MEMORY_PERCENT -> TEXTS.alert().memory();
-            case OLDER_IMAGE -> TEXTS.alert().olderImage(List.of(subject), 1);
+            case OLDER_IMAGE -> TEXTS.alert().olderImage(1);
             case REGISTRY -> TEXTS.alert().notCompared();
             case PACK -> TEXTS.alert().deadPack();
         };
@@ -191,8 +198,7 @@ public record Alert(
             case BACKUPS -> TEXTS.alert().noBackup();
             case DUMP -> missing ? TEXTS.alert().noDump() : TEXTS.alert().oldDump();
             case OFFSITE -> missing ? TEXTS.alert().noOffsite() : TEXTS.alert().oldOffsite();
-            default ->
-                missing ? TEXTS.alert().noArchive(subject) : TEXTS.alert().oldArchive(subject);
+            default -> missing ? TEXTS.alert().noArchive() : TEXTS.alert().oldArchive();
         };
     }
 
@@ -212,7 +218,7 @@ public record Alert(
                         : TEXTS.alert().age(subject, value, limit);
             case DISK_PERCENT -> TEXTS.alert().diskUse(value, limit);
             case MEMORY_PERCENT -> TEXTS.alert().memoryUse(value, limit);
-            case OLDER_IMAGE -> throw new IllegalArgumentException("older images have no line");
+            case OLDER_IMAGE -> throw new IllegalArgumentException("older images share one line");
             case REGISTRY -> TEXTS.alert().words(state);
             case PACK -> TEXTS.alert().offeredPack(state);
         };

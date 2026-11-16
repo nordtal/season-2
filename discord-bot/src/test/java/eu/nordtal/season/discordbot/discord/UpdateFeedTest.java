@@ -551,7 +551,7 @@ class UpdateFeedTest {
         assertTrue(shown.contains("steward 0.64.0 → 0.65.0"), "the line is what it moves: " + shown);
         assertFalse(shown.contains("TOTP"), shown);
         assertEquals(
-                "**steward**: a secret is missing, ./nordtal.sh update on the host adds it",
+                "**steward**: A secret is missing. Run ./nordtal.sh update on the host.",
                 field(card, "Why"),
                 "only the host adds it, so the card says how; the local build stays a mark");
     }
@@ -569,9 +569,9 @@ class UpdateFeedTest {
 
         assertEquals(List.of("Why", "Services", "Took"), names(card));
         assertEquals("""
-                **smp**: refused, the run log has the answer
-                **hunger\\_games**: no container
-                steward-agent failed, its log says how""", field(card, "Why"), "the failed steps in order; nothing that went right and no warning");
+                **smp**: Docker or the tool refused. The run log holds the answer.
+                **hunger\\_games**: No container exists.
+                steward-agent failed. Its log names the cause.""", field(card, "Why"), "the failed steps in order; nothing that went right and no warning");
     }
 
     @Test
@@ -595,11 +595,11 @@ class UpdateFeedTest {
         assertEquals("✅ Backup finished", title(UpdateKind.BACKUP, RunStage.DONE));
         assertEquals("🛑 The backup failed", title(UpdateKind.BACKUP, RunStage.FAILED));
         assertEquals("✅ Update finished", title(UpdateKind.UPDATE, RunStage.DONE));
-        assertEquals("⏳ Restarting shortly", title(UpdateKind.RESTART, RunStage.COUNTDOWN));
-        assertEquals("🔄 Stopping the servers for the take-down", title(UpdateKind.DOWN, RunStage.STOPPING));
+        assertEquals("⏳ Restarting soon", title(UpdateKind.RESTART, RunStage.COUNTDOWN));
+        assertEquals("🔄 Take-down: stopping", title(UpdateKind.DOWN, RunStage.STOPPING));
         assertEquals("✅ Nothing to start", title(UpdateKind.START, RunStage.NOTHING_TO_DO));
         assertEquals("⏹️ Plugin removal cancelled", title(UpdateKind.REMOVE_PLUGIN, RunStage.CANCELLED));
-        assertEquals("✅ Game mode switch finished", title(UpdateKind.SWITCH_MODE, RunStage.DONE));
+        assertEquals("✅ New game mode in place", title(UpdateKind.SWITCH_MODE, RunStage.DONE));
         for (final UpdateKind kind : UpdateKind.values()) {
             for (final RunStage stage : RunStage.values()) {
                 final String shown = title(kind, stage);

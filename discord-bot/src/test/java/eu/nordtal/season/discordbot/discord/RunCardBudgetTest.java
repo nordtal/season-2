@@ -77,8 +77,8 @@ class RunCardBudgetTest {
                         step(RunStep.Kind.STOP, "smp", RunStep.Outcome.FAILED, RunStep.Reason.REFUSED, List.of())));
         final String why = why(card(record, request()));
 
-        assertTrue(why.contains("**mc\\_smp**: not in this stack"), why);
-        assertTrue(why.contains("**smp**: refused, the run log has the answer"), why);
+        assertTrue(why.contains("**mc\\_smp**: This stack has nothing of that name."), why);
+        assertTrue(why.contains("**smp**: Docker or the tool refused. The run log holds the answer."), why);
     }
 
     @Test

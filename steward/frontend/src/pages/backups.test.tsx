@@ -610,7 +610,7 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(screen.getByRole("heading", { name: "Stages" })).toBeTruthy()
     expect(within(stage.parentElement!).getByText("1 archive saved")).toBeTruthy()
     fireEvent.click(stage)
-    expect(screen.getByText("Save a volume")).toBeTruthy()
+    expect(screen.getByText("Save nordtal-s2_mc-smp")).toBeTruthy()
   })
 
   it("says a run that saved archives without catalogue rows wrote archives the catalogue does not list", async () => {

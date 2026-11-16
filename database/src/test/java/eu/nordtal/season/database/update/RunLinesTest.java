@@ -65,7 +65,7 @@ class RunLinesTest {
 
         assertEquals(
                 List.of(
-                        "refused, the run log has the answer",
+                        "Docker or the tool refused. The run log holds the answer.",
                         "answer: stopping 3f2a9c1b: No such container: 3f2a9c1b"),
                 english(refused));
     }
@@ -73,7 +73,7 @@ class RunLinesTest {
     @Test
     void aFailedToolNamesItsReasonAndExitCode() {
         assertEquals(
-                List.of("the tool failed", "exit code 2"),
+                List.of("The tool failed.", "exit code 2"),
                 english(step(RunStep.Kind.DUMP_DATABASE, RunStep.Reason.TOOL_FAILED, 2)));
     }
 

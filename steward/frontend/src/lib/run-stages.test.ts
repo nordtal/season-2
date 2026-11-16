@@ -77,7 +77,7 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
         { text: "smp 248 → 249", services: true },
         { text: "limbo", services: true },
         { text: "proxy", services: true },
-        { text: "a secret is missing, ./nordtal.sh update on the host adds it", tone: "warn" },
+        { text: "A secret is missing. Run ./nordtal.sh update on the host.", tone: "warn" },
       ],
     ])
     const [idle] = stagesOf([step({ step: "RESOLVE" })])
@@ -127,7 +127,7 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
     ])
     expect(stages.map((stage) => pillsOf(stage))).toEqual([
       [{ text: "nothing" }],
-      [{ text: "no offsite repository", tone: "idle" }],
+      [{ text: "There is no offsite repository.", tone: "idle" }],
     ])
   })
 
@@ -136,7 +136,7 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
       ["no one to move"],
     ])
     expect(texts([step({ step: "PLAYERS_MOVED", outcome: "FAILED", reason: "TOOL_FAILED" })])).toEqual([
-      ["the tool failed"],
+      ["The tool failed."],
     ])
   })
 

@@ -100,14 +100,14 @@ class AlertMonitorTest {
         monitor.poll();
         thresholds = new Thresholds(75, 90, 36);
         monitor.poll();
-        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
+        assertEquals(List.of("disk warn Disk use is over its threshold"), raised());
     }
 
     @Test
     void theFirstReadingRaisesWhatTheJournalDoesNotHoldOpen() {
         reading = () -> stack(90, "exited");
         monitor.poll();
-        assertEquals(List.of("service down smp is not running", "disk warn The disk is over its threshold"), raised());
+        assertEquals(List.of("service down smp is not running", "disk warn Disk use is over its threshold"), raised());
         assertEquals(2, monitor.snapshot().alerts().size());
         assertEquals(Alert.Level.DOWN, monitor.snapshot().level());
     }
@@ -116,7 +116,7 @@ class AlertMonitorTest {
     void anAlertOpenAcrossARestartIsNotRaisedAgainAndItsClearEndsIt() {
         reading = () -> stack(90, "running");
         monitor.poll();
-        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
+        assertEquals(List.of("disk warn Disk use is over its threshold"), raised());
 
         final AlertMonitor restarted = restarted();
         restarted.poll();
@@ -124,18 +124,18 @@ class AlertMonitorTest {
 
         reading = () -> stack(10, "running");
         restarted.poll();
-        assertEquals(List.of("disk ok The disk is below its threshold again"), raised());
+        assertEquals(List.of("disk ok Disk use is normal again"), raised());
     }
 
     @Test
     void anAlertThatEndedDuringARestartIsClearedAtTheFirstReading() {
         reading = () -> stack(90, "running");
         monitor.poll();
-        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
+        assertEquals(List.of("disk warn Disk use is over its threshold"), raised());
 
         reading = () -> stack(10, "running");
         restarted().poll();
-        assertEquals(List.of("disk ok The disk is below its threshold again"), raised());
+        assertEquals(List.of("disk ok Disk use is normal again"), raised());
     }
 
     @Test
@@ -184,7 +184,7 @@ class AlertMonitorTest {
 
         down[0] = false;
         monitor.poll();
-        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
+        assertEquals(List.of("disk warn Disk use is over its threshold"), raised());
     }
 
     @Test
@@ -192,7 +192,7 @@ class AlertMonitorTest {
         monitor.poll();
         reading = () -> stack(90, "running");
         monitor.poll();
-        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
+        assertEquals(List.of("disk warn Disk use is over its threshold"), raised());
 
         // A number that changes within the same verdict raises nothing.
         reading = () -> stack(91, "running");
@@ -201,7 +201,7 @@ class AlertMonitorTest {
 
         reading = () -> stack(10, "running");
         monitor.poll();
-        assertEquals(List.of("disk ok The disk is below its threshold again"), raised());
+        assertEquals(List.of("disk ok Disk use is normal again"), raised());
         assertEquals(Alert.Level.OK, monitor.snapshot().level());
     }
 
@@ -240,7 +240,7 @@ class AlertMonitorTest {
     void anUnreadableStackKeepsWhatWasKnownAndSaysWhy() {
         reading = () -> stack(90, "running");
         monitor.poll();
-        assertEquals(List.of("disk warn The disk is over its threshold"), raised());
+        assertEquals(List.of("disk warn Disk use is over its threshold"), raised());
         reading = () -> {
             throw new IllegalStateException("the agent did not answer");
         };
@@ -274,7 +274,7 @@ class AlertMonitorTest {
         final Alert alert = alerts.getFirst().alert();
         assertEquals(AlertType.RUN, alert.type());
         assertEquals("The update failed", AdminPlain.of(alert.title()));
-        assertEquals(List.of("Run " + failed + "."), AdminPlain.of(alert.lines()));
+        assertEquals(List.of("Run " + failed), AdminPlain.of(alert.lines()));
         assertEquals("/operations/updates/" + failed, alert.path());
         assertNotNull(alerts.getFirst().raised());
     }
@@ -297,7 +297,7 @@ class AlertMonitorTest {
         assertEquals("The backup failed", AdminPlain.of(alert.title()));
         assertEquals(
                 List.of(
-                        "Run " + failed + ".",
+                        "Run " + failed,
                         AdminPlain.of(new JournalDetail.FailedStep(
                                         RunStep.Kind.START, "smp", RunStep.Outcome.FAILED, RunStep.Reason.NOT_HEALTHY)
                                 .line()),

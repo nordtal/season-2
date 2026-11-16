@@ -185,7 +185,7 @@ describe("the available card", () => {
     expect(screen.getByText("Notes")).toBeTruthy()
     expect(screen.getByRole("button", { name: "Resolve" }).getAttribute("aria-expanded")).toBe("true")
     // Once as the stage's pill, once as its step's line below the step and its service.
-    expect(screen.getAllByText("a jar no artefact claims")).toHaveLength(2)
+    expect(screen.getAllByText("No artefact claims this jar.")).toHaveLength(2)
     expect(screen.getByText("limbo", { exact: false, selector: "span.text-muted-foreground" })).toBeTruthy()
   })
 

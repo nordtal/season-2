@@ -128,7 +128,7 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-journal"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("First admin"), drawn);
+        assertTrue(drawn.contains("First admin signed in"), drawn);
         assertTrue(drawn.contains("Signed in as the first admin."), drawn);
     }
 
@@ -138,7 +138,7 @@ class DocumentRendererTest {
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
         assertTrue(drawn.contains("🛑 **smp** paper 1.21.4 → 1.21.5"), drawn);
-        assertTrue(drawn.contains("**smp**: not healthy in time"), drawn);
+        assertTrue(drawn.contains("**smp**: The service did not report healthy in time."), drawn);
         assertFalse(drawn.contains("admin/"), drawn);
     }
 
@@ -149,7 +149,7 @@ class DocumentRendererTest {
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
         assertTrue(drawn.contains("🛑 The update failed"), drawn);
-        assertEquals(1, drawn.split("not healthy in time", -1).length - 1, drawn);
+        assertEquals(1, drawn.split("did not report healthy in time", -1).length - 1, drawn);
         assertFalse(drawn.contains("✅"), drawn);
     }
 

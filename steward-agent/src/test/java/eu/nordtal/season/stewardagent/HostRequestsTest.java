@@ -72,7 +72,7 @@ class HostRequestsTest {
                         "FAILED\tFAILED",
                         "Stop smp: done",
                         "Dump the database: failed",
-                        "    the tool failed",
+                        "    The tool failed.",
                         "    exit code 2"),
                 HostRequests.told(UpdateStatus.FAILED, run));
     }

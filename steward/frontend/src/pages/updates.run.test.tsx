@@ -134,7 +134,7 @@ describe("a run's stages give their coarse facts and open to their steps", () =>
 
     const stage = await screen.findByRole("button", { name: "Backup" })
     expect(stage.getAttribute("aria-expanded")).toBe("true")
-    expect(screen.getAllByText("the tool failed")).toHaveLength(2)
+    expect(screen.getAllByText("The tool failed.")).toHaveLength(2)
     expect(screen.getByText("exit code 2")).toBeTruthy()
     expect(screen.getByText("Dump the database")).toBeTruthy()
   })

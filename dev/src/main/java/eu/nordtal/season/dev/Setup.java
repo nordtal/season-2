@@ -70,7 +70,7 @@ final class Setup {
         for (final String service : SECRET_SERVICES) {
             createDirectories(compose.secretsDir(service));
         }
-        terminal.log("Setup complete. Run dev up to start the stack.");
+        terminal.log("setup completed: next=\"dev up\"");
     }
 
     private void copyExample(final Path target) {

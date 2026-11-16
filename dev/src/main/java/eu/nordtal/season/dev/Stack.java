@@ -137,8 +137,9 @@ final class Stack {
         if (volumes.isEmpty()) {
             terminal.log("container removed, no volume found: service=" + service + " volume=mc-" + service);
         } else if (volumes.size() > 1) {
-            throw new Processes.Failure("Reset stopped: more than one mc-" + service + " volume exists. Delete the one"
-                    + " of this project with docker volume rm: " + String.join(" ", volumes));
+            throw new Processes.Failure("Reset stopped: multiple mc-" + service + " volumes belong to project "
+                    + compose.project() + ": " + String.join(" ", volumes)
+                    + ". Inspect these volumes before removing the one to reset with docker volume rm.");
         } else {
             Processes.require(
                     processes.run(List.of("docker", "volume", "rm", volumes.getFirst())),

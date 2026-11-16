@@ -54,12 +54,12 @@ class DialogueTest {
         assertEquals(
                 List.of(
                         "Two steps are called a.",
-                        "The dialogue starts at start, which does not exist.",
+                        "The dialogue starts at step start, which does not exist.",
                         "Step a has both answers and a next step.",
                         "Step b opens a menu and also has answers or a next step.",
                         "Step b opens the menu shop, which no server offers.",
                         "Step c has no German text.",
-                        "Step c goes on to gone, which does not exist.",
+                        "Step c goes on to step gone, which does not exist.",
                         "Step d offers 4 answers, at most 3."),
                 dialogue.problems(Set.of("objectives")));
     }

@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
 /**
  * Stores the NPCs an admin placed and the players who skip their dialogue.
  * A change to an NPC signals its id on {@link Channel#NPC}. Every save of a dialogue is kept as a {@link Version}, and
- * so is a removal, so a removed NPC's dialogue can still be restored.
+ * so is a removal, which names who removed it.
  */
 public interface NpcStore {
 
@@ -40,7 +40,7 @@ public interface NpcStore {
     /** Removes an NPC with its skips, keeps the removal as a version without a dialogue, and signals. */
     void remove(UUID id, Actor actor);
 
-    /** Returns every save and the removal of an NPC's dialogue, the newest first. */
+    /** Returns every save and every removal of an NPC's dialogue, the newest first. */
     List<Version> versions(UUID id);
 
     /**

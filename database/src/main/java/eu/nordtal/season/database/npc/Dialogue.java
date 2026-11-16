@@ -39,7 +39,7 @@ public record Dialogue(String start, List<Step> steps) {
             }
         }
         if (!ids.contains(start)) {
-            problems.add("The dialogue starts at " + start + ", which does not exist.");
+            problems.add("The dialogue starts at step " + start + ", which does not exist.");
         }
         for (final Step step : steps) {
             problems.addAll(step.problems(ids, menus));
@@ -89,7 +89,7 @@ public record Dialogue(String start, List<Step> steps) {
                 problems.add("Step " + id + " opens the menu " + menu + ", which no server offers.");
             }
             if (next != null && !ids.contains(next)) {
-                problems.add("Step " + id + " goes on to " + next + ", which does not exist.");
+                problems.add("Step " + id + " goes on to step " + next + ", which does not exist.");
             }
             for (int i = 0; i < answers.size(); i++) {
                 final Answer answer = answers.get(i);
@@ -101,7 +101,7 @@ public record Dialogue(String start, List<Step> steps) {
                     problems.add(name + " has no German text.");
                 }
                 if (answer.next() != null && !ids.contains(answer.next())) {
-                    problems.add(name + " goes on to " + answer.next() + ", which does not exist.");
+                    problems.add(name + " goes on to step " + answer.next() + ", which does not exist.");
                 }
             }
             return problems;

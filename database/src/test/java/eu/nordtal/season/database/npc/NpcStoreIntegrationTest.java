@@ -84,6 +84,14 @@ class NpcStoreIntegrationTest {
                 NpcStore.using(database.dataSourceAs(DatabaseRole.SMP))
                         .npc(changed.id())
                         .orElseThrow());
+        assertEquals(
+                List.of(SPAWN, changed.id()),
+                NpcStore.using(database.dataSourceAs(DatabaseRole.SMP)).npcs().stream()
+                        .map(Npc::id)
+                        .toList());
+        assertEquals(
+                changed,
+                NpcStore.using(database.dataSourceAs(DatabaseRole.SMP)).npcs().get(1));
     }
 
     @Test

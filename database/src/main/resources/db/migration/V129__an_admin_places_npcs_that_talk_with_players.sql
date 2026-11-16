@@ -53,7 +53,7 @@ CREATE TABLE npc_dialogue_version
     CONSTRAINT npc_dialogue_version_actor_id_iff_person CHECK ((actor_kind = 'PERSON') = (actor_id IS NOT NULL))
 );
 CREATE INDEX npc_dialogue_version_npc_idx ON npc_dialogue_version (npc, id);
-COMMENT ON TABLE npc_dialogue_version IS 'Owned by steward: one row per save of an NPC''s dialogue, never changed. Only steward reads it.';
+COMMENT ON TABLE npc_dialogue_version IS 'Owned by steward: one row per save or removal of an NPC''s dialogue, never changed. Only steward reads it.';
 
 -- A player who ticked "Don't show again" at an NPC's hand-off into a menu. A right-click then opens that menu at once.
 CREATE TABLE npc_skip

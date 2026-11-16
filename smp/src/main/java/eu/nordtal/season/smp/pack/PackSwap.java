@@ -146,7 +146,7 @@ public final class PackSwap implements Listener {
     private void settle(final long request) {
         PaperScheduler.of(plugin).execute(() -> {
             if (inbox.settle(request, Outcome.done(null)).isEmpty()) {
-                log.info("pack swap withdrawn, player loading incomplete: request=" + request);
+                log.info("pack swap settlement skipped, request no longer running: request=" + request);
             }
         });
     }

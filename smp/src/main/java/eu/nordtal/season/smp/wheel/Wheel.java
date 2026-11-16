@@ -245,7 +245,7 @@ public final class Wheel {
         } catch (final RuntimeException e) {
             turning.remove(uuid);
             refund.run();
-            plugin.getLogger().log(Level.WARNING, "wheel spin failed, spin returned", e);
+            plugin.getLogger().log(Level.WARNING, "wheel spin failed, spin refund requested", e);
         }
     }
 
@@ -283,7 +283,7 @@ public final class Wheel {
         final WheelPrizeSpec prize = plan.winner();
         final ItemStack item = itemOf(prize);
         if (item == null) {
-            plugin.getLogger().warning("wheel prize item unreadable, spin returned: item=" + prize.item());
+            plugin.getLogger().warning("wheel prize item unreadable: item=" + prize.item());
             refund.run();
             turning.remove(id);
             tell(player, renderer.format(locale, Sent.of(BROKEN_PRIZE)), Feedback.LOSS);
@@ -426,7 +426,7 @@ public final class Wheel {
                 turning.remove(id);
                 faces.back(id, before);
                 refund.run();
-                plugin.getLogger().log(Level.WARNING, "wheel animation failed, spin returned", e);
+                plugin.getLogger().log(Level.WARNING, "wheel animation failed, spin refund requested", e);
             }
         };
         if (popIn) {
@@ -527,8 +527,8 @@ public final class Wheel {
         final int count = Math.max(1, amount);
         if (!player.isOnline()) {
             plugin.getLogger()
-                    .warning("player left mid-spin, prize not given, spin returned: player=" + player.getName()
-                            + " item=" + item.getType().name() + " count=" + count);
+                    .warning("player left mid-spin, prize not given: player=" + player.getName() + " item="
+                            + item.getType().name() + " count=" + count);
             refund.run();
             return;
         }
@@ -569,7 +569,8 @@ public final class Wheel {
         try {
             PaperScheduler.of(plugin).execute(work);
         } catch (final IllegalStateException | IllegalArgumentException refused) {
-            plugin.getLogger().warning("wheel spin not returned, server stopping: cause=" + refused.getMessage());
+            plugin.getLogger()
+                    .warning("wheel spin refund not scheduled, server stopping: cause=" + refused.getMessage());
         }
     }
 

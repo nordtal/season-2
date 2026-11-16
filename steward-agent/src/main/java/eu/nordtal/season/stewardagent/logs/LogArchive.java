@@ -80,11 +80,7 @@ final class LogArchive {
                 break;
             }
             if (index > 0 && Duration.between(started, clock.get()).compareTo(BUDGET) > 0) {
-                log.warn(
-                        "archived log read stopped at time budget: service={} timeout={} count={}",
-                        service,
-                        BUDGET,
-                        index);
+                log.warn("archived log read timed out: service={} timeout={} count={}", service, BUDGET, index);
                 exhausted = false;
                 break;
             }

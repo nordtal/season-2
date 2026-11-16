@@ -8,8 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "How long do you want {@terms.access}?",
-                "de": "Für wie lange willst du {@terms.access}?"
+                "en": "Choose how long your {@terms.access} should last.",
+                "de": "Wähle, wie lange dein {@terms.access} gelten soll."
               }
             }
           ]

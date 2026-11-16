@@ -11,8 +11,8 @@
         },
         {
           "text": {
-            "en": "<muted>You join when it is up.</muted>",
-            "de": "<muted>Du kommst rein, sobald er läuft.</muted>"
+            "en": "<muted>You will join automatically when it is ready.</muted>",
+            "de": "<muted>Du kommst automatisch weiter, sobald er bereit ist.</muted>"
           }
         }
       ]

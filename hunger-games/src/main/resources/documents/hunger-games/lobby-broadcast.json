@@ -17,8 +17,8 @@
         },
         {
           "text": {
-            "en": "<muted><emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} ready.</muted> <click:run_command:'/hg ready'><good>[Accept rules and get ready]</good></click>",
-            "de": "<muted><emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} bereit.</muted> <click:run_command:'/hg ready'><good>[Regeln annehmen und bereit melden]</good></click>"
+            "en": "<muted><emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} ready.</muted> <click:run_command:'/hg ready'><good>[Accept rules and mark yourself ready]</good></click>",
+            "de": "<muted><emphasis>{ready}</emphasis>/<emphasis>{total}</emphasis> {@terms.team, n=total} bereit.</muted> <click:run_command:'/hg ready'><good>[Regeln akzeptieren und bereitmelden]</good></click>"
           }
         }
       ]

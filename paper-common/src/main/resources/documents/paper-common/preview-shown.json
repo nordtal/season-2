@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>Shown in the game.</good>",
-            "de": "<good>Im Spiel gezeigt.</good>"
+            "en": "<good>Preview shown in game.</good>",
+            "de": "<good>Vorschau im Spiel angezeigt.</good>"
           }
         }
       ]

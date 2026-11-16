@@ -597,7 +597,8 @@ class MessagesApiIntegrationTest {
                 "{\"changes\":{\"terms\":{\"terms.access\":{\"en\":[\"access to the whole network\"]}}}}");
 
         assertEquals(400, refused.statusCode(), refused.body());
-        assertTrue(refused.body().contains("smp/notice would break: a text block in English"), refused.body());
+        assertTrue(refused.body().contains("Building block not saved: a text block in English:"), refused.body());
+        assertTrue(refused.body().contains("Affected text: smp/notice."), refused.body());
     }
 
     @Test

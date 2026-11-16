@@ -23,17 +23,17 @@ sync() {
     project="$(docker ps --filter "label=$STANDBY_LABEL" --format '{{.Label "com.docker.compose.project"}}' \
         | sed -n '1p')"
     if [[ -z "$project" ]]; then
-        nft flush set inet nordtal standby && log "proxy-standby not running, standby port closed"
+        nft flush set inet nordtal standby && log "standby port closed, proxy-standby unavailable"
         return 0
     fi
     port="$(standby_port "$project")"
     if [[ -z "$port" ]]; then
-        log "proxy-standby running, standby port unpublished, nothing opened"
+        log "standby port not opened, caddy publication missing"
         return 0
     fi
     nft flush set inet nordtal standby \
         && nft add element inet nordtal standby "{ $port }" \
-        && log "proxy-standby running, standby port opened: port=$port"
+        && log "standby port opened: port=$port"
 }
 
 # The script subscribes to the events before the first look, so no start or stop falls between the two.

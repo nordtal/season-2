@@ -541,7 +541,7 @@ public final class SmpPlugin extends NordtalPlugin {
             Objects.requireNonNull(boards).setLeaderboard(aura.topAura(10));
         } catch (final RuntimeException exception) {
             // The surfaces keep their last data.
-            getLogger().warning("boards and HUD not refreshed: cause=" + exception);
+            getLogger().warning("boards and hud not refreshed: cause=" + exception);
         }
     }
 
@@ -560,7 +560,7 @@ public final class SmpPlugin extends NordtalPlugin {
                         .filter(row -> row.amount() >= row.target())
                         .forEach(row -> {
                             getLogger()
-                                    .info("objective at new target, completed: key=" + row.key() + " amount="
+                                    .info("objective completed at updated target: key=" + row.key() + " amount="
                                             + row.amount() + " target=" + row.target());
                             engine.finishObjective(milestoneKey, row, null);
                         }));

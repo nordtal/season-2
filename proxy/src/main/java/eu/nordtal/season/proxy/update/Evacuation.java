@@ -183,8 +183,7 @@ public final class Evacuation {
             if (!warnedAboutWaitingRoom) {
                 warnedAboutWaitingRoom = true;
                 logger.warn(
-                        "waiting room moved by update, no standby room registered, nobody moved: waiting_room={}"
-                                + " standby_room={}",
+                        "waiting room update needs standby, evacuation skipped: waiting_room={}" + " standby_room={}",
                         servers.limbo(),
                         servers.limboStandby());
             }
@@ -226,7 +225,7 @@ public final class Evacuation {
         }
         switching = now;
         if (before && !now) {
-            logger.info("mode switch over, waiting room released");
+            logger.info("mode switch completed, waiting room released");
             try {
                 whenReleased.run();
             } catch (final RuntimeException failure) {
@@ -358,7 +357,7 @@ public final class Evacuation {
         try {
             return running.map(updates::stepsOf).orElseGet(List::of);
         } catch (final RuntimeException failure) {
-            logger.warn("run steps unreadable, every moving service counted", failure);
+            logger.warn("run steps unreadable, all updating services included", failure);
             return List.of();
         }
     }

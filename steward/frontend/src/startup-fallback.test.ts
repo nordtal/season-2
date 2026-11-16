@@ -39,7 +39,7 @@ describe("index.html's inline startup reporter", () => {
   beforeEach(() => {
     window.sessionStorage.clear()
     document.body.innerHTML =
-      '<div id="startup-fallback"><p id="startup-fallback-message">Steward has not started yet.</p></div>'
+      '<div id="startup-fallback"><p id="startup-fallback-message">Waiting for Steward to start …</p></div>'
     reload = vi.fn<() => void>()
     /** jsdom's `reload()` does nothing, so the test records whether it was asked for. */
     Object.defineProperty(window, "location", {
@@ -61,7 +61,7 @@ describe("index.html's inline startup reporter", () => {
 
     expect(reload).toHaveBeenCalledTimes(1)
     expect(window.sessionStorage.getItem("steward:reloaded-after-startup-error")).toBe("1")
-    expect(message()).toBe("Steward has not started yet.")
+    expect(message()).toBe("Waiting for Steward to start …")
   })
 
   it("reloads once for a missing stylesheet the same way as for a missing script", () => {
@@ -82,7 +82,9 @@ describe("index.html's inline startup reporter", () => {
     fireResourceError(script)
 
     expect(reload).not.toHaveBeenCalled()
-    expect(message()).toContain("even after reloading once")
+    expect(message()).toContain(
+      "Could not load part of the app (http://localhost/assets/index-deadbeef.js), even after a reload. Add this page to your home screen again.",
+    )
   })
 
   it("never loops: a second failure after the reload does not ask for a third one", () => {
@@ -98,7 +100,9 @@ describe("index.html's inline startup reporter", () => {
     fireResourceError(second)
 
     expect(reload).toHaveBeenCalledTimes(1)
-    expect(message()).toContain("even after reloading once")
+    expect(message()).toContain(
+      "Could not load part of the app (http://localhost/assets/index-deadbeef.js), even after a reload. Add this page to your home screen again.",
+    )
   })
 
   it("ignores a failed icon or manifest - cosmetic, and not what this guards against", () => {
@@ -109,7 +113,7 @@ describe("index.html's inline startup reporter", () => {
     fireResourceError(icon)
 
     expect(reload).not.toHaveBeenCalled()
-    expect(message()).toBe("Steward has not started yet.")
+    expect(message()).toBe("Waiting for Steward to start …")
   })
 
   it("reveals the panel the moment it has something to say, without waiting out the fade-in", () => {
@@ -133,7 +137,7 @@ describe("index.html's inline startup reporter", () => {
     window.dispatchEvent(event)
 
     expect(reload).not.toHaveBeenCalled()
-    expect(message()).toBe("Steward did not start: something inside React threw.")
+    expect(message()).toBe("Steward could not start: something inside React threw.")
   })
 
   it("reports an unhandled promise rejection the same way", () => {
@@ -144,6 +148,6 @@ describe("index.html's inline startup reporter", () => {
     })
     window.dispatchEvent(event)
 
-    expect(message()).toBe("Steward did not start: a query rejected.")
+    expect(message()).toBe("Steward could not start: a query rejected.")
   })
 })

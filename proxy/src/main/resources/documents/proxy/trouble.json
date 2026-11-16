@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>The {@terms.access} check is not available.</bad> <muted>Try again in a few minutes.</muted>",
-            "de": "<bad>Die Zugangsprüfung ist nicht erreichbar.</bad> <muted>Versuch es in ein paar Minuten noch einmal.</muted>"
+            "en": "<bad>Your {@terms.access} could not be checked.</bad> <muted>Try again in a few minutes.</muted>",
+            "de": "<bad>Dein {@terms.access} konnte nicht geprüft werden.</bad> <muted>Versuch es in ein paar Minuten noch einmal.</muted>"
           }
         }
       ]

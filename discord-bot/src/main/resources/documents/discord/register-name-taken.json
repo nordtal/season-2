@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "That name is taken.",
-            "de": "Der Name ist vergeben."
+            "en": "This team name is already taken.",
+            "de": "Dieser Teamname ist bereits vergeben."
           }
         }
       ]

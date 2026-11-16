@@ -35,7 +35,7 @@ public final class BackupRoutes {
             final Collection<String> set = volumes.get();
             return set::contains;
         } catch (final RuntimeException unreadable) {
-            log.warn("backup set unreadable, no archive marked as left out", unreadable);
+            log.warn("backup set unreadable, exclusion marks not written", unreadable);
             return volume -> true;
         }
     }

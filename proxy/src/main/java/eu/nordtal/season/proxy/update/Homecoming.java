@@ -179,7 +179,7 @@ public final class Homecoming {
             try {
                 tell(player, announcement);
             } catch (final RuntimeException failure) {
-                logger.warn("network back notice not sent: player={}", player.getUsername(), failure);
+                logger.warn("network recovery notice not sent: player={}", player.getUsername(), failure);
             }
         }
     }

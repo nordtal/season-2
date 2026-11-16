@@ -118,7 +118,7 @@ public final class UpdateServer implements AutoCloseable {
     private Optional<UpdateRequest> claimNext() {
         final Optional<String> oneShot = directory.handedTo();
         if (oneShot.isPresent()) {
-            log.debug("one-shot running, nothing claimed: container={}", oneShot.get());
+            log.debug("one-shot running, request claim skipped: container={}", oneShot.get());
             return Optional.empty();
         }
         return directory.claimNext();
@@ -136,7 +136,7 @@ public final class UpdateServer implements AutoCloseable {
                 .filter(request ->
                         directory.runnerOf(id).filter(oneShot::equals).isPresent());
         if (handed.isEmpty()) {
-            log.error("request not handed to one-shot, nothing carried out: request={} container={}", id, oneShot);
+            log.error("one-shot request not executed: request={} container={}", id, oneShot);
             return false;
         }
         carryOut(handed.get());
@@ -182,12 +182,9 @@ public final class UpdateServer implements AutoCloseable {
     private void swapPack(final UpdateRequest after) {
         try {
             final UpdateRequest swap = directory.submit(UpdateKind.LIVE_SWAP, after.actor(), Duration.ZERO, null);
-            log.info("live swap asked for after the run: request={} swap={}", after.id(), swap.id());
+            log.info("live swap requested after run: request={} swap={}", after.id(), swap.id());
         } catch (final RuntimeException refused) {
-            log.warn(
-                    "live swap not asked for, players get the pack at their next waiting room: request={} cause={}",
-                    after.id(),
-                    refused.getMessage());
+            log.warn("live swap not requested: request={} cause={}", after.id(), refused.getMessage());
         }
     }
 

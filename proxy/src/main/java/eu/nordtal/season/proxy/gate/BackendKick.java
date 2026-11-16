@@ -189,8 +189,8 @@ public final class BackendKick {
 
         health.suspend(from);
         logger.warn(
-                "player lost without reason, moved to waiting room, server suspended: player={} from={} to={}"
-                        + " seconds={}",
+                "connection lost, waiting room redirect selected, backend routing paused: player={} from={} to={}"
+                        + " routing_pause_seconds={}",
                 event.getPlayer().getUsername(),
                 from,
                 target.getServerInfo().getName(),

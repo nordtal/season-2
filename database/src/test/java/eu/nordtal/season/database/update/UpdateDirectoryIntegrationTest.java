@@ -278,7 +278,7 @@ class UpdateDirectoryIntegrationTest {
                 () -> updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("limbo", "smp")));
         assertEquals(UpdateRefusal.ALREADY_HELD, refused.reason());
         assertEquals(
-                "Already down: smp.", DatabaseText.english(refused.refusal().message()));
+                "Already offline: smp.", DatabaseText.english(refused.refusal().message()));
 
         assertNotNull(
                 updates.submit(UpdateKind.DOWN, Actor.HOST, Duration.ZERO, List.of("limbo")),

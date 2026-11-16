@@ -182,7 +182,7 @@ public final class AdminLog {
                 ? runCards.apply(failed.run())
                 : RunCard.NONE;
         if (taken.again()) {
-            log.info("run alert already posted, not posted again: entry={}", request.entry());
+            log.info("duplicate run alert skipped: entry={}", request.entry());
             return true;
         }
         final String runCard = taken.messageId();
@@ -324,7 +324,7 @@ public final class AdminLog {
         try {
             return names.apply(account).orElse(account.toString());
         } catch (final RuntimeException exception) {
-            log.warn("player name not read, card shows the account id: account={}", account, exception);
+            log.warn("player name unreadable, account id shown: account={}", account, exception);
             return account.toString();
         }
     }

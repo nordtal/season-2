@@ -8,8 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "This {@terms.period, n=1} is no longer offered.",
-                "de": "Diesen {@terms.period, n=1} gibt es nicht mehr."
+                "en": "This {@terms.period, n=1} is no longer available.",
+                "de": "Dieser {@terms.period, n=1} ist nicht mehr verfügbar."
               }
             },
             {

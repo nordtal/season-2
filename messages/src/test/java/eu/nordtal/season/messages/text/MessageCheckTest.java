@@ -94,8 +94,8 @@ class MessageCheckTest {
 
     @Test
     void anUnclosedOrUnknownTagIsRefused() {
-        refused(packaged("<good>{winner.name} {n}"), "<good> is never closed");
-        refused(packaged("<shout>{winner.name} {n}</shout>"), "<shout> is no tag");
+        refused(packaged("<good>{winner.name} {n}"), "<good> is missing its closing tag");
+        refused(packaged("<shout>{winner.name} {n}</shout>"), "<shout> is not an allowed tag");
         refused(packaged("<good>{winner.name} {n}</bad>"), "</bad> closes");
     }
 
@@ -130,7 +130,7 @@ class MessageCheckTest {
     @Test
     void aSyntaxErrorIsRefused() {
         refused(packaged("{winner.name} {n"), "");
-        refused(packaged("{winner.name} {n} }"), "closes nothing");
+        refused(packaged("{winner.name} {n} }"), "has no matching opening brace");
         refused(packaged("{winner.name} {n, plural, one {x}}"), "other");
     }
 
@@ -139,7 +139,7 @@ class MessageCheckTest {
         final Declaration button = new Declaration(
                 Map.of("n", Kind.NUMBER), Set.of("n"), Set.of(), false, 12, Map.of("n", "300"), Set.of(), false);
         assertEquals(List.of(), MessageCheck.errors("Buy {n} now", button, Mode.OVERRIDE));
-        refused(MessageCheck.errors("Buy {n} right now", button, Mode.OVERRIDE), "characters, and its place fits");
+        refused(MessageCheck.errors("Buy {n} right now", button, Mode.OVERRIDE), "characters; this display allows");
     }
 
     @Test
@@ -200,7 +200,7 @@ class MessageCheckTest {
     @Test
     void anotherWordForAGameTermIsRefusedInABundleAndAWarningInAnOverride() {
         assertEquals(
-                List.of("Lobby is another word for the game term waiting-room: write {@terms.waiting-room}"),
+                List.of("Lobby is a synonym of the game term waiting-room: write {@terms.waiting-room}"),
                 packaged("{winner.name} waits in the Lobby {n}"));
         refused(packaged("{winner.name} {n} <hover:show_text:'Staffel 2'>here</hover>"), "season");
         assertEquals(
@@ -219,8 +219,8 @@ class MessageCheckTest {
 
     @Test
     void aBlockThatDoesNotExistIsRefused() {
-        refused(packaged("{winner.name} {n} {@values.duration.weeks}"), "names no building block");
-        refused(packaged("{winner.name} {n} {@winner.name}"), "names no building block");
+        refused(packaged("{winner.name} {n} {@values.duration.weeks}"), "does not name a building block");
+        refused(packaged("{winner.name} {n} {@winner.name}"), "does not name a building block");
     }
 
     @Test

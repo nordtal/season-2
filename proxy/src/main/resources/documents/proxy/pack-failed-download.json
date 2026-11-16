@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>The resource pack download failed.</bad> <muted>Join again in a moment.</muted>",
-            "de": "<bad>Das Herunterladen des Ressourcenpakets ist fehlgeschlagen.</bad> <muted>Verbinde dich gleich neu.</muted>"
+            "en": "<bad>Could not download the resource pack.</bad> <muted>Join again in a moment.</muted>",
+            "de": "<bad>Das Ressourcenpaket konnte nicht heruntergeladen werden.</bad> <muted>Verbinde dich gleich neu.</muted>"
           }
         }
       ]

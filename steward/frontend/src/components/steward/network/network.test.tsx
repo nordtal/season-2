@@ -225,7 +225,7 @@ describe("the network view", () => {
 
 describe("a stopped node says nothing rather than half of something", () => {
   /**
-   * Rendered on its own, because the vitals are in a tooltip. A dash behind the word "cpu" reads as a fault.
+   * Rendered on its own, because the vitals are in a tooltip. A dash behind the word "Running for 3hCPU 4.2 %Memory 1.1 GiB of 3.7 GiB" reads as a fault.
    */
   const OFF = {
     service: "smp",
@@ -242,8 +242,8 @@ describe("a stopped node says nothing rather than half of something", () => {
 
     const text = document.body.textContent ?? ""
     expect(text).toContain("not running")
-    expect(text).not.toContain("cpu")
-    expect(text).not.toContain("memory")
+    expect(text).not.toContain("Running for 3hCPU 4.2 %Memory 1.1 GiB of 3.7 GiB")
+    expect(text).not.toContain("Memory")
     expect(text).not.toContain("\u2013")
   })
 
@@ -251,8 +251,8 @@ describe("a stopped node says nothing rather than half of something", () => {
     render(<Vitals service={service()} />)
 
     const text = document.body.textContent ?? ""
-    expect(text).toContain("cpu")
-    expect(text).toContain("memory")
+    expect(text).toContain("Running for 3hCPU 4.2 %Memory 1.1 GiB of 3.7 GiB")
+    expect(text).toContain("Memory")
     expect(text).not.toContain("\u2013")
   })
 })

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>Voice chat stops for a moment and then starts again.</muted>",
-            "de": "<muted>Der Sprachchat setzt kurz aus und startet dann wieder.</muted>"
+            "en": "<muted>Voice chat will briefly disconnect.</muted>",
+            "de": "<muted>Der Sprachchat wird kurz unterbrochen.</muted>"
           }
         }
       ]

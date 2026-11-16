@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
+# Restore an archive when Steward cannot run. Use Steward's Backups page for a live restore.
+# This script sends no player warning and does not wait for a clean stop.
 #
-# The emergency restore, for a host where steward-agent does not run. Otherwise a restore is a run
-# that an admin asks for on the Backups page of Steward. That run backs up first, counts down and
-# replaces the database itself. This script stops nothing gracefully and warns nobody.
-#
-#   sudo bash deploy/restore.sh --list                                  list the archives on the disk
+#   sudo bash deploy/restore.sh --list
 #   sudo bash deploy/restore.sh nordtal-s2_mc-smp-20260913T031500Z.tar.zst
 #   sudo bash deploy/restore.sh nordtal-20260913T031500Z.dump
 #
-# A volume archive REPLACES the directory of the volume (on an older host, the named volume), so the
-# user types the name of the volume to confirm. A database dump goes into a NEW database beside the live one.
+# A volume archive replaces all data in its target. Type the volume name to confirm.
+# A database dump creates a separate database beside the live one.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -76,9 +74,9 @@ mark_words() {
     fi
     services="${services//\"/}"
     if [[ "$services" == *,* ]]; then
-        printf 'run %s stopped %s, and how they ended could not be read back\n' "$run" "${services//,/, }"
+        printf 'Run %s could not verify that %s stopped cleanly.\n' "$run" "${services//,/, }"
     else
-        printf 'run %s stopped %s, and how it ended could not be read back\n' "$run" "$services"
+        printf 'Run %s could not verify that %s stopped cleanly.\n' "$run" "$services"
     fi
 }
 
@@ -106,14 +104,14 @@ while (( $# > 0 )); do
         --backups-volume)  BACKUPS_VOLUME="${2:?--backups-volume needs a name}"; shift 2 ;;
         -h|--help)         sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         -*)                die "Unknown argument: $1. --help lists the arguments." ;;
-        *)                 [[ -z "$ARCHIVE" ]] || die "More than one archive named. Name one archive per run."; ARCHIVE="$1"; shift ;;
+        *)                 [[ -z "$ARCHIVE" ]] || die "Restore not started: more than one archive was given. Select one archive."; ARCHIVE="$1"; shift ;;
     esac
 done
 
 cd "$ROOT"
 
-command -v docker >/dev/null 2>&1 || die "No docker on this host. Install Docker and run this again."
-docker info >/dev/null 2>&1 || die "This user cannot reach the docker daemon. Run this again as root."
+command -v docker >/dev/null 2>&1 || die "Restore not started: Docker is missing. Install Docker and retry."
+docker info >/dev/null 2>&1 || die "Restore not started: the Docker daemon is unavailable to this user. Check Docker and retry as root."
 
 # The project name, which prefixes every volume.
 PROJECT=""
@@ -178,9 +176,9 @@ fi
 kind="$(archive_kind "$ARCHIVE")"
 case "$kind" in
     partial)
-        die "$ARCHIVE is an interrupted backup and holds nothing complete. Run with --list and pick another archive." ;;
+        die "Restore not started: $ARCHIVE is an incomplete backup. Run with --list and select a complete archive." ;;
     mark)
-        die "$ARCHIVE is the mark beside an archive. Name ${ARCHIVE%.unverified} to restore that archive." ;;
+        die "Restore not started: $ARCHIVE is a verification note. Use ${ARCHIVE%.unverified} as the archive name." ;;
     unknown)
         die "$ARCHIVE is not an archive name of this deployment. Name a <volume>-<YYYYMMDDTHHMMSSZ>.tar.zst or nordtal-<stamp>.dump file." ;;
 esac
@@ -204,11 +202,11 @@ if [[ "$kind" == database ]]; then
     # The copy is for reading, so the script applies no roles and grants of the dump.
     docker exec "$container" sh -c \
         "pg_restore -U \"\$POSTGRES_USER\" -d '$target' --no-owner --no-privileges '/backups/$ARCHIVE'" \
-        || warn "pg_restore reported errors, database may be incomplete: database=$target"
+        || warn "database restore reported errors, restored data unverified: database=$target"
 
-    log "database restored beside the live one: database=$target"
-    log "  look inside it:   docker exec -it $container psql -U \"\$POSTGRES_USER\" -d $target"
-    log "  throw it away:    docker exec $container dropdb -U \"\$POSTGRES_USER\" $target"
+    log "database restored separately: database=$target"
+    log "  inspect database:   docker exec -it $container psql -U \"\$POSTGRES_USER\" -d $target"
+    log "  delete restored database:    docker exec $container dropdb -U \"\$POSTGRES_USER\" $target"
     exit 0
 fi
 
@@ -244,7 +242,7 @@ if in_backups "test -f '/backups/$ARCHIVE.unverified'"; then
 fi
 
 printf '\n'
-warn "ABOUT TO REPLACE THE CONTENTS OF A VOLUME."
+warn "This restore will replace all data in the volume."
 warn "  archive:    $ARCHIVE  ($size)"
 warn "  volume:     $VOLUME"
 warn "  restoring:  $TARGET"
@@ -252,33 +250,33 @@ warn "  stopping:   ${running[*]:-nothing is running on it}"
 warn "  everything in it is deleted, and whatever changed since $(stamp_of "$ARCHIVE") is lost."
 if [[ -n "$mark" ]]; then
     printf '\n'
-    warn "  THIS ARCHIVE IS MARKED UNVERIFIED:"
+    warn "  This archive has an unverified stop:"
     while IFS= read -r line; do
         warn "    $line"
     done <<<"$mark"
-    warn "  It is readable. Whether the server had finished saving is not known."
+    warn "  The archive is readable. The server’s final save could not be verified."
 fi
 printf '\n'
 printf 'Type the volume name to confirm: '
 read -r typed
 restore_confirmed "$VOLUME" "$typed" \
-    || die "Not restored: the name typed is not $VOLUME, and nothing was touched. Run this again to restore."
+    || die "Restore cancelled: the entered volume name does not match $VOLUME. Run this script again to restore it."
 
 # The script verifies the archive before it empties the volume. `zstd -t` checks the frames, and the
 # traversal by tar checks that the archive is complete. They are two commands, not one pipeline.
 log "archive check started: file=$ARCHIVE"
 in_backups "zstd -t '/backups/$ARCHIVE'" \
-    || die "$ARCHIVE is truncated or corrupt, and nothing was touched. Run with --list and pick another archive."
+    || die "Restore not started: $ARCHIVE is truncated or corrupt. Run with --list and select another archive."
 in_backups "zstd -dc '/backups/$ARCHIVE' | tar -tf - >/dev/null" \
-    || die "$ARCHIVE holds no complete tar archive, and nothing was touched. Run with --list and pick another archive."
+    || die "Restore not started: $ARCHIVE has no complete tar archive. Run with --list and select another archive."
 
 if (( ${#running[@]} > 0 )); then
-    log "containers stopping: containers=\"${running[*]}\""
+    log "container stop started: containers=\"${running[*]}\""
     docker stop "${running[@]}" >/dev/null
 fi
 
 # `find -mindepth 1 -delete` instead of a glob, which would leave dotfiles behind.
-log "volume replace started: dir=$TARGET file=$ARCHIVE"
+log "volume replacement started: dir=$TARGET file=$ARCHIVE"
 docker run --rm --entrypoint sh \
     -v "$BACKUPS_SOURCE:/backups:ro" \
     -v "$TARGET:/dst" \
@@ -288,7 +286,7 @@ docker run --rm --entrypoint sh \
     || die "Restore failed: $TARGET is emptied and may be partly filled. Do not start the stack on it; run this again with the same archive or an older one."
 
 if (( ${#running[@]} > 0 )); then
-    log "containers starting again: containers=\"${running[*]}\""
+    log "container restart started: containers=\"${running[*]}\""
     docker start "${running[@]}" >/dev/null
 fi
 

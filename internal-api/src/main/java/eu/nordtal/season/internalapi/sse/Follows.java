@@ -139,9 +139,9 @@ public final class Follows implements AutoCloseable {
                 client.sendEvent(event, data);
             });
         } catch (final Gone gone) {
-            log.debug("follow ended, reader gone: follow=\"{}\"", name);
+            log.debug("event stream ended: follow=\"{}\"", name);
         } catch (final IOException e) {
-            log.debug("follow ended: follow=\"{}\"", name, e);
+            log.debug("event stream ended: follow=\"{}\"", name, e);
         } finally {
             sources.remove(source);
             closeQuietly(source, name);
@@ -154,7 +154,7 @@ public final class Follows implements AutoCloseable {
         try {
             return wanted.check().getAsBoolean();
         } catch (final RuntimeException gone) {
-            log.warn("follow not re-checked, follow ended: follow=\"{}\" cause={}", name, gone.getMessage());
+            log.warn("event stream recheck failed: follow=\"{}\" cause={}", name, gone.getMessage());
             return false;
         }
     }
@@ -170,7 +170,7 @@ public final class Follows implements AutoCloseable {
             }
             client.sendComment("following " + name);
         } catch (final RuntimeException e) {
-            log.debug("follow heartbeat not written: follow=\"{}\"", name, e);
+            log.debug("event stream heartbeat not written: follow=\"{}\"", name, e);
         }
     }
 
@@ -194,7 +194,7 @@ public final class Follows implements AutoCloseable {
         try {
             source.close();
         } catch (final IOException e) {
-            log.debug("follow source not closed: follow=\"{}\"", name, e);
+            log.debug("event stream source not closed: follow=\"{}\"", name, e);
         }
     }
 
@@ -210,7 +210,7 @@ public final class Follows implements AutoCloseable {
         try {
             running.awaitAdvanceInterruptibly(running.arrive(), 2, TimeUnit.SECONDS);
         } catch (final TimeoutException e) {
-            log.warn("follow still running at shutdown: seconds=2");
+            log.warn("event stream still running at shutdown: seconds=2");
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
         }

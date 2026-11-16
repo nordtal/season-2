@@ -109,7 +109,11 @@ public final class GuildRoles {
         }
         if (named.size() == 1) {
             store(wanted.key(), named.getFirst());
-            log.info("role taken over: role=\"{}\" role_id={} key={}", wanted.name(), named.getFirst(), wanted.key());
+            log.info(
+                    "existing role adopted: role=\"{}\" role_id={} key={}",
+                    wanted.name(),
+                    named.getFirst(),
+                    wanted.key());
             return;
         }
         final String created;

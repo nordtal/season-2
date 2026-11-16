@@ -38,7 +38,7 @@ class LinkFlowTest {
                 () -> assertEquals("link-modal", modal.getId()),
                 () -> assertEquals("Code", label.getLabel()),
                 () -> assertEquals(
-                        "The code from the login screen",
+                        "Code shown when you join",
                         label.getChild().asTextInput().getPlaceHolder()));
     }
 }

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>Loot is restocked at all reachable points.</good>",
-            "de": "<good>Die Beute ist an allen erreichbaren Punkten aufgefüllt.</good>"
+            "en": "<good>Loot refilled at all reachable locations.</good>",
+            "de": "<good>Die Beute wurde an allen erreichbaren Stellen aufgefüllt.</good>"
           }
         }
       ]

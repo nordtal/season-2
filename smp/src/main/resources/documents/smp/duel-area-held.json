@@ -6,15 +6,15 @@
         {
           "when": "fighting",
           "text": {
-            "en": "<warn>The negotiation area is taken: a duel is under way.</warn>",
-            "de": "<warn>Die Verhandlungsfläche ist belegt: Dort läuft ein Duell.</warn>"
+            "en": "<warn>A duel is already running here.</warn>",
+            "de": "<warn>Hier läuft bereits ein Duell.</warn>"
           }
         },
         {
           "when": "!fighting",
           "text": {
-            "en": "<warn>The negotiation area is taken: two players are picking kits.</warn>",
-            "de": "<warn>Die Verhandlungsfläche ist belegt: Zwei Spieler wählen gerade ihre Kits.</warn>"
+            "en": "<warn>Two players are choosing their duel kits here.</warn>",
+            "de": "<warn>Hier wählen zwei Spieler ihre Duell-Kits.</warn>"
           }
         }
       ]

@@ -283,7 +283,7 @@ public final class UpdateFeed {
                 follow(request);
             }
         } catch (final RuntimeException failure) {
-            log.error("update history unreadable, feed started from last seen: last_seen={}", lastSeen, failure);
+            log.error("update history unreadable, feed resumed from checkpoint: last_seen={}", lastSeen, failure);
         }
     }
 
@@ -299,7 +299,7 @@ public final class UpdateFeed {
                 }
             }
         } catch (final RuntimeException failure) {
-            log.warn("kept run cards unreadable, only the catch-up window is redrawn", failure);
+            log.warn("stored run cards unreadable, redraw limited to catch-up window", failure);
         }
         return finished;
     }
@@ -446,7 +446,7 @@ public final class UpdateFeed {
         try {
             cards.settle(run);
         } catch (final RuntimeException failure) {
-            log.warn("run card not marked as drawn to its end: run={}", run, failure);
+            log.warn("run card completion not recorded: run={}", run, failure);
         }
     }
 

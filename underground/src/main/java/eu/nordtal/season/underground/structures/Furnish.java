@@ -65,7 +65,7 @@ public final class Furnish {
 
         @Override
         public String toString() {
-            final StringBuilder text = new StringBuilder("regionFiles=" + regionFiles + " entityFiles=" + entityFiles
+            final StringBuilder text = new StringBuilder("region_files=" + regionFiles + " entity_files=" + entityFiles
                     + " outposts=" + outposts + " villages=" + villages + " chests=" + chests + " allays=" + allays
                     + " missing=" + missing + " suspicious="
                     + suspicious.values().stream().mapToInt(Integer::intValue).sum());

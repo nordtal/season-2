@@ -26,9 +26,25 @@ class RepliesTest {
     }
 
     @Test
+    void invitationFailuresNameTheFailedActionInBothLanguages() {
+        assertEquals(
+                "Your invitation could not be sent.\nTry again in a few minutes.",
+                RENDERER.reply(Locale.ENGLISH, Replies.INVITE_FAILED).text());
+        assertEquals(
+                "Deine Einladung konnte nicht gesendet werden.\nVersuch es in ein paar Minuten noch einmal.",
+                RENDERER.reply(Locale.GERMAN, Replies.INVITE_FAILED).text());
+        assertEquals(
+                "Your response to the invitation could not be confirmed.\nTry again in a few minutes.",
+                RENDERER.reply(Locale.ENGLISH, Replies.INVITE_ANSWER_FAILED).text());
+        assertEquals(
+                "Deine Antwort auf die Einladung konnte nicht bestätigt werden.\nVersuch es in ein paar Minuten noch einmal.",
+                RENDERER.reply(Locale.GERMAN, Replies.INVITE_ANSWER_FAILED).text());
+    }
+
+    @Test
     void aReplyIsFilledWithItsValues() {
         assertEquals(
-                "The payment link is still missing.\nSend your reference **NTABC123** to an admin.",
+                "Your payment link is taking longer than expected.\nSend your reference **NTABC123** to an admin.",
                 RENDERER.reply(Locale.ENGLISH, new Sent<>(Replies.PURCHASE_SLOW, new Replies.Reference("NTABC123")))
                         .text());
     }

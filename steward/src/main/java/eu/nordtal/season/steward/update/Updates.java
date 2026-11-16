@@ -111,7 +111,7 @@ public final class Updates {
             throw new BadRequestResponse(named.getMessage());
         }
         log.info(
-                "run submitted: actor={} kind={} request={} services=\"{}\"",
+                "run submitted: actor=\"{}\" kind={} request={} services=\"{}\"",
                 who.name(),
                 kind,
                 written.id(),
@@ -141,7 +141,7 @@ public final class Updates {
                 new JournalDetail.RunCancelled(
                         cancelled.get().id(), cancelled.get().kind()));
         log.info(
-                "run cancelled: actor={} kind={} request={}",
+                "run cancelled: actor=\"{}\" kind={} request={}",
                 who.name(),
                 cancelled.get().kind(),
                 cancelled.get().id());

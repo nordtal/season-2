@@ -78,12 +78,12 @@ class StatusNameTest {
 
     @Test
     void noDateAtAllSaysSoRatherThanCountingFromNothing() {
-        assertEquals("Launch date to come", render(CLOSED));
+        assertEquals("Start date not announced", render(CLOSED));
     }
 
     @Test
     void aClosedSeasonInMaintenanceStillShowsTheClosedSeason() {
-        assertEquals("Launch date to come", render(CLOSED.withMaintenance(true)));
+        assertEquals("Start date not announced", render(CLOSED.withMaintenance(true)));
         assertEquals("Opens in 2 d 0 h", render(CLOSED.withMaintenance(true).withLaunch(NOW.plus(Duration.ofDays(2)))));
     }
 
@@ -115,9 +115,9 @@ class StatusNameTest {
     void theSmpShowsRegisteredPlayersDeliberatelyNotTheMilestone() {
         // Chosen over the milestone percentage, which moves faster than the rename budget.
         final SeasonState smp = LAUNCHED.withMode(SeasonMode.SMP);
-        assertEquals("31 players", render(smp));
+        assertEquals("Joined so far: 31 players", render(smp));
         assertEquals(
-                "1,200 players",
+                "Joined so far: 1,200 players",
                 StatusName.render(
                         MESSAGES,
                         Locale.ENGLISH,
@@ -153,10 +153,10 @@ class StatusNameTest {
                 .toList();
         assertEquals(
                 List.of(
-                        "Starttermin folgt",
+                        "Starttermin noch offen",
                         "Start in 2 d 0 h",
                         "Wartung",
-                        "31 Spieler",
+                        "Bisher beigetreten: 31 Spieler",
                         "3 Teams übrig, 7 Teilnehmer am Leben"),
                 german);
     }

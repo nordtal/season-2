@@ -8,8 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "Too many wrong codes.",
-                "de": "Zu viele falsche Codes."
+                "en": "Too many incorrect codes entered.",
+                "de": "Du hast zu viele ungültige Codes eingegeben."
               }
             },
             {

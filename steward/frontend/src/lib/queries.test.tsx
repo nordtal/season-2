@@ -155,7 +155,7 @@ describe("useCommandRun - when the reconciliation stops", () => {
     const { result } = renderHook(() => useCommandRun("7"), { wrapper: wrap(queryClient) })
     await waitFor(() => expect(stateOf(queryClient, keys.commandRun("7")).data).toBeDefined())
 
-    fetched.mockImplementation(async () => answer(502, { error: "Docker is not answering.", where: "docker" }))
+    fetched.mockImplementation(async () => answer(502, { error: "Docker is not responding.", where: "docker" }))
     await result.current.refetch()
     await waitFor(() => expect(stateOf(queryClient, keys.commandRun("7")).error).toBeInstanceOf(ApiError))
 

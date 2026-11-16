@@ -109,7 +109,8 @@ public final class AccessRoles {
                                         active,
                                         withholding.withholds(member),
                                         member.getRoles().contains(role))),
-                        failure -> log.debug("member not in guild, access role not set: member={}", discordId));
+                        failure -> log.debug(
+                                "member absent from discord server, access role not set: member={}", discordId));
     }
 
     public void grantDonorRole(final DiscordId discordId) {
@@ -340,7 +341,7 @@ public final class AccessRoles {
     private @Nullable Role role(final Guild guild, final String key) {
         final Role role = roles.role(guild, key).orElse(null);
         if (role == null) {
-            log.warn("role not found, nothing changed: key={}", key);
+            log.warn("role missing, change skipped: key={}", key);
         }
         return role;
     }
@@ -386,7 +387,7 @@ public final class AccessRoles {
     private Guild guild() {
         final Guild guild = jda.getGuildById(config.guildId());
         if (guild == null) {
-            log.error("guild not available: guild={}", config.guildId());
+            log.error("discord server unavailable: guild={}", config.guildId());
         }
         return guild;
     }

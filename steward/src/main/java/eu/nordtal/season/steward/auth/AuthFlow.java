@@ -89,7 +89,7 @@ public final class AuthFlow {
         // An empty admin tree lets only the {@code discord.root-id} account claim root.
         final String signingIn = who.id();
         if (!(admins.isAdmin(DiscordId.of(signingIn)) || claimRoot(who))) {
-            log.info("sign-in refused, not an admin: actor={} member={}", who.name(), signingIn);
+            log.info("sign-in refused, not an admin: actor=\"{}\" member={}", who.name(), signingIn);
             throw new RequestRefused(403, ANSWER.notAnAdmin(who.name()));
         }
         // A new session id prevents session fixation.
@@ -103,7 +103,7 @@ public final class AuthFlow {
         if (!who.id().equals(config.discord().rootId().strip()) || !admins.claimRootIfNobody(DiscordId.of(who.id()))) {
             return false;
         }
-        log.warn("admin root claimed: actor={} member={}", who.name(), who.id());
+        log.warn("root admin access claimed: actor=\"{}\" member={}", who.name(), who.id());
         data.audit().record(AuditLine.about(JournalAction.ADMIN_ROOT, who.actor(), DiscordId.of(who.id()), null));
         return true;
     }

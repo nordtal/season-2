@@ -5,7 +5,7 @@
       "lines": [
         {
           "text": {
-            "en": "<good><emphasis>{@values.service}</emphasis> is back.</good> <muted>You join it now.</muted>",
+            "en": "<good><emphasis>{@values.service}</emphasis> is back.</good> <muted>Connecting you now …</muted>",
             "de": "<good><emphasis>{@values.service}</emphasis> ist wieder da.</good> <muted>Du kommst jetzt zurück.</muted>"
           }
         }

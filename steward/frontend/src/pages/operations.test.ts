@@ -90,7 +90,10 @@ describe("summaryOf - what a run did, counted", () => {
       step({ step: "START", service: "proxy", outcome: "FAILED" }),
     ]
 
-    expect(summaryOf(row({ status: "DONE", stage: "FAILED", steps }))).toEqual(["2 services, 3 artefacts", "1 failed"])
+    expect(summaryOf(row({ status: "DONE", stage: "FAILED", steps }))).toEqual([
+      "2 services, 3 artefacts",
+      "1 step failed",
+    ])
   })
 
   it("counts one archive per finished save step, also for a run from before the catalogue", () => {
@@ -100,11 +103,14 @@ describe("summaryOf - what a run did, counted", () => {
       step({ step: "SAVE_VOLUME", service: "limbo", outcome: "FAILED" }),
     ]
 
-    expect(summaryOf(row({ kind: "BACKUP", status: "DONE", stage: "DONE", steps }))).toEqual(["2 saved", "1 failed"])
+    expect(summaryOf(row({ kind: "BACKUP", status: "DONE", stage: "DONE", steps }))).toEqual([
+      "2 archives saved",
+      "1 step failed",
+    ])
   })
 
   it("says nothing was written before the first step, and no change once steps moved nothing", () => {
-    expect(summaryOf(row())).toEqual(["nothing written yet"])
+    expect(summaryOf(row())).toEqual(["No output yet"])
     expect(summaryOf(row({ status: "DONE", stage: "DONE", steps: [step({ step: "STOP" })] }))).toEqual(["no change"])
   })
 })

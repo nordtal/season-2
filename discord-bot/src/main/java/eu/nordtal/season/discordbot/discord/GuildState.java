@@ -68,7 +68,7 @@ public final class GuildState extends ListenerAdapter {
         access.clearGuildProfile(DiscordId.of(event.getUser().getId()));
         if (access.unlink(DiscordId.of(event.getUser().getId()))) {
             log.info(
-                    "member left guild, account link removed: member={}",
+                    "member left discord server, account unlinked: member={}",
                     event.getUser().getId());
         }
     }
@@ -99,7 +99,7 @@ public final class GuildState extends ListenerAdapter {
     public void reconcile() {
         final Guild guild = jda.getGuildById(config.guildId());
         if (guild == null) {
-            log.error("guild not available, guild state not reconciled: guild={}", config.guildId());
+            log.error("discord server unavailable, discord server state not reconciled: guild={}", config.guildId());
             return;
         }
 
@@ -114,13 +114,13 @@ public final class GuildState extends ListenerAdapter {
         final Removal removal = dropStaleAccounts(sweep.seen(), mayUnlink);
 
         log.info(
-                "guild state reconciled: members={} left={} unlinked={}",
+                "discord server state reconciled: members={} left={} unlinked={}",
                 sweep.seen().size(),
                 removal.left(),
                 removal.unlinked());
         if (!mayUnlink && removal.left() > 0) {
             log.warn(
-                    "member list incomplete, links and admin grants of left accounts kept:"
+                    "member list incomplete, departed accounts unchanged:"
                             + " left={} cached={} expected={} ban_list_read={}",
                     removal.left(),
                     sweep.cached(),
@@ -202,7 +202,10 @@ public final class GuildState extends ListenerAdapter {
         final java.util.Set<String> dropped = admins.dropWithBranch(discordId);
         if (!dropped.isEmpty()) {
             log.info(
-                    "admins dropped with member: member={} count={} admins=\"{}\"", discordId, dropped.size(), dropped);
+                    "admin access revoked for departed member: member={} count={} admins=\"{}\"",
+                    discordId,
+                    dropped.size(),
+                    dropped);
         }
     }
 

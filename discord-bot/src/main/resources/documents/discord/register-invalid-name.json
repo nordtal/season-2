@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "A {@terms.team, n=1} name has 3 to 15 characters.",
-            "de": "Ein Teamname hat 3 bis 15 Zeichen."
+            "en": "Enter a {@terms.team, n=1} name with 3 to 15 characters.",
+            "de": "Gib einen Teamnamen mit 3 bis 15 Zeichen ein."
           }
         }
       ]

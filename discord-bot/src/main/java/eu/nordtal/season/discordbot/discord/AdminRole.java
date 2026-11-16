@@ -51,7 +51,7 @@ public final class AdminRole {
     public void reconcile() {
         final Guild guild = jda.getGuildById(config.guildId());
         if (guild == null) {
-            log.error("guild not available, admin role not reconciled: guild={}", config.guildId());
+            log.error("discord server unavailable, admin role not reconciled: guild={}", config.guildId());
             return;
         }
         final Role role = roles.role(guild, GuildRoles.ADMIN).orElse(null);
@@ -90,7 +90,7 @@ public final class AdminRole {
 
     private void failed(final DiscordId discordId, final boolean given, final Throwable failure) {
         if (!alerts.raise(discordId.value(), GuildRoles.notChanged(DiscordRole.ADMIN, given, discordId, failure))) {
-            log.debug("admin role still not changed: member={} cause={}", discordId, failure.getMessage());
+            log.debug("admin role change failed: member={} cause={}", discordId, failure.getMessage());
         }
     }
 }

@@ -23,15 +23,15 @@ const inAnHour = () => new Date(Date.now() + 60 * 60 * 1000).toISOString()
 describe("StepUpHolding", () => {
   it("is drawn only while a step-up holds", () => {
     show(undefined)
-    expect(screen.queryByRole("button", { name: "End now" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Require confirmation again" })).toBeNull()
     cleanup()
 
     show(new Date(Date.now() - 1000).toISOString())
-    expect(screen.queryByRole("button", { name: "End now" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Require confirmation again" })).toBeNull()
     cleanup()
 
     show(inAnHour())
-    expect(screen.getByText(/^Every change allowed until /)).toBeTruthy()
+    expect(screen.getByText(/^Changes allowed until /)).toBeTruthy()
   })
 
   it("ends the step-up with one DELETE", async () => {
@@ -42,7 +42,7 @@ describe("StepUpHolding", () => {
     })
     show(inAnHour())
 
-    fireEvent.click(screen.getByRole("button", { name: "End now" }))
+    fireEvent.click(screen.getByRole("button", { name: "Require confirmation again" }))
 
     await waitFor(() => expect(calls).toContainEqual({ url: "/api/step-up", method: "DELETE" }))
   })

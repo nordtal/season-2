@@ -8,8 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "Your current settings",
-                "de": "Deine aktuellen Einstellungen"
+                "en": "Your settings",
+                "de": "Deine Einstellungen"
               },
               "style": "TITLE"
             }

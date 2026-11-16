@@ -5,7 +5,7 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>Every {@terms.milestone, n=1} is finished.</muted>",
+            "en": "<muted>All {@terms.milestone, n=2} completed.</muted>",
             "de": "<muted>Alle {@terms.milestone, n=2} sind geschafft.</muted>"
           }
         }

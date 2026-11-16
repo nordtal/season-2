@@ -420,7 +420,7 @@ describe("AccessPage - the actions of a row depend on that row", () => {
     const bob = await rowFor("bob")
     expect(within(ally).getByRole("button", { name: /^Actions for/ })).toBeTruthy()
     expect(within(bob).getByRole("button", { name: /^Actions for/ })).toBeTruthy()
-    expect(within(bob).queryByRole("button", { name: "Grant" })).toBeNull()
+    expect(within(bob).queryByRole("button", { name: "Grant access" })).toBeNull()
   })
 
   it("lays every phone card out in three lines: the person, access, and the three figures", async () => {
@@ -521,9 +521,9 @@ describe("AccessPage - access changes are asked of the bot", () => {
 
     const dialog = await openGrant()
     fireEvent.change(within(dialog).getByLabelText("Days"), { target: { value: "366" } })
-    expect(asButton(within(dialog).getByRole("button", { name: "Grant" })).disabled).toBe(true)
+    expect(asButton(within(dialog).getByRole("button", { name: "Grant access" })).disabled).toBe(true)
     fireEvent.change(within(dialog).getByLabelText("Days"), { target: { value: "365" } })
-    expect(asButton(within(dialog).getByRole("button", { name: "Grant" })).disabled).toBe(false)
+    expect(asButton(within(dialog).getByRole("button", { name: "Grant access" })).disabled).toBe(false)
   })
 
   it("sends the grant to the bot's inbox and waits for its answer", async () => {
@@ -539,7 +539,7 @@ describe("AccessPage - access changes are asked of the bot", () => {
     draw(<AccessPage />)
 
     const dialog = await openGrant()
-    fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grant access" }))
 
     await waitFor(() => expect(success).toHaveBeenCalled())
     const call = fetched.mock.calls.find(([url]) => url === "/api/access/grant")!
@@ -564,22 +564,24 @@ describe("AccessPage - access changes are asked of the bot", () => {
     draw(<AccessPage />)
 
     const dialog = await openGrant()
-    fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grant access" }))
 
     const alert = await within(dialog).findByRole("alert")
-    expect(alert.textContent).toContain("discord-bot failed to do this.")
+    expect(alert.textContent).toContain("discord-bot could not complete the action.")
     expect(alert.textContent).not.toContain("ApiError")
     expect(dialog.isConnected).toBe(true)
   })
 
-  it("keeps the dialog open and says in it that nothing changed when the bot never picked the request up", async () => {
+  it("keeps the dialog open and names the timeout when the bot never picked the request up", async () => {
     vi.stubGlobal("fetch", backend({ answer: () => ({ id: "bot:grant", status: "EXPIRED" }) }))
     draw(<AccessPage />)
 
     const dialog = await openGrant()
-    fireEvent.click(within(dialog).getByRole("button", { name: "Grant" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grant access" }))
 
-    expect((await within(dialog).findByRole("alert")).textContent).toContain("Nothing changed")
+    expect((await within(dialog).findByRole("alert")).textContent).toContain(
+      "discord-bot did not respond within two minutes.",
+    )
   })
 })
 
@@ -610,23 +612,23 @@ describe("AccessPage - the admin tree", () => {
   it("offers Make admin on a member who is none, and never on somebody who left", async () => {
     vi.stubGlobal("fetch", backend({ people: () => TREE }))
     draw(<AccessPage />)
-    expect(await actionsOf("plain")).toContain("Make admin")
+    expect(await actionsOf("plain")).toContain("Grant admin access")
     cleanup()
     draw(<AccessPage />)
-    expect(await actionsOf("gone")).not.toContain("Make admin")
+    expect(await actionsOf("gone")).not.toContain("Grant admin access")
   })
 
   it("offers Revoke admin below the one signed in, the whole way down", async () => {
     vi.stubGlobal("fetch", backend({ people: () => TREE }))
     draw(<AccessPage />)
-    await waitFor(async () => expect(await actionsOf("theirs")).toContain("Revoke admin"))
+    await waitFor(async () => expect(await actionsOf("theirs")).toContain("Revoke admin access"))
   })
 
   it("never offers Revoke admin on the one signed in", async () => {
     vi.stubGlobal("fetch", backend({ people: () => TREE }))
     draw(<AccessPage />)
     await screen.findAllByText("mine")
-    expect(await actionsOf("me")).not.toContain("Revoke admin")
+    expect(await actionsOf("me")).not.toContain("Revoke admin access")
   })
 
   it("sends the row's own Discord id to the grant", async () => {
@@ -637,9 +639,9 @@ describe("AccessPage - the admin tree", () => {
     const row = await rowFor("plain")
     const trigger = within(row).queryByRole("button", { name: /^Actions for/ })
     const scope = trigger ? (fireEvent.click(trigger), await screen.findByRole("dialog")) : row
-    fireEvent.click(within(scope).getByRole("button", { name: /make admin/i }))
+    fireEvent.click(within(scope).getByRole("button", { name: /grant admin access/i }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Make admin" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Grant admin access" }))
 
     await waitFor(() => {
       expect(fetched.mock.calls.find(([url]) => url === "/api/admins/grant")).toBeTruthy()

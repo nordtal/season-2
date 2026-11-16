@@ -77,12 +77,12 @@ describe("the previews", () => {
     expect(screen.getByText("9/2000")).toBeTruthy()
 
     const chat = screen.getByRole("figure", { name: "Chat" })
-    const show = within(chat).getByRole("button", { name: "Show it to my player in game" })
+    const show = within(chat).getByRole("button", { name: "Show in game to my player" })
     fireEvent.click(show)
     await waitFor(() => expect(within(show).getByRole("status").textContent).toBe("Done"))
     fireEvent.click(
       within(screen.getByRole("figure", { name: "Discord message" })).getByRole("button", {
-        name: "Send it to me in Discord",
+        name: "Send to me in Discord",
       }),
     )
 
@@ -131,7 +131,7 @@ describe("the previews", () => {
 
     fireEvent.click(
       within(await screen.findByRole("figure", { name: "Chat" })).getByRole("button", {
-        name: "Show it to my player in game",
+        name: "Show in game to my player",
       }),
     )
 
@@ -242,7 +242,7 @@ describe("the previews", () => {
 
     expect(await within(item).findByText("The network")).toBeTruthy()
     expect(screen.queryByText("restart.what.network")).toBeNull()
-    const show = screen.getByRole("button", { name: "Show it to my player in game" })
+    const show = screen.getByRole("button", { name: "Show in game to my player" })
     fireEvent.click(show)
 
     await waitFor(() => expect(within(show).getByRole("status").textContent).toBe("Done"))

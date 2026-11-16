@@ -13,23 +13,24 @@ public final class Dev {
 
     /** The text that {@code help} prints. {@code DevTest} checks that every command of {@link #run} has a line here. */
     static final String HELP = """
-            The local season 2 network, on locally built jars.
+            Run the local season 2 network from source.
+            Plugin modules: proxy, limbo, hunger-games, smp. Run ps to see service names.
 
-              init                 write deploy/dev.env: four secrets generated, the few things only a
-                                   person knows asked for in the installer's own words
-              up                   build everything, then bring the stack up
-              deploy [module...]   rebuild those modules and restart their servers (default: all four)
-                                   (a jar swap. After editing deploy/dev.env, run up instead: a restart
-                                    reuses the container and its environment with it)
-              ui                   the interface: the stack in the background, Vite in front
-                                   (http://localhost:5173. Stopping it leaves the containers up)
-              logs [service]       follow the logs
-              console <service>    the server's log, and every line typed sent as a console command
-              mc <service> <cmd>   send one console command
-              psql                 a psql shell on the local database
-              ps | stop | down     the usual
-              reset <service>      throw away one server's WORLD volume, after the name is typed back
-              help                 this list
+              init                 create deploy/dev.env, generate secrets and ask for missing settings
+              up                   build images and start the stack
+              deploy [module...]   rebuild plugin modules and restart their services (default: all four)
+                                   Run up after editing deploy/dev.env to apply the new environment.
+              ui                   start Steward and Vite at http://localhost:5173
+                                   Containers keep running when Vite stops.
+              logs [service]       follow service logs
+              console <service>    read logs and send console commands
+              mc <service> <cmd>   send one Minecraft console command
+              psql                 open a PostgreSQL shell
+              ps                   list containers
+              stop                 stop services
+              down                 remove stack containers and networks
+              reset <service>      delete the service container and world volume after name confirmation
+              help                 show commands
             """;
 
     private Dev() {}

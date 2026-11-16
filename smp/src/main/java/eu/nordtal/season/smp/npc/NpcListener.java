@@ -165,7 +165,7 @@ public final class NpcListener implements Listener {
             if (paid < accepted) {
                 // An offline player cannot receive the items.
                 plugin.getLogger()
-                        .severe("hand-in player gone, items not returned: player=" + player.getName() + " key="
+                        .severe("hand-in player offline, items not returned: player=" + player.getName() + " key="
                                 + objectiveKey + " credited=" + Math.max(0L, paid) + " accepted=" + accepted
                                 + " items=\"" + describe(taken) + "\"");
             }

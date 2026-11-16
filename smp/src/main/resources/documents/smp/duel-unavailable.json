@@ -6,15 +6,15 @@
         {
           "when": "reason=arena-busy",
           "text": {
-            "en": "<warn>No duel possible: another duel is under way.</warn>",
-            "de": "<warn>Kein Duell möglich: Es läuft schon ein Duell.</warn>"
+            "en": "<warn>Another duel is already running.</warn>",
+            "de": "<warn>Es läuft bereits ein anderes Duell.</warn>"
           }
         },
         {
           "when": "reason=arena-not-ready",
           "text": {
-            "en": "<warn>No duel possible: the arena is not ready.</warn>",
-            "de": "<warn>Kein Duell möglich: Die Arena ist nicht bereit.</warn>"
+            "en": "<warn>The duel arena is not ready.</warn>",
+            "de": "<warn>Die Duell-Arena ist noch nicht bereit.</warn>"
           }
         }
       ]

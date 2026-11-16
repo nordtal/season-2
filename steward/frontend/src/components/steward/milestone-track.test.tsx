@@ -218,11 +218,11 @@ describe("SmpActions", () => {
     expect(within(popover).getByText("Spruce Log")).toBeTruthy()
     expect(within(popover).getByText("minecraft:gone")).toBeTruthy()
     expect(within(popover).getByText("gathering")).toBeTruthy()
-    fireEvent.click(within(popover).getByRole("button", { name: "Complete" }))
+    fireEvent.click(within(popover).getByRole("button", { name: "Complete objective" }))
 
     const dialog = await screen.findByRole("alertdialog")
     expect(sent).toHaveLength(0)
-    fireEvent.click(within(dialog).getByRole("button", { name: "Complete" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Complete objective" }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/objective", body: { key: "logs" } }]))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
@@ -236,7 +236,7 @@ describe("SmpActions", () => {
     expect(within(popover).getByText("Border diameter")).toBeTruthy()
     expect(within(popover).getByText("9,900")).toBeTruthy()
     expect(within(popover).getByText("BORDER")).toBeTruthy()
-    expect(within(popover).getByText("1 of 2 tasks")).toBeTruthy()
+    expect(within(popover).getByText("1 of 2 objectives")).toBeTruthy()
   })
 
   it("offers nothing to do on a finished task or one of a locked milestone", async () => {
@@ -244,12 +244,12 @@ describe("SmpActions", () => {
     draw(<SmpActions />)
 
     fireEvent.click(await screen.findByRole("button", { name: "Coal ore" }))
-    expect(within(await screen.findByRole("dialog")).queryByRole("button", { name: "Complete" })).toBeNull()
+    expect(within(await screen.findByRole("dialog")).queryByRole("button", { name: "Complete objective" })).toBeNull()
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" })
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
 
     fireEvent.click(screen.getByRole("button", { name: "Obsidian" }))
-    expect(within(await screen.findByRole("dialog")).queryByRole("button", { name: "Complete" })).toBeNull()
+    expect(within(await screen.findByRole("dialog")).queryByRole("button", { name: "Complete objective" })).toBeNull()
   })
 
   it("unlocks the active milestone and no other", async () => {
@@ -257,10 +257,10 @@ describe("SmpActions", () => {
     draw(<SmpActions />)
 
     await screen.findByRole("listitem", { name: "Foothold" })
-    expect(screen.getAllByRole("button", { name: "Unlock" })).toHaveLength(1)
-    fireEvent.click(screen.getByRole("button", { name: "Unlock" }))
+    expect(screen.getAllByRole("button", { name: "Unlock milestone" })).toHaveLength(1)
+    fireEvent.click(screen.getByRole("button", { name: "Unlock milestone" }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Unlock" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Unlock milestone" }))
 
     await waitFor(() => expect(sent).toEqual([{ url: "/api/smp/milestone", body: { key: "foothold" } }]))
   })
@@ -273,7 +273,7 @@ describe("SmpActions", () => {
     const dialog = await screen.findByRole("alertdialog")
     expect(
       within(dialog).getByText(
-        /Every contribution, the progress of every objective and every unlocked milestone are lost, while aura stays\.$/,
+        /All contributions, progress for all objectives and unlocked milestones are lost\. Aura is kept\.$/,
       ),
     ).toBeTruthy()
     expect(sent).toHaveLength(0)
@@ -286,15 +286,15 @@ describe("SmpActions", () => {
       expect(sent).toEqual([{ url: "/api/smp/track/reset", body: { reason: "the test weekend is over" } }]),
     )
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
-    expect(await screen.findByText(/The SMP starts the track over as soon as it runs/)).toBeTruthy()
+    expect(await screen.findByText(/The SMP will reset the track when it next runs/)).toBeTruthy()
   })
 
   it("reads a pending reset again soon, as the SMP's own signal does not reach the live stream", async () => {
     backend({ tracks: [{ ...TRACK, resetPending: true }, TRACK] })
     draw(<SmpActions />)
 
-    expect(await screen.findByText(/as soon as it runs/)).toBeTruthy()
-    await waitFor(() => expect(screen.queryByText(/as soon as it runs/)).toBeNull(), { timeout: 4000 })
+    expect(await screen.findByText(/when it next runs/)).toBeTruthy()
+    await waitFor(() => expect(screen.queryByText(/when it next runs/)).toBeNull(), { timeout: 4000 })
   })
 
   it("forgets a cancelled reason", async () => {
@@ -318,10 +318,10 @@ describe("SmpActions", () => {
     backend({ row: { status: "EXPIRED" } })
     draw(<SmpActions />)
 
-    fireEvent.click(await screen.findByRole("button", { name: "Unlock" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Unlock milestone" }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Unlock" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Unlock milestone" }))
 
-    expect(await within(dialog).findByText(/smp did not answer within two minutes/)).toBeTruthy()
+    expect(await within(dialog).findByText(/smp did not respond within two minutes/)).toBeTruthy()
   })
 })

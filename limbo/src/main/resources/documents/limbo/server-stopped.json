@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<accent>The server is stopped</accent>",
-            "de": "<accent>Der Server ist gestoppt</accent>"
+            "en": "<accent>The server is offline</accent>",
+            "de": "<accent>Der Server ist offline</accent>"
           }
         },
         {

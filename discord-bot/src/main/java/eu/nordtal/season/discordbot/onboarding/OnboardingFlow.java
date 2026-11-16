@@ -142,7 +142,7 @@ public final class OnboardingFlow extends ListenerAdapter {
                             .edit())
                     .queue();
         } catch (final RuntimeException failure) {
-            log.warn("country settings failed: member={} cause={}", observed.getId(), failure.toString());
+            log.warn("country settings update failed: member={} cause={}", observed.getId(), failure.toString());
             hook.editOriginal(documents.reply(reads, Replies.ONBOARDING_FAILED).edit())
                     .queue();
         }

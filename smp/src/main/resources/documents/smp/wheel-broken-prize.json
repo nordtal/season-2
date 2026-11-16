@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>The wheel chose an unknown prize.</bad> <muted>Tell an admin.</muted>",
-            "de": "<bad>Das Rad hat einen unbekannten Preis gewählt.</bad> <muted>Sag einem Admin Bescheid.</muted>"
+            "en": "<bad>Your wheel prize could not be awarded.</bad> <muted>Tell an admin.</muted>",
+            "de": "<bad>Dein Gewinn am Rad konnte nicht vergeben werden.</bad> <muted>Sag einem Admin Bescheid.</muted>"
           }
         }
       ]

@@ -105,7 +105,7 @@ describe("PersonIdentity - opened, the popover is the one place to copy from", (
 
     fireEvent.click(screen.getByRole("button"))
 
-    await screen.findByText(/no minecraft account linked/i)
+    await screen.findByText(/No linked Minecraft account/i)
     expect(screen.queryByLabelText("Minecraft UUID")).toBeNull()
   })
 
@@ -170,7 +170,7 @@ describe("PersonIdentity - the way to the person's page", () => {
 
     fireEvent.click(await screen.findByRole("button"))
 
-    const link = await screen.findByRole("link", { name: "Open their page" })
+    const link = await screen.findByRole("link", { name: "Open user profile" })
     expect(link.getAttribute("href")).toBe(`/access/${DISCORD_ID}`)
   })
 
@@ -179,7 +179,7 @@ describe("PersonIdentity - the way to the person's page", () => {
 
     fireEvent.click(await screen.findByRole("button"))
 
-    await screen.findByText(/no discord account on record/i)
+    await screen.findByText(/No Discord account available/i)
     expect(screen.queryByRole("link")).toBeNull()
   })
 
@@ -224,12 +224,12 @@ describe("PersonIdentity - nothing half-written, and no mark nobody can see", ()
     expect(document.querySelector("[title*='Not confirmed']")).toBeNull()
   })
 
-  it("still says so when there is genuinely nothing on record - that is a sentence, not a stub", () => {
+  it("names a missing Discord name without claiming that the person is absent from the server", () => {
     render(<PersonIdentity discordId={DISCORD_ID} />)
     fireEvent.click(screen.getByRole("button"))
 
     expect(screen.getAllByText("Discord name unknown").length).toBeGreaterThan(0)
-    expect(screen.getByText(/not seen on the discord server/i)).toBeTruthy()
+    expect(screen.queryByText(/Not found on the Discord server/i)).toBeNull()
   })
 })
 

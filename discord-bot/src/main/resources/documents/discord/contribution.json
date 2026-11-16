@@ -57,14 +57,14 @@
           "lines": [
             {
               "text": {
-                "en": "Buying again extends your {@terms.access}.",
-                "de": "Ein weiterer Kauf verlängert deinen {@terms.access}."
+                "en": "Further purchases extend your existing {@terms.access}.",
+                "de": "Jeder weitere Kauf verlängert deinen bestehenden {@terms.access}."
               }
             },
             {
               "text": {
-                "en": "A donation of {amount} added to your purchase gives you the permanent donor role.",
-                "de": "Eine Spende von {amount} zu deinem Kauf gibt dir die dauerhafte Spenderrolle."
+                "en": "With an added {amount} donation, you get the permanent donor role.",
+                "de": "Mit einer zusätzlichen Spende von {amount} bekommst du die dauerhafte Spenderrolle."
               }
             }
           ]

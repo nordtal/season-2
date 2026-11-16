@@ -101,7 +101,7 @@ describe("a field checked by the rules its setting declares", () => {
       fireEvent.change(field, { target: { value } })
       expect(screen.getByText("Takes a whole number, such as 12.")).toBeTruthy()
       expect(screen.queryByText(/^Port must/)).toBeNull()
-      expect(screen.getByText("One field holds a value it cannot take.")).toBeTruthy()
+      expect(screen.getByText("One field contains an invalid value.")).toBeTruthy()
     }
   })
 
@@ -140,7 +140,7 @@ describe("a field checked by the rules its setting declares", () => {
 
     expect(second.getAttribute("aria-invalid")).toBe("true")
     expect(second.id).toBe("tiers.1.days")
-    expect(screen.getByText("Days holds 30 twice.")).toBeTruthy()
+    expect(screen.getByText("Days contains 30 more than once.")).toBeTruthy()
     expect(container.querySelector("#tiers\\.0\\.days")?.getAttribute("aria-invalid")).toBe("false")
 
     fireEvent.change(second, { target: { value: "0" } })

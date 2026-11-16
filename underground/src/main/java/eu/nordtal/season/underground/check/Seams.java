@@ -254,7 +254,7 @@ public final class Seams {
     private boolean report(final Limits limits) {
         System.out.println("built blocks counted: count=" + built + " changed=" + builtChanged);
         System.out.println("ambiguous blocks counted: count=" + ambiguous + " changed=" + ambiguousChanged);
-        System.out.println("fluid at open space of the other world counted: generated=" + fluidMeetsMap + " map="
+        System.out.println("fluid contacts with other world open space counted: generated=" + fluidMeetsMap + " map="
                 + fluidMeetsParallel);
         // Rock that closes a generated cave, rock that ends a cave of the map, and the caves as the game made them.
         final String[] kinds = {"closing", "ending", "generated"};

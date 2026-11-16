@@ -34,15 +34,13 @@
 
         function reloadOnce(what) {
           if (alreadyReloaded()) {
-            show(
-              "Steward could not load " + what + ", even after reloading once. Add this page to the home screen again.",
-            )
+            show("Could not load " + what + ", even after a reload. Add this page to your home screen again.")
             return
           }
           try {
             window.sessionStorage.setItem(RELOAD_KEY, "1")
           } catch (storageError) {
-            show("Steward could not load " + what + ".")
+            show("Could not load " + what + ".")
             return
           }
           window.location.reload()
@@ -63,14 +61,14 @@
               return
             }
             // Reloading a bundle that loaded fine and then threw would not fix anything, so this only reports.
-            show("Steward did not start: " + (event.message || "the error has no message") + ".")
+            show("Steward could not start: " + (event.message || "the error has no message") + ".")
           },
           true,
         )
 
         window.addEventListener("unhandledrejection", function (event) {
           var reason = event.reason && event.reason.message ? event.reason.message : event.reason
-          show("Steward did not start: " + reason + ".")
+          show("Steward could not start: " + reason + ".")
         })
       })()
     </script>
@@ -126,7 +124,7 @@
           font-family: system-ui, sans-serif;
         "
       >
-        <p id="startup-fallback-message" style="margin: 0; max-width: 28rem">Steward has not started yet.</p>
+        <p id="startup-fallback-message" style="margin: 0; max-width: 28rem">Waiting for Steward to start …</p>
         <button
           type="button"
           onclick="window.location.reload()"

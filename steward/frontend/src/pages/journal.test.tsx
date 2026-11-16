@@ -287,7 +287,7 @@ describe("JournalPage - open now", () => {
   it("says nothing is open when nothing is", async () => {
     vi.stubGlobal("fetch", backend({}))
     draw(<JournalPage />)
-    expect(await screen.findByText("Nothing open")).toBeTruthy()
+    expect(await screen.findByText("No open entries")).toBeTruthy()
   })
 })
 

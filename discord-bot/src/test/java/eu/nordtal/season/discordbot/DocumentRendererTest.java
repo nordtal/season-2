@@ -95,7 +95,19 @@ class DocumentRendererTest {
                 .preview(packaged("contribution"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
         assertTrue(drawn.contains("\\n**30 days** for €5.00\""), drawn);
-        assertTrue(drawn.contains("donation of €5.00"), drawn);
+        assertTrue(drawn.contains("added €5.00 donation"), drawn);
+    }
+
+    @Test
+    void anAdminGrantMessageFitsBothFirstAndFurtherAccess() {
+        final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();
+        final Documents.Packaged document = packaged("dm-granted-admin");
+        final List<Locale> languages = List.of(Locale.ENGLISH, Locale.GERMAN);
+        final String english = renderer.preview(document, languages, Locale.ENGLISH);
+        final String german = renderer.preview(document, languages, Locale.GERMAN);
+
+        assertTrue(english.contains("An admin gave you **30 days** of access."), english);
+        assertTrue(german.contains("Ein Admin hat dir **30 Tage** Zugang gegeben."), german);
     }
 
     @Test

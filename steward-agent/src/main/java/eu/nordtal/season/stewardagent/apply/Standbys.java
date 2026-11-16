@@ -46,7 +46,7 @@ public final class Standbys {
             final String standby = each.name();
             final Path target = volumesRoot.resolve(standby).resolve(Installation.PLUGINS);
             if (!Files.isDirectory(volumesRoot.resolve(standby))) {
-                log.info("standby volume not mounted, nothing copied: service={}", standby);
+                log.info("standby copy skipped, volume not mounted: service={}", standby);
                 continue;
             }
             final Path source = volumesRoot.resolve(service).resolve(Installation.PLUGINS);
@@ -82,7 +82,7 @@ public final class Standbys {
             copyInto(source, target, 0, tally);
         } catch (final IOException failed) {
             log.error(
-                    "standby not filled: service={} dir={} from={} cause={}",
+                    "standby file copy failed: service={} dir={} from={} cause={}",
                     standby,
                     directory,
                     source,

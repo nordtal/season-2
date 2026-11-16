@@ -54,7 +54,7 @@ final class ForgetFactors {
             final boolean app = new Authenticators(data.dataSource(), null, clock).forget(discordId) > 0;
             final int signedOut = new Sessions(data.dataSource(), Duration.ofDays(1)).endAllOf(discordId);
             if (keys == 0 && !app && signedOut == 0) {
-                System.out.println("nothing to forget: member=" + discordId);
+                System.out.println("authentication factors and sessions absent: member=" + discordId);
                 return 0;
             }
             // Written after the deletes, so a row never claims something that did not happen.
@@ -64,7 +64,7 @@ final class ForgetFactors {
                             Actor.HOST,
                             discordId,
                             new JournalDetail.FactorsForgotten(keys, app, signedOut)));
-            System.out.println("second factors cleared: member=" + discordId + " keys=" + keys + " app=" + app
+            System.out.println("authentication factors cleared: member=" + discordId + " keys=" + keys + " app=" + app
                     + " sessions=" + signedOut);
             return 0;
         }

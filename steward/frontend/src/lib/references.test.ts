@@ -91,7 +91,7 @@ describe("gameChoices", () => {
   })
 
   it("says why nothing is listed before any server exported", () => {
-    expect(gameChoices(undefined, "item").unavailable).toBe("No server has published its game data yet.")
+    expect(gameChoices(undefined, "item").unavailable).toBe("Game data has not been reported by any server yet.")
   })
 })
 

@@ -94,7 +94,7 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
         step({ step: "SAVE_VOLUME", service: "smp", saved: [archive(1_000_000_000), archive(500_000_000)] }),
       ]),
     ).toEqual([
-      ["3 players moved to limbo", "2 back"],
+      ["3 players moved to limbo", "2 players returned"],
       ["2 archives saved", bytes(1_500_000_000), "2 pruned"],
     ])
   })
@@ -106,8 +106,8 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
     ])
     expect(pillsOf(stage).map((pill) => pill.text)).toEqual([
       "proxy-standby",
-      `up ${time("2026-10-01T04:01:00Z")}`,
-      `down ${time("2026-10-01T04:06:00Z")}`,
+      `Ready at ${time("2026-10-01T04:01:00Z")}`,
+      `Stopped at ${time("2026-10-01T04:06:00Z")}`,
     ])
   })
 
@@ -133,7 +133,7 @@ describe("pillsOf - a stage's coarse facts, each from a typed value", () => {
 
   it("says no one was to move when the players step found nobody, and leaves a failed one to its reason", () => {
     expect(texts([step({ step: "PLAYERS_MOVED", players: [] }), step({ step: "PLAYERS_BACK" })])).toEqual([
-      ["no one to move"],
+      ["No players to move"],
     ])
     expect(texts([step({ step: "PLAYERS_MOVED", outcome: "FAILED", reason: "TOOL_FAILED" })])).toEqual([
       ["The tool failed."],

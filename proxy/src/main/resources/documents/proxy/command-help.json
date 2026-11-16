@@ -26,7 +26,7 @@
         {
           "when": "command=r",
           "text": {
-            "en": "<muted>Answers the {@terms.player, n=1} who last wrote to you or whom you last wrote to.</muted>",
+            "en": "<muted>Replies to the last {@terms.player, n=1} you exchanged private messages with.</muted>",
             "de": "<muted>Antwortet dem {@terms.player, n=1}, der dir zuletzt geschrieben hat oder dem du zuletzt geschrieben hast.</muted>"
           }
         }

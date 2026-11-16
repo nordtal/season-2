@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>That command does not exist.</bad>",
-            "de": "<bad>Diesen Befehl gibt es nicht.</bad>"
+            "en": "<bad>Unknown command.</bad>",
+            "de": "<bad>Unbekannter Befehl.</bad>"
           }
         }
       ]

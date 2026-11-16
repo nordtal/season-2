@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>You reconnect now.</good>",
-            "de": "<good>Du verbindest dich jetzt neu.</good>"
+            "en": "<good>Reconnecting …</good>",
+            "de": "<good>Verbindung wird wiederhergestellt …</good>"
           }
         }
       ]

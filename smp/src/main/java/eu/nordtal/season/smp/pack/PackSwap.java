@@ -138,7 +138,7 @@ public final class PackSwap implements Listener {
     private void release(final long request) {
         final int released = holds.release(request);
         if (released > 0) {
-            log.warning("pack swap hold ran out: request=" + request + " players=" + released);
+            log.warning("pack swap hold expired: request=" + request + " players=" + released);
             settle(request);
         }
     }
@@ -146,7 +146,7 @@ public final class PackSwap implements Listener {
     private void settle(final long request) {
         PaperScheduler.of(plugin).execute(() -> {
             if (inbox.settle(request, Outcome.done(null)).isEmpty()) {
-                log.info("pack swap withdrawn before every player loaded it: request=" + request);
+                log.info("pack swap settlement skipped, request no longer running: request=" + request);
             }
         });
     }

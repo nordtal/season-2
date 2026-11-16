@@ -20,8 +20,8 @@
         {
           "when": "outcome=interrupted",
           "text": {
-            "en": "<muted>The duel was interrupted. No aura changes.</muted>",
-            "de": "<muted>Das Duell wurde unterbrochen. Es ändert sich keine Aura.</muted>"
+            "en": "<muted>The duel was interrupted. Your aura stays the same.</muted>",
+            "de": "<muted>Das Duell wurde unterbrochen. Deine Aura bleibt unverändert.</muted>"
           }
         }
       ]

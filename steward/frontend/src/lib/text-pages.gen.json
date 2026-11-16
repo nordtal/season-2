@@ -357,7 +357,6 @@
     "steward.identity.host": ["overview","services","updates","backups","translations","access","journal"],
     "steward.identity.minecraft-uuid": ["overview","services","updates","backups","translations","access","payments","journal"],
     "steward.identity.never-joined": ["overview","services","updates","backups","translations","access","payments","journal"],
-    "steward.identity.never-observed": ["overview","services","updates","backups","translations","access","payments","journal"],
     "steward.identity.no-avatar": ["overview","services","updates","backups","translations","access","payments","journal"],
     "steward.identity.no-discord": ["overview","services","updates","backups","translations","access","payments","journal"],
     "steward.identity.no-discord-name": ["overview","services","updates","backups","translations","access","payments","journal"],

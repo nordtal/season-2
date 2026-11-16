@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>No purchase is in progress.</muted>",
-            "de": "<muted>Es läuft kein Kauf.</muted>"
+            "en": "<muted>No pending purchase.</muted>",
+            "de": "<muted>Kein offener Kauf.</muted>"
           }
         }
       ]

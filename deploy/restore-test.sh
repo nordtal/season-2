@@ -62,10 +62,10 @@ ok "a mark is a mark, and the archive beside it is still restorable"
 case_begin "a mark is read as the run and the services whose stop nobody could confirm"
 # steward-agent writes the mark as a record. restore.sh describes it in words before the confirmation.
 said="$(mark_words '{"run":312,"services":["smp","limbo"]}')"
-[[ "$said" == "run 312 stopped smp, limbo, and how they ended could not be read back" ]] \
+[[ "$said" == "Run 312 could not verify that smp, limbo stopped cleanly." ]] \
     || bad "two services read as '$said'"
 said="$(mark_words '{"run":7,"services":["smp"]}')"
-[[ "$said" == "run 7 stopped smp, and how it ended could not be read back" ]] \
+[[ "$said" == "Run 7 could not verify that smp stopped cleanly." ]] \
     || bad "one service reads as '$said'"
 said="$(mark_words 'not a record')"
 [[ "$said" == "not a record" ]] || bad "a mark that is no record is shown as it is, not '$said'"

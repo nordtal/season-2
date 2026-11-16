@@ -266,7 +266,7 @@ describe("OverviewPage - the order of the number row", () => {
     draw()
 
     await waitFor(() => expect(screen.getByText("CPU")).toBeTruthy())
-    expect(metricLabels()).toEqual(["CPU", "Memory", "Disk", "Latest backup", "Behind", "Issues"])
+    expect(metricLabels()).toEqual(["CPU", "Memory", "Disk", "Latest backup", "Outdated services", "Issues"])
   })
 })
 

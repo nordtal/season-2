@@ -86,7 +86,7 @@ describe("ColourControl", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
 
-    const preview = screen.getByRole("img", { name: /preview on minecraft's chat background/i })
+    const preview = screen.getByRole("img", { name: /preview against Minecraft’s chat background/i })
     expect(preview.style.backgroundColor).toBe(MINECRAFT_CHAT_BACKGROUND)
 
     const sample = screen.getByText(SAMPLE_TEXT)
@@ -125,7 +125,7 @@ describe("ColourControl", () => {
     render(<ColourControl id="good" value="#8ba888" disabled={false} onChange={vi.fn<(value: string) => void>()} />)
     showPreview()
 
-    const preview = screen.getByRole("img", { name: /preview on minecraft's chat background/i })
+    const preview = screen.getByRole("img", { name: /preview against Minecraft’s chat background/i })
     expect(preview.className).toContain("w-full")
     expect(preview.className).not.toContain("w-fit")
   })
@@ -139,7 +139,7 @@ describe("ColourControl", () => {
     const sample = screen.getByText(SAMPLE_TEXT)
     expect(sample.style.color).toBe("")
     expect(screen.queryByText(/type a hex value/i)).toBeNull()
-    screen.getByRole("img", { name: /no valid colour to preview yet/i })
+    screen.getByRole("img", { name: /Enter a valid colour to preview it/i })
   })
 })
 

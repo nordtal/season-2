@@ -30,20 +30,24 @@ public final class ManagedMessage {
         }
         final MessageChannel channel = jda.getChannelById(MessageChannel.class, channelId);
         if (channel == null) {
-            log.error("channel not found, managed message not kept: kind={} channel={}", kind, channelId);
+            log.error("channel missing, managed message publication skipped: kind={} channel={}", kind, channelId);
             return;
         }
+        String step = "lookup";
         try {
             final Optional<String> existing = dao.messageIdOf(kind, channelId);
             if (existing.isPresent() && edit(channel, existing.get(), content)) {
                 return;
             }
+            step = "post";
             final String posted =
                     channel.sendMessage(content.create()).complete().getId();
+            step = "record";
             dao.remember(kind, channelId, posted);
             log.info("managed message posted: kind={} message={} channel={}", kind, posted, channelId);
         } catch (final RuntimeException exception) {
-            log.error("managed message not kept: kind={} channel={}", kind, channelId, exception);
+            log.error(
+                    "managed message publication failed: kind={} channel={} step={}", kind, channelId, step, exception);
         }
     }
 

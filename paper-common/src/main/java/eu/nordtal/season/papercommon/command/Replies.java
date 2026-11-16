@@ -17,16 +17,20 @@ public final class Replies {
     }
 
     /** @param cause what the action failed on */
-    public record Failure(@Example("database") Cause cause) {
+    public record Failure(
+            @Example("database") Cause cause,
+            @Example("Invalid value") String detail) {
 
         /** Returns the failure of {@code failure}: the database when any exception in its chain is the database's. */
         public static Failure of(final Throwable failure) {
             for (Throwable link = failure; link != null; link = link.getCause()) {
                 if (link instanceof SQLException || link.getClass().getName().startsWith("org.jdbi.")) {
-                    return new Failure(Cause.DATABASE);
+                    return new Failure(Cause.DATABASE, "");
                 }
             }
-            return new Failure(Cause.OTHER);
+            return new Failure(
+                    Cause.OTHER,
+                    failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage());
         }
     }
 

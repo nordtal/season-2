@@ -47,7 +47,8 @@ public final class PositionTake {
             return Answer.refused(found.refusal().with());
         }
         if (inbox.settle(request, Outcome.done(found.place())).isEmpty()) {
-            plugin.getLogger().info("position take withdrawn before it was answered: request=" + request);
+            plugin.getLogger()
+                    .info("position capture request no longer running, result not recorded: request=" + request);
         }
         return Answer.open();
     }

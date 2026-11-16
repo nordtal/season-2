@@ -63,7 +63,7 @@ public interface GameTexts {
     @Name("Locked")
     MessageRef locked();
 
-    @Name("Tasks")
+    @Name("Objectives")
     MessageRef tasks(@Arg("finished") @Example("2") int finished, @Arg("total") @Example("5") int total);
 
     @Name("Progress")
@@ -147,7 +147,7 @@ public interface GameTexts {
     @Name("No prizes")
     MessageRef noPrizes();
 
-    @Name("Take in from game")
+    @Name("Import from game")
     MessageRef takeIn();
 
     @Name("Cancel take-in")

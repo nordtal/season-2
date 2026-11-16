@@ -80,7 +80,7 @@ class DiscordApiTest {
 
         assertFalse(answer.available());
         final String reason = english(answer.reason());
-        assertTrue(reason.contains("discord-bot has not published"), reason);
+        assertTrue(reason.contains("Discord bot has not reported"), reason);
     }
 
     @Test

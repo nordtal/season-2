@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "An admin revoked your {@terms.access} to Nordtal.",
-            "de": "Ein Admin hat dir den {@terms.access} zu Nordtal entzogen."
+            "en": "An admin has revoked your {@terms.access}.",
+            "de": "Ein Admin hat dir den {@terms.access} entzogen."
           }
         }
       ]

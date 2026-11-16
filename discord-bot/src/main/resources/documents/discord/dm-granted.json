@@ -5,7 +5,7 @@
       "lines": [
         {
           "text": {
-            "en": "Your {@terms.access} lasts until **{until}**.",
+            "en": "Your {@terms.access} is valid until **{until}**.",
             "de": "Dein {@terms.access} gilt bis **{until}**."
           }
         }

@@ -69,7 +69,7 @@ public interface StewardSpec {
         @Name("Token")
         @Key("token")
         @Secret
-        @Explain("Empty turns payments off.")
+        @Explain("An empty token disables payments.")
         default String token() {
             return "";
         }
@@ -87,7 +87,7 @@ public interface StewardSpec {
         @Order(4)
         @Name("Watermark")
         @Key("watermark")
-        @Explain("Leave empty: a manual value risks booking historical payments.")
+        @Explain("Leave empty. Setting this manually can book earlier payments.")
         default String watermark() {
             return "";
         }
@@ -117,7 +117,7 @@ public interface StewardSpec {
         @Name("Token")
         @Key("token")
         @Secret
-        @Explain("Empty means no container can be shown or changed.")
+        @Explain("Without this token, Steward cannot show or change containers.")
         default String token() {
             return "";
         }

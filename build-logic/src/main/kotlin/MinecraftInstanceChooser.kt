@@ -27,9 +27,9 @@ object MinecraftInstanceChooser {
     fun main(args: Array<String>) {
         val store = File(args[0])
         val given = args.getOrNull(1)?.takeIf { it.isNotBlank() }?.let(::File)
-        val picked = (given ?: ask(start(store)) ?: finish(0, "Nothing was chosen, so nothing changed.")).absoluteFile
+        val picked = (given ?: ask(start(store)) ?: finish(0, "Folder selection cancelled.")).absoluteFile
         save(store, picked, given)?.let { finish(1, it) }
-        finish(0, "Minecraft instance: ${instance(picked) ?: picked}\nNext, run 'pack: 2. install into Minecraft'.")
+        finish(0, "minecraft instance selected: dir=\"${instance(picked) ?: picked}\"\nRun 'pack: 2. install into Minecraft'.")
     }
 
     /**
@@ -45,8 +45,12 @@ object MinecraftInstanceChooser {
         val instance =
             instance(picked)
                 ?: picked.takeIf { given == null && confirm(it) }
-                ?: return "$picked holds no file of Minecraft or of a launcher, so it is not a Minecraft instance."
-        if (!instance.isDirectory && !instance.mkdirs()) return "$instance cannot be created, so nothing changed."
+                ?: return "Folder not selected: $picked has no Minecraft or launcher files. Choose a Minecraft instance folder."
+        if (!instance.isDirectory &&
+            !instance.mkdirs()
+        ) {
+            return "Folder not created: $instance. Check its parent directory permissions and retry."
+        }
         Properties().apply { setProperty("instance", instance.absolutePath) }.also { properties ->
             store.writer().use { properties.store(it, "The Minecraft instance the resource pack is installed into") }
         }
@@ -55,7 +59,7 @@ object MinecraftInstanceChooser {
 
     private fun ask(start: File): File? {
         if (GraphicsEnvironment.isHeadless()) {
-            finish(1, "There is no screen to ask on. Pass the folder instead: -PminecraftInstance=<folder>")
+            finish(1, "Folder selection unavailable: no display. Pass -PminecraftInstance=<folder>.")
         }
         if (System.getProperty("os.name").startsWith("Mac")) {
             // Makes the native chooser of macOS pick folders.

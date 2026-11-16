@@ -100,12 +100,12 @@ final class WaitingRoomRetry {
             final Runnable giveUp) {
         final String room = nextRoom(failed, servers, registered);
         if (room == null) {
-            logger.warn("no waiting room registered for the retry: player={}", player);
+            logger.warn("waiting room retry skipped, no room registered: player={}", player);
             giveUp.run();
             return;
         }
         logger.info(
-                "re-route into waiting room tried again: player={} waiting_room={} attempt={} tries={}",
+                "waiting room connection retried: player={} waiting_room={} attempt={} tries={}",
                 player,
                 room,
                 attempt,
@@ -123,7 +123,10 @@ final class WaitingRoomRetry {
             }
             if (attempt >= TRIES) {
                 logger.warn(
-                        "re-route into waiting room given up: player={} waiting_room={} tries={}", player, room, TRIES);
+                        "waiting room connection retries exhausted: player={} waiting_room={} tries={}",
+                        player,
+                        room,
+                        TRIES);
                 giveUp.run();
                 return;
             }

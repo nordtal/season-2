@@ -105,7 +105,7 @@ describe("RecreateButton - before anything is pressed", () => {
 
     await waitFor(() => expect(asButton(screen.getByRole("button", { name: /Recreate/ })).disabled).toBe(true))
     const tip = tipOf(screen.getByRole("button", { name: /Recreate/ }))
-    expect(tip).toBe("steward-agent is configured but does not answer.")
+    expect(tip).toBe("The Steward agent is configured but is not responding.")
     expect(tip).not.toContain("already on this host")
   })
 

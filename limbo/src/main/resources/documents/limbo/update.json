@@ -19,8 +19,8 @@
         },
         {
           "text": {
-            "en": "<muted>You will be reconnected when it is finished.</muted>",
-            "de": "<muted>Du wirst erneut verbunden, sobald es fertig ist.</muted>"
+            "en": "<muted>You will return when the update finishes.</muted>",
+            "de": "<muted>Du kommst zurück, sobald das Update fertig ist.</muted>"
           }
         }
       ]

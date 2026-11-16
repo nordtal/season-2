@@ -36,10 +36,9 @@ class DuelRefusalTextTest {
     @Test
     void theHeldAreaSaysWhetherADuelRunsOrKitsArePicked() {
         assertEquals(
-                "The negotiation area is taken: a duel is under way.",
-                english(Negotiation.AREA_HELD.with(new Negotiation.Held(true))));
+                "A duel is already running here.", english(Negotiation.AREA_HELD.with(new Negotiation.Held(true))));
         assertEquals(
-                "The negotiation area is taken: two players are picking kits.",
+                "Two players are choosing their duel kits here.",
                 english(Negotiation.AREA_HELD.with(new Negotiation.Held(false))));
     }
 }

@@ -19,6 +19,8 @@ repositoryRootTestInputs {
     reads(".dockerignore")
     reads(".github/workflows/release.yml")
     reads("smp/src/main/resources/paper-plugin.yml")
+    // The portrait glyphs an NPC's own portrait font replaces.
+    reads("resource-pack/glyphs.json")
 }
 
 dependencies {

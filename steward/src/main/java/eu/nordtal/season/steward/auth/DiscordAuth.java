@@ -128,7 +128,7 @@ public final class DiscordAuth {
                 ? member.get("nick").getAsString()
                 : user.get("username").getAsString();
 
-        log.info("discord sign-in confirmed: actor={} member={}", name, id);
+        log.info("discord sign-in confirmed: actor=\"{}\" member={}", name, id);
         return Outcome.signedIn(new Account(id, name));
     }
 

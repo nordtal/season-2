@@ -63,7 +63,7 @@ public final class Sessions {
                 Objects.requireNonNull(name, "name"),
                 random(),
                 seconds);
-        log.info("session started: actor={} member={} days={}", name, discordId, seconds / 86400);
+        log.info("session started: actor=\"{}\" member={} days={}", name, discordId, seconds / 86400);
         return id;
     }
 

@@ -11,8 +11,8 @@
         },
         {
           "text": {
-            "en": "<muted>You will be connected to the {@terms.network}.</muted>",
-            "de": "<muted>Du wirst mit dem {@terms.network} verbunden.</muted>"
+            "en": "<muted>Connecting to the {@terms.network}.</muted>",
+            "de": "<muted>Verbindung zum {@terms.network} wird hergestellt.</muted>"
           }
         }
       ]

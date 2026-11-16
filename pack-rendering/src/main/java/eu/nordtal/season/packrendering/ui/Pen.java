@@ -99,6 +99,15 @@ public final class Pen {
         return this;
     }
 
+    /** Draws {@code text} in {@code font}, a font of vanilla's letters other than the ui text font, and moves on. */
+    public Pen text(final String font, final String text, final TextColor colour) {
+        if (layer == Layer.ART) {
+            return move(Letters.width(text));
+        }
+        put(font, colour, text, Letters.width(text));
+        return this;
+    }
+
     /** Draws {@code symbol} in the ui text font {@code shift} pixels below the text row, and moves 8 on. */
     public Pen symbol(final int shift, final Symbol symbol, final TextColor colour) {
         if (layer == Layer.ART) {

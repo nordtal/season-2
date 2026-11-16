@@ -186,7 +186,7 @@ describe("the available card", () => {
     expect(screen.getByRole("button", { name: "Resolve" }).getAttribute("aria-expanded")).toBe("true")
     // Once as the stage's pill, once as its step's line below the step and its service.
     expect(screen.getAllByText("No artefact claims this jar.")).toHaveLength(2)
-    expect(screen.getByText("limbo", { exact: false, selector: "span.text-muted-foreground" })).toBeTruthy()
+    expect(screen.getByText("Look up versions on limbo")).toBeTruthy()
   })
 
   it("says so plainly when there is nothing rather than drawing an empty table", async () => {

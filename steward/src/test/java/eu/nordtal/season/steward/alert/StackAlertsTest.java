@@ -177,7 +177,7 @@ class StackAlertsTest {
                 "timed out",
                 freshBackups(),
                 null);
-        assertEquals(List.of("smp and proxy run an old image", "The images were not compared"), titles(alerts));
+        assertEquals(List.of("smp and proxy run an older image", "The images were not compared"), titles(alerts));
         assertTrue(alerts.stream().allMatch(alert -> alert.type() == AlertType.DRIFT));
         assertEquals(List.of("timed out"), AdminPlain.of(alerts.get(1).lines()));
     }

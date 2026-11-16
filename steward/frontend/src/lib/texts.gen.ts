@@ -623,6 +623,11 @@ export type TextArgs = {
   "run.step-kind": {
     kind: Arg["choice"]
   }
+  "run.step-on": {
+    kind: Arg["choice"]
+    step: Arg["message"]
+    service: Arg["text"]
+  }
   "run.title": {
     kind: Arg["choice"]
     stage: Arg["choice"]

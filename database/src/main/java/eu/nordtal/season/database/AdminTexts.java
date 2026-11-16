@@ -135,10 +135,10 @@ public interface AdminTexts {
                 @Arg("from") @Example("2026-11-13T17:00:00Z") Instant from,
                 @Arg("reason") @Example("The world needs a reset.") String reason);
 
-        @Name("Maintenance switched")
+        @Name("Maintenance changed")
         MessageRef setMaintenance(@Arg("on") boolean on);
 
-        @Name("Maintenance switched, with a reason")
+        @Name("Maintenance changed, with a reason")
         MessageRef setMaintenanceBecause(
                 @Arg("on") boolean on, @Arg("reason") @Example("The world is being backed up by hand.") String reason);
 
@@ -297,6 +297,14 @@ public interface AdminTexts {
         @Name("What a step does")
         @Shown(Display.STEWARD)
         MessageRef stepKind(@Arg("kind") @Example("verify") RunStep.Kind kind);
+
+        /** A step and what it acted on: a service, or the volume or archive a backup or restore names. */
+        @Name("What a step does, and on what")
+        @Shown(Display.STEWARD)
+        MessageRef stepOn(
+                @Arg("kind") @Example("save-volume") RunStep.Kind kind,
+                @Arg("step") @Example("admin/run.step-kind") MessageRef step,
+                @Arg("service") @Example("smp") String service);
 
         @Name("Why a step did not go as asked")
         @Shown(Display.STEWARD)
@@ -545,7 +553,7 @@ public interface AdminTexts {
                 @Arg("amount") @Example("150") Money amount,
                 @Arg("reference") @Example("NT-A1B2C3") String reference);
 
-        @Name("Several roles of one name")
+        @Name("Several roles share a name")
         MessageRef roleAmbiguous(@Arg("name") @Example("Player") String name);
 
         @Name("None of them taken")

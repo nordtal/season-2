@@ -570,7 +570,7 @@ class UpdateFeedTest {
         assertEquals(List.of("Why", "Services", "Took"), names(card));
         assertEquals("""
                 **smp**: Docker or the tool refused. The run log holds the answer.
-                **hunger\\_games**: The service has no container.
+                **hunger\\_games**: No container exists.
                 steward-agent failed. Its log names the cause.""", field(card, "Why"), "the failed steps in order; nothing that went right and no warning");
     }
 

@@ -70,7 +70,7 @@ class HostRequestsTest {
         assertEquals(
                 List.of(
                         "FAILED\tFAILED",
-                        "Stop smp: done",
+                        "Stop on smp: done",
                         "Dump the database: failed",
                         "    The tool failed.",
                         "    exit code 2"),

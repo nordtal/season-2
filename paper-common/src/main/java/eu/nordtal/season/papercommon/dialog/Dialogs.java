@@ -3,6 +3,7 @@ package eu.nordtal.season.papercommon.dialog;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
+import eu.nordtal.season.packrendering.ui.DialogTitle;
 import eu.nordtal.season.packrendering.ui.FocusRing;
 import io.papermc.paper.dialog.DialogResponseView;
 import io.papermc.paper.registry.RegistryKey;
@@ -92,6 +93,11 @@ public final class Dialogs {
     /** A body line of {@code column}, framed on {@code ground}. */
     public static DialogBody line(final BodyColumn column, final FocusRing.Ground ground) {
         return DialogBody.plainMessage(column.build(ground), FocusRing.box(column.width()));
+    }
+
+    /** A body line of {@code column}, framed on {@code ground} and open over {@code title}'s ink above it. */
+    public static DialogBody line(final BodyColumn column, final FocusRing.Ground ground, final DialogTitle title) {
+        return DialogBody.plainMessage(column.build(ground, title), FocusRing.box(column.width()));
     }
 
     /** Returns {@code text} as the plain words a drawn header or row takes. */

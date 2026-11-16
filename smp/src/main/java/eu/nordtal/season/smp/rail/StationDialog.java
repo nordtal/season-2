@@ -87,18 +87,26 @@ final class StationDialog {
     static Dialog visitor(final GameDocument document, final @Nullable String name) {
         final DialogTitle title = DialogTitle.of(DialogPanel.STATION_78, TEXT_TOP)
                 .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of())
-                .centred(NAME_Y, name == null ? document.label("unnamed") : name, Colours.INK);
+                .centred(NAME_Y, fit(name == null ? document.label("unnamed") : name, false), Colours.INK);
         final List<String> hint = Letters.wrap(document.label("hint"), WIDTH - HINT_PADDING);
         for (int index = 0; index < Math.min(hint.size(), HINT_ROWS); index++) {
-            String row = hint.get(index);
-            if (index == HINT_ROWS - 1 && hint.size() > HINT_ROWS) {
-                final String cut = Letters.cut(row, WIDTH - HINT_PADDING - Letters.visibleWidth("…"));
-                row = cut.equals(row) ? cut + "…" : cut;
-            }
-            title.centred(HINT_Y + index * HINT_STEP, row, Colours.SOFT);
+            title.centred(
+                    HINT_Y + index * HINT_STEP,
+                    fit(hint.get(index), index == HINT_ROWS - 1 && hint.size() > HINT_ROWS),
+                    Colours.SOFT);
         }
         return Dialog.create(builder ->
                 builder.empty().base(Dialogs.base(title.build()).build()).type(Dialogs.bodyOnly()));
+    }
+
+    /** Returns {@code text} cut to the panel's inside, with "…" where it is too wide or {@code more} follows. */
+    private static String fit(final String text, final boolean more) {
+        final int room = WIDTH - HINT_PADDING;
+        if (!more) {
+            return Letters.cut(text, room);
+        }
+        final String cut = Letters.cut(text, room - Letters.visibleWidth("…"));
+        return cut.equals(text) ? cut + "…" : cut;
     }
 
     /**

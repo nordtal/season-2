@@ -97,7 +97,12 @@ final class PreviewDialog {
         final List<Row> shown = paging.slice(rows, page);
         final BodyColumn column = BodyColumn.of(ROW, paging.paged())
                 .rows(shown.size(), paging.paged() ? EACH : 0, index -> line -> line(line, shown.get(index)));
-        body.add(Dialogs.line(column, FocusRing.Ground.BEVEL));
+        final DialogPanel panel = paging.paged()
+                ? DialogPanel.DRAFT_PREVIEW_113
+                : DialogPanel.DRAFT_PREVIEW_ROWS.get(Math.max(1, shown.size()) - 1);
+        final DialogTitle title = DialogTitle.of(panel, column.panelTop())
+                .header(Symbol.EYE, name, List.of(Mark.text(Dialogs.plain(words.title()), Colours.SOFT)));
+        body.add(Dialogs.line(column, paging.paged() ? FocusRing.Ground.BEVEL : FocusRing.Ground.BEVEL_FOOT, title));
         if (paging.paged()) {
             final String said = words.label("pager", paging.page(page));
             body.add(Dialogs.line(
@@ -106,14 +111,9 @@ final class PreviewDialog {
                     Dialogs.pagerWidth(paging, page),
                     FocusRing.Ground.PANEL_FOOT));
         }
-        final DialogPanel panel = paging.paged()
-                ? DialogPanel.DRAFT_PREVIEW_113
-                : DialogPanel.DRAFT_PREVIEW_ROWS.get(Math.max(1, shown.size()) - 1);
-        final Component title = DialogTitle.of(panel, column.panelTop())
-                .header(Symbol.EYE, name, List.of(Mark.text(Dialogs.plain(words.title()), Colours.SOFT)))
-                .build();
-        return Dialog.create(builder ->
-                builder.empty().base(Dialogs.base(title).body(body).build()).type(Dialogs.bodyOnly()));
+        return Dialog.create(builder -> builder.empty()
+                .base(Dialogs.base(title.build()).body(body).build())
+                .type(Dialogs.bodyOnly()));
     }
 
     /** A row cut with "…" shows its whole line as its tooltip, and the narrator says it whole. */

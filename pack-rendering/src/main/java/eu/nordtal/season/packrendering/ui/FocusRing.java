@@ -1,13 +1,14 @@
 package eu.nordtal.season.packrendering.ui;
 
 import eu.nordtal.season.packrendering.Glyphs;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
 
 /**
  * Frames a dialog body line so the client's white focus outline shows only as corner brackets.
- * The outline comes before the text, so the first row covers it in the colour beneath but for 5 px at each corner.
+ * The outline is drawn first, so a cover row hides it but for 5 px at each corner and over a header's ink.
  * That row advances 0 and is centred on the box; a second row, a move as wide as the box's text, keeps the width.
  */
 public final class FocusRing {
@@ -45,8 +46,9 @@ public final class FocusRing {
     private static final int SIDE = 0;
     private static final int SHADE = 1;
     private static final int SHADE_FOOT = 2;
-    private static final int RUNS = 3;
-    private static final int FOOT_RUNS = 12;
+    private static final int TOP_RUNS = 3;
+    private static final int BOTTOM_RUNS = 12;
+    private static final int FOOT_RUNS = 21;
     private static final int RUN_COUNT = 9;
 
     private static final Map<Integer, List<String>> RINGS = Map.ofEntries(
@@ -64,6 +66,12 @@ public final class FocusRing {
             Map.entry(125, Glyphs.UI_RING_125),
             Map.entry(134, Glyphs.UI_RING_134));
 
+    /**
+     * Columns of a ring's top row left open, from {@code from} to before {@code to}, in pixels from the centre.
+     * A header's ink there stays whole at rest, and the outline shows across it on focus.
+     */
+    public record Open(int from, int to) {}
+
     /** The fewest text rows a framed line has: its art and the row that keeps the box wide. */
     public static final int MIN_ROWS = 2;
 
@@ -79,6 +87,12 @@ public final class FocusRing {
      * The box is {@code art} + {@link #MARGIN} wide.
      */
     public static Component frame(final Component line, final int art, final int rows, final Ground ground) {
+        return frame(line, art, rows, ground, List.of());
+    }
+
+    /** As {@link #frame(Component, int, int, Ground)}, with the top row left open over {@code open}. */
+    public static Component frame(
+            final Component line, final int art, final int rows, final Ground ground, final List<Open> open) {
         if (rows < MIN_ROWS) {
             throw new IllegalArgumentException("a framed line has at least " + MIN_ROWS + " rows, not " + rows);
         }
@@ -94,8 +108,22 @@ public final class FocusRing {
         if (!ground.bevel) {
             pen.art(font, ring.get(SIDE), 1);
         }
-        final int runs = ground.foot ? FOOT_RUNS : RUNS;
-        pen.moveTo(left + ARM).runs(font, ring.subList(runs, runs + RUN_COUNT), width - 2 * ARM);
+        final List<String> top = ring.subList(TOP_RUNS, TOP_RUNS + RUN_COUNT);
+        int from = left + ARM;
+        final int end = left + width - ARM;
+        for (final Open gap :
+                open.stream().sorted(Comparator.comparingInt(Open::from)).toList()) {
+            final int to = Math.min(end, gap.from());
+            if (to > from) {
+                pen.moveTo(from).runs(font, top, to - from);
+            }
+            from = Math.max(from, gap.to());
+        }
+        if (end > from) {
+            pen.moveTo(from).runs(font, top, end - from);
+        }
+        final int bottom = ground.foot ? FOOT_RUNS : BOTTOM_RUNS;
+        pen.moveTo(left + ARM).runs(font, ring.subList(bottom, bottom + RUN_COUNT), width - 2 * ARM);
         final int right = ground.bevel ? (ground.foot ? SHADE_FOOT : SHADE) : SIDE;
         pen.moveTo(left + width - 1).art(font, ring.get(right), 1);
         pen.moveTo(left + (width - art) / 2).append(line, art);

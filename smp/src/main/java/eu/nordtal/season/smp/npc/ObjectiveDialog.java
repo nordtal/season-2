@@ -181,10 +181,8 @@ public final class ObjectiveDialog {
                 .type(Dialogs.bodyOnly()));
     }
 
-    private static Component title(final GameDocument document, final DialogPanel panel, final int top) {
-        return DialogTitle.of(panel, top)
-                .header(Symbol.MEDAL, Dialogs.plain(document.title()), List.of())
-                .build();
+    private static DialogTitle title(final GameDocument document, final DialogPanel panel, final int top) {
+        return DialogTitle.of(panel, top).header(Symbol.MEDAL, Dialogs.plain(document.title()), List.of());
     }
 
     public void show(final Player player, final int page) {
@@ -202,13 +200,12 @@ public final class ObjectiveDialog {
                 .text(this::summary)
                 .gap(BodyColumn.UNDER_TEXT - BodyColumn.TEXT)
                 .rows(cards.size(), EACH, index -> line -> card(line, cards.get(index), send));
+        final DialogTitle title = title(document, DialogPanel.OBJECTIVES_124, column.panelTop());
         final List<DialogBody> body = List.of(
-                Dialogs.line(column, FocusRing.Ground.BEVEL),
+                Dialogs.line(column, FocusRing.Ground.BEVEL, title),
                 Dialogs.line(shareLine(paging, page, send), WIDTH, FocusRing.Ground.BEVEL_FOOT));
         return Dialog.create(builder -> builder.empty()
-                .base(Dialogs.base(title(document, DialogPanel.OBJECTIVES_124, column.panelTop()))
-                        .body(body)
-                        .build())
+                .base(Dialogs.base(title.build()).body(body).build())
                 .type(Dialogs.bodyOnly()));
     }
 

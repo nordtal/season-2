@@ -82,9 +82,9 @@ final class RideDialog {
             final Answers answers) {
         final Paging paging = Paging.of(stops.size(), EACH);
         final List<DialogBody> body = new ArrayList<>();
-        final int top;
+        final DialogTitle title;
         if (stops.isEmpty()) {
-            top = TEXT_TOP;
+            title = title(document, stops, TEXT_TOP);
         } else {
             final List<RideList.Stop> shown = paging.slice(stops, page);
             final BodyColumn column = BodyColumn.of(WIDTH, paging.paged())
@@ -92,8 +92,9 @@ final class RideDialog {
                             shown.size(),
                             paging.paged() ? EACH : 0,
                             index -> line -> row(line, document, shown.get(index), page, send, answers));
-            body.add(Dialogs.line(column, FocusRing.Ground.BEVEL));
-            top = column.panelTop();
+            title = title(document, stops, column.panelTop());
+            body.add(
+                    Dialogs.line(column, paging.paged() ? FocusRing.Ground.BEVEL : FocusRing.Ground.BEVEL_FOOT, title));
         }
         if (paging.paged()) {
             final String words = document.label("pager", paging.page(page));
@@ -103,14 +104,16 @@ final class RideDialog {
                     Dialogs.pagerWidth(paging, page),
                     FocusRing.Ground.PANEL_FOOT));
         }
-        final DialogTitle title = DialogTitle.of(panel(stops.size()), top)
-                .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of());
         if (stops.isEmpty()) {
             title.centred(EMPTY_TEXT, document.label("none"), Colours.SOFT);
         }
         return Dialog.create(builder -> builder.empty()
                 .base(Dialogs.base(title.build()).body(body).build())
                 .type(Dialogs.bodyOnly()));
+    }
+
+    private static DialogTitle title(final GameDocument document, final List<RideList.Stop> stops, final int top) {
+        return DialogTitle.of(panel(stops.size()), top).header(Symbol.RAIL, Dialogs.plain(document.title()), List.of());
     }
 
     /** The row rides there, so it is the column's first click; the star after it stars the stop or unstars it. */

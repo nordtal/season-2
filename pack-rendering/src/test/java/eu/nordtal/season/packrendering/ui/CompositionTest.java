@@ -88,9 +88,9 @@ class CompositionTest {
         assertEquals(BodyColumn.LINE_GAP, nextArt - followed.top() - followed.height());
         final BodyColumn last =
                 BodyColumn.of(262, false).rows(1, 0, index -> line -> line.plate(262, null, "Fahren", Look.NORMAL));
-        assertEquals(4, last.top());
-        assertEquals(2, last.rows());
-        assertEquals(List.of(0, 264), Advances.rows(last.build(FocusRing.Ground.BEVEL)));
+        assertEquals(11, last.top());
+        assertEquals(3, last.rows());
+        assertEquals(List.of(0, 264, 0), Advances.rows(last.build(FocusRing.Ground.BEVEL)));
     }
 
     @Test
@@ -159,9 +159,55 @@ class CompositionTest {
             assertEquals(!bevel, drawn.contains(ring.get(0)), ground + " side");
             assertEquals(bevel && !foot, drawn.contains(ring.get(1)), ground + " shade");
             assertEquals(bevel && foot, drawn.contains(ring.get(2)), ground + " shade foot");
-            assertEquals(!foot, ring.subList(3, 12).stream().anyMatch(drawn::contains), ground + " runs");
-            assertEquals(foot, ring.subList(12, 21).stream().anyMatch(drawn::contains), ground + " foot runs");
+            assertEquals(100, columns(drawn, ring.subList(3, 12)), ground + " top runs");
+            assertEquals(!foot, ring.subList(12, 21).stream().anyMatch(drawn::contains), ground + " bottom runs");
+            assertEquals(foot, ring.subList(21, 30).stream().anyMatch(drawn::contains), ground + " foot runs");
         }
+    }
+
+    @Test
+    void aRingLeavesItsTopRowOpenOverAHeadersInkAndKeepsItsBottomWhole() {
+        final List<String> ring = Glyphs.UI_RING_26;
+        final List<FocusRing.Open> open = List.of(new FocusRing.Open(-40, -20), new FocusRing.Open(30, 80));
+        final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, FocusRing.Ground.PANEL, open));
+
+        // The box is 110 wide from -55: the top row runs from -50 to -40, from -20 to 30, and stops there.
+        assertEquals(10 + 50, columns(drawn, ring.subList(3, 12)));
+        assertEquals(100, columns(drawn, ring.subList(12, 21)));
+    }
+
+    @Test
+    void aLastColumnEndsItsBoxOnThePanelsBlackBorder() {
+        final List<DialogPanel> panels = new ArrayList<>(DialogPanel.RIDE_LIST_ROWS);
+        panels.addAll(DialogPanel.DRAFT_PREVIEW_ROWS);
+        for (final DialogPanel panel : panels) {
+            final int count = (panel.height() - 22) / BodyColumn.STEP;
+            final BodyColumn column = BodyColumn.of(panel.width() - 16, false)
+                    .rows(
+                            count,
+                            0,
+                            index -> line -> line.button(
+                                            PREVIOUS,
+                                            part -> part.row(
+                                                    panel.width() - 36, null, null, "Hafen", "120 m", Look.NORMAL))
+                                    .gap(BodyLine.SIDE_GAP)
+                                    .button(NEXT, part -> part.star(true)));
+            final DialogTitle title = DialogTitle.of(panel, column.panelTop()).header(Symbol.RAIL, "Fahrt", List.of());
+            column.build(FocusRing.Ground.BEVEL_FOOT, title);
+            title.build();
+
+            final int boxTop = BodyColumn.PANEL_TO_CONTENT - column.top();
+            assertEquals(panel.height() - 1, boxTop + 9 * column.rows() + 7, panel + " box bottom");
+        }
+    }
+
+    /** The columns {@code drawn} covers with the runs of {@code runs}, which run 1, 2, 4 to 256 wide. */
+    private static int columns(final String drawn, final List<String> runs) {
+        int columns = 0;
+        for (int index = 0; index < runs.size(); index++) {
+            columns += (1 << index) * (drawn.split(java.util.regex.Pattern.quote(runs.get(index)), -1).length - 1);
+        }
+        return columns;
     }
 
     private static String text(final Component component) {

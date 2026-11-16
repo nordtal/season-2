@@ -102,9 +102,9 @@ final class NegotiationDialog {
             final String shown = Letters.cut(status, WIDTH);
             line.at((WIDTH - Letters.visibleWidth(shown)) / 2).text(shown, Colours.SOFT);
         });
-        final List<DialogBody> body = List.of(Dialogs.line(column, FocusRing.Ground.BEVEL));
         final DialogTitle title = DialogTitle.of(DialogPanel.DUEL_124, column.panelTop())
                 .header(Symbol.SHIELD, Dialogs.plain(document.title()), List.of());
+        final List<DialogBody> body = List.of(Dialogs.line(column, FocusRing.Ground.BEVEL_FOOT, title));
         if (view.redrawn()) {
             title.words(document.label("redrawn", new Redrawn(status)));
         }

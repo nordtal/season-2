@@ -57,7 +57,17 @@ object GlyphAdvances {
             if (provider["type"] != "bitmap") continue
 
             val id = provider["file"] as String
-            val image = image(listOfNotNull(texture(assets, id), fonts?.let { texture(it.resolve("assets"), id) }, vanilla?.let { texture(it, id) }).firstOrNull { it.isFile } ?: texture(assets, id))
+            val image =
+                image(
+                    listOfNotNull(
+                        texture(assets, id),
+                        fonts?.let {
+                            texture(it.resolve("assets"), id)
+                        },
+                        vanilla?.let { texture(it, id) },
+                    ).firstOrNull { it.isFile }
+                        ?: texture(assets, id),
+                )
             val rows = (provider["chars"] as List<String>).map { it.codePoints().toArray() }
             val cellWidth = image.width / rows[0].size
             val cellHeight = image.height / rows.size

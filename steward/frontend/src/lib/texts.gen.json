@@ -1428,7 +1428,7 @@
     "steward.people.minutes": [["Minutes"]],
     "steward.people.mode": [[{"c":"mode","plural":false,"cases":{"survival":["Survival"],"creative":["Creative"],"other":[{"v":"mode"}]}}]],
     "steward.people.most-days": [["At most ",{"v":"most","k":"number"}," ",{"c":"most","plural":true,"cases":{"one":["day"],"other":["days"]}},"."]],
-    "steward.people.network-zone": [["Network's zone"]],
+    "steward.people.network-zone": [["The ",{"b":"terms.network"},"'s zone"]],
     "steward.people.never": [["never had ",{"b":"terms.access"}]],
     "steward.people.never-seen": [["Never"]],
     "steward.people.next": [["Next"]],

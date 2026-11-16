@@ -306,7 +306,7 @@ public interface PeoplePage {
     @Name("Not chosen")
     MessageRef notChosen();
 
-    @Name("Network's zone")
+    @Name("The network's zone")
     MessageRef networkZone();
 
     @Name("Last changed")

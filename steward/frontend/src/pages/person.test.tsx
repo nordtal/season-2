@@ -83,7 +83,7 @@ describe("PersonPage - one person on an address of their own", () => {
     draw(<PersonPage />, `/access/${BOB}`)
 
     expect(await screen.findByText("Not chosen")).toBeTruthy()
-    expect(screen.getByText("Network's zone")).toBeTruthy()
+    expect(screen.getByText("The network's zone")).toBeTruthy()
   })
 
   it("reveals the Discord id in the identity popover, on request", async () => {

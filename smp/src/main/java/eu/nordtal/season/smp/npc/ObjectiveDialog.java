@@ -204,7 +204,7 @@ public final class ObjectiveDialog {
                 .rows(cards.size(), EACH, index -> line -> card(line, cards.get(index), send));
         final List<DialogBody> body = List.of(
                 Dialogs.line(column, FocusRing.Ground.BEVEL),
-                Dialogs.line(shareLine(paging, page, send), WIDTH, FocusRing.Ground.BEVEL));
+                Dialogs.line(shareLine(paging, page, send), WIDTH, FocusRing.Ground.BEVEL_FOOT));
         return Dialog.create(builder -> builder.empty()
                 .base(Dialogs.base(title(document, DialogPanel.OBJECTIVES_124, column.panelTop()))
                         .body(body)

@@ -101,7 +101,7 @@ final class RideDialog {
                     send.pager(BodyColumn.next(), paging, page, words, answers::page)
                             .build(),
                     Dialogs.pagerWidth(paging, page),
-                    FocusRing.Ground.PANEL));
+                    FocusRing.Ground.PANEL_FOOT));
         }
         final DialogTitle title = DialogTitle.of(panel(stops.size()), top)
                 .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of());

@@ -150,6 +150,30 @@ class CompositionTest {
     }
 
     @Test
+    void aFootLineKeepsThePanelsBlackBorderUnderItsBottomRow() {
+        final List<String> ring = Glyphs.UI_RING_26;
+        for (final FocusRing.Ground ground : FocusRing.Ground.values()) {
+            final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, ground));
+            final boolean bevel = ground == FocusRing.Ground.BEVEL || ground == FocusRing.Ground.BEVEL_FOOT;
+            final boolean foot = ground == FocusRing.Ground.PANEL_FOOT || ground == FocusRing.Ground.BEVEL_FOOT;
+            assertEquals(!bevel, drawn.contains(ring.get(0)), ground + " side");
+            assertEquals(bevel && !foot, drawn.contains(ring.get(1)), ground + " shade");
+            assertEquals(bevel && foot, drawn.contains(ring.get(2)), ground + " shade foot");
+            assertEquals(!foot, ring.subList(3, 12).stream().anyMatch(drawn::contains), ground + " runs");
+            assertEquals(foot, ring.subList(12, 21).stream().anyMatch(drawn::contains), ground + " foot runs");
+        }
+    }
+
+    private static String text(final Component component) {
+        final StringBuilder out = new StringBuilder();
+        if (component instanceof final TextComponent text) {
+            out.append(text.content());
+        }
+        component.children().forEach(child -> out.append(text(child)));
+        return out.toString();
+    }
+
+    @Test
     void thePagerDrawsNextFirstSoEnterTurnsThePage() {
         final List<ClickEvent> clicks = new ArrayList<>();
         collectClicks(

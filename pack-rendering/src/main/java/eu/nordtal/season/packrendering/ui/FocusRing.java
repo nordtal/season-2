@@ -18,12 +18,24 @@ public final class FocusRing {
     /** What the ring lies on. */
     public enum Ground {
         /** The panel's grey on every side: the line is narrower than the panel's inside. */
-        PANEL,
+        PANEL(false, false),
         /**
          * The panel's bevel at left and right, for a line as wide as the panel's inside: only the top and bottom arms.
          * The left column lies on the white bevel, where the outline cannot be seen, the right on its dark.
          */
-        BEVEL
+        BEVEL(true, false),
+        /** As {@link #PANEL}, for a panel's last line, whose bottom row lies on the panel's black border. */
+        PANEL_FOOT(false, true),
+        /** As {@link #BEVEL}, for a panel's last line, whose bottom row lies on the panel's black border. */
+        BEVEL_FOOT(true, true);
+
+        private final boolean bevel;
+        private final boolean foot;
+
+        Ground(final boolean bevel, final boolean foot) {
+            this.bevel = bevel;
+            this.foot = foot;
+        }
     }
 
     private static final int ROW = 9;
@@ -32,6 +44,10 @@ public final class FocusRing {
     private static final int ARM = 5;
     private static final int SIDE = 0;
     private static final int SHADE = 1;
+    private static final int SHADE_FOOT = 2;
+    private static final int RUNS = 3;
+    private static final int FOOT_RUNS = 12;
+    private static final int RUN_COUNT = 9;
 
     private static final Map<Integer, List<String>> RINGS = Map.ofEntries(
             Map.entry(26, Glyphs.UI_RING_26),
@@ -75,11 +91,13 @@ public final class FocusRing {
         final int left = -(width / 2);
         final String font = Glyphs.FONT_UI_RING;
         final Pen pen = Pen.start().moveTo(left);
-        if (ground == Ground.PANEL) {
+        if (!ground.bevel) {
             pen.art(font, ring.get(SIDE), 1);
         }
-        pen.moveTo(left + ARM).runs(font, ring.subList(SHADE + 1, ring.size()), width - 2 * ARM);
-        pen.moveTo(left + width - 1).art(font, ring.get(ground == Ground.PANEL ? SIDE : SHADE), 1);
+        final int runs = ground.foot ? FOOT_RUNS : RUNS;
+        pen.moveTo(left + ARM).runs(font, ring.subList(runs, runs + RUN_COUNT), width - 2 * ARM);
+        final int right = ground.bevel ? (ground.foot ? SHADE_FOOT : SHADE) : SIDE;
+        pen.moveTo(left + width - 1).art(font, ring.get(right), 1);
         pen.moveTo(left + (width - art) / 2).append(line, art);
         Component framed = pen.build(0)
                 .append(Component.newline())

@@ -104,7 +104,7 @@ final class PreviewDialog {
                     send.pager(BodyColumn.next(), paging, page, said, this::show)
                             .build(),
                     Dialogs.pagerWidth(paging, page),
-                    FocusRing.Ground.PANEL));
+                    FocusRing.Ground.PANEL_FOOT));
         }
         final DialogPanel panel = paging.paged()
                 ? DialogPanel.DRAFT_PREVIEW_113

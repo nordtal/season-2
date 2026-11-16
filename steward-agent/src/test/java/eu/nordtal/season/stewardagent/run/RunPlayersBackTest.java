@@ -92,6 +92,37 @@ class RunPlayersBackTest {
     }
 
     @Test
+    void aReturnThroughARestartedProxyCompletesTheCombinedStop() {
+        containers.running("proxy");
+        final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("proxy", "smp"));
+        final UUID player = online("smp");
+        containers.watcher = call -> {
+            if (call.equals("stop:smp-container")) {
+                directory.recorder().moved(request.id(), "proxy", "proxy-standby", 1);
+                directory.recorder().moved(request.id(), "smp", "limbo-standby", 1);
+                directory.recorder().rememberMove(request.id(), player, "smp", "limbo-standby", false);
+                where.put(player, "limbo-standby");
+            }
+        };
+        waitingRoom = slept -> {
+            if (slept == 1) {
+                directory.recorder().returned("proxy", "proxy-standby", 1);
+                where.put(player, "limbo-standby");
+            }
+            if (slept == 2) {
+                UpdateDirectory.using(database.dataSource()).recorder().takeReturn(player);
+                where.put(player, "smp");
+            }
+        };
+        final Outcome outcome = runner.run(request, progress::add);
+        assertEquals(UpdateStatus.DONE, outcome.status());
+        assertTrue(
+                steps(request.id()).contains("PLAYERS_BACK DONE"),
+                steps(request.id()).toString());
+        assertTrue(directory.recorder().moves(request.id()).stream().allMatch(move -> move.returned() == move.moved()));
+    }
+
+    @Test
     void playersBackWaitsPastItsCapForAPlayerTheWaitingRoomStillHolds() {
         final UpdateRequest request = claimed(UpdateKind.RESTART, List.of("smp"));
         final UUID player = online("smp");

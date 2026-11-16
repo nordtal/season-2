@@ -131,8 +131,8 @@ class DocumentCheckTest {
                 : null;
         assertEquals(
                 List.of(
-                        "a text block in English: with its examples the text has 4,005 characters,"
-                                + " and its place fits 4,000",
+                        "a text block in English: the example text has 4,005 characters;"
+                                + " this display allows 4,000",
                         "its text blocks in English show 4055 characters, Discord takes 4000"),
                 DocumentCheck.check(SUMMARY.declaration(), document, MessageCheck.Mode.OVERRIDE, language -> grown)
                         .stream()

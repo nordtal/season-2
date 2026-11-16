@@ -53,7 +53,7 @@ class MinecraftInstanceChooserTest {
             }
         val store = root.resolve("minecraft-instance.properties")
         assertEquals(
-            "${prism.resolve("minecraft")} cannot be created, so nothing changed.",
+            "Folder not created: ${prism.resolve("minecraft")}. Check its parent directory permissions and retry.",
             MinecraftInstanceChooser.save(store, prism, prism)?.trim(),
         )
         assertFalse(store.exists())

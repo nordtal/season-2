@@ -72,7 +72,7 @@ public final class RestartWatch {
                     "proxy", "restart-tick", "Restart", DocumentSpec.Shape.TITLE, Tick.class)
             .titled("Restart countdown title");
 
-    /** The display times of the tick subtitle. */
+    /** The displaytimes of the tick subtitle. */
     private static final Title.Times TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
@@ -156,7 +156,7 @@ public final class RestartWatch {
         try {
             pending = updates.countingDown();
         } catch (final RuntimeException failure) {
-            logger.warn("countdown unreadable, nobody told", failure);
+            logger.warn("countdown unreadable, notices skipped", failure);
             return;
         }
 
@@ -200,7 +200,7 @@ public final class RestartWatch {
         try {
             standby = standbyProxy.getAsBoolean();
         } catch (final RuntimeException failure) {
-            logger.warn("standby proxy check failed, worse outcome announced", failure);
+            logger.warn("standby proxy check failed, fallback restart notice sent", failure);
         }
         return RunShape.of(request.kind(), moving, room, standby);
     }
@@ -243,11 +243,11 @@ public final class RestartWatch {
         try {
             status = updates.find(watched).map(UpdateRequest::status).orElse(null);
         } catch (final RuntimeException failure) {
-            logger.warn("stopped countdown unreadable, nobody told: request={}", watched, failure);
+            logger.warn("stopped countdown unreadable, notices skipped: request={}", watched, failure);
             return;
         }
 
-        logger.info("countdown over: request={} status={}", watched, status == null ? "gone" : status);
+        logger.info("countdown ended: request={} status={}", watched, status == null ? "gone" : status);
         cancelScheduled();
         countdown.gone(status).ifPresent(announcement -> {
             if (announcement.kind() == Announcement.Kind.NOW) {

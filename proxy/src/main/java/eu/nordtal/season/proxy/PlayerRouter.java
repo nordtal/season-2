@@ -170,7 +170,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             decision = routing.decideRelease(state, available, now);
         } catch (final RuntimeException exception) {
             logger.warn(
-                    "access not re-checked on release, last season used: uuid={} player={}",
+                    "access recheck failed on release, cached season used: uuid={} player={}",
                     uuid,
                     player.getUsername(),
                     exception);
@@ -215,7 +215,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             return;
         }
         logger.info(
-                "season changed, re-route scheduled: from=\"{}\" to=\"{}\" count={}",
+                "season changed, player rerouting scheduled: from=\"{}\" to=\"{}\" count={}",
                 previous,
                 current,
                 proxy.getAllPlayers().size());
@@ -238,7 +238,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             }
         }
         logger.info(
-                "re-route finished: season=\"{}\" acted={} count={}",
+                "player rerouting completed: season=\"{}\" acted={} count={}",
                 season,
                 acted,
                 proxy.getAllPlayers().size());
@@ -353,7 +353,7 @@ public final class PlayerRouter implements SeasonWatch.ChangeListener {
             if (there) {
                 health.clear(room);
                 logger.info(
-                        "player moved into waiting room after a failed re-route: player={} waiting_room={}",
+                        "rerouting failed, player moved to waiting room: player={} waiting_room={}",
                         player.getUsername(),
                         room);
             }

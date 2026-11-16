@@ -50,7 +50,7 @@ public final class Homecoming {
     /** The seconds that the standby proxy announces the return before it happens. */
     public static final Duration NOTICE = Duration.ofSeconds(10);
 
-    /** The display times of the subtitle, equal to those in {@code RestartWatch}. */
+    /** The displaytimes of the subtitle, equal to those in {@code RestartWatch}. */
     private static final Title.Times TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
@@ -179,7 +179,7 @@ public final class Homecoming {
             try {
                 tell(player, announcement);
             } catch (final RuntimeException failure) {
-                logger.warn("network back notice not sent: player={}", player.getUsername(), failure);
+                logger.warn("network recovery notice not sent: player={}", player.getUsername(), failure);
             }
         }
     }

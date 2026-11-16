@@ -84,7 +84,7 @@ public final class OnlineWriter {
         try {
             return hurry.getAsBoolean();
         } catch (final RuntimeException failure) {
-            logger.debug("run imminence unreadable, usual cadence kept", failure);
+            logger.debug("pending run unreadable, normal write interval kept", failure);
             return false;
         }
     }

@@ -5,7 +5,7 @@ import eu.nordtal.season.database.Jdbis;
 import java.util.Objects;
 import javax.sql.DataSource;
 
-/** Stores the play time. */
+/** Stores the playtime. */
 public interface PlaytimeStore {
 
     /** Creates a store that uses the pool of the proxy. */

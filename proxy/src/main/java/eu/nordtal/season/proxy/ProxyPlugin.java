@@ -272,7 +272,7 @@ public final class ProxyPlugin {
      * as up only once it can place a player.
      */
     private void holdUntilWaitingRoom(final NetworkServers servers) {
-        logger.info("port opening held: waiting_room={} standby_room={}", servers.limbo(), servers.limboStandby());
+        logger.info("port opening deferred: waiting_room={} standby_room={}", servers.limbo(), servers.limboStandby());
         if (WaitingRooms.answering(proxy, servers, Waiting.on(clock), WaitingRooms.AT_START)
                 .isEmpty()) {
             logger.warn(
@@ -338,11 +338,11 @@ public final class ProxyPlugin {
         try {
             parked = new ParkedSeats(swaps.takeAllSeats(), clock.instant());
         } catch (final RuntimeException failure) {
-            logger.warn("swap seats unreadable, players routed by season", failure);
+            logger.warn("proxy swap records unreadable, season routing used", failure);
             return new ParkedSeats(List.of(), clock.instant());
         }
         if (parked.size() > 0) {
-            logger.info("swap seats found: count={}", parked.size());
+            logger.info("proxy swap records loaded: count={}", parked.size());
         }
         return parked;
     }
@@ -471,7 +471,7 @@ public final class ProxyPlugin {
         return onlineWriter;
     }
 
-    /** Creates the play time writer and its flush timer. */
+    /** Creates the playtime writer and its flush timer. */
     private void wirePlaytime(final Shared shared) {
         final PlaytimeWriter writer =
                 new PlaytimeWriter(PlaytimeStore.using(shared.loaded().pool()), shared.roster(), logger, clock);
@@ -667,7 +667,7 @@ public final class ProxyPlugin {
         final PlayersSpec players = shared.loaded().players().get();
         final SeasonState season = shared.seasonWatch().state();
         logger.info(
-                "login gate up: season=\"{}\" query_timeout_seconds={} fallback_window_minutes={}"
+                "login gate enabled: season=\"{}\" query_timeout_seconds={} fallback_window_minutes={}"
                         + " playtime_flush_seconds={} waiting_room={} sweep_seconds={}",
                 season,
                 shared.loaded().database().queryTimeoutSeconds(),
@@ -762,7 +762,7 @@ public final class ProxyPlugin {
     @Subscribe
     public void onProxyShutdown(final ProxyShutdownEvent event) {
         if (playtime != null) {
-            logger.info("play time flushed on shutdown: count={}", playtime.flushAll());
+            logger.info("playtime flushed on shutdown: count={}", playtime.flushAll());
         }
         closeResources();
     }

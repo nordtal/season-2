@@ -292,7 +292,7 @@ public final class ProxySwap {
             try {
                 seats.seat(player.getUniqueId(), on, clock.instant());
             } catch (final RuntimeException failure) {
-                logger.warn("player seat not recorded: player={}", player.getUsername(), failure);
+                logger.warn("proxy swap position not recorded: player={}", player.getUsername(), failure);
             }
         }
     }

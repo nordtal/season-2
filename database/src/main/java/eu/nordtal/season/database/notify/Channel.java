@@ -70,7 +70,7 @@ public enum Channel {
 
     /**
      * A member's language, country, flag or time zone in {@code discord_user} changed. The payload is the Discord id.
-     * The access directory emits, Paper listens.
+     * The access directory emits, Paper and the proxy listen.
      */
     IDENTITY("nordtal_identity");
 

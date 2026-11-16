@@ -698,6 +698,7 @@
     "steward.people.minutes": ["access"],
     "steward.people.mode": ["access"],
     "steward.people.most-days": ["access"],
+    "steward.people.network-zone": ["access"],
     "steward.people.never": ["access"],
     "steward.people.never-seen": ["access"],
     "steward.people.next": ["access"],

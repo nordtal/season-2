@@ -1832,6 +1832,7 @@ export type TextArgs = {
   "steward.people.most-days": {
     most: Arg["number"]
   }
+  "steward.people.network-zone": Record<string, never>
   "steward.people.never": Record<string, never>
   "steward.people.never-seen": Record<string, never>
   "steward.people.next": Record<string, never>

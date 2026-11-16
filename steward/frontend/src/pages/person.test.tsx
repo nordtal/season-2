@@ -78,11 +78,12 @@ describe("PersonPage - one person on an address of their own", () => {
     expect(screen.getByText("America/New_York")).toBeTruthy()
   })
 
-  it("says a person chose no country rather than leaving the field empty", async () => {
+  it("says a person chose no country, and that times show in the network's zone", async () => {
     vi.stubGlobal("fetch", backend())
     draw(<PersonPage />, `/access/${BOB}`)
 
-    expect(await screen.findAllByText("Not chosen")).toHaveLength(2)
+    expect(await screen.findByText("Not chosen")).toBeTruthy()
+    expect(screen.getByText("Network's zone")).toBeTruthy()
   })
 
   it("reveals the Discord id in the identity popover, on request", async () => {

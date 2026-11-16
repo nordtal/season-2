@@ -17,26 +17,26 @@ class GraveDiedAtLoreTest {
     @Test
     void english() {
         assertEquals(
-                List.of("Somebody", "Died Sep 17, 2026, 10:00\u202fAM", "at 100 64 -200"),
+                List.of("Somebody", "Died Sep 17, 2026 at 10:00\u202fAM", "at 100 64 -200"),
                 owner(Viewer.of(Locale.ENGLISH)));
     }
 
     @Test
     void german() {
         assertEquals(
-                List.of("Jemand", "Gestorben am 17.09.2026, 10:00", "bei 100 64 -200"),
+                List.of("Jemand", "Gestorben am 17.09.2026 um 10:00", "bei 100 64 -200"),
                 owner(Viewer.of(Locale.GERMAN)));
     }
 
     @Test
     void theTimeIsTheReadersOwn() {
         assertEquals(
-                "Died Sep 17, 2026, 6:00\u202fAM",
+                "Died Sep 17, 2026 at 6:00\u202fAM",
                 owner(new Viewer(Locale.ENGLISH, ZoneId.of("America/New_York"), null))
                         .get(1),
                 "a reader in New York saw the time of another zone");
         assertEquals(
-                "Gestorben am 17.09.2026, 12:00",
+                "Gestorben am 17.09.2026 um 12:00",
                 owner(new Viewer(Locale.GERMAN, ZoneId.of("Europe/Berlin"), null))
                         .get(1));
     }

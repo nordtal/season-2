@@ -288,7 +288,7 @@ interface AccessDao {
     Optional<AccessState> accessState(@Bind("mcUuid") UUID mcUuid);
 
     @SqlQuery("""
-            SELECT link.mc_uuid, link.discord_id, link.mc_name, usr.locale, usr.country, usr.flag, usr.time_zone,
+            SELECT link.mc_uuid, link.discord_id, link.mc_name, usr.locale, usr.flag, usr.time_zone,
                    usr.admin, usr.donor,
                    coalesce(smp.aura, 0) AS aura, coalesce(playtime.seconds, 0) AS playtime_seconds
             FROM account_link link

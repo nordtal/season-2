@@ -134,7 +134,7 @@ function PersonStats({ person, people, now }: { person?: Person; people?: readon
       />
       <Stat
         label={t("steward.people.time-zone")}
-        value={person ? (person.timeZone ?? t("steward.people.not-chosen")) : undefined}
+        value={person ? (person.timeZone ?? t("steward.people.network-zone")) : undefined}
       />
     </div>
   )

@@ -283,7 +283,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
     /** Rereads the players' identities when an admin, a language, a flag or a time zone changes. */
     private void followIdentities(final SignalHub signals) {
         signals.on(Channel.ADMIN, "who the players are", identities::reread);
-        signals.on(Channel.IDENTITY, "the players' language, flag and time zone", identities::reread);
+        // Every refresh runs on every signal, so one reread serves both: this registration only listens.
+        signals.on(Channel.IDENTITY, "the players' language, flag and time zone", () -> {});
     }
 
     /**

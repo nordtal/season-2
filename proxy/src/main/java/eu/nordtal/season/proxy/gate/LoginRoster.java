@@ -3,10 +3,14 @@ package eu.nordtal.season.proxy.gate;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import eu.nordtal.season.common.id.DiscordId;
+import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.PlayerCard;
+import eu.nordtal.season.database.access.PlayerIdentity;
 import eu.nordtal.season.database.access.Prestige;
 import eu.nordtal.season.messagerendering.NameCards;
+import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -36,8 +40,8 @@ public final class LoginRoster {
             return new Session(discordId, locale, flag, admin, donor, packExempt, playtimeSeconds);
         }
 
-        Session withIdentity(final Locale language, final @Nullable String country) {
-            return new Session(discordId, language, country, admin, donor, packExempt, playtimeSeconds);
+        Session withIdentity(final Locale language, final @Nullable String flag) {
+            return new Session(discordId, language, flag, admin, donor, packExempt, playtimeSeconds);
         }
     }
 
@@ -120,22 +124,27 @@ public final class LoginRoster {
     }
 
     /**
-     * Rereads the language and the country flag of every session, so a change shows without a new login.
-     * A read that names another Discord account leaves its session alone.
+     * Rereads the language and the country flag of every session in one read, so a change shows without a new login.
+     * An identity that names another Discord account, or none, leaves its session alone.
      *
      * @return the number of changed sessions
      */
-    public int refreshIdentities(final Function<UUID, AccessState> read) {
+    public int refreshIdentities(final Function<Collection<PlayerId>, List<PlayerIdentity>> read) {
         Objects.requireNonNull(read, "read");
+        final List<PlayerId> online =
+                sessions.keySet().stream().map(PlayerId::of).toList();
+        if (online.isEmpty()) {
+            return 0;
+        }
         int changed = 0;
-        for (final java.util.Map.Entry<UUID, Session> entry : sessions.entrySet()) {
-            final Session session = entry.getValue();
-            final AccessState state = read.apply(entry.getKey());
-            if (!session.discordId().equals(state.discordId())) {
+        for (final PlayerIdentity identity : read.apply(online)) {
+            final UUID mcUuid = identity.player().value();
+            final Session session = sessions.get(mcUuid);
+            if (session == null || !session.discordId().equals(identity.discordId())) {
                 continue;
             }
-            final Session fresh = session.withIdentity(state.locale(), state.flag());
-            if (!fresh.equals(session) && sessions.replace(entry.getKey(), session, fresh)) {
+            final Session fresh = session.withIdentity(identity.language(), identity.flag());
+            if (!fresh.equals(session) && sessions.replace(mcUuid, session, fresh)) {
                 changed++;
             }
         }

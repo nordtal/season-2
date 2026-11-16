@@ -63,8 +63,8 @@ public final class PlayerComposition {
     }
 
     /** Returns the flag of the country of the player, not of the viewer. */
-    private Component flag(final @Nullable String country) {
-        return Component.text(CountryFlags.of(country)).decoration(TextDecoration.ITALIC, false);
+    private Component flag(final @Nullable String flag) {
+        return Component.text(CountryFlags.of(flag)).decoration(TextDecoration.ITALIC, false);
     }
 
     private Component name(final String name, final PlayerIdentity identity) {

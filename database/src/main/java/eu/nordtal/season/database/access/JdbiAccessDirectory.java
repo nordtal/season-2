@@ -14,6 +14,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import javax.sql.DataSource;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
@@ -143,7 +144,7 @@ final class JdbiAccessDirectory implements AccessDirectory {
     }
 
     /** Writes a part of the identity and emits {@code IDENTITY} in the same transaction, so a listener reads it. */
-    private void identityWrite(final DiscordId discordId, final java.util.function.Consumer<AccessDao> write) {
+    private void identityWrite(final DiscordId discordId, final Consumer<AccessDao> write) {
         jdbi.useTransaction(handle -> {
             final AccessDao transactional = handle.attach(AccessDao.class);
             write.accept(transactional);

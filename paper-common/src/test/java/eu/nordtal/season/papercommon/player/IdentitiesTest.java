@@ -55,6 +55,22 @@ class IdentitiesTest {
     }
 
     @Test
+    void aChangedCountryTellsTheWatchersSoTheFlagIsDrawnAgain() {
+        final PlayerIdentity german = new PlayerIdentity(
+                ALEX, DiscordId.of("1"), "Alex", Locale.GERMAN, "flag-germany", null, false, false, 0, 0L);
+        final PlayerIdentity austrian = new PlayerIdentity(
+                ALEX, DiscordId.of("1"), "Alex", Locale.GERMAN, "flag-austria", null, false, false, 0, 0L);
+        rows.put(ALEX, german);
+        identities.load(ALEX);
+
+        rows.put(ALEX, austrian);
+        identities.reread();
+
+        assertEquals(List.of(austrian), told);
+        assertEquals("flag-austria", identities.of(ALEX).flag());
+    }
+
+    @Test
     void aHeldPlayerHasTheCardOfWhatIsHeldAndNobodyElseHasOne() {
         final Prestige prestige = Prestige.defaults();
         final NameCards cards = identities.cards(() -> prestige);

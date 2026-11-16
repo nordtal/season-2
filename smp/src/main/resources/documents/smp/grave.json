@@ -32,8 +32,8 @@
         },
         {
           "text": {
-            "en": "<muted>Died {at, instant}</muted>",
-            "de": "<muted>Gestorben am {at, instant}</muted>"
+            "en": "<muted>Died {at, instant, date} at {at, instant, time}</muted>",
+            "de": "<muted>Gestorben am {at, instant, date} um {at, instant, time}</muted>"
           }
         },
         {

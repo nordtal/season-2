@@ -306,6 +306,9 @@ public interface PeoplePage {
     @Name("Not chosen")
     MessageRef notChosen();
 
+    @Name("Network's zone")
+    MessageRef networkZone();
+
     @Name("Last changed")
     MessageRef lastChanged(@Arg("at") @Example("2026-10-21T18:40:00Z") Instant at);
 

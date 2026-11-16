@@ -1,6 +1,9 @@
 package eu.nordtal.season.papercommon.npc;
 
+import eu.nordtal.season.database.npc.Dialogue.Words;
+import eu.nordtal.season.database.npc.NpcMenu;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -41,5 +44,14 @@ public final class NpcMenus {
         final Map<String, String> hints = new LinkedHashMap<>();
         menus.values().forEach(menu -> hints.put(menu.key(), menu.hint().apply(locale)));
         return Map.copyOf(hints);
+    }
+
+    /** Returns every registered menu with its English and German hint, for Steward's menu picker. */
+    public List<NpcMenu> describe() {
+        return menus.values().stream()
+                .map(menu -> new NpcMenu(
+                        menu.key(),
+                        new Words(menu.hint().apply(Locale.ENGLISH), menu.hint().apply(Locale.GERMAN))))
+                .toList();
     }
 }

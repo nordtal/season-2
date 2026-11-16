@@ -2,6 +2,7 @@ package eu.nordtal.season.smp;
 
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.database.npc.NpcMenuStore;
 import eu.nordtal.season.database.npc.NpcStore;
 import eu.nordtal.season.packrendering.wheel.WheelTimetable;
 import eu.nordtal.season.papercommon.chat.SystemLines;
@@ -241,12 +242,16 @@ final class SmpStart {
                 plugin.documents(),
                 plugin.dialogs(),
                 plugin.sounds);
+        final Wheel wheel = Objects.requireNonNull(plugin.wheel, "the wheel starts before the NPCs");
         final NpcMenus menus = new NpcMenus()
                 .register(
                         ObjectivesMenu.MENU,
                         locale -> NpcTexts.objectivesHint(plugin.renderer(), locale),
-                        objectives::openObjectives);
+                        objectives::openObjectives)
+                .register("wheel", locale -> NpcTexts.wheelHint(plugin.renderer(), locale), wheel::open);
         final NpcStore store = NpcStore.using(plugin.pool());
+        PaperScheduler.of(plugin)
+                .execute(() -> NpcMenuStore.using(plugin.pool()).publish("smp", menus.describe()));
         final NpcDialogues dialogues = new NpcDialogues(
                 plugin,
                 store,

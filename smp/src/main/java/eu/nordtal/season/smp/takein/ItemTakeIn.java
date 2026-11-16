@@ -36,7 +36,7 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Takes in the item an admin's player puts into a window, which Steward makes a wheel prize or a kit's piece of, whole.
+ * Takes in the item an admin's player puts into a window, whole, for a wheel prize, a kit's piece or NPC equipment.
  * The request stays running while the window is open and is settled with the item, or empty when it closed so.
  * The window stays open after an item, so the next request of its purpose takes the next item in it.
  */

@@ -43,12 +43,14 @@ class ColumnsAreAtomicIntegrationTest {
             "document_version.document",
             "npc.dialogue",
             "npc_dialogue_version.dialogue",
+            "npc_dialogue_version.snapshot",
             "bot_preview_document.document",
             "smp_preview_document.document",
             "hunger_games_preview_document.document",
             "announcement.document",
             "pack_build.prizes",
-            "pack_build.label");
+            "pack_build.label",
+            "pack_build.npcs");
 
     @Test
     void noColumnHoldsADocumentOrAListButTheOnesListedHere() throws SQLException {

@@ -23,8 +23,8 @@ final class JdbiPackBuildStore implements PackBuildStore {
     private static final TypeToken<Map<String, String>> LABEL = new TypeToken<>() {};
 
     private static final String COLUMNS = """
-            SELECT id, state, started, finished, prizes::text AS prizes, label::text AS label, sha1, size_bytes,
-                   duration_ms, error
+            SELECT id, state, started, finished, prizes::text AS prizes, label::text AS label, npcs::text AS npcs,
+                   sha1, size_bytes, duration_ms, error
             FROM pack_build""";
 
     private final Jdbi jdbi;
@@ -34,14 +34,16 @@ final class JdbiPackBuildStore implements PackBuildStore {
     }
 
     @Override
-    public long start(final Instant started, final String prizes, final Map<String, String> label) {
+    public long start(final Instant started, final String prizes, final Map<String, String> label, final String npcs) {
         return jdbi.inTransaction(handle -> {
             final long id = handle.createUpdate("""
-                            INSERT INTO pack_build (state, started, prizes, label)
-                            VALUES ('BUILDING', :started, CAST(:prizes AS jsonb), CAST(:label AS jsonb))""")
+                            INSERT INTO pack_build (state, started, prizes, label, npcs)
+                            VALUES ('BUILDING', :started, CAST(:prizes AS jsonb), CAST(:label AS jsonb),
+                                CAST(:npcs AS jsonb))""")
                     .bind("started", at(started))
                     .bind("prizes", prizes)
                     .bind("label", Json.encode(label))
+                    .bind("npcs", npcs)
                     .executeAndReturnGeneratedKeys("id")
                     .mapTo(Long.class)
                     .one();
@@ -154,6 +156,7 @@ final class JdbiPackBuildStore implements PackBuildStore {
                 finished == null ? null : finished.toInstant(),
                 rows.getString("prizes"),
                 Json.decode(rows.getString("label"), LABEL),
+                rows.getString("npcs"),
                 rows.getString("sha1"),
                 sized ? size : null,
                 timed ? Duration.ofMillis(duration) : null,

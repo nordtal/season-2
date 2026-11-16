@@ -1,5 +1,6 @@
 package eu.nordtal.season.packrendering.npc;
 
+import eu.nordtal.season.messagerendering.text.DialogueRoom;
 import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.Letters;
@@ -7,6 +8,7 @@ import eu.nordtal.season.packrendering.ui.Look;
 import eu.nordtal.season.packrendering.ui.Pen;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.ShadowColor;
 import org.jspecify.annotations.Nullable;
@@ -22,19 +24,19 @@ public final class DialogueScreen {
     public static final int STAGES = 4;
 
     /** The columns a line of the text takes, so it keeps clear of the hold mark. */
-    public static final int BODY_ROOM = 210;
+    public static final int BODY_ROOM = DialogueRoom.BODY;
 
     /** The columns the speaker's name takes. */
-    public static final int NAME_ROOM = 219;
+    public static final int NAME_ROOM = DialogueRoom.NAME;
 
     /** The columns an answer's label takes, so it keeps clear of its number. */
-    public static final int LABEL_ROOM = 228;
+    public static final int LABEL_ROOM = DialogueRoom.LABEL;
 
     /** The lines of text on the panel while the NPC speaks. */
-    public static final int SPEAK_LINES = 3;
+    public static final int SPEAK_LINES = DialogueRoom.SPEAK_LINES;
 
     /** The lines of text above the answers. */
-    public static final int QUESTION_LINES = 2;
+    public static final int QUESTION_LINES = DialogueRoom.QUESTION_LINES;
 
     private static final int WIDTH = 262;
     private static final int MARGIN = 7;
@@ -87,10 +89,17 @@ public final class DialogueScreen {
      * No answer is the speaking panel, one stands on the first plate of the panel for two. {@code selected} counts
      * from 0 and is read only with answers; {@code holdMark} shows that the text waits, on the speaking panel only.
      */
-    public record Panel(String name, List<String> lines, boolean holdMark, List<String> answers, int selected) {
+    public record Panel(
+            String name,
+            List<String> lines,
+            boolean holdMark,
+            List<String> answers,
+            int selected,
+            String portraitFont) {
         public Panel {
             lines = List.copyOf(lines);
             answers = List.copyOf(answers);
+            Objects.requireNonNull(portraitFont, "portraitFont");
             if (answers.size() > 3) {
                 throw new IllegalArgumentException("a panel holds at most 3 answers, not " + answers.size());
             }
@@ -104,6 +113,16 @@ public final class DialogueScreen {
             if (holdMark && !answers.isEmpty()) {
                 throw new IllegalArgumentException("only the speaking panel draws the hold mark");
             }
+        }
+
+        /** Creates a panel with the pack's default portrait. */
+        public Panel(
+                final String name,
+                final List<String> lines,
+                final boolean holdMark,
+                final List<String> answers,
+                final int selected) {
+            this(name, lines, holdMark, answers, selected, Glyphs.FONT_NPC);
         }
     }
 
@@ -152,30 +171,7 @@ public final class DialogueScreen {
 
     /** Breaks {@code text} at spaces into lines inking at most {@code room} columns, in a word only if it is wider. */
     public static List<String> wrap(final String text, final int room) {
-        final List<String> lines = new ArrayList<>();
-        String line = "";
-        for (final String word : text.split(" ", -1)) {
-            final String candidate = line.isEmpty() ? word : line + " " + word;
-            if (Letters.visibleWidth(candidate) <= room) {
-                line = candidate;
-                continue;
-            }
-            if (!line.isEmpty()) {
-                lines.add(line);
-            }
-            String rest = word;
-            while (Letters.visibleWidth(rest) > room) {
-                int end = rest.length();
-                while (end > 1 && Letters.visibleWidth(rest.substring(0, end)) > room) {
-                    end = rest.offsetByCodePoints(end, -1);
-                }
-                lines.add(rest.substring(0, end));
-                rest = rest.substring(end);
-            }
-            line = rest;
-        }
-        lines.add(line);
-        return List.copyOf(lines);
+        return Letters.wrapVisible(text, room);
     }
 
     /** Returns {@code text}, or its start ending in an ellipsis where it inks more than {@code room} columns. */
@@ -203,7 +199,7 @@ public final class DialogueScreen {
     private static void panel(final Pen pen, final Panel panel) {
         final Shape shape = Shape.of(panel.answers().size());
         pen.moveTo(0).art(Glyphs.FONT_NPC, shape.left, TILE).art(Glyphs.FONT_NPC, shape.right, WIDTH - TILE);
-        pen.moveTo(MARGIN).art(Glyphs.FONT_NPC, shape.portrait, PORTRAIT);
+        pen.moveTo(MARGIN).art(panel.portraitFont(), shape.portrait, PORTRAIT);
         pen.moveTo(TEXT_X).text(text(shape.name), cut(panel.name(), NAME_ROOM), Colours.INK);
         for (int line = 0; line < panel.lines().size(); line++) {
             pen.moveTo(TEXT_X)

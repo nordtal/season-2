@@ -7,6 +7,10 @@ import eu.nordtal.season.database.access.PackExemptions;
 import eu.nordtal.season.database.access.Person;
 import eu.nordtal.season.database.audit.AuditEntry;
 import eu.nordtal.season.database.command.CommandTree;
+import eu.nordtal.season.database.npc.Dialogue;
+import eu.nordtal.season.database.npc.Npc;
+import eu.nordtal.season.database.npc.NpcMenu;
+import eu.nordtal.season.database.npc.NpcSkin;
 import eu.nordtal.season.database.payment.PaymentRequest;
 import eu.nordtal.season.database.season.SeasonChange;
 import eu.nordtal.season.internalapi.agent.AgentWire;
@@ -47,6 +51,8 @@ import eu.nordtal.season.steward.messages.DocumentsApi;
 import eu.nordtal.season.steward.messages.MessagesApi;
 import eu.nordtal.season.steward.messages.TranslationSearch;
 import eu.nordtal.season.steward.metric.Metrics;
+import eu.nordtal.season.steward.npc.NpcApi;
+import eu.nordtal.season.steward.npc.NpcTextMeasure;
 import eu.nordtal.season.steward.season.SeasonRoutes;
 import eu.nordtal.season.steward.settings.Reloading;
 import eu.nordtal.season.steward.settings.Settings;
@@ -89,6 +95,15 @@ public final class StewardWire {
             CommandApi.TakeIn.class,
             CommandApi.TakePosition.class,
             CommandApi.PositionTaker.class,
+            NpcApi.NpcView.class,
+            NpcApi.NpcPublication.class,
+            NpcApi.NpcVersion.class,
+            NpcApi.NpcSkinUploaded.class,
+            NpcApi.NpcSkinCopy.class,
+            NpcApi.NpcPreview.class,
+            NpcTextMeasure.Request.class,
+            NpcTextMeasure.Measurement.class,
+            NpcMenu.class,
             Announcements.AnnouncementsAsked.class,
             Announcements.AnnouncementList.class,
             Announcements.AnnouncementDraft.class,
@@ -229,7 +244,14 @@ public final class StewardWire {
             Map.entry(DocumentMerge.Change.class, "DocumentChange"),
             Map.entry(DocumentCheck.Problem.class, "DocumentProblem"),
             Map.entry(Declaration.class, "MessageDeclaration"),
-            Map.entry(Kind.class, "ValueKind"));
+            Map.entry(Kind.class, "ValueKind"),
+            Map.entry(NpcTextMeasure.Request.class, "NpcTextMeasureRequest"),
+            Map.entry(NpcTextMeasure.Measurement.class, "NpcTextMeasurement"),
+            Map.entry(NpcTextMeasure.Kind.class, "NpcTextKind"),
+            Map.entry(Npc.Place.class, "NpcPlace"),
+            Map.entry(NpcSkin.SkinModel.class, "NpcSkinModel"),
+            Map.entry(Dialogue.Step.class, "NpcStep"),
+            Map.entry(Dialogue.Answer.class, "NpcAnswer"));
 
     private StewardWire() {}
 }

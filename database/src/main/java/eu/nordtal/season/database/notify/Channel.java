@@ -59,7 +59,7 @@ public enum Channel {
     /** A server or the proxy published a changed command tree. The payload is its service. steward listens. */
     COMMAND_TREE("nordtal_command_tree"),
 
-    /** A build of the resource pack started or ended. steward-agent emits, steward listens. */
+    /** A build of the resource pack started or ended. steward-agent emits; steward and smp listen. */
     PACK("nordtal_pack"),
 
     /** An admin asked for the resource pack to be built again. steward emits, steward-agent listens. */

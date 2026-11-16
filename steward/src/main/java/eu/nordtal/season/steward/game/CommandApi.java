@@ -21,6 +21,7 @@ import eu.nordtal.season.database.inbox.Request;
 import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.inbox.TakeInPurpose;
+import eu.nordtal.season.database.npc.Npc;
 import eu.nordtal.season.database.online.OnlinePlayer;
 import eu.nordtal.season.internalapi.agent.Topology;
 import eu.nordtal.season.messages.MessageRef;
@@ -166,6 +167,16 @@ public final class CommandApi {
             case Topology.HUNGER_GAMES -> "hunger_games:" + ask(who, data.hungerGames(), games.apply(player));
             default -> throw new RequestRefused(409, ANSWER.previewOffline());
         };
+    }
+
+    /** Writes a drafted NPC preview for the admin's linked player on the SMP and returns its request name. */
+    public String previewNpc(final Context ctx, final Npc npc, final String language) {
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final PlayerId player = linked(DiscordId.of(who.id()));
+        if (!serverOf(player).equals(Topology.SMP)) {
+            throw new RequestRefused(409, ANSWER.takeInOffline());
+        }
+        return "smp:" + ask(who, data.smp(), new SmpRequest.PreviewNpc(player, npc, language));
     }
 
     /** What a take-in asks for: what the item becomes, which the window in the game names. */

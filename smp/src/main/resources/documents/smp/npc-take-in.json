@@ -1,0 +1,46 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "style": "TITLE",
+          "text": {
+            "en": "Put in an NPC item",
+            "de": "NPC-Gegenstand hineinlegen"
+          }
+        }
+      ]
+    },
+    {
+      "type": "ITEM",
+      "slot": "put-in",
+      "lines": [
+        {
+          "text": {
+            "en": "Put in an NPC item",
+            "de": "NPC-Gegenstand hineinlegen"
+          }
+        },
+        {
+          "text": {
+            "en": "Imports an item into Steward.",
+            "de": "Importiert einen Gegenstand in Steward."
+          }
+        }
+      ]
+    },
+    {
+      "type": "LABEL",
+      "slot": "imported",
+      "lines": [
+        {
+          "text": {
+            "en": "Imported into Steward",
+            "de": "In Steward importiert"
+          }
+        }
+      ]
+    }
+  ]
+}

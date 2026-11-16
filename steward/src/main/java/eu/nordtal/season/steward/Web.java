@@ -16,6 +16,8 @@ import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.metric.Metric;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
+import eu.nordtal.season.database.npc.NpcMenuStore;
+import eu.nordtal.season.database.npc.NpcStore;
 import eu.nordtal.season.database.pack.PackBuildStore;
 import eu.nordtal.season.internalapi.agent.AgentClient;
 import eu.nordtal.season.messages.Messages;
@@ -63,6 +65,8 @@ import eu.nordtal.season.steward.live.LiveFeed;
 import eu.nordtal.season.steward.live.Topic;
 import eu.nordtal.season.steward.messages.DocumentsApi;
 import eu.nordtal.season.steward.metric.Metrics;
+import eu.nordtal.season.steward.npc.NpcApi;
+import eu.nordtal.season.steward.npc.NpcSkins;
 import eu.nordtal.season.steward.pack.PackApi;
 import eu.nordtal.season.steward.push.PushSubscriptions;
 import eu.nordtal.season.steward.push.WebPushSender;
@@ -149,6 +153,8 @@ public final class Web {
     private final GameActions games;
     private final Inventories inventories;
     private final Announcements announcements;
+
+    private final NpcApi npcs;
 
     private final AccessApi access;
 
@@ -279,6 +285,7 @@ public final class Web {
         this.games = new GameActions(data.dataSource(), commands, trackNames(stack, clock));
         this.inventories = new Inventories(data, games, ctx -> account(ctx).orElseThrow(), Waiting.on(clock));
         this.announcements = announcementsOf(data, stack, ctx -> account(ctx).orElseThrow());
+        this.npcs = npcsOf(data, commands, ctx -> account(ctx).orElseThrow());
         this.access = new AccessApi(data, ctx -> account(ctx).orElseThrow());
         this.roster = new RosterRoutes(data, texts.messages());
         this.gameData = new GameDataRoutes(GameDataStore.using(data.dataSource()));
@@ -312,6 +319,17 @@ public final class Web {
         this.push = new PushEndpoints(this::requireSession, localPushSubscriptions, wiring.router(), localVapidKeys);
         this.live = watchLive(data, clock);
         this.overrides = MessageOverrideStore.using(data.dataSource());
+    }
+
+    /** The NPC editor's routes, which preview a draft through the SMP's inbox. */
+    private static NpcApi npcsOf(
+            final Data data, final CommandApi commands, final Function<Context, DiscordAuth.Account> accounts) {
+        return new NpcApi(
+                NpcStore.using(data.dataSource()),
+                NpcMenuStore.using(data.dataSource()),
+                NpcSkins.mojang(),
+                accounts,
+                commands::previewNpc);
     }
 
     /** The announcement routes, which check a draft against the bot's announcement document. */
@@ -426,6 +444,7 @@ public final class Web {
                     updates.register(cfg);
                     pack.register(cfg);
                     GameRoutes.register(cfg, commands, games, inventories, announcements, gameData, consoleCommands);
+                    npcs.register(cfg);
                     registerPreviewRoutes(cfg);
                     guild.register(cfg);
                     settings.register(cfg);

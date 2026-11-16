@@ -5,6 +5,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.database.document.AppliedDocuments;
+import eu.nordtal.season.database.npc.NpcSkin;
+import eu.nordtal.season.database.npc.NpcStore;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.packbuilder.json.Json;
 import eu.nordtal.season.packbuilder.wheel.WheelPack;
@@ -15,15 +17,19 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
+import java.util.UUID;
 
 /**
- * What the pack is built from besides its fixed files: smp's wheel prizes and the wheel's texts as they apply now.
+ * What the pack is built from besides its fixed files: smp's wheel prizes, the wheel's texts and the NPC skins.
  *
  * @param prizes the prize list as the pack builder reads it, a JSON list of {@code item} and {@code amount}
  * @param texts the wheel's text document as JSON
  * @param label the spin button's label by language, the one text of the document the pack draws
+ * @param npcs the uploaded skin of each NPC that has one, as a JSON object of skin ids by NPC id
+ * @param skins the skins {@code npcs} names, by NPC id, to draw from; empty for inputs read back from a build record
  */
-record PackInputs(String prizes, String texts, Map<String, String> label) {
+record PackInputs(String prizes, String texts, Map<String, String> label, String npcs, Map<UUID, NpcSkin> skins) {
 
     static final String SERVICE = "smp";
     static final String GROUP = "wheel";
@@ -32,23 +38,46 @@ record PackInputs(String prizes, String texts, Map<String, String> label) {
 
     PackInputs {
         label = Map.copyOf(label);
+        skins = Map.copyOf(skins);
+    }
+
+    /** Inputs without NPC skins to draw, as a build record holds them. */
+    PackInputs(final String prizes, final String texts, final Map<String, String> label, final String npcs) {
+        this(prizes, texts, label, npcs, Map.of());
     }
 
     /**
      * Reads the inputs as smp applies them.
      *
      * @param shippedPrizes smp's default prizes as this release ships them, for an smp that never published its group
+     * @param npcs the NPCs, whose uploaded skins the pack draws
      * @throws IllegalArgumentException if a stored value cannot be read
      */
-    static PackInputs read(final SettingStore settings, final AppliedDocuments documents, final Path shippedPrizes)
+    static PackInputs read(
+            final SettingStore settings,
+            final AppliedDocuments documents,
+            final Path shippedPrizes,
+            final NpcStore npcs)
             throws IOException {
         final String texts = documents.applied(SERVICE, DOCUMENT).document().json();
-        return new PackInputs(prizes(settings, shippedPrizes), texts, label(texts));
+        final Map<UUID, NpcSkin> skins = npcs.skins();
+        return new PackInputs(prizes(settings, shippedPrizes), texts, label(texts), skinIds(skins), skins);
+    }
+
+    /** Returns the skin id of each NPC as a JSON object, which is all the pack's NPC files depend on. */
+    static String skinIds(final Map<UUID, NpcSkin> skins) {
+        final JsonObject ids = new JsonObject();
+        new TreeMap<>(skins)
+                .forEach(
+                        (npc, skin) -> ids.addProperty(npc.toString(), skin.id().toString()));
+        return ids.toString();
     }
 
     /** Returns whether a build from {@code other} draws the same pack, however the prizes are spaced or ordered. */
     boolean drawsSame(final PackInputs other) {
-        return label.equals(other.label) && JsonParser.parseString(prizes).equals(JsonParser.parseString(other.prizes));
+        return label.equals(other.label)
+                && JsonParser.parseString(prizes).equals(JsonParser.parseString(other.prizes))
+                && JsonParser.parseString(npcs).equals(JsonParser.parseString(other.npcs));
     }
 
     /** The prize list: an admin's, else the defaults smp published, else the ones this release ships. */

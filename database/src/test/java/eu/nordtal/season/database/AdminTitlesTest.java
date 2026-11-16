@@ -4,6 +4,7 @@ import static eu.nordtal.season.database.AdminTexts.TEXTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.nordtal.season.common.ComposeFile;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateKind;
@@ -14,6 +15,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -47,7 +49,7 @@ class AdminTitlesTest {
     /**
      * Every alert title fits, found as each alert text without shown places of its own.
      * A line below a title names its own places, so the rest are titles. A title that names a value takes the
-     * longest value the stack has, and a title that lists services takes the longest one or all of them.
+     * longest value the stack has. A volume or a list belongs in the lines, so a title that names one fails.
      */
     @Test
     void everyAlertTitleFitsWithTheLongestValueTheStackNames() throws ReflectiveOperationException {
@@ -66,34 +68,19 @@ class AdminTitlesTest {
         assertEquals(List.of(), tooLong(titles));
     }
 
-    /** Every service of the stack's compose.yml, longest first. */
-    private static final List<String> SERVICES = List.of(
-            "steward-agent",
-            "limbo-standby",
-            "proxy-standby",
-            "steward-bunq",
-            "hunger-games",
-            "discord-bot",
-            "postgres",
-            "migrate",
-            "steward",
-            "caddy",
-            "limbo",
-            "proxy",
-            "smp");
+    /** Every service of the stack's compose.yml, longest first, so a new service with a long name is held too. */
+    private static final List<String> SERVICES = ComposeFile.get().services().keySet().stream()
+            .sorted(Comparator.comparingInt(String::length).reversed())
+            .toList();
 
-    /** The longest value of each named place: from compose.yml, and the Discord server's channel and role. */
+    /**
+     * The longest value of each place a title may name: a service, and the Discord server's channel and role.
+     * A volume or a list has no entry, since a title that names one fails the test.
+     */
     private static final Map<String, String> LONGEST = Map.of(
-            "service",
-            SERVICES.getFirst(),
-            "volume",
-            "mc-hunger-games-plugins",
-            "channel",
-            "#deutsch-chat",
-            "name",
-            "Player");
-
-    private static final List<List<String>> LISTS = List.of(List.of(SERVICES.getFirst()), SERVICES);
+            "service", SERVICES.getFirst(),
+            "channel", "#deutsch-chat",
+            "name", "Player");
 
     /** Every combination of the values a title's arguments can take; a count is the size of the list beside it. */
     private static List<Object[]> argsOf(final Parameter[] parameters) {
@@ -107,13 +94,11 @@ class AdminTitlesTest {
                 values.addAll(List.of(type.getEnumConstants()));
             } else if (type == boolean.class) {
                 values.addAll(List.of(true, false));
-            } else if (type == List.class) {
-                values.addAll(LISTS);
             } else if (type == String.class) {
                 final String name = parameter.getAnnotation(Arg.class).value();
-                values.add(Objects.requireNonNull(LONGEST.get(name), "no longest value for " + name));
+                values.add(Objects.requireNonNull(LONGEST.get(name), "a title names no " + name));
             } else if (type != int.class && type != long.class) {
-                throw new IllegalStateException("no values for " + type);
+                throw new IllegalStateException("a title names no " + type.getSimpleName());
             }
             final List<Object[]> next = new ArrayList<>();
             for (final Object[] combination : combinations) {
@@ -143,6 +128,20 @@ class AdminTitlesTest {
             }
         }
         return combinations;
+    }
+
+    /** The titles that name one service draw the longest name of compose.yml whole. */
+    @Test
+    void aTitleThatNamesOneServiceDrawsTheLongestNameWhole() {
+        final String longest = SERVICES.getFirst();
+        for (final MessageRef title : List.of(
+                TEXTS.alert().notRunning(longest),
+                TEXTS.alert().unhealthy(longest),
+                TEXTS.alert().restarting(longest),
+                TEXTS.alert().failedOnce(longest))) {
+            final String drawn = DatabaseText.english(title);
+            assertTrue(drawn.startsWith(longest + " ") && drawn.length() <= TITLE, drawn);
+        }
     }
 
     private static List<String> tooLong(final List<MessageRef> titles) {

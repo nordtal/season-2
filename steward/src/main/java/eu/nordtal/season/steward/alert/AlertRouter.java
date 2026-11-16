@@ -22,6 +22,7 @@ import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.steward.push.PushSender;
@@ -164,13 +165,19 @@ public final class AlertRouter {
         }
     }
 
-    /** Builds the push body that {@code sw.js} reads. */
+    /**
+     * Builds the push body that {@code sw.js} reads.
+     * Its text is the alert's first line, which names what a title leaves out, else the level.
+     */
     String payloadOf(final Alert alert) {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", alert.type().key());
         body.put("level", alert.level().key());
         body.put("title", texts.format(Locales.DEFAULT, alert.title()));
-        body.put("body", texts.format(Locales.DEFAULT, TEXTS.alert().level(alert.level())));
+        final List<MessageRef> lines = alert.lines();
+        body.put(
+                "body",
+                texts.format(Locales.DEFAULT, lines.isEmpty() ? TEXTS.alert().level(alert.level()) : lines.getFirst()));
         body.put("path", alert.path());
         return Json.encode(body);
     }

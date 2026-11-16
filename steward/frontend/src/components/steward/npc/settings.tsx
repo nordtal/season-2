@@ -14,7 +14,7 @@ import { GameIcon } from "@/components/steward/game-icon"
 import { TakeInButton } from "@/components/steward/game-groups/take-in"
 import { TakePosition, type TakenPosition } from "@/components/steward/game-groups/take-position"
 import { FigureCard } from "@/components/steward/npc/preview"
-import { Heading, Room, type Measured } from "@/components/steward/npc/step-panel"
+import { Heading, Room, useKept, type Measured } from "@/components/steward/npc/step-panel"
 import { Hint } from "@/components/steward/status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,7 +43,10 @@ function Field({ id, label, children }: { id?: string; label: string; children: 
 function Name({ npc, language, measured, edit }: { npc: Npc; language: Language; measured: Measured; edit: Edit }) {
   const id = useId()
   const text = npc.name[language]
-  const measurement = text === "" ? undefined : measured?.get(measureKey({ text, kind: "NAME", answers: 0 }))
+  const measurement = useKept(
+    text === "" ? undefined : measured?.get(measureKey({ text, kind: "NAME", answers: 0 })),
+    text === "" ? "" : language,
+  )
   return (
     <Field id={id} label={t("steward.npcs.name-in", { language })}>
       <Input

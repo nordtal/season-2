@@ -10,6 +10,7 @@ import {
   type NpcVersion,
   type NpcView,
 } from "@/lib/api"
+import { LONGEST_TEXT } from "@/lib/npc"
 import { retryUnless404 } from "@/lib/queries-settings"
 import { keys } from "@/lib/query-keys"
 
@@ -46,7 +47,7 @@ const MEASURED_AT_ONCE = 64
 
 /** How one text is looked up among the measurements: by its place on the panel and the text itself. */
 export function measureKey(request: NpcTextMeasureRequest): string {
-  return `${request.kind}:${request.answers}:${request.text}`
+  return `${request.kind}:${request.answers}:${request.text.slice(0, LONGEST_TEXT)}`
 }
 
 /**
@@ -54,7 +55,12 @@ export function measureKey(request: NpcTextMeasureRequest): string {
  * measured the answer of the texts before it stays.
  */
 export function useNpcMeasurements(requests: NpcTextMeasureRequest[]) {
-  const unique = [...new Map(requests.map((request) => [measureKey(request), request])).values()]
+  // A text longer than the route takes is measured by its start, which is already far more than the panel shows.
+  const unique = [
+    ...new Map(
+      requests.map((request) => [measureKey(request), { ...request, text: request.text.slice(0, LONGEST_TEXT) }]),
+    ).values(),
+  ]
   return useQuery({
     queryKey: keys.npcMeasure(JSON.stringify(unique)),
     queryFn: async () => {

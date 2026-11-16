@@ -165,6 +165,8 @@ function Editor({
   const edit = (change: (npc: Npc) => Npc) => {
     const held = readNpcDraft(npc.id)
     const live = client.getQueryData<NpcView>(keys.npc(npc.id))
+    // A late answer for an NPC that was deleted meanwhile starts no new draft.
+    if (held === undefined && live === undefined && published !== undefined) return
     const from = held ?? (live ? { npc: live.npc, base: live.version } : { npc, base })
     const next = change(from.npc)
     const untouched = live !== undefined && from.base === live.version && sameNpc(next, live.npc)
@@ -220,28 +222,27 @@ function Editor({
       refuse(t("steward.npcs.not-published-yet"), problem)
       return
     }
-    publish.mutate(
-      { npc, version },
-      {
-        onSuccess: (view) => {
-          // What was typed while the publication was on its way stays a draft, now of the new version.
-          const held = readNpcDraft(npc.id)
-          setNpcDraft(npc.id, held && !sameNpc(held.npc, npc) ? { npc: held.npc, base: view.version } : undefined)
-          setConflict(false)
-          toast.success(t("steward.npcs.published", { name: npcTitle(view.npc), version: view.version }))
-        },
-        onError: (error) => {
-          if (error instanceof ApiError && error.code === "NPC_CHANGED") {
-            // The dialog names the version that is live now.
-            void client.invalidateQueries({ queryKey: keys.npcs }).then(() => {
-              // An NPC that was deleted meanwhile has no version to load or to publish over.
-              if (client.getQueryState(keys.npc(npc.id))?.status === "error") toast.error(t("steward.answer.no-npc"))
-              else setConflict(true)
-            })
-          } else {
-            toast.error(t("steward.npcs.not-published-yet"), { description: errorMessage(error) })
-          }
-        },
+    // The promise takes the answer, so the draft follows the publication even after the admin left the page.
+    publish.mutateAsync({ npc, version }).then(
+      (view) => {
+        // What was typed while the publication was on its way stays a draft, now of the new version.
+        const held = readNpcDraft(npc.id)
+        setNpcDraft(npc.id, held && !sameNpc(held.npc, npc) ? { npc: held.npc, base: view.version } : undefined)
+        setConflict(false)
+        toast.success(t("steward.npcs.published", { name: npcTitle(view.npc), version: view.version }))
+      },
+      (error: unknown) => {
+        if (error instanceof ApiError && error.code === "NPC_CHANGED") {
+          // The dialog names the version that is live now.
+          void client.invalidateQueries({ queryKey: keys.npcs }).then(() => {
+            // An NPC that was deleted meanwhile has no version to load or to publish over.
+            const read = client.getQueryState(keys.npc(npc.id))?.error
+            if (read instanceof ApiError && read.status === 404) toast.error(t("steward.answer.no-npc"))
+            else setConflict(true)
+          })
+        } else {
+          toast.error(t("steward.npcs.not-published-yet"), { description: errorMessage(error) })
+        }
       },
     )
   }

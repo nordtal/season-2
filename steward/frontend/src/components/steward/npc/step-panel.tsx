@@ -1,7 +1,7 @@
 import { PlusIcon, TrashIcon, XIcon } from "@/components/ui/icons"
 import { useId, useState, type ReactNode } from "react"
 
-import type { Npc, NpcMenu, NpcStep, NpcTextMeasurement } from "@/lib/api"
+import type { Npc, NpcAnswer, NpcMenu, NpcStep, NpcTextMeasurement } from "@/lib/api"
 import {
   type Language,
   type Then,
@@ -75,7 +75,7 @@ export function Room({ measurement, answers }: { measurement: NpcTextMeasurement
  * Answers `value`, or the last one it had under the same `key` while it has none: a text being typed keeps the
  * measurement of the text before it until its own arrives.
  */
-function useKept<T>(value: T | undefined, key: string): T | undefined {
+export function useKept<T>(value: T | undefined, key: string): T | undefined {
   const [kept, setKept] = useState({ key, value })
   if (kept.key !== key || (value !== undefined && kept.value !== value)) setKept({ key, value })
   return kept.key === key ? (value ?? kept.value) : value
@@ -208,68 +208,86 @@ function ThenPicker({
   )
 }
 
+/** One answer: its two texts, where it leads, and the mark of a text the panel cuts. */
+function AnswerRow({
+  npc,
+  step,
+  answer,
+  index,
+  measured,
+  edit,
+}: {
+  npc: Npc
+  step: NpcStep
+  answer: NpcAnswer
+  index: number
+  measured: Measured
+  edit: Edit
+}) {
+  const fits = LANGUAGES.map((language) => {
+    const text = answer.text[language]
+    return text === "" ? true : measured?.get(measureKey({ text, kind: "ANSWER", answers: 0 }))?.fits
+  })
+  const wide = useKept(fits.includes(undefined) ? undefined : fits.includes(false), `${step.id}:${index}`) === true
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-1 gap-1.5 xl:grid-cols-2">
+        {LANGUAGES.map((language) => (
+          <Textarea
+            key={language}
+            lang={language}
+            rows={1}
+            aria-label={t("steward.npcs.answer-text", { index: index + 1, language })}
+            value={answer.text[language]}
+            maxLength={LONGEST_TEXT}
+            className={cn("min-h-8 resize-none", wide && "border-warning")}
+            onChange={(event) => edit((draft) => setAnswerText(draft, step.id, index, language, event.target.value))}
+          />
+        ))}
+        <div className="flex min-w-0 items-start gap-1 xl:col-span-2">
+          <ThenPicker
+            label={t("steward.npcs.answer-then", { index: index + 1 })}
+            then={answer.next === undefined ? { to: "end" } : { to: "step", step: answer.next }}
+            npc={npc}
+            onThen={(then) => edit((draft) => setAnswerThen(draft, step.id, index, then))}
+            onNew={() =>
+              edit((draft) => {
+                const added = addStep(draft, step.id)
+                return setAnswerThen(added.npc, step.id, index, { to: "step", step: added.id })
+              })
+            }
+          />
+          <Hint tip={t("steward.npcs.remove-answer", { index: index + 1 })}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="tap-target shrink-0"
+              aria-label={t("steward.npcs.remove-answer", { index: index + 1 })}
+              onClick={() => edit((draft) => removeAnswer(draft, step.id, index))}
+            >
+              <XIcon aria-hidden />
+            </Button>
+          </Hint>
+        </div>
+      </div>
+      {wide ? (
+        <p role="status" className="text-xs text-warning">
+          {t("steward.npcs.cut-width")}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function Answers({ npc, step, measured, edit }: { npc: Npc; step: NpcStep; measured: Measured; edit: Edit }) {
   const full = step.answers.length >= MOST_ANSWERS
   return (
     <section className="flex flex-col gap-3">
       <Heading>{t("steward.npcs.answers")}</Heading>
-      {step.answers.map((answer, index) => {
-        const wide = LANGUAGES.some((language) => {
-          const text = answer.text[language]
-          return text !== "" && measured?.get(measureKey({ text, kind: "ANSWER", answers: 0 }))?.fits === false
-        })
-        return (
-          <div key={index} className="flex flex-col gap-1.5">
-            <div className="grid grid-cols-1 gap-1.5 xl:grid-cols-2">
-              {LANGUAGES.map((language) => (
-                <Textarea
-                  key={language}
-                  lang={language}
-                  rows={1}
-                  aria-label={t("steward.npcs.answer-text", { index: index + 1, language })}
-                  value={answer.text[language]}
-                  maxLength={LONGEST_TEXT}
-                  className={cn("min-h-8 resize-none", wide && "border-warning")}
-                  onChange={(event) =>
-                    edit((draft) => setAnswerText(draft, step.id, index, language, event.target.value))
-                  }
-                />
-              ))}
-              <div className="flex min-w-0 items-start gap-1 xl:col-span-2">
-                <ThenPicker
-                  label={t("steward.npcs.answer-then", { index: index + 1 })}
-                  then={answer.next === undefined ? { to: "end" } : { to: "step", step: answer.next }}
-                  npc={npc}
-                  onThen={(then) => edit((draft) => setAnswerThen(draft, step.id, index, then))}
-                  onNew={() =>
-                    edit((draft) => {
-                      const added = addStep(draft, step.id)
-                      return setAnswerThen(added.npc, step.id, index, { to: "step", step: added.id })
-                    })
-                  }
-                />
-                <Hint tip={t("steward.npcs.remove-answer", { index: index + 1 })}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="tap-target shrink-0"
-                    aria-label={t("steward.npcs.remove-answer", { index: index + 1 })}
-                    onClick={() => edit((draft) => removeAnswer(draft, step.id, index))}
-                  >
-                    <XIcon aria-hidden />
-                  </Button>
-                </Hint>
-              </div>
-            </div>
-            {wide ? (
-              <p role="status" className="text-xs text-warning">
-                {t("steward.npcs.cut-width")}
-              </p>
-            ) : null}
-          </div>
-        )
-      })}
+      {step.answers.map((answer, index) => (
+        <AnswerRow key={index} npc={npc} step={step} answer={answer} index={index} measured={measured} edit={edit} />
+      ))}
       <div className="flex items-center gap-3">
         <Button
           type="button"

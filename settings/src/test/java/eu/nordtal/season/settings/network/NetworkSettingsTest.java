@@ -149,6 +149,55 @@ class NetworkSettingsTest {
         assertRefused(NetworkSettings.PRICES, "donation-cents");
     }
 
+    @Test
+    void theDialogueDefaultsAreTheOnesItWasTriedWith() throws Exception {
+        final NpcDialogueSpec dialogue = checked(NetworkSettings.NPC_DIALOGUE);
+
+        assertEquals(30, dialogue.typingSpeed());
+        assertEquals(0.8, dialogue.zoom());
+        assertEquals(3.0, dialogue.endDistance());
+        assertEquals(120.0, dialogue.endAngle());
+    }
+
+    @Test
+    void aDialogueChangeArrivesWhileAProcessRuns() throws Exception {
+        final var dialogue = store.settings("smp").load(NetworkSettings.NPC_DIALOGUE);
+        final NpcDialogueSpec held = dialogue.get();
+        store.set(MemorySettingStore.NETWORK, "npc-dialogue", "typing-speed", 45);
+
+        dialogue.reload();
+
+        assertEquals(45, held.typingSpeed());
+    }
+
+    @Test
+    void aZoomThatWidensTheViewIsRefused() {
+        values.put("zoom", 1.2);
+
+        assertRefused(NetworkSettings.NPC_DIALOGUE, "zoom must be at most 1.0");
+    }
+
+    @Test
+    void aZoomOfNothingIsRefused() {
+        values.put("zoom", 0.0);
+
+        assertRefused(NetworkSettings.NPC_DIALOGUE, "zoom");
+    }
+
+    @Test
+    void aZoomThatWouldStopThePlayerIsRefused() {
+        values.put("zoom", 0.5);
+
+        assertRefused(NetworkSettings.NPC_DIALOGUE, "zoom must be at least 0.55");
+    }
+
+    @Test
+    void anEndAngleBeyondTurningAroundIsRefused() {
+        values.put("end-angle", 200.0);
+
+        assertRefused(NetworkSettings.NPC_DIALOGUE, "end-angle must be at most 180");
+    }
+
     private static Map<String, Object> tier(final int days, final int priceCents) {
         return Map.of("days", days, "price-cents", priceCents);
     }

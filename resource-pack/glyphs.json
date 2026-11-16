@@ -3050,6 +3050,350 @@
       "constant": "FONT_UI_SILENT",
       "silent": true,
       "about": "Every vanilla letter with an advance of 0 and nothing drawn: words a narrator reads that the screen does not show."
+    },
+    {
+      "font": "nordtal:npc",
+      "constant": "FONT_NPC",
+      "references": ["nordtal:ui_space"],
+      "about": "The NPC dialogue: one action-bar line whose art hangs from the screen's bottom centre, and its top bar, a boss bar's name. A glyph whose top stands b rows above the screen's bottom has ascent b minus 65.",
+      "blocks": [
+        {
+          "range": "FE6A0-FE6AF",
+          "title": "NPC panels",
+          "about": "The panel at its three heights, each split at 256 columns, and the portrait on it.",
+          "glyphs": [
+            {
+              "code": "FE6A0",
+              "title": "Panel while speaking, part 1",
+              "constant": "NPC_PANEL_SPEAK_0",
+              "texture": "nordtal:npc/panel_speak_0.png",
+              "height": 51,
+              "ascent": 20,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 262 x 51, its top 85 above the screen's bottom."
+            },
+            {
+              "code": "FE6A1",
+              "title": "Panel while speaking, part 2",
+              "constant": "NPC_PANEL_SPEAK_1",
+              "texture": "nordtal:npc/panel_speak_1.png",
+              "height": 51,
+              "ascent": 20,
+              "status": "final candidate",
+              "about": "The panel's right 6 columns."
+            },
+            {
+              "code": "FE6A2",
+              "title": "Portrait on the panel while speaking",
+              "constant": "NPC_PORTRAIT_SPEAK",
+              "texture": "nordtal:npc/portrait_speak.png",
+              "height": 24,
+              "ascent": 13,
+              "status": "final candidate",
+              "about": "The NPC's face, 24 x 24, at the panel's margin."
+            },
+            {
+              "code": "FE6A3",
+              "title": "Panel with two answers, part 1",
+              "constant": "NPC_PANEL_2_0",
+              "texture": "nordtal:npc/panel_2_0.png",
+              "height": 82,
+              "ascent": 51,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 262 x 82, its top 116 above the screen's bottom."
+            },
+            {
+              "code": "FE6A4",
+              "title": "Panel with two answers, part 2",
+              "constant": "NPC_PANEL_2_1",
+              "texture": "nordtal:npc/panel_2_1.png",
+              "height": 82,
+              "ascent": 51,
+              "status": "final candidate",
+              "about": "The panel's right 6 columns."
+            },
+            {
+              "code": "FE6A5",
+              "title": "Portrait on the panel with two answers",
+              "constant": "NPC_PORTRAIT_2",
+              "texture": "nordtal:npc/portrait_2.png",
+              "height": 44,
+              "ascent": 44,
+              "status": "final candidate",
+              "about": "The NPC's face, 24 x 24, at the panel's margin, padded below to its ascent."
+            },
+            {
+              "code": "FE6A6",
+              "title": "Panel with three answers, part 1",
+              "constant": "NPC_PANEL_3_0",
+              "texture": "nordtal:npc/panel_3_0.png",
+              "height": 102,
+              "ascent": 71,
+              "status": "final candidate",
+              "about": "The panel's left 256 columns, 262 x 102, its top 136 above the screen's bottom."
+            },
+            {
+              "code": "FE6A7",
+              "title": "Panel with three answers, part 2",
+              "constant": "NPC_PANEL_3_1",
+              "texture": "nordtal:npc/panel_3_1.png",
+              "height": 102,
+              "ascent": 71,
+              "status": "final candidate",
+              "about": "The panel's right 6 columns."
+            },
+            {
+              "code": "FE6A8",
+              "title": "Portrait on the panel with three answers",
+              "constant": "NPC_PORTRAIT_3",
+              "texture": "nordtal:npc/portrait_3.png",
+              "height": 64,
+              "ascent": 64,
+              "status": "final candidate",
+              "about": "The NPC's face, 24 x 24, at the panel's margin, padded below to its ascent."
+            }
+          ]
+        },
+        {
+          "range": "FE6B0-FE6BF",
+          "title": "NPC answer plates",
+          "about": "The answer plates on their three rows, normal and selected.",
+          "glyphs": [
+            {
+              "code": "FE6B0",
+              "title": "Answer plate, row 1",
+              "constant": "NPC_PLATE_1",
+              "texture": "nordtal:npc/plate_1.png",
+              "height": 33,
+              "ascent": 33,
+              "status": "final candidate",
+              "about": "A 248 x 17 plate whose top stands 98 above the screen's bottom, padded below to its ascent."
+            },
+            {
+              "code": "FE6B1",
+              "title": "Selected answer plate, row 1",
+              "constant": "NPC_PLATE_ON_1",
+              "texture": "nordtal:npc/plate_on_1.png",
+              "height": 33,
+              "ascent": 33,
+              "status": "final candidate",
+              "about": "The selected plate on row 1."
+            },
+            {
+              "code": "FE6B2",
+              "title": "Answer plate, row 2",
+              "constant": "NPC_PLATE_2",
+              "texture": "nordtal:npc/plate_2.png",
+              "height": 17,
+              "ascent": 13,
+              "status": "final candidate",
+              "about": "A 248 x 17 plate whose top stands 78 above the screen's bottom."
+            },
+            {
+              "code": "FE6B3",
+              "title": "Selected answer plate, row 2",
+              "constant": "NPC_PLATE_ON_2",
+              "texture": "nordtal:npc/plate_on_2.png",
+              "height": 17,
+              "ascent": 13,
+              "status": "final candidate",
+              "about": "The selected plate on row 2."
+            },
+            {
+              "code": "FE6B4",
+              "title": "Answer plate, row 3",
+              "constant": "NPC_PLATE_3",
+              "texture": "nordtal:npc/plate_3.png",
+              "height": 17,
+              "ascent": -7,
+              "status": "final candidate",
+              "about": "A 248 x 17 plate whose top stands 58 above the screen's bottom."
+            },
+            {
+              "code": "FE6B5",
+              "title": "Selected answer plate, row 3",
+              "constant": "NPC_PLATE_ON_3",
+              "texture": "nordtal:npc/plate_on_3.png",
+              "height": 17,
+              "ascent": -7,
+              "status": "final candidate",
+              "about": "The selected plate on row 3."
+            }
+          ]
+        },
+        {
+          "range": "FE6C0-FE6CF",
+          "title": "NPC marks",
+          "about": "The hold mark, the marks of the input hints and the switch.",
+          "glyphs": [
+            {
+              "code": "FE6C0",
+              "title": "Hold mark",
+              "constant": "NPC_HOLD",
+              "texture": "nordtal:npc/hold.png",
+              "height": 3,
+              "ascent": -21,
+              "status": "final candidate",
+              "about": "The 5 x 3 mark on the content's last column once a text is typed out and waits."
+            },
+            {
+              "code": "FE6C1",
+              "title": "Right-click mark",
+              "constant": "NPC_MOUSE_RIGHT",
+              "texture": "nordtal:npc/mouse_right.png",
+              "height": 11,
+              "ascent": -44,
+              "status": "final candidate",
+              "about": "A 9 x 11 mouse with its right key lit: next."
+            },
+            {
+              "code": "FE6C2",
+              "title": "Left-click mark",
+              "constant": "NPC_MOUSE_LEFT",
+              "texture": "nordtal:npc/mouse_left.png",
+              "height": 11,
+              "ascent": -44,
+              "status": "final candidate",
+              "about": "A 9 x 11 mouse with its left key lit: answer."
+            },
+            {
+              "code": "FE6C3",
+              "title": "Wheel mark",
+              "constant": "NPC_MOUSE_WHEEL",
+              "texture": "nordtal:npc/mouse_wheel.png",
+              "height": 11,
+              "ascent": -44,
+              "status": "final candidate",
+              "about": "The mouse with its wheel lit and arrows up and down, 15 x 11: choose."
+            },
+            {
+              "code": "FE6C4",
+              "title": "Shift key cap",
+              "constant": "NPC_KEY_SHIFT",
+              "texture": "nordtal:npc/key_shift.png",
+              "height": 11,
+              "ascent": -44,
+              "status": "final candidate",
+              "about": "The Shift key cap, 30 x 11, in front of the switch."
+            },
+            {
+              "code": "FE6C5",
+              "title": "Box, not ticked",
+              "constant": "NPC_CHECK_OFF",
+              "texture": "nordtal:npc/check_off.png",
+              "height": 9,
+              "ascent": -45,
+              "status": "final candidate",
+              "about": "The switch's 9 x 9 box, not ticked."
+            },
+            {
+              "code": "FE6C6",
+              "title": "Box, ticked",
+              "constant": "NPC_CHECK_ON",
+              "texture": "nordtal:npc/check_on.png",
+              "height": 9,
+              "ascent": -45,
+              "status": "final candidate",
+              "about": "The switch's 9 x 9 box, ticked."
+            }
+          ]
+        },
+        {
+          "range": "FE6D0-FE6DF",
+          "title": "NPC cinema bars",
+          "about": "The bars at each of the opening's four stages.",
+          "glyphs": [
+            {
+              "code": "FE6D0",
+              "title": "Bottom bar, stage 1",
+              "constant": "NPC_BAR_1",
+              "texture": "nordtal:npc/bar_1.png",
+              "height": 9,
+              "ascent": -56,
+              "status": "final candidate",
+              "about": "A 256 wide tile of the bottom bar at stage 1 of 4; twelve of them span the screen."
+            },
+            {
+              "code": "FE6D1",
+              "title": "Bottom bar, stage 2",
+              "constant": "NPC_BAR_2",
+              "texture": "nordtal:npc/bar_2.png",
+              "height": 19,
+              "ascent": -46,
+              "status": "final candidate",
+              "about": "A 256 wide tile of the bottom bar at stage 2 of 4; twelve of them span the screen."
+            },
+            {
+              "code": "FE6D2",
+              "title": "Bottom bar, stage 3",
+              "constant": "NPC_BAR_3",
+              "texture": "nordtal:npc/bar_3.png",
+              "height": 28,
+              "ascent": -37,
+              "status": "final candidate",
+              "about": "A 256 wide tile of the bottom bar at stage 3 of 4; twelve of them span the screen."
+            },
+            {
+              "code": "FE6D3",
+              "title": "Bottom bar, stage 4",
+              "constant": "NPC_BAR_4",
+              "texture": "nordtal:npc/bar_4.png",
+              "height": 38,
+              "ascent": -27,
+              "status": "final candidate",
+              "about": "A 256 wide tile of the bottom bar at stage 4 of 4; twelve of them span the screen."
+            },
+            {
+              "code": "FE6D4",
+              "title": "Top bar, stage 1",
+              "constant": "NPC_TOP_BAR_1",
+              "texture": "nordtal:npc/top_bar_1.png",
+              "height": 10,
+              "ascent": 10,
+              "status": "final candidate",
+              "about": "A 256 wide tile of the top bar at stage 1 of 4, drawn as a boss bar's name."
+            },
+            {
+              "code": "FE6D5",
+              "title": "Top bar, stage 2",
+              "constant": "NPC_TOP_BAR_2",
+              "texture": "nordtal:npc/top_bar_2.png",
+              "height": 19,
+              "ascent": 10,
+              "status": "final candidate",
+              "about": "A 256 wide tile of the top bar at stage 2 of 4, drawn as a boss bar's name."
+            },
+            {
+              "code": "FE6D6",
+              "title": "Top bar, stage 3",
+              "constant": "NPC_TOP_BAR_3",
+              "texture": "nordtal:npc/top_bar_3.png",
+              "height": 28,
+              "ascent": 10,
+              "status": "final candidate",
+              "about": "A 256 wide tile of the top bar at stage 3 of 4, drawn as a boss bar's name."
+            },
+            {
+              "code": "FE6D7",
+              "title": "Top bar, stage 4",
+              "constant": "NPC_TOP_BAR_4",
+              "texture": "nordtal:npc/top_bar_4.png",
+              "height": 38,
+              "ascent": 10,
+              "status": "final candidate",
+              "about": "A 256 wide tile of the top bar at stage 4 of 4, drawn as a boss bar's name."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "font": "nordtal:npc_text_{shift}",
+      "shifts": [-57, -46, -37, -26, -21, -17, -6, -1, 5, 14, 19, 23, 53],
+      "constant": "FONT_NPC_TEXT",
+      "letters": true,
+      "references": ["minecraft:include/space", "nordtal:ui_space"],
+      "about": "Vanilla's letters on the NPC dialogue's action-bar line: text whose capitals' top stands b rows above the screen's bottom takes shift 72 minus b. A negative shift raises the letters, so the build pads vanilla's sheets below for it."
     }
   ]
 }

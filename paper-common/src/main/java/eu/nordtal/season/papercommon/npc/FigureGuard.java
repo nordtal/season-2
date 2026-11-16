@@ -1,40 +1,41 @@
-package eu.nordtal.season.smp.npc;
+package eu.nordtal.season.papercommon.npc;
 
 import io.papermc.paper.event.entity.EntityKnockbackEvent;
+import java.util.Objects;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 
-/** Cancels damage, combustion and knockback events of the spawn NPC, which {@link SpawnNpc#is} identifies. */
-public final class NpcProtection implements Listener {
+/** Keeps every figure of {@link Figures} from damage, fire and knockback. */
+public final class FigureGuard implements Listener {
 
-    private final SpawnNpc npc;
+    private final Figures figures;
 
-    public NpcProtection(final SpawnNpc npc) {
-        this.npc = npc;
+    public FigureGuard(final Figures figures) {
+        this.figures = Objects.requireNonNull(figures, "figures");
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDamage(final EntityDamageEvent event) {
-        if (npc.is(event.getEntity().getUniqueId())) {
+        if (figures.is(event.getEntity())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onCombust(final EntityCombustEvent event) {
-        if (npc.is(event.getEntity().getUniqueId())) {
+        if (figures.is(event.getEntity())) {
             event.setCancelled(true);
-            // Cancelling the event does not extinguish a fire that already burns.
+            // Cancelling the event does not put out a fire that burns already.
             event.getEntity().setFireTicks(0);
         }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onKnockback(final EntityKnockbackEvent event) {
-        if (npc.is(event.getEntity().getUniqueId())) {
+        if (figures.is(event.getEntity())) {
             event.setCancelled(true);
         }
     }

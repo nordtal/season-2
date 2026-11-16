@@ -30,7 +30,7 @@ that differs from the spec's.
 - `DatabaseSpec`, `ColoursSpec` and `DistancesSpec` are shared groups. Each Paper server sets the
   defaults of `DistancesSpec` for itself.
 - The groups in `network/` are stored once under the service `network` and read by every process.
-  `players` and `prestige` apply while a process runs. `season`, `language-and-time` and `prices`
+  `players`, `prestige` and `npc-dialogue` apply while a process runs. `season`, `language-and-time` and `prices`
   apply at the next start.
 
 `:spec` is an `api` dependency. Gson, HikariCP and JDBI are `compileOnly`, since every consumer

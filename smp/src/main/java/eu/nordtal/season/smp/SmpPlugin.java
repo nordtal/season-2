@@ -16,6 +16,7 @@ import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.papercommon.command.Answer;
 import eu.nordtal.season.papercommon.command.PaperUser;
 import eu.nordtal.season.papercommon.command.Replies;
+import eu.nordtal.season.papercommon.npc.NpcDialogues;
 import eu.nordtal.season.papercommon.plugin.NordtalPlugin;
 import eu.nordtal.season.papercommon.sound.SoundsSpec;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
@@ -25,6 +26,7 @@ import eu.nordtal.season.settings.Setting;
 import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.settings.network.NetworkSettings;
+import eu.nordtal.season.settings.network.NpcDialogueSpec;
 import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.board.Boards;
@@ -36,7 +38,6 @@ import eu.nordtal.season.smp.config.DeathsSpec;
 import eu.nordtal.season.smp.config.DuelsSpec;
 import eu.nordtal.season.smp.config.Milestones;
 import eu.nordtal.season.smp.config.MilestonesSpec;
-import eu.nordtal.season.smp.config.NpcSpec;
 import eu.nordtal.season.smp.config.RailsSpec;
 import eu.nordtal.season.smp.config.SmpSettings;
 import eu.nordtal.season.smp.config.SpawnSpec;
@@ -54,7 +55,6 @@ import eu.nordtal.season.smp.milestone.StoredProgress;
 import eu.nordtal.season.smp.milestone.TrackDao;
 import eu.nordtal.season.smp.milestone.TrackNames;
 import eu.nordtal.season.smp.milestone.TrackValidation;
-import eu.nordtal.season.smp.npc.SpawnNpc;
 import eu.nordtal.season.smp.pack.PackSwap;
 import eu.nordtal.season.smp.player.PlayerSurfacesListener;
 import eu.nordtal.season.smp.prestige.PrestigeColours;
@@ -93,7 +93,7 @@ public final class SmpPlugin extends NordtalPlugin {
     Setting<AdvancementAwardsSpec> awardSettings;
     Setting<DuelsSpec> duelSettings;
     Setting<BoardsSpec> boardSettings;
-    Setting<NpcSpec> npcSettings;
+    Setting<NpcDialogueSpec> npcDialogueSettings;
     Setting<SpawnSpec> spawnSettings;
     Setting<DeathsSpec> deathSettings;
     Setting<RailsSpec> railSettings;
@@ -153,7 +153,7 @@ public final class SmpPlugin extends NordtalPlugin {
     Wheel wheel;
 
     @Nullable
-    SpawnNpc npc;
+    NpcDialogues npcDialogues;
 
     @Nullable
     BukkitCinematics cinematics;
@@ -222,7 +222,7 @@ public final class SmpPlugin extends NordtalPlugin {
                 Group.of("advancement-awards", AdvancementAwardsSpec.class).whileRunning());
         duelSettings = setting(Group.of("duels", DuelsSpec.class).whileRunning());
         boardSettings = setting(Group.of("boards", BoardsSpec.class).whileRunning());
-        npcSettings = setting(Group.of("npc", NpcSpec.class).whileRunning());
+        npcDialogueSettings = setting(NetworkSettings.NPC_DIALOGUE);
         spawnSettings = setting(Group.of("spawn", SpawnSpec.class).whileRunning());
         deathSettings = setting(Group.of("deaths-and-graves", DeathsSpec.class).whileRunning());
         railSettings = setting(Group.of("rails", RailsSpec.class).whileRunning());
@@ -281,7 +281,7 @@ public final class SmpPlugin extends NordtalPlugin {
         duels = activities.duels();
         wheel = activities.wheel();
         SmpStart.registerActivityListeners(this, activities);
-        npc = SmpStart.wireNpc(this);
+        npcDialogues = SmpStart.wireNpc(this);
         SmpStart.restoreGravesAndRegisterWorld(this);
         rails = SmpStart.wireRails(this, wired.effects());
         portals = SmpStart.wireMapPortals(this);
@@ -418,9 +418,9 @@ public final class SmpPlugin extends NordtalPlugin {
         if (staging != null) {
             quietly("cinematics.stop", staging::stop);
         }
-        final SpawnNpc figure = npc;
-        if (figure != null) {
-            quietly("npc.remove", figure::remove);
+        final NpcDialogues dialogues = npcDialogues;
+        if (dialogues != null) {
+            quietly("npcDialogues.stop", dialogues::stop);
         }
         final Wheel turning = wheel;
         if (turning != null) {
@@ -585,7 +585,8 @@ public final class SmpPlugin extends NordtalPlugin {
                 }));
         // The boards draw themselves again on the next refresh.
         reload(problems, "the boards", boardSettings, () -> scheduler.onMain(Objects.requireNonNull(boards)::stop));
-        reload(problems, "the NPC", npcSettings, () -> scheduler.onMain(Objects.requireNonNull(npc)::spawn));
+        // A dialogue reads the settings as it starts, so a reload alone applies them.
+        reload(problems, "the NPC dialogues", npcDialogueSettings, () -> {});
         reload(
                 problems,
                 "the spawn",

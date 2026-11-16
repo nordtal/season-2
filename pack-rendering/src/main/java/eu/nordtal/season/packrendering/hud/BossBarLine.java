@@ -17,9 +17,13 @@ public final class BossBarLine {
 
     /** Names the bar only when its line changed: every call to name is sent to each viewer, even an equal one. */
     public static void show(final BossBar bar, final List<Pill.Content> pills) {
-        final Component name = render(pills);
-        if (!name.equals(bar.name())) {
-            bar.name(name);
+        show(bar, render(pills));
+    }
+
+    /** Names the bar with a line drawn elsewhere, such as a dialogue's top bar, only when it changed. */
+    public static void show(final BossBar bar, final Component line) {
+        if (!line.equals(bar.name())) {
+            bar.name(line);
         }
     }
 

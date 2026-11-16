@@ -3,6 +3,9 @@ package eu.nordtal.season.packrendering;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import eu.nordtal.season.common.RepositoryRoot;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.document.Line;
@@ -48,7 +51,7 @@ class ResourcePackTest {
                     row -> FontFile.load(Glyphs.FONT_GUI_ROWS.get(row), ASSETS + "/nordtal/font/gui_r" + row + ".json"))
             .toList();
 
-    /** The ui fonts, each family once per shift. */
+    /** The ui fonts and the NPC dialogue's, each family once per shift. */
     private static final List<FontFile> UI_FONTS = Stream.of(
                     Stream.of(
                             Glyphs.FONT_UI_SPACE,
@@ -58,7 +61,9 @@ class ResourcePackTest {
                             Glyphs.FONT_UI_SILENT),
                     Glyphs.FONT_UI_TEXT.values().stream(),
                     Glyphs.FONT_UI_ART.values().stream(),
-                    Glyphs.FONT_UI_DIALOG.values().stream())
+                    Glyphs.FONT_UI_DIALOG.values().stream(),
+                    Stream.of(Glyphs.FONT_NPC),
+                    Glyphs.FONT_NPC_TEXT.values().stream())
             .flatMap(ids -> ids)
             .map(id -> FontFile.load(id, ASSETS + "/" + id.replace(":", "/font/") + ".json"))
             .toList();
@@ -164,6 +169,40 @@ class ResourcePackTest {
             }
         }
         assertEquals(List.of(), missing, "every German HUD string is written in the ui text font");
+    }
+
+    @Test
+    void aRaisedNpcTextFontMovesEveryLetterAsVanillaDoes() {
+        final String font = Glyphs.FONT_NPC_TEXT.get(-57);
+        final Map<Integer, Integer> table = PackAdvances.of(ASSETS + "/" + font.replace(":", "/font/") + ".json");
+        final List<String> differ = new ArrayList<>();
+        table.forEach((codePoint, advance) -> {
+            // The space comes from vanilla's include/space, which the font references first.
+            if (codePoint != ' ' && Letters.covers(codePoint) && advance != Letters.advance(codePoint)) {
+                differ.add("U+%X %d, not %d".formatted(codePoint, advance, Letters.advance(codePoint)));
+            }
+        });
+        assertTrue(table.keySet().containsAll(List.of((int) 'A', (int) 'ä', (int) 'ß')), font + " lacks letters");
+        assertEquals(List.of(), differ, "the padded sheets would move the letters off where Letters measures them");
+    }
+
+    @Test
+    void noNpcTextFontRaisesABitmapAboveItsHeight() {
+        final List<String> refused = new ArrayList<>();
+        for (final String font : Glyphs.FONT_NPC_TEXT.values()) {
+            final JsonObject root = JsonParser.parseString(
+                            RepositoryRoot.read(ASSETS + "/" + font.replace(":", "/font/") + ".json"))
+                    .getAsJsonObject();
+            for (final JsonElement element : root.getAsJsonArray("providers")) {
+                final JsonObject provider = element.getAsJsonObject();
+                if ("bitmap".equals(provider.get("type").getAsString())
+                        && provider.get("ascent").getAsInt()
+                                > provider.get("height").getAsInt()) {
+                    refused.add(font + " " + provider.get("file").getAsString());
+                }
+            }
+        }
+        assertEquals(List.of(), refused, "the client refuses a font whose bitmap's ascent is greater than its height");
     }
 
     @Test
@@ -275,9 +314,10 @@ class ResourcePackTest {
         try (Stream<Path> walk = Files.walk(textures)) {
             walk.filter(path -> path.toString().endsWith(".png")).forEach(path -> {
                 final String relative = RepositoryRoot.relative(textures, path);
-                // A gui sprite is reached through the gui atlas and the wheel's art through its generated models.
+                // Sprites go through the gui atlas, wheel art through its models, npc vignettes as camera overlays.
                 if (!relative.startsWith("gui/sprites/")
                         && !relative.startsWith("item/wheel/")
+                        && !relative.startsWith("npc/vignette_")
                         && !referenced.contains("nordtal:" + relative)) {
                     orphans.add("nordtal:" + relative);
                 }

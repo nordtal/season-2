@@ -31,4 +31,23 @@ class BossBarLineShowTest {
         BossBarLine.show(bar, List.of(Pill.Content.of("Open")));
         assertEquals(2, renames.get(), "a changed line is sent");
     }
+
+    @Test
+    void aReadyLineRenamesTheBarOnlyWhenItChanged() {
+        final BossBar bar = BossBarLine.bar();
+        final AtomicInteger renames = new AtomicInteger();
+        bar.addListener(new BossBar.Listener() {
+            @Override
+            public void bossBarNameChanged(final BossBar changed, final Component oldName, final Component newName) {
+                renames.incrementAndGet();
+            }
+        });
+
+        BossBarLine.show(bar, Component.translatable("bar"));
+        BossBarLine.show(bar, Component.translatable("bar"));
+        assertEquals(1, renames.get(), "the same line sends nothing");
+
+        BossBarLine.show(bar, Component.empty());
+        assertEquals(2, renames.get(), "a changed line is sent");
+    }
 }

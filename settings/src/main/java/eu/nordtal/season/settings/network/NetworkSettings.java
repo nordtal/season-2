@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /** The groups every process shares.
- * The players and prestige groups apply while a process runs, the others at the next start.
+ * The players, prestige and NPC dialogue groups apply while a process runs, the others at the next start.
  */
 public final class NetworkSettings {
 
@@ -50,7 +50,38 @@ public final class NetworkSettings {
             .checkedBy(NetworkSettings::checkPrices)
             .networkWide();
 
+    /** How an NPC's dialogue types, zooms and ends. Every Paper server reads it. */
+    public static final Group<NpcDialogueSpec> NPC_DIALOGUE = Group.of("npc-dialogue", NpcDialogueSpec.class)
+            .checkedBy(NetworkSettings::checkNpcDialogue)
+            .whileRunning()
+            .networkWide();
+
+    /** The widest zoom: above it the view would widen instead of narrow. */
+    public static final double MOST_ZOOM = 1.0;
+
+    /** The narrowest zoom, which the speed the zoom rides on still holds above standing still. */
+    public static final double LEAST_ZOOM = 0.55;
+
     private NetworkSettings() {}
+
+    /**
+     * Refuses a zoom that widens the view or narrows it below {@link #LEAST_ZOOM}, which the rules cannot say.
+     *
+     * @throws IllegalArgumentException naming the wrong value
+     */
+    public static void checkNpcDialogue(final NpcDialogueSpec spec) {
+        if (spec.zoom() > MOST_ZOOM) {
+            throw new IllegalArgumentException(
+                    "zoom must be at most " + MOST_ZOOM + " so the view narrows, was " + spec.zoom());
+        }
+        if (spec.zoom() < LEAST_ZOOM) {
+            throw new IllegalArgumentException(
+                    "zoom must be at least " + LEAST_ZOOM + " so the player can still move, was " + spec.zoom());
+        }
+        if (spec.endAngle() > 180) {
+            throw new IllegalArgumentException("end-angle must be at most 180 degrees, was " + spec.endAngle());
+        }
+    }
 
     /** Returns the price list and the rule that turns arrived money into a grant. */
     public static Tiers tiers(final PricesSpec spec) {

@@ -8,11 +8,14 @@ import eu.nordtal.season.papercommon.time.PaperScheduler;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -34,6 +37,10 @@ public final class Hud implements Listener {
     private final List<Cadence> cadences = new ArrayList<>();
 
     private final Map<UUID, @Nullable BossBar[]> bars = new HashMap<>();
+
+    private final Set<UUID> held = new HashSet<>();
+
+    private final Map<UUID, BossBar> covers = new HashMap<>();
 
     private long frame;
     private Scheduler.@Nullable Task task;
@@ -68,12 +75,48 @@ public final class Hud implements Listener {
         for (final Player player : Bukkit.getOnlinePlayers()) {
             hide(player, bars.get(player.getUniqueId()));
         }
+        for (final Player player : Bukkit.getOnlinePlayers()) {
+            uncover(player);
+        }
         bars.clear();
+        held.clear();
+    }
+
+    /** Hides every line of {@code player} until {@link #release}, so a screen of its own can take the top. */
+    public void hold(final Player player) {
+        held.add(player.getUniqueId());
+        hide(player, bars.remove(player.getUniqueId()));
+    }
+
+    /** Shows {@code line} as the one bar of a held {@code player}, or none on {@code null}. */
+    public void cover(final Player player, final @Nullable Component line) {
+        if (line == null || !held.contains(player.getUniqueId())) {
+            uncover(player);
+            return;
+        }
+        final BossBar bar = covers.computeIfAbsent(player.getUniqueId(), key -> BossBarLine.bar());
+        BossBarLine.show(bar, line);
+        player.showBossBar(bar);
+    }
+
+    /** Takes away the cover of {@code player} and draws its lines again from the next frame on. */
+    public void release(final Player player) {
+        uncover(player);
+        held.remove(player.getUniqueId());
+    }
+
+    private void uncover(final Player player) {
+        final BossBar cover = covers.remove(player.getUniqueId());
+        if (cover != null) {
+            player.hideBossBar(cover);
+        }
     }
 
     @EventHandler
     public void onQuit(final PlayerQuitEvent event) {
         bars.remove(event.getPlayer().getUniqueId());
+        held.remove(event.getPlayer().getUniqueId());
+        covers.remove(event.getPlayer().getUniqueId());
     }
 
     private void frame() {
@@ -89,7 +132,7 @@ public final class Hud implements Listener {
     }
 
     private void draw(final Player player) {
-        if (lines.isEmpty()) {
+        if (lines.isEmpty() || held.contains(player.getUniqueId())) {
             return;
         }
         final Locale locale = identities.languageOf(player.getUniqueId());

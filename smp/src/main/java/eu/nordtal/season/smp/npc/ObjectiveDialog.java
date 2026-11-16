@@ -12,6 +12,7 @@ import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
 import eu.nordtal.season.packrendering.ui.DialogTitle;
+import eu.nordtal.season.packrendering.ui.FocusRing;
 import eu.nordtal.season.packrendering.ui.Letters;
 import eu.nordtal.season.packrendering.ui.Look;
 import eu.nordtal.season.packrendering.ui.Symbol;
@@ -95,6 +96,9 @@ public final class ObjectiveDialog {
 
     private static final int TEXT_TOP = 50;
 
+    /** Where the words of an empty list stand: as a text line's capitals would under the first body line's box. */
+    private static final int EMPTY_TEXT = BodyColumn.BODY_TOP + 5;
+
     private final MessageRenderer renderer;
     private final AppliedDocuments documents;
     private final Dialogs dialogs;
@@ -169,20 +173,16 @@ public final class ObjectiveDialog {
             final MessageRenderer renderer, final AppliedDocuments documents, final Locale locale, final Empty why) {
         final GameDocument document = document(renderer, documents, locale);
         return Dialog.create(builder -> builder.empty()
-                .base(Dialogs.base(title(document, DialogPanel.OBJECTIVES_33, TEXT_TOP))
-                        .body(List.of(Dialogs.line(
-                                BodyLine.textLine()
-                                        .text(document.label(why.label), Colours.SOFT)
-                                        .build(),
-                                WIDTH)))
+                .base(Dialogs.base(DialogTitle.of(DialogPanel.OBJECTIVES_33, TEXT_TOP)
+                                .header(Symbol.MEDAL, Dialogs.plain(document.title()), List.of())
+                                .centred(EMPTY_TEXT, document.label(why.label), Colours.SOFT)
+                                .build())
                         .build())
                 .type(Dialogs.bodyOnly()));
     }
 
-    private static Component title(final GameDocument document, final DialogPanel panel, final int top) {
-        return DialogTitle.of(panel, top)
-                .header(Symbol.MEDAL, Dialogs.plain(document.title()), List.of())
-                .build();
+    private static DialogTitle title(final GameDocument document, final DialogPanel panel, final int top) {
+        return DialogTitle.of(panel, top).header(Symbol.MEDAL, Dialogs.plain(document.title()), List.of());
     }
 
     public void show(final Player player, final int page) {
@@ -200,12 +200,12 @@ public final class ObjectiveDialog {
                 .text(this::summary)
                 .gap(BodyColumn.UNDER_TEXT - BodyColumn.TEXT)
                 .rows(cards.size(), EACH, index -> line -> card(line, cards.get(index), send));
-        final List<DialogBody> body =
-                List.of(Dialogs.line(column.build(), WIDTH), Dialogs.line(shareLine(paging, page, send), WIDTH));
+        final DialogTitle title = title(document, DialogPanel.OBJECTIVES_124, column.panelTop());
+        final List<DialogBody> body = List.of(
+                Dialogs.line(column, FocusRing.Ground.BEVEL, title),
+                Dialogs.line(shareLine(paging, page, send), WIDTH, FocusRing.Ground.BEVEL_FOOT));
         return Dialog.create(builder -> builder.empty()
-                .base(Dialogs.base(title(document, DialogPanel.OBJECTIVES_124, column.panelTop()))
-                        .body(body)
-                        .build())
+                .base(Dialogs.base(title.build()).body(body).build())
                 .type(Dialogs.bodyOnly()));
     }
 

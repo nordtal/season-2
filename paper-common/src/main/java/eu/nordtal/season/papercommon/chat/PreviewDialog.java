@@ -10,6 +10,7 @@ import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
 import eu.nordtal.season.packrendering.ui.DialogTitle;
+import eu.nordtal.season.packrendering.ui.FocusRing;
 import eu.nordtal.season.packrendering.ui.Letters;
 import eu.nordtal.season.packrendering.ui.Look;
 import eu.nordtal.season.packrendering.ui.Mark;
@@ -94,24 +95,27 @@ final class PreviewDialog {
         final Dialogs.Send send = dialogs.send();
         final List<DialogBody> body = new ArrayList<>();
         final List<Row> shown = paging.slice(rows, page);
+        // A menu without rows keeps the one-row panel, its box empty.
         final BodyColumn column = BodyColumn.of(ROW, paging.paged())
-                .rows(shown.size(), paging.paged() ? EACH : 0, index -> line -> line(line, shown.get(index)));
-        body.add(Dialogs.line(column.build(), ROW));
+                .rows(shown.size(), paging.paged() ? EACH : 0, index -> line -> line(line, shown.get(index)))
+                .gap(shown.isEmpty() ? BodyLine.PLATE : 0);
+        final DialogPanel panel = paging.paged()
+                ? DialogPanel.DRAFT_PREVIEW_113
+                : DialogPanel.DRAFT_PREVIEW_ROWS.get(Math.max(1, shown.size()) - 1);
+        final DialogTitle title = DialogTitle.of(panel, column.panelTop())
+                .header(Symbol.EYE, name, List.of(Mark.text(Dialogs.plain(words.title()), Colours.SOFT)));
+        body.add(Dialogs.line(column, paging.paged() ? FocusRing.Ground.BEVEL : FocusRing.Ground.BEVEL_FOOT, title));
         if (paging.paged()) {
             final String said = words.label("pager", paging.page(page));
             body.add(Dialogs.line(
                     send.pager(BodyColumn.next(), paging, page, said, this::show)
                             .build(),
-                    Dialogs.pagerWidth(paging, page)));
+                    Dialogs.pagerWidth(paging, page),
+                    FocusRing.Ground.PANEL_FOOT));
         }
-        final DialogPanel panel = paging.paged()
-                ? DialogPanel.DRAFT_PREVIEW_113
-                : DialogPanel.DRAFT_PREVIEW_ROWS.get(Math.max(1, shown.size()) - 1);
-        final Component title = DialogTitle.of(panel, column.panelTop())
-                .header(Symbol.EYE, name, List.of(Mark.text(Dialogs.plain(words.title()), Colours.SOFT)))
-                .build();
-        return Dialog.create(builder ->
-                builder.empty().base(Dialogs.base(title).body(body).build()).type(Dialogs.bodyOnly()));
+        return Dialog.create(builder -> builder.empty()
+                .base(Dialogs.base(title.build()).body(body).build())
+                .type(Dialogs.bodyOnly()));
     }
 
     /** A row cut with "…" shows its whole line as its tooltip, and the narrator says it whole. */

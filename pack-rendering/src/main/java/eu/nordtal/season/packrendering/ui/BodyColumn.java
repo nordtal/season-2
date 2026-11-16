@@ -37,10 +37,8 @@ public final class BodyColumn {
     private static final int TEXT_ROW = 4;
     private static final int ROW = 9;
     private static final int BOX = 8;
-    private static final int BELOW_LAST = 4;
-
-    /** The text rows the client gives a line of plates by itself, measured in 26.3. */
-    private static final int PLATE_ROWS = 2;
+    /** From a last column's art to its box's bottom row: the panel's grey, its bevel and its black border. */
+    private static final int FOOT = 7;
 
     private record Piece(int y, boolean plate, Consumer<BodyLine> draw) {}
 
@@ -110,15 +108,26 @@ public final class BodyColumn {
         return height;
     }
 
-    /** The text rows of the column's box: 9 n + 8 high, with room for the ring under the art. */
-    public int rows() {
-        final int below = followed ? AFTER : BELOW_LAST;
-        return Math.max(1, Math.ceilDiv(TEXT_ROW + height + below - BOX, ROW));
+    /** The column's art width. */
+    public int width() {
+        return width;
     }
 
-    /** Where the art starts under the box's top: at the text row, or as low as a following line needs. */
+    /** The text rows of the column's box: 9 n + 8 high, with room for the ring under the art. */
+    public int rows() {
+        return Math.max(FocusRing.MIN_ROWS, Math.ceilDiv(TEXT_ROW + height + below() - BOX, ROW));
+    }
+
+    /**
+     * Where the art starts under the box's top: as low as its box's bottom needs, at least at the text row.
+     * A followed column's box ends {@link #AFTER} under its art; a last one's on the panel's black border.
+     */
     public int top() {
-        return followed ? ROW * rows() + BOX - AFTER - height : TEXT_ROW;
+        return ROW * rows() + BOX - below() - height;
+    }
+
+    private int below() {
+        return followed ? AFTER : FOOT;
     }
 
     /** The screen row of a dialog's panel top when this column is its first body line. */
@@ -126,8 +135,17 @@ public final class BodyColumn {
         return BODY_TOP + top() - PANEL_TO_CONTENT;
     }
 
-    /** Returns the column, {@code width} wide, with one text row for each 9 px of its box. */
-    public Component build() {
+    /** Returns the column, {@code width} wide, framed on {@code ground} with one text row for each 9 px of its box. */
+    public Component build(final FocusRing.Ground ground) {
+        return build(ground, List.of());
+    }
+
+    /** As {@link #build(FocusRing.Ground)}, its ring's top row open where {@code title}'s header lies under it. */
+    public Component build(final FocusRing.Ground ground, final DialogTitle title) {
+        return build(ground, title.ink(PANEL_TO_CONTENT - top()));
+    }
+
+    private Component build(final FocusRing.Ground ground, final List<FocusRing.Open> open) {
         final Pen pen = Pen.start();
         final int shift = top() - TEXT_ROW;
         for (final Piece piece : pieces) {
@@ -136,9 +154,6 @@ public final class BodyColumn {
             piece.draw().accept(line);
             pen.moveTo(0).append(line.build(), line.width());
         }
-        final Component drawn = pen.build(width);
-        final int own = pieces.stream().anyMatch(Piece::plate) ? PLATE_ROWS : 1;
-        final int rows = rows();
-        return rows <= own ? drawn : drawn.append(Component.text("\n".repeat(rows - own)));
+        return FocusRing.frame(pen.build(width), width, rows(), ground, open);
     }
 }

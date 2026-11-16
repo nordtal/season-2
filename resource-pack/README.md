@@ -749,6 +749,21 @@ composes them, and nothing else names them.
 - **`nordtal:ui_silent`:** every vanilla letter at advance 0, for a dialog body the narrator reads
   but the screen does not show.
 
+#### The NPC dialogue
+
+`eu.nordtal.season.packrendering.npc.DialogueScreen` composes the dialogue as one action-bar line,
+which the client centres, and its top bar as a boss bar's name. A piece whose top stands b pixels
+above the screen's bottom takes ascent b minus 65 as a glyph and shift 72 minus b as text.
+
+- **`nordtal:npc`:** the panel at three heights, the portrait, the answer plates on their three rows,
+  the hold mark, the input hints' marks, the switch and the bars of the four stages, 256 columns a tile.
+- **`nordtal:npc_text_{shift}`:** vanilla's letters without the ui symbols. A negative shift raises
+  them above vanilla's ascent, which the client refuses beyond a bitmap's height, so the build writes
+  a copy of each such sheet into the pack whose cells are padded below with transparent rows,
+  `nordtal/textures/font/raised_<height>_<sheet>.png`, and draws it at scale 1, so every letter
+  keeps the advance `Letters` measures. A sheet drawn at another scale than its cells stops the build.
+- **`nordtal/textures/npc/vignette_1..4`:** the vignette at each stage, a camera overlay that no font names.
+
 The tooltip style `nordtal:panel` is the pair of sprites `nordtal/textures/gui/sprites/tooltip/panel_background.png`
 and `panel_frame.png`, nine-sliced by their `.mcmeta`.
 

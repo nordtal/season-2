@@ -161,7 +161,7 @@ public final class LiveFeed implements AutoCloseable {
             try {
                 pass(rang);
             } catch (final RuntimeException failed) {
-                log.warn("live feed pass failed", failed);
+                log.warn("live feed poll failed", failed);
             }
             if (!waiting.sleep(GAP)) {
                 return;

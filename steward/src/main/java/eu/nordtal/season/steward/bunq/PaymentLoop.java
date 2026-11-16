@@ -36,7 +36,7 @@ public final class PaymentLoop implements AutoCloseable {
 
     void pass() {
         if (!running.tryLock()) {
-            log.debug("payment pass already running, wake-up skipped");
+            log.debug("payment poll already running, wake-up skipped");
             return;
         }
         try {

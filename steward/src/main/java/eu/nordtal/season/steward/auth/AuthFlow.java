@@ -103,7 +103,7 @@ public final class AuthFlow {
         if (!who.id().equals(config.discord().rootId().strip()) || !admins.claimRootIfNobody(DiscordId.of(who.id()))) {
             return false;
         }
-        log.warn("admin root claimed: actor={} member={}", who.name(), who.id());
+        log.warn("root admin access claimed: actor={} member={}", who.name(), who.id());
         data.audit().record(AuditLine.about(JournalAction.ADMIN_ROOT, who.actor(), DiscordId.of(who.id()), null));
         return true;
     }

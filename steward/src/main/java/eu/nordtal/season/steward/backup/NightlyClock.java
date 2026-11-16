@@ -210,7 +210,7 @@ public final class NightlyClock implements AutoCloseable {
         this.scheduler = on;
         final Duration until = untilNext(ZonedDateTime.now(wall));
         log.info(
-                "schedule armed: job={} at={} zone={} days=\"{}\" next={}h{}m",
+                "schedule enabled: job={} at={} zone={} days=\"{}\" next={}h{}m",
                 job.key,
                 at,
                 zone,

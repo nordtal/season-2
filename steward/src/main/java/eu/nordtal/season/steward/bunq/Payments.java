@@ -73,7 +73,7 @@ public final class Payments {
         try {
             work.run();
         } catch (final RuntimeException failure) {
-            log.error("payment pass step failed: step=\"{}\"", what, failure);
+            log.error("payment poll step failed: step=\"{}\"", what, failure);
         }
     }
 
@@ -232,7 +232,7 @@ public final class Payments {
     /** Raises an alert once per bank payment. */
     private void needsALook(final PaymentFlagged flagged) {
         if (alerts.raiseOnce(new Alert(JournalAction.PAYMENT_NEEDS_LOOK, Alert.Level.DOWN, flagged), Actor.STEWARD)) {
-            log.warn("payment needs a look: payment={} problem=\"{}\"", flagged.bankPayment(), flagged.problem());
+            log.warn("payment flagged for review: payment={} problem=\"{}\"", flagged.bankPayment(), flagged.problem());
         }
     }
 

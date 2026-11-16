@@ -442,7 +442,7 @@ public final class Web {
         timed.add(scheduler.every(Duration.ZERO, GAME_PING, () -> pingGame(gameLane)));
         live.start();
         authFlow.whatIsMissing()
-                .ifPresent(missing -> log.warn("sign-in not possible, setting empty: key=\"{}\"", missing));
+                .ifPresent(missing -> log.warn("sign-in unavailable, setting empty: key=\"{}\"", missing));
         log.info("steward listening: port={} url={}", port, config.publicUrl());
         return app;
     }

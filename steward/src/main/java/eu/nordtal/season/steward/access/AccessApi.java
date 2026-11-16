@@ -103,7 +103,7 @@ public final class AccessApi {
                         Actor.person(DiscordId.of(who.id())));
         switch (booking) {
             case Bookings.Booking.Booked booked -> {
-                log.info("payment booked by hand: actor={} reference={}", who.name(), reference);
+                log.info("payment booked manually: actor={} reference={}", who.name(), reference);
                 ctx.json(new Settled(
                         SettleOutcome.BOOKED,
                         booked.told().days(),

@@ -260,7 +260,7 @@ public final class Steward {
             final SeasonState state = data.season().state();
             return state.equals(SeasonState.UNREAD) ? Optional.empty() : Optional.of(state.mode());
         } catch (final RuntimeException unreadable) {
-            log.warn("game mode unreadable, no server resting: cause={}", unreadable.getMessage());
+            log.warn("game mode unreadable, resting server unknown: cause={}", unreadable.getMessage());
             return Optional.empty();
         }
     }
@@ -270,12 +270,12 @@ public final class Steward {
         try {
             configs.alerts().reload();
         } catch (final SettingsException broken) {
-            log.warn("alert thresholds refused, last ones kept: cause={}", broken.getMessage());
+            log.warn("alert thresholds rejected, current values kept: cause={}", broken.getMessage());
         }
         try {
             configs.handle().reload();
         } catch (final SettingsException broken) {
-            log.warn("steward settings refused, last ones kept: cause={}", broken.getMessage());
+            log.warn("steward settings rejected, current values kept: cause={}", broken.getMessage());
             return;
         }
         schedules.arm();

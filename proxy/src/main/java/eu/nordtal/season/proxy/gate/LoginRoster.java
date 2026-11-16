@@ -12,7 +12,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Stores the login data of each connected, linked player.
@@ -20,17 +22,22 @@ import java.util.function.Supplier;
  */
 public final class LoginRoster {
 
-    /** The login data of a player. Only the admin flag changes during a session. */
+    /** The login data of a player. Only the admin flag, the language and the country flag change during a session. */
     public record Session(
             DiscordId discordId,
             Locale locale,
+            @Nullable String flag,
             boolean admin,
             boolean donor,
             boolean packExempt,
             long playtimeSeconds) {
 
-        Session withAdmin(final boolean flag) {
-            return new Session(discordId, locale, flag, donor, packExempt, playtimeSeconds);
+        Session withAdmin(final boolean admin) {
+            return new Session(discordId, locale, flag, admin, donor, packExempt, playtimeSeconds);
+        }
+
+        Session withIdentity(final Locale language, final @Nullable String country) {
+            return new Session(discordId, language, country, admin, donor, packExempt, playtimeSeconds);
         }
     }
 
@@ -48,6 +55,7 @@ public final class LoginRoster {
                     new Session(
                             discordId,
                             state.locale(),
+                            state.flag(),
                             state.admin(),
                             state.donor(),
                             state.packExempt(),
@@ -86,6 +94,11 @@ public final class LoginRoster {
         return of(mcUuid).map(Session::locale).orElse(Locale.ENGLISH);
     }
 
+    /** Returns the pack name of the flag of the player's country, null before a choice or for an unknown player. */
+    public @Nullable String flagOf(final UUID mcUuid) {
+        return of(mcUuid).map(Session::flag).orElse(null);
+    }
+
     /**
      * Sets the admin flag of every session from the admin Discord ids.
      *
@@ -101,6 +114,29 @@ public final class LoginRoster {
                 if (sessions.replace(entry.getKey(), session, session.withAdmin(admin))) {
                     changed++;
                 }
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * Rereads the language and the country flag of every session, so a change shows without a new login.
+     * A read that names another Discord account leaves its session alone.
+     *
+     * @return the number of changed sessions
+     */
+    public int refreshIdentities(final Function<UUID, AccessState> read) {
+        Objects.requireNonNull(read, "read");
+        int changed = 0;
+        for (final java.util.Map.Entry<UUID, Session> entry : sessions.entrySet()) {
+            final Session session = entry.getValue();
+            final AccessState state = read.apply(entry.getKey());
+            if (!session.discordId().equals(state.discordId())) {
+                continue;
+            }
+            final Session fresh = session.withIdentity(state.locale(), state.flag());
+            if (!fresh.equals(session) && sessions.replace(entry.getKey(), session, fresh)) {
+                changed++;
             }
         }
         return changed;

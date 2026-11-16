@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
  * @param discordId the linked Discord account, null for an account nobody linked
  * @param name the Minecraft name last seen at login, null before the first
  * @param language the language they read, the network's default if they chose none
+ * @param flag the pack name of their country's flag glyph, null for the neutral flag
  * @param timeZone the zone they read times in, null for the network's
  * @param aura the SMP aura, 0 for an account without one
  * @param playtimeSeconds the network-wide play time, which a prestige crest is derived from
@@ -24,6 +25,7 @@ public record PlayerIdentity(
         @Nullable DiscordId discordId,
         @Nullable String name,
         Locale language,
+        @Nullable String flag,
         @Nullable ZoneId timeZone,
         boolean admin,
         boolean donor,
@@ -37,7 +39,7 @@ public record PlayerIdentity(
 
     /** Returns what an account looks like before its row is read or when it has none. */
     public static PlayerIdentity unknown(final PlayerId player) {
-        return new PlayerIdentity(player, null, null, Locales.DEFAULT, null, false, false, 0, 0L);
+        return new PlayerIdentity(player, null, null, Locales.DEFAULT, null, null, false, false, 0, 0L);
     }
 
     public ZoneId timeZoneOr(final ZoneId network) {

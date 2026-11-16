@@ -626,6 +626,7 @@ public final class ProxyPlugin {
         MessageOverrideStore.using(loaded.pool()).follow(loaded.messages(), hub);
         documents.follow(DocumentStore.using(loaded.pool()), hub, () -> {});
         hub.on(Channel.ADMIN, "the admin roster", () -> refreshAdmins(shared, router));
+        hub.on(Channel.IDENTITY, "the players' language and flag", () -> refreshIdentities(shared));
         hub.on(Channel.UPDATE, "the restart countdown", updates.restartWatch()::check);
         hub.on(Channel.UPDATE, "the update evacuation", updates.evacuation()::check);
         hub.on(Channel.UPDATE, "the proxy swap", reads.swap()::check);
@@ -658,6 +659,14 @@ public final class ProxyPlugin {
         if (changed > 0) {
             logger.info("admin flags changed, players re-routed: count={}", changed);
             router.rerouteAll(shared.seasonWatch().state());
+        }
+    }
+
+    /** Reads the language and the country flag of every connected player again. */
+    private void refreshIdentities(final Shared shared) {
+        final int changed = shared.roster().refreshIdentities(shared.access()::accessState);
+        if (changed > 0) {
+            logger.info("player language or flag changed: count={}", changed);
         }
     }
 

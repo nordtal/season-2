@@ -375,6 +375,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V130__an_admin_takes_a_position_in_from_the_game.sql",
                 "5c2e6a633602c9745b6fdf3bc7a2692c9bdadea1ba68ebf579bd0631590e6f34");
+        FROZEN.put(
+                "V131__a_player_s_country_flag_shows_in_the_game.sql",
+                "14b089950a2f5fc4c7fd513f44a44b091fe6433b7bf5409aba72ef14dda51db9");
     }
 
     @Test

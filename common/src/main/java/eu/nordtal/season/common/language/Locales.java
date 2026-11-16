@@ -1,7 +1,6 @@
 package eu.nordtal.season.common.language;
 
 import java.util.Locale;
-import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /** Converts a stored language tag to a {@link Locale} and back. It never throws. */
@@ -38,21 +37,5 @@ public final class Locales {
         return own.isEmpty() || own.equals(locale.getLanguage())
                 ? tag(locale)
                 : own.substring(0, 1).toUpperCase(locale) + own.substring(1);
-    }
-
-    /**
-     * Returns the country whose flag stands for a language, as two upper-case letters.
-     * English has the British flag, unless the locale is American. A language without a flag has none.
-     */
-    public static Optional<String> flagCountry(final @Nullable Locale locale) {
-        if (locale == null) {
-            return Optional.empty();
-        }
-        return switch (locale.getLanguage()) {
-            case "de" -> Optional.of("DE");
-            case "nl" -> Optional.of("NL");
-            case "en" -> Optional.of("US".equals(locale.getCountry()) ? "US" : "GB");
-            default -> Optional.empty();
-        };
     }
 }

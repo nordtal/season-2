@@ -106,11 +106,16 @@ public final class PanelWalk {
 
     /** The packaged document of {@code spec} in {@code locale}, for asserting what a menu draws. */
     public static GameDocument document(final DocumentSpec<?> spec, final Locale locale, final Record values) {
+        return document(spec, Viewer.of(locale), values);
+    }
+
+    /** The packaged document of {@code spec} as {@code viewer} reads it, in their language and zone. */
+    public static GameDocument document(final DocumentSpec<?> spec, final Viewer viewer, final Record values) {
         return new GameDocument(
                 RENDERER,
                 Documents.packaged(PanelWalk.class.getClassLoader(), spec.namespace())
                         .get(spec.name()),
-                Viewer.of(locale),
+                viewer,
                 values);
     }
 

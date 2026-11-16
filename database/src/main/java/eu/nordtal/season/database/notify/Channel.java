@@ -66,7 +66,13 @@ public enum Channel {
     PACK_BUILD("nordtal_pack_build"),
 
     /** An admin placed, changed or removed an NPC. The payload is its id. steward emits, smp listens. */
-    NPC("nordtal_npc");
+    NPC("nordtal_npc"),
+
+    /**
+     * A member's language, country, flag or time zone in {@code discord_user} changed. The payload is the Discord id.
+     * The access directory emits, Paper listens.
+     */
+    IDENTITY("nordtal_identity");
 
     private final String sqlName;
 

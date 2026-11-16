@@ -31,6 +31,7 @@ class ExpiryLookTest {
                 false,
                 0L,
                 Locale.ENGLISH,
+                null,
                 new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 

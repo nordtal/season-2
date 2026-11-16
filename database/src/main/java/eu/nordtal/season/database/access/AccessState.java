@@ -19,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  * @param admin whether the linked account has the admin flag mirrored from Discord
  * @param packExempt whether an admin let this account join without the resource pack
  * @param playtimeSeconds the network-wide play time at this read, which the crest of the card follows from
+ * @param flag the pack name of the flag glyph of the chosen country, null before a choice
  * @param season the launch date, maintenance and game mode at this read, {@link SeasonState#UNREAD} if unreadable
  */
 public record AccessState(
@@ -32,6 +33,7 @@ public record AccessState(
         boolean packExempt,
         long playtimeSeconds,
         Locale locale,
+        @Nullable String flag,
         SeasonState season) {
 
     /** Maps a null season to {@link SeasonState#UNREAD}. */
@@ -47,7 +49,7 @@ public record AccessState(
     }
 
     public static AccessState unlinked(final UUID account, final SeasonState season) {
-        return new AccessState(account, null, null, false, null, false, false, false, 0L, Locale.ENGLISH, season);
+        return new AccessState(account, null, null, false, null, false, false, false, 0L, Locale.ENGLISH, null, season);
     }
 
     public boolean linked() {

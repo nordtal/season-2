@@ -17,6 +17,8 @@ interface PersonDao {
                    usr.donor,
                    usr.admin,
                    usr.locale,
+                   usr.country,
+                   usr.time_zone,
                    usr.updated,
                    link.mc_uuid,
                    link.linked,

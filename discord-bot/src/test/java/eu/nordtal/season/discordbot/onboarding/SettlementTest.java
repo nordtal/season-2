@@ -18,8 +18,15 @@ class SettlementTest {
                         new Choices.Choice(Choices.Kind.LANGUAGE, "de", "Deutsch", "de")),
                 List.of(
                         new Choices.Choice(
-                                Choices.Kind.COUNTRY, "germany", "Deutschland", "de", zone, language, "flag"),
-                        new Choices.Choice(Choices.Kind.COUNTRY, "other", "Other", "other", "", "en", "flag")),
+                                Choices.Kind.COUNTRY,
+                                "germany",
+                                "Deutschland",
+                                "de",
+                                zone,
+                                language,
+                                "flag",
+                                "flag-germany"),
+                        new Choices.Choice(Choices.Kind.COUNTRY, "other", "Other", "other", "", "en", "flag", "")),
                 "Lock");
     }
 
@@ -33,7 +40,7 @@ class SettlementTest {
     }
 
     private static Records.Recorded german() {
-        return new Records.Recorded("de", "de", "Europe/Berlin");
+        return new Records.Recorded("de", "de", "Europe/Berlin", "flag-germany");
     }
 
     @Test
@@ -41,7 +48,8 @@ class SettlementTest {
         final var result = settle(CHOICES, Set.of("lock"), Set.of("germany"), Records.Recorded.NONE, true);
         assertEquals(Set.of("germany", "de"), result.add());
         assertEquals(Set.of("lock"), result.remove());
-        assertTrue(result.record().contains(new Settlement.Change(Choices.Kind.COUNTRY, "de", "Europe/Berlin")));
+        assertTrue(result.record()
+                .contains(new Settlement.Change(Choices.Kind.COUNTRY, "de", "Europe/Berlin", "flag-germany")));
         assertTrue(result.record().contains(new Settlement.Change(Choices.Kind.LANGUAGE, "de")));
     }
 
@@ -50,7 +58,7 @@ class SettlementTest {
         final var result = settle(CHOICES, Set.of("germany", "de"), Set.of("other"), german(), true);
         assertEquals(Set.of("other"), result.add());
         assertEquals(Set.of("germany"), result.remove());
-        assertEquals(List.of(new Settlement.Change(Choices.Kind.COUNTRY, "other", null)), result.record());
+        assertEquals(List.of(new Settlement.Change(Choices.Kind.COUNTRY, "other", null, null)), result.record());
     }
 
     @Test
@@ -69,7 +77,7 @@ class SettlementTest {
     @Test
     void changingACountrysZoneUpdatesItsMembers() {
         assertEquals(
-                List.of(new Settlement.Change(Choices.Kind.COUNTRY, "de", "Europe/Vienna")),
+                List.of(new Settlement.Change(Choices.Kind.COUNTRY, "de", "Europe/Vienna", "flag-germany")),
                 settle(choices("Europe/Vienna", "de"), Set.of("germany", "de"), Set.of(), german(), true)
                         .record());
     }
@@ -82,7 +90,20 @@ class SettlementTest {
                 "Lock");
         final var result = settle(removed, Set.of("germany", "de"), Set.of(), german(), true);
         assertEquals(Set.of("lock"), result.add());
-        assertEquals(List.of(new Settlement.Change(Choices.Kind.COUNTRY, null, null)), result.record());
+        assertEquals(List.of(new Settlement.Change(Choices.Kind.COUNTRY, null, null, null)), result.record());
+    }
+
+    @Test
+    void aRecordFromBeforeTheFlagGetsTheCountrysFlag() {
+        assertEquals(
+                List.of(new Settlement.Change(Choices.Kind.COUNTRY, "de", "Europe/Berlin", "flag-germany")),
+                settle(
+                                CHOICES,
+                                Set.of("germany", "de"),
+                                Set.of(),
+                                new Records.Recorded("de", "de", "Europe/Berlin", null),
+                                true)
+                        .record());
     }
 
     @Test
@@ -97,7 +118,7 @@ class SettlementTest {
     void languageAloneDoesNotReleaseTheLock() {
         assertEquals(
                 Set.of("lock"),
-                settle(CHOICES, Set.of("en"), Set.of(), new Records.Recorded("en", null, null), true)
+                settle(CHOICES, Set.of("en"), Set.of(), new Records.Recorded("en", null, null, null), true)
                         .add());
     }
 

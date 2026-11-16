@@ -111,6 +111,20 @@ class RosterIntegrationTest {
     }
 
     @Test
+    void theCountryAndTheTimeZoneRideAlongAndAreNullBeforeAChoice() {
+        person(DiscordId.of(ALICE));
+        assertNull(directory.people(10).getFirst().country());
+        assertNull(directory.people(10).getFirst().timeZone());
+
+        execute("UPDATE discord_user SET country = 'nl', time_zone = 'Europe/Amsterdam' WHERE discord_id = '" + ALICE
+                + "'");
+
+        final Person alice = directory.people(10).getFirst();
+        assertEquals("nl", alice.country());
+        assertEquals("Europe/Amsterdam", alice.timeZone());
+    }
+
+    @Test
     void aGrantCoveringNowIsActive() {
         person(DiscordId.of(ALICE));
         grant(DiscordId.of(ALICE), "-1 hours", "+47 hours", false);

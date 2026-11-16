@@ -47,15 +47,21 @@ interface AccessDao {
     void setTimeZone(@Bind("discordId") DiscordId discordId, @Bind("zone") @Nullable String zone);
 
     @SqlUpdate("""
-            INSERT INTO discord_user (discord_id, country, time_zone, updated)
-            VALUES (:discordId, :country, :zone, now())
+            INSERT INTO discord_user (discord_id, country, flag, time_zone, updated)
+            VALUES (:discordId, :country, :flag, :zone, now())
             ON CONFLICT (discord_id)
-                DO UPDATE SET country = EXCLUDED.country, time_zone = EXCLUDED.time_zone, updated = now()
+                DO UPDATE SET country = EXCLUDED.country, flag = EXCLUDED.flag, time_zone = EXCLUDED.time_zone,
+                              updated = now()
             """)
     void setCountry(
             @Bind("discordId") DiscordId discordId,
             @Bind("country") @Nullable String country,
+            @Bind("flag") @Nullable String flag,
             @Bind("zone") @Nullable String zone);
+
+    /** Tells every listening process that the member's identity changed, once the write commits. */
+    @SqlQuery("SELECT pg_notify('nordtal_identity', :discordId) IS NULL")
+    boolean identityChanged(@Bind("discordId") DiscordId discordId);
 
     @SqlUpdate("""
             INSERT INTO discord_user (discord_id, donor, updated)
@@ -253,6 +259,7 @@ interface AccessDao {
                    link.discord_id,
                    usr.member_state,
                    usr.locale,
+                   usr.flag,
                    usr.donor,
                    usr.admin,
                    usr.pack_exempt_at IS NOT NULL                           AS pack_exempt,
@@ -281,7 +288,8 @@ interface AccessDao {
     Optional<AccessState> accessState(@Bind("mcUuid") UUID mcUuid);
 
     @SqlQuery("""
-            SELECT link.mc_uuid, link.discord_id, link.mc_name, usr.locale, usr.time_zone, usr.admin, usr.donor,
+            SELECT link.mc_uuid, link.discord_id, link.mc_name, usr.locale, usr.country, usr.flag, usr.time_zone,
+                   usr.admin, usr.donor,
                    coalesce(smp.aura, 0) AS aura, coalesce(playtime.seconds, 0) AS playtime_seconds
             FROM account_link link
                      JOIN discord_user usr ON usr.discord_id = link.discord_id

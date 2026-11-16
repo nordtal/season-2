@@ -9,6 +9,8 @@ import org.jspecify.annotations.Nullable;
  * One person as a list shows them. {@code accessUntil} counts revoked grants, {@code accessActive} does not.
  *
  * @param memberState {@code MEMBER}, {@code LEFT} or {@code BANNED}, as text so a hand-written value shows
+ * @param country the key of the country the member chose in the start channel, null for none
+ * @param timeZone the zone the game shows them times in, null for the network's
  * @param updated when the row last changed, which {@link AccessReader#people(int)} orders by
  * @param accessUntil the latest {@code valid_until} of any grant, revoked ones included. Null if none
  * @param playtimeSeconds the total online time, null if the account was never online
@@ -25,6 +27,8 @@ public record Person(
         boolean donor,
         boolean admin,
         String locale,
+        @Nullable String country,
+        @Nullable String timeZone,
         Instant updated,
         @Nullable UUID minecraftUuid,
         @Nullable Instant linked,

@@ -36,7 +36,7 @@ class IdentitiesTest {
     }
 
     private static PlayerIdentity row(final PlayerId player, final int aura) {
-        return new PlayerIdentity(player, DiscordId.of("1"), "Alex", Locale.GERMAN, null, false, false, aura, 0L);
+        return new PlayerIdentity(player, DiscordId.of("1"), "Alex", Locale.GERMAN, null, null, false, false, aura, 0L);
     }
 
     @Test

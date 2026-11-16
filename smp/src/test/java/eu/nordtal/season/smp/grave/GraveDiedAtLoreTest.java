@@ -2,8 +2,10 @@ package eu.nordtal.season.smp.grave;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import eu.nordtal.season.messages.Viewer;
 import eu.nordtal.season.smp.menu.PanelWalk;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
@@ -14,16 +16,33 @@ class GraveDiedAtLoreTest {
 
     @Test
     void english() {
-        assertEquals(List.of("Somebody", "Died Sep 17, 2026", "at 100 64 -200"), owner(Locale.ENGLISH));
+        assertEquals(
+                List.of("Somebody", "Died Sep 17, 2026, 10:00\u202fAM", "at 100 64 -200"),
+                owner(Viewer.of(Locale.ENGLISH)));
     }
 
     @Test
     void german() {
-        assertEquals(List.of("Jemand", "Gestorben am 17.09.2026", "bei 100 64 -200"), owner(Locale.GERMAN));
+        assertEquals(
+                List.of("Jemand", "Gestorben am 17.09.2026, 10:00", "bei 100 64 -200"),
+                owner(Viewer.of(Locale.GERMAN)));
     }
 
-    private static List<String> owner(final Locale locale) {
-        return PanelWalk.lines(PanelWalk.document(GraveWindow.DOCUMENT, locale, new GraveWindow.Window(0))
+    @Test
+    void theTimeIsTheReadersOwn() {
+        assertEquals(
+                "Died Sep 17, 2026, 6:00\u202fAM",
+                owner(new Viewer(Locale.ENGLISH, ZoneId.of("America/New_York"), null))
+                        .get(1),
+                "a reader in New York saw the time of another zone");
+        assertEquals(
+                "Gestorben am 17.09.2026, 12:00",
+                owner(new Viewer(Locale.GERMAN, ZoneId.of("Europe/Berlin"), null))
+                        .get(1));
+    }
+
+    private static List<String> owner(final Viewer viewer) {
+        return PanelWalk.lines(PanelWalk.document(GraveWindow.DOCUMENT, viewer, new GraveWindow.Window(0))
                 .item("owner", new GraveWindow.Owner(false, null, AT, 100, 64, -200)));
     }
 }

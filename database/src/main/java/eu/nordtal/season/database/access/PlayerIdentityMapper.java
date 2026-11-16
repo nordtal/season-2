@@ -22,6 +22,7 @@ public final class PlayerIdentityMapper implements RowMapper<PlayerIdentity> {
                 DiscordId.ofNullable(rs.getString("discord_id")),
                 rs.getString("mc_name"),
                 Locales.parse(rs.getString("locale")),
+                rs.getString("flag"),
                 zone(rs.getString("time_zone")),
                 rs.getBoolean("admin"),
                 rs.getBoolean("donor"),

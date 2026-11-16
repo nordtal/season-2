@@ -2,7 +2,7 @@ package eu.nordtal.season.hungergames.player;
 
 import eu.nordtal.season.messagerendering.Names;
 import eu.nordtal.season.messages.value.DisplayName;
-import eu.nordtal.season.packrendering.LanguageFlags;
+import eu.nordtal.season.packrendering.CountryFlags;
 import eu.nordtal.season.papercommon.player.Identities;
 import java.util.Locale;
 import java.util.Objects;
@@ -19,11 +19,11 @@ public final class ArenaComposition implements Names {
         this.identities = Objects.requireNonNull(identities, "identities");
     }
 
-    /** Draws the flag of the language of the player and the name in grey. */
+    /** Draws the flag of the country of the player and the name in grey. */
     @Override
     public Component draw(final DisplayName name, final Locale reader) {
         return Component.text(
-                        LanguageFlags.of(identities.languageOf(name.player().value())))
+                        CountryFlags.of(identities.of(name.player().value()).flag()))
                 .decoration(TextDecoration.ITALIC, false)
                 .append(Component.text(" "))
                 .append(Component.text(name.name())

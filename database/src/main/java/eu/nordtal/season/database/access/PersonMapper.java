@@ -23,6 +23,8 @@ public final class PersonMapper implements RowMapper<Person> {
                 rs.getBoolean("donor"),
                 rs.getBoolean("admin"),
                 Locales.tag(Locales.parse(rs.getString("locale"))),
+                rs.getString("country"),
+                rs.getString("time_zone"),
                 Objects.requireNonNull(instant(rs, "updated"), "updated"),
                 rs.getObject("mc_uuid", UUID.class),
                 instant(rs, "linked"),

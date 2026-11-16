@@ -358,7 +358,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         if (change.kind() == Choices.Kind.LANGUAGE) {
             access.setLocale(member, value == null ? null : Locales.parse(value));
         } else {
-            access.setCountry(member, value, change.zone() == null ? null : ZoneId.of(change.zone()));
+            access.setCountry(member, value, change.flag(), change.zone() == null ? null : ZoneId.of(change.zone()));
         }
     }
 

@@ -28,10 +28,19 @@ final class Choices {
      * One role a member may choose.
      *
      * @param value the language tag or the country key that the record stores
+     * @param glyph the pack name of the country's flag glyph that the record stores, blank for the neutral flag
      */
-    record Choice(Kind kind, String key, String name, String value, String zone, String language, String emoji) {
+    record Choice(
+            Kind kind,
+            String key,
+            String name,
+            String value,
+            String zone,
+            String language,
+            String emoji,
+            String glyph) {
         Choice(final Kind kind, final String key, final String name, final String value) {
-            this(kind, key, name, value, "", "", "");
+            this(kind, key, name, value, "", "", "", "");
         }
     }
 
@@ -61,7 +70,8 @@ final class Choices {
                         country.key(),
                         country.zone(),
                         country.language(),
-                        country.emoji()))
+                        country.emoji(),
+                        country.glyph().strip()))
                 .toList();
         return new Choices(spoken, countries, onboarding.lockRole().strip());
     }

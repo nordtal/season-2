@@ -123,19 +123,32 @@ final class JdbiAccessDirectory implements AccessDirectory {
     @Override
     public void setLocale(final DiscordId discordId, final @Nullable Locale locale) {
         Objects.requireNonNull(discordId, "discordId");
-        dao.setLocale(discordId, locale == null ? null : Locales.tag(locale));
+        identityWrite(discordId, dao -> dao.setLocale(discordId, locale == null ? null : Locales.tag(locale)));
     }
 
     @Override
     public void setTimeZone(final DiscordId discordId, final @Nullable ZoneId zone) {
         Objects.requireNonNull(discordId, "discordId");
-        dao.setTimeZone(discordId, zone == null ? null : zone.getId());
+        identityWrite(discordId, dao -> dao.setTimeZone(discordId, zone == null ? null : zone.getId()));
     }
 
     @Override
-    public void setCountry(final DiscordId discordId, final @Nullable String country, final @Nullable ZoneId zone) {
+    public void setCountry(
+            final DiscordId discordId,
+            final @Nullable String country,
+            final @Nullable String flag,
+            final @Nullable ZoneId zone) {
         Objects.requireNonNull(discordId, "discordId");
-        dao.setCountry(discordId, country, zone == null ? null : zone.getId());
+        identityWrite(discordId, dao -> dao.setCountry(discordId, country, flag, zone == null ? null : zone.getId()));
+    }
+
+    /** Writes a part of the identity and emits {@code IDENTITY} in the same transaction, so a listener reads it. */
+    private void identityWrite(final DiscordId discordId, final java.util.function.Consumer<AccessDao> write) {
+        jdbi.useTransaction(handle -> {
+            final AccessDao transactional = handle.attach(AccessDao.class);
+            write.accept(transactional);
+            transactional.identityChanged(discordId);
+        });
     }
 
     @Override

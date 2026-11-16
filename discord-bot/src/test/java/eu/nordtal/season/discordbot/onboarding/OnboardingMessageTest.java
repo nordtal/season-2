@@ -25,9 +25,23 @@ class OnboardingMessageTest {
             List.of(),
             List.of(
                     new Choices.Choice(
-                            Choices.Kind.COUNTRY, "de", "Deutschland", "de", "Europe/Berlin", "de", Mark.flag("DE")),
+                            Choices.Kind.COUNTRY,
+                            "de",
+                            "Deutschland",
+                            "de",
+                            "Europe/Berlin",
+                            "de",
+                            Mark.flag("DE"),
+                            "flag-germany"),
                     new Choices.Choice(
-                            Choices.Kind.COUNTRY, "at", "Österreich", "at", "Europe/Vienna", "de", Mark.flag("AT"))),
+                            Choices.Kind.COUNTRY,
+                            "at",
+                            "Österreich",
+                            "at",
+                            "Europe/Vienna",
+                            "de",
+                            Mark.flag("AT"),
+                            "flag-austria")),
             "Lock");
 
     @Test

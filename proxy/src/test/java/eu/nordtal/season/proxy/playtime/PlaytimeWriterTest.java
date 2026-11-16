@@ -190,6 +190,7 @@ class PlaytimeWriterTest {
                         false,
                         0L,
                         Locale.ENGLISH,
+                        null,
                         new SeasonState(Instant.EPOCH, false, SeasonMode.SMP)));
         writer.begin(mcUuid, "player-" + discordId);
     }

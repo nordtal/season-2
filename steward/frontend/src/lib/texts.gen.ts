@@ -1772,6 +1772,7 @@ export type TextArgs = {
     becoming: Arg["duration"]
     usable: Arg["choice"]
   }
+  "steward.people.country": Record<string, never>
   "steward.people.edit-in-game": Record<string, never>
   "steward.people.editor-not-opened": Record<string, never>
   "steward.people.editor-opened": {
@@ -1852,6 +1853,7 @@ export type TextArgs = {
   "steward.people.nobody": Record<string, never>
   "steward.people.none-linked": Record<string, never>
   "steward.people.none-running": Record<string, never>
+  "steward.people.not-chosen": Record<string, never>
   "steward.people.not-linked": Record<string, never>
   "steward.people.not-linked-tip": {
     paid: Arg["choice"]
@@ -1944,6 +1946,7 @@ export type TextArgs = {
   "steward.people.supporter": Record<string, never>
   "steward.people.supporters": Record<string, never>
   "steward.people.thrown-out": Record<string, never>
+  "steward.people.time-zone": Record<string, never>
   "steward.people.title": Record<string, never>
   "steward.people.unknown-person": Record<string, never>
   "steward.people.unlink": Record<string, never>

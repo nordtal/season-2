@@ -6,6 +6,7 @@ import eu.nordtal.season.database.access.PlayerCard;
 import eu.nordtal.season.database.access.PlayerIdentity;
 import eu.nordtal.season.database.access.Prestige;
 import eu.nordtal.season.messagerendering.NameCards;
+import eu.nordtal.season.messages.Viewer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -91,6 +92,12 @@ public final class Identities {
 
     public Locale languageOf(final UUID mcUuid) {
         return of(mcUuid).language();
+    }
+
+    /** Returns the player as the reader of a text: their language and their time zone, the network's if unset. */
+    public Viewer viewer(final UUID mcUuid) {
+        final PlayerIdentity identity = of(mcUuid);
+        return new Viewer(identity.language(), identity.timeZone(), null);
     }
 
     public Optional<DiscordId> discordIdOf(final UUID mcUuid) {

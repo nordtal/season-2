@@ -215,6 +215,8 @@ export type Person = {
   donor: boolean
   admin: boolean
   locale: string
+  country?: string
+  timeZone?: string
   updated: string
   minecraftUuid?: string
   linked?: string

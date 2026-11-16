@@ -257,6 +257,7 @@ class SeasonRoutingTest {
                 false,
                 0L,
                 Locale.ENGLISH,
+                null,
                 season);
     }
 }

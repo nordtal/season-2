@@ -100,6 +100,7 @@ class LoginRosterTest {
                         true,
                         0L,
                         Locale.ENGLISH,
+                        null,
                         new SeasonState(Instant.EPOCH, false, SeasonMode.SMP)));
         assertTrue(roster.isPackExempt(PLAYER));
         roster.refreshAdmins(java.util.Set.of(DISCORD_ID));
@@ -123,6 +124,7 @@ class LoginRosterTest {
                         false,
                         7200L,
                         Locale.ENGLISH,
+                        null,
                         new SeasonState(Instant.EPOCH, false, SeasonMode.SMP)));
         final DisplayName name = new DisplayName(PlayerId.of(PLAYER), "Alex");
 
@@ -149,6 +151,7 @@ class LoginRosterTest {
                 false,
                 0L,
                 locale,
+                null,
                 new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
@@ -197,5 +200,42 @@ class LoginRosterTest {
         assertEquals(0, roster.refreshAdmins(java.util.Set.of(DISCORD_ID, "999")));
         assertEquals(0, roster.size());
         assertFalse(roster.isAdmin(PLAYER));
+    }
+
+    @Test
+    void aCountryOrLanguageChangeReachesAConnectedPlayerAndKeepsTheRest() {
+        roster.remember(PLAYER, identified(Locale.ENGLISH, null));
+        roster.refreshAdmins(java.util.Set.of(DISCORD_ID));
+
+        assertEquals(1, roster.refreshIdentities(uuid -> identified(Locale.GERMAN, "flag-austria")));
+        assertEquals(Locale.GERMAN, roster.localeOf(PLAYER));
+        assertEquals("flag-austria", roster.flagOf(PLAYER));
+        assertTrue(roster.isAdmin(PLAYER), "an identity refresh dropped the admin flag");
+        assertEquals(0, roster.refreshIdentities(uuid -> identified(Locale.GERMAN, "flag-austria")), "nothing changed");
+    }
+
+    @Test
+    void anIdentityRefreshLeavesASessionWhoseLinkMovedAlone() {
+        roster.remember(PLAYER, identified(Locale.ENGLISH, "flag-germany"));
+
+        assertEquals(0, roster.refreshIdentities(AccessState::unlinked));
+        assertEquals("flag-germany", roster.flagOf(PLAYER));
+        assertNull(roster.flagOf(STRANGER));
+    }
+
+    private static AccessState identified(final Locale language, final @org.jspecify.annotations.Nullable String flag) {
+        return new AccessState(
+                PLAYER,
+                DiscordId.of(DISCORD_ID),
+                MemberState.MEMBER,
+                true,
+                null,
+                false,
+                false,
+                false,
+                0L,
+                language,
+                flag,
+                new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 }

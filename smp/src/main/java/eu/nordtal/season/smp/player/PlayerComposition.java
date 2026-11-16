@@ -2,15 +2,15 @@ package eu.nordtal.season.smp.player;
 
 import eu.nordtal.season.database.access.PlayerIdentity;
 import eu.nordtal.season.database.access.Prestige;
+import eu.nordtal.season.packrendering.CountryFlags;
 import eu.nordtal.season.packrendering.Glyphs;
-import eu.nordtal.season.packrendering.LanguageFlags;
 import eu.nordtal.season.smp.prestige.PrestigeColours;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Builds the text of a player for the tab list, the nametag and chat.
@@ -38,7 +38,7 @@ public final class PlayerComposition {
     }
 
     public Component tabList(final String name, final PlayerIdentity identity) {
-        return flag(identity.language())
+        return flag(identity.flag())
                 .append(Component.text(" "))
                 .append(name(name, identity))
                 .append(badges(identity))
@@ -48,7 +48,7 @@ public final class PlayerComposition {
     }
 
     public Component nameTag(final String name, final PlayerIdentity identity) {
-        return flag(identity.language())
+        return flag(identity.flag())
                 .append(Component.text(" "))
                 .append(name(name, identity))
                 .append(badges(identity))
@@ -56,15 +56,15 @@ public final class PlayerComposition {
     }
 
     public Component chatPrefix(final String name, final PlayerIdentity identity) {
-        return flag(identity.language())
+        return flag(identity.flag())
                 .append(Component.text(" "))
                 .append(name(name, identity))
                 .append(crest(identity));
     }
 
-    /** Returns the flag of the language of the player, not of the viewer. */
-    private Component flag(final Locale locale) {
-        return Component.text(LanguageFlags.of(locale)).decoration(TextDecoration.ITALIC, false);
+    /** Returns the flag of the country of the player, not of the viewer. */
+    private Component flag(final @Nullable String country) {
+        return Component.text(CountryFlags.of(country)).decoration(TextDecoration.ITALIC, false);
     }
 
     private Component name(final String name, final PlayerIdentity identity) {

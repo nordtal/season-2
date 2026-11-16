@@ -131,6 +131,10 @@ final class SpecJson {
                 addNames(property.key(), names, child);
             }
             final Class<?> nested = nestedSpec(getter);
+            final Position position = getter.getAnnotation(Position.class);
+            if (position != null) {
+                child.addProperty("position", positionOf(property.key(), position, nested, child));
+            }
             if (nested != null) {
                 if (!Specs.isConfigSpec(getter.getReturnType())) {
                     child.add("defaults", defaults(nested));
@@ -138,6 +142,20 @@ final class SpecJson {
                 addReferences(nested, child);
             }
         }
+    }
+
+    /** Returns the shape's name, or refuses a position that is no spec or lacks a key of its shape. */
+    private static String positionOf(
+            final String key, final Position position, final @Nullable Class<?> nested, final JsonObject node) {
+        if (nested == null || !(node.get("children") instanceof final JsonObject fields)) {
+            throw new IllegalStateException(key + " is a position but holds no spec");
+        }
+        for (final String wanted : position.value().keys()) {
+            if (!fields.has(wanted)) {
+                throw new IllegalStateException(key + " is a " + position.value() + " position but has no " + wanted);
+            }
+        }
+        return position.value().name();
     }
 
     private static JsonObject referenceOf(final Refers refers) {

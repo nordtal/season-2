@@ -157,9 +157,6 @@ export function PersonIdentity(props: PersonIdentityProps) {
           <DiscordAvatar url={props.discordAvatarUrl} name={name.text} size="size-8" />
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-medium">{name.text ?? t("steward.identity.no-discord-name")}</span>
-            {name.text ? null : (
-              <span className="text-xs text-muted-foreground">{t("steward.identity.never-observed")}</span>
-            )}
           </div>
         </div>
 

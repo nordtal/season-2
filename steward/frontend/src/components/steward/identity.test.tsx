@@ -224,12 +224,12 @@ describe("PersonIdentity - nothing half-written, and no mark nobody can see", ()
     expect(document.querySelector("[title*='Not confirmed']")).toBeNull()
   })
 
-  it("still says so when there is genuinely nothing on record - that is a sentence, not a stub", () => {
+  it("names a missing Discord name without claiming that the person is absent from the server", () => {
     render(<PersonIdentity discordId={DISCORD_ID} />)
     fireEvent.click(screen.getByRole("button"))
 
     expect(screen.getAllByText("Discord name unknown").length).toBeGreaterThan(0)
-    expect(screen.getByText(/Not found on the Discord server/i)).toBeTruthy()
+    expect(screen.queryByText(/Not found on the Discord server/i)).toBeNull()
   })
 })
 

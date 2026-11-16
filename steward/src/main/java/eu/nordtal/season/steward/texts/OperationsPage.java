@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.texts;
 
 import eu.nordtal.season.database.update.RunStage;
 import eu.nordtal.season.database.update.UpdateKind;
+import eu.nordtal.season.database.update.UpdateStatus;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
 import eu.nordtal.season.messages.spec.Name;
@@ -49,7 +50,7 @@ public interface OperationsPage {
     @Name("Now")
     MessageRef now(@Arg("kind") UpdateKind kind);
 
-    @Name("Entered")
+    @Name("Run requested")
     MessageRef entered(@Arg("kind") @Example("Update") String kind, @Arg("run") @Example("42") long run);
 
     @Name("Cancelled")
@@ -139,8 +140,11 @@ public interface OperationsPage {
     @Name("Added")
     MessageRef added(@Arg("size") @Example("240 MB") String size);
 
-    @Name("Under way")
-    MessageRef underWay(@Arg("kind") @Example("Backup") String kind, @Arg("run") @Example("42") int run);
+    @Name("An open run")
+    MessageRef underWay(
+            @Arg("kind") @Example("Backup") String kind,
+            @Arg("run") @Example("42") int run,
+            @Arg("status") @Example("pending") UpdateStatus status);
 
     /** A stage on the run page's rail, which gathers the step kinds of one part of a run. */
     enum Stage {

@@ -1291,7 +1291,6 @@ export type TextArgs = {
   "steward.identity.host": Record<string, never>
   "steward.identity.minecraft-uuid": Record<string, never>
   "steward.identity.never-joined": Record<string, never>
-  "steward.identity.never-observed": Record<string, never>
   "steward.identity.no-avatar": Record<string, never>
   "steward.identity.no-discord": Record<string, never>
   "steward.identity.no-discord-name": Record<string, never>
@@ -1673,6 +1672,7 @@ export type TextArgs = {
   "steward.operations.under-way": {
     kind: Arg["text"]
     run: Arg["number"]
+    status: Arg["choice"]
   }
   "steward.overview.behind": Record<string, never>
   "steward.overview.cores": {

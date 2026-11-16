@@ -1,7 +1,7 @@
 import type { Run } from "@/lib/api"
 import { useActiveRun } from "@/lib/queries"
 import { runKind } from "@/components/steward/status"
-import { t } from "@/lib/texts"
+import { choice, t } from "@/lib/texts"
 
 /**
  * One run in the network at a time. While one is open, the buttons that would start another are locked and their title names it. An unanswered `/api/updates/active` locks nothing, and the backend still refuses.
@@ -13,7 +13,7 @@ export function useRunLock(): { run: Run | null; locked: boolean; title: string 
 }
 
 export function lockTitle(run: Run): string {
-  return t("steward.operations.under-way", { kind: runKind(run.kind), run: run.id })
+  return t("steward.operations.under-way", { kind: runKind(run.kind), run: run.id, status: choice(run.status) })
 }
 
 /** An empty scope is the whole network. */

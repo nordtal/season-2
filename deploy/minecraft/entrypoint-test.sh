@@ -175,7 +175,7 @@ expect_status 1
 expect_present "$data/world"
 expect_present "$data/world/playerdata/069a79f4-44e9-4726-a5be-fca90e38aaf5.dat"
 expect_property "$data/server.properties" level-name world
-expect_output "default world played in, not removed"
+expect_output "default world contains player data, world kept"
 expect_output "Not started: server.properties says level-name=world"
 ok "refused, nothing deleted"
 
@@ -232,7 +232,7 @@ printf 'level-name=nordtal\nlevel-seed=99\n' > "$data/server.properties"
 seed "$data" nordtal 1837371427
 expect_status 0
 expect_property "$data/server.properties" level-seed 99
-expect_output "world seed differs from LEVEL_SEED"
+expect_output "world seed mismatch"
 ok "existing world's seed left alone"
 
 case_begin "no LEVEL_SEED writes no level-seed"
@@ -665,7 +665,7 @@ dir=$(volume velocity-root)
 printf 'accepts-transfers = true\nbind = "0.0.0.0:25565"\n\n[servers]\nlimbo = "limbo:25565"\n' > "$dir/velocity.toml"
 ensure_transfers "$dir"
 expect_status 0
-expect_output "velocity setting at file root"
+expect_output "velocity root setting ignored"
 expect_toml_under_table "$dir/velocity.toml" "[advanced]" accepts-transfers true
 ok "root-level key called out and the real one written"
 
@@ -722,7 +722,7 @@ printf 'bind = "0.0.0.0:25565"\n\n[advanced]\naccepts-transfers = true\n' > "$di
 before=$(cat "$dir/velocity.toml")
 ensure_haproxy "$dir" yes
 expect_status 0
-expect_output "neither true nor false"
+expect_output "velocity haproxy value invalid"
 [[ "$(cat "$dir/velocity.toml")" == "$before" ]] \
     || bad "velocity.toml was rewritten from a value nobody can read"
 ok "left alone and warned about"

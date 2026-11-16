@@ -52,11 +52,11 @@ adopt_paper_default_world() {
     # -print -quit stops at the first entry.
     if [[ -d "$playerdata" ]] \
         && [[ -n "$(find "$playerdata" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
-        warn "default world played in, not removed: from=world to=${LEVEL_NAME}"
+        warn "default world contains player data, world kept: from=world to=${LEVEL_NAME}"
         return 1
     fi
 
-    warn "unplayed default world adopted: from=world to=${LEVEL_NAME}"
+    warn "unused default world selected for replacement: from=world to=${LEVEL_NAME}"
     rm -rf "${DATA:?}/world"
     for dimension in world_nether world_the_end; do
         [[ -d "$DATA/$dimension" ]] || continue
@@ -89,7 +89,7 @@ seed_level_settings() {
         # `sed -n 1p` instead of `head -n1`, as above.
         [[ -f "$file" ]] && current=$(sed -n 's/^level-seed=//p' "$file" | sed -n '1p')
         if [[ "$current" != "$LEVEL_SEED" ]]; then
-            warn "world seed differs from LEVEL_SEED, world kept: world=${LEVEL_NAME} seed=${current:-unknown} level_seed=${LEVEL_SEED}"
+            warn "world seed mismatch, world kept: world=${LEVEL_NAME} seed=${current:-unknown} level_seed=${LEVEL_SEED}"
         fi
         return 0
     fi
@@ -149,7 +149,7 @@ fetch_datapacks() {
     for old in "$dir"/*.zip; do
         [[ -n "${named["${old##*/}"]:-}" ]] && continue
         rm -f "$old"
-        log "unnamed datapack removed: file=\"${old##*/}\""
+        log "unconfigured datapack removed: file=\"${old##*/}\""
     done
     shopt -u nullglob
 }
@@ -182,7 +182,7 @@ prepare_backend() {
     # Paper reads PAPER_VELOCITY_SECRET from the environment and writes it into paper-global.yml on
     # first load, so rotating the secret means editing both. The function seeds only the enable switch.
     if [[ -f "$global" ]]; then
-        log "existing file not touched: file=config/paper-global.yml"
+        log "existing configuration kept: file=config/paper-global.yml"
     else
         mkdir -p "$(dirname "$global")"
         cat > "$global" <<'YAML'
@@ -194,7 +194,7 @@ proxies:
     enabled: true
     online-mode: true
 YAML
-        log "velocity forwarding enabled, file seeded: file=config/paper-global.yml"
+        log "velocity forwarding configuration created: file=config/paper-global.yml"
     fi
 
     # An eye of ender flies only to a stronghold Paper locates, and every stronghold lies beyond the
@@ -218,7 +218,7 @@ configure_prism() {
     # Prism is optional, so a setting it cannot use leaves it on its defaults and the SMP starts.
     if [[ ! "$url" =~ $pattern ]]; then
         rm -f "$file"
-        warn "database url not postgresql, prism left on defaults: key=NORDTAL_SMP_DATABASE_JDBC_URL"
+        warn "prism configuration skipped, database url not postgresql: key=NORDTAL_SMP_DATABASE_JDBC_URL"
         return 0
     fi
     [[ -n "${NORDTAL_SMP_DATABASE_USERNAME:-}" ]] \
@@ -227,7 +227,7 @@ configure_prism() {
         || die "Not started: NORDTAL_SMP_DATABASE_PASSWORD is not set, while NORDTAL_SMP_DATABASE_JDBC_URL is. Set both, or neither."
     if [[ "$NORDTAL_SMP_DATABASE_PASSWORD" == *[[:cntrl:]]* ]]; then
         rm -f "$file"
-        warn "database password holds a control character, prism left on defaults"
+        warn "prism configuration skipped, database password contains control character"
         return 0
     fi
     local host="${BASH_REMATCH[1]}" port="${BASH_REMATCH[3]:-5432}" database="${BASH_REMATCH[4]}"
@@ -345,11 +345,11 @@ seed_velocity_config() {
     local file="$DATA/velocity.toml" name address tmp
 
     if [[ -f "$file" ]]; then
-        log "existing file not touched: file=velocity.toml"
+        log "existing configuration kept: file=velocity.toml"
         return 0
     fi
     if [[ -z "${VELOCITY_SERVERS:-}" ]]; then
-        warn "VELOCITY_SERVERS unset, velocity.toml not seeded"
+        warn "velocity configuration skipped, server list unset"
         return 0
     fi
 
@@ -396,7 +396,7 @@ ensure_velocity_haproxy() {
 
     [[ -n "$wanted" ]] || return 0
     if [[ "$wanted" != "true" && "$wanted" != "false" ]]; then
-        warn "VELOCITY_HAPROXY neither true nor false, velocity.toml not touched: value=\"${wanted}\""
+        warn "velocity haproxy value invalid, configuration kept: value=\"${wanted}\""
         return 0
     fi
 
@@ -436,11 +436,11 @@ ensure_velocity_advanced() {
             else                       state = "absent"
             print state, (root ? "root" : "-")
         }
-    ' "$file") || { warn "velocity.toml unreadable, not touched: key=${key}"; return 0; }
+    ' "$file") || { warn "velocity configuration unreadable, file kept: key=${key}"; return 0; }
 
     # Nothing reads a root-level key. The function reports it and does not delete it.
     if [[ "$verdict" == *" root" ]]; then
-        warn "velocity setting at file root, not read: file=velocity.toml key=${key}"
+        warn "velocity root setting ignored: file=velocity.toml key=${key}"
     fi
 
     tmp="${file}.partial"
@@ -530,7 +530,7 @@ if [[ -n "$JAR_NAME" ]]; then
     JAR_PATH="$CACHE/$JAR_NAME"
     log "cached server jar used: file=${JAR_NAME}"
 else
-    log "no server jar cached, fill api asked: kind=${SERVER_KIND}"
+    log "server jar cache empty, fill lookup started: kind=${SERVER_KIND}"
     project=$(curl -fsSL --max-time 60 -H "User-Agent: ${FILL_UA}" "${FILL_API}/${SERVER_KIND}") \
         || die "Not started: the Fill API did not answer, and no ${SERVER_KIND} jar is cached in ${CACHE}. Start the container again once ${FILL_API} answers."
 
@@ -707,7 +707,7 @@ on_term() {
         log "shutdown requested, SIGTERM sent: pid=${pid}"
         kill -TERM "$pid" 2>/dev/null || true
     else
-        warn "shutdown requested, server process not found"
+        warn "shutdown requested, server process missing"
     fi
 }
 trap on_term TERM INT
@@ -729,7 +729,7 @@ kill "$TAIL_PID" 2>/dev/null || true
 
 # The JVM died before latest.log existed, so the boot capture is the only record. Print it.
 if [[ ! -s "$LOG_FILE" && -s "$BOOT_LOG" ]]; then
-    warn "server stopped before logging, boot console follows: file=${BOOT_LOG}"
+    warn "server exited before log creation: file=${BOOT_LOG}"
     cat "$BOOT_LOG" >&2
 fi
 

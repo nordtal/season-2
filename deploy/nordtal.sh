@@ -551,44 +551,36 @@ declare -A QUESTION_CHECK=(
 )
 
 declare -A QUESTION_PROMPT=(
-    [STEWARD_HOST]="What name will the interface answer on?"
-    [NETWORK_PUBLIC_ADDRESS]="What do players type into Minecraft to reach this network?"
+    [STEWARD_HOST]="Which host name will Steward use?"
+    [NETWORK_PUBLIC_ADDRESS]="What is the Minecraft server address, including its port?"
     [EULA]="Do you accept the Minecraft EULA? (https://aka.ms/MinecraftEULA)"
-    [NORDTAL_BOT_TOKEN]="The Discord bot token."
-    [STEWARD_DISCORD_CLIENT_ID]="The Discord application's Client ID - this is what the interface signs you in with."
-    [STEWARD_DISCORD_CLIENT_SECRET]="The same application's Client Secret."
-    [NORDTAL_ACCESS_GUILD_ID]="The id of the guild this deployment belongs to."
-    [STEWARD_ROOT_DISCORD_ID]="Your own Discord id: the one account that may become root of the interface."
-    [NORDTAL_STEWARD_BUNQ_API_KEY]="The bunq API key, if payments should work. Press Enter to skip."
-    [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="The bunq monetary account id the payments arrive in."
-    [COMPOSE_PROFILES]="Which parts of the stack come up?"
+    [NORDTAL_BOT_TOKEN]="Enter the Discord bot token."
+    [STEWARD_DISCORD_CLIENT_ID]="Enter the Discord application Client ID for Steward sign-in."
+    [STEWARD_DISCORD_CLIENT_SECRET]="Enter that Discord application’s Client Secret."
+    [NORDTAL_ACCESS_GUILD_ID]="Enter the Discord server ID."
+    [STEWARD_ROOT_DISCORD_ID]="Enter the Discord user ID for the first root admin."
+    [NORDTAL_STEWARD_BUNQ_API_KEY]="Enter the bunq API key, or press Enter to leave payments disabled."
+    [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="Enter the bunq monetary account ID that receives payments."
+    [COMPOSE_PROFILES]="Which Compose profiles should start?"
 )
 
 declare -A QUESTION_HINT=(
-    [STEWARD_HOST]="A host name, not a URL - e.g. steward.nordtal.eu. The Cloudflare tunnel of this host sends it to
-        http://127.0.0.1:80, where Caddy serves it."
-    [NETWORK_PUBLIC_ADDRESS]="Host AND port, e.g. play.example.com:25565. The port is not optional even if a SRV record
-        lets players leave it out: this is the address the proxy hands to a client when it moves it
-        during an update, and nothing resolves a SRV record on that client's behalf."
-    [EULA]="Four Minecraft servers are about to start, and none of them may without this. [y/N]"
-    [NORDTAL_BOT_TOKEN]="Discord Developer Portal -> your application -> Bot -> Reset Token. Nothing is echoed while you
-        type, and this script never prints it back."
-    [STEWARD_DISCORD_CLIENT_ID]="Same application, OAuth2 page. Its redirect URI has to be
-        https://<the name above>/auth/callback, or the sign-in comes back with an error from
-        Discord rather than from here."
-    [STEWARD_DISCORD_CLIENT_SECRET]="OAuth2 -> Reset Secret. Discord shows it once; if you have lost it, reset it and paste the new
-        one - nothing else in this deployment holds a copy."
-    [NORDTAL_ACCESS_GUILD_ID]="Discord -> Developer Mode -> right-click the server -> Copy Server ID."
-    [STEWARD_ROOT_DISCORD_ID]="Discord -> Developer Mode -> right-click your own name -> Copy User ID. It counts only
-        while nobody is an admin, as on a fresh install or after restoring an early dump; the root then
-        grants everyone else. Press Enter to skip: then nobody can become root, and the sign-in page says so."
-    [NORDTAL_STEWARD_BUNQ_API_KEY]="Without it the whole stack starts and runs; steward just never polls bunq, and access
-        can only be granted by hand - through the interface or through /access in Discord."
-    [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="A number. steward-bunq refuses to start with a key and no account, because a poll
-        loop with nowhere to look would be a silent one."
-    [COMPOSE_PROFILES]="A comma-separated list. The production selection is db,bot,mc,steward and there is
-        rarely a reason to type anything else; 'steward' has to be in it, or steward-bunq never
-        starts and Caddy only with 'mc'."
+    [STEWARD_HOST]="Use a host name such as steward.nordtal.eu. Configure its Cloudflare tunnel to
+        http://127.0.0.1:80."
+    [NETWORK_PUBLIC_ADDRESS]="Use host:port, such as play.example.com:25565. Include the port even with an SRV record."
+    [EULA]="[y/N]"
+    [NORDTAL_BOT_TOKEN]="Open your application in the Discord Developer Portal, then Bot, then Reset Token.
+        Input is hidden."
+    [STEWARD_DISCORD_CLIENT_ID]="Open OAuth2 in the same application. Set its redirect URI to
+        https://<the host name above>/auth/callback."
+    [STEWARD_DISCORD_CLIENT_SECRET]="Open OAuth2, then Reset Secret. Copy the new secret from Discord."
+    [NORDTAL_ACCESS_GUILD_ID]="Enable Developer Mode in Discord. Right-click the server and select Copy Server ID."
+    [STEWARD_ROOT_DISCORD_ID]="Enable Developer Mode in Discord. Right-click your name and select Copy User ID.
+        This account can claim root access when no admins exist. Press Enter to skip root setup."
+    [NORDTAL_STEWARD_BUNQ_API_KEY]="Payments stay disabled without a key. You can grant access manually in Steward or
+        with /access in Discord."
+    [NORDTAL_STEWARD_BUNQ_ACCOUNT_ID]="Enter a number. An account ID is required when a bunq API key is set."
+    [COMPOSE_PROFILES]="Use a comma-separated list, normally db,bot,mc,steward. Include steward."
 )
 
 # The generated secrets. The menu lists them and never edits them, because a new POSTGRES_PASSWORD
@@ -788,14 +780,14 @@ ask_for() {
                     return 1
                     ;;
                 *)
-                    warn "An answer is required."
+                    warn "Enter a value."
                     continue
                     ;;
             esac
         fi
         if [[ "$check" != "-" ]] && ! "$check" "$value"; then
             # The prompt does not repeat the value, which may be a secret.
-            warn "Not a valid answer for $name. Try again."
+            warn "Invalid value for $name. Enter a new value."
             continue
         fi
         assign "$ENV_FILE" "$name" "$value"
@@ -930,9 +922,9 @@ parse_update_args() {
         esac
     done
 
-    (( kinds <= 1 )) || die "update takes one of --restart, --backup, --down or --start. Name one."
+    (( kinds <= 1 )) || die "Update not requested: --restart, --backup, --down and --start cannot be combined. Use one."
     [[ "$UPDATE_REPLACE_LOCAL" == false || "$UPDATE_KIND" == UPDATE ]] \
-        || die "update --replace-local goes with a plain update only. Run it without --restart, --backup, --down or --start."
+        || die "Update not requested: --replace-local requires an update. Remove --restart, --backup, --down and --start."
     [[ "$UPDATE_DELAY" =~ ^[0-9]+$ ]] || die "update --in takes whole minutes, not $UPDATE_DELAY."
     (( UPDATE_DELAY <= 1440 )) || die "update --in takes at most 1440 minutes (a day)."
     [[ "$UPDATE_TIMEOUT" =~ ^[0-9]+$ ]] || die "update --timeout takes whole seconds, not $UPDATE_TIMEOUT."
@@ -994,13 +986,13 @@ renew_file() {
     local file="$1" release="${2:-}" candidate
     [[ -n "$release" ]] || release="$(newest_release)"
     if [[ -z "$release" ]]; then
-        warn "newest release unknown, file not renewed: file=$file"
+        warn "latest release unknown, script refresh skipped: file=$file"
         return 1
     fi
     candidate="$(mktemp "${TMPDIR:-/tmp}/nordtal.sh.XXXXXX")"
     if ! fetch_url "$(self_url_for "$release")" "$candidate" || ! looks_like_this_script "$candidate"; then
         rm -f "$candidate"
-        warn "release copy not fetched, file not renewed: file=$file release=$release"
+        warn "release script download failed, current file kept: file=$file release=$release"
         return 1
     fi
     if [[ "$(fingerprint "$candidate")" == "$(fingerprint "$file")" ]]; then
@@ -1010,11 +1002,11 @@ renew_file() {
     # A rename leaves no half-written script after an interrupted copy.
     if ! install -m 755 "$candidate" "$file.new" || ! mv -f "$file.new" "$file"; then
         rm -f "$candidate" "$file.new"
-        warn "file not writable, not renewed: file=$file"
+        warn "script not writable, refresh skipped: file=$file"
         return 1
     fi
     rm -f "$candidate"
-    log "file renewed: file=$file release=$release fingerprint=$(fingerprint "$file")"
+    log "script refreshed: file=$file release=$release fingerprint=$(fingerprint "$file")"
 }
 
 # container does not run or its image has no version tag.
@@ -1032,7 +1024,7 @@ renew_to_installed() {
     local file="$1" container="$2" release
     release="$(agent_release "$container")"
     if [[ -z "$release" ]]; then
-        warn "agent release unknown, file not renewed: container=$container file=$file"
+        warn "agent release unknown, script refresh skipped: container=$container file=$file"
         return 1
     fi
     renew_file "$file" "$release"
@@ -1054,7 +1046,7 @@ update_wait() {
     local id="$1" container="$2"
     local waited=0 silent=0 answer status steps said="" code
 
-    log "run watched: request=$id"
+    log "run watch started: request=$id"
     while :; do
         # The status and a tab before the stage, then one line per step. No output means the row is gone.
         code=0
@@ -1064,12 +1056,12 @@ update_wait() {
         status="${answer%%$'\t'*}"
 
         if [[ -z "$status" ]]; then
-            (( silent > 0 )) || warn "steward-agent not answering, asking again: request=$id seconds=${UPDATE_GAP}"
+            (( silent > 0 )) || warn "steward-agent unavailable, status retry pending: request=$id seconds=${UPDATE_GAP}"
             (( silent += UPDATE_POLL ))
             (( silent <= UPDATE_GAP )) \
-                || die "Run status unknown: request $id is gone from steward_inbox, or steward-agent has not answered for ${UPDATE_GAP}s. Steward shows the run under /operations."
+                || die "Run status unavailable: request $id is missing or steward-agent has not answered for $UPDATE_GAP s. Check /operations in Steward."
         else
-            (( silent == 0 )) || log "steward-agent answering again: request=$id"
+            (( silent == 0 )) || log "steward-agent connection restored: request=$id"
             silent=0
         fi
         if [[ -n "$status" && "$status" != "$said" ]]; then
@@ -1086,7 +1078,7 @@ update_wait() {
         (( waited += UPDATE_POLL ))
         if (( waited > UPDATE_TIMEOUT )); then
             # Only the waiting stops. The run continues.
-            warn "Watch ended: request $id is still $status after ${UPDATE_TIMEOUT}s, and the run goes on. Steward shows it under /operations."
+            warn "Watch timed out: request $id is still $status after $UPDATE_TIMEOUT s. The run continues. Check /operations in Steward."
             return 2
         fi
         sleep "$UPDATE_POLL"
@@ -1141,13 +1133,13 @@ cmd_update() {
 
     # The run stopped before it moved anything, because it would have replaced a build made on this host.
     if [[ ! -t 0 ]]; then
-        die "Request $id stopped before replacing builds made on this host, and nothing was stopped. To let a run replace them: ./nordtal.sh update --replace-local"
+        die "Request $id refused: local builds would be replaced. To allow replacement, run ./nordtal.sh update --replace-local."
     fi
-    printf '\n\033[36m[nordtal]\033[0m %s\n' "Ask again, and let the run replace the builds named above?" >&2
-    printf '        %s\n        > ' "Whatever they carry that no release has is lost. [y/N]" >&2
+    printf '\n\033[36m[nordtal]\033[0m %s\n' "Request the run again and replace these local builds?" >&2
+    printf '        %s\n        > ' "Unreleased changes in these images will be lost. [y/N]" >&2
     local replace_answer
     read -r replace_answer
-    answer_is_yes "$replace_answer" || die "Not asked again: nothing was stopped, and the local builds stay."
+    answer_is_yes "$replace_answer" || die "Request cancelled. Local builds are unchanged."
     UPDATE_REPLACE_LOCAL=true
     id="$(update_submit "$container")" || exit 1
     update_wait "$id" "$container" || return $?
@@ -1169,8 +1161,8 @@ update_submit() {
     mapfile -t words < <(update_request_words "$UPDATE_KIND" "$UPDATE_SCOPE" "$UPDATE_DELAY" "$UPDATE_REPLACE_LOCAL")
     # The agent prints the id on stdout and a refusal, such as an open run, on stderr.
     id="$(docker exec "$container" "${words[@]}" | sed -n '1p' | tr -d '[:space:]')" \
-        || die "steward-agent refused the request. Its reason is above."
-    [[ "$id" =~ ^[0-9]+$ ]] || die "steward-agent answered '$id' instead of a request id. docker logs $container says why."
+        || die "Run not requested: steward-agent refused it. Resolve the error above, then retry."
+    [[ "$id" =~ ^[0-9]+$ ]] || die "Run not confirmed: steward-agent returned “$id” instead of a request ID. Check docker logs $container."
 
     local when=""
     (( UPDATE_DELAY > 0 )) && when=" delay=${UPDATE_DELAY}m"
@@ -1266,7 +1258,7 @@ renew_self() {
     if ! fetch_url "$SELF_URL" "$candidate" || ! looks_like_this_script "$candidate"; then
         rm -f "$candidate"
         # Without a network the run continues, unless the script is piped: then there is no copy to run.
-        running_from_a_file || die "Nothing was changed: this script was piped into bash, and $SELF_URL could not be fetched. Download nordtal.sh by hand and run it in the installation directory."
+        running_from_a_file || die "Installation stopped: $SELF_URL could not be downloaded. Download nordtal.sh and run it in the installation directory."
         warn "release copy not fetched, local copy used: url=$SELF_URL"
         ORIGIN="local copy, github unreachable"
         return 0
@@ -1324,29 +1316,29 @@ fi
 
 declared_dir="$(env_value "$ENV_FILE" NORDTAL_DIR)"
 if [[ -n "${declared_dir//[[:space:]]/}" && "$declared_dir" != "$INSTALL_DIR" ]]; then
-    die "$ENV_FILE belongs to the installation in $declared_dir, not to $INSTALL_DIR, and nothing was changed. Run ./nordtal.sh there, or name an environment file of its own with --env-file."
+    die "Installation stopped: $ENV_FILE belongs to $declared_dir. Run ./nordtal.sh there, or select this installation’s file with --env-file."
 fi
 
 if [[ -z "${declared_dir//[[:space:]]/}" ]]; then
     $CHECK_ONLY || {
-        [[ -t 0 ]] || die "Not installed: $ENV_FILE names no installation here, and there is no terminal to ask on. Run this from a shell. Nothing was changed."
-        printf '\n\033[36m[nordtal]\033[0m %s\n' "Install nordtal season 2 into this directory?" >&2
+        [[ -t 0 ]] || die "Installation not confirmed: $ENV_FILE names no installation here and no terminal is available. Run this script in a terminal."
+        printf '\n\033[36m[nordtal]\033[0m %s\n' "Install Nordtal season 2 in this directory?" >&2
         printf '        %s\n' "$INSTALL_DIR" >&2
-        printf '        %s\n' "Everything this deployment keeps becomes a directory in there: four worlds," >&2
-        printf '        %s\n' "the database, every plugin's configuration, and the nightly backups. The" >&2
-        printf '        %s\n' "secrets do not - they go to $ENV_FILE, mode 600." >&2
+        printf '        %s\n' "Worlds, database files, plugin settings and backups will be stored here." >&2
+        printf '        %s\n' "Keep this directory for the lifetime of the deployment." >&2
+        printf '        %s\n' "Settings go in $ENV_FILE. Service secrets use separate files readable only by root and their service." >&2
         printf '        %s\n        > ' "[y/N]" >&2
         read -r here_answer
-        answer_is_yes "$here_answer" || die "Not installed, and nothing was changed. Run this again from the directory the installation should live in."
+        answer_is_yes "$here_answer" || die "Installation cancelled. Run this script in the intended installation directory."
     }
 fi
 
 $CHECK_ONLY || install_self
 
 command -v docker >/dev/null 2>&1 \
-    || die "No docker on this host. Install Docker and run this again."
+    || die "Installation stopped: Docker is missing. Install Docker and run this script again."
 docker compose version >/dev/null 2>&1 \
-    || die "docker compose is missing. Install the Docker Compose plugin and run this again."
+    || die "Installation stopped: Docker Compose is missing. Install the Compose plugin and run this script again."
 docker info >/dev/null 2>&1 \
     || die "This user cannot reach the docker daemon. Run this as root or as a member of the docker group."
 log "docker found: version=$(docker version --format '{{.Server.Version}}') compose=$(docker compose version --short)"
@@ -1364,7 +1356,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
         $CHECK_ONLY || {
             install -D -m 600 "$FROM_FILE" "$ENV_FILE"
             # The old file stays as the way back.
-            cmp -s "$FROM_FILE" "$ENV_FILE" || die "The copy at $ENV_FILE does not match $FROM_FILE, and nothing further was done. Check the disk and run this again."
+            cmp -s "$FROM_FILE" "$ENV_FILE" || die "Installation stopped: $ENV_FILE does not match $FROM_FILE after copying. Check the disk and retry."
             log "environment file copied: from=$FROM_FILE to=$ENV_FILE"
         }
     else
@@ -1443,7 +1435,7 @@ fi
 # key is bound to the context of the container that registered it.
 for stale in NORDTAL_BOT_BUNQ_API_KEY NORDTAL_BOT_BUNQ_ACCOUNT_ID; do
     if [[ -n "$(env_value "$ENV_FILE" "$stale")" ]]; then
-        warn "outdated bunq key ignored: file=$ENV_FILE key=$stale to=${stale/NORDTAL_BOT_/NORDTAL_STEWARD_}"
+        warn "obsolete bunq setting ignored: file=$ENV_FILE key=$stale to=${stale/NORDTAL_BOT_/NORDTAL_STEWARD_}"
     fi
 done
 
@@ -1453,7 +1445,7 @@ done
 show_menu() {
     local index=1 name value
     printf '\n'
-    log "the installation in $INSTALL_DIR"
+    log "installation settings: dir=$INSTALL_DIR"
     printf '        %s\n\n' "$ENV_FILE"
     for name in "${QUESTIONS[@]}"; do
         value="$(value_of "$ENV_FILE" "$name")"
@@ -1478,7 +1470,7 @@ if $MENU; then
         read -r typed
         case "$(menu_choice "$typed" "${#QUESTIONS[@]}")" in
             quit)
-                log "menu left, nothing deployed"
+                log "deployment cancelled from menu"
                 exit 0
                 ;;
             deploy)
@@ -1532,12 +1524,12 @@ if $ADOPTING && ! $CHECK_ONLY; then
         && [[ ! -d "$INSTALL_DIR/postgres-data" ]]; then
         warn "old volumes found, not mounted: volume=${PROJECT}_postgres-data dir=$INSTALL_DIR"
         if [[ -t 0 ]]; then
-            printf '\n\033[36m[nordtal]\033[0m %s\n' "Continue, and start this deployment on empty directories?" >&2
-            printf '        %s\n        > ' "The old volumes are left alone; nothing here copies them across. [y/N]" >&2
+            printf '\n\033[36m[nordtal]\033[0m %s\n' "Start this deployment with empty directories?" >&2
+            printf '        %s\n        > ' "Existing volumes will remain unused. Their data will not appear in this deployment. [y/N]" >&2
             read -r empty_answer
-            answer_is_yes "$empty_answer" || die "Not continued: nothing was stopped or deleted."
+            answer_is_yes "$empty_answer" || die "Deployment cancelled. No containers or data were changed."
         else
-            die "Not deployed: the stack would start on empty directories beside the old volumes, and there is no terminal to ask on. Run this from a shell. Nothing was changed."
+            die "Deployment not confirmed: existing volumes would be left unused and no terminal is available. Run this script in a terminal."
         fi
     fi
 fi
@@ -1579,19 +1571,19 @@ generate_vapid_keys() {
     if ! docker image inspect "$image" >/dev/null 2>&1; then
         log "vapid image pull started: image=$image"
         if ! docker pull "$image" >/dev/null 2>&1; then
-            warn "vapid keypair not generated, web push off: image=$image cause=pull failed"
+            warn "vapid keypair generation failed, web push disabled: image=$image cause=pull failed"
             return
         fi
     fi
 
     output="$(docker run --rm "$image" generate-vapid-keys 2>/dev/null)" || {
-        warn "vapid keypair not generated, web push off: image=$image cause=generate-vapid-keys failed"
+        warn "vapid keypair generation failed, web push disabled: image=$image cause=generate-vapid-keys failed"
         return
     }
     pub="$(sed -n '1p' <<<"$output")"
     priv="$(sed -n '2p' <<<"$output")"
     if [[ -z "$pub" || -z "$priv" ]]; then
-        warn "vapid keypair not generated, web push off: image=$image cause=generate-vapid-keys printed no keypair"
+        warn "vapid keypair generation failed, web push disabled: image=$image cause=generate-vapid-keys printed no keypair"
         return
     fi
 
@@ -1612,7 +1604,7 @@ fi
 
 leftovers="$(env_replace_me_lines "$ENV_FILE")"
 if [[ -n "$leftovers" ]]; then
-    warn "REPLACE_ME left in file: file=$ENV_FILE lines=\"$(joined "$leftovers")\""
+    warn "placeholder values remaining: file=$ENV_FILE lines=\"$(joined "$leftovers")\""
     die "Not deployed: $ENV_FILE still holds REPLACE_ME on the lines above. Replace each with its value and run this again."
 fi
 
@@ -1679,15 +1671,15 @@ compose_config_json() {
 images_at_risk() {
     local json pairs image
     command -v jq >/dev/null 2>&1 || {
-        warn "no jq, local images not checked"
+        warn "local image check skipped, jq missing"
         return 0
     }
     docker buildx version >/dev/null 2>&1 || {
-        warn "no docker buildx, local images not checked"
+        warn "local image check skipped, docker buildx missing"
         return 0
     }
     json="$(compose_config_json)" || {
-        warn "agent image missing, local images not checked: image=$AGENT_IMAGE"
+        warn "local image check skipped, agent image missing: image=$AGENT_IMAGE"
         return 0
     }
     [[ -n "$json" ]] || return 0
@@ -1735,21 +1727,21 @@ if [[ -n "$at_risk" ]]; then
             warn "local image differs from registry: image=$image services=$services"
         done <<<"$risk"
         if $CHECK_ONLY; then
-            warn "local images question skipped: cause=--check"
+            warn "local image confirmation skipped: cause=--check"
         elif [[ -t 0 ]]; then
-            printf '\n\033[36m[nordtal]\033[0m %s\n' "Continue, and let the registry overwrite the images listed above?" >&2
-            printf '        %s\n        > ' "Anything shipped on them without a release is lost the moment this pulls. [y/N]" >&2
+            printf '\n\033[36m[nordtal]\033[0m %s\n' "Replace these local images with registry images?" >&2
+            printf '        %s\n        > ' "Unreleased changes in these images will be lost. [y/N]" >&2
             read -r keep_local_answer
-            answer_is_yes "$keep_local_answer" || die "Not continued: nothing was pulled or stopped. Retag or remove the images above, or answer yes to let the registry replace them."
+            answer_is_yes "$keep_local_answer" || die "Image replacement cancelled. Retag or remove the listed images, or approve their replacement on the next run."
             log "local image replacement accepted"
         else
-            die "Not deployed: a pull would replace the local images above, and there is no terminal to ask on. Run this from a shell, or retag or remove them. Nothing was pulled or stopped."
+            die "Deployment not confirmed: registry images would replace local images and no terminal is available. Run this script in a terminal, or retag or remove the listed images."
         fi
     fi
 fi
 
 if $CHECK_ONLY; then
-    log "check passed, nothing changed"
+    log "configuration check passed"
     exit 0
 fi
 
@@ -1760,8 +1752,8 @@ fi
 # pickers show names only.
 if ! mojang_assets_answered "$ENV_FILE"; then
     if [[ -t 0 ]]; then
-        printf '\n\033[36m[nordtal]\033[0m %s\n' "May steward-agent download Minecraft's client from Mojang to draw item icons?" >&2
-        printf '        %s\n        > ' "The jar is Mojang's and is deleted once drawn; only the icons stay, for signed-in admins. [y/N]" >&2
+        printf '\n\033[36m[nordtal]\033[0m %s\n' "Allow steward-agent to download the Minecraft client from Mojang for item icons?" >&2
+        printf '        %s\n        > ' "The client jar will be deleted after rendering. Item icons will be available to signed-in admins. [y/N]" >&2
         read -r mojang_answer
         if answer_is_yes "$mojang_answer"; then
             set_assignment "$ENV_FILE" NORDTAL_MOJANG_ASSETS true
@@ -1803,9 +1795,9 @@ grep -qxF "${PROJECT}-steward-agent-1" \
     <<<"$(docker ps --filter health=healthy --format '{{.Names}}')" && agent_healthy=true
 if [[ "$(deploy_by "$BUILD_AGENT" "$agent_healthy")" == request ]]; then
     if [[ "$RELEASE_NAMED" == true ]]; then
-        warn "NORDTAL_RELEASE ignored, update run installs the newest release: release=$RELEASE"
+        warn "release override ignored for update: release=$RELEASE"
     fi
-    log "steward-agent running, deploy sent as update run"
+    log "steward-agent running, update requested"
     if cmd_update --env-file "$ENV_FILE"; then
         log "deployed: url=https://$STEWARD_NAME"
         exit 0
@@ -1831,6 +1823,6 @@ docker run --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$(dirname "$ENV_FILE"):/app/env:ro" \
     "$AGENT_IMAGE" up \
-    || die "Not deployed: the step above failed. docker compose -p $PROJECT ps shows what runs."
+    || die "Deployment failed: the step above returned an error. Check running services with docker compose -p $PROJECT ps."
 
 log "deployed: release=$RELEASE url=https://$STEWARD_NAME dir=$INSTALL_DIR"

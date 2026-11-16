@@ -139,7 +139,7 @@ final class LocalStack implements ContainerOps {
                     List.of(service),
                     line -> log.info("volume ownership command output: service={} line=\"{}\"", service, line));
         } catch (final java.io.IOException | RuntimeException failure) {
-            log.warn("volume ownership not changed: service={} cause={}", service, failure.getMessage());
+            log.warn("volume ownership change failed: service={} cause={}", service, failure.getMessage());
         }
     }
 

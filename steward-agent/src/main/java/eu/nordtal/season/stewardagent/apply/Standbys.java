@@ -82,7 +82,7 @@ public final class Standbys {
             copyInto(source, target, 0, tally);
         } catch (final IOException failed) {
             log.error(
-                    "standby files not copied: service={} dir={} from={} cause={}",
+                    "standby file copy failed: service={} dir={} from={} cause={}",
                     standby,
                     directory,
                     source,

@@ -288,7 +288,7 @@ public final class Compose {
             if (code != 0) {
                 output.accept("volume ownership change failed: service=" + service + " uid="
                         + owner.get().uid() + " gid=" + owner.get().gid() + " exit_code=" + code);
-                log.warn("volume ownership not changed: service={} exit_code={}", service, code);
+                log.warn("volume ownership change failed: service={} exit_code={}", service, code);
             }
         }
     }

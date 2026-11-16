@@ -249,7 +249,7 @@ final class Choreography {
                 return Left.EMPTY;
             }
             if (!now.isBefore(deadline)) {
-                log.warn("server drain wait ended, players remaining: occupied={} uncounted={}", occupied, unknown);
+                log.warn("server drain wait timed out: occupied={} uncounted={}", occupied, unknown);
                 return new Left(occupied.isEmpty() ? RunStep.Reason.PLAYERS_UNKNOWN : RunStep.Reason.PLAYERS_STAYED);
             }
             if (!clock.sleep(EMPTY_POLL)) {

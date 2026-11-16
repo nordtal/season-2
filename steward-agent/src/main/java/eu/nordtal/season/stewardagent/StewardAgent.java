@@ -534,7 +534,7 @@ public final class StewardAgent {
         try {
             compose.handOver(services, line -> log.info("volume ownership command output: line=\"{}\"", line));
         } catch (final IOException failure) {
-            log.warn("volume ownership not changed: services={} cause={}", services, failure.getMessage());
+            log.warn("volume ownership change failed: services={} cause={}", services, failure.getMessage());
         }
     }
 }

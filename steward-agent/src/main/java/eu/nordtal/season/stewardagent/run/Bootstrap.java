@@ -56,7 +56,7 @@ public final class Bootstrap {
                     missing,
                     handingOver(plan -> Runs.apply(config, read, plan, plugins), handOver));
         } catch (final RuntimeException failure) {
-            log.error("startup install skipped, no artifacts resolved", failure);
+            log.error("startup install failed", failure);
             new Steps(steps, 1).begin(RunStep.Kind.RESOLVE).failed(RunStep.Reason.UNEXPECTED);
             report = Optional.of(RunStage.FAILED);
         }

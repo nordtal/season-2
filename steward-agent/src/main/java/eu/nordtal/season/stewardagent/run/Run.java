@@ -504,7 +504,7 @@ final class Run {
             // A missing row reads as maintenance on, which would hide a real loss.
             return !SeasonState.UNREAD.equals(state) && state.maintenance();
         } catch (final RuntimeException unread) {
-            log.warn("maintenance state unreadable, return count excludes maintenance", unread);
+            log.warn("maintenance state unreadable, player returns counted without maintenance adjustment", unread);
             return false;
         }
     }

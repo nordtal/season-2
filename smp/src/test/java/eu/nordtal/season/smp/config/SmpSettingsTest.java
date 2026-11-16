@@ -456,6 +456,7 @@ class SmpSettingsTest {
         assertEquals(
                 Map.ofEntries(
                         Map.entry("border.border-centre", Position.Shape.CENTRE),
+                        Map.entry("custom-border.worlds.polygons.corners", Position.Shape.CENTRE),
                         Map.entry("wheel.wheel-blocks", Position.Shape.BLOCK),
                         Map.entry("duels.negotiation-area", Position.Shape.AREA),
                         Map.entry("duels.arena", Position.Shape.AREA),

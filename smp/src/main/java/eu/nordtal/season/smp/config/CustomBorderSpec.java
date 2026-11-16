@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.settings.rule.Unique;
@@ -68,6 +69,7 @@ public interface CustomBorderSpec {
         @Order(2)
         @Name("Corners")
         @Key("corners")
+        @Position(Position.Shape.CENTRE)
         @Explain("In order around the area, at least three. The last corner joins the first.")
         default List<Corner> corners() {
             return List.of();

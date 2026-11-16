@@ -88,6 +88,10 @@ public final class Replies {
             reply("register-closed", "Register").titled("Registration closed");
     public static final DocumentSpec<DocumentSpec.None> REGISTER_FAILED =
             reply("register-failed", "Register").titled("Registration failed");
+    public static final DocumentSpec<DocumentSpec.None> INVITE_FAILED =
+            reply("invite-failed", "Register").titled("Invitation failed");
+    public static final DocumentSpec<DocumentSpec.None> INVITE_ANSWER_FAILED =
+            reply("invite-answer-failed", "Register").titled("Invitation response failed");
     public static final DocumentSpec<Partner> INVITE_SENT =
             reply("invite-sent", "Register", Partner.class).titled("Invitation sent");
     public static final DocumentSpec<DocumentSpec.None> INVITE_NOT_OWNER =

@@ -8,14 +8,14 @@
           "lines": [
             {
               "text": {
-                "en": "Your {@terms.access} lasts until **{until}**.",
+                "en": "Your {@terms.access} is valid until **{until}**.",
                 "de": "Dein {@terms.access} gilt bis **{until}**."
               }
             },
             {
               "text": {
-                "en": "You paid {paid}, which covers **{@values.duration.days, n=days}**.",
-                "de": "Du hast {paid} gezahlt, das reicht für **{@values.duration.days, n=days}**."
+                "en": "Your payment of {paid} covers **{@values.duration.days, n=days}**.",
+                "de": "Deine Zahlung von {paid} reicht für **{@values.duration.days, n=days}**."
               }
             }
           ]

@@ -315,8 +315,7 @@ public class AccessBot implements AutoCloseable {
                 .awaitReady();
         connected
                 .getPresence()
-                .setPresence(
-                        Activity.of(Activity.ActivityType.CUSTOM_STATUS, "It's that time of the year again …"), false);
+                .setPresence(Activity.of(Activity.ActivityType.CUSTOM_STATUS, "Join us on play.nordtal.eu"), false);
         return connected;
     }
 

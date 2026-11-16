@@ -8,21 +8,21 @@
           "lines": [
             {
               "text": {
-                "en": "Your {@terms.access} has ended.",
+                "en": "Your {@terms.access} has expired.",
                 "de": "Dein {@terms.access} ist abgelaufen."
               }
             },
             {
               "text": {
-                "en": "Buy a new {@terms.period, n=1} in {channel}.",
-                "de": "Kauf einen neuen {@terms.period, n=1} in {channel}."
+                "en": "Renew your {@terms.access} in {channel}.",
+                "de": "Verlängere deinen {@terms.access} in {channel}."
               },
               "when": "channel"
             },
             {
               "text": {
-                "en": "Buy a new {@terms.period, n=1} in the {@terms.contribution-channel}.",
-                "de": "Kauf einen neuen {@terms.period, n=1} im {@terms.contribution-channel}."
+                "en": "Renew your {@terms.access} in the {@terms.contribution-channel}.",
+                "de": "Verlängere deinen {@terms.access} im {@terms.contribution-channel}."
               },
               "when": "!channel"
             }

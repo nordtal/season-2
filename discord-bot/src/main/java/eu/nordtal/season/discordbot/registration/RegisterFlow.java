@@ -190,7 +190,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("team invite not sent: game={}", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
+                        .editOriginal(reply(locale, Sent.of(Replies.INVITE_FAILED)))
                         .queue();
             }
         });
@@ -277,7 +277,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("team invite answer failed: game={}", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
+                        .editOriginal(reply(locale, Sent.of(Replies.INVITE_ANSWER_FAILED)))
                         .queue();
             }
         });

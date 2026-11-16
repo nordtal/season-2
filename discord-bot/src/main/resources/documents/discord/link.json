@@ -56,8 +56,8 @@
           "lines": [
             {
               "text": {
-                "en": "To link another account, run `/unlink` first.",
-                "de": "Um ein anderes Konto zu verknüpfen, nutze zuerst `/unlink`."
+                "en": "Run `/unlink` to link a different Minecraft account.",
+                "de": "Nutze `/unlink`, um ein anderes Minecraft-Konto zu verknüpfen."
               }
             }
           ]

@@ -8,8 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "No payment link: the bank is not available.",
-                "de": "Kein Zahlungslink: Die Bank ist nicht erreichbar."
+                "en": "No payment link was created because the bank is unavailable.",
+                "de": "Der Zahlungslink konnte nicht erstellt werden, weil die Bank nicht verfügbar ist."
               },
               "when": "passes"
             },
@@ -22,15 +22,15 @@
             },
             {
               "text": {
-                "en": "Creating the payment link failed.",
+                "en": "The payment link could not be created.",
                 "de": "Der Zahlungslink konnte nicht erstellt werden."
               },
               "when": "!passes"
             },
             {
               "text": {
-                "en": "An admin knows.",
-                "de": "Ein Admin weiß Bescheid."
+                "en": "Ask an admin for help.",
+                "de": "Bitte einen Admin um Hilfe."
               },
               "when": "!passes"
             }

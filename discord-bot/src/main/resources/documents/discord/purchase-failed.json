@@ -8,14 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "Creating the payment link failed.",
+                "en": "The payment link could not be created.",
                 "de": "Der Zahlungslink konnte nicht erstellt werden."
-              }
-            },
-            {
-              "text": {
-                "en": "An admin knows.",
-                "de": "Ein Admin weiß Bescheid."
               }
             },
             {

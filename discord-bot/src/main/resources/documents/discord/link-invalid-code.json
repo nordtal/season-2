@@ -8,14 +8,14 @@
           "lines": [
             {
               "text": {
-                "en": "That code is wrong or expired.",
-                "de": "Der Code ist falsch oder abgelaufen."
+                "en": "The code is incorrect or has expired.",
+                "de": "Der Code ist ungültig oder abgelaufen."
               }
             },
             {
               "text": {
-                "en": "Join `play.nordtal.eu` again to get a new code.",
-                "de": "Betritt `play.nordtal.eu` noch einmal, dann bekommst du einen neuen."
+                "en": "Reconnect to `play.nordtal.eu` for a new code.",
+                "de": "Verbinde dich erneut mit `play.nordtal.eu`, um einen neuen Code zu bekommen."
               }
             }
           ]

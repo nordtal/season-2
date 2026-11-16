@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.settings.rule.Entries;
 import eu.nordtal.season.settings.rule.NotNegative;
 import eu.nordtal.season.settings.rule.Required;
@@ -21,6 +22,7 @@ public interface DuelsSpec {
     @Order(21)
     @Name("Negotiation area")
     @Key("negotiation-area")
+    @Position(Position.Shape.AREA)
     @Explain("Two players standing here agree on a kit. Nobody else may step on while they do or while they fight.")
     default DuelAreaSpec negotiationArea() {
         return DefaultSmp.DUEL_NEGOTIATION_AREA;
@@ -29,6 +31,7 @@ public interface DuelsSpec {
     @Order(22)
     @Name("Arena")
     @Key("arena")
+    @Position(Position.Shape.AREA)
     @Explain("Saved before each duel and restored after it. Fighters may break and place blocks inside it.")
     default DuelAreaSpec arena() {
         return DefaultSmp.DUEL_ARENA;
@@ -37,24 +40,27 @@ public interface DuelsSpec {
     @Order(23)
     @Name("First fighter's start")
     @Key("fighter-start-first")
+    @Position(Position.Shape.SPOT)
     @NoExplanationNeeded
-    default DuelPositionSpec fighterStartFirst() {
+    default SpotSpec fighterStartFirst() {
         return DefaultSmp.DUEL_START_FIRST;
     }
 
     @Order(24)
     @Name("Second fighter's start")
     @Key("fighter-start-second")
+    @Position(Position.Shape.SPOT)
     @NoExplanationNeeded
-    default DuelPositionSpec fighterStartSecond() {
+    default SpotSpec fighterStartSecond() {
         return DefaultSmp.DUEL_START_SECOND;
     }
 
     @Order(25)
     @Name("Exit")
     @Key("exit")
+    @Position(Position.Shape.SPOT)
     @Explain("Where both fighters stand after the duel. Put it beside the negotiation area, not on it.")
-    default DuelPositionSpec exit() {
+    default SpotSpec exit() {
         return DefaultSmp.DUEL_EXIT;
     }
 

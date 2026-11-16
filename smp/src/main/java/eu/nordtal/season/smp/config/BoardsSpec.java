@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -14,6 +15,7 @@ public interface BoardsSpec {
     @Order(20)
     @Name("Boards")
     @Key("boards")
+    @Position(Position.Shape.SPOT)
     @NoExplanationNeeded
     default List<BoardSpec> boards() {
         return DefaultSmp.BOARDS;

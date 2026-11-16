@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.settings.rule.Between;
 import eu.nordtal.season.settings.rule.Entries;
 import eu.nordtal.season.settings.rule.NotNegative;
@@ -65,6 +66,7 @@ public interface RailsSpec {
     @Order(20)
     @Name("Spawn station")
     @Key("spawn-station")
+    @Position(Position.Shape.BLOCK)
     @Entries(most = 1)
     @Explain("The block of the spawn station, which the plugin places and keeps there. Leave it empty for none.")
     default List<StationBlockSpec> spawnStation() {

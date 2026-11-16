@@ -296,6 +296,30 @@ public interface GameTexts {
     @Name("No points")
     MessageRef noPoints();
 
+    @Name("Spot")
+    MessageRef spot();
+
+    @Name("Numbered spot")
+    MessageRef spotNumbered(@Arg("index") @Example("2") int index);
+
+    @Name("No spots")
+    MessageRef noSpots();
+
+    @Name("Take my position")
+    MessageRef takePosition();
+
+    @Name("Take the block I look at")
+    MessageRef takeBlock();
+
+    @Name("Take a corner")
+    MessageRef takeCorner(@Arg("index") @Example("1") int index);
+
+    @Name("Cancel taking a position")
+    MessageRef cancelTakePosition();
+
+    @Name("Position not taken")
+    MessageRef takePositionFailed();
+
     @Name("Corner")
     MessageRef corner(@Arg("index") @Example("1") int index);
 

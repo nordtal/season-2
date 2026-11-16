@@ -27,6 +27,12 @@ public final class GameRoutes {
                 ctx -> GameActions.answer(ctx, commands.takeIn(ctx)),
                 Gate.KEY_HELD,
                 Unjournaled.SHOWN_ONCE_SAVED);
+        cfg.routes.get("/api/smp/take-position", commands::positionTaker, Gate.KEY_HELD);
+        cfg.routes.post(
+                "/api/smp/take-position",
+                ctx -> GameActions.answer(ctx, commands.takePosition(ctx)),
+                Gate.KEY_HELD,
+                Unjournaled.SHOWN_ONCE_SAVED);
 
         // These routes read the same rows by their target instead of by command name.
         cfg.routes.get("/api/smp/track", games::track, Gate.KEY_HELD);

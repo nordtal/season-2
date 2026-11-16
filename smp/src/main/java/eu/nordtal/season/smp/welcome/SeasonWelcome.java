@@ -4,8 +4,8 @@ import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.papercommon.player.Identities;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
-import eu.nordtal.season.smp.config.FirstJoinSpawnSpec;
 import eu.nordtal.season.smp.config.SpawnSpec;
+import eu.nordtal.season.smp.config.SpotSpec;
 import eu.nordtal.season.smp.stage.BukkitCinematics;
 import eu.nordtal.season.smp.stage.Cinematic;
 import eu.nordtal.season.smp.world.LandingSite;
@@ -87,7 +87,7 @@ public final class SeasonWelcome {
     }
 
     private void placeAtFirstJoinSpawn(final Player player, final String name) {
-        final FirstJoinSpawnSpec spawn = config.nordtalSpawn();
+        final SpotSpec spawn = config.nordtalSpawn();
         final World world = Bukkit.getWorld(spawn.world());
         if (world == null) {
             plugin.getLogger()

@@ -1109,6 +1109,7 @@ export type TextArgs = {
     index: Arg["number"]
   }
   "steward.game.cancel-take-in": Record<string, never>
+  "steward.game.cancel-take-position": Record<string, never>
   "steward.game.chance": Record<string, never>
   "steward.game.chance-is": {
     total: Arg["number"]
@@ -1185,6 +1186,7 @@ export type TextArgs = {
   "steward.game.no-points": Record<string, never>
   "steward.game.no-prizes": Record<string, never>
   "steward.game.no-round": Record<string, never>
+  "steward.game.no-spots": Record<string, never>
   "steward.game.no-track": Record<string, never>
   "steward.game.no-way-back": Record<string, never>
   "steward.game.no-world": Record<string, never>
@@ -1245,6 +1247,10 @@ export type TextArgs = {
   "steward.game.spins-of": {
     name: Arg["text"]
   }
+  "steward.game.spot": Record<string, never>
+  "steward.game.spot-numbered": {
+    index: Arg["number"]
+  }
   "steward.game.start": {
     anyway: Arg["choice"]
   }
@@ -1252,8 +1258,14 @@ export type TextArgs = {
     anyway: Arg["choice"]
   }
   "steward.game.start-round": Record<string, never>
+  "steward.game.take-block": Record<string, never>
+  "steward.game.take-corner": {
+    index: Arg["number"]
+  }
   "steward.game.take-in": Record<string, never>
   "steward.game.take-in-failed": Record<string, never>
+  "steward.game.take-position": Record<string, never>
+  "steward.game.take-position-failed": Record<string, never>
   "steward.game.tasks": {
     finished: Arg["number"]
     total: Arg["number"]

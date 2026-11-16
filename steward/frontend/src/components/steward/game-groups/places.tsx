@@ -9,8 +9,9 @@ import { Empty } from "@/components/steward/query-state"
 import { Hint } from "@/components/steward/status"
 import { Mark, useChoices } from "@/components/steward/reference-picker"
 import { type SectionValues, blankSection, notSaved } from "@/components/steward/repeatable-cards"
-import { AREA, LABEL, type PlaceShape, placeShape, text } from "@/components/steward/game-groups/model"
+import { AREA, LABEL, type PlaceShape, shapeOf, text } from "@/components/steward/game-groups/model"
 import { NumberInput } from "@/components/steward/game-groups/parts"
+import { TakePosition, takenValues } from "@/components/steward/game-groups/take-position"
 import { EntryDialog, Labelled } from "@/components/steward/game-groups/tiles"
 import { Button } from "@/components/ui/button"
 import { mostEntries } from "@/lib/setting-rules"
@@ -22,16 +23,24 @@ const WORDS = {
   area: { add: "steward.game.area", numbered: "steward.game.area-numbered", none: "steward.game.no-areas" },
   block: { add: "steward.game.block", numbered: "steward.game.block-numbered", none: "steward.game.no-blocks" },
   point: { add: "steward.game.point", numbered: "steward.game.point-numbered", none: "steward.game.no-points" },
+  spot: { add: "steward.game.spot", numbered: "steward.game.spot-numbered", none: "steward.game.no-spots" },
 } as const
 
-/** The fields of one place by key, its values by key, and how a value changes. */
+/** The fields of one place by key, its values by key, and how its values change, several at once for a take. */
 type Place = {
   shape: PlaceShape
   fields: ConfigEntry[]
   values: SectionValues
+  /** Whether the schema marks it as a position, which the admin's player can fill from the game. */
+  takes?: boolean
   /** Whether the shown value of `key` is a default that the stored list lacks. */
   unsaved?: (key: string) => boolean
-  onChange: (key: string, value: string) => void
+  onChange: (changes: Record<string, string>) => void
+}
+
+/** The keys of a place's coordinates, which the dialog draws in rows of their own. */
+function coordinatesOf(shape: PlaceShape): readonly string[] {
+  return shape === "area" ? AREA.keys : shape === "centre" ? ["x", "z"] : ["x", "y", "z"]
 }
 
 function fieldOf(fields: ConfigEntry[], key: string): ConfigEntry | undefined {
@@ -71,12 +80,15 @@ function Axis({ axis, children }: { axis: string; children: ReactNode }) {
   )
 }
 
-/** What a tile shows under the world: an area's two corners and its height, or a block's three coordinates. */
+/**
+ * What a tile shows under the world: an area's two corners and its height, a block's or a spot's three coordinates,
+ * or a centre's X and Z.
+ */
 function Coordinates({ shape, values }: { shape: PlaceShape; values: SectionValues }) {
-  if (shape === "block") {
+  if (shape !== "area") {
     return (
       <span className="flex flex-wrap gap-x-3">
-        {(["x", "y", "z"] as const).map((key) => (
+        {coordinatesOf(shape).map((key) => (
           <Axis key={key} axis={key.toUpperCase()}>
             {text(values, key)}
           </Axis>
@@ -116,6 +128,7 @@ export function PlaceTile({
 }) {
   const world = text(place.values, "world")
   const labelled = fieldOf(place.fields, LABEL) !== undefined
+  const inWorld = fieldOf(place.fields, "world") !== undefined
   const described = useId()
   return (
     <button
@@ -134,7 +147,7 @@ export function PlaceTile({
         <span className="flex min-w-0 items-center gap-2">
           <PlaceMark place={place} size={24} />
           <span className="truncate font-medium">
-            {labelled ? labelOf(place) || label : world || t("steward.game.no-world")}
+            {labelled ? labelOf(place) || label : inWorld ? world || t("steward.game.no-world") : label}
           </span>
         </span>
         <Coordinates shape={place.shape} values={place.values} />
@@ -172,7 +185,7 @@ function Coordinate({
         unsaved={place.unsaved?.(field)}
         disabled={disabled}
         className="w-full"
-        onChange={(value) => place.onChange(field, value)}
+        onChange={(value) => place.onChange({ [field]: value })}
       />
     </Labelled>
   )
@@ -188,14 +201,33 @@ function Row({ name, children }: { name?: string; children: ReactNode }) {
   )
 }
 
+/** A field of the place beside its coordinates, such as a facing or a board's kind. */
+function Other({ id, place, field, disabled }: { id: string; place: Place; field: ConfigEntry; disabled: boolean }) {
+  if (field.type === "INTEGER" || field.type === "DECIMAL") {
+    return <Coordinate id={id} place={place} field={field.key} disabled={disabled} />
+  }
+  return (
+    <Labelled id={`${id}-${field.key}`} label={field.label}>
+      <ScalarControl
+        id={`${id}-${field.key}`}
+        entry={field}
+        value={text(place.values, field.key)}
+        disabled={disabled}
+        onChange={(value) => place.onChange({ [field.key]: value })}
+      />
+    </Labelled>
+  )
+}
+
 /**
- * The fields of the dialog: the label, the world, then corner 1, corner 2 and the height, or X, Y and Z; any other
- * field after them. The label's id is the form's, `<id>.label`, so a label that breaks a rule shows it there.
+ * The fields of the dialog: the label, the world, the buttons that take the place from the game, then corner 1,
+ * corner 2 and the height, X, Y and Z, or X and Z; any other field after them. The label's id is the form's,
+ * `<id>.label`, so a label that breaks a rule shows it there.
  */
 function PlaceFields({ id, place, disabled }: { id: string; place: Place; disabled: boolean }) {
   const label = fieldOf(place.fields, LABEL)
   const world = fieldOf(place.fields, "world")
-  const drawn = new Set([LABEL, "world", ...(place.shape === "area" ? AREA.keys : ["x", "y", "z"])])
+  const drawn = new Set([LABEL, "world", ...coordinatesOf(place.shape)])
   const rest = place.fields.filter((field) => !drawn.has(field.key) && field.kind === "SCALAR")
   return (
     <div className="flex flex-col gap-4">
@@ -206,7 +238,7 @@ function PlaceFields({ id, place, disabled }: { id: string; place: Place; disabl
             entry={label}
             value={text(place.values, LABEL)}
             disabled={disabled}
-            onChange={(value) => place.onChange(LABEL, value)}
+            onChange={(value) => place.onChange({ [LABEL]: value })}
           />
         </Labelled>
       ) : null}
@@ -217,9 +249,16 @@ function PlaceFields({ id, place, disabled }: { id: string; place: Place; disabl
             entry={world}
             value={text(place.values, "world")}
             disabled={disabled}
-            onChange={(value) => place.onChange("world", value)}
+            onChange={(value) => place.onChange({ world: value })}
           />
         </Labelled>
+      ) : null}
+      {place.takes ? (
+        <TakePosition
+          shape={place.shape}
+          disabled={disabled}
+          onTaken={(taken, corner) => place.onChange(takenValues(place.shape, place.fields, taken, corner))}
+        />
       ) : null}
       {place.shape === "area" ? (
         <>
@@ -245,7 +284,7 @@ function PlaceFields({ id, place, disabled }: { id: string; place: Place; disabl
         </>
       ) : (
         <Row>
-          {(["x", "y", "z"] as const).map((key) => (
+          {coordinatesOf(place.shape).map((key) => (
             <Coordinate key={key} id={id} place={place} field={key} disabled={disabled} />
           ))}
         </Row>
@@ -253,7 +292,7 @@ function PlaceFields({ id, place, disabled }: { id: string; place: Place; disabl
       {rest.length > 0 ? (
         <Row>
           {rest.map((field) => (
-            <Coordinate key={field.key} id={id} place={place} field={field.key} disabled={disabled} />
+            <Other key={field.key} id={id} place={place} field={field} disabled={disabled} />
           ))}
         </Row>
       ) : null}
@@ -294,11 +333,15 @@ function PlaceDialog({
   )
 }
 
-/** One fixed place, such as the arena: its tile, and its dialog, which edits it and cannot remove it. */
+/**
+ * One fixed place, such as the arena: its tile, and its dialog, which edits it and cannot remove it. `position` is
+ * the shape the schema names, which also lets the admin take it from the game.
+ */
 export function FixedPlace({
   id,
   name,
   description,
+  position,
   fields,
   values,
   disabled,
@@ -307,15 +350,25 @@ export function FixedPlace({
   id: string
   name: string
   description?: string
+  position?: ConfigEntry["position"]
   fields: ConfigEntry[]
   values: SectionValues
   disabled: boolean
   onChange: (key: string, value: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const shape = placeShape(fields.map((field) => field.key))
+  const shape = shapeOf(
+    position,
+    fields.map((field) => field.key),
+  )
   if (shape === undefined) return null
-  const place: Place = { shape, fields, values, onChange }
+  const place: Place = {
+    shape,
+    fields,
+    values,
+    takes: position !== undefined,
+    onChange: (changes) => Object.entries(changes).forEach(([key, value]) => onChange(key, value)),
+  }
   return (
     <>
       <PlaceTile place={place} label={name} onOpen={() => setOpen(true)} />
@@ -351,21 +404,24 @@ export function PlaceList({
   const breach = useBreach(entry.path)
   const breachAt = useBreaches()
   const fields = entry.template ?? []
-  const shape = placeShape(fields.map((field) => field.key))
+  const shape = shapeOf(
+    entry.position,
+    fields.map((field) => field.key),
+  )
   if (shape === undefined) return null
   /** A labelled place is named by its label, as a card is by its name; without one, by its place in the list. */
   /** A labelled point in its game's one world is a point, not a block. */
   const point = fields.some((field) => field.key === LABEL) && !fields.some((field) => field.key === "world")
-  const words = WORDS[shape === "area" ? "area" : point ? "point" : "block"]
+  const words = WORDS[shape === "area" ? "area" : shape === "spot" ? "spot" : point ? "point" : "block"]
   const name = (index: number) => labelOf({ fields, values: value[index] }) || t(words.numbered, { index: index + 1 })
   const invalid = (index: number) => fields.some((field) => breachAt(`${entry.path}.${index}.${field.key}`) !== null)
   const placeAt = (index: number): Place => ({
     shape,
     fields,
     values: value[index],
+    takes: entry.position !== undefined,
     unsaved: (key) => notSaved(entry, index, key, text(value[index], key)),
-    onChange: (key, next) =>
-      onChange(value.map((section, at) => (at === index ? { ...section, [key]: next } : section))),
+    onChange: (changes) => onChange(value.map((section, at) => (at === index ? { ...section, ...changes } : section))),
   })
   const open = chosen !== null && chosen < value.length ? chosen : null
   const most = mostEntries(entry.rules)

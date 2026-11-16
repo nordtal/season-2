@@ -740,3 +740,55 @@ describe("the loot points", { timeout: 15_000 }, () => {
     expect(within(await screen.findByRole("dialog")).getByText(/cannot share the label/)).toBeTruthy()
   })
 })
+
+/** The wheel as smp sends it, with its blocks marked as positions, so the admin can take them from the game. */
+const MARKED = document("wheel", [{ ...WHEEL.entries[0], position: "BLOCK" }, ...WHEEL.entries.slice(1)])
+
+/** A position take that smp answers with `run`, and the takes sent. */
+function takePosition(run: Record<string, unknown>) {
+  const asked: unknown[] = []
+  const more: Asked = (url, method, body) => {
+    if (url === "/api/smp/take-position" && method === "GET") return json({ taker: "READY" })
+    if (url === "/api/smp/take-position" && method === "POST") {
+      asked.push(JSON.parse(body ?? "null"))
+      return json({ id: "smp:9", status: "PENDING" })
+    }
+    if (url === "/api/commands/smp:9") return json({ id: "smp:9", ...run })
+    return undefined
+  }
+  return { more, asked }
+}
+
+describe("a position field", { timeout: 15_000 }, () => {
+  it("fills a block from the block the admin's player looks at, and saves it", async () => {
+    const answer = { world: "nordtal_nether", x: 12, y: 70, z: -5, yaw: 90.5, pitch: 10 }
+    const { more, asked } = takePosition({ status: "DONE", answer })
+    const puts = backend(MARKED, more)
+    draw(<WheelEditor file="smp/wheel" document={MARKED} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Block 1" }))
+    const dialog = await screen.findByRole("dialog")
+    const take = within(dialog).getByRole("button", { name: "Take the block I look at" })
+    await waitFor(() => expect(take).toHaveProperty("disabled", false))
+    fireEvent.click(take)
+    await waitFor(() => expect(within(dialog).getByRole("textbox", { name: "X" })).toHaveProperty("value", "12"))
+    expect(asked).toEqual([{ block: true }])
+    fireEvent.click(within(dialog).getByRole("button", { name: "Done" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+
+    fireEvent.click(screen.getByRole("button", { name: "Save 1" }))
+    await waitFor(() => expect(puts).toHaveLength(1))
+    expect(puts[0]).toMatchObject({
+      changes: { "wheel-blocks": [{ world: "nordtal_nether", x: "12", y: "70", z: "-5" }] },
+    })
+  })
+
+  it("is not offered on a place the schema does not mark as a position", async () => {
+    backend(WHEEL)
+    draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Block 1" }))
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).queryByRole("button", { name: "Take the block I look at" })).toBeNull()
+  })
+})

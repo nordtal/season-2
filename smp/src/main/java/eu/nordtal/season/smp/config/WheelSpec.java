@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
@@ -15,6 +16,7 @@ public interface WheelSpec {
     @Order(25)
     @Name("Wheel blocks")
     @Key("wheel-blocks")
+    @Position(Position.Shape.BLOCK)
     @NoExplanationNeeded
     default List<WheelBlockSpec> wheelBlocks() {
         return DefaultSmp.WHEEL_BLOCKS;

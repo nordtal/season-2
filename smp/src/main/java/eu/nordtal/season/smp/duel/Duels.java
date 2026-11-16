@@ -17,8 +17,8 @@ import eu.nordtal.season.smp.aura.AuraDao;
 import eu.nordtal.season.smp.config.DuelAreaSpec;
 import eu.nordtal.season.smp.config.DuelKitSpec;
 import eu.nordtal.season.smp.config.DuelLoadoutItemSpec;
-import eu.nordtal.season.smp.config.DuelPositionSpec;
 import eu.nordtal.season.smp.config.DuelsSpec;
+import eu.nordtal.season.smp.config.SpotSpec;
 import eu.nordtal.season.smp.feedback.SmpSounds;
 import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.port.Arenas;
@@ -237,8 +237,6 @@ public final class Duels implements Arenas {
         if (!copy.save(world, arena)) {
             return Blocked.ARENA_NOT_READY;
         }
-        face(startFirst, startSecond);
-        face(startSecond, startFirst);
 
         final Map<UUID, SavedState> saved = new HashMap<>();
         saved.put(first.getUniqueId(), SavedState.of(first));
@@ -260,15 +258,9 @@ public final class Duels implements Arenas {
         return null;
     }
 
-    /** Turns {@code from} to look at {@code to}. */
-    private static void face(final Location from, final Location to) {
-        from.setDirection(to.toVector().subtract(from.toVector()).setY(0));
-        from.setPitch(0);
-    }
-
-    private static @Nullable Location position(final DuelPositionSpec spec) {
+    private static @Nullable Location position(final SpotSpec spec) {
         final World world = Bukkit.getWorld(spec.world());
-        return world == null ? null : new Location(world, spec.x() + 0.5, spec.y(), spec.z() + 0.5);
+        return world == null ? null : new Location(world, spec.x(), spec.y(), spec.z(), spec.yaw(), spec.pitch());
     }
 
     /** Beside the negotiation area; null falls back to where the fighter stood before the duel. */

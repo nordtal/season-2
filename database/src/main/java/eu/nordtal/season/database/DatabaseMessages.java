@@ -130,5 +130,9 @@ public interface DatabaseMessages {
         @Name("Not editable")
         @Shown(Display.STEWARD)
         MessageRef notEditable();
+
+        @Name("No block in sight")
+        @Shown(Display.STEWARD)
+        MessageRef noBlockInSight();
     }
 }

@@ -15,10 +15,12 @@ import eu.nordtal.season.papercommon.sound.SoundsSpec;
 import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.settings.Group;
 import eu.nordtal.season.settings.MemorySettingStore;
+import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.settings.SettingsException;
 import eu.nordtal.season.smp.region.Box;
 import eu.nordtal.season.smp.region.ConfigBoxes;
+import eu.nordtal.season.spec.SpecProperty;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import java.lang.reflect.Method;
@@ -31,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
@@ -311,7 +314,7 @@ class SmpSettingsTest {
         final SpawnSpec written = Specs.createDefault(SpawnSpec.class);
         assertEquals(written.protectedAreas().size(), reread.protectedAreas().size());
 
-        final FirstJoinSpawnSpec spawn = reread.nordtalSpawn();
+        final SpotSpec spawn = reread.nordtalSpawn();
         assertAll(
                 () -> assertEquals(written.nordtalSpawn().world(), spawn.world()),
                 () -> assertEquals(written.nordtalSpawn().x(), spawn.x()),
@@ -395,5 +398,56 @@ class SmpSettingsTest {
             return found;
         }
         return List.of();
+    }
+
+    /** A place in a world is drawn as one Position field, so every spec that holds a coordinate is marked as one. */
+    @Test
+    void everyPlaceInAWorldIsAPositionField() {
+        final Map<String, Position.Shape> positions = new LinkedHashMap<>();
+        final List<String> unmarked = new ArrayList<>();
+        GROUPS.forEach(group -> collectPositions(group.spec(), group.name(), positions, unmarked));
+
+        assertEquals(
+                Map.ofEntries(
+                        Map.entry("border.border-centre", Position.Shape.CENTRE),
+                        Map.entry("wheel.wheel-blocks", Position.Shape.BLOCK),
+                        Map.entry("duels.negotiation-area", Position.Shape.AREA),
+                        Map.entry("duels.arena", Position.Shape.AREA),
+                        Map.entry("duels.fighter-start-first", Position.Shape.SPOT),
+                        Map.entry("duels.fighter-start-second", Position.Shape.SPOT),
+                        Map.entry("duels.exit", Position.Shape.SPOT),
+                        Map.entry("boards.boards", Position.Shape.SPOT),
+                        Map.entry("spawn.nordtal-spawn", Position.Shape.SPOT),
+                        Map.entry("spawn.protected-areas", Position.Shape.AREA),
+                        Map.entry("rails.spawn-station", Position.Shape.BLOCK)),
+                positions);
+        assertTrue(unmarked.isEmpty(), "a spec holds coordinates but is no Position field: " + unmarked);
+    }
+
+    private static void collectPositions(
+            final Class<?> spec,
+            final String path,
+            final Map<String, Position.Shape> positions,
+            final List<String> unmarked) {
+        for (final SpecProperty property : Specs.from(spec).properties().values()) {
+            if (property.isHandledByProxy()) {
+                continue;
+            }
+            final Method getter = property.getter();
+            final String at = path + "." + property.key();
+            final Position position = getter.getAnnotation(Position.class);
+            for (final Class<?> nested : specTypesOf(getter.getGenericReturnType())) {
+                final Set<String> keys = Specs.from(nested).properties().values().stream()
+                        .map(SpecProperty::key)
+                        .collect(Collectors.toSet());
+                if (position != null) {
+                    positions.put(at, position.value());
+                } else if (keys.contains("x") || keys.contains("min-x")) {
+                    unmarked.add(at);
+                } else {
+                    collectPositions(nested, at, positions, unmarked);
+                }
+            }
+        }
     }
 }

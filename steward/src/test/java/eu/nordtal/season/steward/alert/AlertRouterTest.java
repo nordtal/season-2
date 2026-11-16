@@ -139,6 +139,25 @@ class AlertRouterTest {
         assertTrue(volume.contains("\"body\":\"mc-hunger-games-plugins: there is none yet.\""), volume);
     }
 
+    /** A merged alert names every subject in its push, and the push shows no Markdown. */
+    @Test
+    void twoExitedServicesAreBothNamedInOnePushWithoutMarkdown() {
+        final String both = router.payloadOf(new Alert(
+                JournalAction.SERVICE_DOWN,
+                Alert.Level.DOWN,
+                List.of(
+                        Measure.state(Measure.Gauge.CONTAINER_STATE, "smp", "exited"),
+                        Measure.state(Measure.Gauge.CONTAINER_STATE, "proxy", "exited"))));
+        assertTrue(
+                both.contains(
+                        "\"body\":\"smp: Docker reports the state exited.\\nproxy: Docker reports the state exited.\""),
+                both);
+
+        final String pack = router.payloadOf(AlertRouter.sample(JournalAction.PACK_DEAD));
+        assertTrue(pack.contains("\"body\":\"https://nordtal.eu/pack.zip does not answer."), pack);
+        assertFalse(pack.contains("`"), pack);
+    }
+
     private static Alert older(final String service) {
         return new Alert(
                 JournalAction.IMAGE_DRIFT,

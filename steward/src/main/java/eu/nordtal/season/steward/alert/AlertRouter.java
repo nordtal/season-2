@@ -167,19 +167,30 @@ public final class AlertRouter {
 
     /**
      * Builds the push body that {@code sw.js} reads.
-     * Its text is the alert's first line, which names what a title leaves out, else the level.
+     * Its text is every line of the alert, which names what a title leaves out, else the level.
+     * A push shows plain text, so the lines lose their Markdown marks.
      */
     String payloadOf(final Alert alert) {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", alert.type().key());
         body.put("level", alert.level().key());
         body.put("title", texts.format(Locales.DEFAULT, alert.title()));
-        final List<MessageRef> lines = alert.lines();
+        final List<MessageRef> lines =
+                alert.lines().isEmpty() ? List.of(TEXTS.alert().level(alert.level())) : alert.lines();
         body.put(
                 "body",
-                texts.format(Locales.DEFAULT, lines.isEmpty() ? TEXTS.alert().level(alert.level()) : lines.getFirst()));
+                String.join(
+                        "\n",
+                        lines.stream()
+                                .map(line -> plain(texts.format(Locales.DEFAULT, line)))
+                                .toList()));
         body.put("path", alert.path());
         return Json.encode(body);
+    }
+
+    /** Returns a Discord Markdown line as plain text, without its code and bold marks or escapes. */
+    static String plain(final String markdown) {
+        return markdown.replace("**", "").replace("`", "").replaceAll("\\\\([\\\\_*~|>])", "$1");
     }
 
     /** Returns a sample of an alert's action, with every value it can show. */

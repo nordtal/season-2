@@ -31,7 +31,6 @@ import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.mode.ModeStateStore;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Mode;
-import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.messagerendering.GameDocument;
@@ -266,7 +265,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         // The HUD clock starts after enable(), which declares the lines.
         hud.start();
         adminWatch.listen(signals);
-        followIdentities(signals);
+        identities.follow(signals);
         settings.listen(signals, this::reload);
         // The hub reads the overrides when it connects; until then the packaged texts show.
         MessageOverrideStore.using(pool).follow(messages, signals);
@@ -278,13 +277,6 @@ public abstract class NordtalPlugin extends JavaPlugin {
         // The marker is written last, off the main thread, so a frozen server lets it go stale.
         final var _ = Readiness.onDefaultPath(clock, getLogger()::warning).keepBeating(PaperScheduler.of(this));
         getLogger().info("plugin enabled: plugin=" + getName());
-    }
-
-    /** Rereads the players' identities when an admin, a language, a flag or a time zone changes. */
-    private void followIdentities(final SignalHub signals) {
-        signals.on(Channel.ADMIN, "who the players are", identities::reread);
-        // Every refresh runs on every signal, so one reread serves both: this registration only listens.
-        signals.on(Channel.IDENTITY, "the players' language, flag and time zone", () -> {});
     }
 
     /**

@@ -5,6 +5,8 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.access.PlayerCard;
 import eu.nordtal.season.database.access.PlayerIdentity;
 import eu.nordtal.season.database.access.Prestige;
+import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.messagerendering.NameCards;
 import eu.nordtal.season.messages.Viewer;
 import java.util.Collection;
@@ -44,6 +46,14 @@ public final class Identities {
                 source.apply(List.of(player)).stream().findFirst().orElseGet(() -> PlayerIdentity.unknown(player));
         byPlayer.put(player, identity);
         return identity;
+    }
+
+    /** Rereads every held identity when an admin, a language, a flag or a time zone changes. */
+    public void follow(final SignalHub signals) {
+        Objects.requireNonNull(signals, "signals");
+        signals.on(Channel.ADMIN, "who the players are", this::reread);
+        // Every refresh runs on every signal, so the reread above also serves a changed language, flag or zone.
+        signals.on(Channel.IDENTITY, "the players' language, flag and time zone", () -> {});
     }
 
     /**

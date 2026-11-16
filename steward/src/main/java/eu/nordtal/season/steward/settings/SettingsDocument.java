@@ -9,6 +9,7 @@ import eu.nordtal.season.common.Sha256;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.settings.rule.DeclaredRule;
 import eu.nordtal.season.settings.rule.SettingRules;
 import eu.nordtal.season.spec.schema.SchemaNode;
@@ -140,7 +141,22 @@ public final class SettingsDocument {
                 objectAt(node, "protectedEntry", SchemaNode.ProtectedEntry.class),
                 objectAt(node, "refers", Reference.class),
                 objectAt(node, "appliesWhen", Condition.class),
-                rulesOf(node));
+                rulesOf(node),
+                positionOf(node));
+    }
+
+    /**
+     * Returns the shape of a place in a world the node holds, or {@code null} when it holds none.
+     * A shape this Steward does not know, from a newer jar, is drawn as the plain fields it holds.
+     */
+    private static Position.@Nullable Shape positionOf(final JsonObject node) {
+        final String shape = text(node, "position");
+        for (final Position.Shape known : Position.Shape.values()) {
+            if (known.name().equals(shape)) {
+                return known;
+            }
+        }
+        return null;
     }
 
     /** Returns the rules the node declares, or {@code null} for none, so the form checks a field as the save does. */
@@ -438,6 +454,7 @@ public final class SettingsDocument {
     /**
      * Holds one key of a group. A secret has {@code filled} but never its value.
      * A stored section's field is {@code filled} when the section holds it, and one it lacks carries its default.
+     * {@code position} names the shape of a place in a world, which Steward draws as one field.
      */
     public record Entry(
             String path,
@@ -459,7 +476,8 @@ public final class SettingsDocument {
             SchemaNode.@Nullable ProtectedEntry protectedEntry,
             @Nullable Reference refers,
             @Nullable Condition appliesWhen,
-            @Nullable List<DeclaredRule> rules) {}
+            @Nullable List<DeclaredRule> rules,
+            Position.@Nullable Shape position) {}
 
     /** Holds the values a setting offers. {@code names} is null when the schema names no texts. */
     public record Choices(

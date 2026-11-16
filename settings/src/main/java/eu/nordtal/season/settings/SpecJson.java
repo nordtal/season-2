@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.settings.rule.DeclaredRule;
 import eu.nordtal.season.settings.rule.SettingRules;
 import eu.nordtal.season.spec.SpecPaths;
@@ -141,7 +142,48 @@ final class SpecJson {
                 }
                 addReferences(nested, child);
             }
+            if (position != null) {
+                addBounds(child);
+            }
         }
+    }
+
+    /** Bounds each coordinate of a position, unless the field declares a bound of its own. */
+    private static void addBounds(final JsonObject position) {
+        final JsonObject fields = position.getAsJsonObject("children");
+        for (final Map.Entry<String, JsonElement> field : fields.entrySet()) {
+            final long @Nullable [] bounds = boundsOf(field.getKey());
+            final JsonObject node = field.getValue().getAsJsonObject();
+            if (bounds == null || (node.has("rules") && declaresBound(node.getAsJsonArray("rules")))) {
+                continue;
+            }
+            final List<DeclaredRule> rules = List.of(
+                    new DeclaredRule(SettingRule.AT_LEAST, bounds[0], null),
+                    new DeclaredRule(SettingRule.AT_MOST, bounds[1], null));
+            final JsonArray held = node.has("rules") ? node.getAsJsonArray("rules") : new JsonArray();
+            held.addAll(DeclaredRule.json(rules));
+            node.add("rules", held);
+        }
+    }
+
+    private static long @Nullable [] boundsOf(final String key) {
+        return switch (key) {
+            case "x", "z", "min-x", "min-z", "max-x", "max-z" -> new long[] {-Position.FARTHEST, Position.FARTHEST};
+            case "y", "min-y", "max-y" -> new long[] {Position.LOWEST, Position.HIGHEST};
+            case "yaw" -> new long[] {-Position.TURN, Position.TURN};
+            case "pitch" -> new long[] {-Position.TILT, Position.TILT};
+            default -> null;
+        };
+    }
+
+    private static boolean declaresBound(final JsonArray rules) {
+        for (final JsonElement rule : rules) {
+            final String name = rule.getAsJsonObject().get("rule").getAsString();
+            if (name.equals(SettingRule.AT_LEAST.name()) || name.equals(SettingRule.AT_MOST.name())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Returns the shape's name, or refuses a position that is no spec or lacks a key of its shape. */

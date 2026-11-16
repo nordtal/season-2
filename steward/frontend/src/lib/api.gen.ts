@@ -176,6 +176,14 @@ export type TakeIn = {
   purpose: TakeInPurpose
 }
 
+export type TakePosition = {
+  block: boolean
+}
+
+export type PositionTaker = {
+  taker: Taker
+}
+
 export type AnnouncementsAsked = {
   ids: Record<string, string>
 }
@@ -756,6 +764,8 @@ export type InboxStatus = "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" 
 
 export type TakeInPurpose = "WHEEL_PRIZE" | "DUEL_KIT"
 
+export type Taker = "READY" | "UNLINKED" | "ELSEWHERE"
+
 export type AnnouncementView = {
   id: number
   document: Document
@@ -1039,6 +1049,7 @@ export type ConfigEntry = {
   refers?: ConfigReference
   appliesWhen?: ConfigCondition
   rules?: ConfigRule[]
+  position?: Shape
 }
 
 export type ReloadOutcome = {
@@ -1360,6 +1371,8 @@ export type ConfigRule = {
   limit?: number
   field?: string
 }
+
+export type Shape = "SPOT" | "BLOCK" | "AREA" | "CENTRE"
 
 export type ReloadStatus = "APPLIED" | "RESTART_REQUIRED"
 

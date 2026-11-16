@@ -54,8 +54,24 @@ export const AREA = {
   keys: ["min-x", "min-z", "max-x", "max-z", "min-y", "max-y"],
 } as const
 
-/** An area between two corner blocks, or a single block. */
-export type PlaceShape = "area" | "block"
+/** An area between two corner blocks, a single block, where a player stands and faces, or a column of a world. */
+export type PlaceShape = "area" | "block" | "spot" | "centre"
+
+/** The shape a setting's schema names, as the field draws it. */
+const SHAPES: Record<NonNullable<ConfigEntry["position"]>, PlaceShape> = {
+  AREA: "area",
+  BLOCK: "block",
+  SPOT: "spot",
+  CENTRE: "centre",
+}
+
+/**
+ * The shape of a place in a world: the one the schema names, or one read from the fields of a game whose schema
+ * names none, such as a loot point. Undefined when the setting is not a place.
+ */
+export function shapeOf(position: ConfigEntry["position"], keys: readonly string[]): PlaceShape | undefined {
+  return position ? SHAPES[position] : placeShape(keys)
+}
 
 export const BLOCK_KEYS = ["world", "x", "y", "z"] as const
 

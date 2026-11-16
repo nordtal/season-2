@@ -191,6 +191,52 @@ public final class CommandApi {
         return "smp:" + asked.id();
     }
 
+    /** What a position take asks for: the block the admin's player looks at, or where the player stands. */
+    public record TakePosition(boolean block) {}
+
+    /** Whether the admin's player can give a position: ready, without a linked player, or not on the SMP. */
+    public enum Taker {
+        READY,
+        UNLINKED,
+        ELSEWHERE
+    }
+
+    /** {@code GET /api/smp/take-position}: whether Take my position can ask the admin's player, and why not. */
+    public record PositionTaker(Taker taker) {}
+
+    /** Answers whether the admin's player is linked and on the SMP, so the button can say why it cannot ask. */
+    public void positionTaker(final Context ctx) {
+        final DiscordId admin = DiscordId.of(accounts.apply(ctx).id());
+        final Taker taker = data.access()
+                .linkedMinecraftAccount(admin)
+                .map(account -> serverOf(PlayerId.of(account)).equals(Topology.SMP) ? Taker.READY : Taker.ELSEWHERE)
+                .orElse(Taker.UNLINKED);
+        ctx.json(new PositionTaker(taker));
+    }
+
+    /**
+     * Writes the request for the place of the admin's player on the SMP and returns its name.
+     * It is refused while the player is not there; the answer carries the world, the coordinates and the facing.
+     */
+    public String takePosition(final Context ctx) {
+        final boolean block = blockOf(ctx.body());
+        final DiscordAuth.Account who = accounts.apply(ctx);
+        final PlayerId player = linked(DiscordId.of(who.id()));
+        if (!serverOf(player).equals(Topology.SMP)) {
+            throw new RequestRefused(409, ANSWER.takeInOffline());
+        }
+        return "smp:" + ask(who, data.smp(), new SmpRequest.TakePosition(player, block));
+    }
+
+    /** Reads whether a position take asks for a block; anything unreadable is refused. */
+    static boolean blockOf(final String body) {
+        try {
+            return JsonParser.parseString(body).getAsJsonObject().get("block").getAsBoolean();
+        } catch (final RuntimeException unreadable) {
+            throw new BadRequestResponse("a position take says whether it asks for a block");
+        }
+    }
+
     /** Reads the purpose a take-in names; a blank body asks for a wheel prize, and anything unreadable is refused. */
     static TakeInPurpose purposeOf(final String body) {
         if (body.isBlank()) {
@@ -206,7 +252,7 @@ public final class CommandApi {
         }
     }
 
-    /** {@code DELETE /api/commands/{id}} withdraws the admin's own take-in, waiting or with its window open. */
+    /** {@code DELETE /api/commands/{id}} withdraws the admin's own take-in or position take while it waits. */
     public void withdraw(final Context ctx) {
         final String id = ctx.pathParam("id");
         final String[] name = id.split(":", -1);
@@ -215,7 +261,8 @@ public final class CommandApi {
             final long row = name.length == 2 && name[0].equals("smp") ? Long.parseLong(name[1]) : -1;
             final boolean own = data.smp()
                     .find(row)
-                    .filter(found -> found.payload() instanceof SmpRequest.TakeInItem
+                    .filter(found -> (found.payload() instanceof SmpRequest.TakeInItem
+                                    || found.payload() instanceof SmpRequest.TakePosition)
                             && found.actor().equals(who.actor()))
                     .isPresent();
             if (!own) {

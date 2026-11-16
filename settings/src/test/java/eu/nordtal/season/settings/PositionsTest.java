@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import eu.nordtal.season.database.setting.SettingRule;
+import eu.nordtal.season.settings.rule.SettingRules;
 import eu.nordtal.season.spec.Specs;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
@@ -27,6 +28,23 @@ class PositionsTest {
         assertEquals("SPOT", children.getAsJsonObject("spawn").get("position").getAsString());
         assertEquals("BLOCK", children.getAsJsonObject("blocks").get("position").getAsString());
         assertFalse(children.getAsJsonObject("name").has("position"));
+    }
+
+    @Test
+    void eachCoordinateOfAPositionIsBoundedAndOtherFieldsAreNot() {
+        final Places outside = SpecJson.read(
+                JsonParser.parseString("{\"spawn\": {\"world\": \"nordtal\", \"x\": 30000001, \"y\": -2049,"
+                                + " \"z\": 0, \"yaw\": 181}, \"blocks\": []}")
+                        .getAsJsonObject(),
+                Places.class);
+
+        final List<String> refused =
+                SettingRules.breaches(SpecJson.schemaTree(Places.class), SpecJson.tree(outside, Places.class), Set.of())
+                        .stream()
+                        .map(SettingRules.Breach::setting)
+                        .toList();
+
+        assertEquals(List.of("spawn.x", "spawn.y", "spawn.yaw"), refused);
     }
 
     @Test

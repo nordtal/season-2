@@ -24,6 +24,7 @@ public sealed interface SmpRequest
                 SmpRequest.RemoveStack,
                 SmpRequest.OpenInventory,
                 SmpRequest.TakeInItem,
+                SmpRequest.TakePosition,
                 SmpRequest.SendPack {
 
     InboxTable<SmpRequest> TABLE = InboxTable.of("smp_inbox", Channel.SERVER, SmpRequest.class)
@@ -36,6 +37,7 @@ public sealed interface SmpRequest
                     RemoveStack.class,
                     OpenInventory.class,
                     TakeInItem.class,
+                    TakePosition.class,
                     PreviewMessage.class,
                     PreviewDocument.class,
                     SendPack.class);
@@ -203,6 +205,27 @@ public sealed interface SmpRequest
                 return new Answer(null, null);
             }
         }
+    }
+
+    /**
+     * Asks where an admin's player is, which Steward puts into a position in a setting.
+     *
+     * @param block whether the answer is the block the player looks at, else the place the player stands on
+     */
+    record TakePosition(PlayerId player, boolean block) implements SmpRequest {
+
+        public TakePosition {
+            Objects.requireNonNull(player, "player");
+        }
+
+        /**
+         * The player's world, place and facing. The place of a block is its corner, in whole numbers. Like every
+         * answer it checks nothing, because the inbox reads its row once before the answer is written.
+         *
+         * @param yaw the facing, from -180 to 180 degrees, where 0 faces south
+         * @param pitch the look up or down, from -90 to 90 degrees, where 0 faces ahead
+         */
+        public record Answer(String world, double x, double y, double z, float yaw, float pitch) {}
     }
 
     /**

@@ -18,16 +18,18 @@ final class DefaultSmp {
 
     static final DuelAreaSpec DUEL_ARENA = area("nordtal", 115, 67, 80, 131, 76, 96);
 
-    static final DuelPositionSpec DUEL_START_FIRST = position("nordtal", 118, 68, 88);
+    /** The two starts face each other across the arena, east and west. */
+    static final SpotSpec DUEL_START_FIRST = spot("nordtal", 118.5, 68.0, 88.5, -90f, 0f);
 
-    static final DuelPositionSpec DUEL_START_SECOND = position("nordtal", 128, 68, 88);
+    static final SpotSpec DUEL_START_SECOND = spot("nordtal", 128.5, 68.0, 88.5, 90f, 0f);
 
-    static final DuelPositionSpec DUEL_EXIT = position("nordtal", 103, 68, 88);
+    /** Faces west, toward the negotiation area. */
+    static final SpotSpec DUEL_EXIT = spot("nordtal", 103.5, 68.0, 88.5, 90f, 0f);
 
     static final List<WheelBlockSpec> WHEEL_BLOCKS =
             List.of(wheelBlock("nordtal", 3978, 75, 2171), wheelBlock("nordtal", 3978, 74, 2172));
 
-    static final FirstJoinSpawnSpec FIRST_JOIN_SPAWN = firstJoinSpawn("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
+    static final SpotSpec FIRST_JOIN_SPAWN = spot("nordtal", 106.5, 68.0, 88.5, 0f, 0f);
     static final List<AdvancementAwardSpec> ADVANCEMENT_AWARDS = List.of(
             award("minecraft:story/mine_stone", 2),
             award("minecraft:story/upgrade_tools", 2),
@@ -149,15 +151,6 @@ final class DefaultSmp {
         return Specs.createUnsafe(DuelAreaSpec.class, values);
     }
 
-    private static DuelPositionSpec position(final String world, final int x, final int y, final int z) {
-        final Map<String, Object> values = new LinkedHashMap<>();
-        values.put("world", world);
-        values.put("x", x);
-        values.put("y", y);
-        values.put("z", z);
-        return Specs.createUnsafe(DuelPositionSpec.class, values);
-    }
-
     private static WheelBlockSpec wheelBlock(final String world, final int x, final int y, final int z) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("world", world);
@@ -175,7 +168,7 @@ final class DefaultSmp {
         return Specs.createUnsafe(DuelKitSpec.class, values);
     }
 
-    private static FirstJoinSpawnSpec firstJoinSpawn(
+    private static SpotSpec spot(
             final String world, final double x, final double y, final double z, final float yaw, final float pitch) {
         final Map<String, Object> values = new LinkedHashMap<>();
         values.put("world", world);
@@ -184,7 +177,7 @@ final class DefaultSmp {
         values.put("z", z);
         values.put("yaw", yaw);
         values.put("pitch", pitch);
-        return Specs.createUnsafe(FirstJoinSpawnSpec.class, values);
+        return Specs.createUnsafe(SpotSpec.class, values);
     }
 
     private static AdvancementAwardSpec award(final String advancement, final int aura) {

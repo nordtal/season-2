@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * Marks a nested spec, or a list of them, as a place in a world, which Steward draws as one field.
  * Steward fills it from where the admin's player stands or looks. The spec holds the keys of its {@link Shape}.
- * Each coordinate declares its range with {@link eu.nordtal.season.settings.rule.Between} and these bounds.
+ * The schema bounds each coordinate by these limits, unless the field declares a bound of its own.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

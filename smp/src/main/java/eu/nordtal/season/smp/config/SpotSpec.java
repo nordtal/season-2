@@ -8,8 +8,9 @@ import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
+/** Where a player stands and faces, as a teleport puts them there. */
 @ConfigSpec
-public interface FirstJoinSpawnSpec {
+public interface SpotSpec {
 
     @Order(1)
     @Name("World")

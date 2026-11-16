@@ -6,7 +6,7 @@ import { choice, t } from "@/lib/texts"
 import { sentenceOf } from "@/lib/words"
 import { colourRuns } from "@/components/steward/colour-control"
 import { pairedBlocks, pairedPaths, type PairedBlocks } from "@/components/steward/paired-blocks"
-import { placeShape } from "@/components/steward/game-groups/model"
+import { shapeOf } from "@/components/steward/game-groups/model"
 
 /**
  * One leaf of a file's settings tree, built as data so a test can check its shape. Keys stay the identity: a leaf's `ids` are what a draft, a search hit and a jump name.
@@ -108,15 +108,15 @@ function wideEntry(entry: ConfigEntry): boolean {
 }
 
 /**
- * The blocks that name a place in a world, an area or a single block, each with its fields. A block holding anything
- * but plain values is not one.
+ * The blocks that name a place in a world, as the schema's Position marks them or as their fields read, each with its
+ * fields. A block holding anything but plain values is not one.
  */
 function placesOf(entries: ConfigEntry[]): Map<string, ConfigEntry[]> {
   const places = new Map<string, ConfigEntry[]>()
   for (const map of entries.filter((entry) => entry.kind === "MAP")) {
     const below = entries.filter((entry) => entry.path.startsWith(`${map.path}.`))
     if (below.some((entry) => entry.kind !== "SCALAR" || entry.path.slice(map.path.length + 1).includes("."))) continue
-    if (placeShape(below.map((entry) => entry.key)) !== undefined) places.set(map.path, below)
+    if (shapeOf(map.position, below.map((entry) => entry.key)) !== undefined) places.set(map.path, below)
   }
   return places
 }

@@ -5,7 +5,7 @@ import { languageName } from "@/lib/language-names"
 import { ListControl, ScalarControl, problemOf } from "@/components/steward/config-controls"
 import { type SectionValues, RepeatableCards, sectionsFromEntry } from "@/components/steward/repeatable-cards"
 import { StatusBadge } from "@/components/steward/status"
-import { placeShape } from "@/components/steward/game-groups/model"
+import { shapeOf } from "@/components/steward/game-groups/model"
 import { KitList, isKitList } from "@/components/steward/game-groups/kits"
 import { PlaceList } from "@/components/steward/game-groups/places"
 import { t } from "@/lib/texts"
@@ -110,7 +110,12 @@ export function Control({
 
   if (entry.kind === "SECTIONS") {
     const value = draftSections(draft, entry)
-    if (placeShape((entry.template ?? []).map((field) => field.key)) !== undefined) {
+    if (
+      shapeOf(
+        entry.position,
+        (entry.template ?? []).map((field) => field.key),
+      ) !== undefined
+    ) {
       return <PlaceList entry={entry} value={value} disabled={disabled} onChange={onChange} />
     }
     if (isKitList(entry)) return <KitList entry={entry} value={value} disabled={disabled} onChange={onChange} />

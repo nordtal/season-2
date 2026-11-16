@@ -234,6 +234,7 @@ function PlaceField({
         id={map.path}
         name={map.label}
         description={explanation ?? undefined}
+        position={map.position}
         fields={fields}
         values={values}
         disabled={!writable || fields.some((field) => !field.editable)}

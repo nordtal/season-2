@@ -1,28 +1,16 @@
 package eu.nordtal.season.smp.config;
 
-import eu.nordtal.season.settings.Refers;
-import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
 import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
 import eu.nordtal.season.spec.annotation.Order;
 
-/** One block a player stands on, set by the block their feet are in. */
+/** A column of a world, such as the centre of its border. */
 @ConfigSpec
-public interface DuelPositionSpec {
+public interface CentreSpec {
 
     @Order(1)
-    @Name("World")
-    @Key("world")
-    @Required
-    @Refers(Refers.To.WORLD)
-    @NoExplanationNeeded
-    default String world() {
-        return "nordtal";
-    }
-
-    @Order(2)
     @Name("X")
     @Key("x")
     @NoExplanationNeeded
@@ -30,15 +18,7 @@ public interface DuelPositionSpec {
         return 0;
     }
 
-    @Order(3)
-    @Name("Y")
-    @Key("y")
-    @NoExplanationNeeded
-    default int y() {
-        return 64;
-    }
-
-    @Order(4)
+    @Order(2)
     @Name("Z")
     @Key("z")
     @NoExplanationNeeded

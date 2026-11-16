@@ -151,6 +151,9 @@ export const PIXELARTICONS = {
   WrenchIcon: "tools",
   XIcon: "close",
   XCircleIcon: "close-box", // the set has no circled x
+  SquareIcon: "square",
+  PersonSimpleIcon: "human",
+  LayoutIcon: "layout",
 } as const
 
 export type IconName = keyof typeof PIXELARTICONS
@@ -502,6 +505,9 @@ export const PIXELARTICON_PATHS: Readonly<Record<(typeof PIXELARTICONS)[IconName
   zap: [
     "M4 13h8v6h2v2h-2v2h-2v-8H2v-4h2zm12 6h-2v-2h2zm2-2h-2v-2h2zm2-2h-2v-2h2zm-6-6h8v4h-2v-2h-8V5h-2V3h2V1h2zm-8 2H4V9h2zm2-2H6V7h2zm2-2H8V5h2z",
   ],
+  square: ["M2 4h2v16H2zm2 16h16v2H4zM20 4h2v16h-2zM4 2h16v2H4z"],
+  human: ["M10 2h4v4h-4zM3 7h18v2H3zm6 2h2v7H9zm4 0h2v7h-2zm-4 7h2v6H9zm4 0h2v6h-2zm-2-2h2v2h-2z"],
+  layout: ["M20 20H4v-2h4v-8H4v8H2V6h2v2h16V6h2v12h-2v-8H10v8h10zm0-14H4V4h16z"],
 }
 
 export type IconProps = SVGProps<SVGSVGElement> & {
@@ -678,3 +684,6 @@ export const WarningIcon = pixel("WarningIcon")
 export const WrenchIcon = pixel("WrenchIcon")
 export const XCircleIcon = pixel("XCircleIcon")
 export const XIcon = pixel("XIcon")
+export const SquareIcon = pixel("SquareIcon")
+export const PersonSimpleIcon = pixel("PersonSimpleIcon")
+export const LayoutIcon = pixel("LayoutIcon")

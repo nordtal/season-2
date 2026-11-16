@@ -827,7 +827,7 @@ export type Npc = {
   place: NpcPlace
   pose: Pose
   pitch: number
-  equipment: Record<Slot, Equipment>
+  equipment: Partial<Record<Slot, Equipment>>
   dialogue: Dialogue
   skin?: string
   skinModel: NpcSkinModel

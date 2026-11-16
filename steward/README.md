@@ -200,6 +200,21 @@ It refuses a modal, a channel name and a draft a save would refuse.
 `POST /api/document-images` stores a PNG, JPEG, GIF or WebP image of at most 8 MiB, and
 `GET /api/document-images/{id}` serves it; a document shows it as `upload://<id>`.
 
+### NPCs
+
+`/npcs` lists the NPCs and edits one: its dialogue as steps on a canvas, and its name, pose, pitch, position, items and
+skin (`npc.NpcApi`).
+
+- The browser holds the draft. `PUT /api/npcs/{id}` publishes the whole NPC against the version the draft was read at
+  and answers 409 when another admin published since. The page then loads the live version or publishes over it.
+- A step's menu and the end of a dialogue are drawn as boxes of their own. The stored step holds the menu, or no next
+  step.
+- `POST /api/npc-text/measure` wraps a text as the panel does. The page marks a text the panel cuts, and draws its
+  preview from the measured lines with the panel's art, which the jar serves under `/glyphs/npc/`.
+- `POST /api/npc-preview` plays the draft on the admin's linked player on smp, in the language the preview shows.
+- An item comes from the game through `POST /api/smp/take-in` with the purpose `NPC_ITEM`, and the position through
+  `/api/smp/take-position`.
+
 ## Configuration
 
 The environment supplies the connection and every secret. Three groups in the database hold everything

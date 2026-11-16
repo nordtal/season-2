@@ -1,6 +1,7 @@
 package eu.nordtal.season.steward.texts;
 
 import eu.nordtal.season.common.season.SeasonMode;
+import eu.nordtal.season.database.npc.Npc;
 import eu.nordtal.season.internalapi.agent.ImageResult;
 import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.spec.Arg;
@@ -80,6 +81,8 @@ public interface StewardTexts {
         PeoplePage people();
 
         PaymentsPage payments();
+
+        NpcsPage npcs();
 
         BackupDialogs backupSettings();
 
@@ -401,6 +404,48 @@ public interface StewardTexts {
 
             @Name("Player not on the SMP")
             MessageRef takeInOffline();
+
+            @Name("NPC changed meanwhile")
+            MessageRef npcChanged(@Arg("name") @Example("Warden Runa") String name);
+
+            @Name("NPC without a name")
+            MessageRef npcNameMissing();
+
+            @Name("NPC name too long")
+            MessageRef npcNameLong(@Arg("most") @Example("32") int most);
+
+            @Name("NPC without a position")
+            MessageRef npcNoPlace();
+
+            @Name("NPC position refused")
+            MessageRef npcPlaceRefused();
+
+            @Name("NPC pitch out of range")
+            MessageRef npcPitchRange();
+
+            @Name("NPC item unreadable")
+            MessageRef npcItemUnreadable(@Arg("slot") Npc.Slot slot);
+
+            @Name("NPC dialogue refused")
+            MessageRef npcDialogueRefused(@Arg("problem") @Example("Step work has no German text.") String problem);
+
+            @Name("No such NPC")
+            MessageRef noNpc();
+
+            @Name("Skin refused")
+            MessageRef skinRefused();
+
+            @Name("No skin to copy")
+            MessageRef noSkinToCopy(@Arg("player") @Example("Notch") String player);
+
+            @Name("No such Minecraft account")
+            MessageRef noMinecraftAccount(@Arg("player") @Example("Notch") String player);
+
+            @Name("Skin not loaded")
+            MessageRef skinUnavailable(@Arg("player") @Example("Notch") String player);
+
+            @Name("No such skin")
+            MessageRef noSkin();
 
             @Name("Grant too long")
             MessageRef grantDays(@Arg("most") @Example("365") int most);

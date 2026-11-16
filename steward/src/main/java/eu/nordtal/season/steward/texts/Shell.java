@@ -93,6 +93,7 @@ public interface Shell {
         BACKUPS,
         ALERTS,
         TRANSLATIONS,
+        NPCS,
         ANNOUNCEMENTS,
         ACCESS,
         PAYMENTS,

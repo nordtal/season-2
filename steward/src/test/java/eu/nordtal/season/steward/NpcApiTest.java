@@ -64,6 +64,7 @@ class NpcApiTest extends WebTestSupport {
         final HttpResponse<String> stale = put(npcs(id), publication(id, "Good day.", 1));
         assertEquals(409, stale.statusCode(), stale.body());
         assertTrue(stale.body().contains("Ida"), stale.body());
+        assertTrue(stale.body().contains("\"code\":\"NPC_CHANGED\""), stale.body());
 
         removedKeepingItsVersions(id);
     }
@@ -95,6 +96,7 @@ class NpcApiTest extends WebTestSupport {
                 put(npcs(id), publication(id, "Hi.", 0).replace("1.2", "7"));
         assertEquals(400, pitch.statusCode(), pitch.body());
         assertTrue(pitch.body().contains("pitch"), pitch.body());
+        assertTrue(pitch.body().contains("\"code\":\"NPC_REFUSED\""), pitch.body());
 
         final HttpResponse<String> skin = put(
                 npcs(id),

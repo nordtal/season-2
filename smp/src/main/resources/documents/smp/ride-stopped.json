@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<muted>The rails go no further this way. Pick another {@terms.station, n=1}.</muted>",
-            "de": "<muted>Auf diesen Schienen geht es hier nicht weiter. Wähl einen anderen {@terms.station, n=1}.</muted>"
+            "en": "<muted>The tracks end here. Choose another {@terms.station, n=1}.</muted>",
+            "de": "<muted>Die Strecke endet hier. Wähle einen anderen {@terms.station, n=1}.</muted>"
           }
         }
       ]

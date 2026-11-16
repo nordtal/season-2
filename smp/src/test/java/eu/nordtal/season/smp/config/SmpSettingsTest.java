@@ -53,7 +53,6 @@ class SmpSettingsTest {
             Group.of("advancement-awards", AdvancementAwardsSpec.class),
             DUELS,
             BOARDS,
-            Group.of("npc", NpcSpec.class),
             SPAWN,
             Group.of("deaths-and-graves", DeathsSpec.class),
             RAILS,

@@ -26,7 +26,8 @@ class FeedbackRulesTest {
     private static final String[] SOUND_ADAPTERS = {
         "eu.nordtal.season.smp.feedback.SmpSounds",
         "eu.nordtal.season.hungergames.feedback.HungerGamesSounds",
-        "eu.nordtal.season.proxy.feedback.ProxySounds"
+        "eu.nordtal.season.proxy.feedback.ProxySounds",
+        "eu.nordtal.season.papercommon.npc.DialogueSounds"
     };
 
     /** The one effect adapter, smp's: the only place that draws anything in a world. */

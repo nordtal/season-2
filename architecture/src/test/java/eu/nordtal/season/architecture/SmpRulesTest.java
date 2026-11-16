@@ -39,8 +39,10 @@ class SmpRulesTest {
     private static final String DUEL_LISTENER = "eu.nordtal.season.smp.duel.DuelListener";
     private static final String NEGOTIATION = "eu.nordtal.season.smp.duel.Negotiation";
     private static final String GRAVES = "eu.nordtal.season.smp.grave.Graves";
-    private static final String NPC = "eu.nordtal.season.smp.npc.SpawnNpc";
-    private static final String NPC_GUARD = "eu.nordtal.season.smp.npc.NpcProtection";
+    private static final String FIGURES = "eu.nordtal.season.papercommon.npc.Figures";
+    private static final String FIGURE_GUARD = "eu.nordtal.season.papercommon.npc.FigureGuard";
+    private static final String DIALOGUES = "eu.nordtal.season.papercommon.npc.NpcDialogues";
+    private static final String PLATES = "eu.nordtal.season.smp.npc.NpcNamePlates";
     private static final String PORTAL_GATE = "eu.nordtal.season.smp.travel.PortalGate";
     private static final String PRESENCE = "eu.nordtal.season.smp.player.PlayerSurfacesListener";
     private static final String LANDING = "eu.nordtal.season.smp.world.LandingSite";
@@ -58,7 +60,7 @@ class SmpRulesTest {
 
     /** Everything that outlives a reload and reads the milestone track. */
     private static final List<String> TRACK_READERS = List.of(
-            ENGINE, POLLER, "eu.nordtal.season.smp.progress.GateHolders", "eu.nordtal.season.smp.npc.NpcListener");
+            ENGINE, POLLER, "eu.nordtal.season.smp.progress.GateHolders", "eu.nordtal.season.smp.npc.ObjectivesMenu");
 
     private static JavaClasses classes;
 
@@ -89,7 +91,7 @@ class SmpRulesTest {
                         "StatisticPoller#<init>",
                         "GateHolders#<init>",
                         "SmpPlugin#track"))
-                .andShould(callFrom("wireNpc", "NpcListener#<init>", "SmpPlugin#track"))
+                .andShould(callFrom("wireNpc", "ObjectivesMenu#<init>", "SmpPlugin#track"))
                 .check(classes);
         // A reload writes the field off the server thread, and every reader is on it.
         assertTrue(
@@ -287,7 +289,7 @@ class SmpRulesTest {
                 .check(classes);
     }
 
-    /** The figure in the tavern is the only way to hand in, so nothing may hurt, burn or shove it. */
+    /** A figure's dialogue is the only way to hand in, so nothing may hurt, burn or shove it. */
     @Test
     void theFigureSurvivesAndIsTheOnlyOne() {
         final Map<String, String> guards = Map.of(
@@ -295,35 +297,38 @@ class SmpRulesTest {
                 "onCombust", "org.bukkit.event.entity.EntityCombustEvent",
                 "onKnockback", "io.papermc.paper.event.entity.EntityKnockbackEvent");
         guards.forEach((handler, event) -> {
-            handled(NPC_GUARD, event);
+            handled(FIGURE_GUARD, event);
             classes()
-                    .that(isListed(NPC_GUARD))
+                    .that(isListed(FIGURE_GUARD))
                     .should(callFrom(
-                            handler, "SpawnNpc#is", event.substring(event.lastIndexOf('.') + 1) + "#setCancelled"))
+                            handler, "Figures#is", event.substring(event.lastIndexOf('.') + 1) + "#setCancelled"))
                     .check(classes);
         });
         assertFalse(
-                classes.get(NPC_GUARD).getCodeUnits().stream()
+                classes.get(FIGURE_GUARD).getCodeUnits().stream()
                         .flatMap(unit -> unit.getInstanceofChecks().stream())
                         .anyMatch(check -> check.getRawType().getName().equals("org.bukkit.entity.Mannequin")),
                 "the guard recognises the figure by type, which protects every mannequin on the server");
         classes()
-                .that(isListed(START))
-                .should(callOnOneLine("wireNpc", "NpcProtection#<init>", "PluginManager#registerEvents"))
+                .that(isListed(DIALOGUES))
+                .should(callOnOneLine("start", "FigureGuard#<init>", "PluginManager#registerEvents"))
                 .check(classes);
         classes()
-                .that(isListed(NPC))
+                .that(isListed(FIGURES))
                 .should(callOnlyFrom("spawn", "World#spawn"))
                 .andShould(callOnceFrom("spawn", "World#spawn"))
                 .andShould(callFrom(
-                        "spawn",
+                        "dress",
                         "Mannequin#setImmovable",
                         "Mannequin#setInvulnerable",
                         "Mannequin#setSilent",
                         "Mannequin#setPersistent"))
-                .andShould(callOnOneLine("spawn", "SpawnNpc#spawned", "Mannequin#getUniqueId"))
                 .because("a second way to the figure is where a flag is forgotten, and an unremembered one is"
                         + " defended by nobody")
+                .check(classes);
+        classes()
+                .that(isListed(START))
+                .should(callFrom("wireNpc", "NpcDialogues#<init>", "NpcDialogues#start", "NpcStore#follow"))
                 .check(classes);
     }
 
@@ -331,11 +336,20 @@ class SmpRulesTest {
     @Test
     void theFigureCarriesOneLabel() {
         classes()
-                .that(isListed(NPC))
-                .should(callFrom("spawn", "NameTagManager#createEntityNameTag", "Mannequin#setDescription"))
-                .andShould(neverCallFrom("spawn", "Component#empty", "Mannequin#customName"))
+                .that(isListed(FIGURES))
+                .should(callFrom("dress", "Mannequin#setDescription"))
+                .andShould(neverCallFrom("dress", "Component#empty", "Mannequin#customName"))
                 .because("a mannequin's own name is one text for all viewers, and left alone the description draws"
                         + " \"NPC\" under the name, and an empty one a blank strip")
+                .check(classes);
+        classes()
+                .that(isListed(PLATES))
+                .should(callFrom("attach", "NameTagManager#createEntityNameTag"))
+                .andShould(callFrom("detach", "NameTagManager#removeEntityNameTag"))
+                .check(classes);
+        classes()
+                .that(isListed(START))
+                .should(callFrom("wireNpc", "NpcNamePlates#<init>"))
                 .check(classes);
     }
 

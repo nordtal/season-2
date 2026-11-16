@@ -19,20 +19,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Opens the objective dialog when a player clicks the NPC and credits the items of a confirmed hand-in.
- *
- * The credit runs off the main thread. Its result is applied on the main thread.
+ * The NPC's {@code objectives} menu, which its dialogue hands off to.
+ * It opens the objective dialog and credits the items of a confirmed hand-in. The credit runs off the main thread,
+ * and its result is applied on the main thread.
  */
-public final class NpcListener implements Listener {
+public final class ObjectivesMenu {
+
+    /** The menu's key, which a dialogue's last step names to hand off to it. */
+    public static final String MENU = "objectives";
 
     private final Plugin plugin;
-    private final SpawnNpc npc;
     private final SeasonState season;
     private final java.util.function.Supplier<MilestoneTrack> track;
 
@@ -44,9 +43,8 @@ public final class NpcListener implements Listener {
     private final Dialogs dialogs;
     private final SmpSounds sounds;
 
-    public NpcListener(
+    public ObjectivesMenu(
             final Plugin plugin,
-            final SpawnNpc npc,
             final SeasonState season,
             final java.util.function.Supplier<MilestoneTrack> track,
             final Contributions contributions,
@@ -56,7 +54,6 @@ public final class NpcListener implements Listener {
             final Dialogs dialogs,
             final SmpSounds sounds) {
         this.plugin = plugin;
-        this.npc = npc;
         this.season = season;
         this.track = track;
         this.contributions = contributions;
@@ -67,16 +64,8 @@ public final class NpcListener implements Listener {
         this.sounds = sounds;
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onClickNpc(final PlayerInteractEntityEvent event) {
-        if (!npc.is(event.getRightClicked().getUniqueId())) {
-            return;
-        }
-        event.setCancelled(true);
-        openObjectives(event.getPlayer());
-    }
-
-    private void openObjectives(final Player player) {
+    /** Opens the objective dialog for {@code player}, or the dialog that says why there is nothing to hand in. */
+    public void openObjectives(final Player player) {
         final Locale locale = identities.languageOf(player.getUniqueId());
         final SeasonState.Active active = season.active();
         final String activeKey = active.key();

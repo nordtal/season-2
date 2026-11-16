@@ -63,9 +63,7 @@ export type TextArgs = {
   "alert.missing": {
     subject: Arg["text"]
   }
-  "alert.no-archive": {
-    volume: Arg["text"]
-  }
+  "alert.no-archive": Record<string, never>
   "alert.no-backup": Record<string, never>
   "alert.no-dump": Record<string, never>
   "alert.no-offsite": Record<string, never>
@@ -90,12 +88,13 @@ export type TextArgs = {
   "alert.offered-pack": {
     url: Arg["text"]
   }
-  "alert.old-archive": {
-    volume: Arg["text"]
-  }
+  "alert.old-archive": Record<string, never>
   "alert.old-dump": Record<string, never>
   "alert.old-offsite": Record<string, never>
   "alert.older-image": {
+    count: Arg["number"]
+  }
+  "alert.older-on": {
     services: Arg["list"]
     count: Arg["number"]
   }
@@ -128,9 +127,7 @@ export type TextArgs = {
   "alert.seen-through": {
     holder: Arg["text"]
   }
-  "alert.several": {
-    subjects: Arg["list"]
-  }
+  "alert.several": Record<string, never>
   "alert.show-start-channel": Record<string, never>
   "alert.start-channel-hidden": Record<string, never>
   "alert.step": {

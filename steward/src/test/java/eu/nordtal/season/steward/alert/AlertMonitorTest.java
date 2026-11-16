@@ -223,7 +223,7 @@ class AlertMonitorTest {
         assertEquals(1, alerts.size());
         assertEquals("smp, proxy", alerts.getFirst().alert().subject());
         assertEquals(
-                "Several at once: smp and proxy",
+                "Several problems at once",
                 AdminPlain.of(alerts.getFirst().alert().title()));
         assertEquals(
                 List.of("smp: Docker reports the state exited.", "proxy: Docker reports the state exited."),

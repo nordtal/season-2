@@ -47,7 +47,7 @@ class AdminTitlesTest {
     /**
      * Every alert title fits, found as each alert text without shown places of its own.
      * A line below a title names its own places, so the rest are titles. A title that names a value takes the
-     * longest value the stack has, and a title that lists services takes one long name or two short ones.
+     * longest value the stack has, and a title that lists services takes the longest one or all of them.
      */
     @Test
     void everyAlertTitleFitsWithTheLongestValueTheStackNames() throws ReflectiveOperationException {
@@ -66,10 +66,34 @@ class AdminTitlesTest {
         assertEquals(List.of(), tooLong(titles));
     }
 
-    private static final Map<String, String> LONGEST =
-            Map.of("service", "hunger-games", "volume", "smp-world", "channel", "#deutsch-chat", "name", "Player");
+    /** Every service of the stack's compose.yml, longest first. */
+    private static final List<String> SERVICES = List.of(
+            "steward-agent",
+            "limbo-standby",
+            "proxy-standby",
+            "steward-bunq",
+            "hunger-games",
+            "discord-bot",
+            "postgres",
+            "migrate",
+            "steward",
+            "caddy",
+            "limbo",
+            "proxy",
+            "smp");
 
-    private static final List<List<String>> LISTS = List.of(List.of("hunger-games"), List.of("smp", "proxy"));
+    /** The longest value of each named place: from compose.yml, and the Discord server's channel and role. */
+    private static final Map<String, String> LONGEST = Map.of(
+            "service",
+            SERVICES.getFirst(),
+            "volume",
+            "mc-hunger-games-plugins",
+            "channel",
+            "#deutsch-chat",
+            "name",
+            "Player");
+
+    private static final List<List<String>> LISTS = List.of(List.of(SERVICES.getFirst()), SERVICES);
 
     /** Every combination of the values a title's arguments can take; a count is the size of the list beside it. */
     private static List<Object[]> argsOf(final Parameter[] parameters) {
@@ -113,7 +137,7 @@ class AdminTitlesTest {
                             .filter(List.class::isInstance)
                             .mapToInt(list -> ((List<?>) list).size())
                             .findFirst()
-                            .orElse(1);
+                            .orElse(SERVICES.size());
                     combination[at] = type == int.class ? (Object) size : (Object) (long) size;
                 }
             }

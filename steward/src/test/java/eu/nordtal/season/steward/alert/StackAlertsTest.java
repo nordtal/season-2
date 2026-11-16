@@ -177,7 +177,10 @@ class StackAlertsTest {
                 "timed out",
                 freshBackups(),
                 null);
-        assertEquals(List.of("smp and proxy run an older image", "The images were not compared"), titles(alerts));
+        assertEquals(List.of("2 older images are running", "The images were not compared"), titles(alerts));
+        assertEquals(
+                List.of("smp and proxy run images older than the registry has."),
+                AdminPlain.of(alerts.getFirst().lines()));
         assertTrue(alerts.stream().allMatch(alert -> alert.type() == AlertType.DRIFT));
         assertEquals(List.of("timed out"), AdminPlain.of(alerts.get(1).lines()));
     }
@@ -227,7 +230,11 @@ class StackAlertsTest {
                         null),
                 THRESHOLDS,
                 NOW);
-        assertEquals(List.of("No archive of mc-smp yet", "No archive of mc-limbo yet"), titles(noArchive));
+        assertEquals(List.of("A volume has no archive yet", "A volume has no archive yet"), titles(noArchive));
+        // The title says what is wrong, and its line names the volume.
+        assertEquals(
+                List.of("mc-smp: there is none yet."),
+                AdminPlain.of(noArchive.getFirst().lines()));
         assertEquals(Alert.Level.DOWN, noArchive.getFirst().level());
     }
 
@@ -249,7 +256,7 @@ class StackAlertsTest {
         archives.add(archive("limbo-world-20260930T110000Z.tar.zst", 37));
         archives.add(archive("limbo-world-20260929T110000Z.tar.zst", 61));
         final List<Alert> alerts = of(List.of(service("smp", "running")), null, archives, null);
-        assertEquals(List.of("Archive of limbo-world is too old"), titles(alerts));
+        assertEquals(List.of("A volume's archive is too old"), titles(alerts));
         assertEquals(
                 List.of("limbo-world: the newest is 37 hours old. The limit is 36 hours."),
                 AdminPlain.of(alerts.getFirst().lines()));
@@ -261,7 +268,7 @@ class StackAlertsTest {
         final List<StackReading.Archive> archives = new ArrayList<>(freshBackups());
         archives.add(archive("nordtal-s2_mc-limbo-20260930T110000Z.tar.zst", 37));
         final List<Alert> alerts = of(List.of(service("limbo", "running")), null, archives, null);
-        assertEquals(List.of("Archive of mc-limbo is too old"), titles(alerts));
+        assertEquals(List.of("A volume's archive is too old"), titles(alerts));
         assertEquals("mc-limbo", alerts.getFirst().subject());
         assertEquals(Alert.Level.WARN, alerts.getFirst().level());
     }

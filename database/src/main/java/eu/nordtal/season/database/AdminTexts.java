@@ -407,7 +407,7 @@ public interface AdminTexts {
         MessageRef clear(@Arg("type") AlertType type);
 
         @Name("Several of one type at once")
-        MessageRef several(@Arg("subjects") @Example("database dump,disk") List<String> subjects);
+        MessageRef several();
 
         @Name("Which run")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
@@ -460,7 +460,12 @@ public interface AdminTexts {
         MessageRef exitCode(@Arg("service") @Example("smp") String service, @Arg("code") @Example("137") long code);
 
         @Name("Older images")
-        MessageRef olderImage(
+        MessageRef olderImage(@Arg("count") @Example("2") int count);
+
+        /** The services of an older-images alert, below its title. */
+        @Name("Which services run an older image")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef olderOn(
                 @Arg("services") @Example("smp,proxy") List<String> services, @Arg("count") @Example("2") int count);
 
         @Name("Images not compared")
@@ -480,13 +485,13 @@ public interface AdminTexts {
         MessageRef noDump();
 
         @Name("No archive of a volume")
-        MessageRef noArchive(@Arg("volume") @Example("smp-world") String volume);
+        MessageRef noArchive();
 
         @Name("An old dump")
         MessageRef oldDump();
 
         @Name("An old archive")
-        MessageRef oldArchive(@Arg("volume") @Example("smp-world") String volume);
+        MessageRef oldArchive();
 
         @Name("No copy off the host")
         MessageRef noOffsite();

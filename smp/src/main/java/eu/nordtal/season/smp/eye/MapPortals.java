@@ -51,7 +51,7 @@ public final class MapPortals implements Listener {
         try {
             index.load(cache);
         } catch (final IOException | RuntimeException e) {
-            log.log(Level.WARNING, "end portal cache not read, every region is scanned: file=" + cache, e);
+            log.log(Level.WARNING, "end portal cache unreadable, full scan selected: file=" + cache, e);
         }
         final List<String> names = new ArrayList<>();
         final List<Path> regions = new ArrayList<>();
@@ -77,7 +77,7 @@ public final class MapPortals implements Listener {
         stopping.set(true);
         try {
             if (!scanned.await(5, TimeUnit.SECONDS)) {
-                log.warning("end portal scan still running at the stop: file=" + cache);
+                log.warning("end portal scan still running at shutdown: file=" + cache);
             }
         } catch (final InterruptedException e) {
             Thread.currentThread().interrupt();

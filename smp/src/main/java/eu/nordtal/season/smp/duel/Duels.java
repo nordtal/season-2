@@ -280,8 +280,7 @@ public final class Duels implements Arenas {
     private boolean enter(final Player player, final Location at, final List<DuelLoadoutItemSpec> loadout) {
         SavedState.clear(player);
         if (!player.teleport(at)) {
-            plugin.getLogger()
-                    .warning("fighter not moved into duel arena, duel called off: player=" + player.getName());
+            plugin.getLogger().warning("participant teleport failed, duel cancelled: player=" + player.getName());
             return false;
         }
         player.setGameMode(GameMode.ADVENTURE);

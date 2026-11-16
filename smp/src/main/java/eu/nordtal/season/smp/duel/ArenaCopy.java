@@ -48,7 +48,7 @@ final class ArenaCopy {
             restore();
         }
         if (file.exists()) {
-            plugin.getLogger().warning("duel arena copy not placed back, duel refused: file=" + file);
+            plugin.getLogger().warning("duel arena restore failed, duel refused: file=" + file);
             return false;
         }
         final Structure structure = Bukkit.getStructureManager().createStructure();
@@ -109,7 +109,7 @@ final class ArenaCopy {
                 .filter(entity -> entity instanceof Item || entity instanceof AbstractArrow)
                 .forEach(org.bukkit.entity.Entity::remove);
         if (!file.delete()) {
-            plugin.getLogger().warning("duel arena copy placed back, not deleted: file=" + file);
+            plugin.getLogger().warning("duel arena restored, snapshot not deleted: file=" + file);
         }
     }
 }

@@ -426,7 +426,7 @@ public final class Wheel {
                 turning.remove(id);
                 faces.back(id, before);
                 refund.run();
-                plugin.getLogger().log(Level.WARNING, "wheel turn failed to show, spin returned", e);
+                plugin.getLogger().log(Level.WARNING, "wheel animation failed, spin returned", e);
             }
         };
         if (popIn) {

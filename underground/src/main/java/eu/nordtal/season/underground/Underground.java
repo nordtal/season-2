@@ -50,7 +50,7 @@ public final class Underground {
                         arguments.path("out"),
                         arguments.regions(arguments.path("world"))));
             case "furnish" ->
-                System.out.println("furnish finished: "
+                System.out.println("world furnishing completed: "
                         + Furnish.run(
                                 arguments.path("world"),
                                 seed(arguments),
@@ -77,7 +77,7 @@ public final class Underground {
         measures.check();
         final Transplant transplant =
                 new Transplant(arguments.path("map"), arguments.path("parallel"), arguments.path("out"), measures);
-        System.out.println("transplant finished: " + transplant.run(arguments.regions(arguments.path("map"))));
+        System.out.println("terrain transplant completed: " + transplant.run(arguments.regions(arguments.path("map"))));
     }
 
     /** Prints what changed since the earlier copy and which regions a transplant has to run over again. */
@@ -85,12 +85,12 @@ public final class Underground {
         final Refresh.Changes changes = Refresh.run(
                 arguments.path("before"), arguments.path("now"), arguments.path("upgraded"), arguments.path("out"));
         if (changes.regions().isEmpty()) {
-            System.out.println("refresh finished: changed=0, the earlier result stays as it is");
+            System.out.println("world refresh completed, previous result kept: changed=0");
             return;
         }
-        System.out.println(
-                "refresh finished: changed=" + changes.chunks() + " regions=" + Refresh.listed(changes.regions()));
-        System.out.println("transplant again: regions=" + Refresh.listed(changes.run()) + " take="
+        System.out.println("world refresh completed: changed=" + changes.chunks() + " regions="
+                + Refresh.listed(changes.regions()));
+        System.out.println("terrain transplant required: regions=" + Refresh.listed(changes.run()) + " take="
                 + Refresh.listed(changes.affected()));
     }
 

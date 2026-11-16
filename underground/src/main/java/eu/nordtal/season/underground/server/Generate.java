@@ -42,7 +42,7 @@ public final class Generate {
         final List<int[]> left = left(setup.overworld().resolve("region"), regions);
         final int skipped = regions.size() - left.size();
         if (skipped > 0) {
-            System.out.println("regions generated before: " + skipped);
+            System.out.println("existing generated regions counted: count=" + skipped);
         }
         for (int from = 0; from < left.size(); from += PER_START) {
             try (ScratchServer server = ScratchServer.start(setup)) {
@@ -65,8 +65,8 @@ public final class Generate {
                 chunks = Region.read(Region.file(directory, region[0], region[1]));
             } catch (final IOException e) {
                 // A server killed while it wrote the file can leave a chunk cut off; the region is generated anew.
-                System.out.println("region unreadable, generating it again: x=" + region[0] + " z=" + region[1]
-                        + " reason=\"" + e.getMessage() + "\"");
+                System.out.println("region unreadable, regeneration selected: x=" + region[0] + " z=" + region[1]
+                        + " cause=" + e.getMessage());
                 left.add(region);
                 continue;
             }

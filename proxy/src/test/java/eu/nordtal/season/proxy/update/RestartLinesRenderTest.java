@@ -69,7 +69,7 @@ class RestartLinesRenderTest {
     @Test
     void aFailedSwapSaysOnlyThatThePlayerKeepsTheirPack() {
         final String text = plain(Locale.ENGLISH, RestartWatch.FAILED.with(new RestartWatch.Occasioned(Occasion.PACK)));
-        assertEquals("The resource pack update failed. You keep the pack you have.", text);
+        assertEquals("The resource pack update failed. Your current resource pack stays active.", text);
     }
 
     @Test

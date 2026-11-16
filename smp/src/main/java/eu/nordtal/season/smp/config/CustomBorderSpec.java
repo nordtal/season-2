@@ -1,10 +1,8 @@
 package eu.nordtal.season.smp.config;
 
-import eu.nordtal.season.settings.ChoiceNames;
 import eu.nordtal.season.settings.Refers;
 import eu.nordtal.season.settings.rule.Required;
 import eu.nordtal.season.settings.rule.Unique;
-import eu.nordtal.season.spec.annotation.AllowedValues;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Explain;
 import eu.nordtal.season.spec.annotation.Key;
@@ -48,18 +46,6 @@ public interface CustomBorderSpec {
         }
 
         @Order(3)
-        @Name("Look")
-        @Key("look")
-        @NoExplanationNeeded
-        @AllowedValues({"FIELD", "PIXEL"})
-        @ChoiceNames(
-                value = "smp.settings.border-look",
-                icons = {"minecraft:amethyst_shard", "minecraft:painting"})
-        default String look() {
-            return "FIELD";
-        }
-
-        @Order(4)
         @Name("Areas")
         @Key("polygons")
         @Explain("Players stay inside these areas. Where two areas touch, the wall between them is left out.")

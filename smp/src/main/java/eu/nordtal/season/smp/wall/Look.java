@@ -1,10 +1,9 @@
 package eu.nordtal.season.smp.wall;
 
-import java.util.Locale;
-
 /**
- * How the wall is drawn: a field the pack's item shader draws, or a pixel-art texture without a shader.
- * Players see them named Veil and Lattice.
+ * How the wall is drawn: the snow wall the pack's item shader draws, or a pixel-art texture without a shader.
+ *
+ * Every wall is the snow wall. No setting chooses the pixel look; it is kept for clients that skip the pack's shader.
  */
 enum Look {
     FIELD,
@@ -12,11 +11,6 @@ enum Look {
 
     /** The pixel look fades its last panels through these models, the outermost first, one block each. */
     private static final String[] PIXEL_FADE = {"border/pixel_fade_1", "border/pixel_fade_2", "border/pixel_fade_3"};
-
-    /** The look a setting names. An unknown name draws the field. */
-    static Look named(final String name) {
-        return "PIXEL".equals(name.toUpperCase(Locale.ROOT)) ? PIXEL : FIELD;
-    }
 
     /**
      * How far from the player panels are sent, in blocks.

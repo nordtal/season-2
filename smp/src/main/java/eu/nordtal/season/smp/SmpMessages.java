@@ -58,18 +58,6 @@ public interface SmpMessages {
                 @Name("Advancement")
                 MessageRef advancement();
             }
-
-            BorderLook borderLook();
-
-            @Name("Custom border look")
-            interface BorderLook {
-
-                @Name("Veil")
-                MessageRef field();
-
-                @Name("Lattice")
-                MessageRef pixel();
-            }
         }
     }
 }

@@ -120,8 +120,6 @@ class WallTest {
         assertEquals("border/pixel_fade_2", Look.PIXEL.model(28.5));
         assertEquals("border/pixel_fade_1", Look.PIXEL.model(29.5));
         assertEquals("border/field", Look.FIELD.model(29.5));
-        assertEquals(Look.FIELD, Look.named("glass"));
-        assertEquals(Look.PIXEL, Look.named("PIXEL"));
     }
 
     @Test

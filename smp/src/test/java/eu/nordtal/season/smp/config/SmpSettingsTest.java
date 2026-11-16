@@ -102,8 +102,6 @@ class SmpSettingsTest {
                                 "nordtal",
                                 "enabled",
                                 true,
-                                "look",
-                                "PIXEL",
                                 "polygons",
                                 List.of(Map.of(
                                         "name",
@@ -116,7 +114,6 @@ class SmpSettingsTest {
 
         final CustomBorderSpec.World world = read.worlds().getFirst();
         assertTrue(world.enabled());
-        assertEquals("PIXEL", world.look());
         assertEquals(3, world.polygons().getFirst().corners().get(1).x());
     }
 

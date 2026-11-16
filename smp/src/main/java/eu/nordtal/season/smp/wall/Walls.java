@@ -28,7 +28,7 @@ final class Walls {
                 }
             }
             if (!areas.isEmpty()) {
-                walls.put(world.world(), new Drawn(new Wall(areas), Look.named(world.look())));
+                walls.put(world.world(), new Drawn(new Wall(areas), Look.FIELD));
             }
         }
         return Map.copyOf(walls);

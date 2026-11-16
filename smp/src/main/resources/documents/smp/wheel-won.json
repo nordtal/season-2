@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>The wheel gives you</good> <emphasis>{amount} × {item}</emphasis><muted>.</muted>",
-            "de": "<good>Das Rad gibt dir</good> <emphasis>{amount} × {item}</emphasis><muted>.</muted>"
+            "en": "<good>You won</good> <emphasis>{amount} × {item}</emphasis><muted>.</muted>",
+            "de": "<good>Du gewinnst</good> <emphasis>{amount} × {item}</emphasis><muted>.</muted>"
           }
         }
       ]

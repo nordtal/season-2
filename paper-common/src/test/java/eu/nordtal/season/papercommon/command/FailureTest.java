@@ -15,9 +15,16 @@ class FailureTest {
     }
 
     @Test
-    void anyOtherErrorNamesNoCause() {
+    void anErrorWithoutAMessageNamesItsType() {
         assertEquals(
-                Replies.Cause.OTHER,
-                Replies.Failure.of(new IllegalArgumentException("bad")).cause());
+                "IllegalStateException",
+                Replies.Failure.of(new IllegalStateException()).detail());
+    }
+
+    @Test
+    void anyOtherErrorNamesItsCause() {
+        final var failure = Replies.Failure.of(new IllegalArgumentException("bad"));
+        assertEquals(Replies.Cause.OTHER, failure.cause());
+        assertEquals("bad", failure.detail());
     }
 }

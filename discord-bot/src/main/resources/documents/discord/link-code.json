@@ -22,8 +22,8 @@
             "de": "Code"
           },
           "placeholder": {
-            "en": "The code from the login screen",
-            "de": "Der Code vom Login-Bildschirm"
+            "en": "Code shown when you join",
+            "de": "Code vom Serverbeitritt"
           }
         }
       ]

@@ -1,9 +1,7 @@
 package eu.nordtal.season.discordbot.onboarding;
 
-import eu.nordtal.season.common.language.Locales;
 import eu.nordtal.season.discordbot.Ids;
 import eu.nordtal.season.discordbot.ManagedMessage;
-import eu.nordtal.season.discordbot.Mark;
 import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.config.GuildLanguages;
 import eu.nordtal.season.discordrendering.DiscordRenderer;
@@ -12,32 +10,19 @@ import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Slot;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
-/**
- * The two onboarding messages: the welcome in the onboarding channel and the change message in the change channel.
- *
- * Each is a {@link ManagedMessage}.
- */
+/** The start channel's managed message with one text per language and a country select. */
 final class OnboardingMessage {
-
     static final String KIND = "ONBOARDING";
-
-    static final String CHANGE_KIND = "ONBOARDING_CHANGE";
-
-    /** The welcome in the default language with a banner and a select for the language. */
     static final DocumentSpec<DocumentSpec.None> WELCOME = DocumentSpec.message(
-                    StoredDocuments.NAMESPACE, "onboarding-welcome", "Onboarding", Slot.select("language"))
-            .titled("Welcome and language choice");
-
-    /** The change message with one box and one button per language. The button opens the dialog in that language. */
-    static final DocumentSpec<DocumentSpec.None> CHANGE = DocumentSpec.message(
                     StoredDocuments.NAMESPACE,
-                    "onboarding-change",
+                    "onboarding-welcome",
                     "Onboarding",
                     Slot.languages("each"),
-                    Slot.button("change"))
-            .titled("Change language and region");
-
+                    Slot.select("countries"),
+                    Slot.button("settings"))
+            .titled("Welcome and country choice");
     private final GuildLanguages languages;
     private final DocumentRenderer renderer;
 
@@ -46,38 +31,28 @@ final class OnboardingMessage {
         this.renderer = new DocumentRenderer(messages, documents);
     }
 
-    /** Posts or edits both messages. An empty channel id means the message is not posted. */
-    void publish(final ManagedMessage managed, final String onboardingChannelId, final String changeChannelId) {
-        managed.publish(KIND, onboardingChannelId, welcome());
-        managed.publish(CHANGE_KIND, changeChannelId, change());
+    void publish(final ManagedMessage managed, final String channel, final Choices choices) {
+        managed.publish(KIND, channel, welcome(choices));
     }
 
-    DocumentRenderer.Drawn welcome() {
-        final List<DocumentRenderer.Option> options = languages.all().stream()
-                .map(language -> new DocumentRenderer.Option(
-                        language.tag(),
-                        language.ownName(),
-                        Map.of(),
-                        Locales.flagCountry(language.locale()).map(Mark::flag).orElse(null)))
-                .toList();
+    DocumentRenderer.Drawn welcome(final Choices choices) {
         return renderer.render(
                 WELCOME,
                 new DocumentSpec.None(),
-                Map.of("language", new DocumentRenderer.FilledSelect(Ids.ONBOARD_PICK_LANGUAGE, options)),
+                Map.of(
+                        "each",
+                                new DocumentRenderer.FilledLanguages(languages.all().stream()
+                                        .map(GuildLanguages.Language::locale)
+                                        .toList()),
+                        "countries", countries(choices, null),
+                        "settings", new DocumentRenderer.FilledButton(Ids.ONBOARD_SETTINGS)),
                 languages.fallback().locale());
     }
 
-    DocumentRenderer.Drawn change() {
-        return renderer.render(
-                CHANGE,
-                new DocumentSpec.None(),
-                Map.of(
-                        "each",
-                        new DocumentRenderer.FilledLanguages(languages.all().stream()
-                                .map(GuildLanguages.Language::locale)
-                                .toList()),
-                        "change",
-                        new DocumentRenderer.FilledButton(Ids.ONBOARD)),
-                languages.fallback().locale());
+    static DocumentRenderer.FilledSelect countries(final Choices choices, final @Nullable String selected) {
+        final List<DocumentRenderer.Option> options = choices.of(Choices.Kind.COUNTRY).stream()
+                .map(country -> new DocumentRenderer.Option(country.value(), country.name(), Map.of(), country.emoji()))
+                .toList();
+        return new DocumentRenderer.FilledSelect(Ids.ONBOARD_COUNTRY, options, selected);
     }
 }

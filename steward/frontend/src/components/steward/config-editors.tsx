@@ -1,3 +1,5 @@
+import { CountriesEditor, readsCountries } from "@/components/steward/countries-editor"
+
 import type { ComponentType } from "react"
 
 import type { ConfigDocument } from "@/lib/api"
@@ -15,6 +17,7 @@ export type CustomEditorProps = { file: string; document: ConfigDocument; target
 type Editor = { draw: ComponentType<CustomEditorProps>; reads: (document: ConfigDocument) => boolean }
 
 const EDITORS: Readonly<Record<string, Editor>> = {
+  onboarding: { draw: CountriesEditor, reads: readsCountries },
   milestones: { draw: MilestonesEditor, reads: readsTrack },
   "advancement-awards": { draw: AwardsEditor, reads: readsAwards },
   wheel: { draw: WheelEditor, reads: readsWheel },

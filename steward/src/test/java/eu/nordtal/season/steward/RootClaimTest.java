@@ -44,7 +44,7 @@ class RootClaimTest extends WebFixture {
         final HttpResponse<String> callback = signInAs("2");
 
         assertEquals(403, callback.statusCode(), callback.body());
-        assertTrue(callback.body().contains("not an admin"), callback.body());
+        assertTrue(callback.body().contains("has no admin access"), callback.body());
         assertEquals(0, WebTestSupport.count("SELECT count(*) FROM discord_user WHERE admin"));
     }
 

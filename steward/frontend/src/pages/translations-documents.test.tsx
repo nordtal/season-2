@@ -337,7 +337,7 @@ describe("an open document", { timeout: 15_000 }, () => {
 
     const editor = await openContribution()
     fireEvent.change(unfold(editor), { target: { value: "Support" } })
-    const send = within(editor).getByRole("button", { name: "Send it to me in Discord" })
+    const send = within(editor).getByRole("button", { name: "Send to me in Discord" })
     fireEvent.click(send)
 
     await waitFor(() => expect(within(send).getByRole("status").textContent).toBe("Done"))
@@ -463,7 +463,7 @@ describe("an open document", { timeout: 15_000 }, () => {
       fireEvent.click(within(editor).getAllByRole("button", { name: "Source" })[0])
       expect(within(editor).getByDisplayValue("<good>Won</good>")).toBeTruthy()
 
-      fireEvent.pointerDown(within(editor).getByRole("button", { name: "Add a part" }), { button: 0, ctrlKey: false })
+      fireEvent.pointerDown(within(editor).getByRole("button", { name: "Add part" }), { button: 0, ctrlKey: false })
       expect((await screen.findAllByRole("menuitem")).map((item) => item.textContent)).toEqual(["Text block"])
     },
   )
@@ -511,7 +511,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     expect(within(editor).getByText("Line shown when")).toBeTruthy()
     const toolbar = within(editor).getByRole("toolbar")
     expect(within(toolbar).getByRole("button", { name: "Source" })).toBeTruthy()
-    expect(within(toolbar).getByRole("button", { name: "As it looks" })).toBeTruthy()
+    expect(within(toolbar).getByRole("button", { name: "Preview" })).toBeTruthy()
   })
 
   it("offers a menu item line's condition the item's own values beside the document's", async () => {
@@ -571,8 +571,8 @@ describe("an open document", { timeout: 15_000 }, () => {
 
     await openItem("Tab footer")
     const editor = await screen.findByRole("region", { name: "Tab footer" })
-    expect(within(editor).queryByRole("button", { name: "Send it to me in Discord" })).toBeNull()
-    const show = within(editor).getByRole("button", { name: "Show it to my player in game" })
+    expect(within(editor).queryByRole("button", { name: "Send to me in Discord" })).toBeNull()
+    const show = within(editor).getByRole("button", { name: "Show in game to my player" })
     fireEvent.click(show)
 
     await waitFor(() => expect(within(show).getByRole("status").textContent).toBe("Done"))
@@ -606,8 +606,8 @@ describe("an open document", { timeout: 15_000 }, () => {
     const editor = await openContribution()
     // The last part is the row of buttons.
     fireEvent.pointerDown(within(editor).getAllByRole("button", { name: "Shared part" }).at(-1)!, { button: 0 })
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Save as a shared part" }))
-    const dialog = await screen.findByRole("dialog", { name: "Save as a shared part" })
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save as shared part" }))
+    const dialog = await screen.findByRole("dialog", { name: "Save as shared part" })
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "buttons" } })
 
     expect(await within(dialog).findByText("it does not place the input code")).toBeTruthy()
@@ -636,10 +636,10 @@ describe("an open document", { timeout: 15_000 }, () => {
 
     const editor = await openContribution()
     fireEvent.pointerDown(within(editor).getAllByRole("button", { name: "Shared part" }).at(-1)!, { button: 0 })
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Save as a shared part" }))
-    const dialog = await screen.findByRole("dialog", { name: "Save as a shared part" })
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Save as shared part" }))
+    const dialog = await screen.findByRole("dialog", { name: "Save as shared part" })
     fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "buttons" } })
-    expect(await within(dialog).findByText("No saved document names this shared part.")).toBeTruthy()
+    expect(await within(dialog).findByText("No saved documents use this shared part.")).toBeTruthy()
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }))
 
     await waitFor(() => expect(saved).toEqual([["buttons", contribution.packaged.parts[1]]]))
@@ -660,16 +660,16 @@ describe("an open document", { timeout: 15_000 }, () => {
     draw(<Page />)
 
     const editor = await openContribution()
-    const adds = within(editor).getAllByRole("button", { name: "Add a part" })
+    const adds = within(editor).getAllByRole("button", { name: "Add part" })
     fireEvent.pointerDown(adds.at(-1)!, { button: 0 })
     fireEvent.click(await screen.findByRole("menuitem", { name: "Shared part rule-links" }))
 
     expect(await within(editor).findByText("Shared part rule-links")).toBeTruthy()
     // An added part starts open.
-    expect(within(editor).getByText(/Drawn from the shared part rule-links\./)).toBeTruthy()
+    expect(within(editor).getByText(/Uses shared part rule-links\./)).toBeTruthy()
 
     fireEvent.pointerDown(within(editor).getAllByRole("button", { name: "Shared part" }).at(-1)!, { button: 0 })
-    fireEvent.click(await screen.findByRole("menuitem", { name: "Detach from the shared part" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Detach shared part" }))
     await waitFor(() => expect(within(editor).queryByText("Shared part rule-links")).toBeNull())
     expect(within(editor).queryByText(/Drawn from the shared part rule-links/)).toBeNull()
   })
@@ -688,7 +688,7 @@ describe("an open document", { timeout: 15_000 }, () => {
     const editor = await openContribution()
     const card = screen.getByRole("article", { name: "Contribution" })
     expect(within(card).getByText("changed")).toBeTruthy()
-    expect(within(card).getByText("release changed")).toBeTruthy()
+    expect(within(card).getByText("Release updated")).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Packaged" })).toBeTruthy()
     expect(within(editor).getByRole("heading", { name: "Saved" })).toBeTruthy()
   })

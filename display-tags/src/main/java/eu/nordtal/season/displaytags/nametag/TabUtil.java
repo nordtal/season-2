@@ -23,7 +23,7 @@ public final class TabUtil {
         try {
             Class.forName("me.neznamy.tab.api.TabAPI", false, TabUtil.class.getClassLoader());
         } catch (ClassNotFoundException | LinkageError error) {
-            plugin.getLogger().warning("TAB API not accessible, own name tags used");
+            plugin.getLogger().warning("tab api unavailable, display-tags name tags used");
             return;
         }
 
@@ -31,10 +31,10 @@ public final class TabUtil {
 
         try {
             Hook.registerNameTagHider(plugin);
-            plugin.getLogger().info("TAB found");
+            plugin.getLogger().info("tab api available");
         } catch (LinkageError | RuntimeException error) {
             available = false;
-            plugin.getLogger().warning("TAB hook failed, own name tags used: cause=" + error);
+            plugin.getLogger().warning("tab integration failed, display-tags name tags used: cause=" + error);
         }
     }
 
@@ -55,7 +55,7 @@ public final class TabUtil {
             // TAB creates its event bus after it has loaded, so this can be null.
             final EventBus eventBus = TabAPI.getInstance().getEventBus();
             if (eventBus == null) {
-                plugin.getLogger().warning("TAB event bus missing, vanilla name tags not hidden by TAB");
+                plugin.getLogger().warning("tab event bus missing, vanilla name tags not hidden");
                 return;
             }
 

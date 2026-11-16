@@ -1,0 +1,64 @@
+package eu.nordtal.season.smp.config;
+
+import eu.nordtal.season.settings.Refers;
+import eu.nordtal.season.settings.rule.Required;
+import eu.nordtal.season.spec.annotation.ConfigSpec;
+import eu.nordtal.season.spec.annotation.Key;
+import eu.nordtal.season.spec.annotation.Name;
+import eu.nordtal.season.spec.annotation.NoExplanationNeeded;
+import eu.nordtal.season.spec.annotation.Order;
+
+/** Where a player stands and faces, as a teleport puts them there. */
+@ConfigSpec
+public interface SpotSpec {
+
+    @Order(1)
+    @Name("World")
+    @Key("world")
+    @Required
+    @Refers(Refers.To.WORLD)
+    @NoExplanationNeeded
+    default String world() {
+        return "nordtal";
+    }
+
+    @Order(2)
+    @Name("X")
+    @Key("x")
+    @NoExplanationNeeded
+    default double x() {
+        return 0.5;
+    }
+
+    @Order(3)
+    @Name("Y")
+    @Key("y")
+    @NoExplanationNeeded
+    default double y() {
+        return 64.0;
+    }
+
+    @Order(4)
+    @Name("Z")
+    @Key("z")
+    @NoExplanationNeeded
+    default double z() {
+        return 0.5;
+    }
+
+    @Order(5)
+    @Name("Yaw")
+    @Key("yaw")
+    @NoExplanationNeeded
+    default float yaw() {
+        return 0.0f;
+    }
+
+    @Order(6)
+    @Name("Pitch")
+    @Key("pitch")
+    @NoExplanationNeeded
+    default float pitch() {
+        return 0.0f;
+    }
+}

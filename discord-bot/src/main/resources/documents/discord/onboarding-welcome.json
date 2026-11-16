@@ -20,12 +20,36 @@
           ]
         },
         {
-          "type": "TEXT",
-          "lines": [
+          "type": "LANGUAGES",
+          "slot": "each",
+          "parts": [
             {
-              "text": {
-                "en": "Choose your language, then your region. Every channel opens after that.",
-                "de": "Wähle deine Sprache, danach deine Region. Dann stehen dir alle Kanäle offen."
+              "type": "TEXT",
+              "lines": [
+                {
+                  "text": {
+                    "en": "Choose your country.",
+                    "de": "Wähle dein Land."
+                  }
+                },
+                {
+                  "text": {
+                    "en": "Your country is saved as soon as you select it.",
+                    "de": "Dein Land wird direkt nach der Auswahl gespeichert."
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "countries",
+              "placeholder": {
+                "en": "Choose your country",
+                "de": "Land wählen"
               }
             }
           ]
@@ -34,10 +58,10 @@
           "type": "ROW",
           "items": [
             {
-              "slot": "language",
-              "placeholder": {
-                "en": "Choose your language",
-                "de": "Sprache wählen"
+              "slot": "settings",
+              "label": {
+                "en": "Show settings",
+                "de": "Einstellungen anzeigen"
               }
             }
           ]

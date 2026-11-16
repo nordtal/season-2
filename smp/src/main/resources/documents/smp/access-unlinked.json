@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>{player.name} has no linked Discord account, yet got past the login.</bad>",
-            "de": "<bad>{player.name} hat kein verknüpftes Discord-Konto und kam trotzdem durch den Login.</bad>"
+            "en": "<bad>{player.name} joined without a linked Discord account.</bad>",
+            "de": "<bad>{player.name} ist ohne verknüpftes Discord-Konto beigetreten.</bad>"
           }
         }
       ]

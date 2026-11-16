@@ -42,7 +42,7 @@ describe("the door", () => {
   it("offers the key first and the code below it", () => {
     within(<HoldKeyPage me={meWith({ keys: [KEY], authenticator: APP })} />)
 
-    const key = screen.getByRole("button", { name: "Use my key" })
+    const key = screen.getByRole("button", { name: "Use security key" })
     const code = screen.getByRole("button", { name: "Use code" })
     expect(key.compareDocumentPosition(code) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
@@ -54,7 +54,7 @@ describe("the door", () => {
       return new Response(null, { status: 204 })
     })
     within(<HoldKeyPage me={meWith({ authenticator: APP })} />)
-    expect(screen.queryByRole("button", { name: "Use my key" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Use security key" })).toBeNull()
 
     fireEvent.change(screen.getByLabelText("Code from the app"), { target: { value: "123 456" } })
     fireEvent.click(screen.getByRole("button", { name: "Use code" }))
@@ -66,11 +66,11 @@ describe("the door", () => {
 describe("the popover's app row", () => {
   it("cannot remove the app while it is the only factor", () => {
     within(<Row me={meWith({ verified: true, authenticator: APP })} />)
-    expect(screen.getByRole("button", { name: "Remove the authenticator app" }).hasAttribute("disabled")).toBe(true)
+    expect(screen.getByRole("button", { name: "Remove authenticator app" }).hasAttribute("disabled")).toBe(true)
   })
 
   it("can remove it beside a key", () => {
     within(<Row me={meWith({ verified: true, keys: [KEY], authenticator: APP })} />)
-    expect(screen.getByRole("button", { name: "Remove the authenticator app" }).hasAttribute("disabled")).toBe(false)
+    expect(screen.getByRole("button", { name: "Remove authenticator app" }).hasAttribute("disabled")).toBe(false)
   })
 })

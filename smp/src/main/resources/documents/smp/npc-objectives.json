@@ -1,0 +1,15 @@
+{
+  "parts": [
+    {
+      "type": "TEXT",
+      "lines": [
+        {
+          "text": {
+            "en": "Open {@terms.objective, n=2}",
+            "de": "{@terms.objective, n=2} öffnen"
+          }
+        }
+      ]
+    }
+  ]
+}

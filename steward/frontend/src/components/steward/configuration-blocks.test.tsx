@@ -160,7 +160,7 @@ describe("repeatable cards for a SECTIONS entry", () => {
     await screen.findByDisplayValue("de")
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 2" }))
-    fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
+    fireEvent.click(screen.getByRole("button", { name: "Remove entry" }))
 
     expect(screen.queryByDisplayValue("de")).toBeNull()
     screen.getByRole("button", { name: "Save 1" })

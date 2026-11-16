@@ -1,7 +1,10 @@
 package eu.nordtal.season.papercommon.dialog;
 
 import eu.nordtal.season.messages.feedback.Feedback;
+import eu.nordtal.season.packrendering.ui.BodyColumn;
 import eu.nordtal.season.packrendering.ui.BodyLine;
+import eu.nordtal.season.packrendering.ui.DialogTitle;
+import eu.nordtal.season.packrendering.ui.FocusRing;
 import io.papermc.paper.dialog.DialogResponseView;
 import io.papermc.paper.registry.RegistryKey;
 import io.papermc.paper.registry.data.dialog.ActionButton;
@@ -36,9 +39,6 @@ public final class Dialogs {
     /** A click ignored while busy must not use the callback up, or the click after it would find none. */
     static final ClickCallback.Options KEPT_WHILE_BUSY =
             ClickCallback.Options.builder().uses(ClickCallback.UNLIMITED_USES).build();
-
-    /** A body line's box is this much wider than its art. */
-    private static final int RING = 10;
 
     private final Executor main;
     private final BiConsumer<Player, Feedback> chime;
@@ -82,9 +82,22 @@ public final class Dialogs {
                 .build();
     }
 
-    /** A body line whose art is {@code art} wide: its box is 10 wider, so the focus ring stands clear of the art. */
-    public static DialogBody line(final Component line, final int art) {
-        return DialogBody.plainMessage(line, art + RING);
+    /**
+     * A body line of one text row whose art is {@code art} wide, framed on {@code ground}.
+     * Its box is 10 wider, so the focus ring stands clear of the art and shows only its corners.
+     */
+    public static DialogBody line(final Component line, final int art, final FocusRing.Ground ground) {
+        return DialogBody.plainMessage(FocusRing.frame(line, art, FocusRing.MIN_ROWS, ground), FocusRing.box(art));
+    }
+
+    /** A body line of {@code column}, framed on {@code ground}. */
+    public static DialogBody line(final BodyColumn column, final FocusRing.Ground ground) {
+        return DialogBody.plainMessage(column.build(ground), FocusRing.box(column.width()));
+    }
+
+    /** A body line of {@code column}, framed on {@code ground} and open over {@code title}'s ink above it. */
+    public static DialogBody line(final BodyColumn column, final FocusRing.Ground ground, final DialogTitle title) {
+        return DialogBody.plainMessage(column.build(ground, title), FocusRing.box(column.width()));
     }
 
     /** Returns {@code text} as the plain words a drawn header or row takes. */

@@ -1,6 +1,7 @@
 package eu.nordtal.season.packrendering.ui;
 
 import eu.nordtal.season.packrendering.Glyphs;
+import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -22,7 +23,7 @@ public final class DialogTitle {
     public static final int MARGIN = 7;
 
     /** The panel tops the pack has a font for, as glyphs.json describes them. */
-    public static final List<Integer> TOPS = List.of(49, 50, 53, 55, 57, 43);
+    public static final List<Integer> TOPS = List.of(49, 50, 52, 53, 54, 55, 56, 57, 43);
 
     private static final int HEADER_ROW = 280;
     private static final int FIELD_FRAME = 184;
@@ -32,10 +33,16 @@ public final class DialogTitle {
 
     private static final int NAME_TO_MARK = 8;
 
+    /** From the header's capitals to its last row of ink, a descender's. */
+    private static final int HEADER_INK = 7;
+
     private final Pen pen = Pen.start();
     private final DialogPanel panel;
     private final int top;
     private final int left;
+    private final List<FocusRing.Open> ink = new ArrayList<>();
+    private int inkTop = -1;
+    private int inkBottom = -1;
 
     private DialogTitle(final DialogPanel panel, final int top) {
         final String font = Glyphs.FONT_UI_DIALOG.get(top);
@@ -76,13 +83,33 @@ public final class DialogTitle {
         if (symbol != null) {
             pen.moveTo(left + margin).symbol(shift, symbol, Colours.INK);
         }
-        pen.moveTo(left + nameX).text(shift, Letters.cut(name, room), Colours.INK);
+        final String shown = Letters.cut(name, room);
+        pen.moveTo(left + nameX).text(shift, shown, Colours.INK);
+        inkTop = margin;
+        inkBottom = margin + HEADER_INK;
+        ink.add(open(symbol == null ? nameX : margin, nameX + Letters.width(shown)));
+        if (!marks.isEmpty()) {
+            ink.add(open(marksLeft, right + 1));
+        }
         return this;
+    }
+
+    /**
+     * The header's ink that lies on panel row {@code row}, as columns a body line's focus ring leaves open there.
+     * Each reaches a pixel further on either side, so the panel's and the line's centring cannot cut a stroke.
+     */
+    public List<FocusRing.Open> ink(final int row) {
+        return row >= inkTop && row <= inkBottom ? List.copyOf(ink) : List.of();
+    }
+
+    private FocusRing.Open open(final int from, final int to) {
+        final int centre = panel.width() / 2;
+        return new FocusRing.Open(from - centre - 1, to - centre + 1);
     }
 
     /** Draws {@code text} centred on the panel, its capitals at screen y {@code y}, such as the station's refusal. */
     public DialogTitle centred(final int y, final String text, final TextColor colour) {
-        pen.moveTo(left + panel.width() / 2 - Letters.visibleWidth(text) / 2).text(y - TITLE_ROW, text, colour);
+        pen.moveTo(left + panel.width() / 2 - Letters.width(text) / 2).text(y - TITLE_ROW, text, colour);
         return this;
     }
 

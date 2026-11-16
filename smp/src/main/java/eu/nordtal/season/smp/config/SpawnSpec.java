@@ -1,5 +1,6 @@
 package eu.nordtal.season.smp.config;
 
+import eu.nordtal.season.settings.Position;
 import eu.nordtal.season.spec.annotation.ConfigSpec;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Name;
@@ -14,14 +15,16 @@ public interface SpawnSpec {
     @Order(43)
     @Name("Nordtal spawn")
     @Key("nordtal-spawn")
+    @Position(Position.Shape.SPOT)
     @NoExplanationNeeded
-    default FirstJoinSpawnSpec nordtalSpawn() {
+    default SpotSpec nordtalSpawn() {
         return DefaultSmp.FIRST_JOIN_SPAWN;
     }
 
     @Order(27)
     @Name("Protected areas")
     @Key("protected-areas")
+    @Position(Position.Shape.AREA)
     @NoExplanationNeeded
     default List<SpawnRegionSpec> protectedAreas() {
         return DefaultSmp.SPAWN_REGIONS;

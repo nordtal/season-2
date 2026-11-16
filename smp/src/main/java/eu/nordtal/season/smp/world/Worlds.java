@@ -105,7 +105,7 @@ public final class Worlds {
     public void applyFixedBorders() {
         world(WorldRole.NORDTAL).ifPresent(world -> {
             final WorldBorder border = world.getWorldBorder();
-            border.setCenter(config.borderCentreX(), config.borderCentreZ());
+            border.setCenter(config.borderCentre().x(), config.borderCentre().z());
         });
         centreAndSize(WorldRole.NETHER, config.netherBorderDiameter());
         centreAndSize(WorldRole.END, config.endBorderDiameter());
@@ -128,7 +128,7 @@ public final class Worlds {
     public void expandNordtal(final int diameter, final boolean animate) {
         world(WorldRole.NORDTAL).ifPresent(world -> {
             final WorldBorder border = world.getWorldBorder();
-            border.setCenter(config.borderCentreX(), config.borderCentreZ());
+            border.setCenter(config.borderCentre().x(), config.borderCentre().z());
 
             final double current = border.getSize();
             if (!animate || diameter <= current) {

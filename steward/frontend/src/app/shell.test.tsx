@@ -136,7 +136,7 @@ describe("Shell - every other answer is a fault, not a missing session", () => {
 })
 
 function setupPage() {
-  return screen.queryByText(/Register your security key/)
+  return screen.queryByText(/Set up your security key/)
 }
 
 function signedIn(keys: unknown) {

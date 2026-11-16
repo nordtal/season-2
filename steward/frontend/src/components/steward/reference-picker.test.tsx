@@ -198,6 +198,6 @@ describe("ReferencePicker", () => {
     cleanup()
     game = undefined
     draw(ITEM, [], true)
-    expect(screen.getByText("No server has published its game data yet.")).toBeTruthy()
+    expect(screen.getByText("Game data has not been reported by any server yet.")).toBeTruthy()
   })
 })

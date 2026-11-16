@@ -63,7 +63,7 @@ public interface GameTexts {
     @Name("Locked")
     MessageRef locked();
 
-    @Name("Tasks")
+    @Name("Objectives")
     MessageRef tasks(@Arg("finished") @Example("2") int finished, @Arg("total") @Example("5") int total);
 
     @Name("Progress")
@@ -147,7 +147,7 @@ public interface GameTexts {
     @Name("No prizes")
     MessageRef noPrizes();
 
-    @Name("Take in from game")
+    @Name("Import from game")
     MessageRef takeIn();
 
     @Name("Cancel take-in")
@@ -295,6 +295,30 @@ public interface GameTexts {
 
     @Name("No points")
     MessageRef noPoints();
+
+    @Name("Spot")
+    MessageRef spot();
+
+    @Name("Numbered spot")
+    MessageRef spotNumbered(@Arg("index") @Example("2") int index);
+
+    @Name("No spots")
+    MessageRef noSpots();
+
+    @Name("Take my position")
+    MessageRef takePosition();
+
+    @Name("Take the block I look at")
+    MessageRef takeBlock();
+
+    @Name("Take a corner")
+    MessageRef takeCorner(@Arg("index") @Example("1") int index);
+
+    @Name("Cancel taking a position")
+    MessageRef cancelTakePosition();
+
+    @Name("Position not taken")
+    MessageRef takePositionFailed();
 
     @Name("Corner")
     MessageRef corner(@Arg("index") @Example("1") int index);

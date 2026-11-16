@@ -14,10 +14,6 @@ public final class Replies {
 
     public record Reference(@Example("NT-A1B2C3") String reference) {}
 
-    public record Saved(
-            @Example("English") String language,
-            @Example("Central Europe") String region) {}
-
     public record Partner(DiscordMemberContext partner) {}
 
     /** @param bot whether the invited account is a bot, rather than one already on a team or invited */
@@ -79,8 +75,6 @@ public final class Replies {
     public static final DocumentSpec<DocumentSpec.None> UNLINK_NONE =
             reply("unlink-none", "Link").titled("Nothing to unlink");
 
-    public static final DocumentSpec<Saved> ONBOARDING_SAVED =
-            reply("onboarding-saved", "Onboarding", Saved.class).titled("Language and region saved");
     public static final DocumentSpec<DocumentSpec.None> ONBOARDING_FAILED =
             reply("onboarding-failed", "Onboarding").titled("Saving failed");
 
@@ -94,6 +88,10 @@ public final class Replies {
             reply("register-closed", "Register").titled("Registration closed");
     public static final DocumentSpec<DocumentSpec.None> REGISTER_FAILED =
             reply("register-failed", "Register").titled("Registration failed");
+    public static final DocumentSpec<DocumentSpec.None> INVITE_FAILED =
+            reply("invite-failed", "Register").titled("Invitation failed");
+    public static final DocumentSpec<DocumentSpec.None> INVITE_ANSWER_FAILED =
+            reply("invite-answer-failed", "Register").titled("Invitation response failed");
     public static final DocumentSpec<Partner> INVITE_SENT =
             reply("invite-sent", "Register", Partner.class).titled("Invitation sent");
     public static final DocumentSpec<DocumentSpec.None> INVITE_NOT_OWNER =

@@ -68,10 +68,7 @@ public final class WheelPack {
         for (final String key : keys) {
             final Optional<Map<?, ?>> found = vanilla.definition(key);
             if (found.isEmpty()) {
-                LOG.log(
-                        System.Logger.Level.WARNING,
-                        "Vanilla has no item {0}, so the wheel shows a question mark for it.",
-                        key);
+                LOG.log(System.Logger.Level.WARNING, "wheel prize item unknown, placeholder selected: item={0}", key);
                 continue;
             }
             final Map<?, ?> definition = found.get();
@@ -84,7 +81,7 @@ public final class WheelPack {
             if (displays.isEmpty()) {
                 LOG.log(
                         System.Logger.Level.WARNING,
-                        "The item {0} draws nothing in a slot, so the wheel shows a question mark for it.",
+                        "wheel prize item has no slot display, placeholder selected: item={0}",
                         key);
                 continue;
             }

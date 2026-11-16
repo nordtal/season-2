@@ -27,7 +27,7 @@ public interface WebSpec {
     @Order(2)
     @Name("Public URL")
     @Key("public-url")
-    @Explain("Start-up fails unless it lies under the relying party ID.")
+    @Explain("The URL’s host must match the relying party ID or one of its subdomains.")
     default String publicUrl() {
         return "https://steward.nordtal.eu";
     }
@@ -70,7 +70,7 @@ public interface WebSpec {
     @Name("Authenticator app key")
     @Key("totp-key")
     @Secret
-    @Explain("64 hex digits. A new key makes every enrolled authenticator app unreadable.")
+    @Explain("Use 64 hex digits. Changing this key disables existing authenticator apps.")
     default String totpKey() {
         return "";
     }
@@ -82,7 +82,7 @@ public interface WebSpec {
         @Order(1)
         @Name("Relying party ID")
         @Key("relying-party-id")
-        @Explain("Changing it invalidates every registered key.")
+        @Explain("Changing this ID invalidates all registered security keys.")
         default String relyingPartyId() {
             return "nordtal.eu";
         }
@@ -124,7 +124,7 @@ public interface WebSpec {
         @Order(1)
         @Name("Minecraft head base URL")
         @Key("minecraft-head-base-url")
-        @Explain("Every render sends the looked-at player's UUID to this third-party service.")
+        @Explain("Loading a Minecraft head sends that player’s UUID to this third-party service.")
         default String minecraftHeadBaseUrl() {
             return "https://api.mineatar.io/face?scale=16";
         }
@@ -144,7 +144,7 @@ public interface WebSpec {
         @Order(2)
         @Name("Client secret")
         @Key("client-secret")
-        @Explain("Empty means nobody can sign in.")
+        @Explain("An empty value disables sign-in.")
         default String clientSecret() {
             return "";
         }
@@ -152,7 +152,7 @@ public interface WebSpec {
         @Order(3)
         @Name("Server ID")
         @Key("guild-id")
-        @Explain("Decides who may sign in to Steward, apart from the bot's server.")
+        @Explain("Uses this Discord server to decide who may sign in, independently of the bot’s server.")
         default String guildId() {
             return "";
         }
@@ -160,7 +160,7 @@ public interface WebSpec {
         @Order(4)
         @Name("Root's Discord ID")
         @Key("root-id")
-        @Explain("May become root while nobody is an admin. Empty means nobody.")
+        @Explain("This user can become root when no admins exist. Leave empty to prevent root signup.")
         @Refers(value = Refers.To.DISCORD_USER, optional = true)
         default String rootId() {
             return "";

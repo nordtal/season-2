@@ -421,13 +421,13 @@ final class Run {
         return switch (verdict) {
             case DONE -> {
                 if (!missing.isEmpty()) {
-                    log.info("players back counted, the rest wait for maintenance: moves={}", missing);
+                    log.info("player returns counted, remaining players held for maintenance: moves={}", missing);
                 }
                 returning.done();
                 yield true;
             }
             case LOST -> {
-                log.warn("fewer players came back than moved out: moves={} waiting={}", missing, waiting);
+                log.warn("player return incomplete: moves={} waiting={}", missing, waiting);
                 returning.warned(RunStep.Reason.PLAYERS_LOST);
                 yield true;
             }
@@ -446,7 +446,7 @@ final class Run {
         try {
             return Optional.of(Set.copyOf(runner.held()));
         } catch (final RuntimeException unread) {
-            log.warn("service holds not read, players back not counted", unread);
+            log.warn("service holds unreadable, player returns not counted", unread);
             return Optional.empty();
         }
     }
@@ -504,7 +504,7 @@ final class Run {
             // A missing row reads as maintenance on, which would hide a real loss.
             return !SeasonState.UNREAD.equals(state) && state.maintenance();
         } catch (final RuntimeException unread) {
-            log.warn("maintenance not read, players back counted without it", unread);
+            log.warn("maintenance state unreadable, player returns counted without maintenance adjustment", unread);
             return false;
         }
     }

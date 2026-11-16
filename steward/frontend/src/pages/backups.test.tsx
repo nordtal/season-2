@@ -375,7 +375,7 @@ describe("BackupsPage - the schedule dialog carries the retention numbers now (i
     fireEvent.click(await screen.findByRole("button", { name: "Mon" }))
     fireEvent.click(screen.getByRole("button", { name: "Thu" }))
 
-    expect(await screen.findByText(/until a night is picked/i)).toBeTruthy()
+    expect(await screen.findByText(/Select a night to schedule automatic backups/i)).toBeTruthy()
   })
 })
 
@@ -392,7 +392,7 @@ describe("BackupsPage - the numbers it opens with", () => {
     vi.stubGlobal("fetch", backend({}))
     draw()
 
-    expect(await screen.findByText("no nightly clock")).toBeTruthy()
+    expect(await screen.findByText("No nightly backup scheduled")).toBeTruthy()
   })
 })
 
@@ -550,7 +550,7 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
       within(await rowOf("nordtal-s2_mc-smp-20260917T044505Z.tar.zst")).getByText("pruned, no retention rule kept it"),
     ).toBeTruthy()
     expect(
-      within(await rowOf("nordtal-s2_mc-limbo-20260917T044505Z.tar.zst")).getByText("missing from the disk"),
+      within(await rowOf("nordtal-s2_mc-limbo-20260917T044505Z.tar.zst")).getByText("Not found on disk"),
     ).toBeTruthy()
     expect(
       within(await rowOf("nordtal-s2_mc-smp-20260910T044500Z.tar.zst")).getByText("pruned, over the disk budget"),
@@ -610,7 +610,7 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     expect(screen.getByRole("heading", { name: "Stages" })).toBeTruthy()
     expect(within(stage.parentElement!).getByText("1 archive saved")).toBeTruthy()
     fireEvent.click(stage)
-    expect(screen.getByText("Save a volume")).toBeTruthy()
+    expect(screen.getByText("Save nordtal-s2_mc-smp")).toBeTruthy()
   })
 
   it("says a run that saved archives without catalogue rows wrote archives the catalogue does not list", async () => {
@@ -623,7 +623,7 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     )
     drawDetail("41")
 
-    expect(await screen.findByText("This run wrote archives that the catalogue does not list")).toBeTruthy()
+    expect(await screen.findByText("This run created archives that are not in the catalogue")).toBeTruthy()
   })
 
   it("says a running backup has written no archive yet", async () => {
@@ -633,14 +633,14 @@ describe("BackupRunDetailPage - a run's own archives, downloadable (item 6)", ()
     )
     drawDetail("41")
 
-    expect(await screen.findByText("This run has written no archive yet")).toBeTruthy()
+    expect(await screen.findByText("No archive created yet")).toBeTruthy()
   })
 
   it("says a run whose saves all failed wrote no archive", async () => {
     vi.stubGlobal("fetch", backend({ runs: [run()], backups: [] }))
     drawDetail("41")
 
-    expect(await screen.findByText("This run wrote no archive")).toBeTruthy()
+    expect(await screen.findByText("This run created no archive")).toBeTruthy()
   })
 
   it("names a failed catalogue in the archives panel instead of waiting on it", async () => {
@@ -711,9 +711,9 @@ describe("BackupsPage - what moved here from Operations", () => {
     fireEvent.keyDown(await screen.findByRole("combobox"), { key: "Enter" })
 
     const left = await screen.findByRole("option", { name: /nordtal-s2_mc-proxy-20260917T044500Z/ })
-    expect(left.textContent).toContain("no longer in the backup")
+    expect(left.textContent).toContain("No longer included in backups")
     const kept = await screen.findByRole("option", { name: /nordtal-s2_mc-smp-20260917T044500Z/ })
-    expect(kept.textContent).not.toContain("no longer in the backup")
+    expect(kept.textContent).not.toContain("No longer included in backups")
   })
 
   it("offers no archive that is still being written", async () => {
@@ -721,6 +721,6 @@ describe("BackupsPage - what moved here from Operations", () => {
     draw()
 
     fireEvent.click(await screen.findByRole("button", { name: "Restore" }))
-    expect(await screen.findByText("Every file still has the .partial suffix.")).toBeTruthy()
+    expect(await screen.findByText("All archives are incomplete (.partial files).")).toBeTruthy()
   })
 })

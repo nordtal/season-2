@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<bad>Not possible in the spawn area.</bad>",
-            "de": "<bad>Im Spawn-Bereich nicht möglich.</bad>"
+            "en": "<bad>You cannot do that at spawn.</bad>",
+            "de": "<bad>Das kannst du am Spawn nicht tun.</bad>"
           }
         }
       ]

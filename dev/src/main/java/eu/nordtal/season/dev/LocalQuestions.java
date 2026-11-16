@@ -52,59 +52,57 @@ final class LocalQuestions {
 
     private static final Pattern BROWSER_URL = Pattern.compile("https?://[A-Za-z0-9.-]+(:[0-9]+)?");
 
-    private static final String SKIP = "Press Enter to skip: the stack still comes up, the bot simply does not run"
-            + " and nobody can sign in to the interface.";
+    private static final String SKIP =
+            "Press Enter to skip. Discord features and Steward sign-in require the Discord settings.";
 
     static final List<Question> ALL = List.of(
             new Question(
                     "EULA",
                     Kind.LICENCE,
                     "Do you accept the Minecraft EULA? (https://aka.ms/MinecraftEULA)",
-                    "Four Minecraft servers are about to start, and none of them may without this. [y/N]",
+                    "[y/N]",
                     answer -> true),
             new Question(
                     "STEWARD_PUBLIC_URL",
                     Kind.PLAIN,
-                    "What address will you open the interface on?",
-                    "Scheme and host, no path - http://steward.localhost:8080 is the container itself and is the"
-                            + " answer if you are not running the Vite dev server. Discord gets this plus"
-                            + " /auth/callback as its redirect URI, and every security key is bound to its host.",
+                    "What URL will you use to open Steward?",
+                    "Use http://steward.localhost:8080 for the container or http://localhost:5173 for Vite."
+                            + " Set the Discord redirect URI to this URL followed by /auth/callback.",
                     LocalQuestions::looksLikeBrowserUrl),
             new Question(
                     "NORDTAL_BOT_TOKEN",
                     Kind.OPTIONAL_SECRET,
-                    "The Discord bot token.",
-                    "A TEST application's token, never the production bot's - it would join the real guild from"
-                            + " your laptop. " + SKIP,
+                    "Enter the Discord bot token.",
+                    "Use a test application. A production token connects this local bot to the real Discord server. "
+                            + SKIP,
                     answer -> true,
                     new Home("discord-bot", "NORDTAL_BOT_TOKEN")),
             new Question(
                     "STEWARD_DISCORD_CLIENT_ID",
                     Kind.OPTIONAL_PLAIN,
-                    "The Discord application's Client ID - this is what the interface signs you in with.",
-                    "The same test application, OAuth2 page. Its redirect URI has to be <the address above>"
+                    "Enter the Discord application Client ID for Steward sign-in.",
+                    "Open OAuth2 in the same test application. Set the redirect URI to <the URL above>"
                             + "/auth/callback. " + SKIP,
                     LocalQuestions::looksLikeSnowflake),
             new Question(
                     "STEWARD_DISCORD_CLIENT_SECRET",
                     Kind.OPTIONAL_SECRET,
-                    "The same application's Client Secret.",
-                    "OAuth2 -> Reset Secret, on the test application. " + SKIP,
+                    "Enter that Discord application’s Client Secret.",
+                    "Open OAuth2, then Reset Secret in the test application. " + SKIP,
                     answer -> true,
                     new Home("steward", "NORDTAL_STEWARD_WEB_DISCORD_CLIENT_SECRET")),
             new Question(
                     "NORDTAL_ACCESS_GUILD_ID",
                     Kind.OPTIONAL_PLAIN,
-                    "The id of the guild this deployment belongs to.",
-                    "A test guild, not the real one. " + SKIP,
+                    "Enter the Discord server ID.",
+                    "Use a test server. " + SKIP,
                     LocalQuestions::looksLikeSnowflake),
             new Question(
                     "STEWARD_ROOT_DISCORD_ID",
                     Kind.OPTIONAL_PLAIN,
-                    "Your own Discord id: the one account that may become root of the interface.",
-                    "Discord -> Developer Mode -> right-click your own name -> Copy User ID. Your first sign-in"
-                            + " then becomes root of the empty admin tree. Press Enter to skip: nobody can"
-                            + " become root, and the sign-in page says so.",
+                    "Enter the Discord user ID for the first root admin.",
+                    "Enable Developer Mode in Discord. Right-click your name and select Copy User ID."
+                            + " This account can claim root access when no admins exist. Press Enter to skip root setup.",
                     LocalQuestions::looksLikeSnowflake));
 
     private LocalQuestions() {}

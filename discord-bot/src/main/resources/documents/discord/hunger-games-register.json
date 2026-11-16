@@ -30,8 +30,8 @@
             },
             {
               "text": {
-                "en": "If your team member is not there when the game starts, you play alone with full hearts.",
-                "de": "Ist dein Teammitglied beim Start nicht da, spielst du allein mit vollen Herzen."
+                "en": "You play alone with full hearts if your team member misses the start.",
+                "de": "Du spielst allein mit vollen Herzen, wenn dein Teammitglied beim Start fehlt."
               }
             }
           ]

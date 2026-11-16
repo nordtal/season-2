@@ -54,7 +54,7 @@ public interface GateSpec {
         return 5;
     }
 
-    /** The seconds between two writes of the play time of the connected players. */
+    /** The seconds between two writes of the playtime of the connected players. */
     @Order(8)
     @Name("Playtime flush interval (seconds)")
     @Key("playtime-flush-interval-seconds")

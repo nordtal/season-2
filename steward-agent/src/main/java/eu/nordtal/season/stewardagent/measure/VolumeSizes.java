@@ -47,7 +47,7 @@ public final class VolumeSizes {
                     .start();
             if (!process.waitFor(30, TimeUnit.SECONDS)) {
                 process.destroyForcibly();
-                log.warn("du timed out and stopped: path={} timeout=30s", path);
+                log.warn("du timed out, process stopped: path={} timeout=30s", path);
                 return OptionalLong.empty();
             }
             // du exits 1 when a file vanished under it, which a running server does all the time; the total stands.

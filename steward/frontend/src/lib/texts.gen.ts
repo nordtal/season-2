@@ -7,6 +7,9 @@ export type TextArgs = {
     hours: Arg["number"]
     limit: Arg["number"]
   }
+  "alert.channel-seen": {
+    channel: Arg["text"]
+  }
   "alert.claimed": {
     payment: Arg["text"]
     amount: Arg["money"]
@@ -44,6 +47,7 @@ export type TextArgs = {
   "alert.health-fails": {
     service: Arg["text"]
   }
+  "alert.language-not-kept": Record<string, never>
   "alert.level": {
     level: Arg["choice"]
   }
@@ -59,9 +63,7 @@ export type TextArgs = {
   "alert.missing": {
     subject: Arg["text"]
   }
-  "alert.no-archive": {
-    volume: Arg["text"]
-  }
+  "alert.no-archive": Record<string, never>
   "alert.no-backup": Record<string, never>
   "alert.no-dump": Record<string, never>
   "alert.no-offsite": Record<string, never>
@@ -86,12 +88,13 @@ export type TextArgs = {
   "alert.offered-pack": {
     url: Arg["text"]
   }
-  "alert.old-archive": {
-    volume: Arg["text"]
-  }
+  "alert.old-archive": Record<string, never>
   "alert.old-dump": Record<string, never>
   "alert.old-offsite": Record<string, never>
   "alert.older-image": {
+    count: Arg["number"]
+  }
+  "alert.older-on": {
     services: Arg["list"]
     count: Arg["number"]
   }
@@ -121,9 +124,12 @@ export type TextArgs = {
   "alert.run": {
     run: Arg["number"]
   }
-  "alert.several": {
-    subjects: Arg["list"]
+  "alert.seen-through": {
+    holder: Arg["text"]
   }
+  "alert.several": Record<string, never>
+  "alert.show-start-channel": Record<string, never>
+  "alert.start-channel-hidden": Record<string, never>
   "alert.step": {
     kind: Arg["message"]
     why: Arg["message"]
@@ -614,6 +620,11 @@ export type TextArgs = {
   "run.step-kind": {
     kind: Arg["choice"]
   }
+  "run.step-on": {
+    kind: Arg["choice"]
+    step: Arg["message"]
+    service: Arg["text"]
+  }
   "run.title": {
     kind: Arg["choice"]
     stage: Arg["choice"]
@@ -1100,6 +1111,7 @@ export type TextArgs = {
     index: Arg["number"]
   }
   "steward.game.cancel-take-in": Record<string, never>
+  "steward.game.cancel-take-position": Record<string, never>
   "steward.game.chance": Record<string, never>
   "steward.game.chance-is": {
     total: Arg["number"]
@@ -1176,6 +1188,7 @@ export type TextArgs = {
   "steward.game.no-points": Record<string, never>
   "steward.game.no-prizes": Record<string, never>
   "steward.game.no-round": Record<string, never>
+  "steward.game.no-spots": Record<string, never>
   "steward.game.no-track": Record<string, never>
   "steward.game.no-way-back": Record<string, never>
   "steward.game.no-world": Record<string, never>
@@ -1236,6 +1249,10 @@ export type TextArgs = {
   "steward.game.spins-of": {
     name: Arg["text"]
   }
+  "steward.game.spot": Record<string, never>
+  "steward.game.spot-numbered": {
+    index: Arg["number"]
+  }
   "steward.game.start": {
     anyway: Arg["choice"]
   }
@@ -1243,8 +1260,14 @@ export type TextArgs = {
     anyway: Arg["choice"]
   }
   "steward.game.start-round": Record<string, never>
+  "steward.game.take-block": Record<string, never>
+  "steward.game.take-corner": {
+    index: Arg["number"]
+  }
   "steward.game.take-in": Record<string, never>
   "steward.game.take-in-failed": Record<string, never>
+  "steward.game.take-position": Record<string, never>
+  "steward.game.take-position-failed": Record<string, never>
   "steward.game.tasks": {
     finished: Arg["number"]
     total: Arg["number"]
@@ -1268,7 +1291,6 @@ export type TextArgs = {
   "steward.identity.host": Record<string, never>
   "steward.identity.minecraft-uuid": Record<string, never>
   "steward.identity.never-joined": Record<string, never>
-  "steward.identity.never-observed": Record<string, never>
   "steward.identity.no-avatar": Record<string, never>
   "steward.identity.no-discord": Record<string, never>
   "steward.identity.no-discord-name": Record<string, never>
@@ -1650,6 +1672,7 @@ export type TextArgs = {
   "steward.operations.under-way": {
     kind: Arg["text"]
     run: Arg["number"]
+    status: Arg["choice"]
   }
   "steward.overview.behind": Record<string, never>
   "steward.overview.cores": {
@@ -1749,6 +1772,7 @@ export type TextArgs = {
     becoming: Arg["duration"]
     usable: Arg["choice"]
   }
+  "steward.people.country": Record<string, never>
   "steward.people.edit-in-game": Record<string, never>
   "steward.people.editor-not-opened": Record<string, never>
   "steward.people.editor-opened": {
@@ -1808,6 +1832,7 @@ export type TextArgs = {
   "steward.people.most-days": {
     most: Arg["number"]
   }
+  "steward.people.network-zone": Record<string, never>
   "steward.people.never": Record<string, never>
   "steward.people.never-seen": Record<string, never>
   "steward.people.next": Record<string, never>
@@ -1829,6 +1854,7 @@ export type TextArgs = {
   "steward.people.nobody": Record<string, never>
   "steward.people.none-linked": Record<string, never>
   "steward.people.none-running": Record<string, never>
+  "steward.people.not-chosen": Record<string, never>
   "steward.people.not-linked": Record<string, never>
   "steward.people.not-linked-tip": {
     paid: Arg["choice"]
@@ -1921,6 +1947,7 @@ export type TextArgs = {
   "steward.people.supporter": Record<string, never>
   "steward.people.supporters": Record<string, never>
   "steward.people.thrown-out": Record<string, never>
+  "steward.people.time-zone": Record<string, never>
   "steward.people.title": Record<string, never>
   "steward.people.unknown-person": Record<string, never>
   "steward.people.unlink": Record<string, never>
@@ -2319,6 +2346,7 @@ export type TextArgs = {
   }
   "steward.service.unhealthy": Record<string, never>
   "steward.settings.add": Record<string, never>
+  "steward.settings.add-country": Record<string, never>
   "steward.settings.add-entry": Record<string, never>
   "steward.settings.add-to": {
     what: Arg["text"]

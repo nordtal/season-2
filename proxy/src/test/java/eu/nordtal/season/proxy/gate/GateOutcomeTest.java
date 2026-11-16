@@ -121,6 +121,7 @@ class GateOutcomeTest {
                 false,
                 0L,
                 Locale.ENGLISH,
+                null,
                 COUNTDOWN);
 
         assertEquals(GateOutcome.COUNTDOWN_READY, of(boughtButNotRunning));
@@ -210,6 +211,7 @@ class GateOutcomeTest {
                 false,
                 0L,
                 Locale.ENGLISH,
+                null,
                 null);
 
         assertEquals(SeasonState.UNREAD, unread.season());
@@ -306,6 +308,7 @@ class GateOutcomeTest {
                 false,
                 0L,
                 Locale.ENGLISH,
+                null,
                 season);
     }
 }

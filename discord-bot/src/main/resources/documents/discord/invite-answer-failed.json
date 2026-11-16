@@ -1,0 +1,26 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Your response to the invitation could not be confirmed.",
+                "de": "Deine Antwort auf die Einladung konnte nicht bestätigt werden."
+              }
+            },
+            {
+              "text": {
+                "en": "Try again in a few minutes.",
+                "de": "Versuch es in ein paar Minuten noch einmal."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

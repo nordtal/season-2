@@ -20,8 +20,8 @@
           "lines": [
             {
               "text": {
-                "en": "Leave the reference **{reference}** in the payment description as it is.",
-                "de": "Lass den Verwendungszweck **{reference}** in der Zahlung unverändert."
+                "en": "Keep **{reference}** unchanged in the payment reference.",
+                "de": "Übernimm **{reference}** unverändert als Verwendungszweck."
               }
             },
             {

@@ -52,7 +52,7 @@ class PurchaseFlowTest {
 
         assertAll(
                 () -> assertEquals(1, drawn.components().size()),
-                () -> assertEquals("How long do you want access?", drawn.text()),
+                () -> assertEquals("Choose how long your access should last.", drawn.text()),
                 () -> assertEquals(Ids.DAYS_SELECT, select.getCustomId()),
                 () -> assertEquals(
                         List.of("30 days for €5.00", "90 days for €12.50"),
@@ -91,10 +91,9 @@ class PurchaseFlowTest {
                 () -> assertEquals("""
                         ## Your purchase
                         **30 days of access** for €5.00
-                        **Donation** of €3.00 with the permanent donor role
+                        **Donation:** €3.00 for the permanent donor role
                         Total: **€8.00**""", drawn.text()),
-                () -> assertEquals(
-                        "Remove the donation", buttons(drawn).getLast().getLabel()));
+                () -> assertEquals("Remove donation", buttons(drawn).getLast().getLabel()));
     }
 
     @Test
@@ -106,7 +105,7 @@ class PurchaseFlowTest {
         assertAll(
                 () -> assertEquals(1, drawn.components().size()),
                 () -> assertEquals(
-                        "## Payment link\nLeave the reference **NTABC123** in the payment description as it is.\n"
+                        "## Payment link\nKeep **NTABC123** unchanged in the payment reference.\n"
                                 + "The link expires <t:" + NOW.plusSeconds(3600).getEpochSecond() + ":R>.",
                         drawn.text()),
                 () -> assertEquals(1, buttons(drawn).size()),
@@ -133,8 +132,8 @@ class PurchaseFlowTest {
         assertTrue(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.GERMAN, RENDERER, () -> false));
 
         assertEquals(2, replies.size());
-        assertTrue(replies.getFirst().contains("has no launch date"), replies.getFirst());
-        assertTrue(replies.getLast().contains("hat noch keinen Starttermin"), replies.getLast());
+        assertTrue(replies.getFirst().contains("once the season has a start date"), replies.getFirst());
+        assertTrue(replies.getLast().contains("sobald der Starttermin der Saison feststeht"), replies.getLast());
         assertTrue(replies.stream().allMatch(reply -> reply.startsWith("ephemeral ")), replies.toString());
     }
 

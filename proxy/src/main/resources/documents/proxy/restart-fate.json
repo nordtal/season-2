@@ -13,8 +13,8 @@
         {
           "when": "fate=waiting-room",
           "text": {
-            "en": "<muted>You wait in the {@terms.waiting-room} and return on your own.</muted>",
-            "de": "<muted>Du wartest im {@terms.waiting-room} und kommst von selbst zurück.</muted>"
+            "en": "<muted>You will return automatically from the {@terms.waiting-room}.</muted>",
+            "de": "<muted>Du kommst automatisch aus dem {@terms.waiting-room} zurück.</muted>"
           }
         },
         {

@@ -34,7 +34,7 @@ describe("a field typed by the value it holds", () => {
 
     expect(field.getAttribute("aria-invalid")).toBe("true")
     expect(screen.getByText("Takes a whole number, such as 12.")).toBeTruthy()
-    expect(screen.getByText("One field holds a value it cannot take.")).toBeTruthy()
+    expect(screen.getByText("One field contains an invalid value.")).toBeTruthy()
     expect(asButton(await screen.findByRole("button", { name: "Save 1" })).disabled).toBe(true)
 
     fireEvent.change(field, { target: { value: "30" } })
@@ -80,7 +80,7 @@ describe("a field typed by the value it holds", () => {
     draw(<Settings service="smp" />)
     await open("Example")
 
-    expect(await screen.findByText("The default. It is not saved yet.")).toBeTruthy()
+    expect(await screen.findByText("Default value, not yet saved.")).toBeTruthy()
     expect(screen.queryByRole("button", { name: /Save/ })).toBeNull()
   })
 })

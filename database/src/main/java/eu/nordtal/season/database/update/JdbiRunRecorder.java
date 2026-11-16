@@ -194,6 +194,21 @@ final class JdbiRunRecorder implements RunRecorder {
     }
 
     @Override
+    public void rememberMove(
+            final long run,
+            final java.util.UUID player,
+            final String from,
+            final String room,
+            final boolean switching) {
+        when(() -> dao.rememberMove(run, player, from, room, switching));
+    }
+
+    @Override
+    public @Nullable PlayerMove takeReturn(final java.util.UUID player) {
+        return current.getAsBoolean() ? dao.takeReturn(player) : null;
+    }
+
+    @Override
     public List<RunStep.Move> moves(final long run) {
         if (!current.getAsBoolean()) {
             return List.of();

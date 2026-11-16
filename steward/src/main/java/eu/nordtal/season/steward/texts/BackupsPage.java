@@ -88,7 +88,7 @@ public interface BackupsPage {
     @Name("Volume replaced")
     MessageRef volumeReplaced();
 
-    @Name("What a file holds")
+    @Name("Archive contents")
     MessageRef holds(@Arg("subject") @Example("smp-world") String subject, @Arg("partial") boolean partial);
 
     @Name("An archive of a volume that left the backup")
@@ -115,7 +115,7 @@ public interface BackupsPage {
     @Name("Archives not catalogued")
     MessageRef notCatalogued();
 
-    @Name("Holds")
+    @Name("Contents")
     MessageRef holdsColumn();
 
     @Name("Written")

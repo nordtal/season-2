@@ -88,9 +88,9 @@ class CompositionTest {
         assertEquals(BodyColumn.LINE_GAP, nextArt - followed.top() - followed.height());
         final BodyColumn last =
                 BodyColumn.of(262, false).rows(1, 0, index -> line -> line.plate(262, null, "Fahren", Look.NORMAL));
-        assertEquals(4, last.top());
-        assertEquals(2, last.rows());
-        assertEquals(262, Advances.of(last.build()));
+        assertEquals(11, last.top());
+        assertEquals(3, last.rows());
+        assertEquals(List.of(0, 264, 0), Advances.rows(last.build(FocusRing.Ground.BEVEL)));
     }
 
     @Test
@@ -122,20 +122,101 @@ class CompositionTest {
                 Advances.of(BodyLine.start()
                         .plate(120, null, "Fahren", Look.PRIMARY)
                         .build()));
-        assertEquals(98, Advances.of(BodyLine.primaryButton("Speichern")));
-        // Wider than the 96 a native button of 100 gives its label, the client would scroll the plate and clip it.
-        assertEquals(BodyLine.NATIVE_LABEL, Advances.of(BodyLine.normalButton("Schließen")));
-        assertEquals(BodyLine.NATIVE_LABEL, Advances.of(BodyLine.normalButton("Close")));
-        assertEquals(
-                BodyLine.NATIVE_LABEL, Advances.of(BodyLine.normalButton("Schließen und zur Übersicht zurückkehren")));
-        assertEquals(
-                248,
-                Advances.of(BodyLine.textLine()
-                        .text("Siedlung", Colours.INK)
-                        .at(200)
-                        .text("3/7", Colours.SOFT)
-                        .at(248)
-                        .build()));
+    }
+
+    @Test
+    void aNativeButtonLabelAdvancesNothingSoTheClientCentresItsRimOnTheButton() {
+        // Any advance would let the client scroll a wide label and clip the rim.
+        assertEquals(0, Advances.of(BodyLine.primaryButton("Speichern")));
+        assertEquals(0, Advances.of(BodyLine.normalButton("Schließen")));
+        assertEquals(0, Advances.of(BodyLine.normalButton("Schließen und zur Übersicht zurückkehren")));
+    }
+
+    @Test
+    void aFramedLineCentresItsRingOnTheBoxAndKeepsTheBoxWide() {
+        for (final FocusRing.Ground ground : FocusRing.Ground.values()) {
+            for (int rows = FocusRing.MIN_ROWS; rows <= 14; rows++) {
+                for (int art = 8; art <= 300; art++) {
+                    final Component framed =
+                            FocusRing.frame(Pen.start().move(art).build(), art, rows, ground);
+                    final List<Integer> expected = new ArrayList<>(List.of(0, art + FocusRing.MARGIN - 8));
+                    while (expected.size() < rows) {
+                        expected.add(0);
+                    }
+                    assertEquals(expected, Advances.rows(framed), ground + " " + rows + " rows, art " + art);
+                }
+            }
+        }
+    }
+
+    @Test
+    void aFootLineKeepsThePanelsBlackBorderUnderItsBottomRow() {
+        final List<String> ring = Glyphs.UI_RING_26;
+        for (final FocusRing.Ground ground : FocusRing.Ground.values()) {
+            final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, ground));
+            final boolean bevel = ground == FocusRing.Ground.BEVEL || ground == FocusRing.Ground.BEVEL_FOOT;
+            final boolean foot = ground == FocusRing.Ground.PANEL_FOOT || ground == FocusRing.Ground.BEVEL_FOOT;
+            assertEquals(!bevel, drawn.contains(ring.get(0)), ground + " side");
+            assertEquals(bevel && !foot, drawn.contains(ring.get(1)), ground + " shade");
+            assertEquals(bevel && foot, drawn.contains(ring.get(2)), ground + " shade foot");
+            assertEquals(100, columns(drawn, ring.subList(3, 12)), ground + " top runs");
+            assertEquals(!foot, ring.subList(12, 21).stream().anyMatch(drawn::contains), ground + " bottom runs");
+            assertEquals(foot, ring.subList(21, 30).stream().anyMatch(drawn::contains), ground + " foot runs");
+        }
+    }
+
+    @Test
+    void aRingLeavesItsTopRowOpenOverAHeadersInkAndKeepsItsBottomWhole() {
+        final List<String> ring = Glyphs.UI_RING_26;
+        final List<FocusRing.Open> open = List.of(new FocusRing.Open(-40, -20), new FocusRing.Open(30, 80));
+        final String drawn = text(FocusRing.frame(Pen.start().move(100).build(), 100, 2, FocusRing.Ground.PANEL, open));
+
+        // The box is 110 wide from -55: the top row runs from -50 to -40, from -20 to 30, and stops there.
+        assertEquals(10 + 50, columns(drawn, ring.subList(3, 12)));
+        assertEquals(100, columns(drawn, ring.subList(12, 21)));
+    }
+
+    @Test
+    void aLastColumnEndsItsBoxOnThePanelsBlackBorder() {
+        final List<DialogPanel> panels = new ArrayList<>(DialogPanel.RIDE_LIST_ROWS);
+        panels.addAll(DialogPanel.DRAFT_PREVIEW_ROWS);
+        for (final DialogPanel panel : panels) {
+            final int count = (panel.height() - 22) / BodyColumn.STEP;
+            final BodyColumn column = BodyColumn.of(panel.width() - 16, false)
+                    .rows(
+                            count,
+                            0,
+                            index -> line -> line.button(
+                                            PREVIOUS,
+                                            part -> part.row(
+                                                    panel.width() - 36, null, null, "Hafen", "120 m", Look.NORMAL))
+                                    .gap(BodyLine.SIDE_GAP)
+                                    .button(NEXT, part -> part.star(true)));
+            final DialogTitle title = DialogTitle.of(panel, column.panelTop()).header(Symbol.RAIL, "Fahrt", List.of());
+            column.build(FocusRing.Ground.BEVEL_FOOT, title);
+            title.build();
+
+            final int boxTop = BodyColumn.PANEL_TO_CONTENT - column.top();
+            assertEquals(panel.height() - 1, boxTop + 9 * column.rows() + 7, panel + " box bottom");
+        }
+    }
+
+    /** The columns {@code drawn} covers with the runs of {@code runs}, which run 1, 2, 4 to 256 wide. */
+    private static int columns(final String drawn, final List<String> runs) {
+        int columns = 0;
+        for (int index = 0; index < runs.size(); index++) {
+            columns += (1 << index) * (drawn.split(java.util.regex.Pattern.quote(runs.get(index)), -1).length - 1);
+        }
+        return columns;
+    }
+
+    private static String text(final Component component) {
+        final StringBuilder out = new StringBuilder();
+        if (component instanceof final TextComponent text) {
+            out.append(text.content());
+        }
+        component.children().forEach(child -> out.append(text(child)));
+        return out.toString();
     }
 
     @Test

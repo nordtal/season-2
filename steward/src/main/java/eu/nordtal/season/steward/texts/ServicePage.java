@@ -188,7 +188,7 @@ public interface ServicePage {
     MessageRef nothingOn(
             @Arg("loader") @Example("paper") String loader, @Arg("version") @Example("1.21.10") String version);
 
-    @Name("Given")
+    @Name("Provided by Nordtal")
     MessageRef given();
 
     @Name("Added")

@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.alert;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
@@ -13,6 +14,7 @@ import eu.nordtal.season.database.alert.Alert;
 import eu.nordtal.season.database.alert.AlertBook;
 import eu.nordtal.season.database.alert.AlertChannel;
 import eu.nordtal.season.database.alert.AlertType;
+import eu.nordtal.season.database.alert.Measure;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
@@ -117,7 +119,50 @@ class AlertRouterTest {
         final String payload = sender.sent.getFirst().payload();
         assertTrue(payload.contains("\"level\":\"down\""), payload);
         assertTrue(payload.contains("\"title\":\"smp is not running\""), payload);
-        assertTrue(payload.contains("\"body\":\"down\""), payload);
+        assertTrue(payload.contains("\"body\":\"smp: Docker reports the state exited.\""), payload);
+    }
+
+    /** A title leaves a long name out, so the push body names it, and two services give two pushes. */
+    @Test
+    void twoServicesOrVolumesGiveTwoDifferentPushes() {
+        final String smp = router.payloadOf(older("smp"));
+        final String proxy = router.payloadOf(older("proxy"));
+        assertTrue(smp.contains("\"body\":\"smp runs an image older than the registry has.\""), smp);
+        assertTrue(proxy.contains("\"body\":\"proxy runs an image older than the registry has.\""), proxy);
+        assertNotEquals(smp, proxy);
+
+        final String volume = router.payloadOf(new Alert(
+                JournalAction.BACKUP_STALE,
+                Alert.Level.DOWN,
+                List.of(new Measure(Measure.Gauge.BACKUP_AGE_HOURS, "mc-hunger-games-plugins", null, 26.0, null))));
+        assertTrue(volume.contains("\"title\":\"A volume has no archive yet\""), volume);
+        assertTrue(volume.contains("\"body\":\"mc-hunger-games-plugins: there is none yet.\""), volume);
+    }
+
+    /** A merged alert names every subject in its push, and the push shows no Markdown. */
+    @Test
+    void twoExitedServicesAreBothNamedInOnePushWithoutMarkdown() {
+        final String both = router.payloadOf(new Alert(
+                JournalAction.SERVICE_DOWN,
+                Alert.Level.DOWN,
+                List.of(
+                        Measure.state(Measure.Gauge.CONTAINER_STATE, "smp", "exited"),
+                        Measure.state(Measure.Gauge.CONTAINER_STATE, "proxy", "exited"))));
+        assertTrue(
+                both.contains(
+                        "\"body\":\"smp: Docker reports the state exited.\\nproxy: Docker reports the state exited.\""),
+                both);
+
+        final String pack = router.payloadOf(AlertRouter.sample(JournalAction.PACK_DEAD));
+        assertTrue(pack.contains("\"body\":\"https://nordtal.eu/pack.zip does not answer."), pack);
+        assertFalse(pack.contains("`"), pack);
+    }
+
+    private static Alert older(final String service) {
+        return new Alert(
+                JournalAction.IMAGE_DRIFT,
+                Alert.Level.WARN,
+                List.of(Measure.state(Measure.Gauge.OLDER_IMAGE, service, null)));
     }
 
     @Test

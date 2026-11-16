@@ -47,12 +47,21 @@ public enum ServerRefusal implements RefusalReason {
     STACK_CHANGED,
 
     /** This server has no Survival state of the player to edit now, or an editor of it is already open. */
-    NOT_EDITABLE;
+    NOT_EDITABLE,
+
+    /** The admin's player looks at no block within reach, for a position taken from a block. */
+    NO_BLOCK_IN_SIGHT;
 
     /** Returns the names of the values that {@link #with} takes, in order: the message's arguments and columns. */
     public List<String> arguments() {
         return switch (this) {
-            case NO_ACTIVE_MILESTONE, NO_GAME, NOT_HERE, NOT_DELIVERED, STACK_CHANGED, NOT_EDITABLE -> List.of();
+            case NO_ACTIVE_MILESTONE,
+                    NO_GAME,
+                    NOT_HERE,
+                    NOT_DELIVERED,
+                    STACK_CHANGED,
+                    NOT_EDITABLE,
+                    NO_BLOCK_IN_SIGHT -> List.of();
             case NO_SUCH_OBJECTIVE -> List.of("key");
             case MILESTONE_NOT_ACTIVE -> List.of("key", "active");
             case WRONG_STATE -> List.of("state");
@@ -86,6 +95,7 @@ public enum ServerRefusal implements RefusalReason {
                     case SETTINGS_REFUSED -> settingsRefused(words, args);
                     case STACK_CHANGED -> words.stackChanged();
                     case NOT_EDITABLE -> words.notEditable();
+                    case NO_BLOCK_IN_SIGHT -> words.noBlockInSight();
                 });
     }
 

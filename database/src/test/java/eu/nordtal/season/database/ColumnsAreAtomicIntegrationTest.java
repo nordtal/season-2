@@ -41,6 +41,8 @@ class ColumnsAreAtomicIntegrationTest {
             "shared_part.part",
             "document_override.document",
             "document_version.document",
+            "npc.dialogue",
+            "npc_dialogue_version.dialogue",
             "bot_preview_document.document",
             "smp_preview_document.document",
             "hunger_games_preview_document.document",

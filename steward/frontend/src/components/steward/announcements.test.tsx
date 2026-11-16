@@ -27,7 +27,7 @@ const TEMPLATE: DocumentView = {
   declaration: {
     namespace: "discord",
     name: "announcement",
-    title: "New announcement",
+    title: "Write announcement",
     englishOnly: false,
     area: "Announcements",
     shape: "MESSAGE",
@@ -164,7 +164,7 @@ describe("Announcements", () => {
     draw(<Announcements />)
 
     expect(await screen.findByText("No announcements yet")).toBeTruthy()
-    const compose = screen.getByRole("button", { name: "New announcement" })
+    const compose = screen.getByRole("button", { name: "Write announcement" })
     await waitFor(() => expect(asButton(compose).disabled).toBe(false))
     fireEvent.click(compose)
 
@@ -194,8 +194,8 @@ describe("Announcements", () => {
 
     fireEvent.click(within(article).getByRole("button", { name: /Send to Discord/ }))
     const dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).getByText(/in #announcements\./)).toBeTruthy()
-    fireEvent.click(within(dialog).getByRole("button", { name: "Send" }))
+    expect(within(dialog).getByText(/to #announcements on Discord immediately\./)).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send announcement" }))
 
     await waitFor(() =>
       expect(calls).toEqual([
@@ -217,7 +217,7 @@ describe("Announcements", () => {
     draw(<Announcements />)
 
     const archive = await screen.findByRole("button", { name: /Sent/ })
-    expect(within(archive).getByText("1 not posted everywhere")).toBeTruthy()
+    expect(within(archive).getByText("1 announcement not fully posted")).toBeTruthy()
     expect(screen.queryByRole("button", { name: /Maintenance/ })).toBeNull()
     fireEvent.click(archive)
     fireEvent.change(screen.getByRole("searchbox", { name: "Search sent announcements" }), {

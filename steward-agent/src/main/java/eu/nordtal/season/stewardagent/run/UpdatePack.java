@@ -42,18 +42,15 @@ final class UpdatePack {
     /** Offers {@code before} again after a cancelled run, which installed nothing of the release of the new pack. */
     static void restore(final Runner runner, final UpdateRequest request, final PackState before) {
         if (before.url() == null || before.sha1() == null) {
-            log.info("run cancelled, no pack was offered before, the new one stays: request={}", request.id());
+            log.info("run cancelled, no previous pack, new pack kept: request={}", request.id());
             return;
         }
         try {
             PackWriter.write(SettingStore.using(runner.database.dataSource()), before.url(), before.sha1());
-            log.info(
-                    "run cancelled, the pack before it is offered again: request={} sha1={}",
-                    request.id(),
-                    before.sha1());
+            log.info("run cancelled, previous pack offered: request={} sha1={}", request.id(), before.sha1());
         } catch (final RuntimeException unwritten) {
             log.warn(
-                    "run cancelled, the pack before it not offered again: request={} cause={}",
+                    "run cancelled, previous pack not offered: request={} cause={}",
                     request.id(),
                     unwritten.getMessage());
         }
@@ -64,7 +61,7 @@ final class UpdatePack {
         try {
             return PackState.read(settings);
         } catch (final RuntimeException unread) {
-            log.warn("active pack not read: cause={}", unread.getMessage());
+            log.warn("active pack unreadable: cause={}", unread.getMessage());
             return new PackState(null, null);
         }
     }

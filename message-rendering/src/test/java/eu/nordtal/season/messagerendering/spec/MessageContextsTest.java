@@ -162,7 +162,7 @@ class MessageContextsTest {
                                 && problem.endsWith("not {victim.name}")),
                 problems::toString);
         assertTrue(
-                problems.contains("hit (en): the text never shows target, which the message is given"),
+                problems.contains("hit (en): the text never shows target, which is passed to this message"),
                 problems::toString);
         assertEquals(2 * 2, problems.size(), problems::toString);
     }

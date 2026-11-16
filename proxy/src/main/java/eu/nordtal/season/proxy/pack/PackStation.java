@@ -231,9 +231,7 @@ public final class PackStation {
                                         player.getUsername(),
                                         replaced);
                             },
-                            () -> logger.debug(
-                                    "resource pack applied that is not the newest offer: player={}",
-                                    player.getUsername()));
+                            () -> logger.debug("outdated resource pack applied: player={}", player.getUsername()));
             return;
         }
         final WaitingBook.Applied applied = newest.get();
@@ -271,7 +269,7 @@ public final class PackStation {
         // An answer about a pack a newer offer replaced keeps the player, as SUCCESSFUL and DISCARDED do.
         if (KICKS.contains(event.getStatus()) && !book.answersNewestOffer(uuid, event.getPackId())) {
             logger.debug(
-                    "answer about a replaced resource pack ignored: player={} status={}",
+                    "replaced resource pack response ignored: player={} status={}",
                     player.getUsername(),
                     event.getStatus());
             return;
@@ -363,7 +361,7 @@ public final class PackStation {
         final Player player = connection.getPlayer();
         if (book.ready(player.getUniqueId())) {
             logger.info(
-                    "early ready remembered: server={} player={}",
+                    "early ready signal recorded: server={} player={}",
                     connection.getServerInfo().getName(),
                     player.getUsername());
         }
@@ -456,7 +454,7 @@ public final class PackStation {
             }
             case RELEASE_UNCONFIRMED -> {
                 logger.warn(
-                        "player released without ready: player={} to={} waiting_room={}",
+                        "player released without ready signal: player={} to={} waiting_room={}",
                         player.getUsername(),
                         destination,
                         routing.servers().limbo());
@@ -482,7 +480,7 @@ public final class PackStation {
         book.releaseFailed(player.getUniqueId(), destination);
         health.suspend(destination);
         logger.warn(
-                "release not taken, player held: to={} player={} seconds={} cause={}",
+                "release connection failed, player held: to={} player={} seconds={} cause={}",
                 destination,
                 player.getUsername(),
                 WaitingBook.RELEASE_RETRY.toSeconds(),

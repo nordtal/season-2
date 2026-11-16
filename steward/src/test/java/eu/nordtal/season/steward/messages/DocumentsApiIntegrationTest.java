@@ -302,7 +302,7 @@ class DocumentsApiIntegrationTest {
                         .getAsString());
 
         final String refused = send("DELETE", "/api/shared-parts/greeting", new byte[0], 400);
-        assertTrue(refused.contains("smp/welcome still names the shared part greeting"), refused);
+        assertTrue(refused.contains("smp/welcome still uses shared part greeting"), refused);
         assertEquals(1, store.sharedParts().size());
     }
 
@@ -321,7 +321,7 @@ class DocumentsApiIntegrationTest {
         assertTrue(refused.contains("it does not place the button join"), refused);
         final String loop = send("PUT", "/api/shared-parts/buttons", """
                 {"type":"CONTAINER","parts":[{"type":"ROW","shared":"buttons"}]}""".getBytes(UTF_8), 400);
-        assertTrue(loop.contains("buttons would draw itself"), loop);
+        assertTrue(loop.contains("shared part buttons would include itself"), loop);
 
         assertEquals(Part.Type.ROW, store.sharedParts().getFirst().part().type());
         send("PUT", "/api/shared-parts/Not-A-Name", "{\"type\":\"SEPARATOR\"}".getBytes(UTF_8), 400);
@@ -345,7 +345,7 @@ class DocumentsApiIntegrationTest {
         assertEquals("image/png", store.image(id).orElseThrow().mediaType());
         send("POST", "/api/document-images", "not an image".getBytes(UTF_8), 400);
         assertEquals(
-                "Not uploaded: the file is larger than " + DocumentsApi.IMAGE_MEBIBYTES + " MiB.",
+                "Upload refused: the file exceeds " + DocumentsApi.IMAGE_MEBIBYTES + " MiB.",
                 GSON.fromJson(
                                 send("POST", "/api/document-images", new byte[DocumentsApi.IMAGE_BYTES + 1], 413),
                                 JsonObject.class)
@@ -537,9 +537,9 @@ class DocumentsApiIntegrationTest {
         modal.getAsJsonObject("declaration").addProperty("shape", "MODAL");
 
         assertTrue(send("POST", "/api/document-preview", withoutJoin.toString().getBytes(UTF_8), 400)
-                .contains("not sent:"));
+                .contains("could not be sent:"));
         assertTrue(send("POST", "/api/document-preview", modal.toString().getBytes(UTF_8), 400)
-                .contains("is not a message"));
+                .contains("is not a Discord message"));
     }
 
     private static Documents.Packaged packaged() {

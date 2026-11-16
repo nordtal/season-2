@@ -175,8 +175,13 @@ export function Steps({ steps }: { steps: RailStep[] }) {
           <Mark verdict={stepVerdict(step)} className="mt-0.5 size-3.5" />
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="text-sm">
-              {t("run.step-kind", { kind: choice(step.step) })}
-              {step.service ? <span className="text-muted-foreground">{` ${step.service}`}</span> : null}
+              {step.service
+                ? t("run.step-on", {
+                    kind: choice(step.step),
+                    step: { key: "run.step-kind", args: { kind: { kind: "choice", value: choice(step.step) } } },
+                    service: step.service,
+                  })
+                : t("run.step-kind", { kind: choice(step.step) })}
             </span>
             {step.lines.map((line, at) => (
               <span key={at} className="break-words pl-3 text-sm text-muted-foreground">

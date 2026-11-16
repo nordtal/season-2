@@ -14,7 +14,7 @@
           "when": "world=end",
           "text": {
             "en": "<bad>The End is not open yet.</bad> <muted>The {@terms.objective, n=1} board at the spawn shows what is left.</muted>",
-            "de": "<bad>Das End ist noch nicht offen.</bad> <muted>Die Zieltafel am Spawn zeigt, was noch fehlt.</muted>"
+            "de": "<bad>Das Ende ist noch nicht offen.</bad> <muted>Die Zieltafel am Spawn zeigt, was noch fehlt.</muted>"
           }
         }
       ]

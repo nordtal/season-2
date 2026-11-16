@@ -64,6 +64,59 @@ class AccessDirectoryIntegrationTest {
     }
 
     @Test
+    void countryFlagAndZoneFollowTheCountryWhileLanguageStays() {
+        final DiscordId id = DiscordId.of(DISCORD_ID);
+        directory.setLocale(id, Locale.ENGLISH);
+        directory.setCountry(id, "de", "flag-germany", java.time.ZoneId.of("Europe/Berlin"));
+        assertCountry("de", "flag-germany", "Europe/Berlin");
+        directory.setCountry(id, "other", "flag-other", null);
+        assertCountry("other", "flag-other", null);
+        directory.setCountry(id, null, null, null);
+        assertCountry(null, null, null);
+    }
+
+    @Test
+    void aCountryLanguageOrZoneChangeNotifiesNordtalIdentityWithTheDiscordId() throws Exception {
+        // Paper rereads the identity of an online player on this signal, so it is part of each write.
+        final DiscordId id = DiscordId.of(DISCORD_ID);
+        try (Connection listening = dataSource.getConnection()) {
+            try (Statement statement = listening.createStatement()) {
+                statement.execute("LISTEN nordtal_identity");
+            }
+            final org.postgresql.PGConnection notifications = listening.unwrap(org.postgresql.PGConnection.class);
+            final List<Runnable> writes = List.of(
+                    () -> directory.setCountry(id, "nl", "flag-netherlands", java.time.ZoneId.of("Europe/Amsterdam")),
+                    () -> directory.setLocale(id, Locale.GERMAN),
+                    () -> directory.setTimeZone(id, java.time.ZoneId.of("Europe/London")));
+            for (final Runnable write : writes) {
+                write.run();
+                final org.postgresql.PGNotification[] arrived = notifications.getNotifications(5000);
+                assertNotNull(arrived, "no notification arrived on nordtal_identity within 5s");
+                assertEquals(1, arrived.length);
+                assertEquals("nordtal_identity", arrived[0].getName());
+                assertEquals(DISCORD_ID, arrived[0].getParameter());
+            }
+        }
+    }
+
+    private static void assertCountry(
+            final @org.jspecify.annotations.Nullable String country,
+            final @org.jspecify.annotations.Nullable String flag,
+            final @org.jspecify.annotations.Nullable String zone) {
+        Jdbis.over(dataSource).useHandle(handle -> {
+            final var row = handle.createQuery(
+                            "SELECT country, flag, time_zone, locale FROM discord_user WHERE discord_id = :id")
+                    .bind("id", DISCORD_ID)
+                    .mapToMap()
+                    .one();
+            assertEquals(country, row.get("country"));
+            assertEquals(flag, row.get("flag"));
+            assertEquals(zone, row.get("time_zone"));
+            assertEquals("en", row.get("locale"));
+        });
+    }
+
+    @Test
     void grantingWithNoAccessRunningStartsNow() {
         final AccessGrant grant = directory.grantAccess(DiscordId.of(DISCORD_ID), 30, AccessSource.PURCHASE, null);
 

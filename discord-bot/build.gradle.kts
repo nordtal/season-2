@@ -6,6 +6,7 @@ plugins {
 
 // How Steward shows this module's settings; steward-agent reads it out of the jar.
 pluginDescriptor {
+    editors.put("onboarding", "onboarding")
     followsMessages.set(true)
 }
 

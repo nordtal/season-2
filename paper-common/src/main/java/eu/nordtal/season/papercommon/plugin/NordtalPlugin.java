@@ -31,7 +31,6 @@ import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.mode.ModeStateStore;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Mode;
-import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.messagerendering.GameDocument;
@@ -72,6 +71,7 @@ import eu.nordtal.season.settings.DistancesSpec;
 import eu.nordtal.season.settings.Environment;
 import eu.nordtal.season.settings.EnvironmentSettings;
 import eu.nordtal.season.settings.Group;
+import eu.nordtal.season.settings.Positions;
 import eu.nordtal.season.settings.Setting;
 import eu.nordtal.season.settings.SettingRefused;
 import eu.nordtal.season.settings.Settings;
@@ -95,12 +95,20 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
@@ -113,6 +121,9 @@ import org.slf4j.LoggerFactory;
 
 /** The start and stop that every Nordtal Paper plugin shares. A failed start stops the server. */
 public abstract class NordtalPlugin extends JavaPlugin {
+
+    /** How long a settings check waits for the main thread to list the worlds. */
+    private static final long WORLDS_WAIT_SECONDS = 5;
 
     private Clock clock = NetworkTime.clock();
 
@@ -254,7 +265,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         // The HUD clock starts after enable(), which declares the lines.
         hud.start();
         adminWatch.listen(signals);
-        signals.on(Channel.ADMIN, "who the players are", identities::reread);
+        identities.follow(signals);
         settings.listen(signals, this::reload);
         // The hub reads the overrides when it connects; until then the packaged texts show.
         MessageOverrideStore.using(pool).follow(messages, signals);
@@ -436,7 +447,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
             problems.add("the prestige tiers: " + failure.getMessage());
         }
         problems.addAll(reloadOwn());
-        problems.forEach(problem -> getLogger().severe("settings not reloaded, running values kept: cause=" + problem));
+        problems.forEach(
+                problem -> getLogger().severe("settings reload failed, current values kept: cause=" + problem));
         return List.copyOf(problems);
     }
 
@@ -584,7 +596,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     /**
      * Answers whether this server would start with {@code change} saved.
-     * The group's check runs first, then {@link #refusesAtStart}. A group this plugin does not load refuses nothing.
+     * The group's check runs first, then the worlds of its positions, then {@link #refusesAtStart}.
+     * A group this plugin does not load refuses nothing.
      */
     protected final Answer checkSettings(final SettingsChange change) {
         final Group<?> group = groups.get(change.group());
@@ -599,7 +612,40 @@ public abstract class NordtalPlugin extends JavaPlugin {
 
     private <T> @Nullable SettingRefused trial(final Group<T> group, final SettingsChange change)
             throws SettingsException {
-        return refusesAtStart(group, settings.trial(group, change));
+        final T value = settings.trial(group, change);
+        try {
+            Positions.checkWorlds(group.spec(), value, loadedWorlds());
+        } catch (final SettingRefused refused) {
+            return refused;
+        }
+        return refusesAtStart(group, value);
+    }
+
+    /** Tells whether this server has a world of the name, asking the main thread once a position names one. */
+    private Predicate<String> loadedWorlds() {
+        final AtomicReference<@Nullable Set<String>> names = new AtomicReference<>();
+        return name -> {
+            Set<String> known = names.get();
+            if (known == null) {
+                known = worldNames();
+                names.set(known);
+            }
+            return known.contains(name);
+        };
+    }
+
+    private Set<String> worldNames() {
+        final CompletableFuture<Set<String>> names = CompletableFuture.supplyAsync(
+                () -> getServer().getWorlds().stream().map(World::getName).collect(Collectors.toUnmodifiableSet()),
+                PaperScheduler.of(this).mainThread());
+        try {
+            return names.get(WORLDS_WAIT_SECONDS, TimeUnit.SECONDS);
+        } catch (final ExecutionException | TimeoutException failed) {
+            throw new IllegalStateException("the worlds could not be listed", failed);
+        } catch (final InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(interrupted);
+        }
     }
 
     /** Refuses with the setting and the rule, which Steward words, and logs the check's own sentence. */

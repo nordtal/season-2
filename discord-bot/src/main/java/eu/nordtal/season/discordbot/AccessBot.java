@@ -153,7 +153,7 @@ public class AccessBot implements AutoCloseable {
             final SeasonSpec season = settings.load(NetworkSettings.SEASON).get();
             final Tiers tiers =
                     NetworkSettings.tiers(settings.load(NetworkSettings.PRICES).get());
-            final Setting<OnboardingSpec> onboarding = BotSettings.onboarding(settings);
+            final Setting<OnboardingSpec> onboarding = BotSettings.onboarding(settings, network);
 
             this.access = AccessDirectory.using(database.dataSource(), clock);
             final SeasonDirectory seasons = SeasonDirectory.using(database.dataSource(), clock);
@@ -187,7 +187,7 @@ public class AccessBot implements AutoCloseable {
             final SeasonDirectory seasons,
             final UpdateDirectory updates,
             final String stewardUrl) {
-        // After the guild state reconcile, so the first tick renames against the reconciled state.
+        // After the discord server state reconcile, so the first tick renames against the reconciled state.
         final StatusChannels status = new StatusChannels(
                 jda, core.languages(), core.renderer(), seasons, SnapshotDirectory.using(database.dataSource()), clock);
 
@@ -315,8 +315,7 @@ public class AccessBot implements AutoCloseable {
                 .awaitReady();
         connected
                 .getPresence()
-                .setPresence(
-                        Activity.of(Activity.ActivityType.CUSTOM_STATUS, "It's that time of the year again …"), false);
+                .setPresence(Activity.of(Activity.ActivityType.CUSTOM_STATUS, "Join us on play.nordtal.eu"), false);
         return connected;
     }
 
@@ -349,13 +348,7 @@ public class AccessBot implements AutoCloseable {
         final GuildState guildState = new GuildState(jda, accessConfig, access, adminTree, database.jdbi());
         final AdminRole adminRole = new AdminRole(jda, accessConfig, guildRoles, adminTree, admin);
         final OnboardingFlow onboardingFlow = new OnboardingFlow(
-                onboarding,
-                core.languages(),
-                guildRoles,
-                core.renderer(),
-                core.networkZone(),
-                admin::alert,
-                onboardingLane);
+                onboarding, core.languages(), guildRoles, core.renderer(), core.networkZone(), onboardingLane);
 
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
                 core.tiers(), core.purchases(), core.requests(), core.renderer(), roles, admin, scheduler, clock);

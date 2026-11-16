@@ -9,6 +9,7 @@ import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
 import eu.nordtal.season.packrendering.ui.DialogTitle;
+import eu.nordtal.season.packrendering.ui.FocusRing;
 import eu.nordtal.season.packrendering.ui.Look;
 import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.packrendering.ui.Tooltip;
@@ -18,7 +19,6 @@ import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import java.util.ArrayList;
 import java.util.List;
-import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 
 /** The list of a rider in a minecart: the stations the cart reaches, five a page, favourites first. */
@@ -61,6 +61,9 @@ final class RideDialog {
 
     private static final int TEXT_TOP = 50;
 
+    /** Where the empty list's words stand: as a text line's capitals would under the first body line's box. */
+    private static final int EMPTY_TEXT = BodyColumn.BODY_TOP + 5;
+
     private RideDialog() {}
 
     /** The panel for {@code count} stations: as many rows as a page holds, and a pager line under 5 when paged. */
@@ -79,14 +82,9 @@ final class RideDialog {
             final Answers answers) {
         final Paging paging = Paging.of(stops.size(), EACH);
         final List<DialogBody> body = new ArrayList<>();
-        final int top;
+        final DialogTitle title;
         if (stops.isEmpty()) {
-            body.add(Dialogs.line(
-                    BodyLine.textLine()
-                            .text(document.label("none"), Colours.SOFT)
-                            .build(),
-                    WIDTH));
-            top = TEXT_TOP;
+            title = title(document, stops, TEXT_TOP);
         } else {
             final List<RideList.Stop> shown = paging.slice(stops, page);
             final BodyColumn column = BodyColumn.of(WIDTH, paging.paged())
@@ -94,21 +92,28 @@ final class RideDialog {
                             shown.size(),
                             paging.paged() ? EACH : 0,
                             index -> line -> row(line, document, shown.get(index), page, send, answers));
-            body.add(Dialogs.line(column.build(), WIDTH));
-            top = column.panelTop();
+            title = title(document, stops, column.panelTop());
+            body.add(
+                    Dialogs.line(column, paging.paged() ? FocusRing.Ground.BEVEL : FocusRing.Ground.BEVEL_FOOT, title));
         }
         if (paging.paged()) {
             final String words = document.label("pager", paging.page(page));
             body.add(Dialogs.line(
                     send.pager(BodyColumn.next(), paging, page, words, answers::page)
                             .build(),
-                    Dialogs.pagerWidth(paging, page)));
+                    Dialogs.pagerWidth(paging, page),
+                    FocusRing.Ground.PANEL_FOOT));
         }
-        final Component title = DialogTitle.of(panel(stops.size()), top)
-                .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of())
-                .build();
-        return Dialog.create(builder ->
-                builder.empty().base(Dialogs.base(title).body(body).build()).type(Dialogs.bodyOnly()));
+        if (stops.isEmpty()) {
+            title.centred(EMPTY_TEXT, document.label("none"), Colours.SOFT);
+        }
+        return Dialog.create(builder -> builder.empty()
+                .base(Dialogs.base(title.build()).body(body).build())
+                .type(Dialogs.bodyOnly()));
+    }
+
+    private static DialogTitle title(final GameDocument document, final List<RideList.Stop> stops, final int top) {
+        return DialogTitle.of(panel(stops.size()), top).header(Symbol.RAIL, Dialogs.plain(document.title()), List.of());
     }
 
     /** The row rides there, so it is the column's first click; the star after it stars the stop or unstars it. */

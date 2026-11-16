@@ -194,13 +194,13 @@ class MessageSpecsTest {
                                 && problem.endsWith("not {player}")),
                 problems::toString);
         assertTrue(
-                problems.contains("greeting (en): the text never shows name, which the message is given"),
+                problems.contains("greeting (en): the text never shows name, which is passed to this message"),
                 problems::toString);
         assertTrue(
-                problems.contains("duel.lost (de): the text never shows opponent, which the message is given"),
+                problems.contains("duel.lost (de): the text never shows opponent, which is passed to this message"),
                 problems::toString);
         assertTrue(
-                problems.contains("chat.line (en): the text never shows other, which the message is given"),
+                problems.contains("chat.line (en): the text never shows other, which is passed to this message"),
                 problems::toString);
         assertTrue(problems.contains("duel.won: in en.properties, but no method declares it"), problems::toString);
     }

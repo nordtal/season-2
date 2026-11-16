@@ -69,7 +69,7 @@ class ProxySettingsTest {
                 300,
                 config.playtimeFlushIntervalSeconds(),
                 "five minutes is the decided flush interval - a proxy crash "
-                        + "costing up to five minutes of play time is the accepted trade");
+                        + "costing up to five minutes of playtime is the accepted trade");
         assertEquals("limbo", config.serverLimbo());
         assertEquals("hunger-games", config.serverHungerGames());
         assertEquals("smp", config.serverSmp());

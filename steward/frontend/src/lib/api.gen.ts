@@ -176,6 +176,14 @@ export type TakeIn = {
   purpose: TakeInPurpose
 }
 
+export type TakePosition = {
+  block: boolean
+}
+
+export type PositionTaker = {
+  taker: Taker
+}
+
 export type AnnouncementsAsked = {
   ids: Record<string, string>
 }
@@ -207,6 +215,8 @@ export type Person = {
   donor: boolean
   admin: boolean
   locale: string
+  country?: string
+  timeZone?: string
   updated: string
   minecraftUuid?: string
   linked?: string
@@ -756,6 +766,8 @@ export type InboxStatus = "PENDING" | "RUNNING" | "DONE" | "REFUSED" | "FAILED" 
 
 export type TakeInPurpose = "WHEEL_PRIZE" | "DUEL_KIT"
 
+export type Taker = "READY" | "UNLINKED" | "ELSEWHERE"
+
 export type AnnouncementView = {
   id: number
   document: Document
@@ -851,6 +863,9 @@ export type JournalAction =
   | "ROLE_NOT_CREATED"
   | "LOCK_NOT_KEPT"
   | "LOCK_WITHOUT_CHANNEL"
+  | "START_CHANNEL_HIDDEN"
+  | "LANGUAGE_NOT_KEPT"
+  | "CHANNEL_SEEN"
 
 export type Actor = {
   kind: ActorKind
@@ -1036,6 +1051,7 @@ export type ConfigEntry = {
   refers?: ConfigReference
   appliesWhen?: ConfigCondition
   rules?: ConfigRule[]
+  position?: Shape
 }
 
 export type ReloadOutcome = {
@@ -1357,6 +1373,8 @@ export type ConfigRule = {
   limit?: number
   field?: string
 }
+
+export type Shape = "SPOT" | "BLOCK" | "AREA" | "CENTRE"
 
 export type ReloadStatus = "APPLIED" | "RESTART_REQUIRED"
 

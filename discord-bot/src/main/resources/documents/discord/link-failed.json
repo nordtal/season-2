@@ -8,14 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "Linking failed.",
-                "de": "Das Verknüpfen hat nicht geklappt."
-              }
-            },
-            {
-              "text": {
-                "en": "An admin knows.",
-                "de": "Ein Admin weiß Bescheid."
+                "en": "Your Minecraft account could not be linked.",
+                "de": "Dein Minecraft-Konto konnte nicht verknüpft werden."
               }
             },
             {

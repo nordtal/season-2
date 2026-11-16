@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "No {@terms.access} on sale yet: the {@terms.season} has no launch date.",
-            "de": "{@terms.access} kannst du noch nicht kaufen: Die {@terms.season} hat noch keinen Starttermin."
+            "en": "You can buy {@terms.access} once the {@terms.season} has a start date.",
+            "de": "Du kannst {@terms.access} kaufen, sobald der Starttermin der {@terms.season} feststeht."
           }
         }
       ]

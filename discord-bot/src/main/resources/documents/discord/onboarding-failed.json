@@ -8,14 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "Saving failed.",
-                "de": "Das Speichern hat nicht geklappt."
-              }
-            },
-            {
-              "text": {
-                "en": "An admin knows.",
-                "de": "Ein Admin weiß Bescheid."
+                "en": "Your settings could not be saved.",
+                "de": "Deine Einstellungen konnten nicht gespeichert werden."
               }
             },
             {

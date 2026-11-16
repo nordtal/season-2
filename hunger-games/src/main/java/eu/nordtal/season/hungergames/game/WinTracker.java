@@ -133,7 +133,7 @@ public final class WinTracker {
         }
 
         if (aliveSince.isEmpty()) {
-            LOGGER.warn("every participant dead without tiebreak, no winner: game={}", gameId);
+            LOGGER.warn("all participants dead, no tiebreak winner: game={}", gameId);
             return Optional.of(Outcome.noWinner());
         }
 

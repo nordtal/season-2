@@ -77,7 +77,7 @@ final class LiveSwap {
             return Kinds.Planned.outcome(Outcome.at(RunStage.FAILED));
         }
         install.done();
-        log.info("live swap done: request={} sha1={}", request.id(), sha1);
+        log.info("live swap completed: request={} sha1={}", request.id(), sha1);
         return Kinds.Planned.outcome(Outcome.at(RunStage.DONE));
     }
 }

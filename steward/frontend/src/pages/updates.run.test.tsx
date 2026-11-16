@@ -134,7 +134,7 @@ describe("a run's stages give their coarse facts and open to their steps", () =>
 
     const stage = await screen.findByRole("button", { name: "Backup" })
     expect(stage.getAttribute("aria-expanded")).toBe("true")
-    expect(screen.getAllByText("the tool failed")).toHaveLength(2)
+    expect(screen.getAllByText("The tool failed.")).toHaveLength(2)
     expect(screen.getByText("exit code 2")).toBeTruthy()
     expect(screen.getByText("Dump the database")).toBeTruthy()
   })
@@ -165,7 +165,7 @@ describe("a run's stages give their coarse facts and open to their steps", () =>
     draw()
 
     const players = await screen.findByRole("button", { name: "Players" })
-    expect(within(players.parentElement!).getByText("no one to move")).toBeTruthy()
+    expect(within(players.parentElement!).getByText("No players to move")).toBeTruthy()
   })
 
   it("sends a backup run to its page under Backups", async () => {
@@ -179,7 +179,7 @@ describe("a run's stages give their coarse facts and open to their steps", () =>
     vi.stubGlobal("fetch", backend([], "PLANNED"))
     draw()
 
-    expect(await screen.findByText("nothing written yet")).toBeTruthy()
+    expect(await screen.findByText("No output yet")).toBeTruthy()
   })
 })
 

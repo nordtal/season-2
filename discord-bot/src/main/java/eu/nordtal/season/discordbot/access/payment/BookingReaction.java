@@ -64,7 +64,11 @@ public final class BookingReaction {
         }
 
         admin.show(booked.entry());
-        log.info("booking sent to member: member={} reference={} days={}", payer, booked.reference(), booked.days());
+        log.info(
+                "access confirmation notification queued: member={} reference={} days={}",
+                payer,
+                booked.reference(),
+                booked.days());
     }
 
     private void announceDonation(final DiscordId discordId, final int donationCents, final Locale locale) {

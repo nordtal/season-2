@@ -5,7 +5,7 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>Your team member did not join before the countdown.</warn> <muted><emphasis>{team.name}</emphasis> plays alone with full hearts.</muted>",
+            "en": "<warn>Your teammate did not join before the countdown.</warn> <muted><emphasis>{team.name}</emphasis> plays alone with full hearts.</muted>",
             "de": "<warn>Dein Teammitglied ist vor dem Countdown nicht beigetreten.</warn> <muted><emphasis>{team.name}</emphasis> spielt allein mit vollen Herzen weiter.</muted>"
           }
         }

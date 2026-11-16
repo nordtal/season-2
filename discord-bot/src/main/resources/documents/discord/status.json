@@ -6,8 +6,8 @@
       "lines": [
         {
           "text": {
-            "en": "Launch date to come",
-            "de": "Starttermin folgt"
+            "en": "Start date not announced",
+            "de": "Starttermin noch offen"
           }
         }
       ]
@@ -64,8 +64,8 @@
       "lines": [
         {
           "text": {
-            "en": "{players} {@terms.player, n=players}",
-            "de": "{players} {@terms.player, n=players}"
+            "en": "Joined so far: {players} {@terms.player, n=players}",
+            "de": "Bisher beigetreten: {players} {@terms.player, n=players}"
           }
         }
       ]

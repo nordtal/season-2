@@ -2,9 +2,14 @@ package eu.nordtal.season.smp;
 
 import eu.nordtal.season.database.inbox.BotRequest;
 import eu.nordtal.season.database.inbox.Inbox;
+import eu.nordtal.season.database.npc.NpcStore;
 import eu.nordtal.season.messages.feedback.Feedback;
 import eu.nordtal.season.packrendering.wheel.WheelTimetable;
 import eu.nordtal.season.papercommon.chat.SystemLines;
+import eu.nordtal.season.papercommon.npc.DialogueTexts;
+import eu.nordtal.season.papercommon.npc.Feel;
+import eu.nordtal.season.papercommon.npc.NpcDialogues;
+import eu.nordtal.season.papercommon.npc.NpcMenus;
 import eu.nordtal.season.papercommon.time.PaperScheduler;
 import eu.nordtal.season.smp.announce.Announcer;
 import eu.nordtal.season.smp.aura.DeathPenalty;
@@ -18,9 +23,9 @@ import eu.nordtal.season.smp.feedback.WorldEffects;
 import eu.nordtal.season.smp.grave.GraveDao;
 import eu.nordtal.season.smp.grave.GraveListener;
 import eu.nordtal.season.smp.grave.Graves;
-import eu.nordtal.season.smp.npc.NpcListener;
-import eu.nordtal.season.smp.npc.NpcProtection;
-import eu.nordtal.season.smp.npc.SpawnNpc;
+import eu.nordtal.season.smp.npc.NpcNamePlates;
+import eu.nordtal.season.smp.npc.NpcTexts;
+import eu.nordtal.season.smp.npc.ObjectivesMenu;
 import eu.nordtal.season.smp.player.PlayerComposition;
 import eu.nordtal.season.smp.player.PlayerSurfaces;
 import eu.nordtal.season.smp.player.PlayerSurfacesListener;
@@ -227,32 +232,41 @@ final class SmpStart {
                 .registerEvents(new WheelListener(plugin.wheelSettings.get(), activities.wheel()), plugin);
     }
 
-    static SpawnNpc wireNpc(final SmpPlugin plugin) {
-        // A {@code HAND_IN} objective is fulfilled only through this NPC.
-        final SpawnNpc npc = new SpawnNpc(
+    static NpcDialogues wireNpc(final SmpPlugin plugin) {
+        // A {@code HAND_IN} objective is fulfilled only through the menu an NPC's dialogue hands off to.
+        final ObjectivesMenu objectives = new ObjectivesMenu(
                 plugin,
-                plugin.npcSettings.get(),
-                plugin.nameTags.getNameTagManager(),
+                plugin.season,
+                () -> plugin.track,
+                plugin.engine,
                 plugin.identities(),
-                plugin.renderer());
-        npc.spawn();
-        plugin.getServer()
-                .getPluginManager()
-                .registerEvents(
-                        new NpcListener(
-                                plugin,
-                                npc,
-                                plugin.season,
-                                () -> plugin.track,
-                                plugin.engine,
-                                plugin.identities(),
-                                plugin.renderer(),
-                                plugin.documents(),
-                                plugin.dialogs(),
-                                plugin.sounds),
-                        plugin);
-        plugin.getServer().getPluginManager().registerEvents(new NpcProtection(npc), plugin);
-        return npc;
+                plugin.renderer(),
+                plugin.documents(),
+                plugin.dialogs(),
+                plugin.sounds);
+        final NpcMenus menus = new NpcMenus()
+                .register(
+                        ObjectivesMenu.MENU,
+                        locale -> NpcTexts.objectivesHint(plugin.renderer(), locale),
+                        objectives::openObjectives);
+        final NpcStore store = NpcStore.using(plugin.pool());
+        final NpcDialogues dialogues = new NpcDialogues(
+                plugin,
+                store,
+                new NpcDialogues.Parts(
+                        plugin.hud(),
+                        plugin.identities()::languageOf,
+                        DialogueTexts.labels(plugin.renderer(), menus),
+                        menus,
+                        new NpcNamePlates(
+                                plugin.nameTags.getNameTagManager(),
+                                plugin.identities()::languageOf,
+                                plugin.renderer()),
+                        () -> Feel.of(plugin.npcDialogueSettings.get())));
+        dialogues.start();
+        final PaperScheduler scheduler = PaperScheduler.of(plugin);
+        store.follow(plugin.hub(), npcs -> scheduler.onMain(() -> dialogues.apply(npcs)));
+        return dialogues;
     }
 
     static void restoreGravesAndRegisterWorld(final SmpPlugin plugin) {

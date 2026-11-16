@@ -318,6 +318,7 @@ class PackChangeOfferTest {
                 exempt,
                 0,
                 Locale.ENGLISH,
+                null,
                 SeasonState.UNREAD);
     }
 

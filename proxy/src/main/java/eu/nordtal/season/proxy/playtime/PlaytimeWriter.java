@@ -60,7 +60,7 @@ public final class PlaytimeWriter {
         final DiscordId discordId =
                 roster.of(mcUuid).map(LoginRoster.Session::discordId).orElse(null);
         if (discordId == null) {
-            logger.warn("play time not counted, discord id unknown: uuid={} player={}", mcUuid, username);
+            logger.warn("playtime not counted, discord id unknown: uuid={} player={}", mcUuid, username);
             return;
         }
         sessions.put(mcUuid, new Session(discordId, clock.instant()));
@@ -105,7 +105,7 @@ public final class PlaytimeWriter {
                 store.add(session.discordId, seconds);
             } catch (final RuntimeException exception) {
                 logger.warn(
-                        "play time not written: seconds={} uuid={} member={}",
+                        "playtime not written: seconds={} uuid={} member={}",
                         seconds,
                         mcUuid,
                         session.discordId,

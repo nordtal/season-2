@@ -6,22 +6,26 @@ import java.util.stream.Collectors;
 import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
-/** Reads the language and the time zone of each member's record. */
+/** Reads the language, the country, the time zone and the flag of each member's record. */
 final class Records {
 
     /** The stored record of one member. {@code null} means the network's value. */
-    record Recorded(@Nullable String language, @Nullable String zone) {
+    record Recorded(
+            @Nullable String language,
+            @Nullable String country,
+            @Nullable String zone,
+            @Nullable String flag) {
 
         /** The record of a member who has none. */
-        static final Recorded NONE = new Recorded(null, null);
+        static final Recorded NONE = new Recorded(null, null, null, null);
 
         @Nullable
         String of(final Choices.Kind kind) {
-            return kind == Choices.Kind.LANGUAGE ? language : zone;
+            return kind == Choices.Kind.LANGUAGE ? language : country;
         }
     }
 
-    private static final String SELECT = "SELECT discord_id, locale, time_zone FROM discord_user";
+    private static final String SELECT = "SELECT discord_id, locale, country, time_zone, flag FROM discord_user";
 
     private final Jdbi jdbi;
 
@@ -34,7 +38,11 @@ final class Records {
                 .withHandle(handle -> handle.createQuery(SELECT)
                         .map((rows, context) -> Map.entry(
                                 rows.getString("discord_id"),
-                                new Recorded(rows.getString("locale"), rows.getString("time_zone"))))
+                                new Recorded(
+                                        rows.getString("locale"),
+                                        rows.getString("country"),
+                                        rows.getString("time_zone"),
+                                        rows.getString("flag"))))
                         .list())
                 .stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -44,7 +52,11 @@ final class Records {
         final Optional<Recorded> found =
                 jdbi.withHandle(handle -> handle.createQuery(SELECT + " WHERE discord_id = :id")
                         .bind("id", discordId)
-                        .map((rows, context) -> new Recorded(rows.getString("locale"), rows.getString("time_zone")))
+                        .map((rows, context) -> new Recorded(
+                                rows.getString("locale"),
+                                rows.getString("country"),
+                                rows.getString("time_zone"),
+                                rows.getString("flag")))
                         .findOne());
         return found.orElse(Recorded.NONE);
     }

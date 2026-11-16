@@ -22,6 +22,7 @@ import eu.nordtal.season.database.inbox.Schedule;
 import eu.nordtal.season.database.payment.TabRefusal;
 import eu.nordtal.season.database.update.RunStep;
 import eu.nordtal.season.database.update.UpdateKind;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Messages;
 import eu.nordtal.season.messages.value.Money;
 import eu.nordtal.season.steward.push.PushSender;
@@ -164,15 +165,32 @@ public final class AlertRouter {
         }
     }
 
-    /** Builds the push body that {@code sw.js} reads. */
+    /**
+     * Builds the push body that {@code sw.js} reads.
+     * Its text is every line of the alert, which names what a title leaves out, else the level.
+     * A push shows plain text, so the lines lose their Markdown marks.
+     */
     String payloadOf(final Alert alert) {
         final Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", alert.type().key());
         body.put("level", alert.level().key());
         body.put("title", texts.format(Locales.DEFAULT, alert.title()));
-        body.put("body", texts.format(Locales.DEFAULT, TEXTS.alert().level(alert.level())));
+        final List<MessageRef> lines =
+                alert.lines().isEmpty() ? List.of(TEXTS.alert().level(alert.level())) : alert.lines();
+        body.put(
+                "body",
+                String.join(
+                        "\n",
+                        lines.stream()
+                                .map(line -> plain(texts.format(Locales.DEFAULT, line)))
+                                .toList()));
         body.put("path", alert.path());
         return Json.encode(body);
+    }
+
+    /** Returns a Discord Markdown line as plain text, without its code and bold marks or escapes. */
+    static String plain(final String markdown) {
+        return markdown.replace("**", "").replace("`", "").replaceAll("\\\\([\\\\_*~|>])", "$1");
     }
 
     /** Returns a sample of an alert's action, with every value it can show. */
@@ -229,9 +247,16 @@ public final class AlertRouter {
                         action,
                         new JournalDetail.ChannelsNotClosed(
                                 List.of(new JournalDetail.ChannelFailure("general", "Missing Access"))));
-            case LOCK_WITHOUT_CHANNEL -> new Alert(action, Alert.Level.WARN, List.of());
+            case LOCK_WITHOUT_CHANNEL, START_CHANNEL_HIDDEN -> new Alert(action, Alert.Level.WARN, List.of());
+            case LANGUAGE_NOT_KEPT -> event(action, sampleLanguageDenial());
+            case CHANNEL_SEEN -> event(action, new JournalDetail.ChannelSeen("#deutsch-chat", "@English"));
             default -> throw new IllegalArgumentException(action + " is no alert");
         };
+    }
+
+    private static JournalDetail.ChannelsNotDenied sampleLanguageDenial() {
+        return new JournalDetail.ChannelsNotDenied(
+                List.of(new JournalDetail.ChannelFailure("#deutsch-chat", "Missing Access")));
     }
 
     private static Alert measured(final JournalAction action, final Alert.Level level, final Measure measure) {

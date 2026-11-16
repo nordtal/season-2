@@ -82,6 +82,21 @@ public interface RunRecorder {
     /** Counts players back on the latest move between those two services. */
     default void returned(final String from, final String to, final int players) {}
 
+    record PlayerMove(String from, String room, boolean switching) {}
+
+    /** Remembers which run moved a player, across proxy restarts. */
+    default void rememberMove(
+            final long run,
+            final java.util.UUID player,
+            final String from,
+            final String room,
+            final boolean switching) {}
+
+    /** Counts a player's return once against its recorded move and returns that move. */
+    default @Nullable PlayerMove takeReturn(final java.util.UUID player) {
+        return null;
+    }
+
     /** Returns every move of the run with how many came back, none on a schema this code was not built for. */
     default List<RunStep.Move> moves(final long run) {
         return List.of();

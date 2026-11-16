@@ -14,8 +14,8 @@
             },
             {
               "text": {
-                "en": "Team **{team.name}** is complete.",
-                "de": "{@terms.team, n=1} **{team.name}** ist komplett."
+                "en": "Your {@terms.team, n=1} **{team.name}** is now complete.",
+                "de": "Dein {@terms.team, n=1} **{team.name}** ist jetzt komplett."
               }
             }
           ]

@@ -74,7 +74,7 @@ describe("switchState", () => {
 describe("gateOf", () => {
   it("is closed without a launch date, and admins go through", () => {
     const gate = gateOf(season({ opening: "CLOSED", launch: undefined }), NOW)
-    expect(gate).toMatchObject({ now: "closed", tone: "idle", why: "no launch date", except: ["admins go through"] })
+    expect(gate).toMatchObject({ now: "closed", tone: "idle", why: "no launch date", except: ["Admins can join"] })
   })
 
   it("counts down to a date ahead", () => {
@@ -89,14 +89,14 @@ describe("gateOf", () => {
       season({ maintenance: true, lastMaintenance: { on: at(-600_000), byKind: "HOST", byId: "" } }),
       NOW,
     )
-    expect(gate).toMatchObject({ now: "waiting", tone: "warn", state: "wait", except: ["admins go through"] })
+    expect(gate).toMatchObject({ now: "waiting", tone: "warn", state: "wait", except: ["Admins can join"] })
     expect(gate.why).toMatch(/^maintenance for /)
   })
 
   it("holds admins too while a switch has not reached its last stage", () => {
     const gate = gateOf(switching({ steps: [step("STOP", { service: "smp" })] }), NOW)
-    expect(gate).toMatchObject({ now: "waiting", why: "game mode switch, until Hunger Games runs" })
-    expect(gate.except).toEqual(["admins wait too", "/server works"])
+    expect(gate).toMatchObject({ now: "waiting", why: "Switching game mode; waiting for Hunger Games" })
+    expect(gate.except).toEqual(["Admins must wait too", "Admins can use /server"])
   })
 
   it("is open again once the switch lets players out", () => {
@@ -116,14 +116,14 @@ describe("gateOf", () => {
     expect(gateOf(switching({ status: "FAILED" }), NOW)).toMatchObject({
       now: "waiting",
       tone: "down",
-      why: "switch failed, Hunger Games did not start",
+      why: "Switch failed: Hunger Games did not start",
     })
   })
 
   it("names a queued switch on an open gate", () => {
     expect(gateOf(switching({ status: "PENDING" }), NOW)).toMatchObject({
       now: "SMP",
-      why: "switch to Hunger Games waiting",
+      why: "Switch to Hunger Games queued",
     })
   })
 })
@@ -169,10 +169,10 @@ describe("switchStages", () => {
       false,
     )
     expect(stages.map((stage) => [stage.name, stage.verdict])).toEqual([
-      ["Players to the waiting room", "done"],
+      ["Move players to the waiting room", "done"],
       ["Stop SMP", "done"],
       ["Start Hunger Games", "running"],
-      ["Players to Hunger Games", "planned"],
+      ["Move players to Hunger Games", "planned"],
     ])
     expect(stages[0].pills.map((pill) => pill.text)).toEqual(["10 / 10 arrived"])
   })
@@ -180,9 +180,12 @@ describe("switchStages", () => {
   it("counts the players left behind only once the run has finished", () => {
     const back = step("PLAYERS_BACK", { players: [{ from: "limbo", to: "smp", moved: 10, returned: 6 }] })
     const running = switchStages(run({ steps: [back] }), "SMP", false)
-    expect(running[3].pills.map((pill) => pill.text)).toEqual(["6 / 10"])
+    expect(running[3].pills.map((pill) => pill.text)).toEqual(["6 / 10 players returned"])
     const done = switchStages(run({ status: "DONE", finished: at(0), steps: [back] }), "SMP", true)
-    expect(done[3].pills.map((pill) => pill.text)).toEqual(["6 / 10", "4 stay, maintenance"])
+    expect(done[3].pills.map((pill) => pill.text)).toEqual([
+      "6 / 10 players returned",
+      "4 players in the waiting room for maintenance",
+    ])
     expect(done[0].verdict).toBe("skipped")
   })
 

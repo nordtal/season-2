@@ -363,6 +363,21 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V126__a_refused_step_keeps_the_answer_it_got.sql",
                 "d975c1688fb0f358c92df5dd8cae1785630220d8253c3d604ed13414d193b5ac");
+        FROZEN.put(
+                "V127__a_member_chooses_a_country_which_sets_the_time_zone.sql",
+                "8be51506298337116e5da7aadf98ab36526bf4a3f9ea00be16953a8c8e01db15");
+        FROZEN.put(
+                "V128__a_player_s_move_survives_a_proxy_restart.sql",
+                "7b978d6cf66adfacb07594c5d2a21a66107ebc0bd2c6aac89f96ff087dd4b49c");
+        FROZEN.put(
+                "V129__an_admin_places_npcs_that_talk_with_players.sql",
+                "b18363e15d2756951402f0df3d83e10b68e589cb075362e0e43594e18594624c");
+        FROZEN.put(
+                "V130__an_admin_takes_a_position_in_from_the_game.sql",
+                "5c2e6a633602c9745b6fdf3bc7a2692c9bdadea1ba68ebf579bd0631590e6f34");
+        FROZEN.put(
+                "V131__a_player_s_country_flag_shows_in_the_game.sql",
+                "14b089950a2f5fc4c7fd513f44a44b091fe6433b7bf5409aba72ef14dda51db9");
     }
 
     @Test

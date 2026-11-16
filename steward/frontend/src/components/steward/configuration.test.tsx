@@ -312,7 +312,7 @@ describe("environment overrides", () => {
     draw(<Settings service="steward" />)
     await open("Steward")
 
-    await screen.findByText("env override")
+    await screen.findByText("Environment override")
     const input = asInput(await screen.findByDisplayValue("http://steward:8081"))
     expect(input.disabled).toBe(false)
   })
@@ -323,7 +323,7 @@ describe("environment overrides", () => {
     await open("Steward")
     await screen.findByText("Base url")
 
-    expect(screen.queryByText("env override")).toBeNull()
+    expect(screen.queryByText("Environment override")).toBeNull()
   })
 })
 
@@ -513,10 +513,10 @@ describe("the arrow back to the top", () => {
     await screen.findByRole("searchbox", { name: "Search this file" })
 
     // There are three fields and nothing scrolls, so the arrow would do nothing.
-    expect(screen.queryByRole("button", { name: "Back to the top" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "Back to top" })).toBeNull()
 
     act(() => report?.([{ isIntersecting: false }]))
-    expect(screen.getByRole("button", { name: "Back to the top" })).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Back to top" })).toBeTruthy()
   })
 
   it("scrolls the page's scroll area to its very top, not to the file", async () => {
@@ -554,7 +554,7 @@ describe("the arrow back to the top", () => {
     const scrollTo = vi.fn<(options?: ScrollToOptions) => void>()
     Object.defineProperty(viewport, "scrollTo", { value: scrollTo })
 
-    fireEvent.click(await screen.findByRole("button", { name: "Back to the top" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Back to top" }))
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" })
   })
@@ -597,9 +597,9 @@ describe("the arrow back to the top", () => {
     const scrollTo = vi.fn<(options?: ScrollToOptions) => void>()
     Object.defineProperty(viewport, "scrollTo", { value: scrollTo })
 
-    const arrow = await screen.findByRole("button", { name: "Back to the top" })
+    const arrow = await screen.findByRole("button", { name: "Back to top" })
     expect(bar.contains(arrow)).toBe(true)
-    expect(screen.getAllByRole("button", { name: "Back to the top" })).toHaveLength(1)
+    expect(screen.getAllByRole("button", { name: "Back to top" })).toHaveLength(1)
 
     fireEvent.click(arrow)
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" })

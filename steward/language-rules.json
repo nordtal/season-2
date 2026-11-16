@@ -13,8 +13,8 @@
   ],
 
   "_alsoEnglish": [
-    "Words that are in the German bundle and are also English words. Every one was checked by",
-    "hand against the sources here. This list is expected to grow by one whenever an English",
+    "Words that are also English words or the own names of languages shown as content. Each was",
+    "checked against the sources here. This list is expected to grow by one whenever an English",
     "sentence trips it - the test goes red once, somebody reads the word, and adds it. That is the",
     "right failure: loud, and one line to answer. A guard that reports a false positive and is",
     "then deleted is the failure this shape avoids."
@@ -24,12 +24,14 @@
     "also",
     "bots",
     "den",
+    "deutsch",
     "die",
     "dir",
     "gate",
     "gib",
     "hat",
     "installation",
+    "land",
     "lang",
     "man",
     "milestones",

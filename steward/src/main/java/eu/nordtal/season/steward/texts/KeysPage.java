@@ -32,7 +32,7 @@ public interface KeysPage {
     @Name("Signed in as")
     MessageRef signedInAs(@Arg("name") @Example("Alex") String name);
 
-    @Name("Hold title")
+    @Name("Security key confirmation title")
     MessageRef holdTitle();
 
     @Name("No keys here")
@@ -99,19 +99,19 @@ public interface KeysPage {
     @Name("Try again")
     MessageRef tryAgain();
 
-    @Name("Hold key")
+    @Name("Confirm with security key")
     MessageRef holdKey();
 
     @Name("Step-up lasts")
     MessageRef stepUpLasts(@Arg("length") @Example("PT15M") Duration length);
 
-    @Name("Longer hold")
+    @Name("Longer confirmation")
     MessageRef longerHold();
 
-    @Name("Hold for")
+    @Name("Confirmation duration")
     MessageRef holdFor(@Arg("length") @Example("PT15M") Duration length);
 
-    @Name("Step-up holds")
+    @Name("Confirmation expiry")
     MessageRef stepUpHolds(@Arg("until") @Example("2026-10-23T18:55:00Z") Instant until);
 
     @Name("End step-up")

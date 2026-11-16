@@ -212,7 +212,7 @@ run `git config core.hooksPath .githooks` once per clone.
     to do, 🔍 not read yet, 📋 planned, ⏹️ cancelled.
   - Action: 💶 paid, 🎟️ granted, 🚫 revoked, 🔗 linked, ✂️ unlinked, ⏱️ play time set, 🔒 refused and kept shut,
     📝 any other action.
-  - A language's flag, the country `Locales.flagCountry` names for it, drawn by `Mark.flag`.
+  - A country's flag, drawn by `Mark.flag` from its two-letter code.
 - **A design proposal is drawn on Nordtal's design system**, outside this repository, never as a page
   Steward serves.
 - **A visual change is accepted on screenshots** at phone and desktop width, compared with what was

@@ -47,7 +47,9 @@ public final class GuildLanguages {
                                 language.linkChannel(),
                                 language.hungerGamesChannel(),
                                 language.statusChannel(),
-                                language.announcementChannel()))
+                                language.announcementChannel(),
+                                language.category(),
+                                language.rulesChannel()))
                         .toList(),
                 network);
     }
@@ -141,7 +143,29 @@ public final class GuildLanguages {
             String linkChannelId,
             String hungerGamesChannelId,
             String statusChannelId,
-            String announcementChannelId) {
+            String announcementChannelId,
+            String categoryId,
+            String rulesChannelId) {
+
+        public Language(
+                final String tag,
+                final String roleName,
+                final String contributionChannelId,
+                final String linkChannelId,
+                final String hungerGamesChannelId,
+                final String statusChannelId,
+                final String announcementChannelId) {
+            this(
+                    tag,
+                    roleName,
+                    contributionChannelId,
+                    linkChannelId,
+                    hungerGamesChannelId,
+                    statusChannelId,
+                    announcementChannelId,
+                    "",
+                    "");
+        }
 
         public Language(
                 final String tag,
@@ -150,7 +174,16 @@ public final class GuildLanguages {
                 final String linkChannelId,
                 final String hungerGamesChannelId,
                 final String statusChannelId) {
-            this(tag, roleName, contributionChannelId, linkChannelId, hungerGamesChannelId, statusChannelId, "");
+            this(
+                    tag,
+                    roleName,
+                    contributionChannelId,
+                    linkChannelId,
+                    hungerGamesChannelId,
+                    statusChannelId,
+                    "",
+                    "",
+                    "");
         }
 
         public boolean hasStatusChannel() {

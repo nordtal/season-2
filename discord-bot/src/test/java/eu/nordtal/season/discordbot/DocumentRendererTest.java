@@ -95,7 +95,19 @@ class DocumentRendererTest {
                 .preview(packaged("contribution"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
         assertTrue(drawn.contains("\\n**30 days** for €5.00\""), drawn);
-        assertTrue(drawn.contains("donation of €5.00"), drawn);
+        assertTrue(drawn.contains("added €5.00 donation"), drawn);
+    }
+
+    @Test
+    void anAdminGrantMessageFitsBothFirstAndFurtherAccess() {
+        final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();
+        final Documents.Packaged document = packaged("dm-granted-admin");
+        final List<Locale> languages = List.of(Locale.ENGLISH, Locale.GERMAN);
+        final String english = renderer.preview(document, languages, Locale.ENGLISH);
+        final String german = renderer.preview(document, languages, Locale.GERMAN);
+
+        assertTrue(english.contains("An admin gave you **30 days** of access."), english);
+        assertTrue(german.contains("Ein Admin hat dir **30 Tage** Zugang gegeben."), german);
     }
 
     @Test
@@ -128,7 +140,7 @@ class DocumentRendererTest {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-journal"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
-        assertTrue(drawn.contains("First admin"), drawn);
+        assertTrue(drawn.contains("First admin signed in"), drawn);
         assertTrue(drawn.contains("Signed in as the first admin."), drawn);
     }
 
@@ -138,7 +150,7 @@ class DocumentRendererTest {
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
         assertTrue(drawn.contains("🛑 **smp** paper 1.21.4 → 1.21.5"), drawn);
-        assertTrue(drawn.contains("**smp**: not healthy in time"), drawn);
+        assertTrue(drawn.contains("**smp**: No healthy report came in time."), drawn);
         assertFalse(drawn.contains("admin/"), drawn);
     }
 
@@ -149,7 +161,7 @@ class DocumentRendererTest {
                 .preview(packaged("admin-run"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);
 
         assertTrue(drawn.contains("🛑 The update failed"), drawn);
-        assertEquals(1, drawn.split("not healthy in time", -1).length - 1, drawn);
+        assertEquals(1, drawn.split("No healthy report came in time", -1).length - 1, drawn);
         assertFalse(drawn.contains("✅"), drawn);
     }
 

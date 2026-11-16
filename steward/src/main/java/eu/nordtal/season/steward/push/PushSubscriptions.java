@@ -68,7 +68,7 @@ public final class PushSubscriptions {
     /** Removes the subscription of {@code endpoint} without an account check. */
     public void expired(final String endpoint) {
         if (dao.expired(endpoint) == 1) {
-            log.info("push subscription expired, removed: endpoint={}", endpoint);
+            log.info("expired push subscription removed: endpoint={}", endpoint);
         }
     }
 

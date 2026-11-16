@@ -40,7 +40,7 @@ final class ModeServers {
             final SeasonState state = season.state();
             return SeasonState.UNREAD.equals(state) ? Optional.empty() : Optional.of(state.mode());
         } catch (final RuntimeException unread) {
-            log.warn("game mode unreadable, no server rested", unread);
+            log.warn("game mode unreadable, server stop skipped", unread);
             return Optional.empty();
         }
     }
@@ -77,7 +77,7 @@ final class ModeServers {
     static void reconcile(final Runner runner) {
         try {
             if (runner.directory.handedTo().isPresent()) {
-                log.info("game servers not changed, one-shot running");
+                log.info("game server reconciliation skipped, one-shot running");
                 return;
             }
             final SeasonMode mode = active(runner.season()).orElse(null);
@@ -97,7 +97,7 @@ final class ModeServers {
             }
             wake(runner.containers, runtime, mode.server());
         } catch (final RuntimeException failure) {
-            log.error("mode servers not arranged", failure);
+            log.error("game server reconciliation failed", failure);
         }
     }
 
@@ -135,7 +135,7 @@ final class ModeServers {
         }
         final String id = containerOf(runtime, active);
         if (id == null) {
-            log.warn("active mode server without container: service={}", active);
+            log.warn("active game server container missing: service={}", active);
             return;
         }
         final RedeployResult started = containers.start(id);

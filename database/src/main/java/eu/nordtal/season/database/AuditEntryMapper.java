@@ -120,7 +120,10 @@ public final class AuditEntryMapper implements RowMapper<AuditEntry> {
                     ROLE_AMBIGUOUS,
                     ROLE_NOT_CREATED,
                     LOCK_NOT_KEPT,
-                    LOCK_WITHOUT_CHANNEL -> throw new IllegalArgumentException(action + " is an alert");
+                    LOCK_WITHOUT_CHANNEL,
+                    START_CHANNEL_HIDDEN,
+                    LANGUAGE_NOT_KEPT,
+                    CHANNEL_SEEN -> throw new IllegalArgumentException(action + " is an alert");
         };
     }
 

@@ -40,6 +40,24 @@ class RunStepsIntegrationTest {
     }
 
     @Test
+    void aDurableReturnCountsItsOriginalStepOnceEvenAfterAnotherMoveStarts() {
+        final long run =
+                updates.submit(UpdateKind.RESTART, Actor.HOST, Duration.ZERO).id();
+        final long step = recorder.begin(run, RunStep.Kind.PLAYERS_MOVED, null);
+        final java.util.UUID player = java.util.UUID.randomUUID();
+        recorder.moved(run, "smp", "limbo-standby", 1);
+        recorder.rememberMove(run, player, "smp", "limbo-standby", false);
+        recorder.begin(run, RunStep.Kind.PLAYERS_MOVED, null);
+        recorder.moved(run, "smp", "limbo-standby", 2);
+        final RunRecorder restarted = UpdateDirectory.using(dataSource).recorder();
+        assertEquals(new RunRecorder.PlayerMove("smp", "limbo-standby", false), restarted.takeReturn(player));
+        org.junit.jupiter.api.Assertions.assertNull(restarted.takeReturn(player));
+        org.junit.jupiter.api.Assertions.assertNull(restarted.takeReturn(java.util.UUID.randomUUID()));
+        assertEquals(
+                List.of(step + " 1"), strings("SELECT step || ' ' || returned FROM run_players WHERE returned > 0"));
+    }
+
+    @Test
     void everyValueTheEnumsNameIsOneTheTablesTake() {
         final long run =
                 updates.submit(UpdateKind.BACKUP, Actor.HOST, Duration.ZERO).id();

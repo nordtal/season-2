@@ -106,7 +106,7 @@ describe("the groups", () => {
     vi.stubGlobal("fetch", backend(listing([])))
     draw(<Page />)
 
-    expect(await screen.findByText("No texts.")).toBeTruthy()
+    expect(await screen.findByText("No texts available.")).toBeTruthy()
   })
 })
 
@@ -290,7 +290,7 @@ describe("saving", () => {
     fireEvent.change(await source("greeting"), { target: { value: "Hello there" } })
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }))
 
-    expect(await screen.findByText(/the text never shows sender, which the message is given/)).toBeTruthy()
+    expect(await screen.findByText(/the text never shows sender, which is passed to this message/)).toBeTruthy()
     expect(await screen.findByDisplayValue("Hello there")).toBeTruthy()
   })
 
@@ -559,13 +559,13 @@ describe("a fallen-back override", () => {
     draw(<Page />)
     await openItem("Welcome")
 
-    await screen.findByText("Fallen back")
+    await screen.findByText("Fallback used")
     expect(screen.getAllByRole("definition").map((definition) => definition.textContent)).toEqual([
       "Welcome",
       "Welcome aboard",
       "Howdy",
     ])
-    fireEvent.click(screen.getByRole("button", { name: "Take over" }))
+    fireEvent.click(screen.getByRole("button", { name: "Edit saved override" }))
 
     await waitFor(() => expect(bodies).toHaveLength(1))
     expect(bodies[0]).toEqual({ changes: { smp: { welcome: { en: ["Howdy"] } } } })
@@ -579,7 +579,7 @@ describe("the two views", () => {
     await openItem("Broken")
 
     expect(asTextArea(await screen.findByRole("textbox", { name: "Broken" })).value).toBe("Hello {name")
-    expect(asButton(screen.getByRole("button", { name: "As it looks" })).disabled).toBe(true)
+    expect(asButton(screen.getByRole("button", { name: "Preview" })).disabled).toBe(true)
   })
 })
 

@@ -26,8 +26,8 @@
             },
             {
               "text": {
-                "en": "**Donation** of {donation} with the permanent donor role",
-                "de": "**Spende** von {donation} mit der dauerhaften Spenderrolle"
+                "en": "**Donation:** {donation} for the permanent donor role",
+                "de": "**Spende:** {donation} für die dauerhafte Spenderrolle"
               },
               "when": "donating"
             },
@@ -46,8 +46,8 @@
             {
               "slot": "confirm",
               "label": {
-                "en": "Get the payment link",
-                "de": "Zahlungslink holen"
+                "en": "Create payment link",
+                "de": "Zahlungslink erstellen"
               }
             },
             {
@@ -60,7 +60,7 @@
             {
               "slot": "withdraw",
               "label": {
-                "en": "Remove the donation",
+                "en": "Remove donation",
                 "de": "Spende entfernen"
               }
             },

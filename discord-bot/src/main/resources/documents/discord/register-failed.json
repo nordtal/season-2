@@ -8,14 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "Registering failed.",
-                "de": "Das Anmelden hat nicht geklappt."
-              }
-            },
-            {
-              "text": {
-                "en": "An admin knows.",
-                "de": "Ein Admin weiß Bescheid."
+                "en": "Your {@terms.team, n=1} registration could not be confirmed.",
+                "de": "Die Anmeldung für dein {@terms.team, n=1} konnte nicht bestätigt werden."
               }
             },
             {

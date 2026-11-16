@@ -55,7 +55,7 @@ public final class ChannelList extends ListenerAdapter {
     private void write() {
         final Guild guild = jda.getGuildById(guildId);
         if (guild == null) {
-            log.warn("guild not available, channels not published: guild={}", guildId);
+            log.warn("discord server unavailable, channels not published: guild={}", guildId);
             return;
         }
         final List<GuildChannel> channels = guild.getChannels().stream()
@@ -65,7 +65,7 @@ public final class ChannelList extends ListenerAdapter {
         try {
             store.publish(guildId, channels);
         } catch (final RuntimeException failed) {
-            log.warn("guild channels not published: count={} cause={}", channels.size(), failed.getMessage());
+            log.warn("discord channels not published: count={} cause={}", channels.size(), failed.getMessage());
         }
     }
 }

@@ -72,6 +72,18 @@ describe("PersonPage - one person on an address of their own", () => {
     expect(await screen.findByText("AliceMC")).toBeTruthy()
     expect(screen.getByText("Language")).toBeTruthy()
     expect(screen.getByText("en")).toBeTruthy()
+    expect(screen.getByText("Country")).toBeTruthy()
+    expect(screen.getByText("us-east")).toBeTruthy()
+    expect(screen.getByText("Time zone")).toBeTruthy()
+    expect(screen.getByText("America/New_York")).toBeTruthy()
+  })
+
+  it("says a person chose no country, and that times show in the network's zone", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw(<PersonPage />, `/access/${BOB}`)
+
+    expect(await screen.findByText("Not chosen")).toBeTruthy()
+    expect(screen.getByText("The network's zone")).toBeTruthy()
   })
 
   it("reveals the Discord id in the identity popover, on request", async () => {
@@ -192,12 +204,12 @@ describe("PersonPage - one person on an address of their own", () => {
     draw(<PersonPage />, `/access/${ALLY}`)
 
     const panel = assertElement((await screen.findByText("Inventories")).closest("section"), "the inventories panel")
-    const buttons = await within(panel).findAllByRole("button", { name: "Edit in the game" })
+    const buttons = await within(panel).findAllByRole("button", { name: "Edit in game" })
     expect(buttons).toHaveLength(2)
     fireEvent.click(assertElement(buttons[1] ?? null, "the ender chest's button"))
 
     await vi.waitFor(() => expect(opened).toEqual([{ server: "smp", container: "ENDER_CHEST" }]))
     fireEvent.mouseDown(within(panel).getByRole("tab", { name: /Creative/ }))
-    await vi.waitFor(() => expect(within(panel).queryByRole("button", { name: "Edit in the game" })).toBeNull())
+    await vi.waitFor(() => expect(within(panel).queryByRole("button", { name: "Edit in game" })).toBeNull())
   })
 })

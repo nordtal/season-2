@@ -116,8 +116,8 @@ public final class StewardAgent {
         for (final String service : services) {
             final Compose.PullOutcome outcome = compose.pull(service, output, isHere);
             if (outcome == Compose.PullOutcome.FAILED) {
-                output.accept("no image for " + service + ", from the registry or from this host. "
-                        + "Nothing has been stopped.");
+                output.accept("Deployment failed: no registry or local image for " + service
+                        + ". Check the registry connection and image tag, then retry.");
                 return 1;
             }
         }
@@ -131,9 +131,8 @@ public final class StewardAgent {
             final Predicate<String> isHere)
             throws Exception {
         if (!compose.hasLocalImage(service, isHere)) {
-            output.accept("no image for " + service + " on this host, and recreate does not fetch "
-                    + "one. Deploy " + service + " instead - that is the button that pulls. "
-                    + "Nothing has been stopped.");
+            output.accept("Service not recreated: no local image for " + service + ". Deploy " + service
+                    + " to download its image.");
             return 1;
         }
         return compose.recreate(service, output);
@@ -148,8 +147,8 @@ public final class StewardAgent {
             throws Exception {
         if (!compose.hasLocalImage(service, isHere)
                 && compose.pull(service, output, isHere) == Compose.PullOutcome.FAILED) {
-            output.accept("no image for " + service + ", from the registry or from this host. "
-                    + "Nothing has been stopped.");
+            output.accept("Standby not started: no registry or local image for " + service
+                    + ". Check the registry connection and image tag, then retry.");
             return 1;
         }
         return compose.recreate(service, output);
@@ -239,7 +238,7 @@ public final class StewardAgent {
             try {
                 runs = AgentSettings.runs(AgentSettings.stored(database.dataSource(), log));
             } catch (final SettingsException broken) {
-                log.error("settings unreadable, run not carried out: cause={}", broken.getMessage());
+                log.error("settings unreadable, run skipped: cause={}", broken.getMessage());
                 return 1;
             }
             final UpdateDirectory updates = Schema.updates(database);
@@ -310,7 +309,7 @@ public final class StewardAgent {
             try {
                 runs = AgentSettings.runs(settings);
             } catch (final SettingsException broken) {
-                log.error("settings unreadable, runs not carried out: cause={}", broken.getMessage());
+                log.error("settings unreadable, runs skipped: cause={}", broken.getMessage());
                 return 1;
             }
             return serveWithDatabase(
@@ -460,7 +459,7 @@ public final class StewardAgent {
         final Path image = Path.of(server.setting("PACK_IMAGE", "/app/pack"));
         final Path shelf = Path.of(server.setting("PACK_DIR", "/pack"));
         if (!Files.isDirectory(image)) {
-            log.warn("no pack inputs in the image, the pack is not built: path={}", image);
+            log.warn("pack inputs missing, build skipped: path={}", image);
             return Optional.empty();
         }
         try {
@@ -473,7 +472,7 @@ public final class StewardAgent {
                     scheduler,
                     clock));
         } catch (final IOException failure) {
-            log.warn("pack shelf not usable, the pack is not built: path={} cause={}", shelf, failure.getMessage());
+            log.warn("pack storage unavailable, build skipped: path={} cause={}", shelf, failure.getMessage());
             return Optional.empty();
         }
     }
@@ -527,15 +526,15 @@ public final class StewardAgent {
         try {
             runs.reload();
         } catch (final SettingsException broken) {
-            log.warn("runs settings refused, last ones kept: cause={}", broken.getMessage());
+            log.warn("run settings rejected, current values kept: cause={}", broken.getMessage());
         }
     }
 
     private static void handOver(final Compose compose, final List<String> services) {
         try {
-            compose.handOver(services, line -> log.info("hand-over output: line=\"{}\"", line));
+            compose.handOver(services, line -> log.info("volume ownership command output: line=\"{}\"", line));
         } catch (final IOException failure) {
-            log.warn("volume hand-over failed: services={} cause={}", services, failure.getMessage());
+            log.warn("volume ownership change failed: services={} cause={}", services, failure.getMessage());
         }
     }
 }

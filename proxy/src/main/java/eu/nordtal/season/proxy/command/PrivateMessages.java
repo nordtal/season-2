@@ -14,8 +14,8 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.messagerendering.MessageRenderer;
 import eu.nordtal.season.messages.context.PlayerContext;
 import eu.nordtal.season.messages.document.Sent;
+import eu.nordtal.season.packrendering.CountryFlags;
 import eu.nordtal.season.packrendering.Glyphs;
-import eu.nordtal.season.packrendering.LanguageFlags;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import java.util.List;
 import java.util.Locale;
@@ -160,7 +160,7 @@ public final class PrivateMessages {
      */
     Component line(final Half half, final Locale reader, final Player about, final String text) {
         final Replies.PrivateLine values = new Replies.PrivateLine(
-                LanguageFlags.of(localeOf(about)),
+                CountryFlags.of(roster.flagOf(about.getUniqueId())),
                 PlayerContext.of(PlayerId.of(about.getUniqueId()), about.getUsername()),
                 adminTag(about),
                 text);

@@ -15,9 +15,6 @@ public interface IdentityCard {
     @Name("No Discord name")
     MessageRef noDiscordName();
 
-    @Name("Never observed")
-    MessageRef neverObserved();
-
     @Name("Discord id")
     MessageRef discordId();
 

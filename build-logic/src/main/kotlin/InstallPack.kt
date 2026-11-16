@@ -58,8 +58,8 @@ abstract class InstallPack : DefaultTask() {
     private fun enable(instance: File): String {
         val entry = "file/${packName.get()}"
         val options = instance.resolve("options.txt")
-        val manually = "Enable '${packName.get()}' once in Minecraft under Options > Resource Packs."
-        if (!options.isFile) return "Minecraft has not been started in this instance yet. $manually"
+        val manually = "Enable “${packName.get()}” in Minecraft under Options > Resource Packs."
+        if (!options.isFile) return "Pack not enabled automatically: options.txt is missing. $manually"
         val lines = options.readLines()
         val index = lines.indexOfFirst { it.startsWith(RESOURCE_PACKS) }
         val enabled =
@@ -68,15 +68,15 @@ abstract class InstallPack : DefaultTask() {
             } else {
                 (JsonSlurper().parseText(lines[index].removePrefix(RESOURCE_PACKS)) as List<*>).map { it.toString() }.toMutableList()
             }
-        if (entry in enabled) return "The pack is enabled in this instance."
-        if (MinecraftProcesses.running()) return "Minecraft is running, so options.txt was left alone. $manually"
+        if (entry in enabled) return "pack already enabled"
+        if (MinecraftProcesses.running()) return "Pack not enabled automatically: Minecraft is running. $manually"
         // The last entry has the highest priority.
         enabled += entry
         val line = RESOURCE_PACKS + JsonOutput.toJson(enabled)
         options.writeText(
             (if (index < 0) lines + line else lines.toMutableList().also { it[index] = line }).joinToString("\n", postfix = "\n"),
         )
-        return "Enabled '${packName.get()}' in options.txt. It is active the next time Minecraft starts."
+        return "pack enabled: file=options.txt pack=\"${packName.get()}\""
     }
 
     private companion object {

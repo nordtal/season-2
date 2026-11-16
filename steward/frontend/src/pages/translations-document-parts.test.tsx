@@ -36,7 +36,7 @@ describe("a part added to a document", { timeout: 15_000 }, () => {
     const editor = await openItem("Milestone", /^Discord/).then(() =>
       screen.findByRole("region", { name: "Milestone" }),
     )
-    fireEvent.pointerDown(within(editor).getByRole("button", { name: "Add a part" }), { button: 0 })
+    fireEvent.pointerDown(within(editor).getByRole("button", { name: "Add part" }), { button: 0 })
     fireEvent.click(await screen.findByRole("menuitem", { name: "Text block" }))
 
     const parts = within(editor).getAllByRole("button", { name: /^Text block/ })
@@ -56,7 +56,7 @@ describe("a part added to a document", { timeout: 15_000 }, () => {
     const editor = await openItem("Milestone", /^Discord/).then(() =>
       screen.findByRole("region", { name: "Milestone" }),
     )
-    fireEvent.pointerDown(within(editor).getByRole("button", { name: "Add a part" }), { button: 0 })
+    fireEvent.pointerDown(within(editor).getByRole("button", { name: "Add part" }), { button: 0 })
     fireEvent.click(await screen.findByRole("menuitem", { name: "Embed" }))
 
     expect(within(editor).getByRole("button", { name: "Embed" }).getAttribute("aria-expanded")).toBe("true")

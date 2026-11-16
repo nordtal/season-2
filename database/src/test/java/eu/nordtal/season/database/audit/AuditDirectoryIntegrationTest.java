@@ -57,7 +57,9 @@ class AuditDirectoryIntegrationTest {
             JournalDetail.MemberFailed.class,
             JournalDetail.RoleNotChanged.class,
             JournalDetail.RoleNamed.class,
-            JournalDetail.ChannelsNotClosed.class);
+            JournalDetail.ChannelsNotClosed.class,
+            JournalDetail.ChannelsNotDenied.class,
+            JournalDetail.ChannelSeen.class);
 
     private static final String BOB = "100000000000000002";
     private static final String ADMIN = "100000000000000009";

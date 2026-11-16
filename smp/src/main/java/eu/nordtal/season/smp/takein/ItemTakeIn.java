@@ -119,7 +119,8 @@ public final class ItemTakeIn {
                         Base64.getEncoder().encodeToString(stack.serializeAsBytes()));
         PaperScheduler.of(plugin).execute(() -> {
             if (inbox.settle(request, Outcome.done(answer)).isEmpty()) {
-                plugin.getLogger().info("take-in withdrawn before window closed: request=" + request);
+                plugin.getLogger()
+                        .info("item capture request no longer running, result not recorded: request=" + request);
             }
         });
     }

@@ -65,8 +65,8 @@
         {
           "when": "state=hunger-games",
           "text": {
-            "en": "<muted>{@terms.hunger-games}: <emphasis>{list.hgParticipants}</emphasis> {@terms.player, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>",
-            "de": "<muted>{@terms.hunger-games}: <emphasis>{list.hgParticipants}</emphasis> {@terms.player, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>"
+            "en": "<muted>{@terms.hunger-games}: <emphasis>{list.hgParticipants}</emphasis> {@terms.participant, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>",
+            "de": "<muted>{@terms.hunger-games}: <emphasis>{list.hgParticipants}</emphasis> {@terms.participant, n=list.hgParticipants} in <emphasis>{list.hgTeams}</emphasis> {@terms.team, n=list.hgTeams}</muted>"
           }
         },
         {

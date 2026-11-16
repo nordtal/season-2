@@ -10,7 +10,7 @@ menu rows from `resource-pack/glyphs.json` on every build. They are never commit
 copies `Glyphs` into this module's build directory before compiling, because Checkstyle and Error
 Prone skip generated sources there.
 
-`LanguageFlags` chooses the flag of a language.
+`CountryFlags` chooses the flag of a player's country.
 
 ## The ui kit
 

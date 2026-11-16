@@ -190,7 +190,7 @@ public final class RegisterFlow extends ListenerAdapter {
             } catch (final RuntimeException exception) {
                 log.error("team invite not sent: game={}", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
+                        .editOriginal(reply(locale, Sent.of(Replies.INVITE_FAILED)))
                         .queue();
             }
         });
@@ -275,9 +275,10 @@ public final class RegisterFlow extends ListenerAdapter {
                         : teams.decline(memberId, event.getUser().getId());
                 report(event, locale, accept, result);
             } catch (final RuntimeException exception) {
-                log.error("team invite answer failed: game={}", teams.game().key(), exception);
+                log.error(
+                        "team invitation response failed: game={}", teams.game().key(), exception);
                 event.getHook()
-                        .editOriginal(reply(locale, Sent.of(Replies.REGISTER_FAILED)))
+                        .editOriginal(reply(locale, Sent.of(Replies.INVITE_ANSWER_FAILED)))
                         .queue();
             }
         });
@@ -310,11 +311,11 @@ public final class RegisterFlow extends ListenerAdapter {
                                     .queue(
                                             ok -> {},
                                             failure -> log.info(
-                                                    "team invite answer not delivered: member={} cause={}",
+                                                    "team invitation response not delivered: member={} cause={}",
                                                     ownerId,
                                                     failure.toString())),
                             failure -> log.info(
-                                    "team invite answer not delivered: member={} cause={}",
+                                    "team invitation response not delivered: member={} cause={}",
                                     ownerId,
                                     failure.toString()));
         });

@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>No {@terms.access} has ever been bought for this account.</warn>",
-            "de": "<warn>Für dieses Konto wurde noch nie {@terms.access} gekauft.</warn>"
+            "en": "<warn>This account has never purchased {@terms.access}.</warn>",
+            "de": "<warn>Dieses Konto hat noch nie {@terms.access} gekauft.</warn>"
           }
         }
       ]

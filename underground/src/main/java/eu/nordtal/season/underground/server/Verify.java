@@ -134,7 +134,7 @@ public final class Verify {
                 .forEach(line -> System.out.println("problem logged: line=\"" + line.replace('"', '\'') + "\""));
         System.out.println("problems counted: count=" + problems.size());
         if (map != null) {
-            System.out.println("complaints about block entities of the map counted: count=" + inherited);
+            System.out.println("source map block entity warnings counted: count=" + inherited);
         }
         return problems.isEmpty();
     }

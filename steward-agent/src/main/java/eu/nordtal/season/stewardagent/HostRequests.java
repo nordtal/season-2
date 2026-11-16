@@ -15,6 +15,7 @@ import eu.nordtal.season.database.update.UpdateDirectory;
 import eu.nordtal.season.database.update.UpdateKind;
 import eu.nordtal.season.database.update.UpdateRequest;
 import eu.nordtal.season.database.update.UpdateStatus;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.messages.Refused;
 import eu.nordtal.season.settings.Database;
 import eu.nordtal.season.settings.DatabaseSpec;
@@ -48,7 +49,7 @@ final class HostRequests {
         try {
             config = AgentSettings.database().get();
         } catch (final SettingsException broken) {
-            System.err.println("Nothing was asked: the database settings cannot be read (" + broken.getMessage()
+            System.err.println("Request not submitted: database settings are unreadable (" + broken.getMessage()
                     + "). Correct them in the environment of steward-agent and run it again.");
             return 1;
         }
@@ -60,7 +61,7 @@ final class HostRequests {
                 Waiting.on(NetworkTime.clock()));
         if (opened == null) {
             System.err.println(
-                    "Nothing was asked: the database did not answer. Check that the database runs and run it again.");
+                    "Request not submitted: the database did not answer. Check that PostgreSQL is running, then retry.");
             return 1;
         }
         try (Database database = opened) {
@@ -145,8 +146,9 @@ final class HostRequests {
         final List<String> told = new ArrayList<>();
         told.add(status + "\t" + (run.stage() == null ? "" : run.stage().name()));
         for (final RunStep.Row step : run.steps()) {
-            told.add(DatabaseText.english(TEXTS.run().stepKind(step.step()))
-                    + (step.service() == null ? "" : " " + step.service())
+            final MessageRef kind = TEXTS.run().stepKind(step.step());
+            told.add(DatabaseText.english(
+                            step.service() == null ? kind : TEXTS.run().stepOn(step.step(), kind, step.service()))
                     + (step.outcome() == null
                             ? ""
                             : ": " + DatabaseText.english(TEXTS.run().outcome(step.outcome()))));

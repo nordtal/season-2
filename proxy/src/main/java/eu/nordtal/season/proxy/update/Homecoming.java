@@ -104,6 +104,7 @@ public final class Homecoming {
             final String from,
             final String room,
             final @Nullable String switchTo) {
+        runs.rememberMove(run, player.getUniqueId(), from, room, switchTo != null);
         if (!owe(run, player.getUniqueId(), new Owed(from, room, switchTo != null))) {
             return false;
         }
@@ -143,11 +144,12 @@ public final class Homecoming {
      * @param destination the server of the player
      */
     public void comingBack(final Player player, final String destination) {
-        final Owed move = claim(player.getUniqueId());
+        final RunRecorder.PlayerMove stored = runs.takeReturn(player.getUniqueId());
+        final Owed local = claim(player.getUniqueId());
+        final Owed move = stored == null ? local : new Owed(stored.from(), stored.room(), stored.switching());
         if (move == null) {
             return;
         }
-        returned(move.from(), move.room(), 1);
         try {
             final Locale locale = roster.localeOf(player.getUniqueId());
             final Named named = named(destination);
@@ -177,7 +179,7 @@ public final class Homecoming {
             try {
                 tell(player, announcement);
             } catch (final RuntimeException failure) {
-                logger.warn("network back notice not sent: player={}", player.getUsername(), failure);
+                logger.warn("network recovery notice not sent: player={}", player.getUsername(), failure);
             }
         }
     }

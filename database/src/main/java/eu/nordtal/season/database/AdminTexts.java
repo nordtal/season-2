@@ -135,10 +135,10 @@ public interface AdminTexts {
                 @Arg("from") @Example("2026-11-13T17:00:00Z") Instant from,
                 @Arg("reason") @Example("The world needs a reset.") String reason);
 
-        @Name("Maintenance switched")
+        @Name("Maintenance changed")
         MessageRef setMaintenance(@Arg("on") boolean on);
 
-        @Name("Maintenance switched, with a reason")
+        @Name("Maintenance changed, with a reason")
         MessageRef setMaintenanceBecause(
                 @Arg("on") boolean on, @Arg("reason") @Example("The world is being backed up by hand.") String reason);
 
@@ -298,6 +298,14 @@ public interface AdminTexts {
         @Shown(Display.STEWARD)
         MessageRef stepKind(@Arg("kind") @Example("verify") RunStep.Kind kind);
 
+        /** A step and what it acted on: a service, or the volume or archive a backup or restore names. */
+        @Name("What a step does, and on what")
+        @Shown(Display.STEWARD)
+        MessageRef stepOn(
+                @Arg("kind") @Example("save-volume") RunStep.Kind kind,
+                @Arg("step") @Example("admin/run.step-kind") MessageRef step,
+                @Arg("service") @Example("smp") String service);
+
         @Name("Why a step did not go as asked")
         @Shown(Display.STEWARD)
         MessageRef reason(@Arg("reason") @Example("not-healthy") RunStep.Reason reason);
@@ -399,7 +407,7 @@ public interface AdminTexts {
         MessageRef clear(@Arg("type") AlertType type);
 
         @Name("Several of one type at once")
-        MessageRef several(@Arg("subjects") @Example("database dump,disk") List<String> subjects);
+        MessageRef several();
 
         @Name("Which run")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})
@@ -452,7 +460,12 @@ public interface AdminTexts {
         MessageRef exitCode(@Arg("service") @Example("smp") String service, @Arg("code") @Example("137") long code);
 
         @Name("Older images")
-        MessageRef olderImage(
+        MessageRef olderImage(@Arg("count") @Example("2") int count);
+
+        /** The services of an older-images alert, below its title. */
+        @Name("Which services run an older image")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef olderOn(
                 @Arg("services") @Example("smp,proxy") List<String> services, @Arg("count") @Example("2") int count);
 
         @Name("Images not compared")
@@ -472,13 +485,13 @@ public interface AdminTexts {
         MessageRef noDump();
 
         @Name("No archive of a volume")
-        MessageRef noArchive(@Arg("volume") @Example("smp-world") String volume);
+        MessageRef noArchive();
 
         @Name("An old dump")
         MessageRef oldDump();
 
         @Name("An old archive")
-        MessageRef oldArchive(@Arg("volume") @Example("smp-world") String volume);
+        MessageRef oldArchive();
 
         @Name("No copy off the host")
         MessageRef noOffsite();
@@ -545,7 +558,7 @@ public interface AdminTexts {
                 @Arg("amount") @Example("150") Money amount,
                 @Arg("reference") @Example("NT-A1B2C3") String reference);
 
-        @Name("Several roles of one name")
+        @Name("Several roles share a name")
         MessageRef roleAmbiguous(@Arg("name") @Example("Player") String name);
 
         @Name("None of them taken")
@@ -564,6 +577,23 @@ public interface AdminTexts {
 
         @Name("Channels the lock does not close")
         MessageRef lockNotKept();
+
+        @Name("The start channel hidden while the lock is on")
+        MessageRef startChannelHidden();
+
+        @Name("Show the start channel")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef showStartChannel();
+
+        @Name("Channels a language's members are not kept out of")
+        MessageRef languageNotKept();
+
+        @Name("A channel open to members it is closed to")
+        MessageRef channelSeen(@Arg("channel") @Example("#deutsch-chat") String channel);
+
+        @Name("Whose allow opens it")
+        @Shown({Display.STEWARD, Display.DISCORD_TEXT})
+        MessageRef seenThrough(@Arg("holder") @Example("@English") String holder);
 
         @Name("Which channel, and what went wrong")
         @Shown({Display.STEWARD, Display.DISCORD_TEXT})

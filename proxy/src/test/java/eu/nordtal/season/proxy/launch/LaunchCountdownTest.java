@@ -3,7 +3,6 @@ package eu.nordtal.season.proxy.launch;
 import static eu.nordtal.season.proxy.ProxyRenderer.RENDERER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -64,7 +63,7 @@ class LaunchCountdownTest {
     void noAnnouncedDateSaysSoInsteadOfCountingFromNothing() {
         final String line = plain(Locale.ENGLISH, null);
 
-        assertTrue(line.toLowerCase(Locale.ROOT).contains("not announced"), line);
+        assertEquals("The opening date will be announced on Discord.", line);
         assertFalse(line.contains("The network opens in"), line);
     }
 

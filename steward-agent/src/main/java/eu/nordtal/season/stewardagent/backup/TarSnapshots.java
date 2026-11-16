@@ -570,7 +570,7 @@ public final class TarSnapshots {
         try {
             return java.util.Optional.of(new Retention.Dated(name, stampOf(stamp)));
         } catch (final DateTimeParseException notADate) {
-            log.warn("archive left alone, timestamp invalid: file={} stamp={}", name, stamp);
+            log.warn("archive timestamp invalid, archive kept: file={} stamp={}", name, stamp);
             return java.util.Optional.empty();
         }
     }
@@ -609,7 +609,7 @@ public final class TarSnapshots {
         try {
             return stampOf(stamp).isBefore(cut);
         } catch (final DateTimeParseException notADate) {
-            log.warn("archive left alone, timestamp invalid: file={} stamp={}", name, stamp);
+            log.warn("archive timestamp invalid, archive kept: file={} stamp={}", name, stamp);
             return false;
         }
     }

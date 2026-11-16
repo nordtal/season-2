@@ -45,7 +45,7 @@ import org.jdbi.v3.core.Jdbi;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Keeps the language and region roles of each member, their record and the lock consistent.
+ * Keeps the language and country roles of each member, their record and the lock consistent.
  * A member's change, a new channel, a deleted role, the sweep and a changed setting all run on one lane.
  */
 @Slf4j
@@ -64,6 +64,8 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     private final AlertOnce alerts;
     private final LockedChannels channels;
     private final OnboardingMessage message;
+    private final LanguageChannels languageChannels;
+    private final ChannelVisibility visibility;
     private final ManagedMessage managed;
     private final Executor lane;
     private volatile Choices choices;
@@ -72,7 +74,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
      * The lock state.
      *
      * @param role the lock role
-     * @param locking whether a member without both choices holds the role
+     * @param locking whether a member without a country holds the role
      * @param withoutChannel whether the lock is on and the onboarding channel is not set
      */
     private record Lock(@Nullable Role role, boolean locking, boolean withoutChannel) {}
@@ -106,6 +108,8 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         this.records = new Records(jdbi);
         this.alerts = new AlertOnce(alerts);
         this.channels = new LockedChannels(this.alerts);
+        this.languageChannels = new LanguageChannels(jdbi, this.alerts);
+        this.visibility = new ChannelVisibility(this.alerts);
         this.message = new OnboardingMessage(languages, messages, documents);
         this.managed = new ManagedMessage(jda, jdbi);
         this.lane = lane;
@@ -143,7 +147,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
             try {
                 setting.reload();
             } catch (final SettingsException refused) {
-                log.warn("onboarding settings refused, last ones kept: cause={}", refused.getMessage());
+                log.warn("onboarding settings rejected, current values kept: cause={}", refused.getMessage());
                 return;
             }
             choices = Choices.of(languages, setting.get());
@@ -166,7 +170,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
 
     private void publish() {
         final OnboardingSpec spec = setting.get();
-        message.publish(managed, spec.channel(), spec.changeChannel());
+        message.publish(managed, spec.channel(), choices);
     }
 
     @Override
@@ -230,6 +234,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
                 && guild.getGuildChannelById(onboardingChannel) != null) {
             channels.keep(guild, lockRole, onboardingChannel);
         }
+        languageChannels.keep(guild, languages, roles);
         final Map<String, Records.Recorded> recorded = records.all();
         int settled = 0;
         for (final Member member : guild.getMemberCache().asList()) {
@@ -244,8 +249,10 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
                 settled++;
             }
         }
+        visibility.sweep(
+                guild, languages, roles, onboardingChannel, setting.get().lock());
         if (settled > 0) {
-            log.info("member onboarding settled: count={}", settled);
+            log.info("member onboarding reconciled: count={}", settled);
         }
     }
 
@@ -258,6 +265,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         final Role lockRole = lock.role();
         if (lockRole != null && guild.getGuildChannelById(channelId) instanceof IPermissionContainer channel) {
             channels.keepNew(channel, lockRole, setting.get().channel());
+            languageChannels.keep(guild, languages, roles);
         }
     }
 
@@ -281,16 +289,28 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         if (settlement.isEmpty()) {
             return false;
         }
-        settlement.add().forEach(roleId -> change(guild, memberId, roleId, true));
-        settlement.remove().forEach(roleId -> change(guild, memberId, roleId, false));
+        return apply(guild, memberId, settlement);
+    }
+
+    private boolean apply(final Guild guild, final String memberId, final Settlement settlement) {
+        for (final String roleId : settlement.add()) {
+            if (!change(guild, memberId, roleId, true)) {
+                return false;
+            }
+        }
+        for (final String roleId : settlement.remove()) {
+            if (!change(guild, memberId, roleId, false)) {
+                return false;
+            }
+        }
         settlement.record().forEach(change -> write(DiscordId.of(memberId), change));
         return true;
     }
 
-    private void change(final Guild guild, final String memberId, final String roleId, final boolean given) {
+    private boolean change(final Guild guild, final String memberId, final String roleId, final boolean given) {
         final Role role = guild.getRoleById(roleId);
         if (role == null) {
-            return;
+            return false;
         }
         final DiscordRole kind = kindOf(guild, roleId);
         try {
@@ -304,10 +324,33 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
                     role.getName(),
                     memberId,
                     given ? "given" : "taken");
+            return true;
         } catch (final RuntimeException failure) {
             log.warn("role not changed: role=\"{}\" member={} cause={}", role.getName(), memberId, failure.toString());
             alerts.raise(kind.name(), GuildRoles.notChanged(kind, given, DiscordId.of(memberId), failure));
+            return false;
         }
+    }
+
+    boolean choose(final Member member, final Choices.Choice choice) {
+        final Guild guild = member.getGuild();
+        if (!choices.ready(Choices.Kind.COUNTRY, idOf(guild)) || !choices.ready(Choices.Kind.LANGUAGE, idOf(guild))) {
+            return false;
+        }
+        final Optional<Role> role = roles.role(guild, choice.key());
+        if (role.isEmpty()) {
+            return false;
+        }
+        final Role lock = lock(guild).role();
+        final Settlement settlement = Settlement.of(
+                choices,
+                idOf(guild),
+                ids(member.getRoles()),
+                Set.of(role.get().getId()),
+                records.of(member.getId()),
+                lock == null ? null : lock.getId(),
+                state(guild).locking());
+        return apply(guild, member.getId(), settlement);
     }
 
     private void write(final DiscordId member, final Settlement.Change change) {
@@ -315,7 +358,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         if (change.kind() == Choices.Kind.LANGUAGE) {
             access.setLocale(member, value == null ? null : Locales.parse(value));
         } else {
-            access.setTimeZone(member, value == null ? null : ZoneId.of(value));
+            access.setCountry(member, value, change.flag(), change.zone() == null ? null : ZoneId.of(change.zone()));
         }
     }
 
@@ -337,6 +380,15 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         } else {
             alerts.clear(WITHOUT_CHANNEL);
         }
+        final var start = guild.getGuildChannelById(
+                setting.get().channel().isBlank() ? "0" : setting.get().channel());
+        if (setting.get().lock()
+                && start != null
+                && !guild.getPublicRole().hasPermission(start, net.dv8tion.jda.api.Permission.VIEW_CHANNEL)) {
+            alerts.raise("start hidden", new Alert(JournalAction.START_CHANNEL_HIDDEN, Alert.Level.WARN, List.of()));
+        } else {
+            alerts.clear("start hidden");
+        }
         return lock;
     }
 
@@ -350,20 +402,16 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         if (!Configured.isSet(spec.channel()) || guild.getGuildChannelById(spec.channel()) == null) {
             return new Lock(role, false, true);
         }
-        final Function<String, Optional<String>> idOf = idOf(guild);
-        return new Lock(
-                role,
-                role != null && choices.ready(Choices.Kind.LANGUAGE, idOf) && choices.ready(Choices.Kind.REGION, idOf),
-                false);
+        return new Lock(role, role != null, false);
     }
 
     private DiscordRole kindOf(final Guild guild, final String roleId) {
         if (roles.id(GuildRoles.LOCK).filter(roleId::equals).isPresent()) {
             return DiscordRole.LOCK;
         }
-        return choices.among(Choices.Kind.REGION, Set.of(roleId), idOf(guild)).isEmpty()
+        return choices.among(Choices.Kind.COUNTRY, Set.of(roleId), idOf(guild)).isEmpty()
                 ? DiscordRole.LANGUAGE
-                : DiscordRole.REGION;
+                : DiscordRole.COUNTRY;
     }
 
     /** Returns the fixed roles, then the roles of the choices and the lock role. */
@@ -388,7 +436,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     private @Nullable Guild guild() {
         final Guild guild = jda.getGuildById(guildId);
         if (guild == null) {
-            log.error("guild not available, onboarding not kept: guild={}", guildId);
+            log.error("discord server unavailable, onboarding not reconciled: guild={}", guildId);
         }
         return guild;
     }

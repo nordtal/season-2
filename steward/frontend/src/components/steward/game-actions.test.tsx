@@ -63,7 +63,7 @@ describe("HungerGamesActions", () => {
     backend({ round: {} })
     draw(<HungerGamesActions />)
 
-    expect(await screen.findByText("No round is open.")).toBeTruthy()
+    expect(await screen.findByText("No active round.")).toBeTruthy()
     expect(asButton(screen.getByRole("button", { name: "Start round" })).disabled).toBe(true)
   })
 
@@ -71,11 +71,11 @@ describe("HungerGamesActions", () => {
     const sent = backend({ roundAfter: { state: "COUNTDOWN" } })
     draw(<HungerGamesActions />)
 
-    expect(await screen.findByText("4 registered")).toBeTruthy()
+    expect(await screen.findByText("4 participants registered")).toBeTruthy()
     fireEvent.click(screen.getByRole("button", { name: "Start round" }))
     const dialog = await screen.findByRole("alertdialog")
     expect(within(dialog).queryByRole("textbox")).toBeNull()
-    fireEvent.click(within(dialog).getByRole("button", { name: "Start" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start round" }))
 
     await waitFor(() => expect(sent).toEqual([{ url: "/api/hunger-games/start", body: {} }]))
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
@@ -86,12 +86,12 @@ describe("HungerGamesActions", () => {
     backend({ row: { status: "PENDING" } })
     draw(<HungerGamesActions />)
 
-    await screen.findByText("4 registered")
+    await screen.findByText("4 participants registered")
     fireEvent.click(screen.getByRole("button", { name: "Start round" }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Start" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start round" }))
 
-    expect(asButton(await within(dialog).findByRole("button", { name: "Waiting…" })).disabled).toBe(true)
+    expect(asButton(await within(dialog).findByRole("button", { name: "Waiting …" })).disabled).toBe(true)
     expect(screen.getByRole("alertdialog")).toBe(dialog)
   })
 
@@ -101,13 +101,13 @@ describe("HungerGamesActions", () => {
     })
     draw(<HungerGamesActions />)
 
-    await screen.findByText("4 registered")
+    await screen.findByText("4 participants registered")
     fireEvent.click(screen.getByRole("button", { name: "Start round" }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Start" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start round" }))
 
     await within(dialog).findByText("Only 4 registered, at least 6 are needed.")
-    expect(within(dialog).queryByRole("button", { name: "Start anyway" })).toBeNull()
+    expect(within(dialog).queryByRole("button", { name: "Start round anyway" })).toBeNull()
     expect(sent).toEqual([{ url: "/api/hunger-games/start", body: {} }])
   })
 
@@ -117,15 +117,15 @@ describe("HungerGamesActions", () => {
     })
     draw(<HungerGamesActions />)
 
-    await screen.findByText("4 registered")
+    await screen.findByText("4 participants registered")
     fireEvent.click(screen.getByRole("button", { name: "Start round" }))
     let dialog = await screen.findByRole("alertdialog")
-    expect(within(dialog).queryByRole("button", { name: "Start anyway" })).toBeNull()
-    fireEvent.click(within(dialog).getByRole("button", { name: "Start" }))
+    expect(within(dialog).queryByRole("button", { name: "Start round anyway" })).toBeNull()
+    fireEvent.click(within(dialog).getByRole("button", { name: "Start round" }))
 
-    fireEvent.click(await within(dialog).findByRole("button", { name: "Start anyway" }))
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Start round anyway" }))
     dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(await within(dialog).findByRole("button", { name: "Start anyway" }))
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Start round anyway" }))
 
     await waitFor(() =>
       expect(sent).toEqual([

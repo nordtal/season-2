@@ -1,6 +1,8 @@
 package eu.nordtal.season.papercommon.npc;
 
 import eu.nordtal.season.database.npc.Npc;
+import eu.nordtal.season.database.npc.NpcSkin;
+import io.papermc.paper.datacomponent.item.ResolvableProfile;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -26,6 +28,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.profile.PlayerTextures;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -38,6 +41,8 @@ public final class Figures implements Listener {
     static final double SWEEP = 4.0;
     static final double EYE = 1.62;
     static final double FOLLOW = 6.0;
+    /** How far in front of the admin a preview's figure stands, in blocks. */
+    static final double PREVIEW_AHEAD = 3.0;
 
     private final Plugin plugin;
     private final NamePlates plates;
@@ -149,7 +154,7 @@ public final class Figures implements Listener {
         world.getNearbyEntitiesByType(Mannequin.class, at, SWEEP).stream()
                 .filter(stray -> !owners.containsKey(stray.getUniqueId()))
                 .forEach(Entity::remove);
-        final Mannequin figure = world.spawn(at, Mannequin.class, mannequin -> dress(mannequin, npc));
+        final Mannequin figure = spawn(at, npc, false);
         standing.put(npc.id(), new Standing(npc, figure.getUniqueId(), new HeadTurn(place.yaw())));
         owners.put(figure.getUniqueId(), npc.id());
         plates.attach(figure, npc);
@@ -167,6 +172,16 @@ public final class Figures implements Listener {
                 .getPersistentDataContainer()
                 .set(tag, PersistentDataType.STRING, npc.id().toString());
         mannequin.setPose(pose(npc.pose()), true);
+        if (npc.skin() != null) {
+            // The pack holds the texture, so the figure needs no signed profile.
+            mannequin.setProfile(ResolvableProfile.resolvableProfile()
+                    .skinPatch(patch -> patch.body(NpcLooks.body(npc))
+                            .model(
+                                    npc.skinModel() == NpcSkin.SkinModel.SLIM
+                                            ? PlayerTextures.SkinModel.SLIM
+                                            : PlayerTextures.SkinModel.CLASSIC))
+                    .build());
+        }
         npc.equipment().forEach((slot, item) -> wear(mannequin, npc, slot, item));
         mannequin.setRotation(npc.place().yaw(), 0f);
         mannequin.setBodyYaw(npc.place().yaw());
@@ -182,6 +197,43 @@ public final class Figures implements Listener {
                     .warning("npc item not worn: npc=" + npc.id() + " slot=" + slot + " item=" + item.item() + " cause="
                             + failure.getMessage());
         }
+    }
+
+    /** Places a private figure of {@code npc} in front of {@code viewer}, for an admin's unsaved preview. */
+    Mannequin spawnPreview(final Npc npc, final Player viewer) {
+        final Location from = Objects.requireNonNull(viewer.getLocation(), "location");
+        final double yaw = Math.toRadians(from.getYaw());
+        // Facing the admin: a figure's yaw is the admin's, turned half round.
+        final Location at = new Location(
+                viewer.getWorld(),
+                from.getX() - Math.sin(yaw) * PREVIEW_AHEAD,
+                from.getY(),
+                from.getZ() + Math.cos(yaw) * PREVIEW_AHEAD,
+                from.getYaw() + 180f,
+                0f);
+        final Mannequin figure = spawn(at, npc, true);
+        viewer.showEntity(plugin, figure);
+        return figure;
+    }
+
+    /** The one way to a figure; a preview's is seen by nobody until shown, faces {@code at} and goes with its chunk. */
+    private Mannequin spawn(final Location at, final Npc npc, final boolean preview) {
+        return Objects.requireNonNull(at.getWorld(), "world").spawn(at, Mannequin.class, mannequin -> {
+            if (preview) {
+                mannequin.setVisibleByDefault(false);
+            }
+            dress(mannequin, npc);
+            if (preview) {
+                mannequin.setPersistent(false);
+                mannequin.setRotation(at.getYaw(), 0f);
+                mannequin.setBodyYaw(at.getYaw());
+            }
+        });
+    }
+
+    /** Removes a figure placed for a preview. */
+    void removePreview(final Mannequin figure) {
+        figure.remove();
     }
 
     private void remove(final Standing at) {

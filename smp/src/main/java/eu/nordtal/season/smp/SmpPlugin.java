@@ -6,6 +6,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.setting.SettingRule;
@@ -309,6 +310,7 @@ public final class SmpPlugin extends NordtalPlugin {
             case SmpRequest.SetSpins set -> admin.setSpins(set.person(), set.spins());
             case SmpRequest.PreviewMessage preview -> preview(preview.player(), preview.preview());
             case SmpRequest.PreviewDocument preview -> preview(preview.player(), preview.preview());
+            case SmpRequest.PreviewNpc preview -> previewNpc(preview);
             case SmpRequest.CheckSettings check -> checkSettings(check.change());
             case SmpRequest.StoreModeState store -> storeModeState(store.player());
             case SmpRequest.OpenInventory open -> openEditor(open.admin(), open.player(), open.container());
@@ -324,6 +326,23 @@ public final class SmpPlugin extends NordtalPlugin {
                         remove.item(),
                         remove.amount());
         });
+    }
+
+    private Answer previewNpc(final SmpRequest.PreviewNpc preview) {
+        final NpcDialogues dialogues = npcDialogues;
+        if (dialogues == null || getServer().getPlayer(preview.player().value()) == null) {
+            return Answer.refused(ServerRefusal.NOT_HERE.with());
+        }
+        PaperScheduler.of(this).onMain(() -> {
+            final Player current = getServer().getPlayer(preview.player().value());
+            if (current != null
+                    && !dialogues.preview(current, preview.npc(), Locale.forLanguageTag(preview.language()))) {
+                getLogger()
+                        .warning(
+                                "npc preview not playable: npc=" + preview.npc().id());
+            }
+        });
+        return Answer.done(Sent.of(Replies.PREVIEW_SHOWN));
     }
 
     @Override

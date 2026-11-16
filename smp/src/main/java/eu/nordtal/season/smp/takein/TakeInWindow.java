@@ -24,7 +24,7 @@ import org.bukkit.inventory.ItemStack;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The window in which an admin's player puts in the item that becomes a wheel prize or a piece of a duel kit.
+ * The window in which an admin's player puts in a wheel prize, a piece of a duel kit or a piece of NPC equipment.
  * A click on its row with a stack, or a shift-click on a stack below, copies that stack; the player keeps it.
  * The window stays open and shows the copy in cell 0, and a later request of the same purpose takes the next item.
  */
@@ -55,11 +55,22 @@ final class TakeInWindow extends Menu {
                     Slot.label("imported"))
             .titled("Duel kit take-in");
 
+    static final DocumentSpec<DocumentSpec.None> NPC = DocumentSpec.menu(
+                    "smp",
+                    "npc-take-in",
+                    "NPC dialogue",
+                    DocumentSpec.None.class,
+                    ROWS,
+                    Slot.item("put-in").at(SlotGeometry.rows(0, ROWS)),
+                    Slot.label("imported"))
+            .titled("NPC item take-in");
+
     /** Returns the window's document, which says what the item becomes. */
     static DocumentSpec<DocumentSpec.None> document(final TakeInPurpose purpose) {
         return switch (purpose) {
             case WHEEL_PRIZE -> PRIZE;
             case DUEL_KIT -> KIT;
+            case NPC_ITEM -> NPC;
         };
     }
 

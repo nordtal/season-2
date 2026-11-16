@@ -51,12 +51,20 @@ class MenuLayoutsTest {
     }
 
     @Test
+    void theNpcItemTakeInIsOneRowThatAnItemIsPutInAnywhere() {
+        final DocumentDeclaration takeIn = menu("npc-take-in");
+
+        assertEquals(1, takeIn.rows());
+        assertEquals(IntStream.range(0, 9).boxed().toList(), at(takeIn, "put-in"));
+    }
+
+    @Test
     void everyMenuPlacesEachItemInsideItsRows() {
         final List<DocumentDeclaration> menus = packaged().values().stream()
                 .map(Documents.Packaged::declaration)
                 .filter(declaration -> declaration.shape() == DocumentSpec.Shape.MENU)
                 .toList();
-        assertEquals(9, menus.size());
+        assertEquals(10, menus.size());
         for (final DocumentDeclaration menu : menus) {
             assertTrue(menu.rows() >= 1 && menu.rows() <= MenuTitle.MAX_ROWS, menu.id());
             for (final Slot slot : menu.slots()) {

@@ -2,6 +2,7 @@ package eu.nordtal.season.papercommon.npc;
 
 import eu.nordtal.season.database.npc.Dialogue;
 import eu.nordtal.season.database.npc.Dialogue.Step;
+import eu.nordtal.season.packrendering.Glyphs;
 import eu.nordtal.season.packrendering.npc.DialogueScreen;
 import eu.nordtal.season.packrendering.npc.DialogueScreen.Hint;
 import eu.nordtal.season.packrendering.npc.DialogueScreen.Mark;
@@ -35,6 +36,7 @@ public final class DialogueRun {
 
     private final Dialogue dialogue;
     private final String name;
+    private final String portraitFont;
     private final Locale locale;
     private final Feel feel;
     private final Labels labels;
@@ -74,8 +76,23 @@ public final class DialogueRun {
             final @Nullable String skipped,
             final boolean ticked,
             final boolean shiftDown) {
+        this(dialogue, name, Glyphs.FONT_NPC, locale, feel, labels, skipped, ticked, shiftDown);
+    }
+
+    /** Starts the dialogue with {@code portraitFont}, the default font or the one of the NPC's uploaded skin. */
+    public DialogueRun(
+            final Dialogue dialogue,
+            final String name,
+            final String portraitFont,
+            final Locale locale,
+            final Feel feel,
+            final Labels labels,
+            final @Nullable String skipped,
+            final boolean ticked,
+            final boolean shiftDown) {
         this.dialogue = Objects.requireNonNull(dialogue, "dialogue");
         this.name = Objects.requireNonNull(name, "name");
+        this.portraitFont = Objects.requireNonNull(portraitFont, "portraitFont");
         this.locale = Objects.requireNonNull(locale, "locale");
         this.feel = Objects.requireNonNull(feel, "feel");
         this.labels = Objects.requireNonNull(labels, "labels");
@@ -288,10 +305,10 @@ public final class DialogueRun {
             return null;
         }
         if (answering) {
-            return new DialogueScreen.Panel(name, lines, false, answers(), selected);
+            return new DialogueScreen.Panel(name, lines, false, answers(), selected, portraitFont);
         }
         final boolean waits = typedAt >= 0 && step.answers().isEmpty() && ((age - typedAt) / BLINK) % 2 == 0;
-        return new DialogueScreen.Panel(name, Typing.shownLines(lines, shown), waits, List.of(), 0);
+        return new DialogueScreen.Panel(name, Typing.shownLines(lines, shown), waits, List.of(), 0, portraitFont);
     }
 
     private List<Hint> hints() {

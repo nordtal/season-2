@@ -1,11 +1,12 @@
-import { TargetIcon, XIcon } from "@/components/ui/icons"
+import { CursorClickIcon, XIcon } from "@/components/ui/icons"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { api, errorMessage, type CommandAsked, type CommandRun, type ConfigEntry, type PositionTaker } from "@/lib/api"
 import { finalRun } from "@/lib/queries-commands"
-import { keys, SECOND } from "@/lib/query-keys"
+import { RECONCILE } from "@/lib/live"
+import { keys } from "@/lib/query-keys"
 import { message, t } from "@/lib/texts"
 import type { PlaceShape } from "@/components/steward/game-groups/model"
 import { Button } from "@/components/ui/button"
@@ -83,7 +84,10 @@ export function TakePosition({
   const taker = useQuery({
     queryKey: keys.positionTaker,
     queryFn: () => api<PositionTaker>("/api/smp/take-position"),
-    refetchInterval: 5 * SECOND,
+    // No topic tells when a player joins or leaves, so it is read again whenever the admin returns from the game.
+    refetchInterval: RECONCILE,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
   })
   const [waiting, setWaiting] = useState<{ id: string; corner: 0 | 1 } | null>(null)
   const [asking, setAsking] = useState(false)
@@ -136,6 +140,8 @@ export function TakePosition({
       )
     } catch (error) {
       toast.error(t("steward.game.take-position-failed"), { description: errorMessage(error) })
+      // A refusal may mean the player left the server since Steward last said.
+      void client.invalidateQueries({ queryKey: keys.positionTaker })
     } finally {
       if (!gone.current) setAsking(false)
     }
@@ -174,7 +180,7 @@ export function TakePosition({
               className="max-sm:w-full"
               onClick={() => void ask(take.corner)}
             >
-              <TargetIcon aria-hidden />
+              <CursorClickIcon aria-hidden />
               {take.label}
             </Button>
           ),

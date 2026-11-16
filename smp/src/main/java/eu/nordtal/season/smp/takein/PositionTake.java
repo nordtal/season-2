@@ -60,14 +60,14 @@ public final class PositionTake {
         if (here == null) {
             return new Found(null, ServerRefusal.NOT_HERE);
         }
-        final Location eyes = Objects.requireNonNull(here.getLocation(), "location");
+        final Location feet = Objects.requireNonNull(here.getLocation(), "location");
         if (!block) {
-            return new Found(place(eyes, eyes.getX(), eyes.getY(), eyes.getZ()), null);
+            return new Found(place(feet, feet.getX(), feet.getY(), feet.getZ()), null);
         }
         final Block seen = here.getTargetBlockExact(REACH);
         return seen == null
                 ? new Found(null, ServerRefusal.NO_BLOCK_IN_SIGHT)
-                : new Found(place(eyes, seen.getX(), seen.getY(), seen.getZ()), null);
+                : new Found(place(feet, seen.getX(), seen.getY(), seen.getZ()), null);
     }
 
     private static TakePosition.Answer place(final Location facing, final double x, final double y, final double z) {

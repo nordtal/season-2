@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.game;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.common.id.PlayerId;
@@ -231,10 +232,14 @@ public final class CommandApi {
     /** Reads whether a position take asks for a block; anything unreadable is refused. */
     static boolean blockOf(final String body) {
         try {
-            return JsonParser.parseString(body).getAsJsonObject().get("block").getAsBoolean();
+            if (JsonParser.parseString(body).getAsJsonObject().get("block") instanceof final JsonPrimitive block
+                    && block.isBoolean()) {
+                return block.getAsBoolean();
+            }
         } catch (final RuntimeException unreadable) {
-            throw new BadRequestResponse("a position take says whether it asks for a block");
+            // Refused below, like a body without a boolean.
         }
+        throw new BadRequestResponse("a position take says whether it asks for a block");
     }
 
     /** Reads the purpose a take-in names; a blank body asks for a wheel prize, and anything unreadable is refused. */

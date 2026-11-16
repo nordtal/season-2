@@ -57,14 +57,17 @@ class TakePositionIntegrationTest {
 
         final Request<SmpRequest> read = steward.find(asked.id()).orElseThrow();
         assertEquals(InboxStatus.REFUSED, read.status());
-        assertEquals(ServerRefusal.NO_BLOCK_IN_SIGHT, read.refusal().orElseThrow().reason());
+        assertEquals(
+                ServerRefusal.NO_BLOCK_IN_SIGHT, read.refusal().orElseThrow().reason());
     }
 
     @Test
     void aTakeStillWaitingIsWithdrawnAndNeverAnswered() {
         final Request<SmpRequest> asked = steward.submit(new SmpRequest.TakePosition(ALEX, false), ADMIN, MINUTE);
 
-        assertEquals(InboxStatus.CANCELLED, steward.withdraw(asked.id()).orElseThrow().status());
+        assertEquals(
+                InboxStatus.CANCELLED,
+                steward.withdraw(asked.id()).orElseThrow().status());
         assertEquals(0, smp.drain(request -> Outcome.open()));
     }
 }

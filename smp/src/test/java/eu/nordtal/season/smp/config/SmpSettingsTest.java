@@ -399,6 +399,7 @@ class SmpSettingsTest {
         }
         return List.of();
     }
+
     /** A place in a world is drawn as one Position field, so every spec that holds a coordinate is marked as one. */
     @Test
     void everyPlaceInAWorldIsAPositionField() {

@@ -116,7 +116,13 @@ function placesOf(entries: ConfigEntry[]): Map<string, ConfigEntry[]> {
   for (const map of entries.filter((entry) => entry.kind === "MAP")) {
     const below = entries.filter((entry) => entry.path.startsWith(`${map.path}.`))
     if (below.some((entry) => entry.kind !== "SCALAR" || entry.path.slice(map.path.length + 1).includes("."))) continue
-    if (shapeOf(map.position, below.map((entry) => entry.key)) !== undefined) places.set(map.path, below)
+    if (
+      shapeOf(
+        map.position,
+        below.map((entry) => entry.key),
+      ) !== undefined
+    )
+      places.set(map.path, below)
   }
   return places
 }

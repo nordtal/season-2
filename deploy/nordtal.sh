@@ -1,50 +1,40 @@
 #!/usr/bin/env bash
 #
-# Installs the season 2 stack into the current directory, on a host that has only Docker.
+# Install Nordtal season 2 in the current directory. Docker is required.
 #
 #   curl -fsSL https://raw.githubusercontent.com/nordtal/season-2/main/deploy/nordtal.sh | bash
 #
-# Every run asks GitHub for the newest release and runs the copy of this file that belongs to it.
-# That copy installs the images of that release. NORDTAL_RELEASE names another release, for an
-# install only.
-#
-# The script stays in the installation directory as ./nordtal.sh and changes a setting later:
-#
-#   ./nordtal.sh                       the menu: show the settings, change one, then deploy
-#   ./nordtal.sh --deploy              no menu; ask only for what is missing, then deploy
-#   ./nordtal.sh --build               build the agent from a checkout first (needs a JDK)
-#   ./nordtal.sh --check               run every check and stop before anything changes
-#   ./nordtal.sh --from PATH           read the answers from this file instead of asking
-#   ./nordtal.sh --env-file PATH       the path of the environment file on this host
+#   ./nordtal.sh                       show settings, edit them and deploy
+#   ./nordtal.sh --deploy              ask for missing settings and deploy without the menu
+#   ./nordtal.sh --build               build steward-agent from a checkout first (requires a JDK)
+#   ./nordtal.sh --check               check settings without deploying
+#   ./nordtal.sh --from PATH           copy settings from this file
+#   ./nordtal.sh --env-file PATH       select the environment file
 #                                      (default: /etc/nordtal/season-2.env)
-#   ./nordtal.sh --no-self-update      run this file as it is, without fetching the copy of the release
+#   ./nordtal.sh --no-self-update      skip downloading the release's script copy
 #
-# When steward-agent runs and is healthy, a deploy is an update run like any other: the script
-# writes the request and waits for the run to end. An install, or a stack whose agent is down or
-# unhealthy, gets the `up` command of the agent instead. That command repairs the stack.
+# Each installation uses the latest release unless NORDTAL_RELEASE names one.
+# The script downloads and runs that release's script copy before deploying.
+# An offline run uses the local script. Deployment requires a known release.
 #
-# `update` asks steward-agent for a run, as the buttons of Steward do, and waits for it to end:
+# A healthy steward-agent receives a Steward update request. Other deployments use
+# steward-agent up to start or repair the stack.
 #
-#   ./nordtal.sh update                update the whole network: install what is new, restart what needs it
-#   ./nordtal.sh update --restart      restart everything, install nothing
-#   ./nordtal.sh update --backup       run one backup now
-#   ./nordtal.sh update --down smp     stop one service and keep it down
-#   ./nordtal.sh update --start [svc]  release every hold, or the hold of one service
-#   ./nordtal.sh update --in 10        count down ten minutes first
-#   ./nordtal.sh update --no-wait      print the request id and return instead of waiting
-#   ./nordtal.sh update --replace-local  replace builds made on this host without asking
+#   ./nordtal.sh update                install the latest release and restart changed services
+#   ./nordtal.sh update --restart      restart services without installing a release
+#   ./nordtal.sh update --backup       create a backup
+#   ./nordtal.sh update --down smp     stop a service and keep it stopped
+#   ./nordtal.sh update --start [svc]  release all service holds, or the named service's hold
+#   ./nordtal.sh update --in 10        start after a ten-minute countdown
+#   ./nordtal.sh update --no-wait      print the request ID without waiting for completion
+#   ./nordtal.sh update --replace-local  replace local builds without asking
 #
-# Every run fetches the copy of the release first, runs it and prints its version and source.
-# Without a network it runs the local copy, but it never deploys without knowing the release. An
-# update that ends DONE leaves the copy of the release that it installed. Steward's update button
-# also updates a running stack.
+# Update commands use the latest release. NORDTAL_RELEASE applies to installations only.
+# The script waits for a requested run unless --no-wait is set.
 #
-# The script asks for the values that only a person knows and generates the other secrets. It writes
-# them to /etc/nordtal/season-2.env with mode 600, outside the installation directory. A secret that
-# only one service reads goes to the own file of that service instead, in
-# /etc/nordtal-secrets/season-2/<service>/. That file belongs to the uid of the service, and
-# steward-agent never mounts it. Every run moves such a line there. The script never prints a secret
-# and never puts one on a command line.
+# Settings are stored in the environment file with mode 600. Service secrets use separate
+# files under /etc/nordtal-secrets/season-2/<service>/ by default. Each file belongs to its
+# service's uid. steward-agent does not mount those files.
 set -Eeuo pipefail
 
 # The installation is the current directory. Under `curl ... | bash`, BASH_SOURCE[0] is empty.

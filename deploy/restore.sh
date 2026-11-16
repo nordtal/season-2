@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
+# Restore an archive when Steward cannot run. Use Steward's Backups page for a live restore.
+# This script sends no player warning and does not wait for a clean stop.
 #
-# The emergency restore, for a host where steward-agent does not run. Otherwise a restore is a run
-# that an admin asks for on the Backups page of Steward. That run backs up first, counts down and
-# replaces the database itself. This script stops nothing gracefully and warns nobody.
-#
-#   sudo bash deploy/restore.sh --list                                  list the archives on the disk
+#   sudo bash deploy/restore.sh --list
 #   sudo bash deploy/restore.sh nordtal-s2_mc-smp-20260913T031500Z.tar.zst
 #   sudo bash deploy/restore.sh nordtal-20260913T031500Z.dump
 #
-# A volume archive REPLACES the directory of the volume (on an older host, the named volume), so the
-# user types the name of the volume to confirm. A database dump goes into a NEW database beside the live one.
+# A volume archive replaces all data in its target. Type the volume name to confirm.
+# A database dump creates a separate database beside the live one.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -2,6 +2,7 @@ package eu.nordtal.season.steward.npc;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.sun.net.httpserver.HttpExchange;
@@ -33,6 +34,7 @@ class NpcSkinsTest {
     private final List<String> asked = new CopyOnWriteArrayList<>();
     private byte[] skin;
     private String model = "slim";
+    private volatile boolean down;
 
     @BeforeEach
     void start() throws IOException {
@@ -52,6 +54,10 @@ class NpcSkinsTest {
         });
         mojang.createContext("/profiles/", exchange -> {
             asked.add(exchange.getRequestURI().getPath());
+            if (down) {
+                answer(exchange, 503, new byte[0]);
+                return;
+            }
             if (!exchange.getRequestURI().getPath().endsWith(NOTCH)) {
                 answer(exchange, 204, new byte[0]);
                 return;
@@ -97,8 +103,13 @@ class NpcSkinsTest {
         assertThrows(NpcSkinSource.UnknownPlayer.class, () -> skins.copy("not a name!"));
 
         skin = png(64, 32);
-        final IOException legacy = assertThrows(IOException.class, () -> skins.copy("Notch"));
-        assertEquals(IOException.class, legacy.getClass(), "an old 64 by 32 skin is Mojang's problem, not a name's");
+        assertThrows(NpcSkinSource.NoSkin.class, () -> skins.copy("Notch"), "an old 64 by 32 skin cannot be worn");
+
+        down = true;
+        final IOException failing = assertThrows(IOException.class, () -> skins.copy("Notch"));
+        assertFalse(
+                failing instanceof NpcSkinSource.UnknownPlayer || failing instanceof NpcSkinSource.NoSkin,
+                "Mojang failing is neither an unknown name nor no skin");
     }
 
     @Test

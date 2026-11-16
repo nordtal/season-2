@@ -9,6 +9,8 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import eu.nordtal.season.database.inbox.ServerRefusal;
 import eu.nordtal.season.database.inbox.SmpRequest;
 import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.npc.Npc;
+import eu.nordtal.season.database.npc.NpcStore;
 import eu.nordtal.season.database.setting.SettingRule;
 import eu.nordtal.season.displaytags.DisplayTags;
 import eu.nordtal.season.displaytags.config.spec.NameTagConfigurationSpec;
@@ -333,10 +335,11 @@ public final class SmpPlugin extends NordtalPlugin {
         if (dialogues == null || getServer().getPlayer(preview.player().value()) == null) {
             return Answer.refused(ServerRefusal.NOT_HERE.with());
         }
+        // A skin the active pack does not hold yet would draw as a missing texture.
+        final Npc draft = NpcStore.shown(preview.npc(), NpcStore.using(pool()).packed());
         PaperScheduler.of(this).onMain(() -> {
             final Player current = getServer().getPlayer(preview.player().value());
-            if (current != null
-                    && !dialogues.preview(current, preview.npc(), Locale.forLanguageTag(preview.language()))) {
+            if (current != null && !dialogues.preview(current, draft, Locale.forLanguageTag(preview.language()))) {
                 getLogger()
                         .warning(
                                 "npc preview not playable: npc=" + preview.npc().id());

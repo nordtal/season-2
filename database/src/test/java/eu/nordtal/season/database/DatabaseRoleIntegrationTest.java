@@ -293,6 +293,7 @@ class DatabaseRoleIntegrationTest {
                 mayNot(DatabaseRole.STEWARD, "DELETE FROM npc_skip WHERE false"),
                 may(DatabaseRole.SMP, "SELECT count(*) FROM npc"),
                 may(DatabaseRole.SMP, "SELECT count(*) FROM npc_skin"),
+                may(DatabaseRole.SMP, "SELECT npcs FROM pack_build WHERE false"),
                 may(DatabaseRole.SMP, "SELECT count(*) FROM npc_menu"),
                 may(DatabaseRole.SMP, "DELETE FROM npc_menu WHERE false"),
                 may(DatabaseRole.SMP, "DELETE FROM npc_skip WHERE false"),

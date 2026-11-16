@@ -24,10 +24,31 @@ public interface NpcStore {
         return new JdbiNpcStore(dataSource);
     }
 
-    /** Passes every NPC to {@code apply} on connect and on every change. */
+    /**
+     * Passes every NPC as the active pack draws it to {@code apply}, on connect, on every change and on every new pack.
+     */
     default void follow(final SignalHub hub, final Consumer<List<Npc>> apply) {
-        hub.watch(Channel.NPC, "the NPCs", null, this::npcs, apply);
+        hub.watch(Channel.NPC, "the NPCs", null, this::shown, apply);
+        hub.watch(Channel.PACK, "the NPCs' skins in the pack", null, this::shown, apply);
     }
+
+    /** Returns every NPC as the active pack draws it: see {@link #shown(Npc, Map)}. */
+    default List<Npc> shown() {
+        final Map<UUID, UUID> packed = packed();
+        return npcs().stream().map(npc -> shown(npc, packed)).toList();
+    }
+
+    /**
+     * Returns {@code npc} as a pack holding {@code packed} draws it.
+     * A skin the pack does not hold yet would draw as a missing texture, so the NPC wears the default until then.
+     */
+    static Npc shown(final Npc npc, final Map<UUID, UUID> packed) {
+        final UUID skin = npc.skin();
+        return skin == null || skin.equals(packed.get(npc.id())) ? npc : npc.withSkin(null);
+    }
+
+    /** Returns the skin each NPC has in the active pack, by NPC; empty before the first pack is built. */
+    Map<UUID, UUID> packed();
 
     /** Returns every NPC, the one left unchanged longest first. */
     List<Npc> npcs();

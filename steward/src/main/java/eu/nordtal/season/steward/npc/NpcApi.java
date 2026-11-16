@@ -224,6 +224,12 @@ public final class NpcApi {
         final NpcSkin skin;
         try {
             skin = skins.copy(copy.player());
+        } catch (final NpcSkinSource.NoSkin none) {
+            throw refused(
+                    422,
+                    "NO_SKIN_TO_COPY",
+                    copy.player().strip() + " wears a default or an old skin, which an NPC cannot wear. Upload a skin"
+                            + " instead.");
         } catch (final NpcSkinSource.UnknownPlayer unknown) {
             throw refused(
                     404,

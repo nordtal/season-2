@@ -321,7 +321,7 @@ public final class Web {
         this.overrides = MessageOverrideStore.using(data.dataSource());
     }
 
-    /** The announcement routes, which check a draft against the bot's announcement document. */
+    /** The NPC editor's routes, which preview a draft through the SMP's inbox. */
     private static NpcApi npcsOf(
             final Data data, final CommandApi commands, final Function<Context, DiscordAuth.Account> accounts) {
         return new NpcApi(
@@ -332,6 +332,7 @@ public final class Web {
                 commands::previewNpc);
     }
 
+    /** The announcement routes, which check a draft against the bot's announcement document. */
     private static Announcements announcementsOf(
             final Data data, final StackApi stack, final Function<Context, DiscordAuth.Account> accounts) {
         return new Announcements(

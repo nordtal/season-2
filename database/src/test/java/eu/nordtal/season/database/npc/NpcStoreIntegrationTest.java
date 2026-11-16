@@ -16,6 +16,7 @@ import eu.nordtal.season.database.npc.Npc.Equipment;
 import eu.nordtal.season.database.npc.Npc.Place;
 import eu.nordtal.season.database.npc.Npc.Pose;
 import eu.nordtal.season.database.npc.Npc.Slot;
+import eu.nordtal.season.database.pack.PackBuildStore;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -142,6 +143,33 @@ class NpcStoreIntegrationTest {
                 NpcSkin.SkinModel.SLIM,
                 store.npc(smith("Hi").id()).orElseThrow().skinModel());
         assertEquals(Map.of(smith("Hi").id(), uploaded), store.skins());
+    }
+
+    @Test
+    void anNpcWearsItsSkinOnlyOnceTheActivePackHoldsIt() {
+        final TestDatabase database = TestDatabase.fresh();
+        final NpcStore store = NpcStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        final NpcSkin uploaded =
+                new NpcSkin(UUID.fromString("00000000-0000-0000-0000-0000000000bb"), NpcSkin.SkinModel.SLIM, "cG5n");
+        store.upload(uploaded, ADMIN);
+        store.save(smith("Hi").withSkin(uploaded), ADMIN);
+        final NpcStore smp = NpcStore.using(database.dataSourceAs(DatabaseRole.SMP));
+        assertNull(shown(smp).skin(), "no pack holds the skin yet");
+
+        final PackBuildStore builds = PackBuildStore.using(database.dataSource());
+        final long build = builds.start(
+                java.time.Instant.now(), "[]", Map.of(), "{\"" + smith("Hi").id() + "\":\"" + uploaded.id() + "\"}");
+        assertNull(shown(smp).skin(), "a pack still building is not offered");
+        builds.succeed(build, java.time.Instant.now(), "0".repeat(40), 1);
+        assertEquals(uploaded.id(), shown(smp).skin());
+        assertEquals(NpcSkin.SkinModel.SLIM, shown(smp).skinModel());
+    }
+
+    private static Npc shown(final NpcStore store) {
+        return store.shown().stream()
+                .filter(npc -> npc.id().equals(smith("Hi").id()))
+                .findFirst()
+                .orElseThrow();
     }
 
     @Test

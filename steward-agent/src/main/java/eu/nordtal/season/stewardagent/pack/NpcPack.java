@@ -22,7 +22,7 @@ import javax.imageio.ImageIO;
 /**
  * Writes the pack files of each NPC with an uploaded skin: its body texture and its portrait font.
  * The figure's profile names the texture, and the font replaces the three portrait glyphs of {@code nordtal:npc}.
- * Both are keyed by the NPC's id, so a player whose pack is older keeps seeing the skin the NPC had before.
+ * Both are keyed by the NPC's id, and smp dresses an NPC in a skin only once the active pack holds it.
  */
 final class NpcPack {
 

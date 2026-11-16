@@ -7,7 +7,6 @@ import eu.nordtal.season.common.http.Reply;
 import eu.nordtal.season.common.http.WebClient;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.npc.NpcSkin;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,9 +15,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import org.jspecify.annotations.Nullable;
 
 /** Reads uploaded skins, and copies an account's skin from Mojang without keeping a link to the account. */
@@ -59,15 +61,7 @@ public final class NpcSkins implements NpcSkinSource {
                 || !Arrays.equals(PNG, Arrays.copyOf(bytes, PNG.length))) {
             throw new NotASkin("not a PNG of at most 1 MiB");
         }
-        final BufferedImage image;
-        try {
-            image = ImageIO.read(new ByteArrayInputStream(bytes));
-        } catch (final IOException unreadable) {
-            throw new NotASkin("an unreadable PNG");
-        }
-        if (image == null || image.getWidth() != SIZE || image.getHeight() != SIZE) {
-            throw new NotASkin("not 64 by 64 pixels");
-        }
+        checkSize(bytes);
         return new NpcSkin(UUID.randomUUID(), model, Base64.getEncoder().encodeToString(bytes));
     }
 
@@ -80,7 +74,7 @@ public final class NpcSkins implements NpcSkinSource {
         }
         final JsonObject skin = skinOf(Json.decode(profile.okBody(), JsonObject.class));
         if (skin == null || !skin.has("url")) {
-            throw new IOException("Mojang's profile has no skin");
+            throw new NoSkin(player);
         }
         final URI address = URI.create(skin.get("url").getAsString());
         if (!textureHost.equals(address.getHost())) {
@@ -96,7 +90,31 @@ public final class NpcSkins implements NpcSkinSource {
         try {
             return uploaded(bytes, slim ? NpcSkin.SkinModel.SLIM : NpcSkin.SkinModel.CLASSIC);
         } catch (final NotASkin legacy) {
-            throw new IOException("Mojang's skin is " + legacy.getMessage(), legacy);
+            throw new NoSkin(player);
+        }
+    }
+
+    /** Reads only the PNG's header, so a small file that names a huge image is refused before it is decoded. */
+    private static void checkSize(final byte[] bytes) {
+        try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            final Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) {
+                throw new NotASkin("an unreadable PNG");
+            }
+            final ImageReader reader = readers.next();
+            try {
+                reader.setInput(input, true, true);
+                if (reader.getWidth(0) != SIZE || reader.getHeight(0) != SIZE) {
+                    throw new NotASkin("not 64 by 64 pixels");
+                }
+                if (reader.read(0) == null) {
+                    throw new NotASkin("an unreadable PNG");
+                }
+            } finally {
+                reader.dispose();
+            }
+        } catch (final IOException unreadable) {
+            throw new NotASkin("an unreadable PNG");
         }
     }
 

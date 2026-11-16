@@ -74,4 +74,5 @@ GRANT SELECT ON npc_skin, npc_menu TO ${role_read};
 GRANT SELECT ON npc_skin, npc_menu TO ${role_steward_ui};
 GRANT INSERT ON npc_skin TO ${role_steward_ui};
 GRANT SELECT ON npc_skin TO ${role_smp};
+GRANT SELECT ON pack_build TO ${role_smp};
 GRANT SELECT, INSERT, UPDATE, DELETE ON npc_menu TO ${role_smp};

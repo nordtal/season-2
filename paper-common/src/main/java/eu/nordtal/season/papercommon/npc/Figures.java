@@ -6,6 +6,7 @@ import io.papermc.paper.datacomponent.item.ResolvableProfile;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,6 +50,7 @@ public final class Figures implements Listener {
     private final NamespacedKey tag;
     private final Map<UUID, Standing> standing = new HashMap<>();
     private final Map<UUID, UUID> owners = new HashMap<>();
+    private final Set<UUID> previews = new HashSet<>();
 
     private record Standing(Npc npc, UUID figure, HeadTurn head) {}
 
@@ -152,7 +154,7 @@ public final class Figures implements Listener {
         // getNearbyEntitiesByType searches loaded chunks only.
         at.getChunk().load();
         world.getNearbyEntitiesByType(Mannequin.class, at, SWEEP).stream()
-                .filter(stray -> !owners.containsKey(stray.getUniqueId()))
+                .filter(stray -> !owners.containsKey(stray.getUniqueId()) && !previews.contains(stray.getUniqueId()))
                 .forEach(Entity::remove);
         final Mannequin figure = spawn(at, npc, false);
         standing.put(npc.id(), new Standing(npc, figure.getUniqueId(), new HeadTurn(place.yaw())));
@@ -212,6 +214,7 @@ public final class Figures implements Listener {
                 from.getYaw() + 180f,
                 0f);
         final Mannequin figure = spawn(at, npc, true);
+        previews.add(figure.getUniqueId());
         viewer.showEntity(plugin, figure);
         return figure;
     }
@@ -233,6 +236,7 @@ public final class Figures implements Listener {
 
     /** Removes a figure placed for a preview. */
     void removePreview(final Mannequin figure) {
+        previews.remove(figure.getUniqueId());
         figure.remove();
     }
 

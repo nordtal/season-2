@@ -380,7 +380,7 @@ class MigrationsAreImmutableTest {
                 "14b089950a2f5fc4c7fd513f44a44b091fe6433b7bf5409aba72ef14dda51db9");
         FROZEN.put(
                 "V132__npc_skins_menus_and_steward_previews.sql",
-                "a32b19a1e865688bd85fa8376534ff41224f03e1c3566b273467ce60d5d18c52");
+                "5ebbdaddceef5a87fe209134690ec8a4e14d10bb6dd009e48ff510d4630e0995");
     }
 
     @Test

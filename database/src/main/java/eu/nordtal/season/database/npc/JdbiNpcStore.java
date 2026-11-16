@@ -1,5 +1,6 @@
 package eu.nordtal.season.database.npc;
 
+import com.google.gson.JsonObject;
 import eu.nordtal.season.common.id.Actor;
 import eu.nordtal.season.common.json.Json;
 import eu.nordtal.season.database.Jdbis;
@@ -106,17 +107,42 @@ final class JdbiNpcStore implements NpcStore {
     @Override
     public boolean publish(final Npc npc, final Actor actor, final int read) {
         return jdbi.inTransaction(handle -> {
-            // Two publications of one NPC queue here, so each counts the versions the other wrote.
-            handle.createQuery("SELECT pg_advisory_xact_lock(hashtextextended(:id, 0)) IS NULL")
-                    .bind("id", npc.id().toString())
-                    .mapTo(Boolean.class)
-                    .one();
+            lock(handle, npc.id());
             if (count(handle, npc.id()) != read) {
                 return false;
             }
             write(handle, npc, actor);
             return true;
         });
+    }
+
+    /** Two writes of one NPC queue here, so each sees the versions the other wrote. */
+    private static void lock(final Handle handle, final UUID id) {
+        handle.createQuery("SELECT pg_advisory_xact_lock(hashtextextended(:id, 0)) IS NULL")
+                .bind("id", id.toString())
+                .mapTo(Boolean.class)
+                .one();
+    }
+
+    @Override
+    public Map<UUID, UUID> packed() {
+        return jdbi.withHandle(handle -> handle.createQuery("SELECT npcs FROM pack_build WHERE state = 'ACTIVE'")
+                .mapTo(String.class)
+                .findOne()
+                .map(JdbiNpcStore::skinIds)
+                .orElse(Map.of()));
+    }
+
+    private static Map<UUID, UUID> skinIds(final String npcs) {
+        final Map<UUID, UUID> ids = new HashMap<>();
+        final JsonObject map = Json.decode(npcs, JsonObject.class);
+        if (map != null) {
+            map.entrySet()
+                    .forEach(entry -> ids.put(
+                            UUID.fromString(entry.getKey()),
+                            UUID.fromString(entry.getValue().getAsString())));
+        }
+        return Map.copyOf(ids);
     }
 
     @Override
@@ -185,6 +211,7 @@ final class JdbiNpcStore implements NpcStore {
     @Override
     public void remove(final UUID id, final Actor actor) {
         jdbi.useTransaction(handle -> {
+            lock(handle, id);
             final int removed = handle.createUpdate("DELETE FROM npc WHERE id = :id")
                     .bind("id", id)
                     .execute();

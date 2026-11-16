@@ -14,6 +14,7 @@ public interface NpcSkinSource {
      * The copy never follows later changes of the account.
      *
      * @throws UnknownPlayer when no account has that name or UUID
+     * @throws NoSkin when the account wears the default skin or a skin older than 64 by 64
      * @throws IOException when Mojang does not answer with the skin
      */
     NpcSkin copy(String player) throws IOException;
@@ -25,6 +26,16 @@ public interface NpcSkinSource {
 
         public UnknownPlayer(final String player) {
             super("no Minecraft account is called " + player);
+        }
+    }
+
+    /** The account has no skin of its own that a figure can wear. */
+    final class NoSkin extends IOException {
+
+        private static final long serialVersionUID = 1L;
+
+        public NoSkin(final String player) {
+            super(player + " has no skin of its own to copy");
         }
     }
 

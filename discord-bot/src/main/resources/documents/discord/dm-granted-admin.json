@@ -14,8 +14,8 @@
             },
             {
               "text": {
-                "en": "An admin added **{@values.duration.days, n=days}** to your {@terms.access}.",
-                "de": "Ein Admin hat deinen {@terms.access} um **{@values.duration.days, n=days}** verlängert."
+                "en": "An admin gave you **{@values.duration.days, n=days}** of {@terms.access}.",
+                "de": "Ein Admin hat dir **{@values.duration.days, n=days}** {@terms.access} gegeben."
               }
             }
           ]

@@ -99,6 +99,18 @@ class DocumentRendererTest {
     }
 
     @Test
+    void anAdminGrantMessageFitsBothFirstAndFurtherAccess() {
+        final DocumentRenderer renderer = StoredDocumentsStandIn.renderer();
+        final Documents.Packaged document = packaged("dm-granted-admin");
+        final List<Locale> languages = List.of(Locale.ENGLISH, Locale.GERMAN);
+        final String english = renderer.preview(document, languages, Locale.ENGLISH);
+        final String german = renderer.preview(document, languages, Locale.GERMAN);
+
+        assertTrue(english.contains("An admin gave you **30 days** of access."), english);
+        assertTrue(german.contains("Ein Admin hat dir **30 Tage** Zugang gegeben."), german);
+    }
+
+    @Test
     void aPreviewDrawsAMessageExampleAsTheTextItsKeyNames() {
         final String drawn = StoredDocumentsStandIn.renderer()
                 .preview(packaged("admin-alert"), List.of(Locale.ENGLISH, Locale.GERMAN), Locale.ENGLISH);

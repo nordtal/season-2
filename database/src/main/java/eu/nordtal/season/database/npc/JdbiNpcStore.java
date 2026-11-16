@@ -57,9 +57,12 @@ final class JdbiNpcStore implements NpcStore {
 
     private static Map<UUID, Map<Slot, Equipment>> equipment(final Handle handle, final @Nullable UUID only) {
         final Map<UUID, Map<Slot, Equipment>> all = new HashMap<>();
-        handle.createQuery("SELECT npc, slot, item, data FROM npc_equipment" + (only == null ? "" : " WHERE npc = :id"))
-                .bind("id", only)
-                .map((rows, context) -> {
+        final var query = handle.createQuery(
+                "SELECT npc, slot, item, data FROM npc_equipment" + (only == null ? "" : " WHERE npc = :id"));
+        if (only != null) {
+            query.bind("id", only);
+        }
+        query.map((rows, context) -> {
                     all.computeIfAbsent(rows.getObject("npc", UUID.class), npc -> new EnumMap<>(Slot.class))
                             .put(
                                     Slot.valueOf(rows.getString("slot")),

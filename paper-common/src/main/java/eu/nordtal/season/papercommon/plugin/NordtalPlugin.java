@@ -448,7 +448,8 @@ public abstract class NordtalPlugin extends JavaPlugin {
             problems.add("the prestige tiers: " + failure.getMessage());
         }
         problems.addAll(reloadOwn());
-        problems.forEach(problem -> getLogger().severe("settings not reloaded, running values kept: cause=" + problem));
+        problems.forEach(
+                problem -> getLogger().severe("settings reload failed, current values kept: cause=" + problem));
         return List.copyOf(problems);
     }
 

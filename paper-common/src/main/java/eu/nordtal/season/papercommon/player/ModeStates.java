@@ -142,7 +142,7 @@ public final class ModeStates implements Listener {
                     .get(WAIT_SECONDS, TimeUnit.SECONDS)
                     .ifPresent(held -> arriving.put(id, held));
         } catch (final ExecutionException | TimeoutException failed) {
-            logger.warn("stored state not loaded, player data state kept: uuid={}", id, failed);
+            logger.warn("stored state not loaded, player data kept: uuid={}", id, failed);
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
@@ -237,7 +237,7 @@ public final class ModeStates implements Listener {
         try {
             CompletableFuture.runAsync(() -> {}, lane).get(WAIT_SECONDS * 2, TimeUnit.SECONDS);
         } catch (final ExecutionException | TimeoutException failed) {
-            logger.warn("player states not all written before stop", failed);
+            logger.warn("player state writes incomplete at shutdown", failed);
         } catch (final InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         }
@@ -251,7 +251,7 @@ public final class ModeStates implements Listener {
             try {
                 store.leave(plugin.getName(), id, mode, state);
             } catch (final RuntimeException failed) {
-                logger.warn("state at leave not stored, player data kept: player={}", player.getName(), failed);
+                logger.warn("logout state not stored, player data kept: player={}", player.getName(), failed);
             }
         });
     }
@@ -548,7 +548,7 @@ public final class ModeStates implements Listener {
         if (admin == null) {
             if (!back.isEmpty() || !taken.isEmpty()) {
                 logger.warn(
-                        "refused edit not evened out, admin gone: actor={} lost=\"{}\" kept=\"{}\"",
+                        "rejected inventory edit not rolled back, admin offline: actor={} lost=\"{}\" kept=\"{}\"",
                         editor.admin(),
                         back,
                         taken);
@@ -558,7 +558,7 @@ public final class ModeStates implements Listener {
         final Collection<ItemStack> missing =
                 admin.getInventory().removeItem(taken.toArray(ItemStack[]::new)).values();
         if (!missing.isEmpty()) {
-            logger.warn("items of refused edit not taken back: player={} items=\"{}\"", admin.getName(), missing);
+            logger.warn("rejected inventory items not recovered: player={} items=\"{}\"", admin.getName(), missing);
         }
         admin.getInventory()
                 .addItem(back.toArray(ItemStack[]::new))

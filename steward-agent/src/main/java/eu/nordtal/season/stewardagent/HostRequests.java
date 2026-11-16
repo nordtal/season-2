@@ -49,7 +49,7 @@ final class HostRequests {
         try {
             config = AgentSettings.database().get();
         } catch (final SettingsException broken) {
-            System.err.println("Nothing was asked: the database settings cannot be read (" + broken.getMessage()
+            System.err.println("Request not submitted: database settings are unreadable (" + broken.getMessage()
                     + "). Correct them in the environment of steward-agent and run it again.");
             return 1;
         }
@@ -61,7 +61,7 @@ final class HostRequests {
                 Waiting.on(NetworkTime.clock()));
         if (opened == null) {
             System.err.println(
-                    "Nothing was asked: the database did not answer. Check that the database runs and run it again.");
+                    "Request not submitted: the database did not answer. Check that PostgreSQL is running, then retry.");
             return 1;
         }
         try (Database database = opened) {

@@ -286,9 +286,9 @@ public final class Compose {
             }
             final int code = run(handOverCommand(service, owner.get()), output);
             if (code != 0) {
-                output.accept("handing " + service + "'s volumes to "
-                        + owner.get().uid() + ":" + owner.get().gid() + " exited " + code + "; starting it anyway");
-                log.warn("volume hand-over failed: service={} exit_code={}", service, code);
+                output.accept("volume ownership change failed: service=" + service + " uid="
+                        + owner.get().uid() + " gid=" + owner.get().gid() + " exit_code=" + code);
+                log.warn("volume ownership not changed: service={} exit_code={}", service, code);
             }
         }
     }
@@ -360,8 +360,7 @@ public final class Compose {
         }
         final Optional<String> image = imageOf(service);
         if (image.isPresent() && isHere.test(image.get())) {
-            output.accept("pull failed for " + service + ", but " + image.get()
-                    + " is on this host - continuing with the local image");
+            output.accept("pull failed, local image used: service=" + service + " image=" + image.get());
             log.warn("pull failed, local image used: service={} image={}", service, image.get());
             return PullOutcome.LOCAL_IMAGE_KEPT;
         }

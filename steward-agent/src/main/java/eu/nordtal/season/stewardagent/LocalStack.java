@@ -136,9 +136,10 @@ final class LocalStack implements ContainerOps {
     public void handOverMounts(final String service) {
         try {
             compose.handOver(
-                    List.of(service), line -> log.info("hand-over output: service={} line=\"{}\"", service, line));
+                    List.of(service),
+                    line -> log.info("volume ownership command output: service={} line=\"{}\"", service, line));
         } catch (final java.io.IOException | RuntimeException failure) {
-            log.warn("volume hand-over failed: service={} cause={}", service, failure.getMessage());
+            log.warn("volume ownership not changed: service={} cause={}", service, failure.getMessage());
         }
     }
 
@@ -189,7 +190,8 @@ final class LocalStack implements ContainerOps {
         return ran("hand-over", Compose.SELF, output -> {
             final Compose current = compose.atRelease(release);
             if (current.pull(Compose.SELF, output, docker::hasImage) == Compose.PullOutcome.FAILED) {
-                output.accept("no steward-agent image at " + release + ", from the registry or from this host");
+                output.accept("Update failed: no registry or local steward-agent image for " + release
+                        + ". Check the registry connection and release tag, then retry.");
                 return 1;
             }
             final String image = current.imageOf(Compose.SELF)

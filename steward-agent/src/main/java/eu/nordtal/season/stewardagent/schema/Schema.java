@@ -91,7 +91,7 @@ public final class Schema {
     public static int migrate(final Database database) {
         final int applied = flyway(database).migrate().migrationsExecuted;
         if (applied == 0) {
-            log.info("schema current, nothing applied");
+            log.info("database schema current");
         } else {
             log.info("database migrations applied: count={}", applied);
         }

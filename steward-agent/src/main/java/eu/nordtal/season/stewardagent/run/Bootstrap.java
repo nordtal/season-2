@@ -56,12 +56,12 @@ public final class Bootstrap {
                     missing,
                     handingOver(plan -> Runs.apply(config, read, plan, plugins), handOver));
         } catch (final RuntimeException failure) {
-            log.error("start-up install resolved nothing, nothing installed", failure);
+            log.error("startup install skipped, no artifacts resolved", failure);
             new Steps(steps, 1).begin(RunStep.Kind.RESOLVE).failed(RunStep.Reason.UNEXPECTED);
             report = Optional.of(RunStage.FAILED);
         }
         if (report.isEmpty()) {
-            log.info("start-up install not needed, no run written");
+            log.info("startup install skipped, artifacts current");
             return;
         }
         final RunStage written = report.get();
@@ -74,9 +74,9 @@ public final class Bootstrap {
                             written == RunStage.FAILED ? UpdateStatus.FAILED : UpdateStatus.DONE,
                             Duration.between(began, clock.instant()));
             steps.into(new Steps(Schema.updates(database).recorder(), run.id()));
-            log.info("start-up install written: run={} stage={}", run.id(), written);
+            log.info("startup install recorded: run={} stage={}", run.id(), written);
         } catch (final RuntimeException failure) {
-            log.error("start-up install run not written: stage={}", written, failure);
+            log.error("startup install run not recorded: stage={}", written, failure);
         }
     }
 
@@ -124,7 +124,7 @@ public final class Bootstrap {
         try {
             result = apply.apply(missing);
         } catch (final RuntimeException failure) {
-            log.error("start-up install failed", failure);
+            log.error("startup install failed", failure);
             record.begin(RunStep.Kind.INSTALL).failed(RunStep.Reason.UNEXPECTED);
             return Optional.of(RunStage.FAILED);
         }

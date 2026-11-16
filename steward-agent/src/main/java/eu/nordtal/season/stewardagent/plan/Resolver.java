@@ -109,7 +109,7 @@ public final class Resolver {
         try {
             return plugins.all();
         } catch (final RuntimeException failed) {
-            log.warn("added plugins unreadable, plan holds topology only: cause={}", failed.toString());
+            log.warn("added plugins unreadable, topology-only plan created: cause={}", failed.toString());
             return List.of();
         }
     }
@@ -282,7 +282,7 @@ public final class Resolver {
         try {
             newest.put(artifact, modrinth.newest(artifact, projectId, Platform.MINECRAFT, loader));
         } catch (final Modrinth.Unsupported none) {
-            log.info("minecraft build missing, plan row kept: artifact={} version={}", artifact, Platform.MINECRAFT);
+            log.info("minecraft build unresolved, plan row kept: artifact={} version={}", artifact, Platform.MINECRAFT);
             unsupported.put(artifact, TEXTS.report().noBuild(artifact, Platform.MINECRAFT, loader));
         } catch (final IOException failed) {
             failures.put(artifact, TEXTS.report().words(String.valueOf(failed.getMessage())));

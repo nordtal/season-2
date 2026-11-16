@@ -125,7 +125,7 @@ public final class Sampler implements AutoCloseable {
                     snapshot.diskTotalBytes(),
                     snapshot.diskUsedBytes());
         } catch (final IOException e) {
-            log.warn("host numbers unreadable", e);
+            log.warn("host metrics unreadable", e);
             return null;
         }
     }
@@ -158,7 +158,7 @@ public final class Sampler implements AutoCloseable {
             Thread.currentThread().interrupt();
         } catch (final ExecutionException | TimeoutException e) {
             // One container that would not answer is one gap in one chart, not a lost round.
-            log.debug("container stats not answered", e);
+            log.debug("container stats unavailable", e);
         }
         final List<Reading> readings = new ArrayList<>();
         for (final CompletableFuture<Reading> read : reads) {

@@ -147,7 +147,7 @@ final class Choreography {
             }
             if (!clock.now().isBefore(deadline)) {
                 if (!silent.isEmpty()) {
-                    log.warn("standby healthy but answered no status ping in time: standbys={}", silent);
+                    log.warn("standby healthy, status ping timed out: standbys={}", silent);
                 }
                 pending.forEach(standby -> cameUp(standby, RunStep.Outcome.FAILED, RunStep.Reason.NOT_HEALTHY));
                 return false;
@@ -185,14 +185,14 @@ final class Choreography {
         final OptionalInt theirs = live == null ? OptionalInt.empty() : ping(live, seen);
         if (theirs.isEmpty()) {
             log.info(
-                    "standby protocol not compared, its service did not answer: standby={} protocol={}",
+                    "standby protocol comparison skipped, service unavailable: standby={} protocol={}",
                     standby,
                     own.getAsInt());
             return Answer.SAME_PROTOCOL;
         }
         if (own.getAsInt() != theirs.getAsInt()) {
             log.warn(
-                    "standby answers another protocol than its service: standby={} protocol={} service={} expected={}",
+                    "standby protocol mismatch: standby={} protocol={} service={} expected={}",
                     standby,
                     own.getAsInt(),
                     live,
@@ -249,7 +249,7 @@ final class Choreography {
                 return Left.EMPTY;
             }
             if (!now.isBefore(deadline)) {
-                log.warn("wait for empty servers ended with players on: occupied={} uncounted={}", occupied, unknown);
+                log.warn("server drain wait ended, players remaining: occupied={} uncounted={}", occupied, unknown);
                 return new Left(occupied.isEmpty() ? RunStep.Reason.PLAYERS_UNKNOWN : RunStep.Reason.PLAYERS_STAYED);
             }
             if (!clock.sleep(EMPTY_POLL)) {
@@ -305,7 +305,7 @@ final class Choreography {
             } else if (waited.interrupted()) {
                 down.warned(RunStep.Reason.INTERRUPTED);
             } else {
-                log.warn("standby stopped with players on: service={} count={}", standby, waited.players());
+                log.warn("standby stopped, players remaining: service={} count={}", standby, waited.players());
                 down.warned(RunStep.Reason.PLAYERS_STAYED);
             }
         }

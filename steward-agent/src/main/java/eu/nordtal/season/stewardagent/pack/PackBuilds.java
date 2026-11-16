@@ -175,7 +175,7 @@ public final class PackBuilds {
             try {
                 adopt();
             } catch (final RuntimeException failure) {
-                log.warn("active pack not read before the run, building it: cause={}", failure.getMessage());
+                log.warn("active pack unreadable, rebuild selected: cause={}", failure.getMessage());
             }
         }
         return build();
@@ -186,7 +186,7 @@ public final class PackBuilds {
             try {
                 documents.hold(store.applied(Set.of(NAMESPACE)));
             } catch (final RuntimeException unreadable) {
-                log.warn("admins' wheel texts not read, the packaged ones count: cause={}", unreadable.getMessage());
+                log.warn("wheel text overrides unreadable, packaged texts used: cause={}", unreadable.getMessage());
             }
         }
     }
@@ -221,14 +221,14 @@ public final class PackBuilds {
         try {
             return record.asked();
         } catch (final RuntimeException unread) {
-            log.warn("last pack build ask not read, the next ask builds: cause={}", unread.getMessage());
+            log.warn("last pack build request unreadable: cause={}", unread.getMessage());
             return Optional.empty();
         }
     }
 
     /** Builds now, as an admin asked after a failed build; it builds nothing when the active pack is drawn the same. */
     void buildNow() {
-        log.info("pack build asked for by an admin");
+        log.info("pack build requested by admin");
         final Debounce lane = debounce;
         if (lane != null) {
             lane.now();
@@ -254,28 +254,28 @@ public final class PackBuilds {
         try {
             record.abandon(clock.instant(), "the agent stopped during the build");
         } catch (final RuntimeException unwritten) {
-            log.warn("unfinished pack builds not ended: cause={}", unwritten.getMessage());
+            log.warn("unfinished pack builds not closed: cause={}", unwritten.getMessage());
         }
         try {
             shelf.clearUnfinished();
             final String sha1 = PackState.read(settings).sha1();
             if (sha1 == null || !shelf.has(sha1)) {
-                log.info("no pack of this agent is active, building one now: sha1={}", sha1);
+                log.info("active pack missing, build selected: sha1={}", sha1);
                 build();
                 return;
             }
             if (PackWriter.write(settings, url(sha1), sha1)) {
-                log.info("pack address set: url={}", url(sha1));
+                log.info("resource pack url set: url={}", url(sha1));
             }
             if (builtFromThisImage()) {
                 record.active()
                         .filter(active -> sha1.equals(active.sha1()))
                         .ifPresent(active -> built = new PackInputs(active.prizes(), "", active.label()));
             } else {
-                log.info("the image's pack files changed since the active pack was built, building it anew");
+                log.info("pack inputs changed, rebuild selected");
             }
         } catch (final RuntimeException failure) {
-            log.warn("pack not settled at the start: cause={}", failure.getMessage());
+            log.warn("pack startup reconciliation failed: cause={}", failure.getMessage());
             return;
         }
         requestIfChanged();
@@ -292,7 +292,7 @@ public final class PackBuilds {
         try {
             now = source.read();
         } catch (final IOException | RuntimeException unreadable) {
-            log.warn("pack inputs not read, the pack stays: cause={}", unreadable.getMessage());
+            log.warn("pack inputs unreadable, active pack kept: cause={}", unreadable.getMessage());
             return;
         }
         final PackInputs waiting = wanted;
@@ -321,7 +321,7 @@ public final class PackBuilds {
             inputs = source.read();
         } catch (final IOException | RuntimeException unreadable) {
             reading = false;
-            log.warn("pack inputs not read, the pack stays: cause={}", unreadable.getMessage());
+            log.warn("pack inputs unreadable, active pack kept: cause={}", unreadable.getMessage());
             return active();
         }
         if (built != null && built.drawsSame(inputs)) {
@@ -342,7 +342,7 @@ public final class PackBuilds {
         try {
             id = record.start(clock.instant(), inputs.prizes(), inputs.label());
         } catch (final RuntimeException unwritten) {
-            log.warn("pack build not started, its record was not written: cause={}", unwritten.getMessage());
+            log.warn("pack build record not written, build not started: cause={}", unwritten.getMessage());
             return active();
         }
         Path work = null;
@@ -363,7 +363,7 @@ public final class PackBuilds {
             prune(sha1);
             return Optional.of(sha1);
         } catch (final IOException | RuntimeException failure) {
-            log.warn("pack build failed, the active pack stays: id={} cause={}", id, failure.getMessage());
+            log.warn("pack build failed, active pack kept: id={} cause={}", id, failure.getMessage());
             try {
                 record.fail(id, clock.instant(), String.valueOf(failure.getMessage()));
             } catch (final RuntimeException unwritten) {
@@ -382,10 +382,7 @@ public final class PackBuilds {
         try {
             record.succeed(id, clock.instant(), sha1, size);
         } catch (final RuntimeException unwritten) {
-            log.warn(
-                    "pack built and offered, but its record was not written: id={} cause={}",
-                    id,
-                    unwritten.getMessage());
+            log.warn("pack built and offered, record not written: id={} cause={}", id, unwritten.getMessage());
         }
     }
 
@@ -395,7 +392,7 @@ public final class PackBuilds {
             final Path mark = shelf.dir().resolve(IMAGE_MARK);
             return Files.isRegularFile(mark) && Files.readString(mark).equals(image());
         } catch (final IOException failure) {
-            log.warn("image of the active pack not read, building it anew: cause={}", failure.getMessage());
+            log.warn("active pack image unreadable, rebuild selected: cause={}", failure.getMessage());
             return false;
         }
     }
@@ -405,7 +402,7 @@ public final class PackBuilds {
         try {
             Files.writeString(shelf.dir().resolve(IMAGE_MARK), image());
         } catch (final IOException | RuntimeException failure) {
-            log.warn("image of the new pack not noted, the next start builds it again: cause={}", failure.getMessage());
+            log.warn("pack image fingerprint not stored: cause={}", failure.getMessage());
         }
     }
 
@@ -434,9 +431,7 @@ public final class PackBuilds {
                     .toURI());
             return Files.isRegularFile(jar) ? List.of(jar) : List.of();
         } catch (final URISyntaxException | RuntimeException unknown) {
-            log.warn(
-                    "pack builder's code not found, a new builder alone builds no new pack: cause={}",
-                    unknown.getMessage());
+            log.warn("pack builder code unreadable: cause={}", unknown.getMessage());
             return List.of();
         }
     }
@@ -474,7 +469,7 @@ public final class PackBuilds {
         try {
             return Optional.ofNullable(PackState.read(settings).sha1());
         } catch (final RuntimeException unreadable) {
-            log.warn("active pack not read: cause={}", unreadable.getMessage());
+            log.warn("active pack unreadable: cause={}", unreadable.getMessage());
             return Optional.empty();
         }
     }

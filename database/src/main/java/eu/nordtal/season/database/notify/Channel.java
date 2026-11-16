@@ -63,7 +63,10 @@ public enum Channel {
     PACK("nordtal_pack"),
 
     /** An admin asked for the resource pack to be built again. steward emits, steward-agent listens. */
-    PACK_BUILD("nordtal_pack_build");
+    PACK_BUILD("nordtal_pack_build"),
+
+    /** An admin placed, changed or removed an NPC. The payload is its id. steward emits, smp listens. */
+    NPC("nordtal_npc");
 
     private final String sqlName;
 

@@ -369,6 +369,9 @@ class MigrationsAreImmutableTest {
         FROZEN.put(
                 "V128__a_player_s_move_survives_a_proxy_restart.sql",
                 "7b978d6cf66adfacb07594c5d2a21a66107ebc0bd2c6aac89f96ff087dd4b49c");
+        FROZEN.put(
+                "V129__an_admin_places_npcs_that_talk_with_players.sql",
+                "b18363e15d2756951402f0df3d83e10b68e589cb075362e0e43594e18594624c");
     }
 
     @Test

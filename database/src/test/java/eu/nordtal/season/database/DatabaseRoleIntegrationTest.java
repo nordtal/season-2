@@ -121,6 +121,7 @@ class DatabaseRoleIntegrationTest {
         }
         cases.addAll(journal());
         cases.addAll(serverInboxes());
+        cases.addAll(npcs());
         cases.addAll(bankInbox());
         cases.addAll(registration());
         cases.addAll(discordRoles());
@@ -274,6 +275,20 @@ class DatabaseRoleIntegrationTest {
                         DatabaseRole.STEWARD,
                         "INSERT INTO bank_cancel_tab (request, payment) VALUES (0, gen_random_uuid())"),
                 mayNot(DatabaseRole.SMP, "INSERT INTO bank_open_tab (request, payment) VALUES (0, gen_random_uuid())"));
+    }
+
+    /** Steward places NPCs and smp spawns them. smp alone remembers who skips a dialogue. */
+    private static List<Case> npcs() {
+        return List.of(
+                may(DatabaseRole.STEWARD, "UPDATE npc SET pitch = 1 WHERE false"),
+                may(DatabaseRole.STEWARD, "DELETE FROM npc_equipment WHERE false"),
+                may(DatabaseRole.STEWARD, "SELECT count(*) FROM npc_dialogue_version"),
+                mayNot(DatabaseRole.STEWARD, "UPDATE npc_dialogue_version SET saved = now() WHERE false"),
+                mayNot(DatabaseRole.STEWARD, "DELETE FROM npc_skip WHERE false"),
+                may(DatabaseRole.SMP, "SELECT count(*) FROM npc"),
+                may(DatabaseRole.SMP, "DELETE FROM npc_skip WHERE false"),
+                mayNot(DatabaseRole.SMP, "UPDATE npc SET pitch = 1 WHERE false"),
+                mayNot(DatabaseRole.SMP, "SELECT count(*) FROM npc_dialogue_version"));
     }
 
     /** Every server with an inbox claims its own. Steward writes into each. */

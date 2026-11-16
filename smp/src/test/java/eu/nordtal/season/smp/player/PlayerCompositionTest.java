@@ -17,6 +17,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -128,10 +129,21 @@ class PlayerCompositionTest {
     }
 
     @Test
-    void theFlagIsTheWearersLanguageAndFallsBackRatherThanVanishing() {
-        assertTrue(plain(composition.chatPrefix("A", identity(Locale.ENGLISH, false, false, 0, 0L)))
-                .contains(Glyphs.FLAG_UNITED_KINGDOM));
-        assertTrue(plain(composition.chatPrefix("A", identity(Locale.FRENCH, false, false, 0, 0L)))
+    void theFlagIsTheWearersCountryNotTheirLanguage() {
+        final PlayerIdentity austrian = identity(Locale.GERMAN, "flag-austria", false, false, 0, 0L);
+
+        for (final Component surface : java.util.List.of(
+                composition.tabList("A", austrian),
+                composition.nameTag("A", austrian),
+                composition.chatPrefix("A", austrian))) {
+            assertTrue(plain(surface).contains(Glyphs.FLAG_AUSTRIA), plain(surface));
+            assertFalse(plain(surface).contains(Glyphs.FLAG_GERMANY), "the flag followed the language");
+        }
+    }
+
+    @Test
+    void aPlayerWithoutACountryShowsTheOtherFlagRatherThanNone() {
+        assertTrue(plain(composition.chatPrefix("A", identity(Locale.ENGLISH, null, false, false, 0, 0L)))
                 .contains(Glyphs.FLAG_OTHER));
     }
 
@@ -200,7 +212,17 @@ class PlayerCompositionTest {
             final boolean donor,
             final int aura,
             final long playtimeSeconds) {
+        return identity(language, "flag-germany", admin, donor, aura, playtimeSeconds);
+    }
+
+    private static PlayerIdentity identity(
+            final Locale language,
+            final @Nullable String flag,
+            final boolean admin,
+            final boolean donor,
+            final int aura,
+            final long playtimeSeconds) {
         return new PlayerIdentity(
-                PlayerId.of(UUID.randomUUID()), null, null, language, null, admin, donor, aura, playtimeSeconds);
+                PlayerId.of(UUID.randomUUID()), null, null, language, flag, null, admin, donor, aura, playtimeSeconds);
     }
 }

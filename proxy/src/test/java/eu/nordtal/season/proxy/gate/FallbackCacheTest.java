@@ -142,6 +142,7 @@ class FallbackCacheTest {
                 false,
                 0L,
                 locale,
+                null,
                 new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
@@ -157,6 +158,7 @@ class FallbackCacheTest {
                 false,
                 0L,
                 Locale.ENGLISH,
+                null,
                 new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
@@ -173,6 +175,7 @@ class FallbackCacheTest {
                 false,
                 0L,
                 Locale.ENGLISH,
+                null,
                 new SeasonState(Instant.EPOCH, false, SeasonMode.HUNGER_GAMES));
     }
 }

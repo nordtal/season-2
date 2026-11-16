@@ -201,10 +201,10 @@ class AccessProfileIntegrationTest {
     }
 
     @Test
-    void anIdentityIsTheLinkTheNameTheLanguageTheZoneBothFlagsTheAuraAndThePlayTimeInOneRead() {
+    void anIdentityIsTheLinkTheNameTheLanguageTheCountryFlagTheZoneBothFlagsTheAuraAndThePlayTimeInOneRead() {
         directory.link(DiscordId.of(DISCORD_ID), MC_UUID);
         directory.setLocale(DiscordId.of(DISCORD_ID), Locale.GERMAN);
-        directory.setTimeZone(DiscordId.of(DISCORD_ID), ZoneId.of("America/New_York"));
+        directory.setCountry(DiscordId.of(DISCORD_ID), "us-east", "flag-united-states", ZoneId.of("America/New_York"));
         Jdbis.over(dataSource).useTransaction(handle -> Grants.markDonor(handle, DiscordId.of(DISCORD_ID)));
         execute("UPDATE discord_user SET admin = true, admin_granted_at = now() WHERE discord_id = '" + DISCORD_ID
                 + "'");
@@ -218,6 +218,7 @@ class AccessProfileIntegrationTest {
                         DiscordId.of(DISCORD_ID),
                         "Steve",
                         Locale.GERMAN,
+                        "flag-united-states",
                         ZoneId.of("America/New_York"),
                         true,
                         true,

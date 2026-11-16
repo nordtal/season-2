@@ -128,6 +128,14 @@ function PersonStats({ person, people, now }: { person?: Person; people?: readon
         value={person?.locale}
         hint={person ? t("steward.people.last-changed", { at: person.updated }) : undefined}
       />
+      <Stat
+        label={t("steward.people.country")}
+        value={person ? (person.country ?? t("steward.people.not-chosen")) : undefined}
+      />
+      <Stat
+        label={t("steward.people.time-zone")}
+        value={person ? (person.timeZone ?? t("steward.people.network-zone")) : undefined}
+      />
     </div>
   )
 }

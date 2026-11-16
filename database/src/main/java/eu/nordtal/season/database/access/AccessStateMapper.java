@@ -31,6 +31,7 @@ public final class AccessStateMapper implements RowMapper<AccessState> {
                 rs.getBoolean("pack_exempt"),
                 rs.getLong("playtime_seconds"),
                 Locales.parse(rs.getString("locale")),
+                rs.getString("flag"),
                 rs.getString("mode") == null ? SeasonState.UNREAD : SeasonStateMapper.read(rs, ""));
     }
 }

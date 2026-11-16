@@ -14,9 +14,10 @@ record Settlement(Set<String> add, Set<String> remove, List<Change> record) {
     record Change(
             Choices.Kind kind,
             @Nullable String value,
-            @Nullable String zone) {
+            @Nullable String zone,
+            @Nullable String flag) {
         Change(final Choices.Kind kind, final @Nullable String value) {
-            this(kind, value, null);
+            this(kind, value, null, null);
         }
     }
 
@@ -42,8 +43,13 @@ record Settlement(Set<String> add, Set<String> remove, List<Change> record) {
             final String zone = country.map(Choices.Choice::zone)
                     .filter(valueZone -> !valueZone.isEmpty())
                     .orElse(null);
-            if (!Objects.equals(value, recorded.country()) || !Objects.equals(zone, recorded.zone())) {
-                changes.add(new Change(Choices.Kind.COUNTRY, value, zone));
+            final String flag = country.map(Choices.Choice::glyph)
+                    .filter(glyph -> !glyph.isEmpty())
+                    .orElse(null);
+            if (!Objects.equals(value, recorded.country())
+                    || !Objects.equals(zone, recorded.zone())
+                    || !Objects.equals(flag, recorded.flag())) {
+                changes.add(new Change(Choices.Kind.COUNTRY, value, zone, flag));
             }
         }
         if (choices.ready(Choices.Kind.LANGUAGE, idOf)) {

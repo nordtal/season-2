@@ -92,6 +92,8 @@ const PEOPLE = [
     linked: "2026-08-01T00:00:00Z",
     accessActive: true,
     accessUntil: "2027-01-01T00:00:00Z",
+    country: "us-east",
+    timeZone: "America/New_York",
   }),
   person({
     discordId: "300000000000000002",

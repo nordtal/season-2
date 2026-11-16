@@ -128,6 +128,7 @@ class RestartGateTest {
                 false,
                 0L,
                 Locale.GERMAN,
+                null,
                 new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 

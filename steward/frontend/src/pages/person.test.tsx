@@ -72,6 +72,18 @@ describe("PersonPage - one person on an address of their own", () => {
     expect(await screen.findByText("AliceMC")).toBeTruthy()
     expect(screen.getByText("Language")).toBeTruthy()
     expect(screen.getByText("en")).toBeTruthy()
+    expect(screen.getByText("Country")).toBeTruthy()
+    expect(screen.getByText("us-east")).toBeTruthy()
+    expect(screen.getByText("Time zone")).toBeTruthy()
+    expect(screen.getByText("America/New_York")).toBeTruthy()
+  })
+
+  it("says a person chose no country, and that times show in the network's zone", async () => {
+    vi.stubGlobal("fetch", backend())
+    draw(<PersonPage />, `/access/${BOB}`)
+
+    expect(await screen.findByText("Not chosen")).toBeTruthy()
+    expect(screen.getByText("The network's zone")).toBeTruthy()
   })
 
   it("reveals the Discord id in the identity popover, on request", async () => {

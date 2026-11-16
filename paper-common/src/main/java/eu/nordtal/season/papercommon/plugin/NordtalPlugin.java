@@ -31,7 +31,6 @@ import eu.nordtal.season.database.message.MessageOverrideStore;
 import eu.nordtal.season.database.mode.ModeStateStore;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Mode;
-import eu.nordtal.season.database.notify.Channel;
 import eu.nordtal.season.database.notify.SignalHub;
 import eu.nordtal.season.database.setting.SettingStore;
 import eu.nordtal.season.messagerendering.GameDocument;
@@ -266,7 +265,7 @@ public abstract class NordtalPlugin extends JavaPlugin {
         // The HUD clock starts after enable(), which declares the lines.
         hud.start();
         adminWatch.listen(signals);
-        signals.on(Channel.ADMIN, "who the players are", identities::reread);
+        identities.follow(signals);
         settings.listen(signals, this::reload);
         // The hub reads the overrides when it connects; until then the packaged texts show.
         MessageOverrideStore.using(pool).follow(messages, signals);

@@ -380,9 +380,10 @@ public final class Graves {
         if (row == null) {
             return;
         }
-        final Locale locale = identities.languageOf(player.getUniqueId());
+        // The first opener's language and zone draw the window, which the others share while it is open.
+        final Viewer viewer = identities.viewer(player.getUniqueId());
 
-        shown.computeIfAbsent(graveId, id -> window(row, locale)).open(player);
+        shown.computeIfAbsent(graveId, id -> window(row, viewer)).open(player);
 
         // The sound plays at the grave location.
         final org.bukkit.World world = Bukkit.getWorld(row.world());
@@ -391,14 +392,11 @@ public final class Graves {
         }
     }
 
-    private GraveWindow window(final GraveRow row, final Locale locale) {
+    private GraveWindow window(final GraveRow row, final Viewer viewer) {
         final ItemStack[] contents = ItemStack.deserializeItemsFromBytes(row.contents());
         final int contentRows = GravePanel.contentRows(contents.length);
         final GameDocument document = new GameDocument(
-                renderer,
-                documents.applied(GraveWindow.DOCUMENT),
-                Viewer.of(locale),
-                new GraveWindow.Window(row.experience()));
+                renderer, documents.applied(GraveWindow.DOCUMENT), viewer, new GraveWindow.Window(row.experience()));
         final GraveWindow menu = new GraveWindow(
                 this,
                 row.id(),

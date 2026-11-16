@@ -12,6 +12,7 @@ import eu.nordtal.season.common.season.SeasonState;
 import eu.nordtal.season.database.access.AccessState;
 import eu.nordtal.season.database.access.MemberState;
 import eu.nordtal.season.database.access.PlayerCard;
+import eu.nordtal.season.database.access.PlayerIdentity;
 import eu.nordtal.season.database.access.Prestige;
 import eu.nordtal.season.messagerendering.NameCards;
 import eu.nordtal.season.messages.value.DisplayName;
@@ -100,6 +101,7 @@ class LoginRosterTest {
                         true,
                         0L,
                         Locale.ENGLISH,
+                        null,
                         new SeasonState(Instant.EPOCH, false, SeasonMode.SMP)));
         assertTrue(roster.isPackExempt(PLAYER));
         roster.refreshAdmins(java.util.Set.of(DISCORD_ID));
@@ -123,6 +125,7 @@ class LoginRosterTest {
                         false,
                         7200L,
                         Locale.ENGLISH,
+                        null,
                         new SeasonState(Instant.EPOCH, false, SeasonMode.SMP)));
         final DisplayName name = new DisplayName(PlayerId.of(PLAYER), "Alex");
 
@@ -149,6 +152,7 @@ class LoginRosterTest {
                 false,
                 0L,
                 locale,
+                null,
                 new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 
@@ -197,5 +201,66 @@ class LoginRosterTest {
         assertEquals(0, roster.refreshAdmins(java.util.Set.of(DISCORD_ID, "999")));
         assertEquals(0, roster.size());
         assertFalse(roster.isAdmin(PLAYER));
+    }
+
+    @Test
+    void aCountryOrLanguageChangeReachesAConnectedPlayerAndKeepsTheRest() {
+        roster.remember(PLAYER, identified(Locale.ENGLISH, null));
+        roster.refreshAdmins(java.util.Set.of(DISCORD_ID));
+
+        final java.util.List<java.util.Collection<PlayerId>> reads = new java.util.ArrayList<>();
+        assertEquals(1, roster.refreshIdentities(players -> {
+            reads.add(players);
+            return java.util.List.of(identity(DISCORD_ID, Locale.GERMAN, "flag-austria"));
+        }));
+        assertEquals(java.util.List.of(java.util.List.of(PlayerId.of(PLAYER))), reads, "one read for everybody online");
+        assertEquals(Locale.GERMAN, roster.localeOf(PLAYER));
+        assertEquals("flag-austria", roster.flagOf(PLAYER));
+        assertTrue(roster.isAdmin(PLAYER), "an identity refresh dropped the admin flag");
+        assertEquals(
+                0,
+                roster.refreshIdentities(
+                        players -> java.util.List.of(identity(DISCORD_ID, Locale.GERMAN, "flag-austria"))),
+                "nothing changed");
+    }
+
+    @Test
+    void anIdentityRefreshLeavesASessionWhoseLinkMovedAlone() {
+        roster.remember(PLAYER, identified(Locale.ENGLISH, "flag-germany"));
+
+        assertEquals(
+                0,
+                roster.refreshIdentities(players -> java.util.List.of(identity("999", Locale.GERMAN, "flag-austria"))));
+        assertEquals(0, roster.refreshIdentities(players -> java.util.List.of()));
+        assertEquals("flag-germany", roster.flagOf(PLAYER));
+        assertNull(roster.flagOf(STRANGER));
+    }
+
+    @Test
+    void nobodyOnlineReadsNothing() {
+        assertEquals(0, roster.refreshIdentities(players -> {
+            throw new AssertionError("an empty roster asked the database");
+        }));
+    }
+
+    private static PlayerIdentity identity(final String discordId, final Locale language, final String flag) {
+        return new PlayerIdentity(
+                PlayerId.of(PLAYER), DiscordId.of(discordId), "Alex", language, flag, null, false, false, 0, 0L);
+    }
+
+    private static AccessState identified(final Locale language, final @org.jspecify.annotations.Nullable String flag) {
+        return new AccessState(
+                PLAYER,
+                DiscordId.of(DISCORD_ID),
+                MemberState.MEMBER,
+                true,
+                null,
+                false,
+                false,
+                false,
+                0L,
+                language,
+                flag,
+                new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 }

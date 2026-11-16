@@ -297,6 +297,18 @@ public interface PeoplePage {
     @Name("Language")
     MessageRef language();
 
+    @Name("Country")
+    MessageRef country();
+
+    @Name("Time zone")
+    MessageRef timeZone();
+
+    @Name("Not chosen")
+    MessageRef notChosen();
+
+    @Name("The network's zone")
+    MessageRef networkZone();
+
     @Name("Last changed")
     MessageRef lastChanged(@Arg("at") @Example("2026-10-21T18:40:00Z") Instant at);
 

@@ -18,7 +18,6 @@ import eu.nordtal.season.database.access.MemberState;
 import eu.nordtal.season.messages.document.DocumentSpec;
 import eu.nordtal.season.messages.document.Sent;
 import eu.nordtal.season.packrendering.Glyphs;
-import eu.nordtal.season.packrendering.LanguageFlags;
 import eu.nordtal.season.proxy.ProxyRenderer;
 import eu.nordtal.season.proxy.gate.LoginRoster;
 import eu.nordtal.season.settings.network.PlayersSpec;
@@ -35,6 +34,7 @@ import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,20 +92,20 @@ class PrivateMessagesTest {
 
     @Test
     void theLineIsDrawnForItsReaderAndAboutTheOther() {
-        roster.remember(ONE, session(ONE, Locale.ENGLISH, false));
-        roster.remember(TWO, session(TWO, Locale.GERMAN, false));
+        roster.remember(ONE, session(ONE, Locale.ENGLISH, "flag-united-states", false));
+        roster.remember(TWO, session(TWO, Locale.GERMAN, "flag-austria", false));
 
         final String sent =
                 flat(commands.line(PrivateMessages.Half.SENT, Locale.ENGLISH, player(TWO, "zwei"), "hello"));
         assertTrue(sent.startsWith("to "), sent);
         assertTrue(
-                sent.contains(LanguageFlags.of(Locale.GERMAN)),
-                "the flag belongs to the person the line is about, not to the person reading it");
+                sent.contains(Glyphs.FLAG_AUSTRIA),
+                "the flag belongs to the person the line is about, and is their country, not their language");
 
         final String received =
                 flat(commands.line(PrivateMessages.Half.RECEIVED, Locale.GERMAN, player(ONE, "eins"), "hello"));
         assertTrue(received.startsWith("von "), received);
-        assertTrue(received.contains(LanguageFlags.of(Locale.ENGLISH)), received);
+        assertTrue(received.contains(Glyphs.FLAG_UNITED_STATES), received);
     }
 
     @Test
@@ -231,6 +231,11 @@ class PrivateMessagesTest {
 
     /** What a login query would have said about somebody, which is all the roster keeps. */
     private static AccessState session(final UUID mcUuid, final Locale locale, final boolean admin) {
+        return session(mcUuid, locale, null, admin);
+    }
+
+    private static AccessState session(
+            final UUID mcUuid, final Locale locale, final @Nullable String flag, final boolean admin) {
         return new AccessState(
                 mcUuid,
                 DiscordId.of("1"),
@@ -242,6 +247,7 @@ class PrivateMessagesTest {
                 false,
                 0L,
                 locale,
+                flag,
                 new SeasonState(Instant.EPOCH, false, SeasonMode.SMP));
     }
 

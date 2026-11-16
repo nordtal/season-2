@@ -12,7 +12,16 @@ tasks.withType<JavaCompile>().configureEach {
     }
 }
 
+repositories {
+    // PacketEvents.
+    maven("https://repo.codemc.io/repository/maven-releases/")
+}
+
 dependencies {
+    // The server brings PacketEvents. An NPC dialogue turns the view and shows the vignette through it.
+    compileOnly(libs.packetevents)
+    testImplementation(libs.packetevents)
+
     // `api`, since the plugin base hands its inbox and its access reader to the plugins built on it.
     api(project(":database"))
     // `api`, since the plugin base hands its settings and its pool to the plugins built on it.
@@ -35,6 +44,7 @@ messageSpec {
     documentClasses.add("eu.nordtal.season.papercommon.chat.SystemLines")
     documentClasses.add("eu.nordtal.season.papercommon.command.CommandFilter")
     documentClasses.add("eu.nordtal.season.papercommon.command.Replies")
+    documentClasses.add("eu.nordtal.season.papercommon.npc.DialogueTexts")
     documentClasses.add("eu.nordtal.season.papercommon.player.InventoryEditor")
     documentClasses.add("eu.nordtal.season.papercommon.player.Presence")
     documentClasses.add("eu.nordtal.season.papercommon.tab.TabList")

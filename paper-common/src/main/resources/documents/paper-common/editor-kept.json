@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<warn>Not saved: slots changed while you were editing. What you took out or put in is back where it was.</warn>",
-            "de": "<warn>Nicht gespeichert: Plätze haben sich beim Bearbeiten geändert. Was du herausgenommen oder hineingelegt hast, ist wieder an seinem Platz.</warn>"
+            "en": "<warn>Not saved: the contents changed while you were editing. Items you put in were returned; items you took out were taken back.</warn>",
+            "de": "<warn>Nicht gespeichert: Der Inhalt hat sich während der Bearbeitung geändert. Hineingelegte Gegenstände hast du zurückbekommen, herausgenommene wurden dir wieder abgenommen.</warn>"
           }
         }
       ]

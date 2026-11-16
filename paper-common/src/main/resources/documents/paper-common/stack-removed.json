@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>The stack is removed.</good>",
-            "de": "<good>Der Stapel ist entfernt.</good>"
+            "en": "<good>Stack removed.</good>",
+            "de": "<good>Stapel entfernt.</good>"
           }
         }
       ]

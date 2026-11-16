@@ -6,15 +6,15 @@
         {
           "when": "cause=database",
           "text": {
-            "en": "<bad>Failed: the database did not answer. Nothing changed.</bad>",
-            "de": "<bad>Fehlgeschlagen: Die Datenbank hat nicht geantwortet. Nichts geändert.</bad>"
+            "en": "<bad>Command failed: database error.</bad>",
+            "de": "<bad>Befehl fehlgeschlagen: Datenbankfehler.</bad>"
           }
         },
         {
           "when": "cause=other",
           "text": {
-            "en": "<bad>Failed. Nothing changed.</bad> <muted>The server log names the cause.</muted>",
-            "de": "<bad>Fehlgeschlagen. Nichts geändert.</bad> <muted>Den Grund nennt das Server-Log.</muted>"
+            "en": "<bad>Command failed: {detail}</bad>",
+            "de": "<bad>Befehl fehlgeschlagen: {detail}</bad>"
           }
         }
       ]

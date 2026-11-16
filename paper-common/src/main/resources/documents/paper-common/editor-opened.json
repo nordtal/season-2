@@ -5,8 +5,8 @@
       "lines": [
         {
           "text": {
-            "en": "<good>The editor is open in the game.</good>",
-            "de": "<good>Der Editor ist im Spiel geöffnet.</good>"
+            "en": "<good>Editor opened in game.</good>",
+            "de": "<good>Editor im Spiel geöffnet.</good>"
           }
         }
       ]

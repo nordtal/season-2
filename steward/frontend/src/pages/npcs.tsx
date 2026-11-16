@@ -1,5 +1,5 @@
 import { PlusIcon } from "@/components/ui/icons"
-import { useNavigate, useParams } from "@tanstack/react-router"
+import { Link, useNavigate, useParams } from "@tanstack/react-router"
 
 import type { Npc, NpcView } from "@/lib/api"
 import { blankNpc } from "@/lib/npc"
@@ -43,7 +43,13 @@ const COLUMNS: Column<Row>[] = [
       <Shown row={row}>
         {(npc) => (
           <span className="flex min-w-0 flex-col">
-            <span className="truncate font-medium">{npcTitle(npc)}</span>
+            <Link
+              to="/npcs/$id"
+              params={{ id: npc.id }}
+              className="truncate rounded-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {npcTitle(npc)}
+            </Link>
             <span lang="de" className="truncate text-xs text-muted-foreground">
               {npc.name.de}
             </span>

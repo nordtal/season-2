@@ -84,7 +84,9 @@ export function usePublishNpc() {
   return useMutation({
     mutationFn: ({ npc, version }: { npc: Npc; version: number }) =>
       api<NpcView>(`/api/npcs/${npc.id}`, { method: "PUT", body: { npc, version } }),
-    onSuccess: (view) => {
+    onSuccess: async (view) => {
+      // A read that was on its way holds the version before this one.
+      await client.cancelQueries({ queryKey: keys.npc(view.npc.id) })
       client.setQueryData(keys.npc(view.npc.id), view)
       void client.invalidateQueries({ queryKey: keys.npcs, exact: true })
       void client.invalidateQueries({ queryKey: keys.npcVersions(view.npc.id) })

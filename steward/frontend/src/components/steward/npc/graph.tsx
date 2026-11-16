@@ -264,6 +264,12 @@ export function StepCanvas({
   const move = (event: PointerEvent<HTMLDivElement>) => {
     const held = dragging.current
     if (held === null || held.pointer !== event.pointerId) return
+    // A press that was let go outside the canvas never reached it.
+    if (event.buttons === 0) {
+      dragging.current = null
+      setDrag(null)
+      return
+    }
     const x = Math.max(0, event.clientX - held.startX)
     const y = Math.max(0, event.clientY - held.startY)
     if (!held.moved && Math.hypot(x - held.x, y - held.y) < DRAG_FROM) return

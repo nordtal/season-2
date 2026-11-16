@@ -156,6 +156,7 @@ function Editor({
   const [playing, setPlaying] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const play = useRef<string | null>(null)
+  const sending = useRef(false)
   const panel = useRef<HTMLDivElement>(null)
 
   const step = stepOf(npc.dialogue, picked) ?? stepOf(npc.dialogue, npc.dialogue.start) ?? npc.dialogue.steps[0]
@@ -169,7 +170,8 @@ function Editor({
     if (held === undefined && live === undefined && published !== undefined) return
     const from = held ?? (live ? { npc: live.npc, base: live.version } : { npc, base })
     const next = change(from.npc)
-    const untouched = live !== undefined && from.base === live.version && sameNpc(next, live.npc)
+    // While a publication is on its way the draft stays, even one that equals what was live: the answer decides.
+    const untouched = !sending.current && live !== undefined && from.base === live.version && sameNpc(next, live.npc)
     setNpcDraft(npc.id, untouched ? undefined : { npc: next, base: from.base })
   }
 
@@ -223,8 +225,10 @@ function Editor({
       return
     }
     // The promise takes the answer, so the draft follows the publication even after the admin left the page.
+    sending.current = true
     publish.mutateAsync({ npc, version }).then(
       (view) => {
+        sending.current = false
         // What was typed while the publication was on its way stays a draft, now of the new version.
         const held = readNpcDraft(npc.id)
         setNpcDraft(npc.id, held && !sameNpc(held.npc, npc) ? { npc: held.npc, base: view.version } : undefined)
@@ -232,6 +236,7 @@ function Editor({
         toast.success(t("steward.npcs.published", { name: npcTitle(view.npc), version: view.version }))
       },
       (error: unknown) => {
+        sending.current = false
         if (error instanceof ApiError && error.code === "NPC_CHANGED") {
           // The dialog names the version that is live now.
           void client.invalidateQueries({ queryKey: keys.npcs }).then(() => {

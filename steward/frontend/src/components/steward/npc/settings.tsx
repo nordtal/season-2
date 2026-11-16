@@ -208,16 +208,21 @@ function Skin({ npc, published, edit }: { npc: Npc; published: Npc | undefined; 
   const file = useRef<HTMLInputElement>(null)
   const player = useId()
   const [name, setName] = useState("")
+  const latest = useRef(0)
   const busy = upload.isPending || copy.isPending
   const wear = (skin: NpcSkinUploaded) => edit((draft) => ({ ...draft, skin: skin.id, skinModel: skin.model }))
   const chosen = async (picked: File) => {
+    const turn = ++latest.current
     let read
     try {
       read = await readSkin(picked)
     } catch {
+      if (turn !== latest.current) return
       toast.error(t("steward.npcs.skin-not-saved"), { description: t("steward.npcs.skin-unreadable") })
       return
     }
+    // A file chosen after this one takes its place.
+    if (turn !== latest.current) return
     if (read.width !== SKIN_SIDE || read.height !== SKIN_SIDE) {
       toast.error(t("steward.npcs.skin-not-saved"), {
         description: t("steward.npcs.skin-size", { width: read.width, height: read.height }),
@@ -285,9 +290,10 @@ function Skin({ npc, published, edit }: { npc: Npc; published: Npc | undefined; 
             onSubmit={(event) => {
               event.preventDefault()
               if (name.trim() === "") return
-              copy.mutateAsync(name.trim()).then((skin) => {
+              const asked = name
+              copy.mutateAsync(asked.trim()).then((skin) => {
                 wear(skin)
-                setName("")
+                setName((typed) => (typed === asked ? "" : typed))
               }, refused)
             }}
           >

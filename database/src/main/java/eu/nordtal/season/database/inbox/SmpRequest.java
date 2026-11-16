@@ -220,8 +220,7 @@ public sealed interface SmpRequest
 
         /**
          * The player's world, place and facing.
-         * The place of a block is its corner, in whole numbers. Like every answer it checks nothing, because the inbox
-         * reads its row once before the answer is written.
+         * A block's place is its corner. Like every answer it checks nothing: the inbox reads it unwritten.
          *
          * @param yaw the facing, from -180 to 180 degrees, where 0 faces south
          * @param pitch the look up or down, from -90 to 90 degrees, where 0 faces ahead

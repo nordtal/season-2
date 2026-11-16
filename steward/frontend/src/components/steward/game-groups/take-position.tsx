@@ -111,6 +111,8 @@ export function TakePosition({
     current.current = null
     setWaiting(null)
     const place = run.status === "DONE" ? takenOf(run) : undefined
+    // A refused or expired take may mean the player left the server since Steward last said.
+    if (!place) void client.invalidateQueries({ queryKey: keys.positionTaker })
     if (place) taken.current(place, corner)
     else if (run.status === "EXPIRED") toast.error(t("steward.answer.take-in-offline"))
     else if (run.status !== "CANCELLED")
@@ -140,7 +142,6 @@ export function TakePosition({
       )
     } catch (error) {
       toast.error(t("steward.game.take-position-failed"), { description: errorMessage(error) })
-      // A refusal may mean the player left the server since Steward last said.
       void client.invalidateQueries({ queryKey: keys.positionTaker })
     } finally {
       if (!gone.current) setAsking(false)

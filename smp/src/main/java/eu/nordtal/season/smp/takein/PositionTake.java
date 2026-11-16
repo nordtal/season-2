@@ -27,7 +27,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class PositionTake {
 
-    /** The farthest block a look reaches, as far as a player sees one clearly. */
+    /** The farthest block a look reaches, as far as a player sees one clearly; the no-block refusal names it. */
     static final int REACH = 64;
 
     private static final long WAIT_SECONDS = 5;

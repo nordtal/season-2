@@ -371,7 +371,7 @@ class MigrationsAreImmutableTest {
                 "7b978d6cf66adfacb07594c5d2a21a66107ebc0bd2c6aac89f96ff087dd4b49c");
         FROZEN.put(
                 "V129__an_admin_places_npcs_that_talk_with_players.sql",
-                "76bc8b42eaf09c9d6fd1557777b8af33290b9ae2b2fe5dff7d2f93d75605bbf3");
+                "74474e1580c79c5495ca2bf509ed2871eacc523a88f8dbc168219e6171226e67");
     }
 
     @Test

@@ -152,7 +152,18 @@ final class JdbiNpcStore implements NpcStore {
     @Override
     public void remove(final UUID id, final Actor actor) {
         jdbi.useTransaction(handle -> {
-            handle.createUpdate("DELETE FROM npc WHERE id = :id").bind("id", id).execute();
+            final int removed = handle.createUpdate("DELETE FROM npc WHERE id = :id")
+                    .bind("id", id)
+                    .execute();
+            if (removed > 0) {
+                handle.createUpdate("""
+                                INSERT INTO npc_dialogue_version (npc, dialogue, actor_kind, actor_id, saved)
+                                VALUES (:id, NULL, :kind, :actor, now())""")
+                        .bind("id", id)
+                        .bind("kind", actor.kind().name())
+                        .bind("actor", actor.id())
+                        .execute();
+            }
             signal(handle, id);
         });
     }
@@ -165,7 +176,7 @@ final class JdbiNpcStore implements NpcStore {
                 .bind("npc", id)
                 .map((rows, context) -> new Version(
                         rows.getLong("id"),
-                        Json.decode(rows.getString("dialogue"), Dialogue.class),
+                        dialogue(rows.getString("dialogue")),
                         Actor.of(rows.getString("actor_kind"), rows.getString("actor_id")),
                         rows.getObject("saved", OffsetDateTime.class).toInstant()))
                 .list());
@@ -182,7 +193,8 @@ final class JdbiNpcStore implements NpcStore {
     @Override
     public void skip(final UUID npc, final UUID player, final String menu) {
         jdbi.useHandle(handle -> handle.createUpdate("""
-                        INSERT INTO npc_skip (npc, player, menu) VALUES (:npc, :player, :menu)
+                        INSERT INTO npc_skip (npc, player, menu)
+                        SELECT :npc, :player, :menu WHERE EXISTS (SELECT 1 FROM npc WHERE id = :npc)
                         ON CONFLICT (npc, player) DO UPDATE SET menu = excluded.menu""")
                 .bind("npc", npc)
                 .bind("player", player)
@@ -196,6 +208,10 @@ final class JdbiNpcStore implements NpcStore {
                 .bind("npc", npc)
                 .bind("player", player)
                 .execute());
+    }
+
+    private static @Nullable Dialogue dialogue(final @Nullable String json) {
+        return json == null ? null : Json.decode(json, Dialogue.class);
     }
 
     // Sends the signal in the transaction that wrote the row.

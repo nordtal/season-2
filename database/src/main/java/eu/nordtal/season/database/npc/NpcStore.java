@@ -10,10 +10,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import javax.sql.DataSource;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Stores the NPCs an admin placed and the players who skip their dialogue. A change to an NPC signals its id on
- * {@link Channel#NPC}; every save of a dialogue is kept as a {@link Version}.
+ * Stores the NPCs an admin placed and the players who skip their dialogue.
+ * A change to an NPC signals its id on {@link Channel#NPC}. Every save of a dialogue is kept as a {@link Version}, and
+ * so is a removal, so a removed NPC's dialogue can still be restored.
  */
 public interface NpcStore {
 
@@ -27,7 +29,7 @@ public interface NpcStore {
         hub.watch(Channel.NPC, "the NPCs", null, this::npcs, apply);
     }
 
-    /** Returns every NPC, oldest first. */
+    /** Returns every NPC, the one left unchanged longest first. */
     List<Npc> npcs();
 
     Optional<Npc> npc(UUID id);
@@ -35,13 +37,16 @@ public interface NpcStore {
     /** Writes {@code npc} whole, keeps its dialogue as a version when it changed, and signals. */
     void save(Npc npc, Actor actor);
 
-    /** Removes an NPC with its versions and skips, and signals. */
+    /** Removes an NPC with its skips, keeps the removal as a version without a dialogue, and signals. */
     void remove(UUID id, Actor actor);
 
-    /** Returns every saved dialogue of an NPC, the newest first. */
+    /** Returns every save and the removal of an NPC's dialogue, the newest first. */
     List<Version> versions(UUID id);
 
-    /** Returns the NPCs {@code player} skips, each with the menu it goes to instead. */
+    /**
+     * Returns the NPCs {@code player} skips, each with the menu it went to instead.
+     * A skip whose menu the NPC's dialogue no longer hands off to is stale: the game plays the dialogue again.
+     */
     Map<UUID, String> skips(UUID player);
 
     /** Marks that {@code player} skips the dialogue of {@code npc} and goes to {@code menu}. */
@@ -50,6 +55,6 @@ public interface NpcStore {
     /** Lets {@code player} see the dialogue of {@code npc} again. */
     void unskip(UUID npc, UUID player);
 
-    /** One save of a dialogue. */
-    record Version(long id, Dialogue dialogue, Actor actor, Instant saved) {}
+    /** One save of a dialogue, or its removal when {@code dialogue} is null. */
+    record Version(long id, @Nullable Dialogue dialogue, Actor actor, Instant saved) {}
 }

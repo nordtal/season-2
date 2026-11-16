@@ -1,6 +1,7 @@
 package eu.nordtal.season.database.npc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.id.Actor;
@@ -113,8 +114,22 @@ class NpcStoreIntegrationTest {
         assertEquals(Map.of(smith("Hi").id(), "objectives"), smp.skips(PLAYER));
 
         steward.remove(smith("Hi").id(), ADMIN);
+        smp.skip(smith("Hi").id(), PLAYER, "objectives");
 
         assertEquals(Map.of(), smp.skips(PLAYER));
         assertEquals(List.of(SPAWN), smp.npcs().stream().map(Npc::id).toList());
+    }
+
+    @Test
+    void aRemovedNpcKeepsItsDialoguesAndWhoRemovedIt() {
+        final NpcStore store = NpcStore.using(TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD));
+        store.save(smith("Hi"), Actor.STEWARD);
+        store.remove(smith("Hi").id(), ADMIN);
+
+        final List<NpcStore.Version> versions = store.versions(smith("Hi").id());
+        assertEquals(2, versions.size());
+        assertNull(versions.get(0).dialogue());
+        assertEquals(ADMIN, versions.get(0).actor());
+        assertEquals(smith("Hi").dialogue(), versions.get(1).dialogue());
     }
 }

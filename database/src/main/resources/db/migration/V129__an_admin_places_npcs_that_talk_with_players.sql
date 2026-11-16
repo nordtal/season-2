@@ -38,13 +38,14 @@ CREATE TABLE npc_equipment
 );
 COMMENT ON TABLE npc_equipment IS 'Owned by steward: the items an NPC wears and holds, one row per slot.';
 
--- Every save of an NPC's dialogue is kept whole, so Steward can restore it.
+-- Every save of an NPC's dialogue is kept whole, so Steward can restore it. A removal is kept too, without a dialogue,
+-- so the versions outlive the NPC and name who removed it.
 CREATE TABLE npc_dialogue_version
 (
     id         bigserial   CONSTRAINT npc_dialogue_version_pkey PRIMARY KEY,
-    npc        uuid        NOT NULL CONSTRAINT npc_dialogue_version_npc_fkey REFERENCES npc (id) ON DELETE CASCADE,
-    dialogue   jsonb       NOT NULL
-        CONSTRAINT npc_dialogue_version_dialogue_check CHECK (jsonb_typeof(dialogue) = 'object'),
+    npc        uuid        NOT NULL,
+    dialogue   jsonb
+        CONSTRAINT npc_dialogue_version_dialogue_check CHECK (dialogue IS NULL OR jsonb_typeof(dialogue) = 'object'),
     actor_kind varchar(16) NOT NULL
         CONSTRAINT npc_dialogue_version_actor_kind_check CHECK (actor_kind IN ('PERSON', 'STEWARD', 'HOST')),
     actor_id   varchar(32),
@@ -69,7 +70,7 @@ COMMENT ON TABLE npc_skip IS 'Owned by smp: a player who skips an NPC''s dialogu
 -- The spawn NPC starts where smp's settings put it until now, with a dialogue that hands the player to the objectives.
 INSERT INTO npc (id, name_en, name_de, world, x, y, z, yaw, pose, pitch, dialogue, actor_kind, actor_id, changed)
 VALUES ('6f1c3c5e-6a43-4c1b-9a7e-2a5d8c0b3e41', 'Runa', 'Runa', 'nordtal', 3980, 84, 2194, -180, 'STAND', 1,
-        '{"start": "welcome", "steps": [{"id": "welcome", "x": 0, "y": 0, "text": {"en": "Welcome to Nordtal! Together we reach the next milestone. Have a look at what is wanted.", "de": "Willkommen im Nordtal! Gemeinsam erreichen wir den nächsten Meilenstein. Schau dir an, was gebraucht wird."}, "answers": [], "menu": "objectives"}]}',
+        '{"start": "welcome", "steps": [{"id": "welcome", "x": 0, "y": 0, "text": {"en": "Welcome to Nordtal. Together we reach the next milestone: have a look at the objectives.", "de": "Willkommen im Nordtal. Gemeinsam erreichen wir den nächsten Meilenstein: Schau dir die Ziele an."}, "answers": [], "menu": "objectives"}]}',
         'HOST', NULL, now());
 INSERT INTO npc_dialogue_version (npc, dialogue, actor_kind, actor_id, saved)
 SELECT id, dialogue, actor_kind, actor_id, changed

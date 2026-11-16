@@ -101,7 +101,10 @@ final class JdbiNpcStore implements NpcStore {
 
     @Override
     public void save(final Npc npc, final Actor actor) {
-        jdbi.useTransaction(handle -> write(handle, npc, actor));
+        jdbi.useTransaction(handle -> {
+            lock(handle, npc.id());
+            write(handle, npc, actor);
+        });
     }
 
     @Override
@@ -148,6 +151,15 @@ final class JdbiNpcStore implements NpcStore {
     @Override
     public int published(final UUID id) {
         return jdbi.withHandle(handle -> count(handle, id));
+    }
+
+    @Override
+    public Map<UUID, Integer> published() {
+        final Map<UUID, Integer> versions = new HashMap<>();
+        jdbi.useHandle(handle -> handle.createQuery("SELECT npc, count(*) AS n FROM npc_dialogue_version GROUP BY npc")
+                .map((rows, context) -> versions.put(rows.getObject("npc", UUID.class), rows.getInt("n")))
+                .list());
+        return Map.copyOf(versions);
     }
 
     private static int count(final Handle handle, final UUID id) {

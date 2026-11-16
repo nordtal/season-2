@@ -105,10 +105,7 @@ public final class Letters {
             }
             String rest = word;
             while (visibleWidth(rest) > room) {
-                int end = rest.length();
-                while (end > 1 && visibleWidth(rest.substring(0, end)) > room) {
-                    end = rest.offsetByCodePoints(end, -1);
-                }
+                final int end = fitting(rest, room);
                 lines.add(rest.substring(0, end));
                 rest = rest.substring(end);
             }
@@ -116,6 +113,21 @@ public final class Letters {
         }
         lines.add(line);
         return List.copyOf(lines);
+    }
+
+    /** Returns where the longest start of {@code word} inking at most {@code room} columns ends, a letter at least. */
+    private static int fitting(final String word, final int room) {
+        int end = Character.charCount(word.codePointAt(0));
+        int advance = advance(word.codePointAt(0));
+        while (end < word.length()) {
+            final int letter = word.codePointAt(end);
+            if (advance + advance(letter) - 1 > room) {
+                break;
+            }
+            advance += advance(letter);
+            end += Character.charCount(letter);
+        }
+        return end;
     }
 
     private static Map<Integer, Integer> load() {

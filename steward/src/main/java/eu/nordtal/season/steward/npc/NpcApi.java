@@ -104,15 +104,16 @@ public final class NpcApi {
 
     /** {@code GET /api/npcs}: every NPC, the one changed longest ago first. */
     public void list(final Context ctx) {
+        // Versions before NPCs: a publication in between then ends in a refused next edit, not a lost one.
+        final Map<UUID, Integer> versions = store.published();
         ctx.json(store.npcs().stream()
-                .map(npc -> new NpcView(npc, store.published(npc.id())))
+                .map(npc -> new NpcView(npc, versions.getOrDefault(npc.id(), 0)))
                 .toList());
     }
 
     /** {@code GET /api/npcs/{id}}: one NPC as published. */
     public void read(final Context ctx) {
-        final UUID id = id(ctx);
-        ctx.json(new NpcView(found(id), store.published(id)));
+        ctx.json(view(id(ctx)));
     }
 
     /** {@code PUT /api/npcs/{id}}: publishes the whole NPC as its next version, unless it changed since it was read. */
@@ -135,7 +136,7 @@ public final class NpcApi {
         }
         Journaling.line(ctx, null, null);
         log.info("npc published: npc={} version={}", id, publication.version() + 1);
-        ctx.json(new NpcView(found(id), store.published(id)));
+        ctx.json(view(id));
     }
 
     /** {@code DELETE /api/npcs/{id}}: removes the NPC from the game, keeping its versions. */
@@ -344,6 +345,12 @@ public final class NpcApi {
      */
     private static HttpResponseException refused(final int status, final String code, final String sentence) {
         return new HttpResponseException(status, sentence, Map.of("code", code));
+    }
+
+    /** Reads the version before the NPC, for the reason {@link #list} gives. */
+    private NpcView view(final UUID id) {
+        final int version = store.published(id);
+        return new NpcView(found(id), version);
     }
 
     private Npc found(final UUID id) {

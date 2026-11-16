@@ -67,6 +67,9 @@ public interface NpcStore {
     /** Returns how many versions an NPC has, its publications and removals; 0 for one never published. */
     int published(UUID id);
 
+    /** Returns how many versions each NPC has, by NPC; one never published is missing. */
+    Map<UUID, Integer> published();
+
     /** Removes an NPC with its skips, keeps the removal as a version without a dialogue, and signals. */
     void remove(UUID id, Actor actor);
 

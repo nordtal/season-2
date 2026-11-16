@@ -136,7 +136,7 @@ fetch_datapacks() {
             actual="$(sha512sum "$tmp" | cut -d' ' -f1)"
             if [[ "$actual" != "$sha" ]]; then
                 rm -f "$tmp"
-                die "Not started: datapack ${file} does not match its pinned sha512 (wanted ${sha}, got ${actual})."
+                die "Not started: datapack ${file} has sha512 ${actual} (expected ${sha}). Check its source and pinned checksum before retrying."
             fi
         else
             log "datapack checksum not pinned: file=\"${file}\""
@@ -566,7 +566,7 @@ else
 
     actual=$(sha256sum "$tmp" | cut -d' ' -f1)
     [[ "$actual" == "$sha" ]] \
-        || { rm -f "$tmp"; die "Not started: ${JAR_NAME} does not match its sha256 (wanted ${sha}, got ${actual})."; }
+        || { rm -f "$tmp"; die "Not started: ${JAR_NAME} has sha256 ${actual} (expected ${sha}). Check its source and checksum before retrying."; }
 
     mv "$tmp" "$JAR_PATH"
     log "server jar downloaded and verified: file=${JAR_NAME}"

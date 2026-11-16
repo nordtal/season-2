@@ -5,6 +5,7 @@ import eu.nordtal.season.common.id.PlayerId;
 import eu.nordtal.season.database.mode.ModeStateStore.Container;
 import eu.nordtal.season.database.mode.ModeStateStore.Mode;
 import eu.nordtal.season.database.notify.Channel;
+import eu.nordtal.season.database.npc.Npc;
 import eu.nordtal.season.messages.document.Document;
 import eu.nordtal.season.messages.spec.Display;
 import java.util.List;
@@ -19,6 +20,7 @@ public sealed interface SmpRequest
                 SmpRequest.SetSpins,
                 SmpRequest.PreviewMessage,
                 SmpRequest.PreviewDocument,
+                SmpRequest.PreviewNpc,
                 SmpRequest.CheckSettings,
                 SmpRequest.StoreModeState,
                 SmpRequest.RemoveStack,
@@ -127,6 +129,16 @@ public sealed interface SmpRequest
         /** Returns the drafted document. */
         public DocumentPreview preview() {
             return new DocumentPreview(namespace, name, language, shown, document);
+        }
+    }
+
+    /** Plays an NPC draft for the admin's linked player. Refused while the player is not on the server. */
+    record PreviewNpc(PlayerId player, Npc npc, String language) implements SmpRequest {
+
+        public PreviewNpc {
+            Objects.requireNonNull(player, "player");
+            Objects.requireNonNull(npc, "npc");
+            Objects.requireNonNull(language, "language");
         }
     }
 

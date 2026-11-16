@@ -283,9 +283,18 @@ class DatabaseRoleIntegrationTest {
                 may(DatabaseRole.STEWARD, "UPDATE npc SET pitch = 1 WHERE false"),
                 may(DatabaseRole.STEWARD, "DELETE FROM npc_equipment WHERE false"),
                 may(DatabaseRole.STEWARD, "SELECT count(*) FROM npc_dialogue_version"),
+                may(
+                        DatabaseRole.STEWARD,
+                        "INSERT INTO npc_skin (id, model, png, actor_kind, created) "
+                                + "VALUES ('00000000-0000-0000-0000-000000000001', 'CLASSIC', '\\x00', 'STEWARD', now())"),
+                may(DatabaseRole.STEWARD, "SELECT count(*) FROM npc_menu"),
+                mayNot(DatabaseRole.STEWARD, "DELETE FROM npc_menu WHERE false"),
                 mayNot(DatabaseRole.STEWARD, "UPDATE npc_dialogue_version SET saved = now() WHERE false"),
                 mayNot(DatabaseRole.STEWARD, "DELETE FROM npc_skip WHERE false"),
                 may(DatabaseRole.SMP, "SELECT count(*) FROM npc"),
+                may(DatabaseRole.SMP, "SELECT count(*) FROM npc_skin"),
+                may(DatabaseRole.SMP, "SELECT count(*) FROM npc_menu"),
+                may(DatabaseRole.SMP, "DELETE FROM npc_menu WHERE false"),
                 may(DatabaseRole.SMP, "DELETE FROM npc_skip WHERE false"),
                 mayNot(DatabaseRole.SMP, "UPDATE npc SET pitch = 1 WHERE false"),
                 mayNot(DatabaseRole.SMP, "SELECT count(*) FROM npc_dialogue_version"));

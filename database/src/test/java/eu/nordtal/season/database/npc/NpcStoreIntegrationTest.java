@@ -1,6 +1,7 @@
 package eu.nordtal.season.database.npc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -95,7 +96,7 @@ class NpcStoreIntegrationTest {
     }
 
     @Test
-    void aSaveKeepsTheDialogueAsAVersionOnlyWhenItChanged() {
+    void everyPublicationKeepsTheWholeNpcAsAVersion() {
         final NpcStore store = NpcStore.using(TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD));
         store.save(smith("Hi"), ADMIN);
         store.save(smith("Hi"), Actor.STEWARD);
@@ -103,11 +104,44 @@ class NpcStoreIntegrationTest {
 
         final List<NpcStore.Version> versions = store.versions(smith("Hi").id());
         assertEquals(
-                List.of(smith("Hello").dialogue(), smith("Hi").dialogue()),
-                versions.stream().map(NpcStore.Version::dialogue).toList());
+                List.of(smith("Hello"), smith("Hi"), smith("Hi")),
+                versions.stream().map(NpcStore.Version::npc).toList());
         assertEquals(
-                List.of(Actor.STEWARD, ADMIN),
+                List.of(Actor.STEWARD, Actor.STEWARD, ADMIN),
                 versions.stream().map(NpcStore.Version::actor).toList());
+    }
+
+    @Test
+    void aPublicationOverAnOlderVersionThanTheLiveOneWritesNothing() {
+        final NpcStore store = NpcStore.using(TestDatabase.fresh().dataSourceAs(DatabaseRole.STEWARD));
+        final UUID id = smith("Hi").id();
+        assertEquals(0, store.published(id));
+        assertTrue(store.publish(smith("Hi"), ADMIN, 0));
+        assertTrue(store.publish(smith("Hello"), ADMIN, 1));
+
+        assertFalse(store.publish(smith("Moin"), Actor.STEWARD, 1), "a second editor read version 1");
+        assertFalse(store.publish(smith("Moin"), Actor.STEWARD, 0), "a new NPC whose id is taken");
+        assertEquals(2, store.published(id));
+        assertEquals(
+                "Hello",
+                store.npc(id).orElseThrow().dialogue().steps().getFirst().text().en());
+    }
+
+    @Test
+    void anUploadedSkinIsCopiedOntoAnNpcAndReadForThePack() {
+        final TestDatabase database = TestDatabase.fresh();
+        final NpcStore store = NpcStore.using(database.dataSourceAs(DatabaseRole.STEWARD));
+        final NpcSkin uploaded =
+                new NpcSkin(UUID.fromString("00000000-0000-0000-0000-0000000000bb"), NpcSkin.SkinModel.SLIM, "cG5n");
+        store.upload(uploaded, ADMIN);
+        store.save(smith("Hi").withSkin(uploaded), ADMIN);
+
+        assertEquals(uploaded, store.skin(uploaded.id()).orElseThrow());
+        assertEquals(uploaded.id(), store.npc(smith("Hi").id()).orElseThrow().skin());
+        assertEquals(
+                NpcSkin.SkinModel.SLIM,
+                store.npc(smith("Hi").id()).orElseThrow().skinModel());
+        assertEquals(Map.of(smith("Hi").id(), uploaded), store.skins());
     }
 
     @Test

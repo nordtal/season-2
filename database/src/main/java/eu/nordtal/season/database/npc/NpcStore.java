@@ -14,8 +14,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Stores the NPCs an admin placed and the players who skip their dialogue.
- * A change to an NPC signals its id on {@link Channel#NPC}. Every save of a dialogue is kept as a {@link Version}, and
- * so is a removal, which names who removed it.
+ * A change to an NPC signals its id on {@link Channel#NPC}. Every publication of the whole NPC is kept as a
+ * {@link Version}, and so is a removal, which names who removed it.
  */
 public interface NpcStore {
 
@@ -34,14 +34,32 @@ public interface NpcStore {
 
     Optional<Npc> npc(UUID id);
 
-    /** Writes {@code npc} whole, keeps its dialogue as a version when it changed, and signals. */
+    /** Writes {@code npc} whole, keeps every publication as a version, and signals. */
     void save(Npc npc, Actor actor);
+
+    /**
+     * Writes {@code npc} as {@link #save} does, unless another publication or removal came after the {@code read}
+     * versions its editor read; then it writes nothing and returns false.
+     */
+    boolean publish(Npc npc, Actor actor, int read);
+
+    /** Returns how many versions an NPC has, its publications and removals; 0 for one never published. */
+    int published(UUID id);
 
     /** Removes an NPC with its skips, keeps the removal as a version without a dialogue, and signals. */
     void remove(UUID id, Actor actor);
 
-    /** Returns every save and every removal of an NPC's dialogue, the newest first. */
+    /** Returns every publication and every removal of an NPC, the newest first. */
     List<Version> versions(UUID id);
+
+    /** Stores an immutable uploaded skin. The game changes once an NPC that references it is saved. */
+    void upload(NpcSkin skin, Actor actor);
+
+    /** Returns an uploaded skin by its id. */
+    Optional<NpcSkin> skin(UUID id);
+
+    /** Returns the skin of every NPC that has one, by NPC id. */
+    Map<UUID, NpcSkin> skins();
 
     /**
      * Returns the NPCs {@code player} skips, each with the menu it went to instead.
@@ -55,6 +73,10 @@ public interface NpcStore {
     /** Lets {@code player} see the dialogue of {@code npc} again. */
     void unskip(UUID npc, UUID player);
 
-    /** One save of a dialogue, or its removal when {@code dialogue} is null. */
-    record Version(long id, @Nullable Dialogue dialogue, Actor actor, Instant saved) {}
+    /**
+     * One publication of an NPC, or its removal when {@code dialogue} is null.
+     * {@code npc} is the whole NPC as it was published; versions written before it was kept hold only the dialogue.
+     */
+    record Version(
+            long id, @Nullable Dialogue dialogue, @Nullable Npc npc, Actor actor, Instant saved) {}
 }

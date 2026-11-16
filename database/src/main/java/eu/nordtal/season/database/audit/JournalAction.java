@@ -32,6 +32,8 @@ public enum JournalAction {
     CONSOLE,
     SAVE_SETTINGS,
     SAVE_MESSAGES,
+    SAVE_NPC,
+    REMOVE_NPC,
     ADD_PLUGIN,
     REMOVE_PLUGIN,
     REQUEST_RUN,

@@ -1,11 +1,12 @@
 import { PlusIcon, TrashIcon, XIcon } from "@/components/ui/icons"
-import { useId, type ReactNode } from "react"
+import { useId, useState, type ReactNode } from "react"
 
 import type { Npc, NpcMenu, NpcStep, NpcTextMeasurement } from "@/lib/api"
 import {
   type Language,
   type Then,
   LANGUAGES,
+  LONGEST_TEXT,
   MOST_ANSWERS,
   addAnswer,
   addStep,
@@ -70,6 +71,16 @@ export function Room({ measurement, answers }: { measurement: NpcTextMeasurement
   )
 }
 
+/**
+ * Answers `value`, or the last one it had under the same `key` while it has none: a text being typed keeps the
+ * measurement of the text before it until its own arrives.
+ */
+function useKept<T>(value: T | undefined, key: string): T | undefined {
+  const [kept, setKept] = useState({ key, value })
+  if (kept.key !== key || (value !== undefined && kept.value !== value)) setKept({ key, value })
+  return kept.key === key ? (value ?? kept.value) : value
+}
+
 function StepText({
   step,
   language,
@@ -83,8 +94,10 @@ function StepText({
 }) {
   const id = useId()
   const text = step.text[language]
-  const measurement =
-    text === "" ? undefined : measured?.get(measureKey({ text, kind: "BODY", answers: step.answers.length }))
+  const measurement = useKept(
+    text === "" ? undefined : measured?.get(measureKey({ text, kind: "BODY", answers: step.answers.length })),
+    text === "" ? "" : `${step.id}:${step.answers.length}`,
+  )
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
@@ -101,6 +114,7 @@ function StepText({
         id={id}
         lang={language}
         value={text}
+        maxLength={LONGEST_TEXT}
         className={cn("min-h-10 resize-none", measurement && !measurement.fits && "border-warning")}
         onChange={(event) => edit((npc) => setStepText(npc, step.id, language, event.target.value))}
       />
@@ -214,6 +228,7 @@ function Answers({ npc, step, measured, edit }: { npc: Npc; step: NpcStep; measu
                   rows={1}
                   aria-label={t("steward.npcs.answer-text", { index: index + 1, language })}
                   value={answer.text[language]}
+                  maxLength={LONGEST_TEXT}
                   className={cn("min-h-8 resize-none", wide && "border-warning")}
                   onChange={(event) =>
                     edit((draft) => setAnswerText(draft, step.id, index, language, event.target.value))

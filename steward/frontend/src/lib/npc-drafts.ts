@@ -1,5 +1,5 @@
 import type { Npc } from "@/lib/api"
-import { clearDraft, setDraftValue, useDirtyFiles, useDraft } from "@/lib/drafts"
+import { clearDraft, draftValue, setDraftValue, useDirtyFiles, useDraft } from "@/lib/drafts"
 
 /**
  * The unpublished draft of each NPC, kept beside the other unsaved edits, so it survives a change of page and a reload asks first.
@@ -20,6 +20,16 @@ function isDraftRecord(value: unknown): value is Record<string, NpcDraft> {
 
 export function useNpcDraft(id: string): NpcDraft | undefined {
   return useDraft(file(id), isDraftRecord).draft
+}
+
+function isDraft(value: unknown): value is NpcDraft {
+  return typeof value === "object" && value !== null && "npc" in value && "base" in value
+}
+
+/** The draft as it is now, outside a render. */
+export function readNpcDraft(id: string): NpcDraft | undefined {
+  const held = draftValue(file(id), "draft")
+  return isDraft(held) ? held : undefined
 }
 
 export function setNpcDraft(id: string, draft: NpcDraft | undefined) {

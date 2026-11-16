@@ -12,6 +12,9 @@ export const LANGUAGES: readonly Language[] = ["de", "en"]
 /** The most answers a step offers, as the panel holds them. */
 export const MOST_ANSWERS = 3
 
+/** The longest text the length check measures. */
+export const LONGEST_TEXT = 2000
+
 /** The longest name, as the table holds it. */
 export const LONGEST_NAME = 32
 

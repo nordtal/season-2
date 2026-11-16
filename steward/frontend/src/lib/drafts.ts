@@ -41,6 +41,11 @@ export function useDraft<T>(file: string, isValue: (value: unknown) => value is 
   return useSyncExternalStore(subscribe, () => shapedAs(drafts.get(file) ?? NOTHING, isValue, file))
 }
 
+/** The value a draft holds now, for a change that follows an answer and must not start from an old render. */
+export function draftValue(file: string, key: string): unknown {
+  return drafts.get(file)?.[key]
+}
+
 export function useDirtyFiles(): string[] {
   return useSyncExternalStore(subscribe, () => dirty)
 }

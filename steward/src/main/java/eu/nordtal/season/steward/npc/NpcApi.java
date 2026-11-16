@@ -126,7 +126,7 @@ public final class NpcApi {
         if (!id.equals(publication.npc().id())) {
             throw new BadRequestResponse("the NPC's id differs from the one in the path");
         }
-        final Npc npc = checked(publication.npc(), ANSWER::npcRefused);
+        final Npc npc = checked(publication.npc());
         if (!store.publish(npc, accounts.apply(ctx).actor(), publication.version())) {
             throw new RequestRefused(409, ANSWER.npcChanged(npc.name().en()), "NPC_CHANGED", false);
         }
@@ -189,7 +189,7 @@ public final class NpcApi {
         if (!language.equals("en") && !language.equals("de")) {
             throw new BadRequestResponse("a preview plays in en or de");
         }
-        final Npc npc = checked(preview.npc(), ANSWER::npcPreviewRefused);
+        final Npc npc = checked(preview.npc());
         GameActions.answer(ctx, previewer.show(ctx, npc, language));
     }
 
@@ -261,44 +261,43 @@ public final class NpcApi {
     }
 
     /** Returns the draft with its skin's model as stored, or refuses it with its first problem. */
-    private Npc checked(final Npc draft, final Function<String, MessageRef> refusal) {
-        final List<String> problems = new ArrayList<>();
+    private Npc checked(final Npc draft) {
+        final List<MessageRef> problems = new ArrayList<>();
         final String en = draft.name().en().strip();
         final String de = draft.name().de().strip();
         if (en.isEmpty() || de.isEmpty()) {
-            problems.add("Enter the NPC's name in English and in German.");
+            problems.add(ANSWER.npcNameMissing());
         } else if (en.length() > NAME || de.length() > NAME) {
-            problems.add("Shorten the NPC's name to " + NAME + " characters.");
+            problems.add(ANSWER.npcNameLong(NAME));
         }
         final Npc.Place place = draft.place();
         if (place.world().isBlank() || place.world().length() > 64) {
-            problems.add("Take a position for the NPC.");
+            problems.add(ANSWER.npcNoPlace());
         } else if (!Double.isFinite(place.x())
                 || !Double.isFinite(place.y())
                 || !Double.isFinite(place.z())
                 || !Float.isFinite(place.yaw())
                 || place.yaw() < -180
                 || place.yaw() > 180) {
-            problems.add("Take the NPC's position again: it is not a place in the world.");
+            problems.add(ANSWER.npcPlaceRefused());
         }
         if (!(draft.pitch() >= 0.5f && draft.pitch() <= 2f)) {
-            problems.add("Set the typing pitch from 0.5 to 2.");
+            problems.add(ANSWER.npcPitchRange());
         }
         draft.equipment().forEach((slot, item) -> {
             if (!readable(item)) {
-                problems.add("Take the item for "
-                        + slot.name().toLowerCase(Locale.ROOT).replace('_', ' ') + " in again: it cannot be read.");
+                problems.add(ANSWER.npcItemUnreadable(slot));
             }
         });
         final Set<String> offered = menus.menus().stream().map(NpcMenu::key).collect(Collectors.toSet());
-        problems.addAll(draft.dialogue().problems(offered));
+        draft.dialogue().problems(offered).forEach(problem -> problems.add(ANSWER.npcDialogueRefused(problem)));
         final Optional<NpcSkin> skin =
                 draft.skin() == null ? Optional.empty() : store.skin(Objects.requireNonNull(draft.skin()));
         if (draft.skin() != null && skin.isEmpty()) {
-            problems.add("Upload the skin again: it no longer exists.");
+            problems.add(ANSWER.noSkin());
         }
         if (!problems.isEmpty()) {
-            throw new RequestRefused(400, refusal.apply(problems.getFirst()), "NPC_REFUSED", false);
+            throw new RequestRefused(400, problems.getFirst(), "NPC_REFUSED", false);
         }
         return new Npc(
                         draft.id(),

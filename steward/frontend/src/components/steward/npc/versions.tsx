@@ -3,7 +3,7 @@ import { dateTime } from "@/lib/format"
 import { useNpcVersions } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 import { Actor } from "@/components/steward/entity"
-import { Empty, QueryState } from "@/components/steward/query-state"
+import { QueryState } from "@/components/steward/query-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,50 +38,41 @@ export function NpcVersions({
           <ResponsiveDialogTitle>{t("steward.npcs.versions-of", { name })}</ResponsiveDialogTitle>
         </ResponsiveDialogHeader>
         <QueryState query={versions} rows={4}>
-          {(list) =>
-            list.length === 0 ? (
-              <Empty title={t("steward.npcs.none")} />
-            ) : (
-              <ol className="flex max-h-list flex-col divide-y overflow-y-auto">
-                {list.map((version, index) => (
-                  <li
-                    key={version.number}
-                    className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-2"
-                  >
-                    <span className="shrink-0 text-sm font-medium tabular-nums">
-                      {t("steward.npcs.version", { number: version.number })}
-                    </span>
-                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                      {dateTime(version.saved)}
-                    </span>
-                    <span className="min-w-0 truncate text-xs text-muted-foreground">
-                      <Actor kind={version.actor.kind} id={version.actor.person ?? ""} />
-                    </span>
-                    <span className="flex-1" />
-                    {version.removal ? (
-                      <Badge variant="outline" className="shrink-0">
-                        {t("steward.npcs.removed")}
-                      </Badge>
-                    ) : index === 0 ? (
-                      <Badge variant="secondary" className="shrink-0">
-                        {t("steward.npcs.is-live")}
-                      </Badge>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0"
-                        onClick={() => onLoad(version)}
-                      >
-                        {t("steward.npcs.load")}
-                      </Button>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            )
-          }
+          {(list) => (
+            <ol className="flex max-h-list flex-col divide-y overflow-y-auto">
+              {list.map((version, index) => (
+                <li key={version.number} className="flex min-h-10 min-w-0 flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                  <span className="shrink-0 text-sm font-medium tabular-nums">
+                    {t("steward.npcs.version", { number: version.number })}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{dateTime(version.saved)}</span>
+                  <span className="min-w-0 truncate text-xs text-muted-foreground">
+                    <Actor kind={version.actor.kind} id={version.actor.person ?? ""} />
+                  </span>
+                  <span className="flex-1" />
+                  {version.removal ? (
+                    <Badge variant="outline" className="shrink-0">
+                      {t("steward.npcs.removed")}
+                    </Badge>
+                  ) : index === 0 ? (
+                    <Badge variant="secondary" className="shrink-0">
+                      {t("steward.npcs.is-live")}
+                    </Badge>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => onLoad(version)}
+                    >
+                      {t("steward.npcs.load")}
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
         </QueryState>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

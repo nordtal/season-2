@@ -840,12 +840,19 @@ export type TextArgs = {
   "steward.answer.npc-changed": {
     name: Arg["text"]
   }
-  "steward.answer.npc-preview-refused": {
+  "steward.answer.npc-dialogue-refused": {
     problem: Arg["text"]
   }
-  "steward.answer.npc-refused": {
-    problem: Arg["text"]
+  "steward.answer.npc-item-unreadable": {
+    slot: Arg["choice"]
   }
+  "steward.answer.npc-name-long": {
+    most: Arg["number"]
+  }
+  "steward.answer.npc-name-missing": Record<string, never>
+  "steward.answer.npc-no-place": Record<string, never>
+  "steward.answer.npc-pitch-range": Record<string, never>
+  "steward.answer.npc-place-refused": Record<string, never>
   "steward.answer.override-refused": {
     key: Arg["text"]
     language: Arg["text"]

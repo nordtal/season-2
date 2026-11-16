@@ -26,7 +26,7 @@ import {
   sameNpc,
   stepOf,
 } from "@/lib/npc"
-import { setNpcDraft, useNpcDraft } from "@/lib/npc-drafts"
+import { readNpcDraft, setNpcDraft, useNpcDraft } from "@/lib/npc-drafts"
 import { finalRun } from "@/lib/queries-commands"
 import { keys } from "@/lib/query-keys"
 import { measureKey, useNpc, useNpcMeasurements, useNpcMenus, usePublishNpc, useRemoveNpc } from "@/lib/queries-npcs"
@@ -62,6 +62,16 @@ function everyText(npc: Npc): NpcTextMeasureRequest[] {
     { text: npc.name[language], kind: "NAME" as const, answers: 0 },
     ...npc.dialogue.steps.flatMap((step) => requestsOf(npc, step, language).slice(1)),
   ]).filter((request) => request.text !== "")
+}
+
+function isTooLong(value: unknown): value is [string, Language[]][] {
+  return Array.isArray(value)
+}
+
+/** The languages in which each step is too long, from the string the editor keeps them as. */
+function toTooLong(marks: string): TooLong {
+  const parsed: unknown = JSON.parse(marks)
+  return new Map(isTooLong(parsed) ? parsed : [])
 }
 
 /** The NPC's name as the page calls it: the English one, as Steward is English. */
@@ -144,16 +154,21 @@ function Editor({
   const [versions, setVersions] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [playing, setPlaying] = useState<string | null>(null)
+  const [starting, setStarting] = useState(false)
   const play = useRef<string | null>(null)
   const panel = useRef<HTMLDivElement>(null)
 
   const step = stepOf(npc.dialogue, picked) ?? stepOf(npc.dialogue, npc.dialogue.start) ?? npc.dialogue.steps[0]
   const title = npcTitle(npc)
 
+  /** Changes the draft as it is now, so a change that follows an answer, such as an uploaded skin, keeps what was typed meanwhile. */
   const edit = (change: (npc: Npc) => Npc) => {
-    const next = change(npc)
-    const untouched = published !== undefined && base === published.version && sameNpc(next, published.npc)
-    setNpcDraft(npc.id, untouched ? undefined : { npc: next, base })
+    const held = readNpcDraft(npc.id)
+    const live = client.getQueryData<NpcView>(keys.npc(npc.id))
+    const from = held ?? (live ? { npc: live.npc, base: live.version } : { npc, base })
+    const next = change(from.npc)
+    const untouched = live !== undefined && from.base === live.version && sameNpc(next, live.npc)
+    setNpcDraft(npc.id, untouched ? undefined : { npc: next, base: from.base })
   }
 
   const texts = useDebounced(
@@ -161,22 +176,27 @@ function Editor({
     MEASURE_AFTER_MS,
   )
   const measured = useNpcMeasurements(texts).data
-  const { tooLong, missing } = useMemo(() => {
-    const long: TooLong = new Map()
-    const lacking = new Map<string, Language[]>()
+  const missing = useMemo(() => new Map(npc.dialogue.steps.map((each) => [each.id, missingIn(each)])), [npc])
+  // While a typed text is not measured yet the marks stay as they were, so they do not go out at every keystroke.
+  const fresh = useMemo(() => {
+    const long: [string, Language[]][] = []
     for (const each of npc.dialogue.steps) {
-      lacking.set(each.id, missingIn(each))
-      long.set(
-        each.id,
-        LANGUAGES.filter((code) =>
-          requestsOf(npc, each, code)
-            .slice(1)
-            .some((request) => request.text !== "" && measured?.get(measureKey(request))?.fits === false),
-        ),
-      )
+      const languages: Language[] = []
+      for (const code of LANGUAGES) {
+        for (const request of requestsOf(npc, each, code).slice(1)) {
+          if (request.text === "") continue
+          const measurement = measured?.get(measureKey(request))
+          if (measurement === undefined) return undefined
+          if (!measurement.fits && !languages.includes(code)) languages.push(code)
+        }
+      }
+      long.push([each.id, languages])
     }
-    return { tooLong: long, missing: lacking }
+    return JSON.stringify(long)
   }, [npc, measured])
+  const [marks, setMarks] = useState("[]")
+  if (fresh !== undefined && fresh !== marks) setMarks(fresh)
+  const tooLong = useMemo(() => toTooLong(marks), [marks])
 
   /** Says what keeps the draft from playing, and opens the place where it is put right. */
   const refuse = (heading: string, problem: Problem) => {
@@ -204,14 +224,20 @@ function Editor({
       { npc, version },
       {
         onSuccess: (view) => {
-          setNpcDraft(npc.id, undefined)
+          // What was typed while the publication was on its way stays a draft, now of the new version.
+          const held = readNpcDraft(npc.id)
+          setNpcDraft(npc.id, held && !sameNpc(held.npc, npc) ? { npc: held.npc, base: view.version } : undefined)
           setConflict(false)
           toast.success(t("steward.npcs.published", { name: npcTitle(view.npc), version: view.version }))
         },
         onError: (error) => {
           if (error instanceof ApiError && error.code === "NPC_CHANGED") {
             // The dialog names the version that is live now.
-            void client.invalidateQueries({ queryKey: keys.npcs }).then(() => setConflict(true))
+            void client.invalidateQueries({ queryKey: keys.npcs }).then(() => {
+              // An NPC that was deleted meanwhile has no version to load or to publish over.
+              if (client.getQueryState(keys.npc(npc.id))?.status === "error") toast.error(t("steward.answer.no-npc"))
+              else setConflict(true)
+            })
           } else {
             toast.error(t("steward.npcs.not-published-yet"), { description: errorMessage(error) })
           }
@@ -232,8 +258,10 @@ function Editor({
       refuse(t("steward.npcs.not-played"), problem)
       return
     }
+    setStarting(true)
     try {
       const asked = await api<CommandAsked>("/api/npc-preview", { method: "POST", body: { npc, language } })
+      setStarting(false)
       play.current = asked.id
       setPlaying(asked.id)
       const run = await finalRun(client, asked.id)
@@ -241,6 +269,7 @@ function Editor({
       if (run.status === "REFUSED" || run.status === "EXPIRED") toast.error(t("steward.answer.take-in-offline"))
       else toast.error(t("steward.npcs.not-played"), { description: run.result ? message(run.result) : undefined })
     } catch (error) {
+      setStarting(false)
       play.current = null
       setPlaying(null)
       toast.error(t("steward.npcs.not-played"), { description: errorMessage(error) })
@@ -296,7 +325,7 @@ function Editor({
               </Button>
             ) : null}
             {playing === null ? (
-              <Button type="button" variant="secondary" onClick={() => void startPlaying()}>
+              <Button type="button" variant="secondary" disabled={starting} onClick={() => void startPlaying()}>
                 <TERM_ICON.start aria-hidden />
                 {t("steward.npcs.play")}
               </Button>

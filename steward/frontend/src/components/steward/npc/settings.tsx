@@ -76,7 +76,7 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
         aria-invalid={typed.trim() === "" || !Number.isFinite(Number(typed))}
         className="font-mono tabular-nums"
         onChange={(event) => {
-          const text = event.target.value
+          const text = event.target.value.replace(",", ".")
           if (!/^-?\d*\.?\d*$/.test(text)) return
           setTyped(text)
           const number = Number(text)
@@ -194,8 +194,9 @@ function Items({ npc, edit }: { npc: Npc; edit: Edit }) {
   )
 }
 
+/** Shows why the server refused a skin, which its sentence says in full. */
 function refused(error: unknown) {
-  toast.error(t("steward.npcs.skin-not-saved"), { description: errorMessage(error) })
+  toast.error(errorMessage(error))
 }
 
 function Skin({ npc, published, edit }: { npc: Npc; published: Npc | undefined; edit: Edit }) {
@@ -220,10 +221,8 @@ function Skin({ npc, published, edit }: { npc: Npc; published: Npc | undefined; 
       })
       return
     }
-    upload.mutate(
-      { file: new Blob([picked], { type: "image/png" }), slim: read.slim },
-      { onSuccess: wear, onError: refused },
-    )
+    // The promise, not the hook's callbacks, takes the answer: it arrives even after the admin left this tab.
+    upload.mutateAsync({ file: new Blob([picked], { type: "image/png" }), slim: read.slim }).then(wear, refused)
   }
 
   return (
@@ -283,13 +282,10 @@ function Skin({ npc, published, edit }: { npc: Npc; published: Npc | undefined; 
             onSubmit={(event) => {
               event.preventDefault()
               if (name.trim() === "") return
-              copy.mutate(name.trim(), {
-                onSuccess: (skin) => {
-                  wear(skin)
-                  setName("")
-                },
-                onError: refused,
-              })
+              copy.mutateAsync(name.trim()).then((skin) => {
+                wear(skin)
+                setName("")
+              }, refused)
             }}
           >
             <div className="min-w-40 flex-1">

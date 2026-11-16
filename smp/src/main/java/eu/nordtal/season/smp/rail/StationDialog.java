@@ -105,8 +105,8 @@ final class StationDialog {
         if (!more) {
             return Letters.cut(text, room);
         }
-        final String cut = Letters.cut(text, room - Letters.visibleWidth("…"));
-        return cut.equals(text) ? cut + "…" : cut;
+        final String cut = Letters.cut(text, room - Letters.width("…"));
+        return cut.equals(text) ? cut.stripTrailing() + "…" : cut;
     }
 
     /**

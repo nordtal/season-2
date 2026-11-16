@@ -95,8 +95,10 @@ final class PreviewDialog {
         final Dialogs.Send send = dialogs.send();
         final List<DialogBody> body = new ArrayList<>();
         final List<Row> shown = paging.slice(rows, page);
+        // A menu without rows keeps the one-row panel, its box empty.
         final BodyColumn column = BodyColumn.of(ROW, paging.paged())
-                .rows(shown.size(), paging.paged() ? EACH : 0, index -> line -> line(line, shown.get(index)));
+                .rows(shown.size(), paging.paged() ? EACH : 0, index -> line -> line(line, shown.get(index)))
+                .gap(shown.isEmpty() ? BodyLine.PLATE : 0);
         final DialogPanel panel = paging.paged()
                 ? DialogPanel.DRAFT_PREVIEW_113
                 : DialogPanel.DRAFT_PREVIEW_ROWS.get(Math.max(1, shown.size()) - 1);

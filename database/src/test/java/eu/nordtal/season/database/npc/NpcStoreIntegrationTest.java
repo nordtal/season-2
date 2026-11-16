@@ -17,6 +17,7 @@ import eu.nordtal.season.database.npc.Npc.Place;
 import eu.nordtal.season.database.npc.Npc.Pose;
 import eu.nordtal.season.database.npc.Npc.Slot;
 import eu.nordtal.season.database.pack.PackBuildStore;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -157,10 +158,10 @@ class NpcStoreIntegrationTest {
         assertNull(shown(smp).skin(), "no pack holds the skin yet");
 
         final PackBuildStore builds = PackBuildStore.using(database.dataSource());
-        final long build = builds.start(
-                java.time.Instant.now(), "[]", Map.of(), "{\"" + smith("Hi").id() + "\":\"" + uploaded.id() + "\"}");
+        final long build =
+                builds.start(Instant.now(), "[]", Map.of(), "{\"" + smith("Hi").id() + "\":\"" + uploaded.id() + "\"}");
         assertNull(shown(smp).skin(), "a pack still building is not offered");
-        builds.succeed(build, java.time.Instant.now(), "0".repeat(40), 1);
+        builds.succeed(build, Instant.now(), "0".repeat(40), 1);
         assertEquals(uploaded.id(), shown(smp).skin());
         assertEquals(NpcSkin.SkinModel.SLIM, shown(smp).skinModel());
     }

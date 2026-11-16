@@ -1,11 +1,11 @@
 #version 330
 #extension GL_ARB_separate_shader_objects : require
 
-// Vanilla 26.3 core/item.fsh plus the Nordtal border wall (look A, the variant with snowflakes).
+// Vanilla 26.3 core/item.fsh plus the Nordtal border wall.
 // A fragment whose texel carries the marker colour is drawn as the wall's field; every other
 // fragment takes the vanilla path, unchanged. Every Nordtal line is marked "nordtal".
 
-#include <minecraft:globals.glsl> // nordtal: always, for GameTime (vanilla includes it for GLINT only)
+#include <minecraft:globals.glsl> // nordtal: always, for GameTime and ScreenSize (vanilla includes it for GLINT only)
 #include <minecraft:fog.glsl>
 #include <minecraft:dynamictransforms.glsl>
 #include <minecraft:oit.glsl>
@@ -30,27 +30,23 @@ layout(location = 5) in vec2 texCoord0;
 layout(location = 6) in vec2 texCoordGlint;
 #endif
 layout(location = 7) in vec4 wallCoord; // nordtal, from item.vsh
+layout(location = 8) in vec3 wallView;  // nordtal, from item.vsh
 
 #ifndef OIT_ALPHA_ONLY
 layout(location = 0) out vec4 fragColor;
 #endif
 
-// BEGIN nordtal wall field (the previews compile this block as it stands)
+// BEGIN nordtal wall field
 
-// The marker: every texel of nordtal:item/border/wall_field is this colour, #4A63D9, one step
-// beside the brand blue #4A63D8, and is not the colour drawn (WALL_DEEP is). No texture of Minecraft 26.3 or of the pack holds it.
+// The marker: every texel of nordtal:item/border/field is this colour, #4A63D9, one step beside the
+// brand blue #4A63D8, and is not a colour drawn. No texture of Minecraft 26.3 or of the pack holds it.
 const vec3 WALL_MARKER = vec3(74.0, 99.0, 217.0) / 255.0;
 
-const vec3 WALL_DEEP = vec3(52.0, 90.0, 180.0) / 255.0;   // #345AB4, the logo's middle blue: the veil
-const vec3 WALL_ICE = vec3(160.0, 180.0, 255.0) / 255.0;  // the light in the rays
-const vec3 WALL_SPARK = vec3(232.0, 238.0, 255.0) / 255.0; // lines and snowflakes
-
-const float WALL_FADE_START = 24.0; // blocks from the camera where the wall starts to fade
+const float WALL_TOP = 5.0;         // blocks: the length of the smoothstep in field.png at the band's upper end
+const float WALL_FADE_START = 24.0; // blocks from the camera where the wall starts to fade along its length
 const float WALL_FADE_END = 30.0;   // and where it is gone
-const float WALL_NEAR_START = 1.5;  // closer than this the block grid shows in full
-const float WALL_NEAR_END = 6.0;    // farther than this it does not show
-const float WALL_SNOW = 0.55;       // the alpha a flake adds at its centre
-const float WALL_SNOW_SHARE = 0.6;  // the share of cells that hold a flake
+const float WALL_NEAR_START = 1.5;  // closer than this the wall shows its full strength
+const float WALL_NEAR_END = 6.0;    // farther than this it shows its normal one
 
 bool wallIsMarker(vec4 texel) {
     return texel.a > 0.002 && all(lessThan(abs(texel.rgb - WALL_MARKER), vec3(0.0019)));
@@ -65,16 +61,24 @@ uint wallHash(uint x) {
     return x;
 }
 
+uint wallHash2(int a, int b) {
+    return wallHash(uint(a) * 0x9e3779b9u + wallHash(uint(b) + 0x51ed270bu));
+}
+
+float wallUnit(uint h) {
+    return float(h >> 8u) / 16777216.0;
+}
+
 float wallRandom(int a, int b) {
-    return float(wallHash(uint(a) * 0x9e3779b9u + wallHash(uint(b) + 0x51ed270bu)) >> 8u) / 16777216.0;
+    return wallUnit(wallHash2(a, b));
 }
 
 int wallWrap(float value, float period) {
     return int(value - period * floor(value / period));
 }
 
-// Smooth value noise (quintic interpolation, so its slope is continuous too) on a grid that repeats
-// after `period` cells in x and in y, so a drift of one period per day of GameTime loops without a jump.
+// Smooth value noise (quintic interpolation) on a grid that repeats after `period` cells in x and
+// in y, so a drift of whole periods per day of GameTime loops without a jump.
 float wallNoise(vec2 at, vec2 period, int seed) {
     vec2 cell = floor(at);
     vec2 t = at - cell;
@@ -86,77 +90,251 @@ float wallNoise(vec2 at, vec2 period, int seed) {
     return mix(mix(wallRandom(x0, y0), wallRandom(x1, y0), t.x), mix(wallRandom(x0, y1), wallRandom(x1, y1), t.x), t.y);
 }
 
-// A soft line of the given half width (in blocks) at every whole block of `at`, 1 on the line.
-float wallLine(float at, float halfWidth) {
-    float d = abs(fract(at + 0.5) - 0.5) / halfWidth;
-    return exp(-d * d);
+// 0 at a, 1 at b, with no slope and no bend at either end: the softest way in and out.
+float wallEase(float a, float b, float x) {
+    float t = clamp((x - a) / (b - a), 0.0, 1.0);
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
 
-// One layer of snowflakes. The wall is cut into lanes of `width` blocks, each lane into cells of
-// `spacing` blocks that move down `loops` cells per day of GameTime, so the layer loops without a
-// jump. A cell holds at most one flake: a soft round point of `radius` blocks, at a place of its
-// own in the cell, that sways sideways once in 5, 6 or 7.5 seconds. The flake never reaches the
-// cell's edge, so no neighbour has to be looked at and nothing is cut.
-float wallFlakes(vec2 at, float gameTime, float width, float spacing, float loops, float radius, int seed) {
-    float lane = floor(at.x / width);
-    int column = wallWrap(lane, 4096.0) + seed * 8192;
-    float fall = at.y / spacing + gameTime * loops + wallRandom(column, 1);
-    float cell = floor(fall);
-    int flake = wallWrap(cell, loops) + 16;
-    if (wallRandom(column, flake) > WALL_SNOW_SHARE) {
+// The depth below the band's upper end in blocks, 0 to WALL_TOP, taken back out of the smoothstep
+// that field.png holds. At the band's lower end the same value runs from 0 at the end to WALL_TOP
+// 1.75 blocks above it, so every fade laid over the depth also closes the band below, only faster.
+float wallDepth(float envelope) {
+    return WALL_TOP * (0.5 - sin(asin(1.0 - 2.0 * clamp(envelope, 0.0, 1.0)) / 3.0));
+}
+
+// How many screen pixels one texel (a sixteenth of a block) covers, x: along the wall, y: upwards.
+// view is the fragment's place seen from the camera: x along the wall, y up, z at a right angle to
+// it. Looking down the wall's length, or down its face from above, a texel shrinks below a pixel;
+// texel-sized detail is faded out there instead of flickering. It assumes the default field of
+// view; no derivatives, because the client check runs on software rendering.
+vec2 wallTexelSize(vec3 view) {
+    float focal = 0.7 * max(ScreenSize.y, 720.0);
+    return focal / (16.0 * max(dot(view, view), 0.0001)) * vec2(length(view.yz), length(view.xz));
+}
+
+// The snowflake sprites, pixel art, all small: nothing is larger than these, at no distance. Each
+// is 1 or 3 texels square and the same when turned upside down, so only its upper row and the
+// middle row are stored: 8 bits a row, the top row lowest.
+//   0 a dot (1 texel)    1 a flake (4 texels)    2 the same with its middle closed (5 texels)
+//      #                    .#.                     .#.
+//                           #.#                     ###
+//                           .#.                     .#.
+const uint WALL_SPRITE[3] = uint[3](0x01u, 0x0502u, 0x0702u);
+const int WALL_SPRITE_SIZE[3] = int[3](1, 3, 3);
+
+float wallSprite(int kind, ivec2 p) {
+    int size = WALL_SPRITE_SIZE[kind];
+    if (p.x < 0 || p.y < 0 || p.x >= size || p.y >= size) {
         return 0.0;
     }
-    float turns = 160.0 + 40.0 * floor(wallRandom(column, flake + 1024) * 3.0);
-    float sway = sin(6.2831853 * (gameTime * turns + wallRandom(column, flake + 2048)));
-    float centre = 0.5 + 0.30 * (wallRandom(column, flake + 3072) - 0.5) + 0.14 * sway;      // in lanes
-    float height = 0.5 + (1.0 - 6.0 * radius / spacing) * (wallRandom(column, flake + 4096) - 0.5); // in cells
-    float size = radius * (0.75 + 0.5 * wallRandom(column, flake + 5120));
-    vec2 d = vec2((at.x / width - lane - centre) * width, (fall - cell - height) * spacing) / size;
-    return exp(-dot(d, d));
+    return float((WALL_SPRITE[kind] >> uint(min(p.y, size - 1 - p.y) * 8 + p.x)) & 1u);
 }
 
+// Roughly a standard normal value out of one hash: the sum of its four bytes.
+float wallNormal(uint h) {
+    return (float(h & 255u) + float((h >> 8u) & 255u) + float((h >> 16u) & 255u) + float(h >> 24u) - 510.0) / 147.8;
+}
+
+const bool WALL_SNOW_STEPPED = false;   // true: the flakes move in whole texels and stay on the world's texel grid
+
+// The flakes of one lane of a layer, see wallFlakes(). across and height are the fragment's place
+// in texels; the flake may reach up to two texels into the next lane.
+vec3 wallLane(float across, float height, float laneAt, float gameTime, float lane, float cell, float share, int kind, float pace, int seed) {
+    int column = wallWrap(laneAt, 4096.0) + seed * 8192;
+    uint c = wallHash2(column, 1);
+    uint c2 = wallHash(c ^ 0x5bd1e995u);
+    uint c3 = wallHash(c2 ^ 0x1b873593u);
+    float loops = max(1.0, floor((3000.0 + 1536.0 * clamp(wallNormal(c), -1.5, 1.5)) * pace / cell + 0.5));
+    float lanes = floor(3840.0 * wallNormal(c2) * pace / lane + 0.5);
+    float fallen = gameTime * loops * cell + float(c3 & 65535u) / 65536.0 * cell;
+    float drifted = gameTime * lanes * lane + float(c3 >> 16u) / 65536.0 * lane;
+    if (WALL_SNOW_STEPPED) {
+        fallen = floor(fallen);
+        drifted = floor(drifted);
+    }
+    float y = height + fallen;
+    float cellAt = floor(y / cell);
+    uint h = wallHash2(column, wallWrap(cellAt, loops) + 16);
+    if (float(h & 255u) >= share * 256.0) {
+        return vec3(0.0);
+    }
+    int pick = kind;
+    if (kind == 1 && ((h >> 8u) & 7u) % 3u == 0u) {
+        pick = 1 + (int(floor(gameTime * 1800.0 + float((h >> 11u) & 7u) / 8.0)) & 1);
+    }
+    int size = WALL_SPRITE_SIZE[pick];
+    // its place in the lane, drifting around it as vanilla's flakes drift around their column
+    float left = float((h >> 14u) & 255u) / 256.0 * lane + drifted;
+    left -= lane * floor(left / lane);
+    float low = 1.0 + floor(float((h >> 22u) & 255u) / 256.0 * (cell - float(size) - 1.0));
+    ivec2 p = ivec2(floor(vec2(across - laneAt * lane - left, y - cellAt * cell - low)));
+    float arms = wallSprite(pick, p);
+    float core = arms * float(p == ivec2(size / 2));
+    return vec3(arms, core, kind == 1 ? wallSprite(pick, p + ivec2(-1, 1)) * (1.0 - arms) : 0.0);
+}
+
+// One layer of falling flakes, in texels (sixteenths of a block), moving as vanilla's snowfall
+// does. Vanilla draws its snow one block column at a time, and every column has a constant fall
+// and a constant drift sideways of its own: 0.156 + 0.08 g blocks a second down and 0.2 g blocks
+// a second sideways, g a standard normal value, from a random start. A flake that drifts out of
+// one side of its column comes back in on the other. Here the wall is cut into lanes of `lane`
+// texels that are those columns, with the same numbers times `pace`: a layer with a higher pace
+// is a column nearer to the eye. A lane is cut into cells of `cell` texels, and `share` of them
+// hold one flake, at a place of its own. `kind` 0 is a layer of single texels. `kind` 1 is a layer
+// of flakes of 4 texels, of which one in three closes and opens its middle (4 texels, then 5) 1.5
+// times a second. Fall and drift are whole cells and whole lanes per day of GameTime, so nothing
+// jumps at the wrap. The flakes move smoothly, as vanilla's do, and keep their texels' size.
+// Returns x: the flake, y: its bright middle (a dot is all middle), z: the shadow of a 4-texel
+// flake, one texel right and down; a dot has none.
+vec3 wallFlakes(vec2 texel, float gameTime, float lane, float cell, float share, int kind, float pace, int seed) {
+    float across = texel.x + float((seed * 7) & 15);   // every layer's lanes begin elsewhere
+    float laneAt = floor(across / lane);
+    vec3 flakes = wallLane(across, texel.y, laneAt, gameTime, lane, cell, share, kind, pace, seed);
+    if (kind == 1 && across - laneAt * lane < 3.0) {   // a flake of the lane before may reach in, whole
+        flakes = max(flakes, wallLane(across, texel.y, laneAt - 1.0, gameTime, lane, cell, share, kind, pace, seed));
+    }
+    return flakes;
+}
+
+// ---- The wall: a closed body of pixel-art ice below, rays of light above it.
+// ---- Everything sits on the world's texel grid, 16 texels a block; a texel is flat in colour.
+
+// The five shades of the body, darkest first, each with its alpha.
+const vec4 WALL_SHADE[5] = vec4[5](
+    vec4(vec3(18.0, 26.0, 114.0) / 255.0, 0.82),   // #121A72  the seam between two blocks
+    vec4(vec3(30.0, 46.0, 156.0) / 255.0, 0.74),   // #1E2E9C  also the faintest ray
+    vec4(vec3(48.0, 73.0, 192.0) / 255.0, 0.72),   // #3049C0  the most common
+    vec4(vec3(74.0, 99.0, 216.0) / 255.0, 0.72),   // #4A63D8  the brand blue, also the strongest ray
+    vec4(vec3(112.0, 136.0, 240.0) / 255.0, 0.76)  // #7088F0  a block's upper row, a bright column
+);
+const vec3 WALL_LIGHT = vec3(156.0, 178.0, 255.0) / 255.0;      // #9CB2FF  light that climbs a column
+const vec3 WALL_SPARK = vec3(226.0, 234.0, 255.0) / 255.0;      // #E2EAFF  light on a bright column
+const vec3 WALL_FLAKE = vec3(226.0, 234.0, 255.0) / 255.0;      // #E2EAFF  a flake's arms
+const vec3 WALL_FLAKE_CORE = vec3(250.0, 251.0, 255.0) / 255.0; // #FAFBFF  its middle
+const vec3 WALL_FLAKE_SHADOW = vec3(12.0, 16.0, 84.0) / 255.0;  // #0C1054  the texel right below it
+
+const float WALL_MOTTLE = 1.45;      // how far the blobs spread over the three middle shades
+const float WALL_GRAIN = 0.16;       // how much a single texel may differ from its blob
+const float WALL_FOLD_LIFT = 0.36;   // how much a strong fold of the curtain lifts the body's shade below it
+const float WALL_RAY_LOW = 0.58;     // the alpha of the faintest ray
+const float WALL_RAY_HIGH = 0.80;    // and of the strongest
+const float WALL_TOP_HIGH = 0.2;     // blocks below the upper end where the tallest ray begins
+const float WALL_TOP_LOW = 1.6;      // and where the shortest one begins
+const float WALL_TAIL = 1.0;         // blocks over which a ray comes in below its beginning, at least; up to twice that
+const float WALL_BODY_HIGH = 1.3;    // blocks below the upper end where the first column turns from ray into body
+const float WALL_BODY_LOW = 2.1;     // and where the last one starts to
+const float WALL_BODY_LENGTH = 0.8;  // blocks a column takes for that turn
+const float WALL_GAPS = 0.12;        // the share of columns that are a gap among the rays
+const float WALL_BRIGHT = 0.06;      // the share of columns that are a bright column
+const float WALL_PULSES = 0.34;      // the share of a column's cells that carry a light
+const float WALL_PULSE_BODY = 0.8;   // how strong a light is in the body; among the rays it is 1
+const float WALL_FLAKE_FULL = 1.6;   // blocks below the upper end where a flake has its full alpha
+const float WALL_FLAKE_ALPHA = 0.96;
+const float WALL_SHADOW_ALPHA = 0.6;
+
 // coord: x = blocks along the wall, y = world height, zw = horizontal offset from the camera.
-// envelope: 0 at the band's upper and lower end, 1 in its middle. gameTime: 0 to 1 in 1200 seconds.
-// Everything is continuous in space and time: no pixel grid, no steps.
-vec4 wallField(vec4 coord, float envelope, float gameTime) {
-    vec2 at = coord.xy;
-
-    // Rays: tall soft folds that sway along the wall (0.11 and 0.09 blocks a second, against each
-    // other) and rise (0.13 to 0.15 blocks a second). Three smooth layers, the widest the strongest.
-    float broad = wallNoise(vec2(at.x / 1.6 + gameTime * 80.0, at.y / 9.0 - gameTime * 18.0), vec2(80.0, 18.0), 1);
-    float wide = wallNoise(vec2(at.x / 0.55 - gameTime * 200.0, at.y / 6.0 - gameTime * 30.0), vec2(200.0, 30.0), 2);
-    float fine = wallNoise(vec2(at.x / 0.22 + gameTime * 300.0, at.y / 4.0 - gameTime * 40.0), vec2(300.0, 40.0), 3);
-    float ray = smoothstep(0.30, 0.82, broad * 0.5 + wide * 0.35 + fine * 0.15);
-
-    float alpha = 0.21 + 0.31 * ray;
-    vec3 colour = mix(WALL_DEEP, WALL_ICE, 0.32 * ray);
-
-    // Close to the camera a soft block grid comes up: the wall reads as solid before the push comes.
-    // Farther away only a breath of the horizontal lines stays, which shows the wall's run at a corner.
+// view: the same place seen from the camera (along the wall, up, at a right angle to it).
+// envelope: field.png's alpha, 0 at the band's ends. gameTime: 0 to 1 in 1200 seconds.
+vec4 wallField(vec4 coord, vec3 view, float envelope, float gameTime) {
+    vec2 texel = coord.xy * 16.0;
+    vec2 q = floor(texel);                      // the texel, fixed in the world
+    vec2 inBlock = q - 16.0 * floor(q / 16.0);  // 0 to 15 in its block
+    int column = wallWrap(q.x, 65536.0);
+    uint grain = wallHash2(column, wallWrap(q.y, 65536.0));
+    // Far away, and looking down the wall's length, a texel is smaller than a pixel: there the
+    // texel-sized parts (grain, seams, single columns, single lights) melt into their average.
+    vec2 size = wallTexelSize(view);
+    float detail = smoothstep(0.6, 1.6, min(size.x, size.y));
+    float columns = smoothstep(0.6, 1.6, size.x);
     float close = 1.0 - smoothstep(WALL_NEAR_START, WALL_NEAR_END, length(coord.zw));
-    float rows = wallLine(at.y, 0.045);
-    float columns = wallLine(at.x, 0.045);
-    float grid = rows * (0.045 + 0.13 * close) + columns * 0.15 * close * (1.0 - 0.5 * rows);
-    alpha += grid;
-    colour = mix(colour, WALL_SPARK, min(1.0, grid * 2.2));
-    alpha *= 1.0 + 0.25 * close;
+    // the depth at the texel's middle, so every fade is flat per texel
+    float depth = wallDepth(envelope) + (texel.y - q.y - 0.5) / 16.0 * smoothstep(0.6, 1.6, size.y);
 
-    // Snow: small soft flakes drift down the wall and sway sideways, in three layers, the largest
-    // the fastest: 0.45, 0.32 and 0.22 blocks a second. They fade out at the band's lower end
-    // through the envelope, like everything else.
-    float snow = wallFlakes(at, gameTime, 1.00, 3.0, 180.0, 0.060, 21)
-               + wallFlakes(at, gameTime, 0.70, 2.4, 160.0, 0.045, 22) * 0.80
-               + wallFlakes(at, gameTime, 0.45, 2.0, 132.0, 0.032, 23) * 0.55;
-    snow = min(1.0, snow);
-    alpha += WALL_SNOW * snow;
-    colour = mix(colour, mix(WALL_ICE, WALL_SPARK, snow), min(1.0, snow * 1.4));
+    uint h = wallHash2(column, 91);              // the column's own numbers
+    float own = wallUnit(h);
+    float own2 = float(h & 255u) / 255.0;
+    uint h2 = wallHash(h ^ 0x2c1b3c6du);
+    float kind = wallUnit(h2);
+    float own3 = float(h2 & 255u) / 255.0;
+    float gap = (kind < WALL_GAPS ? 1.0 : 0.0) * columns;
+    float bright = (kind > 1.0 - WALL_BRIGHT ? 1.0 : 0.0) * columns;
+
+    // The curtain: folds of light along the wall that drift (0.11 and 0.06 blocks a second, against
+    // each other) and change shape, as northern lights do. A column takes the fold's strength at
+    // its middle. The fold sets how high the column's ray reaches and how light the body is below.
+    float x = mix(coord.x, (q.x + 0.5) / 16.0, columns);
+    float fold = 0.6 * wallNoise(vec2(x / 2.8 + gameTime * 48.0, gameTime * 150.0), vec2(48.0, 150.0), 1)
+               + 0.4 * wallNoise(vec2(x / 0.75 - gameTime * 96.0, gameTime * 240.0 + 17.5), vec2(96.0, 240.0), 2);
+    fold = smoothstep(0.22, 0.74, fold);
+
+    // The upper part, the rays: one texel column is one ray, in five flat steps from the faintest
+    // to the strongest, with gaps and a few bright ones. A ray begins at a height of its own, high
+    // where the fold is strong, and comes in softly below it, so the wall has no upper edge.
+    float level = clamp(0.10 + 0.90 * fold + (own - 0.5) * 0.5 * columns, 0.0, 1.0);
+    level = mix(level, floor(level * 4.999) / 4.0, columns);
+    float top = mix(WALL_TOP_LOW, WALL_TOP_HIGH, clamp(fold * 0.8 + (own2 - 0.5) * 0.5 * columns + 0.45 * bright, 0.0, 1.0));
+    float rise = wallEase(top, top + WALL_TAIL * (1.0 + own * columns), depth) * wallEase(0.0, 1.2, depth);
+    vec4 ray = vec4(mix(WALL_SHADE[1].rgb, WALL_SHADE[3].rgb, level),
+                    mix(WALL_RAY_LOW, WALL_RAY_HIGH, level) * (0.8 + 0.2 * smoothstep(1.0, 3.0, depth)));
+    ray = mix(ray, vec4(WALL_SHADE[4].rgb, 0.84), 0.8 * bright);
+    ray.a *= 1.0 - gap * (0.62 - 0.32 * close);
+
+    // The lower part, the body: mottling as on ice. Two fields of blobs, 6 and 10 texels wide,
+    // read at the texel's middle, climb 3 and 2 texels a second (the second also slides 1 along
+    // the wall), so the blobs flow upwards and change shape. It picks one of the three middle
+    // shades; a strong fold above lifts it.
+    float blobs = 0.55 * wallNoise(vec2(q.x + 0.5, q.y + 0.5 - gameTime * 3600.0) / 6.0, vec2(4096.0, 300.0), 3)
+                + 0.45 * wallNoise(vec2(q.x + 0.5 + gameTime * 1200.0, q.y + 0.5 - gameTime * 2400.0) / 10.0, vec2(60.0, 120.0), 4);
+    float tone = 0.5 + (blobs - 0.5) * WALL_MOTTLE + (fold - 0.5) * WALL_FOLD_LIFT;
+    int plain = 1 + int(clamp(floor(tone * 3.0), 0.0, 2.0));
+    int shade = 1 + int(clamp(floor((tone + (wallUnit(grain) - 0.5) * WALL_GRAIN) * 3.0), 0.0, 2.0));
+    // Every block has a seam, softer than a pane's frame: its bottom row and one side a shade
+    // darker, its top row a shade lighter.
+    shade = clamp(shade + (inBlock.y > 14.5 ? 1 : 0) - (inBlock.y < 0.5 ? 1 : 0) - (inBlock.x < 0.5 ? 1 : 0), 0, 4);
+    vec4 body = mix(WALL_SHADE[plain], WALL_SHADE[shade], detail);
+    body = mix(body, WALL_SHADE[4], 0.35 * bright);
+
+    // Where the two meet: every column turns from ray into body at a depth of its own and takes
+    // WALL_BODY_LENGTH blocks for it, so there is no line between them.
+    float turn = mix(WALL_BODY_HIGH, WALL_BODY_LOW, mix(0.5, own3, columns));
+    float solid = wallEase(turn, turn + WALL_BODY_LENGTH, depth);
+    vec3 colour = mix(ray.rgb, body.rgb, solid);
+    float alpha = mix(ray.a, body.a, solid);
+
+    // Light climbs every column, from the ground into the ray's tip: a bright head with a tail of
+    // 5 to 12 texels below it, 9.6, 12 or 14.4 texels a second, a whole texel at a time.
+    float climb = 480.0 + 120.0 * floor(own2 * 2.999);   // cells of 24 texels a day
+    float y = q.y - floor(gameTime * climb * 24.0) + floor(own * 24.0);
+    float cellAt = floor(y / 24.0);
+    uint p = wallHash2(column + 131072, wallWrap(cellAt, climb));
+    float pulse = 0.0;
+    if (float(p & 255u) < WALL_PULSES * 256.0) {
+        float below = 12.0 + float((p >> 8u) % 12u) - (y - cellAt * 24.0);
+        float tail = 5.0 + float((p >> 12u) & 7u);
+        pulse = below >= 0.0 && below < tail ? 1.0 - below / tail : 0.0;
+    }
+    pulse = mix(0.06, pulse * pulse * (0.4 + 0.6 * pulse), columns);
+    pulse *= mix(1.0, WALL_PULSE_BODY, solid);
+    colour = mix(colour, mix(WALL_LIGHT, WALL_SPARK, bright), pulse);
+    alpha = (alpha + 0.2 * pulse) * rise;
+
+    // Snow, all of it small, falling as vanilla's snowfall does: a near layer of 4-texel flakes,
+    // then two of single texels, each slower and the last fainter, as columns farther away are.
+    // Lane, cell, share of cells with a flake, kind, pace against vanilla's own speed.
+    vec3 near = wallFlakes(texel, gameTime, 16.0, 18.0, 0.56, 1, 1.4, 31);
+    vec3 mid = wallFlakes(texel, gameTime, 16.0, 8.0, 0.65, 0, 1.0, 32);
+    vec3 far = wallFlakes(texel, gameTime, 16.0, 7.0, 0.70, 0, 0.65, 33);
+    vec3 snow = max(near, max(mid * vec3(0.9, 0.9, 0.0), far * vec3(0.5, 0.0, 0.0)));
+    float snowFade = wallEase(0.0, WALL_FLAKE_FULL, depth) * (0.45 + 0.55 * detail);
+    float shadow = snow.z * (1.0 - snow.x) * snowFade;
+    colour = mix(colour, WALL_FLAKE_SHADOW, shadow * 0.8);
+    alpha = max(alpha, WALL_SHADOW_ALPHA * shadow);
+    colour = mix(colour, mix(WALL_FLAKE, WALL_FLAKE_CORE, snow.y), snow.x);
+    alpha = mix(alpha, WALL_FLAKE_ALPHA * snowFade, snow.x);
 
     float reach = 1.0 - smoothstep(WALL_FADE_START, WALL_FADE_END, length(coord.zw));
-    alpha = min(alpha, 0.92) * envelope * reach;
-
-    // Half a step of 8-bit colour of screen noise, so the long fades do not band on the screen.
-    float grain = float(wallHash(uint(gl_FragCoord.x) + wallHash(uint(gl_FragCoord.y))) >> 8u) / 16777216.0 - 0.5;
-    return vec4(colour, max(0.0, alpha + grain * envelope * reach / 255.0));
+    return vec4(colour, min(alpha * (1.0 + 0.2 * close), 0.97) * reach);
 }
 
 // END nordtal wall field
@@ -206,7 +384,7 @@ void main() {
     bool wall = wallIsMarker(texel);
 
     if (wall) {
-        color = wallField(wallCoord, wallEnvelope(pixel, texel, fract(atlasPixel.y)), GameTime);
+        color = wallField(wallCoord, wallView, wallEnvelope(pixel, texel, fract(atlasPixel.y)), GameTime);
         color.a *= ColorModulator.a;
         if (color.a < 0.012) {
             discard;

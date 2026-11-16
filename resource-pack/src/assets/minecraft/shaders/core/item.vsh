@@ -1,8 +1,8 @@
 #version 330
 #extension GL_ARB_separate_shader_objects : require
 
-// Vanilla 26.3 core/item.vsh plus one output for the Nordtal border wall (look A).
-// Every Nordtal line is marked "nordtal"; the rest is vanilla, unchanged.
+// Vanilla 26.3 core/item.vsh plus two outputs for the Nordtal border wall. Every Nordtal line is
+// marked "nordtal"; the rest is vanilla, unchanged.
 
 #include <minecraft:light.glsl>
 #include <minecraft:fog.glsl>
@@ -41,6 +41,8 @@ layout(location = 6) out vec2 texCoordGlint;
 
 // nordtal: x = blocks along the wall, y = world height in blocks, zw = horizontal offset from the camera.
 layout(location = 7) out vec4 wallCoord;
+// nordtal: the vertex seen from the camera, in blocks: x along the wall, y up, z at a right angle to the wall.
+layout(location = 8) out vec3 wallView;
 
 void main() {
     gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
@@ -74,4 +76,6 @@ void main() {
     }
     vec3 world = (Position - CameraOffset) + vec3(CameraBlockPos);
     wallCoord = vec4(dot(world.xz, tangent), world.y, Position.xz);
+    // nordtal: all three are linear in Position, so they are exact between the vertices
+    wallView = vec3(dot(Position.xz, tangent), Position.y, dot(Position.xz, vec2(tangent.y, -tangent.x)));
 }

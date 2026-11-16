@@ -107,14 +107,14 @@ describe("TakePosition", () => {
   it("is off and says why while the admin has no linked player", async () => {
     steward("UNLINKED", { status: "DONE" })
     drawTake("block")
-    expect(await screen.findByText("Your Discord account has no linked Minecraft account.")).toBeTruthy()
+    expect(await screen.findByText("Link a Minecraft account to your Discord account first.")).toBeTruthy()
     expect(screen.getByRole("button", { name: "Take the block I look at" })).toHaveProperty("disabled", true)
   })
 
   it("is off and says why while the admin's player is not on smp", async () => {
     steward("ELSEWHERE", { status: "DONE" })
     drawTake("spot")
-    expect(await screen.findByText(/is not on the/)).toBeTruthy()
+    expect(await screen.findByText("Your linked player is not on SMP.")).toBeTruthy()
     expect(screen.getByRole("button", { name: "Take my position" })).toHaveProperty("disabled", true)
   })
 

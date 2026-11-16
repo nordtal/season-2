@@ -81,6 +81,8 @@ public interface StewardTexts {
 
         PaymentsPage payments();
 
+        NpcsPage npcs();
+
         BackupDialogs backupSettings();
 
         @Name("Service")
@@ -401,6 +403,33 @@ public interface StewardTexts {
 
             @Name("Player not on the SMP")
             MessageRef takeInOffline();
+
+            @Name("NPC changed meanwhile")
+            MessageRef npcChanged(@Arg("name") @Example("Warden Runa") String name);
+
+            @Name("NPC refused")
+            MessageRef npcRefused(@Arg("problem") @Example("Step work has no German text.") String problem);
+
+            @Name("NPC preview refused")
+            MessageRef npcPreviewRefused(@Arg("problem") @Example("Step work has no German text.") String problem);
+
+            @Name("No such NPC")
+            MessageRef noNpc();
+
+            @Name("Skin refused")
+            MessageRef skinRefused();
+
+            @Name("No skin to copy")
+            MessageRef noSkinToCopy(@Arg("player") @Example("Notch") String player);
+
+            @Name("No such Minecraft account")
+            MessageRef noMinecraftAccount(@Arg("player") @Example("Notch") String player);
+
+            @Name("Skin not loaded")
+            MessageRef skinUnavailable(@Arg("player") @Example("Notch") String player);
+
+            @Name("No such skin")
+            MessageRef noSkin();
 
             @Name("Grant too long")
             MessageRef grantDays(@Arg("most") @Example("365") int most);

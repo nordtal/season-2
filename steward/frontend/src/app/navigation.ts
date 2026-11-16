@@ -91,6 +91,14 @@ export function navigation(services: readonly string[]): NavGroup[] {
           keywords: ["translations", "texts", "messages", "language", "wording", "german"],
         },
         {
+          id: "npcs",
+          label: t("steward.shell.page", { page: "npcs" }),
+          to: "/npcs",
+          note: t("steward.shell.note", { page: "npcs" }),
+          icon: TERM_ICON.npc,
+          keywords: ["npc", "dialogue", "figure", "skin", "character", "villager"],
+        },
+        {
           id: "access",
           label: t("steward.shell.page", { page: "access" }),
           to: "/access",

@@ -9,6 +9,7 @@ import { ServicePage, serviceSearch } from "@/pages/service"
 import { TranslationsPage, translationsSearch } from "@/pages/translations"
 import { AccessPage } from "@/pages/access"
 import { JournalPage } from "@/pages/journal"
+import { NpcPage, NpcsPage } from "@/pages/npcs"
 import { PaymentsPage } from "@/pages/payments"
 import { PersonPage } from "@/pages/person"
 import { OverviewPage } from "@/pages/overview"
@@ -77,6 +78,8 @@ const routes = [
     component: TranslationsPage,
     validateSearch: translationsSearch,
   }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/npcs", component: NpcsPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/npcs/$id", component: NpcPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access", component: AccessPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/access/$id", component: PersonPage }),
   createRoute({ getParentRoute: () => rootRoute, path: "/payments", component: PaymentsPage }),

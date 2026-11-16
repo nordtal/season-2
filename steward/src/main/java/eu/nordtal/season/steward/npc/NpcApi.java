@@ -9,6 +9,7 @@ import eu.nordtal.season.database.npc.NpcMenu;
 import eu.nordtal.season.database.npc.NpcMenuStore;
 import eu.nordtal.season.database.npc.NpcSkin;
 import eu.nordtal.season.database.npc.NpcStore;
+import eu.nordtal.season.messages.MessageRef;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.auth.Gate;
 import eu.nordtal.season.steward.game.GameActions;
@@ -20,7 +21,6 @@ import eu.nordtal.season.steward.texts.StewardTexts;
 import io.javalin.config.JavalinConfig;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.Context;
-import io.javalin.http.HttpResponseException;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -126,13 +126,9 @@ public final class NpcApi {
         if (!id.equals(publication.npc().id())) {
             throw new BadRequestResponse("the NPC's id differs from the one in the path");
         }
-        final Npc npc = checked(publication.npc(), "The NPC was not published. ");
+        final Npc npc = checked(publication.npc(), ANSWER::npcRefused);
         if (!store.publish(npc, accounts.apply(ctx).actor(), publication.version())) {
-            throw refused(
-                    409,
-                    "NPC_CHANGED",
-                    npc.name().en()
-                            + " was changed by someone else since you opened it. Reload it and make your change again.");
+            throw new RequestRefused(409, ANSWER.npcChanged(npc.name().en()), "NPC_CHANGED", false);
         }
         Journaling.line(ctx, null, null);
         log.info("npc published: npc={} version={}", id, publication.version() + 1);
@@ -193,7 +189,7 @@ public final class NpcApi {
         if (!language.equals("en") && !language.equals("de")) {
             throw new BadRequestResponse("a preview plays in en or de");
         }
-        final Npc npc = checked(preview.npc(), "The preview was not started. ");
+        final Npc npc = checked(preview.npc(), ANSWER::npcPreviewRefused);
         GameActions.answer(ctx, previewer.show(ctx, npc, language));
     }
 
@@ -210,8 +206,7 @@ public final class NpcApi {
         try {
             skin = skins.uploaded(ctx.bodyAsBytes(), model);
         } catch (final NpcSkinSource.NotASkin | IOException refused) {
-            throw refused(
-                    400, "SKIN_REFUSED", "The skin was not saved. Upload a PNG of 64 by 64 pixels, at most 1 MB.");
+            throw new RequestRefused(400, ANSWER.skinRefused(), "SKIN_REFUSED", false);
         }
         stored(ctx, skin);
     }
@@ -226,31 +221,21 @@ public final class NpcApi {
         try {
             skin = skins.copy(copy.player());
         } catch (final NpcSkinSource.NoSkin none) {
-            throw refused(
-                    422,
-                    "NO_SKIN_TO_COPY",
-                    copy.player().strip() + " wears a default or an old skin, which an NPC cannot wear. Upload a skin"
-                            + " instead.");
+            throw new RequestRefused(422, ANSWER.noSkinToCopy(copy.player().strip()), "NO_SKIN_TO_COPY", false);
         } catch (final NpcSkinSource.UnknownPlayer unknown) {
-            throw refused(
-                    404,
-                    "NO_MINECRAFT_ACCOUNT",
-                    "No Minecraft account is called " + copy.player().strip() + ". Check the name or UUID.");
+            throw new RequestRefused(
+                    404, ANSWER.noMinecraftAccount(copy.player().strip()), "NO_MINECRAFT_ACCOUNT", false);
         } catch (final IOException unavailable) {
             log.warn("npc skin not copied: player={} cause={}", copy.player(), unavailable.getMessage());
-            throw refused(
-                    502,
-                    "SKIN_UNAVAILABLE",
-                    "The skin of " + copy.player().strip()
-                            + " could not be loaded from Mojang. Try again in a few minutes.");
+            throw new RequestRefused(502, ANSWER.skinUnavailable(copy.player().strip()), "SKIN_UNAVAILABLE", false);
         }
         stored(ctx, skin);
     }
 
     /** {@code GET /api/npc-skins/{id}}: the PNG of a skin, which never changes. */
     public void skin(final Context ctx) {
-        final NpcSkin skin = store.skin(id(ctx))
-                .orElseThrow(() -> refused(404, "NO_SKIN", "This skin no longer exists. Upload it again."));
+        final NpcSkin skin =
+                store.skin(id(ctx)).orElseThrow(() -> new RequestRefused(404, ANSWER.noSkin(), "NO_SKIN", false));
         ctx.header("Cache-Control", "private, max-age=31536000, immutable");
         ctx.contentType("image/png");
         ctx.result(Base64.getDecoder().decode(skin.png()));
@@ -276,7 +261,7 @@ public final class NpcApi {
     }
 
     /** Returns the draft with its skin's model as stored, or refuses it with its first problem. */
-    private Npc checked(final Npc draft, final String refusal) {
+    private Npc checked(final Npc draft, final Function<String, MessageRef> refusal) {
         final List<String> problems = new ArrayList<>();
         final String en = draft.name().en().strip();
         final String de = draft.name().de().strip();
@@ -313,7 +298,7 @@ public final class NpcApi {
             problems.add("Upload the skin again: it no longer exists.");
         }
         if (!problems.isEmpty()) {
-            throw refused(400, "NPC_REFUSED", refusal + problems.getFirst());
+            throw new RequestRefused(400, refusal.apply(problems.getFirst()), "NPC_REFUSED", false);
         }
         return new Npc(
                         draft.id(),
@@ -338,15 +323,6 @@ public final class NpcApi {
         }
     }
 
-    /**
-     * A refusal the editor shows as it is.
-     * Javalin's {@code title} holds the sentence and {@code details.code} what the editor can act on: the editor's page
-     * has no texts of its own in Steward's bundle yet.
-     */
-    private static HttpResponseException refused(final int status, final String code, final String sentence) {
-        return new HttpResponseException(status, sentence, Map.of("code", code));
-    }
-
     /** Reads the version before the NPC, for the reason {@link #list} gives. */
     private NpcView view(final UUID id) {
         final int version = store.published(id);
@@ -354,7 +330,7 @@ public final class NpcApi {
     }
 
     private Npc found(final UUID id) {
-        return store.npc(id).orElseThrow(() -> refused(404, "NO_NPC", "This NPC no longer exists. Reload the list."));
+        return store.npc(id).orElseThrow(() -> new RequestRefused(404, ANSWER.noNpc(), "NO_NPC", false));
     }
 
     private static UUID id(final Context ctx) {

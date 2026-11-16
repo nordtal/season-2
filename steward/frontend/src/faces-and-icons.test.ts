@@ -34,6 +34,8 @@ const OWN_SVG = new Set([
   ICONS,
   "app/discord-mark.tsx",
   "components/steward/network/wires.tsx",
+  "components/steward/npc/graph.tsx",
+  "components/steward/npc/preview.tsx",
   "components/steward/qr-code.tsx",
 ])
 

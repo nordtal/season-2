@@ -60,6 +60,8 @@ export default defineConfig({
     proxy: {
       "/api": proxied,
       "/auth": proxied,
+      // The pack's glyphs and the NPC dialogue's art, which the jar serves as static files.
+      "/glyphs": proxied,
     },
   },
   // The log window's buffer is a hook that only exists inside React.

@@ -2,7 +2,9 @@ import { useRouterState } from "@tanstack/react-router"
 import { useEffect } from "react"
 
 import type { Person } from "@/lib/api"
+import { useNpcDraft } from "@/lib/npc-drafts"
 import { usePeople } from "@/lib/queries"
+import { useNpcs } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 import { serviceTitle } from "@/lib/words"
 import { personName } from "@/pages/access-person"
@@ -17,6 +19,7 @@ const SECTIONS = new Set([
   "backups",
   "runs",
   "translations",
+  "npcs",
   "access",
   "payments",
   "journal",
@@ -35,6 +38,11 @@ function personId(pathname: string): string | undefined {
   return /^\/access\/([^/]+)$/.exec(pathname)?.[1]
 }
 
+/** The id an NPC's page carries in its path. */
+function npcId(pathname: string): string | undefined {
+  return /^\/npcs\/([^/]+)$/.exec(pathname)?.[1]
+}
+
 /** How the page below a section that lists runs names the run in its path. */
 function runLabel(section: string | undefined, segment: string): string | undefined {
   if (section === "updates" || section === "runs") return t("steward.operations.run", { id: segment })
@@ -46,7 +54,7 @@ function runLabel(section: string | undefined, segment: string): string | undefi
  * A user's page is named after the user once `people` holds them, by the id in its path until then, and as nobody when
  * the loaded `people` lack the id.
  */
-export function breadcrumbsFor(pathname: string, people?: Person[]): Crumb[] {
+export function breadcrumbsFor(pathname: string, people?: Person[], npc?: string): Crumb[] {
   const segments = pathname.split("/").filter(Boolean)
   const crumbs: Crumb[] = [{ label: t("steward.shell.page", { page: "overview" }), href: "/" }]
   let href = ""
@@ -68,13 +76,24 @@ export function breadcrumbsFor(pathname: string, people?: Person[]): Crumb[] {
     const person = people.find((candidate) => candidate.discordId === id)
     crumbs[crumbs.length - 1].label = person ? personName(person) : t("steward.people.unknown-person")
   }
+  if (npc !== undefined && npcId(pathname) !== undefined) crumbs[crumbs.length - 1].label = npc
   return crumbs
+}
+
+/** The name of the NPC a path opens: its draft's where the browser holds one, the published one's otherwise. */
+function useNpcName(id: string | undefined): string | undefined {
+  const draft = useNpcDraft(id ?? "")
+  const npcs = useNpcs(id !== undefined)
+  if (id === undefined) return undefined
+  const npc = draft?.npc ?? npcs.data?.find((view) => view.npc.id === id)?.npc
+  return npc === undefined ? undefined : npc.name.en.trim() || npc.name.de.trim() || t("steward.npcs.unnamed")
 }
 
 export function useCrumbs(): Crumb[] {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const people = usePeople(personId(pathname) !== undefined)
-  return breadcrumbsFor(pathname, people.data)
+  const npc = useNpcName(npcId(pathname))
+  return breadcrumbsFor(pathname, people.data, npc)
 }
 
 /** The brand `index.html` names the tab with, which the overview keeps. */

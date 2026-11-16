@@ -48,7 +48,7 @@ final class Setup {
     void init() {
         final EnvFile env = compose.env();
         if (env.exists()) {
-            terminal.log("env file exists, not touched: file=" + LocalProject.ENV_FILE);
+            terminal.log("environment file already exists, file kept: file=" + LocalProject.ENV_FILE);
         } else {
             copyExample(env.path());
             SECRETS.forEach(secret -> generate(env, secret));
@@ -56,8 +56,8 @@ final class Setup {
             deriveRelyingParty(env);
             final List<Integer> leftovers = env.replaceMeLines();
             if (!leftovers.isEmpty()) {
-                terminal.warn("REPLACE_ME left without a value: file=" + LocalProject.ENV_FILE + " lines=\"" + leftovers
-                        + "\"");
+                terminal.warn(
+                        "placeholder values remaining: file=" + LocalProject.ENV_FILE + " lines=\"" + leftovers + "\"");
             }
         }
         for (final String service : ResetGuard.SERVICES) {
@@ -70,7 +70,7 @@ final class Setup {
         for (final String service : SECRET_SERVICES) {
             createDirectories(compose.secretsDir(service));
         }
-        terminal.log("next: dev up");
+        terminal.log("Setup complete. Run dev up to start the stack.");
     }
 
     private void copyExample(final Path target) {
@@ -79,12 +79,12 @@ final class Setup {
         } catch (final IOException e) {
             throw new UncheckedIOException("cannot copy " + EXAMPLE, e);
         }
-        terminal.log("env file written: file=" + LocalProject.ENV_FILE + " from=" + EXAMPLE);
+        terminal.log("environment file written: file=" + LocalProject.ENV_FILE + " from=" + EXAMPLE);
     }
 
     private void generate(final EnvFile env, final Secret secret) {
         if (env.isSet(secret.name())) {
-            terminal.log("secret already set, kept: key=" + secret.name());
+            terminal.log("existing secret kept: key=" + secret.name());
             return;
         }
         final byte[] bytes = new byte[secret.bytes()];
@@ -118,11 +118,11 @@ final class Setup {
                     throw new Processes.Failure("Setup stopped: the input ended before " + question.name()
                             + " was answered. Delete " + LocalProject.ENV_FILE + " and run dev init again.");
                 }
-                terminal.warn("This one needs an answer.");
+                terminal.warn("Enter a value.");
                 continue;
             }
             if (!question.check().test(answer)) {
-                terminal.warn("That answer has the wrong form.");
+                terminal.warn("Invalid value for " + question.name() + ". " + question.hint());
                 continue;
             }
             final LocalQuestions.Home home = question.home();

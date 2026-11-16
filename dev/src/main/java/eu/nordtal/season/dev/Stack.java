@@ -41,12 +41,12 @@ final class Stack {
         build(ResetGuard.SERVICES);
         processes.gradle(":imageContexts");
         // The images are built and never pulled, and before the plugins, which the Minecraft image installs.
-        terminal.log("images building");
+        terminal.log("image build started");
         compose.run("build");
         ResetGuard.SERVICES.forEach(this::install);
         compose.run("up", "-d");
         terminal.log("stack started");
-        terminal.log("The first start takes a few minutes. Follow it with: dev logs");
+        terminal.log("Follow startup progress with dev logs.");
     }
 
     void deploy(final List<String> modules) {
@@ -61,7 +61,7 @@ final class Stack {
         build(chosen);
         chosen.forEach(this::install);
         // restart keeps the old environment of the container. `up` applies an edit of the env file.
-        terminal.log("services restarting: service=\"" + String.join(" ", chosen) + "\"");
+        terminal.log("service restart started: service=\"" + String.join(" ", chosen) + "\"");
         final List<String> restart = new ArrayList<>(List.of("restart"));
         restart.addAll(chosen);
         compose.run(restart.toArray(String[]::new));
@@ -77,10 +77,11 @@ final class Stack {
         final String stewardPort = compose.valueOr("STEWARD_PORT", "8080");
         terminal.log("stack starting: profiles=\"" + compose.valueOr("COMPOSE_PROFILES", "") + "\"");
         compose.run("up", "-d");
-        terminal.log("interface services starting: service=\"steward steward-agent\"");
+        terminal.log("steward services starting: service=\"steward steward-agent\"");
         compose.run("up", "-d", "steward", "steward-agent");
-        terminal.log("interface starting: url=http://localhost:5173 container_url=http://127.0.0.1:" + stewardPort);
-        terminal.log("Stopping this leaves the containers running. Stop them with: dev stop");
+        terminal.log("steward development server starting: url=http://localhost:5173 container_url=http://127.0.0.1:"
+                + stewardPort);
+        terminal.log("Containers keep running when this command ends. Stop them with dev stop.");
         processes.gradle(":steward:viteDev");
     }
 
@@ -91,7 +92,7 @@ final class Stack {
      */
     void console(final String service) {
         final Process logs = processes.start(compose.command("logs", "-f", "--tail", "30", service), false);
-        terminal.log("Each line you type goes to the console of " + service + ". Ctrl-D leaves.");
+        terminal.log("Commands are sent to " + service + ". Press Ctrl-D to disconnect.");
         try {
             for (Optional<String> line = terminal.readLine(); line.isPresent(); line = terminal.readLine()) {
                 final String command = line.get().strip();
@@ -116,7 +117,7 @@ final class Stack {
         terminal.print("This deletes the " + service + " container AND its volume: world, .server cache, logs.\n"
                 + "plugins/ is a directory on the host and survives.\nType the service name to confirm: ");
         if (!ResetGuard.confirmed(service, terminal.readLine().orElse(""))) {
-            throw new Processes.Failure("Reset cancelled: the name did not match. Nothing was deleted.");
+            throw new Processes.Failure("Reset cancelled: the service name did not match.");
         }
         // `compose rm -v` removes only anonymous volumes, so the command removes the world volume by name.
         final List<String> volumes =
@@ -162,7 +163,7 @@ final class Stack {
     }
 
     private void build(final List<String> modules) {
-        terminal.log("modules building: module=\"" + String.join(" ", modules) + "\"");
+        terminal.log("module build started: module=\"" + String.join(" ", modules) + "\"");
         processes.gradle(
                 modules.stream().map(module -> ":" + module + ":shadowJar").toArray(String[]::new));
     }

@@ -156,7 +156,7 @@ public interface StewardTexts {
             @Name("Already an admin")
             MessageRef alreadyAdmin();
 
-            @Name("Not a member of the guild")
+            @Name("Not a Discord server member")
             MessageRef notAMember();
 
             @Name("Too many grants this hour")
@@ -255,10 +255,10 @@ public interface StewardTexts {
             @Name("No code")
             MessageRef noCode();
 
-            @Name("Not in the guild")
+            @Name("Not on the Discord server")
             MessageRef notInGuild();
 
-            @Name("In the guild, not an admin")
+            @Name("Discord server member without admin access")
             MessageRef notAnAdmin(@Arg("name") @Example("Alex") String name);
 
             @Name("Discord refused the sign-in")
@@ -481,13 +481,13 @@ public interface StewardTexts {
             @Name("An announcement's line not posted")
             MessageRef notAnnounced(@Arg("language") @Example("Deutsch") String language);
 
-            @Name("No guild id")
+            @Name("No Discord server ID")
             MessageRef noGuildId();
 
             @Name("The channels not published")
             MessageRef channelsNotPublished();
 
-            @Name("The guild not listed")
+            @Name("Discord channels not listed")
             MessageRef guildNotListed();
 
             @Name("A service's own words")

@@ -141,7 +141,7 @@ public interface MessageEditorTexts {
     @Name("Remove")
     MessageRef remove();
 
-    @Name("Fallen back")
+    @Name("Fallback used")
     MessageRef fallenBack();
 
     @Name("Packaged then")
@@ -153,7 +153,7 @@ public interface MessageEditorTexts {
     @Name("Override")
     MessageRef override();
 
-    @Name("Take over")
+    @Name("Edit saved override")
     MessageRef takeOver();
 
     @Name("Show in game")

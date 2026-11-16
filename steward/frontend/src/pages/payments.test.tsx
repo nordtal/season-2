@@ -39,7 +39,7 @@ describe("PaymentsPage - settle as a row action", () => {
     const row = await rowFor("AB12CD")
     fireEvent.click(within(row).getByRole("button", { name: /settle/i }))
     const dialog = await screen.findByRole("alertdialog")
-    fireEvent.click(within(dialog).getByRole("button", { name: "Settle" }))
+    fireEvent.click(within(dialog).getByRole("button", { name: "Settle payment" }))
 
     // Booked by Steward in one answer, with no bot request to wait for.
     await waitFor(() => {
@@ -147,7 +147,7 @@ describe("PaymentsPage - the figures wrap cleanly", () => {
     draw(<PaymentsPage />)
 
     const figures = assertElement(
-      (await screen.findByText("Requested (paid requests)")).closest("div")?.parentElement ?? null,
+      (await screen.findByText("Requested amount (paid requests)")).closest("div")?.parentElement ?? null,
       "the figures row",
     )
     expect(figures.querySelector("[data-slot='separator']")).toBeNull()

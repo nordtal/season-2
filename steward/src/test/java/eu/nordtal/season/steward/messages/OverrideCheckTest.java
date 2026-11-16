@@ -61,7 +61,8 @@ class OverrideCheckTest {
     void aValueTheTextNoLongerShowsIsAWarningAndNotARefusal() {
         assertEquals(List.of(), errors(WON, "{winner.name} won."));
         assertEquals(
-                List.of("the text never shows spins, which the message is given"), warnings(WON, "{winner.name} won."));
+                List.of("the text never shows spins, which is passed to this message"),
+                warnings(WON, "{winner.name} won."));
     }
 
     @Test
@@ -74,7 +75,7 @@ class OverrideCheckTest {
                 List.of(new MessageArg("days", "number", null, false, "30", false)));
         assertEquals(List.of(), errors(button, "Buy {days} days"));
         assertTrue(
-                errors(button, "Buy {days} days " + "x".repeat(80)).getFirst().contains("fits 80"));
+                errors(button, "Buy {days} days " + "x".repeat(80)).getFirst().contains("allows 80"));
     }
 
     @Test

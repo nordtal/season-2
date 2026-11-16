@@ -48,7 +48,7 @@ function mountLine(nodes: CommandNode[]) {
     </QueryClientProvider>,
   )
   act(() => live().emit("open"))
-  return screen.getByRole<HTMLInputElement>("combobox", { name: "Send a line to the server console" })
+  return screen.getByRole<HTMLInputElement>("combobox", { name: "Send a command to the server console" })
 }
 
 const TREE: CommandNode[] = [
@@ -201,7 +201,7 @@ describe("ServiceConsole", () => {
         vi.advanceTimersByTime(30_000)
       })
     }
-    expect(screen.getByRole("alert").textContent).toContain("The log cannot be reached.")
+    expect(screen.getByRole("alert").textContent).toContain("Could not load the service log.")
     expect(screen.getByRole("alert").textContent).toContain("no running container for smp")
     expect(screen.queryByText("alpha")).toBeNull()
   })
@@ -236,7 +236,7 @@ describe("ServiceConsole", () => {
       </QueryClientProvider>,
     )
     act(() => live().emit("open"))
-    const line = screen.getByRole<HTMLInputElement>("combobox", { name: "Send a line to the server console" })
+    const line = screen.getByRole<HTMLInputElement>("combobox", { name: "Send a command to the server console" })
     fireEvent.change(line, { target: { value: "s" } })
     expect(shown()).toEqual(["say", "stop"])
 

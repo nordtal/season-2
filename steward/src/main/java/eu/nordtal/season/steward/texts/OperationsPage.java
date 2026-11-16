@@ -15,7 +15,7 @@ public interface OperationsPage {
     @Name("A stage on the trail")
     MessageRef step(@Arg("stage") RunStage stage);
 
-    @Name("Nothing written yet")
+    @Name("No output yet")
     MessageRef nothingWritten();
 
     @Name("Nothing to do")

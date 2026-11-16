@@ -27,7 +27,7 @@ describe("QueryState", () => {
       <QueryState query={{ data: undefined, error: null, isPending: true, fetchStatus: "idle" }}>{row}</QueryState>,
     )
     expect(screen.queryByRole("status")).toBeNull()
-    expect(screen.getByText(/nothing was requested/i)).toBeTruthy()
+    expect(screen.getByText(/No request was sent/i)).toBeTruthy()
   })
 
   it("still draws the waiting shape when nothing said which it is", () => {

@@ -462,7 +462,7 @@ describe("game group editors", { timeout: 15_000 }, () => {
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
     fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
-    fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Import from game" }))
     const dialog = await screen.findByRole("dialog", { name: "Frostbite" })
     expect(asked).toEqual([{ purpose: "WHEEL_PRIZE" }])
     expect(within(dialog).getByText("Forged in the north")).toBeTruthy()
@@ -488,11 +488,11 @@ describe("game group editors", { timeout: 15_000 }, () => {
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
     fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
-    fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
-    const cancel = await screen.findByRole("button", { name: "Cancel take-in" })
+    fireEvent.click(await screen.findByRole("button", { name: "Import from game" }))
+    const cancel = await screen.findByRole("button", { name: "Cancel import" })
     expect(cancel.dataset.variant).toBe("destructive")
     fireEvent.click(cancel)
-    expect(await screen.findByRole("button", { name: "Take in from game" })).toBeTruthy()
+    expect(await screen.findByRole("button", { name: "Import from game" })).toBeTruthy()
     await waitFor(() => expect(withdrawn).toEqual(["/api/commands/smp:7"]))
     expect(screen.queryByRole("button", { name: /Iron Sword/, hidden: true })).toBeNull()
   })
@@ -503,8 +503,8 @@ describe("game group editors", { timeout: 15_000 }, () => {
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
     fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
-    fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
-    fireEvent.keyDown(await screen.findByRole("button", { name: "Cancel take-in" }), { key: "Escape" })
+    fireEvent.click(await screen.findByRole("button", { name: "Import from game" }))
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Cancel import" }), { key: "Escape" })
     await waitFor(() => expect(withdrawn).toEqual(["/api/commands/smp:7"]))
   })
 
@@ -515,7 +515,7 @@ describe("game group editors", { timeout: 15_000 }, () => {
     draw(<WheelEditor file="smp/wheel" document={WHEEL} target={null} />)
 
     fireEvent.click(await screen.findByRole("button", { name: "Prize" }))
-    const button = await screen.findByRole("button", { name: "Take in from game" })
+    const button = await screen.findByRole("button", { name: "Import from game" })
     fireEvent.click(button)
     fireEvent.keyDown(button, { key: "Escape" })
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
@@ -528,7 +528,7 @@ describe("game group editors", { timeout: 15_000 }, () => {
     backend(empty)
     draw(<AwardsEditor file="smp/advancement-awards" document={empty} target={null} />)
 
-    expect(await screen.findByText("No advancement has an award.")).toBeTruthy()
+    expect(await screen.findByText("No advancement rewards configured.")).toBeTruthy()
   })
 })
 
@@ -632,7 +632,7 @@ describe("the duel kits", { timeout: 15_000 }, () => {
     fireEvent.click(await screen.findByRole("button", { name: /^Sword/ }))
     const dialog = await screen.findByRole("dialog", { name: "Sword" })
     fireEvent.click(within(dialog).getByRole("button", { name: "Item" }))
-    fireEvent.click(await screen.findByRole("button", { name: "Take in from game" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Import from game" }))
     expect(await within(dialog).findByText("Frostbite")).toBeTruthy()
     expect(asked).toEqual([{ purpose: "DUEL_KIT" }])
     expect(within(dialog).getByText("Sharpness V")).toBeTruthy()

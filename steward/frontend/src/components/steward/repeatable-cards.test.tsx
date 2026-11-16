@@ -178,7 +178,7 @@ describe("RepeatableCards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
     expect(onChange).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole("button", { name: "Remove it" }))
+    fireEvent.click(screen.getByRole("button", { name: "Remove entry" }))
 
     expect(onChange).toHaveBeenCalledWith([{ tag: "de", role: "" }])
     expect(onChange).toHaveBeenCalledTimes(1)
@@ -217,7 +217,7 @@ describe("RepeatableCards", () => {
     const entry = sectionsEntry([[field({ key: "tag", value: "en" })]], [])
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
-    screen.getByText(/its entries have different fields/i)
+    screen.getByText(/These entries have different fields/i)
     expect(screen.queryByRole("button", { name: /Add entry/ })).toBeNull()
   })
 })
@@ -252,7 +252,7 @@ describe("RepeatableCards - confirming a removal", () => {
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={onChange} />)
 
     fireEvent.click(screen.getByRole("button", { name: "Remove entry 1" }))
-    fireEvent.click(screen.getByRole("button", { name: "Keep it" }))
+    fireEvent.click(screen.getByRole("button", { name: "Keep entry" }))
 
     expect(onChange).not.toHaveBeenCalled()
     expect(screen.queryByRole("alertdialog")).toBeNull()
@@ -374,7 +374,7 @@ describe("RepeatableCards - an incomplete card", () => {
     )
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
-    screen.getByText(/incomplete/i)
+    screen.getByText(/Missing/i)
     expect(screen.getAllByText(/Contribution channel/)).toHaveLength(2)
   })
 
@@ -386,7 +386,7 @@ describe("RepeatableCards - an incomplete card", () => {
     )
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
-    expect(screen.queryByText(/incomplete/i)).toBeNull()
+    expect(screen.queryByText(/Missing/i)).toBeNull()
   })
 
   it("does not call an empty OPTIONAL channel incomplete", () => {
@@ -397,7 +397,7 @@ describe("RepeatableCards - an incomplete card", () => {
     )
     render(<RepeatableCards entry={entry} value={sectionsFromEntry(entry)} disabled={false} onChange={() => {}} />)
 
-    expect(screen.queryByText(/incomplete/i)).toBeNull()
+    expect(screen.queryByText(/Missing/i)).toBeNull()
   })
 })
 

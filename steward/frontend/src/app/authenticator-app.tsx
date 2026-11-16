@@ -218,7 +218,7 @@ export function AuthenticatorAppDialogs({ state }: { state: AuthenticatorActions
         title={t("steward.keys.remove-app-title")}
         description={t("steward.keys.remove-app-note")}
         cancel={t("steward.keys.keep-it")}
-        action={t("steward.keys.remove-it")}
+        action={t("steward.keys.remove-app")}
         destructive
         act={() => state.remove.mutateAsync()}
       />

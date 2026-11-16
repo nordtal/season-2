@@ -199,7 +199,7 @@ describe("RouterTab - the date editor", () => {
 
     const second = await dialog()
     expect(within(second).getByText("Step 2 of 2")).toBeTruthy()
-    expect(within(second).getByText("The season opens by itself")).toBeTruthy()
+    expect(within(second).getByText("The season opens automatically")).toBeTruthy()
     expect(within(second).getByRole("button", { name: "Back" })).toBeTruthy()
     fireEvent.click(within(second).getByRole("button", { name: /^Open on / }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/season/launch", body: { at: target.toISOString() } }]))
@@ -212,7 +212,7 @@ describe("RouterTab - the date editor", () => {
     fireEvent.change(screen.getByLabelText("Launch date"), {
       target: { value: localInput(new Date(Date.now() - DAY)) },
     })
-    expect(screen.getByText(/^The date is in the past\. Earliest is now/)).toBeTruthy()
+    expect(screen.getByText(/^Choose a future date\. The earliest allowed time is/)).toBeTruthy()
     expect(button("Save").disabled).toBe(true)
   })
 
@@ -251,7 +251,7 @@ describe("RouterTab - the maintenance card", () => {
     await press(/Start maintenance/)
     const asked = await dialog()
     expect(await within(asked).findByText("21 members go to the waiting room. Admins stay.")).toBeTruthy()
-    expect(within(asked).queryByText(/security key next/)).toBeNull()
+    expect(within(asked).queryByText(/Confirm your identity next/)).toBeNull()
     fireEvent.click(within(asked).getByRole("button", { name: "Start maintenance" }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/season/maintenance", body: { on: true } }]))
   })
@@ -266,7 +266,7 @@ describe("RouterTab - the maintenance card", () => {
     expect(screen.getByText("Waiting room")).toBeTruthy()
     await press(/End maintenance/)
     const asked = await dialog()
-    expect(within(asked).getByText("8 members waiting go on to the game server.")).toBeTruthy()
+    expect(within(asked).getByText("8 waiting members join the game server.")).toBeTruthy()
     fireEvent.click(within(asked).getByRole("button", { name: "End maintenance" }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/season/maintenance", body: { on: false } }]))
   })
@@ -287,7 +287,7 @@ describe("RouterTab - the game mode card", () => {
     expect(screen.getByText("active")).toBeTruthy()
     expect(await screen.findByRole("button", { name: /^Start$/ })).toBeTruthy()
     expect(screen.queryByRole("button", { name: /^Stop$/ })).toBeNull()
-    expect(button(/^Switch/)).toBeTruthy()
+    expect(button(/^Switch game mode/)).toBeTruthy()
   })
 
   it("shows a server started by hand with Stop instead", async () => {
@@ -297,18 +297,18 @@ describe("RouterTab - the game mode card", () => {
     ])
     draw()
     expect(await screen.findByText("started by hand")).toBeTruthy()
-    expect(screen.getByText("2 admins on it")).toBeTruthy()
+    expect(screen.getByText("2 admins connected")).toBeTruthy()
     expect(await screen.findByRole("button", { name: /^Stop$/ })).toBeTruthy()
   })
 
   it("asks for the switch and sends its target", async () => {
     const sent = backend(season())
     draw()
-    await press(/^Switch/)
+    await press(/^Switch game mode/)
     const asked = await dialog()
     expect(within(asked).getByText("Switch to Hunger Games?")).toBeTruthy()
-    expect(within(asked).getByText(/security key next/)).toBeTruthy()
-    fireEvent.click(within(asked).getByRole("button", { name: "Switch" }))
+    expect(within(asked).getByText(/Confirm your identity next/)).toBeTruthy()
+    fireEvent.click(within(asked).getByRole("button", { name: "Switch game mode" }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/season/switch", body: { target: "HUNGER_GAMES" } }]))
   })
 })
@@ -324,7 +324,7 @@ describe("RouterTab - the switch run card", () => {
     draw()
     expect(await screen.findByText("waiting")).toBeTruthy()
     expect(await screen.findByRole("button", { name: /Cancel/ })).toBeTruthy()
-    expect(screen.queryByRole("button", { name: /^Switch/ })).toBeNull()
+    expect(screen.queryByRole("button", { name: /^Switch game mode/ })).toBeNull()
   })
 
   it("draws a running switch on its four stages", async () => {
@@ -345,7 +345,7 @@ describe("RouterTab - the switch run card", () => {
     )
     draw()
     expect(await screen.findByText("Game mode switch")).toBeTruthy()
-    for (const name of ["Players to the waiting room", "Stop Hunger Games", "Start SMP", "Players to SMP"]) {
+    for (const name of ["Move players to the waiting room", "Stop Hunger Games", "Start SMP", "Move players to SMP"]) {
       expect(screen.getByText(name)).toBeTruthy()
     }
     expect(screen.getByText("31 / 31 arrived")).toBeTruthy()
@@ -370,7 +370,7 @@ describe("RouterTab - the switch run card", () => {
     expect(screen.getByText("Open the run log")).toBeTruthy()
     await press(/Back to Hunger Games/)
     const asked = await dialog()
-    fireEvent.click(within(asked).getByRole("button", { name: "Switch" }))
+    fireEvent.click(within(asked).getByRole("button", { name: "Switch game mode" }))
     await waitFor(() => expect(sent).toEqual([{ url: "/api/season/switch", body: { target: "HUNGER_GAMES" } }]))
     expect(button(/Try again/)).toBeTruthy()
   })

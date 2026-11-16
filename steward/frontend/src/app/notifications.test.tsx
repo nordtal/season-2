@@ -271,7 +271,7 @@ describe("the devices of this account", () => {
     vi.stubGlobal("fetch", fetcher)
     await open()
 
-    fireEvent.click(await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Send test notification to iPhone, Safari" }))
     fireEvent.click(await screen.findByRole("button", { name: "Backup missing" }))
 
     await waitFor(() => expect(calls.some((call) => call.url === "/api/web-push/test")).toBe(true))
@@ -289,7 +289,7 @@ describe("the devices of this account", () => {
     vi.stubGlobal("fetch", fetcher)
     await open()
 
-    fireEvent.click(await screen.findByRole("button", { name: "Remove Linux, Chrome" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Remove device Linux, Chrome" }))
 
     await waitFor(() => expect(calls.some((call) => call.method === "DELETE")).toBe(true))
     expect(calls.filter((call) => call.method === "DELETE")).toEqual([
@@ -305,7 +305,7 @@ describe("the devices of this account", () => {
     vi.stubGlobal("fetch", backend({ devices: [] }).fetcher)
     await open()
 
-    expect(await screen.findByText("No device is subscribed.")).toBeTruthy()
+    expect(await screen.findByText("No subscribed devices")).toBeTruthy()
   })
 })
 
@@ -328,7 +328,7 @@ describe("the test send hangs off the paper plane", () => {
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    fireEvent.click(await screen.findByRole("button", { name: "Send a test notification to iPhone, Safari" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Send test notification to iPhone, Safari" }))
 
     expect(await screen.findByText("Test notifications")).toBeTruthy()
     for (const label of [
@@ -359,7 +359,7 @@ describe("the test send hangs off the paper plane", () => {
 
     await screen.findAllByRole("switch")
     const switches = screen.getAllByRole("switch", { name: / by Push$/ })
-    fireEvent.click(screen.getByRole("button", { name: "Send a test notification to iPhone, Safari" }))
+    fireEvent.click(screen.getByRole("button", { name: "Send test notification to iPhone, Safari" }))
     const popover = asElement((await screen.findByText("Test notifications")).parentElement)
 
     expect(within(popover).getAllByRole("button")).toHaveLength(switches.length)
@@ -419,7 +419,7 @@ describe("this browser's own switch, which used to be the settings page's", () =
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    expect(await screen.findByRole("button", { name: "Turn on" })).toBeTruthy()
+    expect(await screen.findByRole("button", { name: "Enable notifications" })).toBeTruthy()
   })
 
   it("offers to turn it off when it has one", async () => {
@@ -427,7 +427,7 @@ describe("this browser's own switch, which used to be the settings page's", () =
     vi.stubGlobal("fetch", backend().fetcher)
     await open()
 
-    expect(await screen.findByRole("button", { name: "Turn off" })).toBeTruthy()
+    expect(await screen.findByRole("button", { name: "Disable notifications" })).toBeTruthy()
   })
 
   it("says a browser that cannot push, and still lets it choose the admin channel", async () => {
@@ -435,10 +435,10 @@ describe("this browser's own switch, which used to be the settings page's", () =
     vi.stubGlobal("fetch", backend({ devices: [] }).fetcher)
     await open()
 
-    expect(screen.getByText("This browser cannot receive push notifications.")).toBeTruthy()
+    expect(screen.getByText("Push notifications are not supported in this browser.")).toBeTruthy()
     const discord = await screen.findByRole("switch", { name: "Services by Discord" })
     await waitFor(() => expect(asButton(discord).disabled).toBe(false))
     expect(asButton(screen.getByRole("switch", { name: "Services by Push" })).disabled).toBe(true)
-    expect(screen.queryByText("No device is subscribed.")).toBeNull()
+    expect(screen.queryByText("No subscribed devices")).toBeNull()
   })
 })

@@ -216,7 +216,7 @@ describe("the dialog", () => {
       credentials: { create: vi.fn<() => Promise<null>>().mockResolvedValue(null) },
     })
 
-    await expect(createSecurityKey(answer)).rejects.toThrow(/without a key/)
+    await expect(createSecurityKey(answer)).rejects.toThrow(/without returning a security key/)
     vi.unstubAllGlobals()
   })
 })
@@ -230,13 +230,13 @@ describe("what a person is told went wrong", () => {
 
   it("blames this server for the one failure that is this server's", () => {
     /** A relying-party mismatch is the server's fault. */
-    expect(whyTheKeyFailed(named("SecurityError"))).toMatch(/server.s configuration is wrong/)
+    expect(whyTheKeyFailed(named("SecurityError"))).toMatch(/Check the server configuration/)
   })
 
   it("falls back to the browser's own words, and to a sentence when it has none", () => {
     expect(whyTheKeyFailed(named("TypeError", "options is not an object"))).toBe("options is not an object")
-    expect(whyTheKeyFailed(named("TypeError"))).toMatch(/gave no reason/)
-    expect(whyTheKeyFailed("not an error at all")).toMatch(/gave no reason/)
+    expect(whyTheKeyFailed(named("TypeError"))).toMatch(/did not provide a reason/)
+    expect(whyTheKeyFailed("not an error at all")).toMatch(/did not provide a reason/)
   })
 })
 

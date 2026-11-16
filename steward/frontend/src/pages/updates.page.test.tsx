@@ -214,7 +214,7 @@ describe("UpdatesPage - its own schedule", () => {
 
     const dialog = await screen.findByRole("dialog")
     await waitFor(() => expect(dialog.textContent).toContain("steward/steward changed since it was read."))
-    expect(within(dialog).getByRole("alert").textContent).toContain("This was not done.")
+    expect(within(dialog).getByRole("alert").textContent).toContain("The action could not be completed.")
   })
 
   it("says there is no schedule when the update clock is off", async () => {

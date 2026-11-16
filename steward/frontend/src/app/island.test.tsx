@@ -60,7 +60,7 @@ describe("the account popover is the settings page's account half", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Add/ }))
 
     expect(await screen.findByText("Add a security key")).toBeTruthy()
-    expect(screen.getByLabelText("What do you call this one?")).toBeTruthy()
+    expect(screen.getByLabelText("Name this security key")).toBeTruthy()
   })
 
   it("asks before removing one, and names the one it means", async () => {
@@ -71,7 +71,7 @@ describe("the account popover is the settings page's account half", () => {
 
     const question = await screen.findByRole("alertdialog")
     expect(question.textContent).toContain("Phone")
-    expect(question.textContent).toContain("This key stops working")
+    expect(question.textContent).toContain("This security key will no longer work in Steward")
   })
 
   it("stays tappable for an account with no picture on record", () => {

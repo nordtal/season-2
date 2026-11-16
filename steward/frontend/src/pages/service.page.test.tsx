@@ -127,7 +127,7 @@ describe("ServicePage - the head and the tabs", () => {
     const tab = await screen.findByRole("tab", { name: /announcements/i })
     const tabs = screen.getAllByRole("tab").map((each) => each.textContent)
     expect(tabs.indexOf(tab.textContent)).toBe(tabs.length - 1)
-    expect(screen.queryByText("New announcement")).toBeNull()
+    expect(screen.queryByText("Write announcement")).toBeNull()
 
     cleanup()
     vi.stubGlobal("fetch", backend(row("smp", { hasPlugins: true })))

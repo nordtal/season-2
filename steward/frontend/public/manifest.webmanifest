@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Nordtal Steward",
   "short_name": "Steward",
-  "description": "The season 2 deployment: what is running, what changed it, and who may join.",
+  "description": "Manage Nordtal’s services, updates, backups and player access.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

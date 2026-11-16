@@ -78,7 +78,7 @@ class SettingsApiTest {
                 JsonParser.parseString(
                         "{\"setting\":\"stages.key\",\"entries\":[2],\"rule\":\"UNIQUE\",\"value\":\"a\"}"),
                 body.get("refusal"));
-        assertTrue(body.get("error").getAsString().contains("stages[2].key holds a twice"), answer.body());
+        assertTrue(body.get("error").getAsString().contains("stages[2].key contains a more than once"), answer.body());
     }
 
     @Test

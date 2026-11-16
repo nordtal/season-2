@@ -73,7 +73,7 @@ public interface SettingsEditor {
             @Arg("rule") @Example("most-entries") SettingRule rule,
             @Arg("value") @Example("5") String value);
 
-    @Name("Fields that hold a wrong value")
+    @Name("Invalid fields")
     MessageRef invalidFields(@Arg("count") @Example("2") int count);
 
     @Name("Not saved yet")

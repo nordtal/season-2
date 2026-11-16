@@ -146,7 +146,7 @@ public final class ProxySwap {
         try {
             running = updates.running();
         } catch (final RuntimeException failure) {
-            logger.warn("update row unreadable, nobody parked", failure);
+            logger.warn("update request unreadable, standby transfers skipped", failure);
             return;
         }
         final Set<String> next = Evacuation.imminent(running);
@@ -160,7 +160,7 @@ public final class ProxySwap {
             case IDLE, ALREADY_DONE, ALREADY_MOVED -> {}
             case STANDBY_MISSING ->
                 logger.warn(
-                        "standby proxy not answering, nobody parked: standby_address={}:{}",
+                        "standby proxy unavailable, transfers skipped: standby_address={}:{}",
                         target.getHostString(),
                         target.getPort());
             case PARK -> park();
@@ -268,7 +268,7 @@ public final class ProxySwap {
         try {
             updates.recorder().moved(run, OWN_SERVICE, STANDBY_SERVICE, 1);
         } catch (final RuntimeException failure) {
-            logger.warn("parked player not recorded", failure);
+            logger.warn("standby transfer not recorded", failure);
         }
     }
 

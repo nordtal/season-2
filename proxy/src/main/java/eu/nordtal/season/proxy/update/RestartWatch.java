@@ -72,7 +72,7 @@ public final class RestartWatch {
                     "proxy", "restart-tick", "Restart", DocumentSpec.Shape.TITLE, Tick.class)
             .titled("Restart countdown title");
 
-    /** The displaytimes of the tick subtitle. */
+    /** The display times of the tick subtitle. */
     private static final Title.Times TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofMillis(1400), Duration.ofMillis(250));
 
@@ -200,7 +200,7 @@ public final class RestartWatch {
         try {
             standby = standbyProxy.getAsBoolean();
         } catch (final RuntimeException failure) {
-            logger.warn("standby proxy check failed, fallback restart notice sent", failure);
+            logger.warn("standby proxy check failed, fallback restart selected", failure);
         }
         return RunShape.of(request.kind(), moving, room, standby);
     }

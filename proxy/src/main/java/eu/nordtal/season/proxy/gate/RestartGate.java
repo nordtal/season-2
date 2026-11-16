@@ -81,12 +81,12 @@ public final class RestartGate {
         try {
             moved = park.test(player);
         } catch (final RuntimeException failure) {
-            logger.warn("player not parked on arrival: player={}", player.getUsername(), failure);
+            logger.warn("arrival transfer to standby failed: player={}", player.getUsername(), failure);
             moved = false;
         }
         if (moved) {
             logger.info(
-                    "player parked on arrival: player={} uuid={} count={}",
+                    "arrival transferred to standby: player={} uuid={} count={}",
                     player.getUsername(),
                     uuid,
                     parked.incrementAndGet());
@@ -99,7 +99,7 @@ public final class RestartGate {
     Component refuse(final UUID mcUuid, final String username) {
         final Locale locale = locales.localeOf(mcUuid);
         logger.warn(
-                "player not parked, login refused: player={} uuid={} count={}",
+                "standby transfer failed, login refused: player={} uuid={} count={}",
                 username,
                 mcUuid,
                 refused.incrementAndGet());

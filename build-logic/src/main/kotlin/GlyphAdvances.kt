@@ -12,7 +12,8 @@ import javax.imageio.ImageIO
  * scaled by `height / cellHeight`. The first provider that declares a code point wins.
  *
  * A `reference` provider is read in its place from [fonts] or, for vanilla's fonts, from [vanilla], which also holds
- * the vanilla textures the pack does not override.
+ * the vanilla textures the pack does not override. A texture the build writes beside the fonts, such as a raised letter
+ * sheet, is read from [fonts].
  */
 object GlyphAdvances {
     fun of(
@@ -56,8 +57,7 @@ object GlyphAdvances {
             if (provider["type"] != "bitmap") continue
 
             val id = provider["file"] as String
-            val own = texture(assets, id)
-            val image = image(if (own.isFile || vanilla == null) own else texture(vanilla, id))
+            val image = image(listOfNotNull(texture(assets, id), fonts?.let { texture(it.resolve("assets"), id) }, vanilla?.let { texture(it, id) }).firstOrNull { it.isFile } ?: texture(assets, id))
             val rows = (provider["chars"] as List<String>).map { it.codePoints().toArray() }
             val cellWidth = image.width / rows[0].size
             val cellHeight = image.height / rows.size

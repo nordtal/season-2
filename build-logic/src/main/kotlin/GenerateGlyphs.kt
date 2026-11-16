@@ -18,6 +18,7 @@ import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import java.io.File
+import javax.imageio.ImageIO
 import kotlin.math.abs
 
 /**
@@ -100,7 +101,12 @@ abstract class GenerateGlyphs : DefaultTask() {
                 if (font.silent) providers += silent()
                 if (font.letters) {
                     letterSheets().forEach { sheet ->
-                        providers += bitmap(sheet.file, sheet.ascent - lower, sheet.height, sheet.chars)
+                        val ascent = sheet.ascent - lower
+                        if (ascent > sheet.height) {
+                            providers += bitmap(raise(root, sheet, ascent), ascent, ascent, sheet.chars)
+                        } else {
+                            providers += bitmap(sheet.file, ascent, sheet.height, sheet.chars)
+                        }
                     }
                 }
                 for (block in font.blocks) {
@@ -120,6 +126,31 @@ abstract class GenerateGlyphs : DefaultTask() {
             }
         }
         return written
+    }
+
+    /**
+     * Writes the copy of [sheet] whose cells are [height] rows tall into the generated pack, once per sheet and height,
+     * and returns its id. The client refuses a bitmap whose ascent is greater than its height.
+     */
+    private fun raise(
+        root: File,
+        sheet: LetterSheet,
+        height: Int,
+    ): String {
+        val id = RaisedSheet.id(sheet.file, height)
+        val file = GlyphAdvances.texture(root.resolve("assets"), id)
+        if (file.isFile) return id
+        val source = GlyphAdvances.texture(vanilla.get().asFile, sheet.file)
+        val image = ImageIO.read(source) ?: throw GradleException("$source is not an image ImageIO can read")
+        val padded =
+            try {
+                RaisedSheet.pad(image, sheet.chars.size, sheet.height, height)
+            } catch (e: IllegalStateException) {
+                throw GradleException("vanilla's ${sheet.file} cannot be raised: ${e.message}", e)
+            }
+        file.parentFile.mkdirs()
+        ImageIO.write(padded, "png", file)
+        return id
     }
 
     /** One bitmap provider of vanilla's `include/default` font. */

@@ -59,7 +59,7 @@ const COLUMNS: Column<Row>[] = [
       <Shown row={row}>
         {(npc) =>
           npc.place.world.trim() === "" ? null : (
-            <span className="flex flex-wrap items-baseline gap-x-3">
+            <span className="flex items-baseline gap-x-3 whitespace-nowrap">
               <span>{npc.place.world}</span>
               <Coordinate axis="X" value={npc.place.x} />
               <Coordinate axis="Y" value={npc.place.y} />

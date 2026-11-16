@@ -11,8 +11,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Composes one dialog body line from left to right.
- * A plate line's art starts on its text row or lower, as {@link BodyColumn} sets it; a text line's capitals stand 1
- * px under its row.
+ * A plate line's art starts on its text row or lower, as {@link BodyColumn} sets it. {@link FocusRing} frames the
+ * finished line in its box.
  */
 public final class BodyLine {
 
@@ -38,12 +38,6 @@ public final class BodyLine {
     /** The width of a native button that carries a 98 x 18 plate inside its 1 px rim. */
     public static final int NATIVE_BUTTON = 100;
 
-    /** The width a native button gives its label: 2 kept clear on each side. */
-    public static final int NATIVE_LABEL = NATIVE_BUTTON - 4;
-
-    /** A text line's capitals under its text row: box + 5, where a plain_message draws at box + 4. */
-    private static final int TEXT_LINE = 1;
-
     private final Pen pen = Pen.start();
     private final int down;
     private final int textShift;
@@ -67,11 +61,6 @@ public final class BodyLine {
         return new BodyLine(down, down + LABEL);
     }
 
-    /** Starts an empty text line: one row of text and symbols, no plate. */
-    public static BodyLine textLine() {
-        return new BodyLine(0, TEXT_LINE);
-    }
-
     /** Starts a row of text and symbols whose capitals stand {@code down} pixels below the text row. */
     public static BodyLine textRow(final int down) {
         return new BodyLine(down, down);
@@ -89,27 +78,30 @@ public final class BodyLine {
 
     /** Returns the label of a native button in the primary look: the 98 x 18 plate with {@code label} centred on it. */
     public static Component primaryButton(final String label) {
-        final String text = Letters.cut(label, PRIMARY_WIDTH - 2 * PAD);
-        return Pen.start()
-                .art(Pen.artFont(0), Glyphs.UI_PRIMARY_BUTTON, PRIMARY_WIDTH)
-                .moveTo((PRIMARY_WIDTH - Letters.visibleWidth(text) + 1) / 2)
-                .text(0, text, Look.PRIMARY.ink())
-                .build(PRIMARY_WIDTH);
+        return nativeButton(label, Glyphs.UI_PRIMARY_BUTTON, Look.PRIMARY);
+    }
+
+    /** Returns the label of a native button in the normal look: the 98 x 18 plate with {@code label} centred on it. */
+    public static Component normalButton(final String label) {
+        return nativeButton(label, Glyphs.UI_NORMAL_BUTTON, Look.NORMAL);
     }
 
     /**
-     * Returns the label of a native button 100 wide in the normal look: the 98 x 18 plate, {@code label} on it.
-     * It advances {@link #NATIVE_LABEL}, so the client neither scrolls nor clips it, and its plate starts 1 left
-     * of it, inside the button's 1 px rim, which the client draws dark, and white on hover and focus.
+     * Returns a native button's label: its rim at rest but for the corners, which turn white on hover, and the plate.
+     * It advances 0, so the client centres it on the button's middle and neither scrolls nor clips it.
      */
-    public static Component normalButton(final String label) {
+    private static Component nativeButton(final String label, final String plate, final Look look) {
         final String text = Letters.cut(label, PRIMARY_WIDTH - 2 * PAD);
+        final int left = -(NATIVE_BUTTON / 2);
+        final int inside = left + 1;
         return Pen.start()
-                .move(-1)
-                .art(Pen.artFont(0), Glyphs.UI_NORMAL_BUTTON, PRIMARY_WIDTH)
-                .moveTo(-1 + (PRIMARY_WIDTH - Letters.visibleWidth(text) + 1) / 2)
-                .text(0, text, Look.NORMAL.ink())
-                .build(NATIVE_LABEL);
+                .moveTo(left)
+                .art(Pen.artFont(0), Glyphs.UI_BUTTON_RIM, NATIVE_BUTTON)
+                .moveTo(inside)
+                .art(Pen.artFont(0), plate, PRIMARY_WIDTH)
+                .moveTo(inside + (PRIMARY_WIDTH - Letters.visibleWidth(text) + 1) / 2)
+                .text(0, text, look.ink())
+                .build(0);
     }
 
     /** Moves to {@code x} of the line, forward or back, without drawing. */

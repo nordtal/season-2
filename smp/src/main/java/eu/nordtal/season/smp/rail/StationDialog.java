@@ -8,11 +8,11 @@ import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
 import eu.nordtal.season.packrendering.ui.DialogTitle;
+import eu.nordtal.season.packrendering.ui.Letters;
 import eu.nordtal.season.packrendering.ui.Symbol;
 import eu.nordtal.season.papercommon.dialog.Dialogs;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.ActionButton;
-import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
 import java.util.List;
@@ -66,30 +66,39 @@ final class StationDialog {
     private static final int FRAME_Y = 61;
     private static final int REFUSAL_Y = 150;
 
+    /** The name's capitals, where a text line's stood under the first body line's box. */
+    private static final int NAME_Y = 68;
+
+    /** The hint's first row, where the client drew it as the second body line, and the rows after it. */
+    private static final int HINT_Y = 95;
+
+    private static final int HINT_STEP = 9;
+    private static final int HINT_ROWS = 3;
+
+    /** The client wraps a body line's text this much narrower than its box. */
+    private static final int HINT_PADDING = 8;
+
     private StationDialog() {}
 
-    /** The visitor's dialog: the station's name, or that it has none, over how to ride from it. */
+    /**
+     * The visitor's dialog: the station's name, or that it has none, over how to ride from it.
+     * The title draws both, where body lines stood, so the dialog has no focus stop that does nothing.
+     */
     static Dialog visitor(final GameDocument document, final @Nullable String name) {
-        final Component title = DialogTitle.of(DialogPanel.STATION_78, TEXT_TOP)
+        final DialogTitle title = DialogTitle.of(DialogPanel.STATION_78, TEXT_TOP)
                 .header(Symbol.RAIL, Dialogs.plain(document.title()), List.of())
-                .build();
-        final String shown = name == null ? document.label("unnamed") : name;
-        return Dialog.create(builder -> builder.empty()
-                .base(Dialogs.base(title)
-                        .body(List.of(
-                                Dialogs.line(
-                                        BodyLine.textLine()
-                                                .text(shown, Colours.INK)
-                                                .build(),
-                                        WIDTH),
-                                // The client wraps the hint at the field's width and centres each row.
-                                DialogBody.plainMessage(
-                                        BodyLine.textLine()
-                                                .text(document.label("hint"), Colours.SOFT)
-                                                .build(),
-                                        WIDTH)))
-                        .build())
-                .type(Dialogs.bodyOnly()));
+                .centred(NAME_Y, name == null ? document.label("unnamed") : name, Colours.INK);
+        final List<String> hint = Letters.wrap(document.label("hint"), WIDTH - HINT_PADDING);
+        for (int index = 0; index < Math.min(hint.size(), HINT_ROWS); index++) {
+            String row = hint.get(index);
+            if (index == HINT_ROWS - 1 && hint.size() > HINT_ROWS) {
+                final String cut = Letters.cut(row, WIDTH - HINT_PADDING - Letters.visibleWidth("…"));
+                row = cut.equals(row) ? cut + "…" : cut;
+            }
+            title.centred(HINT_Y + index * HINT_STEP, row, Colours.SOFT);
+        }
+        return Dialog.create(builder ->
+                builder.empty().base(Dialogs.base(title.build()).build()).type(Dialogs.bodyOnly()));
     }
 
     /**

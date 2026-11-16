@@ -1500,8 +1500,8 @@
     {
       "font": "nordtal:ui_text_{shift}",
       "shifts": [
-        0, 1, 2, 3, 4, 5, 6, 9, 10, 13, 16, 22, 25, 29, 33, 34, 37, 42, 43, 44, 45, 47, 49, 51, 52, 53, 56, 58, 62, 65,
-        69, 70, 85, 88, 89, 91, 106, 137
+        0, 1, 2, 3, 4, 5, 6, 9, 10, 13, 16, 22, 25, 29, 33, 34, 37, 42, 43, 44, 45, 47, 49, 51, 52, 53, 55, 56, 58, 62,
+        65, 69, 70, 82, 85, 88, 89, 91, 100, 106, 137
       ],
       "constant": "FONT_UI_TEXT",
       "letters": true,
@@ -1686,6 +1686,15 @@
               "height": 18,
               "ascent": 12,
               "about": "The 98 x 18 plate in the normal look that a native button carries as its label, 5 px above the label's text row."
+            },
+            {
+              "code": "FE376",
+              "title": "Button rim",
+              "constant": "UI_BUTTON_RIM",
+              "texture": "nordtal:ui/kit/button_rim.png",
+              "height": 20,
+              "ascent": 13,
+              "about": "A native button's 100 x 20 rim in its rest colour, but for 5 px arms at each corner, so hover and focus show only the corners."
             }
           ]
         },
@@ -2488,6 +2497,302 @@
         { "constant": "UI_COVER_82" },
         { "constant": "UI_COVER_90" },
         { "constant": "UI_COVER_92" }
+      ]
+    },
+    {
+      "font": "nordtal:ui_ring",
+      "constant": "FONT_UI_RING",
+      "references": ["nordtal:ui_space"],
+      "about": "The covers a body line draws over the client's white focus outline, from the line's text row: its box is 9 n + 8 high, and only the corners stay open, so focus shows as corner brackets.",
+      "blocks": [
+        {
+          "range": "FE500-FE50F",
+          "title": "Ring 26",
+          "about": "A focus ring cover 26 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_26.png",
+          "height": 26,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE500", "title": "Side", "list": "UI_RING_26" },
+            { "code": "FE501", "title": "Shade", "list": "UI_RING_26" },
+            { "code": "FE502", "title": "Run 1 px", "list": "UI_RING_26" },
+            { "code": "FE503", "title": "Run 2 px", "list": "UI_RING_26" },
+            { "code": "FE504", "title": "Run 4 px", "list": "UI_RING_26" },
+            { "code": "FE505", "title": "Run 8 px", "list": "UI_RING_26" },
+            { "code": "FE506", "title": "Run 16 px", "list": "UI_RING_26" },
+            { "code": "FE507", "title": "Run 32 px", "list": "UI_RING_26" },
+            { "code": "FE508", "title": "Run 64 px", "list": "UI_RING_26" },
+            { "code": "FE509", "title": "Run 128 px", "list": "UI_RING_26" },
+            { "code": "FE50A", "title": "Run 256 px", "list": "UI_RING_26" }
+          ]
+        },
+        {
+          "range": "FE510-FE51F",
+          "title": "Ring 35",
+          "about": "A focus ring cover 35 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_35.png",
+          "height": 35,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE510", "title": "Side", "list": "UI_RING_35" },
+            { "code": "FE511", "title": "Shade", "list": "UI_RING_35" },
+            { "code": "FE512", "title": "Run 1 px", "list": "UI_RING_35" },
+            { "code": "FE513", "title": "Run 2 px", "list": "UI_RING_35" },
+            { "code": "FE514", "title": "Run 4 px", "list": "UI_RING_35" },
+            { "code": "FE515", "title": "Run 8 px", "list": "UI_RING_35" },
+            { "code": "FE516", "title": "Run 16 px", "list": "UI_RING_35" },
+            { "code": "FE517", "title": "Run 32 px", "list": "UI_RING_35" },
+            { "code": "FE518", "title": "Run 64 px", "list": "UI_RING_35" },
+            { "code": "FE519", "title": "Run 128 px", "list": "UI_RING_35" },
+            { "code": "FE51A", "title": "Run 256 px", "list": "UI_RING_35" }
+          ]
+        },
+        {
+          "range": "FE520-FE52F",
+          "title": "Ring 44",
+          "about": "A focus ring cover 44 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_44.png",
+          "height": 44,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE520", "title": "Side", "list": "UI_RING_44" },
+            { "code": "FE521", "title": "Shade", "list": "UI_RING_44" },
+            { "code": "FE522", "title": "Run 1 px", "list": "UI_RING_44" },
+            { "code": "FE523", "title": "Run 2 px", "list": "UI_RING_44" },
+            { "code": "FE524", "title": "Run 4 px", "list": "UI_RING_44" },
+            { "code": "FE525", "title": "Run 8 px", "list": "UI_RING_44" },
+            { "code": "FE526", "title": "Run 16 px", "list": "UI_RING_44" },
+            { "code": "FE527", "title": "Run 32 px", "list": "UI_RING_44" },
+            { "code": "FE528", "title": "Run 64 px", "list": "UI_RING_44" },
+            { "code": "FE529", "title": "Run 128 px", "list": "UI_RING_44" },
+            { "code": "FE52A", "title": "Run 256 px", "list": "UI_RING_44" }
+          ]
+        },
+        {
+          "range": "FE530-FE53F",
+          "title": "Ring 53",
+          "about": "A focus ring cover 53 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_53.png",
+          "height": 53,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE530", "title": "Side", "list": "UI_RING_53" },
+            { "code": "FE531", "title": "Shade", "list": "UI_RING_53" },
+            { "code": "FE532", "title": "Run 1 px", "list": "UI_RING_53" },
+            { "code": "FE533", "title": "Run 2 px", "list": "UI_RING_53" },
+            { "code": "FE534", "title": "Run 4 px", "list": "UI_RING_53" },
+            { "code": "FE535", "title": "Run 8 px", "list": "UI_RING_53" },
+            { "code": "FE536", "title": "Run 16 px", "list": "UI_RING_53" },
+            { "code": "FE537", "title": "Run 32 px", "list": "UI_RING_53" },
+            { "code": "FE538", "title": "Run 64 px", "list": "UI_RING_53" },
+            { "code": "FE539", "title": "Run 128 px", "list": "UI_RING_53" },
+            { "code": "FE53A", "title": "Run 256 px", "list": "UI_RING_53" }
+          ]
+        },
+        {
+          "range": "FE540-FE54F",
+          "title": "Ring 62",
+          "about": "A focus ring cover 62 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_62.png",
+          "height": 62,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE540", "title": "Side", "list": "UI_RING_62" },
+            { "code": "FE541", "title": "Shade", "list": "UI_RING_62" },
+            { "code": "FE542", "title": "Run 1 px", "list": "UI_RING_62" },
+            { "code": "FE543", "title": "Run 2 px", "list": "UI_RING_62" },
+            { "code": "FE544", "title": "Run 4 px", "list": "UI_RING_62" },
+            { "code": "FE545", "title": "Run 8 px", "list": "UI_RING_62" },
+            { "code": "FE546", "title": "Run 16 px", "list": "UI_RING_62" },
+            { "code": "FE547", "title": "Run 32 px", "list": "UI_RING_62" },
+            { "code": "FE548", "title": "Run 64 px", "list": "UI_RING_62" },
+            { "code": "FE549", "title": "Run 128 px", "list": "UI_RING_62" },
+            { "code": "FE54A", "title": "Run 256 px", "list": "UI_RING_62" }
+          ]
+        },
+        {
+          "range": "FE550-FE55F",
+          "title": "Ring 71",
+          "about": "A focus ring cover 71 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_71.png",
+          "height": 71,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE550", "title": "Side", "list": "UI_RING_71" },
+            { "code": "FE551", "title": "Shade", "list": "UI_RING_71" },
+            { "code": "FE552", "title": "Run 1 px", "list": "UI_RING_71" },
+            { "code": "FE553", "title": "Run 2 px", "list": "UI_RING_71" },
+            { "code": "FE554", "title": "Run 4 px", "list": "UI_RING_71" },
+            { "code": "FE555", "title": "Run 8 px", "list": "UI_RING_71" },
+            { "code": "FE556", "title": "Run 16 px", "list": "UI_RING_71" },
+            { "code": "FE557", "title": "Run 32 px", "list": "UI_RING_71" },
+            { "code": "FE558", "title": "Run 64 px", "list": "UI_RING_71" },
+            { "code": "FE559", "title": "Run 128 px", "list": "UI_RING_71" },
+            { "code": "FE55A", "title": "Run 256 px", "list": "UI_RING_71" }
+          ]
+        },
+        {
+          "range": "FE560-FE56F",
+          "title": "Ring 80",
+          "about": "A focus ring cover 80 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_80.png",
+          "height": 80,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE560", "title": "Side", "list": "UI_RING_80" },
+            { "code": "FE561", "title": "Shade", "list": "UI_RING_80" },
+            { "code": "FE562", "title": "Run 1 px", "list": "UI_RING_80" },
+            { "code": "FE563", "title": "Run 2 px", "list": "UI_RING_80" },
+            { "code": "FE564", "title": "Run 4 px", "list": "UI_RING_80" },
+            { "code": "FE565", "title": "Run 8 px", "list": "UI_RING_80" },
+            { "code": "FE566", "title": "Run 16 px", "list": "UI_RING_80" },
+            { "code": "FE567", "title": "Run 32 px", "list": "UI_RING_80" },
+            { "code": "FE568", "title": "Run 64 px", "list": "UI_RING_80" },
+            { "code": "FE569", "title": "Run 128 px", "list": "UI_RING_80" },
+            { "code": "FE56A", "title": "Run 256 px", "list": "UI_RING_80" }
+          ]
+        },
+        {
+          "range": "FE570-FE57F",
+          "title": "Ring 89",
+          "about": "A focus ring cover 89 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_89.png",
+          "height": 89,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE570", "title": "Side", "list": "UI_RING_89" },
+            { "code": "FE571", "title": "Shade", "list": "UI_RING_89" },
+            { "code": "FE572", "title": "Run 1 px", "list": "UI_RING_89" },
+            { "code": "FE573", "title": "Run 2 px", "list": "UI_RING_89" },
+            { "code": "FE574", "title": "Run 4 px", "list": "UI_RING_89" },
+            { "code": "FE575", "title": "Run 8 px", "list": "UI_RING_89" },
+            { "code": "FE576", "title": "Run 16 px", "list": "UI_RING_89" },
+            { "code": "FE577", "title": "Run 32 px", "list": "UI_RING_89" },
+            { "code": "FE578", "title": "Run 64 px", "list": "UI_RING_89" },
+            { "code": "FE579", "title": "Run 128 px", "list": "UI_RING_89" },
+            { "code": "FE57A", "title": "Run 256 px", "list": "UI_RING_89" }
+          ]
+        },
+        {
+          "range": "FE580-FE58F",
+          "title": "Ring 98",
+          "about": "A focus ring cover 98 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_98.png",
+          "height": 98,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE580", "title": "Side", "list": "UI_RING_98" },
+            { "code": "FE581", "title": "Shade", "list": "UI_RING_98" },
+            { "code": "FE582", "title": "Run 1 px", "list": "UI_RING_98" },
+            { "code": "FE583", "title": "Run 2 px", "list": "UI_RING_98" },
+            { "code": "FE584", "title": "Run 4 px", "list": "UI_RING_98" },
+            { "code": "FE585", "title": "Run 8 px", "list": "UI_RING_98" },
+            { "code": "FE586", "title": "Run 16 px", "list": "UI_RING_98" },
+            { "code": "FE587", "title": "Run 32 px", "list": "UI_RING_98" },
+            { "code": "FE588", "title": "Run 64 px", "list": "UI_RING_98" },
+            { "code": "FE589", "title": "Run 128 px", "list": "UI_RING_98" },
+            { "code": "FE58A", "title": "Run 256 px", "list": "UI_RING_98" }
+          ]
+        },
+        {
+          "range": "FE590-FE59F",
+          "title": "Ring 107",
+          "about": "A focus ring cover 107 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_107.png",
+          "height": 107,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE590", "title": "Side", "list": "UI_RING_107" },
+            { "code": "FE591", "title": "Shade", "list": "UI_RING_107" },
+            { "code": "FE592", "title": "Run 1 px", "list": "UI_RING_107" },
+            { "code": "FE593", "title": "Run 2 px", "list": "UI_RING_107" },
+            { "code": "FE594", "title": "Run 4 px", "list": "UI_RING_107" },
+            { "code": "FE595", "title": "Run 8 px", "list": "UI_RING_107" },
+            { "code": "FE596", "title": "Run 16 px", "list": "UI_RING_107" },
+            { "code": "FE597", "title": "Run 32 px", "list": "UI_RING_107" },
+            { "code": "FE598", "title": "Run 64 px", "list": "UI_RING_107" },
+            { "code": "FE599", "title": "Run 128 px", "list": "UI_RING_107" },
+            { "code": "FE59A", "title": "Run 256 px", "list": "UI_RING_107" }
+          ]
+        },
+        {
+          "range": "FE5A0-FE5AF",
+          "title": "Ring 116",
+          "about": "A focus ring cover 116 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_116.png",
+          "height": 116,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE5A0", "title": "Side", "list": "UI_RING_116" },
+            { "code": "FE5A1", "title": "Shade", "list": "UI_RING_116" },
+            { "code": "FE5A2", "title": "Run 1 px", "list": "UI_RING_116" },
+            { "code": "FE5A3", "title": "Run 2 px", "list": "UI_RING_116" },
+            { "code": "FE5A4", "title": "Run 4 px", "list": "UI_RING_116" },
+            { "code": "FE5A5", "title": "Run 8 px", "list": "UI_RING_116" },
+            { "code": "FE5A6", "title": "Run 16 px", "list": "UI_RING_116" },
+            { "code": "FE5A7", "title": "Run 32 px", "list": "UI_RING_116" },
+            { "code": "FE5A8", "title": "Run 64 px", "list": "UI_RING_116" },
+            { "code": "FE5A9", "title": "Run 128 px", "list": "UI_RING_116" },
+            { "code": "FE5AA", "title": "Run 256 px", "list": "UI_RING_116" }
+          ]
+        },
+        {
+          "range": "FE5B0-FE5BF",
+          "title": "Ring 125",
+          "about": "A focus ring cover 125 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_125.png",
+          "height": 125,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE5B0", "title": "Side", "list": "UI_RING_125" },
+            { "code": "FE5B1", "title": "Shade", "list": "UI_RING_125" },
+            { "code": "FE5B2", "title": "Run 1 px", "list": "UI_RING_125" },
+            { "code": "FE5B3", "title": "Run 2 px", "list": "UI_RING_125" },
+            { "code": "FE5B4", "title": "Run 4 px", "list": "UI_RING_125" },
+            { "code": "FE5B5", "title": "Run 8 px", "list": "UI_RING_125" },
+            { "code": "FE5B6", "title": "Run 16 px", "list": "UI_RING_125" },
+            { "code": "FE5B7", "title": "Run 32 px", "list": "UI_RING_125" },
+            { "code": "FE5B8", "title": "Run 64 px", "list": "UI_RING_125" },
+            { "code": "FE5B9", "title": "Run 128 px", "list": "UI_RING_125" },
+            { "code": "FE5BA", "title": "Run 256 px", "list": "UI_RING_125" }
+          ]
+        },
+        {
+          "range": "FE5C0-FE5CF",
+          "title": "Ring 134",
+          "about": "A focus ring cover 134 high: its side column with the corner arms open, the bevel's dark column, and edge runs of 1 to 256 columns.",
+          "texture": "nordtal:ui/kit/ring_134.png",
+          "height": 134,
+          "ascent": 11,
+          "glyphs": [
+            { "code": "FE5C0", "title": "Side", "list": "UI_RING_134" },
+            { "code": "FE5C1", "title": "Shade", "list": "UI_RING_134" },
+            { "code": "FE5C2", "title": "Run 1 px", "list": "UI_RING_134" },
+            { "code": "FE5C3", "title": "Run 2 px", "list": "UI_RING_134" },
+            { "code": "FE5C4", "title": "Run 4 px", "list": "UI_RING_134" },
+            { "code": "FE5C5", "title": "Run 8 px", "list": "UI_RING_134" },
+            { "code": "FE5C6", "title": "Run 16 px", "list": "UI_RING_134" },
+            { "code": "FE5C7", "title": "Run 32 px", "list": "UI_RING_134" },
+            { "code": "FE5C8", "title": "Run 64 px", "list": "UI_RING_134" },
+            { "code": "FE5C9", "title": "Run 128 px", "list": "UI_RING_134" },
+            { "code": "FE5CA", "title": "Run 256 px", "list": "UI_RING_134" }
+          ]
+        }
+      ],
+      "lists": [
+        { "constant": "UI_RING_26" },
+        { "constant": "UI_RING_35" },
+        { "constant": "UI_RING_44" },
+        { "constant": "UI_RING_53" },
+        { "constant": "UI_RING_62" },
+        { "constant": "UI_RING_71" },
+        { "constant": "UI_RING_80" },
+        { "constant": "UI_RING_89" },
+        { "constant": "UI_RING_98" },
+        { "constant": "UI_RING_107" },
+        { "constant": "UI_RING_116" },
+        { "constant": "UI_RING_125" },
+        { "constant": "UI_RING_134" }
       ]
     },
     {

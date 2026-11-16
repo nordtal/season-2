@@ -39,9 +39,6 @@ public final class BodyColumn {
     private static final int BOX = 8;
     private static final int BELOW_LAST = 4;
 
-    /** The text rows the client gives a line of plates by itself, measured in 26.3. */
-    private static final int PLATE_ROWS = 2;
-
     private record Piece(int y, boolean plate, Consumer<BodyLine> draw) {}
 
     private final int width;
@@ -110,10 +107,15 @@ public final class BodyColumn {
         return height;
     }
 
+    /** The column's art width. */
+    public int width() {
+        return width;
+    }
+
     /** The text rows of the column's box: 9 n + 8 high, with room for the ring under the art. */
     public int rows() {
         final int below = followed ? AFTER : BELOW_LAST;
-        return Math.max(1, Math.ceilDiv(TEXT_ROW + height + below - BOX, ROW));
+        return Math.max(FocusRing.MIN_ROWS, Math.ceilDiv(TEXT_ROW + height + below - BOX, ROW));
     }
 
     /** Where the art starts under the box's top: at the text row, or as low as a following line needs. */
@@ -126,8 +128,8 @@ public final class BodyColumn {
         return BODY_TOP + top() - PANEL_TO_CONTENT;
     }
 
-    /** Returns the column, {@code width} wide, with one text row for each 9 px of its box. */
-    public Component build() {
+    /** Returns the column, {@code width} wide, framed on {@code ground} with one text row for each 9 px of its box. */
+    public Component build(final FocusRing.Ground ground) {
         final Pen pen = Pen.start();
         final int shift = top() - TEXT_ROW;
         for (final Piece piece : pieces) {
@@ -136,9 +138,6 @@ public final class BodyColumn {
             piece.draw().accept(line);
             pen.moveTo(0).append(line.build(), line.width());
         }
-        final Component drawn = pen.build(width);
-        final int own = pieces.stream().anyMatch(Piece::plate) ? PLATE_ROWS : 1;
-        final int rows = rows();
-        return rows <= own ? drawn : drawn.append(Component.text("\n".repeat(rows - own)));
+        return FocusRing.frame(pen.build(width), width, rows(), ground);
     }
 }

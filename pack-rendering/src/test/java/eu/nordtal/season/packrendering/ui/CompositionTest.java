@@ -90,7 +90,7 @@ class CompositionTest {
                 BodyColumn.of(262, false).rows(1, 0, index -> line -> line.plate(262, null, "Fahren", Look.NORMAL));
         assertEquals(4, last.top());
         assertEquals(2, last.rows());
-        assertEquals(262, Advances.of(last.build()));
+        assertEquals(List.of(0, 264), Advances.rows(last.build(FocusRing.Ground.BEVEL)));
     }
 
     @Test
@@ -122,20 +122,31 @@ class CompositionTest {
                 Advances.of(BodyLine.start()
                         .plate(120, null, "Fahren", Look.PRIMARY)
                         .build()));
-        assertEquals(98, Advances.of(BodyLine.primaryButton("Speichern")));
-        // Wider than the 96 a native button of 100 gives its label, the client would scroll the plate and clip it.
-        assertEquals(BodyLine.NATIVE_LABEL, Advances.of(BodyLine.normalButton("Schließen")));
-        assertEquals(BodyLine.NATIVE_LABEL, Advances.of(BodyLine.normalButton("Close")));
-        assertEquals(
-                BodyLine.NATIVE_LABEL, Advances.of(BodyLine.normalButton("Schließen und zur Übersicht zurückkehren")));
-        assertEquals(
-                248,
-                Advances.of(BodyLine.textLine()
-                        .text("Siedlung", Colours.INK)
-                        .at(200)
-                        .text("3/7", Colours.SOFT)
-                        .at(248)
-                        .build()));
+    }
+
+    @Test
+    void aNativeButtonLabelAdvancesNothingSoTheClientCentresItsRimOnTheButton() {
+        // Any advance would let the client scroll a wide label and clip the rim.
+        assertEquals(0, Advances.of(BodyLine.primaryButton("Speichern")));
+        assertEquals(0, Advances.of(BodyLine.normalButton("Schließen")));
+        assertEquals(0, Advances.of(BodyLine.normalButton("Schließen und zur Übersicht zurückkehren")));
+    }
+
+    @Test
+    void aFramedLineCentresItsRingOnTheBoxAndKeepsTheBoxWide() {
+        for (final FocusRing.Ground ground : FocusRing.Ground.values()) {
+            for (int rows = FocusRing.MIN_ROWS; rows <= 14; rows++) {
+                for (int art = 8; art <= 300; art++) {
+                    final Component framed =
+                            FocusRing.frame(Pen.start().move(art).build(), art, rows, ground);
+                    final List<Integer> expected = new ArrayList<>(List.of(0, art + FocusRing.MARGIN - 8));
+                    while (expected.size() < rows) {
+                        expected.add(0);
+                    }
+                    assertEquals(expected, Advances.rows(framed), ground + " " + rows + " rows, art " + art);
+                }
+            }
+        }
     }
 
     @Test

@@ -51,7 +51,11 @@ class ResourcePackTest {
     /** The ui fonts, each family once per shift. */
     private static final List<FontFile> UI_FONTS = Stream.of(
                     Stream.of(
-                            Glyphs.FONT_UI_SPACE, Glyphs.FONT_UI_PANEL, Glyphs.FONT_UI_TOOLTIP, Glyphs.FONT_UI_SILENT),
+                            Glyphs.FONT_UI_SPACE,
+                            Glyphs.FONT_UI_PANEL,
+                            Glyphs.FONT_UI_TOOLTIP,
+                            Glyphs.FONT_UI_RING,
+                            Glyphs.FONT_UI_SILENT),
                     Glyphs.FONT_UI_TEXT.values().stream(),
                     Glyphs.FONT_UI_ART.values().stream(),
                     Glyphs.FONT_UI_DIALOG.values().stream())

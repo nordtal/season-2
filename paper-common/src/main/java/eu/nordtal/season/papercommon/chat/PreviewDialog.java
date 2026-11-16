@@ -10,6 +10,7 @@ import eu.nordtal.season.packrendering.ui.BodyLine;
 import eu.nordtal.season.packrendering.ui.Colours;
 import eu.nordtal.season.packrendering.ui.DialogPanel;
 import eu.nordtal.season.packrendering.ui.DialogTitle;
+import eu.nordtal.season.packrendering.ui.FocusRing;
 import eu.nordtal.season.packrendering.ui.Letters;
 import eu.nordtal.season.packrendering.ui.Look;
 import eu.nordtal.season.packrendering.ui.Mark;
@@ -96,13 +97,14 @@ final class PreviewDialog {
         final List<Row> shown = paging.slice(rows, page);
         final BodyColumn column = BodyColumn.of(ROW, paging.paged())
                 .rows(shown.size(), paging.paged() ? EACH : 0, index -> line -> line(line, shown.get(index)));
-        body.add(Dialogs.line(column.build(), ROW));
+        body.add(Dialogs.line(column, FocusRing.Ground.BEVEL));
         if (paging.paged()) {
             final String said = words.label("pager", paging.page(page));
             body.add(Dialogs.line(
                     send.pager(BodyColumn.next(), paging, page, said, this::show)
                             .build(),
-                    Dialogs.pagerWidth(paging, page)));
+                    Dialogs.pagerWidth(paging, page),
+                    FocusRing.Ground.PANEL));
         }
         final DialogPanel panel = paging.paged()
                 ? DialogPanel.DRAFT_PREVIEW_113

@@ -1,15 +1,23 @@
 import { PlusIcon } from "@/components/ui/icons"
-import { Link, useNavigate, useParams } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
 
 import type { Npc, NpcView } from "@/lib/api"
 import { blankNpc } from "@/lib/npc"
+import { npcPath } from "@/lib/npc-paths"
 import { setNpcDraft, useNpcDraft, useNpcDraftIds } from "@/lib/npc-drafts"
 import { useNpcs } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 import { DataTable, type Column } from "@/components/steward/data-table"
-import { NpcEditor, npcTitle } from "@/components/steward/npc/editor"
-import { PageHeader } from "@/components/steward/page-header"
+import { npcTitle } from "@/components/steward/npc/editor"
+import { Panel } from "@/components/steward/panel"
 import { QueryState, SkeletonText } from "@/components/steward/query-state"
+import { SettingsService } from "@/components/steward/reference-picker"
+import { DIALOGUE_FILE, NETWORK, fileItemOf } from "@/components/steward/settings"
+import { ConfigFile } from "@/components/steward/settings-config"
+import type { Target } from "@/components/steward/settings-view"
+import { useConfigs, useDescriptors } from "@/lib/queries"
+import { onPendingJump, takePendingJump } from "@/lib/settings-search"
 import { StatusBadge } from "@/components/steward/status"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -44,8 +52,7 @@ const COLUMNS: Column<Row>[] = [
         {(npc) => (
           <span className="flex min-w-0 flex-col">
             <Link
-              to="/npcs/$id"
-              params={{ id: npc.id }}
+              {...npcPath(npc.id)}
               className="truncate rounded-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {npcTitle(npc)}
@@ -104,12 +111,22 @@ const COLUMNS: Column<Row>[] = [
   },
 ]
 
+/** The NPCs tab without an NPC open: every NPC, and the dialogue settings every NPC shares. */
+export function NpcsTab() {
+  return (
+    <div className="flex flex-col gap-10">
+      <NpcList />
+      <DialogueSettings />
+    </div>
+  )
+}
+
 /** Every NPC of the game, and the drafts of those that were never published. A row opens its editor. */
-export function NpcsPage() {
+function NpcList() {
   const npcs = useNpcs()
   const drafts = useNpcDraftIds()
   const navigate = useNavigate()
-  const open = (id: string) => navigate({ to: "/npcs/$id", params: { id } })
+  const open = (id: string) => navigate(npcPath(id))
   const create = () => {
     const id = crypto.randomUUID()
     setNpcDraft(id, { npc: blankNpc(id), base: 0 })
@@ -123,16 +140,13 @@ export function NpcsPage() {
     ]
   }
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={t("steward.npcs.title")}
-        actions={
-          <Button type="button" onClick={create}>
-            <PlusIcon aria-hidden />
-            {t("steward.npcs.create")}
-          </Button>
-        }
-      />
+    <section className="flex flex-col gap-4">
+      <div>
+        <Button type="button" onClick={create}>
+          <PlusIcon aria-hidden />
+          {t("steward.npcs.create")}
+        </Button>
+      </div>
       <QueryState query={npcs} isEmpty={(views) => rows(views).length === 0} empty={{ title: t("steward.npcs.none") }}>
         {(views) => (
           <DataTable
@@ -144,11 +158,39 @@ export function NpcsPage() {
           />
         )}
       </QueryState>
-    </div>
+    </section>
   )
 }
 
-export function NpcPage() {
-  const { id } = useParams({ from: "/npcs/$id" })
-  return <NpcEditor id={id} />
+/** Counts the palette's jumps, so the same hit twice lands twice. */
+let jumps = 0
+
+/** How a dialogue types, zooms and ends, for every NPC on every server. A palette hit on one of them lands here. */
+function DialogueSettings() {
+  const configs = useConfigs()
+  const descriptors = useDescriptors()
+  const [target, setTarget] = useState<Target | null>(null)
+  useEffect(() => {
+    const land = () => {
+      const jump = takePendingJump(DIALOGUE_FILE)
+      if (jump) setTarget({ file: jump.file, id: jump.path, seq: ++jumps })
+    }
+    land()
+    return onPendingJump(land)
+  }, [])
+  const location = configs.data?.find((each) => each.path === DIALOGUE_FILE)
+  if (configs.isSuccess && location === undefined) return null
+  return (
+    <Panel title={t("steward.npcs.dialogue-settings")}>
+      <QueryState query={configs} rows={4}>
+        {() =>
+          location ? (
+            <SettingsService value={NETWORK}>
+              <ConfigFile item={fileItemOf(location, descriptors.data ?? [])} target={target} />
+            </SettingsService>
+          ) : null
+        }
+      </QueryState>
+    </Panel>
+  )
 }

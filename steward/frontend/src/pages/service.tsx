@@ -8,6 +8,7 @@ import { bytes, dateTime, percent, relative, NO_VALUE } from "@/lib/format"
 import { useConfigs, useMetrics, useService } from "@/lib/queries"
 import { ServiceConsole } from "@/components/steward/console"
 import { NETWORK, NETWORK_PAGE, ServiceSettings } from "@/components/steward/settings"
+import { NPC_PAGE } from "@/lib/npc-paths"
 import { RouterTab } from "@/components/steward/router/router-tab"
 import { ServicePlugins } from "@/components/steward/plugins"
 import { HungerGamesActions } from "@/components/steward/game-actions"
@@ -29,9 +30,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { choice, since, t } from "@/lib/texts"
 import { serviceTitle } from "@/lib/words"
+import { NpcsTab } from "@/pages/npcs"
+import { NpcEditor } from "@/components/steward/npc/editor"
 
-/** What `/services/$name` keeps in its URL. Console is the default and is never written. */
-export type ServiceSearch = { tab?: "router" | "settings" | "plugins" | "announcements"; file?: string }
+/**
+ * What `/services/$name` keeps in its URL. Console is the default and is never written. `npc` opens one NPC's editor.
+ */
+export type ServiceSearch = {
+  tab?: "router" | "settings" | "plugins" | "announcements" | "npcs"
+  file?: string
+  npc?: string
+}
 
 export function serviceSearch(search: Record<string, unknown>): ServiceSearch {
   const answer: ServiceSearch = {}
@@ -39,14 +48,16 @@ export function serviceSearch(search: Record<string, unknown>): ServiceSearch {
     search.tab === "router" ||
     search.tab === "settings" ||
     search.tab === "plugins" ||
-    search.tab === "announcements"
+    search.tab === "announcements" ||
+    search.tab === "npcs"
   )
     answer.tab = search.tab
   if (typeof search.file === "string" && search.file !== "") answer.file = search.file
+  if (typeof search.npc === "string" && search.npc !== "") answer.npc = search.npc
   return answer
 }
 
-type Tab = "console" | "router" | "settings" | "plugins" | "announcements"
+type Tab = "console" | "router" | "settings" | "plugins" | "announcements" | "npcs"
 
 /** Returns which tabs this service has, or `undefined` until they are known. */
 export function useServiceTabs(name: string): Tab[] | undefined {
@@ -64,6 +75,7 @@ export function useServiceTabs(name: string): Tab[] | undefined {
     "console",
     ...(router ? (["router"] as const) : []),
     ...(settings ? (["settings"] as const) : []),
+    ...(name === NPC_PAGE ? (["npcs"] as const) : []),
     ...(name === "discord-bot" ? (["announcements"] as const) : []),
     ...(service.data?.hasPlugins ? (["plugins"] as const) : []),
   ]
@@ -106,7 +118,7 @@ export function ServicePage() {
                 ? {}
                 : next === "settings"
                   ? { tab: "settings", file: previous.file }
-                  : { tab: next === "router" || next === "announcements" ? next : "plugins" },
+                  : { tab: next === "router" || next === "announcements" || next === "npcs" ? next : "plugins" },
             replace: true,
           })
         }
@@ -129,6 +141,12 @@ export function ServicePage() {
                 <TabsTrigger value="settings" className="sm:px-3">
                   <TERM_ICON.settings aria-hidden />
                   {t("steward.service-page.settings")}
+                </TabsTrigger>
+              ) : null}
+              {tabs.includes("npcs") ? (
+                <TabsTrigger value="npcs" className="sm:px-3">
+                  <TERM_ICON.npc aria-hidden />
+                  {t("steward.npcs.title")}
                 </TabsTrigger>
               ) : null}
               {tabs.includes("announcements") ? (
@@ -182,6 +200,10 @@ export function ServicePage() {
               void navigate({ search: file ? { tab: "settings", file } : { tab: "settings" }, replace })
             }
           />
+        </TabsContent>
+
+        <TabsContent value="npcs" className="flex flex-col gap-6">
+          {tabs?.includes("npcs") ? search.npc ? <NpcEditor key={search.npc} id={search.npc} /> : <NpcsTab /> : null}
         </TabsContent>
 
         <TabsContent value="announcements" className="flex flex-col gap-6">

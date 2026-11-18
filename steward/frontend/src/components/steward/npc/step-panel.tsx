@@ -24,6 +24,7 @@ import {
 import { measureKey } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 import { cn } from "@/lib/utils"
+import { German, germanKey } from "@/components/steward/npc/german"
 import { menuName } from "@/components/steward/npc/graph"
 import { Hint } from "@/components/steward/status"
 import { Button } from "@/components/ui/button"
@@ -208,6 +209,34 @@ function ThenPicker({
   )
 }
 
+function AnswerText({
+  step,
+  answer,
+  index,
+  language,
+  wide,
+  edit,
+}: {
+  step: NpcStep
+  answer: NpcAnswer
+  index: number
+  language: Language
+  wide: boolean
+  edit: Edit
+}) {
+  return (
+    <Textarea
+      lang={language}
+      rows={1}
+      aria-label={t("steward.npcs.answer-text", { index: index + 1, language })}
+      value={answer.text[language]}
+      maxLength={LONGEST_TEXT}
+      className={cn("min-h-8 resize-none", wide && "border-warning")}
+      onChange={(event) => edit((draft) => setAnswerText(draft, step.id, index, language, event.target.value))}
+    />
+  )
+}
+
 /** One answer: its two texts, where it leads, and the mark of a text the panel cuts. */
 function AnswerRow({
   npc,
@@ -231,20 +260,16 @@ function AnswerRow({
   const wide = useKept(fits.includes(undefined) ? undefined : fits.includes(false), `${step.id}:${index}`) === true
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="grid grid-cols-1 gap-1.5 xl:grid-cols-2">
-        {LANGUAGES.map((language) => (
-          <Textarea
-            key={language}
-            lang={language}
-            rows={1}
-            aria-label={t("steward.npcs.answer-text", { index: index + 1, language })}
-            value={answer.text[language]}
-            maxLength={LONGEST_TEXT}
-            className={cn("min-h-8 resize-none", wide && "border-warning")}
-            onChange={(event) => edit((draft) => setAnswerText(draft, step.id, index, language, event.target.value))}
-          />
-        ))}
-        <div className="flex min-w-0 items-start gap-1 xl:col-span-2">
+      <div className="flex flex-col gap-1.5">
+        <AnswerText step={step} answer={answer} index={index} language="en" wide={wide} edit={edit} />
+        <German
+          id={germanKey.answer(step.id, index)}
+          missing={answer.text.de.trim() === ""}
+          long={fits[LANGUAGES.indexOf("de")] === false}
+        >
+          <AnswerText step={step} answer={answer} index={index} language="de" wide={wide} edit={edit} />
+        </German>
+        <div className="flex min-w-0 items-start gap-1">
           <ThenPicker
             label={t("steward.npcs.answer-then", { index: index + 1 })}
             then={answer.next === undefined ? { to: "end" } : { to: "step", step: answer.next }}
@@ -360,9 +385,17 @@ export function StepPanel({
         >
           {t("steward.npcs.step")}
         </Heading>
-        {LANGUAGES.map((language) => (
-          <StepText key={language} step={step} language={language} measured={measured} edit={edit} />
-        ))}
+        <StepText step={step} language="en" measured={measured} edit={edit} />
+        <German
+          id={germanKey.step(step.id)}
+          missing={step.text.de.trim() === ""}
+          long={
+            measured?.get(measureKey({ text: step.text.de, kind: "BODY", answers: step.answers.length }))?.fits ===
+            false
+          }
+        >
+          <StepText step={step} language="de" measured={measured} edit={edit} />
+        </German>
         {step.answers.length > 0 ? null : (
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-muted-foreground">{t("steward.npcs.then")}</span>

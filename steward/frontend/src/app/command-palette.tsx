@@ -29,7 +29,8 @@ import {
 import { Skeleton, SkeletonText } from "@/components/steward/query-state"
 import { entryHaystack, rankHits, rankValue, searchAcross, searchValue, setPendingJump } from "@/lib/settings-search"
 import { TranslationHits } from "@/app/translation-hits"
-import { NETWORK, NETWORK_PAGE } from "@/components/steward/settings"
+import { DIALOGUE_FILE, NETWORK, NETWORK_PAGE } from "@/components/steward/settings"
+import { NPC_PAGE } from "@/lib/npc-paths"
 import { pluginFileId, pluginLabel } from "@/lib/settings-tree"
 import { runKind, runStatus } from "@/components/steward/status"
 import { t } from "@/lib/texts"
@@ -302,8 +303,14 @@ export function CommandPalette() {
                     keywords={[entryHaystack(hit.entry)]}
                     onSelect={() => {
                       setOpen(false)
-                      setPendingJump(service, { file: hit.location.path, path: hit.entry.path })
-                      // The network's settings are on the proxy's page.
+                      const jump = { file: hit.location.path, path: hit.entry.path }
+                      // The NPC dialogue settings are in the NPCs tab, the rest of the network's on the proxy's page.
+                      if (hit.location.path === DIALOGUE_FILE) {
+                        setPendingJump(DIALOGUE_FILE, jump)
+                        void navigate({ to: "/services/$name", params: { name: NPC_PAGE }, search: { tab: "npcs" } })
+                        return
+                      }
+                      setPendingJump(service, jump)
                       void navigate({
                         to: "/services/$name",
                         params: { name: service === NETWORK ? NETWORK_PAGE : service },

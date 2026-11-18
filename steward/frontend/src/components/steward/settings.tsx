@@ -34,6 +34,9 @@ export const NETWORK = "network"
 /** The service whose Settings tab lists the network's settings too. */
 export const NETWORK_PAGE = "proxy"
 
+/** The network's NPC dialogue settings. They live in the NPCs tab of the SMP page, so no Settings tab lists them. */
+export const DIALOGUE_FILE = `${NETWORK}/npc-dialogue`
+
 /**
  * The open file is the page's `?file=`. The page passes it in and receives changes through a callback.
  * The files of `also` share the list, as the network's do on the proxy's page.
@@ -293,17 +296,21 @@ function byLabel(a: FileItem, b: FileItem): number {
   return a.label.localeCompare(b.label)
 }
 
+export function fileItemOf(location: ConfigLocation, descriptors: PluginDescriptor[]): FileItem {
+  return {
+    id: location.path,
+    label: fileTitle(location.name),
+    readable: location.readable,
+    writable: location.writable,
+    location,
+    editor: descriptorOf(descriptors, location.service)?.editors[location.name],
+  }
+}
+
 function filesOf(services: string[], configs: ConfigLocation[], descriptors: PluginDescriptor[]): FileItem[] {
   const settings: FileItem[] = configs
-    .filter((file) => services.includes(file.service))
-    .map((location) => ({
-      id: location.path,
-      label: fileTitle(location.name),
-      readable: location.readable,
-      writable: location.writable,
-      location,
-      editor: descriptorOf(descriptors, location.service)?.editors[location.name],
-    }))
+    .filter((file) => services.includes(file.service) && file.path !== DIALOGUE_FILE)
+    .map((location) => fileItemOf(location, descriptors))
   return settings.toSorted(byLabel)
 }
 

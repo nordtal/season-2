@@ -2,8 +2,17 @@ import { CopyIcon, TrashIcon, UploadSimpleIcon, XIcon } from "@/components/ui/ic
 import { useId, useRef, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 
-import { errorMessage, type Npc, type NpcPlace, type NpcSkinUploaded, type Pose, type Slot } from "@/lib/api"
-import { type Language, LANGUAGES, LONGEST_NAME } from "@/lib/npc"
+import {
+  errorMessage,
+  type ConfigEntry,
+  type Npc,
+  type NpcPlace,
+  type NpcSkinUploaded,
+  type Pose,
+  type Slot,
+} from "@/lib/api"
+import { type Language, LONGEST_NAME } from "@/lib/npc"
+import { NPC_PAGE } from "@/lib/npc-paths"
 import { SKIN_SIDE, readSkin } from "@/lib/npc-skin"
 import { measureKey, useCopySkin, useUploadSkin } from "@/lib/queries-npcs"
 import { useGameData } from "@/lib/queries-settings"
@@ -12,7 +21,9 @@ import { choice, t } from "@/lib/texts"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { GameIcon } from "@/components/steward/game-icon"
 import { TakeInButton } from "@/components/steward/game-groups/take-in"
-import { TakePosition, type TakenPosition } from "@/components/steward/game-groups/take-position"
+import { FixedPlace } from "@/components/steward/game-groups/places"
+import { SettingsService } from "@/components/steward/reference-picker"
+import { German, germanKey } from "@/components/steward/npc/german"
 import { FigureCard } from "@/components/steward/npc/preview"
 import { Heading, Room, useKept, type Measured } from "@/components/steward/npc/step-panel"
 import { Hint } from "@/components/steward/status"
@@ -61,35 +72,6 @@ function Name({ npc, language, measured, edit }: { npc: Npc; language: Language;
   )
 }
 
-/** A number as it is typed. The NPC takes it once it is one, and a value from elsewhere, such as a taken position, replaces what was typed. */
-function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
-  const id = useId()
-  const [typed, setTyped] = useState(String(value))
-  const [from, setFrom] = useState(value)
-  if (from !== value) {
-    setFrom(value)
-    if (Number(typed) !== value) setTyped(String(value))
-  }
-  return (
-    <Field id={id} label={label}>
-      <Input
-        id={id}
-        inputMode="decimal"
-        value={typed}
-        aria-invalid={typed.trim() === "" || !Number.isFinite(Number(typed))}
-        className="font-mono tabular-nums"
-        onChange={(event) => {
-          const text = event.target.value.replace(",", ".")
-          if (!/^-?\d*\.?\d*$/.test(text)) return
-          setTyped(text)
-          const number = Number(text)
-          if (text.trim() !== "" && Number.isFinite(number)) onChange(number)
-        }}
-      />
-    </Field>
-  )
-}
-
 /** A facing as the NPC stores it: from 180 degrees left to 180 right, in tenths. */
 function facing(yaw: number): number {
   const turned = ((((yaw + 180) % 360) + 360) % 360) - 180
@@ -100,42 +82,92 @@ function hundredth(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-/** Where the admin's player stands and faces, as the NPC's place. */
-export function placeOf(taken: TakenPosition): NpcPlace {
+/** The NPC's place as a spot of the settings: world, X, Y, Z and facing, so it draws as smp's places do. */
+const PLACE_FIELDS: ConfigEntry[] = [
+  placeField("world", t("steward.npcs.world"), "STRING", { refers: { to: "WORLD", optional: false } }),
+  placeField("x", "X", "DECIMAL"),
+  placeField("y", "Y", "DECIMAL"),
+  placeField("z", "Z", "DECIMAL"),
+  placeField("yaw", t("steward.npcs.facing"), "DECIMAL"),
+]
+
+function placeField(
+  key: string,
+  label: string,
+  type: ConfigEntry["type"],
+  more: Partial<ConfigEntry> = {},
+): ConfigEntry {
   return {
-    world: taken.world,
-    x: hundredth(taken.x),
-    y: hundredth(taken.y),
-    z: hundredth(taken.z),
-    yaw: facing(taken.yaw),
+    path: `place.${key}`,
+    key,
+    label,
+    explanation: "",
+    noExplanationNeeded: true,
+    kind: "SCALAR",
+    type,
+    editable: true,
+    secret: false,
+    environmentOverridden: false,
+    filled: true,
+    ...more,
   }
 }
 
+function valuesOf(place: NpcPlace): Record<string, string> {
+  return { world: place.world, x: String(place.x), y: String(place.y), z: String(place.z), yaw: String(place.yaw) }
+}
+
+/** A typed number as the NPC stores it: a facing in tenths from -180 to 180, a coordinate in hundredths. */
+function stored(key: string, value: string): number | undefined {
+  const number = Number(value.replace(",", "."))
+  if (value.trim() === "" || !Number.isFinite(number)) return undefined
+  return key === "yaw" ? facing(number) : hundredth(number)
+}
+
+/**
+ * Whether what is typed stores as the place, so a value from elsewhere, such as a taken position, replaces it only
+ * then and a number being typed keeps its digits.
+ */
+function agrees(typed: Record<string, string>, place: NpcPlace): boolean {
+  return (
+    typed.world === place.world &&
+    (["x", "y", "z", "yaw"] as const).every((key) => stored(key, typed[key] ?? "") === place[key])
+  )
+}
+
+/** The Position tile with Take my position, as smp's settings draw a spot. A typed number counts once it is one. */
 function Place({ npc, edit }: { npc: Npc; edit: Edit }) {
-  const world = useId()
-  const set = (change: Partial<NpcPlace>) => edit((draft) => ({ ...draft, place: { ...draft.place, ...change } }))
+  const [typed, setTyped] = useState(() => valuesOf(npc.place))
+  const [from, setFrom] = useState(npc.place)
+  if (from !== npc.place) {
+    setFrom(npc.place)
+    if (!agrees(typed, npc.place)) setTyped(valuesOf(npc.place))
+  }
+  const change = (key: string, value: string) => {
+    setTyped((before) => ({ ...before, [key]: value }))
+    if (key === "world") {
+      edit((draft) => ({ ...draft, place: { ...draft.place, world: value } }))
+      return
+    }
+    const number = stored(key, value)
+    if (number === undefined) return
+    edit((draft) => ({ ...draft, place: { ...draft.place, [key]: number } }))
+  }
   return (
     <section className="flex flex-col gap-3">
       <Heading>{t("steward.npcs.place")}</Heading>
-      {npc.place.world.trim() === "" ? (
-        <p className="text-sm text-muted-foreground">{t("steward.npcs.no-place")}</p>
-      ) : null}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <div className="col-span-2">
-          <Field id={world} label={t("steward.npcs.world")}>
-            <Input id={world} value={npc.place.world} onChange={(event) => set({ world: event.target.value })} />
-          </Field>
-        </div>
-        <NumberField label="X" value={npc.place.x} onChange={(x) => set({ x })} />
-        <NumberField label="Y" value={npc.place.y} onChange={(y) => set({ y })} />
-        <NumberField label="Z" value={npc.place.z} onChange={(z) => set({ z })} />
-        <NumberField
-          label={t("steward.npcs.facing")}
-          value={npc.place.yaw}
-          onChange={(yaw) => set({ yaw: facing(yaw) })}
+      <SettingsService value={NPC_PAGE}>
+        <FixedPlace
+          id="npc-place"
+          name={t("steward.npcs.place")}
+          position="SPOT"
+          fields={PLACE_FIELDS}
+          values={typed}
+          disabled={false}
+          invalid={npc.place.world.trim() === ""}
+          onChange={change}
         />
-      </div>
-      <TakePosition shape="spot" disabled={false} onTaken={(taken) => set(placeOf(taken))} />
+      </SettingsService>
     </section>
   )
 }
@@ -362,11 +394,14 @@ export function NpcSettings({
       <div className="flex min-w-0 flex-col gap-8">
         <section className="flex flex-col gap-3">
           <Heading>{t("steward.npcs.name")}</Heading>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {LANGUAGES.map((language) => (
-              <Name key={language} npc={npc} language={language} measured={measured} edit={edit} />
-            ))}
-          </div>
+          <Name npc={npc} language="en" measured={measured} edit={edit} />
+          <German
+            id={germanKey.name}
+            missing={npc.name.de.trim() === ""}
+            long={measured?.get(measureKey({ text: npc.name.de, kind: "NAME", answers: 0 }))?.fits === false}
+          >
+            <Name npc={npc} language="de" measured={measured} edit={edit} />
+          </German>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field id={pose} label={t("steward.npcs.pose")}>
               <Select

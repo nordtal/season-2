@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.nordtal.season.common.language.Languages;
+import eu.nordtal.season.discordbot.Mark;
 import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
@@ -123,5 +124,12 @@ class LanguagesTest {
                         List.of(EN, new GuildLanguages.Language("en", "English", "41", "42", "43", "44"), DE),
                         NETWORK));
         assertTrue(error.getMessage().contains("unique"), error.getMessage());
+    }
+
+    @Test
+    void aLanguageWithoutAnEmojiShowsGermanysFlagForGermanAndAGlobeForAnyOther() {
+        assertEquals(Mark.flag("DE"), GuildLanguages.emojiOf("de", ""));
+        assertEquals(Mark.GLOBE, GuildLanguages.emojiOf("en", " "));
+        assertEquals(Mark.flag("GB"), GuildLanguages.emojiOf("en", " " + Mark.flag("GB") + " "));
     }
 }

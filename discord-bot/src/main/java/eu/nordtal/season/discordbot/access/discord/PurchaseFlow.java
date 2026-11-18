@@ -11,6 +11,7 @@ import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.Ids;
+import eu.nordtal.season.discordbot.PrivateReplies;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordbot.access.payment.Purchases;
@@ -98,9 +99,11 @@ public final class PurchaseFlow extends ListenerAdapter {
     /** Held while the row is read and the message is edited, so a stale "being created" text cannot hide the link. */
     private final Object drawing = new Object();
 
-    private record Waiting(InteractionHook hook, Locale locale, Instant since) {}
+    private record Waiting(InteractionHook hook, String message, Locale locale, Instant since) {}
 
     private final Clock clock;
+
+    private final PrivateReplies replies;
 
     public PurchaseFlow(
             final Tiers tiers,
@@ -110,7 +113,9 @@ public final class PurchaseFlow extends ListenerAdapter {
             final AccessRoles roles,
             final AdminLog admin,
             final Executor executor,
+            final PrivateReplies replies,
             final Clock clock) {
+        this.replies = replies;
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.tiers = tiers;
         this.purchases = purchases;
@@ -153,28 +158,27 @@ public final class PurchaseFlow extends ListenerAdapter {
      * @return whether the step was refused, with a reply that says so
      */
     private boolean refusedWhileClosed(final IReplyCallback event, final Locale locale) {
-        return refusedWhileClosed(event, locale, documents, purchases::onSale);
+        return refusedWhileClosed(event, locale, documents, replies, purchases::onSale);
     }
 
     static boolean refusedWhileClosed(
             final IReplyCallback event,
             final Locale locale,
             final DocumentRenderer documents,
+            final PrivateReplies replies,
             final BooleanSupplier onSale) {
         final boolean open;
         try {
             open = onSale.getAsBoolean();
         } catch (final RuntimeException unreadable) {
             log.warn("season launch date unreadable, purchase refused", unreadable);
-            event.reply(documents.reply(locale, Replies.PURCHASE_FAILED).create())
-                    .setEphemeral(true)
-                    .queue();
+            replies.reply(
+                    event, documents.reply(locale, Replies.PURCHASE_FAILED).create());
             return true;
         }
         if (!open) {
-            event.reply(documents.reply(locale, Replies.PURCHASE_CLOSED).create())
-                    .setEphemeral(true)
-                    .queue();
+            replies.reply(
+                    event, documents.reply(locale, Replies.PURCHASE_CLOSED).create());
         }
         return !open;
     }
@@ -200,7 +204,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                 .map(PaymentRequest::donationRequested)
                 .orElse(false);
 
-        event.deferEdit().queue();
+        replies.deferEdit(event);
         executor.execute(() -> {
             try {
                 final PaymentRequest request =
@@ -215,9 +219,10 @@ public final class PurchaseFlow extends ListenerAdapter {
     private void chooseDays(final ButtonInteractionEvent event, final Locale locale) {
         final DocumentRenderer.Drawn drawn = choose(documents, tiers, locale);
         if (Ids.CHANGE.equals(event.getComponentId())) {
-            event.editMessage(drawn.edit()).queue();
+            replies.deferEdit(event);
+            event.getHook().editOriginal(drawn.edit()).queue();
         } else {
-            event.reply(drawn.create()).setEphemeral(true).queue();
+            replies.reply(event, drawn.create());
         }
     }
 
@@ -248,7 +253,7 @@ public final class PurchaseFlow extends ListenerAdapter {
             return;
         }
 
-        event.deferEdit().queue();
+        replies.deferEdit(event);
         executor.execute(() -> {
             try {
                 showSummary(
@@ -271,7 +276,8 @@ public final class PurchaseFlow extends ListenerAdapter {
         }
 
         final PaymentRequest request = open.get();
-        event.deferEdit().queue();
+        replies.keep(event.getMessageId());
+        replies.deferEdit(event);
         executor.execute(() -> {
             try {
                 purchases.confirm(request);
@@ -279,9 +285,14 @@ public final class PurchaseFlow extends ListenerAdapter {
                 synchronized (drawing) {
                     final PaymentRequest fresh = requests.byId(request.id()).orElse(request);
                     if (settled(event.getHook(), locale, fresh, Duration.ZERO)) {
+                        replies.release(event.getMessageId());
                         return;
                     }
-                    waiting.put(request.id(), new Waiting(event.getHook(), locale, clock.instant()));
+                    final Waiting before = waiting.put(
+                            request.id(), new Waiting(event.getHook(), event.getMessageId(), locale, clock.instant()));
+                    if (before != null && !before.message().equals(event.getMessageId())) {
+                        replies.release(before.message());
+                    }
                     event.getHook()
                             .editOriginal(documents
                                     .reply(locale, Replies.PURCHASE_PENDING)
@@ -289,10 +300,18 @@ public final class PurchaseFlow extends ListenerAdapter {
                             .queue();
                 }
             } catch (final RuntimeException exception) {
-                waiting.remove(request.id());
+                forget(request.id());
+                replies.release(event.getMessageId());
                 fail(event, locale, "asking for the payment link", exception);
             }
         });
+    }
+
+    private void forget(final UUID request) {
+        final Waiting waiter = waiting.remove(request);
+        if (waiter != null) {
+            replies.release(waiter.message());
+        }
     }
 
     public void fillIn() {
@@ -306,12 +325,14 @@ public final class PurchaseFlow extends ListenerAdapter {
                 final Map.Entry<UUID, Waiting> entry = entries.next();
                 final Optional<PaymentRequest> row = requests.byId(entry.getKey());
                 if (row.isEmpty()) {
+                    replies.release(entry.getValue().message());
                     entries.remove();
                     continue;
                 }
                 final Waiting waiter = entry.getValue();
                 final Duration waited = Duration.between(waiter.since(), clock.instant());
                 if (settled(waiter.hook(), waiter.locale(), row.get(), waited)) {
+                    replies.release(waiter.message());
                     entries.remove();
                 }
             }
@@ -393,7 +414,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     }
 
     private void reply(final IReplyCallback event, final Locale locale, final DocumentSpec<DocumentSpec.None> text) {
-        event.reply(documents.reply(locale, text).create()).setEphemeral(true).queue();
+        replies.reply(event, documents.reply(locale, text).create());
     }
 
     private void fail(

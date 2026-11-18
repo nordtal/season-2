@@ -13,10 +13,12 @@ import eu.nordtal.season.database.payment.PaymentRequestStatus;
 import eu.nordtal.season.database.payment.Tier;
 import eu.nordtal.season.database.payment.Tiers;
 import eu.nordtal.season.discordbot.Ids;
+import eu.nordtal.season.discordbot.PrivateReplies;
 import eu.nordtal.season.discordbot.StoredDocumentsStandIn;
 import eu.nordtal.season.discordbot.access.payment.Purchases;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
 import java.lang.reflect.Proxy;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -29,6 +31,7 @@ import net.dv8tion.jda.api.components.buttons.ButtonStyle;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.tree.MessageComponentTree;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.interactions.callbacks.IReplyCallback;
 import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
@@ -42,6 +45,8 @@ class PurchaseFlowTest {
     private static final Tiers TIERS = Tiers.of(List.of(new Tier(30, 500), new Tier(90, 1250)), 300);
 
     private static final Instant NOW = Instant.parse("2026-10-18T12:00:00Z");
+
+    private static final PrivateReplies REPLIES = new PrivateReplies(Clock.systemUTC());
 
     @Test
     void theChoiceAsksInOneBoxOverASelectOfEveryTier() {
@@ -128,8 +133,8 @@ class PurchaseFlowTest {
     void everyStepOfAPurchaseIsRefusedWithoutALaunchDateInEitherLanguage() {
         final List<String> replies = new ArrayList<>();
 
-        assertTrue(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.ENGLISH, RENDERER, () -> false));
-        assertTrue(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.GERMAN, RENDERER, () -> false));
+        assertTrue(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.ENGLISH, RENDERER, REPLIES, () -> false));
+        assertTrue(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.GERMAN, RENDERER, REPLIES, () -> false));
 
         assertEquals(2, replies.size());
         assertTrue(replies.getFirst().contains("once the season has a start date"), replies.getFirst());
@@ -141,7 +146,7 @@ class PurchaseFlowTest {
     void aSeasonWithALaunchDateLetsThePurchaseGoOnWithoutAWord() {
         final List<String> replies = new ArrayList<>();
 
-        assertFalse(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.ENGLISH, RENDERER, () -> true));
+        assertFalse(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.ENGLISH, RENDERER, REPLIES, () -> true));
         assertEquals(List.of(), replies);
     }
 
@@ -149,7 +154,7 @@ class PurchaseFlowTest {
     void aSeasonThatCannotBeReadRefusesThePurchaseAsFailedRatherThanSellingBlind() {
         final List<String> replies = new ArrayList<>();
 
-        assertTrue(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.ENGLISH, RENDERER, () -> {
+        assertTrue(PurchaseFlow.refusedWhileClosed(callback(replies), Locale.ENGLISH, RENDERER, REPLIES, () -> {
             throw new IllegalStateException("the database is gone");
         }));
         assertEquals(1, replies.size());
@@ -175,6 +180,12 @@ class PurchaseFlowTest {
                 });
         return (IReplyCallback) Proxy.newProxyInstance(
                 IReplyCallback.class.getClassLoader(), new Class<?>[] {IReplyCallback.class}, (proxy, method, args) -> {
+                    if (method.getName().equals("getUser")) {
+                        return Proxy.newProxyInstance(
+                                User.class.getClassLoader(),
+                                new Class<?>[] {User.class},
+                                (user, asked, none) -> "300000000000000003");
+                    }
                     if (!method.getName().equals("reply") || !(args[0] instanceof MessageCreateData data)) {
                         throw new UnsupportedOperationException(method.getName());
                     }

@@ -174,6 +174,15 @@ public interface AccessSpec {
             return "";
         }
 
+        /** Empty means the default: the flag of Germany for German, a globe for every other language. */
+        @Order(10)
+        @Name("Discord emoji")
+        @Key("emoji")
+        @Explain("Shown before the language's name in the language select.")
+        default String emoji() {
+            return "";
+        }
+
         /** The bot posts milestones and season announcements here for this language. */
         @Order(7)
         @Name("Announcement channel")

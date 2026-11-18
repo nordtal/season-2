@@ -12,33 +12,24 @@
           "lines": [
             {
               "text": {
-                "en": "Welcome to Nordtal",
-                "de": "Willkommen auf Nordtal"
+                "en": "Welcome to Nordtal"
               },
               "style": "TITLE"
             }
           ]
         },
         {
-          "type": "LANGUAGES",
-          "slot": "each",
-          "parts": [
+          "type": "TEXT",
+          "lines": [
             {
-              "type": "TEXT",
-              "lines": [
-                {
-                  "text": {
-                    "en": "Choose your country.",
-                    "de": "Wähle dein Land."
-                  }
-                },
-                {
-                  "text": {
-                    "en": "Your country is saved as soon as you select it.",
-                    "de": "Dein Land wird direkt nach der Auswahl gespeichert."
-                  }
-                }
-              ]
+              "text": {
+                "en": "Choose your country to start."
+              }
+            },
+            {
+              "text": {
+                "en": "Then check your country and language and confirm them."
+              }
             }
           ]
         },
@@ -48,20 +39,7 @@
             {
               "slot": "countries",
               "placeholder": {
-                "en": "Choose your country",
-                "de": "Land wählen"
-              }
-            }
-          ]
-        },
-        {
-          "type": "ROW",
-          "items": [
-            {
-              "slot": "settings",
-              "label": {
-                "en": "Show settings",
-                "de": "Einstellungen anzeigen"
+                "en": "Choose your country"
               }
             }
           ]

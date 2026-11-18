@@ -23,10 +23,20 @@ public final class Ids {
 
     public static final String LINK_CODE_INPUT = "access:link-code";
 
+    /** The country select of the choose channel. */
     public static final String ONBOARD_COUNTRY = "access:onboard-country";
-    public static final String ONBOARD_SETTINGS = "access:onboard-settings";
-    public static final String ONBOARD_LANGUAGE = "access:onboard-language:";
-    public static final String ONBOARD = "access:onboard:";
+
+    /** The Show settings button of the change channel, followed by the tag of the text it stands in. */
+    public static final String ONBOARD_SETTINGS = "access:onboard-settings:";
+
+    /** The components of the confirm dialog, followed by the field and the dialog's state. */
+    public static final String ONBOARD_DRAFT = "access:onboard-draft:";
+
+    /** The country select of the settings dialog, which saves at once. */
+    public static final String ONBOARD_SET_COUNTRY = "access:onboard-set-country";
+
+    /** The language select of the settings dialog, which saves at once. */
+    public static final String ONBOARD_SET_LANGUAGE = "access:onboard-set-language";
 
     private Ids() {}
 }

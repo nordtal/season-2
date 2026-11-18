@@ -1,7 +1,14 @@
-import { ClockCounterClockwiseIcon, LayoutIcon, PlusIcon, SpinnerIcon, XIcon } from "@/components/ui/icons"
+import {
+  ArrowLeftIcon,
+  ClockCounterClockwiseIcon,
+  LayoutIcon,
+  PlusIcon,
+  SpinnerIcon,
+  XIcon,
+} from "@/components/ui/icons"
 import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
-import { useMemo, useRef, useState } from "react"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { type ReactNode, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import {
@@ -27,6 +34,7 @@ import {
   stepOf,
 } from "@/lib/npc"
 import { readNpcDraft, setNpcDraft, useNpcDraft } from "@/lib/npc-drafts"
+import { NPCS_PATH } from "@/lib/npc-paths"
 import { finalRun } from "@/lib/queries-commands"
 import { keys } from "@/lib/query-keys"
 import { measureKey, useNpc, useNpcMeasurements, useNpcMenus, usePublishNpc, useRemoveNpc } from "@/lib/queries-npcs"
@@ -34,11 +42,11 @@ import { message, t } from "@/lib/texts"
 import { useDebounced } from "@/lib/use-debounced"
 import { AskThenAct } from "@/components/steward/ask-then-act"
 import { StepCanvas, StepList, type TooLong } from "@/components/steward/npc/graph"
+import { GermanProvider, germanKey } from "@/components/steward/npc/german"
 import { DialoguePreview, requestsOf } from "@/components/steward/npc/preview"
 import { NpcSettings } from "@/components/steward/npc/settings"
 import { Heading, StepPanel } from "@/components/steward/npc/step-panel"
 import { NpcVersions } from "@/components/steward/npc/versions"
-import { PageHeader } from "@/components/steward/page-header"
 import { QueryState, Skeleton } from "@/components/steward/query-state"
 import { StatusBadge } from "@/components/steward/status"
 import { TERM_ICON } from "@/components/steward/term-icons"
@@ -72,6 +80,17 @@ function isTooLong(value: unknown): value is [string, Language[]][] {
 function toTooLong(marks: string): TooLong {
   const parsed: unknown = JSON.parse(marks)
   return new Map(isTooLong(parsed) ? parsed : [])
+}
+
+/** The German sections that hold the text a problem lacks: the name, a step's text, or each of its answers without one. */
+function germanOf(npc: Npc, problem: Problem): string[] {
+  if (problem.problem === "name") return [germanKey.name]
+  if (problem.problem === "step-text") return [germanKey.step(problem.step)]
+  if (problem.problem !== "answer-text") return []
+  const answers = stepOf(npc.dialogue, problem.step)?.answers ?? []
+  return answers.flatMap((answer, index) =>
+    answer.text.de.trim() === "" ? [germanKey.answer(problem.step, index)] : [],
+  )
 }
 
 /** The NPC's name as the page calls it: the English one, as Steward is English. */
@@ -112,12 +131,29 @@ export function NpcEditor({ id }: { id: string }) {
   )
 }
 
+/** The editor's head inside the NPCs tab: the way back to the list, the NPC's name and its actions. */
+function EditorHead({ title, actions }: { title: string; actions?: ReactNode }) {
+  return (
+    <header className="flex flex-wrap items-center justify-between gap-4">
+      <div className="-ml-2 flex min-w-0 items-center gap-1">
+        <Button asChild variant="ghost" size="icon-sm">
+          <Link {...NPCS_PATH} aria-label={t("steward.npcs.back")}>
+            <ArrowLeftIcon aria-hidden />
+          </Link>
+        </Button>
+        <h2 className="truncate text-xl font-semibold font-heading tracking-tight">{title}</h2>
+      </div>
+      {actions ? <div className="flex max-w-full flex-wrap items-center justify-end gap-2">{actions}</div> : null}
+    </header>
+  )
+}
+
 /** The editor before its NPC is read: the title, the tabs, then the canvas beside the step's fields. */
 function Waiting() {
   return (
     <div className="flex flex-col gap-6" role="status" aria-busy="true">
       <span className="sr-only">{t("steward.failure.loading")}</span>
-      <Skeleton className="h-9 w-56" />
+      <Skeleton className="h-8 w-56" />
       <Skeleton className="h-8 w-40" />
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Skeleton className="h-list xl:col-span-2" />
@@ -151,6 +187,14 @@ function Editor({
   const [tab, setTab] = useState<Tab>(published === undefined ? "settings" : "dialogue")
   const [picked, setPicked] = useState(npc.dialogue.start)
   const [language, setLanguage] = useState<Language>("en")
+  const [german, setGerman] = useState<ReadonlySet<string>>(() => new Set())
+  const toggleGerman = (key: string, open: boolean) =>
+    setGerman((before) => {
+      const after = new Set(before)
+      if (open) after.add(key)
+      else after.delete(key)
+      return after
+    })
   const [versions, setVersions] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [playing, setPlaying] = useState<string | null>(null)
@@ -215,6 +259,9 @@ function Editor({
       setPicked(problem.step)
     } else {
       setTab("settings")
+    }
+    if ("language" in problem && problem.language === "de") {
+      for (const key of germanOf(npc, problem)) toggleGerman(key, true)
     }
   }
 
@@ -298,177 +345,179 @@ function Editor({
   const graph = { dialogue: npc.dialogue, menus: menus.data ?? [], selected: step.id, tooLong, missing }
   const live = published?.version ?? 0
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={title}
-        actions={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Badge variant="secondary">
-              {live === 0 ? t("steward.npcs.not-published") : t("steward.npcs.live", { version: live })}
-            </Badge>
-            {dirty && live > 0 ? <StatusBadge tone="warn">{t("steward.npcs.changed")}</StatusBadge> : null}
-            {dirty ? (
-              <AskThenAct
-                trigger={
-                  <Button type="button" variant="ghost">
-                    {t("steward.npcs.discard")}
-                  </Button>
+    <GermanProvider value={{ open: german, toggle: toggleGerman }}>
+      <div className="flex flex-col gap-6">
+        <EditorHead
+          title={title}
+          actions={
+            <>
+              <Badge variant="secondary">
+                {live === 0 ? t("steward.npcs.not-published") : t("steward.npcs.live", { version: live })}
+              </Badge>
+              {dirty && live > 0 ? <StatusBadge tone="warn">{t("steward.npcs.changed")}</StatusBadge> : null}
+              {dirty ? (
+                <AskThenAct
+                  trigger={
+                    <Button type="button" variant="ghost">
+                      {t("steward.npcs.discard")}
+                    </Button>
+                  }
+                  title={t("steward.npcs.discard-ask", { name: title })}
+                  description={live > 0 ? t("steward.npcs.discard-note", { version: base }) : undefined}
+                  action={t("steward.npcs.discard")}
+                  destructive
+                  act={() => {
+                    setNpcDraft(npc.id, undefined)
+                    if (live === 0) void navigate({ ...NPCS_PATH, replace: true })
+                  }}
+                />
+              ) : null}
+              {live > 0 ? (
+                <Button type="button" variant="ghost" onClick={() => setVersions(true)}>
+                  <ClockCounterClockwiseIcon aria-hidden />
+                  {t("steward.npcs.versions")}
+                </Button>
+              ) : null}
+              {playing === null ? (
+                <Button type="button" variant="secondary" disabled={starting} onClick={() => void startPlaying()}>
+                  <TERM_ICON.start aria-hidden />
+                  {t("steward.npcs.play")}
+                </Button>
+              ) : (
+                <Button type="button" variant="destructive" onClick={cancelPlaying}>
+                  <XIcon aria-hidden />
+                  {t("steward.npcs.cancel-play")}
+                </Button>
+              )}
+              <Button type="button" disabled={!dirty || publish.isPending} onClick={() => send(base)}>
+                {publish.isPending ? <SpinnerIcon aria-hidden className="animate-spin" /> : null}
+                {publish.isPending ? t("steward.npcs.publishing") : t("steward.npcs.publish")}
+              </Button>
+            </>
+          }
+        />
+        <Tabs value={tab} onValueChange={(value) => setTab(value === "settings" ? "settings" : "dialogue")}>
+          <TabsList>
+            <TabsTrigger value="dialogue">{t("steward.npcs.tab", { tab: "dialogue" })}</TabsTrigger>
+            <TabsTrigger value="settings">{t("steward.npcs.tab", { tab: "settings" })}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="dialogue" className="mt-4 grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className="flex min-w-0 flex-col gap-3 xl:col-span-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const added = addStep(npc, step.id)
+                    edit(() => added.npc)
+                    setPicked(added.id)
+                  }}
+                >
+                  <PlusIcon aria-hidden />
+                  {t("steward.npcs.add-step")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="max-xl:hidden"
+                  onClick={() => edit((draft) => arranged(draft))}
+                >
+                  <LayoutIcon aria-hidden />
+                  {t("steward.npcs.arrange")}
+                </Button>
+              </div>
+              <StepCanvas
+                {...graph}
+                dialogue={overlapping(npc.dialogue) ? arranged(npc).dialogue : npc.dialogue}
+                className="flex-1 max-xl:hidden"
+                onSelect={(id) => pick(id, false)}
+                onMove={(id, x, y) =>
+                  edit((draft) => moveStep(overlapping(draft.dialogue) ? arranged(draft) : draft, id, x, y))
                 }
-                title={t("steward.npcs.discard-ask", { name: title })}
-                description={live > 0 ? t("steward.npcs.discard-note", { version: base }) : undefined}
-                action={t("steward.npcs.discard")}
-                destructive
-                act={() => {
-                  setNpcDraft(npc.id, undefined)
-                  if (live === 0) void navigate({ to: "/npcs" })
-                }}
               />
-            ) : null}
-            {live > 0 ? (
-              <Button type="button" variant="ghost" onClick={() => setVersions(true)}>
-                <ClockCounterClockwiseIcon aria-hidden />
-                {t("steward.npcs.versions")}
-              </Button>
-            ) : null}
-            {playing === null ? (
-              <Button type="button" variant="secondary" disabled={starting} onClick={() => void startPlaying()}>
-                <TERM_ICON.start aria-hidden />
-                {t("steward.npcs.play")}
-              </Button>
-            ) : (
-              <Button type="button" variant="destructive" onClick={cancelPlaying}>
-                <XIcon aria-hidden />
-                {t("steward.npcs.cancel-play")}
-              </Button>
-            )}
-            <Button type="button" disabled={!dirty || publish.isPending} onClick={() => send(base)}>
-              {publish.isPending ? <SpinnerIcon aria-hidden className="animate-spin" /> : null}
-              {publish.isPending ? t("steward.npcs.publishing") : t("steward.npcs.publish")}
-            </Button>
-          </div>
-        }
-      />
-      <Tabs value={tab} onValueChange={(value) => setTab(value === "settings" ? "settings" : "dialogue")}>
-        <TabsList>
-          <TabsTrigger value="dialogue">{t("steward.npcs.tab", { tab: "dialogue" })}</TabsTrigger>
-          <TabsTrigger value="settings">{t("steward.npcs.tab", { tab: "settings" })}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="dialogue" className="mt-4 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="flex min-w-0 flex-col gap-3 xl:col-span-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const added = addStep(npc, step.id)
-                  edit(() => added.npc)
-                  setPicked(added.id)
-                }}
-              >
-                <PlusIcon aria-hidden />
-                {t("steward.npcs.add-step")}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="max-xl:hidden"
-                onClick={() => edit((draft) => arranged(draft))}
-              >
-                <LayoutIcon aria-hidden />
-                {t("steward.npcs.arrange")}
-              </Button>
+              <StepList {...graph} className="xl:hidden" onSelect={(id) => pick(id, true)} />
             </div>
-            <StepCanvas
-              {...graph}
-              dialogue={overlapping(npc.dialogue) ? arranged(npc).dialogue : npc.dialogue}
-              className="flex-1 max-xl:hidden"
-              onSelect={(id) => pick(id, false)}
-              onMove={(id, x, y) =>
-                edit((draft) => moveStep(overlapping(draft.dialogue) ? arranged(draft) : draft, id, x, y))
-              }
-            />
-            <StepList {...graph} className="xl:hidden" onSelect={(id) => pick(id, true)} />
-          </div>
-          <div ref={panel} className="flex min-w-0 scroll-mt-4 flex-col gap-6">
-            <StepPanel
+            <div ref={panel} className="flex min-w-0 scroll-mt-4 flex-col gap-6">
+              <StepPanel
+                npc={npc}
+                step={step}
+                menus={menus.data ?? []}
+                measured={measured}
+                edit={edit}
+                onDeleted={() => setPicked("")}
+              />
+              <section className="flex flex-col gap-3">
+                <Heading
+                  actions={
+                    <Tabs value={language} onValueChange={(value) => setLanguage(value === "de" ? "de" : "en")}>
+                      <TabsList>
+                        {LANGUAGES.map((each) => (
+                          <TabsTrigger key={each} value={each} className="px-2.5 text-xs">
+                            {t("steward.npcs.language", { language: each })}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                    </Tabs>
+                  }
+                >
+                  {t("steward.npcs.preview")}
+                </Heading>
+                <DialoguePreview npc={npc} step={step} language={language} measured={measured} />
+              </section>
+            </div>
+          </TabsContent>
+          <TabsContent value="settings" className="mt-4">
+            <NpcSettings
               npc={npc}
-              step={step}
-              menus={menus.data ?? []}
+              published={published?.npc}
               measured={measured}
               edit={edit}
-              onDeleted={() => setPicked("")}
+              onDelete={() =>
+                remove.mutateAsync(npc.id).then(() => {
+                  setNpcDraft(npc.id, undefined)
+                  toast.success(t("steward.npcs.deleted", { name: title }))
+                  return navigate({ ...NPCS_PATH, replace: true })
+                })
+              }
             />
-            <section className="flex flex-col gap-3">
-              <Heading
-                actions={
-                  <Tabs value={language} onValueChange={(value) => setLanguage(value === "de" ? "de" : "en")}>
-                    <TabsList>
-                      {LANGUAGES.map((each) => (
-                        <TabsTrigger key={each} value={each} className="px-2.5 text-xs">
-                          {t("steward.npcs.language", { language: each })}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </Tabs>
-                }
-              >
-                {t("steward.npcs.preview")}
-              </Heading>
-              <DialoguePreview npc={npc} step={step} language={language} measured={measured} />
-            </section>
-          </div>
-        </TabsContent>
-        <TabsContent value="settings" className="mt-4">
-          <NpcSettings
-            npc={npc}
-            published={published?.npc}
-            measured={measured}
-            edit={edit}
-            onDelete={() =>
-              remove.mutateAsync(npc.id).then(() => {
-                setNpcDraft(npc.id, undefined)
-                toast.success(t("steward.npcs.deleted", { name: title }))
-                return navigate({ to: "/npcs" })
-              })
-            }
+          </TabsContent>
+        </Tabs>
+        {live > 0 ? (
+          <NpcVersions
+            id={npc.id}
+            name={title}
+            open={versions}
+            onOpenChange={setVersions}
+            onLoad={(version) => {
+              const restored = version.npc ?? (version.dialogue ? { ...npc, dialogue: version.dialogue } : undefined)
+              if (restored === undefined) return
+              edit(() => restored)
+              setPicked(restored.dialogue.start)
+              setVersions(false)
+              toast.success(t("steward.npcs.loaded", { number: version.number }))
+            }}
           />
-        </TabsContent>
-      </Tabs>
-      {live > 0 ? (
-        <NpcVersions
-          id={npc.id}
-          name={title}
-          open={versions}
-          onOpenChange={setVersions}
-          onLoad={(version) => {
-            const restored = version.npc ?? (version.dialogue ? { ...npc, dialogue: version.dialogue } : undefined)
-            if (restored === undefined) return
-            edit(() => restored)
-            setPicked(restored.dialogue.start)
-            setVersions(false)
-            toast.success(t("steward.npcs.loaded", { number: version.number }))
-          }}
-        />
-      ) : null}
-      <AskThenAct
-        open={conflict}
-        onOpenChange={setConflict}
-        title={t("steward.npcs.conflict", { name: title })}
-        description={t("steward.npcs.conflict-note", { live, read: base })}
-        action={t("steward.npcs.load-live", { live })}
-        act={() => setNpcDraft(npc.id, undefined)}
-      >
-        <Button
-          type="button"
-          variant="outline"
-          disabled={publish.isPending || live === base}
-          onClick={() => send(live)}
+        ) : null}
+        <AskThenAct
+          open={conflict}
+          onOpenChange={setConflict}
+          title={t("steward.npcs.conflict", { name: title })}
+          description={t("steward.npcs.conflict-note", { live, read: base })}
+          action={t("steward.npcs.load-live", { live })}
+          act={() => setNpcDraft(npc.id, undefined)}
         >
-          {t("steward.npcs.overwrite", { live })}
-        </Button>
-      </AskThenAct>
-    </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={publish.isPending || live === base}
+            onClick={() => send(live)}
+          >
+            {t("steward.npcs.overwrite", { live })}
+          </Button>
+        </AskThenAct>
+      </div>
+    </GermanProvider>
   )
 }

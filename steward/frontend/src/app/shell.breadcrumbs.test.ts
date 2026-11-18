@@ -27,6 +27,14 @@ describe("breadcrumbsFor", () => {
     expect(breadcrumbsFor(path).at(-1)?.label).toBe(label)
   })
 
+  it("puts the NPCs tab and the NPC open in it under the SMP page", () => {
+    expect(breadcrumbsFor("/services/smp", undefined, "Runa", { tab: "npcs", npc: "n1" }).slice(-2)).toEqual([
+      { label: "NPCs", href: "/services/smp", search: { tab: "npcs" } },
+      { label: "Runa", href: "/services/smp", search: { tab: "npcs", npc: "n1" } },
+    ])
+    expect(breadcrumbsFor("/services/smp", undefined, undefined, { tab: "settings" }).at(-1)?.label).toBe("SMP")
+  })
+
   it.each([["/translations", "Translations"]])("names %s by its page", (path, label) => {
     expect(breadcrumbsFor(path).at(-1)?.label).toBe(label)
   })

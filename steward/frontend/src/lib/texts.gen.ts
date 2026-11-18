@@ -1618,6 +1618,7 @@ export type TextArgs = {
   }
   "steward.npcs.answers": Record<string, never>
   "steward.npcs.arrange": Record<string, never>
+  "steward.npcs.back": Record<string, never>
   "steward.npcs.cancel-play": Record<string, never>
   "steward.npcs.changed": Record<string, never>
   "steward.npcs.conflict": {
@@ -1645,6 +1646,7 @@ export type TextArgs = {
   "steward.npcs.deleted": {
     name: Arg["text"]
   }
+  "steward.npcs.dialogue-settings": Record<string, never>
   "steward.npcs.discard": Record<string, never>
   "steward.npcs.discard-ask": {
     name: Arg["text"]
@@ -1685,7 +1687,6 @@ export type TextArgs = {
   "steward.npcs.name-in": {
     language: Arg["choice"]
   }
-  "steward.npcs.no-place": Record<string, never>
   "steward.npcs.no-text": Record<string, never>
   "steward.npcs.none": Record<string, never>
   "steward.npcs.not-played": Record<string, never>

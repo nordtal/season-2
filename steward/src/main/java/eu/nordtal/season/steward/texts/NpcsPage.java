@@ -20,6 +20,12 @@ public interface NpcsPage {
     @Name("No NPC")
     MessageRef none();
 
+    @Name("Back to the list")
+    MessageRef back();
+
+    @Name("Dialogue settings")
+    MessageRef dialogueSettings();
+
     @Name("New NPC")
     MessageRef unnamed();
 
@@ -217,9 +223,6 @@ public interface NpcsPage {
 
     @Name("Facing")
     MessageRef facing();
-
-    @Name("No position")
-    MessageRef noPlace();
 
     @Name("Items")
     MessageRef items();

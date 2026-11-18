@@ -22,6 +22,7 @@ import eu.nordtal.season.settings.DatabaseSpec;
 import eu.nordtal.season.settings.DistancesSpec;
 import eu.nordtal.season.settings.Environment;
 import eu.nordtal.season.settings.Group;
+import eu.nordtal.season.settings.network.NetworkSettings;
 import eu.nordtal.season.steward.alert.Thresholds;
 import eu.nordtal.season.steward.auth.DiscordAuth;
 import eu.nordtal.season.steward.auth.SecondFactor;
@@ -282,18 +283,21 @@ public final class StewardPreview {
     }
 
     /**
-     * Publishes smp's {@code distances} group and steward-agent's {@code runs} group as each does at its start.
+     * Publishes smp's {@code distances} and network {@code npc-dialogue} groups and steward-agent's {@code runs}
+     * group as each does at its start.
      *
-     * smp's settings tab then has a Nordtal group, and the backup schedule dialog has its retention fields.
+     * smp's settings tab then has a Nordtal group, its NPCs tab the dialogue settings, and the backup schedule dialog
+     * its retention fields.
      */
     private static void publishServerGroups(final TestDatabase postgres) throws Exception {
         AgentSettings.runs(AgentSettings.stored(postgres.dataSource(), LoggerFactory.getLogger(StewardPreview.class)));
-        DatabaseSettings.over(
-                        SettingStore.using(postgres.dataSourceAs(DatabaseRole.SMP)),
-                        "smp",
-                        new Environment("NONE", "distances", variable -> null),
-                        LoggerFactory.getLogger(StewardPreview.class))
-                .load(Group.of("distances", DistancesSpec.class));
+        final var smp = DatabaseSettings.over(
+                SettingStore.using(postgres.dataSourceAs(DatabaseRole.SMP)),
+                "smp",
+                new Environment("NONE", "distances", variable -> null),
+                LoggerFactory.getLogger(StewardPreview.class));
+        smp.load(Group.of("distances", DistancesSpec.class));
+        smp.load(NetworkSettings.NPC_DIALOGUE);
     }
 
     /** Gives the stand-in agent the jars and plugin files that the preview shows. */

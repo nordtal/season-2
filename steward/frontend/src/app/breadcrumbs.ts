@@ -3,13 +3,18 @@ import { useEffect } from "react"
 
 import type { Person } from "@/lib/api"
 import { useNpcDraft } from "@/lib/npc-drafts"
+import { NPC_PAGE } from "@/lib/npc-paths"
 import { usePeople } from "@/lib/queries"
 import { useNpcs } from "@/lib/queries-npcs"
 import { t } from "@/lib/texts"
 import { serviceTitle } from "@/lib/words"
 import { personName } from "@/pages/access-person"
 
-export type Crumb = { label: string; href: string }
+/** `search` is set where a tab of a page is a crumb of its own, as the NPCs tab is. */
+export type Crumb = { label: string; href: string; search?: Record<string, string> }
+
+/** What the URL's search says about the NPCs tab: open, and which NPC. */
+export type NpcSearch = { tab?: string; npc?: string }
 
 /** Any segment outside this set is a service name, shown as the service is called below `services`. */
 const SECTIONS = new Set([
@@ -19,7 +24,6 @@ const SECTIONS = new Set([
   "backups",
   "runs",
   "translations",
-  "npcs",
   "access",
   "payments",
   "journal",
@@ -38,9 +42,9 @@ function personId(pathname: string): string | undefined {
   return /^\/access\/([^/]+)$/.exec(pathname)?.[1]
 }
 
-/** The id an NPC's page carries in its path. */
-function npcId(pathname: string): string | undefined {
-  return /^\/npcs\/([^/]+)$/.exec(pathname)?.[1]
+/** Whether the URL shows the NPCs tab of the page that has one. */
+function npcsTab(pathname: string, search: NpcSearch | undefined): boolean {
+  return pathname === `/services/${NPC_PAGE}` && search?.tab === "npcs"
 }
 
 /** How the page below a section that lists runs names the run in its path. */
@@ -54,7 +58,7 @@ function runLabel(section: string | undefined, segment: string): string | undefi
  * A user's page is named after the user once `people` holds them, by the id in its path until then, and as nobody when
  * the loaded `people` lack the id.
  */
-export function breadcrumbsFor(pathname: string, people?: Person[], npc?: string): Crumb[] {
+export function breadcrumbsFor(pathname: string, people?: Person[], npc?: string, search?: NpcSearch): Crumb[] {
   const segments = pathname.split("/").filter(Boolean)
   const crumbs: Crumb[] = [{ label: t("steward.shell.page", { page: "overview" }), href: "/" }]
   let href = ""
@@ -76,7 +80,12 @@ export function breadcrumbsFor(pathname: string, people?: Person[], npc?: string
     const person = people.find((candidate) => candidate.discordId === id)
     crumbs[crumbs.length - 1].label = person ? personName(person) : t("steward.people.unknown-person")
   }
-  if (npc !== undefined && npcId(pathname) !== undefined) crumbs[crumbs.length - 1].label = npc
+  if (npcsTab(pathname, search)) {
+    crumbs.push({ label: t("steward.shell.page", { page: "npcs" }), href: pathname, search: { tab: "npcs" } })
+    if (search?.npc !== undefined) {
+      crumbs.push({ label: npc ?? t("steward.npcs.unnamed"), href: pathname, search: { tab: "npcs", npc: search.npc } })
+    }
+  }
   return crumbs
 }
 
@@ -91,9 +100,10 @@ function useNpcName(id: string | undefined): string | undefined {
 
 export function useCrumbs(): Crumb[] {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const search = useRouterState({ select: (state) => state.location.search as NpcSearch })
   const people = usePeople(personId(pathname) !== undefined)
-  const npc = useNpcName(npcId(pathname))
-  return breadcrumbsFor(pathname, people.data, npc)
+  const npc = useNpcName(npcsTab(pathname, search) ? search.npc : undefined)
+  return breadcrumbsFor(pathname, people.data, npc, search)
 }
 
 /** The brand `index.html` names the tab with, which the overview keeps. */

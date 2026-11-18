@@ -170,9 +170,6 @@ public interface NpcsPage {
     @Name("End the dialogue")
     MessageRef thenEnd();
 
-    @Name("Open a menu")
-    MessageRef thenMenu(@Arg("menu") @Example("Objectives") String menu);
-
     @Name("Go to a step")
     MessageRef thenStep(@Arg("step") @Example("There is work enough.") String step);
 

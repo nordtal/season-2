@@ -1746,9 +1746,6 @@ export type TextArgs = {
   }
   "steward.npcs.then": Record<string, never>
   "steward.npcs.then-end": Record<string, never>
-  "steward.npcs.then-menu": {
-    menu: Arg["text"]
-  }
   "steward.npcs.then-new": Record<string, never>
   "steward.npcs.then-step": {
     step: Arg["text"]

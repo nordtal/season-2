@@ -175,7 +175,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         if (guild != null
                 && Configured.isSet(channelId)
                 && guild.getGuildChannelById(channelId) instanceof IPermissionContainer channel) {
-            channels.reopen(channel);
+            roles.role(guild, GuildRoles.LOCK).ifPresent(lock -> channels.reopen(channel, lock));
         }
     }
 

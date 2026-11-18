@@ -276,6 +276,7 @@ public final class PurchaseFlow extends ListenerAdapter {
         }
 
         final PaymentRequest request = open.get();
+        replies.keep(event.getMessageId());
         replies.deferEdit(event);
         executor.execute(() -> {
             try {
@@ -284,11 +285,14 @@ public final class PurchaseFlow extends ListenerAdapter {
                 synchronized (drawing) {
                     final PaymentRequest fresh = requests.byId(request.id()).orElse(request);
                     if (settled(event.getHook(), locale, fresh, Duration.ZERO)) {
+                        replies.release(event.getMessageId());
                         return;
                     }
-                    waiting.put(
+                    final Waiting before = waiting.put(
                             request.id(), new Waiting(event.getHook(), event.getMessageId(), locale, clock.instant()));
-                    replies.keep(event.getMessageId());
+                    if (before != null && !before.message().equals(event.getMessageId())) {
+                        replies.release(before.message());
+                    }
                     event.getHook()
                             .editOriginal(documents
                                     .reply(locale, Replies.PURCHASE_PENDING)
@@ -297,6 +301,7 @@ public final class PurchaseFlow extends ListenerAdapter {
                 }
             } catch (final RuntimeException exception) {
                 forget(request.id());
+                replies.release(event.getMessageId());
                 fail(event, locale, "asking for the payment link", exception);
             }
         });

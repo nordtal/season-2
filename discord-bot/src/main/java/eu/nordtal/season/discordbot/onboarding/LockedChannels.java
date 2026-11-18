@@ -110,11 +110,14 @@ final class LockedChannels {
         keep(channel, lock, onboardingChannelId).ifPresent(failed -> alerts.raise(KEY, alert(List.of(failed))));
     }
 
-    /** Takes back the View Channel denial for @everyone that the channel held as the choose channel. */
-    void reopen(final IPermissionContainer channel) {
+    /**
+     * Takes back the View Channel denial for @everyone that the channel held as the choose channel.
+     * Only a channel that the lock role still sees was the choose channel, so another hidden channel stays hidden.
+     */
+    void reopen(final IPermissionContainer channel, final Role lock) {
         final PermissionOverride everyone =
                 channel.getPermissionOverride(channel.getGuild().getPublicRole());
-        if (everyone == null || !everyone.getDenied().contains(Permission.VIEW_CHANNEL)) {
+        if (everyone == null || !wasChoose(everyone, channel.getPermissionOverride(lock))) {
             return;
         }
         try {
@@ -180,6 +183,11 @@ final class LockedChannels {
                     failure.toString());
             return Optional.of(new ChannelFailure(name(channel), String.valueOf(failure.getMessage())));
         }
+    }
+
+    /** Returns whether the overwrites are those of a choose channel: @everyone closed, the lock role open. */
+    static boolean wasChoose(final PermissionOverride everyone, final @Nullable PermissionOverride lock) {
+        return everyone.getDenied().contains(Permission.VIEW_CHANNEL) && isOpen(lock, LOCK_OPEN);
     }
 
     private static boolean isOpen(final @Nullable PermissionOverride current, final EnumSet<Permission> open) {

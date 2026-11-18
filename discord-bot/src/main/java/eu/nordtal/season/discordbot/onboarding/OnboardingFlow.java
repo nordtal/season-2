@@ -147,6 +147,15 @@ public final class OnboardingFlow extends ListenerAdapter {
     }
 
     private void redraw(final InteractionHook hook, final Draft.Used used, final String value) {
+        try {
+            redrawn(hook, used, value);
+        } catch (final RuntimeException failure) {
+            log.warn("confirm dialog not redrawn: cause={}", failure.toString());
+            failed(hook, languageOf(used.draft()).locale());
+        }
+    }
+
+    private void redrawn(final InteractionHook hook, final Draft.Used used, final String value) {
         final Draft next = switch (used.field()) {
             case COUNTRY ->
                 onboarding
@@ -157,12 +166,7 @@ public final class OnboardingFlow extends ListenerAdapter {
             case LANGUAGE -> used.draft().withLanguage(value);
             case CONFIRM -> used.draft();
         };
-        try {
-            hook.editOriginal(draft(next).edit()).queue();
-        } catch (final RuntimeException failure) {
-            log.warn("confirm dialog not redrawn: cause={}", failure.toString());
-            failed(hook, languageOf(next).locale());
-        }
+        hook.editOriginal(draft(next).edit()).queue();
     }
 
     private void confirm(final InteractionHook hook, final Member observed, final Draft draft) {

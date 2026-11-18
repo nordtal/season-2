@@ -17,6 +17,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.sql.DataSource;
+import net.dv8tion.jda.api.entities.emoji.CustomEmoji;
+import net.dv8tion.jda.api.entities.emoji.Emoji;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -112,8 +114,7 @@ public final class BotSettings {
             requireSnowflakeIfSet(path + ".status-channel", language.statusChannel());
             requireSnowflakeIfSet(path + ".announcement-channel", language.announcementChannel());
             if (language.emoji() != null && !language.emoji().isBlank()) {
-                net.dv8tion.jda.api.entities.emoji.Emoji.fromFormatted(
-                        language.emoji().strip());
+                requireEmoji(path + ".emoji", language.emoji().strip());
             }
         }
     }
@@ -145,6 +146,16 @@ public final class BotSettings {
             if (!country.glyph().startsWith("flag-") || country.glyph().length() <= 5) {
                 throw new IllegalArgumentException(path + ".glyph must name a country flag.");
             }
+        }
+    }
+
+    /** Requires a Discord server emoji, or text without letters, digits or spaces, such as a flag. */
+    static void requireEmoji(final String key, final String emoji) {
+        if (Emoji.fromFormatted(emoji) instanceof CustomEmoji) {
+            return;
+        }
+        if (emoji.codePoints().anyMatch(point -> Character.isLetterOrDigit(point) || Character.isWhitespace(point))) {
+            throw new IllegalArgumentException(key + " must be one emoji, such as a flag, or a server emoji.");
         }
     }
 

@@ -140,7 +140,7 @@ function valueOf(then: Then): string {
  * What follows a text or an answer, as one picker: the end, a menu where `menus` is given, every other step, and a
  * new step. The closed picker shows the choice in a word or two; the open one says what each choice does.
  */
-function ThenPicker({
+export function ThenPicker({
   label,
   then,
   npc,
@@ -195,7 +195,7 @@ function ThenPicker({
         <SelectItem value={END}>{t("steward.npcs.then-end")}</SelectItem>
         {offered.map((menu) => (
           <SelectItem key={menu.key} value={`menu:${menu.key}`}>
-            {t("steward.npcs.then-menu", { menu: menuName(offered, menu.key) })}
+            {menuName(offered, menu.key)}
           </SelectItem>
         ))}
         {steps.map((step) => (

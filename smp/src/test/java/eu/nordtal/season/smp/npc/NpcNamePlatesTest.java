@@ -48,6 +48,12 @@ class NpcNamePlatesTest {
         assertEquals("Ziele öffnen", NpcTexts.objectivesHint(RENDERER, Locale.GERMAN));
     }
 
+    @Test
+    void theWheelHintIsTranslated() {
+        assertEquals("Open wheel", NpcTexts.wheelHint(RENDERER, Locale.ENGLISH));
+        assertEquals("Glücksrad öffnen", NpcTexts.wheelHint(RENDERER, Locale.GERMAN));
+    }
+
     private static String plain(final PillHologram.Layers layers) {
         return PlainTextComponentSerializer.plainText().serialize(layers.ink());
     }

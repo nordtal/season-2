@@ -31,6 +31,7 @@
  *   - package revxrsal.spec -> eu.nordtal.season.spec
  *   - de-Lombok: @RequiredArgsConstructor / @Getter replaced with explicit members
  *   - @Comment and the comments it declared removed
+ *   - fields without an @Order keep their declaration order, read from the class file
  */
 package eu.nordtal.season.spec;
 
@@ -42,12 +43,18 @@ import eu.nordtal.season.spec.annotation.HandledByProxy;
 import eu.nordtal.season.spec.annotation.IgnoreMethod;
 import eu.nordtal.season.spec.annotation.Key;
 import eu.nordtal.season.spec.annotation.Order;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedElement;
+import java.lang.classfile.ClassFile;
+import java.lang.classfile.MethodModel;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -161,7 +168,7 @@ public final class SpecProperty {
         final Map<String, SpecProperty> properties = new LinkedHashMap<>();
         final Method[] methods = interfaceType.getMethods();
 
-        sortByAnnotation(methods);
+        sortByOrder(methods);
         for (final Method method : methods) {
             if (Modifier.isStatic(method.getModifiers())) {
                 continue;
@@ -187,21 +194,51 @@ public final class SpecProperty {
         return Collections.unmodifiableMap(properties);
     }
 
-    private static <T extends AnnotatedElement> void sortByAnnotation(final T[] methods) {
-        Arrays.sort(methods, (o1, o2) -> {
-            final Order order1 = o1.getAnnotation(Order.class);
-            final Order order2 = o2.getAnnotation(Order.class);
-            if (order1 == null && order2 == null) {
-                return 0; // Neither method has the annotation.
+    /**
+     * Sorts by {@link Order}, unannotated methods first, and then by declaration order.
+     *
+     * {@link Class#getMethods()} returns its methods in no fixed order, so the class file decides the rest.
+     */
+    private static void sortByOrder(final Method[] methods) {
+        final Map<Class<?>, Map<String, Integer>> declared = new HashMap<>();
+        Arrays.sort(
+                methods,
+                Comparator.comparingInt(SpecProperty::orderOf)
+                        .thenComparing(method -> method.getDeclaringClass().getName())
+                        .thenComparingInt(method -> declared.computeIfAbsent(
+                                        method.getDeclaringClass(), SpecProperty::declarationOrder)
+                                .getOrDefault(signatureOf(method), Integer.MAX_VALUE))
+                        .thenComparing(SpecProperty::signatureOf));
+    }
+
+    private static int orderOf(final Method method) {
+        final Order order = method.getAnnotation(Order.class);
+        return order == null ? Integer.MIN_VALUE : order.value();
+    }
+
+    private static String signatureOf(final Method method) {
+        return method.getName()
+                + MethodType.methodType(method.getReturnType(), method.getParameterTypes())
+                        .toMethodDescriptorString();
+    }
+
+    /** Returns the index of each method in the class file of {@code type}, or nothing when it cannot be read. */
+    private static Map<String, Integer> declarationOrder(final Class<?> type) {
+        final String file = "/" + type.getName().replace('.', '/') + ".class";
+        try (final InputStream in = type.getResourceAsStream(file)) {
+            if (in == null) {
+                return Map.of();
             }
-            if (order1 == null) {
-                return -1; // o1 has no annotation and comes first.
+            final Map<String, Integer> order = new HashMap<>();
+            for (final MethodModel method :
+                    ClassFile.of().parse(in.readAllBytes()).methods()) {
+                order.putIfAbsent(
+                        method.methodName().stringValue() + method.methodType().stringValue(), order.size());
             }
-            if (order2 == null) {
-                return 1; // o2 has no annotation and comes first.
-            }
-            return Integer.compare(order1.value(), order2.value());
-        });
+            return order;
+        } catch (final IOException | IllegalArgumentException e) {
+            return Map.of();
+        }
     }
 
     private static void parse(final Method method, final Map<String, SpecProperty> properties) {

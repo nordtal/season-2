@@ -1,0 +1,60 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "parts": [
+        {
+          "type": "GALLERY",
+          "media": ["attachment://rules.png"]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "Rules",
+                "de": "Regeln"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "These rules apply on Discord and in the game.",
+                "de": "Diese Regeln gelten im Discord und im Spiel."
+              }
+            },
+            {
+              "text": {
+                "en": "1. Treat everyone decently.",
+                "de": "1. Geh mit allen anständig um."
+              }
+            },
+            {
+              "text": {
+                "en": "2. Play fair.",
+                "de": "2. Spiel fair."
+              }
+            },
+            {
+              "text": {
+                "en": "3. Fight other players on the {@terms.smp} only when both of you agree.",
+                "de": "3. Kämpfe auf der {@terms.smp} nur gegen andere Spieler, wenn ihr beide zustimmt."
+              }
+            },
+            {
+              "text": {
+                "en": "4. German and English are both welcome in the shared channels.",
+                "de": "4. In den gemeinsamen Kanälen sind Deutsch und Englisch beide willkommen."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

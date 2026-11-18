@@ -217,5 +217,15 @@ public final class GuildLanguages {
         public String hungerGamesRegisterKind() {
             return "HG_REGISTER_" + tag.toUpperCase(Locale.ROOT);
         }
+
+        /** Returns the {@code managed_message.kind} of the rules message, such as {@code RULES_EN}. */
+        public String rulesKind() {
+            return "RULES_" + tag.toUpperCase(Locale.ROOT);
+        }
+
+        /** Returns the {@code managed_message.kind} of the guide under the rules, such as {@code GUIDE_EN}. */
+        public String guideKind() {
+            return "GUIDE_" + tag.toUpperCase(Locale.ROOT);
+        }
     }
 }

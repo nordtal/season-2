@@ -262,7 +262,11 @@ function AnswerRow({
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-col gap-1.5">
         <AnswerText step={step} answer={answer} index={index} language="en" wide={wide} edit={edit} />
-        <German id={germanKey.answer(step.id, index)} missing={answer.text.de.trim() === ""}>
+        <German
+          id={germanKey.answer(step.id, index)}
+          missing={answer.text.de.trim() === ""}
+          long={fits[LANGUAGES.indexOf("de")] === false}
+        >
           <AnswerText step={step} answer={answer} index={index} language="de" wide={wide} edit={edit} />
         </German>
         <div className="flex min-w-0 items-start gap-1">
@@ -382,7 +386,14 @@ export function StepPanel({
           {t("steward.npcs.step")}
         </Heading>
         <StepText step={step} language="en" measured={measured} edit={edit} />
-        <German id={germanKey.step(step.id)} missing={step.text.de.trim() === ""}>
+        <German
+          id={germanKey.step(step.id)}
+          missing={step.text.de.trim() === ""}
+          long={
+            measured?.get(measureKey({ text: step.text.de, kind: "BODY", answers: step.answers.length }))?.fits ===
+            false
+          }
+        >
           <StepText step={step} language="de" measured={measured} edit={edit} />
         </German>
         {step.answers.length > 0 ? null : (

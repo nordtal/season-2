@@ -23,8 +23,18 @@ export const germanKey = {
   answer: (step: string, index: number) => `answer:${step}:${index}`,
 }
 
-/** A German text under its English one: closed, it says whether the text is missing. */
-export function German({ id, missing, children }: { id: string; missing: boolean; children: ReactNode }) {
+/** A German text under its English one: closed, it says whether the text is missing or too long for its room. */
+export function German({
+  id,
+  missing,
+  long = false,
+  children,
+}: {
+  id: string
+  missing: boolean
+  long?: boolean
+  children: ReactNode
+}) {
   const { open, toggle } = useContext(Sections)
   const shown = open.has(id)
   const Caret = shown ? CaretDownIcon : CaretRightIcon
@@ -45,6 +55,10 @@ export function German({ id, missing, children }: { id: string; missing: boolean
         {missing && !shown ? (
           <StatusBadge tone="down" className="px-1.5 text-badge">
             {t("steward.npcs.missing", { language: "de" })}
+          </StatusBadge>
+        ) : long && !shown ? (
+          <StatusBadge tone="warn" className="px-1.5 text-badge">
+            {t("steward.npcs.too-long", { language: "de" })}
           </StatusBadge>
         ) : null}
       </div>

@@ -12,6 +12,7 @@ import {
   type Slot,
 } from "@/lib/api"
 import { type Language, LONGEST_NAME } from "@/lib/npc"
+import { NPC_PAGE } from "@/lib/npc-paths"
 import { SKIN_SIDE, readSkin } from "@/lib/npc-skin"
 import { measureKey, useCopySkin, useUploadSkin } from "@/lib/queries-npcs"
 import { useGameData } from "@/lib/queries-settings"
@@ -21,6 +22,7 @@ import { AskThenAct } from "@/components/steward/ask-then-act"
 import { GameIcon } from "@/components/steward/game-icon"
 import { TakeInButton } from "@/components/steward/game-groups/take-in"
 import { FixedPlace } from "@/components/steward/game-groups/places"
+import { SettingsService } from "@/components/steward/reference-picker"
 import { German, germanKey } from "@/components/steward/npc/german"
 import { FigureCard } from "@/components/steward/npc/preview"
 import { Heading, Room, useKept, type Measured } from "@/components/steward/npc/step-panel"
@@ -115,10 +117,21 @@ function valuesOf(place: NpcPlace): Record<string, string> {
   return { world: place.world, x: String(place.x), y: String(place.y), z: String(place.z), yaw: String(place.yaw) }
 }
 
-/** Whether what is typed is the place, so a value from elsewhere, such as a taken position, replaces it only then. */
+/** A typed number as the NPC stores it: a facing in tenths from -180 to 180, a coordinate in hundredths. */
+function stored(key: string, value: string): number | undefined {
+  const number = Number(value.replace(",", "."))
+  if (value.trim() === "" || !Number.isFinite(number)) return undefined
+  return key === "yaw" ? facing(number) : hundredth(number)
+}
+
+/**
+ * Whether what is typed stores as the place, so a value from elsewhere, such as a taken position, replaces it only
+ * then and a number being typed keeps its digits.
+ */
 function agrees(typed: Record<string, string>, place: NpcPlace): boolean {
   return (
-    typed.world === place.world && (["x", "y", "z", "yaw"] as const).every((key) => Number(typed[key]) === place[key])
+    typed.world === place.world &&
+    (["x", "y", "z", "yaw"] as const).every((key) => stored(key, typed[key] ?? "") === place[key])
   )
 }
 
@@ -136,23 +149,25 @@ function Place({ npc, edit }: { npc: Npc; edit: Edit }) {
       edit((draft) => ({ ...draft, place: { ...draft.place, world: value } }))
       return
     }
-    const number = Number(value.replace(",", "."))
-    if (value.trim() === "" || !Number.isFinite(number)) return
-    const stored = key === "yaw" ? facing(number) : hundredth(number)
-    edit((draft) => ({ ...draft, place: { ...draft.place, [key]: stored } }))
+    const number = stored(key, value)
+    if (number === undefined) return
+    edit((draft) => ({ ...draft, place: { ...draft.place, [key]: number } }))
   }
   return (
     <section className="flex flex-col gap-3">
       <Heading>{t("steward.npcs.place")}</Heading>
-      <FixedPlace
-        id="npc-place"
-        name={t("steward.npcs.place")}
-        position="SPOT"
-        fields={PLACE_FIELDS}
-        values={typed}
-        disabled={false}
-        onChange={change}
-      />
+      <SettingsService value={NPC_PAGE}>
+        <FixedPlace
+          id="npc-place"
+          name={t("steward.npcs.place")}
+          position="SPOT"
+          fields={PLACE_FIELDS}
+          values={typed}
+          disabled={false}
+          invalid={npc.place.world.trim() === ""}
+          onChange={change}
+        />
+      </SettingsService>
     </section>
   )
 }
@@ -380,7 +395,11 @@ export function NpcSettings({
         <section className="flex flex-col gap-3">
           <Heading>{t("steward.npcs.name")}</Heading>
           <Name npc={npc} language="en" measured={measured} edit={edit} />
-          <German id={germanKey.name} missing={npc.name.de.trim() === ""}>
+          <German
+            id={germanKey.name}
+            missing={npc.name.de.trim() === ""}
+            long={measured?.get(measureKey({ text: npc.name.de, kind: "NAME", answers: 0 }))?.fits === false}
+          >
             <Name npc={npc} language="de" measured={measured} edit={edit} />
           </German>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

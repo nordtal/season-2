@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { German, GermanProvider } from "@/components/steward/npc/german"
 
-function Opened({ initially, missing }: { initially: string[]; missing: boolean }) {
+function Opened({ initially, missing, long }: { initially: string[]; missing: boolean; long?: boolean }) {
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set(initially))
   const toggle = (key: string, shown: boolean) =>
     setOpen((before) => {
@@ -15,7 +15,7 @@ function Opened({ initially, missing }: { initially: string[]; missing: boolean 
     })
   return (
     <GermanProvider value={{ open, toggle }}>
-      <German id="name" missing={missing}>
+      <German id="name" missing={missing} long={long}>
         <input aria-label="German name" />
       </German>
     </GermanProvider>
@@ -37,6 +37,14 @@ describe("German under its English text", () => {
     fireEvent.click(screen.getByRole("button", { name: "German" }))
     expect(screen.getByLabelText("German name")).toBeTruthy()
     expect(screen.queryByText("No German text")).toBeNull()
+  })
+
+  it("says when the German text is too long, and that it is missing first", () => {
+    render(<Opened initially={[]} missing={false} long />)
+    expect(screen.getByText("German too long")).toBeTruthy()
+    cleanup()
+    render(<Opened initially={[]} missing long />)
+    expect(screen.queryByText("German too long")).toBeNull()
   })
 
   it("is open when the editor opened it, as a refused publish does", () => {

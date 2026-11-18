@@ -345,6 +345,7 @@ export function FixedPlace({
   fields,
   values,
   disabled,
+  invalid = false,
   onChange,
 }: {
   id: string
@@ -354,6 +355,8 @@ export function FixedPlace({
   fields: ConfigEntry[]
   values: SectionValues
   disabled: boolean
+  /** Marks the tile as one the admin still has to fill. */
+  invalid?: boolean
   onChange: (key: string, value: string) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -371,7 +374,7 @@ export function FixedPlace({
   }
   return (
     <>
-      <PlaceTile place={place} label={name} onOpen={() => setOpen(true)} />
+      <PlaceTile place={place} label={name} invalid={invalid} onOpen={() => setOpen(true)} />
       {open ? (
         <PlaceDialog
           id={id}

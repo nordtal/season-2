@@ -1,0 +1,104 @@
+{
+  "parts": [
+    {
+      "type": "CONTAINER",
+      "parts": [
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "How to play",
+                "de": "So spielst du mit"
+              },
+              "style": "TITLE"
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "1. Link your Minecraft account.",
+                "de": "1. Verknüpfe dein Minecraft-Konto."
+              }
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "link",
+              "label": {
+                "en": "Link account",
+                "de": "Konto verknüpfen"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "2. Buy {@terms.access}.",
+                "de": "2. Kauf dir {@terms.access}."
+              }
+            }
+          ]
+        },
+        {
+          "type": "ROW",
+          "items": [
+            {
+              "slot": "access",
+              "label": {
+                "en": "Buy {@terms.access}",
+                "de": "{@terms.access} kaufen"
+              }
+            }
+          ]
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "3. Join `play.nordtal.eu` in Minecraft.",
+                "de": "3. Verbinde dich in Minecraft mit `play.nordtal.eu`."
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEPARATOR"
+        },
+        {
+          "type": "TEXT",
+          "lines": [
+            {
+              "text": {
+                "en": "This {@terms.season} you play on the {@terms.smp}, a survival world.",
+                "de": "In dieser {@terms.season} spielst du auf der {@terms.smp}, einer Überlebenswelt."
+              }
+            },
+            {
+              "text": {
+                "en": "The {@terms.player, n=2} work together to finish {@terms.objective, n=2} and reach {@terms.milestone, n=2}.",
+                "de": "Gemeinsam erfüllen die {@terms.player, n=2} {@terms.objective, n=2} und erreichen {@terms.milestone, n=2}."
+              }
+            },
+            {
+              "text": {
+                "en": "At times the {@terms.hunger-games} replace the {@terms.smp}, and you register for a round.",
+                "de": "Zeitweise ersetzen die {@terms.hunger-games} die {@terms.smp}, und du meldest dich für eine Runde an."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

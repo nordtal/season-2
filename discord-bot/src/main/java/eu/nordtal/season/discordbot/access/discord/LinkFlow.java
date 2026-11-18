@@ -10,6 +10,7 @@ import eu.nordtal.season.database.audit.AuditLine;
 import eu.nordtal.season.database.audit.JournalAction;
 import eu.nordtal.season.discordbot.AdminLog;
 import eu.nordtal.season.discordbot.Ids;
+import eu.nordtal.season.discordbot.PrivateReplies;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
@@ -54,13 +55,17 @@ public final class LinkFlow extends ListenerAdapter {
     private final RedemptionLimit limit;
     private final Executor executor;
 
+    private final PrivateReplies replies;
+
     public LinkFlow(
             final AccessDirectory access,
             final AccessRoles roles,
             final DocumentRenderer documents,
             final AdminLog admin,
             final RedemptionLimit limit,
+            final PrivateReplies replies,
             final Executor executor) {
+        this.replies = replies;
         this.access = access;
         this.roles = roles;
         this.documents = documents;
@@ -101,7 +106,7 @@ public final class LinkFlow extends ListenerAdapter {
                 : event.getValue(Ids.LINK_CODE_INPUT).getAsString();
         final String code = typed.strip().toUpperCase(Locale.ROOT);
 
-        event.deferReply(true).queue();
+        replies.defer(event);
         executor.execute(() -> {
             try {
                 redeem(event, locale, code);
@@ -173,7 +178,7 @@ public final class LinkFlow extends ListenerAdapter {
         final DiscordId discordId = DiscordId.of(event.getUser().getId());
         final Locale locale = roles.localeOf(discordId);
 
-        event.deferReply(true).queue();
+        replies.defer(event);
         executor.execute(() -> {
             final Optional<UUID> mcUuid = access.linkedMinecraftAccount(discordId);
             if (!access.unlink(discordId)) {

@@ -23,7 +23,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.GuildChannel;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Sets the permission overwrites so that the lock role sees only the onboarding channel and no other channel.
+ * Sets the permission overwrites so that the lock role sees only the choose channel and nobody else sees it.
  *
  * The overwrites of the categories are set before those of the channels.
  */
@@ -33,7 +33,8 @@ final class LockedChannels {
     /** The holders of an overwrite, in the order the overwrites are set. */
     enum Holder {
         BOT,
-        LOCK
+        LOCK,
+        EVERYONE
     }
 
     enum View {
@@ -73,7 +74,10 @@ final class LockedChannels {
      */
     static List<Overwrite> wanted(final boolean onboarding) {
         if (onboarding) {
-            return List.of(new Overwrite(Holder.BOT, View.OPEN), new Overwrite(Holder.LOCK, View.OPEN));
+            return List.of(
+                    new Overwrite(Holder.BOT, View.OPEN),
+                    new Overwrite(Holder.LOCK, View.OPEN),
+                    new Overwrite(Holder.EVERYONE, View.CLOSED));
         }
         return List.of(new Overwrite(Holder.LOCK, View.CLOSED));
     }
@@ -114,6 +118,7 @@ final class LockedChannels {
             final IPermissionHolder holder = switch (overwrite.holder()) {
                 case BOT -> guild.getSelfMember();
                 case LOCK -> lock;
+                case EVERYONE -> guild.getPublicRole();
             };
             final Optional<ChannelFailure> failed = keep(channel, holder, overwrite);
             if (failed.isPresent()) {

@@ -8,8 +8,8 @@
           "lines": [
             {
               "text": {
-                "en": "Your settings",
-                "de": "Deine Einstellungen"
+                "en": "Country and language",
+                "de": "Land und Sprache"
               },
               "style": "TITLE"
             }
@@ -17,22 +17,24 @@
         },
         {
           "type": "TEXT",
+          "when": "confirming",
           "lines": [
             {
               "text": {
-                "en": "Language: **{language}**",
-                "de": "Sprache: **{language}**"
+                "en": "Check your country and language, then confirm.",
+                "de": "Prüfe dein Land und deine Sprache und bestätige dann."
               }
             }
           ]
         },
         {
           "type": "TEXT",
+          "when": "saved",
           "lines": [
             {
               "text": {
-                "en": "Time zone: **{zone}**",
-                "de": "Zeitzone: **{zone}**"
+                "en": "Your change is saved.",
+                "de": "Deine Änderung ist gespeichert."
               }
             }
           ]
@@ -53,29 +55,30 @@
           "type": "ROW",
           "items": [
             {
-              "slot": "rules",
-              "label": {
-                "en": "Read the rules",
-                "de": "Regeln lesen"
+              "slot": "languages",
+              "placeholder": {
+                "en": "Choose your language",
+                "de": "Sprache wählen"
               }
             }
           ]
         },
         {
-          "type": "LANGUAGES",
-          "slot": "others",
-          "parts": [
+          "type": "ROW",
+          "items": [
             {
-              "type": "ROW",
-              "items": [
-                {
-                  "slot": "language",
-                  "label": {
-                    "en": "Use English",
-                    "de": "Deutsch verwenden"
-                  }
-                }
-              ]
+              "slot": "confirm",
+              "label": {
+                "en": "Confirm",
+                "de": "Bestätigen"
+              }
+            },
+            {
+              "slot": "rules",
+              "label": {
+                "en": "Read the rules",
+                "de": "Regeln lesen"
+              }
             }
           ]
         }

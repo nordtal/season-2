@@ -89,6 +89,7 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 public class AccessBot implements AutoCloseable {
 
     private final Clock clock = NetworkTime.clock();
+    private final PrivateReplies replies = new PrivateReplies(clock);
 
     private static final String SERVICE = "discord-bot";
 
@@ -115,8 +116,7 @@ public class AccessBot implements AutoCloseable {
             Tiers tiers,
             PaymentRequests requests,
             Purchases purchases,
-            Setting<OnboardingSpec> onboarding,
-            String networkZone) {
+            Setting<OnboardingSpec> onboarding) {
 
         DocumentRenderer renderer() {
             return new DocumentRenderer(messages, documents);
@@ -302,8 +302,7 @@ public class AccessBot implements AutoCloseable {
                 tiers,
                 requests,
                 purchases,
-                onboarding,
-                languageAndTime.defaultTimeZone());
+                onboarding);
     }
 
     private JDA connectJda(final BotSpec botConfig) throws InterruptedException {
@@ -347,11 +346,19 @@ public class AccessBot implements AutoCloseable {
         final AdminTree adminTree = AdminTree.using(database.dataSource());
         final GuildState guildState = new GuildState(jda, accessConfig, access, adminTree, database.jdbi());
         final AdminRole adminRole = new AdminRole(jda, accessConfig, guildRoles, adminTree, admin);
-        final OnboardingFlow onboardingFlow = new OnboardingFlow(
-                onboarding, core.languages(), guildRoles, core.renderer(), core.networkZone(), onboardingLane);
+        final OnboardingFlow onboardingFlow =
+                new OnboardingFlow(onboarding, core.languages(), guildRoles, core.renderer(), replies, onboardingLane);
 
         final PurchaseFlow purchaseFlow = new PurchaseFlow(
-                core.tiers(), core.purchases(), core.requests(), core.renderer(), roles, admin, scheduler, clock);
+                core.tiers(),
+                core.purchases(),
+                core.requests(),
+                core.renderer(),
+                roles,
+                admin,
+                scheduler,
+                replies,
+                clock);
 
         return finishWiring(
                 jda,
@@ -430,8 +437,9 @@ public class AccessBot implements AutoCloseable {
                         core.renderer(),
                         admin,
                         new RedemptionLimit(accessConfig.linkCodeAttemptsPerHour(), clock),
+                        replies,
                         scheduler),
-                new RegisterFlow(jda, teams, access, core.renderer(), scheduler));
+                new RegisterFlow(jda, teams, access, core.renderer(), replies, scheduler));
 
         final BotAccessEffects inboxEffects = new BotAccessEffects(access, roles, admin);
         final eu.nordtal.season.discordbot.announce.Announcements announcements =

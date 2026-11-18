@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot.registration;
 
 import eu.nordtal.season.common.id.DiscordId;
 import eu.nordtal.season.database.access.AccessReader;
+import eu.nordtal.season.discordbot.PrivateReplies;
 import eu.nordtal.season.discordbot.Replies;
 import eu.nordtal.season.discordbot.StoredDocuments;
 import eu.nordtal.season.discordrendering.DocumentRenderer;
@@ -73,12 +74,16 @@ public final class RegisterFlow extends ListenerAdapter {
     private final DocumentRenderer documents;
     private final Executor executor;
 
+    private final PrivateReplies replies;
+
     public RegisterFlow(
             final JDA jda,
             final Teams teams,
             final AccessReader access,
             final DocumentRenderer documents,
+            final PrivateReplies replies,
             final Executor executor) {
+        this.replies = replies;
         this.jda = jda;
         this.teams = teams;
         this.ids = Ids.of(teams.game());
@@ -124,7 +129,7 @@ public final class RegisterFlow extends ListenerAdapter {
                 ? ""
                 : event.getValue(ids.registerNameInput()).getAsString();
 
-        event.deferReply(true).queue();
+        replies.defer(event);
         executor.execute(() -> {
             try {
                 register(event, locale, typed.strip());
@@ -160,15 +165,15 @@ public final class RegisterFlow extends ListenerAdapter {
 
     private void openInvitePicker(final ButtonInteractionEvent event) {
         final Locale locale = access.language(DiscordId.of(event.getUser().getId()));
-        event.reply(documents
+        replies.reply(
+                event,
+                documents
                         .render(
                                 PICKER,
                                 new DocumentSpec.None(),
                                 Map.of("partner", new DocumentRenderer.FilledMembers(ids.inviteSelect())),
                                 locale)
-                        .create())
-                .setEphemeral(true)
-                .queue();
+                        .create());
     }
 
     @Override
@@ -183,7 +188,7 @@ public final class RegisterFlow extends ListenerAdapter {
         }
         final User partner = selected.getFirst();
 
-        event.deferReply(true).queue();
+        replies.defer(event);
         executor.execute(() -> {
             try {
                 invite(event, locale, partner);

@@ -18,6 +18,9 @@ import java.util.Set;
  */
 public final class GuildLanguages {
 
+    private static final String GERMANY = "\uD83C\uDDE9\uD83C\uDDEA";
+    private static final String GLOBE = "\uD83C\uDF10";
+
     private final List<Language> ordered;
     private final Map<String, Language> byTag;
     private final Language fallback;
@@ -49,7 +52,8 @@ public final class GuildLanguages {
                                 language.statusChannel(),
                                 language.announcementChannel(),
                                 language.category(),
-                                language.rulesChannel()))
+                                language.rulesChannel(),
+                                emojiOf(language.tag(), language.emoji())))
                         .toList(),
                 network);
     }
@@ -115,6 +119,14 @@ public final class GuildLanguages {
         return byTag(Locales.tag(locale)).orElse(fallback);
     }
 
+    /** Returns the configured emoji, or the flag of Germany for German and a globe for any other language. */
+    static String emojiOf(final String tag, final String configured) {
+        if (configured != null && !configured.isBlank()) {
+            return configured.strip();
+        }
+        return "de".equals(tag) ? GERMANY : GLOBE;
+    }
+
     /** Returns the configured role name, or the language's own name when none is configured. */
     static String roleNameOf(final AccessSpec.LanguageSpec language) {
         final String configured =
@@ -135,6 +147,7 @@ public final class GuildLanguages {
      * @param hungerGamesChannelId the channel of the hunger games Register message
      * @param announcementChannelId the channel of milestone announcements
      * @param statusChannelId the channel whose name shows the status
+     * @param emoji the emoji shown before the language in the language select
      */
     public record Language(
             String tag,
@@ -145,7 +158,31 @@ public final class GuildLanguages {
             String statusChannelId,
             String announcementChannelId,
             String categoryId,
-            String rulesChannelId) {
+            String rulesChannelId,
+            String emoji) {
+
+        public Language(
+                final String tag,
+                final String roleName,
+                final String contributionChannelId,
+                final String linkChannelId,
+                final String hungerGamesChannelId,
+                final String statusChannelId,
+                final String announcementChannelId,
+                final String categoryId,
+                final String rulesChannelId) {
+            this(
+                    tag,
+                    roleName,
+                    contributionChannelId,
+                    linkChannelId,
+                    hungerGamesChannelId,
+                    statusChannelId,
+                    announcementChannelId,
+                    categoryId,
+                    rulesChannelId,
+                    emojiOf(tag, ""));
+        }
 
         public Language(
                 final String tag,
@@ -164,7 +201,8 @@ public final class GuildLanguages {
                     statusChannelId,
                     announcementChannelId,
                     "",
-                    "");
+                    "",
+                    emojiOf(tag, ""));
         }
 
         public Language(
@@ -183,7 +221,8 @@ public final class GuildLanguages {
                     statusChannelId,
                     "",
                     "",
-                    "");
+                    "",
+                    emojiOf(tag, ""));
         }
 
         public boolean hasStatusChannel() {

@@ -20,6 +20,7 @@ import eu.nordtal.season.settings.SettingsException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -120,6 +121,11 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         return choices;
     }
 
+    /** Returns the id of the change channel, or an empty text when it is not set. */
+    String changeChannel() {
+        return setting.get().changeChannel();
+    }
+
     /** Finds, adopts or creates every role the bot uses. It runs once at start, before any code reads a role. */
     public void resolveRoles() {
         final Guild guild = guild();
@@ -170,7 +176,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
 
     private void publish() {
         final OnboardingSpec spec = setting.get();
-        message.publish(managed, spec.channel(), choices);
+        message.publish(managed, spec.channel(), spec.changeChannel(), choices);
     }
 
     @Override
@@ -332,21 +338,26 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
         }
     }
 
-    boolean choose(final Member member, final Choices.Choice choice) {
+    /** Gives the member the chosen roles, settles the rest and returns whether everything was saved. */
+    boolean choose(final Member member, final List<Choices.Choice> chosen) {
         final Guild guild = member.getGuild();
         if (!choices.ready(Choices.Kind.COUNTRY, idOf(guild)) || !choices.ready(Choices.Kind.LANGUAGE, idOf(guild))) {
             return false;
         }
-        final Optional<Role> role = roles.role(guild, choice.key());
-        if (role.isEmpty()) {
-            return false;
+        final Set<String> given = new HashSet<>();
+        for (final Choices.Choice choice : chosen) {
+            final Optional<Role> role = roles.role(guild, choice.key());
+            if (role.isEmpty()) {
+                return false;
+            }
+            given.add(role.get().getId());
         }
         final Role lock = lock(guild).role();
         final Settlement settlement = Settlement.of(
                 choices,
                 idOf(guild),
                 ids(member.getRoles()),
-                Set.of(role.get().getId()),
+                Set.copyOf(given),
                 records.of(member.getId()),
                 lock == null ? null : lock.getId(),
                 state(guild).locking());
@@ -379,15 +390,6 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
             alerts.raise(WITHOUT_CHANNEL, new Alert(JournalAction.LOCK_WITHOUT_CHANNEL, Alert.Level.WARN, List.of()));
         } else {
             alerts.clear(WITHOUT_CHANNEL);
-        }
-        final var start = guild.getGuildChannelById(
-                setting.get().channel().isBlank() ? "0" : setting.get().channel());
-        if (setting.get().lock()
-                && start != null
-                && !guild.getPublicRole().hasPermission(start, net.dv8tion.jda.api.Permission.VIEW_CHANNEL)) {
-            alerts.raise("start hidden", new Alert(JournalAction.START_CHANNEL_HIDDEN, Alert.Level.WARN, List.of()));
-        } else {
-            alerts.clear("start hidden");
         }
         return lock;
     }

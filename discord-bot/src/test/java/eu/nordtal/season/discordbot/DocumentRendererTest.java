@@ -58,7 +58,7 @@ class DocumentRendererTest {
 
     /** The documents that answer one person: every reply and direct message, and the change message. */
     private static final Pattern TO_ONE_PERSON =
-            Pattern.compile("(link-|unlink-|register-|invite-|purchase-|dm-|onboarding-(?!welcome)).*");
+            Pattern.compile("(link-|unlink-|register-|invite-|purchase-|dm-|onboarding-(?!welcome|change)).*");
 
     /** The end of a sentence that another one follows in the same line. */
     private static final Pattern SENTENCE_END = Pattern.compile("[.!?]\\s+\\S");

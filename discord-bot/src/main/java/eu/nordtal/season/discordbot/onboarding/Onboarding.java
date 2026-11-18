@@ -150,6 +150,7 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
     public void settingsChanged() {
         lane.execute(() -> {
             final boolean wasLocked = setting.get().lock();
+            final String chosenBefore = setting.get().channel();
             try {
                 setting.reload();
             } catch (final SettingsException refused) {
@@ -157,12 +158,25 @@ public final class Onboarding extends ListenerAdapter implements Withholding {
                 return;
             }
             choices = Choices.of(languages, setting.get());
+            if (!chosenBefore.equals(setting.get().channel())) {
+                reopen(chosenBefore);
+            }
             publish();
             if (wasLocked && !setting.get().lock()) {
                 release();
             }
             sweep();
         });
+    }
+
+    /** Shows a channel that stopped being the choose channel to @everyone again. */
+    private void reopen(final String channelId) {
+        final Guild guild = guild();
+        if (guild != null
+                && Configured.isSet(channelId)
+                && guild.getGuildChannelById(channelId) instanceof IPermissionContainer channel) {
+            channels.reopen(channel);
+        }
     }
 
     private void release() {

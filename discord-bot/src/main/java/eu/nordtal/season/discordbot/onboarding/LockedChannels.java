@@ -110,6 +110,28 @@ final class LockedChannels {
         keep(channel, lock, onboardingChannelId).ifPresent(failed -> alerts.raise(KEY, alert(List.of(failed))));
     }
 
+    /** Takes back the View Channel denial for @everyone that the channel held as the choose channel. */
+    void reopen(final IPermissionContainer channel) {
+        final PermissionOverride everyone =
+                channel.getPermissionOverride(channel.getGuild().getPublicRole());
+        if (everyone == null || !everyone.getDenied().contains(Permission.VIEW_CHANNEL)) {
+            return;
+        }
+        try {
+            final var _ = everyone.getManager().clear(Permission.VIEW_CHANNEL).complete();
+            log.info(
+                    "channel overwrite cleared: channel={} channel_name=\"{}\" holder=everyone",
+                    channel.getId(),
+                    channel.getName());
+        } catch (final RuntimeException failure) {
+            log.warn(
+                    "channel overwrite not cleared: channel={} channel_name=\"{}\" cause={}",
+                    channel.getId(),
+                    channel.getName(),
+                    failure.toString());
+        }
+    }
+
     /** Sets the overwrites of one channel in order. Returns the first failure and sets no further overwrite. */
     private Optional<ChannelFailure> keep(
             final IPermissionContainer channel, final Role lock, final String onboardingChannelId) {

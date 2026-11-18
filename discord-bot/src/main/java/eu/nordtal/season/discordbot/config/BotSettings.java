@@ -111,12 +111,21 @@ public final class BotSettings {
             requireSnowflakeIfSet(path + ".hunger-games-channel", language.hungerGamesChannel());
             requireSnowflakeIfSet(path + ".status-channel", language.statusChannel());
             requireSnowflakeIfSet(path + ".announcement-channel", language.announcementChannel());
+            if (language.emoji() != null && !language.emoji().isBlank()) {
+                net.dv8tion.jda.api.entities.emoji.Emoji.fromFormatted(
+                        language.emoji().strip());
+            }
         }
     }
 
     /** Requires country keys, known zones and network languages. */
     private static void validateOnboarding(final OnboardingSpec config, final Languages network) {
         requireSnowflakeIfSet("channel", config.channel());
+        requireSnowflakeIfSet("change-language-channel", config.changeChannel());
+        if (Configured.isSet(config.channel()) && config.channel().equals(config.changeChannel())) {
+            throw new IllegalArgumentException(
+                    "change-language-channel is the choose channel. Locked members see only the choose channel, so the change channel must be another one.");
+        }
         final Set<String> names = new HashSet<>();
         requireRoleName("lock-role", config.lockRole(), names);
         for (int index = 0; index < config.countries().size(); index++) {

@@ -99,7 +99,7 @@ public final class PurchaseFlow extends ListenerAdapter {
     /** Held while the row is read and the message is edited, so a stale "being created" text cannot hide the link. */
     private final Object drawing = new Object();
 
-    private record Waiting(InteractionHook hook, Locale locale, Instant since) {}
+    private record Waiting(InteractionHook hook, String message, Locale locale, Instant since) {}
 
     private final Clock clock;
 
@@ -219,7 +219,8 @@ public final class PurchaseFlow extends ListenerAdapter {
     private void chooseDays(final ButtonInteractionEvent event, final Locale locale) {
         final DocumentRenderer.Drawn drawn = choose(documents, tiers, locale);
         if (Ids.CHANGE.equals(event.getComponentId())) {
-            event.editMessage(drawn.edit()).queue();
+            replies.deferEdit(event);
+            event.getHook().editOriginal(drawn.edit()).queue();
         } else {
             replies.reply(event, drawn.create());
         }
@@ -285,7 +286,9 @@ public final class PurchaseFlow extends ListenerAdapter {
                     if (settled(event.getHook(), locale, fresh, Duration.ZERO)) {
                         return;
                     }
-                    waiting.put(request.id(), new Waiting(event.getHook(), locale, clock.instant()));
+                    waiting.put(
+                            request.id(), new Waiting(event.getHook(), event.getMessageId(), locale, clock.instant()));
+                    replies.keep(event.getMessageId());
                     event.getHook()
                             .editOriginal(documents
                                     .reply(locale, Replies.PURCHASE_PENDING)
@@ -293,10 +296,17 @@ public final class PurchaseFlow extends ListenerAdapter {
                             .queue();
                 }
             } catch (final RuntimeException exception) {
-                waiting.remove(request.id());
+                forget(request.id());
                 fail(event, locale, "asking for the payment link", exception);
             }
         });
+    }
+
+    private void forget(final UUID request) {
+        final Waiting waiter = waiting.remove(request);
+        if (waiter != null) {
+            replies.release(waiter.message());
+        }
     }
 
     public void fillIn() {
@@ -310,12 +320,14 @@ public final class PurchaseFlow extends ListenerAdapter {
                 final Map.Entry<UUID, Waiting> entry = entries.next();
                 final Optional<PaymentRequest> row = requests.byId(entry.getKey());
                 if (row.isEmpty()) {
+                    replies.release(entry.getValue().message());
                     entries.remove();
                     continue;
                 }
                 final Waiting waiter = entry.getValue();
                 final Duration waited = Duration.between(waiter.since(), clock.instant());
                 if (settled(waiter.hook(), waiter.locale(), row.get(), waited)) {
+                    replies.release(waiter.message());
                     entries.remove();
                 }
             }

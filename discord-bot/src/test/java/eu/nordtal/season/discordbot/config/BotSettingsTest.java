@@ -495,5 +495,8 @@ class BotSettingsTest {
                 () -> onboarding(Map.of("countries", List.of(country("bad", "Bad", "Mars/Olympus", "en")))));
         assertThrows(SettingsException.class, () -> onboarding(Map.of("countries", List.of())));
         assertThrows(SettingsException.class, () -> onboarding(Map.of("channel", "<#5>")));
+        assertThrows(SettingsException.class, () -> onboarding(Map.of("change-language-channel", "<#5>")));
+        assertThrows(
+                SettingsException.class, () -> onboarding(Map.of("channel", "123", "change-language-channel", "123")));
     }
 }

@@ -2,6 +2,7 @@ package eu.nordtal.season.discordbot.config;
 
 import eu.nordtal.season.common.language.Languages;
 import eu.nordtal.season.common.language.Locales;
+import eu.nordtal.season.discordbot.Mark;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,9 +18,6 @@ import java.util.Set;
  * An empty id means the channel is not set.
  */
 public final class GuildLanguages {
-
-    private static final String GERMANY = "\uD83C\uDDE9\uD83C\uDDEA";
-    private static final String GLOBE = "\uD83C\uDF10";
 
     private final List<Language> ordered;
     private final Map<String, Language> byTag;
@@ -124,7 +122,7 @@ public final class GuildLanguages {
         if (configured != null && !configured.isBlank()) {
             return configured.strip();
         }
-        return "de".equals(tag) ? GERMANY : GLOBE;
+        return "de".equals(tag) ? Mark.flag("DE") : Mark.GLOBE;
     }
 
     /** Returns the configured role name, or the language's own name when none is configured. */

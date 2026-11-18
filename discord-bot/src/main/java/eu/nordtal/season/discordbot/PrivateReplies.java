@@ -4,7 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.interactions.InteractionHook;
@@ -38,6 +38,7 @@ public final class PrivateReplies {
     }
 
     private final Map<String, Held> held = new ConcurrentHashMap<>();
+    private final Set<String> kept = ConcurrentHashMap.newKeySet();
     private final Clock clock;
 
     public PrivateReplies(final Clock clock) {
@@ -71,6 +72,16 @@ public final class PrivateReplies {
         });
     }
 
+    /** Keeps a message from being deleted while it still waits for an answer, such as a payment link. */
+    public void keep(final String message) {
+        kept.add(message);
+    }
+
+    /** Lets a kept message be deleted again. */
+    public void release(final String message) {
+        kept.remove(message);
+    }
+
     /** Records a reply sent without a known message id, then learns the id. */
     private void opened(final String member, final InteractionHook hook) {
         hook.retrieveOriginal()
@@ -81,7 +92,9 @@ public final class PrivateReplies {
 
     private void take(final String member, final Held next) {
         final Held before = held.put(member, next);
-        if (before != null && step(before, next, clock.instant()) == Step.DELETE) {
+        if (before != null
+                && !kept.contains(String.valueOf(before.message()))
+                && step(before, next, clock.instant()) == Step.DELETE) {
             before.hook()
                     .deleteOriginal()
                     .queue(
@@ -93,7 +106,7 @@ public final class PrivateReplies {
 
     /** Returns what happens to {@code before} when {@code next} becomes the member's current private message. */
     static Step step(final Held before, final Held next, final Instant now) {
-        if (Objects.equals(before.message(), next.message())) {
+        if (before.message() != null && before.message().equals(next.message())) {
             return Step.KEEP;
         }
         if (before.message() == null || Duration.between(before.since(), now).compareTo(TOKEN) >= 0) {

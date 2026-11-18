@@ -132,12 +132,18 @@ public final class OnboardingFlow extends ListenerAdapter {
 
     /** Opens the confirm dialog for the country chosen in the choose channel. */
     private void open(final InteractionHook hook, final String country, final Locale client) {
-        final Optional<Choices.Choice> chosen = onboarding.choices().byValue(Choices.Kind.COUNTRY, country);
-        if (chosen.isEmpty()) {
-            failed(hook, languages.forLocale(client).locale());
-            return;
+        final Locale reads = languages.forLocale(client).locale();
+        try {
+            final Optional<Choices.Choice> chosen = onboarding.choices().byValue(Choices.Kind.COUNTRY, country);
+            if (chosen.isEmpty()) {
+                failed(hook, reads);
+                return;
+            }
+            hook.editOriginal(draft(Draft.of(chosen.get())).edit()).queue();
+        } catch (final RuntimeException failure) {
+            log.warn("confirm dialog not opened: cause={}", failure.toString());
+            failed(hook, reads);
         }
-        hook.editOriginal(draft(Draft.of(chosen.get())).edit()).queue();
     }
 
     private void redraw(final InteractionHook hook, final Draft.Used used, final String value) {
@@ -151,7 +157,12 @@ public final class OnboardingFlow extends ListenerAdapter {
             case LANGUAGE -> used.draft().withLanguage(value);
             case CONFIRM -> used.draft();
         };
-        hook.editOriginal(draft(next).edit()).queue();
+        try {
+            hook.editOriginal(draft(next).edit()).queue();
+        } catch (final RuntimeException failure) {
+            log.warn("confirm dialog not redrawn: cause={}", failure.toString());
+            failed(hook, languageOf(next).locale());
+        }
     }
 
     private void confirm(final InteractionHook hook, final Member observed, final Draft draft) {

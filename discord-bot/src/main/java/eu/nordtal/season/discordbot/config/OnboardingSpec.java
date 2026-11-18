@@ -31,7 +31,7 @@ public interface OnboardingSpec {
     @Order(2)
     @Name("Change channel")
     @Key("change-language-channel")
-    @Explain("Every member with a country sees it. Its message is in every language.")
+    @Explain("Locked members do not see it. The bot posts its message here in every language.")
     @Refers(value = Refers.To.DISCORD_CHANNEL, optional = true)
     default String changeChannel() {
         return "";
